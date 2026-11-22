@@ -63,6 +63,14 @@ async fn panicked_body_has_its_file_kept() {
 }
 
 #[tokio::test]
+async fn folder_under_a_missing_parent_is_uncreated_and_its_body_never_runs() {
+    let (mut ran, missing) = (false, Path::new(env!("CARGO_TARGET_TMPDIR")).join("missing/parent"));
+    let uncreated = Folder::scoped(&missing, async |_| ran = true);
+    assert_matches!(uncreated.await, Err(Failure::Uncreated(_)), "a folder whose parent is missing is never created");
+    assert!(!ran, "a body without its fixture never runs");
+}
+
+#[tokio::test]
 async fn refused_body_has_its_folder_kept() {
     let (seen, kept) = oneshot::channel();
     let refused = Folder::scoped(Path::new(env!("CARGO_TARGET_TMPDIR")), async |folder| {

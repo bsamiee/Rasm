@@ -1,11 +1,17 @@
 {
-    "extends": "../../../../tsconfig.unpublished.json",
+    "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
+        "noEmit": true,
         "types": ["node"]
     },
     "references": [
         {
-            "path": "../../../../plugins/claude/function-hooks"
+            "path": "../../../support/typescript"
         }
-    ]
+    ],
+    "nx": {
+        "sync": {
+            "ignoredDependencies": ["@rasm/function-hooks"]
+        }
+    }
 }

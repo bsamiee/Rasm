@@ -7,7 +7,7 @@ import { deploy } from '@rasm/hosting/deploy';
 import { Access, Enrollment } from '@rasm/hosting/identity';
 import { Array, ByteSize, Cause, ConfigProvider, Effect, Option, Record, Redacted, Schema, Struct } from 'effect';
 import type { Plugin } from 'vite';
-import { bucketed, hosts, local, Machine, Role } from '#/platform-stack';
+import { bucketed, hosts, local, Machine, Role } from '#/platform-stack.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

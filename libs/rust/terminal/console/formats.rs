@@ -160,9 +160,10 @@ where
                     columns.names.truncate(width);
                     return Err(OutputError::Column { row, name });
                 }
-                #[cfg_attr(dylint_lib = "rasm_lints", expect(empty_string_default, reason = "CSV has no null, so an absent cell writes an empty field"))]
-                let record = (0..width).map(|index| fields.get(index).and_then(Option::as_ref).map_or_default(|field| field.text.as_str()));
-                writer.write_record(record).map_err(failed)
+                (0..width)
+                    .try_for_each(|index| writer.write_field(fields.get(index).and_then(Option::as_ref).map_or_default(|field| field.text.as_str())))
+                    .and_then(|()| writer.write_record(iter::empty::<&str>()))
+                    .map_err(failed)
             }
             Sink::Grid { table, columns } => {
                 let Row { named: row_named, fields } = flattened(columns)?;

@@ -1,5 +1,7 @@
 root = true
 
+# --- [EDITORCONFIG] ---------------------------------------------------------------------
+
 [*]
 end_of_line = lf
 insert_final_newline = true
@@ -14,28 +16,35 @@ indent_style = tab
 [*.pkl]
 indent_size = 2
 
+# --- [SHFMT] ----------------------------------------------------------------------------
+
 [*.{sh,bash}]
 shell_variant = bash
 simplify = true
 switch_case_indent = true
 
+# --- [DOTNET] ---------------------------------------------------------------------------
+
 [*.cs]
-# --- [NAMESPACE_AND_IMPORTS] ------------------------------------------------------------
+
+# --- [CODE_STYLE]
+
 csharp_style_namespace_declarations = file_scoped
-dotnet_style_require_accessibility_modifiers = always
-
-# --- [SYNTAX_AND_CONCISION] -------------------------------------------------------------
-csharp_style_prefer_local_over_anonymous_function = false
 csharp_style_prefer_top_level_statements = false
-
-# --- [MEMBER_BODY_STYLE] ----------------------------------------------------------------
+csharp_style_prefer_local_over_anonymous_function = false
 csharp_style_expression_bodied_methods = true
 csharp_style_expression_bodied_constructors = true
 csharp_style_expression_bodied_operators = true
 csharp_style_expression_bodied_local_functions = true
-
-# --- [FORMATTING_KR] --------------------------------------------------------------------
 csharp_prefer_braces = false
+dotnet_style_require_accessibility_modifiers = always
+dotnet_style_allow_multiple_blank_lines_experimental = false
+csharp_style_allow_blank_lines_between_consecutive_braces_experimental = false
+csharp_style_allow_blank_line_after_colon_in_constructor_initializer_experimental = false
+csharp_style_allow_blank_line_after_token_in_conditional_expression_experimental = false
+
+# --- [FORMATTING]
+
 csharp_new_line_before_open_brace = none
 csharp_new_line_before_else = false
 csharp_new_line_before_catch = false
@@ -43,10 +52,6 @@ csharp_new_line_before_finally = false
 csharp_new_line_before_members_in_object_initializers = false
 csharp_new_line_before_members_in_anonymous_types = false
 csharp_new_line_between_query_expression_clauses = false
-dotnet_style_allow_multiple_blank_lines_experimental = false
-csharp_style_allow_blank_lines_between_consecutive_braces_experimental = false
-csharp_style_allow_blank_line_after_colon_in_constructor_initializer_experimental = false
-csharp_style_allow_blank_line_after_token_in_conditional_expression_experimental = false
 
 [tests/**/*.cs]
 dotnet_diagnostic.VSTHRD111.severity = none

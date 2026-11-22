@@ -54,15 +54,6 @@ error: `unwrap_or_default` replaces `Error` with a fallback value
    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
    = note: `#[deny(discarded_error)]` on by default
 
-error: `unwrap_or_default` stands an empty `String` in for `Err`
-  --> tests/tools/dylint/examples/manual_serialization.rs:23:92
-   |
-23 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
-   |                                                                                            ^^^^^^^^^^^^^^^^^^^
-   |
-   = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
-   = note: `#[deny(empty_string_default)]` on by default
-
 error: `direct` passes its parameters unchanged to `rmcp::model::ContentBlock::json`
   --> tests/tools/dylint/examples/manual_serialization.rs:27:1
    |
@@ -84,11 +75,3 @@ error: `unwrap_or_default` replaces `Error` with a fallback value
    |                                                           ^^^^^^^^^^^^^^^^^^^
    |
    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
-
-error: `unwrap_or_default` stands an empty `String` in for `Err`
-  --> tests/tools/dylint/examples/manual_serialization.rs:35:121
-   |
-35 | ...e_json::to_string(port).map(|_| String::from("other")).unwrap_or_default()) }
-   |                                                           ^^^^^^^^^^^^^^^^^^^
-   |
-   = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call

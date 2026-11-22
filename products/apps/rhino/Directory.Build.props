@@ -8,14 +8,9 @@
     <PropertyGroup Label="Rhino Product">
         <TargetExt>.rhp</TargetExt>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <IsPublishable>true</IsPublishable>
         <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
         <PublishDocumentationFiles>false</PublishDocumentationFiles>
         <PublishReferencesSymbols>false</PublishReferencesSymbols>
-        <PlugInIcon>EmbeddedResources/icon.svg</PlugInIcon>
-        <PlugInIconPlate>#323232</PlugInIconPlate>
-        <PlugInIconCorner>0.046875</PlugInIconCorner>
-        <PlugInIconInset>0.125</PlugInIconInset>
     </PropertyGroup>
 </Project>

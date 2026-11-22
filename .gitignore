@@ -15,7 +15,6 @@ node_modules/
 /.cargo/rustc-source
 dist/
 .cloudflare/
-__traces__/
 coverage/
 storybook-static/
 .vs/
@@ -73,7 +72,7 @@ Thumbs.db
 .archive/
 .tmp/
 
-# --- [AI_TOOLING] -----------------------------------------------------------------------
+# --- [CLAUDE_CODE] ----------------------------------------------------------------------
 
 .claude/agent-memory-local/
 .claude/settings.local.json

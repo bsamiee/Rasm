@@ -127,6 +127,13 @@ utils:
     conversion-boundary:
         any:
             - kind: arrow_function, function_expression
+              inside:
+                  stopBy: { not: { matches: typescript-expression-wrapper } }
+                  kind: arguments
+                  inside:
+                      kind: call_expression
+                      has: { field: function, kind: member_expression, has: { field: property, regex: '^(evaluate|evaluateHandle|evaluateAll|addInitScript)$' } }
+            - kind: arrow_function, function_expression
               any:
                   - inside: { stopBy: { not: { matches: typescript-expression-wrapper } }, kind: arguments, inside: { matches: promise-call } }
                   - inside:

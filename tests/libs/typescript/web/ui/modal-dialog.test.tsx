@@ -1,5 +1,5 @@
 import { RegistryContext } from '@effect/atom-react';
-import { ModalDialog } from '@rasm/ui';
+import { ModalDialog, openDialogs } from '@rasm/ui';
 import { AtomRegistry } from 'effect/reactivity';
 import { type ReactNode, StrictMode } from 'react';
 import { Button, DialogTrigger } from 'react-aria-components';
@@ -13,7 +13,7 @@ const registered = async (tree: ReactNode) => {
     const registry = AtomRegistry.make();
     const scoped = (node: ReactNode) => <RegistryContext.Provider value={registry}>{node}</RegistryContext.Provider>;
     const screen = await render(scoped(tree));
-    return { screen, rerender: (node: ReactNode) => screen.rerender(scoped(node)), open: () => registry.get(ModalDialog.open) };
+    return { screen, rerender: (node: ReactNode) => screen.rerender(scoped(node)), open: () => registry.get(openDialogs) };
 };
 const controlled = (label: string, isOpen: boolean) => <ModalDialog dialog={{ 'aria-label': label }} isOpen={isOpen} />;
 const dialogs = (first: boolean) => (

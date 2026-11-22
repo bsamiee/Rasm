@@ -1098,6 +1098,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "blender-asset-tracer" },
+    { name = "bpy", marker = "extra == 'host'" },
     { name = "coloraide" },
     { name = "colour-science" },
     { name = "expression" },
@@ -1120,6 +1121,7 @@ requires-dist = [
     { name = "typing-inspection" },
     { name = "tzdata" },
 ]
+provides-extras = ["host"]
 
 [[package]]
 name = "rasm-imaging"

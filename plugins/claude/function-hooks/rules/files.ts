@@ -1,9 +1,9 @@
 import { Array, Effect, Function, Match, Option, Predicate, Record, String } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
-import { Verdict } from '#/rules/decision';
-import { absent, type Call, commandOf, cut, deleted, edited, ensure, erased, folderOf, holds, inserted, listed, NUL, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, relocated, respell, silent, spelled, stages, unresolved, when, whole } from '#/rules/rule';
-import { type Invocation, WRITES } from '#/shell/invocation';
-import { slicedWord, type Word } from '#/shell/script';
+import { Verdict } from '#/rules/decision.ts';
+import { absent, type Call, commandOf, cut, deleted, edited, ensure, erased, folderOf, holds, inserted, listed, NUL, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, relocated, respell, silent, spelled, stages, unresolved, when, whole } from '#/rules/rule.ts';
+import { type Invocation, WRITES } from '#/shell/invocation.ts';
+import { slicedWord, type Word } from '#/shell/script.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -18,11 +18,9 @@ const NEGATED_IGNORED = new RegExp(`^!${ONLY_IGNORED.source.slice(1)}`, 'u');
 const BASIC_REGEX_SWAPS = /\\\\|\\(?<escaped>[(){}+?|])|(?<unescaped>^\*|[(){}+?|])/gu;
 const BACK_REFERENCE = /\\[1-9]/u;
 const LISTING_DEPTH = 2;
-const PNPM_STORE_DEPTH = 3;
 const SCRATCHPAD = /\/claude-\d+(?:\/-[^/]*(?:\/[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}(?:\/scratchpad)?)?)?$/u;
 const SESSIONS = /\/claude-\d+(?:\/-[^/]*)?$/u;
 const SINGLE_SEPARATOR = /^[^\s\\]$/u;
-const REPLACING: ReadonlySet<RedirOperator> = new Set([RedirOperator.RdrOut, RedirOperator.RdrClob, RedirOperator.RdrAll, RedirOperator.RdrAllClob]);
 const NO_IGNORE = ['--no-ignore', '--no-ignore-vcs', '--unrestricted'];
 const GLOB_START = /[*?[{(]/u;
 const NAME_CHARACTER = /[\p{L}\p{N}]/u;
@@ -90,21 +88,21 @@ const PRINT0: ReadonlySet<string> = new Set(['--print0', '-print0']);
 const BATCHED = (removal: string) => `-X ${removal}`;
 const EXECUTED = (removal: string) => `-exec ${removal} {} +`;
 const WALKERS: Record.ReadonlyRecord<string, (removal: string) => string> = { fd: BATCHED, fdfind: BATCHED, find: EXECUTED, gfind: EXECUTED };
+const RECURSIVE_REMOVERS: ReadonlySet<string> = new Set(['rimraf', 'trash']);
 const DD_OUTPUT = 'of=';
-const EVERY_OPERAND = (operands: readonly Word[]) => [operands, []] as const;
-const LAST_OPERAND = (operands: readonly Word[]) => [operands.slice(-1), operands.slice(0, -1)] as const;
-const WRITERS: Record.ReadonlyRecord<string, { readonly written: (operands: readonly Word[]) => readonly [targets: readonly Word[], sources: readonly Word[]]; readonly replaces: Predicate.Predicate<Invocation> }> = {
-    tee: { written: EVERY_OPERAND, replaces: ({ has }) => !has('-a', '--append') },
-    mkdir: { written: EVERY_OPERAND, replaces: Function.constFalse },
-    touch: { written: EVERY_OPERAND, replaces: Function.constFalse },
-    cp: { written: LAST_OPERAND, replaces: Function.constTrue },
-    mv: { written: LAST_OPERAND, replaces: Function.constTrue },
-    ln: { written: LAST_OPERAND, replaces: Function.constTrue },
-    ditto: { written: LAST_OPERAND, replaces: Function.constTrue },
-    install: { written: LAST_OPERAND, replaces: Function.constTrue },
-    rsync: { written: LAST_OPERAND, replaces: Function.constTrue },
-    truncate: { written: EVERY_OPERAND, replaces: Function.constTrue },
-    dd: { written: (operands) => [Array.getSomes(operands.filter(({ text }) => text.startsWith(DD_OUTPUT)).map((word) => slicedWord(word, DD_OUTPUT.length))), []], replaces: Function.constTrue },
+const LAST_OPERAND = (operands: readonly Word[]) => operands.slice(-1);
+const WRITERS: Record.ReadonlyRecord<string, (operands: readonly Word[]) => readonly Word[]> = {
+    tee: Function.identity,
+    mkdir: Function.identity,
+    touch: Function.identity,
+    cp: LAST_OPERAND,
+    mv: LAST_OPERAND,
+    ln: LAST_OPERAND,
+    ditto: LAST_OPERAND,
+    install: LAST_OPERAND,
+    rsync: LAST_OPERAND,
+    truncate: Function.identity,
+    dd: (operands) => Array.getSomes(operands.filter(({ text }) => text.startsWith(DD_OUTPUT)).map((word) => slicedWord(word, DD_OUTPUT.length))),
 };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -122,7 +120,7 @@ const wideRoot: Rule = (invocation, call) => {
     const depth = invocation.values('--max-depth', '-maxdepth', '-L').map(Number);
     const bounded = (levels: number) => !stats && depth.length > 0 && depth.every((given) => given <= levels);
     return rootFolders(invocation, call)
-        .filter((folder) => (!bounded(LISTING_DEPTH) && (host.path.dirname(folder) === '/' || Option.exists(host.home, (home) => host.inside(home, folder)) || (host.root !== folder && host.inside(host.root, folder)))) || (!stats && !bounded(PNPM_STORE_DEPTH) && folder.endsWith('/node_modules/.pnpm')))
+        .filter((folder) => !bounded(LISTING_DEPTH) && (host.path.dirname(folder) === folder || Option.exists(host.home, (home) => host.inside(home, folder))))
         .flatMap((folder) => refusal(`${invocation.program} root ${folder} too wide, pass a package folder or a depth of at most ${LISTING_DEPTH}`));
 };
 
@@ -133,12 +131,15 @@ const unignored =
 
 // --- [DELETIONS]
 
+const recursiveRemoval: Predicate.Predicate<Invocation> = ({ program, has }) => RECURSIVE_REMOVERS.has(program) || has('-r', '-R', '--recursive');
+
 const removes =
     (...base: readonly string[]) =>
     (invocation: Invocation, call: Call): readonly Verdict[] => {
         const { host } = call;
         const subject = commandOf(invocation);
         const { walker, words, start, patterns } = deleted(invocation, call, ...base);
+        const recursive = walker !== undefined || recursiveRemoval(invocation);
         return words.flatMap(({ raw, text, known, glob }) => {
             const wild = glob ? text.search(GLOB_START) : -1;
             const fixed = wild < 0 ? text.length : text.lastIndexOf('/', wild) + 1;
@@ -147,6 +148,7 @@ const removes =
             const unnamed = ![text.slice(fixed), ...patterns].some((pattern) => NAME_CHARACTER.test(pattern));
             return Match.value({
                 known,
+                recursive,
                 walks: walker !== undefined,
                 skipped: invocation.command.origin === 'file' || (prefix !== '' && Option.exists(host.resolve(prefix, start), (outside) => !(host.inside(outside, host.root) || host.inside(host.root, outside)))),
                 placed: Option.isSome(folder),
@@ -154,7 +156,7 @@ const removes =
                 covers: Option.exists(folder, (target) => host.inside(host.root, target)) && unnamed,
                 vague: ASCENDS.test(text) || !NAME_CHARACTER.test(text),
             }).pipe(
-                Match.when({ known: false, skipped: false }, () => refusal(`${subject} ${raw} expands later, pass a literal path`)),
+                Match.when({ known: false, skipped: false, recursive: true }, () => refusal(`${subject} ${raw} expands later, pass a literal path`)),
                 Match.when({ known: true, shared: true }, () => refusal(`${subject} ${text} empties the scratchpad the session and every subagent share, delete only the subfolder you made by name`)),
                 Match.when({ known: true, covers: true, walks: false }, () => refusal(`${subject} ${text} covers root, name each folder`)),
                 Match.when({ known: true, covers: true }, () => refusal(`${subject} deletes everything under ${text}, add a name pattern`)),
@@ -172,6 +174,7 @@ const fedRemoval =
             return removes(...base)(invocation, call);
         }
         const nulled = feeder.has('-0');
+        const unlisted = (reason: string) => (recursiveRemoval(invocation) ? refusal(reason) : []);
         const removal = spelled(invocation.words);
         const subject = `xargs ${commandOf(invocation)}`;
         const separated = Option.isSome(invocation.separator) ? [removal] : [removal, '--'];
@@ -179,7 +182,7 @@ const fedRemoval =
         const [listing] = Array.getSomes(redirected(feeder, RedirOperator.RdrIn).map(({ target }) => target));
         const { end } = Array.lastNonEmpty(invocation.words);
         if (invocation.outer.at(-1) !== feeder || ![...feeder.names].every((name) => XARGS_FLAGS.has(name))) {
-            return refusal(`${subject} takes xargs options, name each path to ${invocation.program}`);
+            return unlisted(`${subject} takes xargs options, name each path to ${invocation.program}`);
         }
         if (listing?.known === true) {
             return Effect.fromOption(call.host.resolve(listing.text, feeder.command.cwd)).pipe(
@@ -191,13 +194,13 @@ const fedRemoval =
                         () => [],
                     ),
                 ),
-                Effect.map((paths) => (paths.length === 0 ? refusal(`${subject} < ${listing.raw} lists no path, name each path to ${invocation.program}`) : edited(invocation, feeder.command, [...separated, ...paths.map((path) => quote(path))].join(' '), `${subject} < ${listing.raw}`))),
+                Effect.map((paths) => (paths.length === 0 ? unlisted(`${subject} < ${listing.raw} lists no path, name each path to ${invocation.program}`) : edited(invocation, feeder.command, [...separated, ...paths.map((path) => quote(path))].join(' '), `${subject} < ${listing.raw}`))),
             );
         }
         const walked = Option.fromNullishOr(others.length === 0 && producer?.last === true ? producer : undefined);
         const exec = Option.flatMap(walked, (found) => (findsAsFd(found) ? Option.some(BATCHED) : Record.get(WALKERS, found.program)));
         if (Option.isNone(walked) || Option.isNone(exec)) {
-            return refusal(`${subject} reads ${producer?.program ?? 'stdin'} output, name each path to ${invocation.program}`);
+            return unlisted(`${subject} reads ${producer?.program ?? 'stdin'} output, name each path to ${invocation.program}`);
         }
         const found = walked.value;
         const printed = found.args.filter(({ names }) => names.some((name) => PRINT0.has(name)));
@@ -244,22 +247,17 @@ const inlineCode: Rule = Effect.fnUntraced(function* (invocation, { analysis, ho
         () => '',
     );
     const form = Array.findFirst([...Option.getOrElse(Record.get(FORMS, program), () => []), ...INLINE_LOOKUPS], ([pattern, answer]) => Option.flatMap(Option.fromNullishOr(pattern.exec(source.trim())), ({ groups = {} }) => answer(groups, invocation)));
-    const inPlace = invocation.has(...(row.rewrites ?? []));
-    const effects = row.effects?.test(source);
-    const where = sources.length > 0 ? spelled(sources) : 'inline code';
+    const unscripted = sources.length === 0 && row.hosted?.test(source) !== true;
+    const where = unscripted ? 'inline code' : spelled(sources);
     return Option.match(form, {
         onSome: (rewrite) => silent(whole(invocation, rewrite, `${program} inline code`)),
         onNone: () =>
-            row.hosted?.test(source) === true || (effects === false && !inPlace)
-                ? []
-                : refusal(
-                      Match.value({ json: JSON_PARSE.test(source), inPlace, effects }).pipe(
-                          Match.when({ json: true }, () => `${program} ${where} parses JSON, use jq`),
-                          Match.when({ inPlace: true }, () => `${program} ${where} edits files in place, edit them with sd where one pattern covers every change, else with your file edit tool`),
-                          Match.when({ effects: true }, () => `${program} ${where} writes files or runs commands, run each command directly and edit files with sd or your file edit tool`),
-                          Match.orElse(() => `${program} runs ${where} no rule reads, answer it with a CLI (rg, ast-grep, jq, yq, duckdb) or an nx target, as a script file written for it is judged the same`),
-                      ),
-                  ),
+            Match.value({ json: unscripted && JSON_PARSE.test(source), inPlace: invocation.has(...(row.rewrites ?? [])), effects: unscripted && row.effects?.test(source) === true }).pipe(
+                Match.when({ json: true }, () => refusal(`${program} ${where} parses JSON, use jq`)),
+                Match.when({ inPlace: true }, () => refusal(`${program} ${where} edits files in place, edit them with sd where one pattern covers every change, else with your file edit tool`)),
+                Match.when({ effects: true }, () => refusal(`${program} ${where} writes files or runs commands, run each command directly and edit files with sd or your file edit tool`)),
+                Match.orElse(() => []),
+            ),
     });
 });
 
@@ -294,8 +292,13 @@ const unmatched: Rule = Effect.fnUntraced(function* (invocation, { analysis, hos
         return [];
     }
     const flags = [...(invocation.has('--fixed-strings') ? ['--fixed-strings'] : []), ...(invocation.has('--across') ? ['--multiline'] : []), ...Array.getSomes(letters.map((letter) => Record.get(SD_AS_RG, letter)))];
-    const { code } = yield* host.run(['rg', '--no-config', '--quiet', '--text', ...flags, '--regexp', find.text, '--', ...files]);
-    return code === 1 ? refusal(`sd pattern matches nothing in ${spelled(inputs)}, read the current text`) : [];
+    const missing = yield* invocation.has('--fixed-strings') && letters.length === 0
+        ? Effect.map(
+              Effect.forEach(files, (file) => Effect.orElseSucceed(host.fs.readFileString(file), () => find.text)),
+              (texts) => !texts.some((text) => text.includes(find.text)),
+          )
+        : Effect.map(host.run(['rg', '--no-config', '--quiet', '--text', ...flags, '--regexp', find.text, '--', ...files]), ({ code }) => code === 1);
+    return missing ? refusal(`sd pattern matches nothing in ${spelled(inputs)}, read the current text`) : [];
 });
 
 const sameTexts: Rule = (invocation) => {
@@ -452,7 +455,7 @@ const systemTemp = ({ analysis }: Call): readonly Verdict[] => {
         ...Array.dedupe(own.map(({ command }) => command)).flatMap(({ redirects }) => Array.getSomes(redirects.filter(({ op }) => WRITES.has(op)).map(({ target }) => target))),
         ...own.flatMap(({ program, operands }) =>
             Option.getOrElse(
-                Option.map(Record.get(WRITERS, program), ({ written }) => written(operands)[0]),
+                Option.map(Record.get(WRITERS, program), (written) => written(operands)),
                 () => [],
             ),
         ),
@@ -461,35 +464,6 @@ const systemTemp = ({ analysis }: Call): readonly Verdict[] => {
     const words = Array.dedupe(own.map(({ command }) => command)).flatMap(({ words: held, redirects }) => [...held, ...Array.getSomes(redirects.map(({ target }) => target))]);
     return words.filter(({ raw, field, prefix }) => written.has(raw) && field === undefined && prefix === undefined).map(({ start, end, raw }) => Verdict.Edit({ start, end, text: Option.some(relocated(raw)), subject: Option.some(raw) }));
 };
-
-const uncommitted = Effect.fnUntraced(function* ({ analysis, host }: Call) {
-    const writes = [
-        ...Array.dedupe(analysis.invocations.map(({ command }) => command)).map(({ redirects, cwd }) => ({ cwd, targets: Array.getSomes(redirects.filter(({ op }) => REPLACING.has(op)).map(({ target }) => target)), sources: [] })),
-        ...analysis.invocations.flatMap((invocation) =>
-            Option.toArray(
-                Option.map(
-                    Option.filter(Record.get(WRITERS, invocation.program), ({ replaces }) => replaces(invocation)),
-                    ({ written }) => {
-                        const [targets, sources] = written(invocation.operands);
-                        return { cwd: invocation.command.cwd, targets, sources };
-                    },
-                ),
-            ),
-        ),
-    ];
-    const named = writes.flatMap(({ cwd, targets, sources }) => Array.getSomes(targets.filter(({ known }) => known).map(({ text }) => host.resolve(text, cwd))).map((file) => ({ file, sources })));
-    const folders = yield* Effect.forEach(named, ({ file }) =>
-        Effect.orElseSucceed(
-            Effect.map(host.fs.stat(file), ({ type }) => type === 'Directory'),
-            Function.constFalse,
-        ),
-    );
-    const held = yield* Effect.filter(Array.dedupe(Array.zipWith(named, folders, ({ file, sources }, folder) => (folder ? sources.map(({ text }) => host.path.join(file, host.path.basename(text))) : [file])).flat()), host.changed);
-    const expanding = writes.flatMap(({ cwd, targets }) => targets.filter(({ known }) => !known).map((word) => ({ word, folder: host.resolve(word.text.slice(0, word.text.lastIndexOf('/', word.text.search(EXPANSION)) + 1) || '.', cwd) })));
-    const inside = expanding.flatMap(({ word, folder }) => (Option.exists(folder, (base) => host.inside(base, host.root)) ? [{ ...word, folder: Option.toArray(folder) }] : []));
-    const unchecked = yield* Effect.filter(inside, ({ folder }) => Effect.map(host.ignored(folder), (ignored) => !ignored));
-    return [...held.flatMap((file) => refusal(`${file} holds uncommitted edits another session may own, change it with your file edit tool`)), ...unchecked.flatMap(({ raw }) => refusal(`${raw} expands later, so no check can see whether it holds uncommitted edits, write each file by its literal path`))];
-});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -548,7 +522,7 @@ const FILES: Ruleset = {
         screencapture: { rules: [respell({ drops: ['--interactive', '--screen', '--window', '-W', '--style', '-U', '--ui', '-P', '-M', '--bundleid', '--defaults', '--display-errors'], notify: true }), refuse("replaces the owner's clipboard", 'pass a file', '-c')] },
     },
     every: [wideRoot, emptyStdin, inlineCode],
-    calls: [systemTemp, uncommitted],
+    calls: [systemTemp],
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

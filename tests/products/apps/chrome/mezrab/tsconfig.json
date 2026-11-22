@@ -1,0 +1,18 @@
+{
+    "extends": "../../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "lib": ["esnext", "dom"],
+        "types": ["chrome", "node"]
+    },
+    "references": [
+        {
+            "path": "../../../../support/typescript"
+        }
+    ],
+    "nx": {
+        "sync": {
+            "ignoredDependencies": ["@rasm/mezrab"]
+        }
+    }
+}

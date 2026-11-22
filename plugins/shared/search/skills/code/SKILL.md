@@ -1,6 +1,6 @@
 ---
 name: code
-description: "Use when a task needs a fact about a dependency, covering source selection by fact kind"
+description: "Use when a task needs a fact about a dependency or a survey of many repositories, covering source selection by fact kind and GitHub quota"
 ---
 
 # [SEARCH_CODE]
@@ -13,7 +13,7 @@ Dependency declarations come from installed files, usage from Context7, DeepWiki
 - Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
 - Size: `get_file_contents`, `get_package_context`, and DeepWiki `read_wiki_contents` return whole content, `rg` cites a line
 - Index: `search_code` reads default branches in files under 384 KB, `get_repository_tree` finds a path at a tag
-- Quota: clients on one GitHub account share 10 `search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none
+- Quota: `GH_TOKEN`, the GitHub MCP, and every other token of one GitHub account spend one pool, the next call past it answers HTTP 403
 - Context7: `ctx7` sends `CONTEXT7_API_KEY`, each command spends one call of its monthly quota, an ID from a repository URL skips `ctx7 library`
 - Wait: `ctx7` exits 75 while a tag or upgrade guide is indexed, the same command reruns after the wait it prints
 
@@ -184,7 +184,16 @@ mkdir -p .artifacts/search/deepwiki/<owner> && xh -b POST https://mcp.deepwiki.c
 rg -n '^# Page: |<term>' .artifacts/search/deepwiki/<owner>/<repo>.md
 ```
 
-GitHub public code composing members, repository and commit per fragment:
+Public code composing members, repository and path per fragment:
+- Sourcegraph stream search answers without a token, matches spaced terms as one string and `AND` terms in one file, and counts `lineNumber` from 0
+- Endpoint `mcp.grep.app` answers literal or `useRegexp` patterns, as grep.app `/api/search` refuses scripts with a Vercel challenge
+- Sourcegraph skips forks and archived repositories until the query adds `fork:yes` and `archived:yes`
+- `search_code` checks one repository or qualifier both lack, spending the GitHub account's code search quota
+
+```bash
+xh -I -b 'https://sourcegraph.com/.api/search/stream' q=='<Member> AND <Member> lang:<language> count:50' | rg -r '$1' '^data: (\[.*)' | jq -c '.[] | select(.type == "content") | {repository, commit, path, line: (.lineMatches[0].lineNumber + 1), text: .lineMatches[0].line}'
+xh -I -b POST https://mcp.grep.app 'Accept:application/json, text/event-stream' jsonrpc=2.0 id:=1 method=tools/call 'params[name]=searchGitHub' 'params[arguments][query]=<code literal>' 'params[arguments][language][]=<Language>' | rg -r '$1' '^data: (.*)' | jq -r '.result.content[].text'
+```
 
 ```text
 search_code {"query": "\"<Member>\" \"<Member>\" language:<language>", "perPage": 5, "fields": ["repository", "path", "text_matches"]}
@@ -308,4 +317,25 @@ GitHub release notes body alone, `Not Found` means no release exists for the tag
 
 ```bash
 gh api "repos/<owner>/<repo>/releases/tags/<tag>" --jq '.body'
+```
+
+## [05]-[SURVEY]
+
+Reads across many repositories run under an installation token of the owner's research App, which holds a quota apart from the account's:
+- Token: `gh-token` issues one from `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, and `GITHUB_APP_PRIVATE_KEY`, valid one hour
+- Reach: contents and metadata of public repositories and the owner's own, read-only
+- Quota: 5,000 REST calls and 5,000 GraphQL points an hour, 30 searches and 10 code searches a minute, the sizes of the account pool
+- Batch: one GraphQL query aliases up to 100 `repository` fields for 1 point, where REST spends a call per repository and endpoint
+- Account: writes, projects, notifications, and the GitHub MCP stay on `GH_TOKEN`
+
+```bash
+# Remaining quota of each resource under the token
+GH_TOKEN="$(gh-token generate --app-id "$GITHUB_APP_ID" --installation-id "$GITHUB_APP_INSTALLATION_ID" --key <(printf '%s' "$GITHUB_APP_PRIVATE_KEY") --token-only)" \
+    gh api rate_limit --jq '.resources | map_values(.remaining)'
+
+# Fields of up to 100 repositories, one `<owner>/<repo>` per line of <file>
+jq -Rrn '[inputs | split("/") as [$o, $n] | "r\(input_line_number): repository(owner: \($o | tojson), name: \($n | tojson)) { ...R }"]
+    | "query { \(join(" ")) } fragment R on Repository { nameWithOwner stargazerCount pushedAt isArchived licenseInfo { spdxId } latestRelease { tagName publishedAt } }"' <file> \
+    | GH_TOKEN="$(gh-token generate --app-id "$GITHUB_APP_ID" --installation-id "$GITHUB_APP_INSTALLATION_ID" --key <(printf '%s' "$GITHUB_APP_PRIVATE_KEY") --token-only)" \
+    gh api graphql -F query=@- --jq '.data[]'
 ```

@@ -3,8 +3,8 @@ import { normalizePath, type TargetConfiguration } from '@nx/devkit';
 import { aggregated, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record, Schema } from 'effect';
-import type { Cargo, Command } from '#/executors/cargo/executor';
-import { binary, library, LOCK, MANIFEST, type Member, own, PLUGIN, tokened, type Workspace } from '#/workspace';
+import type { Cargo, Command } from '#/executors/cargo/executor.ts';
+import { binary, library, LOCK, MANIFEST, type Member, own, PLUGIN, tokened, type Workspace } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -55,7 +55,7 @@ const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: Targ
     ];
 };
 
-const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { crate, packages, linted }: Member): Verbs => {
+const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { crate, root, packages, linted }: Member): Verbs => {
     const selected = { cwd: workspace.root, package: crate.name };
     const kinds = [...(crate.targets.some(library) ? ['--lib'] : []), '--bins', '--tests', '--benches', '--all-features'];
     const plain = Option.isNone(workspace.nextest);
@@ -70,7 +70,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
     const debug = outputs('debug');
     const profiles = ['release', ...workspace.profiles];
     const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, '--keep-going', ...MESSAGES] }];
-    const installed = (profile: string): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', '--bins', '--profile', profile, LOCKED, '--keep-going', ...MESSAGES, '-Zunstable-options', '--artifact-dir', workspace.installed] }];
+    const installed = (profile: string): Array.NonEmptyReadonlyArray<Command> => [{ args: ['install', '--path', posix.relative(workspace.root, root) || '.', '--bins', '--profile', profile, LOCKED, '--keep-going', ...MESSAGES] }];
     const checked = (placed: (selection: readonly string[]) => Command): Array.NonEmptyReadonlyArray<Command> =>
         Array.map(
             Array.prepend(
@@ -145,6 +145,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
             }),
         },
         check: {
+            rustdoc: cargoTarget('doc', `Reports the rustdoc lint findings of ${crate.name} with cargo doc --no-deps`, { ...selected, commands: [{ args: ['doc', '--no-deps', LOCKED, '--keep-going', ...MESSAGES] }] }, { cache: true }),
             clippy: cargoTarget('clippy', `Reports the clippy findings of ${crate.name} with cargo clippy`, { ...selected, commands: checked((selection) => ({ args: ['clippy', ...selection] })) }, { cache: true, inputs: [...SOURCES, ...linted, { env: 'CLIPPY_CONF_DIR' }] }),
         },
         fix: {
@@ -153,9 +154,9 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
         install: {
             ...(crate.targets.some(binary) && {
                 cargo: cargoTarget(
-                    'build',
-                    `Builds the binaries of ${crate.name} in the workspace with cargo build and places them in the bin folder of Cargo's install root through --artifact-dir, in release unless a configuration names a profile`,
-                    { ...selected, commands: installed('release') },
+                    'install',
+                    `Installs the binaries of ${crate.name} into Cargo's install root with cargo install --path, building in the workspace target folder, in release unless a configuration names a profile`,
+                    { cwd: workspace.root, commands: installed('release') },
                     Array.match(workspace.profiles, { onEmpty: () => ({}), onNonEmpty: (named) => ({ configurations: Record.fromIterableWith(named, (profile) => [profile, { commands: installed(profile) }] as const) }) }),
                 ),
             }),

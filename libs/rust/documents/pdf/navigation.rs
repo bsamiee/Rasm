@@ -1,5 +1,5 @@
+use core::iter;
 use core::num::NonZero;
-use core::{fmt, iter};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, LazyLock};
 
@@ -46,7 +46,7 @@ fn formatted(range: &PageLabelRange, page: usize) -> Option<String> {
             let position = number.checked_sub(1)?;
             let letter = PageLabelRange::new(page).with_style(range.style).with_start_value(position % LETTERS + 1).format_label(page);
             let repeats = position / LETTERS;
-            Some(format!("{}{}", range.prefix.as_deref().unwrap_or_default(), fmt::from_fn(|formatter| (0..=repeats).try_for_each(|_| formatter.write_str(&letter)))))
+            Some(iter::chain(range.prefix.as_deref(), iter::repeat_n(letter.as_str(), usize::try_from(repeats + 1).ok()?)).collect())
         }
         PageLabelStyle::Decimal | PageLabelStyle::RomanUpper | PageLabelStyle::RomanLower | PageLabelStyle::None => Some(range.format_label(page)),
     }

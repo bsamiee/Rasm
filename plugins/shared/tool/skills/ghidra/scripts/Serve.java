@@ -26,7 +26,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -130,7 +132,7 @@ public class Serve extends GhidraScript {
                         .flatMap(request ->
                                 open.apply(request.program())
                                         .flatMap(program -> execute.apply(request, program)));
-        String elapsed = "%.1fs".formatted((System.nanoTime() - start) / 1e9);
+        String elapsed = String.format(Locale.ROOT, "%.1fs", (System.nanoTime() - start) / 1e9);
         return switch (outcome) {
             case Report.Success<Optional<DomainFile>>(Optional<DomainFile> saved) ->
                     saved.map(file -> "ok %s saved %s\n".formatted(elapsed, file.getPathname()))
@@ -155,7 +157,8 @@ public class Serve extends GhidraScript {
                                         Channels.newChannel(input), StandardCharsets.UTF_8))) {
             Optional<String> line = Optional.ofNullable(reader.readLine());
             return input.getCount() > REQUEST_BYTES
-                    ? new Report.Failure<>("Request exceeds %d bytes".formatted(REQUEST_BYTES))
+                    ? new Report.Failure<>(
+                            String.format(Locale.ROOT, "Request exceeds %d bytes", REQUEST_BYTES))
                     : line.map(String::strip)
                             .<Report.Result<String>>map(Report.Success::new)
                             .orElseGet(() -> new Report.Failure<>("Request closed before a line"));
@@ -174,7 +177,6 @@ public class Serve extends GhidraScript {
         }
     }
 
-    @SuppressWarnings("PMD.CloseResource")
     private void receive(
             ServerSocketChannel server,
             ExecutorService transfers,
@@ -208,6 +210,8 @@ public class Serve extends GhidraScript {
             }
         } catch (IOException exception) {
             pending.add(new Report.Failure<>(exception.toString()));
+        } finally {
+            clients.forEach(channel -> disconnect(channel, clients));
         }
     }
 
@@ -237,7 +241,7 @@ public class Serve extends GhidraScript {
     // --- [EXECUTION]
 
     @Override
-    public void run() throws Exception {
+    public void run() throws CancelledException, IOException, InterruptedException {
         String[] args = getScriptArgs();
         if (args.length > 0) {
             throw new IllegalArgumentException(
@@ -249,17 +253,22 @@ public class Serve extends GhidraScript {
         end(true);
         programs.put(currentProgram.getDomainFile().getPathname(), currentProgram);
         Files.deleteIfExists(socket);
-        try (ServerSocketChannel server = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
-                ExecutorService transfers = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (ExecutorService transfers = Executors.newVirtualThreadPerTaskExecutor();
+                ServerSocketChannel server =
+                        ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
             server.bind(UnixDomainSocketAddress.of(socket), CONNECTIONS);
-            println("Listening on %s, process %d".formatted(socket, ProcessHandle.current().pid()));
+            println(
+                    String.format(
+                            Locale.ROOT,
+                            "Listening on %s, process %d",
+                            socket,
+                            ProcessHandle.current().pid()));
             BlockingQueue<Report.Result<Connection>> pending = new LinkedBlockingQueue<>();
             Set<SocketChannel> clients = ConcurrentHashMap.newKeySet();
             CancelledListener cancelled =
                     () -> pending.add(new Report.Failure<>("Ghidra cancelled the server"));
             monitor.addCancelledListener(cancelled);
-            Thread listener =
-                    Thread.startVirtualThread(() -> receive(server, transfers, clients, pending));
+            transfers.execute(() -> receive(server, transfers, clients, pending));
             try {
                 monitor.checkCancelled();
                 for (; ; ) {
@@ -267,7 +276,7 @@ public class Serve extends GhidraScript {
                     monitor.checkCancelled();
                     switch (received) {
                         case Report.Success<Connection>(Connection request)
-                                when "stop".equals(request.line()) -> {
+                                when Objects.equals(request.line(), "stop") -> {
                             return;
                         }
                         case Report.Success<Connection>(Connection request) ->
@@ -278,12 +287,6 @@ public class Serve extends GhidraScript {
                 }
             } finally {
                 monitor.removeCancelledListener(cancelled);
-                listener.interrupt();
-                try {
-                    listener.join();
-                } finally {
-                    clients.forEach(channel -> disconnect(channel, clients));
-                }
             }
         } finally {
             Files.deleteIfExists(socket);

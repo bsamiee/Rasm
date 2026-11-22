@@ -1,7 +1,7 @@
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Cause, Effect, FileSystem, Option, Path, Schema } from 'effect';
-import { run, Words } from '#/executor';
-import { located } from '#/host-packages';
+import { run, Words } from '#/executor.ts';
+import { located } from '#/host-packages.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -10,7 +10,7 @@ const Package = Schema.Struct({
     __unparsed__: Words,
 }).annotate({
     title: 'Package',
-    description: "Packs each host package the project's other builds wrote, else its tracked source folder: a .ccx zip for an Adobe UXP manifest.json, a .yak through yak build for a manifest.yml",
+    description: "Packs each host package the project's other builds wrote, else its tracked source folder: a .ccx zip for an Adobe UXP manifest.json, a .zip for a Chrome Manifest V3 manifest.json, a .yak through yak build for a manifest.yml",
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

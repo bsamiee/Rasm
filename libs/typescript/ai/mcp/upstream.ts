@@ -4,8 +4,8 @@ import { McpClient, McpClientError, McpProtocol, McpSchema, McpServer } from 'ef
 import { SecureRandom } from 'effect/crypto';
 import type { HttpClient } from 'effect/http';
 import { Rpc } from 'effect/rpc';
-import { Link } from '#/link';
-import { Server } from '#/server';
+import { Link } from '#/link.ts';
+import { Server } from '#/server.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

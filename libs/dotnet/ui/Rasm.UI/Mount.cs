@@ -304,7 +304,7 @@ public sealed record Mount {
             || (Opened.ContainsKey(held.Layout.Path) && Scene.Visible(held.Layout.Path).Exists(shown => shown.Contains(at))));
 
     private Seq<Seq<Key>> Clocks(Seq<Seq<Key>> animated) =>
-        Scene.Timed.Map(static layout => layout.Path).Concat(animated).Filter(path =>
+        Scene.Timed.Map(static layout => layout.Path).Concat(in animated).Filter(path =>
             !Host.Theme.Conditions.Contains(Condition.ReduceMotion) || path.Inits.Exists(above => Scene.Index.Find(above).Exists(static layout => layout.Style.Conditions.Contains(Condition.Busy))));
 
     private HashMap<Seq<Key>, View> Overlays =>

@@ -1,24 +1,26 @@
 import type { Rgb } from 'culori/fn';
-import { Record, Schema, SemVer, Struct } from 'effect';
+import { Array, Record, Result, Schema, SemVer, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MANIFEST_VERSIONS = { current: 5, addon: 6 } as const;
 const HOSTS = {
-    ID: { product: 'IDSN', since: SemVer.make({ major: 20, minor: 0, patch: 0 }), registry: true, runs: true },
-    PS: { product: 'PHSP', since: SemVer.make({ major: 27, minor: 11, patch: 0 }), registry: true, runs: true },
-    aftereffects: { product: 'AEFT', since: SemVer.make({ major: 27, minor: 1, patch: 0 }), registry: true, runs: true },
-    premierepro: { product: 'PPRO', since: SemVer.make({ major: 27, minor: 1, patch: 0 }), registry: true, runs: true },
-    ame: { product: 'AME', since: SemVer.make({ major: 27, minor: 0, patch: 0 }), registry: true, runs: true },
-    AI: { product: 'ILST', since: SemVer.make({ major: 31, minor: 1, patch: 0 }), registry: false, runs: false },
+    ID: { product: 'IDSN', since: SemVer.make({ major: 20, minor: 0, patch: 0 }), registry: true, runs: true, opacity: 0.65 },
+    PS: { product: 'PHSP', since: SemVer.make({ major: 27, minor: 11, patch: 0 }), registry: true, runs: true, opacity: 0.8 },
+    aftereffects: { product: 'AEFT', since: SemVer.make({ major: 27, minor: 1, patch: 0 }), registry: true, runs: true, opacity: 0.65 },
+    premierepro: { product: 'PPRO', since: SemVer.make({ major: 27, minor: 1, patch: 0 }), registry: true, runs: true, opacity: 0.65 },
+    ame: { product: 'AME', since: SemVer.make({ major: 27, minor: 0, patch: 0 }), registry: true, runs: true, opacity: 0.65 },
+    AI: { product: 'ILST', since: SemVer.make({ major: 31, minor: 1, patch: 0 }), registry: false, runs: false, opacity: 0.65 },
 } as const;
 const THEMES = { lightest: 'light', light: 'light', medium: 'dark', dark: 'dark', darkest: 'dark' } as const;
+const SIDES = { toolbar: 23, pluginList: 24 } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Version = Schema.SemVerFromString.check(Schema.makeFilter((version) => !(SemVer.isPrerelease(version) || SemVer.hasBuild(version)), { description: 'major.minor.patch' }));
 const Flag = Schema.optionalKey(Schema.Boolean);
 const Size = Schema.optionalKey(Schema.Struct({ width: Schema.Finite, height: Schema.Finite }));
+const App = Schema.Literals(Struct.keys(HOSTS));
 const Localized = Schema.Union([Schema.String, Schema.StructWithRest(Schema.Struct({ default: Schema.String }), [Schema.Record(Schema.String, Schema.String)])]);
 const Icon = Schema.Struct({
     width: Schema.Finite,
@@ -26,8 +28,13 @@ const Icon = Schema.Struct({
     path: Schema.String,
     scale: Schema.optionalKey(Schema.Array(Schema.Finite)),
     theme: Schema.optionalKey(Schema.Array(Schema.Literals([...Struct.keys(THEMES), 'all']))),
-    species: Schema.optionalKey(Schema.Array(Schema.Literals(['generic', 'toolbar', 'pluginList']))),
-});
+    species: Schema.optionalKey(Schema.Array(Schema.Literals(['generic', ...Struct.keys(SIDES)]))),
+}).check(
+    Schema.makeFilter(({ width, height, species = [] }) => {
+        const refused = Array.filterMap(species, (kind) => (kind === 'generic' || (SIDES[kind] === width && SIDES[kind] === height) ? Result.failVoid : Result.succeed(`${kind} takes ${SIDES[kind]} x ${SIDES[kind]}`)));
+        return Array.isReadonlyArrayEmpty(refused) || `species ${refused.join(', ')} at 1x, received ${String(width)} x ${String(height)}`;
+    }),
+);
 const Entrypoint = Schema.Struct({
     id: Schema.String,
     label: Localized,
@@ -43,7 +50,7 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
         version: Version,
         main: Schema.optionalKey(Schema.String),
         host: Schema.Struct({
-            app: Schema.Literals(Struct.keys(HOSTS)),
+            app: App,
             maxVersion: Schema.optionalKey(Version),
             data: Schema.optionalKey(Schema.Struct({ apiVersion: Schema.optionalKey(Schema.Literals([1, 2])), loadEvent: Schema.optionalKey(Schema.Literals(['use', 'startup'])), enableMenuRecording: Flag })),
         }),
@@ -84,9 +91,9 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     ),
 ) {
     static readonly Theme = Schema.Literals(Struct.keys(THEMES));
-    static readonly fills = Record.map(THEMES, (tone): Rgb => ({ mode: 'rgb', ...Struct.Record(['r', 'g', 'b'], tone === 'light' ? 0 : 1), alpha: 0.8 }));
+    static readonly fills = Record.map(HOSTS, ({ opacity }) => Record.map(THEMES, (tone): Rgb => ({ mode: 'rgb', ...Struct.Record(['r', 'g', 'b'], tone === 'light' ? 0 : 1), alpha: opacity })));
     static readonly json = Schema.fromJsonString(UxpManifest);
-    static readonly identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String })).annotate({ description: 'Plugin id, the one manifest field a running plugin reads' });
+    static readonly identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String, host: Schema.Struct({ app: App }) })).annotate({ description: 'Plugin id and host app, the manifest fields a running plugin reads' });
     static readonly file = 'manifest.json';
     static readonly target = 'es2022';
     static readonly scriptLanguage = 'USLg';

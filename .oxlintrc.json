@@ -6,19 +6,18 @@
     "rules": {
         "class-methods-use-this": ["error", { "ignoreOverrideMethods": true }],
         "func-names": ["error", "as-needed", { "generators": "never" }],
-        "id-length": "off",
-        "max-classes-per-file": "off",
-        "max-lines": "off",
-        "max-lines-per-function": "off",
+        "id-length": "off", // Grammar `$`, `_` that `no-unused-vars` requires, Effect type parameters
+        "max-classes-per-file": "off", // Schema classes of one concept share a file, CLAUDE.md file organization
+        "max-lines": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
+        "max-lines-per-function": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
         "max-nested-callbacks": ["error", { "max": 3 }],
         "max-params": ["error", { "max": 10 }],
-        "max-statements": "off",
+        "max-statements": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
         "new-cap": ["error", { "capIsNew": false }],
         "no-bitwise": ["error", { "allow": ["&"] }],
-        "no-fallthrough": "off",
-        "no-magic-numbers": "off",
+        "no-magic-numbers": "off", // Constants stay only where they remove logic, CLAUDE.md
         "no-param-reassign": ["error", { "props": true }],
-        "no-redeclare": "off",
+        "no-redeclare": "off", // Flags value and type pairs of one name, `tsc` reports redeclarations
         "no-restricted-globals": [
             "error",
             { "name": "Buffer", "message": "Import `Buffer` from `node:buffer`, so the load graph sees the host module" },
@@ -36,82 +35,78 @@
                 "patterns": [{ "group": ["./**", "../**", ".", ".."], "message": "Import the package's own modules through `#/` and other packages by name" }]
             }
         ],
-        "no-ternary": "off",
-        "no-undef": "off",
-        "no-undefined": "off",
+        "no-ternary": "off", // Domain logic stays expression-oriented, CLAUDE.md
+        "no-undef": "off", // `tsc` owns undefined names, oxlint documents the overlap
+        "no-undefined": "off", // `no-shadow-restricted-names` owns the shadowing defect
         "no-underscore-dangle": ["error", { "allow": ["__unparsed__", "_meta", "_path", "_tag"] }],
         "no-unused-vars": ["error", { "args": "all", "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
         "no-use-before-define": ["error", { "functions": false, "classes": false, "variables": false }],
         "one-var": ["error", "never"],
-        "sort-imports": "off",
-        "sort-keys": "off",
-        "import/consistent-type-specifier-style": "off",
-        "import/default": "off",
-        "import/max-dependencies": "off",
-        "import/no-named-export": "off",
-        "import/no-nodejs-modules": "off",
-        "import/no-relative-parent-imports": "off",
+        "sort-imports": "off", // `oxfmt` `sortImports` owns import order
+        "sort-keys": "off", // Members follow domain order, CLAUDE.md file organization
+        "import/consistent-type-specifier-style": "off", // Contradicts `typescript/consistent-type-imports` `inline-type-imports`
+        "import/default": "off", // Flags Vite `?inline` and UXP `indesign` imports, `tsc` reports TS1192
+        "import/extensions": ["error", "always", { "ignorePackages": true, "checkTypeImports": true, "pathGroupOverrides": [{ "pattern": "#/**", "action": "enforce" }] }],
+        "import/max-dependencies": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
+        "import/no-named-export": "off", // With `import/no-default-export` no export remains
+        "import/no-nodejs-modules": "off", // Scoped to browser code, `no-restricted-globals` requires `node:` imports
         "import/no-namespace": ["error", { "ignore": ["adobe:*"] }],
         "import/no-unassigned-import": ["error", { "allow": ["**/*.css", "pdfjs-dist", "core-js/modules/*"] }],
-        "import/prefer-default-export": "off",
+        "import/prefer-default-export": "off", // Contradicts `import/no-default-export`
+        "jsx-a11y/media-has-caption": "off", // Demands a `<track>`, where open captions burned into the frames, which WCAG 1.2.2 accepts, carry none
         "jsx-a11y/no-autofocus": ["error", { "ignoreNonDOM": true }],
-        "node/no-sync": "off",
-        "node/no-top-level-await": "off",
-        "oxc/no-async-await": "off",
-        "oxc/no-const-enum": "off",
-        "oxc/no-map-spread": "off",
-        "oxc/no-optional-chaining": "off",
-        "oxc/no-rest-spread-properties": "off",
-        "promise/avoid-new": "off",
-        "promise/prefer-await-to-callbacks": "off",
-        "promise/prefer-await-to-then": "off",
-        "promise/valid-params": "off",
-        "react/capitalized-calls": "off",
-        "react/forbid-component-props": "off",
+        "node/no-sync": "off", // Tests read fixtures synchronously
+        "node/no-top-level-await": "off", // Guards `require(esm)` loading Vitest never uses
+        "oxc/no-async-await": "off", // Effect `asyncFunction` owns `async` outside tests
+        "oxc/no-map-spread": "off", // Fix mutates objects in place, CLAUDE.md functional rule
+        "oxc/no-optional-chaining": "off", // Guards engines older than the `esnext` target
+        "oxc/no-rest-spread-properties": "off", // Guards engines older than the `esnext` target
+        "promise/avoid-new": "off", // Effect `newPromise` owns the defect
+        "promise/prefer-await-to-callbacks": "off", // Pushes toward `async`, which Effect `asyncFunction` refuses
+        "promise/prefer-await-to-then": "off", // Pushes toward `async`, which Effect `asyncFunction` refuses
+        "promise/valid-params": "off", // Reads `Effect.catch(effect, handler)` as `Promise#catch`
+        "react/capitalized-calls": "off", // Flags non-component constructors (`PdfDocument`)
+        "react/forbid-component-props": "off", // react-aria components take `className` and `style`
         "react/function-component-definition": ["error", { "namedComponents": "arrow-function", "unnamedComponents": "arrow-function" }],
         "react/jsx-filename-extension": ["error", { "extensions": ["tsx"] }],
-        "react/jsx-max-depth": "off",
-        "react/jsx-no-literals": "off",
-        "react/jsx-props-no-spreading": "off",
+        "react/jsx-max-depth": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
+        "react/jsx-no-literals": "off", // Guards translation layers no project holds
+        "react/jsx-props-no-spreading": "off", // Components forward props to their react-aria component, `exceptions` lists each by hand
         "react/no-multi-comp": ["error", { "ignoreStateless": true }],
         "react/no-unstable-nested-components": ["error", { "allowAsProps": true }],
-        "react/react-in-jsx-scope": "off",
-        "react/rules-of-hooks": "off",
+        "react/react-in-jsx-scope": "off", // `jsx: react-jsx` imports the JSX runtime
+        "react/rules-of-hooks": "off", // Reads Effect and Playwright `use` calls as hooks, `**/*.tsx` enables it
         "typescript/consistent-type-exports": ["error", { "fixMixedExportsWithInlineTypeSpecifier": true }],
         "typescript/consistent-type-imports": ["error", { "fixStyle": "inline-type-imports" }],
-        "typescript/explicit-function-return-type": "off",
+        "typescript/explicit-function-return-type": "off", // Forces declarations inference states, CLAUDE.md checker rule
         "typescript/explicit-member-accessibility": ["error", { "accessibility": "no-public" }],
-        "typescript/explicit-module-boundary-types": "off",
+        "typescript/explicit-module-boundary-types": "off", // Forces declarations inference states, CLAUDE.md checker rule
         "typescript/no-base-to-string": ["error", { "checkUnknown": true }],
         "typescript/no-confusing-void-expression": ["error", { "ignoreArrowShorthand": true }],
-        "typescript/no-generated-empty-object-type": "off",
-        "typescript/no-invalid-void-type": "off",
-        "typescript/no-misused-spread": "off",
-        "typescript/no-mixed-enums": "off",
-        "typescript/no-namespace": "off",
-        "typescript/no-unnecessary-type-arguments": "off",
-        "typescript/parameter-properties": "off",
-        "typescript/prefer-enum-initializers": "off",
-        "typescript/prefer-literal-enum-member": "off",
-        "typescript/prefer-readonly-parameter-types": "off",
-        "typescript/promise-function-async": "off",
-        "typescript/strict-boolean-expressions": "off",
-        "typescript/unbound-method": "off",
+        "typescript/no-generated-empty-object-type": "off", // `Record<never, never>` is the empty case of `Data.TaggedEnum`
+        "typescript/no-invalid-void-type": "off", // Effect signatures take `void` type arguments (`Effect.callback<void>`)
+        "typescript/no-deprecated": ["error", { "allow": [{ "from": "package", "package": "@opentelemetry/semantic-conventions", "name": ["ATTR_GEN_AI_OPERATION_NAME", "ATTR_GEN_AI_PROMPT_NAME", "ATTR_GEN_AI_TOOL_NAME", "ATTR_MCP_METHOD_NAME", "ATTR_MCP_RESOURCE_URI", "METRIC_MCP_SERVER_OPERATION_DURATION"] }] }], // GenAI and MCP names moved to a repository publishing no package, values unchanged
+        "typescript/no-misused-spread": "off", // Flags class spreads (`{ ...this }`, `{ ...Pg }`), `allow` lists each class by hand
+        "typescript/no-unnecessary-type-arguments": "off", // Flags `Effect.context<never>()`, and omitting it widens `R` to `any` in `Effect.all`
+        "typescript/no-unnecessary-type-parameters": "off", // Counts a class parameter whose one use is its base type argument (`Data.Class<{ env: E }>`) as unused, the shape of every generic data class
+        "typescript/prefer-readonly-parameter-types": "off", // Forces declarations inference states, CLAUDE.md checker rule
+        "typescript/promise-function-async": "off", // Pushes toward `async`, which Effect `asyncFunction` refuses
+        "typescript/strict-boolean-expressions": "off", // Effect `strictBooleanExpressions` owns the defect
+        "typescript/unbound-method": "off", // Flags `Intl` getters `lib.d.ts` types as methods, and `import.meta.resolve`
         "unicorn/import-style": ["error", { "styles": { "node:path": { "named": true, "default": false } }, "checkDynamicImport": false }],
-        "unicorn/max-nested-calls": "off",
-        "unicorn/no-array-callback-reference": "off",
-        "unicorn/no-array-for-each": "off",
-        "unicorn/no-array-method-this-argument": "off",
-        "unicorn/no-array-reduce": "off",
+        "unicorn/max-nested-calls": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
+        "unicorn/no-array-callback-reference": "off", // Point-free calls, CLAUDE.md functional rule
+        "unicorn/no-array-for-each": "off", // Fix writes a `for...of` loop, ast-grep `no-statement-loop-tsx` refuses it
+        "unicorn/no-array-method-this-argument": "off", // Reads the function of `Effect.forEach` and `Record.map` as `thisArg`
+        "unicorn/no-array-reduce": "off", // Fix writes a `for` loop, CLAUDE.md keeps imperative code at boundaries
         "unicorn/no-instanceof-builtins": ["error", { "useErrorIsError": true }],
-        "unicorn/no-null": "off",
+        "unicorn/no-null": "off", // Host APIs take `null` (`combineOptionsForExecutor`)
         "unicorn/no-useless-undefined": ["error", { "checkArguments": false, "checkArrowFunctionBody": false }],
-        "unicorn/number-literal-case": "off",
-        "unicorn/prefer-number-coercion": "off",
-        "unicorn/prefer-query-selector": "off",
-        "unicorn/prefer-spread": "off",
+        "unicorn/number-literal-case": "off", // `oxfmt` writes hex literal case the other way
+        "unicorn/prefer-number-coercion": "off", // Fix reads CSS lengths (`80px`) through `Number`, which returns `NaN`
+        "unicorn/prefer-query-selector": "off", // Contradicts ast-grep `no-id-query-by-selector`
         "unicorn/text-encoding-identifier-case": ["error", { "withDash": true }],
-        "unicorn/throw-new-error": "off"
+        "unicorn/throw-new-error": "off" // Flags `Schema.TaggedError<X>()(...)` class heritage calls
     },
     "overrides": [
         {
@@ -127,7 +122,7 @@
                         ],
                         "patterns": [
                             { "group": ["**/package.json", "#/package.json"], "message": "Build helpers read the project manifest from the directory they take" },
-                            { "group": ["./**", "../**", "!../**/nx.json", ".", ".."], "message": "Import the package's own modules through `#/` and other packages through their `@rasm/<lib>` entries, and nx.json by its relative path" }
+                            { "group": ["./**", "../**", ".", ".."], "message": "Import the package's own modules through `#/` and other packages through their `@rasm/<lib>` entries" }
                         ]
                     }
                 ]
@@ -136,16 +131,17 @@
         {
             "files": ["**/*.config.ts", "**/server/main.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js", "tools/conformance/*/rule.ts"],
             "rules": {
-                "import/no-default-export": "off"
+                "import/no-default-export": "off" // Loaders read default exports
             }
         },
         {
-            "files": ["**/creative-cloud/*/host.ts"],
+            "files": ["**/creative-cloud/*/host.ts"], // ExtendScript runs ES3, swc lowers syntax alone
             "rules": {
                 "guard-for-in": "off",
                 "complexity": "off",
                 "no-nested-ternary": "off",
-                "no-throw-literal": "off",
+                "no-param-reassign": ["error", { "props": false }], // ES3 has no `Reflect.set`, a host object takes each key by assignment
+                "typescript/no-unsafe-type-assertion": "off", // ES3 has no `Reflect.set`, and host interfaces hold no index signature an assignment writes through
                 "typescript/no-base-to-string": "off",
                 "prefer-named-capture-group": "off",
                 "prefer-object-has-own": "off",
@@ -156,12 +152,25 @@
                 "unicorn/prefer-at": "off",
                 "unicorn/prefer-code-point": "off",
                 "unicorn/prefer-number-properties": "off",
+                "unicorn/prefer-spread": "off", // Spread lowers to `Array.from` helpers ES3 lacks
                 "unicorn/prefer-string-replace-all": "off"
             }
         },
-        { "files": ["products/developer/nx/**"], "rules": { "unicorn/require-post-message-target-origin": "off" } },
+        { "files": ["products/developer/nx/**"], "rules": { "unicorn/require-post-message-target-origin": "off" } }, // Worker `postMessage` takes no `targetOrigin`
         { "files": ["**/*.tsx"], "rules": { "react/rules-of-hooks": "error" } },
-        { "files": ["plugins/*/*/hooks/**"], "rules": { "node/callback-return": "off", "promise/no-callback-in-promise": "off", "unicorn/catch-error-name": "off" } },
+        {
+            "files": ["plugins/*/*/hooks/**"],
+            "rules": {
+                "node/callback-return": "off", // Hooks await `next`, a `claude-code` continuation
+                "promise/no-callback-in-promise": "off", // Hooks await `next`, a `claude-code` continuation
+                "unicorn/catch-error-name": "off", // Reads the engine `$` a `claude-code` `on(...).catch` handler takes first as a rejection value
+                "typescript/no-unsafe-assignment": "off" // Hooks modules import `claude-code` alone, so no decoder types the `JSON.parse` of a server reply
+            }
+        },
+        {
+            "files": ["**/creative-cloud/*/plugin.ts"], // UXP plugin runtime, its `execute_script` evaluates caller source
+            "rules": { "typescript/no-implied-eval": "off", "typescript/no-unsafe-call": "off" }
+        },
         {
             "files": ["tests/**/*.test.{ts,tsx}"],
             "plugins": ["vitest"],
@@ -169,40 +178,39 @@
                 "no-empty-pattern": ["error", { "allowObjectPatternsAsParameters": true }],
                 "vitest/consistent-test-it": ["error", { "fn": "it" }],
                 "vitest/no-standalone-expect": ["error", { "additionalTestBlockFunctions": ["it", "it.each", "it.for"] }],
-                "vitest/prefer-called-times": "off",
-                "vitest/prefer-describe-function-title": "off",
+                "vitest/prefer-called-times": "off", // Contradicts `vitest/prefer-called-once`
                 "vitest/prefer-lowercase-title": ["error", { "ignore": ["describe"] }],
-                "vitest/prefer-to-be-falsy": "off",
-                "vitest/prefer-to-be-truthy": "off",
-                "vitest/no-importing-vitest-globals": "off",
-                "vitest/prefer-expect-assertions": "off",
-                "vitest/require-hook": "off",
-                "vitest/require-test-timeout": "off",
-                "vitest/require-top-level-describe": "off"
+                "vitest/prefer-to-be-falsy": "off", // Contradicts `prefer-strict-boolean-matchers`
+                "vitest/prefer-to-be-truthy": "off", // Contradicts `prefer-strict-boolean-matchers`
+                "vitest/no-importing-vitest-globals": "off", // Contradicts `prefer-importing-vitest-globals`
+                "vitest/prefer-expect-assertions": ["error", { "onlyFunctionsWithExpectInLoop": true, "onlyFunctionsWithExpectInCallback": true }], // Tests asserting in a loop or callback alone, where a skipped callback leaves the test vacuous
+                "vitest/require-hook": "off", // Shared suites register cases by a top-level call
+                "vitest/require-test-timeout": "off", // Configuration states departures from defaults
+                "vitest/require-top-level-describe": "off", // Forces a `describe` restating the file subject
+                "vitest/valid-title": ["error", { "ignoreTypeOfDescribeName": true }] // `vitest/prefer-describe-function-title` names a `describe` by the function it tests
             }
         },
+        { "files": ["tests/support/typescript/*.ts"], "rules": { "no-empty-pattern": ["error", { "allowObjectPatternsAsParameters": true }] } },
         {
-            "files": ["libs/python/blender/rendering/rasm/rendering/_batch/rasm_render.js", "products/apps/rhino/Darkroom/EmbeddedResources/darkroom_render.js"],
+            "files": ["libs/python/blender/rendering/rasm/rendering/_batch/rasm-render.js", "products/apps/rhino/Darkroom/Queue/darkroom-render.js"],
             "rules": {
-                "import/unambiguous": "off",
-                "typescript/no-unsafe-argument": "off",
-                "typescript/no-unsafe-assignment": "off",
-                "typescript/no-unsafe-call": "off",
-                "typescript/no-unsafe-member-access": "off",
-                "typescript/no-unsafe-return": "off",
-                "unicorn/filename-case": "off"
+                "import/unambiguous": "off", // Classic scripts, no modules
+                "typescript/no-unsafe-assignment": "off", // Scripts read untyped host globals (`job`)
+                "typescript/no-unsafe-call": "off", // Scripts read untyped host globals (`job`)
+                "typescript/no-unsafe-member-access": "off", // Scripts read untyped host globals (`job`)
+                "typescript/no-unsafe-return": "off" // Scripts read untyped host globals (`job`)
             }
         },
         {
             "files": ["tools/ast-grep/grammars/**"],
             "rules": {
-                "no-underscore-dangle": "off",
-                "typescript/no-unsafe-argument": "off",
-                "typescript/no-unsafe-assignment": "off",
-                "typescript/no-unsafe-call": "off",
-                "typescript/no-unsafe-member-access": "off",
-                "typescript/no-unsafe-return": "off",
-                "typescript/prefer-nullish-coalescing": "off"
+                "no-underscore-dangle": "off", // Grammars name hidden rules `_x`
+                "typescript/no-unsafe-argument": "off", // Grammar DSL is untyped
+                "typescript/no-unsafe-assignment": "off", // Grammar DSL is untyped
+                "typescript/no-unsafe-call": "off", // Grammar DSL is untyped
+                "typescript/no-unsafe-member-access": "off", // Grammar DSL is untyped
+                "typescript/no-unsafe-return": "off", // Grammar DSL is untyped
+                "typescript/prefer-nullish-coalescing": "off" // Grammar DSL is untyped
             }
         }
     ]

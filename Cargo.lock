@@ -2612,7 +2612,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c54e03a951783e8b327515db3f2a2fd0e3bed362a96b066f341ce66ed49b4ead"
 dependencies = [
  "data-encoding",
- "syn 3.0.10",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -3934,9 +3934,9 @@ dependencies = [
 
 [[package]]
 name = "form_urlencoded"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
+checksum = "afa489199eaffb1211795df1c6236ce1ad0d41a6fa45250add73e3b02420f06e"
 dependencies = [
  "percent-encoding",
 ]
@@ -5069,20 +5069,6 @@ dependencies = [
  "flate2",
  "hayro-syntax 0.7.2",
  "pdf-writer",
-]
-
-[[package]]
-name = "hdrhistogram"
-version = "7.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f49d1053f4708f0af3cf9fc5bffc7e68a914a3c45becb231c80068c9c3f78bea"
-dependencies = [
- "base64 0.22.1",
- "byteorder",
- "crossbeam-channel",
- "flate2",
- "nom 8.0.0",
- "num-traits",
 ]
 
 [[package]]
@@ -7072,7 +7058,6 @@ dependencies = [
  "clap",
  "fs-err",
  "futures",
- "hdrhistogram",
  "jiff 1.0.1",
  "mcp-muxer",
  "nonempty-collections",
@@ -9959,6 +9944,7 @@ dependencies = [
  "itertools 0.15.0",
  "nonempty-collections",
  "petgraph",
+ "proptest",
  "rasm-dependency-graph",
 ]
 
@@ -10214,7 +10200,6 @@ dependencies = [
  "rasm-ipc",
  "rasm-testing",
  "rstest",
- "rustix",
  "tokio",
  "tokio-test",
  "tokio-util",
@@ -14647,9 +14632,9 @@ dependencies = [
 
 [[package]]
 name = "url"
-version = "2.5.8"
+version = "2.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff67a8a4397373c3ef660812acab3268222035010ab8680ec4215f38ba3d0eed"
+checksum = "f00cd2407bb42c0ef17be88d4cf020f5cceffd121665bac9b8b9493a369b3b1a"
 dependencies = [
  "form_urlencoded",
  "idna",

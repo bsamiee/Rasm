@@ -3,11 +3,11 @@ import { Match } from 'effect';
 import { useInView } from 'motion/react';
 import { lazy, type RefObject, Suspense, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { placementAlt } from '#/media/labels';
+import { placementAlt } from '#/media/labels.ts';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
-import { assetUrl } from '#/model/api';
-import type { ImageAsset } from '#/model/asset';
-import type { Placement } from '#/model/placement';
+import { assetUrl } from '#/model/api.ts';
+import type { ImageAsset } from '#/model/asset.ts';
+import type { Placement } from '#/model/placement.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -48,7 +48,6 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
                 </ErrorBoundary>
             ),
             video: ({ poster, asset: { width, height } }) => (
-                // oxlint-disable-next-line jsx-a11y/media-has-caption -- Uploads hold no timed text, owners burn in captions and write transcripts as descriptions
                 <video aria-label={label} className="block size-full object-contain" controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline poster={poster && assetUrl(poster)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
             ),
             image: (image) => (

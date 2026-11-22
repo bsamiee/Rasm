@@ -1,9 +1,21 @@
 {
     "mcpServers": {
+        "chrome-devtools": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": ["--per", "user", "--", "chrome-devtools-mcp", "--autoConnect", "--categoryExtensions", "--experimentalIncludeAllPages", "--experimentalDevtools", "--workspace=/", "--no-usage-statistics", "--no-performance-crux"],
+            "default_tools_approval_mode": "approve"
+        },
         "parallels": {
             "type": "stdio",
             "command": "pdfm-mcp",
             "default_tools_approval_mode": "approve"
+        },
+        "raycast": {
+            "type": "http",
+            "url": "http://127.0.0.1:8267/mcp",
+            "http_headers_helper": "/usr/bin/plutil -extract codex json -expect dictionary -o - \"$HOME/.config/rasm/raycast-mcp.json\"",
+            "headersHelper": "/usr/bin/plutil -extract claude json -expect dictionary -o - \"$HOME/.config/rasm/raycast-mcp.json\""
         },
         "superhuman-mail": {
             "type": "http",

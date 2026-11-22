@@ -30,7 +30,7 @@ private final class Workspace {
 
     subscript(_ relative: String) -> String { root.appending(relative).string }
 
-    static func project(configurations: String = #""Debug", "Release""#, packages: String = "[]", files: [String] = []) -> String {
+    static func project(configurations: String = #""Debug", "Release""#, packages: String = "[]", files: [String] = [], settings: String = "") -> String {
         """
         {
           "default-configuration": "Release",
@@ -49,7 +49,7 @@ private final class Workspace {
               "product": "Products/Viewer.app",
               "product-type": "application",
               "build-phases": [ "compile-sources", "frameworks", "resources" ],
-              "build-settings": { "PRODUCT_BUNDLE_IDENTIFIER": "example.fixture.viewer" },
+              "build-settings": { "PRODUCT_BUNDLE_IDENTIFIER": "example.fixture.viewer", \(settings) },
             },
           ],
           "build-settings": { "MARKETING_VERSION": "0.1.0", "PRODUCT_NAME": "$(TARGET_NAME)", "SDKROOT": "macosx" },
@@ -84,7 +84,14 @@ struct AnalyzerSmokeTests {
     @Test
     func defaultProject_declaresSchemesConfigurationsAndBuiltFolders() throws {
         let workspace = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(), "Viewer.xcodeproj/xcshareddata/xcschemes/Viewer.xcscheme": Workspace.scheme()])
-        let scheme = Scheme(name: "Viewer", containers: [workspace["Viewer.xcodeproj"]], plans: [], tests: false, launch: "Debug")
+        let scheme = Scheme(
+            name: "Viewer",
+            containers: [workspace["Viewer.xcodeproj"]],
+            plans: [],
+            tests: false,
+            launch: "Debug",
+            archive: Archive(configuration: "Release", bundles: ["Viewer.app"]),
+        )
 
         #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(schemes: [scheme])], failures: [:]))
     }
@@ -109,9 +116,61 @@ struct AnalyzerSmokeTests {
         let workspace = try Workspace([
             "Viewer.xcodeproj/project.xcproj": Workspace.project(), "Viewer.xcodeproj/xcshareddata/xcschemes/Viewer.xcscheme": Workspace.scheme([plans]), "Viewer.xctestplan": "{}",
         ])
-        let scheme = Scheme(name: "Viewer", containers: [workspace["Viewer.xcodeproj"]], plans: ["Viewer"], tests: true, launch: "Debug")
+        let scheme = Scheme(
+            name: "Viewer",
+            containers: [workspace["Viewer.xcodeproj"]],
+            plans: ["Viewer"],
+            tests: true,
+            launch: "Debug",
+            archive: Archive(configuration: "Release", bundles: ["Viewer.app"]),
+        )
 
         #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(schemes: [scheme], inputs: [workspace["Viewer.xctestplan"]])], failures: [:]))
+    }
+
+    @Test
+    func locatedSettings_areInputsFromProjectAndIncludedConfigurations() throws {
+        let configurations = #"{ "name": "Debug", "file": "Configs/Base.xcconfig" }, { "name": "Release", "file": "Configs/Base.xcconfig" }"#
+        let workspace = try Workspace([
+            "Viewer.xcodeproj/project.xcproj": Workspace.project(configurations: configurations, files: [configs], settings: #""INFOPLIST_FILE": "$(SRCROOT)/Info.plist""#),
+            "Configs/Base.xcconfig": "#include \"Shared.xcconfig\"\n#include? \"Local.xcconfig\"\nCODE_SIGN_ENTITLEMENTS = $(TARGET_NAME).entitlements // signed\n",
+            "Configs/Shared.xcconfig": "SWIFT_VERSION = 6.0\n", "Info.plist": "", "Viewer.entitlements": "",
+        ])
+        let inputs = ["Configs/Base.xcconfig", "Configs/Shared.xcconfig", "Info.plist", "Viewer.entitlements"].map { file in workspace[file] }
+
+        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(inputs: inputs)], failures: [:]))
+    }
+
+    @Test
+    func conditionalSettingsOfConfigurationFiles_applyInTheirConfiguration() throws {
+        let configurations = #"{ "name": "Debug", "file": "Configs/Base.xcconfig" }, { "name": "Release", "file": "Configs/Base.xcconfig" }"#
+        let workspace = try Workspace([
+            "Viewer.xcodeproj/project.xcproj": Workspace.project(configurations: configurations, files: [configs]),
+            "Configs/Base.xcconfig": "CODE_SIGN_ENTITLEMENTS = Debug.entitlements\nCODE_SIGN_ENTITLEMENTS[config=Release] = Release.entitlements\n",
+            "Debug.entitlements": "", "Release.entitlements": "",
+        ])
+        let inputs = ["Configs/Base.xcconfig", "Debug.entitlements", "Release.entitlements"].map { file in workspace[file] }
+
+        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(inputs: inputs)], failures: [:]))
+    }
+
+    @Test
+    func unresolvedLocatedSettings_areFailuresOfTheirContainer() throws {
+        let workspace = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(settings: #""INFOPLIST_FILE": "$(PLATFORM_DIR)/Info.plist""#)])
+        let failure = "\(workspace["Viewer.xcodeproj"]) has missing references:\n  target Viewer INFOPLIST_FILE resolves to nothing"
+
+        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [], failures: [workspace["Viewer.xcodeproj"]: failure]))
+    }
+
+    @Test
+    func archiveConfiguration_decidesWhetherTheSchemeInstalls() throws {
+        let settings = #""SKIP_INSTALL[config=Release]": "YES""#
+        let archiving = #"<ArchiveAction buildConfiguration="Debug" revealArchiveInOrganizer="YES"/>"#
+        let skipped = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(settings: settings), "Viewer.xcodeproj/xcshareddata/xcschemes/Viewer.xcscheme": Workspace.scheme()])
+        let debug = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(settings: settings), "Viewer.xcodeproj/xcshareddata/xcschemes/Viewer.xcscheme": Workspace.scheme([archiving])])
+
+        #expect(report([skipped.root.appending("Viewer.xcodeproj")]).containers.flatMap(\.schemes).map(\.archive) == [nil])
+        #expect(report([debug.root.appending("Viewer.xcodeproj")]).containers.flatMap(\.schemes).map(\.archive) == [Archive(configuration: "Debug", bundles: ["Viewer.app"])])
     }
 
     @Test

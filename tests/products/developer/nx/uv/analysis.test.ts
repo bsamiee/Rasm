@@ -1,105 +1,67 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import type { CreateNodesContext } from '@nx/devkit';
-import { createNodes } from '@rasm/nx-uv';
-import { TempFs } from '@rasm/testing/temp-fs';
-import { ChildProcess } from 'effect/process';
-import { updateFilesInContext } from 'nx/src/utils/workspace-context';
-import { describe, expect, test, vi } from 'vitest';
+import { createDependencies, createNodes } from '@rasm/nx-uv';
+import { refused } from '@rasm/testing/errors';
+import { it, pathed, refusing } from '@rasm/testing/nx';
+import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
-vi.mock(import('effect/process'), { spy: true });
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const analysis = ['workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', 'preview', '--quiet'];
+const NESTED = {
+    'nested/proj/pyproject.toml': '[tool.uv.workspace]\nmembers = ["library"]\n',
+    'nested/proj/library/pyproject.toml': '[project]\nname = "library"\nversion = "0.1.0"\n',
+};
+const ADDED = {
+    'nested/proj/pyproject.toml': '[tool.uv.workspace]\nmembers = ["library", "added"]\n',
+    'nested/proj/added/pyproject.toml': '[project]\nname = "added"\nversion = "0.1.0"\n',
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const it = test
-    .extend('tempFs', async ({}, { onCleanup }) => {
-        const previous = process.cwd();
-        const tempFs = new TempFs('uv-analysis');
-        process.chdir(tempFs.tempDir);
-        onCleanup(() => {
-            process.chdir(previous);
-            tempFs.cleanup();
-        });
-        await tempFs.createFiles({
-            'pyproject.toml': '[project]\nname = "uv-tutorial"\nversion = "0.1.0"\ndependencies = []\n\n[tool.uv.workspace]\nmembers = ["proj/*"]\n',
-            'proj/library/pyproject.toml': '[project]\nname = "library"\nversion = "0.1.0"\ndependencies = []\n',
-        });
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: tempFs.tempDir });
-        return tempFs;
-    })
-    .extend('context', ({ tempFs }): CreateNodesContext => ({ nxJsonConfiguration: {}, workspaceRoot: tempFs.tempDir }))
-    .extend('spawn', () => vi.mocked(ChildProcess.make).mockClear());
+describe('uv workspace metadata', { timeout: 60_000 }, () => {
+    it('answers from the cache while no file uv reads changes', async ({ workspace }) => {
+        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
+        await workspace.graph({ createNodes, createDependencies });
+        pathed(join(workspace.root, '.bin'), {});
 
-describe('uv analysis', { timeout: 60_000 }, () => {
-    it('should run uv analysis with default options', async ({ context, spawn }) => {
-        await createNodes[1](['uv.lock'], undefined, context);
+        const graph = await workspace.graph({ createNodes, createDependencies });
 
-        expect(spawn).toHaveBeenCalledWith('uv', analysis, expect.objectContaining({ cwd: context.workspaceRoot, stdin: 'ignore', detached: false }));
+        expect(graph.nodes['library']?.data.root).toBe('nested/proj/library');
     });
 
-    it('should run uv analysis in the folder of each lock', async ({ tempFs, context, spawn }) => {
-        await tempFs.createFiles({ 'nested/proj/pyproject.toml': '[project]\nname = "nested"\nversion = "0.1.0"\ndependencies = []\n' });
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(tempFs.tempDir, 'nested/proj') });
+    it('reads the workspace again once a lock below the Nx workspace root changes', async ({ workspace }) => {
+        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
+        await workspace.graph({ createNodes, createDependencies });
+        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(ADDED).root, 'nested/proj') });
 
-        await createNodes[1](['uv.lock', 'nested/proj/uv.lock'], undefined, context);
+        const graph = await workspace.graph({ createNodes, createDependencies });
 
-        expect(spawn).toHaveBeenCalledWith('uv', analysis, expect.objectContaining({ cwd: tempFs.tempDir }));
-        expect(spawn).toHaveBeenCalledWith('uv', analysis, expect.objectContaining({ cwd: join(tempFs.tempDir, 'nested/proj') }));
+        expect(graph.nodes['added']?.data.root).toBe('nested/proj/added');
     });
 
-    it('should read the analysis of an unchanged workspace from the cache without running uv', async ({ context, spawn }) => {
-        const cold = await createNodes[1](['uv.lock'], undefined, context);
-        const warm = await createNodes[1](['uv.lock'], undefined, context);
+    it.for(refusing('uv'))('refuses a lock with the command and $case of uv', async ({ scripts, refusal }, { workspace }) => {
+        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
+        pathed(join(workspace.root, '.bin'), scripts);
 
-        expect(warm).toStrictEqual(cold);
-        expect(spawn).toHaveBeenCalledOnce();
+        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(refusal));
     });
 
-    it('should run uv analysis again once a file uv reads changes', async ({ tempFs, context, spawn }) => {
-        await createNodes[1](['uv.lock'], undefined, context);
-        tempFs.appendFile('proj/library/pyproject.toml', '\n[tool.uv]\npackage = false\n');
-        updateFilesInContext(tempFs.tempDir, ['proj/library/pyproject.toml'], []);
+    it('refuses a reply in another metadata schema', async ({ workspace }) => {
+        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
+        pathed(join(workspace.root, '.bin'), { uv: 'echo \'{"schema":{"version":"v1"}}\'' });
 
-        await createNodes[1](['uv.lock'], undefined, context);
-
-        expect(spawn).toHaveBeenCalledTimes(2);
-    });
-    it('should handle uv process failure', async ({ tempFs, context }) => {
-        tempFs.writeFile('proj/library/pyproject.toml', '[project\nname = ');
-
-        const result = createNodes[1](['uv.lock'], undefined, context);
-
-        await expect(result).rejects.toHaveProperty(['errors', 0, 0], 'uv.lock');
-        await expect(result).rejects.toHaveProperty(['errors', 0, 1, 'message'], expect.stringMatching(/^uv workspace metadata --frozen --preview-features workspace-metadata --output-version preview --quiet exits 2: error: Failed to parse: proj\/library\/pyproject\.toml/u));
+        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/Expected "preview"/u));
     });
 
-    it('should handle spawn error', async ({ context, spawn }) => {
-        spawn.mockReturnValueOnce(ChildProcess.make('rasm-uv-absent', analysis));
+    it('keeps the projects of every other lock while one lock fails', async ({ workspace }) => {
+        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
+        workspace.write({ 'broken/pyproject.toml': '[project\nname = ', 'broken/uv.lock': 'version = 1\n' });
 
-        await expect(createNodes[1](['uv.lock'], undefined, context)).rejects.toHaveProperty(
-            ['errors', 0, 1, 'message'],
-            'uv workspace metadata --frozen --preview-features workspace-metadata --output-version preview --quiet cannot start: NotFound: ChildProcess.spawn (rasm-uv-absent workspace metadata --frozen --preview-features workspace-metadata --output-version preview --quiet)',
-        );
-    });
+        const graphed = workspace.graph({ createNodes, createDependencies });
 
-    it('should handle a reply in another metadata schema', async ({ context, spawn }) => {
-        spawn.mockReturnValueOnce(ChildProcess.make('echo', ['{"schema":{"version":"v1"}}']));
-
-        await expect(createNodes[1](['uv.lock'], undefined, context)).rejects.toHaveProperty(['errors', 0, 1, 'message'], 'Expected "preview"\n  at ["schema"]["version"]');
-    });
-
-    it('should keep the projects of every other lock when one lock fails', async ({ tempFs, context }) => {
-        await tempFs.createFiles({ 'broken/pyproject.toml': '[project\nname = ', 'broken/uv.lock': 'version = 1\n' });
-
-        const result = createNodes[1](['uv.lock', 'broken/uv.lock'], undefined, context);
-
-        await expect(result).rejects.toHaveProperty(['errors', 0, 0], 'broken/uv.lock');
-        await expect(result).rejects.toHaveProperty(['errors', 0, 1, 'message'], expect.stringContaining('exits 2: error: Failed to parse: pyproject.toml'));
-        await expect(result).rejects.toHaveProperty(['partialResults', 0, 1, 'projects', 'proj/library', 'name'], 'library');
+        await expect(graphed).rejects.toSatisfy(refused(/^uv workspace metadata .* exits 2: error: Failed to parse: `?pyproject\.toml/u));
+        await expect(graphed).rejects.toHaveProperty(['partialProjectConfigurationsResult', 'projects', 'nested/proj/library', 'name'], 'library');
     });
 });

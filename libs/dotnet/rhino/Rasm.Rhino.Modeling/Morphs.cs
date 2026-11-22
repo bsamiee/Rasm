@@ -1,6 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using Rasm.Geometry;
 using Rasm.Rhino.Document.Units;
 using Rhino.Geometry.Morphs;
@@ -54,22 +52,17 @@ internal sealed class PointSpaceMorph(Func<Point3d, Point3d> map) : SpaceMorph {
     // --- [STATE]
 
     private readonly Func<Point3d, Point3d> mapping = map;
-    private ExceptionDispatchInfo? failure;
+    private Error? failure;
 
     // --- [POINTS]
 
     internal static Func<Point3d, Point3d> Direct(SpaceMorph morph) => morph is PointSpaceMorph managed ? managed.mapping : morph.MorphPoint;
 
-    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "The native void callback has no failure channel; the original exception is rethrown after native return.")]
-    public override Point3d MorphPoint(Point3d point) {
-        if (Volatile.Read(ref failure) is not null) return point;
-        try {
-            return mapping(point);
-        } catch (Exception error) {
-            Interlocked.CompareExchange(ref failure, ExceptionDispatchInfo.Capture(error), comparand: null);
+    public override Point3d MorphPoint(Point3d point) =>
+        Volatile.Read(ref failure) is not null ? point : Try.lift(() => mapping(point)).Run().IfFail(error => {
+            Interlocked.CompareExchange(ref failure, error, comparand: null);
             return point;
-        }
-    }
+        });
 
     // --- [MORPHS]
 

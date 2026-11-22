@@ -1,10 +1,10 @@
 import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
-import { Server } from '@rasm/mcp';
-import { Duration, Effect, Layer, Option, Predicate, Record, Schema, String } from 'effect';
-import { McpProtocol } from 'effect/ai';
-import { HttpRouter } from 'effect/http';
+import { Link, Server, Upstream } from '@rasm/mcp';
+import { Array, Duration, Effect, Layer, MutableRef, Option, Predicate, Record, Schedule, Schema, Stream, String, Struct } from 'effect';
+import { McpProtocol, type McpSchema, McpTest } from 'effect/ai';
+import { FetchHttpClient, HttpRouter } from 'effect/http';
 import { Host } from 'effect/net';
-import { app, Probe } from '#/fixtures';
+import { app, Echoing, Probe, UPSTREAM, upstream } from '#/fixtures.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -32,13 +32,27 @@ const SESSION = 'Mcp-Session-Id';
 const VERSION = 'Mcp-Protocol-Version';
 const STATEFUL = [McpProtocol.v2024_11_05, McpProtocol.v2025_03_26, McpProtocol.v2025_06_18, McpProtocol.v2025_11_25] as const;
 const PROTOCOLS = [...STATEFUL, McpProtocol.v2026_07_28] as const;
+const REVISIONS = [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25, McpProtocol.v2025_06_18, McpProtocol.v2025_03_26] as const;
 const SETTINGS = { retention: Duration.minutes(1), limit: 64 } as const;
+const SETTLED = Duration.seconds(5);
+const PEER = Link.make({ application: 'Upstream', extension: 'mcp', root: Option.none() });
 const ROUTED: Record.ReadonlyRecord<string, string> = { 'resources/read': 'uri', 'tools/call': 'name', 'prompts/get': 'name' };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Json = Schema.fromJsonString(Schema.Unknown);
 const Meta = Schema.Struct({ _meta: Schema.Record(Schema.String, Schema.Unknown) });
+const Handled = Schema.Struct({ handle: Schema.String });
+const Echoed = Schema.fromJsonString(Echoing);
+const Block = Schema.Struct({
+    type: Schema.String,
+    text: Schema.optionalKey(Schema.String),
+    data: Schema.optionalKey(Schema.String),
+    mimeType: Schema.optionalKey(Schema.String),
+    resource: Schema.optionalKey(Schema.Struct({ uri: Schema.String, mimeType: Schema.optionalKey(Schema.String), blob: Schema.optionalKey(Schema.String), text: Schema.optionalKey(Schema.String) })),
+});
+const Called = Schema.Struct({ result: Schema.Struct({ content: Schema.Array(Block), isError: Schema.optionalKey(Schema.Boolean), structuredContent: Schema.optionalKey(Schema.Unknown) }) });
+const Outcome = Schema.Struct({ error: Schema.optionalKey(Schema.Struct({ code: Schema.Finite, message: Schema.String })), result: Schema.optionalKey(Schema.Struct({ isError: Schema.optionalKey(Schema.Boolean) })) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -96,7 +110,38 @@ const opened = Effect.fnUntraced(function* (protocol: (typeof PROTOCOLS)[number]
     const answer = (held: Record.ReadonlyRecord<string, string>, method: string, params?: Record.ReadonlyRecord<string, unknown>, id?: string | number) => Effect.flatMap(call(held, method, params, id), (all) => Effect.fromNullishOr(all.at(-1)));
     return { probe, protocol, stateless, handler, raw, post, messages, send, initialize, session, call, answer };
 });
+const served = Effect.fnUntraced(function* (protocol: (typeof PROTOCOLS)[number]) {
+    const test = yield* opened(protocol);
+    const held = yield* test.session;
+    const tool = (name: string, given: Record.ReadonlyRecord<string, unknown> = {}) => test.answer(held, 'tools/call', { name, arguments: given });
+    return { test, held, tool, content: (name: string, given?: Record.ReadonlyRecord<string, unknown>) => Effect.map(Effect.flatMap(tool(name, given), Schema.decodeUnknownEffect(Called)), ({ result }) => result) };
+});
+const since = (protocol: (typeof PROTOCOLS)[number], first: (typeof PROTOCOLS)[number]) => PROTOCOLS.indexOf(protocol) >= PROTOCOLS.indexOf(first);
+const outcome = (message: unknown) => Effect.map(Schema.decodeUnknownEffect(Outcome)(message), ({ error, result }) => ({ code: error?.code, failed: result?.isError === true }));
+
+const names = (client: McpTest.Client) => Effect.map(client.listTools(), ({ tools }) => Array.map(tools, Struct.get('name')));
+const settled = <A, E>(effect: Effect.Effect<A, E>, done: (value: A) => boolean) => effect.pipe(Effect.repeat({ schedule: Schedule.spaced('20 millis'), until: done }), Effect.timeout(SETTLED));
+const echoed = ({ content, structuredContent }: McpSchema.CallToolResult) => ({ handled: Schema.is(Handled)(structuredContent), result: Option.getOrUndefined(Array.findFirst(content, (block) => ('text' in block ? Schema.decodeOption(Echoed)(block.text) : Option.none()))) });
+
+const connected = Effect.fnUntraced(function* <E, R>(protocol: (typeof PROTOCOLS)[number], beside: Layer.Layer<never, E, R>) {
+    const [probe, scheme] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name)]);
+    const client = yield* McpTest.makeClient(Layer.provide(Layer.mergeAll(app(probe), beside), Server.layer({ ...SETTINGS, scheme }).pipe(Layer.provide([layerAead, layerSecureRandom]))), { protocols: [protocol] });
+    yield* Effect.addFinalizer(() => probe.release.open);
+    return { probe, client };
+});
+
+const proxied = Effect.fnUntraced(function* (protocol: (typeof REVISIONS)[number], { poll = Duration.millis(50), presence = Stream.succeed(true) }: { readonly poll?: Duration.Duration; readonly presence?: Stream.Stream<boolean> } = {}) {
+    const [token, rejected] = [MutableRef.make('first'), MutableRef.make(0)];
+    const handler = MutableRef.make((yield* upstream(protocol, token, rejected)).handler);
+    const fetch: typeof globalThis.fetch = (input, init) => MutableRef.get(handler)(new Request(input, init));
+    const proxy = Layer.effectDiscard(
+        Upstream.serve([Upstream.mcp({ peer: PEER, enabled: true, endpoint: Effect.sync(() => ({ url: UPSTREAM, headers: { authorization: `Bearer ${MutableRef.get(token)}` } })), filters: { tools: { deny: ['secret'] } }, presence, poll })], { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) }),
+    ).pipe(Layer.provide([FetchHttpClient.layer, Layer.succeed(FetchHttpClient.Fetch, fetch), layerSecureRandom]));
+    const { client } = yield* connected(McpProtocol.v2025_11_25, proxy);
+    yield* settled(names(client), Array.contains('echo'));
+    return { client, token, rejected, restart: Effect.map(upstream(protocol, token, rejected), ({ handler: next }) => MutableRef.set(handler, next)) };
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ALLOWED, BOUND, CLIENT, ENDPOINT, hosted, INSTRUCTIONS, MANIFEST, opened, PROTOCOLS, SESSION, SETTINGS, STATEFUL, VERSION };
+export { ALLOWED, BOUND, Called, CLIENT, connected, echoed, ENDPOINT, hosted, INSTRUCTIONS, MANIFEST, names, opened, outcome, PEER, PROTOCOLS, proxied, REVISIONS, served, SESSION, SETTINGS, SETTLED, settled, since, STATEFUL, VERSION };

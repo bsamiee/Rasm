@@ -12,13 +12,13 @@ import { Library } from '#/editor/library.tsx';
 import { PlaceFile } from '#/editor/place-file.tsx';
 import { Profile } from '#/editor/profile.tsx';
 import { RequestAlert } from '#/editor/request-alert.tsx';
-import { deleteRequest, draft, portfolio, reloadRequest, saveRequest } from '#/editor/state';
+import { deleteRequest, draft, portfolio, reloadRequest, saveRequest } from '#/editor/state.ts';
 import { UploadRecovery } from '#/editor/upload-recovery.tsx';
-import { Destination, nextDestination, pendingUploads } from '#/editor/uploader';
-import { confirmation, entryTitle, format } from '#/media/labels';
-import type { AssetId } from '#/model/asset';
-import type { CompositionId } from '#/model/placement';
-import { Entry, EntryId, type Portfolio, type PortfolioData } from '#/model/portfolio';
+import { Destination, nextDestination, pendingUploads } from '#/editor/uploader.ts';
+import { confirmation, entryTitle, format } from '#/media/labels.ts';
+import type { AssetId } from '#/model/asset.ts';
+import type { CompositionId } from '#/model/placement.ts';
+import { Entry, EntryId, type Portfolio, type PortfolioData } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

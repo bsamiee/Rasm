@@ -1,12 +1,12 @@
 import { Array, Data, Function, flow, Number, Option, Order, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { Feature, type Font } from 'harfbuzzjs';
 import { Script } from 'icu';
-import { joins } from '#/arabic/joining';
-import { kashidaFlagged, kashidaMechanisms, kashidaPrepared, kashidaRanks } from '#/arabic/kashida';
-import { Direction, Settings } from '#/settings';
-import type { Face } from '#/shaping/face';
-import { ShapedText } from '#/shaping/shaped-text';
-import { baseDirection, letters, words } from '#/shaping/word';
+import { joins } from '#/arabic/joining.ts';
+import { kashidaFlagged, kashidaMechanisms, kashidaPrepared, kashidaRanks } from '#/arabic/kashida.ts';
+import { Direction, Settings } from '#/settings.ts';
+import type { Face } from '#/shaping/face.ts';
+import { ShapedText } from '#/shaping/shaped-text.ts';
+import { baseDirection, letters, words } from '#/shaping/word.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -15,6 +15,16 @@ steps {
       command = "cd tools/ast-grep/grammars && cmake --workflow --preset default"
       effect = "write"
     }
+    cache = true
+    cache_inputs =
+      List(
+        "tools/ast-grep/grammars/**",
+        "tools/ast-grep/outline/**",
+        "tools/ast-grep/package.json",
+        "sgconfig.yml",
+        "pnpm-lock.yaml",
+        ".config/mise.lock",
+      )
     stomp = true
   }
   ["ast-grep"] {
@@ -81,6 +91,12 @@ steps {
   }
   ["editorconfig-checker"] = (Builtins.editorconfig_checker) {
     glob = "**/*.{csproj,fsproj,vbproj,props,targets,slnx,pkl,plist,entitlements}"
+    check {
+      command {
+        argv = List("editorconfig-checker", "-format", "gcc", "-no-color", "{{files}}")
+      }
+    }
+    diagnostic_format = "gcc"
   }
   ["file-names"] {
     glob = "**/*.cs"
@@ -102,8 +118,8 @@ steps {
         "--cache-dir",
         ".cache/gersemi",
       )
-    check = new CommandSpec {
-      command = new Command { argv = gersemi + List("--check", "{{files}}") }
+    check_diff = new CommandSpec {
+      command = new Command { argv = gersemi + List("--check", "--diff", "{{files}}") }
       effect = "read"
     }
     fix = new CommandSpec {
@@ -123,6 +139,34 @@ steps {
     }
     fix { command { argv = List("google-java-format", "--aosp", "--replace", "{{files}}") } }
   }
+  ["hk"] {
+    glob = ".config/hk.pkl"
+    check = new CommandSpec {
+      command = new Command { argv = List("hk", "validate", "--deny-warnings") }
+      effect = "read"
+    }
+  }
+  ["issue-config"] {
+    glob = ".github/ISSUE_TEMPLATE/config.yml"
+    check = new CommandSpec {
+      command = new Command {
+        argv =
+          List("check-jsonschema", "--builtin-schema", "vendor.github-issue-config", "{{files}}")
+      }
+      effect = "read"
+    }
+  }
+  ["issue-forms"] {
+    glob = ".github/ISSUE_TEMPLATE/*.yml"
+    exclude = ".github/ISSUE_TEMPLATE/config.yml"
+    check = new CommandSpec {
+      command = new Command {
+        argv =
+          List("check-jsonschema", "--builtin-schema", "vendor.github-issue-forms", "{{files}}")
+      }
+      effect = "read"
+    }
+  }
   ["jactionlint"] = (Builtins.jactionlint) {
     check {
       command { argv = List("jactionlint", "--strict-exit", "--format", "gcc", "{{files}}") }
@@ -130,9 +174,21 @@ steps {
   }
   ["javac"] {
     glob = "**/*.java"
+    local off =
+      List(
+        "AddNullMarkedToClass", // Fix imports JSpecify, absent from Ghidra's script classpath
+        "DefaultPackage", // Ghidra loads scripts from script folders in the default package
+        "ImmutableMemberCollection", // Fix takes Guava collections, Gson in Ghidra cannot decode them
+        "Java8ApiChecker", // Guards Java 8 API use, scripts build with Ghidra's JDK
+        "MissingJavadoc", // Demands doc comments, CLAUDE.md forbids comments
+        "RequireExplicitNullMarking", // Fix imports JSpecify, absent from Ghidra's script classpath
+        "Var", // Forces `@Var` on reassigned locals, CLAUDE.md checker rule
+        "Varifier" // Fix writes `var`, PMD `UseExplicitTypes` refuses it
+      )
+    local lint = "-path" // Ghidra jar manifests name `Class-Path` jars its release omits
     check = new CommandSpec {
       command =
-        "javac -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -XDcompilePolicy=simple --should-stop=ifError=FLOW -processorpath \"${JAVAC_PLUGINS:?error prone is not installed}\" \"-Xplugin:ErrorProne -XepAllSuggestionsAsWarnings -Xep:DefaultPackage:OFF -Xep:RequireExplicitNullMarking:OFF -XepOpt:NullAway:AnnotatedPackages=rasm\" -Xlint:all,-path -Werror -d .cache/javac -cp \"${GHIDRA_CLASSPATH:?ghidra is not installed}\" -sourcepath plugins/shared/tool/skills/ghidra/scripts {{files}}"
+        "javac -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -XDcompilePolicy=simple --should-stop=ifError=FLOW -processorpath \"${JAVAC_PLUGINS:?error prone is not installed}\" \"-Xplugin:ErrorProne -XepAllDisabledChecksAsWarnings -XepAllSuggestionsAsWarnings \(off.map((check) -> "-Xep:\(check):OFF").join(" ")) -XepOpt:NullAway:AnnotatedPackages=rasm\" -Xlint:all,\(lint) -Werror -d .cache/javac -cp \"${GHIDRA_CLASSPATH:?ghidra is not installed}\" -sourcepath plugins/shared/tool/skills/ghidra/scripts {{files}}"
       effect = "write"
     }
     diagnostic_format = "gcc"
@@ -147,14 +203,12 @@ steps {
     }
     diagnostic_format = "gcc"
   }
-  ["hk"] {
-    glob = ".config/hk.pkl"
-    check = new CommandSpec {
-      command = new Command { argv = List("hk", "validate", "--deny-warnings") }
-      effect = "read"
+  ["oxlint"] = (Builtins.ox_lint) {
+    check {
+      command { argv = List("oxlint", "--deny-warnings", "--format", "sarif", "{{files}}") }
     }
+    diagnostic_format = "sarif"
   }
-  ["oxlint"] = Builtins.ox_lint
   ["oxfmt"] = (Builtins.oxfmt) { depends = "oxlint" }
   ["pkl-format"] = Builtins.pkl_format
   ["plutil"] {
@@ -175,6 +229,10 @@ steps {
       command { argv = rustfmt + List("--check", "--files-with-diff", "{{files}}") }
     }
     fix { command { argv = rustfmt + List("{{files}}") } }
+  }
+  ["ryl"] = (Builtins.ryl) {
+    check { command { argv = List("ryl", "check", "--output-format", "standard", "{{files}}") } }
+    diagnostic_format = "stylish"
   }
   ["shellcheck"] = Builtins.shellcheck
   ["shfmt"] = Builtins.shfmt
@@ -233,23 +291,6 @@ steps {
       effect = "read"
     }
   }
-  ["yamllint"] = (Builtins.yamllint) {
-    batch = true
-    check {
-      command {
-        argv =
-          List(
-            "yamllint",
-            "--config-file",
-            ".config/yamllint.yaml",
-            "--format",
-            "standard",
-            "{{files}}",
-          )
-      }
-    }
-    diagnostic_format = "stylish"
-  }
 }
 
 // --- [HOOKS] ----------------------------------------------------------------------------
@@ -260,10 +301,7 @@ hooks {
       ["conventional-commit"] {
         check = new CommandSpec {
           command =
-            #"""
-            projects=$(nx show projects --no-json)
-            hk util check-conventional-commit --allowed-scopes="$(printf '%s' "$projects" | tr '\n' ',')" "{{commit_msg_file}}"
-            """#
+            #"hk util check-conventional-commit --allowed-scopes="$(nx show projects --json | jq -r 'join(",")')" "{{commit_msg_file}}""#
           effect = "read"
         }
       }

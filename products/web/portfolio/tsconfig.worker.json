@@ -2,11 +2,29 @@
     "extends": "./tsconfig.json",
     "compilerOptions": {
         "composite": false,
-        "declarationMap": false,
-        "noEmit": true,
         "customConditions": ["workerd"],
         "lib": ["esnext", "dom"],
         "types": ["@cloudflare/workers-types", "vite/client"]
     },
-    "include": ["server/main.ts"]
+    "include": ["server/main.ts"],
+    "references": [
+        {
+            "path": "../../../libs/typescript/data/database"
+        },
+        {
+            "path": "../../../libs/typescript/web/hosting/tsconfig.lib.json"
+        },
+        {
+            "path": "../../../libs/typescript/web/hosting/tsconfig.worker.json"
+        },
+        {
+            "path": "../../../libs/typescript/web/media/tsconfig.lib.json"
+        },
+        {
+            "path": "../../../libs/typescript/data/object-storage/tsconfig.lib.json"
+        },
+        {
+            "path": "../../../libs/typescript/web/ui/tsconfig.lib.json"
+        }
+    ]
 }

@@ -1,92 +1,118 @@
 # [INFRASTRUCTURE]
 
+Machines, accounts, and services the `infra/` stacks declare.
+
 ## [01]-[PLACES]
 
 Each place holding state changes through one action:
 
 | [INDEX] | [PLACE]                              | [DECIDED_BY]                                                   | [UPDATED_BY]                |
 | :-----: | :----------------------------------- | :------------------------------------------------------------- | :-------------------------- |
-|  [01]   | This Mac                             | Tool versions, lock files, Nx cache folder                     | `mise install`, `mise deps` |
+|  [01]   | Owner's Mac                          | Tool versions, lock files, Nx cache folder                     | `mise install`, `mise deps` |
 |  [02]   | CI runner                            | Pushed commit                                                  | `git push`                  |
 |  [03]   | GitHub, Doppler, Cloudflare, tailnet | `infra/repository-stack.ts`, Doppler's sync                    | Workflow `Deploy`           |
-|  [04]   | Machines                             | Table `hosts` of `infra/platform-stack.ts`, mise `[bootstrap]` | Workflow `Deploy`           |
+|  [04]   | Google Cloud project `rasm-release`  | `infra/repository-stack.ts`                                    | Workflow `Deploy`           |
+|  [05]   | Machines                             | Table `hosts` of `infra/platform-stack.ts`, mise `[bootstrap]` | Workflow `Deploy`           |
 
 ## [02]-[MACHINES]
 
-- Machine names state no role, provider, or location: roles sit in field `roles` and in the DNS alias of each service a role runs
+Machines, their reinstall, and the images their stacks run:
+- Table `hosts` keys each machine by DNS name and states public IPv4 `address`, `tags`, and `roles`
+- Machine names state no role, provider, or location, and each service a role runs takes a DNS alias
 - Each machine holds DNS record `<name>.<zone>`, tailnet name `<name>`, and a Pulumi stack named by its DNS name
-- Stack `rasm` holds one Hostinger post-install script, which joins a reinstalled machine to the tailnet with Tailscale SSH under key `machines` and its tags
-- That script flushes its writes to disk before it joins, as `set-hostname` resets a machine with no shutdown and loses each write not yet on disk
-- `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine, erasing its disk and resetting its hostname, which `set-hostname` restores once the machine joined the tailnet
-- Reinstalls follow `tscli delete device` of the machine, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote <name>` follows them
-- Reinstalls of a machine holding object storage follow `node stacks.ts deploy --operation=destroy --stack=<name>`, as the storage provider fails to refresh an account whose store is gone
-- File `99lock-timeout` of the Hostinger image holds the package lock wait, raised to 10 minutes, as a runner install on a reinstalled machine runs beside its first unattended upgrade
-- Machines losing the tailnet are reached through the provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
-- Table `hosts` holds one row per machine, keyed by DNS name, stating public IPv4 `address`, `tags`, and `roles`
-- `.config/mise.toml` `[bootstrap.remote.hosts]` holds one row per machine by tailnet name, and its `mise_env` loads `linux` and a role file (`.config/mise.runner.toml`), as the folder sent holds no `.miserc.toml` to select platform files
-- `.config/mise.linux.toml` `[bootstrap]` declares the Docker and Tailscale apt sources and packages, each settings file every machine gets, and the system service the file restarts
+- Stack `rasm` holds a Hostinger post-install script joining reinstalled machines to the tailnet with Tailscale SSH under key `machines` and its tags
+- `set-hostname` restores a machine's hostname after its tailnet join and resets it with no shutdown, and post-install scripts flush writes first
+- `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine and erases its hostname
+- Reinstalls follow `tscli delete device`, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote` follows
+- Reinstalls of a storage machine follow `node stacks.ts deploy --operation=destroy --stack=<name>`, as the provider cannot refresh a lost store
+- `[bootstrap]` lengthens the Hostinger image's `99lock-timeout`, as a reinstalled machine's runner install meets its first unattended upgrade
+- Reach machines off the tailnet through their provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
+- `[bootstrap.remote]` loads `linux`, and a host row with a role names `linux` and its role file, as the folder sent holds no `.miserc.toml`
 - `mise bootstrap remote` sends folder `.config` and applies parts `accounts`, `packages`, `files`, and `services` as `root@<name>` over Tailscale SSH
 - Role `Cache` runs the Nx cache server with its proxy and object storage
-- Role `Runner` runs GitHub Actions runner services and pulls an Unreal image per engine release a tracked `.uproject` names
+- Role `Runner` runs a runner service per instance and pulls an Unreal image per engine release a tracked `.uproject` names
+- Role `Runner` builds and pushes `ghcr.io/<owner>/<repository>/playwright:<version>`, locked Playwright Chromium over the newest `node:slim`
+- Images with a source label naming the repository inherit its access
 - Role `Apps` runs the proxy, sign-in, and object storage of hosted apps, on one machine per zone, as a zone holds each public name once
 - Stacks declare containers, volumes, networks, and images through the Docker provider
-- Docker engines build stack images from inline Dockerfiles
-- Doppler `deploy` and 1Password hold `<NAME>_ROOT_PASSWORD`, `<NAME>_SSH_PRIVATE_KEY`, and `<NAME>_SSH_PUBLIC_KEY`, which no code reads
+- Docker engines build stack images from inline Dockerfiles with build checks as errors, load local images, and push registry images
+- Pushed images hold their registry credentials, as a changed `registries` setting replaces the build provider and images ignore a changed password
+- Builds run in a BuildKit container the build provider creates per client
+- Pulled images take name `<tag>@<digest>` from registry digests each deploy reads, and a moved tag replaces the image, then its containers
+- Docker removes no image name a container uses, its provider pulls no name a machine holds, and stacks name no image by tag alone
 
 ## [03]-[TAILNET]
 
+Tailnet members, tags, and policy:
 - Job `deploy` joins as `tag:deploy` through the OAuth client stack `rasm` writes to GitHub environment `deploy`
-- Machines carry `tag:server`
+- Machines hold `tag:server`
 - Stacks reach each machine's Docker engine and shell as `root@<name>` over Tailscale SSH with no key
 - Machine and app stacks apply only from a computer on the tailnet
 - Tailnet policy grants every source every destination and port, SSH from members and `tag:deploy` to machine tags, and Funnel to members
 - Tailnet policy is marked externally managed with a link to its stack file, and the admin console warns before an edit a deploy reverts
-- Tailnet settings turn on device auto-updates, HTTPS, and MagicDNS, and turn off user approval
+- Tailnet settings enable device auto-updates, HTTPS, and MagicDNS, and disable user approval
 
 ## [04]-[NETWORK]
 
+Routes from public names to containers:
 - Traefik proxies publish ports 80 and 443 on every address, redirect 80 to 443, and issue ACME certificates by TLS challenge
-- Proxies mount folder `/var/run` to read the Docker socket, as a Docker package update replaces the socket file under containers it keeps running
-- Routed services publish no port: the proxy reaches each on the Docker network, under one CNAME `<service>.<zone>` to its machine
+- Proxies mount folder `/var/run` to read the Docker socket, as Docker package updates replace its socket file under running containers
+- Routed services publish no port, and proxies reach each on its Docker network under one CNAME `<service>.<zone>` to its machine
 - Apps on a machine get CNAME `<app>.<zone>`, and the machine's sign-in service requires a session on each app's sign-in path alone
-- Proxies strip `Remote-User` and `Remote-Email` from every app request and set them from the sign-in session, which app variable `ACCESS` names
+- Proxies strip `Remote-User` and `Remote-Email` from every app request and set both from the sign-in session, and apps read both through `ACCESS`
 - Object storage publishes its port on the machine's tailnet IPv4 alone, `127.0.0.1` on a local install
 - `net.ipv4.ip_nonlocal_bind` lets Docker bind the tailnet address before `tailscaled` sets it at boot
 - Stacks dial object storage by tailnet name, and containers dial it inside their Docker network
 - Stacks and `[bootstrap]` declare no firewall
-- Containers a CI job starts publish on every address unless they name one
+- Containers a CI job starts without an address publish on every address
 
 ## [05]-[CACHE_SERVER]
 
-- Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name`, taking a read-only and a write token
-- Runners reach the cache over public HTTPS through the proxy, and only object storage sits on the tailnet
-- Cache stacks write the server URL and both tokens to Doppler `ci`, synced to repository secrets, and reference URL and read token from `dev`
-- Cache stacks write the object storage root keys to Doppler `dev`
-- Cache objects expire 7 days after their write (role field `kept`), and a read refreshes none
-- Deploys recreate a cache container only on its changed definition, an `nx` run starting in that moment warns and uses its local cache alone, and one past its first read stops
+Nx cache server of role `Cache`:
+- Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes a read-only and a write token
+- Runners reach the cache over public HTTPS through its proxy
+- Cache stacks write server URL and both tokens to Doppler `ci`
+- Cache stacks write object storage root keys and references to URL and read token to Doppler `dev`
+- Cache objects expire role field `kept` after their write, and a read refreshes none
+- Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop
 
 ## [06]-[RUNNERS]
 
-- Role `Runner` field `instances` names each runner service by its label with its systemd resource limits, which the stack sets through `systemctl set-property` once the service starts
-- `.config/mise.runner.toml` holds user `runner` (uid 1000, also in group `docker`), the build packages, and its passwordless sudo
+GitHub Actions runners of role `Runner`:
+- Role `Runner` field `instances` names each runner service by label with the systemd limits `systemctl set-property` sets once it starts
 - Runner `<machine>-<label>` holds folder `actions-runner-<label>`, its own work folder, and label `<label>` beside the default labels
-- Instance `host` runs jobs on the machine and `container` runs jobs in a container, and a host job and a container job run at once
-- Runner version, label, limit, or repository changes install a runner again with a registration token `gh api` creates, after `systemctl revert` clears its limits
+- Instance `host` runs jobs on the machine and `container` in a container, one job of each at once
+- Changes to runner version, label, limits, repository, or tailnet node reinstall a runner with a `gh api` token after `systemctl revert`
 - Runners keep tools, ignored files, and each Unreal image between runs
-- `needrestart` leaves `actions.runner.*` services running after a library update, as GitHub documents
+- `needrestart` leaves `actions.runner.*` services running after a library update
 
 ## [07]-[SECRETS]
 
-- Doppler project `rasm` holds configs `dev`, `ci`, `release`, and `deploy`, and 1Password holds every value
+Doppler configs and their readers:
+- Doppler project `rasm` holds configs `dev`, `ci`, `release`, and `deploy`
 - Config `ci` syncs to repository Actions secrets and `release` to GitHub environment `release`, each deleting names removed from Doppler
-- GitHub environment `deploy` holds a read-only Doppler service token of `deploy` as `DOPPLER_TOKEN`, with the Tailscale OAuth client of job `deploy`
-- Doppler `deploy` rows hold the name of the variable their provider reads, and each stack's Pulumi process receives them as its environment
+- GitHub environment `deploy` holds a read-only Doppler service token of `deploy` as `DOPPLER_TOKEN`
+- Doppler `deploy` rows hold the variable name their provider reads, and each stack's Pulumi process receives them as its environment
+- Doppler `deploy` and 1Password hold `<NAME>_ROOT_PASSWORD`, `<NAME>_SSH_PRIVATE_KEY`, and `<NAME>_SSH_PUBLIC_KEY`, and no code reads them
 - Stacks write no `deploy` row, as a change to `deploy` starts workflow `Deploy`
-- Row `DOPPLER_IAC_TOKEN` reaches that process as `DOPPLER_TOKEN`, and row `GITHUB_TOKEN` authorizes the GitHub provider and the deploy webhook
+- Row `DOPPLER_IAC_TOKEN` reaches stacks as `DOPPLER_TOKEN`, and row `GITHUB_TOKEN` authorizes the GitHub provider and deploy webhook
 - Pulumi state sits in Pulumi Cloud for `deploy` and in local backend `file://~` for `install`
 
-## [08]-[UPDATES]
+## [08]-[GOOGLE_CLOUD]
 
-- Machines install Ubuntu `*-updates` and Docker packages daily at 05:00 `America/Chicago`, after a random delay of up to an hour
-- Machines reboot as soon as an update requires it, which stops a job running there and any CI run reading the cache it serves
-- Docker Engine's default garbage collection bounds the build cache, and no job prunes it
+Google Cloud project `rasm-release`, its identities, and the GitHub variables naming them:
+- Stack `rasm` declares project APIs, workload identity pool `github`, and provider `github` trusting OIDC tokens of the repository ID alone
+- Service accounts `chrome-web-store` and `deploy` take tokens from environments `release` and `deploy` through `roles/iam.workloadIdentityUser`
+- Stack `rasm` writes `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` and `GOOGLE_SERVICE_ACCOUNT` per environment, `CHROME_WEB_STORE_PUBLISHER` to `release`
+- Service account `deploy` holds roles `infra/repository-stack.ts` lists, and role changes apply from the owner's Mac
+- Local deploys read the application default credentials `gcloud auth application-default login` writes
+- Owners with the token creator role on `chrome-web-store` add `--impersonate-service-account` and `--scopes` to `print-access-token`
+- Chrome Web Store dashboard Settings list `chrome-web-store` under Service account, with access to every publisher item
+- Service accounts hold no key, and Chrome Web Store API answers 403 alike for an item missing from the publisher and a refused identity
+
+## [09]-[UPDATES]
+
+Package updates and reboots of each machine:
+- Machines install Ubuntu `*-updates` and Docker packages daily on the timer `.config/mise.linux.toml` sets
+- Machines reboot when an update requires it, and each reboot stops jobs there and CI runs reading its cache
+- Docker Engine's default garbage collection bounds the build cache CI builds fill, and no job prunes it

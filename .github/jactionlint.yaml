@@ -1,9 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jdx/jactionlint/main/schema/jactionlint-config.json
 # --- [JACTIONLINT] ----------------------------------------------------------------------
 
 profile: correctness
+generated-files: report
+assume-default-permissions: restricted
 
-rules:
-    require-shell: error
+self-hosted-runner:
+    labels: [self-hosted, host, container, xcode-27, windows-2025, ubuntu-26.04]
+    strict-labels: true
+    providers: []
 
 shellcheck:
     rcfile: .config/shellcheckrc
+
+update:
+    freeze: true
+
+rules:
+    undefined-property: { strict-event-payloads: true }
+    concurrency-cancels-prs: error
+    concurrency-cancels-release: error
+    concurrency-limits: { level: error, pedantic: true }
+    duplicate-triggers: error
+    gate-job-skipped-on-failure: error
+    insufficient-permissions: { level: error, pedantic: true }
+    missing-timeout: { level: error, accept-step-timeouts: false }
+    timeout-too-long: { level: error, max: 120 }
+    pipeline-without-pipefail: error
+    shell-syntax: error
+    ubuntu-slim-limits: { level: error, pedantic: true }
+    unpinned-uses: error
+    unused-job-output: error
+    anonymous-definition: error
+    continue-on-error: { level: error, steps: true }
+    deprecated-node-runtime: error
+    deprecated-runner-label: error
+    event-name-never-received: error
+    fail-fast-action-inputs: error
+    macos-gnu-flags: error
+    max-run-lines: { level: error, max: 20 }
+    missing-version-comment: error
+    mutable-runner-label: error
+    require-expression-wrapping: error
+    require-shell: error
+    self-repository: error
+    unmatched-paths-filter: error
+    unused-ignore: error
+    unused-needs: error
+    unused-workflow-input: error
+    unused-workflow-secret: error

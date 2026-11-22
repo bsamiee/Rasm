@@ -9,10 +9,10 @@ import { automation } from '@pulumi/pulumi';
 import { run } from '@rasm/process';
 import { Array, Cause, Effect, Exit, FileSystem, flow, Option, type Path, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import { hostingStacks } from '#/hosting-stack';
+import { hostingStacks } from '#/hosting-stack.ts';
 import manifest from '#/package.json' with { type: 'json' };
-import { hosts, installed, local, provisioned } from '#/platform-stack';
-import { type configs, identified, repositoryStack } from '#/repository-stack';
+import { hosts, installed, local, provisioned } from '#/platform-stack.ts';
+import { type configs, identified, repositoryStack } from '#/repository-stack.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -26,6 +26,7 @@ const Request = Schema.Struct({
     operation: Schema.Literals(Struct.keys(OPERATIONS)).annotate({ description: 'up applies each stack, preview prints the changes an apply makes and makes none, destroy destroys and removes it' }),
     stack: Schema.optionalKey(Schema.String).annotate({ description: 'Name of the one stack to run, absent runs every stack in dependency order' }),
     production: Schema.Boolean.annotate({ description: 'Deploys the stacks of a released version' }),
+    'expect-no-changes': Schema.Boolean.annotate({ description: 'Fails an up or preview that changes a resource' }),
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -34,8 +35,8 @@ const deployed = run(['doppler', 'secrets', 'download', '--no-file', '--format',
 
 const requested = Effect.flatMap(
     Effect.try({
-        try: () => parseArgs({ args: process.argv.slice(2), options: { operation: { type: 'string', default: 'up' }, stack: { type: 'string' }, production: { type: 'boolean', default: false } }, allowPositionals: true }),
-        catch: (cause) => new Cause.UnknownError(cause, `${manifest.name} reads <install|deploy> [--operation=up|preview|destroy] [--stack=<name>] [--production]`),
+        try: () => parseArgs({ args: process.argv.slice(2), options: { operation: { type: 'string', default: 'up' }, stack: { type: 'string' }, production: { type: 'boolean', default: false }, 'expect-no-changes': { type: 'boolean', default: false } }, allowPositionals: true }),
+        catch: (cause) => new Cause.UnknownError(cause, `${manifest.name} reads <install|deploy> [--operation=up|preview|destroy] [--stack=<name>] [--production] [--expect-no-changes]`),
     }),
     ({ positionals: [verb], values }) => Schema.decodeUnknownEffect(Request)({ verb, ...values }),
 );
@@ -90,7 +91,8 @@ const applied = Effect.fnUntraced(function* (request: typeof Request.Type) {
         yield* Effect.tryPromise({
             try: (signal): Promise<unknown> => {
                 const handlers = { signal, onOutput: printed, onError: printed, color: 'never', refresh: true, runProgram: true } as const;
-                return { up: () => stack.up(handlers), preview: () => stack.preview(handlers), destroy: () => stack.destroy({ ...handlers, remove: true }) }[request.operation]();
+                const converged = { ...handlers, expectNoChanges: request['expect-no-changes'] };
+                return { up: () => stack.up(converged), preview: () => stack.preview({ ...converged, diff: true }), destroy: () => stack.destroy({ ...handlers, remove: true }) }[request.operation]();
             },
             catch: failed,
         });

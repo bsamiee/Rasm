@@ -34,7 +34,7 @@ public enum JSONValue: Codable, Hashable, Sendable {
     }
 
     private static func checkNesting(at path: [any CodingKey]) throws(DecodingError) {
-        guard path.count <= 200 else {
+        guard path.count < 200 else {
             throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: path, debugDescription: "JSON nests deeper than 200 levels"))
         }
     }

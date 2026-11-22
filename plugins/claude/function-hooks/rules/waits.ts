@@ -2,11 +2,11 @@ import { devNull } from 'node:os';
 import process from 'node:process';
 import { Array, Clock, Duration, Effect, Filter, Option, Record } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
-import { Host } from '#/host';
-import { Verdict } from '#/rules/decision';
-import { type Call, edited, erased, inserted, once, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, spelled, stages, when, whole, within } from '#/rules/rule';
-import type { Invocation } from '#/shell/invocation';
-import type { Word } from '#/shell/script';
+import { Host } from '#/host.ts';
+import { Decision, Verdict } from '#/rules/decision.ts';
+import { type Call, edited, erased, inserted, once, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, spelled, stages, when, whole, within } from '#/rules/rule.ts';
+import type { Invocation } from '#/shell/invocation.ts';
+import type { Word } from '#/shell/script.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -28,12 +28,14 @@ const CONSTANT: ReadonlySet<string> = new Set(['true', ':', 'false']);
 const LEAVES: ReadonlySet<string> = new Set(['break', 'exit']);
 const TRAILING_READS: ReadonlySet<string> = new Set(['cat', 'tail', 'head', 'echo', 'printf', 'rg', 'jq', 'ls']);
 const WAITERS: ReadonlySet<string> = new Set(['sleep', 'timeout', 'caffeinate', 'wait4path', 'watch']);
-const AGENT_TASK = /^a[0-9a-f]{16}$/u;
 const PATH_WORD = /^\S+$/u;
-const TRANSCRIPT = /\/\.claude\/projects(?:\/[^/]+)?\/?$|\/\.claude\/projects\/.+\.jsonl$|\/\.codex\/(?:archived_)?sessions(?:\/|$)/u;
-const SHELL_HISTORY = /\/\.(?:zsh|bash)_history$|\/\.zsh_sessions(?:\/|$)/u;
 const LOOPBACK: ReadonlySet<string> = new Set(['127.0.0.1', 'localhost', '::1']);
 const SILENT_SOURCE = /^a?nullsrc\b/u;
+const RECORDS = [
+    [/\/tasks\/a[0-9a-f]{16}\.output$/u, "is a running agent's output that the agent reports when it ends, SendMessage asks it for status"],
+    [/\/\.claude\/projects(?:\/[^/]+)?\/?$|\/\.claude\/projects\/.+\.jsonl$|\/\.codex\/(?:archived_)?sessions(?:\/|$)/u, 'is a session transcript, atuin threads show <session id> --style ndjson reads it'],
+    [/\/\.(?:zsh|bash)_history$|\/\.zsh_sessions(?:\/|$)/u, "is shell history, atuin search --filter-mode global --search-mode fulltext '<words>' reads it"],
+] as const;
 const STUCK_LINES = 10;
 const STUCK_REPEATS = 5;
 const QUIET = Duration.minutes(10);
@@ -75,7 +77,7 @@ const watchedRun: Rule = (invocation, { analysis, request }) => {
     const read = command.origin === 'call' && invocation.outer.length === 0 && !(command.pipes || command.fed || command.captured) && command.redirects.every(({ op }) => op === RedirOperator.DplOut);
     const slept = waited?.program === 'sleep' && waited.outer.length === 0 && !waited.command.looping;
     return Option.match(
-        Option.filter(viewedRun(invocation), () => !invocation.repeated && read && slept && (request.kind === 'foreground' || request.kind === 'background')),
+        Option.filter(viewedRun(invocation), () => !invocation.repeated && read && slept && request.kind !== 'monitor'),
         {
             onNone: () => [],
             onSome: ({ follow }) => [...(waited === undefined ? [] : edited(waited, waited.command, ':')), ...whole(invocation, follow, 'sleep before gh run view'), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])],
@@ -93,9 +95,7 @@ const timer = (invocation: Invocation, { request }: Call): readonly Verdict[] =>
 
 const bareTimer = (call: Call, waiter: string): readonly Verdict[] | undefined =>
     call.analysis.invocations.every(({ program, command: other }) => other.origin !== 'call' || program === waiter || program === 'timeout' || IDLE.has(program))
-        ? refusal(
-              `A bare timer waits on nothing and wakes you with nothing new: ${call.request.kind === 'plain' ? 'a wait on a spawned agent returns with its result' : 'background tasks and agents notify when they end, Monitor `until <check>; do sleep 5; done` waits on a condition with timeout_ms as its bound'}, and a turn with nothing to do ends until a notice arrives`,
-          )
+        ? refusal('A bare timer waits on nothing and wakes you with nothing new: background tasks and agents notify when they end, Monitor `until <check>; do sleep 5; done` waits on a condition with timeout_ms as its bound, and a turn with nothing to do ends until a notice arrives')
         : undefined;
 
 const sleep: Rule = (invocation, call) => {
@@ -109,16 +109,7 @@ const sleep: Rule = (invocation, call) => {
 
 const nullTail: Rule = (_invocation, call) => bareTimer(call, 'tail') ?? [];
 
-const streamed: Rule = (invocation, call) => {
-    const { kind } = call.request;
-    if (kind === 'monitor' || !invocation.last || (invocation.command.job && reaped(call))) {
-        return [];
-    }
-    if (kind !== 'plain') {
-        return [Verdict.Monitor()];
-    }
-    return stages(invocation, call).later.some(closesInput) ? [] : refusal(`${invocation.program} holds the call open, run it in the background`);
-};
+const streamed: Rule = (invocation, call) => (call.request.kind === 'monitor' || !invocation.last || (invocation.command.job && reaped(call)) ? [] : [Verdict.Monitor()]);
 
 const exitsAlone: Rule = (invocation, call) => (invocation.command.job && reaped(call) ? [] : timer(invocation, call));
 
@@ -184,6 +175,14 @@ const psFilter: Rule = (invocation, call) => {
 
 // --- [TASK_OUTPUT]
 
+const recordRoute = (file: string): Option.Option<string> =>
+    Option.map(
+        Array.findFirst(RECORDS, ([held]) => held.test(file)),
+        ([, route]) => route,
+    );
+
+const recorded = (file: string): typeof Decision.Type => Option.match(recordRoute(file), { onNone: () => Decision.cases.Allow.make({}), onSome: (route) => Decision.cases.Deny.make({ reason: `${file} ${route}` }) });
+
 const writers = (host: Host['Service'], files: readonly string[]) =>
     Effect.map(Effect.all([host.parents, Effect.forEach(files, (file) => host.output(['lsof', '-F', 'pa', file]), { concurrency: 'unbounded' })]), ([parents, listings]) =>
         listings.map((listing) => {
@@ -236,21 +235,19 @@ const watched = Effect.fnUntraced(function* (files: readonly string[]) {
     return files.map((file, at) => ({ file, live: Array.isReadonlyArrayNonEmpty(held[at] ?? []), ...Option.getOrUndefined(Option.map(stuck[at] ?? Option.none(), (found) => ({ stuck: found }))) }));
 });
 
-const RECORDS = [
-    { held: (file: string) => taskIds(file).some((id) => AGENT_TASK.test(id)), route: "is a running agent's output that the agent reports when it ends, SendMessage asks it for status" },
-    { held: (file: string) => TRANSCRIPT.test(file), route: 'is a session transcript, atuin threads show <session id> --style ndjson reads it' },
-    { held: (file: string) => SHELL_HISTORY.test(file), route: "is shell history, atuin search --filter-mode global --search-mode fulltext '<words>' reads it" },
-] as const;
-
 const polledTask = Effect.fnUntraced(function* (call: Call) {
     const { analysis, host, request } = call;
     const own = analysis.invocations.filter(({ command }) => command.origin === 'call');
     const files = Array.dedupe(
         own.flatMap((invocation) =>
-            Array.getSomes([...invocation.words, ...Array.getSomes(invocation.command.redirects.map(({ target }) => target))].filter(({ text }) => PATH_WORD.test(text) && (taskIds(text).length > 0 || TRANSCRIPT.test(text) || SHELL_HISTORY.test(text))).map(({ text }) => host.resolve(text, invocation.command.cwd))),
+            Array.getSomes([...invocation.words, ...Array.getSomes(invocation.command.redirects.map(({ target }) => target))].filter(({ text }) => PATH_WORD.test(text) && (taskIds(text).length > 0 || Option.isSome(recordRoute(text)))).map(({ text }) => host.resolve(text, invocation.command.cwd))),
         ),
     );
-    const routes = RECORDS.flatMap(({ held, route }) => Array.match(files.filter(held), { onEmpty: () => [], onNonEmpty: (read) => [`${read.join(' ')} ${route}`] }));
+    const routed = Array.getSomes(files.map((file) => Option.map(recordRoute(file), (route) => ({ route, file }))));
+    const routes = Record.collect(
+        Array.groupBy(routed, ({ route }) => route),
+        (route, read) => `${read.map(({ file }) => file).join(' ')} ${route}`,
+    );
     const ids = taskIds(files.join(' '));
     const waits = own.some(({ program, repeated, has }) => repeated || WAITERS.has(program) || (program === 'read' && has('-t')));
     if (routes.length > 0) {
@@ -259,9 +256,9 @@ const polledTask = Effect.fnUntraced(function* (call: Call) {
     if (ids.length === 0 || waits || request.kind === 'monitor') {
         return [];
     }
-    const live = yield* Effect.match(writers(host, files), { onFailure: () => [], onSuccess: (held) => files.filter((_file, at) => Array.isReadonlyArrayNonEmpty(held[at] ?? [])) });
-    const judged = request.call === undefined || (yield* once(request, `call ${request.call}`));
-    const again = yield* Effect.filter(live, (file) => (judged ? Effect.map(once(request, `task ${file}`), (fresh) => !fresh) : Effect.succeed(false)));
+    const judged = yield* once(request, `call ${request.call}`);
+    const reread = yield* Effect.filter(files, (file) => (judged ? Effect.map(once(request, `task ${file}`), (fresh) => !fresh) : Effect.succeed(false)));
+    const again = reread.length === 0 ? [] : yield* Effect.match(writers(host, reread), { onFailure: () => [], onSuccess: (held) => reread.filter((_file, at) => Array.isReadonlyArrayNonEmpty(held[at] ?? [])) });
     return yield* Effect.forEach(again, (file) =>
         Effect.map(stalled(host, file), (evidence) => {
             const id = taskIds(file).join(' ');
@@ -293,7 +290,7 @@ const backgroundJob = (call: Call): readonly Verdict[] => {
             .split('\n')
             .every((line) => BLANK_LINE.test(line));
     if (!trailing) {
-        return refusal(`& job outlives the call, ${request.kind === 'plain' ? 'run it as its own call' : 'set run_in_background'}`);
+        return refusal('& job outlives the call, set run_in_background');
     }
     return [Verdict.Edit({ start: job.start, end: job.end, text: Option.none(), subject: Option.none() }), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])];
 };
@@ -318,7 +315,7 @@ const waitLoop = ({ analysis, request }: Call): readonly Verdict[] => {
     const probes = looping.every(({ probe }) => probe);
     const sleeps = looping.some(({ sleep: waited }) => waited);
     const placed = outside.every(({ program, command }) => command.start >= end && TRAILING_READS.has(program));
-    return (request.kind === 'foreground' || request.kind === 'background') && looping.length > 0 && waits && probes && sleeps && placed ? [Verdict.Monitor()] : [];
+    return request.kind !== 'monitor' && looping.length > 0 && waits && probes && sleeps && placed ? [Verdict.Monitor()] : [];
 };
 
 const endlessLoop = ({ analysis }: Call): readonly Verdict[] => {
@@ -388,4 +385,4 @@ const WAITS: Ruleset = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { WAITS, watched };
+export { recorded, WAITS, watched };

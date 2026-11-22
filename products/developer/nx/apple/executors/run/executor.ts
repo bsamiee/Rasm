@@ -7,18 +7,24 @@ import type { TaskResult } from '@nx/devkit/internal';
 import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Function, HashSet, Option, Predicate, Record, Schema, Stream } from 'effect';
 import { CommandLine } from 'effect/process';
-import { ran, run } from '#/targets';
+import { ran, run } from '#/targets.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Report = Schema.Struct({
     profiles: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Patterns of the profiles the invocations write, each match removed before the invocations' }),
-    objects: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Instrumented binaries llvm-cov reads the coverage mapping of' }),
+    objects: Schema.Array(Schema.String)
+        .annotate({ description: 'Instrumented binaries llvm-cov reads the coverage mapping of' })
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+    results: Schema.Array(Schema.String)
+        .annotate({ description: 'Patterns of the result bundles the invocations write, each match removed before the invocations, the build product of each target xcrun xccov reports in one joining objects' })
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
     file: Schema.String.annotate({ description: 'File the lcov report is written to' }),
-}).annotate({ description: 'lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects with xcrun llvm-cov export' });
+}).annotate({ description: 'lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects and the targets of each matching result bundle with xcrun llvm-cov export' });
+const Covered = Schema.fromJsonString(Schema.Array(Schema.Struct({ buildProductPath: Schema.String })));
 const Run = Schema.Struct({
     runs: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'Invocations the plugin infers, each a program and its arguments' }),
-    applications: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Application bundles the invocations install, a running one named in the last line as needing a relaunch' }),
+    applications: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Bundle names of the applications the invocations install, a running executable inside one named in the last line as needing a relaunch' }),
     report: Schema.optionalKey(Report),
     dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each invocation and runs none' }),
     __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
@@ -31,12 +37,18 @@ const configured = Config.map(Config.withDefault(Config.Int('GIT_CONFIG_COUNT'),
 
 const matched = (patterns: readonly string[], root: string) => Effect.promise(() => globalThis.Array.fromAsync(glob(patterns, { cwd: root }), (at) => resolve(root, at)));
 
-const lcov = Effect.fnUntraced(function* ({ profiles, objects }: typeof Report.Type, root: string) {
+const lcov = Effect.fnUntraced(function* ({ profiles, objects, results }: typeof Report.Type, root: string) {
     const fs = yield* FileSystem.FileSystem;
     const written = yield* Effect.filterOrFail(matched(profiles, root), Array.isReadonlyArrayNonEmpty, () => new Cause.UnknownError(profiles, `No profile matches ${profiles.join(' or ')} after the invocations`));
+    const reported = Effect.flatMap(matched(results, root), (bundles) => Effect.forEach(bundles, (bundle) => Effect.flatMap(spawned(['xcrun', 'xccov', 'view', '--report', '--only-targets', '--json', bundle], { cwd: root }), Schema.decodeEffect(Covered))));
+    const instrumented = yield* Effect.filterOrFail(
+        Effect.map(reported, (targets) => Array.dedupe([...objects, ...targets.flat().map(({ buildProductPath }) => buildProductPath)])),
+        Array.isReadonlyArrayNonEmpty,
+        () => new Cause.UnknownError(results, `No instrumented binary is stated or reported by a result bundle matching ${results.join(' or ')} after the invocations`),
+    );
     const merged = join(yield* fs.makeTempDirectoryScoped(), 'merged.profdata');
     yield* spawned(['xcrun', 'llvm-profdata', 'merge', '--sparse', `--output=${merged}`, ...written], { cwd: root });
-    return yield* spawned(['xcrun', 'llvm-cov', 'export', '--format=lcov', `--instr-profile=${merged}`, ...objects.flatMap((object) => ['--object', object])], { cwd: root });
+    return yield* spawned(['xcrun', 'llvm-cov', 'export', '--format=lcov', `--instr-profile=${merged}`, ...instrumented.flatMap((object) => ['--object', object])], { cwd: root });
 }, Effect.scoped);
 
 const commands = Effect.fnUntraced(function* ({ runs, applications = [], report, dryRun: dry = false, __unparsed__: words = [] }: typeof Run.Type, root: string) {
@@ -47,8 +59,8 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], report,
         Record.filter(env, (_, name) => name.startsWith('NX_') || name === 'LERNA_PACKAGE_NAME'),
         Function.constUndefined,
     );
-    const previous = yield* Option.match(reported, { onNone: () => Effect.succeed([]), onSome: ({ profiles }) => matched(profiles, root) });
-    yield* Effect.forEach(previous, (at) => fs.remove(at, { force: true }), { discard: true });
+    const previous = yield* Option.match(reported, { onNone: () => Effect.succeed([]), onSome: ({ profiles, results }) => matched([...profiles, ...results], root) });
+    yield* Effect.forEach(previous, (at) => fs.remove(at, { force: true, recursive: true }), { discard: true });
     const success = yield* Effect.reduce(
         runs,
         (): boolean => true,
@@ -65,7 +77,7 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], report,
         ),
     );
     const running = !success || dry || applications.length === 0 ? [] : (yield* spawned(['ps', '-Ao', 'comm='], { cwd: root })).split('\n');
-    const stale = applications.filter((application) => running.some((executable) => executable.startsWith(join(application, 'Contents', 'MacOS', sep))));
+    const stale = applications.filter((application) => running.some((executable) => executable.includes(join(sep, application, 'Contents', 'MacOS', sep))));
     yield* stale.length === 0 ? Effect.void : Effect.logInfo(`${stale.map((application) => basename(application, '.app')).join(', ')} runs the build it launched from, relaunch it to run this one`);
     return { success };
 });

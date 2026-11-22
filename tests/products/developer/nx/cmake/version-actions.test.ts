@@ -1,140 +1,90 @@
-import type { ProjectGraph, ProjectGraphProjectNode, Tree } from '@nx/devkit';
+import type { ProjectGraphProjectNode, Tree } from '@nx/devkit';
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import CmakeVersionActions from '@rasm/nx-cmake/release/version-actions';
-import type { VersionActions } from 'nx/release';
+import { assert, asyncProperty, nat, tuple } from 'fast-check';
 import type { ReleaseGroupWithName } from 'nx/src/command-line/release/config/filter-release-groups';
 import type { FinalConfigForProject } from 'nx/src/command-line/release/utils/release-graph';
 import { describe, expect, it } from 'vitest';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const MANIFEST = 'packages/my-lib/CMakeLists.txt';
 const node: ProjectGraphProjectNode = { name: 'my-lib', type: 'lib', data: { root: 'packages/my-lib' } };
-
-const createProjectGraph = (): ProjectGraph => ({
-    nodes: {
-        'my-lib': node,
-        dependency: {
-            name: 'dependency',
-            type: 'lib',
-            data: { root: 'packages/dependency' },
-        },
-    },
-    dependencies: {},
-});
-
-const createVersionActions = async (tree: Tree): Promise<VersionActions> => {
-    const releaseGroup: ReleaseGroupWithName = { name: 'release-group', projects: ['my-lib'], projectsRelationship: 'independent', resolvedVersionPlans: false };
-    const finalConfigForProject: FinalConfigForProject = {
-        specifierSource: 'prompt',
-        currentVersionResolver: 'disk',
-        currentVersionResolverMetadata: {},
-        fallbackCurrentVersionResolver: 'disk',
-        versionPrefix: 'auto',
-        preserveLocalDependencyProtocols: false,
-        preserveMatchingDependencyRanges: false,
-        adjustSemverBumpsForZeroMajorVersion: false,
-        applyPreidToDependents: false,
-        versionActionsOptions: {},
-        manifestRootsToUpdate: [],
-        dockerOptions: {},
-    };
-    const versionActions = new CmakeVersionActions(releaseGroup, node, finalConfigForProject);
-    await versionActions.init(tree);
-    return versionActions;
+const group: ReleaseGroupWithName = { name: 'release-group', projects: ['my-lib'], projectsRelationship: 'independent', resolvedVersionPlans: false };
+const settled: FinalConfigForProject = {
+    specifierSource: 'prompt',
+    currentVersionResolver: 'disk',
+    currentVersionResolverMetadata: {},
+    fallbackCurrentVersionResolver: 'disk',
+    versionPrefix: 'auto',
+    preserveLocalDependencyProtocols: false,
+    preserveMatchingDependencyRanges: false,
+    adjustSemverBumpsForZeroMajorVersion: false,
+    applyPreidToDependents: false,
+    versionActionsOptions: {},
+    manifestRootsToUpdate: [],
+    dockerOptions: {},
 };
 
-describe('CmakeVersionActions', () => {
-    it('preserves CMakeLists.txt formatting when updating versions and dependencies', async () => {
-        const tree = createTreeWithEmptyWorkspace();
-        tree.write(
-            'packages/my-lib/CMakeLists.txt',
-            `cmake_minimum_required(VERSION 4.5)
-project(my_lib
-    VERSION 1.0.0
-    LANGUAGES CXX) # the library
-find_package(dependency 1.0.0 REQUIRED)
-`,
-        );
-        const versionActions = await createVersionActions(tree);
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-        await versionActions.updateProjectVersion(tree, '1.1.0');
-        await versionActions.updateProjectDependencies(tree, createProjectGraph(), { dependency: '2.0.0' });
+const manifested = async (text: string): Promise<{ readonly tree: Tree; readonly actions: CmakeVersionActions }> => {
+    const tree = createTreeWithEmptyWorkspace();
+    tree.write(MANIFEST, text);
+    const actions = new CmakeVersionActions(group, node, settled);
+    await actions.init(tree);
+    return { tree, actions };
+};
 
-        expect(tree.read('packages/my-lib/CMakeLists.txt', 'utf-8')).toBe(`cmake_minimum_required(VERSION 4.5)
-project(my_lib
-    VERSION 1.1.0
-    LANGUAGES CXX) # the library
-find_package(dependency 1.0.0 REQUIRED)
-`);
-    });
-
-    it.each([
+describe('project(VERSION) in CMakeLists.txt', () => {
+    it.for([
         {
-            name: 'spaces and LF endings',
-            input: 'project(my_lib\n    VERSION 1.0.0\n    LANGUAGES CXX)\n',
-            expected: 'project(my_lib\n    VERSION 1.1.0\n    LANGUAGES CXX)\n',
+            case: 'a multi-line call after another command taking VERSION',
+            text: 'cmake_minimum_required(VERSION 4.5)\nproject(my_lib\n    VERSION 1.0.0\n    LANGUAGES CXX) # the library\n',
+            written: 'cmake_minimum_required(VERSION 4.5)\nproject(my_lib\n    VERSION 1.1.0\n    LANGUAGES CXX) # the library\n',
         },
+        { case: 'tabs and CRLF line endings', text: 'project(my_lib\r\n\tVERSION 1.0.0\r\n\tLANGUAGES CXX)\r\n', written: 'project(my_lib\r\n\tVERSION 1.1.0\r\n\tLANGUAGES CXX)\r\n' },
         {
-            name: 'tabs and CRLF endings',
-            input: 'project(my_lib\r\n\tVERSION 1.0.0\r\n\tLANGUAGES CXX)\r\n',
-            expected: 'project(my_lib\r\n\tVERSION 1.1.0\r\n\tLANGUAGES CXX)\r\n',
+            case: 'a quoted argument after comments naming VERSION',
+            text: 'project(my_lib # VERSION 9.9.9 was the old line\n    #[[ VERSION 5.5.5 ]]\n    VERSION "1.0.0"\n    LANGUAGES CXX)\n',
+            written: 'project(my_lib # VERSION 9.9.9 was the old line\n    #[[ VERSION 5.5.5 ]]\n    VERSION "1.1.0"\n    LANGUAGES CXX)\n',
         },
-    ])('formats an updated version using $name', async ({ input, expected }) => {
-        const tree = createTreeWithEmptyWorkspace();
-        tree.write('packages/my-lib/CMakeLists.txt', input);
-        const versionActions = await createVersionActions(tree);
+    ])('rewrites the VERSION argument alone in $case', async ({ text, written }) => {
+        const { tree, actions } = await manifested(text);
 
-        await versionActions.updateProjectVersion(tree, '1.1.0');
+        await actions.updateProjectVersion(tree, '1.1.0');
 
-        expect(tree.read('packages/my-lib/CMakeLists.txt', 'utf-8')).toBe(expected);
+        expect(tree.read(MANIFEST, 'utf-8')).toBe(written);
     });
 
-    it('rejects a malformed manifest without changing it', async () => {
-        const tree = createTreeWithEmptyWorkspace();
-        const malformedManifest = `project(my_lib LANGUAGES CXX)
-`;
-        tree.write('packages/my-lib/CMakeLists.txt', malformedManifest);
-        const versionActions = await createVersionActions(tree);
+    it.for([
+        { case: 'a project() call stating no VERSION', text: 'project(my_lib LANGUAGES CXX)\n', version: '1.1.0', refusal: `${MANIFEST} states no VERSION in a project() call, which nx release reads and writes` },
+        { case: 'a prerelease version project(VERSION) cannot state', text: 'project(my_lib VERSION 1.0.0 LANGUAGES CXX)\n', version: '1.1.0-rc.1', refusal: `${MANIFEST} takes a major.minor.patch version alone in project(VERSION), which 1.1.0-rc.1 is not` },
+    ])('refuses $case, leaving the manifest as it was', async ({ text, version, refusal }) => {
+        const { tree, actions } = await manifested(text);
 
-        await expect(versionActions.updateProjectVersion(tree, '1.1.0')).rejects.toThrow('packages/my-lib/CMakeLists.txt states no VERSION in a project() call, which nx release reads and writes');
-        expect(tree.read('packages/my-lib/CMakeLists.txt', 'utf-8')).toBe(malformedManifest);
+        await expect(actions.updateProjectVersion(tree, version)).rejects.toThrow(refusal);
+        expect(tree.read(MANIFEST, 'utf-8')).toBe(text);
     });
 
-    it('rejects a prerelease version, which project(VERSION) cannot state, without changing the manifest', async () => {
-        const tree = createTreeWithEmptyWorkspace();
-        const manifest = `project(my_lib VERSION 1.0.0 LANGUAGES CXX)
-`;
-        tree.write('packages/my-lib/CMakeLists.txt', manifest);
-        const versionActions = await createVersionActions(tree);
+    it('writes any major.minor.patch version into project(VERSION) and reads that version back', async () => {
+        expect.hasAssertions();
+        await assert(
+            asyncProperty(tuple(nat(), nat(), nat()), async (parts) => {
+                const version = parts.join('.');
+                const { tree, actions } = await manifested('project(my_lib VERSION 0.0.1 LANGUAGES CXX)\n');
 
-        await expect(versionActions.updateProjectVersion(tree, '1.1.0-rc.1')).rejects.toThrow('packages/my-lib/CMakeLists.txt takes a major.minor.patch version alone in project(VERSION), which 1.1.0-rc.1 is not');
-        expect(tree.read('packages/my-lib/CMakeLists.txt', 'utf-8')).toBe(manifest);
-    });
+                await actions.updateProjectVersion(tree, version);
 
-    it('preserves comments and quoted arguments in a valid manifest', async () => {
-        const tree = createTreeWithEmptyWorkspace();
-        tree.write(
-            'packages/my-lib/CMakeLists.txt',
-            `project(my_lib # VERSION 9.9.9 was the old line
-    #[[ VERSION 5.5.5 ]]
-    VERSION "1.0.0"
-    LANGUAGES CXX)
-`,
+                expect(tree.read(MANIFEST, 'utf-8')).toBe(`project(my_lib VERSION ${version} LANGUAGES CXX)\n`);
+                await expect(actions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: version, manifestPath: MANIFEST });
+            }),
         );
-        const versionActions = await createVersionActions(tree);
-
-        await versionActions.updateProjectVersion(tree, '1.1.0');
-
-        expect(tree.read('packages/my-lib/CMakeLists.txt', 'utf-8')).toBe(`project(my_lib # VERSION 9.9.9 was the old line
-    #[[ VERSION 5.5.5 ]]
-    VERSION "1.1.0"
-    LANGUAGES CXX)
-`);
     });
 
-    it('reads the current version from the VERSION of the project() call', async () => {
-        const tree = createTreeWithEmptyWorkspace();
-        tree.write('packages/my-lib/CMakeLists.txt', 'cmake_minimum_required(VERSION 4.5)\nproject(my_lib VERSION 1.0.0 LANGUAGES CXX)\n');
-        const versionActions = await createVersionActions(tree);
+    it('reads the current version from the VERSION of the project() call, not of an earlier command', async () => {
+        const { tree, actions } = await manifested('cmake_minimum_required(VERSION 4.5)\nproject(my_lib VERSION 2.3.4 LANGUAGES CXX)\n');
 
-        await expect(versionActions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: '1.0.0', manifestPath: 'packages/my-lib/CMakeLists.txt' });
+        await expect(actions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: '2.3.4', manifestPath: MANIFEST });
     });
 });

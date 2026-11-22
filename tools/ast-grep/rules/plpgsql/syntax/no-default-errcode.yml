@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: plpgsql
 severity: error
+ignores: ['**/*.sqlite.{ts,tsx}']
 rule:
     matches: plpgsql-error-raise
     has: { kind: kw_raise, pattern: $KEYWORD }

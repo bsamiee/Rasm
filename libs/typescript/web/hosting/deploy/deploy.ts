@@ -27,8 +27,8 @@ import {
 import { local } from '@pulumi/command';
 import { type CustomResourceOptions, jsonStringify, type Output, output, type Resource, secret } from '@pulumi/pulumi';
 import { Array, Cause, Config, Duration, Effect, flow, Match, Option, Predicate, Record, Redacted, Result, Schema, String, Struct, UndefinedOr } from 'effect';
-import { App, type Binding } from '#/app/app';
-import { Access, Identity } from '#/app/identity';
+import { App, type Binding } from '#/app/app.ts';
+import { Access, Identity } from '#/app/identity.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -219,7 +219,7 @@ const deploy = {
                     ...Record.collect(infrequentAccess, (prefix, age) => ({ id: `infrequent access ${prefix}*`, enabled: true, conditions: { prefix }, storageClassTransitions: [{ storageClass: 'InfrequentAccess', ...aged(age) }] })),
                 ];
                 const allowed = cors.map(({ origins, methods, headers, exposed, age }) => ({ allowed: { origins: [...origins], methods: [...methods], headers: [...headers] }, exposeHeaders: [...exposed], maxAgeSeconds: Duration.toSeconds(age) }));
-                const emptying = { delete: `node ${fileURLToPath(import.meta.resolve('#/deploy/bucket-job'))}`, environment: { CLOUDFLARE_ACCOUNT_ID: accountId, CLOUDFLARE_API_TOKEN: secret(Redacted.value(token)), BUCKET: bucket.name } };
+                const emptying = { delete: `node ${fileURLToPath(import.meta.resolve('#/deploy/bucket-job.ts'))}`, environment: { CLOUDFLARE_ACCOUNT_ID: accountId, CLOUDFLARE_API_TOKEN: secret(Redacted.value(token)), BUCKET: bucket.name } };
                 return [new R2BucketLifecycle(store, { accountId, bucketName: bucket.name, rules }, options), ...(Array.isArrayNonEmpty(allowed) ? [new R2BucketCors(store, { accountId, bucketName: bucket.name, rules: allowed }, options)] : []), ...(kept ? [] : [new local.Command(`${store}-objects`, emptying)])];
             }),
             { discard: true },

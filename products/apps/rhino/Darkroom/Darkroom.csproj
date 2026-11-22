@@ -61,6 +61,10 @@
         <ProjectReference Include="../../../../libs/dotnet/runtime/Rasm.Telemetry/Rasm.Telemetry.csproj" />
     </ItemGroup>
 
+    <ItemGroup Label="Render Farm">
+        <EmbeddedResource Include="Queue/darkroom-render.js" LogicalName="%(Filename)%(Extension)" />
+    </ItemGroup>
+
     <PropertyGroup Label="Tables">
         <BlenderColorManagement>https://raw.githubusercontent.com/blender/blender/6bff2767edae535dba25246e8176b774af499870/release/datafiles/colormanagement</BlenderColorManagement>
         <TonyMcMapface>https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9</TonyMcMapface>

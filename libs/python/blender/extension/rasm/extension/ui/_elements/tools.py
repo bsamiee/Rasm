@@ -3,6 +3,7 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 from functools import partial, reduce
+from pathlib import Path
 from typing import Literal, TYPE_CHECKING
 
 from bl_ui.space_toolsystem_common import ToolDef
@@ -22,7 +23,8 @@ from rasm.extension.data._rna.paths import rna_definition, Struct
 from rasm.extension.ui._drawing.handlers import DrawCallback, Drawing
 from rasm.extension.ui._elements.gizmos import GizmoGroup
 from rasm.extension.ui._layout.rows import realized, RowContent, RowDraw
-from rasm.records import accumulated, Fault, Outcome, paired
+from rasm.extension.ui._resources.icons import Icons
+from rasm.records import accumulated, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -33,14 +35,15 @@ if TYPE_CHECKING:
 class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     """Toolbar tool labelled by its key, running an operator, with its icon, key bindings in the tool keymap, widget group, cursor drawing, and header settings.
 
-    `icon` names a geometry icon Blender installs (`ops.generic.select_circle`), the only icon form the toolbar loads.
+    `icon` names a `.dat` triangle icon: a name for one Blender installs (`ops.generic.select_circle`), registered as given for the toolbar to join onto its own icon folder,
+    or a path for one in the extension's `icons/` folder (`meter.dat`), registered as its absolute path without `.dat`, which that join keeps whole, a file the folder lacks refusing the tool.
     `settings` draw over the operator's tool properties, every visible one while none is declared, `widget_settings` over the widget group's properties, and `extra_settings` in the host's extra options popover the header opens.
     Brush type narrows a brush tool's brushes and requires `USE_BRUSHES`.
     """
 
     key: Key
     operator: Command | Operation
-    icon: str
+    icon: str | Path
     bindings: Bindings = ()
     description: Option[str | Callable[[bpy.types.Context, ToolDef, bpy.types.KeyMap | None], str]] = NOTHING
     cursor: "Option[rna_enums.WindowCursorItems]" = NOTHING
@@ -93,19 +96,29 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
         return (*held, (Tier.INTERFACE, _registered(self, identity, tuple(pointed.starmap(lambda _rows, callback: callback) for pointed in pointers))))
 
     def tool_class(self, identity: Identity, tool: Tool[S], pointer: Option[DrawCallback]) -> Outcome[type[bpy.types.WorkSpaceTool]]:
-        """Builds the tool class once its names, keymap rows, widget, and settings resolve."""
+        """Builds the tool class once its names, icon, keymap rows, widget, and settings resolve."""
         match tool.operator:
             case Operator(invoke=Some(Pick(cursor=picked))):
                 pending: Option[rna_enums.WindowCursorItems] = Some(picked)
             case _:
                 pending = NOTHING
         widget = tool.widget.map(lambda held: identity.name(bpy.types.GizmoGroup, held.key) if isinstance(held, GizmoGroup) else rna_definition(held).identifier)
+        match tool.icon:
+            case Path() as packaged:
+                folder = Path(str(Icons.folder(identity)))
+                icon = (
+                    Ok(folder / packaged)
+                    .filter_with(lambda file: file.suffix == ".dat" and file.is_file(), lambda _: Fault.of(Reason.ABSENT, str(folder), member=packaged.as_posix()))
+                    .map(lambda file: str(file.with_suffix("")))
+                )
+            case str(name):
+                icon = Ok(name)
 
         def realizing(rows: tuple[RowContent, ...]) -> Outcome[Option[RowDraw]]:
             """Realizes declared rows into one draw, Nothing while none is declared."""
             return realized(rows, identity).map(Some) if rows else Ok(NOTHING)
 
-        def built(rows: tuple[Row, ...], draws: tuple[Option[RowDraw], Option[RowDraw], Option[RowDraw]]) -> type[bpy.types.WorkSpaceTool]:
+        def built(rows: tuple[Row, ...], draws: tuple[Option[RowDraw], Option[RowDraw], Option[RowDraw]], located: str) -> type[bpy.types.WorkSpaceTool]:
             name, operator = identity.name(bpy.types.Operator, tool.key), idname(identity, tool.operator)
             native = {
                 "bl_space_type": self.space,
@@ -113,7 +126,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                 "bl_idname": name,
                 "bl_label": bpy.path.display_name(tool.key),
                 "bl_description": tool.description.to_optional(),
-                "bl_icon": tool.icon,
+                "bl_icon": located,
                 "bl_cursor": tool.cursor.or_else(pending).to_optional(),
                 "bl_widget": widget.to_optional(),
                 "bl_widget_properties": list(tool.widget_properties),
@@ -128,7 +141,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
             return type(name, (bpy.types.WorkSpaceTool,), native)
 
         drawn = paired(realizing(tool.settings), realizing(tool.widget_settings), realizing(tool.extra_settings))
-        return paired(resolved(identity, tool.bindings), drawn).map(lambda parts: built(*parts))
+        return paired(resolved(identity, tool.bindings), drawn, icon).map(lambda parts: built(*parts))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

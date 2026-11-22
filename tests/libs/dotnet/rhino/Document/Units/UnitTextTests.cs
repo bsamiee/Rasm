@@ -58,5 +58,5 @@ public sealed class UnitTextTests {
 
     // --- [INPUTS]
 
-    private static string Text(int steps, string suffix) => string.Create(CultureInfo.InvariantCulture, $"{steps * (decimal)ModelGrid.Model.Absolute}{suffix}");
+    private static string Text(int steps, string suffix) => string.Create(CultureInfo.InvariantCulture, $"{steps * ModelGrid.Model.Absolute}{suffix}");
 }

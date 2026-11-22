@@ -14,7 +14,7 @@ import { HttpRouter, HttpServer } from 'effect/http';
 import { AddressResolver, type Host, NetAddress } from 'effect/net';
 import envPaths, { type Paths } from 'env-paths';
 import { parse as plist } from 'plist';
-import { Server } from '#/server';
+import { Server } from '#/server.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

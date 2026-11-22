@@ -6,6 +6,7 @@ using Grasshopper2.Undo;
 using Rasm.Grasshopper;
 using Rasm.Grasshopper.Doc;
 using Rasm.Rhino.Tests.Grasshopper.Components;
+using Rasm.Testing;
 using Xunit;
 
 namespace Rasm.Rhino.Tests.Grasshopper.Doc;
@@ -13,48 +14,49 @@ namespace Rasm.Rhino.Tests.Grasshopper.Doc;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 [Collection(typeof(Grasshopper2PlugIn))]
-public sealed class DocumentsTests {
+public sealed class DocumentsTests(Fixtures fixtures) {
 
     // --- [SOLUTIONS]
 
     [Fact]
-    public async Task DocumentWithoutInputsSolvesToCompleted() =>
-        Assert.Equal(SolutionPhase.Completed, await RhinoHost.RunAsync(Relayed([]).Bind(static document => Solutions.Run(document, SolutionMode.Headless)).Map(static solution => solution.Phase).Bracket()));
+    public async Task DocumentWithoutInputsSolvesToCompleted() {
+        Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed([]));
+        Assert.Equal(SolutionPhase.Completed, (await RhinoHost.RunAsync(Solutions.Run(document, SolutionMode.Headless))).Phase);
+    }
 
     // --- [PROGRAMS]
 
     [Fact]
-    public Task EvaluateRoutesEveryInputValueThroughTheDefinitionOnEachRun() =>
-        Values.SampleAsync(static async values =>
-            Assert.Equal((values, values), await RhinoHost.RunAsync((
-                from document in Relayed(Seq("x"))
-                from first in Evaluated(document, "x", values)
-                from second in Evaluated(document, "x", values)
-                select (first, second)).Bracket())));
+    public async Task EvaluateRoutesEveryInputValueThroughTheDefinitionOnEachRun() {
+        Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed(Seq("x")));
+        await Values.SampleAsync(async values => Assert.Equal(values, await RhinoHost.RunAsync(Evaluated(document, "x", values))));
+    }
 
     [Fact]
     public async Task EvaluateOfAnInputTheDefinitionLacksFailsAsMissing() {
-        GrasshopperFault fault = await Expect<GrasshopperFault>.FailAsync(Relayed(Seq("x")).Bind(static document => Evaluated(document, "z", Seq(1.0))).Bracket());
+        Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed(Seq("x")));
+        GrasshopperFault fault = await Expect<GrasshopperFault>.FailAsync(Evaluated(document, "z", Seq(1.0)));
         Assert.Equal((GrasshopperReason.Missing, (object?)"z"), (fault.Reason, fault.Subject));
     }
 
     [Fact]
     public async Task EvaluateOfTwoInputsOfOneNameFailsAsInvalid() {
-        GrasshopperFault fault = await Expect<GrasshopperFault>.FailAsync(Relayed(Seq("x", "x")).Bind(static document => Evaluated(document, "x", Seq(1.0))).Bracket());
+        Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed(Seq("x", "x")));
+        GrasshopperFault fault = await Expect<GrasshopperFault>.FailAsync(Evaluated(document, "x", Seq(1.0)));
         Assert.Equal((GrasshopperReason.Invalid, (object?)"x"), (fault.Reason, fault.Subject));
     }
 
     // --- [FILES]
 
     [Fact]
-    public Task StoredDocumentReadsBackAndEvaluatesAlike() =>
-        Values.SampleAsync(static async values =>
-            Assert.Equal(values, await RhinoHost.RunAsync(
-                (from document in Relayed(Seq("x"))
-                 from bytes in DocumentFiles.Store(document, FileContents.Objects)
-                 from read in use(DocumentFiles.Read(bytes), static held => IO.lift(held.Close))
-                 from outputs in Evaluated(read, "x", values)
-                 select outputs).Bracket())));
+    public async Task StoredDocumentReadsBackAndEvaluatesAlike() {
+        Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed(Seq("x")));
+        Assert.Equal(Seq(0.5, -3.25, 7.0), await RhinoHost.RunAsync((
+            from bytes in DocumentFiles.Store(document, FileContents.Objects)
+            from read in use(DocumentFiles.Read(bytes), static held => IO.lift(held.Close))
+            from outputs in Evaluated(read, "x", Seq(0.5, -3.25, 7.0))
+            select outputs).Bracket()));
+    }
 
     [Fact]
     public async Task StoredComponentDocumentReadsBackAsTheComponentAndSolvesAlike() =>
@@ -72,11 +74,11 @@ public sealed class DocumentsTests {
 
     // --- [INPUTS]
 
-    private static IO<Grasshopper2.Doc.Document> Relayed(Seq<string> inputs) =>
-        from document in use(static () => Grasshopper2.Doc.Document.NewInertDocument(), static held => IO.lift(held.Close))
+    private static IO<Fixture<Grasshopper2.Doc.Document>> Relayed(Seq<string> inputs) =>
+        from document in IO.lift(static () => Grasshopper2.Doc.Document.NewInertDocument())
         from shout in DocumentEdits.Add(document, new Shout { UserName = "y", ClusterOutput = true })
         from listens in inputs.TraverseM(name => DocumentEdits.Add(document, new Listen { UserName = name, ClusterInput = true }).Bind(listen => DocumentEdits.Connect(listen, shout, ActionList.Empty))).As()
-        select document;
+        select new Fixture<Grasshopper2.Doc.Document>(document, _ => IO.lift(document.Close));
 
     private static IO<Seq<double>> Evaluated(Grasshopper2.Doc.Document document, string input, Seq<double> values) =>
         DocumentFiles.Evaluate(document, Map((input, Garden.ITreeFromList(values))))

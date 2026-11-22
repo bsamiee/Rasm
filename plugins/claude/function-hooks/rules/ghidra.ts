@@ -1,7 +1,7 @@
 import { Array, Effect, Option, Predicate, Record } from 'effect';
-import type { Host } from '#/host';
-import { Verdict } from '#/rules/decision';
-import { deleted, edited, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, refusal, silent, unassign, when } from '#/rules/rule';
+import type { Host } from '#/host.ts';
+import { Verdict } from '#/rules/decision.ts';
+import { deleted, edited, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, refusal, silent, unassign, when } from '#/rules/rule.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

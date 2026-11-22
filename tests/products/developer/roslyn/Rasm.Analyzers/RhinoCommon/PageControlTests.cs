@@ -11,42 +11,63 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
     // --- [RASM2010]
 
     [Fact]
-    public Task ReportsPageControlRealizingControlOnFirstRead() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Eto.Forms;
-        using LanguageExt;
-        using LanguageExt.UnsafeValueAccess;
-        using Rasm.Rhino.UI;
-        using Rhino.UI;
-        using static LanguageExt.Prelude;
+    public Task ReportsPageControlRealizingControlOnFirstRead() => new CSharpCodeFixTest<PageControlAnalyzer, EmptyCodeFixProvider> {
+        TestState = {
+            Sources = {
+                Views,
+                """
+                using System;
+                using Eto.Forms;
+                using LanguageExt;
+                using LanguageExt.UnsafeValueAccess;
+                using Rasm.Rhino.UI;
+                using Rhino.UI;
+                using static LanguageExt.Prelude;
 
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
+                public abstract class RealizingPage : ObjectPropertiesPage {
+                    private readonly Atom<Option<(ViewBody Body, Control Host)>> page = Atom(Option<(ViewBody Body, Control Host)>.None);
 
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
+                    public override string EnglishPageTitle => "Realizing";
 
-                public void Dispose() => Content.Dispose();
-            }
-        }
+                    public override object? {|#0:PageControl|} => Realized.Map(static object (held) => held.Host).ValueUnsafe();
 
-        public abstract class RealizingPage : ObjectPropertiesPage {
-            private readonly Atom<Option<(ViewBody Body, Control Host)>> page = Atom(Option<(ViewBody Body, Control Host)>.None);
+                    private Option<(ViewBody Body, Control Host)> Realized =>
+                        page.Value || (from host in IO.lift(static () => new Panel())
+                                       from body in ViewBody.Open()
+                                       from configured in IO.lift(() => host.Content = body.Content)
+                                       from published in page.SwapIO(_ => Some((Body: body, Host: (Control)host)))
+                                       select published).Run();
+                }
+                """,
+            },
+            ExpectedDiagnostics = {
+                Diagnostic().WithLocation(0).WithArguments("RealizingPage", "new Panel"),
+            },
+        },
+    }.RunAsync(TestContext.Current.CancellationToken);
 
-            public override string EnglishPageTitle => "Realizing";
+    [Fact]
+    public Task ReportsPageControlOpeningViewBodyOnFirstRead() => new CSharpCodeFixTest<PageControlAnalyzer, EmptyCodeFixProvider> {
+        TestState = {
+            Sources = {
+                Views,
+                """
+                using LanguageExt;
+                using Rasm.Rhino.UI;
+                using Rhino.UI;
 
-            public override object? {|#0:PageControl|} => Realized.Map(static object (held) => held.Host).ValueUnsafe();
+                public abstract class OpenedPage : ObjectPropertiesPage {
+                    public override string EnglishPageTitle => "Opened";
 
-            private Option<(ViewBody Body, Control Host)> Realized =>
-                page.Value || (from host in IO.lift(static () => new Panel())
-                               from body in ViewBody.Open()
-                               from configured in IO.lift(() => host.Content = body.Content)
-                               from published in page.SwapIO(_ => Some((Body: body, Host: (Control)host)))
-                               select published).Run();
-        }
-        """,
-        Diagnostic().WithLocation(0).WithArguments("RealizingPage", "new Panel"));
+                    public override object {|#0:PageControl|} => ViewBody.Open().Run().Content;
+                }
+                """,
+            },
+            ExpectedDiagnostics = {
+                Diagnostic().WithLocation(0).WithArguments("OpenedPage", "ViewBody.Open"),
+            },
+        },
+    }.RunAsync(TestContext.Current.CancellationToken);
 
     [Fact]
     public Task ReportsPageControlReturningNewControl() => VerifyAnalyzerAsync(
@@ -55,16 +76,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using Eto.Forms;
         using LanguageExt;
         using Rhino.UI;
-
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
 
         public abstract class DirectPage : ObjectPropertiesPage {
             public override string EnglishPageTitle => "Direct";
@@ -75,42 +86,38 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         Diagnostic().WithLocation(0).WithArguments("DirectPage", "new Panel"));
 
     [Fact]
-    public Task IgnoresPageControlRealizedInOnActivate() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Eto.Forms;
-        using LanguageExt;
-        using LanguageExt.UnsafeValueAccess;
-        using Rasm.Rhino.UI;
-        using Rhino.UI;
-        using static LanguageExt.Prelude;
+    public Task IgnoresPageControlRealizedInOnActivate() => new CSharpCodeFixTest<PageControlAnalyzer, EmptyCodeFixProvider> {
+        TestState = {
+            Sources = {
+                Views,
+                """
+                using System;
+                using Eto.Forms;
+                using LanguageExt;
+                using LanguageExt.UnsafeValueAccess;
+                using Rasm.Rhino.UI;
+                using Rhino.UI;
+                using static LanguageExt.Prelude;
 
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
+                public abstract class HeldPage : ObjectPropertiesPage {
+                    private readonly Atom<Option<(ViewBody Body, Control Host)>> page = Atom(Option<(ViewBody Body, Control Host)>.None);
 
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
+                    public override string EnglishPageTitle => "Held";
 
-                public void Dispose() => Content.Dispose();
-            }
-        }
+                    public override object? PageControl => page.Value.Map(static object (held) => held.Host).ValueUnsafe();
 
-        public abstract class HeldPage : ObjectPropertiesPage {
-            private readonly Atom<Option<(ViewBody Body, Control Host)>> page = Atom(Option<(ViewBody Body, Control Host)>.None);
+                    public override bool OnActivate(bool active) => active ? Realized.IsSome : page.Value.IsSome;
 
-            public override string EnglishPageTitle => "Held";
-
-            public override object? PageControl => page.Value.Map(static object (held) => held.Host).ValueUnsafe();
-
-            public override bool OnActivate(bool active) => active ? Realized.IsSome : page.Value.IsSome;
-
-            private Option<(ViewBody Body, Control Host)> Realized =>
-                page.Value || (from host in IO.lift(static () => new Panel())
-                               from body in ViewBody.Open()
-                               from published in page.SwapIO(_ => Some((Body: body, Host: (Control)host)))
-                               select published).Run();
-        }
-        """);
+                    private Option<(ViewBody Body, Control Host)> Realized =>
+                        page.Value || (from host in IO.lift(static () => new Panel())
+                                       from body in ViewBody.Open()
+                                       from published in page.SwapIO(_ => Some((Body: body, Host: (Control)host)))
+                                       select published).Run();
+                }
+                """,
+            },
+        },
+    }.RunAsync(TestContext.Current.CancellationToken);
 
     [Fact]
     public Task IgnoresPageControlOutsideObjectPropertiesPage() => VerifyAnalyzerAsync(
@@ -119,16 +126,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using Eto.Forms;
         using LanguageExt;
         using Rhino.UI;
-
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
 
         public abstract class OptionsPage() : OptionsDialogPage("Options") {
             public override object PageControl => new Panel();
@@ -142,16 +139,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using Eto.Forms;
         using LanguageExt;
         using Rhino.UI;
-
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
 
         public abstract class ChainedPage : ObjectPropertiesPage {
             public override string EnglishPageTitle => "Chained";
@@ -175,16 +162,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using LanguageExt;
         using Rhino.UI;
 
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
-
         public abstract class RecursivePage : ObjectPropertiesPage {
             public override string EnglishPageTitle => "Recursive";
 
@@ -203,16 +180,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using Eto.Forms;
         using LanguageExt;
         using Rhino.UI;
-
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
 
         public abstract class SetterPage : ObjectPropertiesPage {
             private object? body;
@@ -235,16 +202,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using Eto.Forms;
         using LanguageExt;
         using Rhino.UI;
-
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
 
         public abstract class UnusedPage : ObjectPropertiesPage {
             private readonly object body = new();
@@ -269,16 +226,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using LanguageExt;
         using Rhino.UI;
 
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
-
         public abstract class InvokedLocalPage : ObjectPropertiesPage {
             public override string EnglishPageTitle => "Invoked local";
 
@@ -301,16 +248,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using Eto.Forms;
         using LanguageExt;
         using Rhino.UI;
-
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
 
         public abstract class InvokedDelegatePage : ObjectPropertiesPage {
             public override string EnglishPageTitle => "Invoked delegate";
@@ -336,16 +273,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using LanguageExt;
         using Rhino.UI;
 
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
-
         public abstract class SuppliedDelegatePage : ObjectPropertiesPage {
             public override string EnglishPageTitle => "Supplied delegate";
 
@@ -364,16 +291,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using LanguageExt;
         using Rhino.UI;
 
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
-
         public abstract class IgnoredDelegatePage : ObjectPropertiesPage {
             public override string EnglishPageTitle => "Ignored delegate";
 
@@ -391,16 +308,6 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
         using Eto.Forms;
         using LanguageExt;
         using Rhino.UI;
-
-        namespace Rasm.Rhino.UI {
-            public sealed class ViewBody : IDisposable {
-                public Control Content { get; } = new Panel();
-
-                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
-
-                public void Dispose() => Content.Dispose();
-            }
-        }
 
         public abstract class StoredDelegatePage : ObjectPropertiesPage {
             private static readonly List<Func<object>> factories = [];
@@ -444,4 +351,22 @@ public sealed class PageControlTests : CSharpCodeFixVerifier<PageControlAnalyzer
             """, token)).ToMetadataReference());
         await test.RunAsync(token);
     }
+
+    // --- [SOURCES]
+
+    private const string Views = """
+        using System;
+        using Eto.Forms;
+        using LanguageExt;
+
+        namespace Rasm.Rhino.UI {
+            public sealed class ViewBody : IDisposable {
+                public Control Content { get; } = new Panel();
+
+                public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
+
+                public void Dispose() => Content.Dispose();
+            }
+        }
+        """;
 }

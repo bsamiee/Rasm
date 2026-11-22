@@ -32,7 +32,6 @@ enum Failure {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[test]
-#[expect(clippy::disallowed_methods, reason = "`insta::glob!` canonicalizes its base folder")]
 fn ui() -> Result<(), Failure> {
     let output = Command::new(env!("CARGO"))
         .args(["dylint", "--all", "-p", env!("CARGO_PKG_NAME"), "--fail-on-no-libraries", "--", "--locked", "--keep-going", "--examples", "--test", "*", "--message-format=json"])
@@ -62,11 +61,7 @@ fn ui() -> Result<(), Failure> {
         })?;
     (checked && errors.is_empty()).ok_or(Failure::Compile { errors, status: output.status })?;
     insta::with_settings!({ prepend_module_to_snapshot => false, omit_expression => true }, {
-        insta::glob!("..", "{examples/*.rs,expansions/*.rs}", |path| {
-            #[cfg_attr(dylint_lib = "rasm_lints", expect(empty_string_default, reason = "a fixture the lints pass over snapshots as empty output"))]
-            let diagnostics = found.remove(path).unwrap_or_default();
-            insta::assert_snapshot!(diagnostics);
-        });
+        insta::glob!("..", "{examples/*.rs,expansions/*.rs}", |path| insta::assert_snapshot!(found.remove(path).into_iter().collect::<String>()));
     });
     found.is_empty().ok_or_else(|| Failure::Unmatched { found: found.into_values().collect() })
 }

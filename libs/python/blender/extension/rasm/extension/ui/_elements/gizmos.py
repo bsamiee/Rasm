@@ -3,6 +3,7 @@
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
 from functools import cache, partial
+from itertools import product
 from types import MappingProxyType
 from typing import Final, Literal, override, TYPE_CHECKING
 
@@ -22,8 +23,8 @@ from rasm.extension.data._rna.conditions import Condition, satisfied
 from rasm.extension.data._rna.descriptors import assign
 from rasm.extension.data._rna.paths import rna, Struct
 from rasm.extension.ui._layout.members import Member, resolved_at, ResolvedMember
-from rasm.extension.ui._resources.icons import Icon, Icons
-from rasm.extension.ui._resources.theme import display_color, Metrics, Shade
+from rasm.extension.ui._resources.icons import Icon, Icons, IconValue
+from rasm.extension.ui._resources.theme import display_color, Metrics, Shade, Theme
 from rasm.records import accumulated, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
@@ -125,7 +126,7 @@ class Shape(msgspec.Struct, frozen=True, kw_only=True):
 class Gizmo[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=True):
     """Gizmo of a stock type or custom shape placed each redraw, bound to a member, a target handler, or one operator per highlighted part.
 
-    `role` gives the color with alpha at rest and highlighted, read each draw.
+    `role` gives the color with alpha at rest and highlighted, read each draw, and a packaged icon takes the region's text color, its highlighted text while highlighted, as the host draws a button's built-in icon.
     `properties` set every other gizmo member and type property alike, the host forwarding a type property through the gizmo.
     Member or handler binding pushes one undo step per use, and `prepare` runs as the gizmo is pressed.
     """
@@ -234,13 +235,29 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, bound: tuple[_Bound[S]
             )
         )
 
-    def draw_prepare(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
-        ui = Metrics.read().preferences.themes[0].user_interface
-        if (state := reports.settled(group.read(context)).default_value(NOTHING)).is_none():
-            for gizmo in owner.gizmos:
-                gizmo.hide = True
-        for snapshot in state.to_list():
-            for gizmo, part, binding in zip(owner.gizmos, parts, bound):
+    def invoke_prepare(owner: bpy.types.GizmoGroup, context: bpy.types.Context, gizmo: bpy.types.Gizmo) -> None:
+        for prepare in (prepare for held, part in zip(owner.gizmos, parts) if held == gizmo for prepare in part.prepare.to_list()):
+            reports.faulted(prepare(context, gizmo))
+
+    def classed(icons: tuple[Option[IconValue], ...]) -> tuple[type[bpy.types.GizmoGroup]]:
+        def setup(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
+            text = Theme(space=group.space, region=group.region, preferences=Metrics.read().preferences).text
+            made = tuple((owner.gizmos.new(kind), kind, part) for kind, part in zip(kinds, parts))
+            written = accumulated(
+                assign(gizmo, member, value).map_error(partial(Fault.of, Refusal.REFUSED, f"{kind}.{member}"))
+                for at, ((gizmo, kind, part), icon) in enumerate(zip(made, icons))
+                for member, value in (("use_undo", isinstance(part.bind, Member | TargetHandler)), *(("icon_value", value((name, at), text)) for value in icon.to_list()), *part.properties.items())
+            )
+            attached = accumulated(binding(gizmo, context) for (gizmo, _, _), binding in zip(made, bound) if not isinstance(binding, tuple))
+            reports.faulted(paired(written, attached))
+
+        def draw_prepare(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
+            preferences = Metrics.read().preferences
+            ui, theme = preferences.themes[0].user_interface, Theme(space=group.space, region=group.region, preferences=preferences)
+            if (state := reports.settled(group.read(context)).default_value(NOTHING)).is_none():
+                for gizmo in owner.gizmos:
+                    gizmo.hide = True
+            for snapshot, (at, (gizmo, part, binding, icon)) in product(state.to_list(), enumerate(zip(owner.gizmos, parts, bound, icons))):
                 (red, green, blue, alpha), (lit_red, lit_green, lit_blue, lit_alpha) = map(display_color, part.role(ui))
                 gizmo.color, gizmo.alpha = (red, green, blue), alpha
                 gizmo.color_highlight, gizmo.alpha_highlight = (lit_red, lit_green, lit_blue), lit_alpha
@@ -250,21 +267,8 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, bound: tuple[_Bound[S]
                     handle(binding[0], snapshot, gizmo)
                 for matrix in placed.to_list():
                     gizmo.matrix_basis = matrix
-
-    def invoke_prepare(owner: bpy.types.GizmoGroup, context: bpy.types.Context, gizmo: bpy.types.Gizmo) -> None:
-        for prepare in (prepare for held, part in zip(owner.gizmos, parts) if held == gizmo for prepare in part.prepare.to_list()):
-            reports.faulted(prepare(context, gizmo))
-
-    def classed(icons: tuple[Option[int], ...]) -> tuple[type[bpy.types.GizmoGroup]]:
-        def setup(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
-            made = tuple((owner.gizmos.new(kind), kind, part) for kind, part in zip(kinds, parts))
-            written = accumulated(
-                assign(gizmo, member, value).map_error(partial(Fault.of, Refusal.REFUSED, f"{kind}.{member}"))
-                for (gizmo, kind, part), icon in zip(made, icons)
-                for member, value in (("use_undo", isinstance(part.bind, Member | TargetHandler)), *(("icon_value", value) for value in icon.to_list()), *part.properties.items())
-            )
-            attached = accumulated(binding(gizmo, context) for (gizmo, _, _), binding in zip(made, bound) if not isinstance(binding, tuple))
-            reports.faulted(paired(written, attached))
+                for value in icon.to_list():
+                    value((name, at), theme.text_hi if gizmo.is_highlight else theme.text)
 
         native = {
             "bl_idname": name,

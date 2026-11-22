@@ -1,8 +1,9 @@
 import { isIPv4 } from 'node:net';
+import playwright from '@playwright/test/package.json' with { type: 'json' };
 import aws from '@pulumi/aws';
 import { DnsRecord, getZoneOutput } from '@pulumi/cloudflare';
 import command, { remote } from '@pulumi/command';
-import { Container, type ContainerArgs, Network, Provider, type ProviderArgs, RemoteImage, Volume } from '@pulumi/docker';
+import { Container, type ContainerArgs, getRegistryImageOutput, Network, Provider, type ProviderArgs, RemoteImage, Volume } from '@pulumi/docker';
 import dockerBuild from '@pulumi/docker-build';
 import minio from '@pulumi/minio';
 import { all, type CustomResourceOptions, getOrganization, getProject, type Input, interpolate, jsonStringify, type Output, output, StackReference } from '@pulumi/pulumi';
@@ -12,7 +13,7 @@ import { Secret } from '@pulumiverse/doppler';
 import type { deploy } from '@rasm/hosting/deploy';
 import { Access, Identity } from '@rasm/hosting/identity';
 import { Array, Data, Duration, Effect, Function, Option, Record, Schema, Struct } from 'effect';
-import type { configs } from '#/repository-stack';
+import type { configs } from '#/repository-stack.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -108,11 +109,12 @@ class Machine extends Data.Class<{
     }
 
     pulled(image: string, options: CustomResourceOptions = {}) {
-        return new RemoteImage(`${this.name}-${image}`, { name: image }, { provider: this.provider, ...options }).repoDigest;
+        return new RemoteImage(`${this.name}-${image}`, { name: interpolate`${image}@${getRegistryImageOutput({ name: image }, { provider: this.provider }).sha256Digest}` }, { provider: this.provider, ...options }).repoDigest;
     }
 
-    imaged(image: string, inline: string, args: Pick<dockerBuild.ImageArgs, 'context'> = {}) {
-        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], load: true, push: false, ...args }, { provider: this.builder }).digest;
+    imaged(image: string, inline: Input<string>, args: Pick<dockerBuild.ImageArgs, 'context' | 'labels' | 'registries'> = {}) {
+        const push = args.registries !== undefined;
+        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], load: !push, push, buildArgs: { BUILDKIT_DOCKERFILE_CHECK: 'error=true' }, ...args }, { provider: this.builder }).digest;
     }
 
     kept(volume: string) {
@@ -133,7 +135,7 @@ class Machine extends Data.Class<{
 const proxied = Function.memoize((machine: Machine) => {
     const secure = Machine.entrypoint.toUpperCase();
     return machine.contained('traefik', ['CMD', 'traefik', 'healthcheck'], {
-        image: machine.pulled('traefik:v3.8.0-rc.2'),
+        image: machine.pulled('traefik:v3.8.0-rc.3'),
         envs: [
             ...Record.collect(entrypoints, (name, port) => `TRAEFIK_ENTRYPOINTS_${name.toUpperCase()}_ADDRESS=:${port}`),
             `TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO=${Machine.entrypoint}`,
@@ -214,9 +216,9 @@ const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'C
         name,
         `# syntax=docker/dockerfile:1
 FROM scratch AS amd64
-ADD --checksum=sha256:18fa55033d5f0d1b18fc192b75ca35f39d2cb81938bbc559f7a9f5b686f4046f --chmod=755 https://github.com/nxcite/nx-cache-server/releases/download/v1.4.5/nx-cache-aws-v1.4.5-linux-x86_64 /nx-cache-aws
+ADD --checksum=sha256:0cb2f024ddfea4e1e409525051f9cc26d1d15ced66e834298dd3623753370564 --chmod=755 https://github.com/nxcite/nx-cache-server/releases/download/v1.5.0-rc.1/nx-cache-aws-v1.5.0-rc.1-linux-x86_64 /nx-cache-aws
 FROM scratch AS arm64
-ADD --checksum=sha256:a20a6bdee0b869d7e8ade7319030f94b72c69358b47f08fbc3bd331d9dc66e5c --chmod=755 https://github.com/nxcite/nx-cache-server/releases/download/v1.4.5/nx-cache-aws-v1.4.5-linux-arm64 /nx-cache-aws
+ADD --checksum=sha256:cdd6d6b152b35df607d0fd5d01968311be700286f9808b7093f90258164aed97 --chmod=755 https://github.com/nxcite/nx-cache-server/releases/download/v1.5.0-rc.1/nx-cache-aws-v1.5.0-rc.1-linux-arm64 /nx-cache-aws
 FROM \${TARGETARCH}
 FROM gcr.io/distroless/cc-debian13:debug-nonroot
 COPY --from=2 /nx-cache-aws /
@@ -275,7 +277,8 @@ const installed = Effect.sync(() => hosted(Machine.on(local.host, Option.none())
 
 const provisioned = (host: keyof typeof hosts, { owner, repository, project, engines, registry }: { readonly owner: string; readonly repository: string; readonly project: string; readonly engines: readonly string[]; readonly registry: Input<string> }) =>
     Effect.sync(() => {
-        const [{ address, roles }, machine]: readonly [Row, Machine] = [hosts[host], Machine.on(host, Option.none(), { registryAuth: [{ address: 'ghcr.io', username: owner, password: registry }] })];
+        const registries = [{ address: 'ghcr.io', username: owner, password: registry }];
+        const [{ address, roles }, machine]: readonly [Row, Machine] = [hosts[host], Machine.on(host, Option.none(), { registryAuth: registries })];
         const located = machine.named(host, 'A', address).map(({ content }) => content);
         const served = roles.map(
             Role.$match({
@@ -312,7 +315,15 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                         const instance = new remote.Command(`${machine.name}-runner-${label}`, { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: token.stdout }, { dependsOn: Option.toArray(before) });
                         return [Option.some(instance), [label, instance.id] as const];
                     });
-                    return { runners: Record.fromEntries(registered), engines: engines.map((version) => machine.pulled(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })) };
+                    return {
+                        runners: Record.fromEntries(registered),
+                        engines: engines.map((version) => machine.pulled(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })),
+                        browsers: machine.imaged(
+                            `ghcr.io/${owner}/${repository}/playwright:${playwright.version}`.toLowerCase(),
+                            interpolate`FROM node:slim@${getRegistryImageOutput({ name: 'node:slim' }, { provider: machine.provider }).sha256Digest}\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends ca-certificates git && npx --yes playwright@${playwright.version} install --with-deps chromium && rm -rf /var/lib/apt/lists/* /root/.npm\nUSER node\n`,
+                            { registries, labels: { 'org.opencontainers.image.source': `https://github.com/${owner}/${repository}` } },
+                        ),
+                    };
                 },
             }),
         );

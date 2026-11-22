@@ -3,4 +3,4 @@ import { config, served } from '@rasm/testing/playwright';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig(config, served('@rasm/portfolio:serve--vite', 'http://localhost:5173'));
+export default defineConfig(config(import.meta.dirname), served('@rasm/portfolio:preview--vite', 'http://localhost:4173'));

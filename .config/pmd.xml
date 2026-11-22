@@ -3,7 +3,6 @@
     <description>Java rules</description>
 
     <rule ref="category/java/bestpractices.xml">
-        <exclude name="MissingOverride" />
         <exclude name="UnusedFormalParameter" />
     </rule>
     <rule ref="category/java/bestpractices.xml/UnusedFormalParameter">
@@ -13,48 +12,33 @@
     </rule>
 
     <rule ref="category/java/codestyle.xml">
-        <exclude name="AtLeastOneConstructor" />
-        <exclude name="CommentDefaultAccessModifier" />
-        <exclude name="LocalVariableCouldBeFinal" />
-        <exclude name="LocalVariableDeclarationShouldBeAtStartOfBlock" />
-        <exclude name="LongVariable" />
-        <exclude name="MethodArgumentCouldBeFinal" />
-        <exclude name="NoPackage" />
-        <exclude name="OnlyOneReturn" />
-        <exclude name="ShortClassName" />
-        <exclude name="ShortMethodName" />
-        <exclude name="ShortVariable" />
+        <exclude name="AtLeastOneConstructor" /> <!-- Ghidra instantiates each `GhidraScript` through its implicit constructor -->
+        <exclude name="CommentDefaultAccessModifier" /> <!-- Demands comments on package-private members, CLAUDE.md forbids comments -->
+        <exclude name="LocalVariableCouldBeFinal" /> <!-- `javac` treats effectively final locals as final -->
+        <exclude name="LocalVariableDeclarationShouldBeAtStartOfBlock" /> <!-- Locals bind at first use, data dependency decides order -->
+        <exclude name="MethodArgumentCouldBeFinal" /> <!-- `javac` treats effectively final parameters as final -->
+        <exclude name="NoPackage" /> <!-- Ghidra loads scripts from script folders in the default package -->
+        <exclude name="OnlyOneReturn" /> <!-- `switch` arms and guards return per case -->
+        <exclude name="ShortClassName" /> <!-- Names come from their subject (`Row`, `Role`), clean-prose naming -->
+        <exclude name="ShortMethodName" /> <!-- Names come from their subject, clean-prose naming -->
+        <exclude name="ShortVariable" /> <!-- Names come from their subject, clean-prose naming -->
     </rule>
 
     <rule ref="category/java/design.xml">
-        <exclude name="AvoidDeeplyNestedIfStmts" />
-        <exclude name="CognitiveComplexity" />
-        <exclude name="CouplingBetweenObjects" />
-        <exclude name="CyclomaticComplexity" />
-        <exclude name="ExcessiveImports" />
-        <exclude name="ExcessivePublicCount" />
-        <exclude name="GodClass" />
-        <exclude name="LawOfDemeter" />
-        <exclude name="LoosePackageCoupling" />
-        <exclude name="NcssCount" />
-        <exclude name="NPathComplexity" />
-        <exclude name="SignatureDeclareThrowsException" />
-        <exclude name="SwitchDensity" />
-        <exclude name="TooManyFields" />
-        <exclude name="TooManyMethods" />
+        <exclude name="CouplingBetweenObjects" /> <!-- Type counts push one-caller helper extraction CLAUDE.md forbids -->
+        <exclude name="ExcessiveImports" /> <!-- Import counts push one-caller helper extraction CLAUDE.md forbids -->
+        <exclude name="LawOfDemeter" /> <!-- Ghidra's API reaches program state through accessor chains -->
+        <exclude name="LoosePackageCoupling" /> <!-- Reports a configuration error without a package list to check -->
+        <exclude name="SignatureDeclareThrowsException" /> <!-- `GhidraScript.run` declares `throws Exception` -->
+        <exclude name="TooManyMethods" /> <!-- Member counts push one-caller helper extraction CLAUDE.md forbids -->
     </rule>
 
     <rule ref="category/java/errorprone.xml">
         <exclude name="AvoidAccessibilityAlteration" />
         <exclude name="AvoidCatchingGenericException" />
-        <exclude name="CompareObjectsWithEquals" />
+        <exclude name="CloseResource" />
         <exclude name="EmptyCatchBlock" />
-        <exclude name="ImplicitSwitchFallThrough" />
-        <exclude name="MissingSerialVersionUID" />
         <exclude name="NonSerializableClass" />
-        <exclude name="ReturnFromFinallyBlock" />
-        <exclude name="UseEqualsToCompareStrings" />
-        <exclude name="UseLocaleWithCaseConversions" />
     </rule>
     <rule ref="category/java/errorprone.xml/AvoidAccessibilityAlteration">
         <properties>
@@ -66,12 +50,16 @@
             <property name="violationSuppressXPath" value="./ancestor::TryStatement[1]/Block//MethodCall[pmd-java:matchesSig('ghidra.app.script.GhidraScript#runScript(java.lang.String,java.lang.String[],ghidra.app.script.GhidraState)')]" />
         </properties>
     </rule>
+    <rule ref="category/java/errorprone.xml/CloseResource">
+        <properties>
+            <property name="violationSuppressXPath" value="./ancestor-or-self::LocalVariableDeclaration[VariableDeclarator/MethodCall[pmd-java:matchesSig('java.nio.channels.ServerSocketChannel#accept()')]]" /> <!-- Accepted channels pass to the connection set and the callbacks closing them, past the accepting method -->
+        </properties>
+    </rule>
     <rule ref="category/java/errorprone.xml/EmptyCatchBlock">
         <properties>
             <property name="allowExceptionNameRegex" value="^$" />
         </properties>
     </rule>
-
     <rule ref="category/java/errorprone.xml/NonSerializableClass">
         <properties>
             <property name="violationSuppressXPath" value="./ancestor::*[pmd-java:nodeIs('TypeDeclaration')][1][self::EnumDeclaration]" />
@@ -123,7 +111,7 @@
     </rule>
 
     <rule ref="category/java/multithreading.xml">
-        <exclude name="DoNotUseThreads" />
+        <exclude name="DoNotUseThreads" /> <!-- Scoped to J2EE containers, scripts run in Ghidra's JVM -->
     </rule>
 
     <rule ref="category/java/performance.xml" />

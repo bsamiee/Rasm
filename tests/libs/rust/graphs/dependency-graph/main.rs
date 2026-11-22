@@ -6,6 +6,9 @@ use itertools::Either;
 use nonempty_collections::{NEBTreeSet, nev};
 use petgraph::Direction;
 use petgraph::stable_graph::StableDiGraph;
+use proptest::prelude::ProptestConfig;
+use proptest::strategy::Strategy as _;
+use proptest::test_runner::FileFailurePersistence;
 use rasm_dependency_graph::{Activity, DependencyError, Event, Precedence, Refusal, evaluation, layers, schedule};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -71,4 +74,43 @@ fn schedule_refuses_negative_durations() {
         Err(DependencyError::Refused { reason: Refusal::Duration, nodes: NEBTreeSet::new(negative) }),
         "the negative activity alone is named",
     );
+}
+// --- [REFERENCE]
+
+proptest::proptest! {
+    #![proptest_config(ProptestConfig { failure_persistence: Some(Box::new(FileFailurePersistence::WithSource("regressions"))), ..ProptestConfig::default() })]
+
+    #[test]
+    fn schedule_matches_a_forward_and_backward_pass_over_any_acyclic_network(
+        (durations, edges) in (0_usize..10).prop_flat_map(|count| (
+            proptest::collection::vec(0_u32..20, count),
+            proptest::collection::vec(proptest::bool::weighted(0.35), count * count.saturating_sub(1) / 2),
+        )),
+    ) {
+        let pairs = (0..durations.len()).flat_map(|source| (source + 1..durations.len()).map(move |target| (source, target)));
+        let linked = Vec::from_iter(pairs.zip(&edges).filter(|(_, linked)| **linked).map(|(pair, _)| pair));
+        let mut graph = StableDiGraph::<u32, u32>::new();
+        let nodes = Vec::from_iter(durations.iter().map(|duration| graph.add_node(*duration)));
+        graph.extend_with_edges(linked.iter().map(|(source, target)| (nodes[*source], nodes[*target])));
+        let network = assert_ok!(evaluation(graph));
+        let planned = assert_ok!(schedule(&network, |duration: &u32| *duration, |_: &u32| EnumMap::default(), finish_to_start, 0, None));
+        let predecessors = |node: usize| linked.iter().filter(move |(_, target)| *target == node).map(|(source, _)| *source);
+        let successors = |node: usize| linked.iter().filter(move |(source, _)| *source == node).map(|(_, target)| *target);
+        let mut early_start = vec![0_u32; durations.len()];
+        for node in 0..durations.len() {
+            early_start[node] = predecessors(node).map(|source| early_start[source] + durations[source]).max().unwrap_or(0);
+        }
+        let makespan = (0..durations.len()).map(|node| early_start[node] + durations[node]).max().unwrap_or(0);
+        let mut late_finish = vec![makespan; durations.len()];
+        for node in (0..durations.len()).rev() {
+            late_finish[node] = successors(node).map(|target| late_finish[target] - durations[target]).min().unwrap_or(makespan);
+        }
+        let activity = |node: usize| {
+            let (early, late) = ([early_start[node], early_start[node] + durations[node]], [late_finish[node] - durations[node], late_finish[node]]);
+            let free = successors(node).map(|target| early_start[target]).min().unwrap_or(makespan) - early[1];
+            Activity { early: EnumMap::from_array(early), late: EnumMap::from_array(late), float: EnumMap::from_array([late[0] - early[0], free]) }
+        };
+        proptest::prop_assert_eq!(planned.makespan, makespan, "durations {:?}, edges {:?}", durations, linked);
+        proptest::prop_assert_eq!(planned.activities, BTreeMap::from_iter((0..durations.len()).map(|node| (nodes[node], activity(node)))), "durations {:?}, edges {:?}", durations, linked);
+    }
 }

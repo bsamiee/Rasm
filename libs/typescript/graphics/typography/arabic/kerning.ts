@@ -1,10 +1,10 @@
 import { Array, Effect, Option, Schema, Struct } from 'effect';
-import { JoiningGroupName, joiningGroups, joins } from '#/arabic/joining';
-import { Settings } from '#/settings';
-import type { Face } from '#/shaping/face';
-import { Profile } from '#/shaping/internal/profile';
-import { ShapedText } from '#/shaping/shaped-text';
-import { baseDirection, Span, words } from '#/shaping/word';
+import { JoiningGroupName, joiningGroups, joins } from '#/arabic/joining.ts';
+import { Settings } from '#/settings.ts';
+import type { Face } from '#/shaping/face.ts';
+import { Profile } from '#/shaping/internal/profile.ts';
+import { ShapedText } from '#/shaping/shaped-text.ts';
+import { baseDirection, Span, words } from '#/shaping/word.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -15,12 +15,15 @@ defaults:
 
 jobs:
     container:
+        name: Container runner
         runs-on: [self-hosted, container]
         timeout-minutes: 60
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - run: rm -rf "${RUNNER_TOOL_CACHE}/mise"
 
     host:
+        name: Host runner
         runs-on: [self-hosted, host]
         timeout-minutes: 60
         steps:
@@ -28,10 +31,11 @@ jobs:
               with:
                   fetch-depth: 0
                   clean: false
-            - uses: ./.github/actions/tools
+            - uses: $/.github/actions/tools
             - run: pnpm store prune
             - run: uv cache prune
             - run: mise prune --yes
             - run: docker container prune --force --filter until=1h
             - run: docker volume prune --force
             - run: docker image prune --force
+            - run: docker image prune --all --force --filter until=168h --filter "label=org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"

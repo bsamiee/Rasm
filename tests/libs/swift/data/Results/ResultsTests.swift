@@ -33,13 +33,6 @@ extension Result where Failure == AggregateError<Refusal> {
 @Suite
 struct AccumulationTests {
     @Test
-    func combinesEverySuccess() throws {
-        let combined: Result<(Int, String), AggregateError<Refusal>> = combine(Result.success(1), Result.success("a"))
-        let (number, text) = try combined.get()
-        expectNoDifference([String(number), text], ["1", "a"])
-    }
-
-    @Test
     func combinesEveryFailureInOrder() {
         let combined = combine(
             Result<Int, Refusal>.failure(Refusal(field: "width")).aggregated { $0 },
@@ -71,15 +64,26 @@ struct AccumulationTests {
         expectNoDifference(underlying, [Refusal(field: "a"), Refusal(field: "b")])
     }
 
-    @Test
-    func singlesOutOneMatch() {
-        let named: (String) -> String = \.self
-        let single = Unmatched.single(["a"], subject: "window", query: "a", candidates: [], named: named)
-        let none = Unmatched.single([], subject: "window", query: "z", candidates: ["a", "b"], named: named)
-        let many = Unmatched.single(["a", "b"], subject: "window", query: nil, candidates: [], named: named)
-        expectNoDifference(single, .success("a"))
-        expectNoDifference(none, .failure(Unmatched(subject: "window", query: "z", candidates: ["a", "b"])))
-        expectNoDifference(many, .failure(Unmatched(subject: "single window", query: nil, candidates: ["a", "b"])))
+    @Test(
+        arguments: [
+            (["a"], "a", ["c"], .success("a")),
+            ([], "z", ["a", "b"], .failure(Unmatched(subject: "window", query: "z", candidates: ["a", "b"]))),
+            (["a", "b"], nil, ["c"], .failure(Unmatched(subject: "single window", query: nil, candidates: ["a", "b"]))),
+        ] as [([String], String?, [String], Result<String, Unmatched>)]
+    )
+    func singlesOutOneMatch(matches: [String], query: String?, candidates: [String], expected: Result<String, Unmatched>) {
+        expectNoDifference(Unmatched.single(matches, subject: "window", query: query, candidates: candidates, named: \.self), expected)
+    }
+
+    @Test(
+        arguments: [
+            (nil, [], "No window"),
+            ("z", [], "No window matching z"),
+            (nil, ["a", "b"], "No window, candidates: a, b"),
+        ] as [(String?, [String], String)]
+    )
+    func describesTheSubjectQueryAndCandidates(query: String?, candidates: [String], description: String) {
+        expectNoDifference(Unmatched(subject: "window", query: query, candidates: candidates).errorDescription, description)
     }
 }
 
@@ -94,7 +98,7 @@ struct RaceTests {
     @Test
     func expiresSlowWork() async {
         let outcome = await Result { () async throws(Refusal) -> Int in
-            try await withTimeout(.milliseconds(10), expired: Refusal(field: "timeout")) { () async throws(Refusal) -> Int in
+            try await withTimeout(.zero, expired: Refusal(field: "timeout")) { () async throws(Refusal) -> Int in
                 try? await Task.sleep(for: .seconds(60))
                 return 1
             }

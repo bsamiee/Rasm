@@ -19,8 +19,8 @@ namespace Rasm.Rhino.Tests.Host;
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public enum RhinoMode {
-    Headless,
-    Interface,
+    Headless = 0,
+    Interface = 1,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

@@ -138,15 +138,18 @@ public final class Arguments {
                                     count -> new Report.Success<>(new SettingValue(this, count)))
                             .orElseGet(() ->
                                     new Report.Failure<>(
-                                            "Setting `%s` takes integer %d or more"
-                                                    .formatted(argument, minimum)))
+                                            String.format(
+                                                    Locale.ROOT,
+                                                    "Setting `%s` takes integer %d or more",
+                                                    argument,
+                                                    minimum)))
                     : new Report.Failure<>(
                             "Script `%s` takes no setting `%s`".formatted(script, label()));
         }
     }
 
     enum Seed {
-        ADDRESS("0x", "<hex>") {
+        ADDRESS("<hex>", "0x") {
             @Override
             Report.Result<List<Function>> find(String hex, Program program) {
                 return Optional.ofNullable(program.getAddressFactory().getAddress(hex))
@@ -159,7 +162,7 @@ public final class Arguments {
                         .orElseGet(() -> new Report.Failure<>("names no address"));
             }
         },
-        REGEX("re:", "<regex>") {
+        REGEX("<regex>", "re:") {
             @Override
             Report.Result<List<Function>> find(String regex, Program program) {
                 try {
@@ -171,7 +174,7 @@ public final class Arguments {
                 }
             }
         },
-        STRING("str:", "<needle>") {
+        STRING("<needle>", "str:") {
             @Override
             Report.Result<List<Function>> find(String needle, Program program) {
                 String lowercase = needle.toLowerCase(Locale.ROOT);
@@ -188,7 +191,7 @@ public final class Arguments {
                                 .toList());
             }
         },
-        TAG("tag:", "<tag>") {
+        TAG("<tag>", "tag:") {
             @Override
             Report.Result<List<Function>> find(String name, Program program) {
                 return Optional.ofNullable(
@@ -214,7 +217,7 @@ public final class Arguments {
         final Optional<String> prefix;
         final String placeholder;
 
-        Seed(String prefix, String placeholder) {
+        Seed(String placeholder, String prefix) {
             this.prefix = Optional.of(prefix);
             this.placeholder = placeholder;
         }
@@ -286,7 +289,7 @@ public final class Arguments {
     }
 
     public static Request parse(
-            String script, String[] args, Set<Setting> accepted, Program program) {
+            String script, Set<Setting> accepted, Program program, String... args) {
         Usage usage =
                 new Usage(
                         script,

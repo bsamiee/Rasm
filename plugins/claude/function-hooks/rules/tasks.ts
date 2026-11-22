@@ -1,18 +1,23 @@
 import { availableParallelism, devNull } from 'node:os';
 import process from 'node:process';
 import type { ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
-import { Array, Effect, Glob, Match, Option, Predicate, pipe, Record, Result, Schema, String, Struct } from 'effect';
+import { Array, Effect, Function, Glob, Match, Option, Predicate, Record, Result, Schema, String, Struct } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
-import type { Host, HostError } from '#/host';
-import { Verdict } from '#/rules/decision';
-import { all, type Call, commandOf, cut, edited, ensure, erased, feedsJq, holds, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, unassign, when, whole } from '#/rules/rule';
-import { analyzed, type Invocation, type Parser, WRITES } from '#/shell/invocation';
-import { parsed, type Word } from '#/shell/script';
+import type { Host, HostError } from '#/host.ts';
+import { Verdict } from '#/rules/decision.ts';
+import { all, type Call, commandOf, cut, edited, ensure, erased, feedsJq, holds, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, unassign, when, whole } from '#/rules/rule.ts';
+import { analyzed, type Invocation, type Parser, WRITES } from '#/shell/invocation.ts';
+import { parsed, type Word } from '#/shell/script.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Targets = Readonly<Record<string, TargetConfiguration<Readonly<Record<string, unknown>>>>>;
 type Graph = Option.Option.Value<Effect.Success<Call['host']['graph']>>;
+interface Helping {
+    readonly node: ProjectGraphProjectNode;
+    readonly target: string;
+    readonly command: string;
+}
 type Loop = Option.Option.Value<Effect.Success<ReturnType<typeof forLoop>>>;
 type Runner = Effect.Success<ReturnType<typeof runnersOf>>['chosen'][number];
 
@@ -46,6 +51,14 @@ const Metadata = Schema.fromJsonString(Schema.Struct({ workspace_root: Schema.St
 // --- [GRAPH]
 
 const targetsOf = ({ data }: ProjectGraphProjectNode): Targets => data.targets ?? {};
+
+const helpingBy = Function.memoize((nodes: Graph['nodes']) => {
+    const targets = Object.values(nodes).flatMap((node) => Record.collect(targetsOf(node), (target, { metadata }): Helping => ({ node, target, command: metadata?.help?.command ?? '' })));
+    return Map.groupBy(
+        targets.flatMap((helping) => helping.command.split(' ').map((word) => ({ word, helping }))),
+        ({ word }) => word,
+    );
+});
 
 const bodyOf = (text: string, { host }: Call) => analyzed(text, { cwd: Option.some(host.root), origin: 'body' });
 
@@ -91,7 +104,7 @@ const replaceable = (invocation: Invocation, call: Call): boolean =>
     invocation.assigned.length === 0 &&
     !(invocation.command.fed || invocation.command.captured || invocation.repeated || feedsJq(invocation, call));
 
-const ownersOf = ({ nodes, owner }: Graph, invocation: Invocation, paths: readonly string[], call: Call) => {
+const ownersOf = ({ nodes, owner }: Graph, invocation: Invocation, paths: readonly string[], helping: readonly Helping[], call: Call) => {
     const { host } = call;
     const { cwd } = invocation.command;
     const located = (value: string) =>
@@ -99,12 +112,8 @@ const ownersOf = ({ nodes, owner }: Graph, invocation: Invocation, paths: readon
             Option.filter(host.resolve(value, cwd), (file) => host.inside(file, host.root)),
             owner,
         );
-    const spellings = spellingsOf(invocation, call);
     const { selects = [] } = invocation.row.nx ?? {};
-    const run = Object.values(nodes)
-        .flatMap((node) => Object.values(targetsOf(node)).map((target) => [node, target] as const))
-        .filter(([, { metadata }]) => !spellings.isDisjointFrom(new Set(metadata?.help?.command.split(' '))));
-    const stated = new Map(Array.cartesianWith(run, selects, ([node, { options = {} }], flag) => [options[flag.replace(LONG, '')], node] as const));
+    const stated = new Map(Array.cartesianWith(helping, selects, ({ node, target }, flag) => [targetsOf(node)[target]?.options?.[flag.replace(LONG, '')], node] as const));
     const selected = invocation.values(...selects).map((value) => Option.firstSomeOf([Option.fromUndefinedOr(stated.get(value)), Record.get(nodes, value), located(value)]));
     const named = [...selected, ...paths.map(owner)];
     const found = named.length === 0 ? Option.toArray(Option.flatMap(cwd, owner)) : Option.getOrElse(Option.all(named), () => []);
@@ -120,20 +129,11 @@ const executedFiles = Effect.fnUntraced(function* (options: Targets[string]['opt
     return new Set([...Array.getSomes(words.map(({ text }) => call.host.resolve(text, folder))), ...(reads === undefined ? [] : [call.host.path.join(call.host.root, cwd, reads)])]);
 });
 
-const runnersOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, invocation: Invocation, { words, paths, selected }: { readonly words: readonly string[]; readonly paths: readonly string[]; readonly selected: readonly string[] }, call: Call) {
-    const spellings = spellingsOf(invocation, call);
+const runnersOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, invocation: Invocation, { words, paths, selected, helping }: { readonly words: readonly string[]; readonly paths: readonly string[]; readonly selected: readonly string[]; readonly helping: readonly Helping[] }, call: Call) {
     const root = call.host.path.join(call.host.root, node.data.root);
     const narrowed = invocation.row.nx?.narrows === true && paths.some((file) => file !== root && call.host.inside(file, root));
     const targets = targetsOf(node);
-    const helps = Array.getSomes(
-        Record.collect(targets, (target, { metadata }) =>
-            pipe(
-                Option.fromNullishOr(metadata?.help?.command),
-                Option.filter((command) => !spellings.isDisjointFrom(new Set(command.split(' ')))),
-                Option.map((command) => [target, command] as const),
-            ),
-        ),
-    );
+    const helps = helping.filter((held) => held.node === node).map(({ target, command }) => [target, command] as const);
     const ran = yield* Effect.forEach(helps, ([, command]) => Effect.map(bodyOf(command, call), ({ invocations }) => invocations.at(-1)));
     const executed = selected.length === 0 ? [] : yield* Effect.forEach(helps, ([target]) => executedFiles(targets[target]?.options, invocation.row.nx?.reads, call));
     const eligible = Array.zip(helps, ran).flatMap(([[target], helped], slot) => {
@@ -179,23 +179,25 @@ const nxTarget: Rule = Effect.fnUntraced(function* (invocation, call) {
     const { selects = [], targets = {}, ignores = [], reads } = invocation.row.nx ?? {};
     const settled = new Set([...selects, ...Object.keys(targets), ...ignores]);
     const graph = yield* host.graph;
-    if (Option.isNone(graph) || invocation.program === 'nx' || !replaceable(invocation, call)) {
+    const helping = Option.match(graph, { onNone: () => [], onSome: ({ nodes }) => [...new Set([...spellingsOf(invocation, call)].flatMap((word) => (helpingBy(nodes).get(word) ?? []).map((found) => found.helping)))] });
+    if (Option.isNone(graph) || helping.length === 0 || invocation.program === 'nx' || !replaceable(invocation, call)) {
         return [];
     }
     const { paths, words } = yield* scopeOf(invocation, call);
     const asked = words.split(' ').filter(String.isNonEmpty);
-    const owners = ownersOf(graph.value, invocation, paths, call);
+    const owners = ownersOf(graph.value, invocation, paths, helping, call);
     const given = Array.getSomes(invocation.values(...selects).map((value) => host.resolve(value, invocation.command.cwd)));
     const kinds = yield* Effect.forEach(given, (file) => Effect.option(host.fs.stat(file)));
     const selected = yield* Effect.filter(
         Array.zipWith(given, kinds, (file, info) => (reads !== undefined && Option.exists(info, ({ type }) => type === 'Directory') ? host.path.join(file, reads) : file)),
         (file) => host.exists(file),
     );
-    const owned = yield* Effect.forEach(owners, (node) => runnersOf(node, invocation, { words: asked, paths, selected }, call));
+    const owned = yield* Effect.forEach(owners, (node) => runnersOf(node, invocation, { words: asked, paths, selected, helping }, call));
     const folders = paths.length > 0 ? paths : Option.toArray(invocation.command.cwd);
     const widened = owners.length <= 1 && invocation.values(...selects).length === 0 && owned.every(({ eligible }) => eligible.length === 0);
-    const nested = widened ? Object.values(graph.value.nodes).filter((node) => node !== owners[0] && folders.some((folder) => host.inside(host.path.join(host.root, node.data.root), folder))) : [];
-    const runners = (widened ? yield* Effect.forEach(nested, (node) => runnersOf(node, invocation, { words: asked, paths, selected }, call)) : owned).flatMap(({ eligible, chosen }) => (widened && eligible.length === 0 ? [] : [chosen]));
+    const running = new Set(helping.map(({ node }) => node));
+    const nested = widened ? Object.values(graph.value.nodes).filter((node) => running.has(node) && node !== owners[0] && folders.some((folder) => host.inside(host.path.join(host.root, node.data.root), folder))) : [];
+    const runners = (widened ? yield* Effect.forEach(nested, (node) => runnersOf(node, invocation, { words: asked, paths, selected, helping }, call)) : owned).flatMap(({ eligible, chosen }) => (widened && eligible.length === 0 ? [] : [chosen]));
     const picks = runners.flatMap((chosen) => (chosen.length === 1 ? chosen : []));
     const several = runners.find((chosen) => chosen.length > 1) ?? [];
     const unsettled = invocation.args.filter(({ names }) => names.length > 0 && !new Set(names).isSubsetOf(settled));
@@ -267,7 +269,7 @@ const skippedCache: Rule = Effect.fnUntraced(function* (invocation, call) {
 });
 
 const forLoop = Effect.fnUntraced(function* ({ request }: Call) {
-    const stmts = yield* Effect.option(parsed(request.command, request.shell ?? 'bash'));
+    const stmts = yield* Effect.option(parsed(request.command, 'bash'));
     const [stmt, ...more] = Option.getOrElse(stmts, () => []);
     const clause = stmt?.cmd;
     const head = clause?.type === 'ForClause' && clause.do.length === 1 && more.length === 0 ? clause.loop : undefined;
@@ -418,6 +420,21 @@ const askedTargets = (invocation: Invocation, graph: Graph) => {
     return Array.cartesian(nodes, targets).filter(([node, target]) => targetsOf(node)[target] !== undefined);
 };
 
+const bounded = (invocation: Invocation): readonly Verdict[] =>
+    Array.match(
+        invocation.outer.filter(({ program }) => program === 'timeout').flatMap(({ head, rest }) => rest.slice(0, 1).flatMap(({ start }) => erased(invocation, { start: head.start, end: start }))),
+        {
+            onEmpty: () => [],
+            onNonEmpty: (edits) => [...edits, Verdict.Note({ subject: 'timeout nx', text: 'timeout before nx removed, as its kill loses unfinished tasks of a run that ends on its own: a foreground call past its timeout moves to the background and notifies, and TaskStop ends a hung run' })],
+        },
+    );
+
+const boundedTasks: Rule = Effect.fnUntraced(function* (invocation, call) {
+    const asked = Option.match(yield* call.host.graph, { onNone: () => [], onSome: (graph) => askedTargets(invocation, graph) });
+    const continuous = asked.flatMap(([node, target]) => [target, ...members(targetsOf(node), target)].map((name) => targetsOf(node)[name]?.continuous === true));
+    return continuous.length > 0 && !continuous.includes(true) ? bounded(invocation) : [];
+});
+
 const aggregateArgs: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const asked = Option.match(yield* host.graph, { onNone: () => [], onSome: (graph) => askedTargets(invocation, graph) });
     const aggregated = asked.find(([asking, target]) => patternsOf(targetsOf(asking)[target] ?? {}).length > 0);
@@ -526,7 +543,7 @@ const outsideScript: Rule = Effect.fnUntraced(function* (invocation, { host }) {
         (value) => (value === '' ? [] : value.split(':')),
     );
     if (Option.isNone(entries) || rest.some(({ known }) => !known)) {
-        return refuse('arguments unresolved', `pass literal words and ${searchPath}`)(invocation);
+        return [];
     }
     const launched = head.text.includes('/') ? Option.getOrElse(yield* absolute(head, cwd, host), () => head.raw) : head.raw;
     const search = entries.value.some((entry) => !host.path.isAbsolute(entry)) ? [`${searchPath}=${quote(Array.getSomes(entries.value.map((entry) => host.resolve(entry, cwd))).join(':'))}`] : [];
@@ -559,8 +576,11 @@ const TASKS: Ruleset = {
                     return start === invocation.head.start ? [] : edited(invocation, { start, end: invocation.head.start }, '');
                 },
                 perSubcommand({
-                    show: [hiddenErrors],
-                    graph: [hiddenErrors],
+                    show: [hiddenErrors, when(({ has }) => !has('--web'), bounded)],
+                    graph: [hiddenErrors, when(({ has }) => has('--file', '--print'), bounded)],
+                    sync: [bounded],
+                    'sync:check': [bounded],
+                    'conformance:check': [bounded],
                     daemon: [when(({ has }) => has('--stop'), sharedDaemon)],
                     reset: [
                         when(({ has }) => has('--only-daemon'), sharedDaemon),
@@ -569,6 +589,11 @@ const TASKS: Ruleset = {
                 }),
                 when((invocation) => !invocation.has('--graph'), loopedRun('Loop reruns nx tasks, use one nx run-many', runMany)),
                 skippedCache,
+                boundedTasks,
+                (invocation) => {
+                    const dropped = respell({ drops: ['--skip-sync'] })(invocation);
+                    return dropped.length === 0 ? [] : [...dropped, ...edited(invocation, invocation.head, 'nx sync && nx'), Verdict.Note({ subject: 'nx --skip-sync', text: '--skip-sync became nx sync before the command, as a skipped sync leaves tsconfig references stale' })];
+                },
             ],
         },
         tsc: {
@@ -610,7 +635,7 @@ const TASKS: Ruleset = {
             nx: { ignores: ['--quiet'] },
             rules: [projectOptions(respell({ drops: ['--isolated'], notify: true }), strayCache, unassign(/^RUFF_CACHE_DIR=/u), perSubcommand({ check: [configFile], format: [configFile] }))],
         },
-        yamllint: { flags: ['-c, --config-file=', '-f, --format='] },
+        ryl: { flags: ['-c, --config-file=', '-d, --config-data=', '-f, --output-format=', '-o, --output-file='] },
         squawk: { flags: ['-c, --config=', '--reporter='] },
         'ast-grep': {
             aliases: ['sg'],
@@ -647,11 +672,10 @@ const TASKS: Ruleset = {
             nx: { ignores: ['--run'], narrows: true },
             rules: [loopedRun('Loop reruns vitest, use --repeats', repeated)],
         },
-        xargs: { rules: [cores(/./u, '-P')] },
+        xargs: { rules: [cores(/./u, '-P', '--max-procs')] },
         parallel: { flags: ['-j, --jobs=', '-P, --max-procs='], rules: [cores(/./u, '--jobs', '--max-procs')] },
         make: { aliases: ['gmake'], rules: [cores(/^\d+$/u, '--jobs')] },
         ninja: { flags: ['-j='], rules: [cores(/./u, '-j')] },
-        claude: { rules: [(invocation, { request }) => (request.agent !== undefined && invocation.has('--print') ? refusal('claude --print nests a session inside an agent, spawn an agent with the Agent tool') : [])] },
         pitchfork: {
             flags: ['-f, --force'],
             rules: [

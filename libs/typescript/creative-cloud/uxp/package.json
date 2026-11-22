@@ -18,7 +18,7 @@
         "plugin.*"
     ],
     "imports": {
-        "#/*": "./*.ts"
+        "#/*.ts": "./*.ts"
     },
     "exports": {
         ".": "./index.ts",
@@ -29,7 +29,7 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*": "./dist/*.js"
+            "#/*.ts": "./dist/*.js"
         },
         "exports": {
             ".": "./dist/index.js",
@@ -48,6 +48,7 @@
         "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*",
+        "@rasm/vite": "workspace:*",
         "core-js": "catalog:",
         "culori": "catalog:",
         "image-size": "catalog:",
@@ -71,13 +72,5 @@
     },
     "engines": {
         "node": ">=27"
-    },
-    "nx": {
-        "namedInputs": {
-            "default": [
-                "{projectRoot}/**/*",
-                "{workspaceRoot}/products/apps/creative-cloud/multi-app/atelier/icons/**/*"
-            ]
-        }
     }
 }

@@ -16,11 +16,41 @@ private struct Window: Codable, Equatable {
     let minimized: Bool?
 }
 
+private struct Numbered: Codable, Equatable, Sendable {
+    let number: Int
+}
+
+private struct Stamp: Encodable {
+    let path: String
+    let at: Date
+}
+
 private enum Role: String, Sendable {
     case button = "AXButton"
 }
 
+private enum Event: CaseKeyed {
+    case opened(Int)
+    case closed
+}
+
+private enum Phase: CaseLabeled {
+    case idle
+    case waiting(seconds: Int)
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+private func nested(_ depth: Int) -> Data { Data((String(repeating: "[", count: depth) + String(repeating: "]", count: depth)).utf8) }
+
+private func refusal(_ decode: () throws -> Any) -> String? {
+    do {
+        _ = try decode()
+        return nil
+    } catch {
+        return Mirror(reflecting: error).children.first?.label
+    }
+}
 
 @Suite
 struct HexTests {
@@ -29,6 +59,12 @@ struct HexTests {
         await propertyCheck(input: Gen<UInt8>.value().array(of: 0...64), Gen.bool) { bytes, uppercase in
             expectNoDifference([UInt8](hexEncoded: bytes.hexEncoded(uppercase: uppercase)), bytes)
         }
+    }
+
+    @Test(arguments: [("", ""), ("f", "66"), ("fo", "666F"), ("foo", "666F6F"), ("foob", "666F6F62"), ("fooba", "666F6F6261"), ("foobar", "666F6F626172")] as [(String, String)])
+    func matchesTheBase16Vectors(text: String, hex: String) {
+        expectNoDifference(Array(text.utf8).hexEncoded(uppercase: true), hex)
+        expectNoDifference([UInt8](hexEncoded: hex.lowercased()), Array(text.utf8))
     }
 
     @Test(arguments: ["0", "0g", "zz", "\u{FF21}\u{FF22}", "0 "])
@@ -55,10 +91,9 @@ struct JSONValueTests {
     }
 
     @Test
-    func boundsNesting() throws {
-        let nested: (Int) -> Data = { depth in Data((String(repeating: "[", count: depth) + String(repeating: "]", count: depth)).utf8) }
-        _ = try JSONDecoder().decode(JSONValue.self, from: nested(150))
-        #expect(throws: DecodingError.self) { try JSONDecoder().decode(JSONValue.self, from: nested(250)) }
+    func refusesNestingDeeperThanTwoHundredLevels() {
+        expectNoDifference(refusal { try JSONDecoder().decode(JSONValue.self, from: nested(200)) }, nil)
+        expectNoDifference(refusal { try JSONDecoder().decode(JSONValue.self, from: nested(201)) }, "dataCorrupted")
     }
 
     @Test
@@ -73,10 +108,10 @@ struct JSONValueTests {
     }
 
     @Test
-    func refusesInexactIntegers() {
-        #expect(throws: DecodingError.self) { try JSONValue.number(1.5).decode(Int.self) }
-        #expect(throws: DecodingError.self) { try JSONValue.object([:]).decode(Window.self) }
-        #expect(throws: DecodingError.self) { try JSONValue.null.decode(String.self) }
+    func refusesValuesOutsideTheirTypeByReason() {
+        expectNoDifference(refusal { try JSONValue.number(1.5).decode(Int.self) }, "typeMismatch")
+        expectNoDifference(refusal { try JSONValue.object([:]).decode(Numbered.self) }, "keyNotFound")
+        expectNoDifference(refusal { try JSONValue.null.decode(String.self) }, "valueNotFound")
     }
 
     @Test
@@ -88,23 +123,38 @@ struct JSONValueTests {
 
     @Test
     func keepsFieldsBesideKnownKeys() throws {
-        let document = try JSONDecoder().decode(JSONDocument<[String: Int]>.self, from: Data(#"{"a":1,"b":2}"#.utf8))
-        expectNoDifference(document.fields, ["a": .number(1), "b": .number(2)])
-        expectNoDifference(document.known, ["a": 1, "b": 2])
+        let document = try JSONDecoder().decode(JSONDocument<Numbered>.self, from: Data(#"{"number":1,"extra":"kept"}"#.utf8))
+        expectNoDifference(document.fields, ["number": .number(1), "extra": .string("kept")])
+        expectNoDifference(document.known, Numbered(number: 1))
+    }
+}
+
+@Suite
+struct CaseEncodingTests {
+    @Test
+    func keysEachValueByItsCase() throws {
+        expectNoDifference(String(data: try JSONEncoder().encode(Event.opened(3)), encoding: .utf8), #"{"opened":3}"#)
+        #expect(throws: EncodingError.self) { try JSONEncoder().encode(Event.closed) }
+    }
+
+    @Test
+    func writesEachCaseAsItsLabel() throws {
+        expectNoDifference(String(data: try JSONEncoder().encode([Phase.idle, Phase.waiting(seconds: 2)]), encoding: .utf8), #"["idle","waiting"]"#)
     }
 }
 
 @Suite
 struct JSONLinesTests {
-    @Test
-    func splitsAtNewlines() async {
-        var lines: [Data] = []
-        for await line in Data("{}\n\n[1]\n\"tail\"".utf8).async.jsonLines { lines.append(line) }
-        expectNoDifference(lines.map { line in String(data: line, encoding: .utf8) }, ["{}", "", "[1]", "\"tail\""])
+    @Test(arguments: [("{}\n\n[1]\n\"tail\"", ["{}", "", "[1]", "\"tail\""]), ("{}\n", ["{}"]), ("", [])] as [(String, [String?])])
+    func splitsAtNewlines(text: String, expected: [String?]) async {
+        var lines: [String?] = []
+        for await line in Data(text.utf8).async.jsonLines { lines.append(String(data: line, encoding: .utf8)) }
+        expectNoDifference(lines, expected)
     }
 
     @Test
-    func writesOneLinePerValue() throws {
-        expectNoDifference(try JSONEncoder().encodeLine([1, 2]), Data("[1,2]\n".utf8))
+    func writesOneSortedLineWithFractionalSecondDates() throws {
+        let line = try JSONEncoder.lines.encodeLine(Stamp(path: "a/b", at: Date(timeIntervalSince1970: 0.25)))
+        expectNoDifference(String(data: line, encoding: .utf8), "{\"at\":\"1970-01-01T00:00:00.250Z\",\"path\":\"a/b\"}\n")
     }
 }

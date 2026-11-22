@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedMap;
 import java.util.function.IntFunction;
@@ -151,8 +152,8 @@ public class Apply extends GhidraScript {
                                 .skip(index)
                                 .findFirst()
                                 .map(String::strip)
-                                .filter(text -> !text.isEmpty() && !"-".equals(text));
-        String at = "%s:%d".formatted(file, number);
+                                .filter(text -> !text.isEmpty() && !Objects.equals(text, "-"));
+        String at = String.format(Locale.ROOT, "%s:%d", file, number);
         Report.Result<Address> address =
                 Optional.ofNullable(currentProgram.getAddressFactory().getAddress(cells[0].strip()))
                         .<Report.Result<Address>>map(Report.Success::new)
@@ -264,7 +265,7 @@ public class Apply extends GhidraScript {
 
     // --- [LOCALS]
 
-    private Stream<Outcome> remove(Row row, Function function) {
+    private static Stream<Outcome> remove(Row row, Function function) {
         return row.locals().stream()
                 .filter(Local::removes)
                 .flatMap(local -> {

@@ -70,12 +70,6 @@
         <RuntimeEnvironmentVariable Include="CsCheck_Threads" Value="1" /> <!-- RhinoCommon and its documents run on one thread, so samples run one at a time -->
     </ItemGroup>
 
-    <ItemDefinitionGroup Label="Workspace Projects">
-        <ProjectReference>
-            <GlobalPropertiesToRemove>Configuration</GlobalPropertiesToRemove> <!-- Interface and Headless are host modes of this project alone, each reference builds its own configuration -->
-        </ProjectReference>
-    </ItemDefinitionGroup>
-
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../support/dotnet/Rasm.Testing/Rasm.Testing.csproj" />
         <ProjectReference Include="../../../../libs/dotnet/rhino/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />

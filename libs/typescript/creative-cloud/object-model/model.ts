@@ -1,6 +1,6 @@
 import { Unmatched } from '@rasm/search';
 import { Array, Effect, Formatter, Match, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
-import { format, parse } from '#/host';
+import { format, parse } from '#/host.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

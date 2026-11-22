@@ -107,7 +107,7 @@ public sealed class ContainerDisposeAnalyzer : DiagnosticAnalyzer {
 
     // --- [ANALYSIS]
 
-    private enum ControlReach { Type, Properties, Collection }
+    private enum ControlReach { Type = 0, Properties = 1, Collection = 2 }
 
     private sealed class ControlFactComparer : IEqualityComparer<(ITypeSymbol Type, ControlReach Reach)> {
         public bool Equals((ITypeSymbol Type, ControlReach Reach) x, (ITypeSymbol Type, ControlReach Reach) y) =>

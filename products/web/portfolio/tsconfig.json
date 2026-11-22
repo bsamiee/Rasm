@@ -1,8 +1,9 @@
 {
-    "extends": "../../../tsconfig.unpublished.json",
+    "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
         "jsx": "react-jsx",
-        "module": "preserve"
+        "module": "preserve",
+        "noEmit": true
     },
     "files": [],
     "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }, { "path": "./tsconfig.worker.json" }]

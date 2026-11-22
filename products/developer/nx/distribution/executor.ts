@@ -9,7 +9,7 @@ import { getLatestGitTagForPattern, sanitizeProjectNameForGitTag } from 'nx/src/
 import { getFilesForOutputsBatch } from 'nx/src/native';
 import { createProjectFileMapUsingProjectGraph } from 'nx/src/project-graph/file-map-utils';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
-import { spawned } from '#/inference';
+import { spawned } from '#/inference.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -21,7 +21,17 @@ const Words = Schema.optionalKey(Schema.Array(Schema.String)).annotate({ descrip
 
 const dried = ({ dryRun }: typeof Dry.Type) => Effect.map(Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false)), (stated) => dryRun === true || stated);
 
-const credentialed = (variable: string) => Effect.map(Config.option(Config.String(variable)), Option.filter(String.isNonEmpty));
+const forwarded = (words: readonly string[]) => {
+    const owned = new RegExp(
+        `^--(?:no-)?(?:${Struct.keys(Dry.fields)
+            .flatMap((key) => [key, String.snakeToKebab(String.camelToSnake(key))].map(RegExp.escape))
+            .join('|')})(?:=.*)?$`,
+        'u',
+    );
+    return words.filter((word) => !owned.test(word));
+};
+
+const credentialed = (variables: string | readonly string[]) => Effect.map(Config.all(Array.ensure(variables).map((variable) => Config.option(Config.String(variable)))), Array.findFirst(Option.filter(String.isNonEmpty)));
 
 const packaged = Effect.fnUntraced(function* ({ root, projectName, targetName, configurationName, projectGraph }: ExecutorContext) {
     const [project, target] = yield* Effect.all([Effect.fromNullishOr(projectName), Effect.fromNullishOr(targetName)]);
@@ -66,4 +76,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | ChildProcessSpawne
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { credentialed, Dry, dried, packaged, released, run, Words };
+export { credentialed, Dry, dried, forwarded, packaged, released, run, Words };

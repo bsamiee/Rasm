@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
@@ -187,7 +188,7 @@ public class Headers extends GhidraScript {
     private static Stream<Report.Result<Argument>> arguments(List<String> tokens) {
         return tokens.isEmpty()
                 ? Stream.empty()
-                : "-imacros".equals(tokens.getFirst()) && tokens.size() > 1
+                : Objects.equals(tokens.getFirst(), "-imacros") && tokens.size() > 1
                         ? Stream.concat(
                                 Stream.of(Macros.read(tokens.get(1))),
                                 arguments(tokens.subList(2, tokens.size())))
@@ -231,7 +232,7 @@ public class Headers extends GhidraScript {
                     .mapToObj(index -> {
                         MatchResult token = tokens.get(index);
                         int depth = depths.get(index);
-                        boolean close = ")".equals(token.group());
+                        boolean close = Objects.equals(token.group(), ")");
                         return (close && depth < 0)
                                         || (depth == 0
                                                 && token.group().equals(String.valueOf(endChar)))

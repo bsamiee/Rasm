@@ -2,21 +2,20 @@ use std::path::Path;
 
 use claims::assert_ok;
 use rasm_mcp_tests::{conformed, everything, served};
-use rasm_testing::{Fixture as _, Folder};
+use rasm_testing::{Failure, Fixture as _, Folder};
 use rstest::rstest;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[cfg(test)]
-async fn conforms(scenario: &str, revision: &str) {
-    let passed = Folder::scoped(Path::new(env!("CARGO_TARGET_TMPDIR")), async |folder: &Folder| {
+async fn conforms(scenario: &str, revision: &str) -> Result<(), Failure<Folder>> {
+    Folder::scoped(Path::new(env!("CARGO_TARGET_TMPDIR")), async |folder: &Folder| {
         let (shared, _app) = assert_ok!(everything().await);
         let (url, _stop) = assert_ok!(served(&shared).await);
         let baseline = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/expected-failures.yaml"));
         let outcome = assert_ok!(conformed(&url, scenario, revision, baseline, folder.path()).await);
         assert_eq!((outcome.code, outcome.checks.is_empty()), (Some(0), false), "{scenario} at {revision}:\n{}", outcome.output);
-    });
-    assert_ok!(passed.await, "a failed scenario keeps its results folder");
+    })
+    .await
 }
 
 // --- [REVISIONS]
@@ -58,8 +57,8 @@ async fn revision_2025_11_25(
         "server-session-lifecycle"
     )]
     scenario: &str,
-) {
-    conforms(scenario, "2025-11-25").await;
+) -> Result<(), Failure<Folder>> {
+    conforms(scenario, "2025-11-25").await
 }
 
 #[rstest]
@@ -91,6 +90,6 @@ async fn revision_2026_07_28(
         "caching"
     )]
     scenario: &str,
-) {
-    conforms(scenario, "2026-07-28").await;
+) -> Result<(), Failure<Folder>> {
+    conforms(scenario, "2026-07-28").await
 }

@@ -1,6 +1,6 @@
 import { Option, Result, Schema, SchemaParser } from 'effect';
 import { fn } from 'storybook/test';
-import preview from '#/.storybook/preview';
+import preview from '#/.storybook/preview.ts';
 import { Issues } from '#/issues.tsx';
 
 // --- [MODELS] --------------------------------------------------------------------------

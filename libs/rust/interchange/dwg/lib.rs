@@ -1,5 +1,5 @@
 #![feature(const_trait_impl, default_field_values, deref_patterns)]
-#![cfg_attr(feature = "drawing", feature(const_result_trait_fn, f128, float_conversions))]
+#![cfg_attr(feature = "drawing", feature(const_result_trait_fn, f128, float_conversions, float_mul_add_relaxed))]
 
 #[cfg(feature = "drawing")]
 use core::num::TryFromIntError;

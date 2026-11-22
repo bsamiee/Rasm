@@ -1,15 +1,15 @@
 import { Array, Combiner, Effect, Layer, Match, Option, Predicate, Record } from 'effect';
 import { RateLimiter } from 'effect/persistence';
-import { Host, type HostError } from '#/host';
-import { Decision, decisionOf, type Request } from '#/rules/decision';
-import { FILES } from '#/rules/files';
-import { GHIDRA } from '#/rules/ghidra';
-import { GIT } from '#/rules/git';
-import { all, type Call, once, type Ruleset, settled } from '#/rules/rule';
-import { TASKS } from '#/rules/tasks';
-import { WAITS } from '#/rules/waits';
-import { analyzed, Parser } from '#/shell/invocation';
-import { PROGRAMS } from '#/shell/programs';
+import { Host, type HostError } from '#/host.ts';
+import { Decision, decisionOf, type Request } from '#/rules/decision.ts';
+import { FILES } from '#/rules/files.ts';
+import { GHIDRA } from '#/rules/ghidra.ts';
+import { GIT } from '#/rules/git.ts';
+import { all, type Call, once, type Ruleset, settled } from '#/rules/rule.ts';
+import { TASKS } from '#/rules/tasks.ts';
+import { WAITS } from '#/rules/waits.ts';
+import { analyzed, Parser } from '#/shell/invocation.ts';
+import { PROGRAMS } from '#/shell/programs.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ const due = (reader: Pick<typeof Request.Type, 'session' | 'agent'>, notes: Read
 
 const judged = Effect.fnUntraced(function* (request: typeof Request.Type) {
     const host = yield* Host;
-    const analysis = yield* analyzed(request.command, { cwd: host.resolve(request.cwd, Option.none()), origin: 'call' }, request.shell);
+    const analysis = yield* analyzed(request.command, { cwd: host.resolve(request.cwd, Option.none()), origin: 'call' });
     const call: Call = { request, analysis, host, programs: BY_NAME };
     const verdicts = yield* Effect.all([...analysis.invocations.map((invocation) => all(...(invocation.informational ? [] : [...(BY_NAME.get(invocation.program)?.rules ?? []), ...EVERY]))(invocation, call)), ...CALLS.map((rule) => settled(rule(call)))], { concurrency: 'unbounded' });
     return yield* decisionOf(request.command, verdicts.flat(), (notes) => due(request, notes));
@@ -67,8 +67,8 @@ const decide = Effect.fn('decide')(
             Rewrite: ({ command, background, note }) => ({ rewritten: command, background, ...Record.getSomes({ note: Option.fromNullishOr(note) }) }),
             Monitor: ({ command, note }) => ({ monitored: command, ...Record.getSomes({ note: Option.fromNullishOr(note) }) }),
         });
-        yield* Effect.annotateCurrentSpan({ decision: decision._tag, kind: request.kind, command: request.command, ...outcome, ...Record.getSomes({ tool_use_id: Option.fromNullishOr(request.call), session: Option.fromNullishOr(request.session), agent: Option.fromNullishOr(request.agent) }) });
-        yield* Effect.logInfo(decision._tag).pipe(Effect.annotateLogs({ kind: request.kind, command: request.command, ...outcome, session: request.session ?? 'unknown', agent: request.agent ?? 'main', call: request.call ?? 'unknown' }));
+        yield* Effect.annotateCurrentSpan({ decision: decision._tag, kind: request.kind, command: request.command, ...outcome, tool_use_id: request.call, session: request.session, ...Record.getSomes({ agent: Option.fromNullishOr(request.agent) }) });
+        yield* Effect.logInfo(decision._tag).pipe(Effect.annotateLogs({ kind: request.kind, command: request.command, ...outcome, session: request.session, agent: request.agent ?? 'main', call: request.call }));
         return decision;
     },
     (effect, request) => Effect.provideServiceEffect(effect, Host, Host.make(request.cwd)),
@@ -80,4 +80,4 @@ const Engine = Parser.layer(BY_NAME).pipe(Layer.provideMerge(Host.layer), Layer.
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { decide, due, Engine };
+export { decide, Engine };

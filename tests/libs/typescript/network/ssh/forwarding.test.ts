@@ -1,10 +1,12 @@
 import { assert, it } from '@effect/vitest';
 import { Forward, Ssh } from '@rasm/ssh';
 import { Array, Effect, FileSystem, Path, Record, Result, Schema } from 'effect';
-import { answered, bounds, greeted, greeting, type Listeners, reasoned, Sshd, served, vacant } from '#/sshd';
+import { answered, banner, bounds, greeted, greeting, type Listeners, reasoned, Sshd, served, vacant } from '#/sshd.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const identified = new TextDecoder().decode(banner);
+const socks = { asked: Uint8Array.fromHex('050100'), accepted: Uint8Array.fromHex('0500') };
 const opened = `127.0.0.1:${greeting.port}`;
 const others = ['127.0.0.1:22', '127.0.0.2:22'] as const;
 const listened = 3300;
@@ -62,13 +64,41 @@ const controlled = Effect.fnUntraced(function* (name: string, port: number, bind
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Sshd.layer(listeners), { timeout: bounds.started, excludeTestServices: true })('forwarding', (methods) => {
+it.layer(Sshd.layer(listeners), { timeout: bounds.started, excludeTestServices: true, concurrent: true })('forwarding', (methods) => {
+    methods.effect(
+        'forwards local and remote TCP ports, socket paths, and a SOCKS port over the shared connection, and stops each listener with its scope',
+        Effect.fnUntraced(function* () {
+            const [ssh, { hosted, far }, fs, path] = yield* Effect.all([Ssh, Sshd, FileSystem.FileSystem, Path.Path]);
+            const [host, folder, port, proxied] = yield* Effect.all([hosted('forwarded'), fs.makeTempDirectoryScoped(), vacant, vacant]);
+            const [near, back, remote] = [`127.0.0.1:${served}`, `${far.dial.host}:${far.dial.port}`, listened - 2];
+            const heard = (flags: string) => Effect.map(ssh.run(host, ['sh', '-c', `nc -w 2 ${flags} </dev/null 2>/dev/null | head -c ${banner.length}`]), (shown) => shown === identified);
+            const kinds = {
+                localPort: { forward: { _tag: 'Local', bind: `127.0.0.1:${port}`, connect: near }, listening: answered({ host: '127.0.0.1', port }, banner) },
+                localPath: { forward: { _tag: 'Local', bind: path.join(folder, 'unix-1.fwd'), connect: near }, listening: answered({ path: path.join(folder, 'unix-1.fwd') }, banner) },
+                remotePort: { forward: { _tag: 'Remote', bind: `127.0.0.1:${remote}`, connect: back }, listening: heard(`127.0.0.1 ${remote}`) },
+                remotePath: { forward: { _tag: 'Remote', bind: '/tmp/unix-1.fwd', connect: back }, listening: heard('-U /tmp/unix-1.fwd') },
+                dynamic: { forward: { _tag: 'Dynamic', bind: `127.0.0.1:${proxied}` }, listening: answered({ host: '127.0.0.1', port: proxied }, socks.accepted, socks.asked) },
+            } as const;
+            const wanted = yield* Effect.all(Record.map(kinds, ({ forward }) => Schema.decodeEffect(Forward)(forward)));
+            const held = yield* Effect.all(
+                Record.map(kinds, ({ listening }, kind) => Effect.scoped(Effect.andThen(ssh.forward(host, wanted[kind]), listening))),
+                { concurrency: 'unbounded' },
+            );
+            const cancelled = yield* Effect.all(
+                Record.map(kinds, ({ listening }) => listening),
+                { concurrency: 'unbounded' },
+            );
+            assert.deepStrictEqual([held, cancelled], [Record.map(kinds, () => true), Record.map(kinds, () => false)]);
+        }, Effect.scoped),
+        bounds.test,
+    );
+
     methods.effect(
         'opens local forwards and binds remote forwards as each server forwarding policy, open permission, listen permission, and key option allows',
         Effect.fnUntraced(function* () {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const folder = yield* fs.makeTempDirectoryScoped();
-            const found = yield* Effect.forEach(Record.toEntries(controls), ([name, { port }], index) => controlled(name, port, path.join(folder, `${index}.fwd`)), { concurrency: 8 });
+            const found = yield* Effect.forEach(Record.toEntries(controls), ([name, { port }], index) => controlled(name, port, path.join(folder, `${index}.fwd`)), { concurrency: 16 });
             assert.deepStrictEqual(
                 Record.fromEntries(found),
                 Record.map(controls, ({ expected }) => ({ local: outcomes[expected.startsWith('Y') ? 'Y' : 'N'].local, remote: outcomes[expected.endsWith('Y') ? 'Y' : 'N'].remote })),

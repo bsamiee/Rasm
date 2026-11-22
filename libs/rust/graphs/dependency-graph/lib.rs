@@ -109,7 +109,6 @@ pub fn remove<N, E>(evaluation: &mut Evaluation<N, E>, node: NodeIndex) -> Optio
     evaluation.remove_node(node).map(|weight| (weight, edges))
 }
 
-#[expect(clippy::expect_used, reason = "callers pass a subgraph of an acyclic graph or a graph `cycles::cycle` found acyclic, and petgraph 0.8.3 wraps a graph in `Acyclic` through `TryFrom` alone")]
 fn acyclic<N, E>(graph: StableDiGraph<N, E>) -> Evaluation<N, E> { Acyclic::try_from(graph).expect("an acyclic graph") }
 
 fn present<N, E>(graph: &StableDiGraph<N, E>, nodes: impl IntoIterator<Item = NodeIndex>) -> Result<(), DependencyError> {

@@ -22,7 +22,7 @@ const EXTENSIONS = '{js,mjs,ts,cjs,mts,cts}';
 const SUITE = `vitest.config.${EXTENSIONS}`;
 const MODE = { TEST: 'true', VITEST: 'true', NODE_ENV: 'test' } as const;
 const ATTACHMENTS = 'attachments';
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -95,6 +95,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
                 manifests,
                 setup: [...setupFiles, ...Array.ensure(globalSetup)].map(local).filter(within),
                 written: browser.enabled ? Array.getSomes([Option.fromUndefinedOr(browser.trace.tracesDir), Option.fromNullishOr(browser.screenshotDirectory)]) : [],
+                providers: browser.enabled ? Array.fromNullishOr(browser.provider?.name) : [],
             }));
         }),
     ).pipe(Effect.map(Array.getSomes));
@@ -107,7 +108,9 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
                 root: owner,
                 projects: selected.length === selectable.length ? [] : selected,
                 setup: Array.dedupe(group.flatMap(({ setup }) => setup)).filter((at) => !at.startsWith(`${owner}/`)),
+                providers: Array.dedupe(group.flatMap(({ providers }) => providers)),
                 coverage: local(resolve(root, coverage.reportsDirectory)),
+                written: Array.dedupe(group.flatMap(({ written }) => written).map((at) => local(resolve(root, at)))),
             };
         },
     );
@@ -128,7 +131,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
         linked,
         loaded: depended,
         triggers: Array.difference(forceRerunTriggers, defaults.configDefaults.forceRerunTriggers).map((glob) => (isAbsolute(glob) ? local(glob) : glob)),
-        folders: Array.dedupe([attachmentsDir, ...reports, ...probes.flatMap((probe) => probe.written)].map((written) => local(resolve(root, written)))),
+        shared: Array.dedupe([attachmentsDir, ...reports].map((at) => local(resolve(root, at)))),
         sources: Array.dedupe([...depended, 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...probes.flatMap((probe) => probe.manifests)]),
     };
 });
@@ -146,14 +149,14 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, f
         {
             onNone: () => surveyed(workspaceRoot, file, flags),
             onSome: ({ configFileDependencies }): Effect.Effect<Effect.Success<ReturnType<typeof surveyed>>> =>
-                Effect.succeed({ suites: [], packages: [], linked: [], loaded: [], triggers: [], folders: [], sources: [file, ...configFileDependencies.map((at) => normalizePath(relative(workspaceRoot, at))).filter(within)] }),
+                Effect.succeed({ suites: [], packages: [], linked: [], loaded: [], triggers: [], shared: [], sources: [file, ...configFileDependencies.map((at) => normalizePath(relative(workspaceRoot, at))).filter(within)] }),
         },
     );
     const sources = [lock, ...report.sources];
     return { ...report, sources, stamp: yield* stamped(workspaceRoot)(sources) };
 });
 
-const targets = (file: string, { loaded: configs, packages, linked, triggers, folders }: Resolved, { root, projects, setup, coverage }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: typeof Options.Type, exec: string): Verbs => {
+const targets = (file: string, { loaded: configs, packages, linked, triggers, shared, suites }: Resolved, { root, projects, setup, coverage, written }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: typeof Options.Type, exec: string): Verbs => {
     const [home, held] = [dirname(file), Array.fromNullishOr(outputPath)];
     const rooted = getRootTsConfigFileName();
     const outside = Record.filter(
@@ -179,7 +182,7 @@ const targets = (file: string, { loaded: configs, packages, linked, triggers, fo
                 { env: 'CI' },
                 { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true },
             ],
-            outputs: [...Array.dedupe([...held, ...folders]).filter((at, _index, all) => !all.some((folder) => at.startsWith(`${folder}/`))), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
+            outputs: [...Array.dedupe([...held, ...written, ...(suites.length === 1 ? shared : [])]).filter((at, _index, all) => !all.some((folder) => at.startsWith(`${folder}/`))), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
             configurations: {
                 coverage: { coverage: { enabled: true, reporter: 'lcovonly', ...(coveragePath === undefined ? {} : { reportsDirectory: coveragePath }) } },
             },
@@ -215,7 +218,8 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { re
             const chain = [suite.root, ...setup.map(dirname)].flatMap((at) => extended(context.workspaceRoot, at));
             const project: ProjectConfiguration = {
                 root: suite.root,
-                metadata: { technologies: ['vitest'] },
+                ...(suite.providers.length > 0 && { tags: ['host:browser'] }),
+                metadata: { technologies: ['vitest', ...suite.providers] },
                 targets: aggregated(targets(file, resolved, { ...suite, setup }, chain, `^${namedInput(suite.root, context)}`, settings, getPackageManagerCommand(manager).exec), stated, 'vitest'),
             };
             return [suite.root, project] as const;

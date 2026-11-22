@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { MarkError, paint } from '#/paint';
+export { paint } from '#/paint.ts';

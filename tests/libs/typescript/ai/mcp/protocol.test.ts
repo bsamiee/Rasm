@@ -1,8 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Array, Effect, Fiber, Option, Queue, Schema } from 'effect';
 import { McpProtocol } from 'effect/ai';
-import { CLIENT, INSTRUCTIONS, MANIFEST, opened, PROTOCOLS, SESSION, STATEFUL, VERSION } from '#/conformance';
-import { STEPS } from '#/fixtures';
+import { CLIENT, INSTRUCTIONS, MANIFEST, opened, PROTOCOLS, SESSION, STATEFUL, VERSION } from '#/conformance.ts';
+import { STEPS } from '#/fixtures.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -10,7 +10,6 @@ const PARAMS = { protocolVersion: STATEFUL[3].protocolVersion, capabilities: {},
 const INITIALIZE = { jsonrpc: '2.0', id: 1, method: 'initialize', params: PARAMS } as const;
 const PING = { jsonrpc: '2.0', id: 'ping', method: 'ping' } as const;
 const CANCELLED = { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 'gated' } } as const;
-const DELETED = { ended: 404, declined: 405 } as const;
 const VISIBLE = /^[!-~]+$/u;
 const REFUSED = [
     { label: 'an unknown method', body: '{"jsonrpc":"2.0","id":7,"method":"no/such","params":{}}', code: -32_601, id: 7 },
@@ -20,8 +19,11 @@ const REFUSED = [
 ] as const;
 const HOSTS = [
     { host: 'attacker.example', served: false },
+    { host: 'attacker.example:7000', served: false },
     { host: 'localhost', served: true },
     { host: '127.0.0.1', served: true },
+    { host: 'mcp.example:8080', served: true },
+    { host: '192.0.2.10:7000', served: true },
 ] as const;
 const MEDIA = [
     { headers: { 'content-type': 'text/plain' }, status: 415 },
@@ -126,13 +128,13 @@ describe.each(STATEFUL)('$protocolVersion transport', (protocol) => {
     );
 
     it.live(
-        'answers DELETE for a session by ending it, its id answering 404 afterwards, or by 405 with the session still served, and keeps another session live either way',
+        'ends a session on DELETE, its id answering 404 afterwards, and keeps another session live',
         Effect.fnUntraced(function* () {
             const test = yield* opened(protocol);
             const [ended, kept] = yield* Effect.all([test.session, test.session]);
             const deleted = yield* test.raw(Option.none(), { method: 'DELETE', headers: ended });
             const [after, other] = yield* Effect.all([test.send(ended, PING), test.send(kept, PING)]);
-            assert.deepStrictEqual({ ended: deleted.ok ? after.status : deleted.status, kept: deleted.ok || after.ok, other: other.ok }, { ended: deleted.ok ? DELETED.ended : DELETED.declined, kept: true, other: true });
+            assert.deepStrictEqual({ deleted: deleted.ok, after: after.status, other: other.status }, { deleted: true, after: 404, other: 200 });
         }, Effect.scoped),
     );
 
@@ -146,7 +148,7 @@ describe.each(STATEFUL)('$protocolVersion transport', (protocol) => {
     );
 
     it.live.each(HOSTS)(
-        'serves initialize addressed to host $host: $served, a loopback host is served and a host that only resolves there is refused',
+        'serves initialize addressed to host $host: $served, an allowed name on any port, a loopback name, and the bound address are served, any other name is refused',
         Effect.fnUntraced(function* ({ host, served }) {
             const test = yield* opened(protocol);
             assert.strictEqual((yield* test.post(INITIALIZE, { headers: { host } })).ok, served);

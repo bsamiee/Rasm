@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-playwright",
     "private": true,
-    "description": "@rasm/nx-playwright suites over temporary workspaces: Nx's own Playwright plugin specs ported to the targets createNodes infers from the configuration Playwright resolves",
+    "description": "@rasm/nx-playwright suites over temporary workspaces: the projects, webServer task dependencies, inputs, outputs, config loading, and inference cache of the graph Nx builds with the plugin",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",
@@ -9,6 +9,7 @@
         "@rasm/nx-playwright": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
+        "effect": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
     }

@@ -1,0 +1,39 @@
+{
+    "name": "@rasm/vite",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Vite plugins every Rasm build includes: Rolldown warnings whose output runs wrong (an import that is always undefined, a called namespace, an emptied import.meta, a lost or conflicting export or file name) fail the build, and every other warning stays a warning",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/web/vite"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": "./checks.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/checks.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "vite": "catalog:"
+    },
+    "peerDependencies": {
+        "vite": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    }
+}

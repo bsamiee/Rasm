@@ -27,7 +27,7 @@ public static class UnitText {
         select owned;
 
     private static Fin<double> Read(LengthValue parsed, LengthUnit spaceUnit, string text) =>
-        LengthUnit.IsNone(parsed.Units) || !LengthUnit.IsNone(spaceUnit) ? parsed.Length(spaceUnit) : new RhinoFault(text, RhinoReason.Unreadable);
+        LengthUnit.IsNone(parsed.Units) || !LengthUnit.IsNone(in spaceUnit) ? parsed.Length(spaceUnit) : new RhinoFault(text, RhinoReason.Unreadable);
 
     // --- [SCALES]
 

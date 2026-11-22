@@ -6,7 +6,7 @@ import { Context, Effect, FileSystem, Layer, Match, Path, Schema, Stream } from 
 import { HttpRouter, HttpServer } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { hosted } from '#/conformance';
+import { hosted } from '#/conformance.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -60,7 +60,7 @@ const checked = Effect.fnUntraced(function* (scenario: (typeof SCENARIOS)[number
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(layer, { excludeTestServices: true })('official conformance scenarios against the served endpoint', (methods) => {
+it.layer(layer, { excludeTestServices: true, concurrent: true })('official conformance scenarios against the served endpoint', (methods) => {
     methods.effect.each(SCENARIOS)(
         '%s: every check of the scenario runs, and fails only where the expected-failures baseline lists the scenario',
         Effect.fnUntraced(function* (scenario) {

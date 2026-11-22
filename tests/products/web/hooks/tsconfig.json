@@ -1,11 +1,15 @@
 {
-    "extends": "../../../../tsconfig.unpublished.json",
+    "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
+        "noEmit": true,
         "types": ["node"]
     },
     "references": [
         {
-            "path": "../../../../products/web/hooks"
+            "path": "../../../support/typescript"
+        },
+        {
+            "path": "../../../../libs/typescript/web/hosting"
         }
     ]
 }

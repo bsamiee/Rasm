@@ -43,7 +43,7 @@ public sealed class DefectivePackageMemberTests : CSharpCodeFixVerifier<Platform
             "match `doc.Objects.FindId(id) is DetailViewObject`, then `doc.Views.Find(id)`"));
 
     [Fact]
-    public Task ReportsDefectiveAppKitMemberOverStandInDeclarations() => VerifyAnalyzerAsync(
+    public Task ReportsDefectiveAppKitMemberWithItsWorkingForm() => VerifyAnalyzerAsync(
         """
         using System;
         using AppKit;
@@ -55,26 +55,6 @@ public sealed class DefectivePackageMemberTests : CSharpCodeFixVerifier<Platform
             internal static NSObject Observed(EventHandler<NSNotificationEventArgs> handler) => {|#1:NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(handler)|};
 
             internal static NSObject Scoped(NSObject sender, EventHandler<NSNotificationEventArgs> handler) => {|#2:NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(sender, handler)|};
-        }
-
-        namespace Foundation {
-            public class NSObject;
-
-            public sealed class NSNotificationEventArgs : EventArgs;
-        }
-
-        namespace AppKit {
-            public class NSWindow : NSObject {
-                public NSObject Animator => this;
-            }
-
-            public class NSWorkspace : NSObject {
-                public static class Notifications {
-                    public static NSObject ObserveDisplayOptionsDidChange(EventHandler<NSNotificationEventArgs> handler) => new();
-
-                    public static NSObject ObserveDisplayOptionsDidChange(NSObject sender, EventHandler<NSNotificationEventArgs> handler) => sender;
-                }
-            }
         }
         """,
         Diagnostic("RASM3113").WithLocation(0).WithArguments("window.Animator", "throws `RuntimeException` on an Eto `FloatingForm`", "write Eto `Window.Bounds` from an `Animated` sampled on `FrameLinks.Linked` ticks"),

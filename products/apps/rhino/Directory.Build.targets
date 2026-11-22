@@ -3,8 +3,10 @@
     <Import Project="$(MSBuildThisFileDirectory)../../../libs/dotnet/rhino/Rasm.Grasshopper/buildTransitive/Rasm.Grasshopper.targets" />
 
     <PropertyGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
-        <_PlugInPackageIcon>icon.png</_PlugInPackageIcon>
         <_PlugInAssetDir>$(IntermediateOutputPath)PlugInAssets/</_PlugInAssetDir>
+        <_PlugInMark>icons/mark.svg</_PlugInMark>
+        <_PlugInMarkStylesheet>$(MSBuildThisFileDirectory)icon-plugin.css</_PlugInMarkStylesheet>
+        <_PlugInPackageIcon>$(_PlugInAssetDir)icon.png</_PlugInPackageIcon>
         <_PlugInIcon>PlugIn.ico</_PlugInIcon>
         <_PlugInIconPngFrame>256</_PlugInIconPngFrame>
         <_PlugInRui>$(IntermediateOutputPath)$(TargetName).rui</_PlugInRui>
@@ -32,17 +34,17 @@
         </ItemGroup>
     </Target>
 
-    <Target Name="BuildPlugInIcon" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp'" Inputs="$(MSBuildAllProjects);$(IconDarkStylesheet);$(PlugInIcon)" Outputs="$(_PlugInAssetDir)$(_PlugInIcon);@(_PlugInRaster)">
-        <Error Condition="!Exists('$(PlugInIcon)')" Text="$(MSBuildProjectName) mark $(PlugInIcon) is missing" />
+    <Target Name="BuildPlugInIcon" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp'" Inputs="$(MSBuildAllProjects);$(_PlugInMark);$(_PlugInMarkStylesheet)" Outputs="$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInPackageIcon);@(_PlugInRaster)">
+        <Error Condition="!Exists('$(_PlugInMark)')" Text="$(MSBuildProjectName) mark $(_PlugInMark) is missing" />
         <MakeDir Directories="$(_PlugInAssetDir)" />
-        <Exec Command="resvg -w $([System.Math]::Round($([MSBuild]::Multiply(%(_PlugInRaster.Filename), $([MSBuild]::Subtract(1, $([MSBuild]::Multiply(2, $(PlugInIconInset))))))))) --stylesheet &quot;$(IconDarkStylesheet)&quot; &quot;$(PlugInIcon)&quot; &quot;%(_PlugInRaster.FullPath)&quot;" />
-        <Exec Command="magick -size %(_PlugInRaster.Filename)x%(_PlugInRaster.Filename) xc:none -fill &quot;$(PlugInIconPlate)&quot; -draw &quot;roundrectangle 0,0,$([MSBuild]::Subtract(%(_PlugInRaster.Filename), 1)),$([MSBuild]::Subtract(%(_PlugInRaster.Filename), 1)),$([MSBuild]::Multiply(%(_PlugInRaster.Filename), $(PlugInIconCorner))),$([MSBuild]::Multiply(%(_PlugInRaster.Filename), $(PlugInIconCorner)))&quot; &quot;%(_PlugInRaster.FullPath)&quot; -gravity center -composite &quot;%(_PlugInRaster.FullPath)&quot;" />
+        <Exec Command="resvg -w %(_PlugInRaster.Filename) --stylesheet &quot;$(_PlugInMarkStylesheet)&quot; &quot;$(_PlugInMark)&quot; &quot;%(_PlugInRaster.FullPath)&quot;" LogStandardErrorAsError="true" />
+        <Exec Command="resvg -w 64 --stylesheet &quot;$(_PlugInMarkStylesheet)&quot; &quot;$(_PlugInMark)&quot; &quot;$(_PlugInPackageIcon)&quot;" LogStandardErrorAsError="true" />
         <Exec Command="magick @(_PlugInRaster->'&quot;%(Filename)%(Extension)&quot;', ' ') -define icon:png-compression-size=$(_PlugInIconPngFrame) &quot;$(_PlugInIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" />
         <ItemGroup>
-            <None Include="$(_PlugInAssetDir)$(_PlugInIconPngFrame).png" TargetPath="$(_PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
+            <None Include="$(_PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
             <EmbeddedResource Include="$(_PlugInAssetDir)$(_PlugInIcon)" LogicalName="$(_PlugInIcon)" WithCulture="false" />
             <PlugInDescription Include="Icon" Value="$(_PlugInIcon)" />
-            <FileWrites Include="$(_PlugInAssetDir)$(_PlugInIcon);@(_PlugInRaster)" />
+            <FileWrites Include="$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInPackageIcon);@(_PlugInRaster)" />
         </ItemGroup>
     </Target>
 

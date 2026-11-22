@@ -1,7 +1,7 @@
 import { AbortMultipartUploadCommand, DeleteObjectCommand, HeadObjectCommand, NoSuchUpload, NotFound, S3Client, S3ServiceException } from '@aws-sdk/client-s3';
 import { ByteSize, Effect, Layer, Option, Redacted } from 'effect';
 import { s3Store } from 'partial-content/s3';
-import { access, ObjectStorage, sent } from '#/storage';
+import { access, ObjectStorage, sent } from '#/storage.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

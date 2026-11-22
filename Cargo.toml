@@ -12,11 +12,6 @@ members  = ["libs/rust/*/*", "products/ai/muxer", "tests/libs/rust/*/*", "tests/
 [workspace.package]
 edition = "2024"
 
-# --- [DYLINT]
-
-[workspace.metadata.dylint]
-libraries = [{ path = "tools/dylint" }]
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [workspace.dependencies]
@@ -760,7 +755,7 @@ single_use_lifetimes          = "deny"                                          
 unexpected_cfgs               = { level = "deny", check-cfg = ["cfg(dylint_lib, values(any()))"] } # `cfg` names and values no build states, Dylint's `dylint_lib` declared as its documented `cfg_attr` key
 unnameable_types              = "deny"                                                             # Types and traits public signatures expose but consumers cannot name
 unreachable_pub               = "deny"                                                             # `pub` items unreachable from the crate root, visibility states the reach consumers have
-unsafe_code                   = "deny"                                                             # Unsafe code and unsafe attributes, each exception an `#[expect]` on its narrowest item stating its safety argument
+unsafe_code                   = "deny"                                                             # Unsafe code and unsafe attributes, each FFI member an `-Aunsafe_code` profile `rustflags` row naming its foreign call
 unused_import_braces          = "deny"                                                             # `use a::{b}` braces around one import, code keeps the direct form
 unused_lifetimes              = "deny"                                                             # Lifetime parameters nothing reads, removals delete every mention
 unused_macro_rules            = "deny"                                                             # `macro_rules!` rules nothing invokes, removals delete every mention
@@ -920,6 +915,17 @@ pedantic                      = { level = "deny", priority = -1 } # Binary names
 non_kebab_case_features       = "deny"                            # Feature names off kebab case, one spelling beside kebab-case package and binary names
 non_kebab_case_packages       = "deny"                            # Package names off kebab case, Nx project, package, and installed binary share one spelling
 unused_workspace_dependencies = "allow"                           # Flags catalog rows held for future members, Cargo resolves inherited rows alone
+
+# --- [RUSTDOC]
+
+[workspace.lints.rustdoc]
+all                      = { level = "deny", priority = -1 } # Broken and private intra-doc links, invalid code blocks, HTML, and URLs, every rustdoc finding fails `cargo doc`
+missing_crate_level_docs = "allow"                           # Asks for `//!` docs atop every crate, names and types state each contract in place of doc comments
+
+# --- [DYLINT]
+
+[workspace.metadata.dylint]
+libraries = [{ path = "tools/dylint" }]
 
 # --- [PATCHES] --------------------------------------------------------------------------
 

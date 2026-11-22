@@ -82,6 +82,7 @@ from rasm.extension.ui._layout.sections import Section
 from rasm.extension.ui._layout.templates import Gallery
 from rasm.extension.ui._layout.values import Listing
 from rasm.extension.ui._resources.icons import Icons
+from rasm.extension.ui._resources.theme import CLEAR
 from rasm.imaging import called, Coded, Depth, DisplayView, Document, DocumentLayers, Layer, LayerGroup, Multilayer, PixelLayer, unassociated
 from rasm.records import accumulated, Fault, Outcome, paired, Reason, typed
 
@@ -304,7 +305,16 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return tuple(
             (stem, name, description, held if isinstance(held, int) else icon(stem), number)
             for stem, name, description, held, number in preset.entries(
-                sources, prefix=((_UNPICKED, "None", "Head stack as it stands, no preset written over it", Icons.value(identity, Some("X")).default_value(NOTHING).default_value(0), 0),)
+                sources,
+                prefix=(
+                    (
+                        _UNPICKED,
+                        "None",
+                        "Head stack as it stands, no preset written over it",
+                        Icons.value(identity, Some("X")).default_value(NOTHING).map(lambda value: value(_UNPICKED, CLEAR)).default_value(0),
+                        0,
+                    ),
+                ),
             )
         )
 

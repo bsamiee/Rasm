@@ -17,8 +17,7 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const WORKER = fileURLToPath(import.meta.resolve('#/worker'));
-const CHECK = normalizePath(fileURLToPath(import.meta.resolve('@nx/storybook/ready-check')));
+const WORKER = fileURLToPath(import.meta.resolve('#/worker.ts'));
 const RUNNER = '@storybook/test-runner';
 const OWN = fingerprinted(import.meta.dirname);
 
@@ -59,7 +58,8 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
 const targets = (root: string, { packages, linked, sources, globs, runner }: Resolved, chain: readonly string[], production: boolean, output: Option.Option<string>, exec: string): Verbs => {
     const rooted = getRootTsConfigFileName();
     const inputs = [
-        ...(production ? ['production', '{workspaceRoot}/{projectRoot}/.storybook/**/*', ...globs.map((at) => posix.join('{workspaceRoot}', at)), '^production'] : ['default', '^default']),
+        ...(production ? ['production', '{workspaceRoot}/{projectRoot}/.storybook/**/*', '^production'] : ['default', '^default']),
+        ...globs.map((at) => posix.join('{workspaceRoot}', at)),
         ...chain.filter((at) => at !== rooted).map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
         ...sources.map((at) => posix.join('{workspaceRoot}', at)),
         ...Array.match(linked, {
@@ -101,7 +101,7 @@ const targets = (root: string, { packages, linked, sources, globs, runner }: Res
                 command: 'storybook dev',
                 ...needs,
                 continuous: true,
-                readyWhen: getReadyCheckReadyWhen(CHECK),
+                readyWhen: getReadyCheckReadyWhen('@nx/storybook/ready-check'),
                 metadata: { description: 'Serves the project stories with storybook dev', help: { command: `${exec} storybook dev --help`, example: { args: ['--port=<port>'] } } },
             },
         },

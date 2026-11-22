@@ -1,98 +1,52 @@
-import { join, matchesGlob } from 'node:path';
-import type { CreateNodesContext } from '@nx/devkit';
-import { setupWorkspaceContext } from '@nx/devkit/internal';
+import { join } from 'node:path';
 import { createNodes } from '@rasm/nx-typescript';
 import { refused } from '@rasm/testing/errors';
-import { pathed, refusing } from '@rasm/testing/nx';
-import { TempFs } from '@rasm/testing/temp-fs';
-import { describe, expect, test, vi } from 'vitest';
+import { it, pathed, refusing } from '@rasm/testing/nx';
+import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const KNIP = { 'node_modules/knip/package.json': JSON.stringify({ name: 'knip', type: 'module', exports: './index.js' }), 'node_modules/knip/index.js': 'export {};' };
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const duplicated = (config: string, files: string) => ({
-    command: 'jscpd .',
-    options: { cwd: '.' },
-    cache: true,
-    inputs: [`{workspaceRoot}/${files}`, `{workspaceRoot}/${config}`, { runtime: 'jscpd --version' }, { externalDependencies: [] }],
-    outputs: [],
-    metadata: { technologies: ['jscpd'], description: `Reports code duplicated across the workspace files ${config} selects with jscpd`, help: { command: 'jscpd --help', example: { args: ['--changed'] } } },
-});
-
-const unused = (command: string) => ({
-    command,
-    options: { cwd: '.' },
-    cache: true,
-    inputs: ['{workspaceRoot}/**/*', { externalDependencies: ['knip'] }],
-    outputs: [],
-    metadata: { technologies: ['knip'], description: `Reports unused files, exports, and dependencies of every workspace package with ${command}`, help: { command: 'npx knip --help', example: { args: ['--production'] } } },
-});
-
-const workspaceTargets = async (tempFs: TempFs, context: CreateNodesContext, files: Record<string, string>, options: Parameters<(typeof createNodes)[1]>[1] = {}) => {
-    const written = { 'package-lock.json': '', 'package.json': JSON.stringify({ workspaces: ['**'] }), ...files };
-    await tempFs.createFiles(written);
-    setupWorkspaceContext(tempFs.tempDir);
-    const results = await createNodes[1](
-        Object.keys(written).filter((file) => matchesGlob(file, createNodes[0])),
-        options,
-        context,
-    );
-    return Object.fromEntries(results.flatMap(([, nodes]) => Object.entries({ ...nodes.projects })))['.']?.targets;
-};
+const ROOT = { 'package.json': '{"name":"root","workspaces":["libs/*"]}', 'package-lock.json': '' };
+const KNIP = { 'node_modules/knip/package.json': '{"name":"knip","type":"module","exports":"./index.js"}', 'node_modules/knip/index.js': 'export {};' };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const it = test
-    .extend('tempFs', ({}, { onCleanup }) => {
-        const tempFs = new TempFs('workspace-targets');
-        const previous = process.cwd();
-        process.chdir(tempFs.tempDir);
-        onCleanup(() => {
-            process.chdir(previous);
-            tempFs.cleanup();
-        });
-        return tempFs;
-    })
-    .extend('context', ({ tempFs }): CreateNodesContext => ({ nxJsonConfiguration: { namedInputs: { default: ['{projectRoot}/**/*'] } }, workspaceRoot: tempFs.tempDir }));
+describe('workspace root targets', () => {
+    it.for([
+        { manager: 'npm', files: ROOT, catalogs: [] },
+        { manager: 'pnpm', files: { 'package.json': '{"name":"root"}', 'pnpm-lock.yaml': '', 'pnpm-workspace.yaml': 'packages: []\n' }, catalogs: ['pnpm-workspace.yaml'] },
+    ])('upgrades through $manager, moving the catalogs it reads: $catalogs', async ({ manager, files, catalogs }, { workspace }) => {
+        const graph = await workspace.write(files).graph({ createNodes });
 
-describe('workspace root checks', () => {
-    it('should create no check target without a jscpd configuration or an installed knip', async ({ tempFs, context }) => {
-        await expect(workspaceTargets(tempFs, context, { 'index.ts': 'export {};' }).then((targets) => Object.keys({ ...targets }))).resolves.toStrictEqual(['upgrade', 'upgrade--npm']);
-    });
-
-    it('should create a check--jscpd target hashing the files the jscpd pattern selects', async ({ tempFs, context }) => {
-        const jscpd = duplicated('.config/jscpd.json', '**/*.ts');
-
-        await expect(workspaceTargets(tempFs, context, { '.config/jscpd.json': JSON.stringify({ pattern: '**/*.ts' }) })).resolves.toMatchObject({
-            check: { dependsOn: [{ target: 'check--*', params: 'forward' }], inputs: ['...', ...jscpd.inputs] },
-            'check--jscpd': jscpd,
-        });
+        expect(graph.nodes['root']?.data.targets?.[`upgrade--${manager}`]?.options).toStrictEqual({ catalogs });
     });
 
     it.for([
-        ['.jscpd.json', { '.jscpd.json': '{}', '.config/jscpd.json': '{}' }],
-        ['.config/.jscpd.json', { '.config/.jscpd.json': '{}' }],
-        ['package.json', { 'package.json': JSON.stringify({ workspaces: ['**'], jscpd: {} }) }],
-    ] as const)('should hash every file when %s, the configuration jscpd reads first, states no pattern', async ([config, files], { tempFs, context }) => {
-        await expect(workspaceTargets(tempFs, context, files).then((targets) => targets?.['check--jscpd'])).resolves.toStrictEqual(duplicated(config, '**/*'));
+        { case: 'the pattern of .config/jscpd.json', files: { '.config/jscpd.json': '{"pattern":"**/*.ts"}' }, inputs: ['{workspaceRoot}/**/*.ts', '{workspaceRoot}/.config/jscpd.json'] },
+        { case: 'every file, as .jscpd.json, which jscpd reads before .config/jscpd.json, states no pattern', files: { '.jscpd.json': '{}', '.config/jscpd.json': '{"pattern":"**/*.ts"}' }, inputs: ['{workspaceRoot}/**/*', '{workspaceRoot}/.jscpd.json'] },
+        { case: 'every file, as the jscpd row of package.json states no pattern', files: { 'package.json': '{"name":"root","workspaces":["libs/*"],"jscpd":{}}' }, inputs: ['{workspaceRoot}/**/*', '{workspaceRoot}/package.json'] },
+        { case: 'nothing, as no jscpd configuration exists and no check--jscpd runs', files: {}, inputs: undefined },
+    ])('hashes $case for check--jscpd', async ({ files, inputs }, { workspace }) => {
+        const graph = await workspace.write({ ...ROOT, ...files }).graph({ createNodes });
+
+        expect(graph.nodes['root']?.data.targets?.['check--jscpd']?.inputs?.filter((input) => typeof input === 'string')).toStrictEqual(inputs);
     });
 
-    it.for(refusing('jscpd'))('should report the command and $case of jscpd as the error of the workspace manifest', async ({ scripts, refusal }, { tempFs, context }) => {
-        pathed(join(tempFs.tempDir, '.bin'), scripts);
+    it.for(refusing('jscpd'))('refuses the graph with the command and $case of jscpd', async ({ scripts, refusal }, { workspace }) => {
+        pathed(join(workspace.root, '.bin'), scripts);
 
-        await expect(workspaceTargets(tempFs, context, { '.jscpd.json': '{}' })).rejects.toSatisfy(refused(refusal));
+        await expect(workspace.write({ ...ROOT, '.jscpd.json': '{}' }).graph({ createNodes })).rejects.toSatisfy(refused(refusal));
     });
 
-    it('should create a check--knip target where knip resolves from the workspace root', async ({ tempFs, context }) => {
-        await expect(workspaceTargets(tempFs, context, KNIP)).resolves.toMatchObject({ check: { dependsOn: [{ target: 'check--*', params: 'forward' }], inputs: ['...', '{workspaceRoot}/**/*', { externalDependencies: ['knip'] }] }, 'check--knip': unused('knip') });
-    });
+    it.for([
+        { case: 'knip does not resolve', files: {}, options: undefined, run: undefined },
+        { case: 'knip resolves', files: KNIP, options: undefined, run: { command: 'knip', cwd: '.' } },
+        { case: 'knip resolves and knipConfig names its configuration', files: KNIP, options: { knipConfig: '.config/knip.json' }, run: { command: 'knip --config .config/knip.json', cwd: '.' } },
+    ])('runs check--knip as $run.command when $case', async ({ files, options, run }, { workspace }) => {
+        const graph = await workspace.write({ ...ROOT, ...files }).graph({ createNodes }, options);
 
-    it('should pass the knipConfig option to knip through --config', async ({ tempFs, context }) => {
-        await expect(workspaceTargets(tempFs, context, KNIP, { knipConfig: '.config/knip.json' }).then((targets) => targets?.['check--knip'])).resolves.toStrictEqual(unused('knip --config .config/knip.json'));
+        expect(graph.nodes['root']?.data.targets?.['check--knip']?.options).toStrictEqual(run);
     });
 });

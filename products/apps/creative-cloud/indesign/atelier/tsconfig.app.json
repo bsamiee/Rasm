@@ -2,8 +2,6 @@
     "extends": "./tsconfig.json",
     "compilerOptions": {
         "composite": false,
-        "declarationMap": false,
-        "noEmit": true,
         "lib": ["es2022", "dom"],
         "module": "preserve",
         "types": ["node", "vite/client", "@adobe-uxp-types/uxp/with-protocol"],

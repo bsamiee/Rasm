@@ -21,7 +21,7 @@ public sealed partial class SelectionChange {
     public bool Clears => this == Replaced;
 }
 
-internal enum SelectionOperation { Save, Select, Delete, Rename }
+internal enum SelectionOperation { Save = 0, Select = 1, Delete = 2, Rename = 3 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 

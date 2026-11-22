@@ -42,9 +42,10 @@ class Application extends Schema.Class<Application, { readonly brand: unique sym
     static readonly Order: Order.Order<Application> = (left, right) => Released(right, left);
     static readonly installed = Effect.gen(function* () {
         const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const registry = '/Library/Application Support/Adobe/caps/hdpim.db';
         const candidates = yield* Effect.all(
             [
-                products(undefined).pipe(Effect.provide(layer({ filename: '/Library/Application Support/Adobe/caps/hdpim.db', readonly: true })), Effect.map(Array.flatMap(registered(path)))),
+                products(undefined).pipe(Effect.provide(layer({ filename: registry, readonly: true })), Effect.when(files.exists(registry)), Effect.map(Option.match({ onNone: Array.empty, onSome: Array.flatMap(registered(path)) }))),
                 run(['pkgutil', '--pkgs=com[.]adobe[.]acrobat[.].*']).pipe(
                     Effect.map(({ stdout }) => lines(stdout)),
                     Effect.catchIf(absent, () => Effect.succeed(Array.empty<string>())),
@@ -63,7 +64,7 @@ class Application extends Schema.Class<Application, { readonly brand: unique sym
         const read = yield* Effect.forEach(
             present,
             Effect.fnUntraced(function* ({ bundle, name, product, channel, build }) {
-                const info = yield* files.readFile(path.join(bundle, 'Contents', 'Info.plist')).pipe(Effect.flatMap((bytes) => Schema.decodeUnknownEffect(Info)(parse(bytes.slice().buffer))));
+                const info = yield* files.readFile(path.join(bundle, 'Contents', 'Info.plist')).pipe(Effect.flatMap((bytes) => Schema.decodeUnknownEffect(Info)(parse(new Uint8Array(bytes).buffer))));
                 return Application.make({
                     name,
                     product: Option.getOrElse(product, () => info.CFBundleIdentifier),

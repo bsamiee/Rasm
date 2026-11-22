@@ -5,8 +5,8 @@ import { layerConfig } from '@effect/platform-node/NodeHttpServer';
 import { layerNodeFromConfig } from '@rasm/telemetry/node';
 import { Config, Effect, Layer, type Record } from 'effect';
 import { HttpEffect, HttpMiddleware, HttpRouter, HttpServerResponse, HttpStaticServer } from 'effect/http';
-import { App, type Binding } from '#/app/app';
-import { hosted, type Routes, type Runtime, type Served } from '#/server/hosted';
+import { App, type Binding } from '#/app/app.ts';
+import { hosted, type Routes, type Runtime, type Served } from '#/server/hosted.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

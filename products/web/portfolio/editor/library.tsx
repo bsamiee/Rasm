@@ -4,12 +4,12 @@ import { Array, ByteSize, Function, Optic, Option, Record } from 'effect';
 import { FileText, Film } from 'lucide-react';
 import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
-import { deleteRequest, draft, hero } from '#/editor/state';
-import { confirmation, entryTitle, format, joinDetails } from '#/media/labels';
+import { deleteRequest, draft, hero } from '#/editor/state.ts';
+import { confirmation, entryTitle, format, joinDetails } from '#/media/labels.ts';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import { Asset, type AssetId, type Assets } from '#/model/asset';
-import { Placement } from '#/model/placement';
-import { type EntryId, Portfolio } from '#/model/portfolio';
+import { Asset, type AssetId, type Assets } from '#/model/asset.ts';
+import { Placement } from '#/model/placement.ts';
+import { type EntryId, Portfolio } from '#/model/portfolio.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

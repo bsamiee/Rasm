@@ -1,7 +1,7 @@
 import { formatFiles, getProjects, readJson, type Tree, writeJson } from '@nx/devkit';
 import { loadTsFile, resolveImplementation, type SyncGeneratorResult } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equal, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema, Struct } from 'effect';
-import { run } from '#/executor';
+import { run } from '#/executor.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -48,7 +48,7 @@ const generate = Effect.fnUntraced(function* (tree: Tree) {
     const written = [...declared.map(({ at, schema }): readonly [string, object] => [at, schema]), ...described].filter(changed);
     written.forEach(([to, value]) => writeJson(tree, to, value));
     yield* Effect.promise(() => formatFiles(tree));
-    return { outOfSyncMessage: `Executor schema.json files and executors.json descriptions differ from the options schemas their executors declare: ${written.map(([to]) => to).join(', ')}` } satisfies SyncGeneratorResult;
+    return { outOfSyncMessage: 'Executor schema.json files and executors.json descriptions differ from the options schemas their executors declare', outOfSyncDetails: written.map(([to]) => to) } satisfies SyncGeneratorResult;
 }, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

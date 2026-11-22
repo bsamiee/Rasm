@@ -3,10 +3,10 @@ import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import type { Application, CellStyle, CharacterStyle, Document, Event, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
 import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
-import { Model } from '#/uxp/model';
-import { InDesignSettings } from '#/uxp/settings';
-import type { Value } from '#/value';
-import { Called, Inspection, Search, type Slice } from '#/views';
+import { Model } from '#/uxp/model.ts';
+import { InDesignSettings } from '#/uxp/settings.ts';
+import type { Value } from '#/value.ts';
+import { Called, Inspection, Search, type Slice } from '#/views.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

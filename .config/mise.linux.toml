@@ -1,9 +1,7 @@
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-GHIDRA_PROJECT_DIR             = "/var/tmp/{{ env.HOME | basename }}/rasm/ghidra/projects"
-PW_TEST_CONNECT_EXPOSE_NETWORK = "<loopback>"
-PW_TEST_CONNECT_WS_ENDPOINT    = "ws://127.0.0.1:{{ env.PLAYWRIGHT_PORT }}/"
+GHIDRA_PROJECT_DIR = "/var/tmp/{{ env.HOME | basename }}/rasm/ghidra/projects"
 
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 
@@ -18,38 +16,10 @@ fingerprint = "2596 A99E AAB3 3821 893C 0A79 458C A832 957F 5868"
 key         = "https://pkgs.tailscale.com/stable/ubuntu/stonking.noarmor.gpg"
 uris        = "https://pkgs.tailscale.com/stable/ubuntu"
 
-[bootstrap.packages]
-"apt:containerd.io"          = "latest"
-"apt:docker-buildx-plugin"   = "latest"
-"apt:docker-ce"              = "latest"
-"apt:docker-ce-cli"          = "latest"
-"apt:docker-compose-plugin"  = "latest"
-"apt:systemd-zram-generator" = "latest"
-"apt:tailscale"              = "latest"
-
 [bootstrap.directories]
 "/etc/docker"                                   = {}
 "/etc/systemd/journald.conf.d"                  = {}
 "/etc/systemd/system/apt-daily-upgrade.timer.d" = {}
-
-[bootstrap.files."/etc/docker/daemon.json"]
-content = """
-{"live-restore":true,"log-driver":"local"}
-"""
-notify  = ["docker"]
-
-[bootstrap.files."/etc/systemd/journald.conf.d/90-platform.conf"]
-content = """
-[Journal]
-SystemMaxUse=1G
-"""
-notify  = ["systemd-journald"]
-
-[bootstrap.files."/etc/sysctl.d/90-platform.conf"]
-content = """
-net.ipv4.ip_nonlocal_bind = 1
-"""
-notify  = ["systemd-sysctl"]
 
 [bootstrap.files."/etc/apt/apt.conf.d/52unattended-upgrades-local"]
 content = '''
@@ -62,6 +32,25 @@ content = '''
 DPkg::Lock::Timeout "600";
 '''
 
+[bootstrap.files."/etc/docker/daemon.json"]
+content = """
+{"live-restore":true,"log-driver":"local"}
+"""
+notify  = ["docker"]
+
+[bootstrap.files."/etc/sysctl.d/90-platform.conf"]
+content = """
+net.ipv4.ip_nonlocal_bind = 1
+"""
+notify  = ["systemd-sysctl"]
+
+[bootstrap.files."/etc/systemd/journald.conf.d/90-platform.conf"]
+content = """
+[Journal]
+SystemMaxUse=1G
+"""
+notify  = ["systemd-journald"]
+
 [bootstrap.files."/etc/systemd/system/apt-daily-upgrade.timer.d/90-platform.conf"]
 content = """
 [Timer]
@@ -70,6 +59,15 @@ OnCalendar=*-*-* 05:00 America/Chicago
 """
 notify  = ["apt-daily-upgrade.timer"]
 
+[bootstrap.packages]
+"apt:containerd.io"          = "latest"
+"apt:docker-buildx-plugin"   = "latest"
+"apt:docker-ce"              = "latest"
+"apt:docker-ce-cli"          = "latest"
+"apt:docker-compose-plugin"  = "latest"
+"apt:systemd-zram-generator" = "latest"
+"apt:tailscale"              = "latest"
+
 [bootstrap.services]
 "apt-daily-upgrade.timer" = {}
 docker                    = { on_change = "restart" }
@@ -77,14 +75,3 @@ ssh                       = { enabled = false, masked = true, state = "stopped" 
 "ssh.socket"              = { enabled = false, masked = true, state = "stopped" }
 systemd-journald          = { enabled = false }
 systemd-sysctl            = { enabled = false }
-
-# --- [DAEMONS] --------------------------------------------------------------------------
-
-[daemons.playwright]
-command      = ["sh", "-c", "node /workspace/node_modules/@playwright/test/cli.js install --only-shell chromium && exec node /workspace/node_modules/@playwright/test/cli.js run-server --host 0.0.0.0 --port {{ env.PLAYWRIGHT_PORT }}"]
-image        = "mcr.microsoft.com/playwright:v1.65.1-resolute"
-port         = 6677
-proxy        = false
-ready_output = "^Listening on "
-runtime_args = ["--init", "--ipc=host", "--user=pwuser"]
-volumes      = ["./node_modules:/workspace/node_modules:ro", "playwright:/ms-playwright"]

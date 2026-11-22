@@ -3,9 +3,10 @@
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
+import re
 
 import anyio
-from cyclopts.exceptions import CycloptsError
+from cyclopts.exceptions import CycloptsError, MissingArgumentError, UnknownCommandError
 from expression import Error, Ok
 import msgspec
 import pytest
@@ -29,16 +30,24 @@ def test_help_lists_actions_and_exits_successfully(capsys: pytest.CaptureFixture
 def test_optional_positionals_and_options_bind_the_same_typed_call(tmp_path: Path) -> None:
     """Publication supports both CLI forms without a forwarding command layer, the output folder an option alone."""
     declaration, destination, output = tmp_path / "set.toml", tmp_path / "published", tmp_path / "build"
-    command, positional, _ = app.parse_args(["publish", str(declaration), "Test", str(destination), "--output", str(output)])
+    _, positional, _ = app.parse_args(["publish", str(declaration), "Test", str(destination), "--output", str(output)])
     _, options, _ = app.parse_args(["publish", str(declaration), "--name", "Test", "--destination", str(destination), "--output", str(output)])
-    assert isinstance(command, partial)
-    assert command.args == (Action.PUBLISH,)
     assert positional.args == options.args == (declaration, "Test", destination)
     assert positional.kwargs == options.kwargs == {"output": output}
-    with pytest.raises(CycloptsError):
-        app(["build", str(declaration)], result_action="return_value", exit_on_error=False, print_error=False)
-    with pytest.raises(CycloptsError):
-        app(["unknown-action", str(declaration), "--output", str(output)], result_action="return_value", exit_on_error=False, print_error=False)
+
+
+@pytest.mark.parametrize(
+    "tokens,refusal,named",
+    [
+        pytest.param(["build", "set.toml"], MissingArgumentError, "--output", id="output-missing"),
+        pytest.param(["build", "set.toml", "Test", "published", "build"], MissingArgumentError, "--output", id="output-positional"),
+        pytest.param(["unknown-action", "set.toml", "--output", "build"], UnknownCommandError, '"unknown-action"', id="unknown-action"),
+    ],
+)
+def test_a_command_line_outside_the_actions_is_refused(tokens: list[str], refusal: type[CycloptsError], named: str) -> None:
+    """A missing output option and an output given by position refuse the line as the `--output` option missing, and an action the app lacks as an unknown command."""
+    with pytest.raises(refusal, match=re.escape(named)):
+        app(tokens, result_action="return_value", exit_on_error=False, print_error=False)
 
 
 @pytest.mark.parametrize("text,status", [('name=""\ncorpus="x"\nfamilies=[]\n', sysexits.EX_DATAERR), (None, sysexits.EX_NOINPUT)])

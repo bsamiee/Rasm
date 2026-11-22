@@ -109,7 +109,7 @@ public static class Quantities {
     public static Length From(double value, LengthUnit spaceUnit) => Scaled(Exact(value), spaceUnit);
 
     public static double As(Length length, LengthUnit spaceUnit) =>
-        (length.Meters * LengthUnit.Scale(LengthUnit.Meters, spaceUnit)).ToDouble();
+        (length.Meters * LengthUnit.Scale(in LengthUnit.Meters, in spaceUnit)).ToDouble();
 
     public static Length Resolution(DistanceDisplayMode display, int precision, LengthUnit spaceUnit) =>
         display is DistanceDisplayMode.Decimal
@@ -121,5 +121,5 @@ public static class Quantities {
             Resolution(fractional ? DistanceDisplayMode.Fractional : DistanceDisplayMode.Decimal, digits, spaceUnit) > resolution ? Some((digits, digits + 1)) : None).Count();
 
     private static Length Scaled(QuantityValue value, LengthUnit spaceUnit) =>
-        Length.FromMeters(value * LengthUnit.Scale(spaceUnit, LengthUnit.Meters));
+        Length.FromMeters(value * LengthUnit.Scale(in spaceUnit, in LengthUnit.Meters));
 }

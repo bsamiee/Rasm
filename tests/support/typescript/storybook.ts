@@ -1,11 +1,14 @@
-import type { A11yTypes } from '@storybook/addon-a11y';
+import { join } from 'node:path';
+import viteReact from '@vitejs/plugin-react';
+import { resolvePathInStorybookCache } from 'storybook/internal/common';
+import { type InlineConfig, mergeConfig } from 'vite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const main = { addons: ['@storybook/addon-vitest', '@storybook/addon-a11y', '@storybook/addon-docs'], core: { disableTelemetry: true } };
+const react = viteReact({ exclude: [/\/node_modules\//u, join(resolvePathInStorybookCache(''), '..', '**')], compiler: { panicThreshold: 'all_errors' } });
 
-const preview: { readonly parameters: NonNullable<A11yTypes['parameters']>; readonly tags: string[] } = { parameters: { a11y: { test: 'error', options: { runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'] } } }, tags: ['autodocs'] };
+const main = { addons: ['@storybook/addon-vitest', '@storybook/addon-a11y', '@storybook/addon-docs'], core: { disableTelemetry: true }, viteFinal: (config: InlineConfig) => mergeConfig(config, { plugins: [react] }) };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { main, preview };
+export { main, react };

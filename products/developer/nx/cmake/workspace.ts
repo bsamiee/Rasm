@@ -9,7 +9,7 @@ import { Array, Cause, Config, Context, Effect, FileSystem, Function, Layer, Mat
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const MANIFEST = 'CMakeLists.txt';
 const PRESETS = 'CMakePresets.json';
 const PACKAGING = 'CPackConfig.cmake';

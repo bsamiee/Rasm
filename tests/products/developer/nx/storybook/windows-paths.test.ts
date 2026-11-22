@@ -1,7 +1,7 @@
-import type { CreateNodesContext } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-storybook';
-import { TempFs } from '@rasm/testing/temp-fs';
-import { describe, expect, test, vi } from 'vitest';
+import { it as nx, unportable } from '@rasm/testing/nx';
+import { Schema } from 'effect';
+import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('node:path'), async (actual) => {
     const { windows } = await import('@rasm/testing/path');
@@ -9,43 +9,39 @@ vi.mock(import('node:path'), async (actual) => {
 });
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Planned = Schema.Struct({ command: Schema.String }).annotate({ description: 'The command of the inferred storybook build target' });
+const Served = Schema.Struct({ staticFilePath: Schema.String }).annotate({ description: 'The folder @nx/web:file-server serves' });
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const it = test
-    .extend('tempFs', async ({}, { onCleanup }) => {
-        const cwd = process.cwd();
-        const tempFs = new TempFs('storybook-windows-paths');
-        process.chdir(tempFs.tempDir);
-        onCleanup(() => {
-            process.chdir(cwd);
-            tempFs.cleanup();
-        });
-        await tempFs.createFiles({
-            'package.json': JSON.stringify({ name: 'repo' }),
-            'package-lock.json': '{}',
-            'tsconfig.shared.json': '{"compilerOptions":{}}',
-            'apps/site/project.json': JSON.stringify({ name: 'site' }),
-            'apps/site/tsconfig.json': JSON.stringify({ extends: '../../tsconfig.shared.json' }),
-            'apps/site/.storybook/main.ts': `export default ${JSON.stringify({ stories: ['../src/**/*.stories.tsx'], framework: { name: '@storybook/react-vite', options: {} } })};\n`,
-        });
-        return tempFs;
-    })
-    .extend('context', ({ tempFs }): CreateNodesContext => ({ nxJsonConfiguration: { namedInputs: { default: ['{projectRoot}/**/*'], production: ['default'] } }, workspaceRoot: tempFs.tempDir }));
+const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
+    workspace.install(import.meta.resolve('storybook/package.json'), import.meta.resolve('@storybook/react-vite/package.json'), import.meta.resolve('react/package.json'), import.meta.resolve('react-dom/package.json'), import.meta.resolve('vite/package.json'));
+    workspace.write({
+        'package.json': '{"name":"repo","workspaces":["apps/*"]}',
+        'package-lock.json': '{}',
+        'nx.json': '{"namedInputs":{"default":["{projectRoot}/**/*"],"production":["default"]}}',
+        'tsconfig.base.json': '{}',
+        'tsconfig.shared.json': '{"extends":"./tsconfig.base.json"}',
+        'tools/storybook/shared.ts': "export const stories = ['../src/**/*.stories.tsx', '../../../libs/ui/**/*.stories.tsx'];\n",
+        'apps/site/package.json': '{"name":"site"}',
+        'apps/site/tsconfig.json': '{"extends":"../../tsconfig.shared.json"}',
+        'apps/site/.storybook/main.ts': "import { stories } from '../../../tools/storybook/shared.ts';\n\nexport default { stories, framework: '@storybook/react-vite' };\n",
+    });
+});
 
 describe('@rasm/nx-storybook under Windows path separators', { timeout: 60_000 }, () => {
-    it('should hand Nx posix story globs, tsconfig inputs, and output folders', async ({ context }) => {
-        const results = await createNodes[1](['apps/site/.storybook/main.ts'], { outputPath: '.artifacts/storybook/{projectName}' }, context);
+    it.for([
+        { case: 'storybook-static', options: {} },
+        { case: 'outputPath', options: { outputPath: '.artifacts/storybook/{projectName}' } },
+    ])('hands Nx and storybook posix paths for a build into $case', async ({ options }, { workspace }) => {
+        const graph = await workspace.graph({ createNodes }, options);
+        const targets = graph.nodes['site']?.data.targets ?? {};
+        const { command } = await Schema.decodeUnknownPromise(Planned)(targets['build--storybook']?.options);
+        const { staticFilePath } = await Schema.decodeUnknownPromise(Served)(targets['preview--storybook']?.options);
 
-        const targets = results[0]?.[1].projects?.['apps/site']?.targets;
-        expect(targets?.['build--storybook']?.command).toBe("storybook build --output-dir '../../.artifacts/storybook/{projectName}'");
-        expect(targets?.['build--storybook']?.inputs).toContainEqual('{workspaceRoot}/apps/site/src/**/*.stories.tsx');
-        expect(targets?.['build--storybook']?.inputs).toContainEqual({ json: '{workspaceRoot}/tsconfig.shared.json', fields: ['compilerOptions'] });
-        expect(targets?.['build--storybook']?.outputs?.[0]).toBe('{workspaceRoot}/.artifacts/storybook/{projectName}');
-    });
-
-    it('should serve the default build folder from a posix workspace path', async ({ context }) => {
-        const results = await createNodes[1](['apps/site/.storybook/main.ts'], {}, context);
-
-        expect(results[0]?.[1].projects?.['apps/site']?.targets?.['preview--storybook']?.options).toStrictEqual({ buildTarget: 'build--storybook', staticFilePath: 'apps/site/storybook-static' });
+        expect(unportable(graph)).toStrictEqual([]);
+        expect([command, staticFilePath].filter((path) => path.includes('\\'))).toStrictEqual([]);
     });
 });

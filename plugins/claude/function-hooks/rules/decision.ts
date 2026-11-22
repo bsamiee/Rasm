@@ -1,5 +1,5 @@
 import { Array, Data, Effect, Option, Result, Schema } from 'effect';
-import type { Span } from '#/shell/script';
+import type { Span } from '#/shell/script.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,11 +16,10 @@ type Verdict = Data.TaggedEnum<{
 const Request = Schema.Struct({
     command: Schema.String,
     cwd: Schema.String,
-    kind: Schema.Literals(['foreground', 'background', 'monitor', 'plain']),
-    shell: Schema.optionalKey(Schema.Literals(['bash', 'zsh'])),
+    kind: Schema.Literals(['foreground', 'background', 'monitor']),
     agent: Schema.optionalKey(Schema.String),
-    session: Schema.optionalKey(Schema.String),
-    call: Schema.optionalKey(Schema.String),
+    session: Schema.String,
+    call: Schema.String,
 });
 
 const Decision = Schema.TaggedUnion({

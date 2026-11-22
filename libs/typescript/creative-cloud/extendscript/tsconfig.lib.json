@@ -7,13 +7,18 @@
     "exclude": ["dist", "node.ts", "vite.ts"],
     "references": [
         {
-            "path": "../../data/search"
+            "path": "../../web/vite"
         },
         {
-            "path": "../../runtime/process"
+            "path": "../../data/search"
         },
         {
             "path": "../object-model"
         }
-    ]
+    ],
+    "nx": {
+        "sync": {
+            "ignoredDependencies": ["@rasm/process"]
+        }
+    }
 }

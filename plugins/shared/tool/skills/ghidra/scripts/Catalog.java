@@ -14,6 +14,7 @@ import util.CollectionUtils;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -52,12 +53,13 @@ public class Catalog extends GhidraScript {
 
         @Override
         public String text() {
-            return "%s %s functions=%d%s"
-                    .formatted(
-                            data.getAddress(),
-                            data.getDefaultValueRepresentation(),
-                            functions.size(),
-                            Row.names(functions));
+            return String.format(
+                    Locale.ROOT,
+                    "%s %s functions=%d%s",
+                    data.getAddress(),
+                    data.getDefaultValueRepresentation(),
+                    functions.size(),
+                    Row.names(functions));
         }
     }
 
@@ -75,12 +77,13 @@ public class Catalog extends GhidraScript {
 
         @Override
         public String text() {
-            return "%s %s callers=%d%s"
-                    .formatted(
-                            Path.of(function.getExternalLocation().getLibraryName()).getFileName(),
-                            function.getPrototypeString(false, false),
-                            callers.size(),
-                            Row.names(callers));
+            return String.format(
+                    Locale.ROOT,
+                    "%s %s callers=%d%s",
+                    Path.of(function.getExternalLocation().getLibraryName()).getFileName(),
+                    function.getPrototypeString(false, false),
+                    callers.size(),
+                    Row.names(callers));
         }
     }
 
@@ -99,14 +102,15 @@ public class Catalog extends GhidraScript {
 
         @Override
         public String text() {
-            return "%s %s size=%d callers=%d callees=%d source=%s"
-                    .formatted(
-                            function.getEntryPoint(),
-                            function.getName(true),
-                            rank(),
-                            callers,
-                            callees,
-                            function.getSymbol().getSource());
+            return String.format(
+                    Locale.ROOT,
+                    "%s %s size=%d callers=%d callees=%d source=%s",
+                    function.getEntryPoint(),
+                    function.getName(true),
+                    rank(),
+                    callers,
+                    callees,
+                    function.getSymbol().getSource());
         }
     }
 

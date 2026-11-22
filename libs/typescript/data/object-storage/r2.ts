@@ -1,6 +1,6 @@
 import { ByteSize, Effect, Layer, Option } from 'effect';
 import { r2Store } from 'partial-content/r2';
-import { ObjectStorage, sent } from '#/storage';
+import { ObjectStorage, sent } from '#/storage.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

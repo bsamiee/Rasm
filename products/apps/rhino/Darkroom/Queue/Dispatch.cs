@@ -188,7 +188,7 @@ internal static partial class Dispatch {
 
     // --- [FLAMENCO]
 
-    private const string CompilerFile = "darkroom_render.js";
+    private const string CompilerFile = "darkroom-render.js";
 
     private static string FarmScript => $"_-{RenderFarm.EnglishName}";
 
@@ -205,7 +205,7 @@ internal static partial class Dispatch {
         (from client in use(static () => new HttpClient())
          from advertised in IO.liftAsync(environment => client.GetFromJsonAsync(new Uri(farm.Manager, "/api/v3/jobs/types"), FlamencoContext.Default.FlamencoTypes, environment.Token))
          from types in IO.lift(Conversions.Required(advertised))
-         let type = Path.GetFileNameWithoutExtension(CompilerFile).Replace('_', '-')
+         let type = Path.GetFileNameWithoutExtension(CompilerFile)
          from compiled in IO.lift(toSeq(types.JobTypes).Find(job => string.Equals(job.Name, type, StringComparison.Ordinal)).ToFin(new DarkroomFault((FormattableString)$"Flamenco job type {type}", DarkroomReason.Missing)))
          from submitted in IO.liftAsync(async environment => {
              using JsonContent content = JsonContent.Create(new FlamencoJob(

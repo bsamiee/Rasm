@@ -1,8 +1,8 @@
 import { Array, Effect, FiberSet, Match, Option, Record, String, Struct, type Types } from 'effect';
 import { Atom } from 'effect/reactivity';
 import { getDocument, PasswordException, PDFDataRangeTransport, PDFWorker, ResponseException } from 'pdfjs-dist';
-import { MediaError } from '#/error';
-import { pdfjsAssets } from '#/pdfjs-assets';
+import { MediaError } from '#/error.ts';
+import { pdfjsAssets } from '#/pdfjs-assets.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

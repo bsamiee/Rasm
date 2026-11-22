@@ -4,19 +4,19 @@ use core::time::Duration;
 use std::io;
 
 use backon::ExponentialBuilder;
-use claims::{assert_err, assert_none, assert_ok, assert_some};
+use claims::{assert_err, assert_ok, assert_some};
 use futures::FutureExt as _;
-use futures::future::{self, BoxFuture};
-use rasm_mcp::{History, IdleTimeout, Line, Lines, Link, Liveness, Policy, Proxy, decode, identity};
+use futures::future::BoxFuture;
+use rasm_mcp::{History, IdleTimeout, Link, Liveness, Policy, Proxy, decode};
+use rasm_mcp_tests::Id;
 use rmcp::model::{ClientCapabilities, DiscoverResult, Implementation, InitializeRequestParams, JsonRpcVersion2_0, ProtocolVersion, ServerCapabilities};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
-use serde_json::{Number, Value, json};
+use serde_json::{Number, Value};
 use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader, DuplexStream, ReadHalf, WriteHalf};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
-use tokio::time::{self, Instant};
-use tokio_util::codec::Decoder as _;
+use tokio::time;
 use tokio_util::sync::CancellationToken;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -26,16 +26,9 @@ const INITIALIZED: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialize
 const SERVED: &str = r#"{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"resources":{"subscribe":true},"logging":{}},"serverInfo":{"name":"s","version":"0"}}"#;
 const GRACE: Duration = Duration::from_secs(30);
 const QUIET: Duration = Duration::from_mins(2);
+const LINE: usize = 1 << 20;
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-enum Id {
-    Number(u64),
-    Signed(i64),
-    Text(String),
-}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 struct Tagged {
@@ -93,15 +86,51 @@ impl Seen {
         }
         assert_ok!(serde_json::to_string(&Reply { jsonrpc: JsonRpcVersion2_0, id: assert_some!(self.id.as_ref()), result: assert_ok!(RawValue::from_string(result.to_owned())) }))
     }
+
+    fn progress(&self) -> Option<f64> { self.params.progress.as_ref().and_then(Number::as_f64) }
+}
+
+#[derive(Debug, Serialize)]
+struct Frame {
+    jsonrpc: JsonRpcVersion2_0,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<u64>,
+    method: &'static str,
+    params: Params,
+}
+
+impl Frame {
+    fn line(&self) -> String { assert_ok!(serde_json::to_string(self)) }
+}
+
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Params {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<&'static str>,
+    #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
+    meta: Option<Meta>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    progress_token: Option<Id>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    progress: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pad: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Meta {
+    progress_token: Id,
 }
 
 #[derive(Debug)]
-struct Wire {
+struct Peer {
     lines: tokio::io::Lines<BufReader<ReadHalf<DuplexStream>>>,
     writer: WriteHalf<DuplexStream>,
 }
 
-impl Wire {
+impl Peer {
     fn new(stream: DuplexStream) -> Self {
         let (reader, writer) = tokio::io::split(stream);
         Self { lines: BufReader::new(reader).lines(), writer }
@@ -118,7 +147,10 @@ impl Wire {
         }
     }
 
-    async fn next(&mut self) -> Seen { assert_ok!(decode(assert_some!(assert_ok!(self.lines.next_line().await)).as_bytes())) }
+    async fn next(&mut self) -> Seen {
+        let line = assert_ok!(time::timeout(Duration::from_mins(15), self.lines.next_line()).await, "a line arrives inside 15 minutes");
+        assert_ok!(decode(assert_some!(assert_ok!(line), "the peer is still connected").as_bytes()))
+    }
 
     async fn silent(&mut self, span: Duration) {
         assert_err!(time::timeout(span, self.lines.next_line()).await, "no line arrives inside {span:?}");
@@ -127,7 +159,7 @@ impl Wire {
 
 #[derive(Debug)]
 struct Served {
-    wire: Wire,
+    wire: Peer,
     exit: oneshot::Sender<String>,
     stop: CancellationToken,
 }
@@ -160,7 +192,7 @@ fn proxy(queue: usize, line: usize) -> (Proxy, mpsc::UnboundedReceiver<Served>, 
         let (near, far) = tokio::io::duplex(64 << 10);
         let (reader, writer) = tokio::io::split(near);
         let (exit, exited) = oneshot::channel();
-        let attached = match connections.send(Served { wire: Wire::new(far), exit, stop }) {
+        let attached = match connections.send(Served { wire: Peer::new(far), exit, stop }) {
             Ok(()) => Ok(()),
             Err(mpsc::error::SendError(Served { wire: _, exit: _, stop: _ })) => Err(io::Error::from(io::ErrorKind::BrokenPipe)),
         };
@@ -180,738 +212,47 @@ fn proxy(queue: usize, line: usize) -> (Proxy, mpsc::UnboundedReceiver<Served>, 
     (proxy, starts, tokio::spawn(actor))
 }
 
-fn session(proxy: &Proxy) -> (Wire, JoinHandle<io::Result<()>>) {
+fn session(proxy: &Proxy) -> (Peer, JoinHandle<io::Result<()>>) {
     let (near, far) = tokio::io::duplex(64 << 10);
     let (reader, writer) = tokio::io::split(far);
     let proxy = proxy.clone();
-    (Wire::new(near), tokio::spawn(async move { proxy.serve(reader, writer).await }))
+    (Peer::new(near), tokio::spawn(async move { proxy.serve(reader, writer).await }))
 }
 
-async fn joined(proxy: &Proxy) -> Wire { declared(proxy, INITIALIZE).await }
+async fn joined(proxy: &Proxy) -> Peer { declared(proxy, INITIALIZE).await.0 }
 
-async fn declared(proxy: &Proxy, initialize: &str) -> Wire {
-    let (mut wire, _) = session(proxy);
+async fn declared(proxy: &Proxy, initialize: &str) -> (Peer, JoinHandle<io::Result<()>>) {
+    let (mut wire, serving) = session(proxy);
     wire.send(initialize).await;
     assert_eq!(wire.next().await.result.server_info.map(|info| info.name).as_deref(), Some("s"), "initialize is answered from the server handshake");
     wire.send(INITIALIZED).await;
-    wire
+    wire.send(r#"{"jsonrpc":"2.0","id":"joined","method":"ping"}"#).await;
+    assert_eq!(wire.next().await.id, Some(Id::Text("joined".to_owned())), "a ping answered after notifications/initialized means the proxy counts the session as initialized");
+    (wire, serving)
 }
 
-#[cfg(test)]
-fn asking(id: u64) -> String { format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"tools/call","params":{{"name":"slow","_meta":{{"progressToken":"p"}}}}}}"#) }
+fn asking(id: u64) -> String {
+    Frame { jsonrpc: JsonRpcVersion2_0, id: Some(id), method: "tools/call", params: Params { name: Some("slow"), meta: Some(Meta { progress_token: Id::Text("p".to_owned()) }), ..Params::default() } }
+        .line()
+}
 
-#[cfg(test)]
 fn reporting(call: &Seen, steps: RangeInclusive<u32>, result: &str) -> String {
-    let token = assert_ok!(serde_json::to_string(&assert_some!(call.params.meta.clone().and_then(|meta| meta.progress_token))));
-    let progress = steps.map(|done| format!(r#"{{"jsonrpc":"2.0","method":"notifications/progress","params":{{"progressToken":{token},"progress":{done}}}}}"#));
+    let token = assert_some!(call.params.meta.clone().and_then(|meta| meta.progress_token));
+    let progress = steps.map(|done| {
+        Frame { jsonrpc: JsonRpcVersion2_0, id: None, method: "notifications/progress", params: Params { progress_token: Some(token.clone()), progress: Some(done), ..Params::default() } }.line()
+    });
     Vec::from_iter(progress.chain([call.answered(result)])).join("\n")
 }
 
-async fn reported(caller: &mut Wire, id: u64) -> Vec<f64> {
-    let mut steps = Vec::new();
-    loop {
-        let seen = caller.next().await;
-        match seen.params.progress.as_ref().and_then(Number::as_f64) {
-            Some(done) if seen.params.progress_token == Some(Id::Text("p".to_owned())) => steps.push(done),
-            Some(_) | None => {
-                assert_eq!((seen.id.clone(), seen.error.message.clone()), (Some(Id::Number(id)), None), "the call is answered after its progress: {seen:?}");
-                break steps;
-            }
-        }
-    }
-}
-
-async fn answered_at_once(calls: RangeInclusive<u64>, steps: u32) {
-    let (proxy, mut starts, _actor) = proxy(256, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).discovered().await;
-    let mut caller = joined(&proxy).await;
-    for id in calls {
-        caller.send(&asking(id)).await;
-        let call = server.wire.next().await;
-        server.wire.send(&reporting(&call, 1..=steps, "{}")).await;
-        assert_eq!(reported(&mut caller, id).await, Vec::from_iter((1..=steps).map(f64::from)), "call {id}: each progress value written with a result is read before it, in the order written");
-    }
-}
-
-// --- [HANDSHAKE]
-
-#[tokio::test(start_paused = true)]
-async fn silent_server_is_asked_initialize_after_the_grace_on_one_connection() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await);
-    let (mut waiting, _) = session(&proxy);
-    waiting.send(INITIALIZE).await;
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("server/discover"));
-    let asked = Instant::now();
-    let initialize = server.wire.next().await;
-    assert_eq!(initialize.method.as_deref(), Some("initialize"), "a server that stays silent is asked initialize on the same connection");
-    assert!(asked.elapsed() >= GRACE, "initialize follows the grace period");
-    server.wire.send(&initialize.answered(SERVED)).await;
-    assert_eq!(waiting.next().await.result.protocol_version.as_deref(), Some("2025-06-18"), "the waiting session is answered once the server links");
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("notifications/initialized"));
-    let mut later = joined(&proxy).await;
-    later.send(r#"{"jsonrpc":"2.0","id":1,"method":"ping"}"#).await;
-    assert_eq!(later.next().await.id, Some(Id::Number(1)));
-    server.wire.silent(Duration::from_millis(100)).await;
-    assert_none!(starts.try_recv().ok(), "the server started once, and a later session opens from the handshake it gave");
-}
-
-#[tokio::test(start_paused = true)]
-async fn server_that_ends_on_discover_is_asked_initialize_first() {
-    let (_proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut first = assert_some!(starts.recv().await);
-    assert_eq!(first.wire.next().await.method.as_deref(), Some("server/discover"));
-    assert_ok!(first.exit.send("exit status: 1".to_owned()));
-    let ended = Instant::now();
-    let mut second = assert_some!(starts.recv().await);
-    assert_eq!(second.wire.next().await.method.as_deref(), Some("initialize"), "the next start asks initialize first");
-    assert!(ended.elapsed() < Duration::from_secs(1), "the first end counts as no failure, so the next start waits no restart delay: {:?}", ended.elapsed());
-}
-
-#[tokio::test(start_paused = true)]
-async fn starting_server_survives_its_sessions_leaving() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let server = assert_some!(starts.recv().await);
-    let (mut waiting, serving) = session(&proxy);
-    waiting.send(INITIALIZE).await;
-    drop(waiting);
-    time::sleep(Duration::from_secs(5)).await;
-    assert!(!server.stop.is_cancelled(), "a starting server is not stopped because its waiting session left");
-    let _server = server.linked().await;
-    assert_ok!(assert_ok!(serving.await));
-    assert_none!(starts.try_recv().ok(), "the server started once");
-}
-
-#[tokio::test(start_paused = true)]
-async fn server_that_never_answers_stops_at_the_first_retention_ceiling_with_no_session_waiting() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let silent = assert_some!(starts.recv().await);
-    let (mut waiting, serving) = session(&proxy);
-    waiting.send(INITIALIZE).await;
-    let started = Instant::now();
-    time::sleep(Duration::from_hours(3)).await;
-    assert!(!silent.stop.is_cancelled(), "a silent server stays while a session waits for its first answer");
-    drop(waiting);
-    assert_ok!(assert_ok!(serving.await), "a session waiting for the first answer ends with its client");
-    silent.stop.cancelled().await;
-    assert!(started.elapsed() >= Duration::from_hours(4) && started.elapsed() < Duration::from_secs(14_405), "the silent server stops at the next ceiling: {:?}", started.elapsed());
-    drop(silent);
-    time::sleep(Duration::from_hours(3)).await;
-    assert_none!(starts.try_recv().ok(), "the server started once, and no session asks for it again");
-}
-
-// --- [LIFETIME]
-
-#[tokio::test(start_paused = true)]
-async fn unused_server_stops_after_three_hundred_times_its_start_cost() {
-    let (_proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let server = assert_some!(starts.recv().await);
-    time::sleep(Duration::from_secs(2)).await;
-    let server = server.linked().await;
-    let linked = Instant::now();
-    server.stop.cancelled().await;
-    assert!(linked.elapsed() >= Duration::from_secs(600) && linked.elapsed() < Duration::from_secs(605), "a 2 s start keeps the server 600 s: {:?}", linked.elapsed());
-}
-
-#[tokio::test(start_paused = true)]
-async fn silent_server_is_pinged_then_replaced() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut caller = joined(&proxy).await;
-    caller.send(r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"hang"}}"#).await;
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("tools/call"));
-    let sent = Instant::now();
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("ping"), "a server silent for the quiet period with a call in flight is pinged");
-    assert!(sent.elapsed() >= QUIET);
-    server.stop.cancelled().await;
-    assert_ok!(server.exit.send("killed".to_owned()));
-    let answer = caller.next().await;
-    assert_eq!(answer.id, Some(Id::Number(7)), "the call in flight is answered under its own id");
-    assert!(answer.error.message.as_deref().is_some_and(|message| message.contains("stopped answering")), "the error states the cause: {answer:?}");
-}
-
-#[tokio::test(start_paused = true)]
-async fn drain_waits_for_calls_that_finish_and_no_longer_than_the_settle_window() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut caller = joined(&proxy).await;
-    caller.send(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#).await;
-    let listed = server.wire.next().await;
-    server.wire.send(&listed.answered(r#"{"tools":[]}"#)).await;
-    assert_eq!(caller.next().await.id, Some(Id::Number(1)));
-    caller.send(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).await;
-    caller.send(r#"{"jsonrpc":"2.0","id":3,"method":"tools/list"}"#).await;
-    let (quick, _stuck) = (server.wire.next().await, server.wire.next().await);
-    let started = Instant::now();
-    let answered = async {
-        time::sleep(Duration::from_millis(100)).await;
-        server.wire.send(&quick.answered(r#"{"tools":[]}"#)).await;
-    };
-    tokio::join!(proxy.drain(Duration::from_millis(250)), answered);
-    assert_eq!(caller.next().await.id, Some(Id::Number(2)), "a call that finishes inside the window is answered");
-    assert!(started.elapsed() >= Duration::from_millis(350) && started.elapsed() < Duration::from_millis(400), "the drain ends one settle window after the last answer: {:?}", started.elapsed());
-    caller.send(r#"{"jsonrpc":"2.0","id":4,"method":"tools/list"}"#).await;
-    assert!(caller.next().await.error.message.as_deref().is_some_and(|message| message.contains("stopping")), "a call sent during the drain is refused at once");
-}
-
-// --- [ROUTING]
-
-#[tokio::test(start_paused = true)]
-async fn subscriptions_are_restored_after_a_restart_and_released_with_the_last_subscriber() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let (mut first, mut second) = (joined(&proxy).await, joined(&proxy).await);
-    first.send(r#"{"jsonrpc":"2.0","id":1,"method":"resources/subscribe","params":{"uri":"file:///a"}}"#).await;
-    let subscribed = server.wire.next().await;
-    assert_eq!(subscribed.params.uri.as_deref(), Some("file:///a"));
-    server.wire.send(&subscribed.answered("{}")).await;
-    assert_eq!(first.next().await.id, Some(Id::Number(1)));
-    second.send(r#"{"jsonrpc":"2.0","id":1,"method":"resources/subscribe","params":{"uri":"file:///a"}}"#).await;
-    assert_eq!(second.next().await.id, Some(Id::Number(1)), "a second subscriber of one URI is answered without a second server request");
-    server.wire.send(r#"{"jsonrpc":"2.0","method":"notifications/resources/updated","params":{"uri":"file:///a"}}"#).await;
-    assert_eq!((first.next().await.method.as_deref(), second.next().await.method.as_deref()), (Some("notifications/resources/updated"), Some("notifications/resources/updated")));
-    assert_ok!(server.exit.send("exit status: 9".to_owned()));
-    first.send(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).await;
-    assert!(first.next().await.error.message.as_deref().is_some_and(|message| message.contains("server is down")), "inside the backoff window a call names the cause");
-    time::sleep(Duration::from_secs(1)).await;
-    first.send(r#"{"jsonrpc":"2.0","id":3,"method":"tools/list"}"#).await;
-    let mut restarted = assert_some!(starts.recv().await);
-    let initialize = restarted.wire.next().await;
-    assert_eq!(initialize.method.as_deref(), Some("initialize"), "a server known to be legacy is asked initialize first");
-    restarted.wire.send(&initialize.answered(SERVED)).await;
-    assert_eq!(restarted.wire.next().await.method.as_deref(), Some("notifications/initialized"));
-    let restored = restarted.wire.next().await;
-    assert_eq!((restored.method.as_deref(), restored.params.uri.as_deref()), (Some("resources/subscribe"), Some("file:///a")), "the subscription is restored on the new server");
-    assert_eq!(first.next().await.method.as_deref(), Some("notifications/tools/list_changed"), "sessions are told the lists changed after a restart");
-    let woken = restarted.wire.next().await;
-    assert_eq!(woken.method.as_deref(), Some("tools/list"), "the call that woke the server is forwarded after the handshake");
-    drop(first);
-    assert_eq!(restarted.wire.next().await.method.as_deref(), Some("notifications/cancelled"), "a leaving session's open call is cancelled at the server");
-    restarted.wire.silent(Duration::from_secs(1)).await;
-    drop(second);
-    let released = restarted.wire.next().await;
-    assert_eq!((released.method.as_deref(), released.params.uri.as_deref()), (Some("resources/unsubscribe"), Some("file:///a")), "the subscription is released with its last subscriber");
-}
-
-#[tokio::test(start_paused = true)]
-async fn leaving_session_takes_its_parked_calls_with_it() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut leaving = joined(&proxy).await;
-    leaving.send(r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ask"}}"#).await;
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("tools/call"));
-    leaving.send(r#"{"jsonrpc":"2.0","id":2,"method":"resources/subscribe","params":{"uri":"file:///a"}}"#).await;
-    server.wire.silent(Duration::from_millis(100)).await;
-    drop(leaving);
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("notifications/cancelled"), "the leaving session's open call is cancelled at the server");
-    server.wire.silent(Duration::from_secs(1)).await;
-    assert_ok!(time::timeout(Duration::from_hours(3), server.stop.cancelled()).await, "a server no session subscribes to stops once unused");
-}
-
-#[tokio::test(start_paused = true)]
-async fn server_requests_reach_the_session_whose_call_caused_them() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let (mut first, mut second) = (joined(&proxy).await, joined(&proxy).await);
-    let ask = |id: u64, tool: &str| format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"tools/call","params":{{"name":"{tool}"}}}}"#);
-    let asked = |id: &str| format!(r#"{{"jsonrpc":"2.0","id":"{id}","method":"elicitation/create","params":{{"message":"who"}}}}"#);
-    first.send(&ask(1, "ask")).await;
-    let one = server.wire.next().await;
-    second.send(&ask(1, "ask")).await;
-    server.wire.silent(Duration::from_millis(100)).await;
-    server.wire.send(&asked("e1")).await;
-    assert_eq!(first.next().await.id, Some(Id::Text("e1".to_owned())), "a tool not yet known runs alone, so its request has one possible caller");
-    first.send(r#"{"jsonrpc":"2.0","id":"e1","result":{"action":"accept","content":{"answer":"first"}}}"#).await;
-    assert_eq!(server.wire.next().await.result.content.and_then(|content| content.answer).as_deref(), Some("first"), "the answer returns to the server");
-    server.wire.silent(Duration::from_millis(100)).await;
-    server.wire.send(&one.answered("{}")).await;
-    assert_eq!(first.next().await.id, Some(Id::Number(1)));
-    let two = server.wire.next().await;
-    server.wire.send(&asked("e2")).await;
-    assert_eq!(second.next().await.id, Some(Id::Text("e2".to_owned())), "a tool known to ask runs alone again");
-    second.send(r#"{"jsonrpc":"2.0","id":"e2","result":{"action":"decline"}}"#).await;
-    assert_eq!(server.wire.next().await.id, Some(Id::Text("e2".to_owned())));
-    server.wire.send(&two.answered("{}")).await;
-    assert_eq!(second.next().await.id, Some(Id::Number(1)));
-    for (session, id) in [(&mut first, 2), (&mut second, 2)] {
-        session.send(&ask(id, "quiet")).await;
-        let call = server.wire.next().await;
-        server.wire.send(&call.answered("{}")).await;
-        assert_eq!(session.next().await.id, Some(Id::Number(id)));
-    }
-    first.send(&ask(3, "quiet")).await;
-    let earlier = server.wire.next().await;
-    second.send(&ask(3, "quiet")).await;
-    let later = server.wire.next().await;
-    server.wire.send(&asked("e3")).await;
-    first.silent(Duration::from_millis(100)).await;
-    second.silent(Duration::from_millis(100)).await;
-    server.wire.send(&earlier.answered("{}")).await;
-    assert_eq!(first.next().await.id, Some(Id::Number(3)));
-    assert_eq!(second.next().await.id, Some(Id::Text("e3".to_owned())), "with two calls in flight the request waits, then goes to the one call still open");
-    second.send(r#"{"jsonrpc":"2.0","id":"e3","result":{"action":"decline"}}"#).await;
-    assert_eq!(server.wire.next().await.id, Some(Id::Text("e3".to_owned())));
-    server.wire.send(&later.answered("{}")).await;
-    assert_eq!(second.next().await.id, Some(Id::Number(3)));
-    first.send(&ask(4, "quiet")).await;
-    let alone = server.wire.next().await;
-    second.send(&ask(4, "quiet")).await;
-    server.wire.silent(Duration::from_millis(100)).await;
-    server.wire.send(&alone.answered("{}")).await;
-    assert_eq!(first.next().await.id, Some(Id::Number(4)));
-    let waited = server.wire.next().await;
-    assert_eq!(waited.method.as_deref(), Some("tools/call"), "a tool seen to ask with two calls open runs alone from then on, as the tool first seen asking does");
-    server.wire.send(&waited.answered("{}")).await;
-    assert_eq!(second.next().await.id, Some(Id::Number(4)));
-}
-
-#[tokio::test(start_paused = true)]
-async fn server_request_a_session_declares_no_capability_for_is_refused_to_the_server() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut bare = declared(&proxy, &INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{}"#)).await;
-    let _capable = joined(&proxy).await;
-    bare.send(r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sample"}}"#).await;
-    let call = server.wire.next().await;
-    assert_eq!(call.params.meta.and_then(|meta| meta.client_capabilities), Some(json!({})), "the call holds the capabilities its own session declared");
-    server.wire.send(r#"{"jsonrpc":"2.0","id":"s1","method":"sampling/createMessage","params":{"messages":[],"maxTokens":1}}"#).await;
-    let refused = server.wire.next().await;
-    assert_eq!(refused.id, Some(Id::Text("s1".to_owned())), "the server learns at once that the calling session cannot sample");
-    assert!(refused.error.message.as_deref().is_some_and(|message| message.contains("sampling/createMessage")), "the refusal names the request: {refused:?}");
-    bare.silent(Duration::from_millis(100)).await;
-}
-
-#[tokio::test(start_paused = true)]
-async fn requests_carry_their_session_client_context_whatever_their_params() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut client = joined(&proxy).await;
-    for (id, line) in [
-        (1, r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#),
-        (2, r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#),
-        (3, r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"echo","arguments":{"text":"x"}}}"#),
-        (4, r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"_meta":{"progressToken":"p"},"name":"echo"}}"#),
-        (5, r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"_meta":{},"name":"echo"}}"#),
-    ] {
-        client.send(line).await;
-        let forwarded = server.wire.next().await;
-        let meta = assert_some!(forwarded.params.meta.clone(), "request {id} reaches the server with _meta: {forwarded:?}");
-        assert_eq!((meta.client_capabilities, meta.client_info.map(|info| info.name)), (Some(json!({"elicitation": {}})), Some("t".to_owned())), "request {id}");
-        server.wire.send(&forwarded.answered("{}")).await;
-        assert_eq!(client.next().await.id, Some(Id::Number(id)));
-    }
-}
-
-#[tokio::test(start_paused = true)]
-async fn calls_of_other_methods_run_concurrently_once_a_resource_read_asked() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let (mut first, mut second) = (joined(&proxy).await, joined(&proxy).await);
-    first.send(r#"{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"memo://asks"}}"#).await;
-    let read = server.wire.next().await;
-    server.wire.send(r#"{"jsonrpc":"2.0","id":"e1","method":"elicitation/create","params":{"message":"which"}}"#).await;
-    assert_eq!(first.next().await.id, Some(Id::Text("e1".to_owned())));
-    first.send(r#"{"jsonrpc":"2.0","id":"e1","result":{"action":"decline"}}"#).await;
-    assert_eq!(server.wire.next().await.id, Some(Id::Text("e1".to_owned())));
-    server.wire.send(&read.answered(r#"{"contents":[]}"#)).await;
-    assert_eq!(first.next().await.id, Some(Id::Number(1)));
-    first.send(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).await;
-    let listed = server.wire.next().await;
-    server.wire.send(&listed.answered(r#"{"tools":[]}"#)).await;
-    assert_eq!(first.next().await.id, Some(Id::Number(2)));
-    let sent = Instant::now();
-    first.send(r#"{"jsonrpc":"2.0","id":3,"method":"tools/list"}"#).await;
-    second.send(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#).await;
-    let (earlier, later) = (server.wire.next().await, server.wire.next().await);
-    assert_eq!((earlier.method.as_deref(), later.method.as_deref()), (Some("tools/list"), Some("tools/list")));
-    assert!(sent.elapsed() < Duration::from_secs(1), "a quiet method runs concurrently though a resource read asked, never waiting out the probation: {:?}", sent.elapsed());
-    server.wire.send(&earlier.answered(r#"{"tools":[]}"#)).await;
-    server.wire.send(&later.answered(r#"{"tools":[]}"#)).await;
-    assert_eq!((first.next().await.id, second.next().await.id), (Some(Id::Number(3)), Some(Id::Number(1))));
-}
-
-#[tokio::test(start_paused = true)]
-async fn server_log_level_follows_the_most_verbose_session_present() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let (verbose, verbose_serving) = session(&proxy);
-    let mut verbose = verbose;
-    verbose.send(INITIALIZE).await;
-    assert_some!(verbose.next().await.result.server_info);
-    verbose.send(INITIALIZED).await;
-    let mut terse = joined(&proxy).await;
-    verbose.send(r#"{"jsonrpc":"2.0","id":1,"method":"logging/setLevel","params":{"level":"debug"}}"#).await;
-    assert_eq!(verbose.next().await.id, Some(Id::Number(1)));
-    assert_eq!(server.wire.next().await.params.level.as_deref(), Some("debug"));
-    terse.send(r#"{"jsonrpc":"2.0","id":1,"method":"logging/setLevel","params":{"level":"error"}}"#).await;
-    assert_eq!(terse.next().await.id, Some(Id::Number(1)));
-    server.wire.silent(Duration::from_millis(100)).await;
-    drop(verbose);
-    assert_ok!(assert_ok!(verbose_serving.await));
-    assert_eq!(server.wire.next().await.params.level.as_deref(), Some("error"), "the level rises to the least verbose session left");
-    drop(terse);
-    assert_eq!(server.wire.next().await.params.level.as_deref(), Some("emergency"), "with no session asking for messages the server sends the fewest");
-}
-
-#[tokio::test(start_paused = true)]
-async fn session_that_stops_reading_is_disconnected_and_log_messages_follow_levels() {
-    let (proxy, mut starts, _actor) = proxy(4, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let (stalled, serving) = session(&proxy);
-    let mut stalled = stalled;
-    stalled.send(INITIALIZE).await;
-    stalled.send(INITIALIZED).await;
-    let mut reader = joined(&proxy).await;
-    reader.send(r#"{"jsonrpc":"2.0","id":1,"method":"logging/setLevel","params":{"level":"warning"}}"#).await;
-    let level = server.wire.next().await;
-    assert_eq!(level.params.level.as_deref(), Some("warning"));
-    server.wire.send(&level.answered("{}")).await;
-    assert_eq!(reader.next().await.id, Some(Id::Number(1)));
-    server.wire.send(r#"{"jsonrpc":"2.0","method":"notifications/message","params":{"level":"info","data":"quiet"}}"#).await;
-    server.wire.send(r#"{"jsonrpc":"2.0","method":"notifications/message","params":{"level":"error","data":"loud"}}"#).await;
-    assert_eq!(reader.next().await.params.data.as_deref(), Some("loud"), "a session receives log messages at or above the level it set and no other");
-    let padding = "x".repeat(32 << 10);
-    for _ in 0..16 {
-        server.wire.send(&format!(r#"{{"jsonrpc":"2.0","method":"notifications/tools/list_changed","params":{{"pad":"{padding}"}}}}"#)).await;
-        assert_eq!(reader.next().await.method.as_deref(), Some("notifications/tools/list_changed"), "a session that reads keeps receiving");
-    }
-    assert_ok!(assert_ok!(assert_ok!(time::timeout(Duration::from_secs(1), serving).await, "a session that stops reading is disconnected")));
-    server.wire.send(r#"{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}"#).await;
-    assert_eq!(reader.next().await.method.as_deref(), Some("notifications/tools/list_changed"), "the reading session stays");
-    assert!(!server.stop.is_cancelled(), "the server stays");
-}
-
-#[tokio::test(start_paused = true)]
-async fn oversized_server_notification_and_request_fail_no_call() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 10);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut caller = joined(&proxy).await;
-    let padding = "x".repeat(2 << 10);
-    caller.send(r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"wide"}}"#).await;
-    let call = server.wire.next().await;
-    let issued = assert_ok!(serde_json::to_string(assert_some!(call.id.as_ref())));
-    server.wire.send(&format!(r#"{{"jsonrpc":"2.0","method":"notifications/message","params":{{"level":"info","data":"{padding}"}}}}"#)).await;
-    server.wire.send(&format!(r#"{{"jsonrpc":"2.0","id":{issued},"method":"elicitation/create","params":{{"message":"{padding}"}}}}"#)).await;
-    server.wire.send(&call.answered("{}")).await;
-    let answer = caller.next().await;
-    assert_eq!((answer.id.clone(), answer.error.message.as_deref()), (Some(Id::Number(7)), None), "a notification or request over the line limit fails no call: {answer:?}");
-    let refused = server.wire.next().await;
-    assert_eq!(refused.id, call.id, "the request over the line limit is refused under its own id");
-    assert!(refused.error.message.as_deref().is_some_and(|message| message.contains("exceeds")), "the refusal states the limit: {refused:?}");
-}
-
-#[tokio::test(start_paused = true)]
-async fn stop_and_drain_pass_a_server_that_stopped_reading() {
-    let (proxy, mut starts, actor) = proxy(4, 1 << 20);
-    let server = assert_some!(starts.recv().await).linked().await;
-    let mut caller = joined(&proxy).await;
-    let flooding = tokio::spawn(async move {
-        let padding = "x".repeat(32 << 10);
-        for _ in 0..32 {
-            caller.send(&format!(r#"{{"jsonrpc":"2.0","method":"notifications/roots/list_changed","params":{{"pad":"{padding}"}}}}"#)).await;
-        }
-    });
-    time::sleep(Duration::from_secs(1)).await;
-    assert!(!flooding.is_finished(), "the server reads nothing, so the session's messages back up");
-    assert_ok!(time::timeout(Duration::from_secs(1), proxy.drain(Duration::from_millis(250))).await, "a drain passes messages queued behind a server that stopped reading");
-    let exited = async {
-        server.stop.cancelled().await;
-        assert_ok!(server.exit.send("killed".to_owned()));
-    };
-    assert_ok!(time::timeout(Duration::from_secs(1), future::join(proxy.stop(), exited)).await, "a stop passes messages queued behind a server that stopped reading");
-    assert_ok!(actor.await, "the proxy task ends with the stop");
-}
-
-#[tokio::test]
-async fn oversized_line_names_its_request_from_either_end() {
-    let mut lines = Lines::new(64);
-    let padding = "x".repeat(4096);
-    let mut leading = format!(r#"{{"jsonrpc":"2.0","id":41,"result":{{"text":"{padding}"}}}}"#).into_bytes();
-    leading.push(b'\n');
-    let mut trailing = format!(r#"{{"result":{{"text":"{padding}","id":7}},"jsonrpc":"2.0","id":42}}"#).into_bytes();
-    trailing.push(b'\n');
-    for (line, id) in [(leading, "41"), (trailing, "42")] {
-        let mut buffer = bytes::BytesMut::new();
-        let decoded = line.chunks(100).find_map(|chunk| {
-            buffer.extend_from_slice(chunk);
-            assert_ok!(lines.decode(&mut buffer))
-        });
-        let named = match &decoded {
-            Some(Line::Oversized { head, tail }) => identity(head, tail).0,
-            Some(Line::Whole(_)) | None => None,
-        };
-        assert_eq!(named.as_deref(), Some(id.as_bytes()), "a line over the limit is yielded once and its request id is read from the head or the tail: {decoded:?}");
-    }
-}
-
-// --- [SHARED_HANDSHAKE]
-
-#[tokio::test(start_paused = true)]
-async fn every_client_handshake_succeeds_against_strict_backend() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    for client in 0..3 {
-        let (mut wire, _) = session(&proxy);
-        wire.send(&INITIALIZE.replace(r#""id":0"#, &format!(r#""id":"client-{client}""#))).await;
-        let answer = wire.next().await;
-        assert_eq!(answer.id, Some(Id::Text(format!("client-{client}"))), "each client gets its own id back");
-        assert_eq!(
-            (answer.result.protocol_version.as_deref(), answer.result.server_info.map(|info| info.name).as_deref()),
-            (Some("2025-06-18"), Some("s")),
-            "every client gets the one handshake result"
-        );
-        wire.send(INITIALIZED).await;
-    }
-    server.wire.silent(Duration::from_secs(1)).await;
-}
-
-#[tokio::test(start_paused = true)]
-async fn concurrent_initialize_reaches_backend_once() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let starting = assert_some!(starts.recv().await);
-    let mut waiting = Vec::new();
-    for client in 0..5 {
-        let (mut wire, _) = session(&proxy);
-        wire.send(&INITIALIZE.replace(r#""id":0"#, &format!(r#""id":"client-{client}""#))).await;
-        waiting.push(wire);
-    }
-    let mut server = starting.linked().await;
-    for (client, wire) in waiting.iter_mut().enumerate() {
-        assert_eq!(wire.next().await.id, Some(Id::Text(format!("client-{client}"))), "a waiter must never receive another caller's JSON-RPC id");
-    }
-    server.wire.silent(Duration::from_secs(1)).await;
-}
-
-// --- [IDENTITY]
-
-#[tokio::test(start_paused = true)]
-async fn request_id_returns_unchanged_whatever_its_type() {
-    let (proxy, mut starts, _actor) = proxy(64, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut client = joined(&proxy).await;
-    for id in ["0", "-1", "42", r#""42""#, r#""0""#, r#""""#, r#""-1""#, r#""a:b""#, r#""urn:uuid:1234""#, "9007199254740991", r#""xxxxxxxxxxxxxxxxxxxxxxxx""#] {
-        client.send(&format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"tools/list"}}"#)).await;
-        let asked = server.wire.next().await;
-        server.wire.send(&asked.answered(r#"{"tools":[]}"#)).await;
-        let returned = assert_ok!(serde_json::to_string(&assert_some!(client.next().await.id)));
-        assert_eq!(returned, id, "the reply carries the request id with its JSON type");
-    }
-}
-
-#[tokio::test(start_paused = true)]
-async fn server_ping_is_answered_under_its_own_id() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut client = joined(&proxy).await;
-    server.wire.send(r#"{"jsonrpc":"2.0","id":7,"method":"ping"}"#).await;
-    let pong = tokio::select! {
-        pong = server.wire.next() => pong,
-        relayed = client.next() => {
-            client.send(&relayed.answered("{}")).await;
-            server.wire.next().await
-        }
-    };
-    assert_eq!((pong.id, pong.method, pong.error.message), (Some(Id::Number(7)), None, None), "pong must carry the original id");
-}
-
-// --- [FORWARDING]
-
-#[tokio::test(start_paused = true)]
-async fn resource_subscribe_and_unsubscribe_forward_to_the_backend() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut client = joined(&proxy).await;
-    for (id, method) in [(1, "resources/subscribe"), (2, "resources/unsubscribe")] {
-        client.send(&format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"{method}","params":{{"uri":"memo://insights"}}}}"#)).await;
-        let forwarded = server.wire.next().await;
-        assert_eq!((forwarded.method.as_deref(), forwarded.params.uri.as_deref()), (Some(method), Some("memo://insights")));
-        server.wire.send(&forwarded.answered("{}")).await;
-        let answer = client.next().await;
-        assert_eq!((answer.id, answer.error.message), (Some(Id::Number(id)), None), "{method} succeeds");
-    }
-}
-
-#[tokio::test(start_paused = true)]
-async fn progress_reaches_its_request_and_stops_with_it() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let (mut plain, mut tokened) = (joined(&proxy).await, joined(&proxy).await);
-    let call = |id: u64, meta: &str| format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"tools/call","params":{{"name":"quiet"{meta}}}}}"#);
-    for session in [&mut plain, &mut tokened] {
-        session.send(&call(1, "")).await;
-        let known = server.wire.next().await;
-        server.wire.send(&known.answered("{}")).await;
-        assert_eq!(session.next().await.id, Some(Id::Number(1)));
-    }
-    plain.send(&call(7, "")).await;
-    let _held = server.wire.next().await;
-    tokened.send(&call(8, r#","_meta":{"progressToken":"p"}"#)).await;
-    let owner = server.wire.next().await;
-    let token = assert_ok!(serde_json::to_string(&assert_some!(owner.params.meta.clone().and_then(|meta| meta.progress_token))));
-    let progress = |done: u64| format!(r#"{{"jsonrpc":"2.0","method":"notifications/progress","params":{{"progressToken":{token},"progress":{done}}}}}"#);
-    server.wire.send(&progress(1)).await;
-    let reported = tokened.next().await;
-    assert_eq!(
-        (reported.method.as_deref(), reported.params.progress_token),
-        (Some("notifications/progress"), Some(Id::Text("p".to_owned()))),
-        "progress reaches the request that set the token, under the client's token"
-    );
-    plain.silent(Duration::from_millis(100)).await;
-    server.wire.send(&owner.answered("{}")).await;
-    assert_eq!(tokened.next().await.id, Some(Id::Number(8)));
-    server.wire.send(&progress(2)).await;
-    tokened.silent(Duration::from_millis(100)).await;
-    plain.silent(Duration::from_millis(100)).await;
-}
-
-// --- [TRANSLATION]
-
-#[tokio::test(start_paused = true)]
-async fn initialize_session_reads_progress_a_discover_server_wrote_with_its_result_first_and_in_order() { answered_at_once(7..=7, 40).await; }
-
-#[tokio::test(flavor = "multi_thread")]
-async fn initialize_session_reads_progress_of_calls_a_discover_server_answers_at_once() { answered_at_once(1..=256, 4).await; }
-
-#[tokio::test(start_paused = true)]
-async fn progress_of_an_initialize_session_increases_across_the_rounds_of_one_call() {
-    let (proxy, mut starts, _actor) = proxy(256, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).discovered().await;
-    let mut caller = joined(&proxy).await;
-    caller.send(&asking(7)).await;
-    let first = server.wire.next().await;
-    server.wire.send(&reporting(&first, 1..=2, r#"{"resultType":"input_required","requestState":"held"}"#)).await;
-    let retried = server.wire.next().await;
-    assert_ne!(retried.id, first.id, "the retry is a request of its own, and its progress starts again");
-    server.wire.send(&reporting(&retried, 1..=3, "{}")).await;
-    assert_eq!(reported(&mut caller, 7).await, [1.0, 2.0, 3.0], "progress under the session's one token only increases");
-}
-
-#[tokio::test(start_paused = true)]
-async fn initialize_session_that_stops_reading_progress_is_disconnected_alone() {
-    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
-    let mut server = assert_some!(starts.recv().await).discovered().await;
-    let (mut reader, (mut stalled, serving)) = (joined(&proxy).await, session(&proxy));
-    stalled.send(INITIALIZE).await;
-    assert_eq!(stalled.next().await.id, Some(Id::Number(0)));
-    stalled.send(INITIALIZED).await;
-    stalled.send(&asking(7)).await;
-    let held = server.wire.next().await;
-    let token = assert_ok!(serde_json::to_string(&assert_some!(held.params.meta.and_then(|meta| meta.progress_token))));
-    let padding = "x".repeat(32 << 10);
-    for done in 1..=32 {
-        server.wire.send(&format!(r#"{{"jsonrpc":"2.0","method":"notifications/progress","params":{{"progressToken":{token},"progress":{done},"message":"{padding}"}}}}"#)).await;
-    }
-    assert_ok!(assert_ok!(assert_ok!(time::timeout(Duration::from_secs(1), serving).await, "a session that stops reading its progress is disconnected")));
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("notifications/cancelled"), "the disconnected session's call is cancelled at the server");
-    reader.send(&asking(8)).await;
-    let call = server.wire.next().await;
-    server.wire.send(&reporting(&call, 1..=1, "{}")).await;
-    assert_eq!(reported(&mut reader, 8).await, [1.0], "a session that reads keeps its calls and their progress");
-    assert!(!server.stop.is_cancelled(), "the server stays");
-}
-
-// --- [LINE_LENGTH]
-
-const MAX: usize = 4 << 10;
-
-#[cfg(test)]
 fn padded(id: u64, total: usize) -> String {
-    let frame = format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"tools/list","params":{{"pad":""}}}}"#);
-    frame.replace(r#""pad":"""#, &format!(r#""pad":"{}""#, "x".repeat(total.saturating_sub(frame.len()))))
+    let framed = |pad: String| Frame { jsonrpc: JsonRpcVersion2_0, id: Some(id), method: "tools/list", params: Params { pad: Some(pad), ..Params::default() } }.line();
+    framed("x".repeat(total.saturating_sub(framed(String::new()).len())))
 }
 
-#[cfg(test)]
-async fn recovered(client: &mut Wire, server: &mut Served, id: u64) {
-    client.send(&format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"tools/list"}}"#)).await;
-    let asked = server.wire.next().await;
-    assert_eq!(asked.method.as_deref(), Some("tools/list"));
-    server.wire.send(&asked.answered(r#"{"tools":[]}"#)).await;
-    let answer = loop {
-        let answer = client.next().await;
-        if answer.id == Some(Id::Number(id)) {
-            break answer;
-        }
-    };
-    assert_eq!(answer.error.message, None, "the stream recovers after the dropped message");
-}
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-#[tokio::test(start_paused = true)]
-async fn oversized_message_is_dropped_and_stream_recovers() {
-    let (proxy, mut starts, _actor) = proxy(16, MAX);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut client = joined(&proxy).await;
-    client.send(&padded(1, MAX * 4)).await;
-    recovered(&mut client, &mut server, 2).await;
-}
-
-#[tokio::test(start_paused = true)]
-async fn consecutive_oversized_messages_still_recover() {
-    let (proxy, mut starts, _actor) = proxy(16, MAX);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut client = joined(&proxy).await;
-    client.send(&padded(1, MAX * 3)).await;
-    client.send(&padded(2, MAX * 3)).await;
-    recovered(&mut client, &mut server, 9).await;
-}
-
-#[tokio::test(start_paused = true)]
-async fn message_within_the_limit_is_delivered() {
-    let (proxy, mut starts, _actor) = proxy(16, MAX);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut client = joined(&proxy).await;
-    let line = padded(3, MAX - 1);
-    assert_eq!(line.len(), MAX - 1);
-    client.send(&line).await;
-    let delivered = server.wire.next().await;
-    assert_eq!(delivered.method.as_deref(), Some("tools/list"), "a line one byte under the limit, newline counted, is delivered");
-}
-
-#[tokio::test(start_paused = true)]
-async fn line_split_across_many_reads_is_reassembled() {
-    let (proxy, mut starts, _actor) = proxy(16, MAX);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let mut client = joined(&proxy).await;
-    client.chunked(&padded(5, MAX / 2), 97).await;
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("tools/list"));
-}
-
-// --- [LINES_DECODER]
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Decoded {
-    Whole(String),
-    Refused,
-}
-
-fn events(limit: usize, chunks: &[&[u8]]) -> Vec<Decoded> {
-    let (mut lines, mut buffer) = (Lines::new(limit), bytes::BytesMut::new());
-    let mut seen = Vec::new();
-    for chunk in chunks {
-        buffer.extend_from_slice(chunk);
-        while let Some(line) = assert_ok!(lines.decode(&mut buffer)) {
-            seen.push(match line {
-                Line::Whole(whole) => Decoded::Whole(String::from_utf8_lossy(&whole).trim_end_matches('\n').to_owned()),
-                Line::Oversized { head: _, tail: _ } => Decoded::Refused,
-            });
-        }
-    }
-    seen
-}
-
-#[tokio::test]
-async fn lines_decoder() {
-    let whole = |text: &str| Decoded::Whole(text.to_owned());
-    assert_eq!(events(64, &[b"line 1\nline 2\nline 3\n"]), [whole("line 1"), whole("line 2"), whole("line 3")]);
-    assert_eq!(events(64, &[b"line 1\nli", b"ne 2\n"]), [whole("line 1"), whole("line 2")], "a line held across decodes is returned once it ends");
-}
-
-#[tokio::test]
-async fn lines_decoder_max_length() {
-    let line = |length: usize| [vec![b'x'; length], vec![b'\n']].concat();
-    let (fits, next) = (line(MAX - 1), Decoded::Whole("ok".to_owned()));
-    assert_eq!(events(MAX, &[&fits]), [Decoded::Whole("x".repeat(MAX - 1))], "the limit counts the trailing newline too, so this is the largest line that fits");
-    assert_eq!(events(MAX, &[&line(MAX), b"ok\n"]), [Decoded::Refused, next.clone()], "a line one byte over is refused once and the next line is returned");
-    assert_eq!(events(MAX, &[&line(MAX * 4), b"ok\n"]), [Decoded::Refused, next.clone()], "an oversized line is dropped and the stream recovers");
-    assert_eq!(events(MAX, &[&line(MAX * 3), &line(MAX * 3), b"ok\n"]), [Decoded::Refused, Decoded::Refused, next], "consecutive oversized lines still recover");
-    assert_eq!(events(MAX, &Vec::from_iter(fits.chunks(97))), [Decoded::Whole("x".repeat(MAX - 1))], "a line split across many reads is reassembled");
-}
+mod framing;
+mod handshake;
+mod lifetime;
+mod progress;
+mod routing;

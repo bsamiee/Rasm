@@ -1,32 +1,12 @@
-"""pytest plugin every other plugin of the package requires: each test's outcome and time limit recorded on its stash, loaded by pytest alone so its assertions are rewritten."""
+"""pytest plugin every other plugin of the package requires: each test's outcome recorded on its stash, loaded by pytest alone so its assertions are rewritten."""
 
 from collections.abc import Generator
-from datetime import timedelta
-from typing import Protocol
 
 import pytest
 
-from rasm.testing._outcomes import FAILED, LIMIT
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class Timed(Protocol):
-    """Settings pytest-timeout resolves for one test."""
-
-    @property
-    def timeout(self) -> float:
-        """Seconds the test may run."""
-        ...
-
+from rasm.testing._outcomes import FAILED
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-
-
-@pytest.hookimpl(optionalhook=True, tryfirst=True)
-def pytest_timeout_set_timer(item: pytest.Item, settings: Timed) -> None:
-    """Records on a test the time pytest-timeout allows it and leaves the timer to pytest-timeout."""
-    item.stash[LIMIT] = timedelta(seconds=settings.timeout)
 
 
 @pytest.hookimpl(wrapper=True, tryfirst=True)

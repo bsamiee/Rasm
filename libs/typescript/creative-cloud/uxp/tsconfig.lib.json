@@ -9,6 +9,9 @@
     "exclude": ["dist", "vite.ts"],
     "references": [
         {
+            "path": "../../web/vite"
+        },
+        {
             "path": "../../runtime/telemetry"
         },
         {
@@ -19,9 +22,11 @@
         },
         {
             "path": "../../ai/mcp"
-        },
-        {
-            "path": "../../graphics/mark"
         }
-    ]
+    ],
+    "nx": {
+        "sync": {
+            "ignoredDependencies": ["@rasm/mark"]
+        }
+    }
 }

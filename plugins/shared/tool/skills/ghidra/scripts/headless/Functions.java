@@ -185,8 +185,9 @@ public final class Functions {
                                                 case DecompileResults results
                                                         when results.isTimedOut() ->
                                                         new Report.Failure<>(
-                                                                "Decompile timed out after %d s"
-                                                                        .formatted(timeout));
+                                                                "Decompile timed out after "
+                                                                        + timeout
+                                                                        + " s");
                                                 case DecompileResults results ->
                                                         new Report.Failure<>(
                                                                 results.getErrorMessage().strip());

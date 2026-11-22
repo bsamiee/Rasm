@@ -103,7 +103,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let target = if assertion == sym::debug_assert_macro { "core::debug_assert_matches" } else { "core::assert_matches" };
             span_lint_hir_and_then(cx, ASSERT_MATCHES, expr.hir_id, call.span, "assertion tests a pattern through a boolean", |diag| {
                 let pattern = match pattern {
-                    Either::Left(arm) => format!("{}{}", snippet(cx, arm.pat.span, "pattern"), arm.guard.map_or_default(|guard| format!(" if {}", snippet(cx, guard.span, "condition")))),
+                    Either::Left(Arm { pat, guard: Some(guard), .. }) => format!("{} if {}", snippet(cx, pat.span, "pattern"), snippet(cx, guard.span, "condition")),
+                    Either::Left(Arm { pat, guard: None, .. }) => snippet(cx, pat.span, "pattern").into_owned(),
                     Either::Right(true) => String::from("core::option::Option::Some(_)"),
                     Either::Right(false) => String::from("core::option::Option::None"),
                 };

@@ -5,17 +5,19 @@
     "bin": "./stacks.ts",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
-        "#/*.json": "./*.json"
+        "#/*.ts": "./*.ts",
+        "#/*": "./*"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
+        "@playwright/test": "catalog:",
         "@pulumi/aws": "catalog:",
         "@pulumi/cloudflare": "catalog:",
         "@pulumi/command": "catalog:",
         "@pulumi/docker": "catalog:",
         "@pulumi/docker-build": "catalog:",
+        "@pulumi/gcp": "catalog:",
         "@pulumi/github": "catalog:",
         "@pulumi/hostinger": "file:sdks/hostinger",
         "@pulumi/minio": "file:sdks/minio",

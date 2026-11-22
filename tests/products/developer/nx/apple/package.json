@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-apple",
     "private": true,
-    "description": "@rasm/nx-apple suite: Nx's own .NET analyzer, Gradle, and release specs ported to SwiftPM packages and Xcode projects in temporary folders, each graph read by swift, xcodebuild, and the plugin's Swift analyzer",
+    "description": "@rasm/nx-apple suites: the project graph, targets, cache, and refusals Nx reads from the plugin over SwiftPM packages and Xcode projects in temporary workspaces, each read by swift, xcodebuild, and the plugin's Swift analyzer, and the run executor and version actions over real tools",
     "os": [
         "darwin"
     ],
@@ -12,6 +12,7 @@
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
+        "fast-check": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
     }

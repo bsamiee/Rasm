@@ -24,7 +24,7 @@ struct RelayApp: App {
         MenuBarExtra {
             MenuBarExtraContent(store: delegate.store, updater: updater.controller.updater)
         } label: {
-            Image(.relaySymbol)
+            Image(.mark)
                 .accessibilityLabel("Relay")
         }
         .menuBarExtraStyle(.window)

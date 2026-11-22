@@ -38,6 +38,7 @@ utils:
             - has: { field: arguments, all: [{ has: { kind: argument, nthChild: 1, matches: format-argument } }, { has: { kind: argument, nthChild: 2 } }] }
 rule:
     kind: invocation_expression
+    pattern: $CALL
     any:
         - all:
               - matches: format-call
@@ -50,6 +51,7 @@ rule:
 message: '`$CALLEE` fills the constant composite format `$FORMAT` by position'
 note: 'Write an interpolated string `$"..."`, inside `string.Create(<provider>, $"...")` or `Append(<provider>, $"...")` when a provider applies'
 labels:
+    CALL: { style: primary }
     FORMAT:
         style: secondary
         message: Composite format text

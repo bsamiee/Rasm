@@ -2,8 +2,8 @@ import { load } from 'cheerio/slim';
 import { Array, Cause, Context, Duration, Effect, Exit, Function, Layer, Option, Record, Schema, UndefinedOr } from 'effect';
 import { HttpServerResponse } from 'effect/http';
 import { renderToReadableStream } from 'react-dom/server';
-import { HostingError } from '#/app/error';
-import type { Shell } from '#/rendering/shell';
+import { HostingError } from '#/app/error.ts';
+import type { Shell } from '#/rendering/shell.ts';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

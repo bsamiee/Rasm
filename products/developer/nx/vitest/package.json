@@ -16,25 +16,25 @@
     ],
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
-        "#package": "./package.json"
+        "#/*.ts": "./*.ts",
+        "#/*": "./*"
     },
     "exports": {
         ".": "./plugin.ts",
-        "./package.json": "./package.json",
         "./executors.json": "./executors.json",
-        "./executors/*": "./executors/*/executor.ts"
+        "./executors/*": "./executors/*/executor.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
-            "#/*": "./dist/*.js",
-            "#package": "./package.json"
+            "#/*.ts": "./dist/*.js",
+            "#/*": "./*"
         },
         "exports": {
             ".": "./dist/plugin.js",
-            "./package.json": "./package.json",
             "./executors.json": "./executors.json",
-            "./executors/*": "./dist/executors/*/executor.js"
+            "./executors/*": "./dist/executors/*/executor.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },

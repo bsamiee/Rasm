@@ -1,10 +1,10 @@
 import { Array, type Cause, Context, Effect, Option, type Schema, String } from 'effect';
 import { SqlClient, type SqlConnection, type SqlError, Statement } from 'effect/sql';
-import type { Catalog } from '#/catalog';
-import type { Column, Kind, Projection } from '#/column';
-import type { ReconcileError } from '#/error';
-import type { diff, Identity } from '#/reconcile';
-import type { Relation } from '#/relation';
+import type { Catalog } from '#/catalog.ts';
+import type { Column, Kind, Projection } from '#/column.ts';
+import type { ReconcileError } from '#/error.ts';
+import type { diff, Identity } from '#/reconcile.ts';
+import type { Relation } from '#/relation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

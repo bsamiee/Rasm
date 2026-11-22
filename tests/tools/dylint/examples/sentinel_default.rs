@@ -113,10 +113,10 @@ fn destruction(value: Option<Vec<Tracked<'_>>>, drops: &Cell<usize>) -> (bool, u
 
 fn main() {
     let names = BTreeMap::from([(1, String::from("a"))]);
-    black_box(&(viewed(None).len(), cloned(&names, 1), counted(None), flagged(None), initial(None), listed(None), mapped(None), located(None), named(None), sliced(None)));
-    black_box(&(paged(None, &[1]), pending(None), next(&names), counted_zero(None), listed_empty(None), both(None, Some("a")), changed(None), captured(None)));
-    black_box((hashed(None), hashed_set(None), allocated(None), allocated_set(None), map_empty(None), set_empty(None)));
-    black_box((numeric(None), textual(None), borrowed(None), mapped_test(None), mapped_default_test(None), matched(None), custom_default(None), compared_default(None)));
+    black_box(&(viewed(None).len(), cloned(&names, 1), counted(None), flagged(None), initial(None), listed(None), mapped(None), located(None), named(None), sliced(None), labeled(None).rank));
+    black_box(&(paged(None, &[1]), pending(None), next(&names), counted_zero(None), listed_empty(None), both(None, Some("a")), changed(None), captured(None), prefixed(None), labeled(None).name));
+    black_box((hashed(None), hashed_set(None), allocated(None), allocated_set(None), map_empty(None), set_empty(None), suffixed(String::new(), "b"), pushed(String::new(), None), valued(None)));
+    black_box((numeric(None), textual(None), borrowed(None), mapped_test(None), mapped_default_test(None), matched(None), custom_default(None), compared_default(None), spanned(None), rendered(None)));
     let drops = Cell::new(0);
     black_box(destruction(Some(vec![Tracked(&drops)]), &drops));
 }
@@ -153,3 +153,28 @@ fn changed(value: Option<u32>) -> bool {
     count = count.saturating_add(1);
     count == 0
 }
+
+struct Labeled {
+    name: String,
+    rank: u32,
+}
+
+fn suffixed(mut text: String, suffix: &str) -> String {
+    text.push_str(suffix);
+    text
+}
+
+fn pushed(mut text: String, value: Option<&str>) -> String {
+    text.push_str(value.unwrap_or_default());
+    text
+}
+
+fn spanned(value: Option<&str>) -> core::ops::Range<&str> { core::ops::Range { start: value.unwrap_or_default(), end: "z" } }
+
+fn prefixed(value: Option<&str>) -> String { suffixed(String::from("a"), value.unwrap_or_default()) }
+
+fn labeled(value: Option<String>) -> Labeled { Labeled { name: value.unwrap_or_default(), rank: 1 } }
+
+fn valued(value: Option<String>) -> serde_json::Value { serde_json::Value::String(value.unwrap_or_default()) }
+
+fn rendered(value: Option<&str>) -> String { format!("[{}]", value.unwrap_or_default()) }

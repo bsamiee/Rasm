@@ -170,7 +170,7 @@ internal sealed class Decoding {
     private static Fin<Decoded> Frames(SKCodec codec, SKImageInfo raw, SKSurface surface, SKMatrix orientation) {
         using SKSurface owned = surface;
         using SKBitmap canvas = new(raw);
-        owned.Canvas.SetMatrix(orientation);
+        owned.Canvas.SetMatrix(in orientation);
         Seq<(SKImage Image, Duration Shown)> frames = [];
         int prior = SKCodecOptions.Default.PriorFrame;
         for (int index = 0, count = int.Max(1, codec.FrameCount); index < count; index++) {

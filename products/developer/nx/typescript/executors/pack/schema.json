@@ -1,0 +1,28 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "argv": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Pack command of the workspace's package manager with its arguments, run in the project folder",
+            "items": [
+                {
+                    "type": "string"
+                }
+            ],
+            "additionalItems": {
+                "type": "string"
+            }
+        },
+        "outputPath": {
+            "type": "string",
+            "description": "Folder, relative to the workspace root, the tarball goes to, made before the pack runs"
+        }
+    },
+    "required": ["argv"],
+    "additionalProperties": true,
+    "title": "Pack",
+    "description": "Packs the project into one tarball with its package manager's pack command, making the outputPath folder first, as npm pack refuses a --pack-destination folder that does not exist"
+}

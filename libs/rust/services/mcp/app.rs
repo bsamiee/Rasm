@@ -183,7 +183,6 @@ where A: Server
 impl<A> Router<A>
 where A: Server
 {
-    #[expect(deprecated, reason = "the initialize-era revisions keep logging, which SEP-2577 deprecates")]
     pub async fn new(
         identity: Implementation,
         settings: Settings,

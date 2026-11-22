@@ -1,7 +1,8 @@
 import { HostError } from '@rasm/object-model';
+import { checks } from '@rasm/vite';
 import { Array, Effect, flow, Schema } from 'effect';
 import { build, type Plugin, type Rolldown } from 'vite';
-import { lower } from '#/node';
+import { lower } from '#/node.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -22,6 +23,7 @@ const script = (entry: string, name: string): Plugin => {
             build({
                 configFile: false,
                 logLevel: 'warn',
+                plugins: [checks()],
                 build: {
                     write: false,
                     rolldownOptions: {

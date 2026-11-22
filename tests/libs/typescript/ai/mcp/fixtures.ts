@@ -1,6 +1,7 @@
 import { Content, registerResource, registerTemplate, Server } from '@rasm/mcp';
-import { Cause, Context, Effect, flow, Latch, Layer, Option, Queue, Ref, Result, Schema, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
-import { McpSchema, Tool } from 'effect/ai';
+import { Cause, Context, Effect, flow, Latch, Layer, MutableRef, Option, Queue, Ref, Result, Schema, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { type McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -14,6 +15,8 @@ const STEPS = Object.values({ started: 0, halfway: 50, finished: 100 });
 const IDS = ['beta', 'alpine', 'alpha'] as const;
 const STATE = 'asked once';
 const ASKED = 'a dialog asks';
+const PATH = '/mcp';
+const UPSTREAM = new URL(PATH, 'http://upstream.test');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -21,6 +24,12 @@ const Weather = Schema.Struct({ temperature: Schema.Finite, conditions: Schema.S
 const Attachment = Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8Array });
 const Templated = Schema.Struct({ id: Schema.String, templateTest: Schema.Literal(true), data: Schema.String });
 const Valued = Schema.Struct({ value: Schema.String });
+const Echoing = Schema.Struct({ echoed: Schema.String });
+const Tools = Toolkit.make(
+    Tool.make('echo', { description: 'Echoes its value', parameters: Valued, success: Echoing }),
+    Tool.make('secret', { description: 'Refused by the filter', success: Schema.String }),
+    Tool.make('test_simple_text', { description: 'Shares a name with a tool of the server', success: Schema.String }),
+);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -104,6 +113,32 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
 
 const app = flow(registered, Layer.effectDiscard);
 
+const registrations = Layer.mergeAll(
+    McpServer.toolkit(Tools).pipe(Layer.provide(Tools.toLayer({ echo: ({ value }) => Effect.succeed({ echoed: value }), secret: () => Effect.succeed('secret'), test_simple_text: () => Effect.succeed('upstream') }))),
+    Layer.effectDiscard(McpServer.registerResource({ uri: 'upstream://note', name: 'note', mimeType: 'text/plain', content: Effect.succeed('upstream note') })),
+    Layer.effectDiscard(McpServer.registerResource`upstream://items/${McpSchema.param('id', Schema.String)}`({ name: 'item', mimeType: 'text/plain', completion: { id: () => Effect.succeed(['apple', 'apricot', 'banana']) }, content: (_, id) => Effect.succeed(`item ${id}`) })),
+    Layer.effectDiscard(McpServer.registerPrompt({ name: 'greet', parameters: { who: Schema.String }, completion: { who: () => Effect.succeed(['world', 'wide']) }, content: ({ who }) => Effect.succeed(`hello ${who}`) })),
+);
+
+const upstream = (protocol: McpProtocol.ProtocolAdapter, token: MutableRef.MutableRef<string>, rejected: MutableRef.MutableRef<number>) => {
+    const guarded = HttpRouter.middleware(
+        (next) =>
+            Effect.flatMap(HttpServerRequest.HttpServerRequest, ({ headers }) =>
+                headers['authorization'] === `Bearer ${MutableRef.get(token)}`
+                    ? next
+                    : Effect.as(
+                          Effect.sync(() => MutableRef.increment(rejected)),
+                          HttpServerResponse.empty({ status: 401 }),
+                      ),
+            ),
+        { global: true },
+    );
+    return Effect.acquireRelease(
+        Effect.sync(() => HttpRouter.toWebHandler(Layer.merge(McpServer.layerHttp({ name: 'upstream', version: '1.0.0', path: PATH, protocols: [protocol], registrations }).pipe(Layer.provideMerge(McpServer.McpServer.layer)), guarded), { disableLogger: true })),
+        ({ dispose }) => Effect.promise(dispose),
+    );
+};
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { app, ASKED, EMBEDDED, FAILURE, IDS, INTERNAL, PNG, Probe, STATE, STATIC, STEPS, TEXT };
+export { app, ASKED, Echoing, EMBEDDED, FAILURE, IDS, INTERNAL, PNG, Probe, STATE, STATIC, STEPS, TEXT, UPSTREAM, upstream };

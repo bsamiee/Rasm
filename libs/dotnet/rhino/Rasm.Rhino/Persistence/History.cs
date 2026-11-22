@@ -90,7 +90,7 @@ public sealed record ValueHistory {
          ArchivableDictionaries.Required<ArchivableDictionary>(source, UndoneKey).Bind(Entries))
             .Apply(static (done, undone) => (done, undone).Apply(static (finished, reverted) => new ValueHistory(
                 toSeq(finished.OrderByDescending(static entry => entry.Serial)), toSeq(reverted.OrderBy(static entry => entry.Serial)),
-                finished.Concat(reverted).Fold(BigInteger.Zero, static (next, entry) => BigInteger.Max(next, entry.Serial + BigInteger.One)))).As())
+                finished.Concat(in reverted).Fold(BigInteger.Zero, static (next, entry) => BigInteger.Max(next, entry.Serial + BigInteger.One)))).As())
             .As();
 
     private static Fin<Option<Seq<HistoryEntry>>> Entries(ArchivableDictionary source) =>

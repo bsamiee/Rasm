@@ -1,11 +1,10 @@
 {
     "name": "@rasm/test-object-model",
     "private": true,
-    "description": "Object model suites: the error a host refusal or a thrown script raises keeps its message across structured clone and Nx plugin worker serialization",
+    "description": "Object model suites: omv dictionaries read into classes, their constructibility, members, and parameter datatypes, the later of two files winning a class both declare",
     "type": "module",
     "devDependencies": {
         "@rasm/object-model": "workspace:*",
-        "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
         "vitest": "catalog:"

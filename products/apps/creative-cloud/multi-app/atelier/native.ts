@@ -6,7 +6,7 @@ import type { Application } from '@rasm/creative-cloud-desktop';
 import { Link, Upstream } from '@rasm/mcp';
 import { HOSTS } from '@rasm/uxp';
 import { Array, Cause, Duration, Effect, FileSystem, Option, Record, Schema, Stream, SubscriptionRef } from 'effect';
-import { Inventory } from '#/applications';
+import { Inventory } from '#/applications.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -76,4 +76,4 @@ const native = Stream.unwrap(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { bound, native, token };
+export { native };

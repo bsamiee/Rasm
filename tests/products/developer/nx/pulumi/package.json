@@ -1,11 +1,9 @@
 {
     "name": "@rasm/test-nx-pulumi",
     "private": true,
-    "description": "@rasm/nx-pulumi suites over temporary workspaces: the Nx node bin, script-node, and Docker plugin specs ported to Pulumi Automation API programs",
+    "description": "@rasm/nx-pulumi suites over temporary workspaces through the Nx graph and task graph: which packages run a Pulumi Automation API program, task order, inputs, and the inferred commands run",
     "type": "module",
     "devDependencies": {
-        "@nx/devkit": "catalog:",
-        "@pulumi/pulumi": "catalog:",
         "@rasm/nx-pulumi": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",

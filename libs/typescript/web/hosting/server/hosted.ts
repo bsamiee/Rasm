@@ -3,9 +3,9 @@ import type { ObjectStorage } from '@rasm/object-storage';
 import { Config, Effect, Layer, Record, Schema, Struct } from 'effect';
 import { HttpRouter, type HttpServer } from 'effect/http';
 import type { SqlClient, SqlError } from 'effect/sql';
-import { App, type Binding } from '#/app/app';
-import { Enrollment, Identity } from '#/app/identity';
-import { Template } from '#/rendering/template';
+import { App, type Binding } from '#/app/app.ts';
+import { Enrollment, Identity } from '#/app/identity.ts';
+import { Template } from '#/rendering/template.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

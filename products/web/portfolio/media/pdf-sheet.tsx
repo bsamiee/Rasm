@@ -7,11 +7,11 @@ import { AsyncResult } from 'effect/reactivity';
 import { motion } from 'motion/react';
 import { AnnotationEditorType, AnnotationMode, type PDFDocumentProxy } from 'pdfjs-dist';
 import { LinkTarget, ScrollMode, SpreadMode } from 'pdfjs-dist/web/pdf_viewer.mjs';
-import { sheetLabel } from '#/media/labels';
+import { sheetLabel } from '#/media/labels.ts';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
-import { assetUrl } from '#/model/api';
-import type { PdfAsset } from '#/model/asset';
-import type { Placement } from '#/model/placement';
+import { assetUrl } from '#/model/api.ts';
+import type { PdfAsset } from '#/model/asset.ts';
+import type { Placement } from '#/model/placement.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

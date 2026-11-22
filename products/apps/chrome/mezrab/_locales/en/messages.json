@@ -1,0 +1,10 @@
+{
+    "name": { "message": "Mezrab", "description": "Extension name in Chrome and the Chrome Web Store" },
+    "description": { "message": "Copies the current tab's link with one shortcut and confirms it on the page", "description": "Extension summary in Chrome and the Chrome Web Store, at most 132 characters" },
+    "action": { "message": "Copy link", "description": "Toolbar button tooltip, Chrome's own name for the command" },
+    "copied": { "message": "Link copied", "description": "Toast on the page after a copy, Chrome's own toast text" },
+    "share": { "message": "Share link", "description": "Accessible name of the toast's share button, which opens the system share sheet for the tab's link" },
+    "unreadable": { "message": "Link not copied: Chrome keeps this page from extensions", "description": "Toolbar button tooltip for 4 seconds after an action on a page Chrome withholds from extensions" },
+    "uncopied": { "message": "Link not copied: the clipboard refused it", "description": "Toolbar button tooltip for 4 seconds after the clipboard refused the link" },
+    "unconfirmed": { "message": "Link copied: this page refuses the confirmation", "description": "Toolbar button tooltip for 4 seconds after a copy on a page that refuses the toast" }
+}

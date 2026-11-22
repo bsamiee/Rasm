@@ -298,7 +298,7 @@ languageInjections:
               any:
                   - regex: '^[\["''`]*(?i-u:sqlite)(?-u:\b)'
                   - has: { field: function, regex: '^it\.effect\.(?:runIf\(sqlite\)|skipIf\(postgres\))$' }
-          own-import: &sqlite-import { regex: '^["''](?:@effect/sql-sqlite-[a-z-]+|sqlite-vec|node:sqlite|bun:sqlite)["''/]' }
+          own-import: &sqlite-import { regex: '^["''](?:@effect/sql-(?:sqlite-[a-z-]+|d1|libsql)|sqlite-vec|node:sqlite|bun:sqlite)["''/]' }
           other-import: &pg-import { regex: '^["''](?:@effect/sql-pg|@pgsql/[a-z]+|pgsql-parser)["''/]' }
           dialect-entry: &tsx-dialect-entry
               any:

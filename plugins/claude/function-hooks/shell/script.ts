@@ -1,6 +1,27 @@
+import { tmpdir } from 'node:os';
 import { Array, Effect, Equal, Equivalence, Match, Option, Predicate, Result, Struct } from 'effect';
-import { type Assign, type BaseNode, BinCmdOperator, type BinaryCmd, type CallExpr, type Command as CommandNode, type IfClause, LangVariant, type Node, ParExpOperator, type ParamExp, ProcOperator, parse, RedirOperator, type Redirect, type Stmt, type WordPart, type Word as WordNode } from 'sh-syntax/sync';
-import { HostError } from '#/host';
+import {
+    type Assign,
+    type BaseNode,
+    BinCmdOperator,
+    type BinaryCmd,
+    type CallExpr,
+    type CmdSubst,
+    type Command as CommandNode,
+    type IfClause,
+    LangVariant,
+    type Node,
+    ParExpOperator,
+    type ParamExp,
+    ProcOperator,
+    parse,
+    RedirOperator,
+    type Redirect,
+    type Stmt,
+    type WordPart,
+    type Word as WordNode,
+} from 'sh-syntax/sync';
+import { HostError } from '#/host.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -94,6 +115,8 @@ const PREFIXES: ReadonlySet<string> = new Set(['builtin', 'command']);
 const ASSIGNING: ReadonlySet<string> = new Set(['read', 'readarray', 'mapfile', 'getopts', 'printf', 'unset']);
 const ENTERING: ReadonlySet<string> = new Set(['cd', 'pushd', 'popd']);
 const NOTHING: Script = { commands: [], jobs: [], declarations: [], zshAssigned: [] };
+const MKTEMP_FLAGS: ReadonlySet<string> = new Set(['-d', '-q', '--directory', '--quiet']);
+const TRAILING_SLASHES = /\/+$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -119,6 +142,16 @@ const plainName = ({ param, excl, length, width, isSet, flags, index, slice, rep
     Option.filter(Option.fromNullishOr(param?.value), () => [excl, length, width, isSet, flags, index, slice, repl, nestedParam, ...subscripts, ...modifiers].every((field) => field === false || field === null) && (exp === null || DEFAULTS.has(exp.op)) && names + split + globSubst + rcExpand === 0);
 
 const literal = (word: WordNode): Option.Option<string> => (word.parts.every((part) => part.type === 'Lit') ? Option.some(word.parts.map((part) => part.value).join('')) : Option.none());
+
+const temporary = ({ stmts: [stmt, ...more] }: CmdSubst, scope: Scope, context: Context): Option.Option<string> => {
+    const call = stmt?.cmd?.type === 'CallExpr' && stmt.cmd.assigns.length === 0 && stmt.redirs.length === 0 && more.length === 0 ? stmt.cmd : undefined;
+    const [program, ...args] = Option.getOrElse(Option.all((call?.args ?? []).map(literal)), () => []);
+    const prefix = args.at(-2) === '-t' ? args.at(-1) : undefined;
+    const given = prefix === undefined ? args : args.slice(0, -2);
+    const templates = given.filter((arg) => !arg.startsWith('-'));
+    const folder = Option.getOrElse(lookup(scope, 'TMPDIR', context), tmpdir).replace(TRAILING_SLASHES, '');
+    return Option.liftPredicate(templates[0] ?? `${folder}/${prefix ?? 'tmp'}.XXXXXXXXXX`, () => program === 'mktemp' && given.every((arg) => templates.includes(arg) || MKTEMP_FLAGS.has(arg)) && templates.length <= (prefix === undefined ? 1 : 0));
+};
 
 const piecesOf = (part: WordPart, scope: Scope, context: Context, quote?: readonly [string, string]): readonly Part[] =>
     Match.value(part).pipe(
@@ -162,7 +195,11 @@ const piecesOf = (part: WordPart, scope: Scope, context: Context, quote?: readon
                 },
             });
         }),
-        Match.orElse((other) => [{ raw: sliced(other, context), text: sliced(other, context), known: false, glob: false, spread: false, ...(quote === undefined ? {} : { quote }) }]),
+        Match.orElse((other) => {
+            const raw = sliced(other, context);
+            const created = other.type === 'CmdSubst' ? temporary(other, scope, context) : Option.none();
+            return [{ raw, text: Option.getOrElse(created, () => raw), known: Option.isSome(created), glob: false, spread: false, ...(quote === undefined ? {} : { quote }) }];
+        }),
     );
 
 const pieces = (parts: readonly Part[]): Pick<Word, 'text' | 'known' | 'glob' | 'spread'> =>

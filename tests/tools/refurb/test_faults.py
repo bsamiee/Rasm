@@ -1,22 +1,18 @@
-"""`Result` error types other than the package fault."""
+"""RASM101: `Result` error types other than the package fault, and values iterated while they can hold `Nothing` or `Error`."""
 
 from textwrap import dedent
-lazy from collections.abc import Callable, Mapping
 
+import pytest
 lazy from refurb.error import Error
 
-lazy from rasm.refurb.faults import ErrorMisusedExpressionError
+from rasm.refurb.faults import ErrorMisusedExpressionError
 
-# --- [TYPES] ----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-type Findings = Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]
+pytestmark = pytest.mark.parametrize("rule", [ErrorMisusedExpressionError], scope="module")
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def test_text_and_exception_errors_report(findings: Findings) -> None:
-    """`Result` errors typed `str` and `Exception`, both reported."""
-    source = dedent("""
+CASES = frozendict(
+    text_and_exception=dedent("""\
         from expression import Error, Result
 
         type Checked = Result[int, Exception]
@@ -26,13 +22,8 @@ def test_text_and_exception_errors_report(findings: Findings) -> None:
 
         def optional(text: str) -> Result[int, str] | None:
             return Error(text) if text else None
-    """)
-    assert [error.line for error in findings(source, ErrorMisusedExpressionError)] == [4, 6, 9]
-
-
-def test_fault_tuple_errors_pass(findings: Findings) -> None:
-    """`Result` error typed as a fault tuple, not reported."""
-    source = dedent("""
+    """),
+    fault_tuple=dedent("""\
         import msgspec
         from expression import Error, Result
 
@@ -47,13 +38,8 @@ def test_fault_tuple_errors_pass(findings: Findings) -> None:
 
         def counted(text: str) -> Result[int, Faults]:
             return Error((Fault(subject=text),))
-    """)
-    assert findings(source, ErrorMisusedExpressionError) == ()
-
-
-def test_async_and_overload_errors_report(findings: Findings) -> None:
-    """Async annotations and overload declarations report their error type."""
-    source = dedent("""
+    """),
+    coroutines_and_overloads=dedent("""\
         from typing import overload
         from expression import Error, Result
 
@@ -68,29 +54,8 @@ def test_async_and_overload_errors_report(findings: Findings) -> None:
 
         def counted(text: str | bytes) -> Result[int, Exception]:
             return Error(Exception(text))
-    """)
-    assert [error.line for error in findings(source, ErrorMisusedExpressionError)] == [5, 9, 12, 14]
-
-
-def test_tuple_tail_and_union_errors_report(findings: Findings) -> None:
-    """Tuple tails and union members report each rejected type once."""
-    source = dedent("""
-        import msgspec
-        from expression import Result
-
-        class Fault(msgspec.Struct, frozen=True):
-            subject: str
-
-        type Checked = Result[int, tuple[Fault, str, *tuple[str | BaseException, ...]]]
-    """)
-    assert [(error.line, error.msg) for error in findings(source, ErrorMisusedExpressionError)] == [
-        (8, f"`Checked` declares `{kind.__name__}` as `Result` error type, declare the package fault type") for kind in (str, BaseException)
-    ]
-
-
-def test_recursive_faults_and_return_aliases_pass(findings: Findings) -> None:
-    """Recursive typed faults terminate, and return aliases leave one declaration owner."""
-    source = dedent("""
+    """),
+    recursive_faults_and_return_aliases=dedent("""\
         import msgspec
         from expression import Error, Result
 
@@ -109,13 +74,8 @@ def test_recursive_faults_and_return_aliases_pass(findings: Findings) -> None:
 
         def opaque(text: str) -> dict[str, Result[int, str]]:
             return {text: Error(text)}
-    """)
-    assert [error.line for error in findings(source, ErrorMisusedExpressionError)] == [10]
-
-
-def test_generic_aliases_report_at_the_specialization_owner(findings: Findings) -> None:
-    """Generic errors resolve at uses while closed aliases and partial specializations retain one declaration owner."""
-    source = dedent("""
+    """),
+    generic_aliases=dedent("""\
         from expression import Error, Result
 
         type Generic[E] = Result[int, E]
@@ -139,13 +99,17 @@ def test_generic_aliases_report_at_the_specialization_owner(findings: Findings) 
 
         def optional(text: str) -> Maybe[str]:
             return Error(text) if text else None
-    """)
-    assert [error.line for error in findings(source, ErrorMisusedExpressionError)] == [6, 7, 8, 11, 14, 23]
+    """),
+    tuple_tail_and_union=dedent("""\
+        import msgspec
+        from expression import Result
 
+        class Fault(msgspec.Struct, frozen=True):
+            subject: str
 
-def test_iterated_values_holding_no_value_report(findings: Findings) -> None:
-    """Operands that can hold `Nothing` or `Error` report where a loop, unpacking, or iterable parameter reads them, while narrowed cases and their members pass."""
-    source = dedent("""
+        type Checked = Result[int, tuple[Fault, str, *tuple[str | BaseException, ...]]]
+    """),
+    iterated_values=dedent("""\
         from expression import Ok, Option, Result, Some
 
         def read(found: Option[int], outcome: Result[int, str]) -> None:
@@ -155,10 +119,34 @@ def test_iterated_values_holding_no_value_report(findings: Findings) -> None:
             match found:
                 case Some() as held:
                     print(*held, *Ok(1), *found.to_list())
-    """)
-    assert [(error.line, error.msg) for error in findings(source, ErrorMisusedExpressionError)] == [
-        (5, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
-        (7, "`outcome` can hold `Error`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
-        (7, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
-        (7, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
+    """),
+)
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "case, lines",
+    [("text_and_exception", [3, 5, 8]), ("fault_tuple", []), ("coroutines_and_overloads", [4, 8, 11, 13]), ("recursive_faults_and_return_aliases", [9]), ("generic_aliases", [5, 6, 7, 10, 13, 22])],
+)
+def test_a_result_error_other_than_the_package_fault_reports(findings: frozendict[str, tuple[Error, ...]], case: str, lines: list[int]) -> None:
+    """Text and exception errors report at the alias or function declaring them, through coroutines, overloads, unions, and generic specializations, and fault errors pass."""
+    assert [error.line for error in findings[case]] == lines
+
+
+def test_a_rejected_error_type_reports_once_per_type(findings: frozendict[str, tuple[Error, ...]]) -> None:
+    """Tuple tails and union members report each rejected type once, naming it."""
+    assert [(error.line, error.msg) for error in findings["tuple_tail_and_union"]] == [
+        (7, "`Checked` declares `str` as `Result` error type, declare the package fault type"),
+        (7, "`Checked` declares `BaseException` as `Result` error type, declare the package fault type"),
+    ]
+
+
+def test_an_operand_iterated_while_it_can_hold_no_value_reports(findings: frozendict[str, tuple[Error, ...]]) -> None:
+    """A loop, star unpacking, and iterable parameters reading an `Option` or `Result` report, a narrowed case and its members pass."""
+    assert [(error.line, error.msg) for error in findings["iterated_values"]] == [
+        (4, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
+        (6, "`outcome` can hold `Error`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
+        (6, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
+        (6, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
     ]

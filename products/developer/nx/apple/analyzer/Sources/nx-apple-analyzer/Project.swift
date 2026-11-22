@@ -2,15 +2,19 @@ import Foundation
 import System
 import XcodeProjectFormat
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+let application = XCSchema.ProductTypeID(abbreviatedRepresentation: "application")
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 struct Tree {
     let built: [FilePath]
-    private let ids: [XCSchema.ObjectID: FilePath?]
-    private let names: [[String]: FilePath?]
+    private let ids: [XCSchema.ObjectID: (path: FilePath?, file: String)]
+    private let names: [[String]: (path: FilePath?, file: String)]
 
     init(_ references: [XCSchema.Reference], root: FilePath) {
-        func nodes(_ references: [XCSchema.Reference], group: FilePath?, names: [String]) -> [(names: [String], id: XCSchema.ObjectID?, path: FilePath?, built: Bool)] {
+        func nodes(_ references: [XCSchema.Reference], group: FilePath?, names: [String]) -> [(names: [String], id: XCSchema.ObjectID?, path: FilePath?, file: String, built: Bool)] {
             references.flatMap { reference in
                 let (name, path, id, built, children): (String?, XCSchema.FilePath, XCSchema.ObjectID?, Bool, [XCSchema.Reference]) =
                     switch reference {
@@ -26,54 +30,112 @@ struct Tree {
                         case .project, .absolute: joined(root, path.path)
                         case .developer, .buildProducts, .sdk, .sourceRoot: nil
                     }
-                let named = names + [name ?? FilePath(path.path).lastComponent?.string ?? path.path]
-                return [(named, id, location, built)] + nodes(children, group: location, names: named)
+                let file = FilePath(path.path).lastComponent?.string ?? path.path
+                let named = names + [name ?? file]
+                return [(named, id, location, file, built)] + nodes(children, group: location, names: named)
             }
         }
         let tree = nodes(references, group: root, names: [])
         built = tree.filter(\.built).compactMap(\.path)
-        ids = Dictionary(tree.compactMap { node in node.id.map { id in (id, node.path) } }) { first, _ in first }
-        names = Dictionary(tree.map { node in (node.names, node.path) }) { first, _ in first }
+        ids = Dictionary(tree.compactMap { node in node.id.map { id in (id, (node.path, node.file)) } }) { first, _ in first }
+        names = Dictionary(tree.map { node in (node.names, (node.path, node.file)) }) { first, _ in first }
     }
 
-    func path(of reference: XCSchema.GroupTreeReference) -> FilePath? {
+    func node(of reference: XCSchema.GroupTreeReference) -> (path: FilePath?, file: String)? {
         switch reference {
-            case .objectID(let id): ids[id, default: nil]
-            case .namePath(let path): names[path.components.map(\.description), default: nil]
+            case .objectID(let id): ids[id]
+            case .namePath(let path): names[path.components.map(\.description)]
         }
     }
 
     func path(of reference: XCSchema.GroupTreeAnchoredReference) -> FilePath? {
-        path(of: reference.anchor).map { anchor in reference.relativePath.map { relative in joined(anchor, relative.description) } ?? anchor }
+        node(of: reference.anchor).flatMap(\.path).map { anchor in reference.relativePath.map { relative in joined(anchor, relative.description) } ?? anchor }
     }
+}
+
+struct Analysis {
+    let container: FilePath
+    let configurations: [String]
+    let projects: [String]
+    let buildFiles: [String]
+    let built: Built
+    let references: [Reference]
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-func project(_ container: FilePath, _ decoded: XCSchema.Project, identifiers: [String: Set<String>]) throws(AnalyzerError) -> Container {
+func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(AnalyzerError) -> Analysis {
     let root = container.removingLastComponent()
     let tree = Tree(decoded.topLevelReferences, root: root)
     let locals = decoded.packages.compactMap { package in
         if case .local(let local) = package.location { joined(root, local.path).string } else { nil }
     }
     let targets = decoded.targets.map(\.commonProperties)
-    let bases: [(owner: String, file: FilePath?)] =
-        decoded.configurations.compactMap(\.file).map { file in ("project", tree.path(of: file)) }
-        + targets.flatMap { target in target.specializedConfigurations.compactMap(\.file).map { file in ("target \(target.name)", tree.path(of: file)) } }
+    let configurations = decoded.configurations.map(\.name.rawValue)
+    let based = { (configurations: [XCSchema.Configuration], owner: String) throws(AnalyzerError) -> [String: [Source]] in
+        Dictionary(
+            try configurations.map { (configuration: XCSchema.Configuration) throws(AnalyzerError) in
+                (
+                    configuration.name.rawValue,
+                    try configuration.file.map { (file: XCSchema.GroupTreeAnchoredReference) throws(AnalyzerError) in
+                        try included(tree.path(of: file), owner: owner, setting: "baseConfigurationReference")
+                    } ?? [],
+                )
+            }
+        ) { first, _ in first }
+    }
+    let project = try based(decoded.configurations, "project")
+    let evaluated = try targets.map { (target: XCSchema.CommonTargetProperties) throws(AnalyzerError) in
+        let specialized = try based(target.specializedConfigurations, "target \(target.name)")
+        let settings = configurations.map { configuration in
+            Settings(
+                layers: [
+                    project[configuration, default: []].flatMap(\.assignments), assignments(decoded.buildSettings), specialized[configuration, default: []].flatMap(\.assignments),
+                    assignments(target.buildSettings),
+                ],
+                container: container,
+                target: target.name,
+                configuration: configuration,
+            )
+        }
+        let located = settings.flatMap { held in
+            Located.allCases.compactMap { (located: Located) -> Reference? in
+                switch held.resolved(located.rawValue) {
+                    case nil, .some(""): nil
+                    case .some(let value): Reference(owner: "target \(target.name)", setting: located.rawValue, path: value.map { at in joined(root, at) })
+                }
+            }
+        }
+        let bundle = target.productTypeID == application ? target.product.flatMap(tree.node(of:)).map(\.file) : nil
+        let installed = bundle.map { file in settings.filter { held in held.resolved(skipInstall) != enabled }.map { held in (held.configuration, file) } } ?? []
+        return (id: target.objectID.rawValue, installed: Dictionary(installed) { first, _ in first }, references: specialized.values.flatMap(\.self).map(\.reference) + located)
+    }
     let remotes =
-        targets.flatMap { target in target.dependencies.compactMap { dependency in if case .remoteTarget(let remote, _) = dependency { tree.path(of: remote.project) } else { nil } } }
-        + decoded.importedProducts.compactMap { product in tree.path(of: product.project) }
-    let declared = try schemes(in: container, identifiers: identifiers)
+        targets.flatMap { target in target.dependencies.compactMap { dependency in if case .remoteTarget(let remote, _) = dependency { tree.node(of: remote.project).flatMap(\.path) } else { nil } } }
+        + decoded.importedProducts.compactMap { product in tree.node(of: product.project).flatMap(\.path) }
+    return Analysis(
+        container: container,
+        configurations: configurations,
+        projects: Set(remotes.map(\.string) + locals).sorted(),
+        buildFiles: Set(tree.built.map(\.string)).sorted(),
+        built: Built(configuration: decoded.defaultConfigurationName.rawValue, products: Dictionary(evaluated.map { held in (held.id, held.installed) }) { first, _ in first }),
+        references: project.values.flatMap(\.self).map(\.reference) + evaluated.flatMap(\.references),
+    )
+}
+
+func project(_ analysis: Analysis, built: [String: Built]) throws(AnalyzerError) -> Container {
+    let declared = try schemes(in: analysis.container, built: built)
+    let references = analysis.references + declared.flatMap(\.references)
     return try checked(
         Container(
-            path: container.string,
+            path: analysis.container.string,
             schemes: declared.map(\.scheme),
-            configurations: decoded.configurations.map(\.name.rawValue),
-            inputs: Set((bases.compactMap(\.file) + declared.flatMap(\.references).compactMap(\.path)).map(\.string)).sorted(),
-            projects: Set(remotes.map(\.string) + locals).sorted(),
-            buildFiles: Set(tree.built.map(\.string)).sorted(),
+            configurations: analysis.configurations,
+            inputs: Set(references.compactMap(\.path).map(\.string)).sorted(),
+            projects: analysis.projects,
+            buildFiles: analysis.buildFiles,
         ),
-        bases.map { base in Reference(owner: base.owner, setting: "baseConfigurationReference", path: base.file) } + declared.flatMap(\.references),
+        references,
     )
 }
 

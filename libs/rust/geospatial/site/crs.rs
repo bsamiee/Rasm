@@ -290,7 +290,6 @@ struct Distortion {
 }
 
 impl Distortion {
-    #[expect(unsafe_code, reason = "each call takes a pointer PROJ returned non-null here, a NUL-terminated definition outliving the call, or PROJ's static error text")]
     fn new(crs: &Crs) -> Result<Self, SiteError> {
         let refused = |message: String| crs.refused()(ProjCreateError::ProjError(message));
         let message = |context: *mut PJ_CONTEXT, errno: i32| {
@@ -306,7 +305,6 @@ impl Distortion {
         })
     }
 
-    #[expect(unsafe_code, reason = "the PJ is live while self is, PROJ caches its factors operation inside it, and self is neither Send nor Sync so no other thread reaches it")]
     fn at(&self, geodetic: Point<f64>) -> Option<PJ_FACTORS> {
         let [longitude, latitude] = [geodetic.x(), geodetic.y()].map(|degrees| Angle::new::<degree>(degrees).get::<radian>());
         let factors = unsafe { proj_sys::proj_factors(self.crs.as_ptr(), PJ_COORD { v: [longitude, latitude, 0.0, 0.0] }) };
@@ -315,7 +313,6 @@ impl Distortion {
 }
 
 impl Drop for Distortion {
-    #[expect(unsafe_code, reason = "the PJ came from proj_create in this owner's context and the context from proj_context_create, each destroyed once here, the PJ before its context")]
     fn drop(&mut self) {
         unsafe { proj_sys::proj_destroy(self.crs.as_ptr()) };
         unsafe { proj_sys::proj_context_destroy(self.context.as_ptr()) };

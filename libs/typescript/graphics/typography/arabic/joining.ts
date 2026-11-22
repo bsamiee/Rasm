@@ -1,6 +1,6 @@
 import { Array, Effect, Option, Schema, SchemaGetter, SchemaIssue } from 'effect';
 import { GeneralCategory, JoiningGroup, JoiningType } from 'icu';
-import { letters, Span } from '#/shaping/word';
+import { letters, Span } from '#/shaping/word.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

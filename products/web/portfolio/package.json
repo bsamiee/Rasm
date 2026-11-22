@@ -5,12 +5,9 @@
     "description": "Architectural portfolio website",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
-        "#/*.css": "./*.css",
-        "#/*.tsx": "./*.tsx"
-    },
-    "exports": {
-        "./server": "./server/main.ts"
+        "#/*.ts": "./*.ts",
+        "#/*.tsx": "./*.tsx",
+        "#/*": "./*"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "catalog:",
@@ -22,7 +19,6 @@
         "@rasm/hosting": "workspace:*",
         "@rasm/media": "workspace:*",
         "@rasm/object-storage": "workspace:*",
-        "@rasm/telemetry": "workspace:*",
         "@rasm/ui": "workspace:*",
         "@uppy/aws-s3": "catalog:",
         "@uppy/core": "catalog:",
@@ -46,8 +42,8 @@
         "@cloudflare/vite-plugin": "catalog:",
         "@cloudflare/workers-types": "catalog:",
         "@nx/vite": "catalog:",
-        "@rasm/mark": "workspace:*",
         "@rasm/testing": "workspace:*",
+        "@rasm/vite": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",

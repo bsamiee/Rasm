@@ -1,8 +1,8 @@
 import { ExitError, run, spawn } from '@rasm/process';
 import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Path, pipe, Record, Schema, Stream } from 'effect';
 import { type ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { Forward } from '#/forward';
-import { type Host, Line } from '#/host';
+import { Forward } from '#/forward.ts';
+import { type Host, Line } from '#/host.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

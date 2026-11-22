@@ -34,8 +34,8 @@ import indesign, {
     type XmlStory,
 } from 'adobe:indesign';
 import { Array, Cause, Context, Deferred, Effect, Equal, Equivalence, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaAST, Struct } from 'effect';
-import { Value } from '#/value';
-import { Extent, type Search } from '#/views';
+import { Value } from '#/value.ts';
+import { Extent, type Search } from '#/views.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -79,8 +79,7 @@ const STYLISTIC_SET_ACTIONS = { minimum: STYLISTIC_SET_ACTION, maximum: STYLISTI
 class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
     make: (declared: typeof Declaration.Model.Type) =>
         Effect.sync(() => {
-            // oxlint-disable-next-line typescript/no-unsafe-assignment -- Object.create types its result any, the model inherits the live indesign host module as its prototype
-            const model: typeof indesign = Object.create(indesign);
+            const inheriting: <T extends object>(prototype: T) => T = Object.create;
             const domObject = owning('toSpecifier');
             const document = owning('createTOC');
             const application = owning('menuActions');
@@ -119,7 +118,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                     ),
                     Match.orElse(() => value),
                 );
-            return Object.assign(model, {
+            return Object.assign(inheriting(indesign), {
                 owning,
                 domObject,
                 collection,

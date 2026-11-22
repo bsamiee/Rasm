@@ -1,6 +1,6 @@
 import { useAtomValue } from '@effect/atom-react';
 import { Identity } from '@rasm/hosting/identity';
-import { ModalDialog } from '@rasm/ui';
+import { ModalDialog, openDialogs } from '@rasm/ui';
 import { flow, Option, Schema } from 'effect';
 import { UrlParams } from 'effect/http';
 import { Atom } from 'effect/reactivity';
@@ -10,10 +10,10 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Button, DialogTrigger, Heading } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import type { Bootstrap } from '#/model/api';
-import type { PortfolioData } from '#/model/portfolio';
+import type { Bootstrap } from '#/model/api.ts';
+import type { PortfolioData } from '#/model/portfolio.ts';
 import { Chapter } from '#/site/chapter.tsx';
-import { UrlFragment, useNavigation } from '#/site/navigation';
+import { UrlFragment, useNavigation } from '#/site/navigation.ts';
 import { StickyBar, WorkIndex } from '#/site/work-index.tsx';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -30,7 +30,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
     const requested = Option.isSome(useAtomValue(editing)) && session === 'allowed';
     const [toggled, setToggled] = useState(Option.none<boolean>());
     const open = Option.getOrElse(toggled, () => requested);
-    const modalOpen = useAtomValue(ModalDialog.open, (count) => count > 0);
+    const modalOpen = useAtomValue(openDialogs, (count) => count > 0);
     const opener = useRef<HTMLButtonElement>(null);
     const work = useRef<HTMLElement>(null);
     const sticky = useRef<HTMLDivElement>(null);

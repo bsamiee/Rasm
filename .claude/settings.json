@@ -40,6 +40,7 @@
     "uxp@rasm": true,
     "rhino@rasm": true,
     "typescript@rasm": true,
+    "chrome@rasm": true,
     "rust@rasm": true,
     "media@rasm": true,
     "cpp@rasm": true,
@@ -53,7 +54,7 @@
     "rasm": {
       "source": {
         "source": "directory",
-        "path": "./"
+        "path": "/Users/bardiasamiee/Developer/Rasm"
       },
       "autoUpdate": true
     }

@@ -3,6 +3,11 @@
 [store]
 dir = ".artifacts/cargo/nextest"
 
+# --- [TEST_GROUPS] ----------------------------------------------------------------------
+
+[test-groups.mcp-conformance]
+max-threads = 4
+
 # --- [PROFILE] --------------------------------------------------------------------------
 
 [profile.default]
@@ -14,8 +19,3 @@ slow-timeout = { period = "60s", terminate-after = 3 }
 filter       = "package(rasm-mcp-tests) and test(/^conformance::/)"
 slow-timeout = { period = "120s", terminate-after = 2 }
 test-group   = "mcp-conformance"
-
-# --- [GROUPS] ---------------------------------------------------------------------------
-
-[test-groups.mcp-conformance]
-max-threads = 4

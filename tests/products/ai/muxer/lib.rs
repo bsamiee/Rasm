@@ -43,17 +43,12 @@ pub struct Ask {
     pub question: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct Variable {
-    pub name: String,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Answer {
     pub answer: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Whoami {
     pub pid: u32,
     pub directory: Option<PathBuf>,

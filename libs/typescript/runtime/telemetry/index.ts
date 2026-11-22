@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { errorReporter, exporters, formatLogRecord, layer, layerMinimumLogLevels, layerOtlp, layerWithoutDefaultLogger } from '#/otlp';
+export { errorReporter, exporters, formatLogRecord, layer, layerMinimumLogLevels, layerOtlp, layerWithoutDefaultLogger } from '#/otlp.ts';

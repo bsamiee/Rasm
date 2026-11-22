@@ -16,7 +16,7 @@
     "type": "module",
     "sideEffects": false,
     "imports": {
-        "#/*": "./*.ts",
+        "#/*.ts": "./*.ts",
         "#/*.tsx": "./*.tsx"
     },
     "exports": {
@@ -29,7 +29,7 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*": "./dist/*.js",
+            "#/*.ts": "./dist/*.js",
             "#/*.tsx": "./dist/*.js"
         },
         "exports": {

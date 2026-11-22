@@ -17,7 +17,7 @@ from rasm.extension.data._rna.conditions import Condition, satisfied
 from rasm.extension.data._rna.descriptors import Scalar
 from rasm.extension.data._rna.paths import rna_definition, Struct
 from rasm.extension.ui._layout.members import bound, LocatedMembers, Member
-from rasm.extension.ui._resources.icons import Icon, Icons
+from rasm.extension.ui._resources.icons import Icon, Icons, IconValue, Widget
 from rasm.records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -126,19 +126,41 @@ class Property(Iconed, frozen=True, kw_only=True):
         return (*self.target.prerequisites, *(held for member in self.search.to_list() for held in member.prerequisites), *super().prerequisites)
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
-        """Locates and binds the target and search items, the icon and keywords resolved once for every redraw."""
+        """Locates and binds the target and search items, the icon resolved once for every redraw."""
         located = accumulated(member.located(identity) for member in (self.target, *self.search.to_list()))
-        return paired(_keyworded(identity, self.keywords, self.icon), located).bind(lambda parts: bound(identity, parts[1], partial(self.shown, identity, parts[0])))
+        return paired(Icons.value(identity, self.icon), located).bind(lambda parts: bound(identity, parts[1], partial(self.shown, identity, parts[0])))
 
-    def shown(self, identity: Identity, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
-        """Draws the function at the located owner and search items, or at the located struct, under the scope's label ahead of the stated keywords."""
+    def shown(self, identity: Identity, icon: Option[IconValue], held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+        """Draws the function at the located owner and search items, or at the located struct, under the scope's label ahead of the stated keywords and the icon tinted for the button."""
         function = FUNCTIONS["prop_search"] if self.search.is_some() and self.function == FUNCTIONS["prop"] else self.function
-        (member, _), names = held[0], function.parameters
-        index = member.index.map(lambda at: {"index": at}).default_value({})
-        options = self.target.labelled(member, context).map(lambda label: {**{key: value for key, value in label.items() if key in names}, **keywords, **index})
-        arguments = tuple(part for _, at in held for part in at) if "property" in names else (getattr(*held[0][1]),)
+        (member, at), names = held[0], function.parameters
+        index = member.index.map(lambda element: {"index": element}).default_value({})
+        iconed = icon.map(lambda value: _iconed(value, layout, context, self.widget(function, member.prop, getattr(*at)))).default_value({})
+        options = self.target.labelled(member, context).map(lambda label: {**{key: value for key, value in label.items() if key in names}, **self.keywords, **index, **iconed})
+        arguments = tuple(part for _, located in held for part in located) if "property" in names else (getattr(*at),)
         for chosen in identity.reports.settled(options).to_list():
             getattr(layout, function.identifier)(*arguments, **chosen)
+
+    def widget(self, function: bpy.types.Function, prop: bpy.types.Property, value: object) -> tuple[Option[Widget], bool]:
+        """Returns the widget Blender draws the button as and whether it draws selected, Nothing for a button drawing as a label."""
+        keywords = self.keywords
+        match function.identifier, prop:
+            case "prop_enum", _:
+                return Some(lambda ui: ui.wcol_radio), value == keywords.get("value")
+            case "prop", bpy.types.BoolProperty(array_length=0):
+                return Some(lambda ui: ui.wcol_toggle), bool(value) != (keywords.get("invert_checkbox") is True)
+            case "prop", bpy.types.BoolProperty():
+                return Some(lambda ui: ui.wcol_toggle), False
+            case "prop", bpy.types.EnumProperty() if keywords.get("expand") is True:
+                return Some(lambda ui: ui.wcol_radio), False
+            case _, bpy.types.EnumProperty():
+                return Some(lambda ui: ui.wcol_menu), False
+            case _, bpy.types.IntProperty() | bpy.types.FloatProperty():
+                return Some((lambda ui: ui.wcol_numslider) if keywords.get("slider") is True else (lambda ui: ui.wcol_num)), False
+            case _, bpy.types.StringProperty() | bpy.types.PointerProperty():
+                return Some(lambda ui: ui.wcol_text), False
+            case _:
+                return NOTHING, False
 
 
 class OperatorButton(Iconed, frozen=True, kw_only=True):
@@ -163,16 +185,26 @@ class OperatorButton(Iconed, frozen=True, kw_only=True):
         return acquired_rows((self.placement,))
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
-        """Resolves the placement, icon, and keywords once into the button draw."""
+        """Resolves the placement, icon, and the widget the function draws once into the button draw: a dropdown, expanded rows, a toolbar item for a tool, or an operator button."""
         placement = self.placement
-        icon = self.icon.or_else(placement.operator.icon if isinstance(placement.operator, Command) else NOTHING)
-        return _keyworded(identity, self.keywords, icon).map(lambda keywords: partial(self.shown, identity, placement.resolved(identity), keywords))
+        operator, icon = placement.resolved(identity), self.icon.or_else(placement.operator.icon if isinstance(placement.operator, Command) else NOTHING)
+        match self.function.identifier, operator[0] == idname(identity, bpy.ops.wm.tool_set_by_id):
+            case "operator_menu_enum", _:
+                widget: Widget = lambda ui: ui.wcol_menu
+            case "operator_enum", _:
+                widget = lambda ui: ui.wcol_radio
+            case _, True:
+                widget = lambda ui: ui.wcol_toolbar_item
+            case _:
+                widget = lambda ui: ui.wcol_tool
+        return Icons.value(identity, icon).map(lambda value: partial(self.shown, identity, operator, value.map(lambda tinted: (tinted, widget))))
 
-    def shown(self, identity: Identity, operator: tuple[str, Pairs], keywords: Keywords, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-        """Draws the button in a row holding the context members it publishes."""
+    def shown(self, identity: Identity, operator: tuple[str, Pairs], icon: Option[tuple[IconValue, Widget]], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+        """Draws the button in a row holding the context members it publishes, its icon tinted for its widget, selected while depressed."""
         line = layout.row(align=True) if self.published else layout
         _published(self.published, line, holder, context)
-        identity.reports.faulted(_button(line, self.function, operator, keywords, invoked=_invoked(self.placement.operator)))
+        iconed = icon.map(lambda held: _iconed(held[0], line, context, (Some(held[1]), self.keywords.get("depress") is True))).default_value({})
+        identity.reports.faulted(_button(line, self.function, operator, {**self.keywords, **iconed}, invoked=_invoked(self.placement.operator)))
 
 
 class Opens(Iconed, frozen=True, kw_only=True):
@@ -184,12 +216,11 @@ class Opens(Iconed, frozen=True, kw_only=True):
         """Resolves the opened name, button, icon, and keywords once, refusing a kind that opens through its operator alone."""
         kind = self.target.kind
         button = kind.button.to_result_with(lambda: Fault.of(Reason.ABSENT, kind.name, member="layout button"))
-        return button.bind(lambda function: _keyworded(identity, self.keywords, self.icon).map(lambda keywords: partial(self.shown, function, idname(identity, self.target), keywords)))
+        return button.bind(lambda function: Icons.value(identity, self.icon).map(lambda value: partial(self.shown, function, idname(identity, self.target), value)))
 
-    @staticmethod
-    def shown(function: bpy.types.Function, name: str, keywords: Keywords, layout: bpy.types.UILayout, _holder: Struct, _context: bpy.types.Context) -> None:
-        """Draws the opener button."""
-        getattr(layout, function.identifier)(name, **keywords)
+    def shown(self, function: bpy.types.Function, name: str, icon: Option[IconValue], layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+        """Draws the opener button, its icon tinted for the dropdown widget."""
+        getattr(layout, function.identifier)(name, **self.keywords, **icon.map(lambda value: _iconed(value, layout, context, (Some(lambda ui: ui.wcol_menu), False))).default_value({}))
 
 
 class Label(Iconed, frozen=True, kw_only=True):
@@ -203,11 +234,12 @@ class Label(Iconed, frozen=True, kw_only=True):
     function: bpy.types.Function = FUNCTIONS["label_multiline"]
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
-        """Resolves the icon and keywords once, returning the draw reading live text each redraw."""
-        return _keyworded(identity, self.keywords, self.icon).map(lambda keywords: partial(self.shown, keywords))
+        """Resolves the icon once, returning the draw reading live text each redraw."""
+        return Icons.value(identity, self.icon).map(lambda value: partial(self.shown, value))
 
-    def shown(self, keywords: Keywords, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
-        """Draws each text, the stated keywords the drawing function takes kept."""
+    def shown(self, icon: Option[IconValue], layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+        """Draws each text, the stated keywords the drawing function takes kept, its icon tinted in the region's text."""
+        keywords = {**self.keywords, **icon.map(lambda value: _iconed(value, layout, context, (NOTHING, False))).default_value({})}
         function = FUNCTIONS["label"] if self.function == FUNCTIONS["label_multiline"] and layout.direction == "HORIZONTAL" else self.function
         chosen = keywords if function == self.function else {name: value for name, value in keywords.items() if name not in self.function.parameters or name in function.parameters}
         parts = ((self.text, {}),) if isinstance(self.text, str) else ((part, {"translate": False}) for part in self.text(context))
@@ -279,9 +311,10 @@ def even(layout: bpy.types.UILayout) -> bpy.types.UILayout:
     return grid
 
 
-def _keyworded(identity: Identity, keywords: Keywords, icon: Option[Icon]) -> Outcome[Keywords]:
-    """Returns keywords with the resolved `icon_value`, leaving the RNA icon while none is stated."""
-    return Icons.value(identity, icon).map(lambda value: {**keywords, **dict(zip(("icon_value",), value.to_list()))})
+def _iconed(icon: IconValue, layout: bpy.types.UILayout, context: bpy.types.Context, button: tuple[Option[Widget], bool]) -> Keywords:
+    """Returns the `icon_value` keyword of the icon in the text color of the widget the button draws as, its selected text while the button draws selected."""
+    widget, selected = button
+    return {"icon_value": icon(*Icons.tint(layout.emboss, context.area, context.region, widget, selected=selected))}
 
 
 def _invoked(operator: object) -> bool:

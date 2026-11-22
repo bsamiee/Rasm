@@ -1,5 +1,5 @@
 import { Array, Effect, identity, Match, Option, Record, Result, Schema, type SchemaAST, SchemaGetter, SchemaIssue, SchemaTransformation, String } from 'effect';
-import { Asset, AssetId, Assets, Sheet } from '#/model/asset';
+import { Asset, AssetId, Assets, Sheet } from '#/model/asset.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

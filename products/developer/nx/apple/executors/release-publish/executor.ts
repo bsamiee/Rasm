@@ -3,7 +3,7 @@ import type { ExecutorContext } from '@nx/devkit';
 import { spawned } from '@rasm/nx-distribution/inference';
 import cf from 'cf/package.json' with { type: 'json' };
 import { Array, Cause, Config, Effect, FileSystem, Function, Option, Path, Record, Result, Schema, SemVer, Stream } from 'effect';
-import { APPCAST, NOTARY, run } from '#/targets';
+import { APPCAST, NOTARY, run } from '#/targets.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

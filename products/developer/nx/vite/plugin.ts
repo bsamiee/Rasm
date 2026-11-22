@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { join, posix, relative, resolve } from 'node:path';
 import { env } from 'node:process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, type CreateNodesResult, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { calculateHashesForCreateNodes, getLockFileName, getReadyCheckReadyWhen, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
@@ -17,7 +17,6 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CHECK = normalizePath(fileURLToPath(import.meta.resolve('@nx/vite/ready-check')));
 const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -99,14 +98,14 @@ const targets = (file: string, { folders, signals, served, sources, packages, li
             { externalDependencies: Array.dedupe(['vite', ...packages]) },
         ],
     };
-    const ready = (command: 'serve' | 'preview') => (signals ? { signal: true as const } : getReadyCheckReadyWhen(CHECK, posix.basename(file), command));
+    const ready = (command: 'serve' | 'preview') => (signals ? { signal: true as const } : getReadyCheckReadyWhen('@nx/vite/ready-check', posix.basename(file), command));
     const built = Option.fromUndefinedOr(folders);
     const server = Option.liftPredicate({ ...needs, continuous: true }, () => served);
     const build = Record.getSomes<string, TargetConfiguration>({
         vite: Option.map(built, (written) => ({
             command: ['vite', 'build', ...Option.match(outDir, { onNone: () => [], onSome: (at) => ['--outDir', at, '--emptyOutDir'] })].map(quoteShellArg).join(' '),
             ...needs,
-            dependsOn: [...needs.dependsOn, '^build--*'],
+            dependsOn: [...needs.dependsOn, '^build--vite', '^build--tsc'],
             cache: true,
             outputs: written.map(tokened(posix.dirname(file))),
             metadata: { description: 'Builds every environment of the Vite config with vite build', help: { command: `${exec} vite build --help`, example: { args: ['--mode', 'production'] } } },

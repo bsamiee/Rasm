@@ -287,7 +287,6 @@ where
         }
     };
     color.write_global();
-    #[expect(clippy::disallowed_methods, reason = "the composition root reads the running executable once and hands it to the work, so no program reads it itself")]
     let executable = match env::current_exe() {
         Ok(executable) => executable,
         Err(source) => return reported(CommandError::Io { operation: CommandOperation::Executable, source }),

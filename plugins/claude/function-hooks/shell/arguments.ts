@@ -1,7 +1,8 @@
-import { Array, Effect, Option, Result, Schema, String } from 'effect';
-import { Host, HostError } from '#/host';
-import type { Program } from '#/shell/programs';
-import { slicedWord, type Word } from '#/shell/script';
+import { Array, Effect, Option, Predicate, Result, Schema, String } from 'effect';
+import { KeyValueStore } from 'effect/persistence';
+import { Host, HostError } from '#/host.ts';
+import type { Program } from '#/shell/programs.ts';
+import { slicedWord, type Word } from '#/shell/script.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -112,7 +113,7 @@ const infoUsage = (command: CommandInfo): Usage => ({
 });
 
 const usageOf = Effect.fnUntraced(function* (program: string, row: Program, primary: string) {
-    const host = yield* Host;
+    const [host, store] = yield* Effect.all([Host, KeyValueStore.KeyValueStore]);
     if (row.dumpsHelp === true) {
         if (!(yield* host.onPath(program))) {
             return NO_USAGE;
@@ -120,9 +121,18 @@ const usageOf = Effect.fnUntraced(function* (program: string, row: Program, prim
         const { stdout } = yield* host.run([program, '--experimental-dump-help']);
         return infoUsage((yield* Effect.mapError(Schema.decodeEffect(ToolInfo)(stdout), HostError.of(program))).command);
     }
-    const exported = (name: string) => host.run(['carapace', name, 'export'], { env: { CARAPACE_BUILTINS: 'bash', CARAPACE_SHELL: 'bash', CARAPACE_BRIDGES: '' } });
+    const exported = (name: string) =>
+        Effect.filterOrElse(
+            Effect.orElseSucceed(store.get(`${name}.json`), () => undefined),
+            Predicate.isNotUndefined,
+            () =>
+                Effect.map(
+                    Effect.tap(host.run(['carapace', name, 'export'], { env: { CARAPACE_BUILTINS: 'bash', CARAPACE_SHELL: 'bash', CARAPACE_BRIDGES: '' } }), ({ code, stdout: held }) => Effect.ignore(Effect.when(store.set(`${name}.json`, held), Effect.succeed(code === 0)))),
+                    ({ stdout: held }) => held,
+                ),
+        );
     const own = yield* exported(row.completer ?? program);
-    const { stdout } = row.completer === undefined && program !== primary && String.isEmpty(String.trim(own.stdout)) ? yield* exported(primary) : own;
+    const stdout = row.completer === undefined && program !== primary && String.isEmpty(String.trim(own)) ? yield* exported(primary) : own;
     const declared = new Map(
         [...(row.flags ?? []), ...[...(row.recursive?.names ?? []), ...(row.code ?? []), ...(row.scripts ?? [])].map((name) => `${name}=`)].flatMap((flag) => {
             const { short, long = flag, arity } = NOTATION.exec(flag)?.groups ?? {};

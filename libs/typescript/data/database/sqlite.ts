@@ -1,10 +1,10 @@
 import { Array, Effect, Equal, Filter, Formatter, Function, Graph, HashSet, Layer, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type SqlClient, SqlSchema, Statement } from 'effect/sql';
-import type { Catalog } from '#/catalog';
-import type { Kind } from '#/column';
-import { type Dialect, Engine, Rows } from '#/engine';
-import { catalogDdl, constant, diff, literal, mergeTreeRefusals, referentialActions, replacement, Stamp, unsupported } from '#/reconcile';
-import { Tokenizer } from '#/relation';
+import type { Catalog } from '#/catalog.ts';
+import type { Kind } from '#/column.ts';
+import { type Dialect, Engine, Rows } from '#/engine.ts';
+import { catalogDdl, constant, diff, literal, mergeTreeRefusals, referentialActions, replacement, Stamp, unsupported } from '#/reconcile.ts';
+import { Tokenizer } from '#/relation.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

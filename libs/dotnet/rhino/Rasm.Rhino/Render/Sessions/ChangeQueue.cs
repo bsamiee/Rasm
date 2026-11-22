@@ -138,7 +138,7 @@ public sealed class DefinedChangeFeed : ChangeQueue.ChangeQueue {
                     Attributes = attributes,
                     Ancestry = ancestry,
                 }))).As()
-            .Map(instances => new SceneBatch { Instances = new(toSeq(deleted).Map(static id => (id, Option<SceneInstance>.None)).Concat(instances), tryAdd: false) }));
+            .Map(instances => new SceneBatch { Instances = new(toSeq(deleted).Map(static id => (id, Option<SceneInstance>.None)).Concat(in instances), tryAdd: false) }));
 
     protected override void ApplyGroundPlaneChanges(ChangeQueue.GroundPlane gp) =>
         Collect(IO.lift(() => new SceneBatch {
@@ -147,7 +147,7 @@ public sealed class DefinedChangeFeed : ChangeQueue.ChangeQueue {
 
     protected override void ApplyClippingPlaneChanges(Guid[] deleted, List<ChangeQueue.ClippingPlane> addedOrModified) =>
         Collect(Clipped(addedOrModified).Map(clips => new SceneBatch {
-            ClippingPlanes = new(toSeq(deleted).Map(static id => (id, Option<SceneClip>.None)).Concat(clips), tryAdd: false),
+            ClippingPlanes = new(toSeq(deleted).Map(static id => (id, Option<SceneClip>.None)).Concat(in clips), tryAdd: false),
         }));
 
     protected override void ApplyDynamicClippingPlaneChanges(List<ChangeQueue.ClippingPlane> changed) =>

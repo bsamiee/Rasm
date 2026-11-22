@@ -1,5 +1,3 @@
-#![expect(deprecated, reason = "the initialize-era revisions keep resources/subscribe and logging, which SEP-2577 deprecates")]
-
 use core::future::ready;
 #[cfg(feature = "http")]
 use core::iter;

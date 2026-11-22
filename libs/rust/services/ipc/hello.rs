@@ -64,11 +64,13 @@ where
     M: DeserializeOwned,
 {
     let mut line = Vec::new();
-    let read = tokio::io::AsyncReadExt::take(&mut *reader, limit).read_until(b'\n', &mut line).await;
-    match (read.map_err(|source| IpcError::Io { operation: IpcOperation::Receive, source })?, line.last()) {
-        (0, _) => Err(IpcError::Closed),
-        (_, Some(b'\n')) => decoded(&line),
-        (_, _) => Err(IpcError::Oversized { limit }),
+    let mut bounded = tokio::io::AsyncReadExt::take(&mut *reader, limit);
+    let read = bounded.read_until(b'\n', &mut line).await.map_err(|source| IpcError::Io { operation: IpcOperation::Receive, source })?;
+    match (read, line.last(), bounded.limit()) {
+        (0, _, _) => Err(IpcError::Closed),
+        (_, Some(b'\n'), _) => decoded(&line),
+        (_, _, 0) => Err(IpcError::Oversized { limit }),
+        (_, _, _) => Err(IpcError::Closed),
     }
 }
 

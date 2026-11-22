@@ -4,6 +4,10 @@
         <_GrasshopperShellAttributes>$(IntermediateOutputPath)$(TargetName).Grasshopper.AssemblyInfo.cs</_GrasshopperShellAttributes>
     </PropertyGroup>
 
+    <ItemGroup Label="Grasshopper Icons">
+        <EmbeddedResource Include="icons/*.ghicon" LogicalName="%(Filename)%(Extension)" />
+    </ItemGroup>
+
     <Target Name="BuildGrasshopperShell" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '@(ReferencePath->WithMetadataValue('Filename', 'Rasm.Grasshopper'))' != ''" Inputs="@(IntermediateAssembly);@(ReferencePath);@(Analyzer);@(EditorConfigFiles);$(MSBuildThisFileDirectory)PluginInfo.cs;$(MSBuildAllProjects)" Outputs="$(_GrasshopperShell)">
         <ItemGroup>
             <_PlugInIdentity Include="@(AssemblyAttribute->WithMetadataValue('Identity', 'System.Runtime.InteropServices.GuidAttribute')->Metadata('_Parameter1'))" />

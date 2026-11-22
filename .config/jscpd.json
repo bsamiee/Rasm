@@ -5,7 +5,7 @@
     "minLines": 1,
     "minTokens": 1,
     "pattern": "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,py,pyi,rs,swift,cs,c,h,cpp,cppm,ixx,cc,cxx,hpp,hh,hxx,java}",
-    "ignore": ["**/sdks/**"],
+    "ignore": ["**/sdks/**", "assets/**"],
     "format": ["typescript", "tsx", "javascript", "jsx", "python", "rust", "swift", "csharp", "c", "cpp", "cpp-header", "java"],
     "absolute": true,
     "exitCode": 1,

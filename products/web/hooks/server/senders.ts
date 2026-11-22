@@ -23,17 +23,12 @@ const senders = {
                 `${name} delivery`,
             ),
         );
-        return HttpRouter.route('POST', path(name), webhook.receive(accept));
+        return HttpRouter.route('POST', `/${name}`, webhook.receive(accept));
     }),
 } as const;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const path = <S extends string>(sender: S) => `/${sender}` as const;
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const paths = Record.map(senders, (_, sender) => path(sender));
 const routes: Layer.Layer<
     never,
     EncodingError.EncodingError | CryptoError.CryptoError | Config.ConfigError,
@@ -56,4 +51,4 @@ const routes: Layer.Layer<
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { paths, routes };
+export { routes };

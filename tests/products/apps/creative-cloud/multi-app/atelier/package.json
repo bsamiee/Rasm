@@ -1,15 +1,38 @@
 {
     "name": "@rasm/test-atelier",
     "private": true,
-    "description": "Atelier suites: the runtime execute_script picks per application and version, the port a native MCP server of a running application listens on, and the bearer token Illustrator preferences hold",
+    "description": "Atelier suite over the built server in a stand-in app bundle, driven over MCP against a fake application server and the Acrobat installer receipts it reads: the script command execute_script sends to an application outside the UXP hosts, and its refusal where the dictionary declares none",
+    "os": [
+        "darwin"
+    ],
     "type": "module",
     "devDependencies": {
+        "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/applications": "workspace:*",
-        "@rasm/atelier": "workspace:*",
+        "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
+        "plist": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
+    },
+    "nx": {
+        "implicitDependencies": [
+            "@rasm/atelier"
+        ],
+        "targets": {
+            "test--vitest": {
+                "dependsOn": [
+                    "...",
+                    {
+                        "projects": [
+                            "@rasm/atelier"
+                        ],
+                        "target": "build--vite"
+                    }
+                ]
+            }
+        }
     }
 }

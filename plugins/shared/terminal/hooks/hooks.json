@@ -29,15 +29,6 @@
                         "async": true
                     }
                 ]
-            },
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint claude --hook-input stdin"
-                    }
-                ]
             }
         ],
         "PostToolUseFailure": [
@@ -60,15 +51,6 @@
                         "type": "command",
                         "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook claude-code",
                         "timeout": 10
-                    }
-                ]
-            },
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint claude --hook-input stdin"
                     }
                 ]
             }

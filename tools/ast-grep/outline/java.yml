@@ -15,12 +15,12 @@ utils:
     form:
         all:
             - has: { any: [{ pattern: class }, { pattern: record }], pattern: $$KEYWORD }
-            - any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: &kinds 'class_declaration, record_declaration' }]
-            - any: [{ has: { field: type_parameters, pattern: $TYPES } }, { kind: *kinds }]
-            - any: [{ has: { field: parameters, pattern: $PARAMETERS } }, { kind: *kinds }]
-            - any: [{ has: { field: superclass, pattern: $SUPERCLASS } }, { kind: *kinds }]
-            - any: [{ has: { field: interfaces, pattern: $INTERFACES } }, { kind: *kinds }]
-            - any: [{ has: { field: permits, pattern: $PERMITS } }, { kind: *kinds }]
+            - any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: &classes 'class_declaration, record_declaration' }]
+            - any: [{ has: { field: type_parameters, pattern: $TYPES } }, { kind: *classes }]
+            - any: [{ has: { field: parameters, pattern: $PARAMETERS } }, { kind: *classes }]
+            - any: [{ has: { field: superclass, pattern: $SUPERCLASS } }, { kind: *classes }]
+            - any: [{ has: { field: interfaces, pattern: $INTERFACES } }, { kind: *classes }]
+            - any: [{ has: { field: permits, pattern: $PERMITS } }, { kind: *classes }]
     constant: { any: [{ kind: constant_declaration }, { has: { kind: modifiers, all: [{ has: { pattern: static } }, { has: { pattern: final } }] } }] }
     variable: { not: { has: { kind: modifiers, all: [{ has: { pattern: static } }, { has: { pattern: final } }] } } }
     owner:
@@ -101,10 +101,10 @@ variants:
             form:
                 all:
                     - has: { any: [{ pattern: interface }, { pattern: '@interface' }], pattern: $$KEYWORD }
-                    - any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: &kinds 'interface_declaration, annotation_type_declaration' }]
-                    - any: [{ has: { field: type_parameters, pattern: $TYPES } }, { kind: *kinds }]
-                    - any: [{ has: { kind: extends_interfaces, pattern: $EXTENDS } }, { kind: *kinds }]
-                    - any: [{ has: { field: permits, pattern: $PERMITS } }, { kind: *kinds }]
+                    - any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: &interfaces 'interface_declaration, annotation_type_declaration' }]
+                    - any: [{ has: { field: type_parameters, pattern: $TYPES } }, { kind: *interfaces }]
+                    - any: [{ has: { kind: extends_interfaces, pattern: $EXTENDS } }, { kind: *interfaces }]
+                    - any: [{ has: { field: permits, pattern: $PERMITS } }, { kind: *interfaces }]
         rewriters:
             - id: header
               rule: { kind: identifier, inside: { field: name, matches: form } }
@@ -131,13 +131,13 @@ variants:
         utils:
             form:
                 all:
-                    - any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: &kinds 'method_declaration, annotation_type_element_declaration' }]
-                    - any: [{ has: { field: type_parameters, pattern: $TYPES } }, { kind: *kinds }]
-                    - any: [{ has: { kind: 'annotation, marker_annotation', pattern: $ANNOTATION } }, { kind: *kinds }]
-                    - any: [{ has: { field: type, pattern: $TYPE } }, { kind: *kinds }]
-                    - any: [{ has: { field: parameters, pattern: $PARAMETERS } }, { kind: *kinds }]
-                    - any: [{ has: { field: dimensions, pattern: $DIMENSIONS } }, { kind: *kinds }]
-                    - any: [{ has: { kind: throws, pattern: $THROWS } }, { kind: *kinds }]
+                    - any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: &methods 'method_declaration, annotation_type_element_declaration' }]
+                    - any: [{ has: { field: type_parameters, pattern: $TYPES } }, { kind: *methods }]
+                    - any: [{ has: { kind: 'annotation, marker_annotation', pattern: $ANNOTATION } }, { kind: *methods }]
+                    - any: [{ has: { field: type, pattern: $TYPE } }, { kind: *methods }]
+                    - any: [{ has: { field: parameters, pattern: $PARAMETERS } }, { kind: *methods }]
+                    - any: [{ has: { field: dimensions, pattern: $DIMENSIONS } }, { kind: *methods }]
+                    - any: [{ has: { kind: throws, pattern: $THROWS } }, { kind: *methods }]
         rewriters:
             - id: header
               rule: { kind: identifier, inside: { field: name, matches: form } }
@@ -458,10 +458,10 @@ symbolType: constructor
 utils:
     form:
         all:
-            - any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: &kinds 'constructor_declaration, compact_constructor_declaration' }]
-            - any: [{ has: { field: type_parameters, pattern: $TYPES } }, { kind: *kinds }]
-            - any: [{ has: { field: parameters, pattern: $PARAMETERS } }, { kind: *kinds }]
-            - any: [{ has: { kind: throws, pattern: $THROWS } }, { kind: *kinds }]
+            - any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: &constructors 'constructor_declaration, compact_constructor_declaration' }]
+            - any: [{ has: { field: type_parameters, pattern: $TYPES } }, { kind: *constructors }]
+            - any: [{ has: { field: parameters, pattern: $PARAMETERS } }, { kind: *constructors }]
+            - any: [{ has: { kind: throws, pattern: $THROWS } }, { kind: *constructors }]
 rule:
     any:
         - kind: constructor_declaration, compact_constructor_declaration

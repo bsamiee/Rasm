@@ -5,9 +5,9 @@ import { pathToFileURL } from 'node:url';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { run } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Effect, Equal, Exit, Formatter, Function, Option, Order, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Effect, Equal, Exit, Formatter, Function, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
-import { testMode } from '#/plugin';
+import { testMode } from '#/plugin.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -95,19 +95,31 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
     placed.forEach(([project, at]) => {
         Object.assign(project.config, { attachmentsDir: at });
     });
+    yield* Effect.acquireRelease(
+        Effect.sync(() => {
+            const before = process.exitCode;
+            process.exitCode = undefined;
+            return before;
+        }),
+        (before) => Effect.sync(() => Object.assign(process, { exitCode: before })),
+    );
     const started = yield* Effect.exit(Effect.tryPromise({ try: () => vitest.start(), catch: (cause) => new Cause.UnknownError(cause, `vitest run over ${config} stops before it reports`) }));
+    const modules = vitest.state.getTestModules();
+    const unhandled = vitest.state.getUnhandledErrors().map((error) => `unhandled error: ${Formatter.format(error)}`);
+    const signalled = Option.filter(Option.fromNullishOr(process.exitCode), (code) => Number(code) !== 0 && Exit.isSuccess(started) && unhandled.length === 0 && modules.every((module) => module.ok()));
     const broken = [
-        ...vitest.state.getUnhandledErrors().map((error) => `unhandled error: ${Formatter.format(error)}`),
-        ...(Exit.isFailure(started) && !Option.exists(Cause.findErrorOption(started.cause), (error) => error instanceof node.TestsNotFoundError) ? [`vitest run over ${config} stops before it reports: ${Cause.pretty(started.cause)}`] : []),
+        ...unhandled,
+        ...(Exit.isFailure(started) && !Option.exists(Cause.findErrorOption(started.cause), (error) => error.cause instanceof node.TestsNotFoundError) ? [`vitest run over ${config} stops before it reports: ${Cause.pretty(started.cause)}`] : []),
+        ...Option.toArray(Option.map(signalled, (code) => `vitest run over ${config} sets exit code ${code} with every test module passing, as a run-level check such as a coverage threshold or the import duration limit failed`)),
     ];
     const held = Array.groupBy(
-        vitest.state.getTestModules().flatMap((module) => Option.toArray(Option.map(owner(module.project.config.root), ({ task }) => ({ task, module })))),
+        modules.flatMap((module) => Option.toArray(Option.map(owner(module.project.config.root), ({ task }) => ({ task, module })))),
         Struct.get('task'),
     );
     return Array.map(group, ({ task }): Settled => {
         const own = (held[task] ?? []).map(Struct.get('module'));
         const said = [...own.flatMap(reported), ...(own.length === 0 ? [`no test module of ${task} ran`] : []), ...broken];
-        const passed = own.length > 0 ? own.every((module) => module.ok()) : vitest.config.passWithNoTests;
+        const passed = own.length > 0 ? own.every((module) => module.ok()) : Predicate.isTruthy(vitest.config.passWithNoTests);
         return { task, result: { success: passed && broken.length === 0, terminalOutput: said.join('\n') } };
     });
 }, Effect.scoped);

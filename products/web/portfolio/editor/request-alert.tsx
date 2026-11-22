@@ -2,7 +2,7 @@ import { Issues } from '@rasm/ui';
 import { Match } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { Button } from 'react-aria-components';
-import type { deleteRequest, discardRequest, draft, saveRequest } from '#/editor/state';
+import type { deleteRequest, discardRequest, draft, saveRequest } from '#/editor/state.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -1,0 +1,29 @@
+# --- [RYL] ------------------------------------------------------------------------------
+
+cache-dir   = ".cache/ryl"                              # Tool caches sit under `.cache/<tool>`
+exclude     = [".config/mise/locks/", "pnpm-lock.yaml"] # Lock files their package managers write
+lint.strict = true                                      # Warning-only runs fail, as every checker's findings are errors
+
+# --- [RULES] ----------------------------------------------------------------------------
+
+[lint.rules]
+ALL = "enable" # Every rule runs, those a ryl upgrade adds included
+
+braces         = "disable"                       # `oxfmt` owns YAML layout
+comments       = { min-spaces-from-content = 1 } # `oxfmt` writes one space before an inline comment
+indentation    = "disable"                       # `oxfmt` owns YAML layout
+line-length    = "disable"                       # `oxfmt` owns YAML layout
+quoted-strings = "disable"                       # `oxfmt` owns YAML quoting
+
+document-end   = { present = false } # Documents end at the next `---` or the end of the file
+document-start = "disable"           # Files open without `---`, a separator multi-document ast-grep catalogs alone need
+key-ordering   = "disable"           # Keys follow domain order, CLAUDE.md file organization
+yaml-directive = "disable"           # Files hold no `%YAML` directive, the value rules keep YAML 1.1 and 1.2 readers agreeing
+
+anchors        = { forbid-ambiguous-anchor-alias-names = true, forbid-duplicated-anchors = true, forbid-unused-anchors = true }     # Anchors are unique, used, and parse alike in every reader
+float-values   = { forbid-inf = true, forbid-nan = true, forbid-scientific-notation = true, require-numeral-before-decimal = true } # Floats read alike in JSON and every YAML reader
+key-duplicates = { check-canonical = true, forbid-duplicated-merge-keys = true }                                                    # Keys collide by canonical value and across merges
+tags           = { forbid-removed-types = true, forbid-unsafe-tags = true }                                                         # No YAML 1.1 types or language object tags
+
+schema-dependent-values = { forbid-single-letter-booleans = false } # ast-grep reads metavariable keys (`Y`) as YAML 1.2 strings
+truthy                  = { check-keys = false }                    # GitHub Actions reads the `on` key by name

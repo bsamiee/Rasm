@@ -1,17 +1,13 @@
 {
     "name": "@rasm/test-object-storage",
     "private": true,
-    "description": "Object storage suites over R2 reads and the storage error message",
+    "description": "Object storage suites over an R2 binding: served ranges and preconditions, object state, and presigned S3 requests",
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
         "@cloudflare/workers-types": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/object-storage": "workspace:*",
-        "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "cf": "catalog:",
         "effect": "catalog:",

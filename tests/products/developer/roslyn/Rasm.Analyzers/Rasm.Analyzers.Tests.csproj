@@ -6,6 +6,7 @@
     <ItemGroup Label="Compiler Fixtures">
         <PackageReference Include="LanguageExt.Core" AdditionalReference="true" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" IncludeAssets="compile" AdditionalReference="true" />
+        <PackageReference Include="Microsoft.macOS.Ref.net10.0_26.0" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
         <PackageReference Include="RhinoCommon" IncludeAssets="compile" AdditionalReference="true" />
         <PackageReference Include="SkiaSharp" IncludeAssets="compile" AdditionalReference="true" />
         <PackageReference Include="System.Drawing.Common" IncludeAssets="compile" AdditionalReference="true" />
@@ -41,6 +42,7 @@
         <ItemGroup>
             <AssemblyMetadata Include="TargetingPack" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(NuGetPackageId)|%(NuGetPackageVersion)|%(TargetFramework)')" />
             <AssemblyMetadata Include="AdditionalReference.%(_AdditionalReference.Filename)" Value="%(_AdditionalReference.FullPath)" />
+            <AssemblyMetadata Include="AdditionalReference.Microsoft.macOS" Value="$(PkgMicrosoft_macOS_Ref_net10_0_26_0)/ref/$(TargetFramework)/Microsoft.macOS.dll" />
         </ItemGroup>
     </Target>
 </Project>

@@ -1,8 +1,8 @@
 import { Array, Effect, Function, Option, Predicate, Result, Struct } from 'effect';
-import type { Host } from '#/host';
-import { all, commandOf, edited, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, refuse, relocated, respell, unresolved, when, whole } from '#/rules/rule';
-import type { Argument } from '#/shell/arguments';
-import type { Invocation } from '#/shell/invocation';
+import type { Host } from '#/host.ts';
+import { all, commandOf, edited, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, refuse, relocated, respell, unresolved, when, whole } from '#/rules/rule.ts';
+import type { Argument } from '#/shell/arguments.ts';
+import type { Invocation } from '#/shell/invocation.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -176,7 +176,7 @@ const GIT: Ruleset = {
                         when(holds(HOOKS_PATH, '-c'), refuse(...HOOKS, '-c')),
                         perSubcommand({
                             branch: [branchWrites],
-                            commit: [refuse(...HOOKS, '--no-verify', '-n'), refuse('rewrites the last commit another session may own', 'commit forward', '--amend')],
+                            commit: [respell({ drops: ['--no-verify'], notify: true }), refuse('rewrites the last commit another session may own', 'commit forward', '--amend')],
                             'filter-branch': [refuse(...HISTORY)],
                             'filter-repo': [refuse(...HISTORY)],
                             tag: [refuse('deletes a tag', 'leave published tags in place', '-d', '--delete')],

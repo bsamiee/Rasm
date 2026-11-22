@@ -112,30 +112,35 @@ internal sealed class ViewBody {
         select unit;
 }
 
-internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realize) {
+internal sealed class HostedView {
 
     // --- [STATE]
 
-    private readonly Ref<Option<Owned<(ViewBody Body, Control Frame)>>> realized = Ref(Option<Owned<(ViewBody Body, Control Frame)>>.None);
+    private readonly Func<IO<(ViewBody Body, Control Frame)>> realize;
+
+    private readonly Ref<Option<Owned<ViewBody>>> realized = Ref(Option<Owned<ViewBody>>.None);
+
+    internal HostedView(Func<IO<(ViewBody Body, Control Frame)>> realize) {
+        this.realize = realize;
+        Frame = new HostFrame(this);
+    }
 
     // --- [REALIZATION]
 
     internal EnvIO Scope { get; } = EnvIO.New(token: CancellationToken.None);
 
-    internal Option<ViewBody> Current => realized.Value.Map(static held => held.Value.Body);
+    internal HostFrame Frame { get; }
 
-    internal Option<(ViewBody Body, Control Frame)> Realized =>
-        realized.Value.Map(static held => held.Value) || Session.Run(Realizing.Map(Some), Option<(ViewBody Body, Control Frame)>.None);
-
-    internal Option<Control> Frame => Realized.Map(static held => held.Frame);
+    internal Option<ViewBody> Current => realized.Value.Map(static held => held.Value);
 
     internal IO<(ViewBody Body, Control Frame)> Realizing =>
         IO.lift(() => realized.Value).Bind(held => held.Match(
             Some: static owned => IO.pure(owned.Value),
             None: () => Products.Replace(realized,
                 from made in realize()
-                from frame in IO.lift(() => new HostFrame(this) { Content = made.Frame })
-                select (made.Body, Frame: (Control)frame)).Scoped(Scope)));
+                from placed in IO.lift(() => { Frame.Content = made.Frame; })
+                select made.Body).Scoped(Scope)))
+            .Map(body => (body, (Control)Frame));
 
     internal static IO<(ViewBody Body, Control Frame)> Opened(View row, Option<RhinoDoc> document, CommitMode mode, Option<Func<ViewBody, IO<Unit>>> listening) =>
         from body in ViewBody.Open(row, document, mode, listening)
@@ -156,7 +161,9 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
     // --- [CALLBACKS]
 
     internal Unit Shown(bool visible) =>
-        Session.Run((visible ? Realized : realized.Value.Map(static held => held.Value)).Traverse(held => held.Body.Shown(visible)).As());
+        Session.Run(visible
+            ? Realizing.Bind(static held => held.Body.Shown(visible: true))
+            : Current.Traverse(static body => body.Shown(visible: false)).As().Map(static _ => unit));
 
     internal bool Activated(bool active) {
         Shown(active);
@@ -201,6 +208,11 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
 }
 
 internal sealed class HostFrame(HostedView hosted) : Panel {
+    protected override void OnPreLoad(EventArgs e) {
+        base.OnPreLoad(e);
+        Session.Run(hosted.Realizing);
+    }
+
     protected override void Dispose(bool disposing) {
         if (disposing) {
             Session.Run(IO.lift(hosted.Scope.DisposeResources));
@@ -230,7 +242,7 @@ public abstract class DefinedPanel<TSelf> : Panel, IPanel, IHelp where TSelf : D
     protected DefinedPanel(RhinoDoc document) {
         hosted = new HostedView(() => HostedView.Opened(TSelf.Definition, Some(document), new CommitMode.Immediate(), None));
         TSelf.Definition.MinimumSize.Iter(size => MinimumSize = size);
-        Content = hosted.Frame.ValueUnsafe();
+        Content = hosted.Frame;
     }
 
     public string HelpUrl => HostedView.HelpUrl(TSelf.Definition);
@@ -260,7 +272,7 @@ internal sealed class DefinedOptionsPage : OptionsDialogPage {
                 None: () => IO.lift(Image? () => Session.PlugIn.Icon(pixels)))),
             failed: null);
 
-    public override object? PageControl => hosted.Frame.ValueUnsafe();
+    public override object? PageControl => hosted.Frame;
 
     public override bool ShowApplyButton => row.Commit.Drafts;
 
@@ -319,7 +331,7 @@ internal sealed class DefinedPropertiesPage : ObjectPropertiesPage {
     public override Icon? PageIcon(Size sizeInPixels) =>
         Session.Run(row.Icon.TraverseM(icon => Icons.DrawingIcon(icon, sizeInPixels)).As(), Option<Icon>.None).ValueUnsafe();
 
-    public override object? PageControl => hosted.Frame.ValueUnsafe();
+    public override object? PageControl => hosted.Frame;
 
     private Option<PageSubject.Objects> Objects => row.Subject.Switch(objects: static held => Some(held), viewport: static _ => Option<PageSubject.Objects>.None);
 

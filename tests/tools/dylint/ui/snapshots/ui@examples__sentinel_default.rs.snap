@@ -242,3 +242,43 @@ error: `unwrap_or` stands an empty `&str` in for `None`
     |                                                                             -------------- in this macro invocation
     |
     = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: `unwrap_or_default` stands an empty `&str` in for `None`
+   --> tests/tools/dylint/examples/sentinel_default.rs:168:25
+    |
+168 |     text.push_str(value.unwrap_or_default());
+    |                         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: `unwrap_or_default` stands an empty `&str` in for `None`
+   --> tests/tools/dylint/examples/sentinel_default.rs:172:93
+    |
+172 | fn spanned(value: Option<&str>) -> core::ops::Range<&str> { core::ops::Range { start: value.unwrap_or_default(), end: "z" } }
+    |                                                                                             ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: `unwrap_or_default` stands an empty `&str` in for `None`
+   --> tests/tools/dylint/examples/sentinel_default.rs:174:80
+    |
+174 | fn prefixed(value: Option<&str>) -> String { suffixed(String::from("a"), value.unwrap_or_default()) }
+    |                                                                                ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: `unwrap_or_default` stands an empty `String` in for `None`
+   --> tests/tools/dylint/examples/sentinel_default.rs:176:70
+    |
+176 | fn labeled(value: Option<String>) -> Labeled { Labeled { name: value.unwrap_or_default(), rank: 1 } }
+    |                                                                      ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: `unwrap_or_default` stands an empty `&str` in for `None`
+   --> tests/tools/dylint/examples/sentinel_default.rs:180:68
+    |
+180 | fn rendered(value: Option<&str>) -> String { format!("[{}]", value.unwrap_or_default()) }
+    |                                                                    ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call

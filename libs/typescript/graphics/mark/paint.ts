@@ -1,31 +1,57 @@
-import { Resvg } from '@resvg/resvg-js';
-import { load } from 'cheerio';
-import { Effect, FileSystem, Formatter, Schema } from 'effect';
+import { run } from '@rasm/process';
+import { Array, Effect, FileSystem, Match, Option, Order, Path, Record, Schema, UndefinedOr } from 'effect';
+import { imageSize } from 'image-size';
 
-// --- [ERRORS] --------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-class MarkError extends Schema.TaggedError<MarkError, { readonly brand: unique symbol }>()('MarkError', {
-    reason: Schema.TaggedUnion({ Unreadable: {} }),
-    subject: Schema.String,
-    cause: Schema.optionalKey(Schema.Defect()),
-    message: Schema.String,
-}) {
-    static readonly of = (reason: MarkError['reason']['_tag'], subject: string) => (cause?: unknown) => MarkError.make({ reason: { _tag: reason }, subject, ...(cause === undefined ? {} : { cause }), message: [`${reason}: ${subject}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ') });
-}
+const Bounds = Schema.TemplateLiteralParser([Schema.Finite, ',', Schema.Finite, ',', Schema.Finite, ',', Schema.Finite]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const paint = Effect.fnUntraced(function* (master: string, { color, opacity = 1 }: { readonly color: string; readonly opacity?: number | undefined }, width?: number) {
-    const fs = yield* FileSystem.FileSystem;
-    const document = load(yield* fs.readFileString(master), { xml: true });
-    document
-        .root()
-        .children('svg')
-        .attr({ color, opacity: `${opacity}` });
-    const svg = yield* Effect.try({ try: () => new Resvg(document.xml(), { fitTo: width === undefined ? { mode: 'original' } : { mode: 'width', value: width } }), catch: MarkError.of('Unreadable', master) });
-    return width === undefined ? new TextEncoder().encode(svg.toString()) : svg.render().asPng();
-});
+const paint = Effect.fnUntraced(function* (drawings: Array.NonEmptyReadonlyArray<string>, style: string, frame?: { readonly width: number; readonly padding?: number | undefined }) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const folder = yield* fs.makeTempDirectoryScoped();
+    const { stylesheet, themed, framed, painted } = Record.map({ stylesheet: 'style.css', themed: 'themed.svg', framed: 'framed.svg', painted: 'painted.png' }, (name) => path.join(folder, name));
+    const sized = yield* Effect.forEach(
+        drawings,
+        (drawing, index) => {
+            const native = path.join(folder, `${String(index)}.png`);
+            return run(['resvg', drawing, native]).pipe(
+                Effect.andThen(fs.readFile(native)),
+                Effect.map((image) => ({ drawing, canvas: imageSize(image) })),
+            );
+        },
+        { concurrency: 'unbounded' },
+    );
+    const ordered = Array.sort(
+        sized,
+        Order.mapInput(Order.Number, ({ canvas }: (typeof sized)[number]) => canvas.width),
+    );
+    const { drawing, canvas } = Option.getOrElse(
+        Option.flatMap(Option.fromUndefinedOr(frame), ({ width, padding = 0 }) => Array.findFirst(ordered, ({ canvas: { width: side } }) => width - 2 * padding <= 2 * side)),
+        () => Array.lastNonEmpty(ordered),
+    );
+    yield* fs.writeFileString(stylesheet, style);
+    yield* run(['usvg', '--stylesheet', stylesheet, drawing, themed]);
+    const [x, y, across, down] = yield* Match.value(frame).pipe(
+        Match.when({ padding: Match.number }, ({ width, padding }) =>
+            run(['resvg', '--query-bbox', themed]).pipe(
+                Effect.flatMap(({ stdout }) => Schema.decodeUnknownEffect(Bounds)(stdout.trim())),
+                Effect.map(([left, , top, , wide, , tall]) => {
+                    const side = (Math.max(wide, tall) * width) / (width - 2 * padding);
+                    return [left + (wide - side) / 2, top + (tall - side) / 2, side, side] as const;
+                }),
+            ),
+        ),
+        Match.orElse(() => Effect.succeed([0, 0, canvas.width, canvas.height] as const)),
+    );
+    const document = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${[x, y, across, down].join(' ')}" width="${String(across)}" height="${String(down)}"><image width="${String(canvas.width)}" height="${String(canvas.height)}" href="data:image/svg+xml;base64,${(yield* fs.readFile(themed)).toBase64()}"/></svg>`;
+    return yield* UndefinedOr.match(frame, {
+        onUndefined: () => Effect.succeed(new TextEncoder().encode(document)),
+        onDefined: ({ width }) => fs.writeFileString(framed, document).pipe(Effect.andThen(run(['resvg', '-w', String(width), framed, painted])), Effect.andThen(fs.readFile(painted))),
+    });
+}, Effect.scoped);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { MarkError, paint };
+export { paint };

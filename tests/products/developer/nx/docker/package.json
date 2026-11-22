@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-docker",
     "private": true,
-    "description": "@rasm/nx-docker suites over temporary workspaces: Nx own Docker plugin spec ported to Compose projects, checked against the model docker compose config prints",
+    "description": "@rasm/nx-docker suites over temporary workspaces through the Nx graph and task graph: inferred Compose projects, task order, inputs, inference cache, build context dependencies, and the inferred commands run against the local engine",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

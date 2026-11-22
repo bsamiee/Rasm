@@ -3,8 +3,8 @@ import { PgClient } from '@effect/sql-pg';
 import { serve } from '@rasm/hosting/server';
 import { Layer } from 'effect';
 import { PersistedQueue } from 'effect/persistence';
-import hosting from '#/hosting.config';
-import { routes } from '#/server/senders';
+import hosting from '#/hosting.config.ts';
+import { routes } from '#/server/senders.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

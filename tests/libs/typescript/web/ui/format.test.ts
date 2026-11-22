@@ -5,7 +5,6 @@ import { expect, it } from 'vitest';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const english = new Format({ locales: 'en', byteDigits: 3 });
-const dates = new Intl.DateTimeFormat('en');
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -42,5 +41,5 @@ it('joins lists by list type', () => {
 
 it('formats instants, offsets, and durations through the locale formatters', () => {
     const instant = DateTime.makeUnsafe('2026-01-02T12:00:00Z');
-    expect([english.date(instant), english.relative(Duration.fromInputUnsafe('3 hours')), english.duration(Duration.fromInputUnsafe('90 minutes'))]).toStrictEqual([dates.format(DateTime.toDateUtc(instant)), 'in 3 hours', '1 hr, 30 min']);
+    expect([english.date(instant), english.relative(Duration.fromInputUnsafe('3 hours')), english.duration(Duration.fromInputUnsafe('90 minutes'))]).toStrictEqual(['1/2/2026', 'in 3 hours', '1 hr, 30 min']);
 });

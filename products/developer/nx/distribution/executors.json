@@ -8,7 +8,7 @@
         "package": {
             "implementation": "./dist/executors/package/executor#execute",
             "schema": "./executors/package/schema.json",
-            "description": "Packs each host package the project's other builds wrote, else its tracked source folder: a .ccx zip for an Adobe UXP manifest.json, a .yak through yak build for a manifest.yml"
+            "description": "Packs each host package the project's other builds wrote, else its tracked source folder: a .ccx zip for an Adobe UXP manifest.json, a .zip for a Chrome Manifest V3 manifest.json, a .yak through yak build for a manifest.yml"
         },
         "install": {
             "implementation": "./dist/executors/install/executor#execute",

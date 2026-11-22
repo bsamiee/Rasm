@@ -1,16 +1,20 @@
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 
+[bootstrap.files."/etc/needrestart/conf.d/actions_runner_services.conf"]
+content = '''
+$nrconf{override_rc}{qr(^actions\.runner\..+\.service$)} = 0;
+'''
+
+[bootstrap.files."/etc/sudoers.d/90-runner"]
+content = """
+runner ALL=(ALL) NOPASSWD:ALL
+"""
+mode    = "0440"
+
 [bootstrap.groups.docker]
 system = true
 
 [bootstrap.groups.runner]
-
-[bootstrap.users.runner]
-create_home = true
-group       = "runner"
-groups      = ["docker"]
-shell       = "/bin/bash"
-uid         = 1000
 
 [bootstrap.packages]
 "apt:build-essential" = "latest"
@@ -21,13 +25,9 @@ uid         = 1000
 "apt:unzip"           = "latest"
 "apt:zip"             = "latest"
 
-[bootstrap.files."/etc/sudoers.d/90-runner"]
-content = """
-runner ALL=(ALL) NOPASSWD:ALL
-"""
-mode    = "0440"
-
-[bootstrap.files."/etc/needrestart/conf.d/actions_runner_services.conf"]
-content = '''
-$nrconf{override_rc}{qr(^actions\.runner\..+\.service$)} = 0;
-'''
+[bootstrap.users.runner]
+create_home = true
+group       = "runner"
+groups      = ["docker"]
+shell       = "/bin/bash"
+uid         = 1000

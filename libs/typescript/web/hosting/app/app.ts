@@ -19,7 +19,6 @@ type Target = Data.TaggedEnum<{ Cloudflare: object; Machine: { readonly host: st
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- `const E` keeps the literal env keys `serve()` recovers through `App<E>`
 class App<const E extends Record.ReadonlyRecord<string, Binding> = Record.ReadonlyRecord<string, Binding>> extends Data.Class<{
     readonly name: string;
     readonly env: E;

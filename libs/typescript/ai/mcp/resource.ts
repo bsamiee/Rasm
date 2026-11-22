@@ -1,6 +1,6 @@
 import { Array, Cause, Context, Effect, Equal, flow, HashMap, HashSet, Option, Predicate, Record, Schema, SchemaAST, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, McpServer } from 'effect/ai';
-import { Server } from '#/server';
+import { Server } from '#/server.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

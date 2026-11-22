@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-typescript",
     "private": true,
-    "description": "@rasm/nx-typescript suites: Nx's own TypeScript plugin specs ported to createNodes calls over temporary workspaces the native TypeScript compiler reads",
+    "description": "@rasm/nx-typescript suites: the project and task graphs Nx builds from the plugin over temporary workspaces, and the tsc, eslint, and pnpm runs its inferred targets drive",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",
@@ -9,7 +9,6 @@
         "@rasm/nx-typescript": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
-        "@typescript/native": "catalog:",
         "cf": "catalog:",
         "eslint": "catalog:",
         "nx": "catalog:",

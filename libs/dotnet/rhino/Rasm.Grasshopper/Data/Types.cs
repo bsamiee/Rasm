@@ -4,7 +4,6 @@ using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Eto.Forms;
-using Grasshopper2;
 using Grasshopper2.Data;
 using Grasshopper2.Display;
 using Grasshopper2.Parameters;
@@ -14,7 +13,6 @@ using Grasshopper2.Types.Conversion;
 using Grasshopper2.Types.ConversionMethods;
 using Grasshopper2.UI;
 using Grasshopper2.UI.Icon;
-using Grasshopper2.UI.Icon.Vector;
 using Grasshopper2.UI.Slider;
 using Grasshopper2.Undo;
 using Grasshopper2.Undo.Actions;
@@ -88,7 +86,7 @@ internal class ValueAssistant<TValue, TKey, TError>(ITypeAssistant<TKey> key, Op
 
     // --- [IDENTITY]
 
-    public override IIcon Icon => DataTypes.Icon((typeof(TValue).Assembly, typeof(TValue).Name)).IfNone(() => key.Icon);
+    public override IIcon Icon => Optional(AbstractIcon.FromResource(typeof(TValue))).IfNone(() => key.Icon);
 
     public override IEnumerable<string> Constructors => [Name];
 
@@ -177,11 +175,6 @@ internal sealed class GeometricAssistant<TValue, TKey, TError>(ITypeAssistant<TK
     private static Option<double> Measured(TValue instance, Func<ITypeAssistant, GeometryBase, Option<double>> measure) =>
         TValue.Geometry(instance).Choose(shape => Optional(TypeAssistantServer.FindByValue(shape)).Bind(assistant => measure(assistant, shape)))
             .Fold(Option<double>.None, static (sum, part) => Some(sum.IfNone(0d) + part));
-}
-
-internal sealed class MasterIcon(IIcon lit, IIcon dim) : AbstractIcon(IconType.Vector) {
-    protected override void DrawInternal(IconContext context) =>
-        (context.ResolveSpecialColour(SpecialColour.ForegroundStark).R > 0.5f ? dim : lit).Draw(context);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -331,14 +324,6 @@ public static class DataTypes {
         select unit;
 
     // --- [IDENTITY]
-
-    internal static readonly Func<(Assembly Assembly, string Name), Option<IIcon>> Icon = memoUnsafe(static ((Assembly Assembly, string Name) source) =>
-        Art(source.Assembly, source.Name).Map(lit => (IIcon)new MasterIcon(lit, Art(source.Assembly, $"{source.Name}_darkmode").IfNone(lit))));
-
-    private static Option<IIcon> Art(Assembly assembly, string name) =>
-        Optional(Folders.TryFindResourceUri(assembly, name + ".svg"))
-            .Bind(resource => Optional(Folders.GetResourceAsString(assembly, resource)))
-            .Map(static IIcon (svg) => SvgIcon.FromXml(svg));
 
     internal static Guid IoId(Type type) =>
         Uuid.NewNameBased(

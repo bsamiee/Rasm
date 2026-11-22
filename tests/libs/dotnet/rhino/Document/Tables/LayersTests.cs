@@ -32,7 +32,7 @@ public sealed class LayersTests(Fixtures fixtures) {
                 select (first.Value.Choose(static step => step is RowPlan<Layer, RowSpec<Layer>>.Create create ? Some(create.Spec.Key) : None).Strict(), second.Value.Count, linked, RhinoHost.Audit(doc))));
             Assert.Equal(ancestry.Order(StringComparer.OrdinalIgnoreCase), created.Order(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
             Assert.All(created.Map(static (path, at) => (path, at)), each =>
-                Assert.All(created.Take(each.at), earlier => Assert.False(earlier.StartsWith($"{each.path}{ModelComponent.NamePathSeparator}", StringComparison.OrdinalIgnoreCase))));
+                Assert.All(created.Take(each.at), earlier => Assert.False(earlier.StartsWith(each.path + ModelComponent.NamePathSeparator, StringComparison.OrdinalIgnoreCase))));
             Assert.Equal(0, again);
             Assert.All(links, static link => Assert.Equal(link.Above, link.Parent));
             Assert.True(audit.Valid, audit.Log);

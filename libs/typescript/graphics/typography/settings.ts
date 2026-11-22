@@ -1,6 +1,6 @@
 import { Digits } from '@rasm/search';
 import { Effect, Option, Predicate, Record, Schema, SchemaTransformation, String, Struct } from 'effect';
-import { Elongation } from '#/arabic/elongation';
+import { Elongation } from '#/arabic/elongation.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

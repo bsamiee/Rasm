@@ -6,7 +6,7 @@ import { API, type Checker, type Snapshot, type Diagnostic, DiagnosticCategory, 
 import { Array, Effect, Equal, Function, flow, Match, Option, Predicate, Record, Result, Schema, SchemaTransformation, Stream, Struct } from 'effect';
 import { Ndjson } from 'effect/encoding';
 import { XMLParser } from 'fast-xml-parser';
-import { Declaration } from '#/model';
+import { Declaration } from '#/model.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

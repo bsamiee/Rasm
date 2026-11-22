@@ -52,7 +52,7 @@
                     },
                     "entitlements": {
                         "type": "string",
-                        "description": "Entitlements file <product>.entitlements beside the target sources, signed into the product where present"
+                        "description": "Entitlements file <module>.entitlements among the sources of the module the product builds, signed into the product where present"
                     }
                 },
                 "required": ["package", "product", "folder", "bin"],

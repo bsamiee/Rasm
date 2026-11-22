@@ -16,7 +16,7 @@
     "type": "module",
     "sideEffects": false,
     "imports": {
-        "#/*": "./*.ts"
+        "#/*.ts": "./*.ts"
     },
     "exports": {
         ".": "./index.ts",
@@ -24,7 +24,7 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*": "./dist/*.js"
+            "#/*.ts": "./dist/*.js"
         },
         "exports": {
             ".": "./dist/index.js",

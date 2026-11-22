@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-distribution",
     "private": true,
-    "description": "@rasm/nx-distribution suite: Nx's own @nx/docker plugin and release-publish specs, @nx/js release-publish, version actions, and typescript-sync specs ported to host manifests in temporary folders, each executor called directly with gh and store tools replaced at the process boundary",
+    "description": "@rasm/nx-distribution suite: host manifests inferred into projects over the real Nx graph, their task hashes, platforms, Unreal links, and release membership, each executor run on a context built from that graph against temporary workspaces with gh, jactionlint, and store APIs replaced at the process and fetch boundary",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

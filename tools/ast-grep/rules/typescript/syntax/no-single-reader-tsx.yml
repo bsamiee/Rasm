@@ -56,6 +56,7 @@ utils:
 rule:
     all:
         - kind: variable_declarator
+          pattern: $DECLARATION
           all:
               - has: { field: name, kind: identifier, pattern: $NAME }
               - has: { field: value, matches: literal, not: { any: [{ kind: number }, { has: { stopBy: end, kind: number } }] } }
@@ -77,5 +78,6 @@ rule:
 message: '`$NAME` has one reader'
 note: 'Move the literal into its consuming function or field initializer'
 labels:
+    DECLARATION: { style: primary }
     READER: { style: secondary, message: Only reader }
     HOLDER: { style: secondary, message: Only reader }

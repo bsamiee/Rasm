@@ -1,8 +1,8 @@
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Cause, Effect, Option, Schema, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
-import { credentialed, Dry, dried, released, run, Words } from '#/executor';
-import { located } from '#/host-packages';
+import { credentialed, Dry, dried, forwarded, released, run, Words } from '#/executor.ts';
+import { located } from '#/host-packages.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -19,12 +19,12 @@ const execute = Effect.fnUntraced(
         const [dry, token, { project, target, outputs, packages }] = yield* Effect.all([dried(stated), credentialed(credential), located(context)]);
         const stored = packages.flatMap((found) => Array.fromNullishOr(found.host.publish).map((store) => ({ found, ...store })));
         const pushed = Effect.fnUntraced(function* ({ found, store, command, held: listed, push }: (typeof stored)[number]) {
-            const kept = Option.isSome(token) && (yield* listed(found, store));
+            const kept = Option.isSome(token) && (yield* listed(found, store, token.value));
             const skipped = yield* Option.match(
                 Option.filter(token, () => !kept),
                 {
                     onNone: () => Effect.succeedSome(kept ? 'the store holds that version' : `${credential} is not set`),
-                    onSome: (held) => push(found, store, held, words),
+                    onSome: (held) => push(found, store, held, forwarded(words)),
                 },
             );
             return yield* Option.match(skipped, { onNone: () => Effect.logInfo(`Published ${found.at} to ${store} with ${command}`), onSome: (reason) => Effect.logWarning(`Skipped ${found.at} for ${store}: ${reason}`) });

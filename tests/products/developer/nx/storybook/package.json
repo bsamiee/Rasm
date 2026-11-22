@@ -1,10 +1,11 @@
 {
     "name": "@rasm/test-nx-storybook",
     "private": true,
-    "description": "@rasm/nx-storybook suites over temporary workspaces: Nx own Storybook plugin and dev server ready check specs ported to the targets the plugin infers",
+    "description": "@rasm/nx-storybook suites over temporary workspaces: the projects, targets, inputs, outputs, dev server readiness, and config loading of the graph Nx builds with the plugin",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",
+        "@nx/storybook": "catalog:",
         "@rasm/nx-storybook": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@storybook/react-vite": "catalog:",

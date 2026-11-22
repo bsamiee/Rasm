@@ -33,8 +33,8 @@ BUILDX_EXPERIMENTAL                      = "1"
 CACHE_DIR                                = "{{config_root}}/.cache"
 CARGO_LLVM_COV_DENY_WARNINGS             = "1"
 CF_QUIET                                 = "1"
-CTX7_TELEMETRY_DISABLED                  = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH             = "{{ env.CACHE_DIR }}/cloudflare/registry"
+CTX7_TELEMETRY_DISABLED                  = "1"
 DOPPLER_CONFIG                           = "dev"
 DOPPLER_PROJECT                          = "rasm"
 DOTNET_NOLOGO                            = "1"
@@ -64,7 +64,6 @@ SWIFT_BACKTRACE                          = "enable=yes,interactive=no,warnings=s
 TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE    = "/var/run/docker.sock"
 TOMBI_CACHE_HOME                         = "{{ env.CACHE_DIR }}/tombi"
 TY_UV                                    = "1"
-# Wheels uv builds from sdists record this checkout's Pixi library path, so the cache stays per checkout
 UV_CACHE_DIR                             = "{{ env.CACHE_DIR }}/uv"
 UV_PYTHON_PREFERENCE                     = "only-managed"
 VCPKG_BINARY_SOURCES                     = "clear;files,{{ env.CACHE_DIR }}/vcpkg/archives,readwrite"
@@ -78,11 +77,11 @@ X_VCPKG_REGISTRIES_CACHE                 = "{{ env.CACHE_DIR }}/vcpkg/registries
 
 # --- [DEPS] -----------------------------------------------------------------------------
 
-[deps.pnpm]
-
-[deps.uv]
-run     = "pixi run --locked uv sync --locked --all-packages"
-sources = ["pixi.lock", "pyproject.toml", "uv.lock"]
+[deps.blender]
+dir     = "libs/python/blender"
+outputs = [".venv/"]
+run     = "uv sync --locked --all-packages"
+sources = ["pyproject.toml", "uv.lock"]
 
 [deps.darkroom]
 dir     = "products/apps/blender/darkroom"
@@ -90,21 +89,27 @@ outputs = [".venv/"]
 run     = "uv sync --locked"
 sources = ["pyproject.toml", "uv.lock"]
 
-[deps.blender]
-dir     = "libs/python/blender"
-outputs = [".venv/"]
-run     = "uv sync --locked --all-packages"
-sources = ["pyproject.toml", "uv.lock"]
-
 [deps.msbuild-analyzer]
 dir     = "products/developer/nx/dotnet/analyzer"
 outputs = ["dist/"]
 run     = "dotnet publish MsbuildAnalyzer.csproj"
-sources = ["*.cs", "MsbuildAnalyzer.csproj", "packages.lock.json", "../../../../Directory.Build.props", "../../../../Directory.Build.targets", "../../../../Directory.Packages.props", "../../../../global.json", "../../../../NuGet.config"]
+sources = ["*.cs", "MsbuildAnalyzer.csproj", "packages.lock.json", "{{ config_root }}/Directory.Build.props", "{{ config_root }}/Directory.Build.targets", "{{ config_root }}/Directory.Packages.props", "{{ config_root }}/global.json", "{{ config_root }}/NuGet.config"]
+
+[deps.playwright]
+auto    = true
+depends = ["pnpm"]
+run     = "playwright install chromium"
+sources = ["pnpm-lock.yaml"]
+
+[deps.pnpm]
+
+[deps.uv]
+run     = "pixi run --locked uv sync --locked --all-packages"
+sources = ["pixi.lock", "pyproject.toml", "uv.lock"]
 
 # --- [HOOKS] ----------------------------------------------------------------------------
 
-[hooks.postinstall] # A Rust install means rust-toolchain.toml moved, so every build folder artifact is stale and the old toolchain is unpinned
+[hooks.postinstall]
 run         = '''printf %s "$MISE_INSTALLED_TOOLS" | jq -e 'any(.[]; .name == "rust")' >/dev/null || exit 0; cargo clean && mise prune --tools rust'''
 run_windows = '''echo %MISE_INSTALLED_TOOLS%| jq -e "any(.[]; .name == \"rust\")" >nul || exit /b 0 & cargo clean && mise prune --tools rust'''
 
@@ -112,7 +117,7 @@ run_windows = '''echo %MISE_INSTALLED_TOOLS%| jq -e "any(.[]; .name == \"rust\")
 
 [bootstrap.hooks]
 final      = "mise exec -- hk install"
-post-tools = "mise deps pnpm && mise deps msbuild-analyzer"
+post-tools = "mise deps install --only pnpm --only msbuild-analyzer"
 
 [bootstrap.remote]
 mise_env = ["linux"]
@@ -140,13 +145,18 @@ maven         = "https://repo1.maven.org/maven2"
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 
+[tool_alias]
+resvg = "github:linebender/resvg"
+usvg  = "github:linebender/resvg"
+
 [tools]
-cargo-nextest                                                                = "latest"
+"aqua:owenlamont/ryl"                                                        = "latest"
 "aqua:taiki-e/cargo-llvm-cov"                                                = "latest"
 ast-grep                                                                     = "latest"
 carapace                                                                     = "latest"
 cargo-deny                                                                   = "latest"
 cargo-insta                                                                  = "latest"
+cargo-nextest                                                                = "latest"
 "cargo:cargo-edit"                                                           = "latest"
 cmake                                                                        = "latest"
 colima                                                                       = { os = ["macos"], version = "latest" }
@@ -166,46 +176,44 @@ dotnet                                                                       = "
 duckdb                                                                       = "latest"
 editorconfig-checker                                                         = "latest"
 fd                                                                           = "latest"
+gcloud                                                                       = "latest"
 gh                                                                           = "latest"
 git-lfs                                                                      = "latest"
 "github:BlankSpruce/gersemi"                                                 = "latest"
 "github:docker/buildx"                                                       = { bin = "docker-buildx", os = ["unix"], postinstall = { run = "{{ vars.docker_plugin }}", when = "always" }, version = "latest" }
-"github:docker/mcp-gateway"                                                  = { bin = "docker-mcp", matching = "darwin-arm64", os = ["macos"], postinstall = { run = "{{ vars.docker_plugin }}", when = "always" }, version = "latest" }
 "github:fonttools/fontspector"                                               = { version = "latest", version_prefix = "fontspector-v" }
 "github:harehare/mq"                                                         = "latest"
-jscpd                                                                        = "latest"
-"github:linebender/resvg"                                                    = { matching = "usvg", version = "latest" }
-"github:MobileNativeFoundation/XCLogParser"                                  = { matching = "macOS-arm64", os = ["macos"], version = "latest" }
-"github:rudrankriyam/App-Store-Connect-CLI"                                  = { bin = "asc", matching = "macOS_arm64", os = ["macos"], version = "latest" }
+"github:Link-/gh-token"                                                      = { bin = "gh-token", version = "latest" }
+"github:rudrankriyam/App-Store-Connect-CLI"                                  = { bin = "asc", os = ["macos"], version = "latest" }
 "github:Samsung/netcoredbg"                                                  = "latest"
 "github:sbdchd/squawk"                                                       = "latest"
 "github:sparkle-project/Sparkle"                                             = { os = ["macos"], version = "latest" }
+"github:trailofbits/dylint"                                                  = { matching = "cargo-dylint-", os = ["unix"], version = "latest" }
 google-java-format                                                           = "latest"
-"github:trailofbits/dylint"                                                  = { matching = "cargo-dylint-", os = ["linux", "macos/arm64"], version = "latest" }
-hk                                                                           = "latest"
+hk                                                                           = { postinstall = { run = '''{% if os() != "windows" %}sd 'download/v[^/]+/hk@[^#]+#' "download/v$MISE_TOOL_VERSION/hk@$MISE_TOOL_VERSION#" "$MISE_CONFIG_ROOT/.config/hk.pkl"{% endif %}''', when = "always" }, version = "latest" }
 hyperfine                                                                    = "latest"
 imagemagick                                                                  = "latest"
 jactionlint                                                                  = "latest"
 java                                                                         = "latest"
 jq                                                                           = "latest"
+jscpd                                                                        = "latest"
 lima                                                                         = { os = ["macos"], version = "latest" }
 ninja                                                                        = "latest"
 node                                                                         = { postinstall = '''node -e "require('node:fs').rmSync(process.env.NODE_COMPILE_CACHE, { recursive: true, force: true })"''', version = "latest" }
 "npm:@aredotna/cli"                                                          = "latest"
 "npm:@bubblydoo/uxp-cli"                                                     = { allow_builds = ["@adobe-fixed-uxp/uxp-devtools-helper"], allow_low_downloads = true, os = ["macos", "windows"], version = "latest" }
-"npm:@modelcontextprotocol/conformance"                                      = "0.2.0-alpha.12"
+"npm:@modelcontextprotocol/conformance"                                      = "latest"
 "npm:@tavily/cli"                                                            = { allow_low_downloads = true, os = ["macos"], version = "latest" }
 "npm:ctx7"                                                                   = "latest"
-pitchfork                                                                    = { os = ["unix"], version = "latest" }
+pitchfork                                                                    = { os = ["macos"], version = "latest" }
 pixi                                                                         = "latest"
 pkl                                                                          = "latest"
 pnpm                                                                         = "latest"
 pulumi                                                                       = "latest"
+"pypi:check-jsonschema"                                                      = "latest"
 "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = "v1"
 "pypi:mcp-for-blender"                                                       = { os = ["macos"], version = "latest" }
-# PyYAML publishes no CPython 3.15 wheel, and mise lock builds no sdist into a dependency graph
-"pypi:yamllint"                                                              = { python = "3.14", version = "latest" }
-resvg                                                                        = { os = ["linux/x64", "macos/arm64"], version = "latest" }
+resvg                                                                        = "latest"
 ripgrep                                                                      = "latest"
 ruff                                                                         = "latest"
 sd                                                                           = "latest"
@@ -214,16 +222,10 @@ shfmt                                                                        = "
 swiftlint                                                                    = { os = ["macos"], version = "latest" }
 tombi                                                                        = "latest"
 tree-sitter                                                                  = "latest"
+usvg                                                                         = { matching = "usvg", version = "latest" }
 uv                                                                           = "latest"
-xcsift                                                                       = { os = ["macos"], version = "latest" }
 xh                                                                           = "latest"
 yq                                                                           = "latest"
-
-[tools."github:apple/pkl-vscode"]
-asset_pattern = "pkl-vscode-*.vsix"
-bin           = "pkl-vscode.vsix"
-format        = "raw"
-version       = "latest"
 
 [tools."github:docker/docker-credential-helpers"]
 bin      = "docker-credential-osxkeychain"
@@ -241,7 +243,7 @@ version_prefix   = "llvmorg-"
 [tools."github:microsoft/vcpkg-tool"]
 additional_asset_patterns = ["vcpkg-standalone-bundle.tar.gz"]
 bin                       = "vcpkg"
-postinstall               = { run = 'mkdir -p "$X_VCPKG_REGISTRIES_CACHE"', when = "always" }
+postinstall               = { run = '{% if os() != "windows" %}mkdir -p "$X_VCPKG_REGISTRIES_CACHE"{% endif %}', when = "always" }
 version                   = "latest"
 
 [tools."github:NationalSecurityAgency/ghidra"]
@@ -272,15 +274,6 @@ version          = "latest"
 version_list_url = "https://api.github.com/repos/blender/blender/tags"
 version_order    = "semver"
 
-[tools."http:docker-cli"]
-checksum_url     = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz.sha256'
-os               = ["unix"]
-url              = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz'
-version          = "latest"
-version_list_url = "https://download.docker.com/mac/static/test/aarch64/"
-version_order    = "semver"
-version_regex    = 'href="docker-cli_([^"]+)\.tgz"'
-
 [tools."http:dataflow-errorprone"]
 bin              = "dataflow-errorprone.jar"
 format           = "raw"
@@ -296,6 +289,15 @@ url              = "{{ vars.maven }}/org/checkerframework/dataflow-nullaway/{{ v
 version          = "latest"
 version_list_url = "{{ vars.maven }}/org/checkerframework/dataflow-nullaway/maven-metadata.xml"
 version_regex    = "<version>([^<]+)</version>"
+
+[tools."http:docker-cli"]
+checksum_url     = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz.sha256'
+os               = ["unix"]
+url              = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz'
+version          = "latest"
+version_list_url = "https://download.docker.com/mac/static/test/aarch64/"
+version_order    = "semver"
+version_regex    = 'href="docker-cli_([^"]+)\.tgz"'
 
 [tools."http:error-prone"]
 bin              = "error-prone.jar"
@@ -322,6 +324,7 @@ version_list_url = "{{ vars.maven }}/com/uber/nullaway/nullaway/maven-metadata.x
 version_regex    = "<version>([^<]+)</version>"
 
 [tools."http:rustc-source"]
+lazy             = true
 os               = ["unix"]
 postinstall      = { run = 'rm -rf "$MISE_TOOL_INSTALL_PATH/src/llvm-project" && ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/.cargo/rustc-source"', when = "always" }
 strip_components = 1

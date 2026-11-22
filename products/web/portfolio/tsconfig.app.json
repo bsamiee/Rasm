@@ -2,8 +2,6 @@
     "extends": "./tsconfig.json",
     "compilerOptions": {
         "composite": false,
-        "declarationMap": false,
-        "noEmit": true,
         "lib": ["esnext", "dom"],
         "types": ["vite/client"]
     },
@@ -11,9 +9,6 @@
     "references": [
         {
             "path": "../../../libs/typescript/web/ui/tsconfig.lib.json"
-        },
-        {
-            "path": "../../../libs/typescript/runtime/telemetry"
         },
         {
             "path": "../../../libs/typescript/data/object-storage/tsconfig.lib.json"
@@ -25,13 +20,15 @@
             "path": "../../../libs/typescript/web/hosting/tsconfig.lib.json"
         },
         {
-            "path": "../../../libs/typescript/data/database"
+            "path": "../../../libs/typescript/web/vite"
         },
         {
             "path": "../../../tests/support/typescript"
-        },
-        {
-            "path": "../../../libs/typescript/graphics/mark"
         }
-    ]
+    ],
+    "nx": {
+        "sync": {
+            "ignoredDependencies": ["@rasm/database"]
+        }
+    }
 }

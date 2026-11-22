@@ -14,7 +14,6 @@
             "plugin": "@rasm/nx-distribution",
             "options": {
                 "outputPath": ".artifacts/distribution/{projectName}",
-                "taskResultsPath": ".artifacts/nx/runs",
                 "remoteCacheTimeout": "5 seconds"
             }
         },
@@ -61,7 +60,6 @@
             "options": {
                 "compilerPackages": ["@typescript/native", "@effect/tsgo"],
                 "knipConfig": ".config/knip.json",
-                "noEmit": ["tests/!(support)/**"],
                 "outputPath": ".artifacts/pnpm/{projectName}"
             }
         },
@@ -94,7 +92,8 @@
     "targetDefaults": {
         "{deploy,dry-run}--pulumi": {
             "configurations": {
-                "release": { "args": "--production" }
+                "release": { "args": "--production" },
+                "converged": { "args": "--expect-no-changes" }
             }
         },
         "@nx/js:release-publish": {
@@ -104,7 +103,7 @@
             "options": {
                 "publish": ["pnpm", "publish", "--no-git-checks"],
                 "preview": ["--dry-run"],
-                "credential": "NODE_AUTH_TOKEN"
+                "credential": ["ACTIONS_ID_TOKEN_REQUEST_URL", "NODE_AUTH_TOKEN"]
             }
         },
         "@rasm/nx-typescript:upgrade": {
@@ -151,6 +150,7 @@
                         "CARGO_REGISTRY_TOKEN",
                         "YAK_TOKEN",
                         "BLENDER_EXTENSIONS_TOKEN",
+                        "CHROME_WEB_STORE_TOKEN",
                         "SPARKLE_ED_PRIVATE_KEY",
                         "ASC_API_KEY_P8",
                         "APPLE_DEVELOPMENT_P12",

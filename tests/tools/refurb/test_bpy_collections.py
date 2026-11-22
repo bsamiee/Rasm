@@ -1,9 +1,8 @@
-"""Type tests against RNA collection structs."""
+"""RASM105: type tests against RNA collection structs, which no `bpy_prop_collection` value matches."""
 
-from pathlib import Path
+from collections.abc import Callable
 from sys import getrecursionlimit
 from textwrap import dedent
-lazy from collections.abc import Callable, Mapping
 
 from mypy.nodes import ARG_POS, Block, CallExpr, ClassDef, Expression, NameExpr, OpExpr, SymbolTable, TupleExpr, TypeInfo
 import pytest
@@ -11,70 +10,75 @@ lazy from refurb.error import Error
 
 from rasm.refurb.bpy_collections import check, ErrorCollectionTypeTestError
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Findings = Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 CASES = frozendict(
-    collection_struct_reports_and_owner_passes=(
-        dedent("""
-            import bpy
+    collection_instance=dedent("""\
+        import bpy
 
-            def collection(stack: object, before: int, index: int) -> None:
-                if isinstance(stack, bpy.types.ObjectModifiers):
-                    stack.move(before, index)
+        def moved(stack: object, before: int, index: int) -> None:
+            if isinstance(stack, bpy.types.ObjectModifiers):
+                stack.move(before, index)
+    """),
+    owner_instance=dedent("""\
+        import bpy
 
-            def owner(item: object, before: int, index: int) -> None:
-                if isinstance(item, bpy.types.Object):
-                    item.modifiers.move(before, index)
-        """),
-        (5,),
-    ),
-    nested_tuples_unions_aliases_and_class_patterns_report=(
-        dedent("""
-            import bpy
+        def moved(item: object, before: int, index: int) -> None:
+            if isinstance(item, bpy.types.Object):
+                item.modifiers.move(before, index)
+    """),
+    nested_tuple_and_union=dedent("""\
+        import bpy
 
-            Modifiers = bpy.types.ObjectModifiers
-            Stack = Modifiers
+        def tested(item: object) -> bool:
+            return isinstance(item, (bpy.types.Object, (bpy.types.ObjectModifiers, bpy.types.ObjectModifiers | bpy.types.Object)))
+    """),
+    collection_subclass=dedent("""\
+        import bpy
 
-            def moved(item: object) -> None:
-                if isinstance(item, (bpy.types.Object, (Stack, bpy.types.ObjectModifiers | bpy.types.Object))):
-                    pass
-                if issubclass(type(item), Modifiers):
-                    pass
+        def tested(item: object) -> bool:
+            return issubclass(type(item), bpy.types.ObjectModifiers)
+    """),
+    class_pattern=dedent("""\
+        import bpy
 
-            def matched(item: Modifiers) -> None:
-                match item:
-                    case Stack():
-                        pass
+        def matched(item: object) -> bool:
+            match item:
+                case bpy.types.ObjectModifiers():
+                    return True
+                case _:
+                    return False
+    """),
+    aliases=dedent("""\
+        import bpy
 
-            Kinds = Stack | object
+        Stack = bpy.types.ObjectModifiers
+        Kinds = Stack | object
 
-            def union(item: object) -> bool:
-                return isinstance(item, Kinds)
-        """),
-        (8, 8, 10, 15, 21),
-    ),
+        def tested(item: object) -> tuple[bool, bool]:
+            return isinstance(item, Stack), isinstance(item, Kinds)
+    """),
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("rule", [ErrorCollectionTypeTestError], scope="module")
 @pytest.mark.parametrize("findings", ["3.13"], indirect=True)
-@pytest.mark.parametrize("case", tuple(CASES))
-def test_collection_types_report_file_local_diagnostics(case: str, diagnostics: frozendict[str, tuple[Error, ...]]) -> None:
-    """Reports each type test naming the collection struct and keeps owner type tests outside each case's exact findings."""
-    assert tuple(error.line for error in diagnostics[case]) == CASES[case][1]
-    assert all(error.msg.startswith("`bpy.types.ObjectModifiers` ") for error in diagnostics[case])
+@pytest.mark.parametrize(
+    "case, lines", [("collection_instance", [4]), ("owner_instance", []), ("nested_tuple_and_union", [4, 4]), ("collection_subclass", [4]), ("class_pattern", [5]), ("aliases", [7, 7])]
+)
+def test_a_type_test_naming_a_collection_struct_reports(findings: frozendict[str, tuple[Error, ...]], case: str, lines: list[int]) -> None:
+    """`isinstance`, `issubclass`, and class patterns naming the struct report through tuples, unions, and aliases, and a test of the owner passes."""
+    assert [error.line for error in findings[case]] == lines
+    assert all(error.msg.startswith("`bpy.types.ObjectModifiers` ") for error in findings[case])
 
 
 @pytest.mark.parametrize(
     "combined", [pytest.param(lambda left, right: TupleExpr([left, right]), id=TupleExpr.__name__), pytest.param(lambda left, right: OpExpr("|", left, right), id=OpExpr.__name__)]
 )
-def test_deep_collection_types_report(combined: Callable[[Expression, Expression], Expression]) -> None:
-    """Collection references beyond Python's recursion limit retain every diagnostic."""
+def test_collection_references_past_the_recursion_limit_each_report(combined: Callable[[Expression, Expression], Expression]) -> None:
+    """A type test nesting the struct twice Python's recursion limit deep reports every reference."""
     declarations = [ClassDef(name, Block([])) for name in ("ObjectModifiers", "bpy_prop_collection", "bpy_struct")]
     for declaration in declarations:
         declaration.fullname = f"bpy.types.{declaration.name}"
@@ -91,13 +95,3 @@ def test_deep_collection_types_report(combined: Callable[[Expression, Expression
     errors: list[Error] = []
     check(CallExpr(callee, [NameExpr("item"), tested], [ARG_POS, ARG_POS], []), errors)
     assert len(errors) == depth + 1
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-
-@pytest.fixture(scope="module")
-def diagnostics(findings: Findings) -> frozendict[str, tuple[Error, ...]]:
-    """Compiles every collection example in one build over the Blender stubs and indexes diagnostics by source module."""
-    found = findings({case: source for case, (source, _) in CASES.items()}, ErrorCollectionTypeTestError)
-    return frozendict({case: tuple(error for error in found if error.filename is not None and Path(error.filename).stem == case) for case in CASES})

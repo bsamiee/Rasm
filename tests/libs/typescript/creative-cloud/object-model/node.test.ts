@@ -14,7 +14,7 @@ const read = (name: string, texts: readonly [string, ...string[]]) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('omv', () => {
+describe(omv, () => {
     const core = `<dictionary><package>
 <classdef name="File" dynamic="true">
     <elements type="constructor"><method name="File"><parameters><parameter name="path" optional="true"><datatype><type>String</type></datatype></parameter></parameters></method></elements>
@@ -31,22 +31,22 @@ describe('omv', () => {
 <classdef name="Layer" dynamic="true"><elements type="instance"><property name="name"><datatype><type>String</type></datatype></property></elements></classdef>
 </package></dictionary>`;
 
-    it('should read a class with a constructor group as constructible, list no constructor among its methods, and join the datatypes a parameter states', async () => {
+    it('reads a class with a constructor group as constructible, lists no constructor among its methods, and joins the datatypes a parameter states', async () => {
         await expect(read('File', [core])).resolves.toStrictEqual({ constructible: true, fields: ['length'], methods: [['write', 'String | Number[]']] });
     });
 
-    it('should read a class without a constructor group as not constructible in a file that states constructors', async () => {
+    it('reads a class without a constructor group as not constructible in a file that states constructors', async () => {
         await expect(read('Math', [core])).resolves.toStrictEqual({ constructible: false, fields: ['PI'], methods: [] });
     });
 
     it.each([
         ['Point', true],
         ['Layer', false],
-    ] as const)('should read %s as constructible %s by its instance group in a file that states no constructor', async (name, constructible) => {
+    ] as const)('reads %s as constructible %s by its instance group in a file that states no constructor', async (name, constructible) => {
         await expect(read(name, [host])).resolves.toMatchObject({ constructible });
     });
 
-    it('should take a class two files declare from the later file and index the classes of both', async () => {
+    it('takes a class two files declare from the later file and index the classes of both', async () => {
         const index = await Effect.runPromise(Effect.map(omv([core, host]), (catalog) => catalog.index.classes));
         await expect(read('Point', [core, host])).resolves.toStrictEqual({ constructible: true, fields: ['anchor'], methods: [] });
         expect(index).toStrictEqual(['File', 'Layer', 'Math', 'Point']);

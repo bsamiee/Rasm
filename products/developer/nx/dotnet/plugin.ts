@@ -6,7 +6,7 @@ import { aggregated, fingerprinted, manifested, spawned } from '@rasm/nx-distrib
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, targets } from '#/targets';
+import { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, targets } from '#/targets.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,6 +24,7 @@ const TAGS = { release: 'release', platform: 'os:' } as const;
 
 const Report = Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String) });
 const Reported = Schema.fromJsonString(Report);
+const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 const Options = Schema.Struct({
     coveragePath: Schema.optionalKey(Schema.String),
 }).annotate({
@@ -38,7 +39,8 @@ const external = ({ id, version }: Node['packages'][number]) => `nuget:${id}@${v
 const own = fingerprinted(import.meta.dirname);
 
 const stamped = Effect.fnUntraced(function* (workspaceRoot: string, { evaluated, nodes }: Report) {
-    const [tracked, sdk] = yield* Effect.all([Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...evaluated, ...nodes.flatMap(({ locks }) => locks)])), spawned(SDK, { cwd: workspaceRoot })], { concurrency: 'unbounded' });
+    const read = Array.match([...evaluated, ...nodes.flatMap(({ locks }) => locks)], { onEmpty: () => Effect.succeed(hashArray([])), onNonEmpty: (globs) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, globs)) });
+    const [tracked, sdk] = yield* Effect.all([read, spawned(SDK, { cwd: workspaceRoot })], { concurrency: 'unbounded' });
     const files = Array.dedupe([ANALYZER, ...nodes.flatMap(({ restored }) => restored.map((at) => join(workspaceRoot, at))), ...nodes.flatMap(({ external: held }) => held)]);
     return hashArray([tracked, sdk, ...files.flatMap((file) => [relative(workspaceRoot, file), ...Array.fromNullishOr(hashFile(file))])]);
 });
@@ -108,7 +110,7 @@ const projected = (nodes: readonly Node[], settings: typeof Options.Type, manife
     });
 };
 
-const inferred = Effect.fnUntraced(function* (matched: readonly string[], options: typeof Options.Encoded | undefined, { workspaceRoot }: CreateNodesContext) {
+const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArray<string>, options: typeof Options.Encoded | undefined, { workspaceRoot }: CreateNodesContext) {
     const [fs, edges, settings, hashed] = yield* Effect.all([FileSystem.FileSystem, Edges, Schema.decodeEffect(Options)(options ?? {}), own]);
     const slot = join(workspaceDataDirectory, 'dotnet.hash');
     const key = hashArray([hashObject(settings), hashed, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched]))]);
@@ -133,7 +135,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
     const solutions = yield* Effect.forEach(
         matched.filter((file) => SOLUTIONS.includes(extname(file))),
         (file) =>
-            Effect.map(Effect.all([fs.exists(join(workspaceRoot, dirname(file), 'package.json')), manifested(workspaceRoot, dirname(file))]), ([named, manifest]): [string, CreateNodesResult] => {
+            Effect.map(Effect.all([Effect.option(Effect.flatMap(fs.readFileString(join(workspaceRoot, dirname(file), 'package.json')), Schema.decodeEffect(Manifest))), manifested(workspaceRoot, dirname(file))]), ([named, manifest]): [string, CreateNodesResult] => {
                 const moved = [...launched(relative(join(workspaceRoot, dirname(file)), ANALYZER)), 'upgrade', basename(file)] as const;
                 const cleared = ['dotnet', 'nuget', 'locals', 'global-packages', '--clear'] as const;
                 const locked = ['dotnet', 'restore', basename(file), '--force-evaluate'] as const;
@@ -147,7 +149,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
                         help: { command: 'dotnet restore --help', example: { options: { dryRun: true } } },
                     },
                 };
-                return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(named ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: aggregated({ upgrade: { dotnet: upgrade } }, manifest, 'dotnet') } } }];
+                return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(Option.isSome(named) ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: aggregated({ upgrade: { dotnet: upgrade } }, manifest, 'dotnet') } } }];
             }),
     );
     const results = [
@@ -165,7 +167,20 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = [FILES, (matched, options, context) => run(inferred(matched, options, context))];
+const createNodes: CreateNodes<typeof Options.Encoded> = [
+    FILES,
+    (matched, options, context) =>
+        run(
+            Array.match(matched, {
+                onEmpty: () =>
+                    Effect.as(
+                        Effect.flatMap(Edges, (edges) => Ref.set(edges, [])),
+                        [],
+                    ),
+                onNonEmpty: (files) => inferred(files, options, context),
+            }),
+        ),
+];
 
 const createDependencies: CreateDependencies = (_, { projects, externalNodes = {} }) =>
     run(

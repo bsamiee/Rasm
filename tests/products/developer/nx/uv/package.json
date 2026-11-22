@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-uv",
     "private": true,
-    "description": "@rasm/nx-uv suite: Nx's own Gradle, Maven, .NET, and @nx/js release specs ported to uv workspaces in temporary folders, each graph read by uv workspace metadata and each version moved in pyproject.toml",
+    "description": "@rasm/nx-uv suites: Nx project graphs of uv workspaces in temporary folders, uv runs of the inferred targets, and release version actions over pyproject.toml",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",
@@ -9,7 +9,6 @@
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
-        "minimatch": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
     }

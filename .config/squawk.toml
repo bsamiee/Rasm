@@ -1,19 +1,11 @@
 # --- [SQUAWK] ---------------------------------------------------------------------------
 
-excluded_rules = [
-    "adding-field-with-default",
+excluded_rules = [          # Schema reconciliation drops and retypes what owning types retire
     "ban-drop-column",
     "ban-drop-constraint",
     "ban-drop-default",
     "ban-drop-not-null",
     "ban-drop-table",
     "changing-column-type",
-    "prefer-identity",
-    "prefer-robust-stmts",
-    "prefer-timestamp-tz",
-    "renaming-column",
-    "renaming-object",
-    "renaming-table",
-    "require-statement-timeout",
 ]
 pg_version     = "19.0"

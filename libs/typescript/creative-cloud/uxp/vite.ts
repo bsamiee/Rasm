@@ -4,11 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { paint } from '@rasm/mark';
 import { HostError } from '@rasm/object-model';
+import { checks } from '@rasm/vite';
 import { formatHex } from 'culori/fn';
-import { Array, Effect, FileSystem, Option, Record, Schema, SemVer, String } from 'effect';
+import { Array, Effect, FileSystem, Record, Schema, SemVer, String, UndefinedOr } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { defaultClientConditions, defaultServerConditions, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { HOSTS, UxpManifest } from '#/manifest';
+import { HOSTS, THEMES, UxpManifest } from '#/manifest.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -18,27 +19,22 @@ type Icon = NonNullable<UxpManifest['icons']>[number];
 
 const HOSTED = /^adobe:/u;
 const RASTER = /\.png$/u;
-const MARKS = fileURLToPath(new URL('../../../../products/apps/creative-cloud/multi-app/atelier/icons/', import.meta.url));
+const GLYPH = 16;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Composed = Schema.fromJsonString(Schema.Struct({ groups: Schema.NonEmptyArray(Schema.Struct({ layers: Schema.NonEmptyArray(Schema.Struct({ 'image-name': Schema.String })) })) })).annotate({ description: 'Icon Composer document by the image of its first layer' });
+const Painted = Schema.NonEmptyArray(UxpManifest.Theme)
+    .check(Schema.makeFilter((themes) => Array.dedupe(Array.map(themes, (theme) => THEMES[theme])).length === 1 || `themes of one tone, received ${themes.join(', ')}`))
+    .annotate({ description: 'Themes of one tone, the fill a painted icon takes' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const emitted = Effect.fnUntraced(function* (directory: string, { width, path, scale = [1], theme = [] }: Icon, master: Option.Option<string>) {
-    const files = path.endsWith('.png') ? Array.map(scale, (factor) => ({ fileName: path.replace(RASTER, `@${factor}x.png`), width: Option.some(width * factor) })) : [{ fileName: path, width: Option.none<number>() }];
-    const fs = yield* FileSystem.FileSystem;
-    const painting = yield* Effect.transposeOption(
-        Option.map(master, (painted) =>
-            Array.head(theme).pipe(
-                Effect.fromOption(() => HostError.refused(`Icon ${path}`)(`states no theme, painted fills exist for ${Record.keys(UxpManifest.fills).join(', ')}`)),
-                Effect.filterOrFail(Schema.is(UxpManifest.Theme), () => HostError.refused(`Icon ${path}`)('states theme all, painted fills exist per theme')),
-                Effect.map((tone) => [painted, { color: formatHex(UxpManifest.fills[tone]), opacity: UxpManifest.fills[tone].alpha }] as const),
-            ),
-        ),
-    );
-    return yield* Effect.forEach(files, ({ fileName, width: sized }) => Effect.map(Option.match(painting, { onNone: () => fs.readFile(join(directory, fileName)), onSome: ([painted, fill]) => paint(painted, fill, ...Option.toArray(sized)) }), (source) => ({ fileName, source })), { concurrency: 'unbounded' });
+const emitted = Effect.fnUntraced(function* (app: UxpManifest['host']['app'], drawing: string, { width, path, scale = [1], theme = [] }: Icon, padding?: number) {
+    const [first] = yield* Effect.mapError(Schema.decodeUnknownEffect(Painted)(theme), HostError.refused(`Icon ${path}`));
+    const fill = UxpManifest.fills[app][first];
+    const style = `svg { color: ${formatHex(fill)}; opacity: ${fill.alpha ?? 1}; }`;
+    const files = path.endsWith('.png') ? Array.map(scale, (factor) => ({ fileName: path.replace(RASTER, `@${factor}x.png`), frame: { width: width * factor, padding: UndefinedOr.map(padding, (margin) => margin * factor) } })) : [{ fileName: path, frame: undefined }];
+    return yield* Effect.forEach(files, ({ fileName, frame }) => Effect.map(paint([drawing], style, frame), (source) => ({ fileName, source })), { concurrency: 'unbounded' });
 });
 const pluginBundle = (directory: string, exported: readonly string[], config: UserConfig): UserConfig => {
     const encoding = fileURLToPath(import.meta.resolve('@exodus/bytes/encoding-lite.js'));
@@ -61,6 +57,7 @@ const pluginBundle = (directory: string, exported: readonly string[], config: Us
             },
             environments: { ssr: { resolve: { noExternal: true, builtins: [HOSTED], conditions: Array.intersection(defaultServerConditions, defaultClientConditions) } } },
             plugins: [
+                checks(),
                 {
                     name: 'hosted',
                     enforce: 'pre',
@@ -76,21 +73,21 @@ const pluginBundle = (directory: string, exported: readonly string[], config: Us
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const uxp = (directory: string, config: UserConfig = {}): UserConfigFnPromise =>
+const uxp = (directory: string, mark: string, config: UserConfig = {}): UserConfigFnPromise =>
     Effect.fnUntraced(
         function* () {
             const fs = yield* FileSystem.FileSystem;
-            const [source, composed] = yield* Effect.all([fs.readFileString(join(directory, UxpManifest.file)), Effect.flatMap(fs.readFileString(join(MARKS, 'AppIcon.icon', 'icon.json')), Schema.decodeEffect(Composed))]);
+            const source = yield* fs.readFileString(join(directory, UxpManifest.file));
             const manifest = yield* Schema.decodeEffect(UxpManifest.json)(source);
-            const plugin = join(MARKS, 'AppIcon.icon', 'Assets', composed.groups[0].layers[0]['image-name']);
-            const marks = new Set(yield* fs.readDirectory(MARKS));
-            const marked = (panel: string) => Option.liftPredicate(join(MARKS, `${panel}.svg`), () => marks.has(`${panel}.svg`));
             const [context, lite] = yield* Effect.all([Effect.context<Effect.Services<ReturnType<typeof emitted>>>(), Effect.promise(() => import('@exodus/bytes/encoding-lite.js'))]);
             const domains = manifest.requiredPermissions.network?.domains ?? [];
             const formatting = { formattingOptions: { insertSpaces: true, tabSize: 4 } };
             const floored = applyEdits(source, modify(source, ['host', 'minVersion'], SemVer.format(HOSTS[manifest.host.app].since), formatting));
             const permitted = domains === 'all' ? floored : applyEdits(floored, modify(floored, ['requiredPermissions', 'network', 'domains'], Array.dedupe([...domains, UxpManifest.link.origin]), formatting));
-            const icons = [...Array.map(manifest.icons ?? [], (icon) => [icon, Option.some(plugin)] as const), ...manifest.entrypoints.flatMap((entry) => (entry.type === 'panel' ? Array.map(entry.icons ?? [], (icon) => [icon, marked(entry.id)] as const) : []))];
+            const icons = [
+                ...Array.map(manifest.icons ?? [], (icon) => emitted(manifest.host.app, mark, icon, (icon.width - GLYPH) / 2)),
+                ...manifest.entrypoints.flatMap((entry) => (entry.type === 'panel' ? Array.map(entry.icons ?? [], (icon) => emitted(manifest.host.app, join(directory, 'icons', `${entry.id}.svg`), icon)) : [])),
+            ];
             return pluginBundle(
                 directory,
                 Object.keys(lite),
@@ -100,7 +97,7 @@ const uxp = (directory: string, config: UserConfig = {}): UserConfigFnPromise =>
                             {
                                 name: 'manifest',
                                 generateBundle(this: Rolldown.PluginContext): Promise<void> {
-                                    return Effect.forEach(icons, ([icon, master]) => emitted(directory, icon, master), { concurrency: 'unbounded' }).pipe(
+                                    return Effect.all(icons, { concurrency: 'unbounded' }).pipe(
                                         Effect.map((files) => [{ fileName: UxpManifest.file, source: permitted }, ...files.flat()]),
                                         Effect.flatMap(Effect.forEach((file) => Effect.sync(() => this.emitFile({ type: 'asset', ...file })))),
                                         Effect.asVoid,

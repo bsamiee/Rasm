@@ -2,12 +2,12 @@ import { Array, Effect, Option, type Predicate, Record, Result, String, Struct }
 import { RateLimiter } from 'effect/persistence';
 import { CommandLine } from 'effect/process';
 import type { RedirOperator } from 'sh-syntax/sync';
-import { Host, type HostError } from '#/host';
-import { type Request, Verdict } from '#/rules/decision';
-import type { Argument } from '#/shell/arguments';
-import type { Analysis, Invocation, Parser } from '#/shell/invocation';
-import type { Program } from '#/shell/programs';
-import type { Span, Word } from '#/shell/script';
+import type { Host, HostError } from '#/host.ts';
+import { type Request, Verdict } from '#/rules/decision.ts';
+import type { Argument } from '#/shell/arguments.ts';
+import type { Analysis, Invocation, Parser } from '#/shell/invocation.ts';
+import type { Program } from '#/shell/programs.ts';
+import type { Span, Word } from '#/shell/script.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -130,8 +130,8 @@ const cut = (invocation: Invocation, parts: Array.NonEmptyReadonlyArray<Span>, b
 // --- [RULES]
 
 const once = Effect.fnUntraced(function* ({ session, agent }: Pick<typeof Request.Type, 'session' | 'agent'>, subject: string) {
-    const [host, limiter] = yield* Effect.all([Host, RateLimiter.RateLimiter]);
-    return yield* Effect.isSuccess(limiter.consume({ key: `${session ?? host.parent} ${agent ?? 'main'} ${subject}`, limit: 1, window: '10 minutes', algorithm: 'fixed-window', onExceeded: 'fail' }));
+    const limiter = yield* RateLimiter.RateLimiter;
+    return yield* Effect.isSuccess(limiter.consume({ key: `${session} ${agent ?? 'main'} ${subject}`, limit: 1, window: '10 minutes', algorithm: 'fixed-window', onExceeded: 'fail' }));
 });
 
 const settled = (verdicts: ReturnType<Rule>) => (Effect.isEffect(verdicts) ? verdicts : Effect.succeed(verdicts));

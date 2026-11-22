@@ -1,16 +1,15 @@
-use core::time::Duration;
-
 use claims::{assert_ok, assert_some};
 use rasm_mcp_tests::{Id, Recorder, Seen, everything, paired, wired};
 use rmcp::model::{CallToolRequest, CallToolRequestParams, ClientRequest, NumberOrString, ProgressToken, ProtocolVersion, RequestMetaObject};
 use rmcp::service::{ClientLifecycleMode, PeerRequestOptions};
 use serde_json::Number;
-use tokio::time;
+
+use crate::seen;
 
 // --- [ROUTING]
 
 #[tokio::test]
-async fn progress_subscriber() {
+async fn progress_reaches_the_request_that_set_its_token_in_order() {
     let (shared, _app) = assert_ok!(everything().await);
     let (recorder, mut events) = Recorder::new(ProtocolVersion::V_2025_11_25);
     let (running, _serving) = assert_ok!(paired(shared.connection(), recorder, ClientLifecycleMode::Initialize).await);
@@ -21,9 +20,7 @@ async fn progress_subscriber() {
     let handle = assert_ok!(running.peer().send_cancellable_request(request, PeerRequestOptions::no_options().with_meta(meta)).await);
     let sent = handle.progress_token.clone();
     assert_ok!(handle.await_response().await);
-    time::sleep(Duration::from_millis(200)).await;
-    let mut arrived = Vec::new();
-    assert_ok!(time::timeout(Duration::from_secs(5), events.recv_many(&mut arrived, 16)).await, "progress reaches the caller");
+    let arrived = [seen(&mut events).await, seen(&mut events).await, seen(&mut events).await];
     let reported = Vec::from_iter(arrived.into_iter().filter_map(|seen| match seen {
         Seen::Progress(progress) => Some((progress.progress_token, progress.progress, progress.total)),
         Seen::Logged(_) | Seen::Updated(_) | Seen::Cancelled(_) | Seen::Elicited(_) | Seen::Sampled(_) | Seen::ToolsChanged | Seen::PromptsChanged | Seen::ResourcesChanged => None,

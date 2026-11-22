@@ -29,13 +29,13 @@ public sealed class TempWorkspace : IDisposable {
         return this;
     }
 
-    // --- [ANALYSIS]
-
     public string Located(string path) => Path.Combine(root.FullName, path);
 
     public string Read(string path) => File.ReadAllText(Located(path));
 
-    public JsonElement Analyze(params ReadOnlySpan<string> files) => JsonElement.Parse(Run(string.Join('\n', files.ToArray()), root.FullName));
+    // --- [ANALYSIS]
+
+    public JsonElement Analyze(params ReadOnlySpan<string> files) => JsonElement.Parse(Run(string.Join('\n', files), root.FullName));
 
     public static string Run(string input, params ReadOnlySpan<string> arguments) {
         using Process process = new() { StartInfo = new ProcessStartInfo("dotnet") { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true } };
@@ -50,12 +50,31 @@ public sealed class TempWorkspace : IDisposable {
         return stdout;
     }
 
-    public JsonElement Node(string project) =>
-        Assert.Single(Analyze(project).GetProperty("nodes").EnumerateArray(), node => node.GetProperty("file").ValueEquals(project));
-
     // --- [LIFECYCLE]
 
     public void Dispose() => root.Delete(recursive: true);
+}
+
+public abstract class Analyzed : IDisposable {
+    private readonly TempWorkspace workspace = new();
+
+    protected Analyzed(params ReadOnlySpan<(string Path, string Text)> files) {
+        foreach ((string path, string text) in files) workspace.Write(path, text);
+        Report = workspace.Analyze([.. files.ToArray().Select(static file => file.Path)]);
+    }
+
+    public JsonElement Report { get; }
+
+    public JsonElement Node(string file) => Assert.Single(Report.GetProperty("nodes").EnumerateArray(), node => node.GetProperty("file").ValueEquals(file));
+
+    public void Dispose() {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing) {
+        if (disposing) workspace.Dispose();
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -64,5 +83,8 @@ public static class Reported {
     extension(JsonElement element) {
         public string?[] Strings(params ReadOnlySpan<string> path) =>
             [.. path.ToArray().Aggregate(element, static (held, name) => held.GetProperty(name)).EnumerateArray().Select(static item => item.GetString())];
+
+        public JsonElement Mode(string configuration) =>
+            Assert.Single(element.GetProperty("declared").EnumerateArray(), mode => mode.GetProperty("configuration").ValueEquals(configuration));
     }
 }

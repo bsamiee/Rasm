@@ -1,5 +1,3 @@
-#![expect(deprecated, reason = "the legacy revisions keep resources/subscribe, which SEP-2577 deprecates")]
-
 use core::time::Duration;
 
 use claims::{assert_ok, assert_some};

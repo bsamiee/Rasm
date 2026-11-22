@@ -1,13 +1,13 @@
 import { Array, Function, flow, Match, Number, Option, Order, Predicate, pipe, Record, Struct } from 'effect';
 import { Feature } from 'harfbuzzjs';
 import type { JoiningGroup } from 'icu';
-import { Elongation } from '#/arabic/elongation';
-import { joiningGroups, joins } from '#/arabic/joining';
-import type { Face } from '#/shaping/face';
-import { Profile } from '#/shaping/internal/profile';
-import type { Measured } from '#/shaping/justification';
-import type { ShapedText } from '#/shaping/shaped-text';
-import { Span, words } from '#/shaping/word';
+import { Elongation } from '#/arabic/elongation.ts';
+import { joiningGroups, joins } from '#/arabic/joining.ts';
+import type { Face } from '#/shaping/face.ts';
+import { Profile } from '#/shaping/internal/profile.ts';
+import type { Measured } from '#/shaping/justification.ts';
+import type { ShapedText } from '#/shaping/shaped-text.ts';
+import { Span, words } from '#/shaping/word.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -1,6 +1,4 @@
-"""Output lines of a child relayed as log records by `telemetry.relayed`, copied from the output cases of `ProcmonTests` in twisted `src/twisted/runner/test/test_procmon.py` (commit 72fdbe3)."""
-
-from collections import deque
+"""Output lines of another program relayed as records through a handler by `telemetry.relayed`."""
 
 import pytest
 
@@ -9,35 +7,16 @@ from rasm.telemetry import relayed
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def test_output_received_complete_line(caplog: pytest.LogCaptureFixture) -> None:
-    """Getting a complete output line generates a log message (`test_procmon.py:398-423`)."""
-    events = caplog.handler.records
-    deque(relayed(iter([b"hello world!\n"]), caplog.handler, "foo"), maxlen=0)
-    assert len(events) == 1
-    tag = events[0].name
-    line = events[0].getMessage()
-    assert tag == "foo"
-    assert line == "hello world!"
+def test_each_nonblank_line_is_one_info_record_under_the_scope(caplog: pytest.LogCaptureFixture) -> None:
+    """Lines lose trailing space and keep leading space, blank lines are left out, a line that is no UTF-8 is its bytes' `repr`, and each yielded line is the message of one `INFO` record under the scope."""
+    output = [b"  indented frame 1 \r\n", b"\n", b" \t\n", b"\xffraw\n", b"last"]
+    yielded = list(relayed(iter(output), caplog.handler, "blender.child"))
+    assert yielded == ["  indented frame 1", "b'\\xffraw'", "last"]
+    assert [(record.name, record.levelname, record.getMessage()) for record in caplog.records] == [("blender.child", "INFO", text) for text in yielded]
 
 
-def test_output_received_complete_line_invalid_utf8(caplog: pytest.LogCaptureFixture) -> None:
-    """Getting invalid UTF-8 results in the repr of the raw message (`test_procmon.py:452-478`)."""
-    events = caplog.handler.records
-    deque(relayed(iter([b"\xffhello world!\n"]), caplog.handler, "foo"), maxlen=0)
-    assert len(events) == 1
-    message = events[0]
-    tag = message.name
-    output = message.getMessage()
-    assert tag == "foo"
-    assert output == "b'\\xffhello world!'"
-
-
-def test_output_received_partial_line(caplog: pytest.LogCaptureFixture) -> None:
-    """Getting a partial line results in one event once the output ends (`test_procmon.py:480-507`)."""
-    events = caplog.handler.records
-    deque(relayed(iter([b"hello world!"]), caplog.handler, "foo"), maxlen=0)
-    assert len(events) == 1
-    tag = events[0].name
-    line = events[0].getMessage()
-    assert tag == "foo"
-    assert line == "hello world!"
+def test_records_are_written_as_the_lines_are_consumed(caplog: pytest.LogCaptureFixture) -> None:
+    """Each record is handled when its line is consumed, before the program's next line exists."""
+    lines = relayed(iter([b"first\n", b"second\n"]), caplog.handler, "blender.child")
+    next(lines)
+    assert [record.getMessage() for record in caplog.records] == ["first"]

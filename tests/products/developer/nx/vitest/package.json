@@ -1,8 +1,11 @@
 {
     "name": "@rasm/test-nx-vitest",
     "private": true,
-    "description": "@rasm/nx-vitest suites over temporary workspaces: nrwl/nx @nx/vitest plugin specs ported to createNodes calls on real Vitest configs",
+    "description": "@rasm/nx-vitest suites: Nx project graphs of Vitest configurations in temporary workspaces and real runs of the test executor",
     "type": "module",
+    "imports": {
+        "#/*.ts": "./*.ts"
+    },
     "devDependencies": {
         "@nx/devkit": "catalog:",
         "@rasm/nx-vitest": "workspace:*",

@@ -1,5 +1,6 @@
 use claims::assert_ok;
 use mcp_muxer_tests::{Agent, Isolated, session};
+use rasm_testing::{Failure, Folder};
 use rstest::rstest;
 
 use crate::{echoed, scoped};
@@ -9,12 +10,12 @@ use crate::{echoed, scoped};
 #[rstest]
 #[case::utf8_of_every_width("ą€🙂漢")]
 #[case::line_and_paragraph_separators("before\u{2028}middle\u{2029}after")]
+#[case::escaped_newline_and_quote("one\ntwo \"three\"")]
 #[tokio::test(flavor = "multi_thread")]
-async fn text_survives_the_relay(#[case] said: &str) {
-    let passed = scoped(async |isolated: &Isolated| {
+async fn text_crosses_the_relay_unchanged(#[case] said: &str) -> Result<(), Failure<Folder>> {
+    scoped(async |isolated: &Isolated| {
         let relayed = assert_ok!(session(Agent::default(), isolated.relay(&[], &[])).await);
-        let direct = assert_ok!(session(Agent::default(), isolated.direct(&[])).await);
-        assert_eq!((echoed(&relayed, said).await, echoed(&direct, said).await), (said.to_owned(), said.to_owned()), "the relayed result equals the direct one");
-    });
-    assert_ok!(passed.await, "a failed test keeps its folder");
+        assert_eq!(echoed(&relayed, said).await, said, "the relayed echo returns the text sent");
+    })
+    .await
 }

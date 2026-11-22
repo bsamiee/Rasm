@@ -21,7 +21,7 @@ public abstract class DefinedTab<TSelf> : Eto.Forms.Panel where TSelf : DefinedT
 
     protected DefinedTab(RhinoDoc document) {
         hosted = new HostedView(() => HostedView.Styled(HostedView.Opened(TSelf.Definition, Some(document), new CommitMode.Immediate(), None)));
-        Content = hosted.Realized.Map(static held => held.Frame).ValueUnsafe();
+        Content = hosted.Frame;
     }
 
     public IO<Option<RenderWindow>> Window => IO.lift(() => Conversions.Present(RenderTabs.SidePaneUiIdFromTab(this)).Bind(static id => Optional(RenderWindow.FromSessionId(id))));
@@ -45,7 +45,7 @@ public abstract class DefinedPane<TSelf> : Eto.Forms.Panel, IHelp where TSelf : 
 
     protected DefinedPane(RhinoDoc document) {
         hosted = new HostedView(() => HostedView.Styled(HostedView.Opened(TSelf.Definition, Some(document), new CommitMode.Immediate(), None)));
-        Content = hosted.Realized.Map(static held => held.Frame).ValueUnsafe();
+        Content = hosted.Frame;
     }
 
     public string HelpUrl => HostedView.HelpUrl(TSelf.Definition);

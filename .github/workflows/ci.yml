@@ -24,6 +24,7 @@ defaults:
 
 jobs:
     affected:
+        name: Affected projects
         runs-on: [self-hosted, host]
         timeout-minutes: 30
         outputs:
@@ -31,6 +32,8 @@ jobs:
             head: ${{ steps.shas.outputs.head }}
             engines: ${{ steps.unreal.outputs.engines }}
             unreal: ${{ steps.listed.outputs.unreal }}
+            browser: ${{ steps.listed.outputs.browser }}
+            image: ${{ steps.listed.outputs.image }}
         env:
             GH_TOKEN: &github ${{ github.token }}
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
@@ -42,7 +45,7 @@ jobs:
                   fetch-depth: 0
                   clean: false
             - id: root
-              run: |
+              run: |-
                   root="$(git rev-list --max-parents=0 HEAD)"
                   printf "sha=%s\n" "${root}" >> "${GITHUB_OUTPUT}"
             - id: shas
@@ -50,19 +53,20 @@ jobs:
               with:
                   fallback-sha: ${{ steps.root.outputs.sha }}
             - &tools
-              uses: ./.github/actions/tools
+              uses: $/.github/actions/tools
             - run: nx sync:check
             - run: nx conformance:check
             - id: unreal
-              uses: ./.github/actions/unreal
+              uses: $/.github/actions/unreal
             - id: listed
-              env:
-                  PROJECTS: ${{ steps.unreal.outputs.projects }}
-              run: |
-                  unreal="$(nx show projects --affected --json | jq --compact-output --argjson unreal "${PROJECTS}" 'map(select(IN($unreal[])))')"
-                  printf "unreal=%s\n" "${unreal}" >> "${GITHUB_OUTPUT}"
+              run: |-
+                  unreal="$(nx show projects --affected --exclude='*,!tag:host:unreal' --json)"
+                  browser="$(nx show projects --affected --exclude='*,!tag:host:browser' --json)"
+                  version="$(jq --raw-output .version infra/node_modules/@playwright/test/package.json)"
+                  printf "%s\n" "unreal=${unreal}" "browser=${browser}" "image=ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" >> "${GITHUB_OUTPUT}"
 
     linux:
+        name: Linux
         needs: affected
         runs-on: [self-hosted, host]
         timeout-minutes: 120
@@ -73,28 +77,53 @@ jobs:
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
         steps:
-            - run: rm -rf .artifacts/nx/runs .artifacts/playwright .artifacts/vitest
+            - &stale
+              run: rm -rf .artifacts/cmake/*/*.log .artifacts/dotnet/test .artifacts/playwright .artifacts/vitest
             - *checkout
             - *tools
-            - id: playwright
-              run: mise daemons start playwright
-            - run: nx affected --targets=check,test,build --exclude='tag:os:*,!tag:os:linux,!tag:os:all,tag:host:rhino'
-            - if: ${{ always() && steps.playwright.outcome != 'skipped' }}
-              run: mise daemons stop playwright
+            - run: nx affected --targets=check,test,build --configuration=ci --exclude='tag:os:*,!tag:os:linux,!tag:os:all,tag:host:rhino,tag:host:browser,tag:host:unreal'
             - &reports
-              if: always()
+              if: ${{ always() }}
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
                   name: ${{ github.job }}-reports
                   if-no-files-found: ignore
-                  path: |
+                  path: |-
                       .artifacts/cmake/*/*.log
                       .artifacts/dotnet/test
-                      .artifacts/nx/runs
                       .artifacts/playwright
                       .artifacts/vitest
 
+    browser:
+        name: Browser
+        needs: affected
+        if: ${{ needs.affected.outputs.browser != '[]' }}
+        runs-on: [self-hosted, container]
+        timeout-minutes: 120
+        permissions:
+            contents: read
+            packages: read
+        container:
+            image: ${{ needs.affected.outputs.image }}
+            credentials:
+                username: ${{ github.actor }}
+                password: ${{ github.token }}
+            options: --init --ipc=host
+        env:
+            GH_TOKEN: *github
+            NX_BASE: *base
+            NX_HEAD: *head
+            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
+            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
+        steps:
+            - *stale
+            - *checkout
+            - *tools
+            - run: nx affected --targets=check,test,build,pack --exclude='*,!tag:host:browser'
+            - *reports
+
     macos:
+        name: macOS
         needs: affected
         runs-on: xcode-27
         timeout-minutes: 120
@@ -104,38 +133,25 @@ jobs:
             NX_HEAD: *head
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
-            PNPM_CONFIG_STORE_DIR: ${{ github.workspace }}/.cache/pnpm
             APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
             APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
         steps:
             - *checkout
-            - id: pnpm
-              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                  path: ${{ env.PNPM_CONFIG_STORE_DIR }}
-                  key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-                  restore-keys: pnpm-${{ runner.os }}-
             - id: graph
               uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
-                  path: &graph |
+                  path: &graph |-
                       .cache/nx/workspace-data
                       !.cache/nx/workspace-data/cache
                       !.cache/nx/workspace-data/*.db*
                   key: nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'nx.json', 'products/developer/nx/**') }}
                   restore-keys: nx-${{ runner.os }}-
-            - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+            - &xcode
+              uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
                   xcode-version: latest-stable
             - *tools
-            - if: ${{ steps.pnpm.outputs.cache-hit != 'true' }}
-              run: pnpm store prune
-            - if: ${{ steps.pnpm.outputs.cache-hit != 'true' }}
-              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                  path: ${{ env.PNPM_CONFIG_STORE_DIR }}
-                  key: ${{ steps.pnpm.outputs.cache-primary-key }}
-            - uses: ./.github/actions/signing
+            - uses: $/.github/actions/signing
             - run: nx build @rasm/nx-apple-darwin-arm64
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,!tag:os:all,tag:host:rhino'
             - if: ${{ !cancelled() && steps.graph.outcome == 'success' && steps.graph.outputs.cache-hit != 'true' }}
@@ -145,7 +161,23 @@ jobs:
                   key: ${{ steps.graph.outputs.cache-primary-key }}
             - *reports
 
+    files:
+        name: Files
+        needs: affected
+        runs-on: xcode-27
+        timeout-minutes: 30
+        env:
+            GH_TOKEN: *github
+            NX_BASE: *base
+            NX_HEAD: *head
+        steps:
+            - *checkout
+            - *xcode
+            - *tools
+            - run: hk check --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
+
     windows:
+        name: Windows
         needs: affected
         runs-on: windows-2025
         timeout-minutes: 120
@@ -159,12 +191,12 @@ jobs:
             - *checkout
             - *tools
             - id: listed
-              run: |
+              run: |-
                   rhino="$(nx show projects --affected --exclude='*,!tag:host:rhino' --json)"
                   printf "rhino=%s\n" "${rhino}" >> "${GITHUB_OUTPUT}"
             - id: rhino
               if: ${{ steps.listed.outputs.rhino != '[]' }}
-              run: |
+              run: |-
                   major="$(yq -p xml -oy '.Project.PropertyGroup[] | select(.+@Label == "Rhino") | .RhinoVersion | split(".") | .[0]' Directory.Packages.props)"
                   printf "major=%s\n" "${major}" >> "${GITHUB_OUTPUT}"
             - uses: mcneel/setup-rhino3d@095a5ff63cdb7dc8383e229fc40ffa779915b0af # v4.0.0
@@ -178,6 +210,7 @@ jobs:
             - *reports
 
     unreal:
+        name: Unreal Engine ${{ matrix.engine }}
         needs: affected
         if: ${{ needs.affected.outputs.unreal != '[]' && needs.affected.outputs.engines != '[]' }}
         strategy:

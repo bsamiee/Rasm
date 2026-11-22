@@ -87,7 +87,6 @@ class Machine extends Context.Service<Machine>()('@rasm/function-hooks/host/Mach
             { capacity: 1024, ...KEEP_SUCCESSES },
         );
         const tracked = yield* Cache.makeWith(([root, , file]: readonly [root: string, modified: number, file: string]) => Effect.map(run(['git', 'ls-files', '--error-unmatch', '--', path.relative(root, file)], { cwd: root }), ({ code }) => code === 0), { capacity: 1024, ...KEEP_SUCCESSES });
-        const changed = yield* Cache.makeWith(([root, file]: readonly [root: string, file: string, indexed: number, written: number]) => Effect.map(run(['git', 'diff', '--quiet', 'HEAD', '--', path.relative(root, file)], { cwd: root }), ({ code }) => code === 1), { capacity: 1024, ...KEEP_SUCCESSES });
         const repositoryHolds = (judged: (root: string, file: string) => Effect.Effect<boolean, HostError>) => (file: string) => Effect.flatMap(Cache.get(repositories, file), Option.match({ onNone: () => Effect.succeed(false), onSome: (root) => judged(root, file) }));
         return {
             fs,
@@ -118,7 +117,6 @@ class Machine extends Context.Service<Machine>()('@rasm/function-hooks/host/Mach
                     Option.isSome,
                 ),
             tracked: repositoryHolds((root, file) => Effect.flatMap(modified(path.join(root, '.git/index')), (at) => Cache.get(tracked, [root, at, file]))),
-            changed: repositoryHolds((root, file) => Effect.flatMap(Effect.all([modified(path.join(root, '.git/index')), modified(file)]), ([indexed, written]) => Cache.get(changed, [root, file, indexed, written]))),
         };
     }),
 }) {
@@ -140,14 +138,12 @@ class Host extends Context.Service<Host>()('@rasm/function-hooks/host', {
             run,
             output,
             inside,
-            parent: `${process.ppid}`,
             parents: Effect.map(output(['ps', '-A', '-o', 'pid=,ppid=']), (table): ReadonlyMap<string, string> => new Map(Array.chunksOf(table.trim().split(SPACES), 2).map(([pid, parent = '']) => [pid, parent]))),
             environment: (name: string) => Effect.orElseSucceed(Config.option(Config.String(name)), Option.none),
             exists: (file: string) => Effect.orElseSucceed(fs.exists(file), () => false),
             onPath: machine.onPath,
             ignored: machine.ignored,
             tracked: machine.tracked,
-            changed: machine.changed,
             graph: machine.graph(root),
             steps: Effect.map(
                 machine.steps(root),

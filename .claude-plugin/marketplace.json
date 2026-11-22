@@ -19,6 +19,15 @@
             }
         },
         {
+            "name": "chrome",
+            "source": "./plugins/shared/chrome",
+            "version": "0.1.0",
+            "description": "Chrome extensions: Manifest V3 manifest and permissions, service worker, page UI in Chrome's own look, Playwright suites, and Web Store release",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
             "name": "cpp",
             "source": "./plugins/shared/cpp",
             "version": "0.4.0",
@@ -112,8 +121,8 @@
         {
             "name": "terminal",
             "source": "./plugins/shared/terminal",
-            "version": "0.4.1",
-            "description": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks and git-ai authorship checkpoints",
+            "version": "0.4.2",
+            "description": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -121,8 +130,8 @@
         {
             "name": "tool",
             "source": "./plugins/shared/tool",
-            "version": "0.7.0",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Parallels Desktop VMs and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
+            "version": "0.8.1",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, the signed-in Chrome through chrome-devtools-mcp, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
             "author": {
                 "name": "Bardia Samiee"
             }

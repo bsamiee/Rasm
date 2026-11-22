@@ -3,11 +3,15 @@
     "private": true,
     "description": "@rasm/conformance rule suites over stubbed project graphs and temporary workspaces",
     "type": "module",
+    "imports": {
+        "#/*.ts": "./*.ts"
+    },
     "devDependencies": {
         "@nx/conformance": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/conformance": "workspace:*",
         "@types/node": "catalog:",
+        "effect": "catalog:",
         "vitest": "catalog:"
     }
 }

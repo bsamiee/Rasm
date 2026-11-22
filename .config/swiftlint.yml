@@ -1,3 +1,8 @@
+# --- [SETTINGS] -------------------------------------------------------------------------
+
+strict: true
+cache_path: .cache/swiftlint
+
 # --- [RULES] ----------------------------------------------------------------------------
 
 only_rules:
@@ -96,6 +101,7 @@ only_rules:
     - sorted_first_last
     - static_operator
     - static_over_final_class
+    - superfluous_disable_command
     - superfluous_else
     - toggle_bool
     - unavailable_condition
@@ -115,10 +121,8 @@ only_rules:
     - weak_delegate
     - yoda_condition
 
-# --- [OPTIONS] --------------------------------------------------------------------------
+# --- [RULE_OPTIONS] ---------------------------------------------------------------------
 
-strict: true
-cache_path: .cache/swiftlint
 deployment_target:
     macOS_deployment_target: '27.0'
 discouraged_direct_init:

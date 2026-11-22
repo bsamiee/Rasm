@@ -1,7 +1,7 @@
 import { joinPathFragments, type Tree } from '@nx/devkit';
 import { Cause, Effect } from 'effect';
 import { VersionActions } from 'nx/release';
-import { MANIFEST, restated, run, versioned } from '#/workspace';
+import { MANIFEST, restated, run, versioned } from '#/workspace.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

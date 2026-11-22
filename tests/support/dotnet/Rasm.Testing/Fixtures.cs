@@ -26,12 +26,14 @@ public sealed class Fixtures : INotifyTestLifecycleAsync {
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask<T> TakeAsync<T>(IO<Fixture<T>> open) =>
-        (from scope in IO.lift(() =>
-             TestContext.Current.Test is { } test && scopes.TryGetValue(test, out Atom<Seq<Func<TestResult, IO<Unit>>>>? held) ? held : throw new InvalidOperationException($"{typeof(T).Name} fixture taken outside a running test: register [assembly: AssemblyFixture(typeof(Fixtures))] and take it inside the test body"))
-         from opened in open
-         from taken in IO.lift(() => scope.Swap(settles => opened.Settle.Cons(settles)))
-         select opened.Value).RunAsync(TestContext.Current.CancellationToken);
+    public async ValueTask<T> TakeAsync<T>(IO<Fixture<T>> open) {
+        Atom<Seq<Func<TestResult, IO<Unit>>>> scope = TestContext.Current.Test is { } test && scopes.TryGetValue(test, out Atom<Seq<Func<TestResult, IO<Unit>>>>? held)
+            ? held
+            : throw new InvalidOperationException($"{typeof(T).Name} fixture taken outside a running test: register [assembly: AssemblyFixture(typeof(Fixtures))] and take it inside the test body");
+        Fixture<T> opened = await open.RunAsync(TestContext.Current.CancellationToken).ConfigureAwait(false);
+        scope.Swap(settles => opened.Settle.Cons(settles));
+        return opened.Value;
+    }
 
     public async ValueTask OnTestFinishedAsync(IXunitTest test) =>
         await (from settles in IO.lift(() => scopes.Remove(test, out Atom<Seq<Func<TestResult, IO<Unit>>>>? scope) ? scope.Value : [])

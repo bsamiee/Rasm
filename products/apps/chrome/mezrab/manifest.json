@@ -1,0 +1,14 @@
+{
+    "manifest_version": 3,
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoSzOsygj2cfiKDogeNAjh0zs2msrurS9sXpb9OJaJNdHiptysKhct/z3LKOXLD3ng4xGiOE6rydzDtSHX9ZhTrNc3SkCIqt7Ew3NB0sZMxUjJ7eHCBYiuT0x9PCtl09BmInEB+ZU6RF2PK6stmRClTKldPDURoVI32PzmWC3DF2GJcLE+FL1J1/xlVBw8S95bXhLwr4ORiQcZMEkXv9pCztxx6OFOEsUGujsct2YG0/42cJ/qJGzjfw0NmQcseb5WtLbhD6zDle5HPlMtHwAhWRO7H4Xe/mh1WdvMZvwfqDsqVucap/Aa1CZwOWeOfzm70Qsla1LiwEdoLqGoDqW9QIDAQAB",
+    "name": "__MSG_name__",
+    "version": "0.1.0",
+    "description": "__MSG_description__",
+    "default_locale": "en",
+    "minimum_chrome_version": "157",
+    "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+    "action": { "default_title": "__MSG_action__" },
+    "background": { "service_worker": "service-worker.js", "type": "module" },
+    "commands": { "_execute_action": { "suggested_key": { "default": "Ctrl+Shift+U", "mac": "Command+Shift+U", "linux": "Alt+Shift+U" } } },
+    "permissions": ["activeTab", "clipboardWrite", "scripting"]
+}

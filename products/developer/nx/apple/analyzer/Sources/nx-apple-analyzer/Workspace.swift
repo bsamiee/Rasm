@@ -20,7 +20,7 @@ func values(_ xpath: String, in document: XMLDocument, at path: FilePath) throws
     }
 }
 
-func schemes(in container: FilePath, identifiers: [String: Set<String>]) throws(AnalyzerError) -> [(scheme: Scheme, references: [Reference])] {
+func schemes(in container: FilePath, built: [String: Built]) throws(AnalyzerError) -> [(scheme: Scheme, references: [Reference])] {
     let shared = container.appending("xcshareddata/xcschemes")
     let entries: [String]
     do {
@@ -37,11 +37,23 @@ func schemes(in container: FilePath, identifiers: [String: Set<String>]) throws(
         let plans = try values("//TestAction/TestPlans/TestPlanReference/@reference", in: parsed, at: file).map(place)
         let testables = try values("//TestAction/Testables/TestableReference", in: parsed, at: file)
         let launch = try values("/Scheme/LaunchAction/@buildConfiguration", in: parsed, at: file).first
+        let archiving = "//BuildAction//BuildActionEntry[@buildForArchiving='YES']/BuildableReference"
+        let archived = zip(try values("\(archiving)/@BlueprintIdentifier", in: parsed, at: file), try values("\(archiving)/@ReferencedContainer", in: parsed, at: file))
+            .compactMap { id, owner in built[place(owner).string].map { held in (id: id, built: held) } }
+        let configuration = try values("/Scheme/ArchiveAction/@buildConfiguration", in: parsed, at: file).first ?? archived.first?.built.configuration
+        let archive = configuration.map { chosen in Archive(configuration: chosen, bundles: Set(archived.compactMap { product in product.built.products[product.id]?[chosen] }).sorted()) }
         let name = file.stem ?? entry
         return (
-            Scheme(name: name, containers: owners, plans: plans.compactMap(\.stem), tests: !plans.isEmpty || !testables.isEmpty, launch: launch),
+            Scheme(
+                name: name,
+                containers: owners,
+                plans: plans.compactMap(\.stem),
+                tests: !plans.isEmpty || !testables.isEmpty,
+                launch: launch,
+                archive: archive.flatMap { held in held.bundles.isEmpty ? nil : held },
+            ),
             plans.map { plan in Reference(owner: "scheme \(name)", setting: "TestPlanReference", path: plan) }
-                + zip(ids, owners).filter { id, owner in identifiers[owner].map { known in !known.contains(id) } ?? false }
+                + zip(ids, owners).filter { id, owner in built[owner].map { held in held.products[id] == nil } ?? false }
                 .map { id, owner in Reference(owner: "scheme \(name)", setting: "BlueprintIdentifier \(id) in \(owner)", path: nil) },
         )
     }
@@ -67,10 +79,10 @@ func members(of element: XMLElement, group: FilePath, root: FilePath) -> [FilePa
     }
 }
 
-func workspace(_ container: FilePath, identifiers: [String: Set<String>]) throws(AnalyzerError) -> Container {
+func workspace(_ container: FilePath, built: [String: Built]) throws(AnalyzerError) -> Container {
     let root = container.removingLastComponent()
     let listed = try document(container.appending("contents.xcworkspacedata")).rootElement().map { element in members(of: element, group: root, root: root) } ?? []
-    let declared = try schemes(in: container, identifiers: identifiers)
+    let declared = try schemes(in: container, built: built)
     return try checked(
         Container(path: container.string, schemes: declared.map(\.scheme), configurations: [], inputs: [], projects: Set(listed.map(\.string)).sorted(), buildFiles: []),
         declared.flatMap(\.references) + listed.map { member in Reference(owner: "workspace", setting: WorkspaceElement.fileReference.rawValue, path: member) },

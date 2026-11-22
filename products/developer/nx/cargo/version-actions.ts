@@ -4,7 +4,7 @@ import { type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit
 import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { LOCK, MANIFEST, run } from '#/workspace';
+import { LOCK, MANIFEST, run } from '#/workspace.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -1850,6 +1850,35 @@ checksum = "sha256:5a0b55df66ff07b4342e04967cef69f8bf348f6a0fb1cc1eca741c7b015df
 url = "https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_7.conda"
 checksum = "sha256:ca7daae4f218a11fab82cc2857f0ea518ec3f46acec60490485347a4c22c6b3e"
 
+[[tools."aqua:owenlamont/ryl"]]
+version = "0.30.0"
+backend = "aqua:owenlamont/ryl"
+specifiers = ["latest"]
+
+[tools."aqua:owenlamont/ryl"."platforms.linux-arm64"]
+checksum = "sha256:2e4a765434d63986c858678df0573349da44abc162b7b698a4395e5b586a1e10"
+checksum_source = "mise-versions"
+url = "https://github.com/owenlamont/ryl/releases/download/v0.30.0/ryl-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/owenlamont/ryl/releases/assets/757823621"
+
+[tools."aqua:owenlamont/ryl"."platforms.linux-x64"]
+checksum = "sha256:37ee3c236005117886949cb413b467a9f4ec06072e2233a1727222b06e54ea3e"
+checksum_source = "mise-versions"
+url = "https://github.com/owenlamont/ryl/releases/download/v0.30.0/ryl-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/owenlamont/ryl/releases/assets/757823693"
+
+[tools."aqua:owenlamont/ryl"."platforms.macos-arm64"]
+checksum = "sha256:d3d0010227870a6e4b2764eb26cff52efe0570508f2c52369d17eae3889575eb"
+checksum_source = "mise-versions"
+url = "https://github.com/owenlamont/ryl/releases/download/v0.30.0/ryl-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/owenlamont/ryl/releases/assets/757823626"
+
+[tools."aqua:owenlamont/ryl"."platforms.windows-x64"]
+checksum = "sha256:4debe78d5945908c2d561230e3b60c2a960ea153e1d9684a4ecec5a8608d96c9"
+checksum_source = "mise-versions"
+url = "https://github.com/owenlamont/ryl/releases/download/v0.30.0/ryl-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/owenlamont/ryl/releases/assets/757823676"
+
 [[tools."aqua:taiki-e/cargo-llvm-cov"]]
 version = "0.9.1"
 backend = "aqua:taiki-e/cargo-llvm-cov"
@@ -1964,6 +1993,7 @@ url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets
 version = "1.49.0"
 backend = "aqua:mitsuhiko/insta"
 specifiers = ["latest"]
+unsupported_platforms = ["linux-arm64"]
 
 [tools.cargo-insta."platforms.linux-x64"]
 checksum = "sha256:18879f4e7280c2eb87bb1037ddb9d48af697511fb0d8113edfc39ab8bade4d4e"
@@ -1973,7 +2003,6 @@ url_api = "https://api.github.com/repos/mitsuhiko/insta/releases/assets/60686001
 
 [tools.cargo-insta."platforms.macos-arm64"]
 checksum = "sha256:e596702d36313dbbc2f168ca9db447a9e259e666cd9cae9ab94eb712ca1d89e5"
-checksum_source = "mise-versions"
 url = "https://github.com/mitsuhiko/insta/releases/download/1.49.0/cargo-insta-aarch64-apple-darwin.tar.xz"
 url_api = "https://api.github.com/repos/mitsuhiko/insta/releases/assets/606859971"
 
@@ -2328,6 +2357,27 @@ checksum_source = "mise-versions"
 url = "https://github.com/sharkdp/fd/releases/download/v10.5.2/fd-v10.5.2-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/sharkdp/fd/releases/assets/719974267"
 
+[[tools.gcloud]]
+version = "594.0.1"
+backend = "vfox:jdx/vfox-gcloud"
+specifiers = ["latest"]
+
+[tools.gcloud."platforms.linux-arm64"]
+checksum = "sha256:5431df9d2ba9be5917ee7a1ff6d7c7d2720dfc82690b3f8de4bfacdad093d792"
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-594.0.1-linux-arm.tar.gz"
+
+[tools.gcloud."platforms.linux-x64"]
+checksum = "sha256:5f8cd9fade09784bde9e15dcfac29736e1a8041e43e5e6a2d8e5f12fd28a828b"
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-594.0.1-linux-x86_64.tar.gz"
+
+[tools.gcloud."platforms.macos-arm64"]
+checksum = "sha256:59946bbb55612b3c77f1facabda2173fcd7b48fe9131e8a111a77702215e8fc2"
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-594.0.1-darwin-arm.tar.gz"
+
+[tools.gcloud."platforms.windows-x64"]
+checksum = "sha256:9612ee5a32a13e917fda84a0dce8028264c3fec1e8ca2738d1d43c312c675332"
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-594.0.1-windows-x86_64-bundled-python.zip"
+
 [[tools.gh]]
 version = "2.105.0"
 backend = "aqua:cli/cli"
@@ -2414,18 +2464,34 @@ checksum_source = "mise-versions"
 url = "https://github.com/BlankSpruce/gersemi/releases/download/0.29.2/gersemi-windows.exe"
 url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/603554690"
 
-[[tools."github:MobileNativeFoundation/XCLogParser"]]
-version = "0.2.50"
-backend = "github:MobileNativeFoundation/XCLogParser"
+[[tools."github:Link-/gh-token"]]
+version = "2.0.10"
+backend = "github:Link-/gh-token"
 specifiers = ["latest"]
 
-[tools."github:MobileNativeFoundation/XCLogParser".options]
-matching = "macOS-arm64"
+[tools."github:Link-/gh-token"."platforms.linux-arm64"]
+checksum = "sha256:21f96d8969443bf3f00afe4d9bfc66b110ae26a8305fd1af27109fc0ac33f353"
+checksum_source = "mise-versions"
+url = "https://github.com/Link-/gh-token/releases/download/v2.0.10/linux-arm64"
+url_api = "https://api.github.com/repos/Link-/gh-token/releases/assets/381221101"
 
-[tools."github:MobileNativeFoundation/XCLogParser"."platforms.macos-arm64"]
-checksum = "sha256:450efaa1925c063c244c06129663eafbe68caca8ad59fd214fc45db12803ed62"
-url = "https://github.com/MobileNativeFoundation/XCLogParser/releases/download/v0.2.50/XCLogParser-macOS-arm64-v0.2.50.zip"
-url_api = "https://api.github.com/repos/MobileNativeFoundation/XCLogParser/releases/assets/682265994"
+[tools."github:Link-/gh-token"."platforms.linux-x64"]
+checksum = "sha256:342adb88bb2c5d334a0f6d5fc094e3de4e755c6ccef45a2fd55ed6b1d79cd8a6"
+checksum_source = "mise-versions"
+url = "https://github.com/Link-/gh-token/releases/download/v2.0.10/linux-amd64"
+url_api = "https://api.github.com/repos/Link-/gh-token/releases/assets/381221103"
+
+[tools."github:Link-/gh-token"."platforms.macos-arm64"]
+checksum = "sha256:f082d70492a8d5d12be73f39ecded6e03ce961a7e2a5bf7ef4202d477032dfb8"
+checksum_source = "mise-versions"
+url = "https://github.com/Link-/gh-token/releases/download/v2.0.10/darwin-arm64"
+url_api = "https://api.github.com/repos/Link-/gh-token/releases/assets/381221076"
+
+[tools."github:Link-/gh-token"."platforms.windows-x64"]
+checksum = "sha256:b471559d2dc141a06f71fd71cb37e6282cecdfa3757c3ca29404db1c02adc909"
+checksum_source = "mise-versions"
+url = "https://github.com/Link-/gh-token/releases/download/v2.0.10/windows-amd64.exe"
+url_api = "https://api.github.com/repos/Link-/gh-token/releases/assets/381221118"
 
 [[tools."github:NationalSecurityAgency/ghidra"]]
 version = "12.2_build"
@@ -2487,34 +2553,6 @@ checksum_source = "mise-versions"
 url = "https://github.com/Samsung/netcoredbg/releases/download/3.2.0-1092/netcoredbg-win64.zip"
 url_api = "https://api.github.com/repos/Samsung/netcoredbg/releases/assets/457716570"
 
-[[tools."github:apple/pkl-vscode"]]
-version = "0.24.0"
-backend = "github:apple/pkl-vscode"
-specifiers = ["latest"]
-
-[tools."github:apple/pkl-vscode".options]
-asset_pattern = "pkl-vscode-*.vsix"
-
-[tools."github:apple/pkl-vscode"."platforms.linux-arm64"]
-checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
-
-[tools."github:apple/pkl-vscode"."platforms.linux-x64"]
-checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
-
-[tools."github:apple/pkl-vscode"."platforms.macos-arm64"]
-checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
-
-[tools."github:apple/pkl-vscode"."platforms.windows-x64"]
-checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
-
 [[tools."github:docker/buildx"]]
 version = "0.39.0"
 backend = "github:docker/buildx"
@@ -2552,23 +2590,11 @@ checksum_source = "mise-versions"
 url = "https://github.com/docker/docker-credential-helpers/releases/download/v0.9.13/docker-credential-osxkeychain-v0.9.13.darwin-arm64"
 url_api = "https://api.github.com/repos/docker/docker-credential-helpers/releases/assets/733079878"
 
-[[tools."github:docker/mcp-gateway"]]
-version = "0.44.3"
-backend = "github:docker/mcp-gateway"
-specifiers = ["latest"]
-
-[tools."github:docker/mcp-gateway".options]
-matching = "darwin-arm64"
-
-[tools."github:docker/mcp-gateway"."platforms.macos-arm64"]
-checksum = "sha256:93aa84cd5a927ca96ffc71a7bbb6d0d7449901382d138d161244bdccbd2c5d15"
-url = "https://github.com/docker/mcp-gateway/releases/download/v0.44.3/docker-mcp-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/docker/mcp-gateway/releases/assets/679143454"
-
 [[tools."github:fonttools/fontspector"]]
 version = "1.9.1"
 backend = "github:fonttools/fontspector"
 specifiers = ["latest"]
+unsupported_platforms = ["linux-arm64"]
 
 [tools."github:fonttools/fontspector".options]
 version_prefix = "fontspector-v"
@@ -2615,38 +2641,6 @@ url_api = "https://api.github.com/repos/harehare/mq/releases/assets/720894847"
 checksum = "sha256:3c2a1ea8bc27af55178045a4d5e1a987a380c2972477456303ac0a9a5d51801f"
 url = "https://github.com/harehare/mq/releases/download/v0.10.1/mq-x86_64-pc-windows-msvc.exe"
 url_api = "https://api.github.com/repos/harehare/mq/releases/assets/720895286"
-
-[[tools."github:linebender/resvg"]]
-version = "0.50.0"
-backend = "github:linebender/resvg"
-specifiers = ["latest"]
-
-[tools."github:linebender/resvg".options]
-matching = "usvg"
-
-[tools."github:linebender/resvg"."platforms.linux-arm64"]
-checksum = "sha256:a445d16764c4268ab267b8d45dfea67e6012dcea92f876bc0183843211b40a99"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-linux-aarch64.tar.gz"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736378862"
-
-[tools."github:linebender/resvg"."platforms.linux-x64"]
-checksum = "sha256:17d76b4fbe2bbe945f675714f448ae73e90cdae8c177d640696f54728bb5264b"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736379486"
-
-[tools."github:linebender/resvg"."platforms.macos-arm64"]
-checksum = "sha256:88b35b7d0ae41b8fd0581cd2d9cdab180a0742e311aa09ade45ef083fc5e2f2c"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-macos-aarch64.zip"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736385483"
-
-[tools."github:linebender/resvg"."platforms.windows-x64"]
-checksum = "sha256:f0caa55fe05fc21e1b9c81d3520173e66ebb1609c06fc6a3537729d2ba9bfa8f"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-win-x86_64.zip"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736382707"
 
 [[tools."github:llvm/llvm-project"]]
 version = "23.1.5"
@@ -2764,11 +2758,9 @@ version = "7.0.0"
 backend = "github:rudrankriyam/App-Store-Connect-CLI"
 specifiers = ["latest"]
 
-[tools."github:rudrankriyam/App-Store-Connect-CLI".options]
-matching = "macOS_arm64"
-
 [tools."github:rudrankriyam/App-Store-Connect-CLI"."platforms.macos-arm64"]
 checksum = "sha256:7d87149508749a1ccf5684d4465f19a3b10ed2b5ba274e580aadb5e60b050a4c"
+checksum_source = "mise-versions"
 url = "https://github.com/rudrankriyam/App-Store-Connect-CLI/releases/download/7.0.0/asc_7.0.0_macOS_arm64"
 url_api = "https://api.github.com/repos/rudrankriyam/App-Store-Connect-CLI/releases/assets/758990219"
 
@@ -3787,7 +3779,7 @@ allow_low_downloads = "true"
 version = "0.2.0-alpha.12"
 aube = { path = "mise/locks/npm-modelcontextprotocol-conformance/0.2.0-alpha.12", digest = "sha256:ef97da802f2a13ce4748e2d1aa5c970127faeda4284a1c326c7828ca86d42df1" }
 backend = "npm:@modelcontextprotocol/conformance"
-specifiers = ["0.2.0-alpha.12"]
+specifiers = ["latest"]
 
 [[tools."npm:@tavily/cli"]]
 version = "1.0.1"
@@ -3808,18 +3800,6 @@ specifiers = ["latest"]
 version = "2.35.0"
 backend = "packslip:github.com/jdx/pitchfork"
 specifiers = ["latest"]
-
-[tools.pitchfork."platforms.linux-arm64"]
-checksum = "sha256:92f53082163514f4f1ab6e228a1264a2d98f685f8605863b75277c4298dfb3d5"
-url = "https://github.com/jdx/pitchfork/releases/download/v2.35.0/pitchfork-aarch64-unknown-linux-gnu.tar.gz"
-signer = "sigstore-oidc:https://github.com/jdx/pitchfork/.github/workflows/release.yml"
-repository_ids = { repository = "899500793" }
-
-[tools.pitchfork."platforms.linux-x64"]
-checksum = "sha256:dc361973279b2ba0f76fab0e8423125870c0747263be0a1e7b165fb41317e837"
-url = "https://github.com/jdx/pitchfork/releases/download/v2.35.0/pitchfork-x86_64-unknown-linux-gnu.tar.gz"
-signer = "sigstore-oidc:https://github.com/jdx/pitchfork/.github/workflows/release.yml"
-repository_ids = { repository = "899500793" }
 
 [tools.pitchfork."platforms.macos-arm64"]
 checksum = "sha256:e1f0a9e233559af12f9d636b1959c3c5b0a24ae255ea36799892da3f35c30f79"
@@ -3938,6 +3918,12 @@ checksum_source = "mise-versions"
 url = "https://github.com/pulumi/pulumi/releases/download/v3.276.0/pulumi-v3.276.0-windows-x64.zip"
 url_api = "https://api.github.com/repos/pulumi/pulumi/releases/assets/739645734"
 
+[[tools."pypi:check-jsonschema"]]
+version = "0.39.0"
+backend = "pypi:check-jsonschema"
+specifiers = ["latest"]
+uv = { path = "mise/locks/pypi-check-jsonschema/0.39.0", digest = "sha256:f34fc99bf78c064b1902aebce5356642acfa263da20e485070019018c3c71a64" }
+
 [[tools."pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp"]]
 version = "v1.0.3"
 backend = "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp"
@@ -3949,40 +3935,16 @@ backend = "pypi:mcp-for-blender"
 specifiers = ["latest"]
 uv = { path = "mise/locks/pypi-mcp-for-blender/2.3.0", digest = "sha256:3fdc43b6d0ed639bda041e187b3683a6e7e0d7bca8326873cc38c5162d0af026" }
 
-[[tools."pypi:yamllint"]]
-version = "1.38.0"
-backend = "pypi:yamllint"
-specifiers = ["latest"]
-uv = { path = "mise/locks/pypi-yamllint/1.38.0~647ee145", digest = "sha256:9aa2e344e7ba779398eb6bf295de91ddda0377b65569f48e9a3b47dadb83b0b3" }
-
-[tools."pypi:yamllint".options]
-python = "3.14"
-
-[[tools.python]]
-version = "3.14.10"
-backend = "core:python"
-specifiers = ["3.14"]
-
-[tools.python."platforms.linux-arm64"]
-checksum = "sha256:38fd50f07170adc29d481913d1c30b17ecb538fbe290315fe1f83d84fdd5b694"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.14.10+20261110-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
-
-[tools.python."platforms.linux-x64"]
-checksum = "sha256:c2ff2e97422f5d3896a16e0317fd212ba977bbf2688d93a6f7a03d817506bd30"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.14.10+20261110-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
-
-[tools.python."platforms.macos-arm64"]
-checksum = "sha256:f15ec3d15460dd66c2eb88639b152cd9040e7d1ece11e38bf89e8f53f0171e02"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.14.10+20261110-aarch64-apple-darwin-install_only_stripped.tar.gz"
-
-[tools.python."platforms.windows-x64"]
-checksum = "sha256:32b6cf90a03e2bc15fda8d2ab7ff78c4870f138887d612932650ce764efaab8f"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.14.10+20261110-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
-
 [[tools.resvg]]
 version = "0.50.0"
-backend = "aqua:linebender/resvg"
+backend = "github:linebender/resvg"
 specifiers = ["latest"]
+
+[tools.resvg."platforms.linux-arm64"]
+checksum = "sha256:b197bf704c9da5d572ae565c799727da3067dffacaf32a2476c8143af90e2f9c"
+checksum_source = "mise-versions"
+url = "https://github.com/linebender/resvg/releases/download/v0.50.0/resvg-linux-aarch64.tar.gz"
+url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736378859"
 
 [tools.resvg."platforms.linux-x64"]
 checksum = "sha256:5d1c9ffd43c82fb802d92cef8100055c612cd3e248d5a787c20079293a456e21"
@@ -3992,9 +3954,14 @@ url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/7363794
 
 [tools.resvg."platforms.macos-arm64"]
 checksum = "sha256:8155b569f2b93723ba3645b53536eead3b591c8faf62bdaafd3033ba37838837"
-checksum_source = "mise-versions"
 url = "https://github.com/linebender/resvg/releases/download/v0.50.0/resvg-macos-aarch64.zip"
 url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736385482"
+
+[tools.resvg."platforms.windows-x64"]
+checksum = "sha256:e4817e40ac63d3eb5c9e5762526cf6cc91f0cc108de38cd09dd60be765184efd"
+checksum_source = "mise-versions"
+url = "https://github.com/linebender/resvg/releases/download/v0.50.0/resvg-win-x86_64.zip"
+url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736382706"
 
 [[tools.ripgrep]]
 version = "15.2.0"
@@ -4213,6 +4180,38 @@ checksum = "sha256:230779ee4a729e3044d4a8ed57490b776ea1bac0671d12afbd6f5b4d1878f
 url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-windows-x64.gz"
 url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450892"
 
+[[tools.usvg]]
+version = "0.50.0"
+backend = "github:linebender/resvg"
+specifiers = ["latest"]
+
+[tools.usvg.options]
+matching = "usvg"
+
+[tools.usvg."platforms.linux-arm64"]
+checksum = "sha256:a445d16764c4268ab267b8d45dfea67e6012dcea92f876bc0183843211b40a99"
+checksum_source = "mise-versions"
+url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-linux-aarch64.tar.gz"
+url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736378862"
+
+[tools.usvg."platforms.linux-x64"]
+checksum = "sha256:17d76b4fbe2bbe945f675714f448ae73e90cdae8c177d640696f54728bb5264b"
+checksum_source = "mise-versions"
+url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-linux-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736379486"
+
+[tools.usvg."platforms.macos-arm64"]
+checksum = "sha256:88b35b7d0ae41b8fd0581cd2d9cdab180a0742e311aa09ade45ef083fc5e2f2c"
+checksum_source = "mise-versions"
+url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-macos-aarch64.zip"
+url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736385483"
+
+[tools.usvg."platforms.windows-x64"]
+checksum = "sha256:f0caa55fe05fc21e1b9c81d3520173e66ebb1609c06fc6a3537729d2ba9bfa8f"
+checksum_source = "mise-versions"
+url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-win-x86_64.zip"
+url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736382707"
+
 [[tools.uv]]
 version = "0.13.9"
 backend = "aqua:astral-sh/uv"
@@ -4240,17 +4239,6 @@ checksum = "sha256:edd61f7f5728a56cc62455386661860bdfc7bab65872f39b0c25bdcc1d8e1
 checksum_source = "mise-versions"
 url = "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/758513940"
-
-[[tools.xcsift]]
-version = "1.7.5"
-backend = "packslip:github.com/ldomaradzki/xcsift"
-specifiers = ["latest"]
-
-[tools.xcsift."platforms.macos-arm64"]
-checksum = "sha256:688403f75ec4fc4e91104e88e452678a2fd92e7e2319257c007212f203e386c3"
-url = "https://github.com/ldomaradzki/xcsift/releases/download/v1.7.5/xcsift-v1.7.5-macos-arm64.tar.gz"
-signer = "sigstore-oidc:https://github.com/ldomaradzki/xcsift/.github/workflows/release.yml"
-repository_ids = { repository = "1017599209" }
 
 [[tools.xh]]
 version = "0.26.3"

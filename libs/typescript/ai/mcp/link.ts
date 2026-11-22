@@ -2,7 +2,7 @@ import { dial, listen } from '@rasm/rpc';
 import { Array, Context, Duration, Effect, Layer, Record, Ref, Schema, Stream, Struct } from 'effect';
 import { McpSchema, McpServer, type Tool, type Toolkit } from 'effect/ai';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { Server } from '#/server';
+import { Server } from '#/server.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

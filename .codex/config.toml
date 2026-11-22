@@ -15,11 +15,11 @@ SessionStart = [{ hooks = [{ type = "command", command = "mise daemons register 
 "python@rasm"        = { enabled = true }
 "uxp@rasm"           = { enabled = true }
 "orchestration@rasm" = { enabled = true }
-"policy@rasm"        = { enabled = true }
 "swift@rasm"         = { enabled = true }
 "search@rasm"        = { enabled = true }
 "rhino@rasm"         = { enabled = true }
 "typescript@rasm"    = { enabled = true }
+"chrome@rasm"        = { enabled = true }
 "rust@rasm"          = { enabled = true }
 "cpp@rasm"           = { enabled = true }
 "media@rasm"         = { enabled = true }
@@ -27,4 +27,4 @@ SessionStart = [{ hooks = [{ type = "command", command = "mise daemons register 
 "tool@rasm"          = { enabled = true }
 
 [marketplaces]
-rasm = { source = "./", source_type = "local" }
+rasm = { source_type = "local", source = "/Users/bardiasamiee/Developer/Rasm" }

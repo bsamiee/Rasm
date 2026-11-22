@@ -1,8 +1,8 @@
 import type { ExecutorContext } from '@nx/devkit';
 import { Effect, Option, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { Dry, dried, packaged, released, run, Words } from '#/executor';
-import { spawned } from '#/inference';
+import { Dry, dried, forwarded, packaged, released, run, Words } from '#/executor.ts';
+import { spawned } from '#/inference.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ const Attach = Dry.mapFields(Struct.assign({ __unparsed__: Words })).annotate({
 
 const execute = Effect.fnUntraced(function* (stated: typeof Attach.Type, context: ExecutorContext) {
     const [dry, { project, files }, tag] = yield* Effect.all([dried(stated), packaged(context), released(context)]);
-    const upload = (at: string) => ['gh', 'release', 'upload', at, ...files, '--clobber', ...(stated.__unparsed__ ?? [])] as const;
+    const upload = (at: string) => ['gh', 'release', 'upload', at, ...files, '--clobber', ...forwarded(stated.__unparsed__ ?? [])] as const;
     const pending = `<tag nx release makes for ${project}>`;
     yield* dry
         ? Effect.logInfo(`Would run ${CommandLine.display(upload(Option.getOrElse(tag, () => pending)))}`)

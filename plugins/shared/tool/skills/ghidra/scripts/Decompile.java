@@ -31,6 +31,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -135,13 +136,14 @@ public class Decompile extends GhidraScript {
                     yield Stream.concat(
                             Stream.of(
                                     Report.subdivider(function.getName(true)),
-                                    "// %s size=%d %s callers=%d%s"
-                                            .formatted(
-                                                    function.getEntryPoint(),
-                                                    function.getBody().getNumAddresses(),
-                                                    role.text(),
-                                                    neighbors.size(),
-                                                    names.isEmpty() ? "" : ": " + names)),
+                                    String.format(
+                                            Locale.ROOT,
+                                            "// %s size=%d %s callers=%d%s",
+                                            function.getEntryPoint(),
+                                            function.getBody().getNumAddresses(),
+                                            role.text(),
+                                            neighbors.size(),
+                                            names.isEmpty() ? "" : ": " + names)),
                             code.lines());
                 }
                 case Stub(Function function) ->
@@ -231,9 +233,9 @@ public class Decompile extends GhidraScript {
         Arguments.Request request =
                 Arguments.parse(
                         getScriptName(),
-                        getScriptArgs(),
                         EnumSet.allOf(Arguments.Setting.class),
-                        currentProgram);
+                        currentProgram,
+                        getScriptArgs());
         Map<Function, List<Function>> callers = new ConcurrentHashMap<>();
         Neighbors callersOf =
                 function ->

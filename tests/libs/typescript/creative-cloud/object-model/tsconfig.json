@@ -1,12 +1,10 @@
 {
-    "extends": "../../../../../tsconfig.unpublished.json",
+    "extends": "../../../../../tsconfig.base.json",
     "compilerOptions": {
+        "noEmit": true,
         "types": ["node"]
     },
     "references": [
-        {
-            "path": "../../../../support/typescript"
-        },
         {
             "path": "../../../../../libs/typescript/creative-cloud/object-model"
         }

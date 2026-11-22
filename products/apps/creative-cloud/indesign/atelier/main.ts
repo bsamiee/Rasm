@@ -9,7 +9,7 @@ import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { picker, widget } from '@rasm/uxp/spectrum';
 import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, type Path, Predicate, Queue, Record, Schema, Scope, Semaphore, Stream, Struct } from 'effect';
 import declared from 'indesign-uxp-types/flat?inline';
-import { InDesign } from '#/tools';
+import { InDesign } from '#/tools.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

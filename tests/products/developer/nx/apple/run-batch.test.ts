@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import { batch, type Run } from '@rasm/nx-apple/executors/run';
-import { TempFs } from '@rasm/testing/temp-fs';
-import { describe, expect, test } from 'vitest';
+import { it } from '@rasm/testing/nx';
+import { describe, expect } from 'vitest';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -10,16 +12,9 @@ const logged = (name: string, code: number): typeof Run.Type => ({ runs: [['sh',
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const it = test
-    .extend('tempFs', ({}, { onCleanup }) => {
-        const tempFs = new TempFs('apple-run-batch');
-        onCleanup(() => tempFs.cleanup());
-        return tempFs;
-    })
-    .extend('context', ({ tempFs }): ExecutorContext => ({ root: tempFs.tempDir, cwd: tempFs.tempDir, isVerbose: false, projectGraph: { nodes: {}, dependencies: {} }, projectsConfigurations: { version: 2, projects: {} }, nxJsonConfiguration: {} }));
-
 describe('run batch', { timeout: 60_000 }, () => {
-    it('runs each batched task alone in dependency order and skips a task whose dependency failed', async ({ tempFs, context }) => {
+    it('runs each batched task alone in dependency order and skips a task whose dependency failed', async ({ workspace }) => {
+        const context: ExecutorContext = { root: workspace.root, cwd: workspace.root, isVerbose: false, projectGraph: { nodes: {}, dependencies: {} }, projectsConfigurations: { version: 2, projects: {} }, nxJsonConfiguration: {} };
         const graph: TaskGraph = {
             tasks: { 'Tool:test--swift': task('Tool', 'test--swift'), 'Tool:build--swift-build': task('Tool', 'build--swift-build'), 'Kit:build--swift-build': task('Kit', 'build--swift-build'), 'Kit:test--swift': task('Kit', 'test--swift') },
             dependencies: { 'Tool:test--swift': [{ id: 'Tool:build--swift-build' }], 'Tool:build--swift-build': [], 'Kit:build--swift-build': [], 'Kit:test--swift': [{ id: 'Kit:build--swift-build' }] },
@@ -36,6 +31,6 @@ describe('run batch', { timeout: 60_000 }, () => {
             ['Kit:build--swift-build', false, undefined],
             ['Kit:test--swift', false, 'skipped'],
         ]);
-        await expect(tempFs.readFile('order.log')).resolves.toBe(['start-tool-build', 'end-tool-build', 'start-tool-test', 'end-tool-test', 'start-kit-build', 'end-kit-build', ''].join('\n'));
+        expect(readFileSync(join(workspace.root, 'order.log'), 'utf-8')).toBe(['start-tool-build', 'end-tool-build', 'start-tool-test', 'end-tool-test', 'start-kit-build', 'end-kit-build', ''].join('\n'));
     });
 });

@@ -1,0 +1,12 @@
+{
+    "name": "@rasm/test-vite",
+    "private": true,
+    "description": "Vite plugin suites: Rolldown warnings whose output runs wrong fail a vite build, and every other warning stays a warning",
+    "type": "module",
+    "devDependencies": {
+        "@rasm/vite": "workspace:*",
+        "@types/node": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

@@ -177,6 +177,8 @@ public static class Toolbars {
 
     // --- [IDENTIFIERS]
 
+    public static Guid GroupId(Guid file, ToolbarGroupRow group) => Uuid.NewNameBased(file, $"tool_bar_group/{group.Face.Name}");
+
     public static Guid ExtensionsId(Guid file) => Uuid.NewNameBased(file, "extend_rhino_menus");
 
     public static Guid MenuId(Guid file, MenuRow menu) => Uuid.NewNameBased(file, $"menu/{menu.Face.Name}");
@@ -210,8 +212,23 @@ public static class Toolbars {
                 from live in use(static () => new CancellationTokenSource(), static source => Products.Each(Seq(IO.lift(source.Cancel), IO.lift(source.Dispose))).Map(unit))
                 let handler = Updated(items, live.Token)
                 from registered in IO.lift(Products.Each(items.Values.ToSeq(), (item, index) => RhinoFault.Unless(RuiUpdateUi.RegisterMenuItem(file, item.Menu, item.Id, handler), RhinoReason.Declined, item.Id, index)))
+                from post in Mailboxes.Idle<Unit, Unit>(_ => Placed(file, declared.Groups))
+                from queued in post(unit, unit)
                 select unit,
             None: static () => IO.pure(unit));
+
+    private static IO<Unit> Placed(Guid file, Seq<ToolbarGroupRow> groups) =>
+        Preferences.Setting(ViewCatalog.Settings.Child(nameof(Toolbars)), nameof(Placed), fallback: false) switch {
+            var placed =>
+                from held in placed.Read
+                from shown in when(!held,
+                    from own in File(file)
+                    from live in Groups(own)
+                    from applied in IO.lift(() => groups.Iter(row => live.Find(shown => shown.Id == GroupId(file, row)).Iter(shown => shown.Visible = row.Visible)))
+                    from recorded in placed.Write(value: true)
+                    select unit).As()
+                select unit,
+        };
 
     private static RuiUpdateUi.UpdateMenuItemEventHandler Updated(HashMap<Guid, MenuEntry.Item> items, CancellationToken live) =>
         (_, ui) => Session.Run(unless(live.IsCancellationRequested, items.Find(ui.MenuItemId).Traverse(item =>

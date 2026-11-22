@@ -1,7 +1,7 @@
 import { Array, Function, Option, Schema } from 'effect';
 import { type RefObject, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from 'react';
-import { CompositionId } from '#/model/placement';
-import { type Entry, EntryId, type Portfolio } from '#/model/portfolio';
+import { CompositionId } from '#/model/placement.ts';
+import { type Entry, EntryId, type Portfolio } from '#/model/portfolio.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -48,7 +48,6 @@ backon         = { workspace = true }
 tokio          = { workspace = true, features = ["test-util"] }
 claims         = { workspace = true }
 rstest         = { workspace = true }
-hdrhistogram   = { workspace = true }
 rasm-testing   = { workspace = true }
 mcp-muxer      = { workspace = true }
 rasm-mcp-tests = { workspace = true }

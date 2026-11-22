@@ -1,39 +1,41 @@
 # [PUBLISHING]
 
-Library build and publish in an Effect-based pnpm and Nx monorepo.
+Library build and publish of the TypeScript packages Nx releases.
 
 ## [01]-[PRINCIPLES]
 
+Rules every TypeScript package build follows:
 - Product decides the build: a library publishes one module per source file, an application or CLI a bundle
-- Packages publish ES modules alone, which `require()` loads from Node 20.19 and 22.12
+- Packages publish ES modules alone, and Node's `require()` loads them
 - Every release package keeps its publish fields (`version`, `files`, `publishConfig`), private ones included
 - Development resolves source and the tarball resolves `dist`, both from one manifest that pnpm rewrites at pack
 - Packs happen in the package folder, filtered by `files`, with no generated publish folder
-- `dist` and `*.tsbuildinfo` stay ignored by Git
 
 ## [02]-[BUILD_AND_EMIT]
 
-| [INDEX] | [PRODUCT]                 | [BUILD]                                 | [CHECK]                     |
-| :-----: | :------------------------ | :-------------------------------------- | :-------------------------- |
-|  [01]   | Library with many entries | `tsc`, one `.js` and `.d.ts` per source | `tsc`, pack checks          |
-|  [02]   | Library with few entries  | tsdown with `dts`                       | `tsc --noEmit`, pack checks |
-|  [03]   | Private tool or script    | None, Node strips types                 | `tsc --noEmit`              |
-|  [04]   | CLI or server, one file   | Rolldown or esbuild bundle              | `tsc --noEmit`              |
-|  [05]   | Browser application       | `vite build`                            | `tsc --noEmit`              |
+Build and check per product kind:
 
-- `tsc` writes one `.js` and one `.d.ts` into `dist` per source file, at its source path
-- Specifiers `#/<module>` stay as written in emitted files, and the published `imports` map sends them to `./dist/*.js`
-- Declarations come from the pass that writes JavaScript, or from a per-file emitter under `isolatedDeclarations`
-- tsdown writes declarations through `rolldown-plugin-dts`, with Oxc under `isolatedDeclarations` and the TypeScript compiler otherwise
-- Vite library mode writes no `.d.ts`, so a typed library builds with `tsc` or tsdown
-- Bundled packages keep runtime libraries they inline in `devDependencies`
-- Bundler externals derive from `dependencies` and `peerDependencies`
-- Effect's own packages run one Babel pass marking `#__PURE__` calls over `dist`, since consumer tree shaking reads those marks
+| [INDEX] | [PRODUCT]               | [BUILD]                                 | [CHECK]            |
+| :-----: | :---------------------- | :-------------------------------------- | :----------------- |
+|  [01]   | Library                 | `tsc`, one `.js` and `.d.ts` per source | `tsc`, pack checks |
+|  [02]   | Private tool or script  | None, Node strips types                 | `tsc --noEmit`     |
+|  [03]   | CLI or server, one file | `vite build`, server environment        | `tsc --noEmit`     |
+|  [04]   | Browser application     | `vite build`                            | `tsc --noEmit`     |
+
+Emit and bundle rules:
+- `tsc` writes each source file's `.js` and `.d.ts` into `dist` at its source path, with syntax at `target` `esnext`
+- Emitted files keep specifiers `#/<path>.ts` and `#/<path>.tsx`, and published rows `#/*.ts` and `#/*.tsx` send them to `./dist/*.js`
+- Published `#/*` serves every other file at its source path, and `files` lists each one
+- Vite library mode writes no `.d.ts`, and a typed library builds with `tsc`
+- Vite bundles through Rolldown and transforms and minifies through Oxc
+- Rolldown `checks` emit warnings, and every Vite build includes plugin `checks` of `@rasm/vite`
+- Plugin `checks` fails a build on each warning that marks wrong output, and `PLUGIN_TIMINGS` stays a warning
+- Server and CLI bundles set `noExternal: true`, and the runtime libraries Rolldown inlines sit in `devDependencies`
 - Targets reading another package's `dist` depend on its build (`^build`)
 
 ## [03]-[PACKAGE_CONTENTS]
 
-Manifest a consumer installs, after `pnpm pack` applies `publishConfig` and replaces `catalog:` and `workspace:`:
+Manifest a consumer installs after `pnpm pack`:
 
 ```json
 {
@@ -46,55 +48,63 @@ Manifest a consumer installs, after `pnpm pack` applies `publishConfig` and repl
         "./node": "./dist/node.js",
         "./package.json": "./package.json"
     },
-    "imports": { "#/*": "./dist/*.js" },
+    "imports": { "#/*.ts": "./dist/*.js" },
     "files": ["dist/**/*.js", "dist/**/*.d.ts"],
-    "peerDependencies": { "effect": "^4.1.0" },
+    "peerDependencies": { "effect": "<range>" },
     "publishConfig": { "access": "public" }
 }
 ```
 
-| [INDEX] | [CONTENT]                | [IN_TARBALL]      | [REASON]                                                   |
-| :-----: | :----------------------- | :---------------- | :--------------------------------------------------------- |
-|  [01]   | `dist/**/*.js`           | Yes               | Runtime modules `exports` and `imports` name               |
-|  [02]   | `dist/**/*.d.ts`         | Yes               | TypeScript finds them beside each `.js`                    |
-|  [03]   | `*.js.map`, `*.d.ts.map` | With source alone | Maps resolve only when the `.ts` files they name are there |
-|  [04]   | `.ts` source             | Only for maps     | Consumers run `dist`, source serves maps alone             |
-|  [05]   | Tests, fixtures, configs | No                | `files` allowlist leaves them out                          |
-|  [06]   | `*.tsbuildinfo`          | No                | Build state `composite` writes into `dist`                 |
-|  [07]   | `README.md`, `LICENSE`   | Yes               | npm adds them whatever `files` says                        |
+Tarball contents and the reason for each:
 
+| [INDEX] | [CONTENT]                | [IN_TARBALL]      | [REASON]                                       |
+| :-----: | :----------------------- | :---------------- | :--------------------------------------------- |
+|  [01]   | `dist/**/*.js`           | Yes               | Runtime modules `exports` and `imports` name   |
+|  [02]   | `dist/**/*.d.ts`         | Yes               | TypeScript finds them beside each `.js`        |
+|  [03]   | `*.js.map`, `*.d.ts.map` | With source alone | Maps resolve only beside `.ts` files they name |
+|  [04]   | `.ts` source             | Only for maps     | Consumers run `dist`, source serves maps alone |
+|  [05]   | Tests, fixtures, configs | No                | `files` allowlist leaves them out              |
+|  [06]   | `*.tsbuildinfo`          | No                | Build state `composite` writes into `dist`     |
+|  [07]   | `README.md`, `LICENSE`   | Yes               | Packed whatever `files` says                   |
+
+Rules of `files` and `publishConfig`:
 - `files` names `dist/**/*.js` and `dist/**/*.d.ts`, as a `"dist"` row packs maps and `tsconfig.tsbuildinfo` with them
-- Packages publishing maps add `dist/**/*.map` and their source globs to `files`, as Effect's packages list `src/**/*.ts`
-- `publishConfig` maps match source maps key for key, as a key missing there leaves that entry out of a published package
+- Packages publishing maps add `dist/**/*.map` and their source globs (`src/**/*.ts` in Effect's packages) to `files`
+- `publishConfig` entries match source entries key for key, as a key missing there leaves its entry out of the published package
 - `publishConfig.access: "public"` publishes a scoped package as public
-- Packages whose bundles inline dependencies collect those licenses into their tarball at build
 
 ## [04]-[PACK_CHECKS]
 
-| [INDEX] | [CHECK]         | [COMMAND]                                                    | [FINDS]                                   |
-| :-----: | :-------------- | :----------------------------------------------------------- | :---------------------------------------- |
-|  [01]   | Pack            | `pnpm pack --out <file>.tgz`                                 | Tarball with `publishConfig` applied      |
-|  [02]   | Type resolution | `attw <file>.tgz --profile esm-only`                         | Entries TypeScript cannot resolve         |
-|  [03]   | Manifest lint   | `publint <file>.tgz --strict`                                | `exports`, `files`, and field defects     |
-|  [04]   | Install test    | Tarball installed in an empty project outside its workspace  | Missing files, wrong ranges, broken `bin` |
-|  [05]   | Consumer types  | `tsc` with `skipLibCheck: false` over a fixture importing it | Declaration errors a consumer would see   |
+Targets checking a package as its tarball:
 
-- `attw --pack` runs `npm pack`, which applies no `publishConfig` swap and keeps `catalog:` and `workspace:`, so attw reads a pnpm tarball
-- `--profile esm-only` ignores CommonJS resolution failures
-- `publint` lints a directory or a tarball, and `--pack pnpm` makes it pack with pnpm
-- Target `check--publint` runs `publint --strict` in the package folder after its build, and publint packs that folder with pnpm
+| [INDEX] | [TARGET]         | [COMMAND]                    | [FINDS]                                                       |
+| :-----: | :--------------- | :--------------------------- | :------------------------------------------------------------ |
+|  [01]   | `pack--pnpm`     | `pnpm pack --out <file>.tgz` | `workspace:` sibling without `version`, unresolved `catalog:` |
+|  [02]   | `check--publint` | `publint --strict`           | `exports`, `imports`, and `bin` targets missing from tarball  |
+|  [03]   | `check--knip`    | `knip`                       | Imports of packages no manifest field lists                   |
+
+Reach of each check:
+- `check--publint` runs in the package folder after its build and packs it with pnpm, as `pnpm publish` does
 - Workspace links miss the `files`, `exports`, `bin`, and dependency range defects a tarball shows
+- Runtime imports of a package listed in `devDependencies` alone reach no check, as bundled packages list their inlined libraries there
 
 ## [05]-[VERSIONING]
 
-- `nx.json` sets `projectsRelationship: "independent"`, so each package takes its own version and `<project>@<version>` tag, where Nx's default `"fixed"` would version every package with one bump
-- `release.version.preserveLocalDependencyProtocols` defaults to `true`, so `workspace:` references stay in committed manifests
-- Conventional commits after a package's last tag decide its bump and changelog text
+Release versions and notes:
+- `release.version.preserveLocalDependencyProtocols` defaults to `true`, and committed manifests keep `workspace:` references
+- Conventional commits after a package's last tag write its GitHub release notes, and no changelog file exists
 
 ## [06]-[PUBLISH]
 
-- `nx release publish` runs `pnpm publish` on the tarball each project's `pack--pnpm` wrote, the file `attach--gh` uploads
+Registry upload routes and their credentials:
+- `nx release publish` runs `pnpm publish` on the tarball each project's `pack--pnpm` wrote and `attach--gh` uploads
 - `pnpm publish --dry-run` does everything but the upload
-- Trusted publishing from CI needs no stored registry token, and attaches provenance to a public package from a public repository
-- Trusted publishing runs on cloud-hosted runners alone, so a self-hosted runner publishes with a registry token and no provenance
-- Release jobs publish in dependency order, so a consumer's install never meets a missing sibling version
+- `nx-release-publish` runs where `ACTIONS_ID_TOKEN_REQUEST_URL` or `NODE_AUTH_TOKEN` is set, and names both and skips where neither is
+- `pnpm publish` trades the job's OIDC token for a publish token of each package with a trusted publisher
+- Packages with no trusted publisher publish with `NODE_AUTH_TOKEN`, and `PNPM_CONFIG__AUTH` hands it to pnpm for the npm registry
+- Trusted publishers attach to a package npm holds, and each package's first version publishes with `NODE_AUTH_TOKEN`
+- `npm trust github <package> --file release.yml --repository <owner>/<repository> --environment release --allow-publish` adds a trusted publisher
+- New trusted publishers expire unless a publish through them succeeds within 2 days
+- Trusted publishing accepts GitHub-hosted runners alone
+- Trusted publishing attaches provenance to a public package from a public repository with no `--provenance` flag
+- Release jobs publish in dependency order, and a consumer's install never meets a missing sibling version

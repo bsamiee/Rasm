@@ -1,13 +1,3 @@
-# --- [LINKER] ---------------------------------------------------------------------------
-
-# Kept on purpose, do not remove: wild (https://github.com/wild-linker/wild) replaces Apple ld once
-# its Mach-O backend links this workspace. Through 0.11.0 it lacks thread-local storage (#2071),
-# which Rust std uses on macOS, dylib output (#2161), which the Dylint cdylib needs, and debug info
-# (#2068), which `profile.dev` line tables need. Target rustflags replace `build.rustflags`, so the
-# row repeats them.
-# [target.aarch64-apple-darwin]
-# rustflags = ["-Zunstable-options", "--jobs-frontend=0", "-Clink-arg=--ld-path=wild"]
-
 # --- [BUILD] ----------------------------------------------------------------------------
 
 [build]
@@ -17,6 +7,12 @@ rustflags        = ["-Zunstable-options", "--jobs-frontend=0"] # 0 is every core
 fingerprint      = "content"
 analysis.enabled = true
 
+# --- [ENV] ------------------------------------------------------------------------------
+
+[env]
+CLIPPY_CONF_DIR  = { value = ".config", relative = true }
+DYLINT_RUSTFLAGS = "-Zflatten-format-args=no"
+
 # --- [CACHE] ----------------------------------------------------------------------------
 
 [cache.global-clean]
@@ -25,16 +21,38 @@ max-crate-age  = "1 month"
 max-git-co-age = "1 week"
 max-git-db-age = "1 month"
 
-# --- [ENV] ------------------------------------------------------------------------------
+# --- [PROFILES] -------------------------------------------------------------------------
 
-[env]
-CLIPPY_CONF_DIR  = { value = ".config", relative = true }
-DYLINT_RUSTFLAGS = "-Zflatten-format-args=no"
+[profile.dev.package] # Cargo refuses a member `[lints]` override beside `workspace = true`, and tombi's Cargo.toml schema refuses profile `rustflags`
+rasm-site             = { rustflags = ["-Aunsafe_code"] }                # PROJ `proj_factors`, which the `proj` crate wraps none of, runs through `proj-sys` FFI
+rasm-testing          = { rustflags = ["-Aunsafe_code"] }                # sqlite-vec registers `vec0` through its C entry point on each locked sqlx connection
+rasm-mcp              = { rustflags = ["-Adeprecated"] }                 # Initialize-era MCP revisions keep logging and resources/subscribe, and the GenAI names moved to a repository publishing no crate
+rasm-mcp-tests        = { rustflags = ["-Adeprecated"] }                 # Scenarios exercise the initialize-era revisions their server keeps
+rasm-lints-tests      = { rustflags = ["-Aclippy::disallowed_methods"] } # insta `glob!` canonicalizes its base folder inside its own expansion, which clippy lints as local code
+rasm-dependency-graph = { rustflags = ["-Aclippy::expect_used"] }        # petgraph builds `Acyclic` through a checked `TryFrom` alone, over graphs and subgraphs acyclic by construction
+
+[profile.release.package] # Root profiles inherit nothing, so release repeats each dev row for itself, bench, and dist, which `check` also lints under
+rasm-site             = { rustflags = ["-Aunsafe_code"] }
+rasm-testing          = { rustflags = ["-Aunsafe_code"] }
+rasm-mcp              = { rustflags = ["-Adeprecated"] }
+rasm-mcp-tests        = { rustflags = ["-Adeprecated"] }
+rasm-lints-tests      = { rustflags = ["-Aclippy::disallowed_methods"] }
+rasm-dependency-graph = { rustflags = ["-Aclippy::expect_used"] }
 
 # --- [RESOLVER] -------------------------------------------------------------------------
 
 [resolver]
 feature-unification = "workspace"
+
+# --- [TARGET] ---------------------------------------------------------------------------
+
+# Kept on purpose, do not remove: wild (https://github.com/wild-linker/wild) replaces Apple ld once
+# its Mach-O backend links this workspace. Through 0.11.0 it lacks thread-local storage (#2071),
+# which Rust std uses on macOS, dylib output (#2161), which the Dylint cdylib needs, and debug info
+# (#2068), which `profile.dev` line tables need. Target rustflags replace `build.rustflags`, so the
+# row repeats them.
+# [target.aarch64-apple-darwin]
+# rustflags = ["-Zunstable-options", "--jobs-frontend=0", "-Clink-arg=--ld-path=wild"]
 
 # --- [UNSTABLE] -------------------------------------------------------------------------
 
@@ -46,3 +64,4 @@ feature-unification = true
 fine-grain-locking  = true
 gc                  = true
 git                 = "shallow-deps"
+profile-rustflags   = true

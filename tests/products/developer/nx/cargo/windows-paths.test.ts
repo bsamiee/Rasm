@@ -1,8 +1,6 @@
-import { type CreateNodesContext, DependencyType } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
-import { TempFs } from '@rasm/testing/temp-fs';
-import { Predicate, Record } from 'effect';
-import { describe, expect, test, vi } from 'vitest';
+import { it, unportable } from '@rasm/testing/nx';
+import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('node:path'), async (actual) => {
     const { windows } = await import('@rasm/testing/path');
@@ -10,56 +8,33 @@ vi.mock(import('node:path'), async (actual) => {
 });
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-const it = test
-    .extend('tempFs', async ({}, { onCleanup }) => {
-        const cwd = process.cwd();
-        const tempFs = new TempFs('cargo-windows-paths');
-        process.chdir(tempFs.tempDir);
-        onCleanup(() => {
-            process.chdir(cwd);
-            tempFs.cleanup();
-        });
-        await tempFs.createFiles({
-            'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/core", "crates/cli"]\n',
-            'crates/core/Cargo.toml': '[package]\nname = "core-kit"\nversion = "0.1.0"\nedition = "2024"\n',
-            'crates/core/src/lib.rs': '',
-            'crates/cli/Cargo.toml': '[package]\nname = "cli"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\ncore-kit = { path = "../core" }\n',
-            'crates/cli/src/main.rs': 'fn main() {}\n',
-        });
-        return tempFs;
-    })
-    .extend('context', ({ tempFs }): CreateNodesContext => ({ nxJsonConfiguration: {}, workspaceRoot: tempFs.tempDir }));
+const cargo = { createNodes, createDependencies };
+const crates = {
+    'rust/Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n',
+    'rust/.config/nextest.toml': '[profile.default]\nfail-fast = false\n',
+    'rust/crates/core-kit/Cargo.toml': '[package]\nname = "core-kit"\nversion = "0.1.0"\nedition = "2024"\nreadme = "../../docs/core-kit.md"\n',
+    'rust/crates/core-kit/src/lib.rs': '',
+    'rust/docs/core-kit.md': '# core-kit\n',
+    'rust/crates/cli/Cargo.toml': '[package]\nname = "cli"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\ncore-kit = { path = "../core-kit", version = "0.1.0" }\n',
+    'rust/crates/cli/src/main.rs': 'fn main() {}\n',
+};
 
-describe('@rasm/nx-cargo under Windows path separators', { timeout: 60_000 }, () => {
-    const manifests = ['Cargo.toml', 'crates/core/Cargo.toml', 'crates/cli/Cargo.toml'];
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-    it('should hand Nx workspace-relative posix roots, inputs, outputs, and lock paths', async ({ context }) => {
-        const results = await createNodes[1](manifests, {}, context);
+describe('Windows path separators', { timeout: 120_000 }, () => {
+    it('states roots, inputs, outputs, working folders, and the lock as workspace-relative posix paths', async ({ workspace }) => {
+        const graph = await workspace.write(crates).graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
 
-        const projects = results[0]?.[1].projects;
-        expect(Object.keys({ ...projects })).toStrictEqual(['crates/core', 'crates/cli']);
-        expect(projects?.['crates/core']?.namedInputs?.['default']?.filter(Predicate.isString)).toStrictEqual(['{projectRoot}/Cargo.toml', '{projectRoot}/src/**/*', '{workspaceRoot}/Cargo.lock', '{workspaceRoot}/Cargo.toml']);
-        expect(projects?.['crates/cli']?.targets?.['build--cargo']).toMatchObject({ options: { outputs: ['{workspaceRoot}/target/debug/cli', '{workspaceRoot}/target/debug/cli.d'] } });
-        expect(projects?.['crates/core']?.release?.version?.versionActionsOptions).toStrictEqual({ lock: 'Cargo.lock' });
+        expect(Object.keys(graph.nodes).toSorted()).toStrictEqual(['cli', 'core_kit']);
+        expect(unportable(graph)).toStrictEqual([]);
+        expect(graph.nodes['cli']?.data.release?.version?.versionActionsOptions).toStrictEqual({ lock: 'rust/Cargo.lock' });
     });
 
-    it('should name the workspace-relative posix manifest as the source file of an edge', async ({ tempFs, context }) => {
-        const nodes = await createNodes[1](manifests, {}, context);
+    it('keeps the static edge of a path dependency', async ({ workspace }) => {
+        const graph = await workspace.write(crates).graph(cargo);
 
-        const result = await createDependencies(
-            {},
-            {
-                workspaceRoot: tempFs.tempDir,
-                projects: Record.fromEntries(Record.collect({ ...nodes[0]?.[1].projects }, (root, project) => [project.name ?? root, { ...project, root }] as const)),
-                externalNodes: {},
-                fileMap: { projectFileMap: {}, nonProjectFiles: [] },
-                filesToProcess: { projectFileMap: {}, nonProjectFiles: [] },
-                nxJsonConfiguration: {},
-            },
-        );
-
-        expect(result).toStrictEqual([{ source: 'cli', target: 'core_kit', type: DependencyType.static, sourceFile: 'crates/cli/Cargo.toml' }]);
+        expect(graph.dependencies['cli']).toStrictEqual([{ source: 'cli', target: 'core_kit', type: 'static' }]);
     });
 });

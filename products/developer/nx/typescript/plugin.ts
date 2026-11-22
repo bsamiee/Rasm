@@ -1,16 +1,15 @@
 import { createRequire, findPackageJSON } from 'node:module';
-import { basename, dirname, extname, join, matchesGlob, posix, relative, resolve } from 'node:path';
+import { basename, dirname, extname, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getFilesInDirectoryUsingContext, getLockFileName, hashObject, hashWithWorkspaceContext, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { createTypecheckTarget } from '@nx/js/internal';
+import { getRootTsConfigFileName } from '@nx/js';
 import { aggregated, fingerprinted, Folder, namedInput, recalled, run, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import type { API, ParsedCommandLine } from '@typescript/native/sync';
 import { Array, Cause, Effect, FileSystem, Filter, Match, Option, Order, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
 import type { ESLint } from 'eslint';
-import { getRootTsConfigFileName } from 'nx/src/plugins/js/utils/typescript';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,7 +21,7 @@ const CONFIG = 'tsconfig.json';
 const MANIFEST = 'package.json';
 const WORKER = 'cloudflare.config.ts';
 const PROJECT = 'project.json';
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const LINTERS = ['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts', 'eslint.config.mts', 'eslint.config.cts'];
 const DUPLICATES = ['.jscpd.json', '.config/jscpd.json', '.config/.jscpd.json'];
 const PACKAGE = /^(?![./]|node:)(?<name>(?:@[^/]+\/)?[^/]+)/u;
@@ -40,10 +39,9 @@ const Options = Schema.Struct({
     outputPath: Folder,
     compilerPackages: Schema.NonEmptyArray(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['typescript'] as const))),
     knipConfig: Folder,
-    noEmit: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
 }).annotate({
     description:
-        'outputPath: workspace folder the package manager packs each tarball to, {projectName} naming the project, absent packs into the package folder. compilerPackages: npm packages every tsc target hashes as external dependencies, the first the native TypeScript package whose tsc runs and whose ./sync API reads each tsconfig.json. knipConfig: workspace file knip reads its configuration from through --config, absent leaving knip to find its own. noEmit: workspace globs of tsconfig.json files whose programs each run as a check--tsc target under tsc --noEmit, whatever they emit',
+        'outputPath: workspace folder the package manager packs each tarball to, {projectName} naming the project, absent packs into the package folder. compilerPackages: npm packages every tsc target hashes as external dependencies, the first the native TypeScript package whose tsc runs and whose ./sync API reads each tsconfig.json. knipConfig: workspace file knip reads its configuration from through --config, absent leaving knip to find its own',
 });
 const Manifest = Schema.fromJsonString(
     Schema.Struct({
@@ -100,7 +98,7 @@ const connected = (workspaceRoot: string, compiler: string, from: string) =>
         (native) => Effect.acquireDisposable(Effect.sync(() => new native.API({ cwd: workspaceRoot }))),
     );
 
-const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, configs: Array.NonEmptyReadonlyArray<string>) {
+const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, roots: ReadonlySet<string>, configs: Array.NonEmptyReadonlyArray<string>) {
     const unopened = (cause: unknown) => new Cause.UnknownError(cause, `${compiler}/sync opens no snapshot of ${workspaceRoot}`);
     const api = yield* connected(workspaceRoot, compiler, Array.headNonEmpty(configs));
     const fs = yield* FileSystem.FileSystem;
@@ -114,19 +112,29 @@ const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
             pending.filter((at) => !seen.has(at)),
             { onEmpty: () => seen, onNonEmpty: (fresh) => reached(fresh.flatMap(linked), new Set([...seen, ...fresh])) },
         );
+    const owner = (at: string) => {
+        const parts = normalizePath(relative(workspaceRoot, dirname(at))).split('/');
+        return Option.getOrElse(
+            Array.findFirst(
+                Array.makeBy(parts.length, (index) => parts.slice(0, parts.length - index).join('/')),
+                (folder) => roots.has(folder),
+            ),
+            () => '.',
+        );
+    };
     const parsed = (config: string) => {
         const file = resolve(workspaceRoot, config);
         const read = api.parseConfigFile(file);
         const [owned, external] = Array.partition(
             referenced(read),
-            Filter.fromPredicate((at: string) => dirname(at) === dirname(file)),
+            Filter.fromPredicate((at: string) => owner(at) === dirname(config)),
         );
-        return { entry: { file, parsed: read, chain: [file] }, owned, external: [...reached([...external, ...owned.flatMap(linked)], new Set([file, ...owned]))].filter((at) => !(at === file || owned.includes(at))) };
+        return { entry: { file, parsed: read, chain: [file], loaded: read.fileNames }, owned, external: [...reached([...external, ...owned.flatMap(linked)], new Set([file, ...owned]))].filter((at) => !(at === file || owned.includes(at))) };
     };
     const reads = configs.map((config) => [config, Result.try({ try: () => parsed(config), catch: (cause) => new Cause.UnknownError(cause, `${config} does not parse as a tsconfig`) })] as const);
     const files = yield* Effect.filter(Array.dedupe(Array.getSuccesses(reads.map(([, read]) => read)).flatMap(({ entry, owned, external }) => [entry.file, ...owned, ...external])), (at) => fs.exists(at));
     const snapshot = yield* Effect.acquireDisposable(Effect.try({ try: () => api.createSnapshot({ openProjects: files }), catch: unopened }));
-    const configured = (file: string) => Option.map(Option.fromNullishOr(snapshot.getConfiguredProject(file)), (project) => [file, { file, parsed: project.parsedCommandLine, chain: project.program.getConfigFileNames() }] as const);
+    const configured = (file: string) => Option.map(Option.fromNullishOr(snapshot.getConfiguredProject(file)), (project) => [file, { file, parsed: project.parsedCommandLine, chain: project.program.getConfigFileNames(), loaded: project.program.getSourceFileNames() }] as const);
     const opened = new Map(yield* Effect.try({ try: () => Array.getSomes(files.map(configured)), catch: unopened }));
     const members = (listed: readonly string[]) => Array.getSomes(listed.map((file) => Option.fromUndefinedOr(opened.get(file))));
     return reads.map(([config, read]) => [config, Result.map(read, ({ entry, owned, external }) => ({ config, entry: opened.get(entry.file) ?? entry, members: members(owned), external: members(external) }))] as const);
@@ -138,34 +146,32 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, solution: E
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
     const holding = [entry, ...members].filter(({ parsed }) => parsed.fileNames.length > 0);
     const checked = entry.parsed.fileNames.length > 0 || Array.isReadonlyArrayEmpty(holding) ? [entry] : holding;
-    const built = checked.some(({ parsed }) => (parsed.projectReferences ?? []).length > 0);
-    const outputs = holding
-        .filter(({ parsed }) => parsed.options.noEmit !== true)
-        .flatMap(({ file, parsed: { options, fileNames } }) => {
-            const emitted = options.resolveJsonModule === true || fileNames.some((at) => extname(at) === '.json') ? '**/*.{js,cjs,mjs,jsx,json,d.ts,d.cts,d.mts}{,.map}' : '**/*.{js,cjs,mjs,jsx,d.ts,d.cts,d.mts}{,.map}';
-            const offset = options.outDir === undefined || options.rootDir === undefined ? '.' : relative(options.rootDir, dirname(file));
-            const at = resolve(options.outDir ?? dirname(file), offset);
-            return [
-                join(options.outDir ?? dirname(file), offset.startsWith('..') ? '.' : offset, emitted),
-                ...(options.declarationDir === undefined ? [] : [join(options.declarationDir, '**/*.{d.ts,d.cts,d.mts}{,.map}')]),
-                ...(built || options.incremental === true || options.composite === true ? [options.tsBuildInfoFile ?? join(at, `${basename(file, '.json')}.tsbuildinfo`)] : []),
-            ].map(local);
-        });
-    const sources = Array.dedupe([...[entry, ...holding].flatMap(({ chain, parsed }) => [...chain, ...parsed.fileNames]), ...external.flatMap(({ chain }) => chain)].map(local)).filter(within);
+    const placed = holding.map(({ file, loaded, parsed: { options, projectReferences = [] } }) => {
+        const offset = options.outDir === undefined || options.rootDir === undefined ? '.' : relative(options.rootDir, dirname(file));
+        const base = join(options.outDir ?? dirname(file), offset.startsWith('..') ? '.' : offset);
+        const scripts = options.emitDeclarationOnly === true ? [] : [join(base, `**/*.{js,cjs,mjs,jsx}${options.sourceMap === true ? '{,.map}' : ''}`), ...(loaded.some((at) => extname(at) === '.json') ? [join(base, '**/*.json')] : [])];
+        const declarations = options.declaration === true || options.composite === true ? [join(options.declarationDir ?? base, `**/*.{d.ts,d.cts,d.mts}${options.declarationMap === true ? '{,.map}' : ''}`)] : [];
+        return {
+            emitted: options.noEmit === true ? [] : [...scripts, ...declarations].map(local),
+            informed: options.incremental === true || options.composite === true || projectReferences.length > 0 ? [local(options.tsBuildInfoFile ?? join(resolve(options.outDir ?? dirname(file), offset), `${basename(file, '.json')}.tsbuildinfo`))] : [],
+        };
+    });
+    const sources = Array.dedupe([...[entry, ...holding].flatMap(({ chain, parsed, loaded }) => [...chain, ...parsed.fileNames, ...loaded.filter((at) => !relative(folder, at).startsWith('..'))]), ...external.flatMap(({ chain }) => chain)].map(local)).filter(within);
     return {
         commands: checked.map(({ file, parsed }) => {
-            const named = basename(file) === CONFIG ? [] : [relative(folder, file)];
+            const named = relative(folder, file) === CONFIG ? [] : [relative(folder, file)];
             return ['tsc', ...((parsed.projectReferences ?? []).length > 0 ? ['--build', ...named] : named.flatMap((at) => ['-p', at]))].map(quoteShellArg).join(' ');
         }),
         configs: checked.map(({ file }) => relative(folder, file)),
-        outputs: Array.dedupe(outputs),
+        outputs: Array.dedupe(placed.flatMap(({ emitted }) => emitted)),
+        informed: Array.dedupe(placed.flatMap(({ informed }) => informed)),
         chain: entry.chain.map(local).filter(within),
         sources,
         stamp: yield* listing(workspaceRoot)(sources),
     };
 });
 
-const compiled = (root: string, { commands, configs, outputs, sources }: Program, packages: readonly string[], upstream: string, linted: boolean, synced: boolean, exec: string): Verbs => {
+const compiled = (root: string, { commands, configs, outputs, informed, sources }: Program, packages: readonly string[], upstream: string, linted: boolean, synced: boolean, exec: string): Verbs => {
     const metadata = (description: string, example: readonly string[]) => ({ description, help: { command: `${exec} tsc --help`, example: { args: [...example] } } });
     const token = tokened(root);
     const tsc = {
@@ -177,11 +183,18 @@ const compiled = (root: string, { commands, configs, outputs, sources }: Program
         outputs: [],
         ...(synced && { syncGenerators: ['@nx/js:typescript-sync'] }),
     } satisfies TargetConfiguration;
+    const cleaned = (removed: readonly string[]) => ({
+        tsc: {
+            executor: `${distribution.name}:clean`,
+            options: { targets: removed, commands: configs.map((config) => ['tsc', '--build', '--clean', config]), cwd: root },
+            inputs: ['default', '^default', { externalDependencies: [...packages] }],
+            metadata: { description: `Removes the outputs ${removed.join(', ')} declare and each program output with tsc --build --clean`, help: { command: `${exec} tsc --build --help`, example: { args: ['--dry'] } } },
+        },
+    });
     return Array.match(outputs, {
-        onEmpty: () => ({ check: { tsc: { ...tsc, metadata: metadata('Type-checks every program of the project with tsc', ['--extendedDiagnostics']) } } }),
+        onEmpty: () => ({ check: { tsc: { ...tsc, outputs: informed.map(token), metadata: metadata('Type-checks every program of the project with tsc', ['--extendedDiagnostics']) } }, ...(Array.isReadonlyArrayNonEmpty(informed) && { clean: cleaned(['check--tsc']) }) }),
         onNonEmpty: (written) => {
-            const build = { tsc: { ...tsc, outputs: written.map(token), metadata: metadata('Emits JavaScript and declarations with tsc, type-checking every program it builds', ['--listEmittedFiles']) } };
-            const removed = Record.collect(build, (tool) => `build--${tool}`);
+            const build = { tsc: { ...tsc, outputs: Array.dedupe([...written, ...informed]).map(token), metadata: metadata('Emits JavaScript and declarations with tsc, type-checking every program it builds', ['--listEmittedFiles']) } };
             return {
                 build,
                 check: {
@@ -198,14 +211,7 @@ const compiled = (root: string, { commands, configs, outputs, sources }: Program
                         },
                     }),
                 },
-                clean: {
-                    tsc: {
-                        executor: `${distribution.name}:clean`,
-                        options: { targets: removed, commands: configs.map((config) => ['tsc', '--build', '--clean', config]), cwd: root },
-                        inputs: ['default', '^default', { externalDependencies: [...packages] }],
-                        metadata: { description: `Removes the outputs ${removed.join(', ')} declare and each program output with tsc --build --clean`, help: { command: `${exec} tsc --build --help`, example: { args: ['--dry'] } } },
-                    },
-                },
+                clean: cleaned(Record.collect(build, (tool) => `build--${tool}`)),
             };
         },
     });
@@ -216,8 +222,8 @@ const tarball = (manager: PackageManager, exec: string, { outputPath }: typeof O
     const folder = Option.fromUndefinedOr(outputPath);
     const pack = {
         [manager]: {
-            command: [...argv, ...Option.match(folder, { onNone: () => [], onSome: (at) => to(posix.relative(root, at)) })].map(quoteShellArg).join(' '),
-            options: { cwd: root },
+            executor: `${PLUGIN}:pack`,
+            options: Option.match(folder, { onNone: () => ({ argv }), onSome: (at) => ({ argv: [...argv, ...to(posix.relative(root, at))], outputPath: at }) }),
             dependsOn: ['build--*'],
             cache: true,
             inputs: ['default', '^{projectRoot}/package.json', workspace, { dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
@@ -288,7 +294,8 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
                             cache: true,
                             inputs: [posix.join('{workspaceRoot}', '**/*'), { externalDependencies: ['knip'] }],
                             outputs: [],
-                            metadata: { technologies: ['knip'], description: `Reports unused files, exports, and dependencies of every workspace package with ${knip}`, help: { command: `${exec} knip --help`, example: { args: ['--production'] } } },
+                            configurations: { ci: { args: '--reporter symbols --reporter github-actions' } },
+                            metadata: { technologies: ['knip'], description: `Reports unused files, exports, and dependencies of every workspace package with ${knip}, adding GitHub annotations under the ci configuration`, help: { command: `${exec} knip --help`, example: { args: ['--production'] } } },
                         },
                     }),
                 },
@@ -469,8 +476,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     );
     const configs = nested.filter((file) => basename(file) === CONFIG);
     const manager = detectPackageManager(workspaceRoot);
-    const pmc = getPackageManagerCommand(manager);
-    const { exec } = pmc;
+    const { exec } = getPackageManagerCommand(manager);
     const synced = installed('@nx/js', join(workspaceRoot, MANIFEST));
     const row = hashArray([hashed, hashObject(options ?? {})]);
     const cache = new PluginCache<Program & { readonly digest: string }>(join(workspaceDataDirectory, 'typescript.hash'));
@@ -483,6 +489,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
             solved(
                 workspaceRoot,
                 Array.headNonEmpty(settings.compilerPackages),
+                held,
                 Array.map(missed, ({ config }) => config),
             ),
     });
@@ -495,15 +502,13 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
         ? yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), exec, [...[...held].map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))], row)
         : new Map<string, TargetConfiguration>();
     const rooted = getRootTsConfigFileName();
-    const checked = (file: string, program: Program): Program =>
-        settings.noEmit.some((glob) => matchesGlob(file, glob)) ? { ...program, commands: program.configs.flatMap((config) => Array.fromNullishOr(createTypecheckTarget({ mode: 'noEmit', projectRoot: dirname(file), pmc, tsConfig: config }).command)), outputs: [] } : program;
     const programs = new Map<string, Result.Result<Program, Cause.UnknownError>>([...Array.getSomes(rows.map(({ config, program }) => Option.map(program, (cached) => [config, Result.succeed(cached)] as const))), ...Array.zipWith(unread, fresh, ({ config }, program) => [config, program] as const)]);
     const chained = (root: string) => Option.match(Option.flatMap(Option.fromUndefinedOr(programs.get(posix.join(root, CONFIG))), Option.getSuccess), { onNone: () => [], onSome: ({ chain }) => chain.filter((at) => posix.relative(root, at).startsWith('..') && at !== rooted).map(tokened(root)) });
     const read = Effect.fnUntraced(function* (file: string) {
         const root = dirname(file);
         const manifest = yield* looked(manifests, root);
         const stated = manifest.nx?.targets ?? {};
-        const typed = (program: Program) => Option.some(projected(root, 'typescript', compiled(root, checked(file, program), settings.compilerPackages, `^${namedInput(root, context)}`, manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, exec), stated));
+        const typed = (program: Program) => Option.some(projected(root, 'typescript', compiled(root, program, settings.compilerPackages, `^${namedInput(root, context)}`, manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, exec), stated));
         const loadable = Effect.sync(() => installed('cf', join(workspaceRoot, file)));
         const linting = Option.map(
             Option.filter(Option.fromUndefinedOr(lints.get(root)), () => anchors.has(file) || root === '.'),

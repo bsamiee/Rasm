@@ -12,7 +12,6 @@ using Grasshopper2.Types.Assistant;
 using Grasshopper2.Types.Linguistic;
 using Grasshopper2.UI;
 using Grasshopper2.UI.Flex;
-using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.InputPanel;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.UI.Toolbar;
@@ -54,8 +53,6 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
     public Guid CustomIoId => DataTypes.IoId(typeof(TSelf));
 
     public IEnumerable<Guid> SupportedPins => declared.ToSeq().Bind(static held => toSeq(held.Ports.SupportedPins));
-
-    protected override IIcon? IconInternal => DataTypes.Icon((typeof(TSelf).Assembly, typeof(TSelf).Name)).ValueUnsafe();
 
     // --- [TOPOLOGY]
 

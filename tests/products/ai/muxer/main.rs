@@ -1,13 +1,17 @@
 #![feature(error_reporter)]
 
+use core::time::Duration;
 use std::path::Path;
 use std::process::Termination;
 
-use claims::assert_ok;
-use mcp_muxer_tests::{Agent, Echo, Isolated, Served, Variable, Whoami, call, decoded, text};
+use backon::{ConstantBuilder, Retryable as _};
+use claims::{assert_ok, assert_some};
+use mcp_muxer_tests::{Agent, Echo, Isolated, Served, Whoami, call, decoded, text};
 use rasm_testing::{Failure, Fixture as _, Folder};
 use rmcp::RoleClient;
+use rmcp::model::CallToolRequestParams;
 use rmcp::service::RunningService;
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -28,8 +32,12 @@ where T: Termination {
 }
 
 async fn whoami(running: &RunningService<RoleClient, Agent>, name: &str) -> Whoami {
-    let result = assert_ok!(running.peer().call_tool(assert_ok!(call("whoami", &Variable { name: name.to_owned() }))).await);
-    assert_ok!(decoded(text(&result).as_bytes()))
+    let pid = assert_ok!(decoded::<u32>(text(&assert_ok!(running.peer().call_tool(CallToolRequestParams::new("whoami")).await)).as_bytes()));
+    let mut system = assert_ok!(System::new());
+    system.refresh_processes_specifics(ProcessesToUpdate::Some(&[Pid::from_u32(pid)]), true, ProcessRefreshKind::nothing().with_cwd(UpdateKind::Always).with_environ(UpdateKind::Always));
+    let process = assert_some!(system.process(Pid::from_u32(pid)));
+    let value = process.environ().iter().find_map(|entry| entry.to_str()?.split_once('=').filter(|&(held, _)| held == name).map(|(_, value)| value.to_owned()));
+    Whoami { pid, directory: process.cwd().map(Path::to_path_buf), value }
 }
 
 async fn echoed(running: &RunningService<RoleClient, Agent>, said: &str) -> String { text(&assert_ok!(running.peer().call_tool(assert_ok!(call("echo", &Echo { text: said.to_owned() }))).await)) }
@@ -38,13 +46,20 @@ async fn daemon(isolated: &Isolated, settings: &[(&str, &str)]) -> Option<u32> {
 
 async fn servers(isolated: &Isolated, settings: &[(&str, &str)]) -> Vec<Served> { assert_ok!(isolated.state(settings).await).daemon.map_or_default(|running| running.servers) }
 
+async fn settled(isolated: &Isolated, reached: impl Fn(&[Served]) -> bool) -> Vec<Served> {
+    let polled = async || {
+        let held = servers(isolated, &[]).await;
+        if reached(&held) { Ok(held) } else { Err(held) }
+    };
+    polled.retry(ConstantBuilder::new().with_delay(Duration::from_millis(50)).with_max_times(100)).await.unwrap_or_else(|last| last)
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 mod backpressure;
 mod cli;
 mod daemon;
 mod framing;
-mod load;
 mod process;
 mod sharing;
 mod wire;

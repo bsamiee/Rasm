@@ -1,4 +1,4 @@
-use core::mem;
+use core::{iter, mem};
 use std::collections::BTreeSet;
 use std::error::Report;
 use std::io;
@@ -111,6 +111,19 @@ where
         }
         self.answers.flush().await?;
         Ok(Ended::Link { delivered })
+    }
+
+    pub async fn refuse(&mut self, error: &ErrorData) -> io::Result<()> {
+        while let Some(line) = self.client.next().await.transpose()? {
+            let asked = match &line {
+                Line::Whole(line) => identity(line, &[]),
+                Line::Oversized { head, tail } => identity(head, tail),
+            };
+            if let (Some(id), Some(_)) = asked {
+                self.refused(iter::once(id), error).await?;
+            }
+        }
+        Ok(())
     }
 
     async fn refused(&mut self, ids: impl Iterator<Item = Bytes>, error: &ErrorData) -> io::Result<()> {

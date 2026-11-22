@@ -14,7 +14,7 @@
     ],
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*.ts": "./*.ts"
     },
     "exports": {
         ".": "./plugin.ts",
@@ -22,7 +22,7 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*": "./dist/*.js"
+            "#/*.ts": "./dist/*.js"
         },
         "exports": {
             ".": "./dist/plugin.js",
@@ -33,7 +33,6 @@
     "dependencies": {
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
-        "@nx/storybook": "catalog:",
         "@rasm/nx-distribution": "workspace:*",
         "effect": "catalog:"
     },
@@ -44,6 +43,7 @@
         "storybook": "catalog:"
     },
     "peerDependencies": {
+        "@nx/storybook": "catalog:peers",
         "@nx/web": "catalog:peers",
         "nx": "catalog:peers",
         "storybook": "catalog:peers"

@@ -1,8 +1,3 @@
-#![expect(
-    deprecated,
-    reason = "the MCP and GenAI names moved to the GenAI semantic-conventions repository, which publishes no Rust crate, with values unchanged, and legacy subscription requests name their resource"
-)]
-
 use core::ops::Deref;
 use std::borrow::Cow;
 use std::sync::{LazyLock, OnceLock};

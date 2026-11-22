@@ -30,12 +30,18 @@ struct Versioned: Encodable {
     let project: String
 }
 
+struct Archive: Encodable, Equatable {
+    let configuration: String
+    let bundles: [String]
+}
+
 struct Scheme: Encodable, Equatable {
     let name: String
     let containers: [String]
     let plans: [String]
     let tests: Bool
     let launch: String?
+    let archive: Archive?
 }
 
 struct Container: Encodable, Equatable {
@@ -50,6 +56,11 @@ struct Container: Encodable, Equatable {
 struct Report: Encodable, Equatable {
     let containers: [Container]
     let failures: [String: String]
+}
+
+struct Built {
+    let configuration: String
+    let products: [String: [String: String]]
 }
 
 struct Reference {

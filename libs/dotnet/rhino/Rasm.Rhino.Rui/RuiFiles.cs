@@ -159,8 +159,6 @@ internal static class RuiFiles {
 
     private static Guid BarId(Guid file, ToolbarRow toolbar) => Uuid.NewNameBased(file, $"tool_bar/{toolbar.Face.Name}");
 
-    private static Guid GroupId(Guid file, ToolbarGroupRow group) => Uuid.NewNameBased(file, $"tool_bar_group/{group.Face.Name}");
-
     private static Guid MacroId(Guid file, Option<Macro> macro, CommandFace face) => Uuid.NewNameBased(file, $"macro_item/{face.Name}/{macro.Map(static held => held.Text).IfNone("")}");
 
     private static Guid IconId(Guid file, IconResource art) => Uuid.NewNameBased(file, $"icon/{art.Assembly.GetName().Name}/{art.Id}");
@@ -173,7 +171,7 @@ internal static class RuiFiles {
     private static RuiPlatforms Within(RuiPlatforms scope, RuiPlatforms own) => scope == RuiPlatforms.Both ? own : scope;
 
     private static XElement Group(Guid file, Translations text, ToolbarGroupRow group) =>
-        (Id: GroupId(file, group), Tabs: toSeq(group.Tabs)) switch {
+        (Id: Toolbars.GroupId(file, group), Tabs: toSeq(group.Tabs)) switch {
             var (id, tabs) => new("tool_bar_group",
                 new XAttribute("guid", id),
                 new XAttribute("dock_bar_guid64", Uuid.NewNameBased(id, "dock_bar")),
@@ -194,7 +192,7 @@ internal static class RuiFiles {
                     new XAttribute("guid", Toolbars.ItemId(id, "tool_bar_group_item", index)),
                     Platforms(tab.Toolbar.Face.Platforms),
                     text.Of("text", tab.Toolbar.Face.Caption),
-                    tab.Sidebar.Map(sidebar => new XElement("sidebar", GroupId(file, sidebar))).ToSeq(),
+                    tab.Sidebar.Map(sidebar => new XElement("sidebar", Toolbars.GroupId(file, sidebar))).ToSeq(),
                     new XElement("tool_bar_id", BarId(file, tab.Toolbar))))),
         };
 

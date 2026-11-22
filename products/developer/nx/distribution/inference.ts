@@ -25,9 +25,11 @@ const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 const Folder = Schema.optionalKey(Schema.String);
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
 const Targets = Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) })).annotate({
-    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
+    description: "The target rows of a project's package.json nx field or project.json, whose inputs Nx merges over the inferred targets after every plugin",
 });
-const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Targets) })) }));
+const Overrides = Schema.fromJsonString(Schema.Struct({ targets: Schema.optionalKey(Targets), nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Targets) })) })).annotate({
+    description: 'The nx.targets of a package.json and the targets of a project.json, which Nx merges over the inferred targets in that order',
+});
 const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -43,10 +45,10 @@ const legible = (error: unknown): Error =>
                 ),
         ),
         Match.when(
-            (each: unknown): each is Error => Predicate.isError(each) && Object.hasOwn(each, 'message'),
+            (each: unknown): each is Error => Predicate.isError(each) && Object.hasOwn(each, 'message') && Predicate.isString(each.message) && String.isNonEmpty(each.message),
             (kept): Error => kept,
         ),
-        Match.when(Predicate.isError, (each) => new Cause.UnknownError(each, each.message)),
+        Match.when(Predicate.isError, (each) => new Cause.UnknownError(each, Predicate.isString(each.message) && String.isNonEmpty(each.message) ? each.message : (each.stack ?? Formatter.format(each)))),
         Match.orElse((each) => new Cause.UnknownError(each, Formatter.format(each))),
     );
 
@@ -124,8 +126,16 @@ const recalled = <A extends { readonly sources: readonly string[]; readonly stam
 
 const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
     const fs = yield* FileSystem.FileSystem;
-    const manifest = join(workspaceRoot, root, 'package.json');
-    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
+    const read = (file: string) => {
+        const at = join(workspaceRoot, root, file);
+        return fs.readFileString(at).pipe(
+            Effect.when(fs.exists(at)),
+            Effect.flatMap((text) => Effect.transposeOption(Option.map(text, Schema.decodeEffect(Overrides)))),
+            Effect.map(Option.getOrElse((): typeof Overrides.Type => ({}))),
+        );
+    };
+    const [manifest, project] = yield* Effect.all([read('package.json'), read('project.json')], { concurrency: 'unbounded' });
+    return Record.union(manifest.nx?.targets ?? {}, project.targets ?? {}, (fromPackage, fromProject) => mergeTargetConfigurations(fromProject, fromPackage));
 });
 
 const parsed = Effect.fnUntraced(function* (parse: Parse, workspaceRoot: string, files: readonly string[]) {

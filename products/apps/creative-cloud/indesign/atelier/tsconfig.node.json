@@ -1,9 +1,6 @@
 {
     "extends": "./tsconfig.json",
     "compilerOptions": {
-        "composite": false,
-        "declarationMap": false,
-        "noEmit": true,
         "types": ["node"]
     },
     "include": ["vite.config.ts"],
@@ -12,13 +9,7 @@
             "path": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.node.json"
         },
         {
-            "path": "../../../../../libs/typescript/creative-cloud/indesign"
-        },
-        {
             "path": "../../../../../libs/typescript/creative-cloud/object-model"
-        },
-        {
-            "path": "../../../../../libs/typescript/ai/mcp"
         }
     ]
 }

@@ -5,6 +5,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { helper } from '@rasm/applications/vite';
 import { script } from '@rasm/extendscript/vite';
 import { run } from '@rasm/process';
+import { checks } from '@rasm/vite';
 import { Array, Effect, FileSystem, Struct } from 'effect';
 import type { Plugin, Rolldown, UserConfigFnPromise } from 'vite';
 
@@ -62,6 +63,7 @@ export default Effect.fnUntraced(
         return {
             build: { rolldownOptions: { experimental: { lazyBarrel: true }, output: { codeSplitting: false } } },
             plugins: [
+                checks(),
                 declarations,
                 script(resolved('@rasm/extendscript/host'), 'runtime'),
                 script(resolved('es5-shim'), 'shim'),

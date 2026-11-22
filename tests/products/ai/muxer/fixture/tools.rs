@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::thread;
 
 use clap::ValueEnum;
-use mcp_muxer_tests::{Answer, Ask, Echo, Sized, Slow, Variable, Whoami};
+use mcp_muxer_tests::{Answer, Ask, Echo, Sized, Slow};
 use rmcp::handler::server::tool::{InputResponses, ToolCallContext, ToolRouter};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
@@ -87,12 +87,8 @@ impl Fixture {
         Ok(CallToolResult::success(vec![ContentBlock::text(text)]).into())
     }
 
-    #[tool(description = "Return the server process id, working directory, and one environment variable")]
-    fn whoami(Parameters(Variable { name }): Parameters<Variable>) -> Result<String, ErrorData> {
-        #[expect(clippy::disallowed_methods, reason = "the fixture reports the environment and directory its parent gave it")]
-        let (value, directory) = (std::env::var(&name).ok(), std::env::current_dir().ok());
-        serde_json::to_string(&Whoami { pid: std::process::id(), directory, value }).map_err(|error| ErrorData::internal_error(error.to_string(), None))
-    }
+    #[tool(description = "Return the server process id")]
+    fn whoami() -> String { std::process::id().to_string() }
 
     #[tool(description = "End the server process with status 3")]
     fn crash(&self) -> String {

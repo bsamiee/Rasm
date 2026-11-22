@@ -11,7 +11,9 @@ namespace Rasm.Rhino.UI.Styling;
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record IconResource(Assembly Assembly, string Id) {
-    private const string PlugInMaster = "icon.svg";
+    public const string Mark = "mark";
+
+    private const string PlugInMaster = Mark + ".svg";
 
     internal static IconResource Presets { get; } = new(typeof(IconResource).Assembly, "presets.svg");
 

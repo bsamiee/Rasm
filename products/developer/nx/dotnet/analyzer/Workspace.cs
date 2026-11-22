@@ -101,7 +101,7 @@ internal static partial class Workspace {
                     Instance: instance,
                     Directory: instance.ExpandString("$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(OpenApiDocumentsDirectory)))"),
                     Stem: FileName.Match(instance.GetPropertyValue("OpenApiGenerateDocumentsOptions")) is { Success: true } named ? named.Groups["name"].Value : instance.GetPropertyValue("MSBuildProjectName")))
-                .Filter(documents => !Under(documents.Directory, Path.Combine(folder, documents.Instance.GetPropertyValue("OutputPath"))) && !instances.Exists(instance => Under(documents.Directory, Extensions(instance))))
+                .Filter(documents => !Under(documents.Directory, documents.Instance.ExpandString("$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(OutputPath)))")) && !instances.Exists(instance => Under(documents.Directory, Extensions(instance))))
                 .Bind(static documents => Seq(Path.Combine(documents.Directory, $"{documents.Stem}.json"), Path.Combine(documents.Directory, $"{documents.Stem}_*.json")))
                 .Map(Placed)
                 .Filter(static documents => !documents.StartsWith("..", StringComparison.Ordinal))
@@ -114,7 +114,7 @@ internal static partial class Workspace {
             from import in toSeq(instance.ImportPaths)
             where !Under(import, Extensions(instance))
             select import;
-        Seq<string> bases = Seq(outer.GetPropertyValue("BaseOutputPath"), outer.GetPropertyValue("BaseIntermediateOutputPath")).Map(at => Path.GetFullPath(Path.Combine(folder, at)));
+        Seq<string> bases = Seq("BaseOutputPath", "BaseIntermediateOutputPath").Map(name => outer.ExpandString($"$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $({name})))"));
         Seq<string> inside = imports.Map(import => Relative(root, import)).Filter(static relative => !relative.StartsWith("..", StringComparison.Ordinal));
         Seq<string> locks = instances
             .Map(static instance => Path.GetFullPath(Path.Combine(instance.Directory, instance.GetPropertyValue("NuGetLockFilePath") is { Length: > 0 } named ? named : PackagesLockFileFormat.LockFileName)))
@@ -125,7 +125,7 @@ internal static partial class Workspace {
             new Node(
                 file.Replace('\\', '/'),
                 outer.GetPropertyValue(Flag(outer, "IsPackable") ? "PackageId" : "MSBuildProjectName"),
-                outer.GetPropertyValue("Language"),
+                evaluated.Head.IfNone(outer).GetPropertyValue("Language"),
                 outer.GetPropertyValue("Platform"),
                 instances.Exists(static instance =>
                     Flag(instance, "IsTestProject") || Flag(instance, "IsTestingPlatformApplication") || (instance.GetPropertyValue("IsTestProject").Length is 0

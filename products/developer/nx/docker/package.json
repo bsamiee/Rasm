@@ -14,21 +14,21 @@
     ],
     "type": "module",
     "imports": {
-        "#package": "./package.json"
+        "#/*": "./*"
     },
     "exports": {
         ".": "./plugin.ts",
-        "./package.json": "./package.json",
-        "./ready-check": "./ready-check.ts"
+        "./ready-check": "./ready-check.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
-            "#package": "./package.json"
+            "#/*": "./*"
         },
         "exports": {
             ".": "./dist/plugin.js",
-            "./package.json": "./package.json",
-            "./ready-check": "./dist/ready-check.js"
+            "./ready-check": "./dist/ready-check.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },

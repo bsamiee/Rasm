@@ -1,5 +1,0 @@
-{
-    "function-hooks": {
-        "PreToolUse": [{ "matcher": "run_command", "hooks": [{ "command": "mise exec -- node ../plugins/claude/function-hooks/hook.ts agy", "timeout": 30 }] }]
-    }
-}

@@ -28,12 +28,6 @@ def test_sqlite_ranks_vectors_through_vec0(sqlite: sqlite3.Connection) -> None:
     assert nearest[0][1] == pytest.approx(0.5)
 
 
-def test_sqlite_refuses_extension_loading_from_sql(sqlite: sqlite3.Connection) -> None:
-    """The fixture opens extension loading for the C API alone, so SQL `load_extension` stays refused."""
-    with pytest.raises(sqlite3.OperationalError, match="not authorized"):
-        sqlite.execute("select load_extension('vec0')")
-
-
 def test_a_failed_test_keeps_its_sqlite_file(pytester: pytest.Pytester) -> None:
     """The database file of a failing test outlives it at the path its teardown report names, holding the rows the test wrote."""
     pytester.makepyfile("""

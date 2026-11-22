@@ -13,7 +13,7 @@ const INLINED = Schema.fromJsonString(Schema.fromJsonString(Declaration.Model));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default uxp(import.meta.dirname, {
+export default uxp(import.meta.dirname, join(import.meta.dirname, '../../multi-app/atelier/icons/mark.svg'), {
     plugins: [
         {
             name: 'declared',

@@ -22,14 +22,6 @@
                         "type": "command"
                     }
                 ]
-            },
-            {
-                "hooks": [
-                    {
-                        "command": "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint codex --hook-input stdin",
-                        "type": "command"
-                    }
-                ]
             }
         ],
         "PostToolUse": [
@@ -39,24 +31,6 @@
                     {
                         "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook codex",
                         "timeout": 10,
-                        "type": "command"
-                    }
-                ]
-            },
-            {
-                "hooks": [
-                    {
-                        "command": "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint codex --hook-input stdin",
-                        "type": "command"
-                    }
-                ]
-            }
-        ],
-        "Stop": [
-            {
-                "hooks": [
-                    {
-                        "command": "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint codex --hook-input stdin",
                         "type": "command"
                     }
                 ]

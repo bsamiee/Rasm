@@ -2,7 +2,6 @@
     "$schema": "./node_modules/@typescript/native/schemas/tsconfig.schema.json",
     "compilerOptions": {
         "composite": true,
-        "declarationMap": true,
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
         "lib": ["esnext"],

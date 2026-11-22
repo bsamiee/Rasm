@@ -19,29 +19,27 @@
     ],
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
-        "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll",
-        "#package": "./package.json"
+        "#/*.ts": "./*.ts",
+        "#/*": "./*"
     },
     "exports": {
         ".": "./plugin.ts",
         "./release/version-actions": "./version-actions.ts",
-        "./package.json": "./package.json",
         "./executors.json": "./executors.json",
-        "./executors/*": "./executors/*/executor.ts"
+        "./executors/*": "./executors/*/executor.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
-            "#/*": "./dist/*.js",
-            "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll",
-            "#package": "./package.json"
+            "#/*.ts": "./dist/*.js",
+            "#/*": "./*"
         },
         "exports": {
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",
-            "./package.json": "./package.json",
             "./executors.json": "./executors.json",
-            "./executors/*": "./dist/executors/*/executor.js"
+            "./executors/*": "./dist/executors/*/executor.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },

@@ -8,14 +8,12 @@ import XcodeProjectFormat
 func report(_ containers: [FilePath]) -> Report {
     let formats = Dictionary(grouping: containers) { container in container.extension.flatMap(ContainerFormat.init(rawValue:)) }
     let projects = formats[.xcodeproj, default: []]
-        .map { container in (container, Result { () throws(AnalyzerError) in try decoded(container) }) }
-    let identifiers = Dictionary(
-        uniqueKeysWithValues: projects.compactMap { container, result in (try? result.get()).map { held in (container.string, Set(held.targets.map(\.commonProperties.objectID.rawValue))) } }
-    )
+        .map { container in (container, Result { () throws(AnalyzerError) in try analysis(container, decoded(container)) }) }
+    let built = Dictionary(uniqueKeysWithValues: projects.compactMap { container, result in (try? result.get()).map { held in (container.string, held.built) } })
     let outcomes =
-        projects.map { container, result in (container, Result { () throws(AnalyzerError) in try project(container, result.get(), identifiers: identifiers) }) }
+        projects.map { container, result in (container, Result { () throws(AnalyzerError) in try project(result.get(), built: built) }) }
         + formats[.xcworkspace, default: []]
-        .map { container in (container, Result { () throws(AnalyzerError) in try workspace(container, identifiers: identifiers) }) }
+        .map { container in (container, Result { () throws(AnalyzerError) in try workspace(container, built: built) }) }
     return Report(
         containers: outcomes.compactMap { _, outcome in try? outcome.get() },
         failures: Dictionary(

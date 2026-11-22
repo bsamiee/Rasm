@@ -9,7 +9,7 @@ import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl';
 const stated = { name: 'somehost', host: '192.0.2.7', port: 2222, user: 'remuser', trust: { _tag: 'HostKeys', keys: [key] }, path: { _tag: 'Direct', preferred: [] }, persist: 30_000, timeout: 5000, alive: { interval: 1000, count: 2 } } as const;
 const exported = { FOO: 'bar' };
-const tokens = ['%h', '%%', '%C', '%n-%p-%r', ['$', '{FOO}'].join(''), '~'];
+const expanded = ['%h', '%%', '%C', '%n-%p-%r', ['$', '{FOO}'].join('')];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -29,6 +29,8 @@ const resolved = Effect.fnUntraced(function* (folder: string, host: Host) {
     );
     return { options, known, control: host.control(path, folder) };
 }, Effect.scoped);
+const refused = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.map(Effect.result(effect), Result.isFailure);
+const agented = (fields: Record.ReadonlyRecord<string, unknown>) => Schema.decodeEffect(Host)({ ...stated, identity: { _tag: 'Agent', socket: '/tmp/agent' }, ...fields });
 const listed = (options: Record.ReadonlyRecord<string, readonly string[]>, ...names: readonly string[]) => Record.fromIterableWith(names, (name) => [name, named(options, name)]);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -60,26 +62,38 @@ it.layer(layer, { excludeTestServices: true })('config', (methods) => {
         }, Effect.scoped),
     );
 
-    methods.effect.each(tokens)(
-        'keeps %s in a user name and an agent socket as written, or refuses the host',
-        Effect.fnUntraced(function* (token) {
+    methods.effect(
+        'places a file the caller names beside the host files, in a folder that did not exist',
+        Effect.fnUntraced(function* () {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const folder = yield* fs.makeTempDirectoryScoped();
-            const [user, socket] = [`user-${token}`, path.join(folder, `agent-${token}`)];
-            const decoded = yield* Effect.result(Schema.decodeEffect(Host)({ ...stated, user, identity: { _tag: 'Agent', socket } }));
-            const shown = yield* Result.match(decoded, { onFailure: () => Effect.succeed({ identityagent: [socket], user: [user] }), onSuccess: (host) => Effect.map(resolved(folder, host), ({ options }) => listed(options, 'identityagent', 'user')) });
-            assert.deepStrictEqual(shown, { identityagent: [socket], user: [user] });
+            const kept = path.join(folder, 'elsewhere', 'kept');
+            const [ssh, host] = yield* Effect.all([Ssh.make(folder), Schema.decodeEffect(Host)({ ...stated, identity: { _tag: 'Key', file: path.join(folder, 'id') } })]);
+            yield* ssh.written(host, { [kept]: 'kept' });
+            assert.strictEqual(yield* fs.readFileString(kept), 'kept');
         }, Effect.scoped),
     );
 
-    methods.effect.each(tokens)(
-        'keeps %s in the folder of its control socket as written',
+    methods.effect.each(expanded)(
+        'refuses %s, which the OpenSSH client expands, in a user name, an agent socket, and the folder of the host files',
         Effect.fnUntraced(function* (token) {
+            const shown = yield* Effect.all({
+                user: refused(agented({ user: `user-${token}` })),
+                socket: refused(agented({ identity: { _tag: 'Agent', socket: `/tmp/agent-${token}` } })),
+                folder: refused(Ssh.make(`/tmp/in-${token}`)),
+            });
+            assert.deepStrictEqual(shown, { user: true, socket: true, folder: true });
+        }),
+    );
+
+    methods.effect(
+        'keeps ~ inside a user name, an agent socket, and the folder of its control socket as written',
+        Effect.fnUntraced(function* () {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const [kept, folder] = [yield* fs.makeTempDirectoryScoped(), path.join(yield* fs.makeTempDirectoryScoped(), `in-${token}`)];
-            const host = yield* Schema.decodeEffect(Host)({ ...stated, identity: { _tag: 'Key', file: path.join(kept, 'id') } });
-            const shown = yield* Effect.match(resolved(folder, host), { onFailure: () => [folder], onSuccess: ({ options }) => Array.map(named(options, 'controlpath'), (control) => control.slice(0, folder.length)) });
-            assert.deepStrictEqual(shown, [folder]);
+            const folder = path.join(yield* fs.makeTempDirectoryScoped(), 'in-~');
+            const [user, socket] = ['user-~', path.join(folder, 'agent-~')];
+            const { options } = yield* Effect.flatMap(Schema.decodeEffect(Host)({ ...stated, user, identity: { _tag: 'Agent', socket } }), (host) => resolved(folder, host));
+            assert.deepStrictEqual([listed(options, 'identityagent', 'user'), Array.map(named(options, 'controlpath'), (control) => control.slice(0, folder.length))], [{ identityagent: [socket], user: [user] }, [folder]]);
         }, Effect.scoped),
     );
 });

@@ -1,9 +1,7 @@
-import { symlinkSync } from 'node:fs';
-import { join } from 'node:path';
-import { type CreateNodesContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-vite';
-import { TempFs } from '@rasm/testing/temp-fs';
-import { describe, expect, test, vi } from 'vitest';
+import { it as nx, unportable } from '@rasm/testing/nx';
+import { Schema } from 'effect';
+import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('node:path'), async (actual) => {
     const { windows } = await import('@rasm/testing/path');
@@ -11,44 +9,37 @@ vi.mock(import('node:path'), async (actual) => {
 });
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Planned = Schema.Struct({ command: Schema.String }).annotate({ description: 'The command of an inferred nx:run-commands target' });
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const it = test
-    .extend('tempFs', async ({}, { onCleanup }) => {
-        const cwd = process.cwd();
-        const tempFs = new TempFs('vite-windows-paths');
-        process.chdir(tempFs.tempDir);
-        symlinkSync(join(import.meta.dirname, 'node_modules'), join(tempFs.tempDir, 'node_modules'), 'dir');
-        onCleanup(() => {
-            tempFs.cleanup();
-            process.chdir(cwd);
-        });
-        await tempFs.createFiles({
-            'package-lock.json': '{}',
-            'package.json': JSON.stringify({ name: 'repo', workspaces: ['apps/web'], nx: {} }),
-            'apps/web/package.json': '{"type":"module"}',
-            'apps/web/index.html': '',
-            'apps/web/vite.config.mts': 'export default {};',
-            'apps/site/project.json': '{}',
-            'apps/site/index.html': '',
-            'apps/site/vite.config.mts': 'export default {};',
-        });
-        return tempFs;
-    })
-    .extend('context', ({ tempFs }): CreateNodesContext => ({ nxJsonConfiguration: { namedInputs: { default: ['{projectRoot}/**/*'] } }, workspaceRoot: tempFs.tempDir }));
-
-describe('@rasm/nx-vite under Windows path separators', () => {
-    it('should declare build outputs Nx reads as a posix path under the workspace root', async ({ context }) => {
-        const results = await createNodes[1](['apps/site/vite.config.mts'], { outputPath: '.artifacts/vite/{projectName}' }, context);
-
-        const data = results[0]?.[1].projects?.['apps/site'];
-        expect(data?.targets?.['build--vite']).toMatchObject({ options: { cwd: 'apps/site' }, outputs: ['{workspaceRoot}/.artifacts/vite/{projectName}'], command: "vite build --outDir '../../.artifacts/vite/{projectName}' --emptyOutDir" });
-        expect(getOutputsForTargetAndConfiguration({ project: 'site', target: 'build--vite' }, {}, { name: 'site', type: 'app', data: { root: 'apps/site', ...data } })).toStrictEqual(['.artifacts/vite/site']);
+const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
+    workspace.install(import.meta.resolve('vite/package.json'), import.meta.resolve('@nx/vite/package.json'));
+    workspace.write({
+        'package.json': '{"name":"repo","workspaces":["apps/*"]}',
+        'package-lock.json': '{}',
+        'tsconfig.base.json': '{}',
+        'tsconfig.shared.json': '{"extends":"./tsconfig.base.json"}',
+        'tools/vite/base.ts': "export const outDir = '../../dist/web';\n",
+        'apps/web/package.json': '{"name":"web","type":"module"}',
+        'apps/web/tsconfig.json': '{"extends":"../../tsconfig.shared.json"}',
+        'apps/web/index.html': '<!doctype html>\n',
+        'apps/web/vite.config.ts': "import { outDir } from '../../tools/vite/base';\n\nexport default { build: { outDir } };\n",
     });
+});
 
-    it('should infer a project its package.json makes a package manager workspace member', async ({ context }) => {
-        const results = await createNodes[1](['apps/web/vite.config.mts'], {}, context);
+describe('@rasm/nx-vite under Windows path separators', { timeout: 60_000 }, () => {
+    it.for([
+        { case: 'the outDir the config states', options: {} },
+        { case: 'outputPath', options: { outputPath: '.artifacts/vite/{projectName}' } },
+    ])('hands Nx and vite posix paths for a build into $case', async ({ options }, { workspace }) => {
+        const graph = await workspace.graph({ createNodes }, options);
+        const { command: built } = await Schema.decodeUnknownPromise(Planned)(graph.nodes['web']?.data.targets?.['build--vite']?.options);
+        const { command: previewed } = await Schema.decodeUnknownPromise(Planned)(graph.nodes['web']?.data.targets?.['preview--vite']?.options);
 
-        expect(results.map(([file, { projects }]) => [file, Object.keys({ ...projects })])).toStrictEqual([['apps/web/vite.config.mts', ['apps/web']]]);
+        expect(unportable(graph)).toStrictEqual([]);
+        expect([built, previewed].filter((command) => command.includes('\\'))).toStrictEqual([]);
     });
 });

@@ -119,7 +119,7 @@ let applications: [Target] = [
             .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
         ],
         path: "products/apps/creative-cloud/multi-app/atelier/macos",
-        exclude: ["Atelier.entitlements", "Atelier.xcodeproj", "Info.plist"],
+        exclude: ["AppIcon.icon", "Atelier.entitlements", "Atelier.xcodeproj", "Info.plist"],
     ),
     .target(
         name: "Relay",
@@ -130,22 +130,22 @@ let applications: [Target] = [
             .product(name: "Subprocess", package: "swift-subprocess"), .product(name: "Tracing", package: "swift-distributed-tracing"),
         ],
         path: "products/macos/relay",
-        exclude: ["AGENTS.md", "CLAUDE.md", "Info.plist", "Relay.entitlements", "Relay.xcodeproj", "Resources/AppIcon.icon"],
-        resources: [.process("Resources/Assets.xcassets")],
+        exclude: ["AGENTS.md", "AppIcon.icon", "CLAUDE.md", "Info.plist", "Relay.entitlements", "Relay.xcodeproj"],
+        resources: [.process("Assets.xcassets")],
         swiftSettings: [.defaultIsolation(MainActor.self)],
     ),
     .target(
         name: "watch-app",
         dependencies: [
             "Applications", "CurrentProcess", "Encoding", "Files", "Processes", "ScreenCapture", "Telemetry",
-            .product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "Configuration", package: "swift-configuration"),
-            .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+            .product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
+            .product(name: "Logging", package: "swift-log"), .product(name: "OrderedCollections", package: "swift-collections"),
+            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "Subprocess", package: "swift-subprocess"),
             .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
-            .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
-            .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "products/macos/watch-app",
-        exclude: ["Resources", "watch-app.entitlements", "watch-app.xcodeproj"],
+        exclude: ["AppIcon.icon", "watch-app.entitlements", "watch-app.xcodeproj"],
     ),
 ]
 let tests: [Target] = [

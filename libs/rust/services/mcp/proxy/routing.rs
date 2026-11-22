@@ -1,5 +1,3 @@
-#![expect(deprecated, reason = "initialize sessions set and filter logging levels, which SEP-2577 deprecates")]
-
 use core::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::error::Report;

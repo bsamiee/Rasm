@@ -3,10 +3,10 @@ import { Choice, Field, ModalDialog, ReorderableList } from '@rasm/ui';
 import { Array, Optic, Struct } from 'effect';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
-import { draft, portfolio, updateEntry } from '#/editor/state';
-import { Destination, nextDestination, pendingUploads } from '#/editor/uploader';
-import { choiceLayout, confirmation, entryTitle, format, joinDetails, literalOptions } from '#/media/labels';
-import { Entry, type EntryId } from '#/model/portfolio';
+import { draft, portfolio, updateEntry } from '#/editor/state.ts';
+import { Destination, nextDestination, pendingUploads } from '#/editor/uploader.ts';
+import { choiceLayout, confirmation, entryTitle, format, joinDetails, literalOptions } from '#/media/labels.ts';
+import { Entry, type EntryId } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

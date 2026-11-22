@@ -81,7 +81,7 @@ internal sealed class PlugInBody {
 
     public PlugInBody(PlugIn host, Type defined, PlugInDefinition definition, Seq<View> kindViews, Func<Command, bool> register, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> license) {
         (this.host, assembly, this.definition, this.register, this.license) = (host, defined.Assembly, definition, register, license);
-        catalog = new ViewCatalog(definition, definition.Views.Concat(kindViews));
+        catalog = new ViewCatalog(definition, definition.Views.Concat(in kindViews));
         Platform.Instance.LoadAssembly(typeof(PlugInBody).Assembly);
         Session.RunSafe(Session.Bind(host, defined), CancellationToken.None).ThrowIfFail();
     }

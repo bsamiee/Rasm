@@ -83,10 +83,6 @@ impl Fixture for Sqlite {
     async fn created((parent, options): &(PathBuf, SqliteConnectOptions)) -> Result<Self, FixtureError> {
         let folder = Folder::created(parent).await?;
         let file = options.clone().filename(folder.path().join("store.sqlite")).create_if_missing(true);
-        #[expect(
-            unsafe_code,
-            reason = "sqlite-vec builds with SQLITE_CORE: its entry point registers `vec0` on this one live, locked connection, reads no API table, and its error text is freed here"
-        )]
         let vectored = SqlitePoolOptions::new().after_connect(|connection, _| {
             type Entry = unsafe extern "C" fn(*mut sqlite3, *mut *mut c_char, *const sqlite3_api_routines) -> c_int;
             Box::pin(

@@ -1,11 +1,10 @@
-import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@decimalturn/toml-patch';
 import { normalizePath, readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
 import { runner, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -19,7 +18,7 @@ type Target = typeof Target.Type;
 const MANIFEST = 'Cargo.toml';
 const LOCK = 'Cargo.lock';
 const CRATE = 'nx_cargo';
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const SETTINGS = ['.cargo/config.toml', '.cargo/config'] as const;
 const CONFIG = [...SETTINGS, 'rust-toolchain.toml', 'rust-toolchain'] as const;
 const CLIPPY = ['.clippy.toml', 'clippy.toml'] as const;
@@ -32,10 +31,6 @@ const KEYS = {
 } as const;
 const NEXTEST = '.config/nextest.toml';
 const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem) => [`${stem}.toml`, `.${stem}.toml`, `.cargo/${stem}.toml`, `.config/${stem}.toml`]);
-const INSTALL = Config.String('CARGO_INSTALL_ROOT').pipe(
-    Config.orElse(() => Config.String('CARGO_HOME')),
-    Config.withDefault(join(homedir(), '.cargo')),
-);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -147,7 +142,7 @@ const placed = (workspaceRoot: string) => ({ stored: (reading: Reading) => moved
 
 const variable = (key: string) => key.toUpperCase().replaceAll(/[-.]/gu, '_');
 
-const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, uplifted, deny }: Reading, files: ReadonlySet<string>, installed: string) => {
+const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, uplifted, deny }: Reading, files: ReadonlySet<string>) => {
     const within = (at: string) => normalizePath(relative(workspaceRoot, at)) || '.';
     const inside = (at: string) => Option.liftPredicate(within(at), (folder) => !(folder.startsWith('..') || isAbsolute(folder)));
     const root = within(metadata.workspace_root);
@@ -195,7 +190,6 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
         strategies: Array.dedupeWith(['release', ...profiles], (left, right) => strategy(left) === strategy(right)).filter((name) => strategy(name) !== strategy('dev')),
         deny: Array.head(deny),
         placed: inside(metadata.target_directory),
-        installed: join(installed, 'bin'),
         uplifted: (target: Target) => Array.getSomes(target.crate_types.map((type) => Option.map(Record.get(uplifted, type), (file) => file.replace(CRATE, target.name)))),
     };
 };
@@ -216,4 +210,4 @@ const run = runner(Links.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { binary, CLIPPY, CONFIG, Crate, DENY, INSTALL, Links, LOCK, library, MANIFEST, type Member, NEXTEST, own, PLUGIN, placed, type Reading, resolved, run, type Target, tokened, type Workspace, workspaces };
+export { binary, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, library, MANIFEST, type Member, NEXTEST, own, PLUGIN, placed, type Reading, resolved, run, type Target, tokened, type Workspace, workspaces };

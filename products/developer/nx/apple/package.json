@@ -16,29 +16,27 @@
     ],
     "type": "module",
     "imports": {
-        "#package": "./package.json",
-        "#/*": "./*.ts",
-        "#analyzer": "@rasm/nx-apple-darwin-arm64/nx-apple-analyzer"
+        "#/*.ts": "./*.ts",
+        "#/*": "./*"
     },
     "exports": {
         ".": "./plugin.ts",
         "./release/version-actions": "./version-actions.ts",
-        "./package.json": "./package.json",
         "./executors.json": "./executors.json",
-        "./executors/*": "./executors/*/executor.ts"
+        "./executors/*": "./executors/*/executor.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
-            "#package": "./package.json",
-            "#/*": "./dist/*.js",
-            "#analyzer": "@rasm/nx-apple-darwin-arm64/nx-apple-analyzer"
+            "#/*.ts": "./dist/*.js",
+            "#/*": "./*"
         },
         "exports": {
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",
-            "./package.json": "./package.json",
             "./executors.json": "./executors.json",
-            "./executors/*": "./dist/executors/*/executor.js"
+            "./executors/*": "./dist/executors/*/executor.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },

@@ -7,12 +7,8 @@
     ],
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
-        "#/*.json": "./*.json"
-    },
-    "exports": {
-        "./native": "./native.ts",
-        "./scripts": "./scripts.ts"
+        "#/*.ts": "./*.ts",
+        "#/*": "./*"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
@@ -34,6 +30,7 @@
         "@adobe/cc-ext-uxp-types": "catalog:",
         "@adobe/premierepro": "catalog:",
         "@rasm/process": "workspace:*",
+        "@rasm/vite": "workspace:*",
         "@types/node": "catalog:",
         "@types/photoshop": "catalog:",
         "@typescript/native": "catalog:",

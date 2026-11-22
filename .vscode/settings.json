@@ -5,11 +5,11 @@
 
     "files.associations": {
         "*.aepx": "xml",
+        "*.cppm": "cpp",
         "*.entitlements": "xml",
         "*.ghx": "xml",
         "*.globalconfig": "properties",
         "*.gltf": "json",
-        "*.cppm": "cpp",
         "*.idms": "xml",
         "*.ips": "jsonl",
         "*.ixx": "cpp",
@@ -53,11 +53,11 @@
         "clippy.toml": "deny.toml, nextest.toml, rustfmt.toml",
         "CMakeLists.txt": "*.cmake, CMakePresets.json, vcpkg.json",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
-        "hk.pkl": ".globalconfig, jscpd.json, knip.json, pmd.xml, shellcheckrc, squawk.toml, yamllint.yaml",
+        "hk.pkl": ".globalconfig, jscpd.json, knip.json, pmd.xml, ryl.toml, shellcheckrc, squawk.toml",
         "Info.plist": "*.entitlements",
         "mise.toml": "mise.*.toml, mise.lock, miserc.toml",
         "nx.json": ".editorconfig, sgconfig.yml",
-        "package.json": "*.config.ts, .oxfmtrc.json, .oxlintrc.json, executors.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
+        "package.json": "*.config.ts, .oxfmtrc.json, .oxlintrc.json, executors.json, manifest.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
         "Package.swift": "Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "hatch_build.py, pixi.lock, uv.lock",
         "README.md": "LICENSE, TODO*.md",
@@ -76,11 +76,9 @@
         "**/.archive/**": true,
         "**/.build/**": true,
         "**/.cloudflare/**": true,
-        "**/.mypy_cache/**": true,
         "**/.swiftpm/**": true,
         "**/.venv/**": true,
         "**/__pycache__/**": true,
-        "**/__traces__/**": true,
         "**/coverage/**": true,
         "**/dist/**": true,
         "**/node_modules/**": true,
@@ -150,7 +148,7 @@
     "java.import.maven.enabled": false,
     "java.project.referencedLibraries": ["${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar"],
     "java.project.resourceFilters": ["node_modules", "research", "rustc-source", "\\.(artifacts|build|cache|cloudflare|git|pixi|swiftpm|venv)"],
-    "java.project.sourcePaths": [".claude/skills/use-ghidra/scripts"],
+    "java.project.sourcePaths": ["plugins/shared/tool/skills/ghidra/scripts"],
 
     // --- [JSON] ------------------------------------------------------------------------
 

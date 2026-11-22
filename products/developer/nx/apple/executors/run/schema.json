@@ -21,7 +21,7 @@
         },
         "applications": {
             "type": "array",
-            "description": "Application bundles the invocations install, a running one named in the last line as needing a relaunch",
+            "description": "Bundle names of the applications the invocations install, a running executable inside one named in the last line as needing a relaunch",
             "items": {
                 "type": "string"
             }
@@ -44,14 +44,15 @@
                 },
                 "objects": {
                     "type": "array",
-                    "minItems": 1,
                     "description": "Instrumented binaries llvm-cov reads the coverage mapping of",
-                    "items": [
-                        {
-                            "type": "string"
-                        }
-                    ],
-                    "additionalItems": {
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "results": {
+                    "type": "array",
+                    "description": "Patterns of the result bundles the invocations write, each match removed before the invocations, the build product of each target xcrun xccov reports in one joining objects",
+                    "items": {
                         "type": "string"
                     }
                 },
@@ -60,9 +61,9 @@
                     "description": "File the lcov report is written to"
                 }
             },
-            "required": ["profiles", "objects", "file"],
+            "required": ["profiles", "file"],
             "additionalProperties": true,
-            "description": "lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects with xcrun llvm-cov export"
+            "description": "lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects and the targets of each matching result bundle with xcrun llvm-cov export"
         },
         "dryRun": {
             "type": "boolean",

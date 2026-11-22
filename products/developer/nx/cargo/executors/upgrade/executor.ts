@@ -3,7 +3,7 @@ import type { ExecutorContext } from '@nx/devkit';
 import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, DateTime, Effect, FileSystem, Option, Order, Path, Record, Result, Schema, SchemaTransformation, SemVer, String } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
-import { MANIFEST, run } from '#/workspace';
+import { MANIFEST, run } from '#/workspace.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

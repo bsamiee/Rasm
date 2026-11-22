@@ -6,7 +6,6 @@ using Eto;
 using Eto.Drawing;
 using Eto.Forms;
 using Foundation;
-using ObjCRuntime;
 using Rasm.Rhino.UI.Mac;
 
 [assembly: ExportInitializer(typeof(AppKitInitializer), PlatformID = "macOS")]
@@ -14,16 +13,6 @@ using Rasm.Rhino.UI.Mac;
 namespace Rasm.Rhino.UI.Mac;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-
-[SupportedOSPlatform("macos27.0")]
-internal sealed class FrameTarget(Func<Duration, bool> tick) : NSObject {
-    private const string Frame = "frame:";
-
-    internal static readonly Selector Ticked = new(Frame);
-
-    [Export(Frame)]
-    public void Tick(CADisplayLink link) => Session.Run(IO.lift(() => link.Paused = !tick(Duration.FromSeconds(link.TargetTimestamp))));
-}
 
 [SupportedOSPlatform("macos27.0")]
 internal sealed class AppKitPlatform : IHostPlatform {
@@ -51,8 +40,8 @@ internal sealed class AppKitPlatform : IHostPlatform {
 
     public IO<Func<bool, IO<Unit>>> FrameLink(Control view, Func<Duration, bool> tick) =>
         from host in IO.lift(() => Conversions.Required(view.ControlObject as NSView))
-        from target in use(() => new FrameTarget(tick))
-        from link in use(IO.lift(() => host.GetDisplayLink(target, FrameTarget.Ticked)), static held => Products.Each(Seq(IO.lift(held.Invalidate), IO.lift(held.Dispose))).Map(unit))
+        from relay in use(() => new NSMenuItem("", (sender, _) => Session.Run(IO.lift(() => Conversions.Required(sender as CADisplayLink).Map(ticked => ticked.Paused = !tick(Duration.FromSeconds(ticked.TargetTimestamp)))))))
+        from link in use(IO.lift(() => (Conversions.Required(relay.Target), Conversions.Required(relay.Action)).Apply((target, action) => host.GetDisplayLink(target, action)).As()), static held => Products.Each(Seq(IO.lift(held.Invalidate), IO.lift(held.Dispose))).Map(unit))
         from scheduled in IO.lift(() => link.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common))
         select fun((bool running) => IO.lift(() => { link.Paused = !running; }));
 }

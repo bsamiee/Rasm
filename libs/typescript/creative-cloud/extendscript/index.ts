@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Completion } from '#/completion';
+export { Completion } from '#/completion.ts';

@@ -1,13 +1,11 @@
 {
-    "extends": "../../../../../tsconfig.unpublished.json",
+    "extends": "../../../../../tsconfig.base.json",
     "compilerOptions": {
+        "noEmit": true,
         "module": "preserve"
     },
     "files": [],
     "references": [
-        {
-            "path": "../../../../support/typescript"
-        },
         {
             "path": "../../../../../libs/typescript/data/object-storage"
         },

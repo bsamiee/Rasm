@@ -1,9 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { type CreateNodesContext, DependencyType } from '@nx/devkit';
+import { join } from 'node:path';
 import { createDependencies, createNodes } from '@rasm/nx-uv';
-import { TempFs } from '@rasm/testing/temp-fs';
-import { Record } from 'effect';
-import { describe, expect, test, vi } from 'vitest';
+import { it, unportable } from '@rasm/testing/nx';
+import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('node:path'), async (actual) => {
     const { windows } = await import('@rasm/testing/path');
@@ -11,55 +10,26 @@ vi.mock(import('node:path'), async (actual) => {
 });
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const files = {
-    'pyproject.toml': '[tool.uv.workspace]\nmembers = ["libs/python/app", "libs/python/core"]\n',
-    'libs/python/app/pyproject.toml': '[project]\nname = "app"\nversion = "0.1.0"\ndependencies = ["core"]\n\n[tool.uv.sources]\ncore = { workspace = true }\n',
-    'libs/python/core/pyproject.toml': '[project]\nname = "core"\nversion = "0.1.0"\n',
-};
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const it = test
-    .extend('tempFs', async ({}, { onCleanup }) => {
-        const previous = process.cwd();
-        const tempFs = new TempFs('uv-windows-paths');
-        process.chdir(tempFs.tempDir);
-        onCleanup(() => {
-            process.chdir(previous);
-            tempFs.cleanup();
-        });
-        await tempFs.createFiles(files);
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: tempFs.tempDir });
-        return tempFs;
-    })
-    .extend('context', ({ tempFs }): CreateNodesContext => ({ nxJsonConfiguration: {}, workspaceRoot: tempFs.tempDir }));
-
 describe('@rasm/nx-uv under Windows path separators', { timeout: 60_000 }, () => {
-    it('should hand Nx workspace-relative posix roots and lock paths', async ({ context }) => {
-        const results = await createNodes[1](['uv.lock', ...Object.keys(files)], {}, context);
+    it('hands Nx posix roots, inputs, outputs, and edges for nested members and a parent-relative output folder', async ({ workspace }) => {
+        execFileSync('uv', ['lock', '--offline', '--quiet'], {
+            cwd: join(
+                workspace.write({
+                    'python/pyproject.toml': '[project]\nname = "root"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[dependency-groups]\ndev = ["pytest>=8", "pytest-cov"]\n\n[tool.uv.workspace]\nmembers = ["libs/app", "libs/deep/core"]\n',
+                    'python/libs/app/pyproject.toml': '[project]\nname = "app"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["core"]\n\n[tool.uv.sources]\ncore = { workspace = true }\n\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n',
+                    'python/libs/app/tests/test_app.py': 'def test_app() -> None:\n    assert True\n',
+                    'python/libs/deep/core/pyproject.toml': '[project]\nname = "core"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n',
+                }).root,
+                'python',
+            ),
+        });
 
-        const projects = results[0]?.[1].projects;
-        expect(Object.keys({ ...projects }).toSorted()).toStrictEqual(['libs/python/app', 'libs/python/core']);
-        expect(projects?.['libs/python/core']?.targets?.['clean']?.inputs).toContain('{workspaceRoot}/uv.lock');
-    });
+        const graph = await workspace.graph({ createNodes, createDependencies }, { outputPath: '.artifacts/uv/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
 
-    it('should name the workspace-relative posix manifest as the source file of an edge', async ({ tempFs, context }) => {
-        const nodes = await createNodes[1](['uv.lock', ...Object.keys(files)], {}, context);
-
-        const result = await createDependencies(
-            {},
-            {
-                workspaceRoot: tempFs.tempDir,
-                projects: Record.fromEntries(Record.collect({ ...nodes[0]?.[1].projects }, (root, project) => [project.name ?? root, { ...project, root }] as const)),
-                externalNodes: {},
-                fileMap: { projectFileMap: {}, nonProjectFiles: [] },
-                filesToProcess: { projectFileMap: {}, nonProjectFiles: [] },
-                nxJsonConfiguration: {},
-            },
-        );
-
-        expect(result).toStrictEqual([{ source: 'app', target: 'core', type: DependencyType.static, sourceFile: 'libs/python/app/pyproject.toml' }]);
+        expect(Object.fromEntries(Object.values(graph.nodes).map(({ name, data }) => [name, data.root]))).toStrictEqual({ app: 'python/libs/app', core: 'python/libs/deep/core', root: 'python' });
+        expect(graph.dependencies['app']).toStrictEqual([{ source: 'app', target: 'core', type: 'static' }]);
+        expect(unportable(graph)).toStrictEqual([]);
     });
 });

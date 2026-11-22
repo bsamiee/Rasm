@@ -1,22 +1,23 @@
-import { Schema } from 'effect';
+import { Match, Schema } from 'effect';
 import { createSerializableError } from 'nx/src/utils/serializable-error';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Refused = Schema.Struct({
-    message: Schema.optionalKey(Schema.String),
-    errors: Schema.optionalKey(Schema.Array(Schema.Tuple([Schema.NullOr(Schema.String), Schema.Struct({ message: Schema.optionalKey(Schema.String) })]))),
-}).annotate({ description: 'An error as Nx serializes it out of a plugin worker, an aggregate holding the error of each file it names' });
+const Aggregate = Schema.Struct({ errors: Schema.Array(Schema.Unknown) }).annotate({ description: 'An error as Nx serializes it out of a plugin worker that holds further errors, a ProjectConfigurationsError or an AggregateCreateNodesError' });
+const Filed = Schema.Tuple([Schema.NullOr(Schema.String), Schema.Unknown]).annotate({ description: 'One entry of an AggregateCreateNodesError: the file a plugin read and the error it raised there' });
+const Stated = Schema.Struct({ message: Schema.String }).annotate({ description: 'A leaf error and the message it states' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const crossed = (error: Error) => [structuredClone(error).message, createSerializableError(error).message];
+const stated = (value: unknown): readonly string[] =>
+    Match.value(value).pipe(
+        Match.when(Schema.is(Aggregate), ({ errors }) => errors.flatMap((entry) => stated(Schema.is(Filed)(entry) ? entry[1] : entry))),
+        Match.when(Schema.is(Stated), ({ message }) => [message]),
+        Match.orElse(() => []),
+    );
 
-const refused = (refusal: RegExp) => (error: Error) => {
-    const serialized = createSerializableError(error);
-    return Schema.is(Refused)(serialized) && (serialized.errors === undefined ? [serialized.message] : serialized.errors.map(([, each]) => each.message)).some((stated) => stated !== undefined && refusal.test(stated));
-};
+const refused = (refusal: RegExp) => (error: Error) => stated(createSerializableError(error)).some((message) => refusal.test(message));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { crossed, refused };
+export { refused };

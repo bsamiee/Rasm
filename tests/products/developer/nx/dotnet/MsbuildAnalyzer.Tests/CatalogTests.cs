@@ -57,9 +57,10 @@ public sealed class CatalogTests : IDisposable {
     }
 
     [Fact]
-    public void UpgradeDryRunWritesNothing() {
-        TempWorkspace.Run("", "upgrade", Feed().workspace.Located("Workspace.slnx"), "--dry-run");
+    public void UpgradeDryRunPrintsEachMoveAndWritesNothing() {
+        string printed = TempWorkspace.Run("", "upgrade", Feed().workspace.Located("Workspace.slnx"), "--dry-run");
 
         Assert.Equal(Catalog, workspace.Read("Directory.Packages.props"));
+        Assert.Contains("Fake.B: [1.0.0, 2.0.0) -> [1.10.0, 2.0.0)", printed, StringComparison.Ordinal);
     }
 }

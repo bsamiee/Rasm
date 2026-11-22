@@ -1,5 +1,3 @@
-#![feature(error_iter)]
-
 use core::time::Duration;
 use std::path::Path;
 use std::process::Termination;
@@ -11,7 +9,7 @@ use rasm_testing::{Failure, Fixture as _, Folder};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PROTOCOL: u32 = 1;
+const PROTOCOL: u32 = 3;
 const BUILD: u64 = 7;
 const LIMITS: Limits = Limits { line: 64 << 10, deadline: Duration::from_secs(5) };
 
@@ -24,11 +22,15 @@ fn hello(body: &str) -> Hello<u64, String> { Hello { protocol: PROTOCOL, build: 
 #[cfg(test)]
 async fn scoped<T>(test: impl AsyncFnOnce(Endpoint, &Path) -> T) -> Result<(), Failure<Folder>>
 where T: Termination {
-    Folder::scoped(Path::new(env!("CARGO_TARGET_TMPDIR")), async |folder: &Folder| test(assert_ok!(Endpoint::new(folder.path(), "s", None)), folder.path()).await).await
+    Folder::scoped(Path::new(env!("CARGO_TARGET_TMPDIR")), async |folder: &Folder| {
+        let instance = folder.join("instance");
+        test(assert_ok!(Endpoint::new(&instance, "s", None)), &instance).await
+    })
+    .await
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 mod connect;
-mod hello;
 mod instance;
+mod opening;

@@ -16,23 +16,23 @@
     ],
     "type": "module",
     "imports": {
-        "#package": "./package.json"
+        "#/*": "./*"
     },
     "exports": {
         ".": "./plugin.ts",
-        "./package.json": "./package.json",
         "./executors.json": "./executors.json",
-        "./executors/*": "./executors/*/executor.ts"
+        "./executors/*": "./executors/*/executor.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
-            "#package": "./package.json"
+            "#/*": "./*"
         },
         "exports": {
             ".": "./dist/plugin.js",
-            "./package.json": "./package.json",
             "./executors.json": "./executors.json",
-            "./executors/*": "./dist/executors/*/executor.js"
+            "./executors/*": "./dist/executors/*/executor.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },

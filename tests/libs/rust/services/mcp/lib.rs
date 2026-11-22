@@ -1,5 +1,3 @@
-#![expect(deprecated, reason = "the 2025-11-25 scenarios exercise sampling, roots, and logging, which SEP-2577 deprecates")]
-
 use core::future::{pending, ready};
 use core::num::NonZero;
 use core::time::Duration;
@@ -15,7 +13,7 @@ use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{
     ArgumentInfo, CallToolResult, CancelledNotificationParam, ClientCapabilities, ClientConfig, CompletionContext, ContentBlock, CreateMessageRequestParams, CreateMessageResult, ElicitRequestParams,
     ElicitResult, ElicitationAction, Implementation, LoggingLevel, LoggingMessageNotificationParam, ProgressNotificationParam, PromptMessage, ProtocolVersion, Resource, ResourceContents,
-    ResourceTemplate, ResourceUpdatedNotificationParam, Role, SamplingMessage, ServerNotification,
+    ResourceTemplate, ResourceUpdatedNotificationParam, Role, SamplingMessage, ServerNotification, Tool,
 };
 use rmcp::service::{ClientLifecycleMode, ClientServiceExt as _, NotificationContext, RequestContext, RunningService, ServiceExt as _};
 use rmcp::transport::StreamableHttpServerConfig;
@@ -32,32 +30,6 @@ use tokio::time;
 use tokio_stream::wrappers::WatchStream;
 use tokio_util::task::AbortOnDropHandle;
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-pub const IMAGE: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
-pub const AUDIO: &str = "UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAA=";
-pub const WATCHED: &str = "test://watched-resource";
-const TEXT: &str = "text/plain";
-pub const TRANSCRIPTS: [(&str, &str); 8] = [
-    ("lifecycle", include_str!("transcripts/lifecycle.jsonl")),
-    ("bad_requests", include_str!("transcripts/bad_requests.jsonl")),
-    ("tools", include_str!("transcripts/tools.jsonl")),
-    ("resources", include_str!("transcripts/resources.jsonl")),
-    ("prompts", include_str!("transcripts/prompts.jsonl")),
-    ("version-latest", include_str!("transcripts/version-latest.jsonl")),
-    ("version-older", include_str!("transcripts/version-older.jsonl")),
-    ("discover", include_str!("transcripts/discover.jsonl")),
-];
-pub const OUTLINES: [(&str, &[(u64, Reply)]); 8] = [
-    ("lifecycle", &[(2, Reply::Error), (1, Reply::Result), (1, Reply::Result), (2, Reply::Result), (3, Reply::Result)]),
-    ("bad_requests", &[(1, Reply::Error), (2, Reply::Result), (3, Reply::Error), (4, Reply::Error), (5, Reply::Error), (4, Reply::Error)]),
-    ("tools", &[(1, Reply::Result), (2, Reply::Result), (3, Reply::Result), (4, Reply::Result), (5, Reply::Error), (6, Reply::Result), (7, Reply::Result), (8, Reply::Result), (10, Reply::Result)]),
-    ("resources", &[(1, Reply::Result), (2, Reply::Result), (3, Reply::Result), (4, Reply::Error), (5, Reply::Error)]),
-    ("prompts", &[(1, Reply::Result), (2, Reply::Result), (4, Reply::Result), (5, Reply::Error)]),
-    ("version-latest", &[(1, Reply::Result)]),
-    ("version-older", &[(1, Reply::Result)]),
-    ("discover", &[(1, Reply::Result)]),
-];
 // --- [TYPES] ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,6 +37,55 @@ pub enum Reply {
     Result,
     Error,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Transcript {
+    Lifecycle,
+    BadRequests,
+    Tools,
+    Resources,
+    Prompts,
+    VersionLatest,
+    VersionOlder,
+    Discover,
+}
+
+impl Transcript {
+    #[must_use]
+    pub const fn sent(self) -> &'static str {
+        match self {
+            Self::Lifecycle => include_str!("transcripts/lifecycle.jsonl"),
+            Self::BadRequests => include_str!("transcripts/bad_requests.jsonl"),
+            Self::Tools => include_str!("transcripts/tools.jsonl"),
+            Self::Resources => include_str!("transcripts/resources.jsonl"),
+            Self::Prompts => include_str!("transcripts/prompts.jsonl"),
+            Self::VersionLatest => include_str!("transcripts/version-latest.jsonl"),
+            Self::VersionOlder => include_str!("transcripts/version-older.jsonl"),
+            Self::Discover => include_str!("transcripts/discover.jsonl"),
+        }
+    }
+
+    #[must_use]
+    pub fn replies(self) -> Vec<(Option<Id>, Reply)> {
+        let outline: &[(u64, Reply)] = match self {
+            Self::Lifecycle => &[(2, Reply::Error), (1, Reply::Result), (1, Reply::Result), (2, Reply::Result), (3, Reply::Result)],
+            Self::BadRequests => &[(1, Reply::Error), (2, Reply::Result), (3, Reply::Error), (4, Reply::Error), (5, Reply::Error), (4, Reply::Error)],
+            Self::Tools =>
+                &[(1, Reply::Result), (2, Reply::Result), (3, Reply::Result), (4, Reply::Result), (5, Reply::Error), (6, Reply::Result), (7, Reply::Result), (8, Reply::Result), (10, Reply::Result)],
+            Self::Resources => &[(1, Reply::Result), (2, Reply::Result), (3, Reply::Result), (4, Reply::Error), (5, Reply::Error)],
+            Self::Prompts => &[(1, Reply::Result), (2, Reply::Result), (4, Reply::Result), (5, Reply::Error)],
+            Self::VersionLatest | Self::VersionOlder | Self::Discover => &[(1, Reply::Result)],
+        };
+        Vec::from_iter(outline.iter().map(|(id, reply)| (Some(Id::Number(*id)), *reply)))
+    }
+}
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+pub const IMAGE: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
+pub const AUDIO: &str = "UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAA=";
+pub const WATCHED: &str = "test://watched-resource";
+const TEXT: &str = "text/plain";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -139,7 +160,7 @@ pub struct Fault {
     pub data: Option<Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Id {
     Number(u64),
@@ -166,20 +187,20 @@ pub struct Reported {
     pub progress: Option<Number>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Answered {
     pub protocol_version: Option<String>,
     pub supported_versions: Option<Vec<String>>,
     pub capabilities: Option<Map<String, Value>>,
-    pub tools: Option<Vec<Map<String, Value>>>,
+    pub tools: Option<Vec<Tool>>,
     pub content: Option<Vec<Block>>,
     pub contents: Option<Vec<Block>>,
     pub structured_content: Option<Structured>,
     pub is_error: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Message {
     #[serde(default)]
     pub id: Option<Id>,

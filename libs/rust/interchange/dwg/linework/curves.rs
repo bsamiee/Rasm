@@ -352,8 +352,7 @@ fn nurbs(degree: usize, control: &[Point], weights: Option<&[f64]>, knots: &[f64
                     let width = high - low;
                     let (before, after) = ((high - value) / width, (value - low) / width);
                     let (previous, current) = (weighted.get(at.checked_sub(1)?)?, weighted.get(at)?);
-                    #[expect(clippy::suboptimal_flops, reason = "native f128 mul_add produces incorrect results on Darwin")]
-                    let blended = array::from_fn(|axis| previous[axis] * before + current[axis] * after);
+                    let blended = array::from_fn(|axis| previous[axis].mul_add_relaxed(before, current[axis] * after));
                     Some(blended)
                 }
             })

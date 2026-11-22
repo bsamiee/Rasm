@@ -16,7 +16,7 @@ from rasm.extension.ui._layout.sections import Container, Section
 from rasm.extension.ui._layout.tables import Tree
 from rasm.extension.ui._layout.templates import Gallery, ImageFormat, Picture, Preview, Shortcut
 from rasm.extension.ui._layout.values import Captured, Listing, Replacement, Store, StoreCommand
-from rasm.extension.ui._resources.icons import Icon, Icons
+from rasm.extension.ui._resources.icons import Icon, Icons, Widget
 from rasm.extension.ui._resources.interface_theme import Adjust, Closest, Composite, Filter, Harmony, installed, Legible, Mix, Ramp
 from rasm.extension.ui._resources.previews import Texture
 from rasm.extension.ui._resources.theme import Checker, Color, Metrics, Shade, Spacing, Theme
@@ -130,6 +130,7 @@ __all__ = [
     "Tool",
     "Tools",
     "Tree",
+    "Widget",
     "WorkspaceSetup",
     "aligned",
     "areas",

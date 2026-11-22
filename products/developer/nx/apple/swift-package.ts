@@ -1,17 +1,17 @@
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Effect, Option, Record, Schema } from 'effect';
-import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets';
+import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 interface Package {
     readonly file: string;
     readonly root: string;
-    readonly plists: ReadonlySet<string>;
-    readonly entitled: ReadonlySet<string>;
+    readonly plists: ReadonlyMap<string, string>;
+    readonly entitled: ReadonlyMap<string, string>;
     readonly bins: Readonly<Record<'debug' | 'release' | 'codecov', string>>;
     readonly whole: boolean;
     readonly manifest: typeof Described.Type;
@@ -69,9 +69,13 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
         build: {
             'swift-build': sequenced(
                 [build],
-                { technologies: ['swift'], description: `Builds ${manifest.name} with swift build, in release under the release configuration, cached where its products are executables alone`, help: { command: 'swift build --help', example: { args: ['--product', manifest.products[0]?.name ?? manifest.name] } } },
                 {
-                    ...(whole && { cache: true }),
+                    technologies: ['swift'],
+                    description: `Builds ${manifest.name} with swift build, in release under the release configuration, restoring its products from the cache where they are executables alone`,
+                    help: { command: 'swift build --help', example: { args: ['--product', manifest.products[0]?.name ?? manifest.name] } },
+                },
+                {
+                    cache: true,
                     inputs,
                     options: { outputs: written(bins.debug) },
                     outputs: written(bins.debug).map((_, index) => `{options.outputs.${index}}`),
@@ -134,16 +138,8 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
     };
     return [{ name: manifest.name, at: root, own: owned, clean: cleaning }, ...modules.map((module) => ({ name: module.name, at: join(root, module.path), own: forwarded(module.name), clean: relayed }))].map(({ name, at, own, clean }): Part => {
         const product = Option.fromUndefinedOr(products.get(name));
-        const signing = Option.getOrUndefined(
-            Option.map(
-                Option.filter(product, () => entitled.has(name)),
-                (held) => ({ entitlements: join(at, `${held}${ENTITLEMENTS}`) }),
-            ),
-        );
-        const zipped = Option.map(
-            Option.filter(product, () => plists.has(name)),
-            (held) => ({ held, folder: options.outputPath === undefined ? bins.release : join(options.outputPath, held) }),
-        );
+        const signing = Option.getOrUndefined(Option.map(Option.all([product, Option.fromUndefinedOr(entitled.get(name))]), ([, entitlements]) => ({ entitlements })));
+        const zipped = Option.map(Option.all({ held: product, plist: Option.fromUndefinedOr(plists.get(name)) }), ({ held, plist }) => ({ held, plist, folder: options.outputPath === undefined ? bins.release : join(options.outputPath, held) }));
         const tools: Verbs = {
             ...own,
             ...Option.getOrUndefined(
@@ -159,12 +155,12 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
                 })),
             ),
             ...Option.getOrUndefined(
-                Option.map(zipped, ({ held, folder }) => ({
+                Option.map(zipped, ({ held, plist, folder }) => ({
                     pack: {
                         ditto: {
                             executor: `${PLUGIN}:package`,
                             dependsOn: ['build--swift-build'],
-                            inputs: [join('{workspaceRoot}', at, INFO), ...inputs],
+                            inputs: [join('{workspaceRoot}', plist), ...inputs],
                             options: { products: [{ package: root, product: held, folder, bin: bins.release, ...signing }] },
                             outputs: [join('{workspaceRoot}', folder, `${held}.zip`)],
                             metadata: { technologies: ['swift'], description: `Signs the release build of ${held} and zips it with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
@@ -181,7 +177,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
             file,
             technologies: ['swift'],
             tools: { ...tools, clean: { 'swift-package': { ...clean, executor: `${distribution.name}:clean`, options: { ...clean.options, targets: removed } } } },
-            ...Option.getOrUndefined(Option.map(zipped, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: INFO } } } }))),
+            ...Option.getOrUndefined(Option.map(zipped, ({ plist }) => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(at, plist) } } } }))),
         };
     });
 };

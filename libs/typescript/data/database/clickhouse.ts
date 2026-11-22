@@ -1,11 +1,11 @@
 import { ClickhouseClient } from '@effect/sql-clickhouse';
 import { Array, Config, Duration, Effect, Equal, Filter, Formatter, flow, HashSet, Layer, Match, Option, Order, Record, Result, Schema, SchemaGetter, String, Struct, UndefinedOr } from 'effect';
 import { SqlClient, SqlSchema, Statement } from 'effect/sql';
-import type { Catalog } from '#/catalog';
-import { Column, type Kind } from '#/column';
-import { type Dialect, Engine } from '#/engine';
-import { catalogDdl, constant, diff, digest, Identity, identifier, literal, replacement, Stamp, unsupported } from '#/reconcile';
-import type { Relation } from '#/relation';
+import type { Catalog } from '#/catalog.ts';
+import { Column, type Kind } from '#/column.ts';
+import { type Dialect, Engine } from '#/engine.ts';
+import { catalogDdl, constant, diff, digest, Identity, identifier, literal, replacement, Stamp, unsupported } from '#/reconcile.ts';
+import type { Relation } from '#/relation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

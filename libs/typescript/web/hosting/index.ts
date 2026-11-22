@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { App, type Binding, type Target } from '#/app/app';
+export { App, type Binding, type Target } from '#/app/app.ts';

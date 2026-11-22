@@ -1,5 +1,10 @@
 {
     "executors": {
+        "pack": {
+            "implementation": "./dist/executors/pack/executor#execute",
+            "schema": "./executors/pack/schema.json",
+            "description": "Packs the project into one tarball with its package manager's pack command, making the outputPath folder first, as npm pack refuses a --pack-destination folder that does not exist"
+        },
         "upgrade": {
             "implementation": "./dist/executors/upgrade/executor#execute",
             "schema": "./executors/upgrade/schema.json",

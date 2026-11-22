@@ -175,7 +175,7 @@ public sealed partial class StandardName : IComparable<StandardName> {
             .ToDictionary(static group => group.Key, static group => group.Min(static entry => entry.Value) switch { var minimum => toHashMap(group.Select((entry, index) => (entry.Value, minimum + index))) });
         Seq<(TSheet Sheet, StandardName Number)> renumbered = rows.Map(row => (row.Sheet, Number: row.Sequence.Map(sequence => new StandardName(row.Number.Standard, row.Number.Fields.SetItem(sequence.Field,
             series[row.Series][sequence.Value].ToString(CultureInfo.InvariantCulture).PadLeft(sequence.Text.Length, '0')))).IfNone(row.Number))).Strict();
-        Dictionary<StandardName, int> taken = renumbered.Map(static entry => entry.Number).Concat(others).CountBy(static number => number).ToDictionary();
+        Dictionary<StandardName, int> taken = renumbered.Map(static entry => entry.Number).Concat(in others).CountBy(static number => number).ToDictionary();
         return renumbered.Map((entry, index) => taken[entry.Number] > 1 ? new DraftingFault(entry.Number.Text, DraftingReason.NumberTaken, index) : Fin.Succ(entry)).Traverse(static held => held).As();
     }
 

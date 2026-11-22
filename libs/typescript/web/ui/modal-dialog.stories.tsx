@@ -1,6 +1,6 @@
 import { Button, DialogTrigger, Heading } from 'react-aria-components';
 import { fn } from 'storybook/test';
-import preview from '#/.storybook/preview';
+import preview from '#/.storybook/preview.ts';
 import { ModalDialog } from '#/modal-dialog.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

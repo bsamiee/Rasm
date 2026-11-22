@@ -1,13 +1,12 @@
 import UFuzzy from '@leeoniya/ufuzzy';
 import { Array, Effect, Equivalence, Function, flow, Option, Predicate, pipe, Schema } from 'effect';
-import { Digits } from '#/digits';
+import { Digits } from '#/digits.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const COLLATOR = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'accent' });
 const LISTING = new Intl.ListFormat('en');
 const FUZZY = new UFuzzy({
-    // oxlint-disable-next-line typescript/no-unsafe-enum-assignment -- ufuzzy types IntraMode as an ambient const enum, absent at runtime and unreachable under isolatedModules
     intraMode: 1,
     unicode: true,
     interSplit: String.raw`[^\p{L}\p{Nd}']+`,

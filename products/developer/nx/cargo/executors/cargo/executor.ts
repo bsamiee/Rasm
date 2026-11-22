@@ -5,7 +5,7 @@ import type { ExecutorContext, Task, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { Array, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { Crate, run } from '#/workspace';
+import { Crate, run } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
     const reaches = (project: string, seen: ReadonlySet<string>): boolean => (dependencies[project] ?? []).some(({ target }) => !seen.has(target) && (broken.has(target) || reaches(target, new Set([...seen, target]))));
     const results = tasks.map(({ id, target: { project } }) => {
         const at = root(project);
-        const { failed, proven, said } = judged({ messages: completed.messages, compiled: built.size + diagnostics.length === 0 ? completed.passed : built.has(at), crate: Option.fromUndefinedOr(inputs[id]?.package) });
+        const { failed, proven, said } = judged({ messages: completed.messages, compiled: completed.passed || built.has(at), crate: Option.fromUndefinedOr(inputs[id]?.package) });
         const rendered = Array.getSomes(diagnostics.filter(({ root: crate }) => crate === at).map(({ message }) => message.rendered));
         return { id, own: errored.has(at) || failed, passed: proven && !reaches(project, new Set([project])), terminalOutput: [...rendered, said].join('') };
     });

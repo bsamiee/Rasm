@@ -1,0 +1,14 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "module": "preserve",
+        "types": ["chrome", "vite/client", "web"]
+    },
+    "include": ["**/*", "_locales/*/messages.json"],
+    "exclude": ["vite.config.ts"],
+    "nx": {
+        "sync": {
+            "ignoredDependencies": ["@rasm/mark", "@rasm/vite"]
+        }
+    }
+}

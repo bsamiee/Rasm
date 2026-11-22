@@ -4,9 +4,9 @@ import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, D
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, manifested, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Context, Effect, FileSystem, flow, Layer, Option, Record, Result, Schema, Stream } from 'effect';
-import { Described, ENTITLEMENTS, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
-import { analyzer, Options, type Part, PLUGIN, tokened } from '#/targets';
-import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
+import { Described, ENTITLEMENTS, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package.ts';
+import { analyzer, Options, type Part, PLUGIN, tokened } from '#/targets.ts';
+import { Analyzed, xcodeParts } from '#/xcode-project.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -53,22 +53,27 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
         () => containers.length > 0,
     );
     const readable = Option.isSome(info) ? manifests : [];
-    const absent = [...(Option.isNone(info) ? ['swift'] : []), ...(containers.length > 0 && Option.isNone(xcodebuild) ? ['xcodebuild'] : []), ...(containers.length > 0 && Option.isNone(compiled) ? ['the #analyzer core'] : [])];
+    const absent = [...(Option.isNone(info) ? ['swift'] : []), ...(containers.length > 0 && Option.isNone(xcodebuild) ? ['xcodebuild'] : []), ...(containers.length > 0 && Option.isNone(compiled) ? ['the @rasm/nx-apple-darwin-arm64 core'] : [])];
     const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.flatMap(spawned(['swift', 'package', '--package-path', dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json'], { cwd: workspaceRoot }), Schema.decodeEffect(Described))), {
         concurrency: 'unbounded',
     });
     const packages = yield* Effect.forEach(
         Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(result, (manifest) => ({ file, root: dirname(file), manifest }))),
         Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists' | 'entitled' | 'bins' | 'whole'>) {
-            const [listed, entitled] = yield* Effect.all([
-                Effect.filter(swiftPackage.manifest.targets, (module) => fs.exists(join(workspaceRoot, swiftPackage.root, module.path, INFO))),
-                Effect.filter(swiftPackage.manifest.targets, (module) => fs.exists(join(workspaceRoot, swiftPackage.root, module.path, `${module.name}${ENTITLEMENTS}`))),
-            ]);
+            const held = (named: (module: string) => string) =>
+                Effect.map(
+                    Effect.filter(
+                        swiftPackage.manifest.targets.map((module) => [module.name, join(swiftPackage.root, module.path, named(module.name))] as const),
+                        ([, at]) => fs.exists(join(workspaceRoot, at)),
+                    ),
+                    (found) => new Map(found),
+                );
+            const [plists, entitled] = yield* Effect.all([held(() => INFO), held((module) => `${module}${ENTITLEMENTS}`)]);
             const { products, targets } = swiftPackage.manifest;
             const shown = (...argv: readonly string[]) => Effect.map(spawned(['swift', ...argv, '--package-path', swiftPackage.root, '--experimental-skip-acquiring-lock'], { cwd: workspaceRoot }), (at) => relative(workspaceRoot, at.trim()));
             const whole = Array.isReadonlyArrayNonEmpty(products) && products.every(({ type }) => 'executable' in type) && targets.every(({ resources }) => resources.length === 0);
             const bins = yield* Effect.all({ debug: shown('build', '--show-bin-path'), release: shown('build', '--configuration', 'release', '--show-bin-path'), codecov: shown('test', '--show-codecov-path') }, { concurrency: 'unbounded' });
-            return { ...swiftPackage, bins, whole, plists: new Set(listed.map(({ name }) => name)), entitled: new Set(entitled.map(({ name }) => name)) } satisfies Package;
+            return { ...swiftPackage, bins, whole, plists, entitled } satisfies Package;
         }),
     );
     const described = new Map(packages.map((swiftPackage) => [resolve(workspaceRoot, swiftPackage.root), swiftPackage] as const));
@@ -83,14 +88,11 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
         const owners = workspaces.filter((workspace) => workspace.projects.includes(at)).map((workspace) => workspace.path);
         return Option.getOrElse(Array.head(owners.length === 1 ? owners : []), () => at);
     };
-    const evaluatedResults = yield* Effect.forEach(analyzed.containers, (container) => Effect.result(evaluated(workspaceRoot, options, container, built(container.path))));
-    const xcode = Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(result, (success) => ({ container, ...success })));
     const unread = [...(Option.isNone(info) ? manifests.map((file) => ({ file, reason: 'swift is absent on this host' })) : []), ...(Option.isNone(reader) ? containers.map((file) => ({ file, reason: `${absent.join(', ')} absent on this host` })) : [])];
     const broken: readonly [string, Error][] = [
         ...Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, error])),
         ...(Result.isFailure(analysis) ? containers.map((file): [string, Error] => [file, analysis.failure]) : []),
         ...Record.collect(analyzed.failures, (at, reason): [string, Error] => [marker(at), new Cause.UnknownError(at, reason)]),
-        ...Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(Result.flip(result), (error): [string, Error] => [marker(container.path), error])),
         ...unsupported.map((file): [string, Error] => [file, new Cause.UnknownError(file, `${file} has no reader, and no project.xcproj sits beside it`)]),
     ];
     yield* Effect.forEach(unread, ({ file, reason }) => Effect.sync(() => emitPluginWorkerLog('warn', `${file} presents no project: ${reason}`)));
@@ -102,11 +104,11 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const destinations = (folders: readonly string[]) => Array.dedupe(folders.flatMap((folder) => (platforms(folder).length === 0 ? Option.toArray(host) : platforms(folder))));
     const nested = packages.flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: `${join(owner.root, module.path)}/` }))).flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${dirname(other)}/`.startsWith(folder)).map((inner) => ({ owner, inner })));
     yield* Effect.forEach(nested, ({ owner, inner }) => Effect.sync(() => emitPluginWorkerLog('warn', `${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`)));
-    const linkedSources = (container: (typeof xcode)[number]['container']) => Array.getSomes(container.projects.map(local)).flatMap((swiftPackage) => sources(swiftPackage, described));
+    const linkedSources = (container: (typeof analyzed.containers)[number]) => Array.getSomes(container.projects.map(local)).flatMap((swiftPackage) => sources(swiftPackage, described));
     const parts: readonly Part[] = [
         ...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described)),
-        ...xcode.map(({ container, inputs, archives, coverage }) =>
-            xcodeParts(options, marker(container.path), container, Array.dedupe([...inputs.flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]), { archives, coverage }, built(container.path), destinations, packaged, relative(workspaceRoot, workspaceDataDirectory)),
+        ...analyzed.containers.map((container) =>
+            xcodeParts(options, marker(container.path), container, Array.dedupe([...container.inputs.flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]), built(container.path), destinations, packaged, relative(workspaceRoot, workspaceDataDirectory)),
         ),
     ];
     const grouped = Array.groupBy(parts, (part) => part.root);
@@ -132,7 +134,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
         graph: {
             projects: merged,
             edges: Array.getSomes(packages.flatMap((swiftPackage) => packageEdges(swiftPackage, described)).map((edge) => Option.map(Option.all({ source: Option.fromUndefinedOr(roots.get(edge.source)), target: Option.fromUndefinedOr(roots.get(edge.target)) }), (at) => ({ ...edge, ...at })))),
-            buildFiles: Record.fromIterableWith(xcode, ({ container }) => [dirname(container.path), container.buildFiles]),
+            buildFiles: Record.fromIterableWith(analyzed.containers, (container) => [dirname(container.path), container.buildFiles]),
         } satisfies Graph,
         failures: [...broken, ...Record.collect(conflicts, (root, group): [string, Error] => [Array.headNonEmpty(group).file, new Cause.UnknownError(group, `${root} holds projects named ${group.map((part) => part.name).join(' and ')}`)])],
         partial: unread.length > 0,
@@ -165,8 +167,20 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 const read = yield* Option.match(stored, {
                     onSome: (graph) => Effect.succeed({ graph, failures: [], partial: false }),
                     onNone: () =>
-                        Effect.flatMap(Effect.all({ info: Effect.option(spawned(['swift', '-print-target-info'], { cwd: workspaceRoot })), xcodebuild: Effect.option(spawned(['xcodebuild', '-version'], { cwd: workspaceRoot })) }, { concurrency: 'unbounded' }), (probed) =>
-                            analyze(workspaceRoot, settings, files, { ...probed, compiled }),
+                        Effect.flatMap(
+                            Effect.all(
+                                {
+                                    info: Effect.option(spawned(['swift', '-print-target-info'], { cwd: workspaceRoot })),
+                                    xcodebuild: Effect.option(
+                                        Effect.tap(
+                                            Effect.map(Effect.fromOption(developer), (path) => join(path.trim(), 'usr', 'bin', 'xcodebuild')),
+                                            (at) => fs.stat(at),
+                                        ),
+                                    ),
+                                },
+                                { concurrency: 'unbounded' },
+                            ),
+                            (probed) => analyze(workspaceRoot, settings, files, { ...probed, compiled }),
                         ),
                 });
                 yield* Option.isNone(stored) && read.failures.length === 0 && !read.partial

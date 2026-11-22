@@ -2,8 +2,8 @@ import { Enrollment } from '@rasm/hosting/identity';
 import { Presignable, Presigned } from '@rasm/object-storage';
 import { Array, Option, Result, Schema, SchemaTransformation } from 'effect';
 import { HttpApi, HttpApiClient, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, HttpApiSchema } from 'effect/http-api';
-import { Asset, AssetId } from '#/model/asset';
-import { PortfolioData, StoredPortfolio } from '#/model/portfolio';
+import { Asset, AssetId } from '#/model/asset.ts';
+import { PortfolioData, StoredPortfolio } from '#/model/portfolio.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

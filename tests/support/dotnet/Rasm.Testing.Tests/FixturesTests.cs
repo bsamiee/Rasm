@@ -1,3 +1,4 @@
+using System.Data;
 using CsCheck;
 using Microsoft.Data.Sqlite;
 using Rasm.Testing;
@@ -11,6 +12,12 @@ namespace Rasm.Testing.Tests;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class FixturesTests(Fixtures fixtures) {
+
+    // --- [RESULTS]
+
+    public static TheoryData<TestResult> Results { get; } = [.. Enum.GetValues<TestResult>()];
+
+    public static TheoryData<TestResult> Unfailed { get; } = [.. Enum.GetValues<TestResult>().Where(static result => result is not TestResult.Failed)];
 
     // --- [SQLITE]
 
@@ -41,14 +48,31 @@ public sealed class FixturesTests(Fixtures fixtures) {
         Assert.Equal("kept", await Fixtures.ScalarAsync(() => new SqliteCommand("select label from kept.held", reader)));
     }
 
-    [Fact]
-    public Task FolderSettlementDeletesTheFolderWhateverTheResult() =>
-        Gen.OneOf(TestResult.Passed, TestResult.Failed, TestResult.Skipped, TestResult.NotRun).SampleAsync(static async result => {
-            Fixture<DirectoryInfo> opened = await Fixtures.Folder.RunAsync(TestContext.Current.CancellationToken);
-            await File.WriteAllTextAsync(Path.Combine(opened.Value.FullName, "held.txt"), nameof(FolderSettlementDeletesTheFolderWhateverTheResult), TestContext.Current.CancellationToken);
-            await opened.Settle(result).RunAsync(TestContext.Current.CancellationToken);
-            Assert.False(Directory.Exists(opened.Value.FullName));
-        });
+    [Theory]
+    [MemberData(nameof(Unfailed))]
+    public async Task SqliteSettlementOfAnUnfailedTestAttachesNothing(TestResult result) {
+        Fixture<SqliteConnection> opened = await Fixtures.Sqlite.RunAsync(TestContext.Current.CancellationToken);
+        await Fixtures.ScalarAsync(() => new SqliteCommand("create table held (label text); insert into held (label) values ('kept')", opened.Value));
+        await opened.Settle(result).RunAsync(TestContext.Current.CancellationToken);
+        Assert.Empty(toSeq(TestContext.Current.Attachments?.Keys));
+    }
+
+    [Theory]
+    [MemberData(nameof(Results))]
+    public async Task SqliteSettlementClosesTheConnectionWhateverTheResult(TestResult result) {
+        Fixture<SqliteConnection> opened = await Fixtures.Sqlite.RunAsync(TestContext.Current.CancellationToken);
+        await opened.Settle(result).RunAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(ConnectionState.Closed, opened.Value.State);
+    }
+
+    [Theory]
+    [MemberData(nameof(Results))]
+    public async Task FolderSettlementDeletesTheFolderWhateverTheResult(TestResult result) {
+        Fixture<DirectoryInfo> opened = await Fixtures.Folder.RunAsync(TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(opened.Value.FullName, "held.txt"), nameof(FolderSettlementDeletesTheFolderWhateverTheResult), TestContext.Current.CancellationToken);
+        await opened.Settle(result).RunAsync(TestContext.Current.CancellationToken);
+        Assert.False(Directory.Exists(opened.Value.FullName));
+    }
 
     // --- [SETTLEMENT]
 

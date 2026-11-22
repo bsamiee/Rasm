@@ -6,7 +6,7 @@ import { aggregated, PLATFORM, runner, type Verbs } from '@rasm/nx-distribution/
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Context, Effect, FileSystem, identity, Layer, Option, pipe, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
-import type { Member } from '#/workspace';
+import type { Member } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -103,7 +103,7 @@ const CHECKERS = {
 } as const;
 const PIXI = 'pixi.toml';
 const FLOOR = /(?:>=|==|~=)\s*(?<floor>\d+\.\d+)/u;
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const UV = { runtime: 'uv self version --short' } as const;
 const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)), PIXI]);
 const SEPARATOR = /\s+/u;
@@ -338,10 +338,10 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
         ...(member.published && {
             'nx-release-publish': {
                 executor: `${distribution.name}:publish`,
-                options: { publish: ['uv', 'publish', ...flagged('--index', member.index)], preview: ['--dry-run'], credential: 'UV_PUBLISH_TOKEN' },
+                options: { publish: ['uv', 'publish', ...flagged('--index', member.index)], preview: ['--dry-run'], credential: ['ACTIONS_ID_TOKEN_REQUEST_URL', 'UV_PUBLISH_TOKEN'] },
                 dependsOn: ['build--uv', '^nx-release-publish'],
                 inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-                metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, which reads UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
+                metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, through PyPI trusted publishing where GitHub Actions grants an OIDC token, else UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
             },
         }),
     };

@@ -1,22 +1,18 @@
-"""Keyword arguments restating literal defaults."""
+"""RASM102: keyword arguments restating the literal default a same-module function or a `msgspec.Struct` field declares."""
 
 from textwrap import dedent
-lazy from collections.abc import Callable, Mapping
 
+import pytest
 lazy from refurb.error import Error
 
-lazy from rasm.refurb.defaults import ErrorRestatedDefaultError
+from rasm.refurb.defaults import ErrorRestatedDefaultError
 
-# --- [TYPES] ----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-type Findings = Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]
+pytestmark = pytest.mark.parametrize("rule", [ErrorRestatedDefaultError], scope="module")
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def test_restated_function_and_field_defaults_report(findings: Findings) -> None:
-    """Keyword arguments equal to a same-module function default and a struct field default, both reported."""
-    source = dedent("""
+CASES = frozendict(
+    function_and_field=dedent("""\
         import msgspec
         from typing import override
 
@@ -39,27 +35,19 @@ def test_restated_function_and_field_defaults_report(findings: Findings) -> None
             width: int = 80
 
         ObservedFrame(width=80)
-    """)
-    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [11, 12]
-
-
-def test_other_module_defaults_and_new_values_pass(findings: Findings) -> None:
-    """Another module's default and a differing value, not reported."""
-    source = dedent("""
+    """),
+    other_module_and_new_value=dedent("""\
         import textwrap
 
-        def framed(text: str, *, width: int = 80) -> str:
-            return text.center(width)
+        WIDTH = 80
 
-        framed("title", width=60)
+        def framed(text: str, *, width: int = 80, height: int = WIDTH) -> str:
+            return text.center(width + height)
+
+        framed("title", width=60, height=WIDTH)
         textwrap.shorten("title text", 5, placeholder=" [...]")
-    """)
-    assert findings(source, ErrorRestatedDefaultError) == ()
-
-
-def test_aliased_function_method_and_struct_defaults_report(findings: Findings) -> None:
-    """Resolved function and struct aliases retain declared defaults."""
-    source = dedent("""
+    """),
+    aliases=dedent("""\
         import msgspec
 
         def framed(*, width: int = 80) -> int:
@@ -78,24 +66,20 @@ def test_aliased_function_method_and_struct_defaults_report(findings: Findings) 
         alias(width=80)
         method(width=80)
         Other(width=80)
-    """)
-    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [17, 19]
+    """),
+    template_string=dedent("""\
+        def framed(*, width: int = 80) -> int:
+            return width
 
-
-def test_positional_only_names_in_keywords_pass(findings: Findings) -> None:
-    """Keywords named after positional-only parameters belong to variadic keywords."""
-    source = dedent("""
+        shown = t"{framed(width=80)}"
+    """),
+    positional_only=dedent("""\
         def framed(width: int = 80, /, **keywords: int) -> int:
             return width + keywords["width"]
 
         framed(width=80)
-    """)
-    assert findings(source, ErrorRestatedDefaultError) == ()
-
-
-def test_struct_overrides_replace_inherited_defaults(findings: Findings) -> None:
-    """Required fields, factories, and changed defaults replace inherited values."""
-    source = dedent("""
+    """),
+    struct_overrides=dedent("""\
         import msgspec
 
         class Frame(msgspec.Struct, kw_only=True):
@@ -115,13 +99,8 @@ def test_struct_overrides_replace_inherited_defaults(findings: Findings) -> None
         Factory(width=80)
         Changed(width=80)
         Changed(width=60, title="Title")
-    """)
-    assert [(error.line, error.column) for error in findings(source, ErrorRestatedDefaultError)] == [(20, 14), (20, 24)]
-
-
-def test_overloads_use_implementation_defaults(findings: Findings) -> None:
-    """Overload declarations leave runtime defaults to their implementation."""
-    source = dedent("""
+    """),
+    overloads=dedent("""\
         from typing import overload
 
         @overload
@@ -133,13 +112,8 @@ def test_overloads_use_implementation_defaults(findings: Findings) -> None:
 
         framed(1, width=80)
         framed("title", width=90)
-    """)
-    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [12]
-
-
-def test_generic_struct_constructor_defaults_report(findings: Findings) -> None:
-    """Type applications preserve struct defaults."""
-    source = dedent("""
+    """),
+    generic_struct=dedent("""\
         import msgspec
 
         class Frame[T](msgspec.Struct, kw_only=True):
@@ -147,13 +121,8 @@ def test_generic_struct_constructor_defaults_report(findings: Findings) -> None:
             width: int = 80
 
         Frame[int](value=1, width=80)
-    """)
-    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [8]
-
-
-def test_wrappers_keep_observable_keyword_presence(findings: Findings) -> None:
-    """Wrapped calls retain observable keyword presence while ordinary calls inside a wrapper still report."""
-    source = dedent("""
+    """),
+    wrappers=dedent("""\
         from collections.abc import Callable
         from typing import overload
 
@@ -192,13 +161,8 @@ def test_wrappers_keep_observable_keyword_presence(findings: Findings) -> None:
             alias = plain
             alias = observer
             return alias(width=80)
-    """)
-    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [11]
-
-
-def test_native_final_facts_bound_method_default_replacements(findings: Findings) -> None:
-    """Final methods and classes retain native decorator defaults, and compatible overrides retain explicit keyword presence."""
-    source = dedent("""
+    """),
+    final_methods=dedent("""\
         from typing import final, overload, override
 
         class Base:
@@ -246,5 +210,27 @@ def test_native_final_facts_bound_method_default_replacements(findings: Findings
             )
 
         observed = invoked(Child())
-    """)
-    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [39, 40, 41, 42, 43, 45]
+    """),
+)
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "case, lines",
+    [
+        ("function_and_field", [10, 11]),
+        ("other_module_and_new_value", []),
+        ("aliases", [16, 18]),
+        ("template_string", [4]),
+        ("positional_only", []),
+        ("struct_overrides", [19, 19]),
+        ("overloads", [11]),
+        ("generic_struct", [7]),
+        ("wrappers", [10]),
+        ("final_methods", [38, 39, 40, 41, 42, 44]),
+    ],
+)
+def test_a_restated_literal_default_reports(findings: frozendict[str, tuple[Error, ...]], case: str, lines: list[int]) -> None:
+    """Each keyword argument equal to the literal default its resolved declaration states reports at its value, and a changed value, a non-literal default, another module's default, an inherited default replaced, a keyword a wrapper or override observes, and a variadic keyword pass."""
+    assert [error.line for error in findings[case]] == lines

@@ -1,19 +1,19 @@
 name: Tools
-description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under .cache of the checkout, whose post-tools hook installs pnpm packages, and exports mise env
+description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout, whose post-tools hook installs pnpm packages, and exports mise env
 
 runs:
     using: composite
     steps:
         - shell: bash
-          run: |
+          run: |-
               git clean -ffd
               printf "%s\n" "TMPDIR=${RUNNER_TEMP}" >> "${GITHUB_ENV}"
         - if: ${{ job.container.id != '' }}
           shell: bash
-          run: |
-              kept="${GITHUB_WORKSPACE}/.cache"
-              printf "%s\n" "MISE_DATA_DIR=${kept}/mise" "MISE_CACHE_DIR=${kept}/mise-cache" "RUSTUP_HOME=${kept}/mise/rustup" "CARGO_HOME=${kept}/mise/cargo" "PNPM_CONFIG_STORE_DIR=${kept}/pnpm" >> "${GITHUB_ENV}"
-        - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+          run: |-
+              tools="${RUNNER_TOOL_CACHE}/mise"
+              printf "%s\n" "MISE_DATA_DIR=${tools}/data" "MISE_CACHE_DIR=${tools}/cache" "RUSTUP_HOME=${tools}/rustup" "CARGO_HOME=${tools}/cargo" "PNPM_CONFIG_STORE_DIR=${GITHUB_WORKSPACE}/.cache/pnpm" >> "${GITHUB_ENV}"
+        - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
           with:
               bootstrap: true
               bootstrap_args: --only tools

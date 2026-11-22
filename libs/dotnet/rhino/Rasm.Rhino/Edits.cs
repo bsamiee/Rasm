@@ -96,7 +96,7 @@ public static class Stages {
             Copy: static live =>
                 from copy in Products.Copied(live)
                 from cached in IO.lift(() => (Copy: copy, Live: live) switch {
-                    (Copy: SubD edited, Live: SubD original) => ignore(edited.CopyEvaluationCache(original)),
+                    (Copy: SubD edited, Live: SubD original) => ignore(edited.CopyEvaluationCache(in original)),
                     _ => unit,
                 })
                 select copy,

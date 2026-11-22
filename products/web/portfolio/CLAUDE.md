@@ -139,7 +139,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Node servers pass the app name to `layerNodeFromConfig`, which reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`
 - Each server exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names
 - `.storybook/main.ts` sets `viteConfigPath: null` and states the React and Tailwind plugins its stories read, so no `vite.config.ts` plugin runs
-- `siteHead` takes `favicon.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
+- `siteHead` takes `icons/mark.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
 - `site/shell.tsx` states the content security policy of a production build, the page adds the storage origin to `connect-src`, and `Template.render` sets no header without one
 
 [IDENTITY]: Views and handlers read the signed-in user of each request through `Identity` of `@rasm/hosting/identity`, which owns the sign-in and sign-out paths:

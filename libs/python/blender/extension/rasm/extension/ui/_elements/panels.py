@@ -24,7 +24,6 @@ from rasm.extension.ui._drawing.handlers import Signal
 from rasm.extension.ui._layout.members import Member
 from rasm.extension.ui._layout.rows import layout_method, OperatorButton, Property, realized, RowContent, RowDraw
 from rasm.extension.ui._layout.sections import field_rows, Section, SectionDraws, sections_in
-from rasm.extension.ui._resources.icons import ICONS
 from rasm.extension.ui._screens.areas import Located
 from rasm.records import accumulated, Fault, Outcome, paired, Reason, typed
 
@@ -66,15 +65,14 @@ class Child(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Sidebar(msgspec.Struct, frozen=True, kw_only=True):
-    """Extension Sidebar tab of an editor, marked with the extension's brand icon."""
+    """Extension Sidebar tab of an editor."""
 
     space: "rna_enums.SpaceTypeItems"
     category: str
 
-    def members(self, identity: Identity) -> dict[str, object]:
-        """Places the panel in the tab, its icon the brand icon while one is packaged."""
-        mark = ICONS.get(identity).bind(lambda icons: icons.brand)
-        return {"bl_space_type": self.space, "bl_region_type": "UI", "bl_category": self.category, **mark.map(lambda value: {"bl_icon_value": value}).default_value(dict[str, int]())}
+    def members(self, _identity: Identity) -> dict[str, object]:
+        """Places the panel in the tab."""
+        return {"bl_space_type": self.space, "bl_region_type": "UI", "bl_category": self.category}
 
 
 class EditorRegion(msgspec.Struct, frozen=True, kw_only=True):

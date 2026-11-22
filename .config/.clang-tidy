@@ -29,12 +29,12 @@ Checks:
     - -bugprone-invalid-enum-default-initialization
 WarningsAsErrors: '*'
 
-# --- [SCOPE] ----------------------------------------------------------------------------
+# --- [HEADER_FILTER] --------------------------------------------------------------------
 
 HeaderFilterRegex: '/(products|libs|tests)/'
 ExcludeHeaderFilterRegex: '/\.artifacts/'
 
-# --- [OPTIONS] --------------------------------------------------------------------------
+# --- [CHECK_OPTIONS] --------------------------------------------------------------------
 
 CheckOptions:
     bugprone-unhandled-self-assignment.WarnOnlyIfThisHasSuspiciousField: false
@@ -59,7 +59,7 @@ CheckOptions:
     readability-identifier-naming.PrivateMemberSuffix: _
     readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
 
-# --- [HOUSE_RULES] ----------------------------------------------------------------------
+# --- [CUSTOM_CHECKS] --------------------------------------------------------------------
 
 CustomChecks:
     - Name: member-visit

@@ -4,12 +4,8 @@
     "description": "Hooks that correct agent commands",
     "type": "module",
     "imports": {
-        "#/manifest": "./.claude-plugin/plugin.json",
-        "#/*": "./*.ts"
-    },
-    "exports": {
-        "./register": "./hooks/register.ts",
-        "./server": "./claude/server.ts"
+        "#/*.ts": "./*.ts",
+        "#/*": "./*"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",

@@ -1,7 +1,7 @@
 import type { Body, Meta, State, Uppy, UppyEventMap, UppyFile } from '@uppy/core';
 import { Effect, FiberSet, type Types } from 'effect';
 import { Atom } from 'effect/reactivity';
-import { MediaError } from '#/error';
+import { MediaError } from '#/error.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

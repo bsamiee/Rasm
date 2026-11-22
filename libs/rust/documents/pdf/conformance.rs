@@ -53,9 +53,10 @@ pub(crate) fn declared(structure: &lopdf::Document) -> Result<(Vec<Standard>, Ve
     let unsupported = |family: Family, claim: String| PdfError::Claim { family, claim: Arc::from(claim) };
     Ok([
         property(PDFAID_NAMESPACE, PART).map(|part| {
-            #[cfg_attr(dylint_lib = "rasm_lints", expect(empty_string_default, reason = "`PdfALevel::from_xmp` reads an empty conformance as PDF/A-4, which states none"))]
-            let conformance = property(PDFAID_NAMESPACE, "conformance").unwrap_or_default();
-            PdfALevel::from_xmp(part, conformance).map(Standard::Archival).ok_or_else(|| unsupported(Family::Archival, format!("{part}{conformance}")))
+            let conformance = property(PDFAID_NAMESPACE, "conformance");
+            PdfALevel::from_xmp(part, conformance.unwrap_or_default())
+                .map(Standard::Archival)
+                .ok_or_else(|| unsupported(Family::Archival, conformance.map_or_else(|| part.to_owned(), |conformance| format!("{part}{conformance}"))))
         }),
         property(PDFUAID_NAMESPACE, PART).map(|part| {
             [PdfUaLevel::Ua1, PdfUaLevel::Ua2].into_iter().find(|level| level.xmp_part() == part).map(Standard::Accessibility).ok_or_else(|| unsupported(Family::Accessibility, part.to_owned()))

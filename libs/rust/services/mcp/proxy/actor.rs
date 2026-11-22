@@ -1,5 +1,3 @@
-#![expect(deprecated, reason = "initialize sessions set and filter logging levels, which SEP-2577 deprecates")]
-
 use core::time::Duration;
 use core::{iter, mem};
 use std::collections::{BTreeMap, BTreeSet};
@@ -407,7 +405,7 @@ where
         let starting = self.upstream.negotiation().is_some();
         self.clock.rearm(match (self.upstream.ready(), self.calls.waiting(), self.policy.liveness) {
             (true, 1.., Some(Liveness { quiet, grace: _ })) => Some(quiet),
-            (true, 0, _) if self.subscribers.resources.is_empty() => Some(cost.saturating_mul(ratio).max(floor).min(ceiling)),
+            (true, 0, _) if self.sessions.joined.is_empty() => Some(cost.saturating_mul(ratio).max(floor).min(ceiling)),
             (false, _, _) if starting => Some(ceiling),
             (_, _, _) => None,
         });
@@ -432,7 +430,7 @@ where
             Timer::Quiet => {
                 self.clock.quiet = None;
                 match (self.clock.activity, self.calls.waiting(), self.policy.liveness) {
-                    (Activity::Quiet | Activity::Probing, 0, _) if self.subscribers.resources.is_empty() => self.idle().await,
+                    (Activity::Quiet | Activity::Probing, 0, _) if self.sessions.joined.is_empty() => self.idle().await,
                     (Activity::Touched, _, _) | (Activity::Quiet | Activity::Probing, 0, _) => self.rearm(),
                     (Activity::Quiet, 1.., Some(Liveness { quiet: _, grace })) => {
                         let id = self.calls.issue(Origin::Internal);
@@ -479,6 +477,9 @@ where
         }
         self.relevel();
         self.status.send_modify(|status| status.sessions = self.sessions.joined.len());
+        if self.sessions.joined.is_empty() && self.upstream.ready() {
+            self.rearm();
+        }
     }
 
     fn on_line(&mut self, session: u64, line: &Bytes) {

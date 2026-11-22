@@ -214,7 +214,9 @@ pub(crate) async fn serve(endpoint: Endpoint, cache: &Utf8Path, idle: Option<Dur
         let (command, IgnoredAny) = rasm_mcp::decode::<(Command, IgnoredAny)>(&fs_err::tokio::read(&path).await?).map_err(io::Error::other)?;
         Ok::<_, io::Error>(crate::build(&fs_err::tokio::metadata(&command.program).await?)? != command.file)
     };
-    let records = fs_err::tokio::read_dir(cache).map_ok(|listing| stream::try_unfold(listing, async |mut records| Ok(records.next_entry().await?.map(|entry| (entry, records))))).try_flatten_stream();
+    let folder = cache.join("servers");
+    let records =
+        fs_err::tokio::read_dir(&folder).map_ok(|listing| stream::try_unfold(listing, async |mut records| Ok(records.next_entry().await?.map(|entry| (entry, records))))).try_flatten_stream();
     let pruned = records.try_for_each(async |entry| match stale(entry.path()).await {
         Ok(false) => Ok(()),
         Ok(true) => fs_err::tokio::remove_file(entry.path()).await,
@@ -233,7 +235,7 @@ pub(crate) async fn serve(endpoint: Endpoint, cache: &Utf8Path, idle: Option<Dur
         built,
         started: Timestamp::now(),
         idle,
-        pool: Pool::new(Records(cache.to_owned())),
+        pool: Pool::new(Records(folder)),
         processes,
         memory: memory.inspect_err(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "process metrics unavailable")).ok().map(|read| Box::new(read) as Box<_>),
         joined: AtomicU64::new(0),

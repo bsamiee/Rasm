@@ -1,8 +1,8 @@
 import type { ExecutorContext } from '@nx/devkit';
 import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Option, Path, Redacted, Schema, Stream, Struct } from 'effect';
-import { commands } from '#/executors/run/executor';
-import { NOTARY, run, SIGNED, SWIFTPM } from '#/targets';
+import { commands } from '#/executors/run/executor.ts';
+import { NOTARY, run, SIGNED, SWIFTPM } from '#/targets.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,7 +14,7 @@ const Package = Schema.Struct({
             product: Schema.String,
             folder: Schema.String,
             bin: Schema.String.annotate({ description: 'Release bin folder swift build --show-bin-path names for the package' }),
-            entitlements: Schema.optionalKey(Schema.String).annotate({ description: 'Entitlements file <product>.entitlements beside the target sources, signed into the product where present' }),
+            entitlements: Schema.optionalKey(Schema.String).annotate({ description: 'Entitlements file <module>.entitlements among the sources of the module the product builds, signed into the product where present' }),
         }),
     ).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
     __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),

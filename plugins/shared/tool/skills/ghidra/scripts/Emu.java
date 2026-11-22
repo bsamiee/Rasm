@@ -136,25 +136,20 @@ public class Emu extends GhidraScript {
                         boolean register = op.getOpcode() != PcodeOp.STORE;
                         int size = register ? op.getOutput().getSize() : op.getInput(2).getSize();
                         return new Report.Success<>(
-                                register
-                                        ? new Convention(
-                                                program.getRegister(op.getOutput()).getName(),
-                                                true,
-                                                size,
-                                                stack,
-                                                pop,
-                                                result)
-                                        : new Convention(
-                                                "*[%s]:%d %s"
-                                                        .formatted(
-                                                                spec.getStackBaseSpace().getName(),
-                                                                size,
-                                                                stack),
-                                                false,
-                                                size,
-                                                stack,
-                                                pop,
-                                                result));
+                                new Convention(
+                                        register
+                                                ? program.getRegister(op.getOutput()).getName()
+                                                : String.format(
+                                                        Locale.ROOT,
+                                                        "*[%s]:%d %s",
+                                                        spec.getStackBaseSpace().getName(),
+                                                        size,
+                                                        stack),
+                                        register,
+                                        size,
+                                        stack,
+                                        pop,
+                                        result));
                     })
                     .orElseGet(() ->
                             new Report.Failure<>(
@@ -163,8 +158,15 @@ public class Emu extends GhidraScript {
         }
 
         String stub(String effect) {
-            return "%s\nlocal target:%d = %s;\n%s = %s + %d;\nreturn [target];"
-                    .formatted(effect, size, target, stack, stack, pop);
+            return String.format(
+                    Locale.ROOT,
+                    "%s\nlocal target:%d = %s;\n%s = %s + %d;\nreturn [target];",
+                    effect,
+                    size,
+                    target,
+                    stack,
+                    stack,
+                    pop);
         }
 
         String fallback() {
@@ -173,8 +175,13 @@ public class Emu extends GhidraScript {
 
         String enter(Layout layout) {
             long top = layout.top().getOffset() - (register ? 0 : size);
-            return "%s = 0x%x;\n%s = 0x%x;"
-                    .formatted(stack, top, target, layout.sentinel().getOffset());
+            return String.format(
+                    Locale.ROOT,
+                    "%s = 0x%x;\n%s = 0x%x;",
+                    stack,
+                    top,
+                    target,
+                    layout.sentinel().getOffset());
         }
     }
 
@@ -266,8 +273,12 @@ public class Emu extends GhidraScript {
     record Outcome(Stop stop, long steps, Address counter, Optional<String> cause) {
         String text() {
             String state =
-                    "%s steps=%d pc=%s"
-                            .formatted(stop.name().toLowerCase(Locale.ROOT), steps, counter);
+                    String.format(
+                            Locale.ROOT,
+                            "%s steps=%d pc=%s",
+                            stop.name().toLowerCase(Locale.ROOT),
+                            steps,
+                            counter);
             return cause.map(text -> state + ": " + text).orElse(state);
         }
     }
@@ -355,16 +366,16 @@ public class Emu extends GhidraScript {
                                                 thread.getLanguage(), convention.target())
                                         .evaluate(thread.getExecutor());
                         calls.add(
-                                "%d %s from %s"
-                                        .formatted(
-                                                step,
-                                                stub.name(),
-                                                address.getNewAddress(
-                                                        Utils.bytesToLong(
-                                                                value,
-                                                                value.length,
-                                                                thread.getLanguage()
-                                                                        .isBigEndian()))));
+                                String.format(
+                                        Locale.ROOT,
+                                        "%d %s from %s",
+                                        step,
+                                        stub.name(),
+                                        address.getNewAddress(
+                                                Utils.bytesToLong(
+                                                        value,
+                                                        value.length,
+                                                        thread.getLanguage().isBigEndian()))));
                     });
         }
 
@@ -421,8 +432,11 @@ public class Emu extends GhidraScript {
                             new Report.Success<>(found.getFirst().getEntryPoint());
                     case Report.Success<List<Function>>(List<Function> found) ->
                             new Report.Failure<>(
-                                    "Entry `%s` matches %d functions"
-                                            .formatted(text, found.size()));
+                                    String.format(
+                                            Locale.ROOT,
+                                            "Entry `%s` matches %d functions",
+                                            text,
+                                            found.size()));
                     case Report.Failure<List<Function>>(String cause) ->
                             new Report.Failure<>(cause);
                 };
@@ -513,7 +527,8 @@ public class Emu extends GhidraScript {
             case Report.Failure<Prepared>(String cause) ->
                     new Report.Failure<>(
                             cause.lines()
-                                    .map(line -> "Run %d: %s".formatted(index, line))
+                                    .map(line ->
+                                            String.format(Locale.ROOT, "Run %d: %s", index, line))
                                     .collect(Collectors.joining("\n")));
         };
     }
@@ -562,9 +577,10 @@ public class Emu extends GhidraScript {
                                                 ? Stream.empty()
                                                 : Stream.<Report.Result<Plan>>of(
                                                         new Report.Failure<>(
-                                                                "Arguments name %d plans"
-                                                                        .formatted(
-                                                                                operands.size()))),
+                                                                String.format(
+                                                                        Locale.ROOT,
+                                                                        "Arguments name %d plans",
+                                                                        operands.size()))),
                                         operands.stream()
                                                 .limit(1)
                                                 .<Report.Result<Plan>>map(file -> {
@@ -706,7 +722,8 @@ public class Emu extends GhidraScript {
             machine.recorder()
                     .userops
                     .forEach((name, count) ->
-                            userops.add("%s %s count=%d".formatted(id, name, count)));
+                            userops.add(
+                                    String.format(Locale.ROOT, "%s %s count=%d", id, name, count)));
         }
         List<Report.Section> sections =
                 List.of(

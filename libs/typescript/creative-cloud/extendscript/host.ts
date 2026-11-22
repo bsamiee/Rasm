@@ -57,7 +57,6 @@ const refusals = (target: unknown, values: Fields, prefix: string): string[] => 
             refused = refused.concat(refusals(held, value, `${prefix}${key}.`));
         } else {
             try {
-                // oxlint-disable-next-line no-param-reassign, typescript/no-unsafe-type-assertion -- ES3 has no Reflect.set, the host instance takes each key
                 (target as Record<string, unknown>)[key] = value;
             } catch (error) {
                 refused.push(`${prefix}${key}: ${String(read(error, 'message'))}`);

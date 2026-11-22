@@ -1,14 +1,14 @@
 use clippy_utils::diagnostics::span_lint_hir_and_then;
-use clippy_utils::macros::{FormatArgsStorage, find_format_arg_expr, is_format_macro, root_macro_call_first_node};
 use clippy_utils::paths::PathNS;
 use clippy_utils::res::MaybeDef as _;
-use clippy_utils::{fn_def_id, is_default_equivalent, is_default_equivalent_call, peel_blocks, sym};
+use clippy_utils::{DefinedTy, fn_def_id, get_expr_use_site, is_default_equivalent, is_default_equivalent_call, peel_blocks, sym};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def_id::DefId;
-use rustc_hir::{Expr, ExprKind, HirIdSet};
+use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::print::with_forced_trimmed_paths;
 use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_span::STDLIB_STABLE_CRATES;
 
 use crate::{expanded_externally, is_text, paths, pointee, resolve};
 
@@ -26,14 +26,12 @@ enum Fallback {
 pub(crate) struct Pass {
     fallbacks: FxHashMap<DefId, Fallback>,
     paths: FxHashSet<DefId>,
-    format_args: FormatArgsStorage,
-    formatted: HirIdSet,
 }
 
-lint!(Pass; EMPTY_STRING_DEFAULT: "`Option` and `Result` fallbacks producing an empty string, path, or OS string outside a formatting argument");
+lint!(Pass; EMPTY_STRING_DEFAULT: "`Option` and `Result` fallbacks producing an empty string, path, or OS string outside an argument or field of an external non-standard crate");
 
 impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>, format_args: FormatArgsStorage) -> Self {
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
         Self {
             fallbacks: resolve(
                 tcx,
@@ -54,8 +52,6 @@ impl Pass {
                 ],
             ),
             paths: paths(tcx, PathNS::Type, &["std::ffi::OsStr", "std::ffi::OsString", "std::path::Path", "std::path::PathBuf", "camino::Utf8Path", "camino::Utf8PathBuf"]),
-            format_args,
-            formatted: HirIdSet::default(),
         }
     }
 
@@ -79,11 +75,6 @@ impl Pass {
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        if let Some(call) = root_macro_call_first_node(cx, expr).filter(|call| is_format_macro(cx, call.def_id))
-            && let Some(arguments) = self.format_args.get(cx, expr, call.expn)
-        {
-            self.formatted.extend(arguments.arguments.all_args().iter().filter_map(|argument| find_format_arg_expr(expr, argument)).map(|argument| argument.hir_id));
-        }
         let ExprKind::MethodCall(segment, receiver, arguments, _) = expr.kind else { return };
         let Some(&fallback) = fn_def_id(cx, expr).and_then(|callee| self.fallbacks.get(&callee)) else { return };
         let typeck = cx.typeck_results();
@@ -95,7 +86,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             (Fallback::Producer, Some(producer)) => is_default_equivalent_call(cx, producer, None),
             (Fallback::Value | Fallback::Producer, None) => false,
         };
-        if emptied && !self.formatted.contains(&expr.hir_id) && !expanded_externally(cx, expr.span) && self.textual(cx, held) {
+        if emptied
+            && !expanded_externally(cx, expr.span)
+            && self.textual(cx, held)
+            && let site = get_expr_use_site(cx.tcx, typeck, expr.span.ctxt(), expr).use_node(cx)
+            && (site.is_recv()
+                || !matches!(site.defined_ty(cx), Some(DefinedTy::Mir { def_site_def_id: Some(owner), .. }) if !owner.is_local() && !STDLIB_STABLE_CRATES.contains(&cx.tcx.crate_name(owner.krate))))
+        {
             let absent = if typeck.expr_ty(receiver).peel_refs().is_diag_item(cx, sym::Option) { "None" } else { "Err" };
             let (span, held) = (segment.ident.span.to(expr.span.shrink_to_hi()), with_forced_trimmed_paths!(held.to_string()));
             span_lint_hir_and_then(cx, EMPTY_STRING_DEFAULT, expr.hir_id, span, format!("`{}` stands an empty `{held}` in for `{absent}`", segment.ident), |diag| {

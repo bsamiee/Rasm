@@ -2,7 +2,7 @@ import { Enrollment } from '@rasm/hosting/identity';
 import { Effect, Layer } from 'effect';
 import type { HttpServerRequest } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
-import { Owner } from '#/model/api';
+import { Owner } from '#/model/api.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

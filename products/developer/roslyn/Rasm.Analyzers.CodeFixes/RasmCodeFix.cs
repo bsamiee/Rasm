@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -24,10 +23,9 @@ public abstract class RasmCodeFix(params (string Id, Func<SyntaxNode, SyntaxGene
 
     public sealed override ImmutableArray<string> FixableDiagnosticIds { get; } = [.. fixes.Select(static fix => fix.Id)];
 
-    [SuppressMessage("Roslynator", "RCS1174", Justification = "FixAll requires a nullable task result; the action requires a nonnullable task result.")]
     public sealed override FixAllProvider GetFixAllProvider() =>
-        FixAllProvider.Create(async (context, document, diagnostics) =>
-            await FixedAsync(document, [.. diagnostics.Where(diagnostic => string.Equals(diagnostic.Id, context.CodeActionEquivalenceKey, StringComparison.Ordinal))], context.CancellationToken).ConfigureAwait(false),
+        FixAllProvider.Create((context, document, diagnostics) =>
+            FixedAsync(document, [.. diagnostics.Where(diagnostic => string.Equals(diagnostic.Id, context.CodeActionEquivalenceKey, StringComparison.Ordinal))], context.CancellationToken)!,
             [.. WellKnownFixAllProviders.BatchFixer.GetSupportedFixAllScopes()]);
 
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context) {

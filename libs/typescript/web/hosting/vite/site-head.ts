@@ -10,14 +10,13 @@ import { Array, Cause, Deferred, Duration, Effect, FileSystem, flow, Function, M
 import { type ChildNode, list, parse } from 'postcss';
 import { type DevEnvironment, type HtmlTagDescriptor, normalizePath, type Plugin, type ResolvedConfig, type Rolldown } from 'vite';
 import type { WebAppManifest } from 'web-app-manifest';
-import { HostingError } from '#/app/error';
+import { HostingError } from '#/app/error.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Scheme = 'light' | 'dark';
 
 interface Head {
-    readonly master: string;
     readonly stylesheet: string;
     readonly fill: string;
     readonly background: string;
@@ -28,6 +27,7 @@ interface Head {
 
 const CSS_CALL = /^(?<call>var|light-dark)\((?<parameters>.*)\)$/su;
 const DOCUMENT_ROOT = /^(?::root|:host|html)$/u;
+const MARK = 'icons/mark.svg';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -57,26 +57,26 @@ const computed = (declared: ReadonlyMap<string, string>, scheme: Scheme, value: 
     const referenced = call === 'var' ? (UndefinedOr.map(first, (name) => declared.get(name)) ?? second) : schemed;
     return call === undefined ? Option.some(token) : Option.flatMap(Option.fromUndefinedOr(referenced), (next) => computed(declared, scheme, next));
 };
-const headAssets = Effect.fnUntraced(function* ({ root, base }: ResolvedConfig, { master, stylesheet, fill, background, manifest }: Head) {
+const headAssets = Effect.fnUntraced(function* ({ root, base }: ResolvedConfig, { stylesheet, fill, background, manifest }: Head) {
     const fs = yield* FileSystem.FileSystem;
     const { nodes } = parse(yield* fs.readFileString(join(root, stylesheet)), { from: stylesheet });
     const color = (scheme: Scheme, token: string) => Effect.fromOption(Option.flatMapNullishOr(computed(new Map(cascade(nodes, scheme)), scheme, `var(${token})`), formatRgb), () => new Cause.NoSuchElementError(`${stylesheet} holds no ${scheme} color at ${token}`));
     const [iconColor, chrome, darkChrome] = yield* Effect.all([color('light', fill), color('light', background), color('dark', background)]);
-    const painted = yield* paint(join(root, master), { color: iconColor });
+    const painted = yield* paint([join(root, MARK)], `svg { color: ${iconColor}; }`);
     const installed = <A extends { readonly sizes: unknown }>(asset: A) => (manifest === undefined ? { ...asset, sizes: [] } : asset);
     const resizeOptions = { background: chrome, fit: 'contain' as const };
     const generated = yield* Effect.tryPromise({
         try: () =>
             instructions({
                 imageResolver: Function.constant(Buffer.from(painted)),
-                imageName: basename(master),
+                imageName: basename(MARK),
                 preset: { transparent: { ...installed(minimal2023Preset.transparent), padding: 0 }, maskable: { ...installed(minimal2023Preset.maskable), resizeOptions }, apple: { ...minimal2023Preset.apple, padding: 0, resizeOptions } },
                 faviconPreset: '2023',
                 htmlLinks: { xhtml: false, includeId: false },
                 basePath: base,
                 resolveSvgName: Function.identity,
             }),
-        catch: HostingError.of('Build', `icon instructions of ${master}`),
+        catch: HostingError.of('Build', `icon instructions of ${MARK}`),
     });
     const webManifest = 'manifest.webmanifest';
     const href = `${base}${webManifest}`;
@@ -84,7 +84,7 @@ const headAssets = Effect.fnUntraced(function* ({ root, base }: ResolvedConfig, 
         Record.map(
             { ...generated.favicon, ...generated.apple, ...generated.transparent, ...generated.maskable },
             Effect.fnUntraced(function* ({ name, mimeType, buffer }) {
-                return { name, mimeType, source: yield* Effect.tryPromise({ try: buffer, catch: HostingError.of('Build', `icon ${name} of ${master}`) }) };
+                return { name, mimeType, source: yield* Effect.tryPromise({ try: buffer, catch: HostingError.of('Build', `icon ${name} of ${MARK}`) }) };
             }),
         ),
         { concurrency: 'unbounded' },
@@ -114,7 +114,7 @@ const headAssets = Effect.fnUntraced(function* ({ root, base }: ResolvedConfig, 
 
 const siteHead = (stated: Head): Plugin => {
     const config = Deferred.makeUnsafe<ResolvedConfig>();
-    const files = ({ root }: ResolvedConfig) => [stated.master, stated.stylesheet].map((file) => normalizePath(join(root, file)));
+    const files = ({ root }: ResolvedConfig) => [MARK, stated.stylesheet].map((file) => normalizePath(join(root, file)));
     const [built, invalidate] = Deferred.await(config).pipe(
         Effect.flatMap((resolved) => headAssets(resolved, stated)),
         Effect.cachedInvalidateWithTTL(Duration.infinity),

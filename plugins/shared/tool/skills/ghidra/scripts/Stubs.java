@@ -18,6 +18,7 @@ import headless.Report;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -34,8 +35,10 @@ public class Stubs extends GhidraScript {
                     .map(selector -> Objc1Constants.OBJC_MSG_SEND + "$" + selector)
                     .map(name ->
                             name.equals(stub.getName())
-                                            && ObjcSourceLanguageSpecExtension.OBJC_MSGSEND_STUBS
-                                                    .equals(stub.getCallingConventionName())
+                                            && Objects.equals(
+                                                    stub.getCallingConventionName(),
+                                                    ObjcSourceLanguageSpecExtension
+                                                            .OBJC_MSGSEND_STUBS)
                                     ? new Unchanged(stub)
                                     : apply(stub, name))
                     .orElseGet(() -> new Unresolved(stub));

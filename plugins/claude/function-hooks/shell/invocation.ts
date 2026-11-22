@@ -1,10 +1,11 @@
 import { tmpdir } from 'node:os';
-import { Array, Cache, Context, Effect, Layer, Option, Result } from 'effect';
+import { Array, Cache, Config, Context, Effect, Layer, Option, Path, Result, String } from 'effect';
+import { KeyValueStore } from 'effect/persistence';
 import { RedirOperator, type Stmt } from 'sh-syntax/sync';
-import { Host, type HostError, KEEP_SUCCESSES } from '#/host';
-import { type Arguments, NO_USAGE, parseArguments, type Usage, usageOf } from '#/shell/arguments';
-import type { Program } from '#/shell/programs';
-import { type Command, concat, parsed, referenced, type Script, scriptOf, type Word } from '#/shell/script';
+import { Host, type HostError, KEEP_SUCCESSES, Machine } from '#/host.ts';
+import { type Arguments, NO_USAGE, parseArguments, type Usage, usageOf } from '#/shell/arguments.ts';
+import type { Program } from '#/shell/programs.ts';
+import { type Command, concat, parsed, referenced, type Script, scriptOf, type Word } from '#/shell/script.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -48,21 +49,31 @@ const ZSH_FEATURE = /\bzsh feature\b/u;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
+const Stored = Layer.unwrap(
+    Effect.gen(function* () {
+        const [machine, path, data] = yield* Effect.all([Machine, Path.Path, Config.option(Config.String('CLAUDE_PLUGIN_DATA'))]);
+        return yield* Option.match(data, {
+            onNone: () => Effect.succeed(KeyValueStore.layerMemory),
+            onSome: (folder) => Effect.map(machine.run(['carapace', '--version'], { cwd: folder }), ({ stdout }) => Layer.orDie(KeyValueStore.layerFileSystem(path.join(folder, String.trim(stdout))))),
+        });
+    }),
+);
+
 class Parser extends Context.Service<Parser>()('@rasm/function-hooks/shell/invocation/Parser', {
-    make: (programs: ReadonlyMap<string, Program>) =>
-        Effect.map(
-            Cache.makeWith(
-                (program: string) => {
-                    const row = programs.get(program) ?? {};
-                    const [primary] = programs.entries().find(([, held]) => held === row) ?? [program];
-                    return usageOf(program, row, primary);
-                },
-                { capacity: programs.size, ...KEEP_SUCCESSES },
-            ),
-            (usages) => ({ usages, programs, interpreters: new Map(Array.reverse(Array.fromIterable(programs).flatMap(([name, { extensions = [] }]) => extensions.map((extension) => [extension, name] as const)))) }),
-        ),
+    make: Effect.fnUntraced(function* (programs: ReadonlyMap<string, Program>) {
+        const usages = yield* Cache.makeWith(
+            (program: string) => {
+                const row = programs.get(program) ?? {};
+                const [primary] = programs.entries().find(([, held]) => held === row) ?? [program];
+                return usageOf(program, row, primary);
+            },
+            { capacity: programs.size, ...KEEP_SUCCESSES },
+        );
+        yield* Effect.forkScoped(Effect.forEach(programs.keys(), (program) => Effect.ignore(Cache.get(usages, program)), { concurrency: 'unbounded', discard: true }));
+        return { usages, programs, interpreters: new Map(Array.reverse(Array.fromIterable(programs).flatMap(([name, { extensions = [] }]) => extensions.map((extension) => [extension, name] as const)))) };
+    }),
 }) {
-    static readonly layer = (programs: ReadonlyMap<string, Program>) => Layer.effect(this, this.make(programs));
+    static readonly layer = (programs: ReadonlyMap<string, Program>) => Layer.effect(this, this.make(programs)).pipe(Layer.provide(Layer.orDie(Stored)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

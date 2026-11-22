@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-cargo",
     "private": true,
-    "description": "@rasm/nx-cargo suite: Nx's own Gradle, Maven, and @nx/js release specs ported to Cargo workspaces in temporary folders, each graph read by cargo metadata and each task run by cargo",
+    "description": "@rasm/nx-cargo suite: Cargo workspaces in temporary folders read through the real Nx graph pipeline, each inferred cargo, nextest, and release target run by its executor where its behaviour shows only in a run",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",
@@ -9,6 +9,7 @@
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
+        "fast-check": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
     }

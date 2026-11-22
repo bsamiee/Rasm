@@ -232,7 +232,7 @@ public static class SectionCommands {
             new Invoke.Popup(static scope => Historied(scope).Bind(history => Listing(history, scope))));
 
     public static Command<Invoke>.Run Reset { get; } =
-        new(new CommandFace("section-reset", "Reset") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.Svg_namedItemRestoreHotSvg)) },
+        new(new CommandFace("section-reset", "Reset") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.RestoreDefaultsSvg)) },
             new Invoke.Effect(static scope => Historied(scope).Bind(history => scope.Commit(history.Group, history.Group.Defaults)).Map(unit)));
 
     private static IO<HistoryBinding> Historied(RowScope scope) => IO.lift(() => scope.History.ToFin(new RhinoFault("section value history", RhinoReason.Missing)));

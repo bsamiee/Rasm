@@ -5,15 +5,15 @@ import { Catalog, Relation } from '@rasm/database';
 import { Sqlite } from '@rasm/database/sqlite';
 import { Effect, FileSystem, Layer, Path, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
-import { cases } from '#/cases';
+import { reconciliation } from '#/reconciliation.sqlite.ts';
+import { rows } from '#/rows.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('sqlite', () => {
-    cases(
-        it,
-        Sqlite.layer((names) => SqliteClient.layer({ filename: ':memory:', ...names })),
-    );
+    const client = Sqlite.layer((names) => SqliteClient.layer({ filename: ':memory:', ...names }));
+    reconciliation(it, client);
+    rows(it, client);
     it.effect(
         'reopens the SQLite file in WAL mode and retains application tables with a D1 reserved prefix',
         Effect.fnUntraced(function* () {

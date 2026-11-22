@@ -155,7 +155,7 @@ internal sealed class Indexed(int index, Envelope envelope) : ISpatialData {
         toSeq(items.Map(item => (Item: item, Distance: distance(item))).Filter(held => float.IsFinite(held.Distance) && held.Distance <= reach).MinItemsBy(static held => held.Distance)).Head.Map(static held => held.Item);
 
     private static Option<int> Grown(RBush<Indexed> tree, PlotFrame frame, SKPoint local, Option<PhysicalAxis> along, Func<int, float> distance, float reach) =>
-        Boxed(frame, local, along, reach).Bind(box => Closest(toSeq(tree.Search(box)).Map(static held => held.Index), distance).Match(
+        Boxed(frame, local, along, reach).Bind(box => Closest(toSeq(tree.Search(in box)).Map(static held => held.Index), distance).Match(
             Some: index => distance(index) <= reach ? Some(index) : Grown(tree, frame, local, along, distance, distance(index)),
             None: () => box.Contains(tree.Envelope) ? None : Grown(tree, frame, local, along, distance, 2f * reach)));
 

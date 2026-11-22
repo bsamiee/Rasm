@@ -4,5 +4,12 @@
         "types": ["node"]
     },
     "include": ["node.ts", "vite.ts"],
-    "references": [{ "path": "../object-model" }]
+    "references": [
+        {
+            "path": "../object-model"
+        },
+        {
+            "path": "../../runtime/process"
+        }
+    ]
 }

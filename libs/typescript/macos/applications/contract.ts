@@ -1,4 +1,6 @@
+import { Unmatched } from '@rasm/search';
 import { Array, Cause, Effect, Function, Result, Schema, Stream, Struct } from 'effect';
+import { Rpc, RpcGroup } from 'effect/rpc';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -362,7 +364,48 @@ class Diagnostics extends Schema.Class<Diagnostics, { readonly brand: unique sym
         unreadable: Schema.Array(Schema.String).annotate({ description: 'Report files and log folders that failed to read, with cause' }),
     });
 }
+const Identifiers = { identifiers: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Bundle identifiers of the instances monitored, each admitted by the server' }) };
+const Failure = Schema.Union([Unmatched, Schema.ErrorInstance()]);
+const Automation = RpcGroup.make(
+    Rpc.make('installations', {
+        payload: {
+            identifiers: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Bundle identifiers' })),
+            prefix: Schema.optionalKey(Schema.String.annotate({ description: 'Bundle identifier prefix, joined with identifiers by or, every admitted application when both are absent' })),
+        },
+        success: Schema.Result(Schema.Array(Installation), Schema.ErrorInstance()).annotate({ description: 'On subscribe and each Spotlight update, or discovery error' }),
+        stream: true,
+    }),
+    Rpc.make('instances', { payload: Identifiers, success: Schema.Array(RunningInstance).annotate({ description: 'On subscribe and each change, exited instances kept until next change' }), stream: true }),
+    Rpc.make('events', { payload: Identifiers, success: Event, stream: true }),
+    Rpc.make('pressure', { success: Schema.Result(Pressure, Schema.ErrorInstance()).annotate({ description: 'On subscribe and each kernel change, or read error' }), stream: true }),
+    Rpc.make('nodes', {
+        payload: {
+            instance: ProcessInstance,
+            root: Schema.optionalKey(ElementID.annotate({ description: 'Element read, the application when absent' })),
+            depth: Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Child levels read below the root' }),
+        },
+        success: Node,
+        error: Failure,
+    }),
+    Rpc.make('launch', { payload: Launch.fields, success: Launching, error: Failure, stream: true }),
+    Rpc.make('act', { payload: { instance: ProcessInstance, ...Act.fields }, success: Acted, error: Failure }),
+    Rpc.make('quit', { payload: { instance: ProcessInstance, force: Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false))) }, success: State.annotate({ description: 'Last state, a dialog or unresponsive instance stays running' }), error: Failure }),
+    Rpc.make('terms', { payload: { url: Schema.URL }, success: Terms, error: Failure }),
+    Rpc.make('definition', { payload: { url: Schema.URL, kind: TermKind, name: Schema.String }, success: Schema.String, error: Failure }),
+    Rpc.make('execute', { payload: { instance: ProcessInstance, ...Execute.fields }, success: Execute.Result, error: Failure }),
+    Rpc.make('capture', { payload: { instance: ProcessInstance, ...Capture.fields }, success: Capture.Result, error: Failure }),
+    Rpc.make('preview', {
+        payload: { file: Schema.URL.annotate({ description: 'PNG file' }), longestSide: LongestSide.annotate({ description: 'Longest side in pixels of the preview, never upscaled' }) },
+        success: Schema.Struct({
+            width: Schema.Int.annotate({ description: 'File width in pixels' }),
+            height: Schema.Int.annotate({ description: 'File height in pixels' }),
+            preview: Schema.Uint8Array.annotate({ description: 'PNG scaled to the longest side' }),
+        }),
+        error: Failure,
+    }),
+    Rpc.make('diagnostics', { payload: Diagnostics.fields, success: Diagnostics.Result, error: Failure }),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Act, Acted, AppleEventValue, Capture, Diagnostics, ElementID, Event, Execute, Installation, Launch, Launched, Launching, LongestSide, Node, Pid, Pressure, ProcessInstance, RunningInstance, State, TermKind, Terms, WindowID };
+export { Act, Acted, AppleEventValue, Capture, Automation, Diagnostics, ElementID, Event, Execute, Installation, Launch, Launched, Launching, LongestSide, Node, Pid, Pressure, ProcessInstance, RunningInstance, State, TermKind, Terms, WindowID };

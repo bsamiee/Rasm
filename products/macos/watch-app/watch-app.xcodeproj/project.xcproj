@@ -18,7 +18,7 @@
   ],
   "files": [
     { "path": "<PROJECT>/../../../Xcode.xcconfig" },
-    { "path": "Resources/AppIcon.icon", "target-membership": [ "watch-app/resources" ] },
+    { "path": "AppIcon.icon", "target-membership": [ "watch-app/resources" ] },
     {
       "kind": "group",
       "name": "Products",

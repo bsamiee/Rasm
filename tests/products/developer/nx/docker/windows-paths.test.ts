@@ -1,7 +1,6 @@
-import { type CreateNodesContext, DependencyType } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-docker';
-import { TempFs } from '@rasm/testing/temp-fs';
-import { describe, expect, test, vi } from 'vitest';
+import { it, unportable } from '@rasm/testing/nx';
+import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('node:path'), async (actual) => {
     const { windows } = await import('@rasm/testing/path');
@@ -9,63 +8,45 @@ vi.mock(import('node:path'), async (actual) => {
 });
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const NESTED = {
+    'shared/compose.base.yaml': 'services:\n    store:\n        image: valkey/valkey:8\n',
+    'deploy/infra/project.json': '{"name":"infra"}',
+    'deploy/infra/compose.yaml': [
+        'include:',
+        '    - ../../shared/compose.base.yaml',
+        'services:',
+        '    api:',
+        '        build:',
+        '            context: ../../apps/api',
+        '        env_file: env/api.env',
+        '    site:',
+        '        build:',
+        '            context: ../../libs/site/dist',
+        '            dockerfile: ../../../deploy/infra/images/site.Dockerfile',
+        '',
+    ].join('\n'),
+    'deploy/infra/env/api.env': 'PORT=8080\n',
+    'deploy/infra/images/site.Dockerfile': 'FROM scratch\n',
+    'apps/api/project.json': '{"name":"api"}',
+    'apps/api/Dockerfile': 'FROM scratch\n',
+    'libs/site/project.json': '{"name":"site","targets":{"build--vite":{"command":"true","outputs":["{projectRoot}/dist"]}}}',
+};
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const it = test
-    .extend('tempFs', async ({}, { onCleanup }) => {
-        const cwd = process.cwd();
-        const tempFs = new TempFs('docker-windows-paths');
-        process.chdir(tempFs.tempDir);
-        onCleanup(() => {
-            tempFs.cleanup();
-            process.chdir(cwd);
-        });
-        await tempFs.createFiles({
-            'shared/compose.base.yaml': 'services:\n    store:\n        image: valkey/valkey:8\n',
-            'infra/compose.yaml':
-                'include:\n    - ../shared/compose.base.yaml\nservices:\n    api:\n        build:\n            context: ../apps/api\n            dockerfile: Dockerfile\n        env_file: api.env\n    site:\n        build:\n            context: ../libs/site/dist\n            dockerfile: ../../../infra/site.Dockerfile\n',
-            'infra/api.env': 'PORT=8080\n',
-            'infra/site.Dockerfile': 'FROM scratch\nCOPY . /site\n',
-            'infra/project.json': '{}',
-            'apps/api/Dockerfile': 'FROM node:18',
-            'apps/api/project.json': '{}',
-        });
-        return tempFs;
-    })
-    .extend('context', ({ tempFs }): CreateNodesContext => ({ nxJsonConfiguration: { namedInputs: { default: ['{projectRoot}/**/*'] } }, workspaceRoot: tempFs.tempDir }));
+describe('Windows path separators', () => {
+    it('hands Nx workspace-relative posix roots, inputs, and working folders', async ({ workspace }) => {
+        const graph = await workspace.write(NESTED).graph({ createNodes, createDependencies });
 
-describe('@rasm/nx-docker under Windows path separators', { timeout: 60_000 }, () => {
-    it('should hand Nx workspace-relative posix roots and inputs', async ({ context }) => {
-        const results = await createNodes[1](['infra/compose.yaml'], {}, context);
-
-        const projects = results[0]?.[1].projects;
-        expect(Object.keys({ ...projects })).toStrictEqual(['apps/api', 'infra']);
-        expect(projects?.['infra']?.targets?.['check--compose']?.inputs).toStrictEqual([
-            '{workspaceRoot}/apps/api/Dockerfile',
-            '{workspaceRoot}/infra/.env',
-            '{workspaceRoot}/infra/api.env',
-            '{workspaceRoot}/infra/compose.yaml',
-            '{workspaceRoot}/infra/site.Dockerfile',
-            '{workspaceRoot}/shared/compose.base.yaml',
-            { externalDependencies: [] },
-        ]);
+        expect(unportable(graph)).toStrictEqual([]);
+        expect(graph.nodes['infra']?.data.targets?.['check--compose']?.inputs).toStrictEqual(expect.arrayContaining(['{workspaceRoot}/apps/api/Dockerfile', '{workspaceRoot}/deploy/infra/env/api.env', '{workspaceRoot}/deploy/infra/images/site.Dockerfile', '{workspaceRoot}/shared/compose.base.yaml']));
     });
 
-    it('should match a build context to the posix output of the project producing it', async ({ tempFs, context }) => {
-        const results = await createNodes[1](['infra/compose.yaml'], {}, context);
+    it('matches a build context to the output of the project producing it', async ({ workspace }) => {
+        const graph = await workspace.write(NESTED).graph({ createNodes, createDependencies });
 
-        const result = await createDependencies(
-            {},
-            {
-                workspaceRoot: tempFs.tempDir,
-                projects: { infra: { root: 'infra', ...results[0]?.[1].projects?.['infra'] }, site: { root: 'libs/site', targets: { build: { command: 'true', outputs: ['{projectRoot}/dist'] } } } },
-                externalNodes: {},
-                fileMap: { projectFileMap: {}, nonProjectFiles: [] },
-                filesToProcess: { projectFileMap: {}, nonProjectFiles: [] },
-                nxJsonConfiguration: context.nxJsonConfiguration,
-            },
-        );
-
-        expect(result).toStrictEqual([{ source: 'infra', target: 'site', type: DependencyType.static, sourceFile: 'infra/compose.yaml' }]);
+        expect(graph.dependencies['infra']).toContainEqual({ source: 'infra', target: 'site', type: 'static' });
     });
 });

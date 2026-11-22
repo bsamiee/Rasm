@@ -4,11 +4,11 @@ import type { Node } from '@pgsql/types';
 import { Array, Config, Duration, Effect, Equal, Equivalence, Exit, Filter, Formatter, Function, HashSet, Layer, Option, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
-import type { Catalog } from '#/catalog';
-import type { Kind } from '#/column';
-import { type Dialect, Engine, Rows } from '#/engine';
-import { catalogDdl, constant, diff, type Identity, identifier, literal, mergeTreeRefusals, methods, type referentialActions, Stamp, unsupported } from '#/reconcile';
-import { Tokenizer } from '#/relation';
+import type { Catalog } from '#/catalog.ts';
+import type { Kind } from '#/column.ts';
+import { type Dialect, Engine, Rows } from '#/engine.ts';
+import { catalogDdl, constant, diff, type Identity, identifier, literal, mergeTreeRefusals, methods, type referentialActions, Stamp, unsupported } from '#/reconcile.ts';
+import { Tokenizer } from '#/relation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

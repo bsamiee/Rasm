@@ -24,6 +24,7 @@ use rasm_mcp::{Ended, Phase, Resumable};
 use rasm_process::{Failure, ProcessError};
 use rasm_telemetry::Environment;
 use rasm_telemetry::process::{Options, Program};
+use rmcp::ErrorData;
 use rmcp::transport::async_rw::DEFAULT_MAX_LINE_LENGTH;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt as _};
@@ -52,8 +53,6 @@ enum Per {
 enum Operation {
     #[display("read this executable")]
     Executable,
-    #[display("find the server command on PATH")]
-    Resolve,
     #[display("read the server command file")]
     Inspect,
     #[display("resolve the server directory")]
@@ -76,6 +75,7 @@ const BUFFER: usize = 256 << 10;
 #[command(version, about = "Shares one stdio MCP server process across every agent session that configures the same server", long_about = None)]
 #[command(override_usage = "mcp-muxer [OPTIONS] -- <COMMAND> [ARGUMENTS]...\n       mcp-muxer [OPTIONS]")]
 #[command(after_help = "With a COMMAND, serves that stdio MCP server to this session through the shared daemon. With none, prints the daemon state as JSON.\n\
+A session whose server cannot be found or reached gets the cause as the error of each request it sends.\n\
 Environment: a shared server starts with the variables of the session that started it, without trace context; a --per session server and an unshared run receive the whole session environment.\n\
 The daemon exports telemetry under the OTEL_ variables of the session that started it.\n\
 Requests to a server opened with initialize carry their session's client capabilities and identity in _meta.\n\
@@ -89,7 +89,7 @@ struct Cli {
     #[arg(long, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, help = "Directory the server runs in, default this session's working directory")]
     directory: Option<PathBuf>,
     #[arg(long, env = rasm_cli::DERIVED, value_name = "DURATION", help_heading = "Daemon", value_parser = |text: &str| SpanParser::new().parse_unsigned_duration(text))]
-    #[arg(help = "Time an unused server stays up, default 300 times its start cost between 1m and 2h")]
+    #[arg(help = "Time a server stays up after its last session left, default 300 times its start cost between 1m and 2h")]
     idle: Option<Duration>,
     #[arg(long, hide = true, value_name = "INSTANCE")]
     daemon: Option<String>,
@@ -159,6 +159,8 @@ struct ServerState {
 enum MuxerError {
     #[error("cannot {operation}")]
     Io { operation: Operation, source: io::Error },
+    #[error("cannot find {program} on PATH")]
+    Missing { program: String, source: which::Error },
     #[error(transparent)]
     Entry(#[from] CommandError),
     #[error(transparent)]
@@ -180,7 +182,7 @@ impl From<MuxerError> for sysexits::ExitCode {
         match value {
             MuxerError::Io { operation: _, source } => source.into(),
             MuxerError::Entry(error) => error.into(),
-            MuxerError::Ipc(_) | MuxerError::Process(_) | MuxerError::Unanswered => Self::Unavailable,
+            MuxerError::Missing { program: _, source: _ } | MuxerError::Ipc(_) | MuxerError::Process(_) | MuxerError::Unanswered => Self::Unavailable,
             MuxerError::Encode(_) => Self::Software,
             MuxerError::Environment { name: _ } => Self::DataErr,
             MuxerError::Variable { text: _ } => Self::Usage,
@@ -213,7 +215,7 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
         runtime: &'held Utf8PathBuf,
         cache: &'held Utf8PathBuf,
     }
-    async fn unshared<I, O>(unreached: MuxerError, mut session: Resumable<I, O>, command: &Command, environment: &[(String, String)]) -> Result<ExitCode, MuxerError>
+    async fn unshared<I, O>(unreached: MuxerError, session: &mut Resumable<I, O>, command: &Command, environment: &[(String, String)]) -> Result<ExitCode, MuxerError>
     where
         I: AsyncRead + Unpin,
         O: AsyncWrite + Unpin,
@@ -263,71 +265,77 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
         tokio::io::stdout().write_all(&printed).await.map_err(failed(Operation::Report))?;
         return Ok(ExitCode::SUCCESS);
     };
-    #[expect(clippy::disallowed_methods, reason = "the server receives this session's whole environment, as a run without the muxer would, and no argument parser declares its names")]
-    let variables = env::vars_os().map(|(name, value)| match (name.into_string(), value.into_string()) {
-        (Ok(name), Ok(value)) => Ok((name, value)),
-        (Err(name), _) | (Ok(_), Err(name)) => Err(MuxerError::Environment { name }),
-    });
-    let environment = variables.collect::<Result<Vec<_>, _>>()?;
-    let held = |name: &str| environment.iter().find(|(known, _)| known == name).map(|(_, value)| value.clone());
-    let parsed = assignments.into_iter().map(|text| match text.split_once('=') {
-        Some(("", _)) => Err(MuxerError::Variable { text }),
-        Some((name, value)) => Ok(Some((name.to_owned(), value.to_owned()))),
-        None if text.is_empty() => Err(MuxerError::Variable { text }),
-        None => Ok(held(&text).map(|value| (text, value))),
-    });
-    let declared = parsed.flatten_ok().collect::<Result<BTreeMap<_, _>, _>>()?;
-    let (program, arguments) = argv.split_first();
-    let program = which::which(program).map_err(|source| failed(Operation::Resolve)(io::Error::new(io::ErrorKind::NotFound, source)))?;
-    let file = fs_err::tokio::metadata(&program).await.and_then(|file| build(&file)).map_err(failed(Operation::Inspect))?;
-    let directory = match (per, directory) {
-        (Per::User, None) => dirs::home_dir().ok_or_else(|| io::Error::from(io::ErrorKind::NotFound)),
-        (Per::Session | Per::Directory | Per::User, stated) => path::absolute(stated.unwrap_or_else(|| PathBuf::from("."))),
-    }
-    .map_err(failed(Operation::Directory))?;
-    let command = Command { program, file, arguments: arguments.to_vec(), directory, environment: declared };
-    let carried = global::get_text_map_propagator(|propagator| Vec::from_iter(propagator.fields().map(str::to_owned)));
-    let shared = environment.iter().filter(|(name, _)| per == Per::Session || !carried.iter().any(|field| field.eq_ignore_ascii_case(name)));
-    let request = hello(Request::Serve(Box::new(Launch { command: command.clone(), per, environment: shared.cloned().collect() })));
-    let start = || {
-        let located = folders
-            .iter()
-            .filter_map(|(kind, path)| match kind {
-                Folder::Output(_) => None,
-                Folder::Cache | Folder::State | Folder::Runtime => Some([format!("--{}-dir", Root::from(kind)), path.as_ref()?.to_string()]),
-            })
-            .flatten();
-        let mut daemon = tokio::process::Command::new(&executable);
-        daemon.args(["--daemon", &instance]).args(located).env_clear().envs(environment.iter().filter(|(name, _)| Options::exported(name)).map(|(name, value)| (name, value)));
-        daemon.envs(iter::chain(&settings, &export).map(|(name, value)| (name, value)));
-        daemon.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-        #[cfg(target_vendor = "apple")]
-        daemon.env("MallocSpaceEfficient", "1");
-        global::get_text_map_propagator(|propagator| propagator.inject_context(&parent, &mut Environment(daemon.as_std_mut())));
-        rasm_process::detached(daemon).spawn().map(drop)
-    };
     let (input, output) = rasm_process::standard(Some(BUFFER)).map_err(failed(Operation::Relay))?;
     let mut session = Resumable::new(input, output, DEFAULT_MAX_LINE_LENGTH);
-    let endpoint = match endpoint {
-        Ok(endpoint) => endpoint,
-        Err(error) => return unshared(MuxerError::Ipc(error), session, &command, &environment).await,
-    };
-    let mut spare = 0..UNANSWERED;
-    let unreached = loop {
-        let (reader, writer) = match rasm_ipc::connect::<_, _, _, Welcome>(&endpoint, &request, OPENING, REACH, &start).await {
-            Ok(Opened { body: Welcome::Serving | Welcome::State(_), reader, writer }) => (reader, writer),
-            Err(error) => break MuxerError::Ipc(error),
-        };
-        match session.over(reader, writer).await.map_err(failed(Operation::Relay))? {
-            Ended::Client => return Ok(ExitCode::SUCCESS),
-            Ended::Link { delivered: true } => spare = 0..UNANSWERED,
-            Ended::Link { delivered: false } => match spare.next() {
-                Some(_) => {}
-                None => break MuxerError::Unanswered,
-            },
+    let served = async {
+        let variables = env::vars_os().map(|(name, value)| match (name.into_string(), value.into_string()) {
+            (Ok(name), Ok(value)) => Ok((name, value)),
+            (Err(name), _) | (Ok(_), Err(name)) => Err(MuxerError::Environment { name }),
+        });
+        let environment = variables.collect::<Result<Vec<_>, _>>()?;
+        let held = |name: &str| environment.iter().find(|(known, _)| known == name).map(|(_, value)| value.clone());
+        let parsed = assignments.into_iter().map(|text| match text.split_once('=') {
+            Some(("", _)) => Err(MuxerError::Variable { text }),
+            Some((name, value)) => Ok(Some((name.to_owned(), value.to_owned()))),
+            None if text.is_empty() => Err(MuxerError::Variable { text }),
+            None => Ok(held(&text).map(|value| (text, value))),
+        });
+        let declared = parsed.flatten_ok().collect::<Result<BTreeMap<_, _>, _>>()?;
+        let (program, arguments) = argv.split_first();
+        let program = which::which(program).map_err(|source| MuxerError::Missing { program: program.clone(), source })?;
+        let file = fs_err::tokio::metadata(&program).await.and_then(|file| build(&file)).map_err(failed(Operation::Inspect))?;
+        let directory = match (per, directory) {
+            (Per::User, None) => dirs::home_dir().ok_or_else(|| io::Error::from(io::ErrorKind::NotFound)),
+            (Per::Session | Per::Directory | Per::User, stated) => path::absolute(stated.unwrap_or_else(|| PathBuf::from("."))),
         }
-    };
-    unshared(unreached, session, &command, &environment).await
+        .map_err(failed(Operation::Directory))?;
+        let command = Command { program, file, arguments: arguments.to_vec(), directory, environment: declared };
+        let carried = global::get_text_map_propagator(|propagator| Vec::from_iter(propagator.fields().map(str::to_owned)));
+        let shared = environment.iter().filter(|(name, _)| per == Per::Session || !carried.iter().any(|field| field.eq_ignore_ascii_case(name)));
+        let request = hello(Request::Serve(Box::new(Launch { command: command.clone(), per, environment: shared.cloned().collect() })));
+        let start = || {
+            let located = folders
+                .iter()
+                .filter_map(|(kind, path)| match kind {
+                    Folder::Output(_) => None,
+                    Folder::Cache | Folder::State | Folder::Runtime => Some([format!("--{}-dir", Root::from(kind)), path.as_ref()?.to_string()]),
+                })
+                .flatten();
+            let mut daemon = tokio::process::Command::new(&executable);
+            daemon.args(["--daemon", &instance]).args(located).env_clear().envs(environment.iter().filter(|(name, _)| Options::exported(name)).map(|(name, value)| (name, value)));
+            daemon.envs(iter::chain(&settings, &export).map(|(name, value)| (name, value)));
+            daemon.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+            #[cfg(target_vendor = "apple")]
+            daemon.env("MallocSpaceEfficient", "1");
+            global::get_text_map_propagator(|propagator| propagator.inject_context(&parent, &mut Environment(daemon.as_std_mut())));
+            rasm_process::detached(daemon).spawn().map(drop)
+        };
+        let endpoint = match endpoint {
+            Ok(endpoint) => endpoint,
+            Err(error) => return unshared(MuxerError::Ipc(error), &mut session, &command, &environment).await,
+        };
+        let mut spare = 0..UNANSWERED;
+        let unreached = loop {
+            let (reader, writer) = match rasm_ipc::connect::<_, _, _, Welcome>(&endpoint, &request, OPENING, REACH, &start).await {
+                Ok(Opened { body: Welcome::Serving | Welcome::State(_), reader, writer }) => (reader, writer),
+                Err(error) => break MuxerError::Ipc(error),
+            };
+            match session.over(reader, writer).await.map_err(failed(Operation::Relay))? {
+                Ended::Client => return Ok(ExitCode::SUCCESS),
+                Ended::Link { delivered: true } => spare = 0..UNANSWERED,
+                Ended::Link { delivered: false } if spare.next().is_none() => break MuxerError::Unanswered,
+                Ended::Link { delivered: false } => {}
+            }
+        };
+        unshared(unreached, &mut session, &command, &environment).await
+    }
+    .await;
+    if let Err(error) = &served
+        && let Err(unsent) = session.refuse(&ErrorData::internal_error(Report::new(error).to_string(), None)).await
+    {
+        tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&unsent), "cause not delivered to the client");
+    }
+    served
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

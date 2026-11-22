@@ -1,108 +1,61 @@
 import { globSync } from 'node:fs';
-import { findPackageJSON } from 'node:module';
-import { dirname, join, relative, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, join } from 'node:path';
 import { cloudflareTest } from '@cloudflare/vitest-plugin';
 import { readJsonFile } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, type PackageJson } from '@nx/devkit/internal';
-import { reporting } from '@rasm/testing/vitest';
+import { react } from '@rasm/testing/storybook';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
-import react from '@vitejs/plugin-react';
-import { type PlaywrightProviderOptions, playwright } from '@vitest/browser-playwright';
-import { Array, Cause, Config, Effect, Match, Option, Schema } from 'effect';
-import { defaultExclude, defineConfig, type Plugin, type TestProjectInlineConfiguration, type ViteUserConfig } from 'vitest/config';
+import { playwright } from '@vitest/browser-playwright';
+import { Match } from 'effect';
+import { defaultExclude, defineConfig, type TestProjectInlineConfiguration } from 'vitest/config';
 import type { BrowserConfigOptions } from 'vitest/node';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const WORKERS = '**/*.workers.test.ts';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Manifest = Schema.Struct({ default: Schema.Struct({ name: Schema.String, devDependencies: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) }) });
+const ARTIFACTS = join(import.meta.dirname, '.artifacts/vitest');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const browser = (connect: Option.Option<NonNullable<PlaywrightProviderOptions['connectOptions']>>): BrowserConfigOptions => ({
+const browser = (name: string): BrowserConfigOptions => ({
     enabled: true,
-    provider: playwright({ ...Option.getOrUndefined(Option.map(connect, (connectOptions) => ({ connectOptions }))) }),
+    provider: playwright(),
     headless: true,
     instances: [{ browser: 'chromium' }],
     locators: { errorFormat: 'aria' },
-    trace: { mode: 'retain-on-failure' },
+    screenshotDirectory: join(ARTIFACTS, name, 'screenshots'),
+    trace: { mode: 'retain-on-failure', tracesDir: join(ARTIFACTS, name, 'traces') },
 });
 
-const placed = (): Plugin => ({
-    name: 'placed',
-    configureVitest({ project, vitest: { config } }) {
-        Object.assign(project.config.browser, { screenshotDirectory: resolve(config.attachmentsDir, '..', 'screenshots') });
-        Object.assign(config, { reporters: [...config.reporters.filter((reporter) => !(Array.isArray(reporter) && reporter[0] === 'html')), ['html', { outputDir: resolve(config.attachmentsDir, '..', 'html') }]] });
-    },
-});
+const suites = (root: string, { name, devDependencies = {}, peerDependencies = {} }: PackageJson): TestProjectInlineConfiguration[] => {
+    const test = { name, ...(('nx' in devDependencies || '@nx/devkit' in devDependencies) && { env: { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' } }) };
+    return 'vitest' in peerDependencies
+        ? []
+        : Match.value(devDependencies).pipe(
+              Match.when({ '@storybook/addon-vitest': Match.string }, () => [{ plugins: [storybookTest({ configDir: join(import.meta.dirname, root, '.storybook') })], test: { ...test, api: { allowWrite: true }, browser: browser(name) } }]),
+              Match.when({ 'vitest-browser-react': Match.string }, () => [{ root, plugins: [react], test: { ...test, browser: browser(name) } }]),
+              Match.when({ '@cloudflare/vitest-plugin': Match.string }, () => [
+                  { root, test: { ...test, name: `${name} node`, exclude: [...defaultExclude, WORKERS] } },
+                  { root, plugins: [cloudflareTest({ config: true })], test: { ...test, name: `${name} workers`, include: [WORKERS] } },
+              ]),
+              Match.when({ vitest: Match.string }, () => [{ root, test }]),
+              Match.orElse(() => []),
+          );
+};
 
-const manifested = (root: string) =>
-    Effect.map(
-        Effect.flatMap(Effect.tryPromise({ try: (): Promise<unknown> => import(pathToFileURL(join(import.meta.dirname, root, 'package.json')).href, { with: { type: 'json' } }), catch: (cause) => new Cause.UnknownError(cause, `${root} holds no readable package.json`) }), Schema.decodeUnknownEffect(Manifest)),
-        ({ default: manifest }) => manifest,
-    );
-
-const hosted = ({ name, devDependencies = {} }: (typeof Manifest.Type)['default'], connect: Parameters<typeof browser>[0]) =>
-    Match.value(devDependencies).pipe(
-        Match.when({ 'vitest-browser-react': Match.string }, () => [{ plugins: [react({ compiler: { panicThreshold: 'all_errors' } })], test: { name, browser: browser(connect) } }]),
-        Match.when({ '@cloudflare/vitest-plugin': Match.string }, () => [
-            { plugins: [], test: { name: `${name} node`, exclude: [...defaultExclude, WORKERS] } },
-            { plugins: [cloudflareTest({ config: true })], test: { name: `${name} workers`, include: [WORKERS] } },
-        ]),
-        Match.orElse(() => [{ plugins: [], test: { name } }]),
-    );
-
-const projects = Effect.gen(function* () {
-    const patterns = buildPackageJsonPatterns(import.meta.dirname, (file: string) => readJsonFile<PackageJson>(join(import.meta.dirname, file)));
-    const members = new Set(
-        globSync(patterns.positive, { cwd: import.meta.dirname, exclude: ['**/node_modules/**', '**/.*/**'] })
-            .filter(buildPackageJsonWorkspacesMatcher(patterns))
-            .map(dirname),
-    );
-    const found = Array.dedupe(
-        globSync(
-            [...members].map((root) => join(root, '**/*.test.{ts,tsx}')),
-            { cwd: import.meta.dirname, exclude: ['**/node_modules/**', '**/.*/**'] },
-        ).flatMap((file) => Array.fromNullishOr(findPackageJSON(pathToFileURL(join(import.meta.dirname, file)))).map((manifest) => relative(import.meta.dirname, dirname(manifest)))),
-    ).filter((root) => members.has(root));
-    const storied = globSync(
-        [...members].map((root) => join(root, '.storybook/main.{js,ts,jsx,tsx,mjs,mts,cjs,cts}')),
-        { cwd: import.meta.dirname },
-    ).map((file) => dirname(dirname(file)));
-    const [declared, titles] = yield* Effect.all([Effect.forEach(found, manifested), Effect.forEach(storied, manifested)]);
-    const [roots, manifests] = Array.unzip(Array.zip(found, declared).filter(([, { devDependencies = {} }]) => 'vitest' in devDependencies));
-    const [endpoint, exposed] = yield* Config.all([Config.option(Config.String('PW_TEST_CONNECT_WS_ENDPOINT')), Config.option(Config.String('PW_TEST_CONNECT_EXPOSE_NETWORK'))]);
-    const connect = Option.map(endpoint, (wsEndpoint) => ({ wsEndpoint, ...Option.getOrUndefined(Option.map(exposed, (exposeNetwork) => ({ exposeNetwork }))) }));
-    const suites = Array.zipWith(roots, manifests, (root, manifest) =>
-        hosted(manifest, connect).map(({ plugins, test }): TestProjectInlineConfiguration => ({
-            root,
-            plugins: [...plugins, placed()],
-            test: {
-                ...test,
-                ...(Array.isReadonlyArrayNonEmpty(Array.intersection(Object.keys(manifest.devDependencies ?? {}), ['nx', '@nx/devkit'])) && { env: { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' } }),
-            },
-        })),
-    );
-    const stories = Array.zipWith(storied, titles, (root, { name }): TestProjectInlineConfiguration => ({ plugins: [storybookTest({ configDir: join(import.meta.dirname, root, '.storybook') }), placed()], test: { name, api: { allowWrite: true }, browser: browser(connect) } }));
-    return [...suites.flat(), ...stories];
-});
+const patterns = buildPackageJsonPatterns(import.meta.dirname, (file: string) => readJsonFile<PackageJson>(join(import.meta.dirname, file)));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig(() =>
-    Effect.runPromise(
-        Effect.map(projects, (declared): ViteUserConfig => ({
-            test: {
-                ...reporting,
-                attachmentsDir: '.artifacts/vitest/attachments',
-                coverage: { allowExternal: true, reportOnFailure: true },
-                silent: 'passed-only',
-                projects: declared,
-            },
-        })),
-    ),
-);
+export default defineConfig({
+    test: {
+        chaiConfig: { includeStack: true, truncateThreshold: 0 },
+        reporters: ['default', ['html', { outputDir: join(ARTIFACTS, 'html') }]],
+        attachmentsDir: join(ARTIFACTS, 'attachments'),
+        coverage: { allowExternal: true, reportOnFailure: true },
+        silent: 'passed-only',
+        projects: globSync(patterns.positive, { cwd: import.meta.dirname, exclude: ['**/node_modules/**', '**/.*/**'] })
+            .filter((file) => file !== 'package.json' && buildPackageJsonWorkspacesMatcher(patterns)(file))
+            .flatMap((file) => suites(dirname(file), readJsonFile<PackageJson>(join(import.meta.dirname, file)))),
+    },
+});

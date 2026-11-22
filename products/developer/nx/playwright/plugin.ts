@@ -7,7 +7,7 @@ import { applyDaemonEnvFromClient, calculateHashesForCreateNodes, emitPluginWork
 import { getRootTsConfigFileName } from '@nx/js';
 import { aggregated, anchored, extended, fingerprinted, Folder, type Input, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Clock, Effect, Option, Predicate, Record, Schema, Semaphore } from 'effect';
+import { Array, Cause, Clock, Effect, Function, Option, Predicate, Record, Result, Schema, Semaphore } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -17,22 +17,30 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 
 const RUN = /^(?:(?:npx|yarn|bunx?|bun x|pnpm(?: exec)?|pnpx) )?nx (?:run (?<project>[^\s:]+):(?<target>[^\s:]+)(?::\S*)?|(?<target>\S+) (?<project>\S+))$/u;
 const NX = /(?:^|\s)nx(?:@\S+)?\s/u;
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const OWN = fingerprinted(import.meta.dirname);
 const LOADING = Semaphore.makeUnsafe(1);
 const MODULES = createRequire(import.meta.url).cache;
+const REPORTS: Readonly<Record<string, string>> = { html: 'playwright-report', blob: 'blob-report' };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ outputPath: Folder }).annotate({
-    description: 'outputPath: workspace folder a suite writes test-results and the files of each built-in reporter to, {projectName} naming the project, absent leaves Playwright its own folders',
+    description:
+        'outputPath: workspace folder a suite writes test-results and the files of each built-in reporter to, {projectName} naming the project, each config project with its own outputDir under it and test files its testMatch finds running as pack--playwright into that outputDir, absent leaves Playwright its own folders and infers no pack--playwright',
 });
 const Loader = Schema.Struct({
     configLoader: Schema.Struct({ loadConfigFromFile: Schema.declare((input: unknown): input is (file: string, overrides: { readonly outputDir?: string }) => Promise<unknown> => Predicate.isFunction(input)) }),
     cc: Schema.Struct({
         addToCompilationCache: Schema.declare((input: unknown): input is (payload: { readonly sourceMaps: readonly []; readonly memoryCache: readonly (readonly [string, object])[]; readonly fileDependencies: readonly [] }) => void => Predicate.isFunction(input)),
     }),
-}).annotate({ description: 'The configLoader and compilation cache members of playwright/lib/common, the loader playwright test resolves its configuration with and the per-process cache of the code it compiled for each file' });
+    resolveReporterOutputPath: Schema.declare((input: unknown): input is (defaultValue: string, configDir: string, configValue: undefined) => string => Predicate.isFunction(input)),
+    projectUtils: Schema.Struct({ collectFilesForProject: Schema.declare((input: unknown): input is (project: unknown) => Promise<readonly string[]> => Predicate.isFunction(input)) }),
+}).annotate({
+    description:
+        'The configLoader and compilation cache members of playwright/lib/common, the loader playwright test resolves its configuration with and the per-process cache of the code it compiled for each file, the resolveReporterOutputPath member of playwright/lib/util, which places the default folder of a built-in reporter beside the package.json nearest the config, and the projectUtils member of playwright/lib/runner, whose collectFilesForProject lists the test files a project runs through its testDir, testMatch, and testIgnore',
+});
+const Listed = Schema.Struct({ projects: Schema.Array(Schema.Unknown) }).annotate({ description: 'The FullProjectInternal rows of a loaded config, each passed whole to collectFilesForProject' });
 const Server = Schema.Struct({
     command: Schema.optional(Schema.String),
     reuseExistingServer: Schema.optional(Schema.Boolean),
@@ -43,8 +51,8 @@ const Loaded = Schema.Struct({
     configDir: Schema.String,
     webServers: Schema.Array(Server),
     config: Schema.Struct({ reporter: Schema.Array(Schema.Tuple([Schema.String, Schema.optionalKey(Schema.Unknown)])) }),
-    projects: Schema.Array(Schema.Struct({ project: Schema.Struct({ outputDir: Schema.String, webServer: Schema.Array(Server) }) })),
-}).annotate({ description: 'The FullConfigInternal loadConfigFromFile returns: config folder, webServer rows, resolved reporters, and the output folder and webServer rows of each project' });
+    projects: Schema.Array(Schema.Struct({ project: Schema.Struct({ name: Schema.String, outputDir: Schema.String, webServer: Schema.Array(Server) }) })),
+}).annotate({ description: 'The FullConfigInternal loadConfigFromFile returns: config folder, webServer rows, resolved reporters, and the name, output folder, and webServer rows of each project' });
 const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), outputDir: Schema.optionalKey(Schema.String), outputFolder: Schema.optionalKey(Schema.String) }).annotate({
     description: 'The file and folder options of a resolved [reporter, options] Playwright entry',
 });
@@ -52,26 +60,24 @@ const Task = Schema.Struct({ project: Schema.String, target: Schema.String }).an
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const directed = (to: string, reporters: readonly string[]) => ({ flags: [`--output=${posix.join(to, 'test-results')}`], env: Record.fromIterableWith(reporters, (name) => [`PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_DIR`, posix.join(to, name)]) });
+const invocation = (flags: readonly string[]) => [['playwright', 'test'].map(quoteShellArg).join(' '), ...Array.match(flags, { onEmpty: () => [], onNonEmpty: (given) => ['{args}', given.map(quoteShellArg).join(' ')] })].join(' ');
+
+const directed = (to: string, reporters: readonly string[]) => {
+    const [results, reports] = [posix.join(to, 'test-results'), Record.fromIterableWith(reporters, (name) => [`PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_DIR`, posix.join(to, name)])];
+    return { flags: [`--output=${results}`], env: reports, folders: [results, ...Object.values(reports)] };
+};
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, output: Option.Option<string>, lock: string) {
     const entry = join(workspaceRoot, file);
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
-    const { configLoader, cc } = yield* Effect.flatMap(
-        Effect.tryPromise({
-            try: (): Promise<unknown> => import(pathToFileURL(createRequire(createRequire(entry).resolve('@playwright/test')).resolve('playwright/lib/common')).href),
-            catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no playwright/lib/common through @playwright/test`),
-        }),
-        Schema.decodeUnknownEffect(Loader),
+    const playwright = createRequire(createRequire(entry).resolve('@playwright/test'));
+    const { configLoader, cc, resolveReporterOutputPath, projectUtils } = yield* Effect.flatMap(
+        Effect.forEach(['playwright/lib/common', 'playwright/lib/util', 'playwright/lib/runner'], (at) => Effect.tryPromise({ try: (): Promise<unknown> => import(pathToFileURL(playwright.resolve(at)).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no ${at} through @playwright/test`) })),
+        (modules) => Schema.decodeUnknownEffect(Loader)(Object.assign({}, ...modules)),
     );
     const edges: { readonly specifier: string; readonly parent: string | undefined; readonly url: string; readonly path: string }[] = [];
     const fresh = yield* Clock.currentTimeNanos;
-    const {
-        configDir,
-        webServers,
-        config: resolvedConfig,
-        projects,
-    } = yield* LOADING.withPermit(
+    const [{ configDir, webServers, config: resolvedConfig, projects }, listed] = yield* LOADING.withPermit(
         Effect.acquireUseRelease(
             Effect.sync(() => ({
                 hooks: registerHooks({
@@ -88,10 +94,10 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
             () =>
                 Effect.flatMap(
                     Effect.tryPromise({
-                        try: () => configLoader.loadConfigFromFile(entry, Option.match(output, { onNone: () => ({}), onSome: (to) => ({ outputDir: resolve(workspaceRoot, to, 'test-results') }) })),
+                        try: () => configLoader.loadConfigFromFile(entry, {}),
                         catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Playwright config`),
                     }),
-                    Schema.decodeUnknownEffect(Loaded),
+                    (full) => Effect.all([Schema.decodeUnknownEffect(Loaded)(full), Schema.decodeUnknownEffect(Listed)(full)]),
                 ),
             ({ hooks, ambient, applied }) => {
                 const compiled = edges.filter(({ path }) => within(local(path))).map(({ path }): readonly [string, object] => [path, {}]);
@@ -123,6 +129,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
             },
         ),
     );
+    const collected = yield* Effect.forEach(listed.projects, (project) => Effect.tryPromise({ try: () => projectUtils.collectFilesForProject(project), catch: (cause) => new Cause.UnknownError(cause, `${file} lists no test files of its projects through Playwright`) }));
     const loaded = Array.dedupe([file, ...edges.map(({ path }) => local(path))]).filter(within);
     const { packages, linked } = yield* packaged(
         Array.getSomes(
@@ -134,15 +141,21 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
             ),
         ),
     );
-    const reports = Array.getSomes(
-        resolvedConfig.reporter.map(([, options]) => {
-            const stated = Option.flatMap(Schema.decodeUnknownOption(Reported)(options), ({ outputFile, outputDir, outputFolder }) => Option.fromUndefinedOr(outputFile ?? outputDir ?? outputFolder));
-            return Option.filter(
-                Option.map(stated, (at) => resolve(configDir, at)),
-                () => Option.isNone(output),
-            );
-        }),
-    );
+    const reports = resolvedConfig.reporter.flatMap(([name, options]) => {
+        const { outputFile, outputDir, outputFolder } = Option.getOrElse(Schema.decodeUnknownOption(Reported)(options), (): typeof Reported.Type => ({}));
+        const stated = Option.map(Option.fromUndefinedOr(outputDir ?? outputFolder), (at) => resolve(configDir, at));
+        const fallback = Option.map(Record.get(REPORTS, name), (at) => resolveReporterOutputPath(at, configDir, undefined));
+        const folder = Option.filter(
+            Option.orElse(stated, () => fallback),
+            () => Option.isNone(output),
+        );
+        return Option.toArray(
+            Option.orElse(
+                Option.map(Option.fromUndefinedOr(outputFile), (at) => resolve(configDir, at)),
+                () => folder,
+            ),
+        );
+    });
     const commands = [...webServers, ...projects.flatMap(({ project }) => project.webServer)]
         .filter(({ reuseExistingServer }) => reuseExistingServer === true)
         .map((server) => Option.filter(Option.fromNullishOr(server.command), () => server.wait?.stdout === undefined && server.wait?.stderr === undefined && Record.isEmptyRecord(server.env ?? {})));
@@ -155,28 +168,36 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         linked,
         loaded,
         servers: Array.dedupeWith(Array.getSomes(tasks), (left, right) => left.project === right.project && left.target === right.target),
-        folders: Array.dedupe([...projects.map(({ project }) => project.outputDir), ...reports].map(local)),
+        reported: Array.dedupe(reports.map(local)),
+        suites: Array.zipWith(projects, collected, ({ project: { name, outputDir } }, files) => ({ name, outputDir: local(outputDir), found: Array.isReadonlyArrayNonEmpty(files) })),
         reporters: resolvedConfig.reporter.map(([name]) => name),
         sources,
         stamp: yield* stamped(workspaceRoot)(sources),
     };
 });
 
-const targets = (home: string, { loaded: configs, packages, linked, servers, folders, reporters }: Resolved, chain: readonly string[], upstream: readonly string[], { outputPath }: typeof Options.Type, exec: string): Verbs => {
-    const held = Array.fromNullishOr(outputPath);
+const templated = (folder: string) => new RegExp(`^${folder.split('{projectName}').map(RegExp.escape).join('.+')}(?:/|$)`, 'u');
+
+const targets = (home: string, { loaded: configs, packages, linked, servers, reported, reporters, suites }: Resolved, chain: readonly string[], upstream: readonly string[], { outputPath }: typeof Options.Type, exec: string): Verbs => {
     const rooted = getRootTsConfigFileName();
-    const routed = outputPath === undefined ? { flags: [], env: {} } : directed(posix.relative(home, outputPath), reporters);
+    const routed = outputPath === undefined ? { flags: [], env: {}, folders: [] } : directed(posix.relative(home, outputPath), reporters);
+    const held = routed.folders.map((at) => posix.join(home, at));
+    const under = Option.map(Option.fromUndefinedOr(outputPath), templated);
+    const unheld = (at: string) => !held.map(templated).some((folder) => folder.test(at));
+    const [packed, tested] = Array.partition(suites, (suite) => Result.liftPredicate(suite, ({ outputDir, found }) => found && unheld(outputDir) && Option.exists(under, (folder) => folder.test(outputDir)), Function.identity));
+    const selected = (chosen: readonly (typeof suites)[number][]) => chosen.map(({ name }) => `--project=${name}`);
     const outside = Record.filter(
         Record.fromEntries([...chain.map((at): readonly [string, typeof Input.Type] => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions', 'extends'] }]), ...configs.map((at): readonly [string, typeof Input.Type] => [at, posix.join('{workspaceRoot}', at)])]),
         (_input, at) => home !== '.' && !at.startsWith(`${home}/`) && at !== rooted,
     );
     const test = {
         playwright: {
-            command: [['playwright', 'test'].map(quoteShellArg).join(' '), ...Array.match(routed.flags, { onEmpty: () => [], onNonEmpty: (given) => ['{args}', given.map(quoteShellArg).join(' ')] })].join(' '),
+            command: invocation([...Array.match(packed, { onEmpty: () => [], onNonEmpty: () => selected(tested) }), ...routed.flags]),
             options: { cwd: home, ...(Record.isEmptyRecord(routed.env) ? {} : { env: routed.env }) },
             dependsOn: [
                 'codegen--*',
                 '^codegen--*',
+                '^build--*',
                 ...Record.collect(
                     Array.groupBy(servers, ({ target }) => target),
                     (target, rows) => ({ projects: rows.map(({ project }) => project), target, waitFor: 'ready' as const }),
@@ -195,16 +216,34 @@ const targets = (home: string, { loaded: configs, packages, linked, servers, fol
                 { env: 'CI' },
                 { externalDependencies: Array.dedupe(['@playwright/test', ...packages]) },
             ],
-            outputs: [...held, ...folders.filter((at) => !held.some((folder) => at === folder || at.startsWith(`${folder}/`)))].map(tokened(home)),
+            outputs: Array.dedupe([...held, ...[...(outputPath === undefined ? tested.map(({ outputDir }) => outputDir) : []), ...reported].filter(unheld)]).map(tokened(home)),
             metadata: {
-                description: 'Runs every Playwright project of the config with playwright test after the Nx task each reused webServer row runs is ready',
+                description: 'Runs every Playwright project of the config whose own outputDir sits outside outputPath with playwright test after the build targets of each project the suite depends on and once the Nx task each reused webServer row runs is ready',
                 help: { command: `${exec} playwright test --help`, example: { args: ['--project', '<name>'] } },
             },
         },
     } satisfies Record<string, TargetConfiguration>;
-    const removed = Record.collect(test, (tool) => `test--${tool}`);
+    const pack: Record<string, TargetConfiguration> = Array.match(packed, {
+        onEmpty: () => ({}),
+        onNonEmpty: (chosen) => ({
+            playwright: {
+                command: invocation([...selected(chosen), '--no-deps', '--reporter=list']),
+                options: { cwd: home },
+                dependsOn: ['test--playwright'],
+                cache: true,
+                inputs: test.playwright.inputs,
+                outputs: chosen.map(({ outputDir }) => outputDir).map(tokened(home)),
+                metadata: {
+                    description: `Writes the files of the Playwright projects ${chosen.map(({ name }) => name).join(', ')} into each one's own outputDir under outputPath, which playwright test empties first, after test--playwright passes`,
+                    help: { command: `${exec} playwright test --help`, example: { args: ['--project', '<name>'] } },
+                },
+            },
+        }),
+    });
+    const removed = Record.collect({ test, pack }, (verb, tools) => Record.keys(tools).map((tool) => `${verb}--${tool}`)).flat();
     return {
         test,
+        pack,
         clean: {
             playwright: {
                 executor: `${distribution.name}:clean`,
@@ -226,6 +265,7 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { re
     const stated = yield* manifested(context.workspaceRoot, home);
     const project: ProjectConfiguration = {
         root: home,
+        tags: ['host:browser'],
         metadata: { technologies: ['playwright'] },
         targets: aggregated(targets(home, resolved, extended(context.workspaceRoot, home), namedInput(home, context) === 'production' ? ['^production', '^{projectRoot}/tsconfig*.json'] : ['^default'], settings, getPackageManagerCommand(manager).exec), stated, 'playwright'),
     };

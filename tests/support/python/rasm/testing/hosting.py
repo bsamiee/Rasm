@@ -14,8 +14,6 @@ from hypercorn.typing import ASGIReceiveCallable, ASGISendCallable, Scope
 import msgspec
 import pytest
 
-from rasm.testing._outcomes import reaching
-
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Hosted = Callable[[Callable[[Received], Answer]], tuple[str, Sequence[Received]]]
@@ -45,7 +43,7 @@ class Answer(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def hosting(stack: ExitStack, portal: BlockingPortal, answering: Callable[[Received], Answer], /) -> tuple[str, Sequence[Received]]:
+def _hosting(stack: ExitStack, portal: BlockingPortal, answering: Callable[[Received], Answer], /) -> tuple[str, Sequence[Received]]:
     """Serves HTTP/1.1 and h2c on a loopback port the system picks, answering each request from `answering` on the portal's event loop, until the exit stack's scope ends.
 
     Returns:
@@ -99,11 +97,16 @@ def portal() -> Iterator[BlockingPortal]:
 def hosted(portal: BlockingPortal) -> Iterator[Hosted]:
     """Yields the start of an HTTP server answering from a function, which returns the server's base URL and the requests it received, each server stopped after the test."""
     with ExitStack() as stack:
-        yield functools.partial(hosting, stack, portal)
+        yield functools.partial(_hosting, stack, portal)
 
 
-pytest_itemcollected = reaching(portal)
+def pytest_itemcollected(item: pytest.Item) -> None:
+    """Opens TCP for each test requesting the event loop thread and leaves every other test refused by pytest-socket."""
+    if isinstance(item, pytest.Function) and portal.name in item.fixturenames:
+        item.add_marker(pytest.mark.enable_socket)
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Answer", "Hosted", "Received", "hosting"]
+
+__all__ = ["Answer", "Hosted", "Received"]

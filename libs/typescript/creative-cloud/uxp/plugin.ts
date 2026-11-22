@@ -48,7 +48,7 @@ import { Toolkit } from 'effect/ai';
 import { FetchHttpClient, Url } from 'effect/http';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 import { imageSize } from 'image-size';
-import { UxpManifest } from '#/manifest';
+import { UxpManifest } from '#/manifest.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -119,8 +119,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         const lines: number[] = [];
         Error.prepareStackTrace = (error, frames) => {
             lines.push(...frames.filter((frame) => frame.getScriptNameOrSourceURL() === EVALUATED).flatMap((frame) => frame.getLineNumber() ?? []));
-            // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions -- NodeJS.CallSite omits the toString V8 call sites carry
-            return Schema.is(Callable)(prepare) ? prepare(error, frames) : [String(error), ...frames.map((frame) => `    at ${frame}`)].join('\n');
+            return Schema.is(Callable)(prepare) ? prepare(error, frames) : [String(error), ...frames.map((frame) => `    at ${frame.getFunctionName() ?? '<anonymous>'} (${frame.getScriptNameOrSourceURL()}:${frame.getLineNumber()}:${frame.getColumnNumber()})`)].join('\n');
         };
         try {
             const line = Predicate.hasProperty(cause, 'stack') && Predicate.isString(cause.stack) ? Array.head(lines) : Option.none();
@@ -140,7 +139,6 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
     };
     static readonly evaluate = (scope: Record.ReadonlyRecord<string, unknown>, code: string) =>
         Effect.try({
-            // oxlint-disable-next-line typescript/no-implied-eval, typescript/no-unsafe-call -- execute_script evaluates caller source in the host
             try: (): unknown => new globalThis.Function(`{ ${Record.keys(Record.filter(scope, (_, key) => IDENTIFIER.test(key))).join(', ')} }`, 'return eval(arguments[1])')(scope, `${code}\n//# sourceURL=${EVALUATED}`),
             catch: Uxp.thrown,
         }).pipe(
@@ -304,12 +302,14 @@ const followed = <E>(theme: ThemeEvents, queue: Queue.Queue<unknown, E>) => {
         Function.constant(Effect.sync(() => theme.onUpdated.removeListener(listener))),
     );
 };
-const themed = (root: HTMLElement) =>
-    Stream.runForEach(Plugin.theme, (theme) =>
+const themed = Effect.fnUntraced(function* (root: HTMLElement) {
+    const { host } = yield* Plugin;
+    yield* Stream.runForEach(Plugin.theme, (theme) =>
         Effect.sync(() => {
-            Object.assign(root.style, { color: formatHex8(UxpManifest.fills[theme]) });
+            Object.assign(root.style, { color: formatHex8(UxpManifest.fills[host.app][theme]) });
         }),
     );
+});
 const panel = Effect.fnUntraced(function* <E, F>(runtime: ManagedRuntime.ManagedRuntime<Uxp | Plugin, E>, body: Panel<F>) {
     const held = yield* ScopedRef.fromAcquire(Effect.void);
     const run = <X>(effect: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(reported(effect)));

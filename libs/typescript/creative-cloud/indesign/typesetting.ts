@@ -2,7 +2,7 @@ import { Reference, request, Written } from '@rasm/object-model';
 import { Settings, Source } from '@rasm/typography';
 import { Option, Schema, Struct } from 'effect';
 import { RpcGroup } from 'effect/rpc';
-import { Inspection } from '#/views';
+import { Inspection } from '#/views.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

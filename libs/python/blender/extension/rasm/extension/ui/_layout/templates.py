@@ -25,6 +25,7 @@ from rasm.extension.ui._drawing.handlers import Part, Refresh, refreshing
 from rasm.extension.ui._layout.members import LocatedMembers, Member
 from rasm.extension.ui._layout.rows import ConditionalRow, FUNCTIONS, gridded, Keywords, Property, RowDraw
 from rasm.extension.ui._layout.values import Listing, StoreCommand
+from rasm.extension.ui._resources.icons import IconValue
 from rasm.extension.ui._resources.previews import PREVIEWS
 from rasm.extension.ui._resources.theme import Metrics
 from rasm.records import Outcome
@@ -42,11 +43,11 @@ class Preview(Property, frozen=True, kw_only=True):
     plain: Keywords = MappingProxyType({})
 
     @override
-    def shown(self, identity: Identity, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, icon: Option[IconValue], held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located data-block's shaded preview or icon."""
         match getattr(*held[0][1]):
             case bpy.types.Material() | bpy.types.Texture() | bpy.types.World() | bpy.types.Light() | bpy.types.FreestyleLineStyle():
-                super().shown(identity, keywords, held, layout, _holder, context)
+                super().shown(identity, icon, held, layout, _holder, context)
             case bpy.types.ID() as data:
                 for preview in option.of_optional(data.preview_ensure()).to_list():
                     getattr(layout, FUNCTIONS["template_icon"].identifier)(preview.icon_id, **self.plain)
@@ -60,9 +61,9 @@ class ImageFormat(Property, frozen=True, kw_only=True):
     function: bpy.types.Function = FUNCTIONS["template_image_settings"]
 
     @override
-    def shown(self, identity: Identity, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, icon: Option[IconValue], held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located settings and their views under a multiview owner scene."""
-        super().shown(identity, keywords, held, layout, _holder, context)
+        super().shown(identity, icon, held, layout, _holder, context)
         if isinstance(settings := getattr(*held[0][1]), bpy.types.ImageFormatSettings) and id_data(bpy.types.Scene, settings).filter(lambda scene: scene.render.use_multiview).is_some():
             layout.template_image_views(settings)
 
@@ -74,9 +75,9 @@ class Gallery(Property, frozen=True, kw_only=True):
     keywords: Keywords = MappingProxyType({"show_labels": True})
 
     @override
-    def shown(self, identity: Identity, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, icon: Option[IconValue], held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located enum's icons in the value cell under its name in the label cell."""
-        super().shown(identity, keywords, held, gridded(held[0][0].prop.name, layout), _holder, context)
+        super().shown(identity, icon, held, gridded(held[0][0].prop.name, layout), _holder, context)
 
 
 class _Pick(bpy.types.PropertyGroup):

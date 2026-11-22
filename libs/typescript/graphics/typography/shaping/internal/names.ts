@@ -2,8 +2,8 @@ import { sha1 } from '@noble/hashes/legacy.js';
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { Array, Data, Number, Option, Order, Record, Schema, SchemaGetter } from 'effect';
 import type { Face, NameEntry } from 'harfbuzzjs';
-import { Tag } from '#/settings';
-import type { Tables } from '#/shaping/internal/tables';
+import { Tag } from '#/settings.ts';
+import type { Tables } from '#/shaping/internal/tables.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

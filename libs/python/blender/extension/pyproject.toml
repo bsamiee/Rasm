@@ -52,6 +52,9 @@ dependencies = [
     "psdtags",                            # Photoshop layer records for layered documents
 ]
 
+[project.optional-dependencies]
+host = ["bpy"] # Blender as a Python module, the host this package runs on outside a Blender installation
+
 [project.urls]
 Homepage = "https://github.com/bsamiee/Rasm/tree/main/libs/python/blender/extension"
 Source   = "https://github.com/bsamiee/Rasm"

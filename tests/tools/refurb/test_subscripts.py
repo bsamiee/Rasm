@@ -1,37 +1,32 @@
-"""Runtime subscripts of classes that gained `__class_getitem__` in Python 3.14."""
-
-from textwrap import dedent
-lazy from collections.abc import Callable, Mapping
+"""RASM109: runtime subscripts of classes that gained `__class_getitem__` in Python 3.14."""
 
 import pytest
 lazy from refurb.error import Error
 
-lazy from rasm.refurb.subscripts import ErrorUnsubscriptableBuiltinError
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Findings = Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]
+from rasm.refurb.subscripts import ErrorUnsubscriptableBuiltinError
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-SOURCE = dedent("""
-    View = memoryview[int]
-    Part = slice[int, int, int]
-    Items = list[int]
-    type Lazy = memoryview[int]
+pytestmark = pytest.mark.parametrize("rule", [ErrorUnsubscriptableBuiltinError], scope="module")
 
-    class Window(memoryview[int]): ...
-""")
+CASES = frozendict(
+    assigned_memoryview="View = memoryview[int]\n",
+    assigned_slice="Part = slice[int, int, int]\n",
+    base_class="class Window(memoryview[int]): ...\n",
+    generic_builtin="Items = list[int]\n",
+    type_alias="type Lazy = memoryview[int]\n",
+)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("findings", ["3.13"], indirect=True)
-def test_unsubscriptable_reports_below_314(findings: Findings) -> None:
+@pytest.mark.parametrize("case, lines", [("assigned_memoryview", [1]), ("assigned_slice", [1]), ("base_class", [1]), ("generic_builtin", []), ("type_alias", [])])
+def test_an_evaluated_subscript_reports_below_314(findings: frozendict[str, tuple[Error, ...]], case: str, lines: list[int]) -> None:
     """Assigned and base-class subscripts of `memoryview` and `slice` report, a generic builtin and a lazy `type` alias pass."""
-    assert [error.line for error in findings(SOURCE, ErrorUnsubscriptableBuiltinError)] == [2, 3, 7]
+    assert [error.line for error in findings[case]] == lines
 
 
-def test_unsubscriptable_passes_on_315(findings: Findings) -> None:
-    """Every subscript passes where the classes declare `__class_getitem__`."""
-    assert findings(SOURCE, ErrorUnsubscriptableBuiltinError) == ()
+def test_every_subscript_passes_on_315(findings: frozendict[str, tuple[Error, ...]]) -> None:
+    """No subscript reports where each class declares `__class_getitem__`."""
+    assert findings == frozendict.fromkeys(CASES, ())

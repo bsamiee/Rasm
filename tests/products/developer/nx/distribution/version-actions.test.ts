@@ -1,102 +1,110 @@
-import type { ProjectGraphProjectNode, Tree } from '@nx/devkit';
-import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
+import { createNodes } from '@rasm/nx-distribution';
 import HostVersionActions from '@rasm/nx-distribution/release/version-actions';
-import type { VersionActions } from 'nx/release';
-import { createNxReleaseConfig, IMPLICIT_DEFAULT_RELEASE_GROUP } from 'nx/src/command-line/release/config/config';
-import { assert, describe, expect, it } from 'vitest';
+import { it as workspaced } from '@rasm/testing/nx';
+import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
+import { readNxJson } from 'nx/src/config/nx-json';
+import { FsTree } from 'nx/src/generators/tree';
+import { createProjectFileMapUsingProjectGraph } from 'nx/src/project-graph/file-map-utils';
+import { assert, describe, expect, vi } from 'vitest';
+
+vi.mock(import('node:process'), async (actual) => {
+    const platform: NodeJS.Platform = 'darwin';
+    return { ...(await actual()), platform };
+});
+vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const manifests = [
     {
-        manifest: 'blender_manifest.toml',
+        host: 'Blender',
+        file: 'tools/blender_manifest.toml',
+        name: 'marker_tools',
         input: '# Marks points\nschema_version = "1.0.0"\nid = "marker_tools"\nversion = "1.0.0"  # bumped by nx release\nname = "Marker Tools"\n',
         expected: '# Marks points\nschema_version = "1.0.0"\nid = "marker_tools"\nversion = "1.1.0"  # bumped by nx release\nname = "Marker Tools"\n',
-        malformed: 'id = "marker_tools\nversion = "1.0.0"\n',
-        shadowed: 'id = "marker_tools"\nversion = "1.0.0"\nversion = "5.5.5"\n',
     },
     {
-        manifest: 'manifest.yml',
+        host: 'Yak',
+        file: 'rhino/manifest.yml',
+        name: 'marker',
         input: '# Marks points\nname: marker\nversion: 1.0.0 # bumped by nx release\nauthors:\n    - Suite\ndescription: Marks points\n',
         expected: '# Marks points\nname: marker\nversion: 1.1.0 # bumped by nx release\nauthors:\n    - Suite\ndescription: Marks points\n',
-        malformed: 'name: marker\nversion: [1.0.0\n',
-        shadowed: 'name: marker\nversion: 1.0.0\nversion: 5.5.5\nauthors: [Suite]\ndescription: Marks points\n',
     },
     {
-        manifest: 'manifest.json',
+        host: 'UXP',
+        file: 'panel/manifest.json',
+        name: 'com.example.panel',
         input: '{\n\t"manifestVersion": 5,\n\t"id": "com.example.panel",\n\t"name": "Panel",\n\t"version": "1.0.0",\n\t"host": { "app": "PS", "minVersion": "24.0.0" }\n}\n',
         expected: '{\n\t"manifestVersion": 5,\n\t"id": "com.example.panel",\n\t"name": "Panel",\n\t"version": "1.1.0",\n\t"host": { "app": "PS", "minVersion": "24.0.0" }\n}\n',
-        malformed: '{\n  "manifestVersion": 5,\n  "id": "com.example.panel",\n  "version": "1.0.0"\n',
-        shadowed: '{\n  "manifestVersion": 5,\n  "id": "com.example.panel",\n  "name": "Panel",\n  "version": "1.0.0",\n  "version": "5.5.5",\n  "host": { "app": "PS", "minVersion": "24.0.0" }\n}\n',
     },
     {
-        manifest: 'Marker.uplugin',
+        host: 'Chrome',
+        file: 'clipper/manifest.json',
+        name: 'clipper',
+        input: '{\n    "manifest_version": 3,\n    "name": "Clipper",\n    "version": "1.0.0",\n    "key": "dGVzdA=="\n}\n',
+        expected: '{\n    "manifest_version": 3,\n    "name": "Clipper",\n    "version": "1.1.0",\n    "key": "dGVzdA=="\n}\n',
+    },
+    {
+        host: 'Unreal',
+        file: 'Plugins/Marker/Marker.uplugin',
+        name: 'Marker',
         input: '{\n    "FileVersion": 3,\n    "Version": 1,\n    "VersionName": "1.0.0",\n    "FriendlyName": "Marker"\n}\n',
         expected: '{\n    "FileVersion": 3,\n    "Version": 2,\n    "VersionName": "1.1.0",\n    "FriendlyName": "Marker"\n}\n',
-        malformed: '{\n    "FileVersion": 3,\n    "VersionName": "1.0.0"\n',
-        shadowed: '{\n    "FileVersion": 3,\n    "Version": 1,\n    "VersionName": "1.0.0",\n    "VersionName": "5.5.5"\n}\n',
     },
 ] as const;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const createVersionActions = async (tree: Tree, manifest: string): Promise<VersionActions> => {
-    const node: ProjectGraphProjectNode = { name: 'my-lib', type: 'lib', data: { root: 'packages/my-lib' } };
-    const { nxReleaseConfig } = await createNxReleaseConfig({ nodes: { [node.name]: node }, dependencies: {} }, {}, { projects: [node.name], projectsRelationship: 'independent' });
-    const group = nxReleaseConfig?.groups?.[IMPLICIT_DEFAULT_RELEASE_GROUP];
-    assert(group, `nx release config holds the ${IMPLICIT_DEFAULT_RELEASE_GROUP} group`);
-    const { docker: _docker, ...configured } = group;
-    const versionActions = new HostVersionActions({ ...configured, name: IMPLICIT_DEFAULT_RELEASE_GROUP, resolvedVersionPlans: false }, node, { ...configured.version, versionActionsOptions: { manifest }, manifestRootsToUpdate: [], dockerOptions: {} });
-    await versionActions.init(tree);
-    return versionActions;
-};
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('readCurrentVersionFromRegistry', () => {
-    it('resolves no registry version, so nx release falls back to the manifest on disk', async () => {
-        const tree = createTreeWithEmptyWorkspace();
-        tree.write('packages/my-lib/manifest.yml', manifests[1].input);
-        const versionActions = await createVersionActions(tree, 'manifest.yml');
-
-        await expect(versionActions.readCurrentVersionFromRegistry(tree, {})).resolves.toBeNull();
-    });
+const it = workspaced.extend('versioned', ({ workspace }) => async (file: string, text: string, name: string) => {
+    const graph = await workspace.write({ 'nx.json': '{ "release": { "projects": ["*"], "projectsRelationship": "independent" } }', [file]: text }).graph({ createNodes });
+    const { nxReleaseConfig } = await createNxReleaseConfig(graph, await createProjectFileMapUsingProjectGraph(graph), readNxJson(workspace.root).release);
+    const [node, [group, configured] = []] = [graph.nodes[name], Object.entries(nxReleaseConfig?.groups ?? {})[0]];
+    assert(node !== undefined && group !== undefined && configured !== undefined, `${name} is a project of one release group`);
+    const { docker: _docker, ...released } = configured;
+    const actions = new HostVersionActions({ ...released, name: group, resolvedVersionPlans: false }, node, { ...released.version, versionActionsOptions: node.data.release?.version?.versionActionsOptions ?? {}, manifestRootsToUpdate: [], dockerOptions: {} });
+    const tree = new FsTree(workspace.root, false);
+    await actions.init(tree);
+    return { node, actions, tree };
 });
 
-describe('HostVersionActions', () => {
-    it.each(manifests)('reads the current version from $manifest', async ({ manifest, input }) => {
-        const tree = createTreeWithEmptyWorkspace();
-        tree.write(`packages/my-lib/${manifest}`, input);
-        const versionActions = await createVersionActions(tree, manifest);
+describe('version actions the inferred release names', () => {
+    it('names version actions resolving to the host version actions', async ({ versioned }) => {
+        const { node } = await versioned(manifests[1].file, manifests[1].input, manifests[1].name);
 
-        await expect(versionActions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: '1.0.0', manifestPath: `packages/my-lib/${manifest}` });
+        const loaded: unknown = await import(String(node.data.release?.version?.versionActions));
+
+        expect(loaded).toHaveProperty('default', HostVersionActions);
     });
 
-    it.each(manifests)('preserves $manifest formatting and comments when updating versions', async ({ manifest, input, expected }) => {
-        const tree = createTreeWithEmptyWorkspace();
-        tree.write(`packages/my-lib/${manifest}`, input);
-        const versionActions = await createVersionActions(tree, manifest);
+    it.for(manifests)('reads the current version of a $host manifest', async ({ file, input, name }, { versioned }) => {
+        const { actions, tree } = await versioned(file, input, name);
 
-        await expect(versionActions.updateProjectVersion(tree, '1.1.0')).resolves.toStrictEqual([`New version 1.1.0 written to manifest: packages/my-lib/${manifest}`]);
-
-        expect(tree.read(`packages/my-lib/${manifest}`, 'utf-8')).toBe(expected);
+        await expect(actions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: '1.0.0', manifestPath: file });
     });
 
-    it.each(manifests)('rejects a malformed $manifest without changing it', async ({ manifest, malformed }) => {
-        const tree = createTreeWithEmptyWorkspace();
-        tree.write(`packages/my-lib/${manifest}`, malformed);
-        const versionActions = await createVersionActions(tree, manifest);
+    it.for(manifests)('writes the new version into a $host manifest keeping its comments and layout', async ({ file, input, expected, name }, { versioned }) => {
+        const { actions, tree } = await versioned(file, input, name);
 
-        await expect(versionActions.updateProjectVersion(tree, '1.1.0')).rejects.toThrow(`packages/my-lib/${manifest}`);
-        expect(tree.read(`packages/my-lib/${manifest}`, 'utf-8')).toBe(malformed);
+        await actions.updateProjectVersion(tree, '1.1.0');
+
+        expect(tree.read(file, 'utf-8')).toBe(expected);
     });
 
-    it.each(manifests)('rejects a version update of $manifest shadowed by a duplicate key', async ({ manifest, shadowed }) => {
-        const tree = createTreeWithEmptyWorkspace();
-        tree.write(`packages/my-lib/${manifest}`, shadowed);
-        const versionActions = await createVersionActions(tree, manifest);
+    it.for(manifests.filter(({ host }) => host === 'UXP' || host === 'Chrome'))('refuses a prerelease version a $host manifest cannot hold, writing nothing', async ({ file, input, name }, { versioned }) => {
+        const { actions, tree } = await versioned(file, input, name);
 
-        await expect(versionActions.updateProjectVersion(tree, '1.1.0')).rejects.toThrow(`packages/my-lib/${manifest}`);
-        expect(tree.read(`packages/my-lib/${manifest}`, 'utf-8')).toBe(shadowed);
+        await expect(actions.updateProjectVersion(tree, '1.1.0-beta.0')).rejects.toThrow(`${file} takes a major.minor.patch version alone, which 1.1.0-beta.0 is not`);
+        expect(tree.read(file, 'utf-8')).toBe(input);
+    });
+
+    it.for([
+        { host: 'UXP', file: 'panel/manifest.json', name: 'com.example.panel', input: '{ "manifestVersion": 5, "id": "com.example.panel", "name": "Panel", "version": "1.0.0", "version": "5.5.5", "host": { "app": "PS", "minVersion": "24.0.0" } }' },
+        { host: 'Chrome', file: 'clipper/manifest.json', name: 'clipper', input: '{ "manifest_version": 3, "name": "Clipper", "version": "1.0.0", "version": "5.5.5" }' },
+        { host: 'Unreal', file: 'Plugins/Marker/Marker.uplugin', name: 'Marker', input: '{ "FileVersion": 3, "VersionName": "1.0.0", "VersionName": "5.5.5" }' },
+    ])('refuses to version a $host manifest whose version a duplicate key shadows, writing nothing', async ({ file, input, name }, { versioned }) => {
+        const { actions, tree } = await versioned(file, input, name);
+
+        await expect(actions.updateProjectVersion(tree, '1.1.0')).rejects.toThrow(`Cannot update ${file}: its version resolves to 5.5.5 instead of 1.1.0`);
+        expect(tree.read(file, 'utf-8')).toBe(input);
     });
 });

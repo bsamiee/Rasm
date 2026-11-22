@@ -1,19 +1,20 @@
+import { hash } from 'node:crypto';
 import { constants, openAsBlob } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, join, matchesGlob, posix } from 'node:path';
+import { basename, dirname, join, matchesGlob, posix } from 'node:path';
 import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
 import { HOSTS as UXP } from '@rasm/uxp';
-import { Array, Cause, Config, Effect, FileSystem, Option, Path, pipe, Record, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Duration, Effect, FileSystem, Function, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
 import { applyEdits, modify, parse } from 'jsonc-parser';
 import { parseDocument, Scalar } from 'yaml';
-import { packaged } from '#/executor';
-import { PLATFORM, spawned } from '#/inference';
+import { packaged } from '#/executor.ts';
+import { PLATFORM, spawned } from '#/inference.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -49,6 +50,7 @@ interface Host {
     readonly archive?: string;
     readonly platforms?: readonly string[];
     readonly standalone?: true;
+    readonly hosted?: true;
     readonly engine?: { readonly fields: readonly string[]; readonly stamp: (descriptor: string) => Effect.Effect<Option.Option<string>, never, Services> };
     readonly operations?: Partial<Record<'check' | 'test' | 'pack' | 'install', { readonly command: string; readonly options: Readonly<Record<string, unknown>> }>>;
     readonly output: string;
@@ -64,7 +66,7 @@ interface Host {
         readonly pack?: (folder: Found, file: string, words: readonly string[]) => Step;
     };
     readonly install?: { readonly command: string; readonly help?: string; readonly executable?: string; readonly platforms?: readonly string[]; readonly unpacked?: true; readonly run: (found: Found, words: readonly string[]) => Step };
-    readonly publish?: { readonly store: string; readonly command: string; readonly credential: string; readonly held: (found: Found, store: string) => Stored<boolean>; readonly push: (found: Found, store: string, token: string, words: readonly string[]) => Stored<Option.Option<string>> };
+    readonly publish?: { readonly store: string; readonly command: string; readonly credential: string; readonly held: (found: Found, store: string, token: string) => Stored<boolean>; readonly push: (found: Found, store: string, token: string, words: readonly string[]) => Stored<Option.Option<string>> };
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -81,7 +83,8 @@ const UNREAL: Partial<Record<NodeJS.Platform, { readonly name: string; readonly 
 const ENGINE_PATH = /[/\\]/u;
 const ANALYSIS = ['-StaticAnalyzer=Default', '-StaticAnalyzerProjectOnly', '-DisableUnity', '-NoPCH'] as const;
 const FOLDERS = { build: 'package', test: 'report', pack: 'archive' } as const;
-const CREDENTIALS = { blender: 'BLENDER_EXTENSIONS_TOKEN', yak: 'YAK_TOKEN' } as const;
+const CREDENTIALS = { blender: 'BLENDER_EXTENSIONS_TOKEN', yak: 'YAK_TOKEN', chrome: 'CHROME_WEB_STORE_TOKEN' } as const;
+const WEBSTORE = { api: 'https://chromewebstore.googleapis.com', publisher: 'CHROME_WEB_STORE_PUBLISHER', poll: Duration.seconds(2), upload: Duration.minutes(5) } as const;
 const ADOBE: Partial<Record<NodeJS.Platform, Config.Config<string>>> = {
     darwin: Config.succeed(join(homedir(), 'Library', 'Application Support', 'Adobe')),
     win32: Config.map(Config.String('APPDATA'), (roaming) => join(roaming, 'Adobe')),
@@ -95,6 +98,11 @@ const Listed = Schema.Struct({ data: Schema.Array(Schema.Struct({ id: Schema.Str
 const Yak = Schema.Struct({ name: Schema.String, version: Schema.String, authors: Schema.Array(Schema.String), description: Schema.String });
 const Pushed = Schema.Struct({ distributions: Schema.Array(Schema.Struct({ filename: Schema.String })) });
 const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.Struct({ app: Schema.Literals(Struct.keys(UXP)) }) }));
+const Chrome = Schema.fromJsonString(Schema.Struct({ manifest_version: Schema.Literal(3), version: Schema.String, key: Schema.optionalKey(Schema.Uint8ArrayFromBase64) }));
+const Revision = Schema.optionalKey(Schema.Struct({ distributionChannels: Schema.optionalKey(Schema.Array(Schema.Struct({ crxVersion: Schema.String }))) }));
+const Upload = Schema.optionalKey(Schema.Literals(['UPLOAD_STATE_UNSPECIFIED', 'SUCCEEDED', 'IN_PROGRESS', 'FAILED', 'NOT_FOUND']));
+const Status = Schema.Struct({ publishedItemRevisionStatus: Revision, submittedItemRevisionStatus: Revision, lastAsyncUploadState: Upload });
+const Uploaded = Schema.Struct({ uploadState: Upload });
 const Registry = Schema.Struct({ plugins: Schema.Array(Schema.StructWithRest(Schema.Struct({ pluginId: Schema.String, path: Schema.optionalKey(Schema.String) }), [Schema.Record(Schema.String, Schema.Unknown)])) });
 const References = Schema.optionalKey(Schema.Array(Schema.Struct({ Name: Schema.String, Enabled: Schema.optionalKey(Schema.Boolean) })));
 const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Plugins: References, AdditionalPluginDirectories: Schema.optionalKey(Schema.Array(Schema.String)) }));
@@ -114,6 +122,36 @@ const exact = (subject: string, version: string) =>
     Effect.fromResult(SemVer.parse(version)).pipe(
         Effect.filterOrFail((parsed) => !(SemVer.isPrerelease(parsed) || SemVer.hasBuild(parsed))),
         Effect.mapError((cause) => new Cause.UnknownError(cause, `${subject} takes a major.minor.patch version alone, which ${version} is not`)),
+    );
+
+const webstore = Effect.fnUntraced(function* ({ at, text }: Found, token: string) {
+    const [{ key }, publisher, client] = yield* Effect.all([
+        Effect.mapError(Schema.decodeEffect(Chrome)(text), (cause) => new Cause.UnknownError(cause, `${at} does not decode`)),
+        Effect.mapError(Config.NonEmptyString(WEBSTORE.publisher), (cause) => new Cause.UnknownError(cause, `${WEBSTORE.publisher} names no Chrome Web Store publisher`)),
+        HttpClient.HttpClient,
+    ]);
+    const authorized = HttpClient.filterStatusOk(HttpClient.mapRequest(client, HttpClientRequest.bearerToken(token)));
+    return Option.map(Option.fromUndefinedOr(key), (bytes) => {
+        const item = `publishers/${publisher}/items/${hash('sha256', bytes, 'hex')
+            .slice(0, 32)
+            .replaceAll(/./gu, (digit) => (Number.parseInt(digit, 16) + 10).toString(36))}`;
+        const status = Effect.flatMap(authorized.get(`${WEBSTORE.api}/v2/${item}:fetchStatus`), HttpClientResponse.schemaBodyJson(Status));
+        return {
+            status,
+            upload: HttpClientRequest.bodyFile(HttpClientRequest.post(`${WEBSTORE.api}/upload/v2/${item}:upload`), at, { contentType: 'application/zip' }).pipe(
+                Effect.flatMap((request) => authorized.execute(request)),
+                Effect.flatMap(HttpClientResponse.schemaBodyJson(Uploaded)),
+            ),
+            settled: Effect.map(Effect.repeat(status, { schedule: Schedule.spaced(WEBSTORE.poll), until: ({ lastAsyncUploadState }) => lastAsyncUploadState !== 'IN_PROGRESS' }), Struct.get('lastAsyncUploadState')),
+            publish: authorized.post(`${WEBSTORE.api}/v2/${item}:publish`),
+        };
+    });
+});
+
+const routed = (file: string, text: string) =>
+    Effect.findFirstFilter(
+        HOSTS.filter(({ manifest }) => posix.matchesGlob(file, `**/${manifest}`)),
+        (host) => host.read(text, file).pipe(Effect.map(Option.map((fields) => ({ file, host, fields }))), Effect.map(Result.fromOption(Function.constVoid))),
     );
 
 const adobe = Effect.mapError(Effect.flatten(Effect.fromNullishOr(ADOBE[platform])), (cause) => new Cause.UnknownError(cause, `${platform} holds no per-user Adobe folder`));
@@ -268,7 +306,7 @@ const HOSTS: readonly Host[] = [
         technology: 'yak',
         archive: '.yak',
         output: '.',
-        read: (text) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), ({ name, version }) => ({ name, version }))),
+        read: (text) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), Struct.pick(['name', 'version']))),
         write: (text, version, file) =>
             pipe(
                 Option.liftPredicate(parseDocument(text).get('version'), (node) => node instanceof Scalar),
@@ -338,11 +376,52 @@ const HOSTS: readonly Host[] = [
         },
     },
     {
+        manifest: 'manifest.json',
+        technology: 'chrome',
+        archive: '.zip',
+        output: '.',
+        read: (text, file) => Effect.succeed(Option.map(Schema.decodeOption(Chrome)(text), ({ version }) => ({ name: basename(dirname(file), posix.extname(dirname(file))), version }))),
+        write: (text, version, file) => Effect.as(exact(file, version), applyEdits(text, modify(text, ['version'], version, {}))),
+        build: { executor: 'package', command: 'a zip archive of the extension folder', pack: ({ at, names }, file) => zipped(at, names, file) },
+        publish: {
+            store: 'https://chrome.google.com/webstore/devconsole',
+            command: 'the Chrome Web Store API upload, then publish',
+            credential: CREDENTIALS.chrome,
+            held: (found, _store, token) =>
+                Effect.flatMap(
+                    webstore(found, token),
+                    Option.match({
+                        onNone: () => Effect.succeed(false),
+                        onSome: ({ status }) => Effect.map(status, ({ publishedItemRevisionStatus, submittedItemRevisionStatus }) => [publishedItemRevisionStatus, submittedItemRevisionStatus].flatMap((revision) => revision?.distributionChannels ?? []).some(({ crxVersion }) => crxVersion === found.version)),
+                    }),
+                ),
+            push: (found, store, token) =>
+                Effect.flatMap(
+                    webstore(found, token),
+                    Option.match({
+                        onNone: () => Effect.succeedSome(`${found.name} states no key in its manifest.json: its first version uploads by hand at ${store}, then the public key the dashboard shows goes in as key, and each later version publishes here`),
+                        onSome: ({ upload, settled, publish }) =>
+                            upload.pipe(
+                                Effect.flatMap(({ uploadState }) => (uploadState === 'IN_PROGRESS' ? settled : Effect.succeed(uploadState))),
+                                Effect.timeout(WEBSTORE.upload),
+                                Effect.filterOrFail(
+                                    (state) => state === 'SUCCEEDED',
+                                    (state) => new Cause.UnknownError(state, `${found.at} uploads to ${store} in state ${state}, so nothing is submitted for review`),
+                                ),
+                                Effect.andThen(publish),
+                                Effect.as(Option.none()),
+                            ),
+                    }),
+                ),
+        },
+    },
+    {
         manifest: '*.uproject',
         technology: 'unreal',
         output: 'Saved',
         platforms: Object.keys(UNREAL),
         standalone: true,
+        hosted: true,
         read: (text, file) =>
             Effect.mapBoth(Schema.decodeEffect(Project)(text), {
                 onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not decode`),
@@ -359,6 +438,7 @@ const HOSTS: readonly Host[] = [
         output: 'Saved',
         platforms: Object.keys(UNREAL),
         standalone: true,
+        hosted: true,
         read: (text, file) =>
             Effect.mapBoth(Schema.decodeEffect(Plugin)(text), {
                 onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not decode`),
@@ -387,4 +467,4 @@ const HOSTS: readonly Host[] = [
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ANALYSIS, BUILDER, EXTENSION, engine, type Fields, FOLDERS, type Found, HOSTS, type Host, Linked, located, zipped };
+export { ANALYSIS, BUILDER, EXTENSION, engine, type Fields, FOLDERS, type Found, HOSTS, type Host, Linked, located, routed, zipped };

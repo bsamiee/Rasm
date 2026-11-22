@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.Intrinsics;
+using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance.Buffers;
 using Darkroom.Chain;
 using MathNet.Numerics.Integration;
@@ -290,5 +291,6 @@ internal sealed record ParticleField(
 
     private sealed record Mote(double Depth, int Layer, Vector4 Point, Vector2 Rest, float Scale, float Radius, float Gain, Vector4 Coating, Vector4 Light, (int Low, int High) Rows);
 
+    [StructLayout(LayoutKind.Auto)]
     private readonly record struct Sample(int Index, Vector2 Point, float LowX, float HighX, float LowY, float HighY, float Modulation);
 }

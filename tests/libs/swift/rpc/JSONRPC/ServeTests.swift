@@ -16,15 +16,16 @@ private enum Request: Decodable, Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-private func served(_ requests: [JSONValue]) async throws -> [JSONValue] {
-    let lines = try requests.map { request in try JSONEncoder().encodeLine(request) }
+private func served(_ requests: JSONValue...) async throws -> [JSONValue] {
+    let (input, reading) = AsyncThrowingStream<Data, any Error>.makeStream()
     let (written, writer) = AsyncStream<JSONValue>.makeStream()
+    for request in requests { reading.yield(try JSONEncoder().encodeLine(request)) }
     try await serve(
-        reading: AsyncThrowingStream<Data, any Error> { input in
-            for line in lines { input.yield(line) }
-            input.finish()
+        reading: input,
+        writing: { line in
+            writer.yield(try JSONDecoder().decode(JSONValue.self, from: line))
+            reading.finish()
         },
-        writing: { line in writer.yield(try JSONDecoder().decode(JSONValue.self, from: line)) },
         dropped: { failure in Issue.record(failure) },
         { (request: Request) async throws(Unmatched) -> Response in
             switch request {
@@ -45,14 +46,14 @@ private func call(_ id: Int, _ method: String, _ params: JSONValue) -> JSONValue
 @Suite
 struct ServeTests {
     @Test
-    func answersEachRequestBeforeInputEnds() async throws {
-        let replies = try await served([call(1, "add", .object(["left": .number(2), "right": .number(3)]))])
+    func answersARequestWithItsResult() async throws {
+        let replies = try await served(call(1, "add", .object(["left": .number(2), "right": .number(3)])))
         expectNoDifference(replies, [.object(["jsonrpc": .string("2.0"), "id": .number(1), "result": .number(5)])])
     }
 
     @Test
     func encodesTaggedFailures() async throws {
-        let replies = try await served([call(2, "find", .object(["name": .string("Xcode")]))])
+        let replies = try await served(call(2, "find", .object(["name": .string("Xcode")])))
         guard case .object(let reply)? = replies.first, case .object(let cause)? = reply["error"], case .array(let reasons)? = cause["data"] else {
             Issue.record("Unexpected \(String(customDumping: replies))")
             return
@@ -63,7 +64,10 @@ struct ServeTests {
             [
                 .object([
                     "_tag": .string("Fail"),
-                    "error": .object(["_tag": .string("Unmatched"), "subject": .string("application"), "query": .string("Xcode"), "candidates": .array([.string("Finder")]), "message": .string("No application matching Xcode, candidates: Finder")]),
+                    "error": .object([
+                        "_tag": .string("Unmatched"), "subject": .string("application"), "query": .string("Xcode"), "candidates": .array([.string("Finder")]),
+                        "message": .string("No application matching Xcode, candidates: Finder"),
+                    ]),
                 ])
             ],
         )
@@ -71,7 +75,7 @@ struct ServeTests {
 
     @Test
     func diesOnUndecodableRequests() async throws {
-        let replies = try await served([call(3, "missing", .object([:]))])
+        let replies = try await served(call(3, "missing", .object([:])))
         guard case .object(let reply)? = replies.first, case .object(let cause)? = reply["error"], case .array(let reasons)? = cause["data"], case .object(let reason)? = reasons.first else {
             Issue.record("Unexpected \(String(customDumping: replies))")
             return
@@ -79,15 +83,20 @@ struct ServeTests {
         expectNoDifference(reason["_tag"], .string("Die"))
     }
 
-    @Test
-    func interruptsStreamsWhenInputEnds() async throws {
-        let replies = try await served([call(4, "count", .object(["to": .number(3)]))])
-        expectNoDifference(replies.filter { reply in if case .object(let fields) = reply { fields["chunk"] != .bool(true) } else { true } }, [])
+    @Test(arguments: ["@effect/rpc/Ack", "@effect/rpc/Interrupt"])
+    func skipsControlMessagesForUnknownCalls(control: String) async throws {
+        let replies = try await served(
+            .object(["jsonrpc": .string("2.0"), "method": .string(control), "params": .object(["requestId": .number(9)])]),
+            call(5, "add", .object(["left": .number(1), "right": .number(1)])),
+        )
+        expectNoDifference(replies, [.object(["jsonrpc": .string("2.0"), "id": .number(5), "result": .number(2)])])
     }
 
     @Test
-    func skipsControlMessagesForUnknownCalls() async throws {
-        let replies = try await served([.object(["jsonrpc": .string("2.0"), "method": .string("@effect/rpc/Ack"), "params": .object(["requestId": .number(9)])])])
-        expectNoDifference(replies, [])
+    func endsAStreamWithoutItsCompletionWhenInputEnds() async throws {
+        let replies = try await served(call(4, "count", .object(["to": .number(3)])))
+        let chunk: (JSONValue) -> Bool = { reply in if case .object(let fields) = reply { fields["chunk"] == .bool(true) } else { false } }
+        expectNoDifference(replies.first, .object(["jsonrpc": .string("2.0"), "id": .number(4), "chunk": .bool(true), "result": .array([.number(1)])]))
+        expectNoDifference(replies.filter { reply in !chunk(reply) }, [])
     }
 }

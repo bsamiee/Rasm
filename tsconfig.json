@@ -78,9 +78,6 @@
             "path": "./tests/libs/typescript/data/database"
         },
         {
-            "path": "./tests/libs/typescript/web/hosting"
-        },
-        {
             "path": "./tests/libs/typescript/network/ssh"
         },
         {
@@ -216,19 +213,7 @@
             "path": "./products/apps/creative-cloud/photoshop/atelier"
         },
         {
-            "path": "./tests/libs/typescript/runtime/process"
-        },
-        {
             "path": "./tests/libs/typescript/creative-cloud/object-model"
-        },
-        {
-            "path": "./tests/libs/typescript/graphics/typography"
-        },
-        {
-            "path": "./tests/libs/typescript/data/search"
-        },
-        {
-            "path": "./tests/libs/typescript/web/media"
         },
         {
             "path": "./libs/typescript/creative-cloud/desktop"
@@ -237,13 +222,31 @@
             "path": "./tests/plugins/claude/function-hooks"
         },
         {
-            "path": "./tests/products/apps/creative-cloud/multi-app/atelier"
-        },
-        {
             "path": "./tests/libs/typescript/creative-cloud/extendscript"
         },
         {
             "path": "./products/apps/creative-cloud/illustrator/atelier"
+        },
+        {
+            "path": "./tests/products/apps/chrome/mezrab"
+        },
+        {
+            "path": "./products/apps/chrome/mezrab"
+        },
+        {
+            "path": "./tests/libs/typescript/web/vite"
+        },
+        {
+            "path": "./libs/typescript/web/vite"
+        },
+        {
+            "path": "./tests/products/apps/creative-cloud/multi-app/atelier"
+        },
+        {
+            "path": "./tests/libs/typescript/graphics/mark"
+        },
+        {
+            "path": "./tests/libs/typescript/creative-cloud/uxp"
         }
     ]
 }

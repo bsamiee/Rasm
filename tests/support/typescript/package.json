@@ -2,7 +2,7 @@
     "name": "@rasm/testing",
     "version": "0.1.0",
     "private": true,
-    "description": "Shared test logic by category: Playwright base and served-task config, Storybook addons and accessibility rules, a Vitest global setup that provides a scoped value, an in-memory HTTP transport serving an Effect HTTP app as fetch, one Nx graph reader, a node:path whose relative results take Windows separators, Nx plugin test environments and a remote cache server, and an error as structured clone and Nx plugin workers carry it",
+    "description": "Shared test logic by category: a Playwright base config writing where the Nx Playwright plugin routes output, a served-task config, an unpacked Chrome extension loaded from the build of the project a suite depends on, with its action, service worker stop, and evaluation in its isolated world of a page, Storybook addons and accessibility rules, an in-memory HTTP transport serving an Effect HTTP app as fetch, one Nx graph reader, a node:path whose relative results take Windows separators, Nx plugin test environments and a remote cache server, and a matcher for the refusal an Nx plugin worker carries",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -15,9 +15,6 @@
     ],
     "type": "module",
     "sideEffects": false,
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
         "./errors": "./errors.ts",
         "./http": "./http.ts",
@@ -26,14 +23,10 @@
         "./playwright": "./playwright.ts",
         "./reading": "./reading.ts",
         "./storybook": "./storybook.ts",
-        "./temp-fs": "./temp-fs.ts",
-        "./vitest": "./vitest.ts",
+        "./storybook-preview": "./storybook-preview.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
-        "imports": {
-            "#/*": "./dist/*.js"
-        },
         "exports": {
             "./errors": "./dist/errors.js",
             "./http": "./dist/http.js",
@@ -42,8 +35,7 @@
             "./playwright": "./dist/playwright.js",
             "./reading": "./dist/reading.js",
             "./storybook": "./dist/storybook.js",
-            "./temp-fs": "./dist/temp-fs.js",
-            "./vitest": "./dist/vitest.js",
+            "./storybook-preview": "./dist/storybook-preview.js",
             "./package.json": "./package.json"
         },
         "access": "public"
@@ -51,15 +43,19 @@
     "dependencies": {
         "@axe-core/playwright": "catalog:",
         "@effect/platform-node": "catalog:",
-        "@effect/vitest": "catalog:"
+        "@fontsource-variable/google-sans-flex": "catalog:",
+        "@typescript/native": "catalog:"
     },
     "devDependencies": {
         "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
         "@storybook/addon-a11y": "catalog:",
+        "@types/chrome": "catalog:",
         "@types/node": "catalog:",
+        "@vitejs/plugin-react": "catalog:",
         "effect": "catalog:",
         "nx": "catalog:",
+        "storybook": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
     },
@@ -67,8 +63,10 @@
         "@nx/devkit": "catalog:peers",
         "@playwright/test": "catalog:peers",
         "@storybook/addon-a11y": "catalog:peers",
+        "@vitejs/plugin-react": "catalog:peers",
         "effect": "catalog:peers",
         "nx": "catalog:peers",
+        "storybook": "catalog:peers",
         "vite": "catalog:peers",
         "vitest": "catalog:peers"
     },
@@ -82,7 +80,13 @@
         "@storybook/addon-a11y": {
             "optional": true
         },
+        "@vitejs/plugin-react": {
+            "optional": true
+        },
         "nx": {
+            "optional": true
+        },
+        "storybook": {
             "optional": true
         },
         "vite": {

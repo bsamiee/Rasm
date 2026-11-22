@@ -75,6 +75,7 @@ utils:
             - has: { stopBy: end, kind: identifier, pattern: { context: 'class $DERIVED;', selector: identifier } }
 rule:
     kind: member_access_expression
+    pattern: $READ
     all:
         - has: { field: name, pattern: { context: 'class $READER;', selector: identifier }, regex: '^(Value|ValueIO|Find|ContainsKey|Contains|Count|IsEmpty)$' }
         - has: { field: expression, pattern: $CELL, matches: receiver }
@@ -114,6 +115,7 @@ rule:
                     inside: { kind: 'tuple_expression, argument_list' }
                     precedes: { stopBy: end, has: { stopBy: { matches: callback }, matches: swap } }
 labels:
+    READ: { style: primary }
     WRITE: { style: secondary, message: 'Writes the atom an earlier read observed' }
 message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
 note: 'Read in one `Swap`; `AtomHashMap` uses `FindOrAdd`, `TryAdd`, or `SwapKey`; `Ref` under `atomicIO` returns before/after pairs'

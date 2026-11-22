@@ -268,8 +268,8 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
 class Flamenco(Case, frozen=True, kw_only=True):
     """Jobs submitted to Flamenco Manager."""
 
-    script: ClassVar[str] = "rasm_render.js"
-    job_type: ClassVar[str] = PurePath(script).stem.replace("_", "-")
+    script: ClassVar[str] = "rasm-render.js"
+    job_type: ClassVar[str] = PurePath(script).stem
     server: Endpoint = Endpoint(url="http://localhost:8080")
     priority: int = 50
     chunk: Annotated[int, msgspec.Meta(ge=1, le=sys.maxsize)] = 10

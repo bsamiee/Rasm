@@ -7,7 +7,7 @@ import type { DEFAULT_SCALE, DEFAULT_SCALE_VALUE, MAX_SCALE, MIN_SCALE, TextLaye
 import { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer, ScrollMode, SpreadMode } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import { type ComponentProps, useEffect, useEffectEvent, useState } from 'react';
 import { Button, Group, Input, SearchField, ToggleButton, Toolbar, VisuallyHidden } from 'react-aria-components';
-import { MediaError } from '#/error';
+import { MediaError } from '#/error.ts';
 import { ZoomControls } from '#/zoom-controls.tsx';
 import 'pdfjs-dist/web/pdf_viewer.css';
 

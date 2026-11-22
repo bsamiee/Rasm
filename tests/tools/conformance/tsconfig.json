@@ -1,6 +1,7 @@
 {
-    "extends": "../../../tsconfig.unpublished.json",
+    "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
+        "noEmit": true,
         "types": ["node"]
     },
     "references": [

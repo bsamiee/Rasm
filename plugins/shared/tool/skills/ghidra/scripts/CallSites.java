@@ -18,7 +18,9 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedMap;
 import java.util.Set;
@@ -71,7 +73,7 @@ public class CallSites extends GhidraScript {
                             .toList();
             IntStream commas =
                     IntStream.range(0, tokens.size())
-                            .filter(index -> ",".equals(tokens.get(index).getText()))
+                            .filter(index -> Objects.equals(tokens.get(index).getText(), ","))
                             .filter(index -> name.Parent().equals(tokens.get(index).Parent()));
             List<String> arguments =
                     IntStream.concat(
@@ -132,9 +134,9 @@ public class CallSites extends GhidraScript {
         Arguments.Request request =
                 Arguments.parse(
                         getScriptName(),
-                        getScriptArgs(),
                         EnumSet.of(Arguments.Setting.TIMEOUT, Arguments.Setting.PAYLOAD),
-                        currentProgram);
+                        currentProgram,
+                        getScriptArgs());
         List<Callee> reached =
                 request.seeds().stream()
                         .map(Functions::thunked)
@@ -213,12 +215,14 @@ public class CallSites extends GhidraScript {
                                             return Stream.concat(
                                                     Stream.of(
                                                             Report.subdivider(target.getName(true)),
-                                                            "// %s @ %s callers=%d calls=%d"
-                                                                    .formatted(
-                                                                            target.getName(true),
-                                                                            target.getEntryPoint(),
-                                                                            entry.getValue().size(),
-                                                                            targetCalls.size())),
+                                                            String.format(
+                                                                    Locale.ROOT,
+                                                                    "// %s @ %s callers=%d"
+                                                                            + " calls=%d",
+                                                                    target.getName(true),
+                                                                    target.getEntryPoint(),
+                                                                    entry.getValue().size(),
+                                                                    targetCalls.size())),
                                                     targetCalls.stream().map(Call::row));
                                         })
                                         .toList()),

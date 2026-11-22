@@ -4,11 +4,11 @@ import { motion, useReducedMotion } from 'motion/react';
 import { type ComponentProps, lazy, Suspense, useId, useRef } from 'react';
 import { Button, DialogTrigger, Heading, Text } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import { descriptionLabel, format, placementTitle } from '#/media/labels';
+import { descriptionLabel, format, placementTitle } from '#/media/labels.ts';
 import { MediaElement } from '#/media/media-element.tsx';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
-import { assetUrl } from '#/model/api';
-import { Placement } from '#/model/placement';
+import { assetUrl } from '#/model/api.ts';
+import { Placement } from '#/model/placement.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

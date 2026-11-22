@@ -2,10 +2,10 @@ using System.Reflection;
 using Grasshopper2.Doc;
 using Grasshopper2.Framework;
 using Grasshopper2.UI.Icon;
-using Rasm.Grasshopper.Data;
 using Rasm.Rhino;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI.Styling;
 using Rhino.FileIO;
 
 namespace Rasm.Grasshopper;
@@ -44,5 +44,5 @@ public static class PluginShell {
                      select unit).BracketFail().Scoped(),
                     CancellationToken.None))
                 .ThrowIfFail(),
-            DataTypes.Icon((assembly, "icon")).IfNone(() => StandardIcons.LetterDisc(host.Name)));
+            Optional(AbstractIcon.FromResource(IconResource.Mark, assembly)).IfNone(() => StandardIcons.LetterDisc(host.Name)));
 }

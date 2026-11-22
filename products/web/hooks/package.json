@@ -5,11 +5,7 @@
     "description": "Webhook receiver of the platform: one route per sender, each delivery verified, queued by delivery id, and recorded as telemetry",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
-    },
-    "exports": {
-        "./senders": "./server/senders.ts",
-        "./server": "./server/main.ts"
+        "#/*.ts": "./*.ts"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
@@ -19,6 +15,7 @@
         "effect": "catalog:"
     },
     "devDependencies": {
+        "@rasm/vite": "workspace:*",
         "@types/node": "catalog:",
         "vite": "catalog:"
     },

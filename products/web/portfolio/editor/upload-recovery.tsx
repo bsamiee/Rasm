@@ -3,10 +3,10 @@ import { ModalDialog } from '@rasm/ui';
 import { Array, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { RequestAlert } from '#/editor/request-alert.tsx';
-import { discardRequest, recoveryRequest } from '#/editor/state';
-import { queue } from '#/editor/uploader';
-import { confirmation, joinDetails } from '#/media/labels';
-import type { Recovery } from '#/model/api';
+import { discardRequest, recoveryRequest } from '#/editor/state.ts';
+import { queue } from '#/editor/uploader.ts';
+import { confirmation, joinDetails } from '#/media/labels.ts';
+import type { Recovery } from '#/model/api.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -13,10 +13,10 @@ type Node = typeof Node.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const { name: PLUGIN } = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package')));
+const { name: PLUGIN } = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json')));
 const CREDENTIAL = 'NUGET_API_KEY';
 const SDK = ['dotnet', '--version'] as const;
-const ANALYZER = fileURLToPath(import.meta.resolve('#analyzer'));
+const ANALYZER = fileURLToPath(import.meta.resolve('#/analyzer/dist/MsbuildAnalyzer.dll'));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -80,6 +80,7 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
         '^default',
         ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${posix.join('{projectRoot}', posix.relative(root, base), '**')}`),
         { runtime: line(SDK) },
+        { env: 'CI' },
         ...hosts,
         { externalDependencies: [] },
         ...node.inputs.map((input) => posix.join('{workspaceRoot}', input)),

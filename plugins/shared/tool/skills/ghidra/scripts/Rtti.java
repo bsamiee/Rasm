@@ -100,11 +100,12 @@ public class Rtti extends GhidraScript {
                             name,
                             bases.stream()
                                     .map(base ->
-                                            " %s@%d/%d"
-                                                    .formatted(
-                                                            names.apply(base.address()),
-                                                            base.offset(),
-                                                            base.flags()))
+                                            String.format(
+                                                    Locale.ROOT,
+                                                    " %s@%d/%d",
+                                                    names.apply(base.address()),
+                                                    base.offset(),
+                                                    base.flags()))
                                     .collect(Collectors.joining()));
         }
     }
@@ -326,13 +327,14 @@ public class Rtti extends GhidraScript {
                                 "VTABLES",
                                 vtables.stream()
                                         .map(vtable ->
-                                                "%s %s %s offset=%d slots=%d"
-                                                        .formatted(
-                                                                vtable.address(),
-                                                                vtable.type().address(),
-                                                                vtable.type().name(),
-                                                                vtable.offset(),
-                                                                vtable.slots().size()))
+                                                String.format(
+                                                        Locale.ROOT,
+                                                        "%s %s %s offset=%d slots=%d",
+                                                        vtable.address(),
+                                                        vtable.type().address(),
+                                                        vtable.type().name(),
+                                                        vtable.offset(),
+                                                        vtable.slots().size()))
                                         .toList()),
                         Report.Section.rows(
                                 "SLOTS",
@@ -340,17 +342,18 @@ public class Rtti extends GhidraScript {
                                         .flatMap(vtable ->
                                                 vtable.slots().stream()
                                                         .map(slot ->
-                                                                "%s %d %s %s %s"
-                                                                        .formatted(
-                                                                                vtable.address(),
-                                                                                slot.index(),
-                                                                                slot.target(),
-                                                                                slot.kind()
-                                                                                        .name()
-                                                                                        .toLowerCase(
-                                                                                                Locale
-                                                                                                        .ROOT),
-                                                                                slot.name())))
+                                                                String.format(
+                                                                        Locale.ROOT,
+                                                                        "%s %d %s %s %s",
+                                                                        vtable.address(),
+                                                                        slot.index(),
+                                                                        slot.target(),
+                                                                        slot.kind()
+                                                                                .name()
+                                                                                .toLowerCase(
+                                                                                        Locale
+                                                                                                .ROOT),
+                                                                        slot.name())))
                                         .toList()),
                         Report.Section.rows(
                                 "USERS",

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-cmake",
     "private": true,
-    "description": "@rasm/nx-cmake specs ported from the @nx/gradle, @nx/maven, @nx/dotnet, and @nx/js release specs, each createNodes and createDependencies case configuring a CMake fixture in a temporary workspace",
+    "description": "@rasm/nx-cmake suite: CMake trees in temporary workspaces read through the real Nx graph pipeline, each inferred cmake, ctest, cpack, and clang-tidy target run where its behaviour shows only in a run",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",
@@ -9,6 +9,7 @@
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
+        "fast-check": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
     }

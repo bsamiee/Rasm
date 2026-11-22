@@ -31,6 +31,31 @@
             }
         },
         {
+            "name": "chrome",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/chrome"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Chrome extensions: Manifest V3 manifest and permissions, service worker, page UI in Chrome's own look, Playwright suites, and Web Store release",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Chrome",
+                "shortDescription": "Chrome extensions from manifest to Web Store release",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
+                "brandColor": "#090909"
+            }
+        },
+        {
             "name": "cpp",
             "source": {
                 "source": "local",
@@ -297,8 +322,8 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.4.1",
-            "description": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks and git-ai authorship checkpoints",
+            "version": "0.4.2",
+            "description": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -307,7 +332,7 @@
             "hooks": "./hooks/codex.json",
             "interface": {
                 "displayName": "Terminal",
-                "shortDescription": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks and git-ai authorship checkpoints",
+                "shortDescription": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"
@@ -324,8 +349,8 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.7.0",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Parallels Desktop VMs and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
+            "version": "0.8.1",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, the signed-in Chrome through chrome-devtools-mcp, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -333,7 +358,7 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Tool",
-                "shortDescription": "Ghidra analysis, desktop app inspection and monitoring, Parallels VMs, Superhuman Mail and Docs, and Google Workspace",
+                "shortDescription": "Ghidra analysis, desktop app inspection and monitoring, Chrome, Raycast, Parallels VMs, Superhuman Mail and Docs, and Google Workspace",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"
@@ -410,30 +435,6 @@
             "interface": {
                 "displayName": "Orchestration",
                 "shortDescription": "Codex app threads and parallel agent tasks",
-                "developerName": "Bardia Samiee",
-                "category": "Coding",
-                "brandColor": "#090909"
-            }
-        },
-        {
-            "name": "policy",
-            "source": {
-                "source": "local",
-                "path": "./plugins/codex/policy"
-            },
-            "policy": {
-                "installation": "AVAILABLE",
-                "authentication": "ON_INSTALL"
-            },
-            "category": "Coding",
-            "version": "0.1.0",
-            "description": "Shell, patch, sleep, and Node REPL calls judged by the function-hooks command rules",
-            "author": {
-                "name": "Bardia Samiee"
-            },
-            "interface": {
-                "displayName": "Policy",
-                "shortDescription": "Shell, patch, sleep, and Node REPL calls judged by the function-hooks command rules",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"

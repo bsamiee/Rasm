@@ -2,15 +2,15 @@ import { pid } from 'node:process';
 import type { ExecutorContext } from '@nx/devkit';
 import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Config, Effect, FileSystem, Path, Schema } from 'effect';
-import { commands, configured } from '#/executors/run/executor';
-import { run, SIGNED, SWIFTPM } from '#/targets';
+import { commands, configured } from '#/executors/run/executor.ts';
+import { run, SIGNED, SWIFTPM } from '#/targets.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Install = Schema.Struct({
     package: Schema.String.annotate({ description: 'Package folder the plugin infers, passed as --package-path' }),
     product: Schema.String.annotate({ description: 'Executable product the plugin infers from swift package describe' }),
-    entitlements: Schema.optionalKey(Schema.String).annotate({ description: 'Entitlements file <product>.entitlements beside the target sources, signed into the product where present' }),
+    entitlements: Schema.optionalKey(Schema.String).annotate({ description: 'Entitlements file <module>.entitlements among the sources of the module the product builds, signed into the product where present' }),
     __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
 }).annotate({
     title: 'Install',

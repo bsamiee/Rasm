@@ -1,0 +1,18 @@
+{
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "mark.svg",
+          "position" : {
+            "scale" : 33,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

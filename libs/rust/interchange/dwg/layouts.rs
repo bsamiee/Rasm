@@ -363,8 +363,7 @@ pub fn set(document: &CadDocument, name: &str, drawing: &str, pages: &[(Arc<str>
     let database = SheetSetDatabase::new(name, "");
     let parent = database.sheet_set().id().to_owned();
     pages.iter().fold(database, |mut database, (key, page)| {
-        #[cfg_attr(dylint_lib = "rasm_lints", expect(empty_string_default, reason = "`SheetSetDatabase::add_sheet` takes an empty number, title, or description as unset"))]
-        let [number, title, description] = [SheetField::Number, SheetField::Title, SheetField::Description].map(|field| page.fields.get(<&str>::from(field)).map_or("", |value| &**value));
+        let [number, title, description] = [SheetField::Number, SheetField::Title, SheetField::Description].map(|field| page.fields.get(<&str>::from(field)).map(|value| &**value));
         let handle = document.objects.values().find_map(|object| {
             if let ObjectType::Layout(layout) = object
                 && *layout.name == **key
@@ -374,9 +373,8 @@ pub fn set(document: &CadDocument, name: &str, drawing: &str, pages: &[(Arc<str>
                 None
             }
         });
-        #[cfg_attr(dylint_lib = "rasm_lints", expect(empty_string_default, reason = "`LayoutReference::handle` holds an empty string for a layout without a handle"))]
         let reference = LayoutReference { file_name: drawing.to_owned(), name: key.to_string(), handle: handle.map_or_default(|handle| format!("{handle:X}")) };
-        if let Some(sheet) = database.add_sheet(&parent, number, title, description)
+        if let Some(sheet) = database.add_sheet(&parent, number.unwrap_or_default(), title.unwrap_or_default(), description.unwrap_or_default())
             && database.set_layout_reference(&sheet, REFERENCE, &reference)
             && let Some(element) = database.find_mut(&sheet)
         {

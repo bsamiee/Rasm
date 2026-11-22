@@ -74,7 +74,7 @@ const layerMinimumLogLevels = (minimum: LogLevel.LogLevel, scopes: Record.Readon
                                   Logger.make(
                                       flow(
                                           Option.liftPredicate((entry: Logger.Options<unknown>) => LogLevel.isGreaterThanOrEqualTo(entry.logLevel, floor(entry.fiber))),
-                                          Option.map(logger.log),
+                                          Option.map((entry): unknown => logger.log(entry)),
                                       ),
                                   ),
                               ),

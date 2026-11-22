@@ -1,14 +1,14 @@
 import { join, posix } from 'node:path';
 import process, { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, getPackageManagerCommand, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, writeJsonFile } from '@nx/devkit';
-import { combineGlobPatterns, emitPluginWorkerLog, isCI, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { Array, Cause, Config, ConfigProvider, Duration, Effect, FileSystem, Formatter, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, getPackageManagerCommand, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { Array, Config, ConfigProvider, Duration, Effect, FileSystem, Formatter, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import which from 'which';
-import { run } from '#/executor';
-import { type Fields, FOLDERS, HOSTS, type Host } from '#/host-packages';
-import { aggregated, Folder, manifested, namedInput, type Stated, tagged, type Verbs } from '#/inference';
+import { run } from '#/executor.ts';
+import { type Fields, FOLDERS, HOSTS, type Host, routed } from '#/host-packages.ts';
+import { aggregated, anchored, Folder, manifested, namedInput, type Stated, tagged, type Verbs } from '#/inference.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -21,42 +21,37 @@ interface Declared {
     readonly engines: readonly string[];
     readonly stated: Stated;
     readonly host: Host;
+    readonly dependents: readonly string[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const ENVIRONMENT = Config.all({ outer: Config.map(Config.option(Config.String('NX_TASK_TARGET_PROJECT')), Option.isNone), annotated: Config.withDefault(Config.Boolean('GITHUB_ACTIONS'), false) });
 const WORKFLOWS = '**/.github/workflows/*.{yml,yaml}';
-const FILES = combineGlobPatterns([...Array.dedupe(HOSTS.map(({ manifest }) => `**/${posix.basename(manifest)}`)), WORKFLOWS]);
+const COMPOSITES = '**/.github/actions/*/action.{yml,yaml}';
+const PACKAGE = 'package.json';
+const FILES = combineGlobPatterns([...Array.dedupe(HOSTS.map(({ manifest }) => `**/${posix.basename(manifest)}`)), `**/${PACKAGE}`, WORKFLOWS, COMPOSITES]);
 const WITHHELD = ['archive', 'build', 'operations', 'publish'] as const;
 const UPSTREAM = { dependentTasksOutputFiles: '**/*' } as const;
 const RECEIVED: NonNullable<TargetConfiguration['inputs']> = [UPSTREAM, { externalDependencies: [] }];
 const UNSTATED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
-const ACTIONS: Verbs = {
-    upgrade: {
-        jactionlint: {
-            executor: `${PLUGIN}:upgrade`,
-            options: { cwd: '{projectRoot}', commands: [{ apply: ['jactionlint', 'update', '--apply'], preview: ['jactionlint', 'update', '--diff'] }] },
-            inputs: [posix.join('{projectRoot}', '.github', '**', '*'), posix.join('{projectRoot}', '**', 'action.{yml,yaml}'), { externalDependencies: [] }],
-            metadata: {
-                description: 'Moves every external action and reusable workflow the workflows and composite actions use to its newest release with jactionlint update --apply, keeping commit pins and their version comments',
-                help: { command: 'jactionlint update --help', example: { options: { dryRun: true } } },
-            },
-        },
-    },
-};
+const RELEASED: NonNullable<TargetConfiguration['inputs']> = [{ dependentTasksOutputFiles: '**/[!.]*' }, { externalDependencies: [] }];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({
     outputPath: Folder,
     storeCredentials: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
-    taskResultsPath: Folder,
     remoteCacheTimeout: Schema.optionalKey(Schema.DurationFromString),
 }).annotate({
     description:
-        'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN), a publish whose variable is unset naming it and succeeding. taskResultsPath: workspace folder each nx run on CI that no task started writes <run id>.json to, holding its argv and times and the target, hash, hash inputs, status, exit code, and times of each task, absent writes no record. remoteCacheTimeout: longest wait, as a number and a unit (5 seconds), for the answer to the one read each nx run no task started sends the remote cache server before its tasks, a read answered other than 200 or 404, refused, or unanswered that long printing one warning and emptying NX_SELF_HOSTED_REMOTE_CACHE_SERVER for that run, absent waits without bound',
+        'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN, Chrome: CHROME_WEB_STORE_TOKEN, an OAuth access token of scope chromewebstore beside CHROME_WEB_STORE_PUBLISHER naming the publisher), a publish whose variable is unset naming it and succeeding. remoteCacheTimeout: longest wait, as a number and a unit (5 seconds), for the answer to the one read each nx run no task started sends the remote cache server before its tasks, a read answered other than 200 or 404, refused, or unanswered that long printing one warning and emptying NX_SELF_HOSTED_REMOTE_CACHE_SERVER for that run, absent waits without bound',
+});
+
+const Requirements = Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
+const Member = Schema.fromJsonString(Schema.Struct({ name: Schema.String, dependencies: Requirements, devDependencies: Requirements, optionalDependencies: Requirements, peerDependencies: Requirements })).annotate({
+    description: 'The name of a workspace package.json and the packages each of its dependency fields requires',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -64,12 +59,32 @@ const Options = Schema.Struct({
 const read = Effect.fnUntraced(function* (files: readonly string[], context: CreateNodesContext) {
     const fs = yield* FileSystem.FileSystem;
     const { workspaceRoot } = context;
-    const matched = Array.filterMap(files, (file) =>
-        Array.findFirst(HOSTS, (host) => posix.matchesGlob(file, `**/${host.manifest}`)).pipe(
-            Result.fromOption(Function.constVoid),
-            Result.map((host) => ({ file, host, root: posix.join(file, posix.relative(host.manifest, '.')) })),
-        ),
+    const member = anchored(workspaceRoot);
+    const [packages, manifests] = Array.partition(files, (file) => Result.liftPredicate(file, (at) => posix.basename(at) === PACKAGE, Function.identity));
+    const [members, undecoded] = yield* Effect.partition(
+        packages.filter((file) => member(posix.dirname(file))),
+        (file) =>
+            Effect.mapBoth(Effect.flatMap(fs.readFileString(join(workspaceRoot, file)), Schema.decodeEffect(Member)), {
+                onFailure: (error): [string, Error] => [file, error],
+                onSuccess: ({ name, ...required }) => ({ root: posix.dirname(file), name, required: Object.values(required).flatMap((held) => Object.keys(held)) }),
+            }),
+        { concurrency: 'unbounded' },
     );
+    const requiring = Array.groupBy(
+        members.flatMap(({ name, required }) => required.map((dependency) => ({ dependency, name }))),
+        Struct.get('dependency'),
+    );
+    const named = Record.fromIterableWith(members, ({ root, name }) => [root, name]);
+    const [held, unread] = yield* Effect.partition(
+        manifests,
+        (file) =>
+            Effect.mapError(
+                Effect.flatMap(fs.readFileString(join(workspaceRoot, file)), (text) => routed(file, text)),
+                (error): [string, Error] => [file, error],
+            ),
+        { concurrency: 'unbounded' },
+    );
+    const matched = Array.getSomes(held);
     const local = Array.dedupe(matched.map(({ host }) => host)).filter(({ platforms = [platform] }) => platforms.includes(platform));
     const installing = yield* Effect.filter(local, ({ install }) =>
         UndefinedOr.match(install?.executable, {
@@ -81,18 +96,23 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
                 ),
         }),
     );
-    const one = Effect.fnUntraced(function* ({ file, host, root }: (typeof matched)[number]) {
+    const one = Effect.fnUntraced(function* ({ file, host, fields }: (typeof matched)[number]) {
+        const root = posix.join(file, posix.relative(host.manifest, '.'));
         const segments = root.split('/');
         const above = Array.makeBy(segments.length + 1, (up) => posix.join(...segments.slice(0, segments.length - up)));
         const lock = Option.map(yield* Effect.findFirst(Array.cartesianWith(above, Array.fromNullishOr(host.build?.lock), posix.join), (at) => fs.exists(join(workspaceRoot, at))), (at) => ({ lock: at }));
         const stamp = local.includes(host) && host.engine !== undefined ? yield* host.engine.stamp(join(workspaceRoot, file)) : Option.none<string>();
         const engined = local.includes(host) && (host.engine === undefined || Option.isSome(stamp));
-        const fields = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, file)), (text) => host.read(text, file));
         const stated = yield* manifested(workspaceRoot, root);
         const withheld: readonly ((typeof WITHHELD)[number] | 'install')[] = [...(engined ? [] : WITHHELD), ...(installing.includes(host) ? [] : (['install'] as const))];
-        return Option.map(fields, (held): Declared => ({ file, root, named: namedInput(root, context), fields: held, host: Struct.omit(host, withheld), engines: Option.toArray(stamp), stated, ...Option.getOrUndefined(lock) }));
+        const dependents = Option.getOrElse(
+            Option.flatMap(Record.get(named, root), (name) => Option.map(Record.get(requiring, name), Array.map(Struct.get('name')))),
+            Array.empty<string>,
+        );
+        return { file, root, named: namedInput(root, context), fields, host: Struct.omit(host, withheld), engines: Option.toArray(stamp), stated, dependents, ...Option.getOrUndefined(lock) } satisfies Declared;
     });
-    return yield* Effect.partition(matched, (row) => Effect.mapError(one(row), (error): [string, Error] => [row.file, error]), { concurrency: 'unbounded' });
+    const [declared, refused] = yield* Effect.partition(matched, (row) => Effect.mapError(one(row), (error): [string, Error] => [row.file, error]), { concurrency: 'unbounded' });
+    return { declared, failures: [...undecoded, ...unread, ...refused] };
 });
 
 const placed = (operation: keyof typeof FOLDERS) => `{options.outputPath}/${FOLDERS[operation]}`;
@@ -199,9 +219,12 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
                 ...(archive !== undefined && {
                     gh: {
                         executor: `${PLUGIN}:attach`,
-                        dependsOn: [packer],
-                        inputs: RECEIVED,
-                        metadata: { description: `Uploads the files ${packer} wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload`, help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+                        dependsOn: [packer, ...Array.match(item.dependents, { onEmpty: () => [], onNonEmpty: (dependents) => [{ projects: [...dependents], target: 'pack--*' }] })],
+                        inputs: RELEASED,
+                        metadata: {
+                            description: `Uploads the files ${packer} wrote, with the visible files the pack targets of each package requiring the project wrote, to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload`,
+                            help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
+                        },
                     },
                 }),
             },
@@ -212,7 +235,7 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
             root: item.root,
             name: item.fields.name,
             metadata: { technologies: [technology] },
-            tags: [...(Option.isSome(released) ? release : []), ...platforms.map((os) => `os:${os}`)],
+            tags: [...(Option.isSome(released) ? release : []), ...platforms.map((os) => `os:${os}`), ...(item.host.hosted === true ? [`host:${technology}`] : [])],
             ...Array.match(standalone ? linked : [], { onEmpty: () => ({}), onNonEmpty: (implicitDependencies) => ({ implicitDependencies }) }),
             ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest } } } }))),
             targets: {
@@ -233,13 +256,30 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
     });
 };
 
+const upgrading = (listed: readonly string[]): Verbs => ({
+    upgrade: {
+        jactionlint: {
+            executor: `${PLUGIN}:upgrade`,
+            options: { cwd: '{projectRoot}', commands: [{ apply: ['jactionlint', 'update', '--apply', ...listed], preview: ['jactionlint', 'update', '--diff', ...listed] }] },
+            inputs: [posix.join('{projectRoot}', '.github', '**', '*'), { externalDependencies: [] }],
+            metadata: {
+                description: 'Moves every external action and reusable workflow the workflows and composite actions under .github use to its newest release with jactionlint update --apply over those files, keeping commit pins and their version comments',
+                help: { command: 'jactionlint update --help', example: { options: { dryRun: true } } },
+            },
+        },
+    },
+});
+
 const workflows = (files: readonly string[], workspaceRoot: string) =>
     Effect.forEach(
         Array.dedupeWith(
             files.filter((file) => posix.matchesGlob(file, WORKFLOWS)).map((file) => ({ file, root: posix.join(file, '..', '..', '..') })),
             (left, right) => left.root === right.root,
         ),
-        ({ file, root }) => Effect.map(manifested(workspaceRoot, root), (stated) => [file, { projects: { [root]: { root, targets: aggregated(ACTIONS, stated, 'github-actions') } } }] as const),
+        ({ file, root }) => {
+            const listed = files.filter((at) => [WORKFLOWS, COMPOSITES].some((glob) => posix.matchesGlob(at, glob)) && posix.relative(root, at).split('/')[0] === '.github').map((at) => posix.relative(root, at));
+            return Effect.map(manifested(workspaceRoot, root), (stated) => [file, { projects: { [root]: { root, targets: aggregated(upgrading(listed), stated, 'github-actions') } } }] as const);
+        },
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -250,10 +290,10 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
         run(
             Effect.gen(function* () {
                 const settings = yield* Schema.decodeEffect(Options)(options ?? {});
-                const [[held, failures], actions] = yield* Effect.all([read(files, context), workflows(files, context.workspaceRoot)]);
+                const [{ declared, failures }, actions] = yield* Effect.all([read(files, context), workflows(files, context.workspaceRoot)]);
                 const results = [
                     ...projects(
-                        Array.getSomes(held).filter(({ fields }) => fields.installed !== true),
+                        declared.filter(({ fields }) => fields.installed !== true),
                         settings,
                         getPackageManagerCommand(detectPackageManager(context.workspaceRoot)).exec,
                         tagged(context.nxJsonConfiguration),
@@ -292,24 +332,6 @@ const preTasksExecution: PreTasksExecution<typeof Options.Encoded> = (options, c
         }).pipe(Effect.provide([FetchHttpClient.layer, ConfigProvider.layer(ConfigProvider.fromEnv())])),
     );
 
-const postTasksExecution: PostTasksExecution<typeof Options.Encoded> = (options, context) =>
-    run(
-        Effect.gen(function* () {
-            const [{ taskResultsPath }, { outer, annotated }, ci] = yield* Effect.all([Schema.decodeEffect(Options)(options ?? {}), ENVIRONMENT, Effect.sync(isCI)]);
-            const results = Object.values(context.taskResults);
-            const tasks = results.map(({ task: { id, target, hash, hashDetails, startTime, endTime }, status, code }) => ({ id, ...target, hash, status, code, startTime, endTime, hashDetails: UndefinedOr.map(hashDetails, Struct.pick(['command', 'nodes'])) }));
-            const records = Array.fromNullishOr(taskResultsPath)
-                .filter(() => outer && Boolean(ci))
-                .map((folder) => posix.join(folder, `${context.id}.json`));
-            const [written, refused] = yield* Effect.partition(records, (file) =>
-                Effect.as(Effect.try({ try: () => writeJsonFile(join(context.workspaceRoot, file), { ...Struct.pick(context, ['id', 'argv', 'startTime', 'endTime']), tasks }), catch: (cause) => new Cause.UnknownError(cause, `Run ${context.id} writes no record to ${file}: ${Formatter.format(cause)}`) }), file),
-            );
-            const warnings = refused.map(({ message }) => ['warn', annotated ? `::warning::${message}` : message] as const);
-            const errors = results.filter(({ status }) => outer && annotated && status === 'failure').map(({ task: { id }, code }) => ['log', `::error title=${id}::${[`${id} exits ${code}`, ...written.map((file) => `recorded in ${file}`)].join(', ')}`] as const);
-            yield* Effect.forEach([...warnings, ...errors], ([level, line]) => Effect.sync(() => emitPluginWorkerLog(level, line)), { discard: true });
-        }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv()))),
-    );
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createNodes, postTasksExecution, preTasksExecution };
+export { createNodes, preTasksExecution };

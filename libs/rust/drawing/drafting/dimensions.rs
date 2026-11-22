@@ -425,7 +425,7 @@ pub(crate) fn draw(shaper: &mut Typesetter, style: &crate::Style, placement: Pla
     };
     let level = |typesetter: &mut Typesetter, Level { datum, instance, slot }: &Level| {
         let value = dimension.stated.as_deref().map_or_else(|| notation::linear(&style.linear, *style.unit * (instance.at.y - datum), Sign::Explicit), str::to_owned);
-        let content = format!("{}{value}{}", dimension.prefix.as_deref().unwrap_or_default(), dimension.suffix.as_deref().unwrap_or_default());
+        let content = [dimension.prefix.as_deref(), Some(value.as_str()), dimension.suffix.as_deref()].into_iter().flatten().collect::<String>();
         symbols::draw(typesetter, style, placement, &symbols::Instance { slots: iter::chain(instance.slots.clone(), [(Arc::clone(slot), Arc::from(content))]).collect(), ..instance.clone() })
     };
     match &dimension.measure {

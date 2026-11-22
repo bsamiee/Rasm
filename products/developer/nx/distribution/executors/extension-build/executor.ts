@@ -5,9 +5,9 @@ import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import { Toml } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
-import { run, Words } from '#/executor';
-import { BUILDER, EXTENSION } from '#/host-packages';
-import { spawned } from '#/inference';
+import { run, Words } from '#/executor.ts';
+import { BUILDER, EXTENSION } from '#/host-packages.ts';
+import { spawned } from '#/inference.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -89,7 +89,7 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
     );
     yield* Effect.forEach(Array.getSomes(whole.packages.map(({ directory }) => Option.fromUndefinedOr(directory?.path))), (local) => uv(['build', local, '--wheel', '--out-dir', vendor], member), { concurrency: 'unbounded' });
     const vendored = (yield* fs.readDirectory(vendor)).filter((file) => path.extname(file) === '.whl').map((wheel) => path.join(vendor, wheel));
-    yield* uv(['run', '--script', yield* path.fromFileUrl(new URL(import.meta.resolve('#vendored'))), source, ...vendored], context.root);
+    yield* uv(['run', '--script', yield* path.fromFileUrl(new URL(import.meta.resolve('#/executors/extension-build/vendored.py'))), source, ...vendored], context.root);
     const selected = yield* Effect.forEach(
         declared.platforms ?? Record.keys(TARGETS),
         Effect.fnUntraced(function* (platform) {

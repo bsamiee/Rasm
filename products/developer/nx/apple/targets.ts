@@ -7,7 +7,7 @@ import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, Schema, type Scope } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import type { Run } from '#/executors/run/executor';
+import type { Run } from '#/executors/run/executor.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -23,7 +23,7 @@ interface Part {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const NOTARY = { key: 'ASC_API_KEY_P8', keyId: 'ASC_API_KEY_ID', issuer: 'ASC_API_ISSUER_ID' } as const;
 const SIGNED = { development: 'Apple Development', distribution: 'Developer ID Application' } as const;
 const APPCAST = { key: 'SPARKLE_ED_PRIVATE_KEY', bucket: 'SPARKLE_FEED_BUCKET' } as const;
@@ -51,7 +51,7 @@ const Options = Schema.Struct({
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const analyzer = Effect.try({ try: () => fileURLToPath(import.meta.resolve('#analyzer')), catch: (cause) => new Cause.UnknownError(cause, `#analyzer of ${PLUGIN} resolves to no installed core`) });
+const analyzer = Effect.try({ try: () => fileURLToPath(import.meta.resolve('@rasm/nx-apple-darwin-arm64/nx-apple-analyzer')), catch: (cause) => new Cause.UnknownError(cause, `@rasm/nx-apple-darwin-arm64 of ${PLUGIN} resolves to no installed core`) });
 
 const tokened = (at: string) => (isAbsolute(at) || at.startsWith('..') ? [] : [join('{workspaceRoot}', at)]);
 

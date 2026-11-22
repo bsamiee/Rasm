@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { assert, it } from '@effect/vitest';
 import { Ssh, SshError } from '@rasm/ssh';
 import { Array, Effect, FileSystem, Path, Record, Schema } from 'effect';
-import { bounds, Sshd } from '#/sshd';
+import { bounds, Sshd } from '#/sshd.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -13,7 +13,7 @@ const forest = ['copy', 'copy-sym', 'subdir-sym/copy', 'subdir/copy'];
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Sshd.layer(), { timeout: bounds.started, excludeTestServices: true })('scp', (methods) => {
+it.layer(Sshd.layer(), { timeout: bounds.started, excludeTestServices: true, concurrent: true })('scp', (methods) => {
     methods.effect(
         'copies a file to a remote file, over a longer file, into a folder, and to a name holding glob characters',
         Effect.fnUntraced(function* () {

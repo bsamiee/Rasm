@@ -1,0 +1,31 @@
+diff --git a/dist/uFuzzy.d.ts b/dist/uFuzzy.d.ts
+index 33cd40a..e97584f 100644
+--- a/dist/uFuzzy.d.ts
++++ b/dist/uFuzzy.d.ts
+@@ -80,22 +80,11 @@ declare namespace uFuzzy {
+ 	/** partial RegExp */
+ 	type PartialRegExp = string;
+ 
+-	/** what should be considered acceptable term bounds */
+-	export const enum BoundMode {
+-		/** will match 'man' substr anywhere. e.g. tasmania */
+-		Any = 0,
+-		/** will match 'man' at whitespace, punct, case-change, and alpha-num boundaries. e.g. mantis, SuperMan, fooManBar, 0007man */
+-		Loose = 1,
+-		/** will match 'man' at whitespace, punct boundaries only. e.g. mega man, walk_man, man-made, foo.man.bar */
+-		Strict = 2,
+-	}
++	/** what should be considered acceptable term bounds: 0 any, will match 'man' substr anywhere, e.g. tasmania; 1 loose, at whitespace, punct, case-change, and alpha-num boundaries, e.g. mantis, SuperMan, fooManBar, 0007man; 2 strict, at whitespace, punct boundaries only, e.g. mega man, walk_man, man-made, foo.man.bar */
++	export type BoundMode = 0 | 1 | 2;
+ 
+-	export const enum IntraMode {
+-		/** allows any number of extra char insertions within a term, but all term chars must be present for a match */
+-		MultiInsert = 0,
+-		/** allows for a single-char substitution, transposition, insertion, or deletion within terms (excluding first and last chars) */
+-		SingleError = 1,
+-	}
++	/** 0 multi-insert, allows any number of extra char insertions within a term, but all term chars must be present for a match; 1 single-error, allows for a single-char substitution, transposition, insertion, or deletion within terms (excluding first and last chars) */
++	export type IntraMode = 0 | 1;
+ 
+ 	export type IntraSliceIdxs = [from: number, to: number];
+ 
