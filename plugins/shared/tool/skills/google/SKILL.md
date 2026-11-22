@@ -73,7 +73,7 @@ Personal OAuth reauth keeps every service, consent completing in the signed-in C
 tmux -L gog-auth new-session -d -s auth -x 200 -y 50
 tmux -L gog-auth send-keys -t auth "gog auth add b.samiee93@gmail.com --services all-user --force-consent --timeout 15m" Enter
 tmux -L gog-auth capture-pane -t auth -p -J -S - | rg -o 'https://accounts\.google\.com[^ ]+' | tail -n 1 > "$url_file"
-open -g -b com.google.Chrome "$(cat "$url_file")&login_hint=b.samiee93@gmail.com"
+open -g "$(cat "$url_file")&login_hint=b.samiee93@gmail.com"
 ```
 
 - `capture-pane` without `-J` wraps the URL at pane width, and Google answers a URL missing `response_type` with `Invalid OAuth Request`
