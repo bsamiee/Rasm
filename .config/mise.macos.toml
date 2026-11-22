@@ -1,7 +1,7 @@
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-_.path                          = { path = ['''{% set props = config_root ~ "/Directory.Packages.props" %}/Applications/Rhino {{ exec(command="yq -p xml '.Project.PropertyGroup[] | select(.+@Label == \"Rhino\") | .RhinoVersion | split(\".\") | .[0]' '" ~ props ~ "'", cache_key="rhino-major-" ~ props | hash_file) }}.app/Contents/Resources/bin''', "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin", '{{ exec(command="xcode-select -p", cache_duration="1h") }}/../Applications/Icon Composer.app/Contents/Executables'], tools = true }
+_.path                          = { path = ['''{% set props = config_root ~ "/Directory.Packages.props" %}/Applications/Rhino {{ exec(command="yq -p xml -oy '.Project.PropertyGroup[] | select(.+@Label == \"Rhino\") | .RhinoVersion | split(\".\") | .[0]' '" ~ props ~ "'", cache_key="rhino-major-" ~ props | hash_file) }}.app/Contents/Resources/bin''', "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin", '{{ exec(command="xcode-select -p", cache_duration="1h") }}/../Applications/Icon Composer.app/Contents/Executables'], tools = true }
 COLIMA_HOME                     = "{{ get_env(name='HOME', default='') }}/.colima"
 DOCKER_HOST                     = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
 GHIDRA_PROJECT_DIR              = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
