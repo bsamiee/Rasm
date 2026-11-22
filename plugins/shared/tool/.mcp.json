@@ -9,6 +9,11 @@
             "type": "http",
             "url": "https://mcp.mail.superhuman.com/mcp",
             "default_tools_approval_mode": "approve"
+        },
+        "superhuman-docs": {
+            "type": "http",
+            "url": "https://docs.superhuman.com/apis/mcp",
+            "default_tools_approval_mode": "approve"
         }
     }
 }

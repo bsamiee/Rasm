@@ -121,8 +121,8 @@
         {
             "name": "tool",
             "source": "./plugins/shared/tool",
-            "version": "0.5.0",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Parallels Desktop VMs and Superhuman Mail through their MCP servers, and every Google account and service through gog and GAM",
+            "version": "0.7.0",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Parallels Desktop VMs and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
             "author": {
                 "name": "Bardia Samiee"
             }
