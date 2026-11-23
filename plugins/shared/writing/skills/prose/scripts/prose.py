@@ -329,7 +329,7 @@ def _comment(marker: str, line: str, open_brackets: str, last_token_type: tuple[
         case comment if len(comment["marker"]) > len(marker) or _DIRECTIVE.match(comment["body"]):
             return _Comment(open_brackets, last_token_type, f"{indent}{comment['marker']} {comment['body']}")
         case comment:
-            return _ProseComment(open_brackets, last_token_type, f"{indent}{comment['marker']} {_TERMINAL_PUNCTUATION.sub('', _EMOJI.sub('', comment['body']))}", comment["body"])
+            return _ProseComment(open_brackets, last_token_type, f"{indent}{comment['marker']} {_EMOJI.sub('', comment['body'])}", comment["body"])
 
 
 def _lexed(language: _Language[_Line], lines: tuple[str, ...]) -> tuple[_Line, ...]:
@@ -511,8 +511,24 @@ _MARKDOWN: _Language[SyntaxTreeNode] = _Language(
 _CONFIG: _Language[_Line] = _Language(
     _lexed,
     _lines_after_edits,
-    (lambda doc: ((n, node.text, _prose(SyntaxTreeNode(_markdown_it().parseInline(node.text))[0]), True) for n, node in enumerate(doc.nodes) if isinstance(node, _ProseComment)),),
-    (lambda doc: (_Edit(n, n + 1, (node.fixed,)) for n, node in enumerate(doc.nodes) if isinstance(node, _Comment)), _empty_sections, _lone_subsections, _divider_spacing),
+    (
+        lambda doc: (
+            (n, text, _prose(SyntaxTreeNode(_markdown_it().parseInline(text))[0]), True)
+            for n, (above, node) in enumerate(pairwise((None, *doc.nodes)))
+            if isinstance(node, _ProseComment) and not isinstance(above, _ProseComment)
+            for text in (" ".join(line.text for line in takewhile(lambda line: isinstance(line, _ProseComment), doc.nodes[n:])),)
+        ),
+    ),
+    (
+        lambda doc: (
+            _Edit(n, n + 1, (_TERMINAL_PUNCTUATION.sub("", node.fixed) if isinstance(node, _ProseComment) and not isinstance(below, _ProseComment) else node.fixed,))
+            for n, (node, below) in enumerate(pairwise((*doc.nodes, None)))
+            if isinstance(node, _Comment)
+        ),
+        _empty_sections,
+        _lone_subsections,
+        _divider_spacing,
+    ),
     frozendict({
         "Section `{}` repeats": lambda doc: [
             (n, divider.label) for first_lines in (dict[str, int](),) for n, divider in _dividers(doc) if divider.full and first_lines.setdefault(divider.label, n) != n
