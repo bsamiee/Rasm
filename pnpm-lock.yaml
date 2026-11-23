@@ -3109,9 +3109,6 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
-      '@nx/js':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)
       '@rasm/nx-typescript':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/typescript
