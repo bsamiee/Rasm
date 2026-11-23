@@ -11,9 +11,11 @@ packages:
 
 # --- [SETTINGS] -------------------------------------------------------------------------
 
+cacheDir: .cache/pnpm/cache
 catalogMode: strict
 minimumReleaseAge: 0
 saveExact: true
+storeDir: .cache/pnpm/store
 
 # --- [PATCHES] --------------------------------------------------------------------------
 

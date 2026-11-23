@@ -20,6 +20,8 @@ Root `package.json` and the settings beside it:
 - `nx.json` sets `useDaemonProcess: false` while the Nx daemon forces debug logs into an unrotated `daemon.log` and restarts graphs edits interrupt
 - `.npmrc` holds only the auth, registry, TLS, proxy, and `local-address` settings pnpm reads from it
 - `virtualStoreType` stays `project`, as `effect-tsgo patch` rewrites files under `node_modules` and a global virtual store refuses the writes
+- `storeDir` and `cacheDir` keep the store and metadata cache in `.cache/pnpm`, on the checkout's volume, where pnpm clones or hard-links files
+- `nx clean -c cache` empties the store with `.cache`, and the next `pnpm install` downloads every package
 - `minimumReleaseAge: 0` installs releases on publish day, where pnpm waits `1440` minutes by default
 - `saveExact: true` makes `pnpm add` write exact versions in place of ranges
 - `allowBuilds` states `true` or `false` for each package with install scripts

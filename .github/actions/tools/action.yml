@@ -12,7 +12,7 @@ runs:
           shell: bash
           run: |-
               tools="${RUNNER_TOOL_CACHE}/mise"
-              printf "%s\n" "MISE_DATA_DIR=${tools}/data" "MISE_CACHE_DIR=${tools}/cache" "RUSTUP_HOME=${tools}/rustup" "CARGO_HOME=${tools}/cargo" "PNPM_CONFIG_STORE_DIR=${GITHUB_WORKSPACE}/.cache/pnpm" >> "${GITHUB_ENV}"
+              printf "%s\n" "MISE_DATA_DIR=${tools}/data" "MISE_CACHE_DIR=${tools}/cache" "RUSTUP_HOME=${tools}/rustup" "CARGO_HOME=${tools}/cargo" >> "${GITHUB_ENV}"
         - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
           with:
               mise_dir: ${{ runner.os == 'Windows' && 'C:\mise' || '' }}

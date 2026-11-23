@@ -28,7 +28,7 @@ Workflow `CI` and its jobs:
 - Job `windows` runs `test -c headless` over affected `os:win32` and `host:rhino` projects with core-hour token `RHINO_TOKEN`
 - Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine a tracked `.uproject` names
 - Unreal projects hold no target on a runner outside their engine image
-- Job containers install mise tools in the runner's tool cache and keep their pnpm store in checkout `.cache`
+- Job containers install mise tools in the runner's tool cache
 - Windows jobs install mise tools under `C:\mise`, as `cmd.exe` finds no command once `PATH` passes 8191 characters
 - CMake checks uninitialized variables in each file inside the source tree, vcpkg's toolchain file included where mise installs it there
 - CI, Deploy, and Release checkouts fetch full history, as `nx affected` and `nx release` compare commits a partial clone fetches one at a time
