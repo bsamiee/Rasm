@@ -7,6 +7,7 @@ Rule selection and diagnostics of the checkers `hk` and Nx run.
 Rules every checker configuration follows:
 - Checkers select their widest rule set, and a switch in their configuration or command line fails each finding their default passes
 - Rules leave a selection where another checker owns their defect or a repository rule contradicts them, and their row comment names the owner or rule
+- Configurations written as code hold no comment, and `[02]` names the owner or rule of each row leaving their selection
 - Formatters check by diff and print the change `fix` applies as their finding
 
 Owners of language checker settings:
@@ -20,6 +21,8 @@ Checker behavior that decides a switch or a rule row:
 - Stylelint exits 0 on findings a rule reports at `warning` severity, and `--max-warnings 0` fails them
 - Stylelint exits 0 on a deprecated rule it reports as a Node `DeprecationWarning`, and `NODE_OPTIONS=--throw-deprecation` fails every Node deprecation of a run
 - Stylelint caches each style file without its reference files, and `--no-cache` overrides a config turning `cache` on
+- Stylelint `no-descending-specificity` flags a nested part after a more specific part of another component, as each class rule nests its own parts
+- Stylelint `projectwallace/no-duplicate-custom-properties` flags a variant, state, or query reassigning a custom property, as `declaration-block-no-duplicate-custom-properties` owns one block
 - Clippy documents its `restriction` group as unfit to enable whole, and its lints join by name
 - `@rasm/nx-cargo` runs each `cargo deny` check with a table in `.config/deny.toml`
 - `cargo doc` applies `[workspace.lints.rustdoc]`, and `cargo clippy` skips it

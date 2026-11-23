@@ -98,7 +98,6 @@ export default {
         'font-weight-notation': ['numeric', { ignore: ['relative'] }],
         'import-notation': 'string',
         'max-nesting-depth': [3, { ignore: ['blockless-at-rules'], ignoreAtRules: ['starting-style'] }],
-        // Flags a nested part after a more specific part of another component, each class rule nests its own parts
         'no-descending-specificity': null,
         'no-unknown-animations': true,
         'no-unknown-custom-media': true,
@@ -151,7 +150,6 @@ export default {
         'plugin/declaration-block-no-ignored-properties': true,
         'projectwallace/no-anonymous-layers': true,
         'projectwallace/no-atrule-browserhacks': true,
-        // Flags a variant, state, or query reassigning a custom property, `declaration-block-no-duplicate-custom-properties` owns one block
         'projectwallace/no-duplicate-custom-properties': null,
         'projectwallace/no-duplicate-data-urls': true,
         'projectwallace/no-property-browserhacks': true,
