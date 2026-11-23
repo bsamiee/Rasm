@@ -4,11 +4,11 @@ import { basename, dirname, isAbsolute, join, matchesGlob, posix, relative, reso
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, calculateHashesForCreateNodes, getLockFileName, type PackageJson, PluginCache, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getLockFileName, hashObject, type PackageJson, PluginCache, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import { above, aggregated, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, FileSystem, Option, Predicate, Record, Schema } from 'effect';
+import { Array, Cause, Effect, FileSystem, MutableRef, Option, Predicate, Record, Schema } from 'effect';
 import type { configDefaults } from 'vitest/config';
 import type { parseCLI, resolveConfig, Vite } from 'vitest/node';
 
@@ -80,7 +80,8 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
     const { root, coverage, attachmentsDir, outputFile, reporters, forceRerunTriggers, projects: listed, resolvedProjects } = config.test;
     const declared = resolvedProjects.filter(({ inline, viteConfig: { configFile } }) => inline === true || configFile === undefined || configFile === entry);
     const parents = new Map(declared.filter(({ hidden }) => hidden === true).map(({ viteConfig, projectConfig }) => [viteConfig, projectConfig.name] as const));
-    const member = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(workspaceRoot, (at) => readJsonFile<PackageJson>(join(workspaceRoot, at))));
+    const workspaces = buildPackageJsonPatterns(workspaceRoot, (at) => readJsonFile<PackageJson>(join(workspaceRoot, at)));
+    const member = buildPackageJsonWorkspacesMatcher(workspaces);
     const lists = Option.isSome(Option.fromNullishOr(listed));
     const probes = yield* Effect.forEach(
         declared.filter(({ hidden }) => hidden !== true),
@@ -134,7 +135,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
         loaded: depended,
         triggers: Array.difference(forceRerunTriggers, defaults.configDefaults.forceRerunTriggers).map((glob) => (isAbsolute(glob) ? local(glob) : glob)),
         shared: Array.dedupe([attachmentsDir, ...reports].map((at) => local(resolve(root, at)))),
-        sources: Array.dedupe([...depended, 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...probes.flatMap((probe) => probe.manifests)]),
+        sources: Array.dedupe([...depended, 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...(lists ? workspaces.positive : []), ...probes.flatMap((probe) => probe.manifests)]),
     };
 });
 
@@ -205,13 +206,19 @@ const targets = (file: string, { loaded: configs, packages, linked, triggers, sh
     };
 };
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { readonly digest: string }>, context: CreateNodesContext, settings: Options, hash: string, file: string) {
-    const digest = hashArray([hash, yield* OWN]);
-    const manager = detectPackageManager(context.workspaceRoot);
+const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly digest: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly digest: string; readonly lock: string; readonly exec: string }, context: CreateNodesContext, settings: Options, file: string) {
     const flags = Array.fromNullishOr(settings.outputPath).flatMap((at) => directed(posix.relative(dirname(file), at)));
-    const held = Option.filter(yield* recalled(cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
-    const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => read(context.workspaceRoot, file, flags, getLockFileName(manager)) });
-    cache.set(file, { ...resolved, digest });
+    const held = Option.filter(yield* recalled(pass.cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === pass.digest);
+    const resolved = yield* Option.match(held, {
+        onSome: Effect.succeed,
+        onNone: () =>
+            Effect.tap(read(context.workspaceRoot, file, flags, pass.lock), (fresh) =>
+                Effect.sync(() => {
+                    pass.cache.set(file, { ...fresh, digest: pass.digest });
+                    MutableRef.set(pass.stored, true);
+                }),
+            ),
+    });
     const projects = yield* Effect.forEach(
         resolved.suites,
         Effect.fnUntraced(function* (suite) {
@@ -222,7 +229,7 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { re
                 root: suite.root,
                 ...(suite.providers.length > 0 && { tags: ['host:browser'] }),
                 metadata: { technologies: ['vitest', ...suite.providers] },
-                targets: aggregated(targets(file, resolved, { ...suite, setup }, chain, `^${namedInput(suite.root, context)}`, settings, getPackageManagerCommand(manager).exec), stated, 'vitest'),
+                targets: aggregated(targets(file, resolved, { ...suite, setup }, chain, `^${namedInput(suite.root, context)}`, settings, pass.exec), stated, 'vitest'),
             };
             return [suite.root, project] as const;
         }),
@@ -233,19 +240,20 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { re
 const nodes = inferring(Options, run, function* (files, settings, context) {
     yield* testMode;
     const configs = files.filter((file) => matchesGlob(basename(file), SUITE) || !files.some((other) => dirname(other) === dirname(file) && matchesGlob(basename(other), SUITE)));
-    const lock = getLockFileName(detectPackageManager(context.workspaceRoot));
-    const cache = new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'vitest.hash'));
-    const hashes = yield* Effect.promise(() =>
-        calculateHashesForCreateNodes(
-            configs.map(dirname),
-            settings,
-            context,
-            configs.map(() => [lock]),
-        ),
-    );
+    const manager = detectPackageManager(context.workspaceRoot);
+    const pass = {
+        cache: new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'vitest.hash')),
+        stored: MutableRef.make(false),
+        digest: hashArray([hashObject(settings), yield* OWN]),
+        lock: getLockFileName(manager),
+        exec: getPackageManagerCommand(manager).exec,
+    };
     return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles((file, _options, _context, index) => run(inferred(cache, context, settings, `${hashes[index]}`, file)), configs, settings, context)),
-        Effect.sync(() => cache.writeToDisk()),
+        Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, settings, file)), configs, settings, context)),
+        Effect.when(
+            Effect.sync(() => pass.cache.writeToDisk()),
+            Effect.sync(() => MutableRef.get(pass.stored)),
+        ),
     );
 });
 

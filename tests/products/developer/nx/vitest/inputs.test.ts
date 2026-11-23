@@ -1,4 +1,4 @@
-import { symlinkSync } from 'node:fs';
+import { statSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { createNodes } from '@rasm/nx-vitest';
 import { Predicate } from 'effect';
@@ -104,5 +104,35 @@ describe('cached inference', () => {
         const graph = await workspace.write({ 'shared/settings.ts': "export const setupFiles = ['../../tools/vitest/setup.mts'];\n" }).graph({ createNodes });
 
         expect(graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs).toContain('{workspaceRoot}/tools/vitest/setup.mts');
+    });
+
+    it('reuses the inferred targets of a root configuration while a file it never reads changes', async ({ workspace }) => {
+        Reflect.set(globalThis, 'loads', 0);
+        await workspace.write({ ...ROOT, 'vitest.config.ts': "globalThis.loads += 1;\n\nexport default { test: { projects: ['packages/*'] } };\n", 'packages/a/package.json': '{"name":"a"}' }).graph({ createNodes });
+        expect(Reflect.get(globalThis, 'loads')).toBeGreaterThan(0);
+        Reflect.set(globalThis, 'loads', 0);
+
+        await workspace.write({ 'packages/a/notes.md': '# a\n' }).graph({ createNodes });
+
+        expect(Reflect.get(globalThis, 'loads')).toBe(0);
+    });
+
+    it('re-reads a root configuration listing projects from workspace manifests once a manifest joins the workspace', async ({ workspace }) => {
+        const config =
+            "import { globSync, readFileSync } from 'node:fs';\nimport { dirname } from 'node:path';\n\nexport default { test: { projects: globSync('packages/*/package.json', { cwd: import.meta.dirname }).map((file) => ({ test: { name: JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf-8')).name, root: dirname(file) } })) } };\n";
+        await workspace.write({ ...ROOT, 'vitest.config.ts': config, 'packages/a/package.json': '{"name":"a"}' }).graph({ createNodes });
+
+        const graph = await workspace.write({ 'packages/b/package.json': '{"name":"b"}' }).graph({ createNodes });
+
+        expect(graph.nodes['b']?.data.targets?.['test--vitest']?.options).toStrictEqual({ config: 'vitest.config.ts', projects: ['b'] });
+    });
+
+    it('leaves the plugin cache file unwritten while every configuration is reused', async ({ workspace }) => {
+        await workspace.write({ ...LIB, 'libs/lib/vitest.config.ts': 'export default {};\n' }).graph({ createNodes });
+        const written = statSync(join(workspace.root, 'tmp/project-graph-cache/vitest.hash'), { bigint: true }).mtimeNs;
+
+        await workspace.graph({ createNodes });
+
+        expect(statSync(join(workspace.root, 'tmp/project-graph-cache/vitest.hash'), { bigint: true }).mtimeNs).toBe(written);
     });
 });
