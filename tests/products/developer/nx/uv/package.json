@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-uv",
     "private": true,
-    "description": "@rasm/nx-uv suites: Nx project graphs of uv workspaces in temporary folders, uv runs of the inferred targets, and release version actions over pyproject.toml",
+    "description": "@rasm/nx-uv suites over uv workspaces in temporary folders, inferred targets, and release version actions",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

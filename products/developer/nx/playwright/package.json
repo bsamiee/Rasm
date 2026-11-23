@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-playwright",
     "version": "0.1.0",
-    "description": "Nx plugin inferring the Playwright test target of each package holding a Playwright configuration, depending on the Nx task each webServer row starts, and a pack target for its projects writing snapshots under outputPath",
+    "description": "Nx plugin inferring a Playwright test target per Playwright configuration, depending on Nx tasks its webServer rows start",
     "license": "MIT",
     "repository": {
         "type": "git",

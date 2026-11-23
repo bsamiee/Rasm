@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-distribution",
     "private": true,
-    "description": "@rasm/nx-distribution suite: host manifests inferred into projects over the real Nx graph, their task hashes, platforms, Unreal links, and release membership, each executor run on a context built from that graph against temporary workspaces with gh, jactionlint, and store APIs replaced at the process and fetch boundary",
+    "description": "@rasm/nx-distribution suites over host manifests in temporary workspaces and each executor, with gh and store APIs replaced",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

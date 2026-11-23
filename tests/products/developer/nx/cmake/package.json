@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-cmake",
     "private": true,
-    "description": "@rasm/nx-cmake suite: CMake trees in temporary workspaces read through the real Nx graph pipeline, each inferred cmake, ctest, cpack, and clang-tidy target run where its behaviour shows only in a run",
+    "description": "@rasm/nx-cmake suites over CMake trees in temporary workspaces and their inferred targets",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

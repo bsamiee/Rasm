@@ -2,7 +2,7 @@
     "name": "@rasm/extendscript",
     "version": "0.1.0",
     "private": true,
-    "description": "ExtendScript runtime and its reply wire: the ES3 reply writer, request dispatcher, value writes, and scopes a host script runs, the completion a panel or server decodes, the swc lowering to ES3 with source map lines, the core ExtendScript declarations from the ExtendScript Toolkit installer, and the Vite builds of ExtendScript",
+    "description": "ExtendScript runtime, reply protocol, ES3 lowering, and Vite builds for scripts Adobe hosts run",
     "license": "MIT",
     "repository": {
         "type": "git",

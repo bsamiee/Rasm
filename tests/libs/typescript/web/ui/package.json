@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-ui",
     "private": true,
-    "description": "Interface control suites in the browser",
+    "description": "@rasm/ui suites in a browser",
     "type": "module",
     "devDependencies": {
         "@rasm/ui": "workspace:*",

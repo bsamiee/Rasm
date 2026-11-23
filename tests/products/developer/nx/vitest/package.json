@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-vitest",
     "private": true,
-    "description": "@rasm/nx-vitest suites: Nx project graphs of Vitest configurations in temporary workspaces and real runs of the test executor",
+    "description": "@rasm/nx-vitest suites over Vitest configurations in temporary workspaces and real runs of its test executor",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"

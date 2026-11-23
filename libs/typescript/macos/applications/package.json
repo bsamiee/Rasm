@@ -2,7 +2,7 @@
     "name": "@rasm/applications",
     "version": "0.1.0",
     "private": true,
-    "description": "Mac application server wire contract and state predicates, the Node client watching its installations and instances over a child process, and the build of a Node helper a Mac application embeds",
+    "description": "Wire contract and Node client of a Mac application server watching installed and running apps, and the Node helper build a Mac app embeds",
     "license": "MIT",
     "repository": {
         "type": "git",

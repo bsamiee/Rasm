@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-mark",
     "private": true,
-    "description": "Mark painting suite: the drawing each raster width takes from a per-size set, the colors a tone resolves over currentColor and part classes, a canvas placed at a whole scale, the artwork framed inside its padding, and the scalable form",
+    "description": "@rasm/mark suites over per-size drawings, tones, canvas placement, and padding",
     "type": "module",
     "devDependencies": {
         "@effect/platform-node": "catalog:",

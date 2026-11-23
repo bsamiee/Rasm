@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-hosting",
     "private": true,
-    "description": "Hosting suites: the server-rendered page streams before suspended content settles, with head tags of the built template, metadata in its head, request data, and a per-response script nonce",
+    "description": "@rasm/hosting suites over streamed server rendering, head tags, request data, and script nonces",
     "type": "module",
     "devDependencies": {
         "@effect/vitest": "catalog:",

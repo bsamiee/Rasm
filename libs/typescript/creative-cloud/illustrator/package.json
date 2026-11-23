@@ -2,7 +2,7 @@
     "name": "@rasm/illustrator",
     "version": "0.1.0",
     "private": true,
-    "description": "Illustrator DOM: the alert-suppressing script host for do javascript, and for UXP plugins its containment table, alert suppression, script evaluation, a document, artboard, or page item rendered as PNG through a temporary artboard, and the application bundle URL",
+    "description": "Illustrator object model for UXP plugins and do javascript scripts, with alert suppression, script evaluation, and PNG renders",
     "license": "MIT",
     "repository": {
         "type": "git",

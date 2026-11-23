@@ -2,7 +2,7 @@
     "name": "@rasm/webhooks",
     "version": "0.1.0",
     "private": true,
-    "description": "Webhook receiving and sending over Effect HTTP: signature schemes as rows (Standard Webhooks, Svix, Tailscale, Stripe, GitHub), raw-body verification, timestamp tolerance, queued deliveries keyed by delivery id, and signed delivery retrying transient failures on a caller schedule",
+    "description": "Webhook receiving and signed sending over Effect HTTP, with per-scheme signature verification, queued deliveries, and retries",
     "license": "MIT",
     "repository": {
         "type": "git",

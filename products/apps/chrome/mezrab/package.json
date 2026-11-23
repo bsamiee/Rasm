@@ -1,7 +1,7 @@
 {
     "name": "@rasm/mezrab",
     "private": true,
-    "description": "Mezrab Chrome extension: one shortcut copies the current tab's link and confirms it with a toast matching Chrome's own Link copied toast",
+    "description": "Chrome extension copying the current tab's link with one shortcut and confirming it with a toast matching Chrome's own",
     "type": "module",
     "imports": {
         "#/*": "./*.ts",

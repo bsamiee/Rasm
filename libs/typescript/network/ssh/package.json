@@ -2,7 +2,7 @@
     "name": "@rasm/ssh",
     "version": "0.1.0",
     "private": true,
-    "description": "OpenSSH hosts by config: a preferred dial taken when a login answers, connections shared across processes, commands, copies, and forwards",
+    "description": "Commands, copies, and forwards over OpenSSH hosts by config, with connections shared across processes",
     "license": "MIT",
     "repository": {
         "type": "git",

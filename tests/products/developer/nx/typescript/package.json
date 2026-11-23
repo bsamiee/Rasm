@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-typescript",
     "private": true,
-    "description": "@rasm/nx-typescript suites: the project and task graphs Nx builds from the plugin over temporary workspaces, and the tsc, eslint, stylelint, and pnpm runs its inferred targets drive",
+    "description": "@rasm/nx-typescript suites over project and task graphs in temporary workspaces, and tsc, eslint, stylelint, and pnpm runs of inferred targets",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

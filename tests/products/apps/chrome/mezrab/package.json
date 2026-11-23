@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-mezrab",
     "private": true,
-    "description": "Mezrab suite in Chromium with the built extension loaded: the link each action copies, the badge and title on pages Chrome withholds, the first action after its service worker stops, and the toast it draws against Chrome's own Link copied toast in size, colour, contrast, motion, lifetime, announcement, pointer input, and page zoom, its share button by URL scheme and Web Share support with its share call, hover hold, and keyboard dismissal, and the Chrome Web Store screenshots its scenes capture",
+    "description": "@rasm/mezrab suites in Chromium with its built extension loaded, covering copied links, its toast against Chrome's own, and Web Store screenshots",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"

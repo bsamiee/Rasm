@@ -2,7 +2,7 @@
     "name": "@rasm/media",
     "version": "0.1.0",
     "private": true,
-    "description": "Browser media for web apps: file inspection with resized image renditions and their srcset, Uppy upload preprocessing and transient-failure retry for XHR uploads, pdf.js documents and a page viewer with navigation, fit, zoom, pan, rotation, and find, a zoom-and-pan image viewer, and the Vite copy of pdf.js assets",
+    "description": "Browser media for web apps: image renditions, Uppy uploads, and pdf.js and image viewers",
     "license": "MIT",
     "repository": {
         "type": "git",

@@ -1,9 +1,16 @@
 {
+    // --- [CONFIGURATION] ---------------------------------------------------------------
+
     "$schema": "./node_modules/oxlint/configuration_schema.json",
     "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node", "react", "jsx-a11y"],
     "categories": { "correctness": "error", "suspicious": "error", "pedantic": "error", "perf": "error", "style": "error", "restriction": "error", "nursery": "error" },
     "options": { "typeAware": true, "reportUnusedDisableDirectives": "error" },
+
+    // --- [RULES] -----------------------------------------------------------------------
+
     "rules": {
+        // --- [ESLINT]
+
         "class-methods-use-this": ["error", { "ignoreOverrideMethods": true }],
         "func-names": ["error", "as-needed", { "generators": "never" }],
         "id-length": "off", // Grammar `$`, `_` that `no-unused-vars` requires, Effect type parameters
@@ -45,6 +52,9 @@
         "one-var": ["error", "never"],
         "sort-imports": "off", // `oxfmt` `sortImports` owns import order
         "sort-keys": "off", // Members follow domain order, CLAUDE.md file organization
+
+        // --- [IMPORT]
+
         "import/consistent-type-specifier-style": "off", // Contradicts `typescript/consistent-type-imports` `inline-type-imports`
         "import/default": "off", // Flags Vite `?inline` and UXP `indesign` imports, `tsc` reports TS1192
         "import/extensions": [
@@ -64,22 +74,37 @@
         ],
         "import/max-dependencies": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
         "import/no-named-export": "off", // With `import/no-default-export` no export remains
-        "import/no-nodejs-modules": "off", // Scoped to browser code, `no-restricted-globals` requires `node:` imports
         "import/no-namespace": "error",
+        "import/no-nodejs-modules": "off", // Scoped to browser code, `no-restricted-globals` requires `node:` imports
         "import/no-unassigned-import": ["error", { "allow": ["**/*.css", "pdfjs-dist", "core-js/modules/*"] }],
         "import/prefer-default-export": "off", // Contradicts `import/no-default-export`
+
+        // --- [JSX_A11Y]
+
         "jsx-a11y/media-has-caption": "off", // Demands a `<track>`, where open captions burned into the frames, which WCAG 1.2.2 accepts, carry none
         "jsx-a11y/no-autofocus": ["error", { "ignoreNonDOM": true }],
+
+        // --- [NODE]
+
         "node/no-sync": "off", // Tests read fixtures synchronously
         "node/no-top-level-await": "off", // Guards `require(esm)` loading Vitest never uses
+
+        // --- [OXC]
+
         "oxc/no-async-await": "off", // Effect `asyncFunction` owns `async` outside tests
         "oxc/no-map-spread": "off", // Fix mutates objects in place, CLAUDE.md functional rule
         "oxc/no-optional-chaining": "off", // Guards engines older than the `esnext` target
         "oxc/no-rest-spread-properties": "off", // Guards engines older than the `esnext` target
+
+        // --- [PROMISE]
+
         "promise/avoid-new": "off", // Effect `newPromise` owns the defect
         "promise/prefer-await-to-callbacks": "off", // Pushes toward `async`, which Effect `asyncFunction` refuses
         "promise/prefer-await-to-then": "off", // Pushes toward `async`, which Effect `asyncFunction` refuses
         "promise/valid-params": "off", // Reads `Effect.catch(effect, handler)` as `Promise#catch`
+
+        // --- [REACT]
+
         "react/capitalized-calls": "off", // Flags non-component constructors (`PdfDocument`)
         "react/forbid-component-props": "off", // react-aria components take `className` and `style`
         "react/function-component-definition": ["error", { "namedComponents": "arrow-function", "unnamedComponents": "arrow-function" }],
@@ -91,6 +116,9 @@
         "react/no-unstable-nested-components": ["error", { "allowAsProps": true }],
         "react/react-in-jsx-scope": "off", // `jsx: react-jsx` imports the JSX runtime
         "react/rules-of-hooks": "off", // Reads Effect and Playwright `use` calls as hooks, `**/*.tsx` enables it
+
+        // --- [TYPESCRIPT]
+
         "typescript/consistent-type-exports": ["error", { "fixMixedExportsWithInlineTypeSpecifier": true }],
         "typescript/consistent-type-imports": ["error", { "fixStyle": "inline-type-imports" }],
         "typescript/explicit-function-return-type": "off", // Forces declarations inference states, CLAUDE.md checker rule
@@ -98,9 +126,9 @@
         "typescript/explicit-module-boundary-types": "off", // Forces declarations inference states, CLAUDE.md checker rule
         "typescript/no-base-to-string": ["error", { "checkUnknown": true }],
         "typescript/no-confusing-void-expression": ["error", { "ignoreArrowShorthand": true }],
+        "typescript/no-deprecated": ["error", { "allow": [{ "from": "package", "package": "@opentelemetry/semantic-conventions", "name": ["ATTR_GEN_AI_OPERATION_NAME", "ATTR_GEN_AI_PROMPT_NAME", "ATTR_GEN_AI_TOOL_NAME", "ATTR_MCP_METHOD_NAME", "ATTR_MCP_RESOURCE_URI", "METRIC_MCP_SERVER_OPERATION_DURATION"] }] }], // GenAI and MCP names moved to a repository publishing no package, values unchanged
         "typescript/no-generated-empty-object-type": "off", // `Record<never, never>` is the empty case of `Data.TaggedEnum`
         "typescript/no-invalid-void-type": "off", // Effect signatures take `void` type arguments (`Effect.callback<void>`)
-        "typescript/no-deprecated": ["error", { "allow": [{ "from": "package", "package": "@opentelemetry/semantic-conventions", "name": ["ATTR_GEN_AI_OPERATION_NAME", "ATTR_GEN_AI_PROMPT_NAME", "ATTR_GEN_AI_TOOL_NAME", "ATTR_MCP_METHOD_NAME", "ATTR_MCP_RESOURCE_URI", "METRIC_MCP_SERVER_OPERATION_DURATION"] }] }], // GenAI and MCP names moved to a repository publishing no package, values unchanged
         "typescript/no-misused-spread": "off", // Flags class spreads (`{ ...this }`, `{ ...Pg }`), `allow` lists each class by hand
         "typescript/no-unnecessary-type-arguments": "off", // Flags `Effect.context<never>()`, and omitting it widens `R` to `any` in `Effect.all`
         "typescript/no-unnecessary-type-parameters": "off", // Counts a class parameter whose one use is its base type argument (`Data.Class<{ env: E }>`) as unused, the shape of every generic data class
@@ -108,6 +136,9 @@
         "typescript/promise-function-async": "off", // Pushes toward `async`, which Effect `asyncFunction` refuses
         "typescript/strict-boolean-expressions": "off", // Effect `strictBooleanExpressions` owns the defect
         "typescript/unbound-method": "off", // Flags `Intl` getters `lib.d.ts` types as methods, and `import.meta.resolve`
+
+        // --- [UNICORN]
+
         "unicorn/import-style": ["error", { "styles": { "node:path": { "named": true, "default": false } }, "checkDynamicImport": false }],
         "unicorn/max-nested-calls": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
         "unicorn/no-array-callback-reference": "off", // Point-free calls, CLAUDE.md functional rule
@@ -123,6 +154,9 @@
         "unicorn/text-encoding-identifier-case": ["error", { "withDash": true }],
         "unicorn/throw-new-error": "off" // Flags `Schema.TaggedError<X>()(...)` class heritage calls
     },
+
+    // --- [OVERRIDES] -------------------------------------------------------------------
+
     "overrides": [
         {
             "files": ["**/*.config.ts"],
@@ -152,15 +186,15 @@
         {
             "files": ["**/creative-cloud/*/host.ts"], // ExtendScript runs ES3, swc lowers syntax alone
             "rules": {
-                "guard-for-in": "off",
                 "complexity": "off",
+                "guard-for-in": "off",
                 "no-nested-ternary": "off",
                 "no-param-reassign": ["error", { "props": false }], // ES3 has no `Reflect.set`, a host object takes each key by assignment
-                "typescript/no-unsafe-type-assertion": "off", // ES3 has no `Reflect.set`, and host interfaces hold no index signature an assignment writes through
-                "typescript/no-base-to-string": "off",
                 "prefer-named-capture-group": "off",
                 "prefer-object-has-own": "off",
                 "require-unicode-regexp": "off",
+                "typescript/no-base-to-string": "off",
+                "typescript/no-unsafe-type-assertion": "off", // ES3 has no `Reflect.set`, and host interfaces hold no index signature an assignment writes through
                 "typescript/only-throw-error": "off",
                 "typescript/prefer-string-starts-ends-with": "off",
                 "unicorn/no-nested-ternary": "off",
@@ -178,8 +212,8 @@
             "rules": {
                 "node/callback-return": "off", // Hooks await `next`, a `claude-code` continuation
                 "promise/no-callback-in-promise": "off", // Hooks await `next`, a `claude-code` continuation
-                "unicorn/catch-error-name": "off", // Reads the engine `$` a `claude-code` `on(...).catch` handler takes first as a rejection value
-                "typescript/no-unsafe-assignment": "off" // Hooks modules import `claude-code` alone, so no decoder types the `JSON.parse` of a server reply
+                "typescript/no-unsafe-assignment": "off", // Hooks modules import `claude-code` alone, so no decoder types the `JSON.parse` of a server reply
+                "unicorn/catch-error-name": "off" // Reads the engine `$` a `claude-code` `on(...).catch` handler takes first as a rejection value
             }
         },
         {
@@ -192,13 +226,13 @@
             "rules": {
                 "no-empty-pattern": ["error", { "allowObjectPatternsAsParameters": true }],
                 "vitest/consistent-test-it": ["error", { "fn": "it" }],
+                "vitest/no-importing-vitest-globals": "off", // Contradicts `prefer-importing-vitest-globals`
                 "vitest/no-standalone-expect": ["error", { "additionalTestBlockFunctions": ["it", "it.each", "it.for"] }],
                 "vitest/prefer-called-times": "off", // Contradicts `vitest/prefer-called-once`
+                "vitest/prefer-expect-assertions": ["error", { "onlyFunctionsWithExpectInLoop": true, "onlyFunctionsWithExpectInCallback": true }], // Tests asserting in a loop or callback alone, where a skipped callback leaves the test vacuous
                 "vitest/prefer-lowercase-title": ["error", { "ignore": ["describe"] }],
                 "vitest/prefer-to-be-falsy": "off", // Contradicts `prefer-strict-boolean-matchers`
                 "vitest/prefer-to-be-truthy": "off", // Contradicts `prefer-strict-boolean-matchers`
-                "vitest/no-importing-vitest-globals": "off", // Contradicts `prefer-importing-vitest-globals`
-                "vitest/prefer-expect-assertions": ["error", { "onlyFunctionsWithExpectInLoop": true, "onlyFunctionsWithExpectInCallback": true }], // Tests asserting in a loop or callback alone, where a skipped callback leaves the test vacuous
                 "vitest/require-hook": "off", // Shared suites register cases by a top-level call
                 "vitest/require-test-timeout": "off", // Configuration states departures from defaults
                 "vitest/require-top-level-describe": "off", // Forces a `describe` restating the file subject

@@ -1,9 +1,9 @@
 {
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
+        "noEmit": true,
         "jsx": "react-jsx",
-        "module": "preserve",
-        "noEmit": true
+        "module": "preserve"
     },
     "files": [],
     "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }, { "path": "./tsconfig.worker.json" }]

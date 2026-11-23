@@ -2,7 +2,7 @@
     "name": "@rasm/object-model",
     "version": "0.1.0",
     "private": true,
-    "description": "Object model every scriptable Adobe host shares: specifiers addressing host objects, references to them, class and enumeration pages read from declared sources (vendor TypeScript declarations through the native compiler, which also checks scripts, omv XML dictionaries, scripting API manifests, reference table rows), the error of a host call, and the plain JavaScript grammar, walker, reference producer, and value encoder ExtendScript and UXP both run",
+    "description": "Object model scriptable Adobe hosts share: object specifiers, class pages from vendor declarations, and a script parser and value encoder for ExtendScript and UXP",
     "license": "MIT",
     "repository": {
         "type": "git",

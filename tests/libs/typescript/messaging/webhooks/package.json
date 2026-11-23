@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-webhooks",
     "private": true,
-    "description": "Webhook suites on Node and in workerd: known-answer signatures per scheme row, signatures exchanged with each reference library, tolerance, secret rotation, delivery ids, duplicate deliveries, delivery status, transient retry after retry-after delays, and queued delivery retry",
+    "description": "@rasm/webhooks suites on Node and workerd over each signature scheme, reference libraries, and delivery retries",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-portfolio-webdriver",
     "private": true,
-    "description": "Portfolio suite in the installed Firefox and, on macOS, Safari, each driven over WebDriver against the built Node bundle with its own database and object storage: the page a visitor sees and the editor its owner sees at each width, by the cases the Chromium suite runs",
+    "description": "@rasm/portfolio suites in Firefox and Safari over WebDriver against its built Node bundle",
     "type": "module",
     "devDependencies": {
         "@effect/platform-node": "catalog:",

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-indesign",
     "private": true,
-    "description": "InDesign library suite over a host double: the undo step, label, and restored interaction level of a do script body",
+    "description": "@rasm/indesign suites over a host double, covering undo steps, labels, and interaction levels of do script bodies",
     "type": "module",
     "devDependencies": {
         "@rasm/indesign": "workspace:*",

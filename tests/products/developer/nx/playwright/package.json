@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-playwright",
     "private": true,
-    "description": "@rasm/nx-playwright suites over temporary workspaces: the projects, webServer task dependencies, inputs, outputs, config loading, and inference cache of the graph Nx builds with the plugin",
+    "description": "@rasm/nx-playwright suites over projects, webServer task dependencies, and inference cache in temporary workspaces",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

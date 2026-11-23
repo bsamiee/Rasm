@@ -2,7 +2,7 @@
     "name": "@rasm/vite",
     "version": "0.1.0",
     "private": true,
-    "description": "Vite plugins and configs of Rasm builds: Rolldown warnings whose output runs wrong fail a build, a package import carrying a Vite query resolves by its path, and a Chrome extension builds its service worker, pages, manifest, locales, and painted icons from its manifest.json",
+    "description": "Vite plugins and configs for Rasm builds, failing a build on Rolldown warnings that break output and building Chrome extensions from manifest.json",
     "license": "MIT",
     "repository": {
         "type": "git",

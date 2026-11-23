@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-portfolio",
     "private": true,
-    "description": "Portfolio suite in Chromium against the built Node bundle on an allocated port, each test with its own database and object storage in a temporary folder: the served site and its accessibility, the page a visitor sees and the editor its owner sees at each width, sessions and owner endpoints, and the editor from a new entry through save, refused publish, preview, publish, a newer draft, and removal",
+    "description": "@rasm/portfolio suites in Chromium against its built Node bundle, covering site, accessibility, and owner editor",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"

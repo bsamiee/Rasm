@@ -2,8 +2,8 @@
     "extends": "./tsconfig.json",
     "compilerOptions": {
         "composite": false,
-        "customConditions": ["workerd"],
         "lib": ["esnext", "dom"],
+        "customConditions": ["workerd"],
         "types": ["@cloudflare/workers-types", "vite/client"]
     },
     "include": ["server/main.ts"],

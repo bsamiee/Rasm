@@ -41,26 +41,31 @@ Library manifest:
 {
     "name": "@scope/<package>",
     "version": "0.1.0",
+    "private": true,
+    "description": "<what the package is for>",
+    "license": "MIT",
+    "repository": { "type": "git", "url": "git+https://github.com/<owner>/<repository>.git", "directory": "<folder>" },
+    "files": ["dist/**/*.js", "dist/**/*.d.ts"],
     "type": "module",
     "sideEffects": false,
+    "imports": { "#/*": "./*.ts" },
     "exports": {
         ".": "./index.ts",
         "./node": "./node.ts",
         "./package.json": "./package.json"
     },
-    "imports": { "#/*": "./*.ts" },
-    "files": ["dist/**/*.js", "dist/**/*.d.ts"],
-    "peerDependencies": { "effect": "catalog:peers" },
-    "devDependencies": { "effect": "catalog:" },
     "publishConfig": {
-        "access": "public",
+        "imports": { "#/*": "./dist/*.js" },
         "exports": {
             ".": "./dist/index.js",
             "./node": "./dist/node.js",
             "./package.json": "./package.json"
         },
-        "imports": { "#/*": "./dist/*.js" }
-    }
+        "access": "public"
+    },
+    "devDependencies": { "effect": "catalog:" },
+    "peerDependencies": { "effect": "catalog:peers" },
+    "engines": { "node": ">=<major>" }
 }
 ```
 
@@ -70,12 +75,12 @@ Library manifest fields:
 | :-----: | :-------------- | :-------------------------------- | :------------------------------------------------------- |
 |  [01]   | `version`       | Package's release version         | Release tooling reads and writes it in each manifest     |
 |  [02]   | `private`       | `true` where no upload is wanted  | Stops `pnpm publish` alone                               |
-|  [03]   | `type`          | `"module"`                        | Node treats `.js` files as CommonJS without it           |
-|  [04]   | `sideEffects`   | `false`, or files that register   | Bundlers drop modules consumers leave unused             |
-|  [05]   | `exports`       | `.` and one entry per runtime     | Closed entry map, unlisted paths stay unimportable       |
+|  [03]   | `files`         | `dist` `.js` and `.d.ts` globs    | Tarball allowlist                                        |
+|  [04]   | `type`          | `"module"`                        | Node treats `.js` files as CommonJS without it           |
+|  [05]   | `sideEffects`   | `false`, or files that register   | Bundlers drop modules consumers leave unused             |
 |  [06]   | `imports`       | Rows its specifiers use           | Package files reach each other through `#/`              |
-|  [07]   | `files`         | `dist` `.js` and `.d.ts` globs    | Tarball allowlist                                        |
-|  [08]   | `publishConfig` | `exports` and `imports` to `dist` | Both replace source entries at pack                      |
+|  [07]   | `exports`       | `.` and one entry per runtime     | Closed entry map, unlisted paths stay unimportable       |
+|  [08]   | `publishConfig` | `imports` and `exports` to `dist` | Both replace source entries at pack                      |
 |  [09]   | `engines.node`  | `>=<major>`                       | Node major mise installs                                 |
 |  [10]   | `nx`            | Facts no manifest row states      | Holds tags and target options in place of `project.json` |
 

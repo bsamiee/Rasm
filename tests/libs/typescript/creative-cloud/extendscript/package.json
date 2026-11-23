@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-extendscript",
     "private": true,
-    "description": "ExtendScript suites: cached core declarations whose hash differs from the pinned one are refused and fetched again",
+    "description": "@rasm/extendscript suites over cached core declarations and their pinned hash",
     "type": "module",
     "devDependencies": {
         "@effect/platform-node": "catalog:",

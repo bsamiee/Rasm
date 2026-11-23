@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-pulumi",
     "private": true,
-    "description": "@rasm/nx-pulumi suites over temporary workspaces through the Nx graph and task graph: which packages run a Pulumi Automation API program, task order, inputs, and the inferred commands run",
+    "description": "@rasm/nx-pulumi suites over project and task graphs in temporary workspaces, with inferred commands run",
     "type": "module",
     "devDependencies": {
         "@rasm/nx-pulumi": "workspace:*",

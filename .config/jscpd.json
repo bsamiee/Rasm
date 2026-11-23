@@ -1,15 +1,15 @@
 {
     "kind": ["ast"],
-    "similarity": 0.8,
-    "minNodes": 210,
     "minLines": 1,
+    "minNodes": 210,
     "minTokens": 1,
-    "pattern": "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,py,pyi,rs,swift,cs,c,h,cpp,cppm,ixx,cc,cxx,hpp,hh,hxx,java}",
-    "ignore": ["**/sdks/**", "assets/**"],
+    "similarity": 0.8,
     "format": ["typescript", "tsx", "javascript", "jsx", "python", "rust", "swift", "csharp", "c", "cpp", "cpp-header", "java"],
+    "ignore": ["assets/**", "infra/sdks/**"],
+    "pattern": "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,py,pyi,rs,swift,cs,c,h,cpp,cppm,ixx,cc,cxx,hpp,hh,hxx,java}",
     "absolute": true,
     "exitCode": 1,
-    "reporters": ["xcode"],
+    "noColors": true,
     "noTips": true,
-    "noColors": true
+    "reporters": ["xcode"]
 }

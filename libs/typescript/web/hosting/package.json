@@ -2,7 +2,7 @@
     "name": "@rasm/hosting",
     "version": "0.1.0",
     "private": true,
-    "description": "One web app declared once and hosted by any provider: its bindings resolved per runtime, request identity and enrollment, one server shape served on Node or Workers, Node bundle and Worker configuration, Cloudflare and machine deployment, head assets, and a server-rendered document streamed with the head tags of the built page",
+    "description": "Web apps declared once and hosted on Node or Cloudflare Workers, with bindings, request identity, deployment, and streamed server rendering",
     "license": "MIT",
     "repository": {
         "type": "git",

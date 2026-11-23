@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-cargo",
     "private": true,
-    "description": "@rasm/nx-cargo suite: Cargo workspaces in temporary folders read through the real Nx graph pipeline, each inferred cargo, nextest, and release target run by its executor where its behaviour shows only in a run",
+    "description": "@rasm/nx-cargo suites over Cargo workspaces in temporary folders and their inferred targets",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

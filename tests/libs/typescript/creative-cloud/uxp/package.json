@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-uxp",
     "private": true,
-    "description": "UXP manifest and plug-in build suite: the icon size each species takes, the fill each host paints, and the icons a plug-in build writes from a mark and its panel glyphs",
+    "description": "@rasm/uxp suites over manifest icon sizes and icons a plug-in build writes",
     "type": "module",
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",

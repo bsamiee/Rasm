@@ -8,69 +8,75 @@ packages:
     - 'infra'
     - 'tools/*'
     - '!**/dist/**'
+
+# --- [SETTINGS] -------------------------------------------------------------------------
+
 catalogMode: strict
-saveExact: true
 minimumReleaseAge: 0
+saveExact: true
+
+# --- [PATCHES] --------------------------------------------------------------------------
+
 patchedDependencies:
     '@leeoniya/ufuzzy@1.0.19': .config/patches/@leeoniya__ufuzzy@1.0.19.patch
     '@types/chrome@0.3.7': .config/patches/@types__chrome@0.3.7.patch
-    effect@4.1.5: .config/patches/effect@4.1.5.patch
+    effect@4.1.5: .config/patches/effect@4.1.5.patch # Initialize-era MCP revisions the `@rasm/mcp` suites negotiate, until `McpClient.ProtocolVersion` lists them
 
 # --- [CATALOG] --------------------------------------------------------------------------
 
 catalog:
     # --- [CORE]
 
-    effect: 4.1.5
-    '@effect/platform-node': 4.1.5
-    '@effect/platform-bun': 4.1.5
     '@effect/platform-browser': 4.1.5
+    '@effect/platform-bun': 4.1.5
     '@effect/platform-cloudflare': 4.1.5
+    '@effect/platform-node': 4.1.5
+    effect: 4.1.5
 
     # --- [SERIALIZATION]
 
-    jsesc: 3.1.0 # JavaScript literals for Acrobat scripts
-    '@types/jsesc': 3.0.3
-    '@solana/codecs': 8.7.0-canary-20261120143344 # Bidirectional binary format declarations for Adobe palette exchange
     '@bufbuild/protobuf': 2.17.0
     '@bufbuild/protoc-gen-es': 2.17.0 # `buf generate` plugin writing TypeScript messages and service descriptors from a `.proto`
     '@bufbuild/protovalidate': 1.3.0
     '@msgpack/msgpack': 3.1.3
-    rfc6902: 5.5.0
-    avsc: 6.0.0-alpha.15
     '@oslojs/encoding': 1.1.0
+    '@solana/codecs': 8.7.0-canary-20261120143344 # Bidirectional binary format declarations for Adobe palette exchange
+    '@types/jsesc': 3.0.3
+    avsc: 6.0.0-alpha.15
+    jsesc: 3.1.0 # JavaScript literals for Acrobat scripts
+    rfc6902: 5.5.0
 
     # --- [PARSING]
 
-    plist: 5.1.2 # Property-list parser and builder
-    '@plist/parse': 1.1.0 # Binary, XML, and OpenStep property-list parser
-    ssh-config: 5.3.1 # OpenSSH client configuration parser and writer
-    yaml: 3.0.0-2
     '@decimalturn/toml-patch': 3.3.3 # TOML edits keeping layout and comments
-    jsonc-parser: 4.0.0-next.2 # JSON edits keeping layout
-    json5: 2.2.3 # Xcode project file parser
-    chevrotain: 13.2.0
-    sh-syntax: 0.8.7 # mvdan/sh shell parser compiled to WebAssembly, typed syntax trees of POSIX, Bash, mksh, Bats, and Zsh
+    '@plist/parse': 1.1.0 # Binary, XML, and OpenStep property-list parser
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
     acorn-walk: 8.3.5 # ESTree syntax tree walker
     astring: 1.9.0 # JavaScript source text from ESTree syntax trees
+    chevrotain: 13.2.0
+    json5: 2.2.3 # Xcode project file parser
+    jsonc-parser: 4.0.0-next.2 # JSON edits keeping layout
+    plist: 5.1.2 # Property-list parser and builder
+    sh-syntax: 0.8.7 # mvdan/sh shell parser compiled to WebAssembly, typed syntax trees of POSIX, Bash, mksh, Bats, and Zsh
+    ssh-config: 5.3.1 # OpenSSH client configuration parser and writer
+    yaml: 3.0.0-2
 
     # --- [MARKUP]
 
+    '@xml-tools/ast': 5.0.6 # XML elements and attributes over parser tokens, for edits keeping layout
+    '@xml-tools/parser': 1.0.12 # XML syntax tree with token offsets
+    '@xmldom/xmldom': 0.9.12 # Namespace-preserving XMP document updates
+    cheerio: 1.2.0 # HTML parser for Acrobat accessibility report rows and server-rendered page templates
     fast-xml-builder: 1.3.2
     fast-xml-parser: 5.12.1
-    '@xmldom/xmldom': 0.9.12 # Namespace-preserving XMP document updates
-    '@xml-tools/parser': 1.0.12 # XML syntax tree with token offsets
-    '@xml-tools/ast': 5.0.6 # XML elements and attributes over parser tokens, for edits keeping layout
-    cheerio: 1.2.0 # HTML parser for Acrobat accessibility report rows and server-rendered page templates
-    parse5: 8.1.1 # Serializer for MCP application documents
     isomorphic-dompurify: 4.8.0
+    parse5: 8.1.1 # Serializer for MCP application documents
 
     # --- [TEXT]
 
-    validator: 13.15.35
     '@types/validator': 13.15.10
     shell-quote: 1.12.0 # POSIX shell argument quoting and parsing
+    validator: 13.15.35
 
     # --- [SEARCH]
 
@@ -78,29 +84,29 @@ catalog:
 
     # --- [FILES]
 
-    chokidar: 6.0.0
     '@parcel/watcher': 2.6.0
+    '@types/which': 3.0.4
+    chokidar: 6.0.0
+    env-paths: 4.0.0 # Per-user data, config, cache, log, and temp folders of each platform
     jszip: 3.10.2
     minimatch: 11.0.9
     package-directory: 8.2.0 # Nearest package directory from existing or generated paths
-    env-paths: 4.0.0 # Per-user data, config, cache, log, and temp folders of each platform
     which: 7.0.0 # Executable lookup over PATH and PATHEXT
-    '@types/which': 3.0.4
 
     # --- [HASHING]
 
-    hash-wasm: 4.13.0
-    '@node-rs/argon2': 2.2.2
     '@noble/hashes': 2.4.0
+    '@node-rs/argon2': 2.2.2
+    hash-wasm: 4.13.0
 
     # --- [AUTHENTICATION]
 
-    jose: 6.2.18
-    openid-client: 6.9.1
+    '@otplib/core': 13.6.0
     '@simplewebauthn/browser': 14.0.0
     '@simplewebauthn/server': 14.1.0
+    jose: 6.2.18
+    openid-client: 6.9.1
     otplib: 13.6.0
-    '@otplib/core': 13.6.0
 
     # --- [SECRETS]
 
@@ -113,8 +119,8 @@ catalog:
     # --- [REMOTE_PROCEDURE_CALLS]
 
     '@connectrpc/connect': 2.3.0
-    '@connectrpc/connect-web': 2.3.0
     '@connectrpc/connect-node': 2.3.0
+    '@connectrpc/connect-web': 2.3.0
     vscode-languageserver-protocol: 3.18.6 # Typed LSP requests, notifications, and stdio connections
     vscode-languageserver-textdocument: 1.0.16
 
@@ -123,114 +129,114 @@ catalog:
     '@aws-sdk/client-s3': 3.1175.0
     '@aws-sdk/client-sts': 3.1175.0 # AssumeRole credentials scoped to one bucket
     '@aws-sdk/lib-storage': 3.1175.0
-    '@smithy/core': 3.41.0 # Request type AWS SDK middleware narrows before setting a header
     '@effect-aws/client-s3': 2.0.0 # S3 commands as Effects with tagged service errors, paginator streams, and scoped client release
     '@effect-aws/client-sts': 2.0.0 # STS commands as Effects with tagged service errors and scoped client release
-    '@tus/server': 2.4.7
+    '@smithy/core': 3.41.0 # Request type AWS SDK middleware narrows before setting a header
     '@tus/s3-store': 2.1.0
-    webdav: 5.11.0
-    basic-ftp: 6.2.6
-    partial-content: 6.0.0
-    aws4fetch: 1.0.20 # SigV4 signer over fetch and WebCrypto, presigning S3 requests in Workers and Node
+    '@tus/server': 2.4.7
+    '@uppy/aws-s3': 6.3.1
     '@uppy/core': 6.3.2
     '@uppy/dashboard': 6.0.3
     '@uppy/react': 6.1.1
-    '@uppy/aws-s3': 6.3.1
+    aws4fetch: 1.0.20 # SigV4 signer over fetch and WebCrypto, presigning S3 requests in Workers and Node
+    basic-ftp: 6.2.6
+    partial-content: 6.0.0
     tus-js-client: 5.0.0-pre3
+    webdav: 5.11.0
 
     # --- [MESSAGING]
 
-    cloudevents: 10.0.0
-    mqtt: 5.16.1
+    '@confluentinc/schemaregistry': 1.11.0 # Schema Registry client with Avro, Protobuf, and JSON Schema serializers
     '@platformatic/kafka': 2.17.0 # Kafka producers, consumer groups under the KIP-848 protocol, transactions, and admin calls with no native build
     '@platformatic/kafka-opentelemetry': 0.5.0 # Producer and consumer spans for `@platformatic/kafka`
-    '@confluentinc/schemaregistry': 1.11.0 # Schema Registry client with Avro, Protobuf, and JSON Schema serializers
-    zeromq: 6.8.0 # ZeroMQ sockets over the bundled libzmq build
-    standardwebhooks: 1.3.0 # Standard Webhooks signing and signature verification
-    nodemailer: 10.6.1
     '@types/nodemailer': 8.0.2
+    cloudevents: 10.0.0
+    mqtt: 5.16.1
+    nodemailer: 10.6.1
+    standardwebhooks: 1.3.0 # Standard Webhooks signing and signature verification
+    zeromq: 6.8.0 # ZeroMQ sockets over the bundled libzmq build
 
     # --- [OBSERVABILITY]
 
     '@effect/opentelemetry': 4.1.5
-    '@opentelemetry/semantic-conventions': 1.45.0
     '@opentelemetry/api': 1.10.0
     '@opentelemetry/api-logs': 0.223.2 # Severity numbers `@effect/opentelemetry` imports, `@opentelemetry/api` holds every other log type
+    '@opentelemetry/baggage-span-processor': 0.6.1
     '@opentelemetry/context-async-hooks': 3.1.1
     '@opentelemetry/context-zone': 3.1.1
     '@opentelemetry/core': 3.1.1
-    '@opentelemetry/otlp-exporter-base': 0.301.2
-    '@opentelemetry/resources': 3.1.1
-    '@opentelemetry/resource-detector-aws': 3.1.0
-    '@opentelemetry/resource-detector-container': 0.9.1
-    '@opentelemetry/resource-detector-gcp': 0.60.0
-    '@opentelemetry/opentelemetry-browser-detector': 0.301.2
-    '@opentelemetry/sdk-logs': 3.1.1
-    '@opentelemetry/sdk-metrics': 3.1.1
-    '@opentelemetry/sdk-trace': 3.1.1
-    '@opentelemetry/sdk-node': 0.301.2 # Providers, exporters, propagators, and resource detectors built from `OTEL_*` variables
-    '@opentelemetry/propagator-env-carrier': 0.301.2 # Getter and setter carrying trace context and baggage through process environment variables
-    '@opentelemetry/instrumentation-host-metrics': 0.8.0
-    '@opentelemetry/baggage-span-processor': 0.6.1
+    '@opentelemetry/exporter-logs-otlp-http': 0.301.2
+    '@opentelemetry/exporter-logs-otlp-proto': 0.301.2
     '@opentelemetry/exporter-metrics-otlp-grpc': 0.301.2
     '@opentelemetry/exporter-metrics-otlp-http': 0.301.2
     '@opentelemetry/exporter-metrics-otlp-proto': 0.301.2
     '@opentelemetry/exporter-trace-otlp-http': 0.301.2
     '@opentelemetry/exporter-trace-otlp-proto': 0.301.2
-    '@opentelemetry/exporter-logs-otlp-http': 0.301.2
-    '@opentelemetry/exporter-logs-otlp-proto': 0.301.2
     '@opentelemetry/instrumentation': 0.301.2
+    '@opentelemetry/instrumentation-aws-sdk': 0.80.0 # Spans for AWS SDK calls, recorded by a registered OpenTelemetry tracer provider
+    '@opentelemetry/instrumentation-document-load': 0.70.1
+    '@opentelemetry/instrumentation-fetch': 0.301.2
+    '@opentelemetry/instrumentation-host-metrics': 0.8.0
     '@opentelemetry/instrumentation-http': 0.301.2
     '@opentelemetry/instrumentation-pg': 0.78.0
-    '@opentelemetry/instrumentation-undici': 0.35.1
+    '@opentelemetry/instrumentation-redis': 0.73.0 # Spans for `redis` commands against Valkey
     '@opentelemetry/instrumentation-runtime-node': 0.38.0
-    '@opentelemetry/instrumentation-fetch': 0.301.2
-    '@opentelemetry/instrumentation-document-load': 0.70.1
+    '@opentelemetry/instrumentation-undici': 0.35.1
     '@opentelemetry/instrumentation-user-interaction': 0.69.1
     '@opentelemetry/instrumentation-xml-http-request': 0.301.2
-    '@opentelemetry/instrumentation-aws-sdk': 0.80.0 # Spans for AWS SDK calls, recorded by a registered OpenTelemetry tracer provider
-    '@opentelemetry/instrumentation-redis': 0.73.0 # Spans for `redis` commands against Valkey
+    '@opentelemetry/opentelemetry-browser-detector': 0.301.2
+    '@opentelemetry/otlp-exporter-base': 0.301.2
+    '@opentelemetry/propagator-env-carrier': 0.301.2 # Getter and setter carrying trace context and baggage through process environment variables
+    '@opentelemetry/resource-detector-aws': 3.1.0
+    '@opentelemetry/resource-detector-container': 0.9.1
+    '@opentelemetry/resource-detector-gcp': 0.60.0
+    '@opentelemetry/resources': 3.1.1
+    '@opentelemetry/sdk-logs': 3.1.1
+    '@opentelemetry/sdk-metrics': 3.1.1
+    '@opentelemetry/sdk-node': 0.301.2 # Providers, exporters, propagators, and resource detectors built from `OTEL_*` variables
+    '@opentelemetry/sdk-trace': 3.1.1
+    '@opentelemetry/semantic-conventions': 1.45.0
     '@pyroscope/nodejs': 0.7.1
-    web-vitals: 6.2.3
     rotating-file-stream: 4.0.0 # Log file stream rotated by size and interval, kept by count and total size, compressed with gzip
+    web-vitals: 6.2.3
 
     # --- [LANGUAGE_MODELS]
 
     '@effect/ai-anthropic': 4.1.5
-    '@effect/ai-openai': 4.1.5
-    '@effect/ai-openrouter': 4.1.5
-    '@effect/ai-openai-compat': 4.1.5
     '@effect/ai-cloudflare': 4.1.5
+    '@effect/ai-openai': 4.1.5
+    '@effect/ai-openai-compat': 4.1.5
+    '@effect/ai-openrouter': 4.1.5
     '@effect/ai-typesafe': 4.1.5
     '@modelcontextprotocol/ext-apps': 2.1.0 # MCP application protocol and browser client
 
     # --- [USER_INTERFACE]
 
-    react: 19.3.1
-    react-dom: 19.3.1
-    '@types/react': 19.3.0
-    '@types/react-dom': 19.3.0
-    scheduler: 0.28.0
-    react-compiler-runtime: 1.0.0
-    react-error-boundary: 6.1.6
-    react-aria: 3.53.1
-    react-aria-components: 1.22.1
-    react-stately: 3.51.0
-    '@react-aria/live-announcer': 3.5.1
+    '@dnd-kit/helpers': 0.5.3
+    '@dnd-kit/react': 0.5.3
     '@effect/atom-react': 4.1.5
     '@floating-ui/react': 0.27.20
+    '@panzoom/panzoom': 4.6.2 # Pan and zoom gestures over snapshots
+    '@react-aria/live-announcer': 3.5.1
     '@tanstack/react-table': 9.3.1
     '@tanstack/react-virtual': 3.14.28
     '@tanstack/store': 0.11.3
+    '@types/react': 19.3.0
+    '@types/react-dom': 19.3.0
     '@use-gesture/react': 10.3.1
-    '@dnd-kit/helpers': 0.5.3
-    '@dnd-kit/react': 0.5.3
     embla-carousel-react: 9.0.0-rc04
-    '@panzoom/panzoom': 4.6.2 # Pan and zoom gestures over snapshots
-    react-zoom-pan-pinch: 4.4.0
-    react-resizable-panels: 4.24.1
     nuqs: 2.10.3
     outlay: 1.4.1 # Content-sized web grid tracks
+    react: 19.3.1
+    react-aria: 3.53.1
+    react-aria-components: 1.22.1
+    react-compiler-runtime: 1.0.0
+    react-dom: 19.3.1
+    react-error-boundary: 6.1.6
+    react-resizable-panels: 4.24.1
+    react-stately: 3.51.0
+    react-zoom-pan-pinch: 4.4.0
+    scheduler: 0.28.0
 
     # --- [STYLING]
 
@@ -239,9 +245,9 @@ catalog:
 
     # --- [ICONS]
 
-    lucide-react: 1.77.0
-    bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
     '@material-symbols/svg-400': 0.49.0 # Material Symbols SVG masters, the glyph set Chrome's own UI draws
+    bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
+    lucide-react: 1.77.0
 
     # --- [ANIMATION]
 
@@ -249,18 +255,18 @@ catalog:
 
     # --- [RICH_TEXT]
 
-    prosemirror-model: 1.25.13
-    prosemirror-state: 1.4.4
-    prosemirror-view: 1.43.0
-    prosemirror-transform: 1.12.7
+    prosemirror-collab: 1.3.1
     prosemirror-commands: 1.7.2
-    prosemirror-keymap: 1.2.3
+    prosemirror-dropcursor: 1.8.4
+    prosemirror-gapcursor: 1.4.1
     prosemirror-history: 1.5.2
     prosemirror-inputrules: 1.7.0
+    prosemirror-keymap: 1.2.3
+    prosemirror-model: 1.25.13
     prosemirror-schema-list: 1.6.1
-    prosemirror-gapcursor: 1.4.1
-    prosemirror-dropcursor: 1.8.4
-    prosemirror-collab: 1.3.1
+    prosemirror-state: 1.4.4
+    prosemirror-transform: 1.12.7
+    prosemirror-view: 1.43.0
 
     # --- [SERVICE_WORKERS]
 
@@ -269,33 +275,33 @@ catalog:
 
     # --- [DATA_STORAGE]
 
-    '@electric-sql/d2mini': 0.1.8
-    '@electric-sql/d2ts': 0.1.8
-    '@effect/sql-pg': 4.1.5
-    '@effect/sql-sqlite-node': 4.1.5
-    '@effect/sql-sqlite-bun': 4.1.5
-    '@effect/sql-sqlite-wasm': 4.1.5
-    '@effect/sql-d1': 4.1.5
-    '@effect/sql-clickhouse': 4.1.5
-    '@effect/sql-sqlite-do': 4.1.5
     '@clickhouse/client': 1.25.0 # ClickHouse HTTP client with row streams, typed settings, and query parameters
     '@clickhouse/client-web': 1.25.0 # ClickHouse HTTP client over `fetch` for browsers and Workers
+    '@effect/sql-clickhouse': 4.1.5
+    '@effect/sql-d1': 4.1.5
+    '@effect/sql-pg': 4.1.5
+    '@effect/sql-sqlite-bun': 4.1.5
+    '@effect/sql-sqlite-do': 4.1.5
+    '@effect/sql-sqlite-node': 4.1.5
+    '@effect/sql-sqlite-wasm': 4.1.5
+    '@electric-sql/d2mini': 0.1.8
+    '@electric-sql/d2ts': 0.1.8
     '@pgsql/traverse': 18.8.10
     '@pgsql/types': 18.0.0
+    idb-keyval: 6.3.0
     pgsql-parser: 18.4.3
     pgvector: 0.3.1 # pgvector, halfvec, and sparsevec values encoded to and from SQL text
-    sqlite-vec: 0.1.10-alpha.4 # Loadable SQLite extension for `vec0` vector tables
-    idb-keyval: 6.3.0
     redis: 6.4.0-beta.0 # Valkey client `@effect/platform-node` `NodeRedis` wraps
+    sqlite-vec: 0.1.10-alpha.4 # Loadable SQLite extension for `vec0` vector tables
 
     # --- [COLUMNAR]
 
-    '@duckdb/node-api': 2.0.1-r.1 # In-process DuckDB for Node with prepared statements, appenders, and chunked results
-    '@duckdb/duckdb-wasm': 1.33.1-dev121.0 # DuckDB compiled to WebAssembly for browsers
     '@apache-arrow/adbc-driver-manager': 0.25.0 # ADBC drivers loaded from shared libraries, results read as Arrow tables
+    '@duckdb/duckdb-wasm': 1.33.1-dev121.0 # DuckDB compiled to WebAssembly for browsers
+    '@duckdb/node-api': 2.0.1-r.1 # In-process DuckDB for Node with prepared statements, appenders, and chunked results
     '@qualithm/arrow-flight-client': 0.3.0
-    parquet-wasm: 0.9.0
     apache-arrow: 21.2.0 # Arrow tables and record batches ADBC results arrive as
+    parquet-wasm: 0.9.0
 
     # --- [SOLVERS]
 
@@ -308,9 +314,9 @@ catalog:
 
     # --- [GEOMETRY]
 
-    watlas: 1.0.1
-    flatbush: 4.7.0 # Static spatial index for snap candidates
     clipper2-ts: 2.0.1-19 # Polygon offset and boolean operations for trap and bleed outlines
+    flatbush: 4.7.0 # Static spatial index for snap candidates
+    watlas: 1.0.1
 
     # --- [INTERCHANGE]
 
@@ -322,121 +328,121 @@ catalog:
 
     # --- [GEOSPATIAL]
 
-    maplibre-gl: 6.19.0
     '@deck.gl/core': 10.0.0-alpha.1
+    '@deck.gl/extensions': 10.0.0-alpha.1
     '@deck.gl/geo-layers': 10.0.0-alpha.1
     '@deck.gl/layers': 10.0.0-alpha.1
     '@deck.gl/mapbox': 10.0.0-alpha.1
     '@deck.gl/mesh-layers': 10.0.0-alpha.1
-    '@deck.gl/extensions': 10.0.0-alpha.1
+    '@geoarrow/deck.gl-geoarrow': 0.4.2
     '@loaders.gl/3d-tiles': '5.0.0-alpha.12'
     '@loaders.gl/core': '5.0.0-rc.2'
     '@loaders.gl/las': '5.0.0-alpha.14'
     '@loaders.gl/wkt': '5.0.0-alpha.14' # WKB and EWKB geometry values PostGIS returns, read and written
-    '@geoarrow/deck.gl-geoarrow': 0.4.2
     '@turf/turf': 7.4.0
     '@types/geojson': 7946.0.16
+    maplibre-gl: 6.19.0
 
     # --- [GRAPHICS]
 
-    three: 0.187.0
-    '@types/three': 0.187.0
-    three-mesh-bvh: 0.9.18
     '@google/model-viewer': 4.4.0
+    '@types/three': 0.187.0
     '@webgpu/types': 0.1.74
+    three: 0.187.0
+    three-mesh-bvh: 0.9.18
     typegpu: 0.12.10
 
     # --- [COLOR]
 
-    colorjs.io: 0.7.1
     '@texel/color': 1.1.11 # Cusp gamut mapping, Okhsl and Okhsv over RGB gamuts
-    culori: 4.0.2 # Deficiency filters, monotone splines, nearest color
     '@types/culori': 4.0.1
     color-space: 3.6.0 # Conformance vectors, CIECAM16, ICC v2 profile writer
-    spectral.js: 3.0.0 # Kubelka-Munk pigment mixing over reflectance
+    colorjs.io: 0.7.1
+    culori: 4.0.2 # Deficiency filters, monotone splines, nearest color
     jscolorengine: 1.7.1 # ICC profile decode, rendering intents, black point, proofing
+    spectral.js: 3.0.0 # Kubelka-Munk pigment mixing over reflectance
 
     # --- [IMAGING]
 
-    sharp: 0.35.5
     image-size: 2.1.0 # Image width and height read from encoded bytes
+    sharp: 0.35.5
 
     # --- [TYPOGRAPHY]
 
-    icu: 2.4.0 # ICU4X Unicode properties, joining types, and scripts compiled to WebAssembly
-    harfbuzzjs: 1.6.4 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
-    fontkit: 3.0.0
-    '@types/fontkit': 2.0.9
-    '@capsizecss/unpack': 4.0.1 # Font metrics and weighted width from font bytes
     '@capsizecss/core': 4.1.3 # Leading trim and fallback metric overrides
-    subset-font: 2.9.0 # Variable font instance as a font file
+    '@capsizecss/unpack': 4.0.1 # Font metrics and weighted width from font bytes
+    '@fontsource-variable/google-sans-flex': 5.3.2
+    '@fontsource-variable/inter': 5.3.0 # Inter variable font files for renders identical on every host
+    '@fontsource-variable/jetbrains-mono': 5.3.0
+    '@fontsource-variable/source-serif-4': 5.3.1
+    '@persian-tools/persian-tools': 5.0.0-beta.0 # Persian number words
+    '@quran.ws/tajwid-annotations': 0.1.0 # Tajweed spans pinned to a Mushaf edition
+    '@quran.ws/tajwid-rules': 0.1.0 # Tajweed rule and hukm names
+    '@quran.ws/text': 0.1.0 # Mushaf text, marks, pages, lines, and words
+    '@types/fontkit': 2.0.9
+    '@types/hyphen': 1.14.0
     flo-bezier3: 10.0.1 # Bezier intersection, area, and curvature over glyph outlines
     flo-boolean: 6.0.5 # Outline overlap removal
     flo-mat: 5.0.7 # Medial axis for stroke thickness and stress
+    fontkit: 3.0.0
+    harfbuzzjs: 1.6.4 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
     hyphen: 1.14.1 # Liang hyphenation patterns
-    '@types/hyphen': 1.14.0
+    icu: 2.4.0 # ICU4X Unicode properties, joining types, and scripts compiled to WebAssembly
     justif: 0.9.2 # Justified total-fit line breaking with protrusion, expansion, and tracking
     knuth-plass-linebreak: 0.9.6 # Ragged and centered total-fit line breaking
-    utopia-core: 1.6.0 # Fluid viewport type and space scales
-    '@persian-tools/persian-tools': 5.0.0-beta.0 # Persian number words
     quran-meta: 7.0.0 # Quran divisions per riwayah
-    '@quran.ws/text': 0.1.0 # Mushaf text, marks, pages, lines, and words
-    '@quran.ws/tajwid-rules': 0.1.0 # Tajweed rule and hukm names
-    '@quran.ws/tajwid-annotations': 0.1.0 # Tajweed spans pinned to a Mushaf edition
-    '@fontsource-variable/inter': 5.3.0 # Inter variable font files for renders identical on every host
-    '@fontsource-variable/source-serif-4': 5.3.1
-    '@fontsource-variable/jetbrains-mono': 5.3.0
-    '@fontsource-variable/google-sans-flex': 5.3.2
+    subset-font: 2.9.0 # Variable font instance as a font file
+    utopia-core: 1.6.0 # Fluid viewport type and space scales
 
     # --- [VISUALIZATION]
 
-    d3: 7.9.2
-    d3-array: 3.2.5 # Nearest guide bisection on one axis
-    '@types/d3-array': 3.2.2
-    uplot: 1.6.32
     '@observablehq/plot': 0.6.19
-    '@visx/scale': 4.0.0
-    '@visx/shape': 4.0.0
+    '@perspective-dev/client': 5.9.4
+    '@perspective-dev/viewer': 5.9.4
+    '@perspective-dev/viewer-charts': 5.9.4
+    '@perspective-dev/viewer-datagrid': 5.9.4
+    '@types/d3-array': 3.2.2
     '@visx/axis': 4.0.0
     '@visx/group': 4.0.0
     '@visx/responsive': 4.0.0
-    '@perspective-dev/client': 5.9.4
-    '@perspective-dev/viewer': 5.9.4
-    '@perspective-dev/viewer-datagrid': 5.9.4
-    '@perspective-dev/viewer-charts': 5.9.4
+    '@visx/scale': 4.0.0
+    '@visx/shape': 4.0.0
+    d3: 7.9.2
+    d3-array: 3.2.5 # Nearest guide bisection on one axis
+    uplot: 1.6.32
 
     # --- [DOCUMENTS]
 
-    hucre: 1.3.0
-    jspdf: 4.2.1
     '@embedpdf/core-geometry': 3.3.0
     '@embedpdf/engine': 3.3.0
     '@embedpdf/react': 3.3.0
-    pdfjs-dist: 6.5.438
-    papersizes-guide: 1.1.1 # Named paper formats with their standards
+    '@wasm-zoo/ghostscript': 0.7.2 # Ghostscript plate rasters and CMYK colorant coverage
     fraction.js: 5.3.4 # Exact ratios of declared dimensions
-    printing-services: 1.5.1 # Cover dimensions and print service constants
-    pdfnative: 1.9.0 # PDF/X-4 check, page boxes, printer marks
-    mupdf: 1.28.6 # PDF painted object walk and bounds
+    hucre: 1.3.0
+    jspdf: 4.2.1
     kura-pdf: 1.4.1 # PDF/X and PDF/A conversion and preflight
     kura-pdf-wasm: 1.4.1
+    mupdf: 1.28.6 # PDF painted object walk and bounds
     page-validation-wasm: 0.12.1 # PDF/A and PDF/UA rule check
-    '@wasm-zoo/ghostscript': 0.7.2 # Ghostscript plate rasters and CMYK colorant coverage
+    papersizes-guide: 1.1.1 # Named paper formats with their standards
+    pdfjs-dist: 6.5.438
+    pdfnative: 1.9.0 # PDF/X-4 check, page boxes, printer marks
+    printing-services: 1.5.1 # Cover dimensions and print service constants
 
     # --- [ADOBE_HOSTS]
 
     '@adobe-uxp-types/uxp': 0.1.4
     '@adobe/cc-ext-uxp-types': 7.3.1 # UXP module and globals the InDesign, Photoshop, and Premiere Pro declarations read
-    '@types/photoshop': 27.11.0
+    '@adobe/eslint-plugin-premierepro': 27.1.0-beta.23
     '@adobe/premierepro': 27.1.0-beta.23
+    '@bubblydoo/vitest-pool-cdp': 0.0.15
+    '@bubblydoo/vitest-pool-uxp': 0.0.15
+    '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
+    '@types/photoshop': 27.11.0
+    core-js: 3.51.0 # Web APIs UXP lacks, URL.canParse that Effect's URL schemas call
+    es5-shim: 4.6.7 # ECMAScript 5 built-ins for the ES3 ExtendScript engine that swc helpers call
     indesign-uxp-types: 2.0.0
     uxp-after-effects: github:AdobeDocs/uxp-after-effects#7d1cd01b4c69a9e02b77d48b3f919a6145a90841 # After Effects UXP reference tables, its only declared object model
-    '@adobe/eslint-plugin-premierepro': 27.1.0-beta.23
-    '@bubblydoo/vitest-pool-uxp': 0.0.15
-    '@bubblydoo/vitest-pool-cdp': 0.0.15
-    '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
-    es5-shim: 4.6.7 # ECMAScript 5 built-ins for the ES3 ExtendScript engine that swc helpers call
-    core-js: 3.51.0 # Web APIs UXP lacks, URL.canParse that Effect's URL schemas call
 
     # --- [BROWSER_EXTENSIONS]
 
@@ -445,124 +451,124 @@ catalog:
 
     # --- [INFRASTRUCTURE]
 
-    '@pulumi/pulumi': '3.278.0-alpha.x8c16455'
-    '@pulumi/kubernetes': '4.35.0-alpha.1795071157'
+    '@grafana/grafana-foundation-sdk': 0.0.22
     '@pulumi/aws': 7.55.0
     '@pulumi/awsx': '3.15.0'
-    '@pulumi/gcp': 10.6.0-alpha.1795205690
-    '@pulumi/postgresql': '3.19.0-alpha.1795071476'
-    '@pulumi/tls': '5.7.0-alpha.1795073110'
-    '@pulumi/random': '4.22.0-alpha.1795071935'
+    '@pulumi/cloudflare': '6.25.0-alpha.1795070434'
+    '@pulumi/cloudinit': '1.7.0-alpha.1795066676'
+    '@pulumi/command': '1.4.0-alpha.1795066938'
     '@pulumi/docker': '5.4.0-alpha.1795068126'
     '@pulumi/docker-build': '0.1.0-alpha.1795140949'
-    '@pulumi/policy': '1.22.0-alpha.1787747072'
-    '@pulumi/github': '6.16.0-alpha.1795068570'
-    '@pulumi/synced-folder': 0.13.0
+    '@pulumi/eks': '4.7.0-alpha.1795072925'
     '@pulumi/esc-sdk': 0.14.0
+    '@pulumi/gcp': 10.6.0-alpha.1795205690
+    '@pulumi/github': '6.16.0-alpha.1795068570'
+    '@pulumi/kubernetes': '4.35.0-alpha.1795071157'
+    '@pulumi/policy': '1.22.0-alpha.1787747072'
+    '@pulumi/postgresql': '3.19.0-alpha.1795071476'
+    '@pulumi/pulumi': '3.278.0-alpha.x8c16455'
     '@pulumi/pulumiservice': '1.9.0-alpha.1795212625'
-    '@pulumiverse/acme': '0.20.0-alpha.1794232718'
-    '@pulumi/cloudflare': '6.25.0-alpha.1795070434'
-    '@pulumi/command': '1.4.0-alpha.1795066938'
+    '@pulumi/random': '4.22.0-alpha.1795071935'
+    '@pulumi/synced-folder': 0.13.0
     '@pulumi/tailscale': '1.0.0-alpha.1795072738'
+    '@pulumi/tls': '5.7.0-alpha.1795073110'
+    '@pulumiverse/acme': '0.20.0-alpha.1794232718'
     '@pulumiverse/doppler': '0.9.0' # Newest published Doppler SDK, `@dopplerhq/pulumi-doppler` replaces it once on npm
     '@pulumiverse/grafana': 2.45.0
-    '@grafana/grafana-foundation-sdk': 0.0.22
-    '@pulumi/eks': '4.7.0-alpha.1795072925'
-    '@pulumi/cloudinit': '1.7.0-alpha.1795066676'
 
     # --- [COMPILERS]
 
     '@effect/tsgo': 0.73.2 # Effect diagnostics for native TypeScript compiler and language server
-    typescript: npm:@typescript/typescript6@6.0.2 # Classic compiler API for every tool loading `typescript` by name, native TypeScript ships none
-    '@typescript/native': npm:typescript@7.1.0-dev.20261118.1 # Native TypeScript release `@effect/tsgo` supports
     '@swc/wasm': 1.16.22
-    tslib: 2.9.1
     '@types/node': 26.6.6
+    '@typescript/native': npm:typescript@7.1.0-dev.20261118.1 # Native TypeScript release `@effect/tsgo` supports
+    tslib: 2.9.1
+    typescript: npm:@typescript/typescript6@6.0.2 # Classic compiler API for every tool loading `typescript` by name, native TypeScript ships none
 
     # --- [NX]
 
-    nx: 24.1.0-beta.2
+    '@nx/conformance': 24.1.0-beta.2 # `nx conformance` rules over the project graph and files, npm `latest` holding the commercial line
     '@nx/devkit': 24.1.0-beta.2
-    '@nx/js': 24.1.0-beta.2 # tsconfig `extends` chains the config-reading plugins hash
-    '@nx/web': 24.1.0-beta.2 # `file-server` executor serving a built Storybook
-    '@nx/vite': 24.1.0-beta.2 # `nxReadySignal` Vite plugin a served config holds
-    '@nx/storybook': 24.1.0-beta.2 # Ready-check module the inferred Storybook dev target waits on
-    '@nx/plugin': 24.1.0-beta.2 # Generators and checks for plugins, executors, generators, and migrations
-    '@nx/workspace': 24.1.0-beta.2 # `move`, `remove`, and `infer-targets` generators
     '@nx/eslint-plugin': 24.1.0-beta.2 # `nx-plugin-checks` rule over plugin package, executor, generator, and migration manifests
-    '@nx/conformance': 24.1.0-beta.2 # `nx conformance` rules over the project graph and files, npm `latest` holding the commercial 5.x
+    '@nx/js': 24.1.0-beta.2 # tsconfig `extends` chains the config-reading plugins hash
+    '@nx/plugin': 24.1.0-beta.2 # Generators and checks for plugins, executors, generators, and migrations
+    '@nx/storybook': 24.1.0-beta.2 # Ready-check module the inferred Storybook dev target waits on
+    '@nx/vite': 24.1.0-beta.2 # `nxReadySignal` Vite plugin a served config holds
+    '@nx/web': 24.1.0-beta.2 # `file-server` executor serving a built Storybook
+    '@nx/workspace': 24.1.0-beta.2 # `move`, `remove`, and `infer-targets` generators
+    nx: 24.1.0-beta.2
 
     # --- [BUILD]
 
-    vite: 8.4.0-beta.1
-    rolldown: 1.3.3
-    '@vitejs/plugin-react': 6.3.0
-    oxc-transform-react: 0.158.0
-    lightningcss: 1.33.0
-    postcss: 8.5.33
-    vite-plugin-static-copy: 4.1.1
-    rollup-plugin-visualizer: 7.1.3
-    vite-plugin-pwa: 2.0.0
-    '@vite-pwa/assets-generator': 2.0.0 # Favicon, Apple touch icon and head links from one painted master
+    '@cloudflare/build-output-utils': 1.0.0-rc.3 # Build Output tree reader for hosting programs
+    '@cloudflare/config': 1.0.0-rc.3 # `loadConfig` the TypeScript Nx plugin reaches through `cf` for the files a `cloudflare.config.ts` imports
+    '@cloudflare/vite-plugin': 2.0.0-rc.3
+    '@cloudflare/workers-types': 5.20261122.2
     '@types/web-app-manifest': 1.0.9
+    '@vite-pwa/assets-generator': 2.0.0 # Favicon, Apple touch icon and head links from one painted master
+    '@vitejs/devtools': 0.8.3
+    '@vitejs/devtools-kit': 0.8.3
+    '@vitejs/plugin-react': 6.3.0
+    cf: 1.0.0-rc.2 # Worker configuration and binding definitions, Worker type generation, and R2 object commands
+    lightningcss: 1.33.0
+    miniflare: 5.20261119.0-beta # Local Workers runtime the Vite plugin runs, its `CorePaths` naming each local service route
+    oxc-transform-react: 0.158.0
+    postcss: 8.5.33
+    rolldown: 1.3.3
+    rollup-plugin-visualizer: 7.1.3
+    signal-exit: 4.1.0 # Handler run when the process ends by exit or by signal
+    vite: 8.4.0-beta.1
     vite-plugin-compression2: 2.5.4
     vite-plugin-csp-guard: 4.0.1
     vite-plugin-image-optimizer: 2.0.3
     vite-plugin-inspect: 12.1.0
-    '@vitejs/devtools': 0.8.3
-    '@vitejs/devtools-kit': 0.8.3
+    vite-plugin-pwa: 2.0.0
+    vite-plugin-static-copy: 4.1.1
     vite-plugin-svgr: 5.2.0
     vite-plugin-webfont-dl: 3.14.1
-    '@cloudflare/vite-plugin': 2.0.0-rc.3
-    '@cloudflare/workers-types': 5.20261122.2
-    '@cloudflare/build-output-utils': 1.0.0-rc.3 # Build Output tree reader for hosting programs
-    '@cloudflare/config': 1.0.0-rc.3 # `loadConfig` the TypeScript Nx plugin reaches through `cf` for the files a `cloudflare.config.ts` imports
-    miniflare: 5.20261119.0-beta # Local Workers runtime the Vite plugin runs, its `CorePaths` naming each local service route
-    cf: 1.0.0-rc.2 # Worker configuration and binding definitions, Worker type generation, and R2 object commands
-    signal-exit: 4.1.0 # Handler run when the process ends by exit or by signal
 
     # --- [GENERATORS]
 
     '@effect/docgen': 4.1.5
-    '@effect/openapi-generator': 4.1.5
     '@effect/graphql-generator': 4.1.5
+    '@effect/openapi-generator': 4.1.5
 
     # --- [LINTING]
 
-    oxlint: 1.94.0
-    tsrs: 7.1.0-beta.tsrs4 # Type-aware oxlint backend, its `tsrs-lint` reading the TypeScript libs the native compiler reads
+    '@csstools/css-syntax-patches-for-csstree': 1.1.17 # Grammar Stylelint reads over css-tree, read by the Stylelint config for the same value lists
+    '@projectwallace/stylelint-plugin': 1.1.0
+    '@types/css-tree': 3.2.0
+    css-tree: 3.2.1
+    eslint: 10.15.0 # Runs the JSON rules oxlint lacks
+    jsonc-eslint-parser: 3.3.0
+    knip: 6.48.0 # Unused files, internal exports, and dependencies per package, catalog rows never reported
     oxfmt: 0.79.0
+    oxlint: 1.94.0
+    publint: 0.3.25 # Published package layout checked over the tarball its package manager packs
+    refa: 0.12.1 # Regular expression character classes the ast-grep catalogs compare
     stylelint: 18.1.0
-    stylelint-config-standard: 41.1.0
     stylelint-config-recess-order: 7.10.1
+    stylelint-config-standard: 41.1.0
     stylelint-declaration-block-no-ignored-properties: 3.1.0
     stylelint-order: 8.1.3
     stylelint-plugin-defensive-css: 2.10.0
     stylelint-use-logical-spec: 6.0.1
     stylelint-use-nesting: 6.0.2
-    '@projectwallace/stylelint-plugin': 1.1.0
-    css-tree: 3.2.1
-    '@types/css-tree': 3.2.0
-    '@csstools/css-syntax-patches-for-csstree': 1.1.17 # Grammar Stylelint reads over css-tree, read by the Stylelint config for the same value lists
-    eslint: 10.15.0 # Runs the JSON rules oxlint lacks
-    jsonc-eslint-parser: 3.3.0
-    publint: 0.3.25 # Published package layout checked over the tarball its package manager packs
-    knip: 6.48.0 # Unused files, internal exports, and dependencies per package, catalog rows never reported
-    refa: 0.12.1 # Regular expression character classes the ast-grep catalogs compare
+    tsrs: 7.1.0-beta.tsrs4 # Type-aware oxlint backend, its `tsrs-lint` reading the TypeScript libs the native compiler reads
 
     # --- [GRAMMARS]
 
     '@tree-sitter-grammars/tree-sitter-toml': 0.7.0
     '@tree-sitter-grammars/tree-sitter-xml': github:tree-sitter-grammars/tree-sitter-xml#5000ae8f22d11fbe93939b05c1e37cf21117162d
-    '@tree-sitter-grammars/tree-sitter-yaml': github:tree-sitter-grammars/tree-sitter-yaml#v0.7.2 # Release ast-grep 0.51.1 bundles, npm stops at 0.7.1
+    '@tree-sitter-grammars/tree-sitter-yaml': github:tree-sitter-grammars/tree-sitter-yaml#v0.7.2 # Release ast-grep bundles, which npm lacks
     tree-sitter-bash: 0.25.1
-    tree-sitter-cpp: github:tree-sitter/tree-sitter-cpp#c009222808634c1014f82438d4883753516a2c24 # Master commit holding C++20 module, import, and export declarations, release 0.23.4 stops before them
-    tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit holding C# 14 `extension` declarations, release 0.23.5 stops at C# 13
+    tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit holding C# 14 `extension` declarations
+    tree-sitter-cpp: github:tree-sitter/tree-sitter-cpp#c009222808634c1014f82438d4883753516a2c24 # Master commit holding C++20 module, import, and export declarations no release holds
     tree-sitter-java: 0.23.5
     tree-sitter-javascript: 0.25.0
     tree-sitter-postgres: 19.0.0
     tree-sitter-python: 0.25.0
-    tree-sitter-rust: github:tree-sitter/tree-sitter-rust#v0.24.2
+    tree-sitter-rust: github:tree-sitter/tree-sitter-rust#v0.24.2 # Newest release, which npm lacks
     tree-sitter-sqlite3: 0.1.0
     tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#9e3b87f66f1fd2f3b931376fd3723ab788e337c3
     tree-sitter-typescript: 0.23.2
@@ -570,127 +576,127 @@ catalog:
     # --- [VERSIONING]
 
     '@octokit/rest': 22.0.1
+    '@renovatebot/pep440': 6.0.0 # PEP 440 version comparison
+    '@types/npm-package-arg': 6.1.4
     actions-up: 2.0.0
     npm-check-updates: 23.1.1
     npm-package-arg: 14.0.0 # npm dependency specifier parser, `npm:` aliases included
-    '@types/npm-package-arg': 6.1.4
-    '@renovatebot/pep440': 6.0.0 # PEP 440 version comparison
     verkit: 0.5.0 # SemVer 2 ordering of NuGet registry versions
 
     # --- [TESTING]
 
-    vitest: 5.1.1
-    '@effect/vitest': 4.1.5
-    fast-check: 4.11.0
-    '@vitest/browser-playwright': 5.1.1
-    '@vitest/coverage-v8': 5.1.1
-    '@vitest/browser': 5.1.1
-    '@vitest/ui': 5.1.1
-    vitest-browser-react: 2.3.0
-    '@playwright/test': 1.66.0-alpha-2026-11-22
-    playwright: 1.66.0-alpha-2026-11-22
-    selenium-webdriver: 4.53.0 # W3C WebDriver client that starts `safaridriver` and drives the installed Safari, which no Playwright or Vitest provider reaches
-    '@types/selenium-webdriver': 4.35.7
     '@axe-core/playwright': 4.14.2-018a230.0.sha-018a230
-    axe-core: 4.14.1
-    storybook: 11.0.0-beta.3
-    '@storybook/react-vite': 11.0.0-beta.3
-    '@storybook/addon-vitest': 11.0.0-beta.3
+    '@cloudflare/vitest-plugin': 1.9.0
+    '@effect/vitest': 4.1.5
+    '@modelcontextprotocol/inspector': 2.16.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
+    '@octokit/webhooks-methods': 6.0.0 # GitHub reference sign and verify a webhook suite exchanges signatures with
+    '@playwright/test': 1.66.0-alpha-2026-11-22
     '@storybook/addon-a11y': 11.0.0-beta.3
     '@storybook/addon-docs': 11.0.0-beta.3
-    '@cloudflare/vitest-plugin': 1.9.0
-    svix: 2.11.0 # Svix reference signer and verifier a webhook suite exchanges signatures with
-    stripe: 23.3.0-alpha.1 # Stripe reference test header and event construction a webhook suite exchanges signatures with
-    '@octokit/webhooks-methods': 6.0.0 # GitHub reference sign and verify a webhook suite exchanges signatures with
-    testcontainers: 12.2.2
-    '@testcontainers/postgresql': 12.2.2
+    '@storybook/addon-vitest': 11.0.0-beta.3
+    '@storybook/react-vite': 11.0.0-beta.3
     '@testcontainers/clickhouse': 12.2.2
-    '@testcontainers/valkey': 12.2.2
-    '@testcontainers/redis': 12.2.2
-    '@testcontainers/minio': 12.2.2
-    '@testcontainers/localstack': 12.2.2
     '@testcontainers/kafka': 12.2.2
-    '@modelcontextprotocol/inspector': 2.16.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
+    '@testcontainers/localstack': 12.2.2
+    '@testcontainers/minio': 12.2.2
+    '@testcontainers/postgresql': 12.2.2
+    '@testcontainers/redis': 12.2.2
+    '@testcontainers/valkey': 12.2.2
+    '@types/selenium-webdriver': 4.35.7
+    '@vitest/browser': 5.1.1
+    '@vitest/browser-playwright': 5.1.1
+    '@vitest/coverage-v8': 5.1.1
+    '@vitest/ui': 5.1.1
     ajv: 8.20.0 # JSON Schema validation of resolved Nx project configuration against Nx's own schema
+    axe-core: 4.14.1
+    fast-check: 4.11.0
+    playwright: 1.66.0-alpha-2026-11-22
+    selenium-webdriver: 4.53.0 # W3C WebDriver client that starts `safaridriver` and drives the installed Safari, which no Playwright or Vitest provider reaches
+    storybook: 11.0.0-beta.3
+    stripe: 23.3.0-alpha.1 # Stripe reference test header and event construction a webhook suite exchanges signatures with
+    svix: 2.11.0 # Svix reference signer and verifier a webhook suite exchanges signatures with
+    testcontainers: 12.2.2
+    vitest: 5.1.1
+    vitest-browser-react: 2.3.0
 
 catalogs:
     # --- [PEERS]
 
     peers:
-        effect: ^4.1.4
-        '@effect/platform-node': ^4.1.4
-        env-paths: ^4.0.0
-        cheerio: ^1.0.0
         '@aws-sdk/client-s3': ^3.0.0
         '@aws-sdk/client-sts': ^3.0.0
-        '@smithy/core': ^3.0.0
-        '@uppy/core': ^6.0.0
+        '@cloudflare/build-output-utils': ^1.0.0-0
+        '@cloudflare/vite-plugin': ^2.0.0-0
+        '@effect/atom-react': ^4.1.4
         '@effect/opentelemetry': ^4.1.4
-        '@opentelemetry/semantic-conventions': ^1.33.0
+        '@effect/platform-node': ^4.1.4
+        '@effect/sql-clickhouse': ^4.1.4
+        '@effect/sql-d1': ^4.1.4
+        '@effect/sql-pg': ^4.1.4
+        '@effect/sql-sqlite-node': ^4.1.4
+        '@nx/devkit': '>=24.1.0-0'
+        '@nx/js': '>=24.1.0-0'
+        '@nx/storybook': '>=24.1.0-0'
+        '@nx/web': '>=24.1.0-0' # Nx resolves the executor from the workspace's own `@nx/web`, released in step with its `nx`
         '@opentelemetry/api': ^1.10.0
         '@opentelemetry/api-logs': '>=0.203.0 <0.300.0'
         '@opentelemetry/core': ^3.0.0
-        '@opentelemetry/resources': ^3.0.0
-        '@opentelemetry/sdk-logs': ^3.0.0
-        '@opentelemetry/sdk-metrics': ^3.0.0
-        '@opentelemetry/sdk-node': ^0.301.0
-        '@opentelemetry/propagator-env-carrier': ^0.301.0
-        '@opentelemetry/instrumentation-host-metrics': ^0.8.0
         '@opentelemetry/exporter-metrics-otlp-grpc': ^0.301.0
         '@opentelemetry/exporter-metrics-otlp-http': ^0.301.0
         '@opentelemetry/exporter-metrics-otlp-proto': ^0.301.0
         '@opentelemetry/instrumentation': ^0.301.0
+        '@opentelemetry/instrumentation-host-metrics': ^0.8.0
         '@opentelemetry/instrumentation-runtime-node': ^0.38.0
-        rotating-file-stream: ^4.0.0
-        react: ^19.0.0
-        react-dom: ^19.0.0
-        react-aria-components: ^1.22.0
-        '@effect/atom-react': ^4.1.4
-        react-zoom-pan-pinch: ^4.0.0
-        '@effect/sql-pg': ^4.1.4
-        '@effect/sql-sqlite-node': ^4.1.4
-        '@effect/sql-d1': ^4.1.4
-        '@effect/sql-clickhouse': ^4.1.4
-        redis: ^6.0.0-0
-        culori: ^4.0.0
-        pdfjs-dist: ^6.0.0
-        '@pulumi/pulumi': ^3.274.0-0
+        '@opentelemetry/propagator-env-carrier': ^0.301.0
+        '@opentelemetry/resources': ^3.0.0
+        '@opentelemetry/sdk-logs': ^3.0.0
+        '@opentelemetry/sdk-metrics': ^3.0.0
+        '@opentelemetry/sdk-node': ^0.301.0
+        '@opentelemetry/semantic-conventions': ^1.33.0
+        '@playwright/test': ^1.66.0-0
         '@pulumi/cloudflare': ^6.0.0-0
         '@pulumi/command': ^1.0.0-0
-        nx: '>=24.1.0-0'
-        '@nx/devkit': '>=24.1.0-0'
-        '@nx/js': '>=24.1.0-0'
-        '@nx/web': '>=24.1.0-0' # Nx resolves the executor from the workspace's own `@nx/web`, released in step with its `nx`
-        '@nx/storybook': '>=24.1.0-0'
-        vite: ^8.0.0
-        '@vitejs/plugin-react': ^6.0.0
-        postcss: ^8.0.0
-        '@vite-pwa/assets-generator': ^2.0.0
-        '@cloudflare/vite-plugin': ^2.0.0-0
-        miniflare: ^5.0.0-0
-        cf: ^1.0.0-0
-        '@cloudflare/build-output-utils': ^1.0.0-0
-        vitest: ^5.0.0
-        '@playwright/test': ^1.66.0-0
-        storybook: ^11.0.0-0
+        '@pulumi/pulumi': ^3.274.0-0
+        '@smithy/core': ^3.0.0
         '@storybook/addon-a11y': ^11.0.0-0
+        '@uppy/core': ^6.0.0
+        '@vite-pwa/assets-generator': ^2.0.0
+        '@vitejs/plugin-react': ^6.0.0
+        cf: ^1.0.0-0
+        cheerio: ^1.0.0
+        culori: ^4.0.0
+        effect: ^4.1.4
+        env-paths: ^4.0.0
+        miniflare: ^5.0.0-0
+        nx: '>=24.1.0-0'
+        pdfjs-dist: ^6.0.0
+        postcss: ^8.0.0
+        react: ^19.0.0
+        react-aria-components: ^1.22.0
+        react-dom: ^19.0.0
+        react-zoom-pan-pinch: ^4.0.0
+        redis: ^6.0.0-0
+        rotating-file-stream: ^4.0.0
+        storybook: ^11.0.0-0
+        vite: ^8.0.0
+        vitest: ^5.0.0
 
 # --- [OVERRIDES] ------------------------------------------------------------------------
 
 overrides:
-    '@pulumi/pulumi': 'catalog:'
-    vite>yaml: 'catalog:'
-    '@vitejs/plugin-react>oxc-transform-react': 'catalog:'
-    '@types/ssh2>@types/node': 'catalog:'
-    '@pulumi/hostinger>typescript': 'catalog:' # Generated SDKs require TypeScript 4, a second `@pulumi/pulumi` peer variant splits its `Output` type
-    '@pulumi/minio>typescript': 'catalog:'
+    '@axe-core/playwright>playwright-core': '>=1.0.0'
     '@effect/opentelemetry>@opentelemetry/resources': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/sdk-logs': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/sdk-metrics': 'catalog:'
-    '@opentelemetry/api': 'catalog:' # OpenTelemetry 2 under `@pulumi/pulumi` peers below 1.10, a second copy splits every `vitest` snapshot
-    '@axe-core/playwright>playwright-core': '>=1.0.0' # Declared `>= 1.0.0`, pnpm's prerelease peer check reads a spaced operator as an exact version
+    '@opentelemetry/api': 'catalog:' # `@pulumi/pulumi` and the OpenTelemetry packages under it hold an older API, and a second copy splits every `vitest` snapshot
+    '@pulumi/hostinger>typescript': 'catalog:' # Generated SDKs require an older TypeScript, and a second `@pulumi/pulumi` peer variant splits its `Output` type
+    '@pulumi/minio>typescript': 'catalog:'
+    '@pulumi/pulumi': 'catalog:'
+    '@types/ssh2>@types/node': 'catalog:'
+    '@vitejs/plugin-react>oxc-transform-react': 'catalog:'
     tree-sitter: '-' # Node bindings the grammar packages name as peers, the build compiles their C sources alone
     tree-sitter-cli: '-' # The CLI comes from mise, pinned in `.config/mise.lock`
+    vite>yaml: 'catalog:'
 
 # --- [BUILDS] ---------------------------------------------------------------------------
 
@@ -711,8 +717,8 @@ allowBuilds:
     ssh2: false
     tree-sitter-bash: false
     tree-sitter-c: false
-    tree-sitter-cpp: false
     tree-sitter-c-sharp: false
+    tree-sitter-cpp: false
     tree-sitter-java: false
     tree-sitter-javascript: false
     tree-sitter-postgres: false

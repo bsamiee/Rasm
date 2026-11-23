@@ -1,7 +1,7 @@
 {
     "name": "@rasm/conformance",
     "private": true,
-    "description": "Nx conformance rules over the project graph and workspace files that Nx, its plugins, and other checkers leave unchecked, run by nx conformance",
+    "description": "Nx conformance rules over project graph and workspace files that other checkers leave unchecked",
     "type": "module",
     "exports": {
         "./*": "./*/rule.ts",

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/function-hooks",
     "private": true,
-    "description": "Hooks that correct agent commands",
+    "description": "Claude Code hooks that rewrite or refuse agent tool calls",
     "type": "module",
     "imports": {
         "#/*": "./*.ts",

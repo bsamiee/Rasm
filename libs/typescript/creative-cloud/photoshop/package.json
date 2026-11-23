@@ -2,7 +2,7 @@
     "name": "@rasm/photoshop",
     "version": "0.1.0",
     "private": true,
-    "description": "Photoshop DOM for UXP plugins: its containment table, modal scopes with history suspension, script evaluation, rendering, document event notices, and the application name",
+    "description": "Photoshop object model for UXP plugins, with modal scopes, history suspension, script evaluation, rendering, and document events",
     "license": "MIT",
     "repository": {
         "type": "git",

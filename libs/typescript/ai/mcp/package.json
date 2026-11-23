@@ -2,7 +2,7 @@
     "name": "@rasm/mcp",
     "version": "0.1.0",
     "private": true,
-    "description": "Effect programs exposed to agents as tools and resources over Streamable HTTP or stdio, with per-agent handles holding state and an event cursor, events in every tool result, calls an event ends early, settings from flags, environment, and macOS defaults, per-application output folders, tools of linked extensions and the host events they report, and the tools, resources, templates, prompts, and completions of upstream MCP servers, each served while reachable, with upstream list changes found by polling and no elicitation, tasks, progress, or subscriptions passed through",
+    "description": "MCP servers over Effect programs, serving tools and resources over Streamable HTTP or stdio with per-agent state and proxied upstream servers",
     "license": "MIT",
     "repository": {
         "type": "git",

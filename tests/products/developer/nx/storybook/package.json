@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-storybook",
     "private": true,
-    "description": "@rasm/nx-storybook suites over temporary workspaces: the projects, targets, inputs, outputs, dev server readiness, and config loading of the graph Nx builds with the plugin",
+    "description": "@rasm/nx-storybook suites over projects, targets, and dev server readiness in temporary workspaces",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-object-storage",
     "private": true,
-    "description": "Object storage suites over an R2 binding: served ranges and preconditions, object state, and presigned S3 requests",
+    "description": "@rasm/object-storage suites over an R2 binding, covering ranges, preconditions, and presigned S3 requests",
     "type": "module",
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",

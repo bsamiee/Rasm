@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-vitest",
     "version": "0.1.0",
-    "description": "Nx plugin inferring one Vitest target per package holding a project a Vitest configuration resolves, a root configuration listing projects included, and per Vite configuration stating test",
+    "description": "Nx plugin inferring one Vitest target per package holding a project a Vitest configuration resolves",
     "license": "MIT",
     "repository": {
         "type": "git",

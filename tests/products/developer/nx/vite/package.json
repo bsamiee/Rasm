@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-vite",
     "private": true,
-    "description": "@rasm/nx-vite suites over temporary workspaces: the projects, build and server targets, inputs, outputs, server readiness, and config loading of the graph Nx builds with the plugin",
+    "description": "@rasm/nx-vite suites over build and server targets and server readiness in temporary workspaces",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

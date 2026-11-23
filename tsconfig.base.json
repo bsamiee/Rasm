@@ -2,16 +2,20 @@
     "$schema": "./node_modules/@typescript/native/schemas/tsconfig.schema.json",
     "compilerOptions": {
         "composite": true,
-        "erasableSyntaxOnly": true,
-        "exactOptionalPropertyTypes": true,
+        "outDir": "${configDir}/dist",
+        "sourceMap": true,
         "lib": ["esnext"],
+        "target": "esnext",
         "module": "nodenext",
+        "exactOptionalPropertyTypes": true,
         "noFallthroughCasesInSwitch": true,
         "noImplicitOverride": true,
         "noImplicitReturns": true,
         "noPropertyAccessFromIndexSignature": true,
         "noUncheckedIndexedAccess": true,
-        "outDir": "${configDir}/dist",
+        "erasableSyntaxOnly": true,
+        "verbatimModuleSyntax": true,
+        "skipLibCheck": true,
         "plugins": [
             {
                 "name": "@effect/language-service",
@@ -66,10 +70,6 @@
                 },
                 "overrides": [{ "include": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.stories.tsx"], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } }]
             }
-        ],
-        "skipLibCheck": true,
-        "sourceMap": true,
-        "target": "esnext",
-        "verbatimModuleSyntax": true
+        ]
     }
 }

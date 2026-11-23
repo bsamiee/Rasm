@@ -2,7 +2,7 @@
     "name": "@rasm/creative-cloud-desktop",
     "version": "0.1.0",
     "private": true,
-    "description": "Creative Cloud desktop app facts: the applications it installs read from its own registry, the apps Acrobat's installer places, and the desktop app itself, each with its product, channel, and version in release order",
+    "description": "Adobe applications Creative Cloud desktop installs, read from its registry with product, channel, and version",
     "license": "MIT",
     "repository": {
         "type": "git",

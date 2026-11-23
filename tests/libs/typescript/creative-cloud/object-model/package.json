@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-object-model",
     "private": true,
-    "description": "Object model suites: omv dictionaries read into classes, their constructibility, members, and parameter datatypes, the later of two files winning a class both declare",
+    "description": "@rasm/object-model suites over omv dictionaries read into classes",
     "type": "module",
     "devDependencies": {
         "@rasm/object-model": "workspace:*",

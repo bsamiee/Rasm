@@ -3,8 +3,8 @@
     "exclude": ["catalog"],
     "treatConfigHintsAsErrors": true,
     "ignoreBinaries": ["uv"],
-    "ignoreExportsUsedInFile": true,
     "ignoreDependencies": ["@effect/language-service", "adobe", "claude-code", "indesign-uxp-types"],
+    "ignoreExportsUsedInFile": true,
     "ignoreIssues": {
         "package.json": ["dependencies", "devDependencies", "optionalPeerDependencies"],
         "products/developer/nx/apple/targets.ts": ["unresolved"]
@@ -17,9 +17,6 @@
             "entry": [],
             "project": []
         },
-        "products/developer/nx/*": {
-            "entry": ["executors/*/executor.ts", "generators/*/generator.ts"]
-        },
         "infra": {
             "project": ["**/*.ts", "!sdks/**"]
         },
@@ -28,6 +25,9 @@
         },
         "products/apps/creative-cloud/*/atelier": {
             "entry": ["main.ts"]
+        },
+        "products/developer/nx/*": {
+            "entry": ["executors/*/executor.ts", "generators/*/generator.ts"]
         },
         "products/web/*": {
             "entry": ["server/main.ts"]

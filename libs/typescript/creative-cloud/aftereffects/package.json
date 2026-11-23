@@ -2,7 +2,7 @@
     "name": "@rasm/aftereffects",
     "version": "0.1.0",
     "private": true,
-    "description": "After Effects DOM for UXP plugins: its containment table from 1, dialog suppression, undo groups, script evaluation, a composition frame rendered as PNG, and the application bundle URL",
+    "description": "After Effects object model for UXP plugins, with dialog suppression, undo groups, script evaluation, and frame renders",
     "license": "MIT",
     "repository": {
         "type": "git",
