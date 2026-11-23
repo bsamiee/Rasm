@@ -50,10 +50,12 @@
         "@rasm/nx-distribution": "workspace:*",
         "@xml-tools/ast": "catalog:",
         "@xml-tools/parser": "catalog:",
-        "effect": "catalog:"
+        "effect": "catalog:",
+        "which": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",
+        "@types/which": "catalog:",
         "nx": "catalog:"
     },
     "peerDependencies": {
