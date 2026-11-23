@@ -113,8 +113,8 @@ class Machine extends Data.Class<{
         return new RemoteImage(`${this.name}-${image}`, { name: interpolate`${image}@${getRegistryImageOutput({ name: image }, { provider: this.provider }).sha256Digest}` }, { provider: this.provider, ...options }).repoDigest;
     }
 
-    imaged(image: string, inline: Input<string>, args: Pick<dockerBuild.ImageArgs, 'context' | 'labels' | 'registries'> = {}) {
-        const stored = args.registries === undefined ? { load: true } : { exports: [{ registry: { annotations: args.labels } }] };
+    imaged(image: string, inline: Input<string>, { cache, ...args }: Pick<dockerBuild.ImageArgs, 'context' | 'labels' | 'registries'> & { readonly cache?: string } = {}) {
+        const stored = cache === undefined ? { load: true } : { exports: [{ registry: { annotations: args.labels } }], ...Struct.Record(['cacheFrom', 'cacheTo'], [{ registry: { ref: cache } }]) };
         return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], push: false, ...stored, buildArgs: { BUILDKIT_DOCKERFILE_CHECK: 'error=true' }, ...args }, { provider: this.builder }).digest;
     }
 
@@ -309,6 +309,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                 History: (settings) => synced(machine, settings, owner, project),
                 Runner: ({ instances }) => {
                     const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner' } as const;
+                    const browsers = `ghcr.io/${owner}/${repository}/playwright`.toLowerCase();
                     const [, registered] = Array.mapAccum(Record.toEntries(instances), Option.none<remote.Command>(), (before, [label, limits]) => {
                         const folder = `/home/${runner.user}/actions-runner-${label}`;
                         const archive = `/tmp/actions-runner-${label}.tar.gz`;
@@ -342,9 +343,9 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                         runners: Record.fromEntries(registered),
                         engines: engines.map((version) => machine.pulled(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })),
                         browsers: machine.imaged(
-                            `ghcr.io/${owner}/${repository}/playwright:${playwright.version}`.toLowerCase(),
-                            interpolate`FROM node:slim@${getRegistryImageOutput({ name: 'node:slim' }, { provider: machine.provider }).sha256Digest}\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends build-essential ca-certificates curl git libicu-dev && npx --yes playwright@${playwright.version} install --with-deps chromium && npx --yes playwright@${playwright.version} install-deps firefox && rm -rf /var/lib/apt/lists/* /root/.npm\nUSER node\n`,
-                            { registries, labels: { 'org.opencontainers.image.source': `https://github.com/${owner}/${repository}` } },
+                            `${browsers}:${playwright.version}`,
+                            `FROM node:slim\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends build-essential ca-certificates curl git libicu-dev && rm -rf /var/lib/apt/lists/*\nRUN npx --yes playwright@${playwright.version} install --with-deps chromium && npx --yes playwright@${playwright.version} install-deps firefox && rm -rf /var/lib/apt/lists/* /root/.npm\nUSER node\n`,
+                            { registries, labels: { 'org.opencontainers.image.source': `https://github.com/${owner}/${repository}` }, cache: `${browsers}:cache` },
                         ),
                     };
                 },
