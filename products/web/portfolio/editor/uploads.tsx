@@ -6,8 +6,8 @@ import { Array, Option, Predicate, Result, String, Struct } from 'effect';
 import { useState } from 'react';
 import { Destination, nextDestination, pendingUploads, preprocessing, queue, uppy } from '#/editor/uploader';
 import { choiceLayout, entryTitle, format, joinDetails } from '#/media/labels';
-import { Asset, type AssetId, type Assets, uploadLimit } from '#/model/asset';
-import type { Entry, EntryId } from '#/model/portfolio';
+import { Asset, type Assets, uploadLimit } from '#/model/asset';
+import type { Entry } from '#/model/portfolio';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ const key = (value: Destination): string => (Destination.$is('Entry')(value) ? v
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Uploads = ({ assets, entries, onPlace }: { readonly assets: typeof Assets.Service; readonly entries: readonly (typeof Entry.Type)[]; readonly onPlace: (entryId: typeof EntryId.Type, assetId: typeof AssetId.Type) => void }) => {
+const Uploads = ({ assets, entries, onPlace }: { readonly assets: Assets['Service']; readonly entries: readonly Entry[]; readonly onPlace: (entryId: Entry['id'], assetId: keyof Assets['Service']) => void }) => {
     const uploader = useAtomValue(uppy);
     useAtomMount(preprocessing);
     const files = Object.values(useAtomValue(queue));

@@ -11,8 +11,7 @@ import { sheetLabel } from '#/media/labels';
 import '#/media/pdf-sheet.css';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
 import { assetUrl } from '#/model/api';
-import type { PdfAsset } from '#/model/asset';
-import type { Placement } from '#/model/placement';
+import type { PdfAsset, Sheet } from '#/model/asset';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -31,11 +30,11 @@ const pdfFailure = (retry: () => void) =>
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const RenderFailure = ({ viewer, page, asset }: { readonly viewer: Option.Option<PdfViewer>; readonly page: number; readonly asset: PdfAsset }) => Option.exists(viewer, ({ failedPages }) => HashSet.has(failedPages, page)) && <MediaFailure asset={asset} message="Sheet failed to render" />;
-const SheetViewer = ({ document, placement, layoutId, url }: { readonly document: PDFDocumentProxy; readonly placement: Extract<typeof Placement.Type, { readonly kind: 'pdf' }>; readonly layoutId: string; readonly url: string }) => {
-    const pages = placement.asset.sheets;
-    const viewer = PdfViewer.useViewer(document, { ...sheet(placement.page.number), link: { externalLinkTarget: LinkTarget.BLANK }, pinch: { drawingDelay: '400 millis' } });
+const SheetViewer = ({ document, asset, page: placed, layoutId, url }: { readonly document: PDFDocumentProxy; readonly asset: PdfAsset; readonly page: Sheet; readonly layoutId: string; readonly url: string }) => {
+    const pages = asset.sheets;
+    const viewer = PdfViewer.useViewer(document, { ...sheet(placed.number), link: { externalLinkTarget: LinkTarget.BLANK }, pinch: { drawingDelay: '400 millis' } });
     const live = AsyncResult.value(viewer.state);
-    const page = Option.flatMap(live, ({ currentPageNumber }) => Array.get(pages, currentPageNumber - 1)).pipe(Option.getOrElse(() => placement.page));
+    const page = Option.flatMap(live, ({ currentPageNumber }) => Array.get(pages, currentPageNumber - 1)).pipe(Option.getOrElse(() => placed));
     return (
         <>
             {viewer.controls({
@@ -48,9 +47,9 @@ const SheetViewer = ({ document, placement, layoutId, url }: { readonly document
                     ),
             })}
             {AsyncResult.builder(viewer.state)
-                .onFailure(() => <MediaFailure asset={placement.asset} message="PDF viewer failed to load" />)
+                .onFailure(() => <MediaFailure asset={asset} message="PDF viewer failed to load" />)
                 .orNull()}
-            <RenderFailure asset={placement.asset} page={page.number} viewer={live} />
+            <RenderFailure asset={asset} page={page.number} viewer={live} />
             <motion.section aria-label={sheetLabel(page, pages.length)} className="viewer-stage" layoutId={layoutId}>
                 {viewer.container({ className: 'sheet-scroller', tabIndex: 0 })}
             </motion.section>
@@ -69,15 +68,15 @@ const SheetPreview = ({ document, page, asset }: { readonly document: PDFDocumen
         </>
     );
 };
-const PdfSheet = ({ placement, layoutId }: { readonly placement: Extract<typeof Placement.Type, { readonly kind: 'pdf' }>; readonly layoutId: string | undefined }) => {
-    const url = assetUrl(placement.asset);
+const PdfSheet = ({ asset, page, layoutId }: { readonly asset: PdfAsset; readonly page: Sheet; readonly layoutId: string | undefined }) => {
+    const url = assetUrl(asset.id);
     const source = PdfDocument({ url, disableStream: true, disableAutoFetch: true });
     const retry = useAtomRefresh(source);
     return AsyncResult.builder(useAtomValue(source))
         .onInitialOrWaiting(() => <MediaLoading />)
-        .onSuccess((document) => (layoutId === undefined ? <SheetPreview asset={placement.asset} document={document} page={placement.page.number} /> : <SheetViewer document={document} layoutId={layoutId} placement={placement} url={url} />))
-        .onErrorTag('MediaError', ({ reason }) => <MediaFailure asset={placement.asset} {...pdfFailure(retry)(reason)} />)
-        .onFailure(() => <MediaFailure asset={placement.asset} message="PDF failed to load" onRetry={retry} />)
+        .onSuccess((document) => (layoutId === undefined ? <SheetPreview asset={asset} document={document} page={page.number} /> : <SheetViewer asset={asset} document={document} layoutId={layoutId} page={page} url={url} />))
+        .onErrorTag('MediaError', ({ reason }) => <MediaFailure asset={asset} {...pdfFailure(retry)(reason)} />)
+        .onFailure(() => <MediaFailure asset={asset} message="PDF failed to load" onRetry={retry} />)
         .exhaustive();
 };
 

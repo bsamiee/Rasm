@@ -2,17 +2,17 @@ import { Array, Data, Effect, Optic, Option, Record, Schema, String, Struct } fr
 import { FetchHttpClient } from 'effect/http';
 import { AsyncResult, Atom, AtomHttpApi, Reactivity } from 'effect/reactivity';
 import { Api, type Recovery } from '#/model/api';
-import type { AssetId } from '#/model/asset';
-import type { CompositionId } from '#/model/placement';
-import { type Entry, type EntryId, Portfolio } from '#/model/portfolio';
+import type { Assets } from '#/model/asset';
+import type { Composition } from '#/model/placement';
+import { type Entry, Portfolio } from '#/model/portfolio';
 import { preview, revised } from '#/site/state';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Workspace = Data.TaggedEnum<{
-    Entries: { readonly last: Option.Option<typeof EntryId.Type> };
-    Entry: { readonly entry: typeof EntryId.Type; readonly composition: Option.Option<typeof CompositionId.Type> };
-    Place: { readonly entry: typeof EntryId.Type; readonly asset: Option.Option<typeof AssetId.Type> };
+    Entries: { readonly last: Option.Option<Entry['id']> };
+    Entry: { readonly entry: Entry['id']; readonly composition: Option.Option<Composition['id']> };
+    Place: { readonly entry: Entry['id']; readonly asset: Option.Option<keyof Assets['Service']> };
 }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -36,8 +36,8 @@ const draft = Atom.writable(
     (refresh) => refresh(draftRequest),
 ).pipe(Atom.keepAlive);
 const workspace = Atom.make<Workspace>(Workspace.Entries({ last: Option.none() }));
-const tab = Atom.make<typeof Tab.Type>('entries');
-const chosen = Atom.make(Option.none<typeof AssetId.Type>());
+const tab = Atom.make(Tab.make('entries'));
+const chosen = Atom.make(Option.none<keyof Assets['Service']>());
 const saveRequest = PortfolioClient.runtime
     .fn(
         Effect.fnUntraced(function* (submitted: Atom.Success<typeof draft> & { readonly publish: boolean }, get: Atom.FnContext) {
@@ -65,7 +65,7 @@ const reloadRequest = PortfolioClient.runtime
     .pipe(Atom.keepAlive);
 const deleteRequest = PortfolioClient.runtime
     .fn(
-        Effect.fnUntraced(function* (id: typeof AssetId.Type, get: Atom.FnContext) {
+        Effect.fnUntraced(function* (id: keyof Assets['Service'], get: Atom.FnContext) {
             yield* PortfolioClient.use((api) => api.assets.delete({ params: { id } })).pipe(Effect.tapError(() => Reactivity.invalidate(recovery)));
             get.registry.update(draft, assets.modify(Record.remove(id)));
         }),
@@ -73,7 +73,7 @@ const deleteRequest = PortfolioClient.runtime
     .pipe(Atom.keepAlive);
 const discardRequest = PortfolioClient.runtime
     .fn(
-        Effect.fnUntraced(function* (upload: typeof Recovery.Type, get: Atom.FnContext) {
+        Effect.fnUntraced(function* (upload: Recovery, get: Atom.FnContext) {
             yield* PortfolioClient.use((api) => api.assets.discard({ params: { id: upload.id } })).pipe(Effect.mapError((error) => ({ upload, error })));
             if (upload.status === 'removing') {
                 get.registry.update(draft, assets.modify(Record.remove(upload.id)));
@@ -92,7 +92,7 @@ const loaded = Optic.id<Atom.Type<typeof draft>>()
 const assets = loaded.key('assets');
 const portfolio = loaded.key('portfolio');
 const hero = portfolio.optionalKey('hero');
-const updateEntry = (id: typeof EntryId.Type, update: (entry: typeof Entry.Type) => typeof Entry.Type) => portfolio.key('entries').modify(Array.map((item) => (item.id === id ? update(item) : item)));
+const updateEntry = (id: Entry['id'], update: (entry: Entry) => Entry) => portfolio.key('entries').modify(Array.map((item) => (item.id === id ? update(item) : item)));
 const entered = (input: string) => Option.getOrUndefined(Option.liftPredicate(input, String.isNonEmpty));
 
 // --- [EXPORTS] -------------------------------------------------------------------------

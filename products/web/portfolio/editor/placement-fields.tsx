@@ -3,11 +3,11 @@ import { Match, Option, Record, String, Struct } from 'effect';
 import type { ReactNode } from 'react';
 import { choiceLayout, descriptionLabel, joinDetails, sheetLabel } from '#/media/labels';
 import { Asset, type Assets } from '#/model/asset';
-import { Placement } from '#/model/placement';
+import { type Composition, Placement } from '#/model/placement';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const imageRoles = Record.collect({ drawing: 'Drawing (full sheet)', photograph: 'Photograph' } satisfies Record.ReadonlyRecord<Extract<typeof Placement.Type, { readonly kind: 'image' }>['role'], string>, (id, label) => ({ id, label }));
+const imageRoles = Record.collect({ drawing: 'Drawing (full sheet)', photograph: 'Photograph' } satisfies Record.ReadonlyRecord<Extract<Composition['items'][number], { readonly kind: 'image' }>['role'], string>, (id, label) => ({ id, label }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ const present = <K extends 'caption' | 'alt' | 'description'>(key: K, input: str
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const PlacementFields = ({ value, assets, onChange, children }: { readonly value: typeof Placement.Type; readonly assets: typeof Assets.Service; readonly onChange: (value: typeof Placement.Type) => void; readonly children?: ReactNode }) => (
+const PlacementFields = ({ value, assets, onChange, children }: { readonly value: Composition['items'][number]; readonly assets: Assets['Service']; readonly onChange: (value: Composition['items'][number]) => void; readonly children?: ReactNode }) => (
     <div className="placement-fields">
         <span>{value.asset.name}</span>
         <Field

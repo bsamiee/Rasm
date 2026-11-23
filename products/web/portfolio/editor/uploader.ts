@@ -10,15 +10,15 @@ import { Atom, AtomRegistry } from 'effect/reactivity';
 import { assets, draft, hero, PortfolioClient, recoveryRequest, updateEntry } from '#/editor/state';
 import { Api, type UploadRefused } from '#/model/api';
 import { Asset, PdfAsset, uploadLimit, VideoAsset } from '#/model/asset';
-import { Composition, CompositionId, Placement } from '#/model/placement';
-import type { EntryId } from '#/model/portfolio';
+import { Composition, Placement } from '#/model/placement';
+import type { Entry } from '#/model/portfolio';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Destination = Data.TaggedEnum<{ Library: object; Hero: object; Entry: { readonly id: typeof EntryId.Type } }>;
+type Destination = Data.TaggedEnum<{ Library: object; Hero: object; Entry: { readonly id: Entry['id'] } }>;
 interface UploadMeta extends Meta {
     readonly destination: Destination;
-    readonly prepared?: { readonly asset: typeof Asset.Type; readonly compositions: readonly (typeof Composition.Type)[]; readonly attempt: string; readonly key: string };
+    readonly prepared?: { readonly asset: Composition['items'][number]['asset']; readonly compositions: readonly Composition[]; readonly attempt: string; readonly key: string };
 }
 type UploadFailure = Parameters<UppyEventMap<UploadMeta, Body>['upload-error']>[1];
 
@@ -81,9 +81,9 @@ const prepare = Effect.fnUntraced(
         const placements = Destination.$is('Entry')(destination) && !Asset.guards.pdf(asset) ? Placement.fromAsset(asset) : [];
         const compositions = yield* Effect.forEach(
             placements,
-            Effect.fnUntraced(function* (placement: typeof Placement.Type) {
+            Effect.fnUntraced(function* (placement) {
                 const id = yield* random.uuidV7();
-                return Composition.make({ id: CompositionId.make(id), items: [placement] });
+                return Composition.make({ id: Composition.fields.id.make(id), items: [placement] });
             }),
         );
         return { prepared: { asset, compositions, attempt, key: attempt } };
@@ -122,14 +122,14 @@ const placed = Effect.fnUntraced(
                 .flatMap(Struct.get('compositions'))
                 .map(Struct.get('id')),
         );
-        const preceding = (item: typeof Composition.Type) => !following.has(item.id);
+        const preceding = ({ id }: Composition) => !following.has(id);
         const stored = assets.modify(Record.set(asset.id, asset));
         registry.update(
             draft,
             Destination.$match(file.meta.destination, {
                 Library: () => stored,
                 Hero: () => Function.flow(stored, Optic.replace(hero, Array.headNonEmpty(Placement.fromAsset(asset)))),
-                Entry: ({ id }) => Function.flow(stored, updateEntry(id, Struct.evolve({ compositions: (current) => [...Array.takeWhile(current, preceding), ...compositions, ...Array.dropWhile(current, preceding)] }))),
+                Entry: ({ id }) => Function.flow(stored, updateEntry(id, Struct.evolve({ compositions: (current) => Array.flatten(Array.intersperse(Array.span(current, preceding), compositions)) }))),
             }),
         );
     },

@@ -15,7 +15,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 [SCHEMA]: Effect `Schema` under `model/` defines every value Worker, page, and editor exchange:
 - Media kinds are `Schema.Class` members of `Asset` tagged by `kind`, accepted media types derive from member `mime` literals
 - ALWAYS derive options and upload restrictions from schema `.literals` and `.members`, and fold assets through `Asset.match` and `Asset.guards`
-- `AssetId`, `EntryId`, and `CompositionId` brand every id, a swapped id fails to compile
+- `AssetId` and the `id` fields of `Entry` and `Composition` brand every id, a swapped id fails to compile
 - Document fields a later build adds take `Schema.withDecodingDefaultKey`, bodies older builds stored still decode
 - Text fields are optional keys through `Prose`, which trims on decode and encode and drops blank text, absent text never an empty string
 - Stored forms are the `Schema.toEncoded` side of resolved schemas, with no second declaration

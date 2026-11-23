@@ -7,9 +7,9 @@ import { CheckboxGroup } from 'react-aria-components';
 import { draft, updateEntry } from '#/editor/state';
 import { format, joinDetails, sheetLabel } from '#/media/labels';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import type { AssetId, Assets } from '#/model/asset';
-import { Composition, CompositionId, Placement } from '#/model/placement';
-import type { EntryId } from '#/model/portfolio';
+import type { Assets } from '#/model/asset';
+import { Composition, Placement } from '#/model/placement';
+import type { Entry } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -20,11 +20,11 @@ const PlaceFile = ({
     onSelect,
     onAdd,
 }: {
-    readonly assets: typeof Assets.Service;
-    readonly entryId: typeof EntryId.Type;
-    readonly assetId: Option.Option<typeof AssetId.Type>;
-    readonly onSelect: (id: Option.Option<typeof AssetId.Type>) => void;
-    readonly onAdd: (compositionId: typeof CompositionId.Type) => void;
+    readonly assets: Assets['Service'];
+    readonly entryId: Entry['id'];
+    readonly assetId: Option.Option<keyof Assets['Service']>;
+    readonly onSelect: (id: Option.Option<keyof Assets['Service']>) => void;
+    readonly onAdd: (compositionId: Composition['id']) => void;
 }) => {
     const setDraft = useAtomSet(draft);
     const [order, setOrder] = useState<string[]>([]);
@@ -33,7 +33,7 @@ const PlaceFile = ({
     const pages = placements.filter((placement) => placement.kind === 'pdf');
     const chosen = pages.length > 0 ? Array.getSomes(order.map((number) => Array.findFirst(pages, ({ page }) => String(page.number) === number))) : placements;
     const add = () => {
-        const compositions = chosen.map((placement) => Composition.make({ id: CompositionId.make(SecureRandom.uuidV7Unsafe()), items: [placement] }));
+        const compositions = chosen.map((placement) => Composition.make({ id: Composition.fields.id.make(SecureRandom.uuidV7Unsafe()), items: [placement] }));
         setDraft(updateEntry(entryId, Struct.evolve({ compositions: Array.appendAll(compositions) })));
         onSelect(Option.none());
         Option.match(Array.head(compositions), { onNone: Function.constVoid, onSome: ({ id }) => onAdd(id) });

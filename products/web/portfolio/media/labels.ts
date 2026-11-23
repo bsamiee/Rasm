@@ -1,7 +1,7 @@
 import { Format } from '@rasm/ui';
 import { Option, Predicate, String } from 'effect';
 import type { Sheet } from '#/model/asset';
-import type { Composition, Placement } from '#/model/placement';
+import type { Composition } from '#/model/placement';
 import type { Entry } from '#/model/portfolio';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -14,13 +14,13 @@ const confirmation = { cancel: 'Keep', description: 'Source files stay in librar
 
 const literalOptions = <const T extends string>(literals: readonly T[]) => literals.map((id) => ({ id, label: String.capitalize(id) }));
 const joinDetails = (parts: readonly (string | undefined)[]) => parts.filter(Predicate.isNotUndefined).join(' · ');
-const sheetLabel = ({ number, label }: Pick<typeof Sheet.Type, 'number' | 'label'>, total: number) => joinDetails([`Sheet ${number} of ${total}`, label]);
-const entryTitle = (entry: typeof Entry.Type) => entry.title ?? 'Untitled entry';
-const placementTitle = (placement: typeof Placement.Type) => joinDetails([placement.caption ?? placement.asset.name, placement.kind === 'pdf' ? sheetLabel(placement.page, placement.asset.pages.length) : undefined]);
-const placementAlt = (placement: typeof Placement.Type) => placement.alt ?? placementTitle(placement);
-const descriptionLabel = (placement: typeof Placement.Type) => (placement.kind === 'video' ? 'Description or transcript' : 'Detailed description');
-const compositionLabel = (composition: typeof Composition.Type) => format.list(composition.items.map(placementTitle));
-const compositionCaption = (composition: typeof Composition.Type) => Option.liftPredicate(format.list(composition.items.map(({ caption }) => caption).filter(Predicate.isNotUndefined)), String.isNonEmpty);
+const sheetLabel = ({ number, label }: Pick<Sheet, 'number' | 'label'>, total: number) => joinDetails([`Sheet ${number} of ${total}`, label]);
+const entryTitle = ({ title }: Entry) => title ?? 'Untitled entry';
+const placementTitle = (placement: Composition['items'][number]) => joinDetails([placement.caption ?? placement.asset.name, placement.kind === 'pdf' ? sheetLabel(placement.page, placement.asset.pages.length) : undefined]);
+const placementAlt = (placement: Composition['items'][number]) => placement.alt ?? placementTitle(placement);
+const descriptionLabel = ({ kind }: Composition['items'][number]) => (kind === 'video' ? 'Description or transcript' : 'Detailed description');
+const compositionLabel = ({ items }: Composition) => format.list(items.map(placementTitle));
+const compositionCaption = ({ items }: Composition) => Option.liftPredicate(format.list(items.map(({ caption }) => caption).filter(Predicate.isNotUndefined)), String.isNonEmpty);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

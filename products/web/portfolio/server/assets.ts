@@ -5,13 +5,13 @@ import { SecureRandom } from 'effect/crypto';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
 import { SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
 import { Api, Recovery, UploadRefused } from '#/model/api';
-import { Asset, type AssetId } from '#/model/asset';
+import { Asset, type Assets } from '#/model/asset';
 import { assets, projectedPaths, references, UploadAttempt, unavailable } from '#/server/catalog';
 import { OwnerAccount } from '#/server/owner';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Release = Schema.Struct({ assetId: assets.schema.fields.id, action: Schema.TaggedUnion({ Abandon: { attemptId: Schema.String }, Discard: {}, Delete: {} }) });
+class Release extends Schema.Opaque<Release, unknown>()(Schema.Struct({ assetId: assets.schema.fields.id, action: Schema.Literals(['discard', 'delete']) })) {}
 const AssetRead = Schema.Struct({ id: assets.schema.fields.id, width: Schema.OptionFromNullOr(Schema.Int) });
 const AssetObject = Schema.Struct({ mime: Schema.String, name: Schema.OptionFromNullOr(Schema.String), published: Schema.BooleanFromBit, objectKey: Schema.String });
 const Released = Schema.Struct({ objects: Schema.fromJsonString(UploadAttempt.fields.objects) });
@@ -53,7 +53,6 @@ const readRecovery = SqlSchema.findAll({
 
 // --- [UPLOADS]
 
-const objects = (asset: typeof Asset.Type, attempt: string) => [...Asset.matchOrElse(asset, { image: ({ renditions = [] }) => renditions }, () => []).map(({ width }) => ({ key: `${attempt}/${width}`, width })), { key: attempt }];
 const declared = SqlSchema.findAll({
     Request: Declared,
     Result: DeclaredObject,
@@ -90,7 +89,7 @@ const claimed = <A, R>(statement: Effect.Effect<readonly A[], SqlError.SqlError,
         Effect.catchTag('SqlError', unavailable),
     );
 const attachUpload = Effect.fn('attachUpload')(
-    (assetId: typeof AssetId.Type, key: string, uploadId: string) =>
+    (assetId: keyof Assets['Service'], key: string, uploadId: string) =>
         SqlClient.SqlClient.use(
             (sql) => sql`UPDATE assets SET body = json_set(body, (
                 SELECT o.fullkey || '.uploadId' FROM json_each(body, '$.uploads') u, json_each(body, u.fullkey || '.objects') o WHERE o.value ->> '$.key' = ${key}
@@ -101,7 +100,7 @@ const attachUpload = Effect.fn('attachUpload')(
     claimed,
 );
 const completeUpload = Effect.fn('completeUpload')(
-    (assetId: typeof AssetId.Type, attempt: string) =>
+    (assetId: keyof Assets['Service'], attempt: string) =>
         SqlClient.SqlClient.use(
             (sql) => sql`UPDATE assets SET body = json_insert(body, '$.objectKey', ${attempt}) WHERE id = ${assetId} AND removing IS NOT TRUE AND EXISTS (
                 SELECT 1 FROM json_each(uploads) u WHERE u.value ->> '$.id' = ${attempt} AND (u.value ->> '$.discard' = 0 OR ${sql('objectKey')} IS NOT NULL)
@@ -120,21 +119,17 @@ const releaseUploads = Effect.fn('releaseUploads')(
             execute: ({ assetId, action }) =>
                 SqlClient.SqlClient.use((sql) => {
                     const pending = sql`(removing IS TRUE OR ${sql('objectKey')} IS DISTINCT FROM u.value ->> '$.id')`;
-                    const discard = (...discarded: readonly Statement.Fragment[]) => sql`UPDATE assets SET body = json_set(body, '$.uploads', json((
-                        SELECT json_group_array(json(CASE WHEN ${sql.and(discarded)} THEN json_set(u.value, '$.discard', json('true')) ELSE u.value END)) FROM json_each(uploads) u
+                    const discard = (discarded: Statement.Fragment) => sql`UPDATE assets SET body = json_set(body, '$.uploads', json((
+                        SELECT json_group_array(json(CASE WHEN ${discarded} THEN json_set(u.value, '$.discard', json('true')) ELSE u.value END)) FROM json_each(uploads) u
                     ))) WHERE id = ${assetId}`;
-                    const released = (...conditions: readonly Statement.Fragment[]) => sql`SELECT (
-                        SELECT json_group_array(json(o.value)) FROM json_each(a.uploads) u, json_each(u.value, '$.objects') o WHERE ${sql.and([sql`u.value ->> '$.discard' = 1`, ...conditions])}
+                    const released = sql`SELECT (
+                        SELECT json_group_array(json(o.value)) FROM json_each(a.uploads) u, json_each(u.value, '$.objects') o WHERE u.value ->> '$.discard' = 1
                     ) AS objects FROM assets a WHERE a.id = ${assetId}`;
-                    const statements = Release.fields.action.match(action, {
-                        Abandon: ({ attemptId }) => {
-                            const attempt = sql`u.value ->> '$.id' = ${attemptId}`;
-                            return [discard(attempt, pending), released(attempt)] as const;
-                        },
-                        Discard: () => [discard(pending), released()] as const,
-                        Delete: () => [sql`UPDATE assets SET body = json_set(body, '$.removing', json('true')) WHERE id = ${assetId} AND NOT EXISTS (SELECT 1 FROM (${references(sql)}) WHERE asset_id = assets.id)`, discard(sql`removing IS TRUE`), sql`${released()} AND a.removing IS TRUE`] as const,
-                    });
-                    return Effect.map(Rows.atomic(statements), Array.lastNonEmpty);
+                    const statements = {
+                        discard: [discard(pending), released],
+                        delete: [sql`UPDATE assets SET body = json_set(body, '$.removing', json('true')) WHERE id = ${assetId} AND NOT EXISTS (SELECT 1 FROM (${references(sql)}) WHERE asset_id = assets.id)`, discard(sql`removing IS TRUE`), sql`${released} AND a.removing IS TRUE`],
+                    } as const;
+                    return Effect.map(Rows.atomic(statements[action]), Array.lastNonEmpty);
                 }),
         }),
         Effect.map(Struct.get('objects')),
@@ -142,7 +137,7 @@ const releaseUploads = Effect.fn('releaseUploads')(
     ),
 );
 const finishRelease = Effect.fn('finishRelease')(
-    (assetId: typeof AssetId.Type, keys: Array.NonEmptyReadonlyArray<string>) =>
+    (assetId: keyof Assets['Service'], keys: Array.NonEmptyReadonlyArray<string>) =>
         SqlClient.SqlClient.use((sql) =>
             Rows.atomic([
                 sql`UPDATE assets SET body = json_set(body, '$.uploads', json((
@@ -158,7 +153,7 @@ const finishRelease = Effect.fn('finishRelease')(
     Effect.asVoid,
     Effect.catchTag('SqlError', unavailable),
 );
-const releaseObjects = Effect.fnUntraced(function* (release: typeof Release.Type) {
+const releaseObjects = Effect.fnUntraced(function* (release: Release) {
     const [released, failures] = yield* Effect.partition(yield* releaseUploads(release), ({ key, uploadId }) => Effect.as(ObjectStorage.remove(key, uploadId), key), { concurrency: 'unbounded' });
     yield* Array.isReadonlyArrayNonEmpty(released) ? finishRelease(release.assetId, released) : Effect.void;
     return yield* Array.isReadonlyArrayNonEmpty(failures) ? Effect.andThen(Effect.logError('object delete failed', ...failures.map(Cause.fail)), HttpApiError.ServiceUnavailable.make()) : Effect.void;
@@ -173,8 +168,8 @@ const begin = HttpApiBuilder.handler(
     Effect.fn('begin')(function* ({ payload }) {
         const attempt = yield* SecureRandom.SecureRandom.use((random) => random.uuidV7());
         const { id, ...metadata } = payload;
-        const expected = objects(payload, attempt);
-        const stored = yield* beginUpload({ id, body: { ...metadata, uploads: [{ id: attempt, discard: false, objects: expected } satisfies typeof UploadAttempt.Encoded] } });
+        const expected = [...Asset.matchOrElse(payload, { image: ({ renditions = [] }) => renditions }, () => []).map(({ width }) => ({ key: `${attempt}/${width}`, width })), { key: attempt }];
+        const stored = yield* beginUpload({ id, body: { ...metadata, uploads: [Schema.toEncoded(UploadAttempt).make({ id: attempt, discard: false, objects: expected })] } });
         return { attempt, objects: stored ? [] : expected };
     }),
 );
@@ -235,8 +230,8 @@ const assetGroup = HttpApiBuilder.group(Api, 'assets', (handlers) =>
         sign,
         complete,
         recovery: () => readRecovery,
-        discard: ({ params }) => releaseObjects({ assetId: params.id, action: { _tag: 'Discard' } }).pipe(Effect.catchTag('NoSuchElementError', () => HttpApiError.NotFound.make())),
-        delete: ({ params }) => releaseObjects({ assetId: params.id, action: { _tag: 'Delete' } }).pipe(Effect.catchTag('NoSuchElementError', () => HttpApiError.Conflict.make())),
+        discard: ({ params }) => releaseObjects({ assetId: params.id, action: 'discard' }).pipe(Effect.catchTag('NoSuchElementError', () => HttpApiError.NotFound.make())),
+        delete: ({ params }) => releaseObjects({ assetId: params.id, action: 'delete' }).pipe(Effect.catchTag('NoSuchElementError', () => HttpApiError.Conflict.make())),
         read,
     }),
 );

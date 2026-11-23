@@ -1,11 +1,12 @@
 import { Button } from 'react-aria-components';
 import { assetUrl } from '#/model/api';
 import { Asset } from '#/model/asset';
+import type { Composition } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const MediaLoading = () => <output className="media-loading">Loading…</output>;
-const MediaFailure = ({ asset, message, onRetry }: { readonly asset: typeof Asset.Type; readonly message: string; readonly onRetry?: () => void }) => (
+const MediaFailure = ({ asset, message, onRetry }: { readonly asset: Composition['items'][number]['asset']; readonly message: string; readonly onRetry?: () => void }) => (
     <output className="media-failure">
         <span>{message}</span>
         {onRetry && (
@@ -13,7 +14,7 @@ const MediaFailure = ({ asset, message, onRetry }: { readonly asset: typeof Asse
                 Try again
             </Button>
         )}
-        <a className="text-link" href={assetUrl(asset)} rel="noreferrer" target="_blank">
+        <a className="text-link" href={assetUrl(asset.id)} rel="noreferrer" target="_blank">
             {Asset.match(asset, { image: () => 'Open original image', video: () => 'Open original video', pdf: () => 'Open original PDF' })}
         </a>
     </output>

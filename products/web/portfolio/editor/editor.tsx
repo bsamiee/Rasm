@@ -18,9 +18,9 @@ import { UploadRecovery } from '#/editor/upload-recovery.tsx';
 import '#/editor/editor.css';
 import { Destination, nextDestination, pendingUploads } from '#/editor/uploader';
 import { confirmation, entryTitle, format } from '#/media/labels';
-import type { AssetId } from '#/model/asset';
-import type { CompositionId } from '#/model/placement';
-import { Entry, EntryId, type Portfolio } from '#/model/portfolio';
+import type { Assets } from '#/model/asset';
+import type { Composition } from '#/model/placement';
+import { Entry, type Portfolio } from '#/model/portfolio';
 import { preview } from '#/site/state';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -71,20 +71,20 @@ const DraftEditor = (state: Atom.Success<typeof draft>) => {
         });
         target.current?.focus();
     };
-    const open = (entry: typeof EntryId.Type, composition = Option.none<typeof CompositionId.Type>(), target: RefObject<HTMLElement | null> = heading) => {
+    const open = (entry: Entry['id'], composition = Option.none<Composition['id']>(), target: RefObject<HTMLElement | null> = heading) => {
         setTarget(Destination.Entry({ id: entry }));
         show(Workspace.Entry({ entry, composition }), target);
     };
-    const place = (entry: typeof EntryId.Type, asset: Option.Option<typeof AssetId.Type>) => {
+    const place = (entry: Entry['id'], asset: Option.Option<keyof Assets['Service']>) => {
         setTarget(Destination.Entry({ id: entry }));
         show(Workspace.Place({ entry, asset }), heading);
     };
-    const add = (kind: (typeof Entry.Type)['kind']) => {
-        const created = Entry.make({ id: EntryId.make(SecureRandom.uuidV7Unsafe()), kind });
+    const add = (kind: Entry['kind']) => {
+        const created = Entry.make({ id: Entry.fields.id.make(SecureRandom.uuidV7Unsafe()), kind });
         setDraft(portfolio.key('entries').modify(Array.append(created)));
         open(created.id, Option.none(), title);
     };
-    const enter = (snapshot: typeof Portfolio.Type, index: number, target: RefObject<HTMLElement | null>, item = Option.none<number>()) =>
+    const enter = (snapshot: Portfolio, index: number, target: RefObject<HTMLElement | null>, item = Option.none<number>()) =>
         Option.match(Array.get(snapshot.entries, index), {
             onNone: () => show(Workspace.Entries({ last: Option.none() }), create),
             onSome: (found) =>
@@ -104,7 +104,7 @@ const DraftEditor = (state: Atom.Success<typeof draft>) => {
             control.focus();
         }
     };
-    const locate = (path: readonly PropertyKey[], snapshot: typeof Portfolio.Type) =>
+    const locate = (path: readonly PropertyKey[], snapshot: Portfolio) =>
         Match.value(path).pipe(
             Match.when(
                 ['entries', Match.number, 'compositions', Match.number],
@@ -137,8 +137,8 @@ const DraftEditor = (state: Atom.Success<typeof draft>) => {
         Match.when({ changed: true }, () => 'Unsaved draft'),
         Match.orElse(() => Option.match(AsyncResult.value(operation), { onNone: () => 'Private draft', onSome: (saved) => (saved.publish ? 'Draft saved and published' : 'Draft saved. Published work unchanged') })),
     );
-    const current = (id: typeof EntryId.Type) => Array.findFirst(state.portfolio.entries, (item) => item.id === id);
-    const idle = { last: Option.none<typeof EntryId.Type>(), placing: undefined, entering: undefined };
+    const current = (id: Entry['id']) => Array.findFirst(state.portfolio.entries, (item) => item.id === id);
+    const idle = { last: Option.none<Entry['id']>(), placing: undefined, entering: undefined };
     const { last, placing, entering } = Workspace.$match(view, {
         Entries: (listing) => ({ ...idle, last: listing.last }),
         Place: ({ entry, asset }) => ({ ...idle, placing: Option.getOrUndefined(Option.map(current(entry), (found) => ({ entry: found, asset }))) }),
@@ -250,7 +250,7 @@ const DraftEditor = (state: Atom.Success<typeof draft>) => {
                                         New study
                                     </button>
                                 </div>
-                                <EntryList entries={state.portfolio.entries} onRemove={() => create.current?.focus()} onSelect={({ id }) => open(id)} selected={last} />
+                                <EntryList entries={state.portfolio.entries} onRemove={() => create.current?.focus()} onSelect={(id) => open(id)} selected={last} />
                                 {state.portfolio.entries.length === 0 && <p className="panel-empty hint">Create a project or study to add files</p>}
                             </>
                         )}

@@ -9,17 +9,17 @@ import { draft, hero, updateEntry } from '#/editor/state';
 import { CompositionGrid } from '#/media/composition-grid.tsx';
 import { choiceLayout, compositionLabel, confirmation, entryTitle, format, literalOptions, placementTitle } from '#/media/labels';
 import type { Assets } from '#/model/asset';
-import { Alignment, type Composition, CompositionId, type Placement, Scale } from '#/model/placement';
+import { Alignment, Composition, Scale } from '#/model/placement';
 import type { Entry } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const CompositionEditor = ({ assets, entry, item, ref }: { readonly assets: typeof Assets.Service; readonly entry: typeof Entry.Type; readonly item: typeof Composition.Type; readonly ref: Ref<HTMLDivElement> }) => {
+const CompositionEditor = ({ assets, entry, item, ref }: { readonly assets: Assets['Service']; readonly entry: Entry; readonly item: Composition; readonly ref: Ref<HTMLDivElement> }) => {
     const setDraft = useAtomSet(draft);
     const [first, second] = item.items;
-    const update = (change: (compositions: readonly (typeof Composition.Type)[]) => readonly (typeof Composition.Type)[]) => setDraft(updateEntry(entry.id, Struct.evolve({ compositions: change })));
-    const replace = (...values: readonly (typeof Composition.Type)[]) => update(Array.flatMap((candidate) => (candidate.id === item.id ? values : [candidate])));
-    const fields = (placement: typeof Placement.Type, items: (next: typeof Placement.Type) => (typeof Composition.Type)['items']) => (
+    const update = (change: (compositions: Entry['compositions']) => Entry['compositions']) => setDraft(updateEntry(entry.id, Struct.evolve({ compositions: change })));
+    const replace = (...values: readonly Composition[]) => update(Array.flatMap((candidate) => (candidate.id === item.id ? values : [candidate])));
+    const fields = (placement: Composition['items'][number], items: (next: Composition['items'][number]) => Composition['items']) => (
         <PlacementFields assets={assets} onChange={(next) => replace({ ...item, items: items(next) })} value={placement}>
             <div className="actions">
                 <button className="button button-outline" onClick={() => setDraft(Optic.replace(hero, placement))} type="button">
@@ -53,7 +53,7 @@ const CompositionEditor = ({ assets, entry, item, ref }: { readonly assets: type
                         <button className="button button-outline" onClick={() => replace({ ...item, items: [second, first] })} type="button">
                             Swap order
                         </button>
-                        <button className="button button-outline" onClick={() => replace({ ...item, items: [first] }, { ...item, id: CompositionId.make(SecureRandom.uuidV7Unsafe()), items: [second] })} type="button">
+                        <button className="button button-outline" onClick={() => replace({ ...item, items: [first] }, { ...item, id: Composition.fields.id.make(SecureRandom.uuidV7Unsafe()), items: [second] })} type="button">
                             Unpair
                         </button>
                     </>
@@ -72,11 +72,11 @@ const Compositions = ({
     onUpload,
     onPlace,
 }: {
-    readonly assets: typeof Assets.Service;
-    readonly entry: typeof Entry.Type;
-    readonly selected: Option.Option<typeof CompositionId.Type>;
+    readonly assets: Assets['Service'];
+    readonly entry: Entry;
+    readonly selected: Option.Option<Composition['id']>;
     readonly editor: Ref<HTMLDivElement>;
-    readonly onSelect: (id: typeof CompositionId.Type) => void;
+    readonly onSelect: (id: Composition['id']) => void;
     readonly onUpload: () => void;
     readonly onPlace: () => void;
 }) => {

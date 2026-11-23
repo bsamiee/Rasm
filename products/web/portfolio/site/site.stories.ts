@@ -3,16 +3,57 @@ import { expect, waitFor } from 'storybook/test';
 import preview from '#/.storybook/preview';
 import { Bootstrap } from '#/model/api';
 import { AssetId, ImageAsset } from '#/model/asset';
-import { CompositionId } from '#/model/placement';
-import { Entry, EntryId, Portfolio } from '#/model/portfolio';
+import { Composition } from '#/model/placement';
+import { Entry, Portfolio } from '#/model/portfolio';
 import { shell } from '#/site/shell.tsx';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const missing = ImageAsset.make({ id: AssetId.make('5e0d6c1b-2a3f-4b8e-9c7d-6f5a4b3c2d1e'), name: 'missing-cover.png', size: 1000, mime: 'image/png', width: 1200, height: 900 });
-const library = EntryId.make('7f1c2a4e-3b5d-4c6e-8f90-1a2b3c4d5e6f');
-const joints = EntryId.make('0a9b8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d');
-const sheets = [CompositionId.make('3c1f0e52-8a47-4d19-b6c3-2e5d7a9f1b04'), CompositionId.make('9d2e4b61-5f38-4c07-a1d4-6b8c0e2f3a15')] as const;
+const library = Entry.fields.id.make('7f1c2a4e-3b5d-4c6e-8f90-1a2b3c4d5e6f');
+const joints = Entry.fields.id.make('0a9b8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d');
+const sheets = [Composition.fields.id.make('3c1f0e52-8a47-4d19-b6c3-2e5d7a9f1b04'), Composition.fields.id.make('9d2e4b61-5f38-4c07-a1d4-6b8c0e2f3a15')] as const;
+const drawing = { id: '6f1c2a4e-3b5d-4c6e-8f90-1a2b3c4d5e6f', name: 'harbour-section.png', size: 2048, kind: 'image', mime: 'image/png', width: 1600, height: 1000 };
+const set = {
+    id: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
+    name: 'drawing-set.pdf',
+    size: 4096,
+    kind: 'pdf',
+    mime: 'application/pdf',
+    pages: [
+        { width: 842, height: 595, label: 'A-101' },
+        { width: 800, height: 600 },
+    ],
+};
+const film = { id: 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e', name: 'walkthrough.mp4', size: 8192, kind: 'video', mime: 'video/mp4', width: 1920, height: 1080 };
+const placed = {
+    session: 'signedOut',
+    published: {
+        assets: { [drawing.id]: drawing, [set.id]: set, [film.id]: film },
+        portfolio: {
+            hero: { kind: 'image', assetId: drawing.id, role: 'photograph', framing: { mode: 'cover', x: 20, y: 80 }, alt: 'Reading room' },
+            entries: [
+                {
+                    id: library,
+                    kind: 'project',
+                    title: 'Harbour Library',
+                    cover: { kind: 'image', assetId: drawing.id, role: 'drawing' },
+                    compositions: [
+                        {
+                            id: sheets[0],
+                            scale: 'medium',
+                            align: 'left',
+                            items: [
+                                { kind: 'pdf', assetId: set.id, page: 2, caption: 'Section' },
+                                { kind: 'video', assetId: film.id, poster: { assetId: drawing.id } },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+};
 const stored = {
     session: 'signedOut',
     published: {
@@ -65,6 +106,23 @@ const StoredBlanks = meta.story({
                 }),
         ]),
 });
+const StoredPlacements = meta.story({
+    play: () =>
+        played([
+            () => expect(Effect.runPromise(Effect.flatMap(Schema.decodeUnknownEffect(Bootstrap)(placed), Schema.encodeEffect(Bootstrap)))).resolves.toStrictEqual(placed),
+            () =>
+                expect(
+                    Effect.runPromise(
+                        Effect.map(Schema.decodeUnknownEffect(Bootstrap)(placed), ({ published }) =>
+                            published.portfolio.entries
+                                .flatMap(({ compositions }) => compositions)
+                                .flatMap(({ items }) => items)
+                                .map((item) => (item.kind === 'pdf' ? item.page : item.asset.name)),
+                        ),
+                    ),
+                ).resolves.toStrictEqual([{ width: 800, height: 600, number: 2 }, 'walkthrough.mp4']),
+        ]),
+});
 const IndexJump = meta.story({
     play: ({ canvas, userEvent }) =>
         played([
@@ -106,4 +164,4 @@ const UnavailableCover = meta.story({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CarouselControls, Empty, IndexJump, SignedIn, StoredBlanks, UnavailableCover, Visitor };
+export { CarouselControls, Empty, IndexJump, SignedIn, StoredBlanks, StoredPlacements, UnavailableCover, Visitor };

@@ -1,12 +1,12 @@
 import { Array, Data, Effect, Equal, Function, Option, Queue, Schema, Stream, Struct } from 'effect';
 import { Atom, type AtomRegistry } from 'effect/reactivity';
-import { CompositionId } from '#/model/placement';
-import { type Entry, EntryId } from '#/model/portfolio';
+import { Composition } from '#/model/placement';
+import { Entry } from '#/model/portfolio';
 import { editor, shown } from '#/site/state';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Place = Data.TaggedEnum<{ Anchor: { readonly id: typeof Anchor.Type }; Project: typeof Position.Type }>;
+type Place = Data.TaggedEnum<{ Anchor: { readonly id: 'top' | 'work' }; Project: Position }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -15,8 +15,7 @@ const instant = { behavior: 'instant' } as const satisfies ScrollIntoViewOptions
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Anchor = Schema.Literals(['top', 'work']);
-const Position = Schema.fromURLSearchParams(Schema.Struct({ project: EntryId, composition: Schema.optional(CompositionId) }));
+class Position extends Schema.Opaque<Position, unknown>()(Schema.fromURLSearchParams(Schema.Struct({ project: Entry.fields.id, composition: Schema.optional(Composition.fields.id) }))) {}
 const Place = Data.taggedEnum<Place>();
 const top = Place.Anchor({ id: 'top' });
 const work = Place.Anchor({ id: 'work' });
@@ -29,7 +28,7 @@ const read = (hash: string): Option.Option<Place> => {
     return text === ''
         ? Option.some(top)
         : Option.orElse(
-              Option.map(Schema.decodeUnknownOption(Anchor)(text), (id) => Place.Anchor({ id })),
+              Array.findFirst([top, work], ({ id }) => id === text),
               () => Option.map(Schema.decodeOption(Position)(new URLSearchParams(text)), Place.Project),
           );
 };
@@ -82,8 +81,8 @@ const element = () =>
     ).pipe(Atom.keepAlive);
 const stickyBar = element();
 const workSection = element();
-const chapterSection = Atom.family((_: typeof EntryId.Type) => element());
-const selections = Atom.make<Readonly<Partial<Record<typeof EntryId.Type, typeof CompositionId.Type>>>>({});
+const chapterSection = Atom.family((_: Entry['id']) => element());
+const selections = Atom.make<Readonly<Partial<Record<Entry['id'], Composition['id']>>>>({});
 const settle = (registry: AtomRegistry.AtomRegistry, from: Option.Option<Place>) => {
     const destination = read(location.hash);
     const arrived = project(destination);
@@ -126,8 +125,8 @@ const fragment = Atom.make((get) => {
 }).pipe(Atom.withServerValue(() => ''));
 const entries = Atom.make((get) => new Map(get(shown).entries.map((entry) => [entry.id, entry] as const)));
 const position = Atom.make((get) => Option.filter(Option.filter(read(get(fragment)), Place.$is('Project')), ({ project: id }) => get(entries).has(id)));
-const activeEntry = Atom.make((get) => Option.map(get(position), Struct.get('project'))).pipe(Atom.withServerValue(() => Option.none<typeof EntryId.Type>()));
-const shownComposition = (entry: typeof Entry.Type | undefined, stated: typeof CompositionId.Type | undefined) =>
+const activeEntry = Atom.make((get) => Option.map(get(position), Struct.get('project'))).pipe(Atom.withServerValue(() => Option.none()));
+const shownComposition = (entry: Entry | undefined, stated: Composition['id'] | undefined) =>
     Option.map(
         Option.orElse(
             Array.findFirst(entry?.compositions ?? [], ({ id }) => id === stated),
@@ -135,16 +134,16 @@ const shownComposition = (entry: typeof Entry.Type | undefined, stated: typeof C
         ),
         Struct.get('id'),
     );
-const selectedComposition = Atom.family((id: typeof EntryId.Type) =>
+const selectedComposition = Atom.family((id: Entry['id']) =>
     Atom.make((get) => shownComposition(get(entries).get(id), Option.getOrUndefined(Option.filter(get(position), ({ project: current }) => current === id))?.composition ?? get(selections)[id])).pipe(Atom.withServerValue((get) => shownComposition(get(entries).get(id), undefined))),
 );
-const selectComposition = Atom.writable(Function.constVoid, (context, { project: id, composition }: typeof Position.Type) => {
+const selectComposition = Atom.writable(Function.constVoid, (context, { project: id, composition }: Position) => {
     visit(Place.Project({ project: id, composition }), 'push');
     context.set(selections, { ...context.get(selections), ...(composition !== undefined && { [id]: composition }) });
 });
-const jumpToEntry = Atom.writable(Function.constVoid, (context, entry: typeof Entry.Type) => {
-    context.set(selectComposition, { project: entry.id, composition: Option.getOrUndefined(context.get(selectedComposition(entry.id))) });
-    Option.match(context.get(chapterSection(entry.id)), {
+const jumpToEntry = Atom.writable(Function.constVoid, (context, { id }: Entry) => {
+    context.set(selectComposition, { project: id, composition: Option.getOrUndefined(context.get(selectedComposition(id))) });
+    Option.match(context.get(chapterSection(id)), {
         onNone: Function.constVoid,
         onSome: (chapter) => {
             (chapter.ariaLabelledByElements ?? []).filter((heading) => heading instanceof HTMLElement).forEach((heading) => heading.focus({ preventScroll: true }));
@@ -189,7 +188,7 @@ const scrollTracking = Atom.make((get) =>
 );
 const topHref = href(top);
 const workAnchor = { id: work.id, href: href(work) } as const;
-const entryHref = (entry: typeof Entry.Type) => href(Place.Project({ project: entry.id }));
+const entryHref = ({ id }: Entry) => href(Place.Project({ project: id }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

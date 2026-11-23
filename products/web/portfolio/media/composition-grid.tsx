@@ -5,7 +5,7 @@ import { type Composition, Placement } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const CompositionGrid = ({ composition, active, presentation, renderMedia }: { readonly composition: typeof Composition.Type; readonly active: boolean; readonly presentation: ComponentProps<typeof MediaFigure>['presentation']; readonly renderMedia: boolean }) => {
+const CompositionGrid = ({ composition, active, presentation, renderMedia }: { readonly composition: Composition; readonly active: boolean; readonly presentation: ComponentProps<typeof MediaFigure>['presentation']; readonly renderMedia: boolean }) => {
     const [first, second] = composition.items;
     const ratios = Array.map(composition.items, Placement.ratio);
     return (

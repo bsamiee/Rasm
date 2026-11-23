@@ -19,7 +19,7 @@ const UploadRecovery = () => {
         incomplete: { label: 'Discard incomplete upload', description: 'Deletes partial upload data. Add original file again to upload it' },
         cleanup: { label: 'Remove leftover upload data', description: 'Uploaded file and its placements stay' },
         removing: { label: 'Finish removal', description: 'Deletes remaining upload data of removed file' },
-    } satisfies Record<(typeof Recovery.Type)['status'], { readonly label: string; readonly description: string }>;
+    } satisfies Record<Recovery['status'], { readonly label: string; readonly description: string }>;
     const queuedUploads = new Set(Array.filterMap(files, (file) => (file.meta.prepared !== undefined && file.progress.uploadComplete !== true ? Result.succeed(file.meta.prepared.asset.id) : Result.failVoid)));
     return (
         <section className="upload-recovery">

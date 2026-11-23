@@ -7,7 +7,7 @@ import { placementAlt } from '#/media/labels';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
 import { assetUrl } from '#/model/api';
 import type { ImageAsset } from '#/model/asset';
-import type { Placement } from '#/model/placement';
+import type { Composition } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ const MediaElement = ({
     layoutId,
     viewport,
 }: {
-    readonly placement: typeof Placement.Type;
+    readonly placement: Composition['items'][number];
     readonly active: boolean;
     readonly priority: boolean;
     readonly presentation: 'expandable' | 'expanded' | 'full' | 'preview' | 'thumbnail';
@@ -31,7 +31,7 @@ const MediaElement = ({
     const nearby = useInView(viewport ?? video, { margin: '200px' });
     const visible = useInView(viewport ?? video);
     const [attempt, setAttempt] = useState({ count: 0, failed: false });
-    const url = assetUrl(placement.asset);
+    const url = assetUrl(placement.asset.id);
     const decorative = presentation === 'thumbnail';
     const label = decorative ? '' : placementAlt(placement);
     const thumbnail = presentation === 'preview' || presentation === 'thumbnail';
@@ -52,18 +52,18 @@ const MediaElement = ({
             () => <MediaFailure asset={placement.asset} message={placement.kind === 'video' ? 'Video failed to play' : 'Image failed to load'} onRetry={() => setAttempt(({ count }) => ({ count: count + 1, failed: false }))} />,
         ),
         Match.when({ kind: 'video', poster: (poster: ImageAsset | undefined): poster is ImageAsset => thumbnail && poster !== undefined }, ({ poster, asset: { width, height } }) => (
-            <img alt={label} decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={assetUrl(poster)} srcSet={Inspection.sourceSet(poster, (rendition) => assetUrl(poster, rendition))} width={width} />
+            <img alt={label} decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={assetUrl(poster.id)} srcSet={Inspection.sourceSet(poster, (rendition) => assetUrl(poster.id, rendition))} width={width} />
         )),
         Match.discriminatorsExhaustive('kind')({
-            pdf: (sheet) => (
-                <ErrorBoundary fallback={<MediaFailure asset={placement.asset} message="PDF viewer failed to load" />}>
+            pdf: ({ asset, page }) => (
+                <ErrorBoundary fallback={<MediaFailure asset={asset} message="PDF viewer failed to load" />}>
                     <Suspense fallback={<MediaLoading />}>
-                        <PdfSheet layoutId={layoutId} placement={sheet} />
+                        <PdfSheet asset={asset} layoutId={layoutId} page={page} />
                     </Suspense>
                 </ErrorBoundary>
             ),
             video: ({ poster, asset: { width, height } }) => (
-                <video {...(decorative ? { 'aria-hidden': true } : { 'aria-label': label })} controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline poster={poster && assetUrl(poster)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
+                <video {...(decorative ? { 'aria-hidden': true } : { 'aria-label': label })} controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline poster={poster && assetUrl(poster.id)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
             ),
             image: (image) => (
                 <img
@@ -80,7 +80,7 @@ const MediaElement = ({
                     onError={fail}
                     sizes={eager ? '100vw' : 'auto, 100vw'}
                     src={url}
-                    srcSet={expanded ? undefined : Inspection.sourceSet(image.asset, (rendition) => assetUrl(image.asset, rendition))}
+                    srcSet={expanded ? undefined : Inspection.sourceSet(image.asset, (rendition) => assetUrl(image.asset.id, rendition))}
                     width={image.asset.width}
                 />
             ),

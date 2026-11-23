@@ -6,11 +6,11 @@ import { Button } from 'react-aria-components';
 import { draft, entered, portfolio, updateEntry } from '#/editor/state';
 import { Destination, nextDestination, pendingUploads } from '#/editor/uploader';
 import { choiceLayout, confirmation, entryTitle, format, joinDetails, literalOptions } from '#/media/labels';
-import { Entry, type EntryId } from '#/model/portfolio';
+import { Entry } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries: readonly (typeof Entry.Type)[]; readonly selected: Option.Option<typeof EntryId.Type>; readonly onSelect: (entry: typeof Entry.Type) => void; readonly onRemove: () => void }) => {
+const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries: readonly Entry[]; readonly selected: Option.Option<Entry['id']>; readonly onSelect: (id: Entry['id']) => void; readonly onRemove: () => void }) => {
     const setDraft = useAtomSet(draft);
     const setTarget = useAtomSet(nextDestination);
     const pending = useAtomValue(pendingUploads);
@@ -32,7 +32,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries
         >
             {(item) => (
                 <div className="entry-row">
-                    <Button aria-pressed={Option.contains(selected, item.id)} onPress={() => onSelect(item)}>
+                    <Button aria-pressed={Option.contains(selected, item.id)} onPress={() => onSelect(item.id)}>
                         {entryTitle(item)}
                         <span className="meta-line">{format.quantity(item.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
                     </Button>
@@ -42,10 +42,10 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries
         </ReorderableList>
     );
 };
-const EntryFields = ({ entry, title }: { readonly entry: typeof Entry.Type; readonly title: Ref<HTMLInputElement> }) => {
+const EntryFields = ({ entry, title }: { readonly entry: Entry; readonly title: Ref<HTMLInputElement> }) => {
     const [open, setOpen] = useState(entry.title === undefined);
     const setDraft = useAtomSet(draft);
-    const field = (key: 'title' | 'year' | 'location' | 'description' | 'role' | 'credits') => ({ value: entry[key] ?? '', onChange: (input: string) => setDraft(updateEntry(entry.id, Optic.replace(Optic.id<typeof Entry.Type>().optionalKey(key), entered(input)))) });
+    const field = (key: 'title' | 'year' | 'location' | 'description' | 'role' | 'credits') => ({ value: entry[key] ?? '', onChange: (input: string) => setDraft(updateEntry(entry.id, Optic.replace(Optic.id<Entry>().optionalKey(key), entered(input)))) });
     return (
         <details className="entry-details" onToggle={(event) => setOpen(event.currentTarget.open)} open={open}>
             <summary>Entry details</summary>

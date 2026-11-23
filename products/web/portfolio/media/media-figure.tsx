@@ -26,7 +26,7 @@ declare module 'react' {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const ZoomViewer = lazy(() => import('@rasm/media/zoom-viewer').then((module) => ({ default: module.ZoomViewer })));
-const MediaFigure = ({ placement, active, presentation, priority, renderMedia }: { readonly placement: typeof Placement.Type; readonly active: boolean; readonly presentation: Exclude<ComponentProps<typeof MediaElement>['presentation'], 'expanded'>; readonly priority: boolean; readonly renderMedia: boolean }) => {
+const MediaFigure = ({ placement, active, presentation, priority, renderMedia }: Pick<ComponentProps<typeof MediaElement>, 'placement' | 'active' | 'priority'> & { readonly presentation: Exclude<ComponentProps<typeof MediaElement>['presentation'], 'expanded'>; readonly renderMedia: boolean }) => {
     const layoutId = useId();
     const figure = useRef<HTMLElement>(null);
     const reducedMotion = useReducedMotion() ?? false;
@@ -89,7 +89,7 @@ const MediaFigure = ({ placement, active, presentation, priority, renderMedia }:
                                                 {viewer.kind === 'pdf' ? (
                                                     <MediaElement active layoutId={layoutId} placement={viewer} presentation="expanded" priority={false} />
                                                 ) : (
-                                                    <ZoomViewer classNames={{ controls: 'viewer-controls', stage: 'viewer-stage' }} href={assetUrl(viewer.asset)} reducedMotion={reducedMotion}>
+                                                    <ZoomViewer classNames={{ controls: 'viewer-controls', stage: 'viewer-stage' }} href={assetUrl(viewer.asset.id)} reducedMotion={reducedMotion}>
                                                         <motion.div layoutId={layoutId}>
                                                             <MediaElement active placement={viewer} presentation="expanded" priority={false} />
                                                         </motion.div>

@@ -15,9 +15,9 @@ import { ZoomControls } from '#/zoom-controls.tsx';
 type Options = Omit<ConstructorParameters<typeof PDFViewer>[0], 'container' | 'eventBus' | 'linkService' | 'findController'> & {
     readonly link?: Omit<NonNullable<ConstructorParameters<typeof PDFLinkService>[0]>, 'eventBus'>;
     readonly find?: Omit<ConstructorParameters<typeof PDFFindController>[0], 'eventBus' | 'linkService'>;
-    readonly view?: Partial<typeof View.Type>;
+    readonly view?: Partial<View>;
 };
-type Status = typeof Found.Type & { readonly failedPages: HashSet.HashSet<number> };
+type Status = Found & { readonly failedPages: HashSet.HashSet<number> };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -25,14 +25,16 @@ const rotations = { UPRIGHT: 0, CLOCKWISE: 90, INVERTED: 180, COUNTERCLOCKWISE: 
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const View = Schema.Struct({
-    pagesRotation: Schema.Enum(rotations),
-    scrollMode: Schema.Enum(ScrollMode),
-    spreadMode: Schema.Enum(SpreadMode),
-    currentPageNumber: Schema.Int,
-    currentScaleValue: Schema.Union([Schema.Literals(['auto', 'page-actual', 'page-fit', 'page-height', 'page-width']), Schema.TemplateLiteral([Schema.Finite])]),
-});
-const Found = Schema.Struct({ matchesCount: Schema.Struct({ current: Schema.Int, total: Schema.Int }), findState: Schema.optionalKey(Schema.Enum(FindState)) }).pipe(Schema.encodeKeys({ findState: 'state' }));
+class View extends Schema.Opaque<View, unknown>()(
+    Schema.Struct({
+        pagesRotation: Schema.Enum(rotations),
+        scrollMode: Schema.Enum(ScrollMode),
+        spreadMode: Schema.Enum(SpreadMode),
+        currentPageNumber: Schema.Int,
+        currentScaleValue: Schema.Union([Schema.Literals(['auto', 'page-actual', 'page-fit', 'page-height', 'page-width']), Schema.TemplateLiteral([Schema.Finite])]),
+    }),
+) {}
+class Found extends Schema.Opaque<Found, unknown>()(Schema.Struct({ matchesCount: Schema.Struct({ current: Schema.Int, total: Schema.Int }), findState: Schema.optionalKey(Schema.Enum(FindState)) }).pipe(Schema.encodeKeys({ findState: 'state' }))) {}
 const Rendered = Schema.Struct({ pageNumber: Schema.Int, error: Schema.Unknown });
 const useViewer = (document: NonNullable<Parameters<PDFViewer['setDocument']>[0]>, { pinch, ...options }: Options & { readonly pinch?: { readonly drawingDelay: Duration.Input } }) => {
     const [container, setContainer] = useState<HTMLDivElement | null>(null);
@@ -165,7 +167,7 @@ const useViewer = (document: NonNullable<Parameters<PDFViewer['setDocument']>[0]
                 .orNull(),
     };
 };
-class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfViewer: PDFViewer }> {
+class PdfViewer extends Data.Class<View & Status & { readonly pdfViewer: PDFViewer }> {
     static readonly TextLayerMode = { DISABLE: 0, ENABLE: 1, ENABLE_PERMISSIONS: 2 } as const satisfies typeof TextLayerMode;
     static readonly useViewer = useViewer;
     static readonly mount = flow(
@@ -214,7 +216,7 @@ class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfVie
         }),
         Stream.unwrap,
     );
-    assign(view: Partial<typeof View.Type>) {
+    assign(view: Partial<View>) {
         Object.assign(this.pdfViewer, view);
     }
     rotate(quarterTurns: number) {

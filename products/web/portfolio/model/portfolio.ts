@@ -1,45 +1,47 @@
 import { Array, Effect, Function, Predicate, Record, Result, Schema, SchemaGetter, SchemaIssue, SchemaParser, Struct } from 'effect';
 import isEmail from 'validator/lib/isEmail.js';
-import { type AssetId, Assets } from '#/model/asset';
+import { Assets } from '#/model/asset';
 import { Composition, defaulted, Placement, Prose } from '#/model/placement';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const EntryId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('EntryId'));
-const Entry = Schema.Struct({
-    id: EntryId,
-    kind: Schema.Literals(['project', 'study']),
-    title: Prose,
-    year: Prose,
-    location: Prose,
-    description: Prose,
-    role: Prose,
-    credits: Prose,
-    cover: Schema.optionalKey(Placement),
-    compositions: defaulted(Schema.Array(Composition), []),
-});
-const PortfolioStructure = Schema.Struct({
-    name: Prose,
-    introduction: Prose,
-    email: Prose.of(Schema.String.check(Schema.makeFilter((value) => isEmail(value), { expected: 'email address' }))),
-    hero: Schema.optionalKey(Placement),
-    entries: defaulted(Schema.Array(Entry), []),
-});
-const uniqueIds = Schema.makeFilter(({ entries = [] }: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
+class Entry extends Schema.Opaque<Entry, unknown>()(
+    Schema.Struct({
+        id: Schema.String.check(Schema.isUUID()).pipe(Schema.brand('EntryId')),
+        kind: Schema.Literals(['project', 'study']),
+        title: Prose,
+        year: Prose,
+        location: Prose,
+        description: Prose,
+        role: Prose,
+        credits: Prose,
+        cover: Schema.optionalKey(Placement),
+        compositions: defaulted(Schema.Array(Composition), []),
+    }),
+) {}
+const uniqueIds = Schema.makeFilter(({ entries = [] }: { readonly entries?: readonly { readonly id: string; readonly compositions?: readonly { readonly id: string }[] }[] }) =>
     Array.filterMap([{ path: ['entries'], values: entries }, ...entries.map(({ compositions = [] }, index) => ({ path: ['entries', index, 'compositions'], values: compositions }))], ({ path, values }) =>
-        Result.map(Result.liftPredicate(Record.keys(Record.filter(Array.groupBy<{ readonly id: string }, string>(values, Struct.get('id')), Predicate.not(Predicate.isTupleOf(1)))), Array.isReadonlyArrayNonEmpty, Function.constVoid), (repeated) => ({ path, issue: `IDs repeat: ${repeated.join(', ')}` })),
+        Result.map(Result.liftPredicate(Record.keys(Record.filter(Array.groupBy(values, Struct.get('id')), Predicate.not(Predicate.isTupleOf(1)))), Array.isReadonlyArrayNonEmpty, Function.constVoid), (repeated) => ({ path, issue: `IDs repeat: ${repeated.join(', ')}` })),
     ),
 );
-const Portfolio = Object.assign(PortfolioStructure.check(uniqueIds), {
-    assetIds: (portfolio: typeof PortfolioStructure.Type): ReadonlySet<typeof AssetId.Type> =>
+class Portfolio extends Schema.Opaque<Portfolio, unknown>()(
+    Schema.Struct({
+        name: Prose,
+        introduction: Prose,
+        email: Prose.of(Schema.String.check(Schema.makeFilter((value) => isEmail(value), { expected: 'email address' }))),
+        hero: Schema.optionalKey(Placement),
+        entries: defaulted(Schema.Array(Entry), []),
+    }).check(uniqueIds),
+) {
+    static readonly assetIds = (portfolio: Portfolio) =>
         new Set(
             [...Array.fromNullishOr(portfolio.hero), ...portfolio.entries.flatMap((entry) => [...Array.fromNullishOr(entry.cover), ...entry.compositions.flatMap(Struct.get('items'))])].flatMap((placement) => [
                 placement.asset.id,
                 ...(placement.kind === 'video' && placement.poster !== undefined ? [placement.poster.id] : []),
             ]),
-        ),
-});
-const StoredPortfolio = Schema.toEncoded(PortfolioStructure).check(uniqueIds);
+        );
+}
+class StoredPortfolio extends Schema.Opaque<StoredPortfolio, unknown>()(Schema.toEncoded(Portfolio).check(uniqueIds)) {}
 const PortfolioData = Schema.Struct({ portfolio: Schema.Unknown, assets: Assets.schema }).pipe(
     Schema.decodeTo(Schema.Struct({ portfolio: Schema.toType(Portfolio), assets: Schema.toType(Assets.schema) }), {
         decode: SchemaGetter.transformEffect(({ portfolio, assets }, options) =>
@@ -51,4 +53,4 @@ const PortfolioData = Schema.Struct({ portfolio: Schema.Unknown, assets: Assets.
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Entry, EntryId, Portfolio, PortfolioData, StoredPortfolio };
+export { Entry, Portfolio, PortfolioData, StoredPortfolio };

@@ -72,7 +72,7 @@ const storeDraft = SqlSchema.findOne({
         }),
 });
 const writeDocument = Effect.fn('writeDocument')(
-    function* (portfolio: typeof StoredPortfolio.Type, publish: boolean, revision: number) {
+    function* (portfolio: StoredPortfolio, publish: boolean, revision: number) {
         const draft = yield* storeDraft({ body: portfolio, publish, revision });
         return yield* Match.value(draft).pipe(
             Match.when({ stored: true }, ({ revision: stored }) => Effect.succeed(HttpApiSchema.withHeaders({ body: undefined, headers: { 'draft-etag': stored } }))),

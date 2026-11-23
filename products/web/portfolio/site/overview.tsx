@@ -8,7 +8,7 @@ import type { Composition } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Overview = ({ title, compositions, selected, onSelect }: { readonly title: string; readonly compositions: readonly (typeof Composition.Type)[]; readonly selected: number; readonly onSelect: (slide: number) => void }) => {
+const Overview = ({ title, compositions, selected, onSelect }: { readonly title: string; readonly compositions: readonly Composition[]; readonly selected: number; readonly onSelect: (slide: number) => void }) => {
     const overviewItem = { width: 120, height: 180 };
     return (
         <DialogTrigger>

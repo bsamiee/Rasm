@@ -14,7 +14,7 @@ import { Overview } from '#/site/overview.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Chapter = ({ entry }: { readonly entry: typeof Entry.Type }) => {
+const Chapter = ({ entry }: { readonly entry: Entry }) => {
     const slideDuration = 28;
     const reduced = useReducedMotion();
     const [viewport, clientApi, serverApi] = useEmblaCarousel({ align: 'start', duration: reduced === true ? 0 : slideDuration });

@@ -1,11 +1,15 @@
 import { expect, type Page } from '@playwright/test';
 import { it } from '#/fixtures';
+import { content } from '#/rendering';
 import { GUEST, OWNER, SAME_ORIGIN } from '#/served';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const EDITING = '/?edit=true';
 const UNREVISED = { 'if-match': '"0"' } as const;
+const [PLACED] = content.files;
+const SPARE = { asset: { ...PLACED.asset, id: 'c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f', name: 'spare-section.png' }, bytes: PLACED.bytes } as const;
+const OWNED = { ...OWNER, ...SAME_ORIGIN } as const;
 const TWO = {
     files: [],
     portfolio: {
@@ -135,4 +139,23 @@ it('keeps edits when another tab saved a newer draft, and saves them over it on 
     const stored: unknown = await request.get('/api/draft', { headers: OWNER }).then((response) => response.json());
     expect(stored).toMatchObject({ portfolio: { entries: [{ title: 'Harbour Library' }] } });
     expect(stored).not.toHaveProperty('portfolio.name');
+});
+
+it('deletes a library file no work places, and refuses to delete a file the published page places', async ({ served, request }) => {
+    await served.publish({ files: [...content.files, SPARE], portfolio: content.portfolio });
+    const deleted = (id: string) => request.delete(`/api/assets/${id}`, { headers: OWNED }).then((response) => response.status());
+    const read = (id: string) => request.get(`/api/assets/${id}`, { headers: OWNER }).then((response) => response.status());
+    expect({ placed: await deleted(PLACED.asset.id), spare: await deleted(SPARE.asset.id), kept: await read(PLACED.asset.id), gone: await read(SPARE.asset.id) }).toStrictEqual({ placed: 409, spare: 204, kept: 200, gone: 404 });
+});
+
+it('lists an upload that never finished for recovery, and removes it once discarded', async ({ request }) => {
+    const listed = (): Promise<unknown> => request.get('/api/assets/recovery', { headers: OWNER }).then((response) => response.json());
+    const discarded = () => request.post(`/api/assets/${SPARE.asset.id}/discard`, { headers: OWNED }).then((response) => response.status());
+    await request.post('/api/assets', { headers: OWNED, data: SPARE.asset });
+    expect({ before: await listed(), discarded: await discarded(), after: await listed(), again: await discarded() }).toStrictEqual({
+        before: [{ id: SPARE.asset.id, name: 'spare-section.png', status: 'incomplete' }],
+        discarded: 204,
+        after: [],
+        again: 404,
+    });
 });

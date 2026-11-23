@@ -8,24 +8,24 @@ import { flushSync } from 'react-dom';
 import { chosen, deleteRequest, draft, hero } from '#/editor/state';
 import { confirmation, entryTitle, format, joinDetails } from '#/media/labels';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import { Asset, type AssetId, type Assets } from '#/model/asset';
+import { Asset, type Assets } from '#/model/asset';
 import { Placement } from '#/model/placement';
-import { type EntryId, Portfolio } from '#/model/portfolio';
+import { type Entry, Portfolio } from '#/model/portfolio';
 import { published } from '#/site/state';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const summary = (asset: typeof Asset.Type) => [format.bytes(ByteSize.bytes(asset.size)), asset.kind === 'pdf' ? format.quantity(asset.pages.length, { one: (count) => `${count} sheet`, other: (count) => `${count} sheets` }) : undefined];
+const summary = Asset.matchOrElse({ pdf: ({ size, pages }) => [format.bytes(ByteSize.bytes(size)), format.quantity(pages.length, { one: (count) => `${count} sheet`, other: (count) => `${count} sheets` })] }, ({ size }) => [format.bytes(ByteSize.bytes(size))]);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Library = ({ assets, portfolio, onPlace }: { readonly assets: typeof Assets.Service; readonly portfolio: typeof Portfolio.Type; readonly onPlace: (entryId: typeof EntryId.Type, assetId: typeof AssetId.Type) => void }) => {
+const Library = ({ assets, portfolio, onPlace }: { readonly assets: Assets['Service']; readonly portfolio: Portfolio; readonly onPlace: (entryId: Entry['id'], assetId: keyof Assets['Service']) => void }) => {
     const files = useRef<HTMLDivElement>(null);
     const detail = useRef<HTMLHeadingElement>(null);
     const [assetId, setAssetId] = useAtom(chosen);
     const live = useAtomValue(published).portfolio;
     const setDraft = useAtomSet(draft);
-    const choose = (next: Option.Option<typeof AssetId.Type>, target: typeof files | typeof detail) => {
+    const choose = (next: Option.Option<keyof Assets['Service']>, target: typeof files | typeof detail) => {
         flushSync(() => setAssetId(next));
         target.current?.focus();
     };
