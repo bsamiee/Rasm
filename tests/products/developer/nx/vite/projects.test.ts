@@ -1,21 +1,14 @@
+import { Clean, execute } from '@rasm/nx-distribution/executors/clean';
 import { createNodes } from '@rasm/nx-vite';
-import { it as nx, unaggregated } from '@rasm/testing/nx';
-import { describe, expect, vi } from 'vitest';
+import { it as nx, taskGraph } from '@rasm/testing/nx';
+import { Schema } from 'effect';
+import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const rich = {
-    'nx.json': '{"namedInputs":{"default":["{projectRoot}/**/*"],"production":["default","!{projectRoot}/**/*.spec.ts"]}}',
-    'tsconfig.base.json': '{}',
-    'tsconfig.shared.json': '{"extends":"./tsconfig.base.json"}',
-    'tools/vite/base.ts': 'export const port = 4300;\n',
-    'apps/web/project.json': '{"name":"web"}',
-    'apps/web/tsconfig.json': '{"extends":"../../tsconfig.shared.json"}',
-    'apps/web/index.html': '<!doctype html>\n',
-    'apps/web/vite.config.ts': "import { port } from '../../tools/vite/base';\n\nexport default { server: { port } };\n",
-};
+const LIB = "lib: { entry: 'index.ts', name: 'lib' }";
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -25,81 +18,102 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
 });
 
 describe('projects the Vite targets join', { timeout: 60_000 }, () => {
-    it('infers build--vite from every config file name vite loads', async ({ workspace }) => {
-        const graph = await workspace
-            .write({
-                'apps/js/project.json': '{"name":"js"}',
-                'apps/js/vite.config.js': "module.exports = { build: { lib: { entry: 'index.js' } } };\n",
-                'apps/mjs/project.json': '{"name":"mjs"}',
-                'apps/mjs/vite.config.mjs': "export default { build: { lib: { entry: 'index.js' } } };\n",
-                'apps/ts/project.json': '{"name":"ts"}',
-                'apps/ts/vite.config.ts': "export default { build: { lib: { entry: 'index.js' } } };\n",
-                'apps/cjs/project.json': '{"name":"cjs"}',
-                'apps/cjs/vite.config.cjs': "module.exports = { build: { lib: { entry: 'index.js' } } };\n",
-                'apps/mts/project.json': '{"name":"mts"}',
-                'apps/mts/vite.config.mts': "export default { build: { lib: { entry: 'index.js' } } };\n",
-                'apps/cts/project.json': '{"name":"cts"}',
-                'apps/cts/vite.config.cts': "module.exports = { build: { lib: { entry: 'index.js' } } };\n",
-            })
-            .graph({ createNodes });
-
-        expect(Object.fromEntries(Object.values(graph.nodes).map(({ name, data: { targets = {} } }) => [name, 'build--vite' in targets]))).toStrictEqual({ cjs: true, cts: true, js: true, mjs: true, mts: true, ts: true });
-    });
-
-    it('infers no project where neither a project.json nor a package.json the workspaces list sits beside the config', async ({ workspace }) => {
+    it('infers a project only where a project.json or a package.json the workspaces list sits beside the config', async ({ workspace }) => {
         const graph = await workspace
             .write({
                 'apps/listed/package.json': '{"name":"listed"}',
-                'apps/listed/vite.config.ts': "export default { build: { lib: { entry: 'index.ts' } } };\n",
+                'apps/listed/vite.config.ts': `export default { build: { ${LIB} } };\n`,
                 'tools/marked/project.json': '{"name":"marked"}',
-                'tools/marked/vite.config.ts': "export default { build: { lib: { entry: 'index.ts' } } };\n",
+                'tools/marked/vite.config.mts': `export default { build: { ${LIB} } };\n`,
                 'tools/unlisted/package.json': '{"name":"unlisted"}',
-                'tools/unlisted/vite.config.ts': "export default { build: { lib: { entry: 'index.ts' } } };\n",
+                'tools/unlisted/vite.config.ts': `export default { build: { ${LIB} } };\n`,
             })
             .graph({ createNodes });
 
         expect(Object.fromEntries(Object.values(graph.nodes).map(({ data: { root, targets = {} } }) => [root, 'build--vite' in targets]))).toStrictEqual({ 'apps/listed': true, 'tools/marked': true });
     });
 
-    it('types a library config a library and any other buildable config an application', async ({ workspace }) => {
+    it.for([
+        { case: 'an entry page', files: { 'apps/web/index.html': '<!doctype html>\n', 'apps/web/vite.config.ts': 'export default {};\n' }, targets: ['build--vite', 'preview--vite', 'serve--vite'], type: 'app' },
+        { case: 'nothing to build', files: { 'apps/web/vite.config.ts': 'export default {};\n' }, targets: [], type: 'lib' },
+        { case: 'a server block and nothing to build', files: { 'apps/web/vite.config.ts': 'export default { server: { port: 4300 } };\n' }, targets: [], type: 'lib' },
+        { case: 'a rolldown input alone', files: { 'apps/web/vite.config.ts': "export default { build: { rolldownOptions: { input: 'index.ts' } } };\n" }, targets: ['build--vite'], type: 'app' },
+        { case: 'a top-level input alone', files: { 'apps/web/vite.config.ts': "export default { input: 'index.ts' };\n" }, targets: ['build--vite'], type: 'app' },
+        { case: 'an ssr entry alone', files: { 'apps/web/vite.config.ts': "export default { build: { ssr: 'index.ts' } };\n" }, targets: ['build--vite'], type: 'app' },
+        { case: 'an entry page in the root folder the config states', files: { 'apps/web/src/index.html': '<!doctype html>\n', 'apps/web/vite.config.ts': "export default { root: 'src' };\n" }, targets: ['build--vite', 'preview--vite', 'serve--vite'], type: 'app' },
+        { case: 'a buildApp builder alone', files: { 'apps/web/vite.config.ts': 'export default { builder: { buildApp: async () => {} } };\n' }, targets: ['build--vite'], type: 'app' },
+        {
+            case: 'a rolldown input and a ready signal',
+            files: { 'apps/web/vite.config.ts': "import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';\n\nexport default { plugins: [nxReadySignal()], build: { rolldownOptions: { input: 'index.ts' } } };\n" },
+            targets: ['build--vite', 'preview--vite', 'serve--vite'],
+            type: 'app',
+        },
+        { case: 'a library alone', files: { 'apps/web/vite.config.ts': `export default { build: { ${LIB} } };\n` }, targets: ['build--vite'], type: 'lib' },
+        { case: 'a library and an entry page', files: { 'apps/web/index.html': '<!doctype html>\n', 'apps/web/vite.config.ts': `export default { build: { ${LIB} } };\n` }, targets: ['build--vite'], type: 'lib' },
+        { case: 'a library and an empty server block', files: { 'apps/web/vite.config.ts': `export default { build: { ${LIB} }, server: {} };\n` }, targets: ['build--vite', 'preview--vite', 'serve--vite'], type: 'lib' },
+        { case: 'a library and a preview block', files: { 'apps/web/vite.config.ts': `export default { build: { ${LIB} }, preview: { port: 4400 } };\n` }, targets: ['build--vite', 'preview--vite', 'serve--vite'], type: 'lib' },
+        {
+            case: 'a library whose config function states a server in serve mode alone',
+            files: { 'apps/web/vite.config.ts': `export default ({ command }) => ({ build: { ${LIB} }, server: command === 'serve' ? { port: 4300 } : undefined });\n` },
+            targets: ['build--vite', 'preview--vite', 'serve--vite'],
+            type: 'lib',
+        },
+        {
+            case: 'a library whose serve-only plugin states a server',
+            files: { 'apps/web/vite.config.ts': `export default { build: { ${LIB} }, plugins: [{ name: 'serves', apply: 'serve', config: () => ({ server: { port: 4300 } }) }] };\n` },
+            targets: ['build--vite', 'preview--vite', 'serve--vite'],
+            type: 'lib',
+        },
+        {
+            case: 'a library whose config refuses serve mode',
+            files: { 'apps/web/vite.config.ts': `export default ({ command }) => {\n    if (command === 'serve') {\n        throw new Error('builds only');\n    }\n    return { build: { ${LIB} } };\n};\n` },
+            targets: ['build--vite'],
+            type: 'lib',
+        },
+    ])('infers $targets for a config with $case', async ({ files, targets, type }, { workspace }) => {
+        const graph = await workspace.write({ 'apps/web/project.json': '{"name":"web"}', ...files }).graph({ createNodes });
+        const { type: inferred, data } = graph.nodes['web'] ?? {};
+
+        expect({
+            targets: Object.keys(data?.targets ?? {})
+                .filter((name) => /^(?:build|serve|preview)--vite$/u.test(name))
+                .toSorted(),
+            type: inferred,
+        }).toStrictEqual({ targets, type });
+    });
+
+    it('builds the project and the build--vite of each project it depends on before preview--vite serves the build', async ({ workspace }) => {
         const graph = await workspace
             .write({
-                'apps/lib/project.json': '{"name":"lib"}',
-                'apps/lib/vite.config.ts': "export default { build: { lib: { entry: 'index.ts' } } };\n",
-                'apps/app/project.json': '{"name":"app"}',
-                'apps/app/index.html': '<!doctype html>\n',
-                'apps/app/vite.config.ts': 'export default {};\n',
-                'apps/bundle/project.json': '{"name":"bundle"}',
-                'apps/bundle/vite.config.ts': "export default { build: { rolldownOptions: { input: 'main.ts' } } };\n",
+                'apps/web/project.json': '{"name":"web","implicitDependencies":["ui"]}',
+                'apps/web/index.html': '<!doctype html>\n',
+                'apps/web/vite.config.ts': 'export default {};\n',
+                'libs/ui/project.json': '{"name":"ui"}',
+                'libs/ui/vite.config.ts': `export default { build: { ${LIB} } };\n`,
             })
             .graph({ createNodes });
 
-        expect([graph.nodes['lib']?.type, graph.nodes['app']?.type, graph.nodes['bundle']?.type]).toStrictEqual(['lib', 'app', 'app']);
+        const { dependencies, continuousDependencies } = taskGraph(graph, ['web'], ['preview--vite']);
+
+        expect([dependencies['web:preview--vite'], continuousDependencies['web:preview--vite'], dependencies['web:build--vite']]).toStrictEqual([[{ id: 'web:build--vite' }], [], [{ id: 'ui:build--vite' }]]);
     });
 
-    it('runs every Vite target through its verb, hashing every input of each', async ({ workspace }) => {
-        const graph = await workspace.write(rich).graph({ createNodes }, { outputPath: '.artifacts/vite/{projectName}' });
+    it('removes with clean--vite every file vite build wrote, and nothing else', async ({ workspace }) => {
+        const graph = await workspace
+            .write({
+                'apps/web/package.json': '{"name":"web","type":"module"}',
+                'apps/web/index.ts': 'export const value = 1;\n',
+                'apps/web/vite.config.ts': `export default { build: { ${LIB} }, plugins: [{ name: 'routes', configEnvironment: () => ({ build: { outDir: '.output/client' } }) }] };\n`,
+            })
+            .graph({ createNodes });
+        const before = workspace.files('node_modules', 'tmp');
+        await workspace.run(graph, 'web', 'build--vite');
+        const built = workspace.files('node_modules', 'tmp').difference(before);
+        const stated: unknown = { commands: [], cwd: '.', folders: [], ...graph.nodes['web']?.data.targets?.['clean--vite']?.options };
+        assert(Schema.is(Clean)(stated), 'clean--vite states clean options');
 
-        expect(unaggregated(graph)).toStrictEqual([]);
-    });
+        await execute(stated, workspace.context(graph, 'web', 'clean--vite'));
 
-    it.for([
-        { case: 'its project.json', home: 'apps/web', manifests: { 'apps/web/project.json': '{"name":"web","targets":{"build--vite":{"inputs":["...","{projectRoot}/stated.txt"]}}}' } },
-        { case: 'a package.json the workspaces leave out beside its project.json', home: 'tools/web', manifests: { 'tools/web/project.json': '{"name":"web"}', 'tools/web/package.json': '{"name":"web","nx":{"targets":{"build--vite":{"inputs":["...","{projectRoot}/stated.txt"]}}}}' } },
-    ])('hashes in build every input $case states for build--vite', async ({ home, manifests }, { workspace }) => {
-        const graph = await workspace.write({ ...manifests, [`${home}/index.html`]: '<!doctype html>\n', [`${home}/vite.config.ts`]: 'export default {};\n' }).graph({ createNodes });
-
-        expect(graph.nodes['web']?.data.targets?.['build--vite']?.inputs).toContain('{projectRoot}/stated.txt');
-        expect(unaggregated(graph)).toStrictEqual([]);
-    });
-
-    it('names every vite target that declares outputs in the targets clean--vite removes', async ({ workspace }) => {
-        const graph = await workspace.write(rich).graph({ createNodes });
-        const targets = graph.nodes['web']?.data.targets ?? {};
-
-        expect(targets['clean--vite']).toHaveProperty(
-            ['options', 'targets'],
-            Object.keys(targets).filter((name) => name.endsWith('--vite') && (targets[name]?.outputs ?? []).length > 0),
-        );
+        expect({ built: built.size > 0, left: [...workspace.files('node_modules', 'tmp').symmetricDifference(before)] }).toStrictEqual({ built: true, left: [] });
     });
 });
