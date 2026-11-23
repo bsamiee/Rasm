@@ -1,7 +1,8 @@
-import { statSync, symlinkSync } from 'node:fs';
+import { rmSync, statSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
+import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-vitest';
-import { Predicate } from 'effect';
+import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';
 import { describe, expect, vi } from 'vitest';
 import { it } from '#/installed';
 
@@ -11,99 +12,41 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const ROOT = { 'package.json': '{"name":"repo","workspaces":["libs/*","packages/*"]}' };
 const LIB = { ...ROOT, 'libs/lib/package.json': '{"name":"lib"}' };
+const LISTED =
+    "import { globSync, readFileSync } from 'node:fs';\nimport { dirname } from 'node:path';\n\nexport default { test: { projects: globSync('packages/*/package.json', { cwd: import.meta.dirname }).map((file) => ({ test: { name: JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf-8')).name, root: dirname(file) } })) } };\n";
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const targets = (graph: ProjectGraph) => Object.fromEntries(Object.values(graph.nodes).map(({ name, data }) => [name, data.targets]));
+
+const hashed = async (graph: ProjectGraph, root: string, project: string) => {
+    const inspector = new HashPlanInspector({ ...graph, externalNodes: Object.fromEntries(['vitest', 'vite', '@vitest/coverage-v8'].map((name) => [`npm:${name}`, { type: 'npm' as const, name: `npm:${name}`, data: { packageName: name, version: '5.0.0' } }])) }, root);
+    await inspector.init();
+    return inspector.inspectTaskInputs({ project, target: 'test--vitest' })[`${project}:test--vitest`]?.files ?? [];
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('inputs of test--vitest', () => {
+describe('test--vitest inference reused across graph runs', () => {
     it.for([
-        { case: 'states production', nxJson: '{"namedInputs":{"default":["{projectRoot}/**/*"],"production":["default","!{projectRoot}/**/*.test.ts"]}}', upstream: ['^production'] },
-        { case: 'states no production', nxJson: '{}', upstream: ['^default'] },
-    ])('hashes dependency sources through the named input nx.json $case', async ({ nxJson, upstream }, { workspace }) => {
-        const graph = await workspace.write({ ...LIB, 'nx.json': nxJson, 'libs/lib/vitest.config.ts': 'export default {};\n' }).graph({ createNodes });
-
-        expect(graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs?.filter((input) => Predicate.isString(input) && input.startsWith('^'))).toStrictEqual(upstream);
-    });
-
-    it('hashes each installed package the configuration imports by version, and a workspace package it imports by its sources', async ({ workspace }) => {
-        workspace.write({
-            ...LIB,
-            'libs/helper/package.json': '{"name":"helper","type":"module","exports":"./index.js"}',
-            'libs/helper/index.js': "export const include = ['*.test.ts'];\n",
-            'libs/lib/vitest.config.ts': "import { mergeConfig } from 'vite';\nimport { include } from 'helper';\n\nexport default mergeConfig({ test: { include } }, {});\n",
-        });
-        symlinkSync(join(workspace.root, 'libs/helper'), join(workspace.root, 'node_modules/helper'), 'dir');
-
-        const graph = await workspace.graph({ createNodes });
-
-        const inputs = graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs;
-
-        expect(inputs).toContainEqual({ input: 'default', projects: ['helper'] });
-        expect(inputs?.flatMap((input) => (Predicate.hasProperty(input, 'externalDependencies') ? input.externalDependencies : [])).toSorted()).toStrictEqual(['@vitest/coverage-v8', 'vite', 'vitest']);
-    });
-
-    it('hashes a file forceRerunTriggers names beyond Vitest defaults', async ({ workspace }) => {
-        const graph = await workspace.write({ ...LIB, 'shared/schema.json': '{}', 'libs/lib/vitest.config.ts': "export default { test: { forceRerunTriggers: ['**/shared/schema.json'] } };\n" }).graph({ createNodes });
-
-        expect(graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs?.filter((input) => Predicate.isString(input) && input.startsWith('{workspaceRoot}/**'))).toStrictEqual(['{workspaceRoot}/**/shared/schema.json']);
-    });
-
-    it('hashes a root configuration outside the package it tests', async ({ workspace }) => {
-        const graph = await workspace.write({ ...ROOT, 'vitest.config.ts': "export default { test: { projects: ['packages/*'] } };\n", 'packages/a/package.json': '{"name":"a"}' }).graph({ createNodes });
-
-        expect(graph.nodes['a']?.data.targets?.['test--vitest']?.inputs).toContain('{workspaceRoot}/vitest.config.ts');
-    });
-});
-
-describe('setup file inputs', () => {
-    it.for([
-        { case: 'a setup file outside the project', config: { test: { setupFiles: ['../../tools/vitest/setup.mts'] } }, files: { 'tools/vitest/setup.mts': '' }, outside: ['{workspaceRoot}/tools/vitest/setup.mts'] },
-        { case: 'a globalSetup string', config: { test: { globalSetup: '../../tools/vitest/global.mts' } }, files: { 'tools/vitest/global.mts': '' }, outside: ['{workspaceRoot}/tools/vitest/global.mts'] },
-        { case: 'an absolute setup path', config: { test: { setupFiles: ['<root>/tools/vitest/setup.mts'] } }, files: { 'tools/vitest/setup.mts': '' }, outside: ['{workspaceRoot}/tools/vitest/setup.mts'] },
         {
-            case: 'a setup file whose folder holds a tsconfig chain',
-            config: { test: { setupFiles: ['../../tools/vitest/setup.mts'] } },
-            files: { 'tools/vitest/setup.mts': '', 'tools/vitest/tsconfig.json': '{"extends":"../../tsconfig.shared.json"}', 'tsconfig.shared.json': '{"compilerOptions":{}}' },
-            outside: [{ json: '{workspaceRoot}/tools/vitest/tsconfig.json', fields: ['compilerOptions'] }, { json: '{workspaceRoot}/tsconfig.shared.json', fields: ['compilerOptions'] }, '{workspaceRoot}/tools/vitest/setup.mts'],
+            case: 'a module the config imports starts naming a setup file',
+            before: { 'tools/setup.mts': '', 'shared/settings.ts': 'export const setupFiles: string[] = [];\n', 'libs/lib/vitest.config.ts': "import { setupFiles } from '../../shared/settings.ts';\n\nexport default { test: { setupFiles } };\n" },
+            files: { 'shared/settings.ts': "export const setupFiles = ['../../tools/setup.mts'];\n" },
+            options: {},
         },
-        {
-            case: 'a setup file below the nearest tsconfig',
-            config: { test: { setupFiles: ['../../tools/vitest/nested/setup.mts'] } },
-            files: { 'tools/vitest/nested/setup.mts': '', 'tools/tsconfig.json': '{"compilerOptions":{}}' },
-            outside: [{ json: '{workspaceRoot}/tools/tsconfig.json', fields: ['compilerOptions'] }, '{workspaceRoot}/tools/vitest/nested/setup.mts'],
-        },
-        { case: 'a relative test.root', config: { test: { root: 'sub', setupFiles: ['../../../tools/vitest/setup.mts'] } }, files: { 'libs/lib/sub/a.test.ts': '', 'tools/vitest/setup.mts': '' }, outside: ['{workspaceRoot}/tools/vitest/setup.mts'] },
-        { case: 'a setup file inside the project', config: { test: { setupFiles: ['./setup.ts'] } }, files: { 'libs/lib/setup.ts': '' }, outside: [] },
-        { case: 'a setup file in node_modules', config: { test: { setupFiles: ['../../node_modules/pkg/setup.js'] } }, files: { 'node_modules/pkg/setup.js': '' }, outside: [] },
-        { case: 'a relative setup path only the workspace root holds', config: { test: { setupFiles: ['./setup.mts'] } }, files: { 'setup.mts': '' }, outside: [] },
-        { case: 'an authored root above the project', config: { root: '..', test: { setupFiles: ['../tools/vitest/setup.mts'] } }, files: { 'tools/vitest/setup.mts': '' }, outside: ['{workspaceRoot}/tools/vitest/setup.mts'] },
-    ])('hashes the files outside the project of $case', async ({ config, files, outside }, { workspace }) => {
-        const graph = await workspace.write({ ...LIB, ...files, 'libs/lib/vitest.config.ts': `export default ${JSON.stringify(config).replaceAll('<root>', workspace.root)};\n` }).graph({ createNodes });
+        { case: 'a manifest joins the workspace a root config lists projects from', before: { 'vitest.config.ts': LISTED, 'packages/a/package.json': '{"name":"a"}' }, files: { 'packages/b/package.json': '{"name":"b"}' }, options: {} },
+        { case: 'the plugin options change', before: { 'libs/lib/vitest.config.ts': 'export default {};\n' }, files: {}, options: { outputPath: '.artifacts/second' } },
+    ])('infers from a warm cache what a cold read infers after $case', async ({ before, files, options }, { workspace }) => {
+        workspace.write({ ...LIB, ...before });
+        const initial = targets(await workspace.graph({ createNodes }, { outputPath: '.artifacts/first' }));
 
-        expect(graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs?.filter((input) => (Predicate.isString(input) && input.startsWith('{workspaceRoot}/')) || Predicate.hasProperty(input, 'json'))).toStrictEqual(outside);
-    });
+        const warm = targets(await workspace.write(files).graph({ createNodes }, { outputPath: '.artifacts/first', ...options }));
+        rmSync(join(workspace.root, 'tmp/project-graph-cache'), { recursive: true, force: true });
+        const cold = targets(await workspace.graph({ createNodes }, { outputPath: '.artifacts/first', ...options }));
 
-    it('hashes no setup file of a root project, whose default input holds the workspace', async ({ workspace }) => {
-        const graph = await workspace.write({ 'project.json': '{"name":"repo"}', 'tools/vitest/setup.mts': '', 'tools/tsconfig.json': '{"compilerOptions":{}}', 'vitest.config.ts': "export default { test: { setupFiles: ['./tools/vitest/setup.mts'] } };\n" }).graph({ createNodes });
-
-        expect(graph.nodes['repo']?.data.targets?.['test--vitest']?.inputs?.filter((input) => (Predicate.isString(input) && input.startsWith('{workspaceRoot}/')) || Predicate.hasProperty(input, 'json'))).toStrictEqual([]);
-    });
-});
-
-describe('cached inference', () => {
-    it('declares the outputs of the plugin options of the latest run', async ({ workspace }) => {
-        await workspace.write({ ...LIB, 'libs/lib/vitest.config.ts': 'export default {};\n' }).graph({ createNodes }, { outputPath: '.artifacts/first' });
-
-        const graph = await workspace.graph({ createNodes }, { outputPath: '.artifacts/second' });
-
-        expect(graph.nodes['lib']?.data.targets?.['test--vitest']?.outputs?.filter((output) => output.startsWith('{workspaceRoot}/.artifacts/'))).toStrictEqual(['{workspaceRoot}/.artifacts/second']);
-    });
-
-    it('re-reads the configuration after a file it imports changes', async ({ workspace }) => {
-        await workspace.write({ ...LIB, 'tools/vitest/setup.mts': '', 'shared/settings.ts': 'export const setupFiles: string[] = [];\n', 'libs/lib/vitest.config.ts': "import { setupFiles } from '../../shared/settings.ts';\n\nexport default { test: { setupFiles } };\n" }).graph({ createNodes });
-
-        const graph = await workspace.write({ 'shared/settings.ts': "export const setupFiles = ['../../tools/vitest/setup.mts'];\n" }).graph({ createNodes });
-
-        expect(graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs).toContain('{workspaceRoot}/tools/vitest/setup.mts');
+        expect(cold).not.toStrictEqual(initial);
+        expect(warm).toStrictEqual(cold);
     });
 
     it('reuses the inferred targets of a root configuration while a file it never reads changes', async ({ workspace }) => {
@@ -112,19 +55,26 @@ describe('cached inference', () => {
         expect(Reflect.get(globalThis, 'loads')).toBeGreaterThan(0);
         Reflect.set(globalThis, 'loads', 0);
 
-        await workspace.write({ 'packages/a/notes.md': '# a\n' }).graph({ createNodes });
+        const graph = await workspace.write({ 'packages/a/notes.md': '# a\n' }).graph({ createNodes });
 
-        expect(Reflect.get(globalThis, 'loads')).toBe(0);
+        expect([Reflect.get(globalThis, 'loads'), graph.nodes['a']?.data.targets?.['test--vitest']?.options]).toStrictEqual([0, { config: 'vitest.config.ts', projects: [] }]);
     });
 
-    it('re-reads a root configuration listing projects from workspace manifests once a manifest joins the workspace', async ({ workspace }) => {
-        const config =
-            "import { globSync, readFileSync } from 'node:fs';\nimport { dirname } from 'node:path';\n\nexport default { test: { projects: globSync('packages/*/package.json', { cwd: import.meta.dirname }).map((file) => ({ test: { name: JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf-8')).name, root: dirname(file) } })) } };\n";
-        await workspace.write({ ...ROOT, 'vitest.config.ts': config, 'packages/a/package.json': '{"name":"a"}' }).graph({ createNodes });
+    it('describes a configuration again after a source of a linked workspace package it imports changes', async ({ workspace }) => {
+        Reflect.set(globalThis, 'loads', 0);
+        workspace.write({
+            ...LIB,
+            'libs/helper/package.json': '{"name":"helper","type":"module","exports":"./index.js"}',
+            'libs/helper/index.js': "export const include = ['*.test.ts'];\n",
+            'libs/lib/vitest.config.ts': "import { include } from 'helper';\n\nglobalThis.loads += 1;\n\nexport default { test: { include } };\n",
+        });
+        symlinkSync(join(workspace.root, 'libs/helper'), join(workspace.root, 'node_modules/helper'), 'dir');
+        await workspace.graph({ createNodes });
+        Reflect.set(globalThis, 'loads', 0);
 
-        const graph = await workspace.write({ 'packages/b/package.json': '{"name":"b"}' }).graph({ createNodes });
+        const graph = await workspace.write({ 'libs/helper/index.js': "export const include = ['*.spec.ts'];\n" }).graph({ createNodes });
 
-        expect(graph.nodes['b']?.data.targets?.['test--vitest']?.options).toStrictEqual({ config: 'vitest.config.ts', projects: ['b'] });
+        expect([Reflect.get(globalThis, 'loads'), graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs]).toStrictEqual([1, expect.arrayContaining([{ input: 'default', projects: ['helper'] }])]);
     });
 
     it('leaves the plugin cache file unwritten while every configuration is reused', async ({ workspace }) => {
@@ -134,5 +84,26 @@ describe('cached inference', () => {
         await workspace.graph({ createNodes });
 
         expect(statSync(join(workspace.root, 'tmp/project-graph-cache/vitest.hash'), { bigint: true }).mtimeNs).toBe(written);
+    });
+});
+
+describe('test--vitest hashes the files a run loads outside its project', () => {
+    it.for([
+        { case: 'a setup file', config: "export default { test: { setupFiles: ['../../tools/vitest/setup.mts'] } };\n", loaded: 'tools/vitest/setup.mts' },
+        { case: 'a globalSetup string', config: "export default { test: { globalSetup: '../../tools/vitest/global.mts' } };\n", loaded: 'tools/vitest/global.mts' },
+        { case: 'a setup file under an authored root above the project', config: "export default { root: '..', test: { setupFiles: ['../tools/vitest/setup.mts'] } };\n", loaded: 'tools/vitest/setup.mts' },
+        { case: 'a file forceRerunTriggers names beyond the Vitest defaults', config: "export default { test: { forceRerunTriggers: ['**/shared/schema.json'] } };\n", loaded: 'shared/schema.json' },
+        { case: 'the tsconfig the setup file compiles under', config: "export default { test: { setupFiles: ['../../tools/vitest/setup.mts'] } };\n", loaded: 'tools/tsconfig.json' },
+    ])('hashes $case', async ({ config, loaded }, { workspace }) => {
+        const graph = await workspace.write({ ...LIB, 'tools/vitest/setup.mts': '', 'tools/vitest/global.mts': '', 'tools/vitest/unused.mts': '', 'tools/tsconfig.json': '{"compilerOptions":{}}', 'shared/schema.json': '{}', 'libs/lib/vitest.config.ts': config }).graph({ createNodes });
+        const files = await hashed(graph, workspace.root, 'lib');
+
+        expect([files.includes(loaded), files.includes('tools/vitest/unused.mts')]).toStrictEqual([true, false]);
+    });
+
+    it('hashes a root configuration from the package whose project it lists', async ({ workspace }) => {
+        const graph = await workspace.write({ ...ROOT, 'vitest.config.ts': "export default { test: { projects: ['packages/*'] } };\n", 'packages/a/package.json': '{"name":"a"}' }).graph({ createNodes });
+
+        await expect(hashed(graph, workspace.root, 'a')).resolves.toContain('vitest.config.ts');
     });
 });

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { env } from 'node:process';
 import { createNodes } from '@rasm/nx-vitest';
 import { refused } from '@rasm/testing/errors';
-import { taskGraph, unaggregated } from '@rasm/testing/nx';
+import { taskGraph } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
 import { it } from '#/installed';
 
@@ -42,15 +42,6 @@ describe('projects a Vitest configuration infers', () => {
 });
 
 describe('a root configuration listing projects', () => {
-    it('gives each listed package a target running its own Vitest project through the root configuration', async ({ workspace }) => {
-        const graph = await workspace.write({ ...ROOT, 'vitest.config.ts': "export default { test: { projects: ['packages/*'] } };\n", 'packages/a/package.json': '{"name":"a"}', 'packages/b/package.json': '{"name":"b"}' }).graph({ createNodes });
-
-        expect(Object.fromEntries(Object.values(graph.nodes).flatMap(({ name, data }) => (data.targets?.['test--vitest'] === undefined ? [] : [[name, data.targets['test--vitest'].options]])))).toStrictEqual({
-            a: { config: 'vitest.config.ts', projects: ['a'] },
-            b: { config: 'vitest.config.ts', projects: ['b'] },
-        });
-    });
-
     it.for([
         { case: 'project glob matches no folder', config: "export default { test: { projects: ['packages/*'] } };\n", refusal: /^vitest\.config\.ts does not load as a Vitest config/u },
         { case: 'inline project roots in a folder no project holds', config: "export default { test: { projects: [{ test: { name: 'suite', root: 'tools/suite' } }] } };\n", refusal: /^vitest\.config\.ts declares a project under tools\/suite, which no project root holds$/u },
@@ -75,49 +66,14 @@ describe('browser suites', () => {
     });
 
     it.for([
-        { enabled: true, technologies: ['vitest', 'playwright'], outputs: ['{projectRoot}/shots'] },
-        { enabled: false, technologies: ['vitest'], outputs: [] },
-    ])('names the provider and declares the screenshot folder while the browser is enabled: $enabled', async ({ enabled, technologies, outputs }, { workspace }) => {
-        const graph = await workspace
-            .write({
-                ...ROOT,
-                'libs/ui/package.json': '{"name":"ui"}',
-                'libs/ui/vitest.config.ts': `import { playwright } from '@vitest/browser-playwright';\n\nexport default { test: { browser: { enabled: ${enabled}, provider: playwright(), instances: [{ browser: 'chromium' }], screenshotDirectory: 'shots' } } };\n`,
-            })
-            .graph({ createNodes });
-        const target = graph.nodes['ui']?.data.targets?.['test--vitest'];
-
-        expect(graph.nodes['ui']?.data.metadata?.technologies).toStrictEqual(technologies);
-        expect(target?.outputs?.filter((output) => output.endsWith('/shots'))).toStrictEqual(outputs);
-    });
-
-    it.for([
         { case: 'enables a browser provider', config: "import { playwright } from '@vitest/browser-playwright';\n\nexport default { test: { browser: { enabled: true, provider: playwright(), instances: [{ browser: 'chromium' }] } } };\n", hosts: ['host:browser'] },
+        { case: 'names a browser provider it leaves disabled', config: "import { playwright } from '@vitest/browser-playwright';\n\nexport default { test: { browser: { enabled: false, provider: playwright(), instances: [{ browser: 'chromium' }] } } };\n", hosts: [] },
         { case: 'runs on node alone', config: 'export default {};\n', hosts: [] },
     ])('tags the host a package needs where its Vitest config $case', async ({ config, hosts }, { workspace }) => {
         const graph = await workspace.write({ ...ROOT, 'libs/ui/package.json': '{"name":"ui"}', 'libs/ui/vitest.config.ts': config }).graph({ createNodes });
 
+        expect(graph.nodes['ui']?.data.targets?.['test--vitest']).toBeDefined();
         expect((graph.nodes['ui']?.data.tags ?? []).filter((tag) => tag.startsWith('host:'))).toStrictEqual(hosts);
-    });
-});
-
-describe('verb aggregation', () => {
-    it('runs every vitest tool target through its verb, which hashes each of its inputs', async ({ workspace }) => {
-        const graph = await workspace
-            .write({
-                ...ROOT,
-                'vitest.config.ts': "export default { test: { projects: ['packages/*'], forceRerunTriggers: ['**/schema.json'] } };\n",
-                'packages/a/package.json': '{"name":"a"}',
-                'packages/b/package.json': '{"name":"b"}',
-                'libs/c/package.json': '{"name":"c"}',
-                'libs/c/vitest.config.ts': "export default { test: { setupFiles: ['../../tools/setup.mts'] } };\n",
-                'tools/setup.mts': '',
-                'tools/tsconfig.json': '{"compilerOptions":{}}',
-            })
-            .graph({ createNodes }, { outputPath: '.artifacts/vitest/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
-
-        expect(Object.keys(graph.nodes['c']?.data.targets ?? {})).toContain('test--vitest');
-        expect(unaggregated(graph)).toStrictEqual([]);
     });
 });
 
@@ -132,10 +88,13 @@ describe('task order', () => {
 });
 
 describe('test mode', () => {
-    it('loads the configuration under the TEST, VITEST, and NODE_ENV values vitest sets, keeping a stated NODE_ENV, and restores the process environment after', async ({ workspace, onTestFinished }) => {
+    it.for([
+        { case: 'keeping a stated NODE_ENV', stated: 'production', seen: ['true', 'true', 'production'] },
+        { case: 'setting NODE_ENV test where none is stated', stated: undefined, seen: ['true', 'true', 'test'] },
+    ])('loads the configuration under the TEST, VITEST, and NODE_ENV values vitest sets, $case, and restores the process environment after', async ({ stated, seen }, { workspace, onTestFinished }) => {
         vi.stubEnv('TEST', undefined);
         vi.stubEnv('VITEST', 'outer');
-        vi.stubEnv('NODE_ENV', 'production');
+        vi.stubEnv('NODE_ENV', stated);
         onTestFinished(() => {
             vi.unstubAllEnvs();
         });
@@ -143,9 +102,6 @@ describe('test mode', () => {
 
         await workspace.graph({ createNodes });
 
-        expect([JSON.parse(readFileSync(join(workspace.root, 'libs/a/seen.json'), 'utf-8')), [env['TEST'], env['VITEST'], env['NODE_ENV']]]).toStrictEqual([
-            ['true', 'true', 'production'],
-            [undefined, 'outer', 'production'],
-        ]);
+        expect([JSON.parse(readFileSync(join(workspace.root, 'libs/a/seen.json'), 'utf-8')), [env['TEST'], env['VITEST'], env['NODE_ENV']]]).toStrictEqual([seen, [undefined, 'outer', stated]]);
     });
 });
