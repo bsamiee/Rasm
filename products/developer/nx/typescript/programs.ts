@@ -1,14 +1,14 @@
 import { createRequire } from 'node:module';
 import { basename, dirname, extname, join, posix, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { hashArray, normalizePath, type TargetConfiguration } from '@nx/devkit';
-import { getFilesInDirectoryUsingContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { above, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
+import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, PluginCache, type ProjectRootMappings, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { EXEC, type Stated, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import type { API, ParsedCommandLine } from '@typescript/native/sync';
-import { Array, Cause, Effect, Equal, FileSystem, Filter, flow, Option, Record, Result } from 'effect';
+import { Array, Cause, Effect, FileSystem, Function, Option, Result, UndefinedOr } from 'effect';
 import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
-import { MANIFEST } from '#/workspace';
+import { MANIFEST, projected } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,43 +22,25 @@ const CONFIG = 'tsconfig.json';
 
 const referenced = ({ projectReferences = [] }: ParsedCommandLine) => projectReferences.map(({ path: at }) => (extname(at) === '.json' ? at : join(at, CONFIG)));
 
-const owning = (roots: ReadonlySet<string>) => (file: string) =>
-    Option.getOrElse(
-        Array.findFirst(above(posix.dirname(file)), (folder) => roots.has(folder)),
-        () => '.',
-    );
+const connected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, from: string) {
+    const native = yield* Effect.tryPromise({ try: (): Promise<{ readonly API: typeof API }> => import(pathToFileURL(createRequire(resolve(workspaceRoot, from)).resolve(`${compiler}/sync`)).href), catch: (cause) => new Cause.UnknownError(cause, `${workspaceRoot} resolves no ${compiler}/sync`) });
+    return yield* Effect.acquireDisposable(Effect.sync(() => new native.API({ cwd: workspaceRoot })));
+});
 
-const connected = (workspaceRoot: string, compiler: string, from: string) =>
-    Effect.flatMap(
-        Effect.tryPromise({
-            try: (): Promise<{ readonly API: typeof API }> => import(pathToFileURL(createRequire(resolve(workspaceRoot, from)).resolve(`${compiler}/sync`)).href),
-            catch: (cause) => new Cause.UnknownError(cause, `${workspaceRoot} resolves no ${compiler}/sync`),
-        }),
-        (native) => Effect.acquireDisposable(Effect.sync(() => new native.API({ cwd: workspaceRoot }))),
-    );
-
-const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, roots: ReadonlySet<string>, configs: Array.NonEmptyReadonlyArray<string>) {
+const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, owners: ProjectRootMappings, configs: Array.NonEmptyReadonlyArray<string>) {
     const unopened = (cause: unknown) => new Cause.UnknownError(cause, `${compiler}/sync opens no snapshot of ${workspaceRoot}`);
     const api = yield* connected(workspaceRoot, compiler, Array.headNonEmpty(configs));
     const fs = yield* FileSystem.FileSystem;
-    const linked = (at: string) =>
-        Result.getOrElse(
-            Result.try(() => referenced(api.parseConfigFile(at))),
-            () => [],
-        );
+    const linked = (at: string) => UndefinedOr.liftThrowable((file: string) => referenced(api.parseConfigFile(file)))(at) ?? [];
     const reached = (pending: readonly string[], seen: ReadonlySet<string>): ReadonlySet<string> =>
         Array.match(
             pending.filter((at) => !seen.has(at)),
             { onEmpty: () => seen, onNonEmpty: (fresh) => reached(fresh.flatMap(linked), new Set([...seen, ...fresh])) },
         );
-    const owner = owning(roots);
     const parsed = (config: string) => {
         const file = resolve(workspaceRoot, config);
         const read = api.parseConfigFile(file);
-        const [owned, external] = Array.partition(
-            referenced(read),
-            Filter.fromPredicate((at: string) => owner(normalizePath(relative(workspaceRoot, at))) === dirname(config)),
-        );
+        const [owned, external] = Array.partition(referenced(read), (at) => Result.liftPredicate(at, () => (findProjectForPath(relative(workspaceRoot, at), owners) ?? '.') === dirname(config), Function.identity));
         return { entry: { file, parsed: read, chain: [file], loaded: read.fileNames }, owned, external: [...reached([...(Array.isReadonlyArrayEmpty(read.fileNames) ? [] : external), ...owned.flatMap(linked)], new Set([file, ...owned]))].filter((at) => !(at === file || owned.includes(at))) };
     };
     const reads = configs.map((config) => [config, Result.try({ try: () => parsed(config), catch: (cause) => new Cause.UnknownError(cause, `${config} does not parse as a tsconfig`) })] as const);
@@ -70,12 +52,13 @@ const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
     return reads.map(([config, read]) => [config, Result.map(read, ({ entry, owned, external }) => ({ config, entry: opened.get(entry.file) ?? entry, members: members(owned), external: members(external) }))] as const);
 }, Effect.scoped);
 
-const resolved = (workspaceRoot: string, roots: ReadonlySet<string>, solution: Effect.Success<ReturnType<typeof solved>>[number][1]) =>
+const resolved = (workspaceRoot: string, owners: ProjectRootMappings, solution: Effect.Success<ReturnType<typeof solved>>[number][1]) =>
     Result.map(solution, ({ config, entry, members, external }) => {
         const folder = join(workspaceRoot, dirname(config));
         const local = (at: string) => normalizePath(relative(workspaceRoot, at));
         const holding = [entry, ...members].filter(({ parsed }) => parsed.fileNames.length > 0);
         const checked = entry.parsed.fileNames.length > 0 || (Array.isReadonlyArrayEmpty(holding) && Array.isReadonlyArrayEmpty(entry.parsed.projectReferences ?? [])) ? [entry] : holding;
+        const configs = checked.map(({ file }) => relative(folder, file));
         const placed = holding.map(({ file, loaded, parsed: { options, projectReferences = [] } }) => {
             const offset = options.outDir === undefined || options.rootDir === undefined ? '.' : relative(options.rootDir, dirname(file));
             const base = join(options.outDir ?? dirname(file), offset.startsWith('..') ? '.' : offset);
@@ -86,18 +69,13 @@ const resolved = (workspaceRoot: string, roots: ReadonlySet<string>, solution: E
                 informed: options.incremental === true || options.composite === true || projectReferences.length > 0 ? [local(options.tsBuildInfoFile ?? join(resolve(options.outDir ?? dirname(file), offset), `${basename(file, '.json')}.tsbuildinfo`))] : [],
             };
         });
-        const owner = owning(roots);
-        const sources = Array.dedupe([...[entry, ...holding].flatMap(({ chain, parsed, loaded }) => [...[...chain, ...parsed.fileNames].map(local), ...loaded.map(local).filter((at) => owner(at) === dirname(config))]), ...external.flatMap(({ chain }) => chain.map(local))]).filter(within);
         return {
-            commands: checked.map(({ file, parsed }) => {
-                const named = relative(folder, file) === CONFIG ? [] : [relative(folder, file)];
-                return ['tsc', ...((parsed.projectReferences ?? []).length > 0 ? ['--build', ...named] : named.flatMap((at) => ['-p', at]))].map(quoteShellArg).join(' ');
-            }),
-            configs: checked.map(({ file }) => relative(folder, file)),
+            commands: Array.zipWith(checked, configs, ({ parsed: { projectReferences = [] } }, at) => ['tsc', ...(projectReferences.length > 0 ? ['--build'] : []), ...[at].filter((named) => named !== CONFIG).flatMap((named) => (projectReferences.length > 0 ? [named] : ['-p', named]))].map(quoteShellArg).join(' ')),
+            configs,
             outputs: Array.dedupe(placed.flatMap(({ emitted }) => emitted)),
             informed: Array.dedupe(placed.flatMap(({ informed }) => informed)),
             chain: entry.chain.map(local).filter(within),
-            sources,
+            sources: Array.dedupe([...[entry, ...holding].flatMap(({ chain, parsed, loaded }) => [...[...chain, ...parsed.fileNames].map(local), ...loaded.map(local).filter((at) => (findProjectForPath(at, owners) ?? '.') === dirname(config))]), ...external.flatMap(({ chain }) => chain.map(local))]).filter(within),
         };
     });
 
@@ -116,15 +94,16 @@ const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, l
         ],
         { concurrency: 'unbounded' },
     );
-    const beneath = new Map(Array.zipWith(listed, listings, (at, files) => [at, { files, direct: Array.filter(files, flow(posix.dirname, Equal.equals(at))) }] as const));
+    const beneath = new Map(Array.zipWith(listed, listings, (at, files) => [at, { files, direct: files.filter((file) => posix.dirname(file) === at) }] as const));
     return Array.zip(
         folders.map(([folder, ...outside]) => hashArray([row, ...(beneath.get(folder)?.files ?? []), ...outside.flatMap((at) => beneath.get(at)?.direct ?? [])])),
         stamps,
     );
 });
 
-const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, row: string, lock: string, roots: ReadonlySet<string>, configs: readonly string[]) {
+const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, row: string, manager: PackageManager, roots: ReadonlySet<string>, files: readonly string[]) {
     const cache = new PluginCache<Program & { readonly digest: string; readonly stamp: string }>(join(workspaceDataDirectory, 'typescript.hash'));
+    const [lock, owners, configs] = [getLockFileName(manager), new Map(roots.values().map((root) => [root, root] as const)), files.filter((file) => basename(file) === CONFIG)];
     const keys = yield* keyed(
         workspaceRoot,
         row,
@@ -138,8 +117,8 @@ const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler:
             onEmpty: () => Effect.succeed([]),
             onNonEmpty: (missed) =>
                 Effect.map(
-                    solved(workspaceRoot, compiler, roots, missed),
-                    Array.map(([config, solution]) => [config, resolved(workspaceRoot, roots, solution)] as const),
+                    solved(workspaceRoot, compiler, owners, missed),
+                    Array.map(([config, solution]) => [config, resolved(workspaceRoot, owners, solution)] as const),
                 ),
         },
     );
@@ -150,39 +129,40 @@ const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler:
         lock,
         stored.map(([config, { sources }]) => [config, sources]),
     );
-    yield* Effect.forEach(Array.zip(stored, renewed), ([[config, value], [digest, stamp]]) => Effect.sync(() => cache.set(config, { ...value, digest, stamp })));
+    yield* Effect.forEach(Array.zip(stored, renewed), ([[config, value], [digest, stamp]]) => Effect.sync(() => cache.set(config, { ...value, digest, stamp })), { discard: true });
     yield* Array.isReadonlyArrayNonEmpty(stored) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
     return new Map<string, Result.Result<Program, Cause.UnknownError>>([...Array.getSomes(current.map(([config, held]) => Option.map(held, (cached) => [config, Result.succeed(cached)] as const))), ...fresh]);
 });
 
-const compiled = (root: string, { commands, configs, outputs, informed, sources }: Program, packages: readonly string[], upstream: string, linted: boolean, synced: boolean, exec: string): Verbs => {
-    const metadata = (description: string, example: readonly string[]) => ({ description, help: { command: `${exec} tsc --help`, example: { args: [...example] } } });
-    const token = tokened(root);
-    const tsc = {
-        executor: 'nx:run-commands',
-        options: { commands, cwd: root },
-        dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'],
-        cache: true,
-        inputs: [...Array.dedupe([posix.join(root, MANIFEST), ...sources].map(token)), upstream, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: [...packages] }],
-        outputs: [],
-        ...(synced && { syncGenerators: ['@nx/js:typescript-sync'] }),
-    } satisfies TargetConfiguration;
-    const cleaned = (removed: readonly string[]) => ({
-        tsc: {
-            executor: `${distribution.name}:clean`,
-            options: { targets: removed, commands: configs.map((config) => ['tsc', '--build', '--clean', config]), cwd: root },
-            inputs: ['default', '^default', { externalDependencies: [...packages] }],
-            metadata: { description: `Removes the outputs ${removed.join(', ')} declare and each program output with tsc --build --clean`, help: { command: `${exec} tsc --build --help`, example: { args: ['--dry'] } } },
-        },
-    });
-    return Array.match(outputs, {
-        onEmpty: () => ({ check: { tsc: { ...tsc, outputs: informed.map(token), metadata: metadata('Type-checks every program of the project with tsc', ['--extendedDiagnostics']) } }, ...(Array.isReadonlyArrayNonEmpty(informed) && { clean: cleaned(['check--tsc']) }) }),
-        onNonEmpty: (written) => {
-            const build = { tsc: { ...tsc, outputs: Array.dedupe([...written, ...informed]).map(token), metadata: metadata('Emits JavaScript and declarations with tsc, type-checking every program it builds', ['--listEmittedFiles']) } };
-            return {
-                build,
+const compiled =
+    (root: string, stated: Stated, packages: readonly string[], upstream: string, linted: boolean, synced: boolean, manager: PackageManager) =>
+    ({ commands, configs, outputs, informed, sources }: Program): Option.Option<ProjectConfiguration> => {
+        const token = tokened(root);
+        const tsc = {
+            executor: 'nx:run-commands',
+            options: { commands, cwd: root },
+            dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'],
+            cache: true,
+            inputs: [...Array.dedupe([posix.join(root, MANIFEST), ...sources].map(token)), upstream, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: [...packages] }],
+            ...(synced && { syncGenerators: ['@nx/js:typescript-sync'] }),
+        } satisfies TargetConfiguration;
+        const cleaned = (removed: string) => ({
+            tsc: {
+                executor: `${distribution.name}:clean`,
+                options: { targets: [removed], commands: configs.map((config) => ['tsc', '--build', '--clean', config]), cwd: root },
+                inputs: ['default', '^default', { externalDependencies: [...packages] }],
+                metadata: { description: `Removes the outputs ${removed} declare and each program output with tsc --build --clean`, help: { command: `${EXEC[manager]} tsc --build --help`, example: { args: ['--dry'] } } },
+            },
+        });
+        const verbs: Verbs = Array.match(outputs, {
+            onEmpty: () => ({
+                check: { tsc: { ...tsc, outputs: informed.map(token), metadata: { description: 'Type-checks every program of the project with tsc', help: { command: `${EXEC[manager]} tsc --help`, example: { args: ['--extendedDiagnostics'] } } } } },
+                ...(Array.isReadonlyArrayNonEmpty(informed) && { clean: cleaned('check--tsc') }),
+            }),
+            onNonEmpty: (written) => ({
+                build: { tsc: { ...tsc, outputs: Array.dedupe([...written, ...informed]).map(token), metadata: { description: 'Emits JavaScript and declarations with tsc, type-checking every program it builds', help: { command: `${EXEC[manager]} tsc --help`, example: { args: ['--listEmittedFiles'] } } } } },
                 check: {
-                    tsc: { executor: 'nx:noop', dependsOn: ['build--tsc'], inputs: tsc.inputs, metadata: metadata('Type-checks through the build--tsc compile with tsc', ['--extendedDiagnostics']) },
+                    tsc: { executor: 'nx:noop', dependsOn: ['build--tsc'], inputs: tsc.inputs, metadata: { description: 'Type-checks through the build--tsc compile with tsc', help: { command: `${EXEC[manager]} tsc --help`, example: { args: ['--extendedDiagnostics'] } } } },
                     ...(linted && {
                         publint: {
                             command: 'publint --strict',
@@ -191,16 +171,16 @@ const compiled = (root: string, { commands, configs, outputs, informed, sources 
                             cache: true,
                             inputs: ['default', { dependentTasksOutputFiles: '**/*' }, { externalDependencies: ['publint'] }],
                             outputs: [],
-                            metadata: { description: 'Lints the tarball the package manager packs against its package.json with publint, warnings failing through --strict', help: { command: `${exec} publint run --help`, example: { args: ['--level', 'warning'] } } },
+                            metadata: { description: 'Lints the tarball the package manager packs against its package.json with publint, warnings failing through --strict', help: { command: `${EXEC[manager]} publint run --help`, example: { args: ['--level', 'warning'] } } },
                         },
                     }),
                 },
-                clean: cleaned(Record.collect(build, (tool) => `build--${tool}`)),
-            };
-        },
-    });
-};
+                clean: cleaned('build--tsc'),
+            }),
+        });
+        return Option.as(Option.liftPredicate(commands, Array.isReadonlyArrayNonEmpty), projected(root, 'typescript', verbs, stated));
+    };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { compiled, CONFIG, connected, owning, programmed };
+export { compiled, CONFIG, connected, programmed };

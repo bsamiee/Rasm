@@ -1,18 +1,14 @@
 import { createRequire } from 'node:module';
 import { join, posix, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { hashArray, normalizePath, type TargetConfiguration } from '@nx/devkit';
-import { getFilesInDirectoryUsingContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { above, packaged, tokened } from '@rasm/nx-distribution/inference';
+import { hashArray, normalizePath, type PackageManager, type TargetConfiguration } from '@nx/devkit';
+import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { above, EXEC, packaged, tokened } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Option, Schema, type Scope } from 'effect';
 import type { ESLint } from 'eslint';
 import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
-import { connected, owning } from '#/programs';
+import { connected } from '#/programs';
 import { MANIFEST } from '#/workspace';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const LINTERS = ['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts', 'eslint.config.mts', 'eslint.config.cts'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -51,7 +47,7 @@ const imported = Effect.fnUntraced(function* (workspaceRoot: string, compiler: s
     );
 }, Effect.scoped);
 
-const inspected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, exec: string, rows: Array.NonEmptyReadonlyArray<{ readonly root: string; readonly scope: string; readonly owned: readonly string[] }>) {
+const inspected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, manager: PackageManager, rows: Array.NonEmptyReadonlyArray<{ readonly root: string; readonly scope: string; readonly owned: readonly string[] }>) {
     const unanswered = (cause: unknown) => new Cause.UnknownError(cause, `eslint resolved from ${workspaceRoot} answers no config or ignore question`);
     const { ESLint: Linter } = yield* Effect.tryPromise({ try: (): Promise<{ readonly ESLint: typeof ESLint }> => import(pathToFileURL(createRequire(join(workspaceRoot, MANIFEST)).resolve('eslint')).href), catch: unanswered });
     const eslint = new Linter({ cwd: workspaceRoot });
@@ -60,8 +56,8 @@ const inspected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: 
         rows,
         Effect.fnUntraced(function* ({ root, scope, owned }) {
             const config = Option.map(Option.fromUndefinedOr(yield* Effect.tryPromise({ try: () => eslint.findConfigFile(join(workspaceRoot, root, MANIFEST)), catch: unanswered })), (at) => normalizePath(relative(workspaceRoot, at)));
-            const files = yield* Option.match(config, { onNone: () => Effect.succeed([]), onSome: () => Effect.filter(owned, linting) });
-            return { root, scope, config, lintable: Array.isReadonlyArrayNonEmpty(files) };
+            const lintable = Option.isSome(yield* Effect.findFirst(Option.isSome(config) ? owned : [], linting));
+            return { root, scope, config, lintable };
         }),
         { concurrency: 'unbounded' },
     );
@@ -73,7 +69,7 @@ const inspected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: 
     );
     return new Map(
         governed.map(({ root, scope, config, lintable }) => {
-            const held = Option.flatMap(config, (at) => Option.fromUndefinedOr(imports.get(at)));
+            const held = Option.flatMapNullishOr(config, (at) => imports.get(at));
             const target = Option.map(
                 Option.filter(held, () => lintable),
                 ({ config: at, files, packages, linked }): TargetConfiguration => ({
@@ -82,39 +78,36 @@ const inspected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: 
                     cache: true,
                     inputs: ['default', '^default', ...files.map(tokened(root)), ...Array.match(linked, { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects: [...projects] }] }), { externalDependencies: [...packages] }],
                     outputs: [],
-                    metadata: { description: `Lints the files ${at} governs in the project with eslint`, help: { command: `${exec} eslint --help`, example: { args: ['--max-warnings', '0'] } } },
+                    metadata: { description: `Lints the files ${at} governs in the project with eslint`, help: { command: `${EXEC[manager]} eslint --help`, example: { args: ['--max-warnings', '0'] } } },
                 }),
             );
-            return [root, { read: Option.match(held, { onNone: () => [], onSome: ({ read }) => read }), targets: Option.toArray(target) }] as const;
+            return [root, { read: Array.fromOption(held).flatMap(({ read }) => read), targets: Option.toArray(target) }] as const;
         }),
     );
 });
 
-const linted = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, exec: string, lock: string, roots: readonly { readonly root: string; readonly scope: string }[], hashed: string) {
+const linted = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, manager: PackageManager, roots: readonly { readonly root: string; readonly scope: string }[], hashed: string) {
     const cache = new PluginCache<{ readonly targets: readonly TargetConfiguration[]; readonly read: readonly string[]; readonly stamp: string; readonly digest: string }>(join(workspaceDataDirectory, 'typescript-eslint.hash'));
-    const owner = owning(new Set(roots.map(({ root }) => root)));
-    const listed = yield* Effect.forEach(
-        roots,
-        ({ root, scope }) =>
-            Effect.map(
-                Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, scope)),
-                (beneath) => ({ root, scope, beneath }),
+    const owners = new Map(roots.map(({ root }) => [root, root] as const));
+    const [listed, hashes] = yield* Effect.all(
+        [
+            Effect.forEach(roots, ({ scope }) => Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, scope)), { concurrency: 'unbounded' }),
+            Effect.promise(() =>
+                hashMultiGlobWithWorkspaceContext(
+                    workspaceRoot,
+                    roots.flatMap(({ root }) => [[getLockFileName(manager), ...Array.cartesianWith(above(root), ['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts', 'eslint.config.mts', 'eslint.config.cts'], posix.join)], [...(cache.get(root)?.read ?? [])]]),
+                ),
             ),
+        ],
         { concurrency: 'unbounded' },
     );
-    const hashes = yield* Effect.promise(() =>
-        hashMultiGlobWithWorkspaceContext(
-            workspaceRoot,
-            listed.flatMap(({ root }) => [[lock, ...Array.cartesianWith(above(root), LINTERS, posix.join)], [...(cache.get(root)?.read ?? [])]]),
-        ),
-    );
-    const keyed = Array.zipWith(listed, Array.chunksOf(hashes, 2), ({ root, scope, beneath }, [configured, stamp]) => {
-        const owned = beneath.filter((file) => owner(file) === root);
+    const keyed = Array.zipWith(Array.zip(roots, listed), Array.chunksOf(hashes, 2), ([{ root, scope }, beneath], [configured, stamp]) => {
+        const owned = beneath.filter((file) => (findProjectForPath(file, owners) ?? '.') === root);
         const digest = hashArray([hashed, configured, ...owned]);
         return { root, scope, owned, digest, current: Option.exists(Option.fromNullishOr(cache.get(root)), (entry) => entry.digest === digest && entry.stamp === stamp) };
     });
     const missed = keyed.filter(({ current }) => !current);
-    const fresh = yield* Array.match(missed, { onEmpty: () => Effect.succeed(new Map<string, { readonly read: readonly string[]; readonly targets: readonly TargetConfiguration[] }>()), onNonEmpty: (rows) => inspected(workspaceRoot, compiler, exec, rows) });
+    const fresh = yield* Array.match(missed, { onEmpty: () => Effect.succeed(new Map<string, { readonly read: readonly string[]; readonly targets: readonly TargetConfiguration[] }>()), onNonEmpty: (rows) => inspected(workspaceRoot, compiler, manager, rows) });
     const stored = Array.getSomes(missed.map(({ root, digest }) => Option.map(Option.fromUndefinedOr(fresh.get(root)), ({ read, targets }) => ({ root, digest, read, targets }))));
     const stamps = yield* Effect.promise(() =>
         hashMultiGlobWithWorkspaceContext(
@@ -122,21 +115,9 @@ const linted = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
             stored.map(({ read }) => [...read]),
         ),
     );
-    yield* Effect.forEach(Array.zip(stored, stamps), ([{ root, digest, read, targets }, stamp]) => Effect.sync(() => cache.set(root, { targets, read, stamp, digest })));
+    yield* Effect.forEach(Array.zip(stored, stamps), ([{ root, digest, read, targets }, stamp]) => Effect.sync(() => cache.set(root, { targets, read, stamp, digest })), { discard: true });
     yield* Array.isReadonlyArrayNonEmpty(missed) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
-    return new Map(
-        Array.getSomes(
-            keyed.map(({ root, digest }) =>
-                Option.map(
-                    Option.flatMap(
-                        Option.filter(Option.fromNullishOr(cache.get(root)), (held) => held.digest === digest),
-                        ({ targets }) => Array.head(targets),
-                    ),
-                    (target) => [root, target] as const,
-                ),
-            ),
-        ),
-    );
+    return new Map(Array.getSomes(keyed.map(({ root }) => Option.map(Array.head(cache.get(root)?.targets ?? []), (target) => [root, target] as const))));
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
