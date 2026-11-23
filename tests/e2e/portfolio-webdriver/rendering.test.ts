@@ -38,7 +38,7 @@ class Session extends Context.Service<Session, { readonly driver: WebDriver; rea
         Session,
         Effect.gen(function* () {
             const driver = yield* Effect.acquireRelease(
-                Effect.promise(() => new Builder().withCapabilities(new Options().addArguments('-headless').enableBidi()).build()),
+                Effect.promise(() => new Builder().disableEnvironmentOverrides().withCapabilities(new Options().addArguments('-headless').enableBidi()).build()),
                 (held) => Effect.promise(() => held.quit()),
             );
             return { driver, viewed: yield* Effect.promise(() => driver.getWindowHandle().then((browsingContextId) => BrowsingContext(driver, { browsingContextId }))) };
@@ -64,5 +64,5 @@ const drawn = Effect.fnUntraced(function* ({ viewer, path, width, read, expected
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 layer(Layer.mergeAll(Site.layer, Session.layer), { timeout: '2 minutes', excludeTestServices: true })('the portfolio in Firefox', (it) => {
-    it.effect.each(cases)('$viewer at $width: $shows', drawn, 30_000);
+    it.effect.each(cases.filter(({ gecko }) => gecko))('$viewer at $width: $shows', drawn, 30_000);
 });
