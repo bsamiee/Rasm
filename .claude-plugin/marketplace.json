@@ -58,7 +58,7 @@
         {
             "name": "dotnet",
             "source": "./plugins/shared/dotnet",
-            "version": "0.3.0",
+            "version": "0.3.1",
             "description": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
             "author": {
                 "name": "Bardia Samiee"
