@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: swift
+severity: error
+utils:
+    observable:
+        inside:
+            kind: source_file
+            stopBy: end
+            has:
+                kind: class_declaration
+                stopBy: end
+                all:
+                    - has: { kind: modifiers, has: { kind: attribute, regex: '^@(Observation(\.|::))?Observable$' } }
+                    - has: { field: name, pattern: $T }
+    built:
+        all:
+            - any:
+                  - { kind: call_expression, has: { nthChild: 1, kind: simple_identifier, pattern: $T } }
+                  - { kind: call_expression, has: { nthChild: 1, pattern: $T.init } }
+                  - { kind: navigation_expression, pattern: $T.init, not: { inside: { kind: call_expression } } }
+            - inside:
+                  kind: computed_property
+                  stopBy: end
+                  inside:
+                      any:
+                          - { kind: property_declaration, has: { kind: type_annotation, has: { kind: user_type, stopBy: end, pattern: $T } } }
+                          - { kind: subscript_declaration, has: { kind: user_type, stopBy: end, pattern: $T, not: { inside: { kind: parameter, stopBy: end } } } }
+            - matches: observable
+    inferred:
+        all:
+            - { kind: call_expression, has: { nthChild: 1, kind: prefix_expression, regex: '^\.init$' } }
+            - any:
+                  - inside: { kind: statements, inside: { kind: 'computed_property, computed_getter' } }
+                  - inside: { kind: control_transfer_statement, inside: { kind: statements, inside: { kind: 'computed_property, computed_getter' } } }
+            - inside:
+                  kind: computed_property
+                  stopBy: end
+                  inside:
+                      any:
+                          - { kind: property_declaration, has: { kind: type_annotation, has: { field: name, any: [{ kind: optional_type, has: { field: wrapped, pattern: $T } }, { pattern: $T }] } } }
+                          - { kind: subscript_declaration, has: { field: name, any: [{ kind: optional_type, has: { field: wrapped, pattern: $T } }, { pattern: $T }] } }
+            - matches: observable
+rule:
+    kind: property_declaration, subscript_declaration
+    not: { has: { kind: modifiers, has: { kind: property_modifier, regex: '^(static|class)$' } } }
+    has:
+        kind: computed_property
+        has:
+            stopBy: end
+            any:
+                - matches: built
+                - matches: inferred
+message: 'Computed member builds a new untracked `@Observable` `$T` on every read'
+note: 'Store one `<model>` and update it in place when its source changes'

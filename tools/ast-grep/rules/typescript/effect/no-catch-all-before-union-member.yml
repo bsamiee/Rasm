@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsx
+severity: error
+rule:
+    pattern: $MEMBER
+    all:
+        - matches: { effect-module-member: { module: { regex: '(?-u:\b)Schema$' }, member: { regex: '^(Any|Unknown|Void)$' } } }
+        - not: { nthChild: { position: 1, reverse: true, ofRule: { not: { kind: 'comment, html_comment' } } } }
+        - inside:
+              kind: array
+              inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)Schema$' }, member: { regex: '^Union$' } } } } } }
+message: '`$MEMBER` accepts values meant for every later union member'
+note: 'Place a catch-all schema last in `Schema.Union`, where it takes only what no other member decodes'

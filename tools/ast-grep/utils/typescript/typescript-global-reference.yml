@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-global-reference
+language: tsx
+rule:
+    any:
+        - kind: identifier, undefined
+          pattern: $GLOBAL
+          not:
+              any:
+                  - matches: { typescript-local-binding: { owner: { pattern: $_ } } }
+                  - inside: { kind: program, stopBy: end, has: { kind: import_statement, has: { stopBy: end, pattern: $GLOBAL, matches: typescript-import-binding } } }
+        - kind: member_expression
+          has: { field: object, matches: typescript-global-reference }

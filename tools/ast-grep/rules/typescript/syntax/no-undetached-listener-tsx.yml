@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsx
+severity: error
+utils:
+    removal:
+        kind: call_expression
+        all:
+            - has: { field: function, kind: member_expression, has: { field: property, regex: '^(removeEventListener|removeListener|off)$' } }
+            - has: { field: function, has: { field: object, pattern: $TARGET } }
+            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, pattern: $EVENT } }
+rule:
+    kind: call_expression
+    any:
+        - all:
+              - matches: removal
+              - not: { has: { field: function, has: { field: property, regex: '^removeEventListener$' } } }
+              - has: { field: arguments, has: { nthChild: { position: 2, ofRule: *code }, kind: 'arrow_function, function_expression' } }
+        - all:
+              - has: { field: function, kind: member_expression, has: { field: property, regex: '^(addEventListener|addListener|prependListener|on)$' } }
+              - has: { field: function, has: { field: object, matches: typescript-global-reference, regex: '^(globalThis|window|self|document|process)(?-u:\b)', pattern: $TARGET } }
+              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, pattern: $EVENT } }
+              - has: { field: arguments, has: { nthChild: { position: 2, ofRule: *code }, pattern: $HANDLER } }
+              - not:
+                    has:
+                        field: arguments
+                        has:
+                            nthChild: { position: 3, ofRule: *code }
+                            any:
+                                - not: { kind: 'true, false, object' }
+                                - has: { any: [{ kind: pair, has: { field: key, regex: '^signal$' } }, { kind: shorthand_property_identifier, regex: '^signal$' }, { kind: spread_element }, { kind: pair, all: [{ has: { field: key, regex: '^once$' } }, { has: { field: value, kind: 'true' } }] }] }
+              - inside: { stopBy: end, matches: typescript-function-boundary }
+              - not: { inside: { kind: program, stopBy: end, has: { stopBy: end, matches: removal, has: { field: arguments, has: { nthChild: { position: 2, ofRule: *code }, pattern: $HANDLER, not: { kind: 'arrow_function, function_expression' } } } } } }
+message: '`$TARGET` keeps the `$EVENT` listener attached'
+note: 'Register with `{ signal }` and abort its `AbortController` when its owner closes, or remove the listener by its added function reference'

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: swift
+severity: error
+utils:
+    descriptor-close:
+        kind: navigation_expression
+        all:
+            - has: { field: target, kind: simple_identifier, pattern: $DESCRIPTOR, matches: { swift-typed-use: { type: { regex: '^((System|SystemPackage)(\.|::))?FileDescriptor$' } } } }
+            - has: { field: suffix, has: { field: suffix, regex: '^close$' } }
+rule:
+    kind: call_expression
+    all:
+        - has: { nthChild: 1, kind: simple_identifier, regex: '^defer$' }
+        - has:
+              kind: call_suffix
+              has:
+                  kind: lambda_literal
+                  has:
+                      stopBy: { kind: 'lambda_literal, if_statement, guard_statement, switch_statement' }
+                      matches: descriptor-close
+        - inside:
+              kind: 'function_declaration, init_declaration, lambda_literal'
+              stopBy: { kind: 'function_declaration, init_declaration, lambda_literal' }
+              not: { has: { stopBy: { kind: 'function_declaration, init_declaration, lambda_literal' }, kind: await_expression } }
+message: '`defer` closes `$DESCRIPTOR` around a synchronous body'
+note: 'Run the body inside `<descriptor>.closeAfter { }`, a `defer` closing on a failed construction alone stays'

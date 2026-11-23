@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsx
+severity: error
+utils:
+    pathname:
+        kind: member_expression
+        has: { field: property, regex: '^pathname$' }
+rule:
+    pattern: $URL
+    any:
+        - kind: template_string
+          all:
+              - has: { kind: string_fragment, nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, regex: '^file:/*$' }
+              - has: { kind: template_substitution, nthChild: { position: 2, ofRule: *code } }
+        - kind: binary_expression
+          all:
+              - has: { field: operator, regex: '^\+$' }
+              - has: { field: left, kind: string, regex: '^.file:/*.$' }
+        - kind: call_expression
+          all:
+              - has: { field: function, regex: '^decodeURIComponent$', matches: typescript-global-reference }
+              - has:
+                    field: arguments
+                    has:
+                        nthChild: { position: 1, ofRule: *code }
+                        any:
+                            - matches: pathname
+                            - kind: call_expression
+                              any:
+                                  - has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^(replace|replaceAll)$' } }, { has: { field: object, matches: pathname } }] }
+                                  - all:
+                                        - has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^(slice|substring)$' } }, { has: { field: object, matches: pathname } }] }
+                                        - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: *code }, regex: '^1$' } }, { not: { has: { nthChild: { position: 2, ofRule: *code } } } }] }
+message: '`$URL` converts between a file path and a file URL by hand'
+note: 'Call `pathToFileURL` or `fileURLToPath` from `node:url`, or `path.toFileUrl` and `path.fromFileUrl` on the `Path.Path` service, which encode and decode every reserved character'

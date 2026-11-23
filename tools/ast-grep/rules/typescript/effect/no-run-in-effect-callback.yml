@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsx
+severity: error
+utils:
+    run-invocation:
+        kind: call_expression
+        has: { field: function, matches: { effect-runner: { name: { regex: '^run(Callback|Fork|Promise|PromiseExit|Sync|SyncExit)$' } } } }
+    effect-combinator:
+        kind: call_expression
+        any:
+            - has:
+                  field: function
+                  kind: member_expression
+                  all:
+                      - has:
+                            field: object
+                            matches:
+                                effect-module:
+                                    name:
+                                        regex: |-
+                                            (?x)(?-u:\b)(Effect|Stream|Layer|Channel|Sink|Schedule|Ref|SynchronizedRef|SubscriptionRef|TxRef|Cache|ScopedCache
+                                            |Pool|RcMap|RcRef|Resource|ScopedRef|PubSub|Queue|Deferred|Fiber|FiberMap|FiberSet|FiberHandle|Request
+                                            |RequestResolver|Logger|Metric)$
+                      - not: { matches: { effect-runner: { name: { regex: '^run' } } } }
+            - has: { field: function, kind: call_expression, matches: effect-combinator }
+    callback:
+        matches: typescript-function-boundary
+        any:
+            - inside: { kind: arguments }
+            - inside: { kind: pair, field: value, inside: { kind: object, inside: { kind: arguments } } }
+            - kind: method_definition
+              inside: { kind: object, inside: { kind: arguments } }
+    effect-generator:
+        kind: generator_function
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has:
+                    field: function
+                    any:
+                        - matches: { effect-module-member: { module: { regex: '(?-u:\b)Effect$' }, member: { regex: '^(gen|fn|fnUntraced(Eager)?)$' } } }
+                        - kind: call_expression
+                          has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)Effect$' }, member: { regex: '^(fn|fnUntraced(Eager)?)$' } } } }
+rule:
+    kind: call_expression
+    all:
+        - has:
+              field: arguments
+              has:
+                  stopBy: { not: { kind: 'object, pair' } }
+                  matches: callback
+                  has:
+                      stopBy: { matches: typescript-function-boundary }
+                      all:
+                          - matches: run-invocation
+                          - pattern: $RUN
+                          - not: { inside: { matches: effect-generator, stopBy: { matches: typescript-function-boundary } } }
+        - matches: effect-combinator
+transform:
+    RUN_HEAD: { replace: { source: $RUN, replace: '(?s)^([^(]+)\(.*$', by: '$1' } }
+message: '`$RUN_HEAD` starts a separate runtime inside an effect callback'
+note: 'Return the effect from its callback, through `flatMap` in place of `map` and `suspend` in place of `sync` or `promise`, or run it with the surrounding services through `Effect.context` and a `run*With` runner'
+labels:
+    RUN: { style: primary }

@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsx
+severity: error
+utils:
+    index-test:
+        kind: binary_expression
+        all:
+            - has: { field: operator, pattern: $$OP, regex: '^[!=]==?$' }
+            - any:
+                  - all: [{ has: { field: left, matches: own-index } }, { has: { field: right, pattern: $I } }]
+                  - all: [{ has: { field: left, pattern: $I } }, { has: { field: right, matches: own-index } }]
+    own-index:
+        kind: call_expression
+        all:
+            - has: { field: function, kind: member_expression, all: [{ has: { field: object, pattern: $OWNER } }, { has: { field: property, regex: '^(indexOf|findIndex)$' } }] }
+            - has:
+                  field: arguments
+                  all:
+                      - not: { has: { nthChild: { position: 2, ofRule: &code { not: { kind: 'comment, html_comment' } } } } }
+                      - has:
+                            nthChild: { position: 1, ofRule: *code }
+                            any:
+                                - pattern: $X
+                                - pattern: ($Y) => $Y === $X
+                                - pattern: ($Y) => $X === $Y
+                                - pattern: $Y => $Y === $X
+                                - pattern: $Y => $X === $Y
+    index-callback:
+        kind: arrow_function, function_expression
+        all:
+            - has: { field: parameters, all: [{ has: { nthChild: { position: 1, ofRule: *code }, has: { kind: identifier, pattern: $X } } }, { has: { nthChild: { position: 2, ofRule: *code }, has: { kind: identifier, pattern: $I } } }] }
+            - has:
+                  field: body
+                  any:
+                      - matches: index-test
+                      - kind: statement_block
+                        has: { kind: return_statement, has: { matches: index-test } }
+                        not: { has: { nthChild: { position: 2, ofRule: *code } } }
+rule:
+    kind: call_expression
+    all:
+        - has: { field: function, kind: member_expression, pattern: $FILTER, has: { field: property, regex: '^filter$' } }
+        - any:
+              - all:
+                    - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: *code }, matches: index-callback } }, { not: { has: { nthChild: { position: 2, ofRule: *code } } } }] }
+                    - any:
+                          - has: { field: function, has: { field: object, pattern: $OWNER } }
+                          - has: { field: arguments, has: { has: { field: parameters, has: { nthChild: { position: 3, ofRule: *code }, has: { kind: identifier, pattern: $OWNER } } } } }
+              - all:
+                    - has: { field: arguments, all: [{ has: { nthChild: { position: 2, ofRule: *code }, matches: index-callback } }, { not: { has: { nthChild: { position: 3, ofRule: *code } } } }] }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, pattern: $OWNER } }
+                    - has: { field: function, has: { field: object, matches: { effect-module: { name: { regex: '(?-u:\b)Array$' } } } } }
+transform:
+    KEPT: { replace: { source: $$OP, replace: '^!==?$', by: every repeat } }
+    KEEPS: { replace: { source: $KEPT, replace: '^===?$', by: one of each value } }
+message: '`$FILTER` keeps $KEEPS by an index scan per element and miscounts every `NaN`'
+note: 'Use `Set` or `Array.dedupe` for distinct values; repeats are `Array.groupBy` keys with at least two elements'

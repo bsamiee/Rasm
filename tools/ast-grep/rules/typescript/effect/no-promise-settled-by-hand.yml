@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsx
+severity: error
+utils:
+    register:
+        kind: arrow_function, function_expression
+        all:
+            - any:
+                  - has: { field: parameter, kind: identifier, pattern: $SINK }
+                  - has: { field: parameters, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: required_parameter, has: { field: pattern, kind: identifier, pattern: $SINK } } }
+            - nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }
+            - inside:
+                  kind: arguments
+                  inside:
+                      kind: call_expression
+                      has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)(Effect|Stream)$' }, member: { regex: '^callback$' } } } }
+    settle:
+        kind: call_expression
+        any:
+            - has: { field: function, kind: identifier, pattern: $SINK }
+            - all:
+                  - has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)Queue$' }, member: { regex: '^(offer|offerUnsafe|offerAll|offerAllUnsafe|end|endUnsafe|fail|failCause|failCauseUnsafe)$' } } } }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: identifier, pattern: $SINK } }
+rule:
+    kind: call_expression
+    pattern: $SETTLED
+    all:
+        - has: { field: function, kind: member_expression, has: { field: property, regex: '^(then|catch|finally)$', pattern: $METHOD } }
+        - inside: { stopBy: { matches: typescript-function-boundary }, matches: register }
+        - has: { field: arguments, has: { matches: typescript-function-boundary, has: { stopBy: { matches: typescript-function-boundary }, matches: settle } } }
+message: '`$METHOD` settles a promise into `$SINK` by hand'
+note: 'Replace `Effect.callback` with `Effect.tryPromise`, or use `Queue.offer` or `Queue.into` inside `Stream.callback`'
+labels: { SETTLED: { style: primary } }
