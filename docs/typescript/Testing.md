@@ -132,7 +132,7 @@ Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)`
 - `loaded` hands a test its extension once the service worker is `activated`, as Chrome drops an action pressed before the worker registers its listeners, and fails a test whose worker turns `redundant`
 - `attach--gh` of a host package depends on `pack--*` of each workspace package depending on it and uploads the visible files they write
 - Fixture `axe` of `it` scans the page through `AxeBuilder` at WCAG A and AA tags through 2.2
-- Suites of a served product start its built Node bundle on an allocated port in a fixture, each test with its own database file and object storage
+- Served product suites start its Node bundle on an allocated port per worker, and a test writing state empties its database and storage first
 - Fixtures keep that state in a temporary folder they remove, object storage a Miniflare R2 bucket behind its S3 route
 - No suite reads a developer's local state
 - Suites sign in through an `ACCESS` source `Forwarded`, as the headers of a request state its user
