@@ -1,6 +1,6 @@
 import { Predicate, Record } from 'effect';
 import csharp from 'tree-sitter-c-sharp/grammar.js';
-import { after, any, children, choiceOf, classes, constants, extend, named, optionalOf, reaches, replace, rewrite, spans, string, symbol, widen } from '#/grammars/derive';
+import { after, any, children, choiceOf, classes, constants, extend, located, named, optionalOf, reaches, replace, rewrite, spans, string, symbol, widen } from '#/grammars/derive';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -9,27 +9,29 @@ const METADATA_DIRECTIVES = new Set(['package', 'project', 'ref', 'include']);
 const SPACE = String.raw`\t\v\f\p{Zs}\u{FEFF}`;
 const WHITESPACE = new RegExp(`[\\n\\r\\u{85}\\u{2028}\\u{2029}${SPACE}]+`, 'u');
 const DIRECTIVE_SPACE = new RegExp(`[${SPACE}]+`, 'u');
+const LINE_END = /\r\n|[\n\r\u{85}\u{2028}\u{2029}]/u;
 const QUOTED = /(?:[^"\\\r\n]|\\[^\r\n])+/u;
 const METADATA_NAME = /[\p{L}\p{Nl}_][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}\p{Cf}.-]*/u;
 const BARE = { '@': /[^\s"@]+/u, '=': /[^\s"=]+/u, '': /[^\s"]+/u };
 const LINE_REST = /[^\s](?:[^\r\n]*[^\s])?/u;
+const KIND = located(csharp.grammar.rules.ignored_directive, ({ type, content }) => type === 'IMMEDIATE_TOKEN' && content.type === 'PATTERN');
 const CONFLICTS = [
     ['preproc_if_in_top_level', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier', 'preproc_if_in_if_header'],
     ['preproc_if_in_top_level', 'preproc_if_in_expression', 'preproc_if_in_modifier'],
-    ['preproc_if_in_top_level', 'preproc_if_in_expression', 'preproc_if_in_modifier', 'preproc_if_in_initializer_expression'],
+    ['preproc_if_in_top_level', 'preproc_if_in_expression', 'preproc_if_in_modifier', 'preproc_if_in_initializer'],
     ['preproc_if', 'preproc_if_in_modifier'],
     ['preproc_if_in_top_level', 'preproc_if_in_expression', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier', 'preproc_if_in_if_header'],
     ['preproc_if_in_top_level', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier'],
     ['preproc_else_in_top_level', 'preproc_else_in_expression', 'preproc_else_in_attribute_list', 'preproc_else_in_modifier', 'preproc_else_in_if_header'],
-    ['preproc_if_in_top_level', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier', 'preproc_if_in_if_header', 'preproc_if_in_initializer_expression'],
-    ['preproc_if_in_top_level', 'preproc_if_in_expression', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier', 'preproc_if_in_if_header', 'preproc_if_in_initializer_expression'],
-    ['preproc_else_in_top_level', 'preproc_else_in_expression', 'preproc_else_in_attribute_list', 'preproc_else_in_modifier', 'preproc_else_in_if_header', 'preproc_else_in_initializer_expression'],
+    ['preproc_if_in_top_level', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier', 'preproc_if_in_if_header', 'preproc_if_in_initializer'],
+    ['preproc_if_in_top_level', 'preproc_if_in_expression', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier', 'preproc_if_in_if_header', 'preproc_if_in_initializer'],
+    ['preproc_else_in_top_level', 'preproc_else_in_expression', 'preproc_else_in_attribute_list', 'preproc_else_in_modifier', 'preproc_else_in_if_header', 'preproc_else_in_initializer'],
     ['preproc_if_in_expression', 'preproc_if_in_attribute_list', 'preproc_if_in_if_header'],
     ['preproc_if_in_attribute_list', 'preproc_if_in_if_header'],
     ['preproc_elif_in_top_level', 'preproc_elif_in_expression', 'preproc_elif_in_attribute_list', 'preproc_elif_in_modifier', 'preproc_elif_in_if_header'],
     ['preproc_if', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier'],
     ['preproc_else', 'preproc_else_in_attribute_list', 'preproc_else_in_modifier'],
-    ['preproc_elif_in_top_level', 'preproc_elif_in_expression', 'preproc_elif_in_attribute_list', 'preproc_elif_in_modifier', 'preproc_elif_in_if_header', 'preproc_elif_in_initializer_expression'],
+    ['preproc_elif_in_top_level', 'preproc_elif_in_expression', 'preproc_elif_in_attribute_list', 'preproc_elif_in_modifier', 'preproc_elif_in_if_header', 'preproc_elif_in_initializer'],
     ['preproc_elif', 'preproc_elif_in_attribute_list', 'preproc_elif_in_modifier'],
     ['preproc_if_in_attribute_list', 'preproc_if_in_arrow_body'],
     ['preproc_if_in_expression', 'preproc_if_in_attribute_list', 'preproc_if_in_arrow_body'],
@@ -40,11 +42,9 @@ const CONFLICTS = [
 const CONDITIONAL_LISTS = {
     argument_list: '_in_argument_list',
     enum_member_declaration_list: '_in_enum_member_declaration',
-    initializer_expression: '_in_initializer_expression',
     parameter_list: '_in_parameter_list',
     bracketed_parameter_list: '_in_parameter_list',
     _switch_expression_body: '_in_switch_expression',
-    collection_expression: '_in_collection_expression',
     attribute_argument_list: '_in_attribute_arguments',
     anonymous_object_creation_expression: '_in_anonymous_object',
     base_list: '_in_base_list',
@@ -84,11 +84,11 @@ const piece = (role, kind, pattern) => field(role, alias(token.immediate(pattern
 const quotable = (role, kind, bare) => choice(piece(role, kind, bare), seq(token.immediate('"'), optional(piece(role, kind, QUOTED)), token.immediate('"')));
 const metadata = ($, kind) => (METADATA_DIRECTIVES.has(kind) ? [repeat(seq($._directive_space, field('metadata', $.directive_metadata)))] : []);
 const bodies = {
-    '@': ($) => [quotable('name', $.directive_name, BARE['@']), optional(seq(token.immediate(prec(1, '@')), optional(quotable('value', $.directive_value, BARE['@']))))],
+    '@': ($) => [quotable('name', $.directive_name, BARE['@']), optional(seq(optional($._directive_space), token.immediate(prec(1, '@')), optional($._directive_space), optional(quotable('value', $.directive_value, BARE['@']))))],
     '=': ($) => [quotable('name', $.directive_name, BARE['=']), optional($._directive_space), token.immediate('='), optional(seq(optional($._directive_space), piece('value', $.directive_value, LINE_REST)))],
     '': ($) => [quotable('name', $.directive_name, BARE[''])],
 };
-const directive = ($, kind, separator) => seq('#:', optional($._directive_space), field('kind', alias(token.immediate(kind), $.directive_kind)), $._directive_space, ...bodies[separator]($), ...metadata($, kind), optional($._directive_space));
+const directive = ($, kind, separator) => seq(field('kind', alias(token.immediate(prec(1, kind)), $.directive_kind)), optional(seq($._directive_space, ...bodies[separator]($), ...metadata($, kind))));
 
 // --- [CONDITIONAL_LISTS]
 
@@ -148,12 +148,11 @@ const ifHead = ({ content }) => content.members.slice(0, content.members.findInd
 
 export default extend(csharp, {
     transforms: [conditionalModifiers],
-    extras: (_, original) => original.map((rule) => (rule.type === 'PATTERN' ? WHITESPACE : rule)),
+    extras: (_, original) => original.filter(Predicate.not(symbol('ignored_directive'))).map((rule) => (rule.type === 'PATTERN' ? WHITESPACE : rule)),
     externals: ($, original) => [...original, $._conditional_access_question],
     conflicts: ($, original) => [
         ...original.filter((rules) => !rules.every(any(symbol('tuple_element'), symbol('declaration_expression')))),
         [$.lvalue_expression, $._expression_statement_expression],
-        [$.parameter, $.declaration_expression],
         [$._reserved_identifier, $.union_declaration],
         [$._constant_binary_expression, $.binary_expression],
         ...[[], [$.is_expression]].map((extra) => [$.type_pattern, $.declaration_pattern, $._lambda_expression_init, ...extra]),
@@ -161,7 +160,15 @@ export default extend(csharp, {
     ],
     rules: {
         _top_level_item: ($, original) => choice(original, $.file_based_directive),
-        file_based_directive: ($) => choice(...Record.collect(DIRECTIVE_SEPARATORS, (kind, separator) => directive($, kind, separator))),
+        file_based_directive: ($) =>
+            seq(
+                '#:',
+                optional($._directive_space),
+                choice(
+                    seq(choice(...Record.collect(DIRECTIVE_SEPARATORS, (kind, separator) => directive($, kind, separator)), seq(field('kind', alias(KIND, $.directive_kind)), optional(seq($._directive_space, piece('value', $.directive_value, LINE_REST))))), optional($._directive_space)),
+                    token.immediate(prec(1, LINE_END)),
+                ),
+            ),
         directive_metadata: ($) => seq(piece('name', $.directive_name, METADATA_NAME), token.immediate('='), optional(quotable('value', $.directive_value, BARE['']))),
         _directive_space: () => token.immediate(prec(1, DIRECTIVE_SPACE)),
         _constants: () => constants({ SPACE: spans(classes({ identifier: [], whitespace: [{ type: 'PATTERN', value: WHITESPACE.source, flags: WHITESPACE.flags }] }).whitespace) }),
@@ -172,13 +179,11 @@ export default extend(csharp, {
         _attributed_preproc_if: ($) => seq(repeat1($._attribute_list), csharp.grammar.rules.preproc_if),
         union_declaration: ($) => conditionalModifiers($, prec.dynamic(1, seq(repeat($._attribute_list), repeat($.modifier), 'union', field('name', $.identifier), optional($.type_parameter_list), $.union_case_list, optional($.base_list), repeat($.type_parameter_constraints_clause), $._declaration_list_body))),
         union_case_list: ($) => seq('(', $.type, repeat(seq(',', $.type)), ')'),
-        _struct_declaration_initializer: after(string('ref'), optional('partial')),
         _extension_member_declaration: ($, original) => choice(original, $.indexer_declaration, $.preproc_if, alias($._attributed_preproc_if, $.preproc_if)),
         break_statement: after(string('break'), ($) => optional($.identifier)),
         continue_statement: after(string('continue'), ($) => optional($.identifier)),
         declaration_pattern: ($, original) => choice(original, prec(precedence('with_expression') + 1, seq(field('type', $.type), field('name', alias('with', $.identifier))))),
         type_parameter_constraint: (_, original) => choice(original, seq('allows', 'ref', 'struct')),
-        _parameter_type_with_modifiers: ($, original) => choice(original, seq(prec.left(precedence('argument') + 1, alias(choice('in', 'out'), $.modifier)), field('type', $.type))),
         parameter_list: parameters,
         bracketed_parameter_list: parameters,
         method_declaration: typed,
@@ -218,11 +223,6 @@ export default extend(csharp, {
         lvalue_expression: ($, original) => choice(original, $.invocation_expression),
         non_lvalue_expression: ($, original) => choice(original, $.unsafe_expression),
         unsafe_expression: ($) => seq('unsafe', '(', $.expression, ')'),
-        slice_pattern: (_, original) =>
-            choice(
-                prec(precedence('range_expression') + 1, '..'),
-                rewrite(original, (part) => (optionalOf(symbol('pattern'))(part) ? children(part).find(symbol('pattern')) : part)),
-            ),
         from_clause: widen(named('name'), ($) => alias($.discard, $.identifier)),
         collection_element: ($, original) => choice(original, $.with_element),
         with_element: ($) => prec(1, seq('with', $.argument_list)),
