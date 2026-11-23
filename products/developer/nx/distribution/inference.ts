@@ -1,12 +1,12 @@
 import { ChildProcess as NodeChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
-import { isAbsolute, join, posix, relative, sep } from 'node:path';
+import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodesContext, type ExecutorContext, hashArray, normalizePath, type NxJsonConfiguration, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateNodesContext, type ExecutorContext, getOutputsForTargetAndConfiguration, hashArray, normalizePath, type NxJsonConfiguration, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, type PluginCache } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Cause, Config, Effect, Equal, FileSystem, Formatter, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
+import { Array, Cause, Config, Effect, Equal, FileSystem, Formatter, Glob, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -166,10 +166,30 @@ const packaged = Effect.fnUntraced(function* (imports: readonly (readonly [speci
     const fs = yield* FileSystem.FileSystem;
     const found = Array.getSomes(imports.filter(([specifier]) => !(specifier.startsWith('.') || specifier.startsWith('#') || isAbsolute(specifier) || URL.canParse(specifier))).map(([specifier, from]) => Option.flatMap(Option.liftThrowable(findPackageJSON)(specifier, from), Option.fromUndefinedOr)));
     const manifests = yield* Effect.forEach(Array.dedupe(found), (at) => fs.realPath(at), { concurrency: 'unbounded' });
-    const read = yield* Effect.forEach(Array.dedupe(manifests), (at) => Effect.map(Effect.flatMap(fs.readFileString(at), Schema.decodeEffect(Named)), ({ name }) => (at.split(sep).includes('node_modules') ? Result.succeed(name) : Result.fail(name))), { concurrency: 'unbounded' });
+    const read = yield* Effect.forEach(Array.dedupe(manifests), (at) => Effect.map(Effect.flatMap(fs.readFileString(at), Schema.decodeEffect(Named)), ({ name }) => (at.split(sep).includes('node_modules') ? Result.succeed(name) : Result.fail({ name, folder: dirname(at) }))), { concurrency: 'unbounded' });
     const [packages, linked] = Array.partition(read, identity);
-    return { packages: Array.dedupe(packages), linked: Array.dedupe(linked) };
+    return { packages: Array.dedupe(packages), linked: Array.dedupe(linked.map(({ name }) => name)), folders: linked.map(({ folder }) => folder) };
 });
+
+const produced = (projects: Readonly<Record<string, ProjectConfiguration>>, paths: Array.NonEmptyReadonlyArray<string>): Readonly<Record<string, readonly string[]>> => {
+    const declared = Record.collect(projects, (name, data) =>
+        Record.collect(
+            Record.filter(data.targets ?? {}, ({ outputs }) => outputs !== undefined),
+            (target, { configurations = {} }) => ({ name, data, target, configurations }),
+        ),
+    ).flat();
+    const outputs = declared.flatMap(({ name, data, target, configurations }) =>
+        [{}, ...Record.keys(configurations).map((configuration) => ({ configuration }))]
+            .flatMap((selected) => getOutputsForTargetAndConfiguration({ project: name, target, ...selected }, {}, { name, type: 'lib', data }))
+            .filter((output) => !output.startsWith('!'))
+            .map((output) => ({ name, output, covering: Glob.make(`${output}{,/**}`, { dot: true }) })),
+    );
+    const matched = Array.cartesian(Array.dedupe(paths), outputs).filter(([at, { output, covering }]) => Glob.match(covering, at) || !posix.relative(at, output).startsWith('..'));
+    return Record.map(
+        Array.groupBy(matched, ([at]) => at),
+        (pairs) => Array.dedupe(pairs.map(([, { name }]) => name)),
+    );
+};
 
 const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<string, TargetConfiguration> =>
     Record.fromEntries(
@@ -197,4 +217,4 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, anchored, batched, dried, executor, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, PLATFORM, ran, recalled, type Run, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, Words, within };
+export { above, aggregated, anchored, batched, dried, executor, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, PLATFORM, produced, ran, recalled, type Run, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, Words, within };
