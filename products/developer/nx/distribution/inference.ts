@@ -6,7 +6,7 @@ import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodesContext, type ExecutorContext, getOutputsForTargetAndConfiguration, hashArray, normalizePath, type NxJsonConfiguration, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, type PluginCache } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Cause, Config, Effect, Equal, FileSystem, Formatter, Glob, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
+import { Array, Cause, Config, ConfigProvider, Effect, Equal, FileSystem, Formatter, Glob, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ const legible = (error: unknown): Error =>
 
 const runner = <R>(services: Layer.Layer<R>): Run<R> => {
     const runtime = ManagedRuntime.make(Layer.merge(services, layer));
-    return <A, E>(effect: Effect.Effect<A, E, R | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(Effect.mapError(effect, legible)));
+    return <A, E>(effect: Effect.Effect<A, E, R | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(Effect.mapError(effect, legible)).pipe(Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv())));
 };
 
 const run = runner(Layer.empty);
@@ -118,7 +118,7 @@ const anchored = (workspaceRoot: string) => {
 const above = (folder: string): readonly string[] =>
     Array.unfold(
         Option.some(folder),
-        Option.map((at: string) => [at, Option.liftPredicate(posix.dirname(at), () => at !== '.')] as const),
+        Option.map((at: string) => [at, Option.liftPredicate(posix.dirname(at), (up) => up !== at)] as const),
     );
 
 const extended = (workspaceRoot: string, root: string): readonly string[] => {
@@ -144,14 +144,11 @@ const recalled = <A extends { readonly sources: readonly string[]; readonly stam
 
 const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
     const fs = yield* FileSystem.FileSystem;
-    const read = (file: string) => {
-        const at = join(workspaceRoot, root, file);
-        return fs.readFileString(at).pipe(
-            Effect.when(fs.exists(at)),
-            Effect.flatMap((text) => Effect.transposeOption(Option.map(text, Schema.decodeEffect(Overrides)))),
-            Effect.map(Option.getOrElse(() => Overrides.make({}))),
+    const read = (file: string) =>
+        fs.readFileString(join(workspaceRoot, root, file)).pipe(
+            Effect.flatMap(Schema.decodeEffect(Overrides)),
+            Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(Overrides.make({}))),
         );
-    };
     const [manifest, project] = yield* Effect.all([read('package.json'), read('project.json')], { concurrency: 'unbounded' });
     return Record.union(manifest.nx?.targets ?? {}, project.targets ?? {}, (fromPackage, fromProject) => mergeTargetConfigurations(fromProject, fromPackage));
 });

@@ -14,7 +14,7 @@ import type { ChildProcessSpawner } from 'effect/process';
 import { applyEdits, modify, parse } from 'jsonc-parser';
 import { parseDocument, Scalar } from 'yaml';
 import { packaged } from '#/executor';
-import { PLATFORM, spawned } from '#/inference';
+import { above, PLATFORM, spawned } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -157,18 +157,11 @@ const routed = (file: string, text: string) =>
         (host) => host.read(text, file).pipe(Effect.map(Option.map((fields) => ({ file, host, fields }))), Effect.map(Result.fromOption(Function.constVoid))),
     );
 
-const adobe = Effect.mapError(Effect.flatten(Effect.fromNullishOr(ADOBE[platform])), (cause) => new Cause.UnknownError(cause, `${platform} holds no per-user Adobe folder`));
-
-const copied = Effect.fnUntraced(function* ({ at, names }: Found, to: string) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    yield* Effect.forEach(names, (name) => Effect.andThen(fs.makeDirectory(path.dirname(path.join(to, name)), { recursive: true }), fs.copyFile(path.join(at, name), path.join(to, name))), { discard: true });
-});
-
 const zipped = Effect.fnUntraced(function* (folder: string, names: readonly string[], file: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const entries = yield* Effect.forEach(names.toSorted(), (name) => Effect.map(fs.stat(path.join(folder, name)), (info) => ({ name, info })));
     yield* Stream.fromIterable(entries.filter(({ info }) => info.type === 'File')).pipe(
-        Stream.map(({ name, info }) => Zip.fileStream(name.split(path.sep).join('/'), fs.stream(path.join(folder, name)), { mode: info.mode % (constants.S_IRWXU + constants.S_IRWXG + constants.S_IRWXO + 1) })),
+        Stream.map(({ name, info }) => Zip.fileStream(name.split(path.sep).join('/'), fs.stream(path.join(folder, name)), { mode: info.mode & (constants.S_IRWXU + constants.S_IRWXG + constants.S_IRWXO) })),
         Stream.pipeThroughChannel(Zip.encode()),
         Stream.run(fs.sink(file)),
         Effect.mapError((cause) => new Cause.UnknownError(cause, `${file} does not write`)),
@@ -203,8 +196,7 @@ const engine = Effect.fnUntraced(function* (descriptor: string) {
     const named = Option.filter(Option.fromUndefinedOr(declared.EngineAssociation), String.isNonEmpty);
     const read = (at: readonly string[]) => Effect.option(fs.readFileString(path.join(settings, ...at)));
     const [registered, launched] = yield* Effect.all([read(['UnrealEngine', 'Install.ini']), read(['UnrealEngineLauncher', 'LauncherInstalled.dat'])]);
-    const above = Array.unfold(path.dirname(descriptor), (at) => (path.dirname(at) === at ? Option.none() : Option.some([at, path.dirname(at)] as const)));
-    const native = yield* Effect.filter(above, (at) => fs.exists(path.join(at, 'Engine', 'Build', 'Build.version')));
+    const native = yield* Effect.filter(above(path.dirname(descriptor)), (at) => fs.exists(path.join(at, 'Engine', 'Build', 'Build.version')));
     const root = yield* Effect.mapError(
         Effect.fromOption(
             Option.firstSomeOf([
@@ -363,7 +355,7 @@ const HOSTS: readonly Host[] = [
             platforms: Object.keys(ADOBE),
             unpacked: true,
             run: Effect.fnUntraced(function* (found) {
-                const [fs, path, root] = yield* Effect.all([FileSystem.FileSystem, Path.Path, adobe]);
+                const [fs, path, root] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.mapError(Effect.flatten(Effect.fromNullishOr(ADOBE[platform])), (cause) => new Cause.UnknownError(cause, `${platform} holds no per-user Adobe folder`))]);
                 const { id, name, version, host } = yield* Effect.mapError(Schema.decodeEffect(Uxp)(found.text), (cause) => new Cause.UnknownError(cause, `${found.at} holds no UXP manifest`));
                 const [registry, external, placed] = [path.join(root, 'UXP', 'PluginsInfo', 'v1', `${host.app}.json`), path.join(root, 'UXP', 'Plugins', 'External'), `$localPlugins/External/${id}_${version}`];
                 const local = (at: string) => at.replace('$localPlugins', path.dirname(external));
@@ -374,7 +366,11 @@ const HOSTS: readonly Host[] = [
                 const row = { ...rows[held], hostMinVersion: SemVer.format(UXP[host.app].since), name, path: placed, pluginId: id, status: 'enabled', type: 'uxp', versionString: version };
                 const earlier = [...folders.filter((folder) => folder.startsWith(`${id}_`)).map((folder) => path.join(external, folder)), ...Array.fromNullishOr(rows[held]?.path).map(local), path.join(root, 'CEP', 'extensions', id)];
                 yield* Effect.forEach(Array.dedupe(earlier), (at) => fs.remove(at, { recursive: true, force: true }), { discard: true });
-                yield* copied(found, local(placed));
+                yield* Effect.forEach(
+                    found.names.map((file) => [path.join(found.at, file), path.join(local(placed), file)] as const),
+                    ([from, to]) => Effect.andThen(fs.makeDirectory(path.dirname(to), { recursive: true }), fs.copyFile(from, to)),
+                    { discard: true },
+                );
                 yield* UXP[host.app].registry ? Effect.andThen(fs.makeDirectory(path.dirname(registry), { recursive: true }), fs.writeFileString(registry, applyEdits(before, modify(before, ['plugins', held === -1 ? rows.length : held], row, {})))) : Effect.void;
             }),
         },

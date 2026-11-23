@@ -1,11 +1,10 @@
-import type { ExecutorContext } from '@nx/devkit';
+import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
 import { createTaskId } from '@nx/devkit/internal';
-import { Array, Cause, Config, Effect, Option, Record, Schema, String, Struct } from 'effect';
+import { Array, Cause, Config, Effect, Function, Option, Record, Schema, String, Struct } from 'effect';
 import { minimatch } from 'minimatch';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { getLatestGitTagForPattern, sanitizeProjectNameForGitTag } from 'nx/src/command-line/release/utils/git';
 import { getFilesForOutputsBatch } from 'nx/src/native';
-import { createProjectFileMapUsingProjectGraph } from 'nx/src/project-graph/file-map-utils';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
 import { spawned } from '#/inference';
 
@@ -56,13 +55,10 @@ const released = Effect.fnUntraced(function* ({ root, projectName, projectGraph,
     const project = yield* Effect.fromNullishOr(projectName);
     const files = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(projectGraph));
     const { error, nxReleaseConfig } = yield* Effect.promise(() => createNxReleaseConfig(projectGraph, files, nxJsonConfiguration.release));
-    const groups = yield* error === null ? Effect.succeed(Record.toEntries(nxReleaseConfig?.groups ?? {})) : Effect.fail(new Cause.UnknownError(error, `nx.json release refuses its configuration with ${error.code}`));
+    const group = yield* error === null ? Effect.succeed(Array.findFirst(Record.toEntries(nxReleaseConfig?.groups ?? {}), ([, { projects }]) => projects.includes(project))) : Effect.fail(new Cause.UnknownError(error, `nx.json release refuses its configuration with ${error.code}`));
     const tags = (yield* spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root, stdout: 'pipe' })).split('\n').filter(String.isNonEmpty);
-    const found = (name: string, releaseTag: (typeof groups)[number][1]['releaseTag']) => Effect.promise(() => getLatestGitTagForPattern(releaseTag.pattern, { projectName: sanitizeProjectNameForGitTag(project), releaseGroupName: name }, () => Promise.resolve(tags), releaseTag));
-    return yield* Option.match(
-        Array.findFirst(groups, ([, { projects }]) => projects.includes(project)),
-        { onNone: () => Effect.succeed(Option.none<string>()), onSome: ([name, { releaseTag }]) => Effect.map(found(name, releaseTag), (held) => Option.map(Option.fromNullishOr(held), ({ tag }) => tag)) },
-    );
+    const held = yield* Effect.transposeOption(Option.map(group, ([name, { releaseTag }]) => Effect.promise(() => getLatestGitTagForPattern(releaseTag.pattern, { projectName: sanitizeProjectNameForGitTag(project), releaseGroupName: name }, Function.constant(Promise.resolve(tags)), releaseTag))));
+    return Option.flatMap(held, (found) => Option.fromNullishOr(found?.tag));
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
