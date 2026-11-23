@@ -3,10 +3,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
 import { refused } from '@rasm/testing/errors';
-import { it, pathed } from '@rasm/testing/nx';
+import { it, pathed, shimmed } from '@rasm/testing/nx';
 import { describe, expect, onTestFinished, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
+vi.mock(import('node:url'), async (actual) => {
+    const real = await actual();
+    return { ...real, fileURLToPath: (url, options) => (core.at !== undefined && String(url).endsWith('/nx-apple-analyzer') ? core.at : real.fileURLToPath(url, options)) };
+});
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const core = vi.hoisted((): { at?: string } => ({}));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -38,6 +46,23 @@ describe('Xcode projects', { timeout: 120_000 }, () => {
         workspace.write({ 'Viewer.xcodeproj/project.xcproj': 'not json at all' });
 
         await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/^Viewer\.xcodeproj is undecodable: /u));
+    });
+
+    it('presents no project and warns where the core reports without a key the plugin reads, naming the command that rebuilds it', async ({ workspace }) => {
+        const folder = mkdtempSync(join(tmpdir(), 'apple-core-'));
+        onTestFinished(() => rmSync(folder, { recursive: true }));
+        const warned = vi.spyOn(console, 'warn').mockReturnValue(undefined);
+        onTestFinished(() => warned.mockRestore());
+        shimmed(folder, { 'nx-apple-analyzer': `cat > /dev/null\nprintf '%s' '{"containers":[{"buildFiles":[],"configurations":["Debug","Release"],"inputs":[],"path":"Viewer.xcodeproj","projects":[],"schemes":[]}],"failures":{}}'` });
+        Object.assign(core, { at: join(folder, 'nx-apple-analyzer') });
+        onTestFinished(() => {
+            Reflect.deleteProperty(core, 'at');
+        });
+        workspace.write({ 'Viewer.xcodeproj/project.xcproj': '{ "default-configuration": "Release", "configurations": [ "Debug", "Release" ], "localizations": { "development": "en", "supported": [ "Base" ] }, "files": [], "targets": [] }\n' });
+
+        const graph = await workspace.graph({ createNodes, createDependencies });
+
+        expect([Object.keys(graph.nodes), warned.mock.calls]).toStrictEqual([[], [[expect.stringMatching(/^Viewer\.xcodeproj\/project\.xcproj presents no project: the @rasm\/nx-apple-darwin-arm64 core reports in a form this plugin does not read, nx build @rasm\/nx-apple-darwin-arm64 rebuilds it: Missing key/u)]]]);
     });
 
     it('refuses a project.pbxproj with no project.xcproj beside it', async ({ workspace }) => {

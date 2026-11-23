@@ -21,6 +21,7 @@ interface Graph {
 const READ = [MANIFEST, INFO, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcworkspace/contents.xcworkspacedata', '*.xcscheme', '*.xcconfig'].map((file) => `**/${file}`);
 const FILES = combineGlobPatterns([...READ, ...['*.xcodeproj/project.pbxproj', '*.xctestplan', '*.entitlements', '*.plist'].map((file) => `**/${file}`)]);
 const HOST: NodeJS.Platform = 'darwin';
+const CORE = '@rasm/nx-apple-darwin-arm64';
 const TAGS = { release: 'release', platform: 'os:' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -53,7 +54,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         () => containers.length > 0,
     );
     const readable = Option.isSome(info) ? manifests : [];
-    const absent = [...(Option.isNone(info) ? ['swift'] : []), ...(containers.length > 0 && Option.isNone(xcodebuild) ? ['xcodebuild'] : []), ...(containers.length > 0 && Option.isNone(compiled) ? ['the @rasm/nx-apple-darwin-arm64 core'] : [])];
+    const absent = [...(Option.isNone(info) ? ['swift'] : []), ...(containers.length > 0 && Option.isNone(xcodebuild) ? ['xcodebuild'] : []), ...(containers.length > 0 && Option.isNone(compiled) ? [`the ${CORE} core`] : [])];
     const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.flatMap(spawned(['swift', 'package', '--package-path', dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json'], { cwd: workspaceRoot }), Schema.decodeEffect(Described))), {
         concurrency: 'unbounded',
     });
@@ -79,16 +80,22 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     const described = new Map(packages.map((swiftPackage) => [resolve(workspaceRoot, swiftPackage.root), swiftPackage] as const));
     const local = (at: string) => Option.fromUndefinedOr(described.get(resolve(workspaceRoot, at)));
     const analysis = yield* Option.match(reader, {
-        onNone: () => Effect.succeed(Result.succeed(Analyzed.make({ containers: [], failures: {} }))),
-        onSome: (at) => Effect.flatMap(Schema.encodeEffect(Listed)(containers), (input) => spawned([at], { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.make(input)) })).pipe(Effect.flatMap(Schema.decodeEffect(Analyzed)), Effect.result),
+        onNone: () => Effect.succeed(Result.succeed(Result.fail(`${absent.join(', ')} absent on this host`))),
+        onSome: (at) =>
+            Effect.flatMap(Schema.encodeEffect(Listed)(containers), (input) => spawned([at], { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.make(input)) })).pipe(
+                Effect.flatMap((report) => Effect.result(Schema.decodeEffect(Analyzed)(report))),
+                Effect.map(Result.mapError(({ message }) => `the ${CORE} core reports in a form this plugin does not read, nx build ${CORE} rebuilds it: ${message}`)),
+                Effect.result,
+            ),
     });
-    const analyzed = Result.getOrElse(analysis, () => Analyzed.make({ containers: [], failures: {} }));
+    const stated = Result.getSuccess(analysis);
+    const analyzed = Option.getOrElse(Option.flatMap(stated, Result.getSuccess), () => Analyzed.make({ containers: [], failures: {} }));
     const workspaces = analyzed.containers.filter((container) => basename(marker(container.path)) === 'contents.xcworkspacedata');
     const built = (at: string) => {
         const owners = workspaces.filter((workspace) => workspace.projects.includes(at)).map((workspace) => workspace.path);
         return Option.getOrElse(Array.head(owners.length === 1 ? owners : []), () => at);
     };
-    const unread = [...(Option.isNone(info) ? manifests.map((file) => ({ file, reason: 'swift is absent on this host' })) : []), ...(Option.isNone(reader) ? containers.map((file) => ({ file, reason: `${absent.join(', ')} absent on this host` })) : [])];
+    const unread = [...(Option.isNone(info) ? manifests.map((file) => ({ file, reason: 'swift is absent on this host' })) : []), ...Option.toArray(Option.flatMap(stated, Result.getFailure)).flatMap((reason) => containers.map((file) => ({ file, reason })))];
     const broken: readonly [string, Error][] = [
         ...Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, error])),
         ...(Result.isFailure(analysis) ? containers.map((file): [string, Error] => [file, analysis.failure]) : []),
