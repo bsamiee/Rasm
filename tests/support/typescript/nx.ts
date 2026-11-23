@@ -299,6 +299,7 @@ const opened = (finished: (cleanup: () => void) => void) => {
     const [previous, workspace] = [{ cwd: cwd(), root: workspaceRoot }, new Workspace()];
     chdir(workspace.root);
     setWorkspaceRoot(workspace.root);
+    env['NX_DAEMON'] = 'false';
     finished(() => {
         chdir(previous.cwd);
         setWorkspaceRoot(previous.root);
