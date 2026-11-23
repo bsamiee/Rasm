@@ -1,7 +1,15 @@
 #![feature(deref_patterns)]
 #![cfg_attr(
     dylint_lib = "rasm_lints",
-    allow(discarded_error, empty_string_default, forwarding_function, single_reader, untyped_error, reason = "these lints fire incidentally here and are exercised by their own fixtures")
+    allow(
+        assertions_outside_tests,
+        discarded_error,
+        empty_string_default,
+        forwarding_function,
+        single_reader,
+        untyped_error,
+        reason = "these lints fire incidentally here and are exercised by their own fixtures"
+    )
 )]
 
 use core::fmt;
@@ -125,6 +133,8 @@ fn fallback(error: &ParseIntError, label: &str) -> String {
 }
 
 fn equal(error: &ParseIntError) -> bool { error.to_string() == "invalid digit found in string" } //~ stringified_error
+
+fn asserted(error: &ParseIntError) { assert_eq!(error.to_string(), "invalid digit found in string") } //~ stringified_error match the error's variant
 
 fn contained(error: &io::Error) -> bool { ToString::to_string(error).contains("denied") } //~ stringified_error
 
@@ -315,6 +325,7 @@ fn main() {
     black_box(&(ports, checks, boundaries, texts, refused(String::new()).attempts, fast(Mode::Fast), labeled(Mode::Fast, true), Failure::new(" ").message));
     black_box(&(futures::executor::block_on(confirmed(format!("Delete {text}?"))), checked(format!("Delete {text}?"), false)));
     black_box(error.as_ref().map(relayed_comparison));
+    black_box(error.as_ref().map(asserted));
     black_box((padded(text, 8), error.as_ref().map(|error| (viewed_formatters(error), invoked_formatter(error)))));
     black_box((error.as_ref().map(|error| boundary(error, 0)), checked(format!("Delete {}?", attempt.count), false)));
     black_box(error.as_ref().map(|error| (closure_stored(error), closure_viewed(error), mixed_error(error))));

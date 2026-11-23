@@ -226,6 +226,18 @@ fn total(values: &[u32]) -> u32 { values.iter().sum() }
 
 fn sum(numbers: &[u32]) -> u32 { numbers.iter().sum() } //~ duplicate_body
 
+fn kept(log: &mut Vec<u32>, value: u32) {
+    log.push(value);
+    log.push(value);
+}
+
+//~v duplicate_body
+fn recorded(log: &mut Vec<u32>, value: u32) {
+    // the same statements under a note
+    log.push(value);
+    log.push(value);
+}
+
 fn shown<T: Display>(value: &T) -> String { value.to_string() }
 
 fn rendered<T: Display + Debug>(value: &T) -> String { value.to_string() }
@@ -307,6 +319,10 @@ async fn main() {
         contracts::renamed_outlives("first", "second"),
     ));
     black_box(default_relocation::values());
+    let mut log = Vec::new();
+    kept(&mut log, 1);
+    recorded(&mut log, 2);
+    black_box(log);
 }
 
 mod parameter_patterns {

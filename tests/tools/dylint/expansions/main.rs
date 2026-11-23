@@ -52,7 +52,8 @@ mod error_assertions {
         assert!(error.to_string().ends_with("argument"));
         assert!(!error.to_string().is_empty() && format!("{error:?}").starts_with("Error"));
         assert!(matches!(Some(&error), Some(cause) if cause.to_string().contains("formatting")));
-        assert_eq!(error.to_string(), "an error occurred when formatting an argument"); //~ stringified_error
+        assert_eq!(error.to_string(), "an error occurred when formatting an argument");
+        assert_ne!(error.to_string(), "");
     }
 
     #[test]
