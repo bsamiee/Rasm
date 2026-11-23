@@ -1,5 +1,5 @@
 import 'core-js/modules/web.url.can-parse.js';
-import { Link, type Notice } from '@rasm/mcp';
+import { Link, type Upstream } from '@rasm/mcp';
 import { type Evaluation, HostError, type Render, Rendering, Script, Specifier } from '@rasm/object-model';
 import { type Containment, encode, reference, walk } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
@@ -264,7 +264,7 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
         readonly application: Effect.Effect<Link['application'], EA, Uxp | Path.Path | Scope.Scope>;
         readonly execute: (code: string, label: string) => Effect.Effect<Option.Option<Schema.Json>, EX, Uxp | Path.Path | Scope.Scope>;
         readonly render: (request: Render, file: Parameters<Parameters<typeof Uxp.rendered>[0]>[0]) => Effect.Effect<void, ER, Uxp | Path.Path | Scope.Scope>;
-        readonly notices?: Stream.Stream<Notice, EN>;
+        readonly notices?: Stream.Stream<Stream.Success<Upstream['notices']>, EN>;
     }): void => {
         const permit = Semaphore.makeUnsafe(1);
         const hosting = Effect.map(

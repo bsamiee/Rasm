@@ -1,6 +1,6 @@
 import { Adjust, Typeset, Typesetting } from '@rasm/indesign';
 import { adjust, call, change, findChange, font, inspect, KASHIDA_WIDTHS, kerns, listened, Model, preflight, render, runs, STYLISTIC_TAGS, session, thousandths, typeset } from '@rasm/indesign/uxp';
-import { Link, type Notice } from '@rasm/mcp';
+import { Link, type Upstream } from '@rasm/mcp';
 import { HostError, Rendering } from '@rasm/object-model';
 import { read } from '@rasm/object-model/host';
 import { Settings } from '@rasm/typography';
@@ -35,7 +35,7 @@ const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: Steps)
 const [model, permit] = Effect.runSync(Effect.all([Model.make(declared), Semaphore.make(1)]));
 const scripted = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(session, scope), effect)).pipe(Semaphore.withPermit(permit), Effect.provideService(Model, model));
 const notices = (extension: string) =>
-    Stream.callback<Notice>((queue) =>
+    Stream.callback<Stream.Success<Upstream['notices']>>((queue) =>
         listened([model.Document.AFTER_OPEN, model.Document.AFTER_SAVE, model.Document.BEFORE_CLOSE], extension, (event) => {
             const [name, target] = [read(event, 'eventType'), read(event, 'target')];
             if (Predicate.isString(name) && model.document(target)) {
