@@ -1,8 +1,7 @@
-import { parse } from '@decimalturn/toml-patch';
 import { dried, executor, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, DateTime, Effect, FileSystem, Option, Order, Path, Record, Result, Schema, SchemaGetter, SemVer, String } from 'effect';
+import { Array, DateTime, Effect, Option, Order, Path, Record, Result, Schema, SchemaGetter, SemVer, String } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
-import { MANIFEST } from '#/workspace';
+import { MANIFEST, toml } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -67,19 +66,12 @@ const indexed = Effect.fnUntraced(function* (name: string) {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = executor(Upgrade, function* ({ cwd: root, dryRun }, context) {
-    const [path, fs, dry] = yield* Effect.all([Path.Path, FileSystem.FileSystem, dried(dryRun)]);
+    const [path, dry] = yield* Effect.all([Path.Path, dried(dryRun)]);
     const words = dry ? ['--dry-run'] : [];
     const cwd = path.resolve(context.root, root);
-    const manifest = path.join(cwd, MANIFEST);
     const shell = { cwd, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' } as const;
     yield* spawned(['cargo', 'upgrade', '--incompatible', 'allow', ...words], shell);
-    const [{ packages }, { workspace }] = yield* Effect.all([
-        Effect.flatMap(spawned(['cargo', 'metadata', '--format-version', '1', '--no-deps'], { cwd }), Schema.decodeEffect(Dependencies)),
-        fs.readFile(manifest).pipe(
-            Effect.flatMap((bytes) => Effect.try({ try: (): unknown => parse(bytes), catch: (cause) => new Cause.UnknownError(cause, `${manifest} does not read as TOML`) })),
-            Effect.flatMap(Schema.decodeUnknownEffect(Shared)),
-        ),
-    ]);
+    const [{ packages }, { workspace }] = yield* Effect.all([Effect.flatMap(spawned(['cargo', 'metadata', '--format-version', '1', '--no-deps'], { cwd }), Schema.decodeEffect(Dependencies)), toml(Shared, path.join(cwd, MANIFEST))]);
     const shared = Record.filterMap(workspace.dependencies, (row, key) => (row.version === undefined || row.path !== undefined || row.git !== undefined || row.registry !== undefined ? Result.failVoid : Result.succeed({ name: row.package ?? key, req: row.version })));
     const required = Array.groupBy([...packages.flatMap(({ dependencies }) => dependencies.filter(({ source }) => source === REGISTRY.source)), ...Object.values(shared)], ({ name }) => name);
     const stable = Record.keys(Record.filter(required, (rows) => rows.every(({ req }) => !req.includes('-') && !req.startsWith('='))));

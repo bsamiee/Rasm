@@ -1,10 +1,10 @@
-import { dirname, parse, posix, relative } from 'node:path';
+import { dirname, posix, relative } from 'node:path';
 import { normalizePath, type TargetConfiguration } from '@nx/devkit';
 import { aggregated, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record, Schema } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
-import { LOCK, MANIFEST, type Member, PLUGIN, Target, tokened, type Workspace } from '#/workspace';
+import { ACTIONS, LOCK, MANIFEST, type Member, PLUGIN, Target, tokened, type Workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -12,9 +12,7 @@ const DENIED = [
     { tool: 'cargo-deny', checks: ['bans', 'licenses', 'sources'], extra: { cache: true } },
     { tool: 'cargo-deny-advisories', checks: ['advisories'], extra: {} },
 ] as const;
-const HOST = { runtime: 'rustc --print host-tuple' } as const;
 const MESSAGES = ['--message-format', 'json-diagnostic-rendered-ansi'] as const;
-const SUITES = { args: ['--cargo-message-format', 'json-diagnostic-rendered-ansi', '--message-format', 'libtest-json-plus', '--message-format-version', '0.1'], env: { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' } } as const;
 const LOCKED = '--locked';
 const SOURCES: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 
@@ -30,7 +28,7 @@ class Options extends Schema.Opaque<Options, unknown>()(
 
 const version = (tool: string) => ({ runtime: `cargo ${tool} --version` });
 
-const suites = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [LOCKED, ...SUITES.args]), env: SUITES.env });
+const suites = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [LOCKED, '--cargo-message-format', 'json-diagnostic-rendered-ansi', '--message-format', 'libtest-json-plus', '--message-format-version', '0.1']), env: { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' } });
 
 const cargoTarget = (help: string, description: string, options: Cargo, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
     executor: `${PLUGIN}:cargo`,
@@ -44,13 +42,12 @@ const joined = (left: Verbs, right: Verbs): Verbs => Record.union(left, right, (
 
 const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => {
     const folders = Array.dedupe(crate.targets.map(({ src_path }) => normalizePath(relative(dirname(crate.manifest_path), dirname(src_path)))));
-    const placed = (at: string) => (at.startsWith('..') ? tokened(posix.join(root, at)) : posix.join('{projectRoot}', at));
     return [
-        ...(stated ?? (folders.includes('') ? ['{projectRoot}/**/*'] : [posix.join('{projectRoot}', MANIFEST), ...folders.map((at) => posix.join(placed(at), '**/*')), ...Array.fromNullishOr(crate.readme).map(placed)])),
+        ...(stated ?? (folders.includes('') ? ['{projectRoot}/**/*'] : [posix.join('{projectRoot}', MANIFEST), ...[...folders.map((at) => posix.join(at, '**/*')), ...Array.fromNullishOr(crate.readme)].map((at) => tokened(posix.join(root, at)))])),
         tokened(posix.join(workspace.root, LOCK)),
         tokened(posix.join(workspace.root, MANIFEST)),
         ...workspace.configs,
-        HOST,
+        { runtime: 'rustc -vV' },
         ...workspace.compiler.map((env) => ({ env })),
     ];
 };
@@ -62,15 +59,11 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
     const tested = crate.targets.some(({ test }) => test);
     const documented = crate.targets.some(({ doctest }) => doctest);
     const products = crate.targets.filter(Target.own).flatMap(workspace.uplifted);
-    const outputs = (folder: string) =>
-        Option.match(workspace.placed, {
-            onNone: () => [],
-            onSome: (artifacts) => products.flatMap((file) => [file, `${parse(file).name}.d`]).map((file) => tokened(posix.join(artifacts, folder, file))),
-        });
+    const outputs = (folder: string) => Option.toArray(workspace.placed).flatMap((artifacts) => products.map((file) => tokened(posix.join(artifacts, folder, file))));
     const debug = outputs('debug');
     const profiles = ['release', ...workspace.profiles];
     const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, '--keep-going', ...MESSAGES] }];
-    const installed = (profile: string): Array.NonEmptyReadonlyArray<Command> => [{ args: ['install', '--path', posix.relative(workspace.root, root) || '.', '--bins', '--profile', profile, LOCKED, '--keep-going', ...MESSAGES] }];
+    const installed = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['install', '--path', posix.relative(workspace.root, root) || '.', ...profile, LOCKED, '--keep-going', ...MESSAGES] }];
     const checked = (placed: (selection: readonly string[]) => Command): Array.NonEmptyReadonlyArray<Command> =>
         Array.map(
             Array.prepend(
@@ -128,7 +121,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
                             { ...selected, commands: [suites(['nextest', 'run'])] },
                             {
                                 cache: true,
-                                inputs: [...SOURCES, ...Option.toArray(workspace.nextest).map(tokened), { env: 'NEXTEST_PROFILE' }, { runtime: 'cargo nextest -V' }, version('llvm-cov')],
+                                inputs: [...SOURCES, ...Option.toArray(workspace.nextest).map(tokened), { env: 'NEXTEST_PROFILE' }, version('nextest'), version('llvm-cov')],
                                 ...covered((exported) => suites(['llvm-cov', 'nextest', ...exported])),
                             },
                         ),
@@ -156,8 +149,8 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
                 cargo: cargoTarget(
                     'install',
                     `Installs the binaries of ${crate.name} into Cargo's install root with cargo install --path, building in the workspace target folder, in release unless a configuration names a profile`,
-                    { cwd: workspace.root, commands: installed('release') },
-                    Array.match(workspace.profiles, { onEmpty: () => ({}), onNonEmpty: (named) => ({ configurations: Record.fromIterableWith(named, (profile) => [profile, { commands: installed(profile) }] as const) }) }),
+                    { cwd: workspace.root, commands: installed([]) },
+                    Array.match(workspace.profiles, { onEmpty: () => ({}), onNonEmpty: (named) => ({ configurations: Record.fromIterableWith(named, (profile) => [profile, { commands: installed(['--profile', profile]) }] as const) }) }),
                 ),
             }),
         },
@@ -165,7 +158,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
 };
 
 const workspaceTargets = (workspace: Workspace): Verbs => {
-    const manifests = Array.dedupe([...workspace.members.map((member) => member.manifest), posix.join(workspace.root, MANIFEST)]).map(tokened);
+    const graph = [...Array.dedupe([...workspace.members.map((member) => member.manifest), posix.join(workspace.root, MANIFEST)]), posix.join(workspace.root, LOCK)].map(tokened);
     const check = Record.fromIterableWith(
         Option.toArray(workspace.deny)
             .flatMap(({ files, tables }) => DENIED.map((row) => ({ ...row, files, selected: Array.intersection(row.checks, tables) })))
@@ -177,7 +170,7 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
                     'deny',
                     `Reports the cargo-deny ${selected.join(', ')} findings of the workspace graph with cargo deny check, failing on any warning`,
                     { cwd: workspace.root, commands: [{ args: ['deny', LOCKED, '--workspace', 'check', '--deny', 'warnings', ...selected] }] },
-                    { ...extra, inputs: [...manifests, tokened(posix.join(workspace.root, LOCK)), ...files.map(tokened), version('deny'), { externalDependencies: [] }] },
+                    { ...extra, inputs: [...graph, ...files.map(tokened), version('deny'), { externalDependencies: [] }] },
                 ),
             ] as const,
     );
@@ -186,7 +179,7 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
         upgrade: {
             cargo: {
                 executor: `${PLUGIN}:upgrade`,
-                inputs: [...manifests, tokened(posix.join(workspace.root, LOCK)), { externalDependencies: [] }],
+                inputs: [...graph, { externalDependencies: [] }],
                 options: { cwd: workspace.root },
                 metadata: { description: 'Moves every dependency requirement to its newest release, prereleases above a stable line included, with cargo upgrade, then the lock with cargo update', help: { command: 'cargo upgrade --help', example: { options: { dryRun: true } } } },
             },
@@ -196,17 +189,15 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
 
 const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, member: Option.Option<Member>, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
     const nested = Option.filter(member, ({ root }) => root !== workspace.root);
-    const packed = Option.map(Option.all({ held: Option.filter(member, ({ versioned }) => versioned), placed: workspace.placed }), ({ held: { crate, packages, root }, placed: artifacts }) =>
+    const packed = Option.map(Option.all({ held: Option.filter(member, ({ versioned, packable }) => versioned && packable), placed: workspace.placed }), ({ held: { crate, packages }, placed: artifacts }) =>
         cargoTarget(
             'package',
             `Packs ${crate.name} into a .crate archive with cargo package beside the workspace crates it depends on, without the verification build`,
             { cwd: workspace.root, package: crate.name, commands: [{ args: ['package', '--no-verify', LOCKED], packages }] },
-            { cache: true, outputs: [posix.join(artifacts, 'package', `${crate.name}-${crate.version}.crate`)].map((at) => (posix.relative(root, at).startsWith('..') ? tokened(at) : posix.join('{projectRoot}', posix.relative(root, at)))) },
+            { cache: true, outputs: [tokened(posix.join(artifacts, 'package', `${crate.name}-${crate.version}.crate`))] },
         ),
     );
-    const tools = [...Option.toArray(Option.map(member, (held) => crateTargets(workspace, coverage, held))), ...(Option.isNone(nested) ? [workspaceTargets(workspace)] : []), { pack: Option.match(packed, { onNone: (): Readonly<Record<string, TargetConfiguration>> => ({}), onSome: (cargo) => ({ cargo }) }) }].reduce(
-        joined,
-    );
+    const tools = [...Option.toArray(Option.map(member, (held) => crateTargets(workspace, coverage, held))), ...(Option.isNone(nested) ? [workspaceTargets(workspace)] : []), { pack: Record.getSomes({ cargo: packed }) }].reduce(joined);
     const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
     const cleaned = Option.match(nested, {
         onNone: () => ({ commands: [['cargo', 'clean']] as const, cache: { folders: [['CARGO_HOME', 'log']] }, description: 'Removes the build folder of the workspace with cargo clean, and under configuration cache empties the build analysis logs cargo writes to $CARGO_HOME/log' }),
@@ -218,15 +209,12 @@ const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, m
     return aggregated(
         {
             ...tools,
-            attach: Option.match(packed, {
-                onNone: () => ({}),
-                onSome: () => ({
-                    gh: {
-                        executor: `${distribution.name}:attach`,
-                        dependsOn: ['pack--cargo'],
-                        inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-                        metadata: { description: "Uploads the file pack--cargo wrote to the GitHub release of the version the project's manifest states with gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
-                    },
+            attach: Record.getSomes({
+                gh: Option.as(packed, {
+                    executor: `${distribution.name}:attach`,
+                    dependsOn: ['pack--cargo'],
+                    inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+                    metadata: { description: "Uploads the file pack--cargo wrote to the GitHub release of the version the project's manifest states with gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
                 }),
             }),
             clean: {
@@ -254,12 +242,12 @@ const released = ({ crate, versioned, packages }: Member, cwd: string) => {
                   'nx-release-publish': {
                       executor: `${PLUGIN}:release-publish`,
                       options: { cwd, package: crate.name, packages, ...named },
-                      dependsOn: ['pack--cargo', '^nx-release-publish'],
+                      dependsOn: ['^nx-release-publish'],
                       inputs: SOURCES,
                       metadata: { technologies: ['rust'], description: `Publishes ${crate.name} with cargo publish at the version nx release tagged at the checked-out commit, skipping a version cargo info finds in its registry`, help: { command: 'cargo publish --help', example: { options: { dryRun: true } } } },
                   },
               };
-    return versioned ? { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: posix.join(cwd, LOCK), ...named } } }, targets: published } : { targets: {} };
+    return versioned ? { tags: ['release'], release: { version: { versionActions: ACTIONS, versionActionsOptions: { lock: posix.join(cwd, LOCK), ...named } } }, targets: published } : { targets: {} };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

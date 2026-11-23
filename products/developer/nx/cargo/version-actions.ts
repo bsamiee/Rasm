@@ -1,10 +1,10 @@
-import { basename, dirname, join, posix } from 'node:path';
-import { parse, patch } from '@decimalturn/toml-patch';
+import { dirname, join, posix } from 'node:path';
+import { patch } from '@decimalturn/toml-patch';
 import { type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
 import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { LOCK, MANIFEST, run } from '#/workspace';
+import { ACTIONS, MANIFEST, parsed, run, Table } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -14,7 +14,6 @@ const TABLES = ['dependencies', 'dev-dependencies', 'build-dependencies'];
 
 const Options = Schema.Struct({ lock: Schema.String, registry: Schema.optionalKey(Schema.String) });
 const Unlocked = Schema.Struct({ skipLockFileUpdate: Schema.optionalKey(Schema.Boolean) });
-const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Requirement = Schema.Union([Schema.String, Schema.Struct({ version: Schema.optionalKey(Schema.String), package: Schema.optionalKey(Schema.String), workspace: Schema.optionalKey(Schema.Boolean) })]);
 const Dependencies = Schema.Record(Schema.String, Requirement);
 const Manifest = Schema.Struct({
@@ -26,8 +25,6 @@ const Found = Schema.Record(Schema.String, Schema.String);
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const table = (value: unknown): Readonly<Record<string, unknown>> => Option.getOrElse(Schema.decodeUnknownOption(Table)(value), () => ({}));
-
-const parsed = (text: string, subject: string) => Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${subject} does not read as TOML`) });
 
 const read = Effect.fnUntraced(function* (tree: Tree, file: string) {
     const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), () => new Cause.NoSuchElementError(`${file} does not exist`));
@@ -49,6 +46,21 @@ const crated = (tree: Tree, projectGraph: ProjectGraph, project: string) => {
 };
 
 const assigned = (value: Record<string, unknown>, [key, ...rest]: readonly string[], next: unknown): Record<string, unknown> => (key === undefined ? value : { ...value, [key]: rest.length === 0 ? next : assigned(table(value[key]), rest, next) });
+
+const patched = (tree: Tree, edits: readonly { readonly file: string; readonly text: string; readonly raw: Readonly<Record<string, unknown>>; readonly field: readonly string[]; readonly value: string }[]) =>
+    Record.collect(
+        Array.groupBy(edits, ({ file }) => file),
+        (file, group) => {
+            tree.write(
+                file,
+                patch(
+                    group[0].text,
+                    group.reduce((value, edit) => assigned(value, edit.field, edit.value), group[0].raw),
+                ),
+            );
+            return `Updated ${group.length} fields in ${file}`;
+        },
+    );
 
 const requirements = (raw: Readonly<Record<string, unknown>>, crates: ReadonlySet<string>) =>
     [...TABLES.map((kind) => [kind]), ...Record.keys(table(Option.getOrUndefined(Record.get(raw, 'target')))).flatMap((platform) => TABLES.map((kind) => ['target', platform, kind])), ['workspace', 'dependencies']].flatMap((at) =>
@@ -132,16 +144,14 @@ class CargoVersionActions extends VersionActions {
                 Effect.forEach(
                     manifests,
                     Effect.fnUntraced(function* ({ manifestPath }) {
-                        const { file, text, raw, field, name } = yield* versioned(tree, manifestPath, shared);
-                        tree.write(file, patch(text, assigned(raw, field, newVersion)));
-                        const held = yield* read(tree, shared);
-                        const rows = requirements(held.raw, new Set(Array.fromNullishOr(name))).filter(({ at, current }) => at[0] === 'workspace' && current !== undefined);
-                        const edited = rows.reduce((value, row) => assigned(value, row.field, newVersion), held.raw);
-                        yield* Effect.when(
-                            Effect.sync(() => tree.write(shared, patch(held.text, edited))),
-                            Effect.succeed(rows.length > 0),
+                        const owner = yield* versioned(tree, manifestPath, shared);
+                        const held = owner.file === shared ? owner : yield* read(tree, shared);
+                        const rows = requirements(held.raw, new Set(Array.fromNullishOr(owner.name))).filter(({ at, current }) => at[0] === 'workspace' && current !== undefined);
+                        patched(
+                            tree,
+                            [owner, ...rows.map(({ field }) => ({ ...held, field }))].map((edit) => ({ ...edit, value: newVersion })),
                         );
-                        return `New version ${newVersion} written to ${file}`;
+                        return `New version ${newVersion} written to ${owner.file}`;
                     }),
                 ),
             ),
@@ -157,19 +167,7 @@ class CargoVersionActions extends VersionActions {
                 const own = yield* Effect.forEach(manifests, ({ manifestPath }) => read(tree, manifestPath));
                 const rows = own.flatMap((held) => requirements(held.raw, crates).map((requirement) => ({ ...held, ...requirement })));
                 const edits = Array.getSomes(rows.map(({ crate, current, ...row }) => Option.map(Option.all([Option.fromUndefinedOr(current), Option.fromUndefinedOr(versions.get(crate))]), ([, value]) => ({ ...row, value }))));
-                return Record.collect(
-                    Array.groupBy(edits, ({ file }) => file),
-                    (file, [first, ...rest]) => {
-                        tree.write(
-                            file,
-                            patch(
-                                first.text,
-                                [first, ...rest].reduce((value, edit) => assigned(value, edit.field, edit.value), first.raw),
-                            ),
-                        );
-                        return `Updated ${rest.length + 1} requirements in ${file}`;
-                    },
-                );
+                return patched(tree, edits);
             }),
         );
     }
@@ -177,8 +175,8 @@ class CargoVersionActions extends VersionActions {
 
 const afterAllProjectsVersioned = Effect.fnUntraced(function* (cwd: string, { dryRun, rootVersionActionsOptions }: Parameters<AfterAllProjectsVersioned>[1]) {
     const [fs, { skipLockFileUpdate }] = yield* Effect.all([FileSystem.FileSystem, Schema.decodeEffect(Unlocked)(rootVersionActionsOptions ?? {})]);
-    const stated = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.sync(readCachedProjectGraph)).nodes).map((node) => Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions));
-    const locks = Array.dedupe(Array.getSomes(stated).map(({ lock }) => lock)).filter((lock) => basename(lock) === LOCK);
+    const owned = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.sync(readCachedProjectGraph)).nodes).filter(({ data }) => data.release?.version?.versionActions === ACTIONS);
+    const locks = Array.dedupe(Array.getSomes(owned.map(({ data }) => Schema.decodeUnknownOption(Options)(data.release?.version?.versionActionsOptions))).map(({ lock }) => lock));
     const refresh = (lock: string) => spawned(['cargo', 'update', '--workspace'], { cwd: join(cwd, dirname(lock)) });
     const changedFiles = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(join(cwd, lock)), Effect.andThen(refresh(lock), fs.readFileString(join(cwd, lock))), (before, after) => before !== after));
     return { changedFiles, deletedFiles: [] };

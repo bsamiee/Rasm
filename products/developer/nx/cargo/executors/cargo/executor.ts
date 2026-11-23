@@ -1,7 +1,7 @@
 import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext, Task } from '@nx/devkit';
-import type { TaskResult } from '@nx/devkit/internal';
+import { findAllProjectNodeDependencies, type TaskResult } from '@nx/devkit/internal';
 import { batched, executor, Words } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
@@ -70,9 +70,9 @@ const ran = Effect.fnUntraced(
     Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ passed: false, log: 'cargo is not on PATH, so no Cargo task can run\n', messages: [] })),
 );
 
-const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, Cargo>>, command: Command, _index: number, tasks: Array.NonEmptyReadonlyArray<Planned>) {
+const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, Cargo>>, command: Command, tasks: Array.NonEmptyReadonlyArray<Planned>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const { nodes, dependencies } = context.projectGraph;
+    const { nodes } = context.projectGraph;
     const root = (project: string) => path.resolve(context.root, nodes[project]?.data.root ?? '.');
     const selected = (at: string, name: string) => ['--package', `${pathToFileURL(path.resolve(context.root, at)).href}#${name}`];
     const options = inputs[tasks[0].id];
@@ -102,12 +102,11 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
             .map(({ manifest_path }) => path.dirname(manifest_path)),
     );
     const broken = new Set(Record.keys(Record.filter(nodes, (_, project) => errored.has(root(project)))));
-    const reaches = (project: string, seen: ReadonlySet<string>): boolean => (dependencies[project] ?? []).some(({ target }) => !seen.has(target) && (broken.has(target) || reaches(target, new Set([...seen, target]))));
     const results = tasks.map(({ id, target: { project } }) => {
         const at = root(project);
         const { failed, proven, said } = judged({ messages: completed.messages, compiled: completed.passed || built.has(at), crate: Option.fromUndefinedOr(inputs[id]?.package) });
         const rendered = Array.getSomes(diagnostics.filter(({ root: crate }) => crate === at).map(({ message }) => message.rendered));
-        return { id, own: errored.has(at) || failed, passed: proven && !reaches(project, new Set([project])), terminalOutput: [...rendered, said].join('') };
+        return { id, own: errored.has(at) || failed, passed: proven && !findAllProjectNodeDependencies(project, context.projectGraph).some((name) => broken.has(name)), terminalOutput: [...rendered, said].join('') };
     });
     const attributed = results.some(({ own }) => own);
     const unproven: TaskResult = attributed ? { success: false, status: 'skipped', terminalOutput: '' } : { success: false, terminalOutput: completed.log };
@@ -116,13 +115,13 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
 
 const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, Cargo>>, tasks: readonly Planned[]) => {
     const keyed = ({ id }: Pick<Task, 'id'>) => [inputs[id]?.cwd, inputs[id]?.commands ?? [], inputs[id]?.__unparsed__] as const;
-    const steps = Array.dedupe(tasks.map(keyed)).flatMap((key) => key[1].map((command, index) => ({ group: tasks.filter((task) => Equal.equals(keyed(task), key)), command, index, last: index === key[1].length - 1 })));
+    const steps = Array.dedupe(tasks.map(keyed)).flatMap((key) => key[1].map((command, index) => ({ group: tasks.filter((task) => Equal.equals(keyed(task), key)), command, last: index === key[1].length - 1 })));
     return Stream.fromIterable(steps).pipe(
         Stream.mapAccumEffect(
             (): Readonly<Record<string, TaskResult>> => ({}),
-            Effect.fnUntraced(function* (finished, { group, command, index, last }) {
+            Effect.fnUntraced(function* (finished, { group, command, last }) {
                 const ready = group.filter(({ id }) => finished[id]?.success !== false);
-                const results = Array.isReadonlyArrayNonEmpty(ready) ? yield* decided(judged, context, inputs, command, index, ready) : {};
+                const results = Array.isReadonlyArrayNonEmpty(ready) ? yield* decided(judged, context, inputs, command, ready) : {};
                 const settled = Record.filter(results, ({ success }) => last || !success);
                 return [{ ...finished, ...results }, Record.collect(settled, (task, result) => ({ task, result }))] as const;
             }),

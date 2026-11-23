@@ -42,7 +42,7 @@ const execute = executor(Publish, function* ({ dryRun, cwd: root, package: named
     const members = [{ root: node.data.root, name: named }, ...(dry ? packages : [])];
     const selected = members.flatMap((member) => ['--package', `path+${pathToFileURL(path.resolve(context.root, member.root)).href}#${member.name}`]);
     const registries = Array.fromNullishOr(registry).flatMap((name) => ['--registry', name]);
-    const publish = ['cargo', 'publish', ...selected, ...registries, ...(dry ? ['--dry-run'] : []), '--locked', ...words] as const;
+    const publish = ['cargo', 'publish', ...selected, ...(dry ? ['--dry-run'] : []), '--locked', ...words] as const;
     const credential = registry === undefined ? 'CARGO_REGISTRY_TOKEN' : `CARGO_REGISTRIES_${String.kebabToSnake(registry).toUpperCase()}_TOKEN`;
     const [tagged, token] = yield* Effect.all([released(context), Effect.map(Config.option(Config.String(credential)), Option.filter(String.isNonEmpty))]);
     const missing = dry ? [] : [...(Option.isNone(tagged) ? [`HEAD holds no tag of ${node.name}, so nx release released no version of it at this commit`] : []), ...(Option.isNone(token) ? [`${credential} is not set`] : [])];

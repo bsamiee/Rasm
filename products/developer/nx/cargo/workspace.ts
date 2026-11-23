@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { parse } from '@decimalturn/toml-patch';
 import { normalizePath, readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
-import { runner, spawned } from '@rasm/nx-distribution/inference';
+import { above, runner, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -18,6 +18,7 @@ const MANIFEST = 'Cargo.toml';
 const LOCK = 'Cargo.lock';
 const CRATE = 'nx_cargo';
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
+const ACTIONS = `${PLUGIN}/release/version-actions`;
 const SETTINGS = ['.cargo/config.toml', '.cargo/config'] as const;
 const CONFIG = [...SETTINGS, 'rust-toolchain.toml', 'rust-toolchain'] as const;
 const CLIPPY = ['.clippy.toml', 'clippy.toml'] as const;
@@ -67,7 +68,7 @@ const Settings = Schema.Struct({
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Links extends Context.Service<Links, Map<string, Member>>()(`${PLUGIN}/workspace/Links`) {
+class Links extends Context.Service<Links, Map<string, ReadonlyMap<string, Member>>>()(`${PLUGIN}/workspace/Links`) {
     static readonly layer = Layer.sync(Links, () => new Map());
 }
 
@@ -75,18 +76,14 @@ class Links extends Context.Service<Links, Map<string, Member>>()(`${PLUGIN}/wor
 
 const tokened = (file: string) => posix.join('{workspaceRoot}', file);
 
-const ancestors = (folder: string): readonly string[] =>
-    Array.unfold(
-        Option.some(folder),
-        Option.map((at: string) => [at, Option.liftPredicate(posix.dirname(at), () => at !== '.')] as const),
-    );
+const nearest = (files: ReadonlySet<string>, folder: string, names: readonly string[]) => Array.findFirst(above(folder), (at) => Array.findFirst(names, (name) => files.has(posix.join(at, name))).pipe(Option.map((name) => posix.join(at, name))));
 
-const nearest = (files: ReadonlySet<string>, folder: string, names: readonly string[]) => Array.findFirst(ancestors(folder), (at) => Array.findFirst(names, (name) => files.has(posix.join(at, name))).pipe(Option.map((name) => posix.join(at, name))));
+const parsed = (text: string, subject: string) => Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${subject} does not read as TOML`) });
 
 const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
     FileSystem.FileSystem.pipe(
-        Effect.flatMap((fs) => fs.readFile(file)),
-        Effect.flatMap((bytes) => Effect.try({ try: (): unknown => parse(bytes), catch: (cause) => new Cause.UnknownError(cause, `${file} does not read as TOML`) })),
+        Effect.flatMap((fs) => fs.readFileString(file)),
+        Effect.flatMap((text) => parsed(text, file)),
         Effect.flatMap(Schema.decodeUnknownEffect(schema)),
     );
 
@@ -94,7 +91,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
     const metadata = yield* Effect.flatMap(spawned(['cargo', 'metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot }), Schema.decodeEffect(Metadata));
     const root = normalizePath(relative(workspaceRoot, metadata.workspace_root)) || '.';
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
-    const found = (stems: readonly string[]) => ancestors(root).flatMap((at) => stems.map((stem) => posix.join(at, stem)).filter((file) => files.has(file)));
+    const found = (stems: readonly string[]) => above(root).flatMap((at) => stems.map((stem) => posix.join(at, stem)).filter((file) => files.has(file)));
     const settings = found(SETTINGS);
     const [{ profile }, [host, names], denied, layers] = yield* Effect.all(
         [
@@ -154,9 +151,11 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
         root,
         members: crates.map((member) => {
             const needed = reached(new Set([member.crate.name]));
+            const reachable = crates.filter((other) => other.crate.name !== member.crate.name && needed.has(other.crate.name));
             return {
                 ...member,
-                packages: crates.filter((other) => other.crate.name !== member.crate.name && needed.has(other.crate.name)).map((other) => ({ root: other.root, name: other.crate.name })),
+                packages: reachable.map((other) => ({ root: other.root, name: other.crate.name })),
+                packable: reachable.every(({ crate }) => crate.publish?.length !== 0),
                 linted: Option.toArray(nearest(files, clippy[0] ?? member.root, CLIPPY)).map(tokened),
             };
         }),
@@ -194,11 +193,11 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
 const workspaces = (workspaceRoot: string, manifests: readonly string[], files: ReadonlySet<string>) =>
     Effect.reduce(
         manifests.toSorted((left, right) => left.split('/').length - right.split('/').length || left.localeCompare(right)),
-        (): readonly (readonly [string, Result.Result<Reading, Effect.Error<ReturnType<typeof read>>>])[] => [],
+        (): readonly Result.Result<Reading, [string, Error]>[] => [],
         (done, manifest) =>
-            done.some(([, reading]) => Result.isSuccess(reading) && reading.success.metadata.packages.some(({ manifest_path }) => normalizePath(relative(workspaceRoot, manifest_path)) === manifest))
+            done.some((reading) => Result.isSuccess(reading) && reading.success.metadata.packages.some(({ manifest_path }) => normalizePath(relative(workspaceRoot, manifest_path)) === manifest))
                 ? Effect.succeed(done)
-                : Effect.map(Effect.result(read(workspaceRoot, manifest, files)), (reading) => [...done, [manifest, reading] as const]),
+                : Effect.map(Effect.result(Effect.mapError(read(workspaceRoot, manifest, files), (error): [string, Error] => [manifest, error])), (reading) => [...done, reading]),
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -207,4 +206,4 @@ const run = runner(Links.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CLIPPY, CONFIG, Crate, DENY, Links, LOCK, MANIFEST, type Member, NEXTEST, PLUGIN, placed, type Reading, resolved, run, Target, tokened, type Workspace, workspaces };
+export { ACTIONS, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, MANIFEST, type Member, NEXTEST, parsed, PLUGIN, placed, type Reading, resolved, run, Table, Target, tokened, toml, type Workspace, workspaces };
