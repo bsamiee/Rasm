@@ -2,10 +2,10 @@ import { once } from 'node:events';
 import { join, posix, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { emitPluginWorkerLog, getDaemonClientEnvGeneration, getLockFileName, globWithWorkspaceContext, hashDaemonClientEnv, hashObject, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
-import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, flow, Function, MutableRef, Option, Record, Result, Schema, String } from 'effect';
 
@@ -203,7 +203,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
         stored: MutableRef.make(false),
         digest: hashArray([hashObject(settings), ambient, yield* OWN]),
         lock: getLockFileName(manager),
-        exec: getPackageManagerCommand(manager).exec,
+        exec: EXEC[manager],
         outputPath: settings.outputPath,
     };
     return yield* Effect.ensuring(

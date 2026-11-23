@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodesContext, type ExecutorContext, getOutputsForTargetAndConfiguration, hashArray, normalizePath, type NxJsonConfiguration, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateNodesContext, type ExecutorContext, getOutputsForTargetAndConfiguration, hashArray, normalizePath, type NxJsonConfiguration, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, type PluginCache } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import { Array, Cause, Config, ConfigProvider, Effect, Equal, FileSystem, Formatter, Glob, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
@@ -19,6 +19,7 @@ type Parse = (file: string, text: string) => { readonly module: { readonly stati
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
+const EXEC: Readonly<Record<PackageManager, string>> = { npm: 'npx', pnpm: 'pnpm exec', yarn: 'yarn', bun: 'bun' };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -214,4 +215,4 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, anchored, batched, dried, executor, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, PLATFORM, produced, ran, recalled, type Run, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, Words, within };
+export { above, aggregated, anchored, batched, dried, EXEC, executor, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, PLATFORM, produced, ran, recalled, type Run, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, Words, within };

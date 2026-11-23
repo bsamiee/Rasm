@@ -1,27 +1,13 @@
 import { join, posix } from 'node:path';
 import process, { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import {
-    AggregateCreateNodesError,
-    type CreateNodes,
-    type CreateNodesContext,
-    detectPackageManager,
-    getPackageManagerCommand,
-    type PostTasksExecution,
-    type PostTasksExecutionContext,
-    type PreTasksExecution,
-    type ProjectConfiguration,
-    readJsonFile,
-    type TargetConfiguration,
-    type Task,
-    type TaskResult,
-} from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, type PostTasksExecution, type PostTasksExecutionContext, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type Task, type TaskResult } from '@nx/devkit';
 import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Config, DateTime, Duration, Effect, FileSystem, Formatter, Function, Option, Order, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import which from 'which';
 import { type Fields, FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
-import { above, aggregated, anchored, Folder, inferring, manifested, namedInput, run, type Stated, tagged, type Verbs } from '#/inference';
+import { above, aggregated, anchored, EXEC, Folder, inferring, manifested, namedInput, run, type Stated, tagged, type Verbs } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -369,7 +355,7 @@ const createNodes: CreateNodes = [
             ...projects(
                 declared.filter(({ fields }) => fields.installed !== true),
                 settings,
-                getPackageManagerCommand(detectPackageManager(context.workspaceRoot)).exec,
+                EXEC[detectPackageManager(context.workspaceRoot)],
                 tagged(context.nxJsonConfiguration),
             ),
             ...actions,

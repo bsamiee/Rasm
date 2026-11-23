@@ -1,11 +1,11 @@
 import { dirname, relative, resolve } from 'node:path';
-import { chdir, cwd } from 'node:process';
+import { chdir, cwd, env } from 'node:process';
 import { normalizePath } from '@nx/devkit';
 import { type BatchExecutorTaskResult, findProjectForPath, hashObject } from '@nx/devkit/internal';
 import { batched, executor } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Exit, Formatter, Function, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
-import { loaded, testMode } from '#/plugin';
+import { loaded, MODE } from '#/plugin';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -33,6 +33,21 @@ class Test extends Schema.Opaque<Test, unknown>()(
 ) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const testMode = Effect.acquireRelease(
+    Effect.sync(() => {
+        const before = { ...env };
+        Object.assign(env, { ...MODE, NODE_ENV: before['NODE_ENV'] ?? MODE.NODE_ENV });
+        return before;
+    }),
+    (before) =>
+        Effect.sync(() => {
+            Record.keys(MODE).forEach((name) => {
+                Reflect.deleteProperty(env, name);
+            });
+            Object.assign(env, before);
+        }),
+);
 
 const reported = (module: TestModule) =>
     [...module.children.allTests('failed')].flatMap((test) => {

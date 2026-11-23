@@ -3,10 +3,10 @@ import { createRequire, findPackageJSON } from 'node:module';
 import { dirname, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { getLockFileName, getReadyCheckReadyWhen, hashObject, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
-import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, FileSystem, flow, MutableRef, Option, Record, Schema } from 'effect';
 import type { parseSync } from 'vite';
@@ -177,7 +177,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
         stored: MutableRef.make(false),
         digest: hashArray([hashObject(settings), yield* OWN]),
         lock: getLockFileName(manager),
-        exec: getPackageManagerCommand(manager).exec,
+        exec: EXEC[manager],
     };
     return yield* Effect.ensuring(
         Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, Option.fromUndefinedOr(settings.outputPath), file)), configs, settings, context)),

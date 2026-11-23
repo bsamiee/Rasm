@@ -3,11 +3,11 @@ import { findPackageJSON } from 'node:module';
 import { dirname, join, posix, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, normalizePath } from '@nx/devkit';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, normalizePath } from '@nx/devkit';
 import { getLockFileName, getReadyCheckReadyWhen, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
-import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, flow, MutableRef, Option, Schema } from 'effect';
 
@@ -158,7 +158,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
         stored: MutableRef.make(false),
         digest: yield* OWN,
         lock: getLockFileName(manager),
-        exec: getPackageManagerCommand(manager).exec,
+        exec: EXEC[manager],
     };
     return yield* Effect.ensuring(
         Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, Option.fromUndefinedOr(settings.outputPath), file)), mains, settings, context)),
