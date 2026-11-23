@@ -38,7 +38,7 @@ const INTEGER = /^-?\d+$/;
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => (typeof value === 'object' || typeof value === 'function') && value !== null;
 const isList = (value: unknown): value is readonly unknown[] => Object.prototype.toString.call(value) === '[object Array]';
-const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> => isRecord(value) && Object.prototype.toString.call(value) === '[object Object]' && value.constructor === Object;
+const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> => isRecord(value) && Object.prototype.toString.call(value) === '[object Object]' && Object.getPrototypeOf(value) === Object.prototype;
 const read = (value: unknown, key: string): unknown => {
     try {
         return isRecord(value) ? value[key] : undefined;
@@ -56,11 +56,11 @@ const written = (steps: Path['steps']): string => {
     return text === '' ? '/' : text;
 };
 const format = ({ steps, end }: Path): string => (end === undefined ? written(steps) : `(${written(steps)}${RANGE}${written(end)})`);
-const closing = (text: string, open: number): number => {
+const outside = (text: string, from: number, token: string): number => {
     let quoting = false;
-    for (let at = open + 1; at < text.length; at += 1) {
+    for (let at = from; at < text.length; at += 1) {
         const character = text.charAt(at);
-        if (character === ']' && !quoting) {
+        if (!quoting && text.slice(at, at + token.length) === token) {
             return at;
         }
         quoting = character === '"' ? !quoting : quoting;
@@ -79,7 +79,7 @@ const stepped = (text: string) => {
     let at = 0;
     for (let found = pattern.exec(text); found?.index === at; found = pattern.exec(text)) {
         const [separator, kind, open] = [found[1] === '//' ? ('//' as const) : ('/' as const), String(found[2]), pattern.lastIndex];
-        const close = text.charAt(open) === '[' ? closing(text, open) : open - 1;
+        const close = text.charAt(open) === '[' ? outside(text, open + 1, ']') : open - 1;
         const chosen = close > open ? selector(text.slice(open + 1, close)) : undefined;
         if (close < open - 1 || (close > open && chosen === undefined)) {
             at = -1;
@@ -92,7 +92,7 @@ const stepped = (text: string) => {
     return at === text.length ? steps : undefined;
 };
 const parse = (text: string) => {
-    const split = text.indexOf(RANGE);
+    const split = outside(text, 0, RANGE);
     const ranged = text.charAt(0) === '(' && text.charAt(text.length - 1) === ')' && split > 0;
     const steps = ranged ? stepped(text.slice(1, split)) : text === '/' ? [] : stepped(text);
     const end = ranged ? stepped(text.slice(split + RANGE.length, -1)) : undefined;
