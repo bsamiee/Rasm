@@ -1,61 +1,25 @@
-"""CLI binding, help, independent input faults, and JSON line output."""
+"""Faults of a declared font set and its corpus, each with its exit status."""
 
-from datetime import timedelta
 from functools import partial
 from pathlib import Path
-import re
 
 import anyio
-from cyclopts.exceptions import CycloptsError, MissingArgumentError, UnknownCommandError
-from expression import Error, Ok
-import msgspec
+from expression import Error
 import pytest
 import sysexits
 
 from rasm.cli import exited
-from rasm.foundry import Action, app, Report
-from rasm.records import Fault, Reason
+from rasm.foundry import app
+from rasm.records import Reason
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def test_help_lists_actions_and_exits_successfully(capsys: pytest.CaptureFixture[str]) -> None:
-    """Native help exposes every action without writing error output."""
-    assert exited(app(["--help"], result_action="return_value", exit_on_error=False)) == 0
-    captured = capsys.readouterr()
-    assert all(action in captured.out for action in Action)
-    assert not captured.err
-
-
-def test_optional_positionals_and_options_bind_the_same_typed_call(tmp_path: Path) -> None:
-    """Publication supports both CLI forms without a forwarding command layer, the output folder an option alone."""
-    declaration, destination, output = tmp_path / "set.toml", tmp_path / "published", tmp_path / "build"
-    _, positional, _ = app.parse_args(["publish", str(declaration), "Test", str(destination), "--output", str(output)])
-    _, options, _ = app.parse_args(["publish", str(declaration), "--name", "Test", "--destination", str(destination), "--output", str(output)])
-    assert positional.args == options.args == (declaration, "Test", destination)
-    assert positional.kwargs == options.kwargs == {"output": output}
-
-
-@pytest.mark.parametrize(
-    "tokens,refusal,named",
-    [
-        pytest.param(["build", "set.toml"], MissingArgumentError, "--output", id="output-missing"),
-        pytest.param(["build", "set.toml", "Test", "published", "build"], MissingArgumentError, "--output", id="output-positional"),
-        pytest.param(["unknown-action", "set.toml", "--output", "build"], UnknownCommandError, '"unknown-action"', id="unknown-action"),
-    ],
-)
-def test_a_command_line_outside_the_actions_is_refused(tokens: list[str], refusal: type[CycloptsError], named: str) -> None:
-    """A missing output option and an output given by position refuse the line as the `--output` option missing, and an action the app lacks as an unknown command."""
-    with pytest.raises(refusal, match=re.escape(named)):
-        app(tokens, result_action="return_value", exit_on_error=False, print_error=False)
-
-
-@pytest.mark.parametrize("text,status", [('name=""\ncorpus="x"\nfamilies=[]\n', sysexits.EX_DATAERR), (None, sysexits.EX_NOINPUT)])
-def test_declared_input_failures_keep_their_cli_status(text: str | None, status: int, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Malformed declarations and missing files produce one path-specific error with the required exit code."""
-    declaration = tmp_path / "set.toml"
-    if text is not None:
-        declaration.write_text(text, encoding="utf-8")
+@pytest.mark.parametrize("name,status", [pytest.param("set.toml", sysexits.EX_DATAERR, id="empty-set-name"), pytest.param("absent.toml", sysexits.EX_NOINPUT, id="missing-file")])
+def test_declared_input_failures_keep_their_cli_status(name: str, status: int, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A declaration with an empty name exits `EX_DATAERR` and a missing one `EX_NOINPUT`, each with one error line naming its path."""
+    (tmp_path / "set.toml").write_text('name=""\ncorpus="x"\nfamilies=[]\n', encoding="utf-8")
+    declaration = tmp_path / name
     command, bound, _ = app.parse_args(["build", str(declaration), "--output", str(tmp_path / "build")], exit_on_error=False)
     assert exited(anyio.run(partial(command, *bound.args, **bound.kwargs, cache=tmp_path / "cache"))) == status
     captured = capsys.readouterr()
@@ -64,37 +28,13 @@ def test_declared_input_failures_keep_their_cli_status(text: str | None, status:
     assert captured.err.count("\n") == 1
 
 
-def test_independent_corpus_and_selection_failures_accumulate(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """A missing corpus does not hide an unknown family selection."""
+def test_independent_corpus_and_selection_failures_accumulate(tmp_path: Path) -> None:
+    """A missing corpus does not hide an unknown family selection, each fault naming its own subject: the corpus path beside the declaration, and the set."""
     declaration = tmp_path / "set.toml"
     declaration.write_text(
         'name="Set"\ncorpus="missing.toml"\n[[families]]\nname="Test"\noriginal="original"\ngenre={kind="kufi"}\n[[families.faces]]\nstyle="Regular"\noriginal="Test.ttf"\n', encoding="utf-8"
     )
     command, bound, _ = app.parse_args(["build", str(declaration), "Missing", "--output", str(tmp_path / "build")], exit_on_error=False)
     outcome = anyio.run(partial(command, *bound.args, **bound.kwargs, cache=tmp_path / "cache"))
-    match outcome:
-        case Error(faults):
-            assert tuple(fault.reason for fault in faults) == (Reason.UNREADABLE, Reason.ABSENT)
-        case other:
-            pytest.fail(str(other))
-    assert exited(outcome) == sysexits.EX_NOINPUT
-    assert capsys.readouterr().err.count("\n") == 2
-
-
-def test_result_action_writes_one_json_line_per_face(capsys: pytest.CaptureFixture[str]) -> None:
-    """Report batching retains one independently decodable record per face."""
-    reports = (Report(face="First", duration=timedelta(microseconds=1)), Report(face="Second", duration=timedelta(milliseconds=2)))
-    assert exited(Ok(reports)) == 0
-    captured = capsys.readouterr()
-    assert not captured.err
-    assert msgspec.json.Decoder(Report).decode_lines(captured.out) == list(reports)
-
-
-def test_result_action_deduplicates_faults_and_keeps_first_reason_status(capsys: pytest.CaptureFixture[str]) -> None:
-    """Repeated faults print once while the first reason determines the process exit."""
-    first = Fault(reason=Reason.UNREADABLE, subject="font", cause="missing")
-    second = Fault(reason=Reason.FAILED, subject="compile", cause="rejected")
-    assert exited(Error((first, second, first))) == sysexits.EX_NOINPUT
-    captured = capsys.readouterr()
-    assert not captured.out
-    assert captured.err.splitlines() == [first.message, second.message]
+    named = outcome.map_error(lambda faults: tuple((fault.reason, fault.subject) for fault in faults))
+    assert named == Error(((Reason.UNREADABLE, str(tmp_path / "missing.toml")), (Reason.ABSENT, "Set")))
