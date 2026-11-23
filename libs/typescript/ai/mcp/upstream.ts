@@ -4,7 +4,7 @@ import { McpClient, McpClientError, McpProtocol, McpSchema, McpServer } from 'ef
 import { SecureRandom } from 'effect/crypto';
 import type { HttpClient } from 'effect/http';
 import { Rpc } from 'effect/rpc';
-import { Link, type Notice } from '#/link';
+import { Link } from '#/link';
 import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -38,7 +38,7 @@ class Upstream extends Data.Class<
     Listing & {
         readonly peer: Link;
         readonly annotations: Context.Context<never>;
-        readonly notices: Stream.Stream<Notice>;
+        readonly notices: Stream.Stream<typeof Link.Notice.Type>;
         readonly call: (name: string, given: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<McpSchema.CallToolResult, McpSchema.InternalError | McpSchema.InvalidParams, McpSchema.McpRequestContext>;
         readonly read: (uri: string) => Effect.Effect<McpSchema.ReadResourceResult, McpSchema.InternalError | McpSchema.InvalidParams>;
         readonly get: (name: string, given: Record.ReadonlyRecord<string, string>) => Effect.Effect<McpSchema.GetPromptResult, McpSchema.InternalError | McpSchema.InvalidParams>;
@@ -105,7 +105,7 @@ class Upstream extends Data.Class<
                         }),
             }),
         ]);
-        const [noticed, following] = yield* Effect.all([Queue.unbounded<Notice & { readonly peer: string }>(), FiberMap.make<string>()]);
+        const [noticed, following] = yield* Effect.all([Queue.unbounded<Stream.Success<Upstream['notices']> & { readonly peer: string }>(), FiberMap.make<string>()]);
         const follow = (current: readonly Upstream[]) => {
             const peers = Record.fromIterableWith(current, ({ peer, notices }) => [Link.key(peer), notices] as const);
             return Effect.andThen(
@@ -184,8 +184,12 @@ class Upstream extends Data.Class<
         readonly annotations?: Context.Context<never>;
     }): Stream.Stream<readonly Upstream[], never, R | HttpClient.HttpClient | SecureRandom.SecureRandom> => {
         const named = (name: string) => (prefix === undefined ? name : `${prefix}${name}`);
-        const opened = (at: Effect.Success<typeof endpoint>, protocol: McpProtocol.ProtocolAdapter<McpClient.ProtocolVersion>) => Effect.all({ client: McpClient.make(IDENTITY), transport: McpClient.Transport }).pipe(Effect.provideServiceEffect(McpClient.Transport, McpClient.http({ ...at, protocol })));
-        const connect = Effect.flatMap(endpoint, (at) => Effect.mapError(Effect.flip(Effect.forEach(PROTOCOLS, (protocol) => Effect.flip(opened(at, protocol)))), (failures) => new Cause.UnknownError(failures, `${Link.key(peer)} answered no MCP protocol: ${Array.map(failures, Struct.get('message')).join('; ')}`)));
+        const connect = Effect.flatMap(endpoint, (at) =>
+            Effect.mapError(
+                Effect.flip(Effect.forEach(PROTOCOLS, (protocol) => Effect.flip(Effect.all({ client: McpClient.make(IDENTITY), transport: McpClient.Transport }).pipe(Effect.provideServiceEffect(McpClient.Transport, McpClient.http({ ...at, protocol })))))),
+                (failures) => new Cause.UnknownError(failures, `${Link.key(peer)} answered no MCP protocol: ${Array.map(failures, Struct.get('message')).join('; ')}`),
+            ),
+        );
         const connected = Effect.gen(function* () {
             const [connections, services] = yield* Effect.all([Pool.make({ acquire: connect, size: 1, concurrency: Number.POSITIVE_INFINITY }), Effect.context<SecureRandom.SecureRandom>()]);
             const attempt = Effect.fnUntraced(function* <A, E2>(use: (connection: Parameters<typeof listed>[0]) => Effect.Effect<A, E2, SecureRandom.SecureRandom>) {

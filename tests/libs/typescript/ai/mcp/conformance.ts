@@ -55,7 +55,7 @@ const Outcome = Schema.Struct({ error: Schema.optionalKey(Schema.Struct({ code: 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const hosted = Effect.fnUntraced(function* (bound: string) {
-    const [probe, name, address] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name), Effect.fromResult(Host.hostPortFromString(bound))]);
+    const [probe, name, address] = yield* Effect.all([Probe.make, Server.scheme(MANIFEST.name), Effect.fromResult(Host.hostPortFromString(bound))]);
     return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { ...SETTINGS, address, hosts: ['mcp.example'], instructions: INSTRUCTIONS }, app(probe)).pipe(Layer.provide([layerAead, layerSecureRandom])) };
 });
 const messages = (response: Response) =>
@@ -122,7 +122,7 @@ const settled = <A, E>(effect: Effect.Effect<A, E>, done: (value: A) => boolean)
 const echoed = ({ content, structuredContent }: McpSchema.CallToolResult) => ({ handled: Schema.is(Handled)(structuredContent), result: Option.getOrUndefined(Array.findFirst(content, (block) => ('text' in block ? Schema.decodeOption(Echoed)(block.text) : Option.none()))) });
 
 const connected = Effect.fnUntraced(function* <E, R>(protocol: (typeof PROTOCOLS)[number], beside: Layer.Layer<never, E, R>) {
-    const [probe, scheme] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name)]);
+    const [probe, scheme] = yield* Effect.all([Probe.make, Server.scheme(MANIFEST.name)]);
     const client = yield* McpTest.makeClient(Layer.provide(Layer.mergeAll(app(probe), beside), Server.layer({ ...SETTINGS, scheme }).pipe(Layer.provide([layerAead, layerSecureRandom]))), { protocols: [protocol] });
     yield* Effect.addFinalizer(() => probe.release.open);
     return { probe, client };

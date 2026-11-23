@@ -4,7 +4,6 @@ import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Params<Schemas extends readonly Schema.Constraint[]> = { readonly [K in keyof Schemas]: Schemas[K]['Type'] };
 type Named<Schemas extends readonly Schema.Constraint[]> = { readonly [K in Extract<keyof Schemas, `${number}`> as Schemas[K] extends McpSchema.Param<infer Name, Schema.Constraint> ? Name : `param${K}`]: Schemas[K]['Type'] };
 type Descriptor = Omit<typeof McpServer.registerResource extends { (options: infer Options): unknown; (...template: never): unknown } ? Options : never, 'uri' | 'content'>;
 interface Entry<A> {
@@ -17,18 +16,6 @@ interface Entry<A> {
 
 const encodeJsonText = Schema.encodeEffect(Schema.fromJsonString(Schema.Json));
 const updatedUris = <A>(last: HashMap.HashMap<string, Entry<A>>, current: HashMap.HashMap<string, Entry<A>>) => Array.flatMap([...last], ([key, entry]) => (Option.contains(Option.map(HashMap.get(current, key), Struct.get('value')), entry.value) ? [] : [...entry.uris]));
-const complete = <Fields extends Schema.Struct.Fields, Given = Schema.Struct.Type<Fields>>(fields: Fields) => {
-    const none: Partial<Given> = {};
-    const decoders = Record.collect(fields, (key) => Schema.decodeUnknownEffect(Schema.toCodecStringTree(Schema.Struct(Struct.pick(fields, [key])))));
-    const decode = (resolved: Readonly<Record<string, string>>): Effect.Effect<Partial<Given>, never, Schema.Struct<Fields>['DecodingServices']> =>
-        Effect.map(
-            Effect.forEach(decoders, (decoder) => Effect.option(decoder(resolved))),
-            (picked) => ({ ...none, ...Object.fromEntries(Array.flatMap(Array.getSomes(picked), Object.entries)) }),
-        );
-    return <Values, R>(completing: (input: string, given: Partial<Given>) => Effect.Effect<Values, Error, R>) =>
-        (input: string, context: Parameters<McpServer.McpServer['Service']['completion']>[0]['context']) =>
-            Effect.flatMap(decode(context?.arguments ?? {}), (given) => completing(input, given));
-};
 const make = Effect.fnUntraced(function* <A, I, R, D extends Partial<Record<'uri' | 'mimeType' | 'description', string | undefined>>>({ schema, changes, uri, mimeType, description, ...descriptor }: D & { readonly schema: Schema.Codec<A, I>; readonly changes: Stream.Stream<unknown, never, R> }) {
     const [server, store] = yield* Effect.all([McpServer.McpServer, SubscriptionRef.make(HashMap.empty<string, Entry<A>>())]);
     const codec = Schema.toCodecJson(schema);
@@ -101,7 +88,7 @@ const registerTemplate = <const Schemas extends readonly Schema.Codec<unknown, u
     }: Descriptor & {
         readonly completion?: { readonly [K in keyof Named<Schemas>]?: (input: string, given: Partial<Named<Schemas>>) => Effect.Effect<Named<Schemas>[K][], Error, R> } | undefined;
         readonly schema: Schema.Codec<A, I>;
-        readonly content: (uri: string, ...params: Params<Schemas>) => Effect.Effect<A, E, R>;
+        readonly content: (uri: string, ...params: { readonly [K in keyof Schemas]: Schemas[K]['Type'] }) => Effect.Effect<A, E, R>;
         readonly changes: Stream.Stream<unknown, never, R>;
     }) {
         const [server, services, store] = yield* Effect.all([Server, Effect.context<R>(), make({ ...descriptor, schema, changes })]);
@@ -109,17 +96,23 @@ const registerTemplate = <const Schemas extends readonly Schema.Codec<unknown, u
         const segments = Object.assign(rooted(path), { raw: rooted(path.raw) });
         const interleaved = <B>(values: readonly B[]) => Array.flatMap(segments, (segment, index) => [segment, ...Option.toArray(Array.get(values, index))]);
         const canonical = Schema.encodeUnknownEffect(Schema.TemplateLiteralParser(interleaved(Array.map(schemas, (each) => Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.toCodecStringTree(each)))))));
-        const keyed = (params: Params<Schemas>) => Effect.orDie(canonical(interleaved(params)));
         const merged = (request: Context.Context<never>) => Context.merge(services, request);
-        const reading = (params: Params<Schemas>, at: string) => Effect.updateContext(content(at, ...params), merged);
-        const completing = complete<Record<string, Schemas[number]>, Named<Schemas>>(Record.fromEntries(Array.map(schemas, (each, index) => [McpSchema.isParam(each) ? each.name : `param${index}`, each] as const)));
+        const none: Partial<Named<Schemas>> = {};
+        const decoders = schemas.map((each, index) => Schema.decodeUnknownEffect(Schema.toCodecStringTree(Schema.Struct({ [McpSchema.isParam(each) ? each.name : `param${index}`]: each }))));
         yield* McpServer.registerResource(
             segments,
             ...schemas,
         )({
             ...store.descriptor,
-            completion: Record.map({ ...completion }, (handle) => flow(completing<Named<Schemas>[keyof Named<Schemas>][], R>(handle), Effect.updateContext(merged))),
-            content: (at, ...params) => Effect.flatMap(keyed(params), (key) => store.read(key, at, reading(params, at))),
+            completion: Record.map(
+                { ...completion },
+                (handle: (input: string, given: Partial<Named<Schemas>>) => Effect.Effect<Named<Schemas>[keyof Named<Schemas>][], Error, R>) => (input: string, context: Parameters<McpServer.McpServer['Service']['completion']>[0]['context']) =>
+                    Effect.forEach(decoders, (decoder) => Effect.option(decoder(context?.arguments ?? {}))).pipe(
+                        Effect.flatMap((picked) => handle(input, { ...none, ...Object.fromEntries(Array.flatMap(Array.getSomes(picked), Object.entries)) })),
+                        Effect.updateContext(merged),
+                    ),
+            ),
+            content: (at, ...params) => Effect.flatMap(Effect.orDie(canonical(interleaved(params))), (key) => store.read(key, at, Effect.updateContext(content(at, ...params), merged))),
         });
     });
 

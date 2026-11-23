@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Link, type Notice, Server, Upstream } from '@rasm/mcp';
+import { Link, Server, Upstream } from '@rasm/mcp';
 import { Array, Effect, Function, Layer, Number, Option, Queue, Ref, Schema, Stream, Struct } from 'effect';
 import { McpProtocol, Tool, Toolkit } from 'effect/ai';
 import { RpcTest } from 'effect/rpc';
@@ -20,7 +20,7 @@ const Joined = Toolkit.make(Tool.make('late', { description: 'Tool of the extens
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const linked = Effect.fnUntraced(function* (silent: readonly Stream.Stream<readonly Upstream[]>[] = []) {
-    const [notices, late, own, lists, subscribed, seen] = yield* Effect.all([Queue.unbounded<Notice>(), Queue.unbounded<Notice>(), Queue.unbounded<string>(), Queue.unbounded<Link[]>(), Ref.make(0), Ref.make<Trailed['events']>([])]);
+    const [notices, late, own, lists, subscribed, seen] = yield* Effect.all([Queue.unbounded<Stream.Success<Upstream['notices']>>(), Queue.unbounded<Stream.Success<Upstream['notices']>>(), Queue.unbounded<string>(), Queue.unbounded<Link[]>(), Ref.make(0), Ref.make<Trailed['events']>([])]);
     const counted = Stream.unwrap(Effect.as(Ref.update(subscribed, Number.increment), Stream.fromQueue(notices)));
     const [extension, joined] = yield* Effect.all([
         RpcTest.makeClient(Link.Rpcs, { flatten: true }).pipe(Effect.provide(Link.serve(Extension, { notices: counted }).pipe(Layer.provide(Extension.toLayer({ unique: () => Effect.succeed('own') }))))),

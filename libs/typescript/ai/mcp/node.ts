@@ -45,7 +45,7 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
     app: Layer.Layer<never, E, R>,
     ending: Effect.Effect<never, E2, R2>,
 ) {
-    const named = { ...manifest, name: yield* Schema.decodeEffect(Server.Scheme)(manifest.name) };
+    const named = { ...manifest, name: yield* Server.scheme(manifest.name) };
     const variable = [named.name, ...OUTPUT.split('.')].map(String.constantCase).join('_');
     const Listen = setting('listen', 'listen', present(Schema.HostPortFromString), listen, 'Endpoint as host:port or [IPv6]:port, a host name binding every address it resolves to');
     const defaults = yield* process.platform === 'darwin' ? run(['defaults', 'export', domain, '-']).pipe(Effect.flatMap(({ stdout: text }) => Effect.try({ try: (): unknown => plist(text), catch: (cause) => new Cause.UnknownError(cause, `defaults export of ${domain} printed no property list`) }))) : Effect.succeed({});
@@ -60,7 +60,7 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
         Layer.launch,
     );
     const located = Effect.map(Settings.output, (output) => {
-        const folder = (target: string, kind: keyof typeof FOLDERS) => Option.match(output, { onNone: () => join(envPaths(named.name, { suffix: '' })[FOLDERS[kind][0]], FOLDERS[kind][1]), onSome: (root) => join(root, target, kind) });
+        const folder: Output['Service']['folder'] = (target, kind) => Option.match(output, { onNone: () => join(envPaths(named.name, { suffix: '' })[FOLDERS[kind][0]], FOLDERS[kind][1]), onSome: (root) => join(root, target, kind) });
         return { folder, logs: folder(named.name, 'logs') };
     });
     const telemetry = Effect.map(Effect.all([located, GlobalFlag.LogLevel]), ([{ logs }, level]) =>

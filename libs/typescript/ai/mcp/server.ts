@@ -1,6 +1,6 @@
 import { ATTR_ERROR_TYPE, ATTR_GEN_AI_OPERATION_NAME, ATTR_GEN_AI_PROMPT_NAME, ATTR_GEN_AI_TOOL_NAME, ATTR_MCP_METHOD_NAME, ATTR_MCP_RESOURCE_URI, ERROR_TYPE_VALUE_OTHER, GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL, METRIC_MCP_SERVER_OPERATION_DURATION } from '@opentelemetry/semantic-conventions/incubating';
 import { Unmatched } from '@rasm/search';
-import { Array, type Brand, Cause, Context, Deferred, Duration, Effect, Exit, Fiber, Function, Layer, Match, Metric, Number, Option, Order, pipe, RcMap, Record, Ref, Result, Schema, SchemaGetter, type Scope, Stream, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Fiber, Function, Layer, Match, Metric, Number, Option, Order, pipe, RcMap, Record, Ref, Result, Schema, SchemaGetter, type Scope, Stream, Struct, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import { Aead, SecureRandom } from 'effect/crypto';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
@@ -8,25 +8,12 @@ import { Host, NetAddress } from 'effect/net';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Line {
-    readonly sequence: number;
-    readonly text: string;
-    readonly shown: Effect.Effect<boolean>;
-}
 interface Running {
     readonly call: number;
     readonly tool: string;
     readonly done: Deferred.Deferred<McpSchema.CallToolResult | McpSchema.InputRequired, McpSchema.InternalError | McpSchema.InvalidParams>;
     readonly ends: Stream.Stream<string>;
 }
-interface Holder {
-    readonly state: Ref.Ref<Context.Context<never>>;
-    readonly cursor: Ref.Ref<number>;
-    readonly calls: Ref.Ref<number>;
-    readonly running: Ref.Ref<readonly Running[]>;
-}
-type Progressed = Omit<Parameters<McpServer.McpServer['Service']['notifications']['notifications/progress']>[0], 'progressToken' | '_meta'>;
-type Gated = Pick<Parameters<McpServer.McpServer['Service']['addResource']>[0], 'annotations' | 'services'>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -38,14 +25,12 @@ const SEALING = Aead.xchacha20Poly1305;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Tagged = Schema.Struct({ _tag: Schema.String });
-class Finished extends Schema.Opaque<Finished, unknown>()(
-    Schema.Struct({
-        call: Schema.Int.annotate({ description: 'Number of the call in the early result that returned it' }),
-        tool: Schema.String,
-        result: Schema.optionalKey(Schema.Json),
-        error: Schema.optionalKey(Schema.String),
-    }),
-) {}
+const Finished = Schema.Struct({
+    call: Schema.Int.annotate({ description: 'Number of the call in the early result that returned it' }),
+    tool: Schema.String,
+    result: Schema.optionalKey(Schema.Json),
+    error: Schema.optionalKey(Schema.String),
+});
 const Delivered = Schema.Struct({
     pending: Schema.optionalKey(Schema.Array(Schema.Int).annotate({ description: 'Calls of this handle still running' })),
     finished: Schema.optionalKey(Schema.Array(Finished).annotate({ description: 'Calls that returned early and finished since, each listed once' })),
@@ -79,11 +64,13 @@ class Server extends Context.Service<
         readonly relist: Effect.Effect<void, Error>;
     }
 >()('@rasm/mcp/server') {
-    static readonly Scheme = Schema.String.pipe(
-        Schema.decodeTo(Schema.String.check(Schema.isPattern(/^[A-Za-z][\d+.A-Za-z-]*$/u)).pipe(Schema.brand('Scheme')), {
-            decode: SchemaGetter.transform((name: string) => name.slice(name.lastIndexOf('/') + 1)),
-            encode: SchemaGetter.forbiddenEncoding,
-        }),
+    static readonly scheme = Schema.decodeEffect(
+        Schema.String.pipe(
+            Schema.decodeTo(Schema.String.check(Schema.isPattern(/^[A-Za-z][\d+.A-Za-z-]*$/u)).pipe(Schema.brand('Scheme')), {
+                decode: SchemaGetter.transform((name: string) => name.slice(name.lastIndexOf('/') + 1)),
+                encode: SchemaGetter.forbiddenEncoding,
+            }),
+        ),
     );
     static readonly Instructions = Context.Reference<readonly string[]>('@rasm/mcp/server/Instructions', { defaultValue: () => [] });
     static readonly Visible = Context.Reference<Effect.Effect<boolean, Error>>('@rasm/mcp/server/Visible', { defaultValue: () => Effect.succeed(true) });
@@ -91,7 +78,7 @@ class Server extends Context.Service<
     static readonly Ends = Context.Reference<Stream.Stream<string>>('@rasm/mcp/server/Ends', { defaultValue: () => Stream.never });
     static readonly ToolCall = Context.Reference<{
         readonly add: (block: McpSchema.ContentBlock) => Effect.Effect<void>;
-        readonly progress: (report: Progressed) => Effect.Effect<void>;
+        readonly progress: (report: Omit<Parameters<McpServer.McpServer['Service']['notifications']['notifications/progress']>[0], 'progressToken' | '_meta'>) => Effect.Effect<void>;
         readonly input: (required: McpSchema.InputRequired) => Effect.Effect<never, McpSchema.InternalError>;
         readonly settle: Effect.Effect<void>;
     }>('@rasm/mcp/server/ToolCall', {
@@ -99,7 +86,7 @@ class Server extends Context.Service<
     });
     static readonly orInternalError = Effect.mapError(({ message }: Error) => McpSchema.InternalError.make({ message }));
     static readonly progress =
-        <A>(report: (value: A, index: number) => Progressed) =>
+        <A>(report: (value: A, index: number) => Parameters<(typeof Server.ToolCall)['Service']['progress']>[0]) =>
         <E, R>(self: Stream.Stream<A, E, R>) =>
             Stream.mapEffect(self, (value, index) =>
                 Effect.as(
@@ -108,7 +95,7 @@ class Server extends Context.Service<
                 ),
             );
     static readonly registerTool = Effect.fnUntraced(function* <P extends Schema.Top, S extends Schema.Top, R>(
-        tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: typeof Schema.Never; readonly failureMode: Tool.FailureMode }>,
+        tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: Schema.Never; readonly failureMode: Tool.FailureMode }>,
         handle: (parameters: P['Type']) => Effect.Effect<S['Type'], Error, R>,
     ) {
         const context = yield* Effect.context<Exclude<R, McpSchema.McpRequestContext>>();
@@ -124,11 +111,11 @@ class Server extends Context.Service<
         const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance(), dependencies: [McpSchema.McpRequestContext] }).annotateMerge(tool.annotations));
         yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
     });
-    static readonly layer = Effect.fnUntraced(function* ({ scheme, retention, limit }: { readonly scheme: Brand.Branded<string, 'Scheme'>; readonly retention: Duration.Duration; readonly limit: number }) {
-        const [server, scope, journal, aead, random] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make<readonly Line[]>([]), Aead.Aead, SecureRandom.SecureRandom]);
+    static readonly layer = Effect.fnUntraced(function* ({ scheme, retention, limit }: { readonly scheme: Effect.Success<ReturnType<typeof Server.scheme>>; readonly retention: Duration.Duration; readonly limit: number }) {
+        const [server, scope, journal, aead, random] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make<readonly { readonly sequence: number; readonly text: string; readonly shown: Effect.Effect<boolean> }[]>([]), Aead.Aead, SecureRandom.SecureRandom]);
         const [key, trailer] = yield* Effect.orDie(Effect.all([aead.generateKey(SEALING), Schema.decodeUnknownEffect(McpSchema.ToolJson)(Schema.toJsonSchemaDocument(Trailer).schema)]));
         const handles = yield* RcMap.make({
-            lookup: (_: string): Effect.Effect<Holder> => Effect.all({ state: Ref.make(Context.empty()), cursor: Effect.flatMap(Ref.get(journal), (lines) => Ref.make(Option.match(Array.last(lines), { onNone: () => 0, onSome: Struct.get('sequence') }))), calls: Ref.make(0), running: Ref.make<readonly Running[]>([]) }),
+            lookup: (_: string) => Effect.all({ state: Ref.make(Context.empty()), cursor: Effect.flatMap(Ref.get(journal), (lines) => Ref.make(Option.match(Array.last(lines), { onNone: () => 0, onSome: Struct.get('sequence') }))), calls: Ref.make(0), running: Ref.make<readonly Running[]>([]) }),
             idleTimeToLive: retention,
         });
         const uri = (path: string) => `${scheme}://${path}`;
@@ -146,7 +133,7 @@ class Server extends Context.Service<
             Effect.mapError(() => McpSchema.InvalidParams.make({ message: 'requestState came from no input request of this server and tool, call again without it' })),
         );
         const early = (id: string, text: string) => McpSchema.CallToolResult.make({ content: [McpSchema.ResourceLink.make({ ...EXECUTIONS, uri: uri(`${EXECUTIONS.name}/${id}`), description: `${text}, the call keeps running and its result arrives here and in a later result` })] });
-        const gate = (subject: Readonly<Record<string, string>>, { annotations, services = Context.empty() }: Gated) =>
+        const gate = (subject: Readonly<Record<string, string>>, { annotations, services = Context.empty() }: Pick<Parameters<McpServer.McpServer['Service']['addResource']>[0], 'annotations' | 'services'>) =>
             Effect.map(
                 Layer.buildWithScope(
                     McpServer.visibility(() =>
@@ -159,7 +146,6 @@ class Server extends Context.Service<
                 ),
                 (gated) => Context.merge(services, gated),
             );
-        const calls = { server, scope, gate, retention, handles, journal, trailer, early, seal, open, mint: random.uuidV7() };
         const listed = yield* Ref.make<Record.ReadonlyRecord<'tools' | 'resources' | 'prompts', Record.ReadonlyRecord<string, boolean>>>({ tools: {}, resources: {}, prompts: {} });
         const visible = (entries: readonly (readonly [string, Context.Context<never>])[]) =>
             Effect.map(
@@ -192,7 +178,124 @@ class Server extends Context.Service<
             McpServer.McpServer,
             McpServer.McpServer.of({
                 ...server,
-                addTool: addTool(calls),
+                addTool: (options) => {
+                    const ends = Context.get(options.annotations, Server.Ends);
+                    const Named = Schema.String.annotate({ description: `Handle from an earlier result, holding your state and your place in the events; omit it to start one; it expires after ${Duration.format(retention)} without a call` });
+                    const { $defs, ...output } = options.tool.outputSchema ?? {};
+                    const tool = McpSchema.Tool.make({
+                        ...options.tool,
+                        icons: iconed(options.annotations, options.tool.icons),
+                        inputSchema: { ...options.tool.inputSchema, properties: { ...options.tool.inputSchema.properties, handle: Schema.toJsonSchemaDocument(Named).schema } },
+                        outputSchema: { ...trailer, properties: { result: output, ...trailer.properties }, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr($defs), (definitions) => ({ $defs: definitions }))) },
+                    });
+                    const handle = Effect.fnUntraced(
+                        function* (payload: Record.ReadonlyRecord<string, Schema.Json>) {
+                            const [{ handle: given }, request] = yield* Effect.all([Effect.mapError(Schema.decodeEffect(Given)(payload), ({ message }) => McpSchema.InvalidParams.make({ message })), McpSchema.McpRequestContext]);
+                            const resumed = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(request.requestState), (sealed) => open(options.tool.name, sealed)));
+                            const named = Option.orElse(Option.map(resumed, Struct.get('handle')), () => Option.fromUndefinedOr(given));
+                            const id = yield* Option.match(named, { onNone: () => random.uuidV7(), onSome: Effect.succeed });
+                            const row = yield* Option.match(named, { onNone: () => Effect.asSome(RcMap.get(handles, id)), onSome: () => RcMap.getOption(handles, id) });
+                            const { state: kept, cursor, calls, running: unfinished } = yield* Effect.fromOption(row, () => new Cause.NoSuchElementError(`Handle ${id} is unknown or expired after ${Duration.format(retention)} without a call, call again without handle to start one`));
+                            const bound = held(kept);
+                            const [blocks, done, asked, pace, frozen] = yield* Effect.all([
+                                Ref.make(Array.empty<McpSchema.ContentBlock>()),
+                                Deferred.make<McpSchema.CallToolResult | McpSchema.InputRequired, McpSchema.InternalError | McpSchema.InvalidParams>(),
+                                Deferred.make<McpSchema.InputRequired>(),
+                                Ref.make({ last: -1, offset: 0, quiet: true }),
+                                Effect.map(Effect.flatMap(Ref.get(kept), Ref.make), held),
+                            ]);
+                            const ending = Stream.provideService(ends, Handle, frozen);
+                            const token = Schema.decodeUnknownOption(McpSchema.ProgressToken)(request.requestMetadata?.progressToken);
+                            const notify = (report: Parameters<(typeof Server.ToolCall)['Service']['progress']>[0]) => Option.match(token, { onNone: () => Effect.void, onSome: (progressToken) => server.notifications['notifications/progress']({ progressToken, ...report }) });
+                            const beat = Effect.flatMap(
+                                Ref.modify(pace, ({ last, offset, quiet }) => (quiet ? [Option.some(last + 1), { last: last + 1, offset: offset + 1, quiet }] : [Option.none(), { last, offset, quiet: true }])),
+                                Option.match({ onNone: () => Effect.void, onSome: (progress) => notify({ progress }) }),
+                            );
+                            const answer = Effect.raceFirst(
+                                Effect.zipWith(options.handle(Record.remove(payload, 'handle')), Ref.get(blocks), (outcome, added) => (outcome instanceof McpSchema.InputRequired ? outcome : McpSchema.CallToolResult.make({ ...outcome, content: [...outcome.content, ...added] }))),
+                                Deferred.await(asked),
+                            ).pipe(
+                                Effect.provideService(Server.ToolCall, {
+                                    add: (block) => Ref.update(blocks, Array.append(block)),
+                                    progress: (report) =>
+                                        Effect.flatMap(
+                                            Ref.modify(pace, ({ offset }) => [
+                                                { ...report, progress: report.progress + offset, total: UndefinedOr.map(report.total, Number.sum(offset)) },
+                                                { last: report.progress + offset, offset, quiet: false },
+                                            ]),
+                                            notify,
+                                        ),
+                                    input: (required) => Effect.andThen(Deferred.succeed(asked, required), Effect.never),
+                                    settle: Effect.flatMap(
+                                        Ref.get(unfinished),
+                                        Effect.forEach((each) => Effect.raceFirst(Effect.exit(Deferred.await(each.done)), Stream.runHead(each.ends)), { concurrency: 'unbounded', discard: true }),
+                                    ),
+                                }),
+                                Effect.provideService(Handle, bound),
+                                Effect.updateService(McpSchema.McpRequestContext, (context) => ({ ...context, requestState: Option.getOrUndefined(resumed)?.state })),
+                                Effect.scoped,
+                            );
+                            const running = yield* Effect.forkIn(Deferred.complete(done, answer), scope);
+                            const [outcome, reason] = yield* pipe(
+                                Deferred.await(done),
+                                Effect.map((value) => [value, Option.none<string>()] as const),
+                                Effect.raceFirst(Effect.flatMap(Stream.runHead(ending), Option.match({ onNone: () => Effect.never, onSome: (text) => Effect.succeed([early(id, text), Option.some(text)] as const) }))),
+                                Effect.raceFirst(Option.match(token, { onNone: () => Effect.never, onSome: () => Effect.forever(Effect.andThen(Effect.sleep(PROGRESS), beat)) })),
+                                Effect.interruptible,
+                                Effect.onInterrupt(() => Fiber.interrupt(running)),
+                            );
+                            const returned = Option.all({ call: yield* Effect.transposeOption(Option.as(reason, Ref.updateAndGet(calls, Number.increment))), reason });
+                            const forgotten = RcMap.get(handles, id).pipe(
+                                Effect.andThen(Effect.exit(Deferred.await(done))),
+                                Effect.andThen(Effect.sleep(retention)),
+                                Effect.andThen(
+                                    Ref.update(
+                                        unfinished,
+                                        Array.filter((each) => each.done !== done),
+                                    ),
+                                ),
+                                Effect.scoped,
+                            );
+                            yield* Option.match(returned, { onNone: () => Effect.void, onSome: (returning) => Effect.andThen(Ref.update(unfinished, Array.append({ call: returning.call, tool: options.tool.name, done, ends: ending })), Effect.forkIn(forgotten, scope)) });
+                            const lines = yield* Ref.get(journal);
+                            const from = yield* Ref.getAndUpdate(cursor, (at) => Option.match(Array.last(lines), { onNone: () => at, onSome: ({ sequence }) => Math.max(at, sequence) }));
+                            const fresh = lines.filter(({ sequence }) => sequence > from);
+                            const dropped = Option.filter(
+                                Option.map(Array.head(fresh), ({ sequence }) => sequence - from - 1),
+                                (count) => count > 0,
+                            );
+                            const shown = yield* Effect.provideService(Effect.filter(fresh, Struct.get('shown')), Handle, bound);
+                            const text = [
+                                ...(Option.isNone(named) ? [`Handle ${id} holds your state and your place in the events, pass it as handle on each call`] : []),
+                                ...Option.toArray(Option.map(dropped, (count) => `${count} older events dropped`)),
+                                ...Array.map(shown, ({ sequence, text: line }) => `#${sequence} ${line}`),
+                            ];
+                            const mirrored = (content: readonly McpSchema.ContentBlock[]) => [...content, ...Array.match(text, { onEmpty: () => [], onNonEmpty: (rows) => [McpSchema.TextContent.make({ text: rows.join('\n') })] })];
+                            const trailed = (structured: unknown) =>
+                                Effect.map(delivered(unfinished), (delivery) => ({
+                                    ...Option.getOrUndefined(Option.bindTo(Option.fromUndefinedOr(structured), 'result')),
+                                    handle: id,
+                                    ...Option.getOrUndefined(Option.bindTo(dropped, 'dropped')),
+                                    events: Array.map(shown, Struct.pick(['sequence', 'text'])),
+                                    ...Option.getOrUndefined(Option.bindTo(returned, 'early')),
+                                    ...delivery,
+                                }));
+                            return yield* outcome instanceof McpSchema.InputRequired
+                                ? Effect.map(seal(options.tool.name, { handle: id, state: outcome.requestState }), (requestState) => new McpSchema.InputRequired({ inputRequests: outcome.inputRequests, requestState }))
+                                : Effect.map(outcome.isError === true ? Effect.succeed({}) : Effect.map(trailed(outcome.structuredContent), (structuredContent) => ({ structuredContent })), (structured) => McpSchema.CallToolResult.make({ ...outcome, content: mirrored(outcome.content), ...structured }));
+                        },
+                        Effect.catchTag('NoSuchElementError', ({ message }) => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message })] }))),
+                        Effect.uninterruptible,
+                        Effect.scoped,
+                    );
+                    return Array.match(
+                        Array.filter(Record.keys(Given.fields), (field) => Record.has(options.tool.inputSchema.properties ?? {}, field)),
+                        {
+                            onEmpty: () => Effect.flatMap(gate({ [ATTR_GEN_AI_TOOL_NAME]: options.tool.name }, options), (services) => server.addTool({ ...options, tool, handle, services })),
+                            onNonEmpty: (taken) => Effect.annotateLogs(Effect.logError(`Tool ${options.tool.name} takes ${taken.join(', ')}, which the server adds to every tool, and stays unregistered`), { [ATTR_GEN_AI_TOOL_NAME]: options.tool.name }),
+                        },
+                    );
+                },
                 addResource: (options) => Effect.flatMap(gate({ [ATTR_MCP_RESOURCE_URI]: options.resource.uri }, options), (services) => server.addResource({ ...options, services, resource: McpSchema.Resource.make({ ...options.resource, icons: iconed(options.annotations, options.resource.icons) }) })),
                 addResourceTemplate: (options) =>
                     Effect.flatMap(gate({ [ATTR_MCP_RESOURCE_URI]: options.template.uriTemplate }, options), (services) =>
@@ -203,7 +306,21 @@ class Server extends Context.Service<
                         server.addPrompt({ ...options, services, prompt: McpSchema.Prompt.make({ ...options.prompt, icons: iconed(options.annotations, options.prompt.icons) }), completions: Record.map(options.completions, ranking) }),
                     ),
             }),
-        ).pipe(Context.add(Server, Server.of({ uri, events: events({ journal, limit }), relist })));
+        ).pipe(
+            Context.add(
+                Server,
+                Server.of({
+                    uri,
+                    events: ({ text, shown = Function.constant(Effect.succeed(true)), stream }) =>
+                        stream.pipe(
+                            Stream.runForEach((value) => Ref.update(journal, (kept) => Array.takeRight(Array.append(kept, { text: text(value), shown: shown(value), sequence: Option.match(Array.last(kept), { onNone: () => 1, onSome: ({ sequence }) => sequence + 1 }) }), limit))),
+                            Effect.forkScoped,
+                            Effect.asVoid,
+                        ),
+                    relist,
+                }),
+            ),
+        );
     }, Layer.effectContext);
     static readonly layerStdio = <E, R>(manifest: Parameters<typeof served>[0], settings: Parameters<typeof served>[1], app: Layer.Layer<never, E, R>) => Layer.unwrap(Effect.map(served(manifest, settings, app), (options) => McpServer.layerStdio(options))).pipe(Layer.provideMerge(McpServer.McpServer.layer));
     static readonly layerHttp = <E, R>(manifest: Parameters<typeof served>[0], { address, hosts, ...settings }: Parameters<typeof served>[1] & { readonly address: Host.HostPort; readonly hosts: readonly string[] }, app: Layer.Layer<never, E, R>) => {
@@ -268,7 +385,6 @@ const metered = McpServer.middleware((effect, { method, target }) =>
         }),
     }),
 );
-const since = <L extends Line>(at: number, lines: readonly L[]) => [Option.match(Array.last(lines), { onNone: () => at, onSome: ({ sequence }) => Math.max(at, sequence) }), lines.filter(({ sequence }) => sequence > at)] as const;
 const ranking =
     <C, R>(complete: (input: string, context: C) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError, R>) =>
     (input: string, context: C) =>
@@ -276,16 +392,8 @@ const ranking =
             const ordered = Unmatched.rank(input, values);
             return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered, total: ordered.length } });
         });
-
-const events = ({ journal, limit }: Pick<Parameters<typeof addTool>[0], 'journal'> & { readonly limit: number }) =>
-    Effect.fnUntraced(function* <A>({ text, shown = Function.constant(Effect.succeed(true)), stream }: { readonly text: (event: A) => string; readonly shown?: (event: A) => Effect.Effect<boolean>; readonly stream: Stream.Stream<A> }) {
-        yield* stream.pipe(
-            Stream.runForEach((value) => Ref.update(journal, (kept) => Array.takeRight(Array.append(kept, { text: text(value), shown: shown(value), sequence: Option.match(Array.last(kept), { onNone: () => 1, onSome: ({ sequence }) => sequence + 1 }) }), limit))),
-            Effect.forkScoped,
-        );
-    });
 const texts = ({ content }: McpSchema.CallToolResult) => content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n');
-const finished = ({ call, tool }: Running, exit: Exit.Exit<McpSchema.CallToolResult | McpSchema.InputRequired, McpSchema.InternalError | McpSchema.InvalidParams>): Finished =>
+const finished = ({ call, tool }: Running, exit: Exit.Exit<McpSchema.CallToolResult | McpSchema.InputRequired, McpSchema.InternalError | McpSchema.InvalidParams>) =>
     Exit.match(exit, {
         onSuccess: (outcome) =>
             outcome instanceof McpSchema.InputRequired
@@ -297,7 +405,7 @@ const delivered = Effect.fnUntraced(function* (running: Ref.Ref<readonly Running
     const read = yield* Effect.forEach(yield* Ref.get(running), (each) =>
         Effect.map(
             Effect.flatMap(Deferred.poll(each.done), (polled) => Effect.transposeOption(Option.map(polled, Effect.exit))),
-            Option.match({ onNone: (): Result.Result<Finished, number> => Result.fail(each.call), onSome: (exit) => Result.succeed(finished(each, exit)) }),
+            Option.match({ onNone: () => Result.fail(each.call), onSome: (exit) => Result.succeed(finished(each, exit)) }),
         ),
     );
     const [ended, pending] = Array.separate(read);
@@ -307,154 +415,6 @@ const delivered = Effect.fnUntraced(function* (running: Ref.Ref<readonly Running
     );
     return { ...Array.match(pending, { onEmpty: () => ({}), onNonEmpty: (calls) => ({ pending: calls }) }), ...Array.match(ended, { onEmpty: () => ({}), onNonEmpty: (entries) => ({ finished: entries }) }) };
 });
-const addTool =
-    ({
-        server,
-        scope,
-        gate,
-        retention,
-        handles,
-        journal,
-        trailer,
-        early,
-        seal,
-        open,
-        mint,
-    }: {
-        readonly server: McpServer.McpServer['Service'];
-        readonly scope: Scope.Scope;
-        readonly gate: (subject: Readonly<Record<string, string>>, options: Gated) => Effect.Effect<Context.Context<never>>;
-        readonly retention: Duration.Duration;
-        readonly handles: RcMap.RcMap<string, Holder>;
-        readonly journal: Ref.Ref<readonly Line[]>;
-        readonly trailer: McpSchema.ToolJson;
-        readonly early: (id: string, text: string) => McpSchema.CallToolResult;
-        readonly seal: (tool: string, resumed: Resumed) => Effect.Effect<string>;
-        readonly open: (tool: string, state: string) => Effect.Effect<Resumed, McpSchema.InvalidParams>;
-        readonly mint: Effect.Effect<string>;
-    }) =>
-    (options: Parameters<McpServer.McpServer['Service']['addTool']>[0]) => {
-        const ends = Context.get(options.annotations, Server.Ends);
-        const Named = Schema.String.annotate({ description: `Handle from an earlier result, holding your state and your place in the events; omit it to start one; it expires after ${Duration.format(retention)} without a call` });
-        const { $defs, ...output } = options.tool.outputSchema ?? {};
-        const tool = McpSchema.Tool.make({
-            ...options.tool,
-            icons: iconed(options.annotations, options.tool.icons),
-            inputSchema: { ...options.tool.inputSchema, properties: { ...options.tool.inputSchema.properties, handle: Schema.toJsonSchemaDocument(Named).schema } },
-            outputSchema: { ...trailer, properties: { result: output, ...trailer.properties }, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr($defs), (definitions) => ({ $defs: definitions }))) },
-        });
-        const called = Effect.fnUntraced(function* (payload: Record.ReadonlyRecord<string, Schema.Json>, { id, minted, state, row: { state: kept, cursor, calls, running: unfinished } }: { readonly id: string; readonly minted: boolean; readonly state: Option.Option<string>; readonly row: Holder }) {
-            const bound = held(kept);
-            const [request, blocks, done, asked, pace, frozen] = yield* Effect.all([
-                McpSchema.McpRequestContext,
-                Ref.make(Array.empty<McpSchema.ContentBlock>()),
-                Deferred.make<McpSchema.CallToolResult | McpSchema.InputRequired, McpSchema.InternalError | McpSchema.InvalidParams>(),
-                Deferred.make<McpSchema.InputRequired>(),
-                Ref.make({ last: -1, offset: 0, quiet: true }),
-                Effect.map(Effect.flatMap(Ref.get(kept), Ref.make), held),
-            ]);
-            const ending = Stream.provideService(ends, Handle, frozen);
-            const token = Schema.decodeUnknownOption(McpSchema.ProgressToken)(request.requestMetadata?.progressToken);
-            const notify = (report: Progressed) => Option.match(token, { onNone: () => Effect.void, onSome: (progressToken) => server.notifications['notifications/progress']({ progressToken, ...report }) });
-            const beat = Effect.flatMap(
-                Ref.modify(pace, ({ last, offset, quiet }) => (quiet ? [Option.some(last + 1), { last: last + 1, offset: offset + 1, quiet }] : [Option.none(), { last, offset, quiet: true }])),
-                Option.match({ onNone: () => Effect.void, onSome: (progress) => notify({ progress }) }),
-            );
-            const call = {
-                add: (block: McpSchema.ContentBlock) => Ref.update(blocks, Array.append(block)),
-                progress: (report: Progressed) =>
-                    Effect.flatMap(
-                        Ref.modify(pace, ({ offset }) => [
-                            { ...report, progress: report.progress + offset, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(report.total), (total) => ({ total: total + offset }))) },
-                            { last: report.progress + offset, offset, quiet: false },
-                        ]),
-                        notify,
-                    ),
-                input: (required: McpSchema.InputRequired) => Effect.andThen(Deferred.succeed(asked, required), Effect.never),
-                settle: Effect.flatMap(
-                    Ref.get(unfinished),
-                    Effect.forEach((each) => Effect.raceFirst(Effect.exit(Deferred.await(each.done)), Stream.runHead(each.ends)), { concurrency: 'unbounded', discard: true }),
-                ),
-            };
-            const answer = Effect.raceFirst(
-                Effect.zipWith(options.handle(Record.remove(payload, 'handle')), Ref.get(blocks), (outcome, added) => (outcome instanceof McpSchema.InputRequired ? outcome : McpSchema.CallToolResult.make({ ...outcome, content: [...outcome.content, ...added] }))),
-                Deferred.await(asked),
-            ).pipe(
-                Effect.provideService(Server.ToolCall, call),
-                Effect.provideService(Handle, bound),
-                Effect.updateService(McpSchema.McpRequestContext, (context) => ({ ...context, requestState: Option.getOrUndefined(state) })),
-                Effect.scoped,
-            );
-            const running = yield* Effect.forkIn(Deferred.complete(done, answer), scope);
-            const [outcome, reason] = yield* pipe(
-                Deferred.await(done),
-                Effect.map((value) => [value, Option.none<string>()] as const),
-                Effect.raceFirst(Effect.flatMap(Stream.runHead(ending), Option.match({ onNone: () => Effect.never, onSome: (text) => Effect.succeed([early(id, text), Option.some(text)] as const) }))),
-                Effect.raceFirst(Option.match(token, { onNone: () => Effect.never, onSome: () => Effect.forever(Effect.andThen(Effect.sleep(PROGRESS), beat)) })),
-                Effect.interruptible,
-                Effect.onInterrupt(() => Fiber.interrupt(running)),
-            );
-            const returned = yield* Effect.transposeOption(Option.map(reason, (text) => Effect.map(Ref.updateAndGet(calls, Number.increment), (number) => ({ call: number, reason: text }))));
-            const forgotten = RcMap.get(handles, id).pipe(
-                Effect.andThen(Effect.exit(Deferred.await(done))),
-                Effect.andThen(Effect.sleep(retention)),
-                Effect.andThen(
-                    Ref.update(
-                        unfinished,
-                        Array.filter((each) => each.done !== done),
-                    ),
-                ),
-                Effect.scoped,
-            );
-            yield* Option.match(returned, { onNone: () => Effect.void, onSome: (returning) => Effect.andThen(Ref.update(unfinished, Array.append({ call: returning.call, tool: options.tool.name, done, ends: ending })), Effect.forkIn(forgotten, scope)) });
-            const lines = yield* Ref.get(journal);
-            const [from, fresh] = yield* Ref.modify(cursor, (at) => {
-                const [next, unseen] = since(at, lines);
-                return [[at, unseen] as const, next];
-            });
-            const dropped = Option.filter(
-                Option.map(Array.head(fresh), ({ sequence }) => sequence - from - 1),
-                (count) => count > 0,
-            );
-            const shown = yield* Effect.provideService(Effect.filter(fresh, Struct.get('shown')), Handle, bound);
-            const text = [...(minted ? [`Handle ${id} holds your state and your place in the events, pass it as handle on each call`] : []), ...Option.toArray(Option.map(dropped, (count) => `${count} older events dropped`)), ...Array.map(shown, ({ sequence, text: line }) => `#${sequence} ${line}`)];
-            const mirrored = (content: readonly McpSchema.ContentBlock[]) => [...content, ...Array.match(text, { onEmpty: () => [], onNonEmpty: (rows) => [McpSchema.TextContent.make({ text: rows.join('\n') })] })];
-            const trailed = (structured: unknown) =>
-                Effect.map(delivered(unfinished), (delivery) => ({
-                    ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(structured), (value) => ({ result: value }))),
-                    handle: id,
-                    ...Option.getOrUndefined(Option.map(dropped, (count) => ({ dropped: count }))),
-                    events: Array.map(shown, Struct.pick(['sequence', 'text'])),
-                    ...Option.getOrUndefined(Option.map(returned, (returning) => ({ early: returning }))),
-                    ...delivery,
-                }));
-            return yield* outcome instanceof McpSchema.InputRequired
-                ? Effect.map(seal(options.tool.name, { handle: id, state: outcome.requestState }), (requestState) => new McpSchema.InputRequired({ inputRequests: outcome.inputRequests, requestState }))
-                : Effect.map(outcome.isError === true ? Effect.succeed({}) : Effect.map(trailed(outcome.structuredContent), (structuredContent) => ({ structuredContent })), (structured) => McpSchema.CallToolResult.make({ ...outcome, content: mirrored(outcome.content), ...structured }));
-        });
-        const handle = Effect.fnUntraced(
-            function* (payload: Record.ReadonlyRecord<string, Schema.Json>) {
-                const [{ handle: given }, request] = yield* Effect.all([Effect.mapError(Schema.decodeEffect(Given)(payload), ({ message }) => McpSchema.InvalidParams.make({ message })), McpSchema.McpRequestContext]);
-                const resumed = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(request.requestState), (sealed) => open(options.tool.name, sealed)));
-                const named = Option.orElse(Option.map(resumed, Struct.get('handle')), () => Option.fromUndefinedOr(given));
-                const id = yield* Option.match(named, { onNone: () => mint, onSome: Effect.succeed });
-                const row = yield* Option.match(named, { onNone: () => Effect.asSome(RcMap.get(handles, id)), onSome: () => RcMap.getOption(handles, id) });
-                return yield* Option.match(row, {
-                    onNone: () => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: `Handle ${id} is unknown or expired after ${Duration.format(retention)} without a call, call again without handle to start one` })] })),
-                    onSome: (found) => called(payload, { id, minted: Option.isNone(named), state: Option.flatMap(resumed, ({ state }) => Option.fromUndefinedOr(state)), row: found }),
-                });
-            },
-            Effect.uninterruptible,
-            Effect.scoped,
-        );
-        return Array.match(
-            Array.filter(Record.keys(Given.fields), (key) => Record.has(options.tool.inputSchema.properties ?? {}, key)),
-            {
-                onEmpty: () => Effect.flatMap(gate({ [ATTR_GEN_AI_TOOL_NAME]: options.tool.name }, options), (services) => server.addTool({ ...options, tool, handle, services })),
-                onNonEmpty: (taken) => Effect.annotateLogs(Effect.logError(`Tool ${options.tool.name} takes ${taken.join(', ')}, which the server adds to every tool, and stays unregistered`), { [ATTR_GEN_AI_TOOL_NAME]: options.tool.name }),
-            },
-        );
-    };
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Handle, Server };
