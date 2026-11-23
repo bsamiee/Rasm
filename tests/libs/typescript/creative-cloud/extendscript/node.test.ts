@@ -33,6 +33,7 @@ const MODERN = [
     { named: 'classes and methods', code: 'class Swatch { constructor(name) { this.name = name; } get label() { return this.name; } }' },
     { named: 'for-of loops and block bindings', code: 'for (const item of items) { let seen = item; }' },
     { named: 'reserved words as member names', code: 'preferences.default.delete(style.class, style.new);' },
+    { named: 'a reserved member name after a comment holding a dot', code: 'var mode = preset./* from a.b */default;' },
     { named: 'reserved words as property keys', code: 'var row = { default: 1, new: 2, in: 3 };' },
     { named: 'reserved words ending a grouped operand', code: 'var mode = override || preset && preset.default;' },
     { named: 'exponents', code: 'var area = side ** 2;' },

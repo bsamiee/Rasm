@@ -2,7 +2,7 @@ import { SourceMap } from 'node:module';
 import { HostError } from '@rasm/object-model';
 import { run } from '@rasm/process';
 import { type EnvConfig, transformSync } from '@swc/wasm';
-import { parse } from 'acorn';
+import { parse, type Token, tokTypes } from 'acorn';
 import { simple } from 'acorn-walk';
 import { Array, Cause, Effect, FileSystem, Function, Option, Order, Path, Record, Schema, Stream } from 'effect';
 import { Digest } from 'effect/crypto';
@@ -46,8 +46,17 @@ const Entry = Schema.Struct({ originalSource: Schema.String, originalLine: Schem
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const grouped = (code: string): string => {
-    const marks: Mark[] = [];
-    simple(parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true }), {
+    const tokens: Token[] = [];
+    const tree = parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true, onToken: tokens });
+    const marks = Array.window(tokens, 2).flatMap(([dot, member]): Mark[] =>
+        dot.type === tokTypes.dot && RESERVED.test(code.slice(member.start, member.end))
+            ? [
+                  [dot.start, member.start, '["', false],
+                  [member.end, member.end, '"]', true],
+              ]
+            : [],
+    );
+    simple(tree, {
         LogicalExpression: ({ operator, right }) => {
             if (operator === '||' && right.type === 'LogicalExpression' && right.operator === '&&') {
                 marks.push([right.start, right.start, '(', false], [right.end, right.end, ')', true]);
@@ -66,11 +75,6 @@ const grouped = (code: string): string => {
         Property: ({ key, computed }) => {
             if (!computed && key.type === 'Identifier' && RESERVED.test(key.name)) {
                 marks.push([key.start, key.start, '"', false], [key.end, key.end, '"', true]);
-            }
-        },
-        MemberExpression: ({ property, computed }) => {
-            if (!computed && property.type === 'Identifier' && RESERVED.test(property.name)) {
-                marks.push([code.lastIndexOf('.', property.start), property.start, '["', false], [property.end, property.end, '"]', true]);
             }
         },
     });
