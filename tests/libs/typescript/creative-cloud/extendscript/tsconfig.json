@@ -9,6 +9,9 @@
             "path": "../../../../../libs/typescript/data/search"
         },
         {
+            "path": "../../../../../libs/typescript/creative-cloud/object-model"
+        },
+        {
             "path": "../../../../../libs/typescript/creative-cloud/extendscript"
         }
     ]

@@ -1,14 +1,16 @@
 {
     "name": "@rasm/test-extendscript",
     "private": true,
-    "description": "@rasm/extendscript suites over cached core declarations and their pinned hash",
+    "description": "@rasm/extendscript suites over host runtime replies and settings, ES3 lowering, source maps, and pinned core declarations",
     "type": "module",
     "devDependencies": {
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/extendscript": "workspace:*",
+        "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",
         "@types/node": "catalog:",
+        "acorn": "catalog:",
         "effect": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
