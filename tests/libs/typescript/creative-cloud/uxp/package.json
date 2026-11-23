@@ -1,12 +1,13 @@
 {
     "name": "@rasm/test-uxp",
     "private": true,
-    "description": "@rasm/uxp suites over manifest icon sizes and icons a plug-in build writes",
+    "description": "@rasm/uxp suites over manifest icon and addon rules, plug-in builds, and body stack lines",
     "type": "module",
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
+        "@rasm/object-model": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
