@@ -2,13 +2,12 @@
 
 [settings]
 enable_tools = [
-    "cmake",
+    "cargo:resvg",
+    "cargo:usvg",
     "dotnet",
-    "github:llvm/llvm-project",
-    "github:microsoft/vcpkg-tool",
+    "github:harehare/mq",
     "hk",
     "jscpd",
-    "ninja",
     "node",
     "pnpm",
     "rust",

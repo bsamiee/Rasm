@@ -2,12 +2,11 @@
 
 [settings]
 enable_tools = [
-    "cmake",
+    "cargo:resvg",
+    "cargo:usvg",
     "dotnet",
-    "github:llvm/llvm-project",
-    "github:microsoft/vcpkg-tool",
+    "imagemagick",
     "jscpd",
-    "ninja",
     "node",
     "pnpm",
     "rust",

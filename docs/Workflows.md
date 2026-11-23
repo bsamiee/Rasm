@@ -37,7 +37,7 @@ Workflow `CI` and its jobs:
 - Action `tools` removes untracked files and bootstraps mise tools alone, and hook `post-tools` installs project dependencies
 - GitHub-hosted runners and job containers load mise profile `ci`, installing pnpm packages alone, as Python tasks run on instance `host`
 - Profile `ci-<job id>` sets `enable_tools` to the tools a job's steps and Nx tasks run, and a job with no such file installs every tool
-- Profiles list the tools graph creation spawns: `cargo`, `dotnet`, `uv`, `jscpd`, and CMake with LLVM, Ninja, and vcpkg
+- Profiles list the tools graph creation spawns: `cargo`, `dotnet`, `uv`, and `jscpd`
 - Profiles repeat those tools, as a later mise file replaces `enable_tools` whole
 - Profile `ci-macos` holds `yq`, as `mise.macos.toml` reads the Rhino major through it
 - Workflows name composite actions as `$/.github/actions/<name>`, read from the archive of the commit a run started from
