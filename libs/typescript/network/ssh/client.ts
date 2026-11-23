@@ -39,9 +39,9 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
                 Effect.as(true),
                 Effect.catchTag('ExitError', () => Effect.succeed(false)),
             );
-        const settled = (host: Host) =>
+        const settled = (host: Host, lived = checked(host)) =>
             Effect.fnUntraced(function* (exit: ExitError) {
-                const reached = exit.code !== errored || (yield* checked(host));
+                const reached = exit.code !== errored || (yield* lived);
                 return yield* SshError.of(reached ? { _tag: 'Exit', exit } : { _tag: 'Unreachable', stderr: exit.stderr }, host.name);
             });
         const written = Effect.fnUntraced(function* (host: Host, beside: Readonly<Record<string, string>> = {}) {
@@ -61,18 +61,20 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
         );
         const called = Effect.fnUntraced(function* (host: Host, remote: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
             const sent = Record.keys(options?.env ?? {});
-            yield* Array.isReadonlyArrayNonEmpty(sent) ? Cache.get(placed, host) : Cache.get(shared, host);
-            return yield* Effect.fromResult(host.command(path, root, remote, sent));
+            const [opened, lived] = Array.match(sent, { onEmpty: () => [Cache.get(shared, host), checked(host)] as const, onNonEmpty: () => [Cache.get(placed, host), Effect.succeed(false)] as const });
+            yield* opened;
+            return { words: yield* Effect.fromResult(host.command(path, root, remote, sent)), lived };
         });
         return {
             written,
             spawn: Effect.fn('Ssh.spawn')(function* (host: Host, remote: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
-                return yield* started(yield* called(host, remote, options), options);
+                return yield* started((yield* called(host, remote, options)).words, options);
             }),
             run: Effect.fn('Ssh.run')(function* (host: Host, remote: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
-                return yield* captured(yield* called(host, remote, options), options).pipe(
+                const { words, lived } = yield* called(host, remote, options);
+                return yield* captured(words, options).pipe(
                     Effect.map(({ stdout }) => stdout),
-                    Effect.catchTag('ExitError', settled(host)),
+                    Effect.catchTag('ExitError', settled(host, lived)),
                 );
             }),
             copy: Effect.fn('Ssh.copy')(function* (host: Host, source: string, target: string) {
@@ -85,6 +87,7 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
                 const holder = yield* started(yield* Effect.fromResult(host.command(path, root, ['sh', '-c', 'echo && exec cat'], [], Option.some(socket))), { stdin: 'pipe' });
                 const refused = Effect.flatMap(Stream.mkString(Stream.decodeText(holder.stderr)), (printed) => SshError.of({ _tag: 'Unreachable', stderr: printed }, host.name));
                 yield* Effect.flatMap(Stream.runHead(holder.stdout), Option.match({ onSome: () => Effect.void, onNone: () => refused }));
+                yield* started(['sh', '-c', 'cat > /dev/null; exec "$0" "$@"', ...host.request(socket, 'exit')], { stdin: 'pipe', stdout: 'ignore', stderr: 'ignore' });
                 const { stdout } = yield* captured(host.request(socket, 'forward', ...Forward.argv(wanted))).pipe(Effect.catchTag('ExitError', ({ stderr }) => SshError.of({ _tag: 'Refused', stderr }, host.name)));
                 return yield* Forward.bound(stdout)(wanted);
             }),

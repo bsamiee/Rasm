@@ -1,143 +1,138 @@
+import process from 'node:process';
 import { assert, it } from '@effect/vitest';
-import { Forward, Ssh } from '@rasm/ssh';
-import { Array, Effect, FileSystem, Path, Record, Result, Schema } from 'effect';
-import { answered, banner, bounds, greeted, greeting, type Listeners, reasoned, Sshd, served, vacant } from '#/sshd';
+import { Forward } from '@rasm/ssh';
+import { Effect, Exit, FileSystem, Option, Path, Schema, Scope } from 'effect';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { RandomPortGenerator } from 'testcontainers';
+import { Asked } from '#/peer';
+import { bounds, heard, held, printed, reasoned, Sshd, served } from '#/sshd';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const identified = new TextDecoder().decode(banner);
-const socks = { asked: Uint8Array.fromHex('050100'), accepted: Uint8Array.fromHex('0500') };
-const opened = `127.0.0.1:${greeting.port}`;
-const others = ['127.0.0.1:22', '127.0.0.2:22'] as const;
-const listened = 3300;
-const policies = {
-    yes: { permitOpen: ['YY', 'NY', 'YY'], permitListen: ['YY', 'YN'] },
-    local: { permitOpen: ['YN', 'NN', 'YN'], permitListen: ['YN', 'YN'] },
-    remote: { permitOpen: ['NY', 'NY', 'NY'], permitListen: ['NY', 'NN'] },
-    no: { permitOpen: ['NN', 'NN', 'NN'], permitListen: ['NN', 'NN'] },
-} as const;
-const outcomes = { Y: { local: true, remote: 'forwarded' }, N: { local: false, remote: 'Refused' } } as const;
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Chain = Schema.NonEmptyArray(Forward);
+const socks = { asked: Uint8Array.fromHex('050100'), accepted: '\u0005\u0000' };
+const sshd = `127.0.0.1:${served}`;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const controls = Record.fromEntries(
-    Array.flatMap(Record.toEntries(policies), ([policy, { permitOpen, permitListen }], row) => {
-        const kinds = {
-            plain: { expected: permitOpen[0] },
-            'permit-open-other': { options: [`PermitOpen=${others.join(' ')}`], expected: permitOpen[1] },
-            'permit-open': { options: [`PermitOpen=${[others[0], opened, others[1]].join(' ')}`], expected: permitOpen[0] },
-            'key-open-other': { keyOptions: Array.map(others, (other) => `permitopen="${other}"`), expected: permitOpen[1] },
-            'key-open': { keyOptions: [`permitopen="${others[0]}"`, `permitopen="${opened}"`], expected: permitOpen[2] },
-            'key-no-port-forwarding': { keyOptions: ['no-port-forwarding'], expected: 'NN' },
-            'key-restrict': { keyOptions: ['restrict'], expected: 'NN' },
-            'key-restrict-port-forwarding': { keyOptions: ['restrict', 'port-forwarding'], expected: permitOpen[0] },
-            'permit-listen-other': { options: (port: number) => [`PermitListen=127.0.0.1:22 127.0.0.2:${port}`], expected: permitListen[1] },
-            'permit-listen': { options: (port: number) => [`PermitListen=127.0.0.1:22 127.0.0.1:${port} 127.0.0.2:${port}`], expected: permitListen[0] },
-        } as const;
-        return Array.map(Record.toEntries<string, { readonly options?: readonly string[] | ((port: number) => readonly string[]); readonly keyOptions?: readonly string[]; readonly expected: string }>(kinds), ([kind, { options = [], keyOptions = [], expected }], column) => {
-            const port = listened + row * Record.size(kinds) + column;
-            return [`${policy}-${kind}`, { port, expected, keyOptions, options: [`AllowTcpForwarding=${policy}`, ...(typeof options === 'function' ? options(port) : options)] }] as const;
-        });
-    }),
-);
-const listeners: Listeners = Record.map(controls, ({ options, keyOptions }) => ({ options, keyOptions }));
-const controlled = Effect.fnUntraced(function* (name: string, port: number, bind: string) {
-    const [ssh, { hosted, far, trusted }] = yield* Effect.all([Ssh, Sshd]);
-    const [main, host] = yield* Effect.all([hosted('main'), hosted(name, far.dials[name])]);
-    const forwards = yield* Effect.all({
-        local: Schema.decodeEffect(Forward)({ _tag: 'Local', bind, connect: opened }),
-        remote: Schema.decodeEffect(Forward)({ _tag: 'Remote', bind: `127.0.0.1:${port}`, connect: `${far.dial.host}:${far.dial.port}` }),
-    });
-    const local = yield* Effect.andThen(ssh.forward(host, forwards.local), answered({ path: bind }, greeted)).pipe(Effect.scoped, Effect.result);
-    const remote = yield* ssh.forward(host, forwards.remote).pipe(
-        Effect.andThen(ssh.run(main, ['ssh-keyscan', '-T', '5', '-t', 'ed25519', '-p', `${port}`, '127.0.0.1'])),
-        Effect.map((scanned) => (scanned.includes(trusted) ? outcomes.Y.remote : scanned)),
-        Effect.scoped,
-        Effect.result,
-    );
-    return [name, { local: Result.getOrElse(local, reasoned), remote: Result.getOrElse(remote, reasoned) }] as const;
-});
+const wanted = Schema.decodeEffect(Forward);
+const vacant = Effect.promise(() => new RandomPortGenerator().generatePort());
+const ending = Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Sshd.layer(listeners), { timeout: bounds.started, excludeTestServices: true, concurrent: true })('forwarding', (methods) => {
-    methods.effect(
-        'forwards local and remote TCP ports, socket paths, and a SOCKS port over the shared connection, and stops each listener with its scope',
-        Effect.fnUntraced(function* () {
-            const [ssh, { hosted, far }, fs, path] = yield* Effect.all([Ssh, Sshd, FileSystem.FileSystem, Path.Path]);
-            const [host, folder, port, proxied] = yield* Effect.all([hosted('forwarded'), fs.makeTempDirectoryScoped(), vacant, vacant]);
-            const [near, back, remote] = [`127.0.0.1:${served}`, `${far.dial.host}:${far.dial.port}`, listened - 2];
-            const heard = (flags: string) => Effect.map(ssh.run(host, ['sh', '-c', `nc -w 2 ${flags} </dev/null 2>/dev/null | head -c ${banner.length}`]), (shown) => shown === identified);
-            const kinds = {
-                localPort: { forward: { _tag: 'Local', bind: `127.0.0.1:${port}`, connect: near }, listening: answered({ host: '127.0.0.1', port }, banner) },
-                localPath: { forward: { _tag: 'Local', bind: path.join(folder, 'unix-1.fwd'), connect: near }, listening: answered({ path: path.join(folder, 'unix-1.fwd') }, banner) },
-                remotePort: { forward: { _tag: 'Remote', bind: `127.0.0.1:${remote}`, connect: back }, listening: heard(`127.0.0.1 ${remote}`) },
-                remotePath: { forward: { _tag: 'Remote', bind: '/tmp/unix-1.fwd', connect: back }, listening: heard('-U /tmp/unix-1.fwd') },
-                dynamic: { forward: { _tag: 'Dynamic', bind: `127.0.0.1:${proxied}` }, listening: answered({ host: '127.0.0.1', port: proxied }, socks.accepted, socks.asked) },
-            } as const;
-            const wanted = yield* Effect.all(Record.map(kinds, ({ forward }) => Schema.decodeEffect(Forward)(forward)));
-            const held = yield* Effect.all(
-                Record.map(kinds, ({ listening }, kind) => Effect.scoped(Effect.andThen(ssh.forward(host, wanted[kind]), listening))),
-                { concurrency: 'unbounded' },
-            );
-            const cancelled = yield* Effect.all(
-                Record.map(kinds, ({ listening }) => listening),
-                { concurrency: 'unbounded' },
-            );
-            assert.deepStrictEqual([held, cancelled], [Record.map(kinds, () => true), Record.map(kinds, () => false)]);
-        }, Effect.scoped),
+it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concurrent: true })('forwarding', (methods) => {
+    const banner = 'SSH-2.0-';
+
+    methods.effect.each(['port', 'path'] as const)(
+        'forwards a local %s to an address the server dials, and stops listening on it with its scope',
+        Effect.fnUntraced(function* (kind) {
+            const [running, fs, path] = yield* Effect.all([Sshd, FileSystem.FileSystem, Path.Path]);
+            const [{ ssh }, host, folder, free] = yield* Effect.all([running.client, running.hosted('local'), fs.makeTempDirectoryScoped(), vacant]);
+            const { bind, at } = { port: { bind: `127.0.0.1:${free}`, at: { host: '127.0.0.1', port: free } }, path: { bind: path.join(folder, 'bound'), at: { path: path.join(folder, 'bound') } } }[kind];
+            const local = yield* wanted({ _tag: 'Local', bind, connect: sshd });
+            const open = yield* Effect.scoped(Effect.andThen(ssh.forward(host, local), heard(at)));
+            assert.deepStrictEqual([open.slice(0, banner.length), yield* heard(at)], [banner, '']);
+        }),
         bounds.test,
     );
 
     methods.effect(
-        'opens local forwards and binds remote forwards as each server forwarding policy, open permission, listen permission, and key option allows',
+        'serves SOCKS on a dynamic forward, and stops serving with its scope',
         Effect.fnUntraced(function* () {
-            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const folder = yield* fs.makeTempDirectoryScoped();
-            const found = yield* Effect.forEach(Record.toEntries(controls), ([name, { port }], index) => controlled(name, port, path.join(folder, `${index}.fwd`)), { concurrency: 16 });
-            assert.deepStrictEqual(
-                Record.fromEntries(found),
-                Record.map(controls, ({ expected }) => ({ local: outcomes[expected.startsWith('Y') ? 'Y' : 'N'].local, remote: outcomes[expected.endsWith('Y') ? 'Y' : 'N'].remote })),
-            );
-        }, Effect.scoped),
+            const running = yield* Sshd;
+            const [{ ssh }, host, free] = yield* Effect.all([running.client, running.hosted('dynamic'), vacant]);
+            const dynamic = yield* wanted({ _tag: 'Dynamic', bind: `127.0.0.1:${free}` });
+            const open = yield* Effect.scoped(Effect.andThen(ssh.forward(host, dynamic), heard({ host: '127.0.0.1', port: free }, socks.asked)));
+            assert.deepStrictEqual([open, yield* heard({ host: '127.0.0.1', port: free }, socks.asked)], [socks.accepted, '']);
+        }),
         bounds.test,
     );
 
-    methods.effect.each(['Local', 'Remote'] as const)(
-        'refuses a %s forward that binds an address a live forward holds',
-        Effect.fnUntraced(function* (direction) {
-            const [ssh, { hosted, far }] = yield* Effect.all([Ssh, Sshd]);
-            const host = yield* hosted(`duplicate-${direction.toLowerCase()}`);
-            const sides = { Local: { bind: `127.0.0.1:${yield* vacant}`, connect: [`127.0.0.1:${served}`, `localhost:${served}`] }, Remote: { bind: `127.0.0.1:${listened - 1}`, connect: [`${far.dial.host}:${far.dial.port}`, `localhost:${far.dial.port}`] } } as const;
-            const { bind, connect } = sides[direction];
-            const [held, repeated] = yield* Effect.all([Schema.decodeEffect(Forward)({ _tag: direction, bind, connect: connect[0] }), Schema.decodeEffect(Forward)({ _tag: direction, bind, connect: connect[1] })]);
-            const refused = yield* Effect.andThen(ssh.forward(host, held), Effect.flip(ssh.forward(host, repeated)));
-            assert.strictEqual(reasoned(refused), 'Refused');
-        }, Effect.scoped),
+    methods.effect.each(['port', 'path'] as const)(
+        'forwards a remote %s, on the port the server allocates for port 0, to an address this machine dials, and ends it with its scope',
+        Effect.fnUntraced(function* (kind) {
+            const [running, fs, path] = yield* Effect.all([Sshd, FileSystem.FileSystem, Path.Path]);
+            const [{ ssh }, host, folder, made, ended] = yield* Effect.all([running.client, running.hosted('remote'), fs.makeTempDirectoryScoped(), running.scratch, ending]);
+            const remote = yield* wanted({ _tag: 'Remote', bind: { port: '127.0.0.1:0', path: `${made}/bound` }[kind], connect: `${running.served.dial.host}:${running.served.dial.port}` });
+            const { bind } = yield* Effect.flatMap(Scope.provide(ssh.forward(host, remote), ended), Schema.encodeEffect(Forward));
+            const through = { path: path.join(folder, 'through') };
+            yield* ssh.forward(host, yield* wanted({ _tag: 'Local', bind: through.path, connect: bind }));
+            const open = yield* held(through);
+            yield* Scope.close(ended, Exit.void);
+            yield* open.closed;
+            assert.deepStrictEqual([open.first.slice(0, banner.length), yield* heard(through), bind === '127.0.0.1:0'], [banner, '', false]);
+        }),
         bounds.test,
     );
 
-    methods.effect(
-        'transfers over a chain of socket path forwards between a remote port and the server',
-        Effect.fnUntraced(function* () {
-            const [ssh, { hosted, trusted }, fs, path] = yield* Effect.all([Ssh, Sshd, FileSystem.FileSystem, Path.Path]);
-            const [host, folder] = yield* Effect.all([hosted('chained'), fs.makeTempDirectoryScoped()]);
-            const [first, second, third] = [path.join(folder, 'unix-1.fwd'), '/tmp/unix-2.fwd', path.join(folder, 'unix-3.fwd')];
-            const links = yield* Schema.decodeEffect(Chain)([
-                { _tag: 'Remote', bind: '127.0.0.1:0', connect: first },
-                { _tag: 'Local', bind: first, connect: second },
-                { _tag: 'Remote', bind: second, connect: third },
-                { _tag: 'Local', bind: third, connect: `127.0.0.1:${served}` },
+    methods.effect.each([
+        { _tag: 'Local', bind: Effect.map(vacant, (free) => `127.0.0.1:${free}`) },
+        { _tag: 'Remote', bind: Effect.succeed('127.0.0.1:0') },
+    ] as const)(
+        'refuses a $_tag forward on a port a live forward binds',
+        Effect.fnUntraced(function* ({ _tag, bind }) {
+            const running = yield* Sshd;
+            const [{ ssh }, host, free] = yield* Effect.all([running.client, running.hosted('bound'), bind]);
+            const bound = yield* ssh.forward(host, yield* wanted({ _tag, bind: free, connect: sshd }));
+            assert.strictEqual(yield* reasoned(ssh.forward(host, bound)), 'Refused');
+        }),
+        bounds.test,
+    );
+
+    methods.effect.each([
+        { options: ['AllowTcpForwarding=yes'], keys: [], bind: 3301, local: banner, remote: banner },
+        { options: ['AllowTcpForwarding=local'], keys: [], bind: 3302, local: banner, remote: 'Refused' },
+        { options: ['AllowTcpForwarding=remote'], keys: [], bind: 3303, local: '', remote: banner },
+        { options: ['AllowTcpForwarding=no'], keys: [], bind: 3304, local: '', remote: 'Refused' },
+        { options: ['PermitOpen=127.0.0.1:1'], keys: [], bind: 3306, local: '', remote: banner },
+        { options: ['PermitListen=127.0.0.1:1'], keys: [], bind: 3308, local: banner, remote: 'Refused' },
+        { options: [], keys: ['permitopen="127.0.0.1:1"'], bind: 3310, local: '', remote: banner },
+        { options: [], keys: ['permitlisten="127.0.0.1:1"'], bind: 3312, local: banner, remote: 'Refused' },
+        { options: [], keys: ['no-port-forwarding'], bind: 3313, local: '', remote: 'Refused' },
+        { options: [], keys: ['restrict'], bind: 3314, local: '', remote: 'Refused' },
+        { options: [], keys: ['restrict', 'port-forwarding'], bind: 3315, local: banner, remote: banner },
+    ])(
+        'on a server stating %j, hears the local and finds the remote forward it states',
+        Effect.fnUntraced(function* ({ options, keys, bind, local, remote }) {
+            const [running, fs, path] = yield* Effect.all([Sshd, FileSystem.FileSystem, Path.Path]);
+            const [{ ssh }, { inside, dial }, folder] = yield* Effect.all([running.client, running.port, fs.makeTempDirectoryScoped()]);
+            yield* running.listening(inside, options, keys);
+            const [host, main, at, through] = [yield* running.hosted('ruled', dial), yield* running.hosted('main'), { path: path.join(folder, 'bound') }, { path: path.join(folder, 'through') }];
+            const [opened, bound, chained] = yield* Effect.all([
+                wanted({ _tag: 'Local', bind: at.path, connect: sshd }),
+                wanted({ _tag: 'Remote', bind: `127.0.0.1:${bind}`, connect: `${running.served.dial.host}:${running.served.dial.port}` }),
+                wanted({ _tag: 'Local', bind: through.path, connect: `127.0.0.1:${bind}` }),
             ]);
-            const chain = yield* Effect.forEach(links, (wanted) => ssh.forward(host, wanted));
-            const { bind } = yield* Schema.encodeEffect(Forward)(Array.headNonEmpty(chain));
-            const { port } = yield* Schema.decodeEffect(Schema.HostPortFromString)(bind);
-            assert.include(yield* ssh.run(host, ['ssh-keyscan', '-T', '5', '-t', 'ed25519', '-p', `${port}`, '127.0.0.1']), trusted);
-        }, Effect.scoped),
+            const found = yield* Effect.all(
+                {
+                    local: Effect.scoped(Effect.andThen(ssh.forward(host, opened), heard(at))),
+                    remote: Effect.all([ssh.forward(host, bound), ssh.forward(main, chained)]).pipe(
+                        Effect.andThen(heard(through)),
+                        Effect.catchReason('SshError', 'Refused', () => Effect.succeed('Refused')),
+                        Effect.scoped,
+                    ),
+                },
+                { concurrency: 'unbounded' },
+            );
+            assert.deepStrictEqual({ local: found.local.slice(0, banner.length), remote: found.remote.slice(0, banner.length) }, { local, remote });
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'ends the forward of a killed process, and the connections it carried, with that process',
+        Effect.fnUntraced(function* () {
+            const [running, fs, path, spawner] = yield* Effect.all([Sshd, FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+            const [{ folder }, host, made] = yield* Effect.all([running.client, running.hosted('owned'), fs.makeTempDirectoryScoped()]);
+            const at = { path: path.join(made, 'bound') };
+            const request = yield* Schema.encodeEffect(Asked)({ folder, host, forward: Option.some(yield* wanted({ _tag: 'Local', bind: at.path, connect: sshd })), calls: 1, remote: ['true'] });
+            const peer = yield* spawner.spawn(ChildProcess.make(process.execPath, [path.join(import.meta.dirname, 'peer.ts'), request], { stdin: 'ignore', stderr: 'inherit' }));
+            yield* printed(peer, 'the forwarding process');
+            const open = yield* held(at);
+            yield* peer.kill({ killSignal: 'SIGKILL' });
+            yield* open.closed;
+            assert.deepStrictEqual([open.first.slice(0, banner.length), yield* heard(at)], [banner, '']);
+        }),
         bounds.test,
     );
 });

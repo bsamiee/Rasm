@@ -1,91 +1,93 @@
 import process from 'node:process';
 import { assert, it } from '@effect/vitest';
-import { Forward, Ssh } from '@rasm/ssh';
-import { Array, Effect, Exit, Fiber, FileSystem, Path, Schedule, Schema } from 'effect';
+import { Ssh } from '@rasm/ssh';
+import { Array, Effect, Fiber, Option, Path, Schema } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Asked, Reached } from '#/peer';
-import { answered, bounds, callers, connection, greeted, greeting, Master, printed, reached, Sshd, within } from '#/sshd';
+import { bounds, printed, reasoned, Sshd } from '#/sshd';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const connection = Array.make('sh', '-c', 'echo "$SSH_CONNECTION"');
+const callers = Array.range(1, 8);
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Master = Schema.TemplateLiteralParser(['Master running (pid=', Schema.FiniteFromString, ')']);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Sshd.layer(), { timeout: bounds.started, excludeTestServices: true, concurrent: true })('sharing', (methods) => {
+it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concurrent: true })('sharing', (methods) => {
     methods.effect(
-        'shares one connection across concurrent callers of two clients on one folder',
+        'runs the concurrent first calls of two clients on one folder, and every call after them, over one connection',
         Effect.fnUntraced(function* () {
-            const [ssh, sshd] = yield* Effect.all([Ssh, Sshd]);
-            const [host, second] = yield* Effect.all([sshd.hosted('shared'), Ssh.make(sshd.folder)]);
-            const first = yield* Effect.forEach(Array.range(1, callers), (index) => (index % 2 === 0 ? ssh : second).run(host, connection), { concurrency: 'unbounded' });
-            const later = yield* Effect.forEach(Array.range(1, callers), () => ssh.run(host, connection), { concurrency: 'unbounded' });
-            assert.isAtMost(new Set(first).size, 2);
-            assert.strictEqual(new Set(later).size, 1);
+            const sshd = yield* Sshd;
+            const [{ ssh, folder }, host] = yield* Effect.all([sshd.client, sshd.hosted('shared')]);
+            const clients = [ssh, yield* Ssh.make(folder)] as const;
+            const first = yield* Effect.forEach(callers, (index) => clients[index % 2 === 0 ? 0 : 1].run(host, connection), { concurrency: 'unbounded' });
+            const later = yield* Effect.forEach(callers, (index) => clients[index % 2 === 0 ? 1 : 0].run(host, connection), { concurrency: 'unbounded' });
+            assert.deepStrictEqual(Array.dedupe([...first, ...later]), [Array.headNonEmpty(first)]);
         }),
         bounds.test,
     );
 
     methods.effect(
-        'shares one connection with a second process on the folder and ends the forward of that process with it',
+        'runs the calls of a second process on the folder over the connection of the first',
         Effect.fnUntraced(function* () {
-            const [ssh, { hosted, folder }, fs, path, spawner] = yield* Effect.all([Ssh, Sshd, FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
-            const [host, bind] = yield* Effect.all([hosted('processes'), Effect.map(fs.makeTempDirectoryScoped(), (made) => path.join(made, 'sshd'))]);
-            const forward = yield* Schema.decodeEffect(Forward)({ _tag: 'Local', bind, connect: `127.0.0.1:${greeting.port}` });
-            const request = yield* Schema.encodeEffect(Asked)({ folder, host, forward, calls: callers, remote: connection });
+            const [sshd, path, spawner] = yield* Effect.all([Sshd, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+            const [{ ssh, folder }, host] = yield* Effect.all([sshd.client, sshd.hosted('process')]);
+            const mine = yield* ssh.run(host, connection);
+            const request = yield* Schema.encodeEffect(Asked)({ folder, host, forward: Option.none(), calls: 4, remote: connection });
             const peer = yield* spawner.spawn(ChildProcess.make(process.execPath, [path.join(import.meta.dirname, 'peer.ts'), request], { stdin: 'ignore', stderr: 'inherit' }));
-            const [mine, theirs] = yield* Effect.all([Effect.forEach(Array.range(1, callers), () => ssh.run(host, connection), { concurrency: 'unbounded' }), Effect.flatMap(printed(peer, 'the second process'), Schema.decodeEffect(Reached))], { concurrency: 'unbounded' });
-            const held = yield* answered({ path: bind }, greeted);
-            yield* peer.kill({ killSignal: 'SIGKILL' });
-            const ended = yield* Effect.repeat(answered({ path: bind }, greeted), { until: (open) => !open, schedule: Schedule.spaced('250 millis') });
-            assert.strictEqual(theirs.length, callers);
-            assert.isAtMost(new Set([...mine, ...theirs]).size, 2);
-            assert.isTrue(held);
-            assert.isFalse(ended);
-        }, Effect.scoped),
+            assert.deepStrictEqual(yield* Effect.flatMap(printed(peer, 'the second process'), Schema.decodeEffect(Reached)), [mine, mine, mine, mine]);
+        }),
         bounds.test,
     );
 
     methods.effect(
-        'fails the call of a killed shared connection and opens one connection for every caller after it',
+        'fails the command a killed shared connection carried, and runs the concurrent calls after it over one new connection',
         Effect.fnUntraced(function* () {
-            const [ssh, { hosted, asked, folder, near }, fs, path] = yield* Effect.all([Ssh, Sshd, FileSystem.FileSystem, Path.Path]);
-            const host = yield* hosted('killed', { path: { _tag: 'Direct', preferred: [{ ...near.dial, within }] } });
-            const running = yield* ssh.spawn(host, ['sh', '-c', 'echo started; exec sleep 600']);
-            yield* printed(running, 'the remote command');
+            const sshd = yield* Sshd;
+            const [{ ssh, asked }, host] = yield* Effect.all([sshd.client, sshd.hosted('killed')]);
+            const running = yield* ssh.spawn(host, ['sh', '-c', 'echo "$SSH_CONNECTION"; exec cat']);
+            const before = yield* printed(running, 'the running command');
             const [, pid] = yield* Effect.flatMap(asked(host, 'check'), (shown) => Schema.decodeUnknownEffect(Master)(shown.trim()));
             yield* Effect.sync(() => process.kill(pid, 'SIGKILL'));
-            const [code, left] = yield* Effect.all([running.exitCode, fs.exists(host.control(path, folder))]);
-            const after = yield* Effect.forEach(Array.range(1, callers), () => ssh.run(host, ['sh', '-c', 'echo "$SSH_CONNECTION"; hostname']), { concurrency: 'unbounded' });
-            assert.notStrictEqual(code, 0);
-            assert.isTrue(left);
-            assert.strictEqual(new Set(after).size, 1);
-            assert.isTrue(after.every((shown) => shown.endsWith(`${near.name}\n`)));
-        }, Effect.scoped),
+            const code = yield* running.exitCode;
+            const after = yield* Effect.forEach(callers, () => ssh.run(host, connection), { concurrency: 'unbounded' });
+            assert.deepStrictEqual([code, Array.dedupe(after).length, after.includes(`${before}\n`)], [255, 1, false]);
+        }),
         bounds.test,
     );
 
     methods.effect(
-        'lets a running command finish after a stop request, refuses the stopped control socket, and opens a connection for the next caller',
+        'lets a running command finish after a stop request, and runs the next call over a new connection',
         Effect.fnUntraced(function* () {
-            const [ssh, { hosted, asked, far }] = yield* Effect.all([Ssh, Sshd]);
-            const host = yield* hosted('stopped');
-            const running = yield* Effect.forkScoped(ssh.run(host, ['sh', '-c', 'touch /tmp/stop-started; sleep 3; echo finished']));
-            yield* Effect.retry(ssh.run(host, ['test', '-f', '/tmp/stop-started']), Schedule.spaced('100 millis'));
+            const sshd = yield* Sshd;
+            const [{ ssh, asked }, host, made] = yield* Effect.all([sshd.client, sshd.hosted('stopped'), sshd.scratch]);
+            yield* ssh.run(host, ['mkfifo', `${made}/ready`, `${made}/gate`]);
+            const running = yield* Effect.forkScoped(ssh.run(host, ['sh', '-c', `echo "$SSH_CONNECTION" > ${made}/ready; cat ${made}/gate; echo finished`]));
+            const before = yield* ssh.run(host, ['cat', `${made}/ready`]);
             yield* asked(host, 'stop');
-            const [checked, finished] = yield* Effect.all([asked(host, 'check'), Fiber.join(running)]);
-            assert.deepStrictEqual([Schema.is(Master)(checked.trim()), finished, yield* reached(ssh, host)], [false, 'finished\n', far.name]);
-        }, Effect.scoped),
+            const after = yield* ssh.run(host, ['sh', '-c', `echo released > ${made}/gate; echo "$SSH_CONNECTION"`]);
+            assert.deepStrictEqual([yield* Fiber.join(running), after === before], ['released\nfinished\n', false]);
+        }),
         bounds.test,
     );
 
     methods.effect(
-        'ends a running command with an exit request, and opens a connection for the next caller',
+        'reports a command whose shared connection an exit request ended as unreachable, and runs the next call over a new connection',
         Effect.fnUntraced(function* () {
-            const [ssh, { hosted, asked, far }] = yield* Effect.all([Ssh, Sshd]);
-            const host = yield* hosted('exited');
-            const running = yield* Effect.forkScoped(Effect.exit(ssh.run(host, ['sh', '-c', 'touch /tmp/exit-started; sleep 600'])));
-            yield* Effect.retry(ssh.run(host, ['test', '-f', '/tmp/exit-started']), Schedule.spaced('100 millis'));
+            const sshd = yield* Sshd;
+            const [{ ssh, asked }, host, made] = yield* Effect.all([sshd.client, sshd.hosted('exited'), sshd.scratch]);
+            yield* ssh.run(host, ['mkfifo', `${made}/ready`, `${made}/gate`]);
+            const running = yield* Effect.forkScoped(reasoned(ssh.run(host, ['sh', '-c', `echo "$SSH_CONNECTION" > ${made}/ready; cat ${made}/gate`])));
+            const before = yield* ssh.run(host, ['cat', `${made}/ready`]);
             yield* asked(host, 'exit');
-            const [ended, checked] = yield* Effect.all([Fiber.join(running), asked(host, 'check')]);
-            assert.deepStrictEqual([Exit.isFailure(ended), Schema.is(Master)(checked.trim()), yield* reached(ssh, host)], [true, false, far.name]);
-        }, Effect.scoped),
+            const ended = yield* Fiber.join(running);
+            const after = yield* ssh.run(host, ['sh', '-c', `: <> ${made}/gate; echo "$SSH_CONNECTION"`]);
+            assert.deepStrictEqual([ended, after === before], ['Unreachable', false]);
+        }),
         bounds.test,
     );
 });

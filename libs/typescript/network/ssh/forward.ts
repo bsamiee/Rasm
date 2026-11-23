@@ -3,11 +3,13 @@ import { Host, type NetAddress } from 'effect/net';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const End = Schema.Union([Schema.HostPortFromString, Schema.String.check(Schema.isPattern(/^\/[^:]+$/u)).pipe(Schema.decodeTo(Schema.UnixPathAddressFromString))]).annotate({
-    description: 'host:port, or an absolute Unix socket path free of colon, the two ends an OpenSSH forward spec states',
+const Socket = Schema.String.check(Schema.isPattern(/^\/[^:]+$/u)).pipe(Schema.decodeTo(Schema.UnixPathAddressFromString));
+const Open = Schema.HostPortFromString.check(Schema.makeFilter(({ port }) => port > 0, { description: 'A port above 0, which OpenSSH requires of every forward end but a Remote bind' }));
+const End = Schema.Union([Open, Socket]).annotate({
+    description: 'host:port above port 0, or an absolute Unix socket path free of colon, the two ends an OpenSSH forward spec states',
 });
 const Allocated = Schema.Trim.pipe(Schema.decodeTo(Schema.FiniteFromString), Schema.decodeTo(Schema.Port));
-const Spec = Schema.TaggedUnion({ Local: { bind: End, connect: End }, Remote: { bind: End, connect: End }, Dynamic: { bind: Schema.HostPortFromString } }).annotate({
+const Spec = Schema.TaggedUnion({ Local: { bind: End, connect: End }, Remote: { bind: Schema.Union([Schema.HostPortFromString, Socket]), connect: End }, Dynamic: { bind: Open } }).annotate({
     description: 'Local listens here and connects there, Remote the reverse, Dynamic serves SOCKS here; a Remote TCP bind on port 0 takes the port the server allocates',
 });
 const spec = (...ends: readonly (Host.HostPort | NetAddress.UnixPathAddress)[]) => ends.map(Match.valueTags({ HostPort: Host.formatHostPort, UnixPathAddress: ({ path }) => path })).join(':');

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-ssh",
     "private": true,
-    "description": "SSH suites against two sshd containers: commands, exit statuses, and late stderr, one shared connection across callers and processes, control requests, preferred and stated dials, forwards under each server forwarding policy, copies, a hop, an agent, certificates, and the config the OpenSSH client resolves",
+    "description": "SSH suites against the OpenSSH client alone and one sshd container per file: the config the client resolves, exit statuses and unreachable hosts, one shared connection across callers and processes, control requests, preferred and stated dials, a hop, an agent, certificates, forwards under each server forwarding policy, and copies",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"

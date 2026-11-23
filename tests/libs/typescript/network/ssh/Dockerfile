@@ -1,2 +1,2 @@
-FROM alpine:3.23
-RUN apk add --no-cache openssh netcat-openbsd
+FROM alpine:3.24
+RUN apk add --no-cache openssh
