@@ -1,12 +1,11 @@
-import { createRequire } from 'node:module';
 import { dirname, relative, resolve } from 'node:path';
 import { chdir, cwd } from 'node:process';
-import { pathToFileURL } from 'node:url';
-import type { TaskResult } from '@nx/devkit/internal';
+import { normalizePath } from '@nx/devkit';
+import { type BatchExecutorTaskResult, findProjectForPath, hashObject } from '@nx/devkit/internal';
 import { batched, executor } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Effect, Equal, Exit, Formatter, Function, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Effect, Exit, Formatter, Function, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
-import { testMode } from '#/plugin';
+import { loaded, testMode } from '#/plugin';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -14,10 +13,6 @@ interface Planned {
     readonly task: string;
     readonly options: Test;
     readonly home: string;
-}
-interface Settled {
-    readonly task: string;
-    readonly result: TaskResult;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -52,10 +47,7 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
         },
     ] = group;
     const entry = resolve(root, config);
-    const node = yield* Effect.tryPromise({
-        try: (): Promise<{ readonly createVitest: (options: CliOptions) => Promise<Vitest>; readonly parseCLI: typeof parseCLI; readonly TestsNotFoundError: typeof TestsNotFoundError }> => import(pathToFileURL(createRequire(entry).resolve('vitest/node')).href),
-        catch: (cause) => new Cause.UnknownError(cause, `${config} resolves no vitest/node`),
-    });
+    const node = yield* loaded<{ readonly createVitest: (options: CliOptions) => Promise<Vitest>; readonly parseCLI: typeof parseCLI; readonly TestsNotFoundError: typeof TestsNotFoundError }>(config, entry, 'vitest/node');
     const alone = Option.flatMap(
         Option.liftPredicate(group, (all) => all.length === 1),
         ([{ options }]) => Option.fromUndefinedOr(options.attachmentsDir),
@@ -78,24 +70,20 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
         (before) => Effect.sync(() => chdir(before)),
     );
     const vitest = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => node.createVitest(stated), catch: (cause) => new Cause.UnknownError(cause, `${config} does not start Vitest`) }), (started) => Effect.promise(() => started.close()));
-    const ranked = Array.sort(
-        group,
-        Order.mapInput(Order.Number, ({ home }: Planned) => -home.length),
-    );
-    const owner = (at: string) => Array.findFirst(ranked, ({ home }) => !relative(resolve(root, home), at).startsWith('..'));
-    const placed = Option.isNone(alone)
-        ? Array.getSomes(
-              vitest.projects.map((project) =>
-                  Option.map(
-                      Option.flatMap(owner(project.config.root), ({ options }) => Option.fromUndefinedOr(options.attachmentsDir)),
-                      (at) => [project, resolve(root, at)] as const,
-                  ),
-              ),
-          )
-        : [];
-    placed.forEach(([project, at]) => {
-        Object.assign(project.config, { attachmentsDir: at });
-    });
+    const homes = new Map(group.map(({ home, task }) => [home, task] as const));
+    const owner = (at: string) => Option.fromNullOr(findProjectForPath(normalizePath(relative(root, at)), homes));
+    const attachments = Record.fromIterableWith(group, ({ task, options }) => [task, options.attachmentsDir] as const);
+    vitest.projects
+        .flatMap((project) =>
+            owner(project.config.root).pipe(
+                Option.flatMap((task) => Option.fromUndefinedOr(attachments[task])),
+                Option.map((at) => [project, resolve(root, at)] as const),
+                Option.toArray,
+            ),
+        )
+        .forEach(([project, at]) => {
+            Object.assign(project.config, { attachmentsDir: at });
+        });
     yield* Effect.acquireRelease(
         Effect.sync(() => {
             const before = process.exitCode;
@@ -114,10 +102,10 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
         ...Option.toArray(Option.map(signalled, (code) => `vitest run over ${config} sets exit code ${code} with every test module passing, as a run-level check such as a coverage threshold or the import duration limit failed`)),
     ];
     const held = Array.groupBy(
-        modules.flatMap((module) => Option.toArray(Option.map(owner(module.project.config.root), ({ task }) => ({ task, module })))),
+        modules.flatMap((module) => Option.toArray(Option.map(owner(module.project.config.root), (task) => ({ task, module })))),
         Struct.get('task'),
     );
-    return Array.map(group, ({ task }): Settled => {
+    return Array.map(group, ({ task }): BatchExecutorTaskResult => {
         const own = (held[task] ?? []).map(Struct.get('module'));
         const said = [...own.flatMap(reported), ...(own.length === 0 ? [`no test module of ${task} ran`] : []), ...broken];
         const passed = own.length > 0 ? own.every((module) => module.ok()) : Predicate.isTruthy(vitest.config.passWithNoTests);
@@ -125,17 +113,7 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
     });
 }, Effect.scoped);
 
-const settled = (root: string, group: Array.NonEmptyReadonlyArray<Planned>) => Effect.match(tested(root, group), { onFailure: (error) => Array.map(group, ({ task }): Settled => ({ task, result: { success: false, terminalOutput: error.message } })), onSuccess: Function.identity });
-
-const grouped = (planned: readonly Planned[]) => {
-    const keyed = ({ options }: Planned) => Struct.omit(options, ['projects', 'attachmentsDir']);
-    return Array.dedupe(planned.map(keyed)).flatMap((key) =>
-        Array.match(
-            planned.filter((each) => Equal.equals(keyed(each), key)),
-            { onEmpty: () => [], onNonEmpty: (group) => [group] },
-        ),
-    );
-};
+const settled = (root: string, group: Array.NonEmptyReadonlyArray<Planned>) => Effect.match(tested(root, group), { onFailure: (error) => Array.map(group, ({ task }): BatchExecutorTaskResult => ({ task, result: { success: false, terminalOutput: error.message } })), onSuccess: Function.identity });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -146,7 +124,13 @@ const execute = executor(Test, function* (options, context) {
 });
 
 const batch = batched(Test, (graph, inputs, context) =>
-    Stream.flatMap(Stream.fromIterable(grouped(Record.collect(inputs, (task, options): Planned => ({ task, options, home: context.projectGraph.nodes[graph.tasks[task]?.target.project ?? '']?.data.root ?? '.' })))), (group) => Stream.fromIterableEffect(settled(context.root, group))),
+    Function.pipe(
+        Record.collect(inputs, (task, options): Planned => ({ task, options, home: graph.tasks[task]?.projectRoot ?? '.' })),
+        Array.groupBy(({ options }) => hashObject(Struct.omit(options, ['projects', 'attachmentsDir']))),
+        Record.values,
+        Stream.fromIterable,
+        Stream.flatMap((group) => Stream.fromIterableEffect(settled(context.root, group))),
+    ),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
