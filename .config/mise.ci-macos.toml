@@ -1,10 +1,14 @@
+# --- [DEPS] -----------------------------------------------------------------------------
+
+[deps]
+disable = ["msbuild-analyzer"]
+
 # --- [SETTINGS] -------------------------------------------------------------------------
 
 [settings]
 enable_tools = [
     "cargo:resvg",
     "cargo:usvg",
-    "dotnet",
     "github:harehare/mq",
     "hk",
     "jscpd",

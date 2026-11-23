@@ -1,4 +1,4 @@
-import { basename, dirname, join, posix } from 'node:path';
+import { basename, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
@@ -10,8 +10,8 @@ import { Array, Context, Layer, Option, Record, Ref, Schema } from 'effect';
 
 const { name: PLUGIN } = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json')));
 const CREDENTIAL = 'NUGET_API_KEY';
-const SDK = ['dotnet', '--version'] as const;
 const ANALYZER = fileURLToPath(import.meta.resolve('#/analyzer/dist/MsbuildAnalyzer.dll'));
+const ENVIRONMENT = { DOTNET_ROLL_FORWARD_TO_PRERELEASE: '1', DOTNET_DbgEnableMiniDump: '1', DOTNET_DbgMiniDumpType: '1', DOTNET_EnableCrashReport: '1' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -55,16 +55,6 @@ class Edges extends Context.Service<Edges, Ref.Ref<readonly RawProjectGraphDepen
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
-const launched = (analyzer: string) => ['dotnet', '--roll-forward', 'LatestMajor', analyzer] as const;
-
-const environment = (root: string) => ({
-    DOTNET_ROLL_FORWARD_TO_PRERELEASE: '1',
-    DOTNET_DbgEnableMiniDump: '1',
-    DOTNET_DbgMiniDumpType: '1',
-    DOTNET_DbgMiniDumpName: join(root, '.artifacts', 'dotnet', 'dumps', '%e-%p.dmp'),
-    DOTNET_EnableCrashReport: '1',
-});
-
 const metadata = (verb: string, description: string) => ({ description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
 const written = (...modes: readonly { readonly outputs: readonly string[] }[]) => Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`);
@@ -76,7 +66,7 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
         'default',
         '^default',
         ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${posix.join('{projectRoot}', posix.relative(root, base), '**')}`),
-        { runtime: line(SDK) },
+        { runtime: 'dotnet --version' },
         { env: 'CI' },
         ...hosts,
         { externalDependencies: [] },
@@ -139,7 +129,7 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
                 inputs: compiled,
                 metadata: metadata('build', `Fails on each warning or error in the SARIF report dotnet build wrote for ${node.name}, printed as file(line,col): level id: text, cached under the inputs of build--dotnet, as the report holds analyzer timing no input decides`),
             },
-            'dotnet-format': { ...formatted([['format', 'style', '--verify-no-changes']], `Fails on any code style finding in ${node.name}, the IDE rules no build runs included, with dotnet format style --verify-no-changes`), cache: true },
+            'dotnet-format': { ...formatted([['format', 'style', '--verify-no-changes']], `Fails on each IDE code style finding in ${node.name}, those no code fix resolves included, with dotnet format style --verify-no-changes, as no build runs IDE rules`), cache: true },
         },
         test: {
             ...(node.test && {
@@ -217,4 +207,4 @@ const run = runner(Edges.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, targets };
+export { ANALYZER, Edges, ENVIRONMENT, line, Node, PLUGIN, publishing, run, targets };

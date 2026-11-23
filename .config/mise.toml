@@ -50,8 +50,9 @@ CACHE_DIR     = "{{config_root}}/.cache"
 
 # --- [OUTPUTS]
 
-FOUNDRY_OUTPUT_DIR   = "{{ env.ARTIFACTS_DIR }}/foundry"
-WATCH_APP_OUTPUT_DIR = "{{ env.ARTIFACTS_DIR }}/watch-app"
+DOTNET_DbgMiniDumpName = "{{ env.ARTIFACTS_DIR }}/dotnet/dumps/%e-%p.dmp"
+FOUNDRY_OUTPUT_DIR     = "{{ env.ARTIFACTS_DIR }}/foundry"
+WATCH_APP_OUTPUT_DIR   = "{{ env.ARTIFACTS_DIR }}/watch-app"
 
 # --- [CACHES]
 
@@ -119,6 +120,12 @@ dir     = "products/apps/blender/darkroom"
 outputs = [".venv/"]
 run     = "uv sync --locked"
 sources = ["pyproject.toml", "uv.lock"]
+
+[deps.msbuild-analyzer]
+dir     = "products/developer/nx/dotnet/analyzer"
+outputs = ["dist/"]
+run     = "dotnet publish"
+sources = ["*.cs", "MsbuildAnalyzer.csproj", "packages.lock.json"]
 
 [deps.playwright]
 auto    = true

@@ -174,6 +174,7 @@ Roots split, nest, or hold more where a host or tool decides:
 Nx runs project-level work over a graph its plugins infer:
 - Plugins use what Nx and its official plugins provide, and behavior an `nx.json` field or plugin option can state stays out of plugin code
 - Plugins infer every project, target, and dependency from manifests and tool output, and manifest `nx` tables add only facts no tool reports
+- `mise install` builds the .NET and Swift analyzers, and a graph without one leaves its projects out with a warning naming the build command
 - `nx affected -t <target>` runs only the tasks a change reaches, as each target's inputs name exactly what its tools read, aggregate targets included
 - Tools keep their own incremental state, and Nx caches results around it in one remote cache every runner shares, with no machine path in hashes
 - `nx sync` writes executor schemas and tsconfig `references`, and non-terminal runs outside CI stop on stale ones until it runs, never `--skip-sync`

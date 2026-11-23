@@ -39,4 +39,21 @@
     <ItemGroup Label="Runtime Diagnostics">
         <PackageReference Include="Microsoft.Extensions.DependencyModel" ExcludeAssets="runtime" />
     </ItemGroup>
+
+    <ItemGroup Label="Source Checksums">
+        <SourceChecksum Include="$(MSBuildProjectFile);@(Compile);$([MSBuild]::ValueOrDefault('$(NuGetLockFilePath)', 'packages.lock.json'))" />
+    </ItemGroup>
+
+    <!-- [TARGETS] ─────────────────────────────────────────────────────────────────── -->
+
+    <Target Name="PublishSourceChecksums" AfterTargets="ComputeFilesToPublish">
+        <GetFileHash Files="@(SourceChecksum)" Algorithm="SHA256">
+            <Output TaskParameter="Items" ItemName="_SourceChecksum" />
+        </GetFileHash>
+        <WriteLinesToFile File="$(IntermediateOutputPath)$(AssemblyName).sha256" Lines="@(_SourceChecksum->'%(FileHash)  %(Identity)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <ResolvedFileToPublish Include="$(IntermediateOutputPath)$(AssemblyName).sha256" RelativePath="$(AssemblyName).sha256" CopyToPublishDirectory="PreserveNewest" />
+            <FileWrites Include="$(IntermediateOutputPath)$(AssemblyName).sha256" />
+        </ItemGroup>
+    </Target>
 </Project>

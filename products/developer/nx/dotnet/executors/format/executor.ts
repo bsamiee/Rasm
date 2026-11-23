@@ -8,10 +8,6 @@ import { grouped } from '#/executors/build/executor';
 
 type Planned = readonly [string, Format];
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const UNFORMATTED = 2;
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Format extends Schema.Opaque<Format, unknown>()(
@@ -25,16 +21,6 @@ const Report = Schema.fromJsonString(Schema.Array(Schema.Struct({ FilePath: Sche
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const solution = (projects: readonly string[]) =>
-    Stream.fromIterable<Xml.Event>([
-        { _tag: 'StartElement', name: 'Solution', attributes: {} },
-        ...projects.flatMap((project): readonly Xml.Event[] => [
-            { _tag: 'StartElement', name: 'Project', attributes: { Path: project } },
-            { _tag: 'EndElement', name: 'Project' },
-        ]),
-        { _tag: 'EndElement', name: 'Solution' },
-    ]).pipe(Stream.pipeThroughChannel(Xml.encodeString()), Stream.mkString);
-
 const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Planned>) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const [[, { commands, __unparsed__: words = [] }], ...rest] = group;
@@ -46,7 +32,7 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
     const owner = ({ FilePath }: { readonly FilePath: string }) => Array.findFirst(nested, (member) => FilePath.startsWith(member.folder));
     const folder = yield* fs.makeTempDirectoryScoped();
     const target = rest.length === 0 ? Array.headNonEmpty(members).project : path.join(folder, 'batch.slnx');
-    yield* rest.length === 0 ? Effect.void : Effect.flatMap(solution(members.map(({ project }) => project)), (text) => fs.writeFileString(target, text));
+    yield* rest.length === 0 ? Effect.void : Stream.fromIterable(Xml.toEvents({ name: 'Solution', attributes: {}, children: members.map(({ project }) => ({ name: 'Project', attributes: { Path: project }, children: [] })) })).pipe(Stream.pipeThroughChannel(Xml.encode()), Stream.run(fs.sink(target)));
     const runs = yield* Effect.forEach(
         commands,
         Effect.fnUntraced(function* (command, index) {
@@ -54,7 +40,7 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
             const { invoked, stdout, said: stderr, code } = yield* ran(['dotnet', ...command, target, '--report', report, ...words], { cwd: root });
             const changed = yield* Effect.option(Effect.flatMap(fs.readFileString(report), Schema.decodeEffect(Report)));
             const owners = Option.flatMap(
-                Option.filter(changed, () => code === UNFORMATTED),
+                Option.filter(changed, () => code === 2),
                 flow(Array.map(owner), Option.all),
             );
             const blamed = code === 0 ? Option.some(new Set<string>()) : Option.map(owners, (found) => new Set(found.map(Struct.get('task'))));

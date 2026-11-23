@@ -1,10 +1,14 @@
+# --- [DEPS] -----------------------------------------------------------------------------
+
+[deps]
+disable = ["msbuild-analyzer"]
+
 # --- [SETTINGS] -------------------------------------------------------------------------
 
 [settings]
 enable_tools = [
     "conda:openssh",
     "doppler",
-    "dotnet",
     "gh",
     "github:docker/buildx",
     "http:docker-cli",

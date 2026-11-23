@@ -39,7 +39,7 @@ internal static class Program {
         select code;
 
     private static int Write(string root) {
-        Console.Out.Write(JsonSerializer.Serialize(Workspace.Analyze(root, Listed()), Json));
+        Console.Out.Write(JsonSerializer.Serialize(Workspace.Analyze(root, toSeq(Console.In.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))), Json));
         return 0;
     }
 
@@ -62,7 +62,4 @@ internal static class Program {
             Json));
         return 0;
     }
-
-    private static Seq<string> Listed() =>
-        toSeq(Console.In.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 }

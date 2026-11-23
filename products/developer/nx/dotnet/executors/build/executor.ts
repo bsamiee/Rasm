@@ -3,7 +3,7 @@ import type { TaskResult } from '@nx/devkit/internal';
 import { batched, executor, ran, spawned, Words } from '@rasm/nx-distribution/inference';
 import { Array, Console, Effect, Equal, FileSystem, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { ANALYZER, environment, launched } from '#/targets';
+import { ANALYZER, ENVIRONMENT } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -11,7 +11,6 @@ type Planned = readonly [string, Build];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const HEX = 16;
 const ENTRY_TARGETS = ['Build', 'Rebuild', 'Clean', 'Publish', 'Pack'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -36,31 +35,36 @@ const Outcomes = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Struc
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const element = (name: string, attributes: Readonly<Record<string, string>>, ...children: readonly (readonly Xml.Event[])[]): readonly Xml.Event[] => [{ _tag: 'StartElement', name, attributes }, ...children.flat(), { _tag: 'EndElement', name }];
-
-const escaped = (project: string) => project.replaceAll(/[%*?@$();']/gu, (character) => `%${character.codePointAt(0)?.toString(HEX)}`);
-
-const traversal = (projects: readonly string[], target: string) =>
-    Stream.fromIterable(
-        element(
-            'Project',
-            { DefaultTargets: target },
-            element('Import', { Project: '$(MSBuildToolsPath)/NuGet.targets' }),
-            element('ItemGroup', {}, ...projects.flatMap((project) => [element('RestoreGraphProjectInputItems', { Include: escaped(project) }), element('ProjectReference', { Include: escaped(project) })]), ...ENTRY_TARGETS.map((name) => element('ProjectReferenceTargets', { Include: name, Targets: name }))),
-            ...ENTRY_TARGETS.map((name) => element('Target', { Name: name }, element('MSBuild', { Projects: '@(ProjectReference)', Targets: name, BuildInParallel: 'true' }))),
-        ),
-    ).pipe(Stream.pipeThroughChannel(Xml.encodeString()), Stream.mkString);
+const escaped = (text: string) => text.replaceAll(/[%*?@$();',"]/gu, (character) => `%${character.codePointAt(0)?.toString(16)}`);
 
 const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Planned>) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const [[, { command, solution = {}, __unparsed__: words = [] }]] = group;
-    const assigned = Record.collect(solution, (file, configuration) => `<ProjectConfiguration Project='${file}' AbsolutePath='${path.resolve(root, file)}'>${configuration}</ProjectConfiguration>`);
+    const assigned = Record.collect(solution, (file, configuration): Xml.Element => ({ name: 'ProjectConfiguration', attributes: { Project: file, AbsolutePath: path.resolve(root, file) }, children: [configuration] }));
     const projects = Array.map(group, ([, { project }]) => path.resolve(root, project));
     const folder = yield* fs.makeTempDirectoryScoped();
     const [file, log] = [path.join(folder, 'batch.proj'), path.join(folder, 'batch.binlog')];
-    yield* fs.writeFileString(file, yield* traversal(projects, String.capitalize(Array.headNonEmpty(command))));
-    const { invoked, stdout, said } = yield* ran(['dotnet', Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...(assigned.length > 0 ? [`-p:CurrentSolutionConfigurationContents=<SolutionConfiguration>${assigned.join('')}</SolutionConfiguration>`] : []), `-bl:${log}`, ...words], { cwd: root });
-    const outcomes = yield* Effect.flatMap(spawned([...launched(ANALYZER), 'results', root, log], { cwd: root, env: environment(root) }), Schema.decodeEffect(Outcomes));
+    yield* Stream.fromIterable(
+        Xml.toEvents({
+            name: 'Project',
+            attributes: { DefaultTargets: String.capitalize(Array.headNonEmpty(command)) },
+            children: [
+                { name: 'Import', attributes: { Project: '$(MSBuildToolsPath)/NuGet.targets' }, children: [] },
+                {
+                    name: 'ItemGroup',
+                    attributes: {},
+                    children: [
+                        ...projects.flatMap((project) => ['RestoreGraphProjectInputItems', 'ProjectReference'].map((name) => ({ name, attributes: { Include: escaped(project) }, children: [] }))),
+                        ...ENTRY_TARGETS.map((name) => ({ name: 'ProjectReferenceTargets', attributes: { Include: name, Targets: name }, children: [] })),
+                    ],
+                },
+                ...ENTRY_TARGETS.map((name) => ({ name: 'Target', attributes: { Name: name }, children: [{ name: 'MSBuild', attributes: { Projects: '@(ProjectReference)', Targets: name, BuildInParallel: 'true' }, children: [] }] })),
+            ],
+        }),
+    ).pipe(Stream.pipeThroughChannel(Xml.encode()), Stream.run(fs.sink(file)));
+    const contents = yield* Stream.fromIterable(Xml.toEvents({ name: 'SolutionConfiguration', attributes: {}, children: assigned })).pipe(Stream.pipeThroughChannel(Xml.encodeString()), Stream.mkString);
+    const { invoked, stdout, said } = yield* ran(['dotnet', Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...(assigned.length > 0 ? [`-p:CurrentSolutionConfigurationContents=${escaped(contents)}`] : []), `-bl:${log}`, ...words], { cwd: root });
+    const outcomes = yield* Effect.flatMap(spawned(['dotnet', ANALYZER, 'results', root, log], { cwd: root, env: ENVIRONMENT }), Schema.decodeEffect(Outcomes));
     return Array.map(Array.zip(group, projects), ([[task], project]) => {
         const outcome = Record.get(outcomes, project);
         const success = Option.exists(outcome, Struct.get('succeeded'));
