@@ -332,7 +332,7 @@ const HOSTS: readonly Host[] = [
                 );
             }, Effect.scoped),
         },
-        install: { command: 'yak install', help: 'yak install --help', platforms: ['darwin', 'win32'], run: ({ at }, words) => Effect.asVoid(spawned(['yak', 'install', at, ...words])) },
+        install: { command: 'yak install', help: 'yak install --help', platforms: ['darwin', 'win32'], run: ({ at, name }, words) => Effect.asVoid(Effect.andThen(spawned(['yak', 'uninstall', name]), spawned(['yak', 'install', at, ...words]))) },
         publish: {
             store: 'https://yak.rhino3d.com',
             command: 'yak push',
