@@ -6,27 +6,28 @@ import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Numbe
 import { Model } from '#/uxp/model';
 import { InDesignSettings } from '#/uxp/settings';
 import type { Value } from '#/value';
-import { Called, Inspection, Search, type Slice } from '#/views';
+import { Called, Inspection, type Issue, type MODES, Search, type Slice } from '#/views';
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-type Values = Record.ReadonlyRecord<string, typeof Value.Type>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Contents = Schema.Struct({ contents: Schema.Json });
-const Flat = Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))]);
+class Flat extends Schema.Opaque<Flat, { readonly brand: unique symbol }>()(Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))])) {}
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [SEARCH]
 
-const preserved = Effect.fnUntraced(function* (member: ReturnType<typeof Search.members<typeof Search.Type>>['preferences'][number]) {
+const preserved = Effect.fnUntraced(function* (member: ReturnType<typeof Search.members<(typeof MODES)[number]>>['preferences'][number]) {
     const { app, NothingEnum } = yield* Model;
     const saved = yield* Model.saved(app[member]);
     const reset = Effect.try({ try: () => Object.assign(app, { [member]: NothingEnum.NOTHING })[member], catch: HostError.refused(`reset of ${member}`) });
     return yield* Effect.acquireRelease(Effect.as(reset, saved), () => Effect.flatMap(Effect.orDie(reset), (cleared) => Uxp.restore(cleared, saved)));
 });
-const search = Effect.fnUntraced(function* ({ mode, find, change, options }: { readonly mode: typeof Search.Type; readonly find: Option.Option<Values>; readonly change: Option.Option<Values>; readonly options: Option.Option<Values> }, located: unknown) {
+const search = Effect.fnUntraced(function* (
+    { mode, find, change, options }: { readonly mode: (typeof MODES)[number]; readonly find: Option.Option<Record.ReadonlyRecord<string, Value>>; readonly change: Option.Option<Record.ReadonlyRecord<string, Value>>; readonly options: Option.Option<Record.ReadonlyRecord<string, Value>> },
+    located: unknown,
+) {
     const members = Search.members(mode);
     const model = yield* Model;
     const { app, enumerator } = model;
@@ -84,7 +85,7 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: { r
 
 // --- [READS]
 
-const nested: (rows: readonly (typeof Flat.Type)[]) => typeof Inspection.Issues.Type = Array.match({
+const nested: (rows: readonly Flat[]) => readonly Issue[] = Array.match({
     onEmpty: Array.empty,
     onNonEmpty: ([[depth, label, page, , details], ...rest]) => {
         const [under, after] = Array.span(rest, ([below]) => below > depth);
@@ -342,8 +343,8 @@ const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: { rea
     );
     return Inspection.Object.make({ ...(yield* Model.reference(found)), view: shown, fields: yield* Model.read(Inspection.Readings, found.toSpecifier(), () => scalars), collections });
 });
-const change = ({ label, target, values }: { readonly label: string; readonly target: Specifier; readonly values: Values }) => Effect.flatMap(Model.located(target), (located) => Model.written(label, located, Model.write(located, values)));
-const call = Effect.fn('call')(function* (payload: { readonly label: string; readonly target: Specifier; readonly collection: Option.Option<string>; readonly method: string; readonly arguments: readonly (typeof Value.Type)[]; readonly properties: Option.Option<Values> }) {
+const change = ({ label, target, values }: { readonly label: string; readonly target: Specifier; readonly values: Record.ReadonlyRecord<string, Value> }) => Effect.flatMap(Model.located(target), (located) => Model.written(label, located, Model.write(located, values)));
+const call = Effect.fn('call')(function* (payload: { readonly label: string; readonly target: Specifier; readonly collection: Option.Option<string>; readonly method: string; readonly arguments: readonly Value[]; readonly properties: Option.Option<Record.ReadonlyRecord<string, Value>> }) {
     const [model, found] = yield* Effect.all([Model, Model.located(payload.target)]);
     const before = yield* Model.reference(found);
     const { method } = payload;

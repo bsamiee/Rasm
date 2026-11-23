@@ -7,7 +7,7 @@ import { getOutputsForTargetAndConfiguration, getPackageManagerCommand, getReady
 import { interpolate, isCI, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { type BrowserContext, chromium, defineConfig, expect, type Page, test, type TestInfo, type Worker } from '@playwright/test';
 import { Brand } from '@rasm/vite/chrome';
-import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
+import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Schema, type Scope, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -130,11 +130,8 @@ const files = (context: BrowserContext) => context.route(`${FILES}/**`, (route) 
 const branded = Effect.fnUntraced(function* ({ folder, root }: { readonly folder: string; readonly root: string }) {
     const fs = yield* FileSystem.FileSystem;
     const manifest = yield* Effect.flatMap(fs.readFileString(join(folder, 'manifest.json')), Schema.decodeUnknownEffect(Unpacked));
-    const messages = yield* UndefinedOr.match(manifest.default_locale, {
-        onUndefined: () => Effect.succeed<typeof Messages.Type>({}),
-        onDefined: (locale) => Effect.flatMap(fs.readFileString(join(folder, '_locales', locale, 'messages.json')), Schema.decodeUnknownEffect(Messages)),
-    });
-    const named = Option.flatMap(Option.fromNullishOr(/^__MSG_(?<key>\w+)__$/u.exec(manifest.name)?.groups?.['key']), (key) => Record.get(messages, key));
+    const messages = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(manifest.default_locale), (locale) => Effect.flatMap(fs.readFileString(join(folder, '_locales', locale, 'messages.json')), Schema.decodeUnknownEffect(Messages))));
+    const named = Option.flatMap(Option.fromNullishOr(/^__MSG_(?<key>\w+)__$/u.exec(manifest.name)?.groups?.['key']), (key) => Option.flatMap(messages, Record.get(key)));
     const { config } = yield* Effect.flatMap(fs.readFileString(join(root, 'package.json')), Schema.decodeUnknownEffect(Brand));
     return { name: Option.match(named, { onNone: () => manifest.name, onSome: ({ message }) => message }), mark: hosted(pathToFileURL(join(root, 'icons', 'mark.svg')).href), color: config.brand };
 });
@@ -234,6 +231,11 @@ const served = (task: string, address: string) => {
     return defineConfig({ use: { baseURL: url }, webServer: { command: `${getPackageManagerCommand().exec} nx run ${task}`, url, reuseExistingServer: true, gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 } } });
 };
 
+const resource =
+    <A, E>(scoped: Effect.Effect<A, E, Scope.Scope>) =>
+    ({}, use: (held: A) => Promise<void>) =>
+        Effect.runPromise(Effect.scoped(Effect.flatMap(scoped, (held) => Effect.promise(() => use(held)))));
+
 const it = test.extend<{ readonly axe: AxeBuilder }>({ axe: ({ page }, use) => use(new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])) });
 
 const loaded = test.extend<{ readonly extension: Extension }, { readonly built: { readonly folder: string; readonly root: string }; readonly launched: BrowserContext }>({
@@ -322,4 +324,4 @@ const media = (scenes: Array.NonEmptyReadonlyArray<Scene>) => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { config, type Extension, hosted, it, loaded, media, routed, type Scene, served };
+export { config, type Extension, hosted, it, loaded, media, resource, routed, type Scene, served };

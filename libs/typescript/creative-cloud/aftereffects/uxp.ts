@@ -8,7 +8,7 @@ import { Cause, Effect, Predicate, Schema } from 'effect';
 
 const Method = Schema.declare((value: unknown): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
 const Class = Schema.declare((value: unknown): value is abstract new (...args: readonly never[]) => object => Predicate.isFunction(value));
-const Application = Schema.Struct({ beginSuppressDialogs: Method, endSuppressDialogs: Method, beginUndoGroup: Method, endUndoGroup: Method });
+class Application extends Schema.Opaque<Application, unknown>()(Schema.Struct({ beginSuppressDialogs: Method, endSuppressDialogs: Method, beginUndoGroup: Method, endUndoGroup: Method })) {}
 const Module = Schema.Struct({
     app: Schema.declare(Schema.is(Application)),
     Project: Class,
@@ -31,7 +31,7 @@ const containment = Effect.map(hosted, ({ app, Project, CompItem, FolderItem, Fo
         layer: { collection: 'layers', base: 1, is: (value) => read(value, 'containingComp') instanceof CompItem && Predicate.isNumber(read(value, 'id')), owner: (value) => read(value, 'containingComp') },
     },
 }));
-const paired = (subject: string, begin: (app: typeof Application.Type) => unknown, end: (app: typeof Application.Type) => unknown) =>
+const paired = (subject: string, begin: (app: Application) => unknown, end: (app: Application) => unknown) =>
     Effect.flatMap(hosted, ({ app }) => Effect.acquireRelease(Effect.try({ try: () => begin(app), catch: HostError.refused(subject) }), () => Effect.orDie(Effect.try({ try: () => end(app), catch: HostError.refused(subject) }))));
 const session = paired(
     'dialog suppression',

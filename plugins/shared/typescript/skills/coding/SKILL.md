@@ -118,7 +118,7 @@ TypeScript runs tail calls on the stack, and a recursion's depth bound selects i
 
 ## [04]-[IMMUTABILITY]
 
-Data crossing a boundary is `Schema.Class` and `Schema.TaggedUnion`, data inside the process `Data.Class` and `Data.taggedEnum` where it carries a name or operations, and a module-private record stays a readonly object `Equal` compares by its keys.
+Data crossing a boundary is a schema class (`Schema.Opaque` over a struct for plain objects, `Schema.Class` for instances with operations) and `Schema.TaggedUnion`, data inside the process `Data.Class` and `Data.taggedEnum` where it carries a name or operations, and a module-private record stays a readonly object `Equal` compares by its keys.
 
 ## [05]-[RESULTS]
 
@@ -267,6 +267,7 @@ Classes hold their data with operations reading one instance as methods and gett
 - Packages hold their capability and the host facts it detects, app values (names, paths, timeouts, prose) enter as composition root arguments
 - Exported names read correctly beside other packages' names: nouns for owners, verb-noun for functions
 - Union schemas, components, and primary functions hold their variants as members `Object.assign` or an expando sets
+- Schemas a signature names are classes under their own name, a static member schema holding no type name
 - Libraries never call `NodeRuntime.runMain` or provide a platform layer
 - Package types pass whole, and consumers read returned host handles and the context a host passes its callback, a re-read from source restating them
 - Host process-global defaults (`GlobalWorkerOptions.workerSrc`) stay unset, each instance taking the value through its constructor option

@@ -33,18 +33,6 @@ interface Arguments {
     readonly values: (...names: readonly string[]) => readonly string[];
     readonly supplied: (...names: readonly string[]) => readonly Word[];
 }
-interface CarapaceCommand {
-    readonly Name: string;
-    readonly Aliases?: readonly string[];
-    readonly Commands?: readonly CarapaceCommand[];
-    readonly LocalFlags?: readonly (typeof CarapaceFlag.Type)[];
-    readonly PersistentFlags?: readonly (typeof CarapaceFlag.Type)[];
-}
-interface CommandInfo {
-    readonly commandName: string;
-    readonly arguments?: readonly (typeof ArgumentInfo.Type)[];
-    readonly subcommands?: readonly CommandInfo[];
-}
 interface Scan {
     readonly at: number;
     readonly usage: Usage;
@@ -64,22 +52,25 @@ const NO_USAGE: Usage = { flags: new Map(), subcommands: new Map() };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const CarapaceFlag = Schema.Struct({ Longhand: Schema.optionalKey(Schema.String), Shorthand: Schema.optionalKey(Schema.String), Type: Schema.String, NoOptDefVal: Schema.optionalKey(Schema.String) });
-const CarapaceCommand: Schema.Codec<CarapaceCommand> = Schema.Struct({
-    Name: Schema.String,
-    Aliases: Schema.optionalKey(Schema.Array(Schema.String)),
-    Commands: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<CarapaceCommand> => CarapaceCommand))),
-    LocalFlags: Schema.optionalKey(Schema.Array(CarapaceFlag)),
-    PersistentFlags: Schema.optionalKey(Schema.Array(CarapaceFlag)),
-});
+class CarapaceFlag extends Schema.Opaque<CarapaceFlag, unknown>()(Schema.Struct({ Longhand: Schema.optionalKey(Schema.String), Shorthand: Schema.optionalKey(Schema.String), Type: Schema.String, NoOptDefVal: Schema.optionalKey(Schema.String) })) {}
+class CarapaceCommand extends Schema.Opaque<CarapaceCommand, unknown>()(
+    Schema.Struct({
+        Name: Schema.String,
+        Aliases: Schema.optionalKey(Schema.Array(Schema.String)),
+        Commands: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<CarapaceCommand> => CarapaceCommand))),
+        LocalFlags: Schema.optionalKey(Schema.Array(CarapaceFlag)),
+        PersistentFlags: Schema.optionalKey(Schema.Array(CarapaceFlag)),
+    }),
+) {}
 const CarapaceExport = Schema.fromJsonString(CarapaceCommand);
 
-const ArgumentInfo = Schema.Struct({ kind: Schema.String, names: Schema.optionalKey(Schema.Array(Schema.Struct({ kind: Schema.String, name: Schema.String }))) });
-const CommandInfo: Schema.Codec<CommandInfo> = Schema.Struct({
-    commandName: Schema.String,
-    arguments: Schema.optionalKey(Schema.Array(ArgumentInfo)),
-    subcommands: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<CommandInfo> => CommandInfo))),
-});
+class CommandInfo extends Schema.Opaque<CommandInfo, unknown>()(
+    Schema.Struct({
+        commandName: Schema.String,
+        arguments: Schema.optionalKey(Schema.Array(Schema.Struct({ kind: Schema.String, names: Schema.optionalKey(Schema.Array(Schema.Struct({ kind: Schema.String, name: Schema.String }))) }))),
+        subcommands: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<CommandInfo> => CommandInfo))),
+    }),
+) {}
 const ToolInfo = Schema.fromJsonString(Schema.Struct({ command: CommandInfo }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -88,7 +79,7 @@ const ToolInfo = Schema.fromJsonString(Schema.Struct({ command: CommandInfo }));
 
 const flagsOf = (spellings: readonly string[], arity: number): readonly (readonly [string, Flag])[] => spellings.map((spelling) => [spelling, { name: spellings.find((other) => other.startsWith('--')) ?? spelling, arity }]);
 
-const carapaceFlags = ({ Longhand, Shorthand, Type, NoOptDefVal }: typeof CarapaceFlag.Type) => flagsOf([...(Longhand === undefined ? [] : [`--${Longhand}`]), ...(Shorthand === undefined ? [] : [`-${Shorthand}`])], ['bool', 'boolSlice', 'count'].includes(Type) || NoOptDefVal !== undefined ? 0 : 1);
+const carapaceFlags = ({ Longhand, Shorthand, Type, NoOptDefVal }: CarapaceFlag) => flagsOf([...(Longhand === undefined ? [] : [`--${Longhand}`]), ...(Shorthand === undefined ? [] : [`-${Shorthand}`])], ['bool', 'boolSlice', 'count'].includes(Type) || NoOptDefVal !== undefined ? 0 : 1);
 
 const carapaceUsage = (command: CarapaceCommand, inherited: Usage['flags'], declared: Usage['flags']): Usage => {
     const persistent = new Map([...inherited, ...(command.PersistentFlags ?? []).flatMap(carapaceFlags)]);

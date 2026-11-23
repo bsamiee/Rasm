@@ -181,7 +181,7 @@ const recordRoute = (file: string): Option.Option<string> =>
         ([, route]) => route,
     );
 
-const recorded = (file: string): typeof Decision.Type => Option.match(recordRoute(file), { onNone: () => Decision.cases.Allow.make({}), onSome: (route) => Decision.cases.Deny.make({ reason: `${file} ${route}` }) });
+const recorded = (file: string) => Option.match(recordRoute(file), { onNone: () => Decision.cases.Allow.make({}), onSome: (route) => Decision.cases.Deny.make({ reason: `${file} ${route}` }) });
 
 const writers = (host: Host['Service'], files: readonly string[]) =>
     Effect.map(Effect.all([host.parents, Effect.forEach(files, (file) => host.output(['lsof', '-F', 'pa', file]), { concurrency: 'unbounded' })]), ([parents, listings]) =>

@@ -21,7 +21,6 @@ interface Published {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PRODUCT = '@rasm/portfolio';
 const FORWARDED = { id: 'x-forwarded-user', email: 'x-forwarded-email' } as const;
 const OWNER = { [FORWARDED.id]: 'owner', [FORWARDED.email]: 'owner@portfolio.test' } as const;
 const GUEST = { [FORWARDED.id]: 'guest', [FORWARDED.email]: 'guest@portfolio.test' } as const;
@@ -51,10 +50,10 @@ const published = Effect.fnUntraced(function* (origin: string, { files, portfoli
             const { attempt, objects } = yield* Effect.flatMap(owner.post('/api/assets', { body: HttpBody.jsonUnsafe(asset) }), HttpClientResponse.schemaBodyJson(Upload));
             yield* Effect.forEach(
                 objects,
-                ({ key }) =>
-                    Effect.flatMap(Effect.flatMap(owner.post('/api/assets/signatures', { body: HttpBody.jsonUnsafe({ method: 'PUT', key }) }), HttpClientResponse.schemaBodyJson(Presigned)), ({ url, headers }) =>
-                        client.put(url, { headers, body: HttpBody.uint8Array(bytes, asset.mime) }),
-                    ),
+                Effect.fnUntraced(function* ({ key }) {
+                    const { url, headers } = yield* Effect.flatMap(owner.post('/api/assets/signatures', { body: HttpBody.jsonUnsafe({ method: 'PUT', key }) }), HttpClientResponse.schemaBodyJson(Presigned));
+                    yield* client.put(url, { headers, body: HttpBody.uint8Array(bytes, asset.mime) });
+                }),
                 { discard: true },
             );
             yield* owner.post(`/api/assets/${asset.id}/uploads/${attempt}`);
@@ -67,12 +66,8 @@ const published = Effect.fnUntraced(function* (origin: string, { files, portfoli
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const served = Effect.gen(function* () {
-    const [fs, spawner, client, bundle] = yield* Effect.all([
-        FileSystem.FileSystem,
-        ChildProcessSpawner.ChildProcessSpawner,
-        HttpClient.HttpClient,
-        Effect.fromOption(routed('@rasm/nx-vite', PRODUCT), () => new Cause.UnknownError(PRODUCT, `nx.json states no Vite outputPath to run ${PRODUCT} from`)),
-    ]);
+    const product = '@rasm/portfolio';
+    const [fs, spawner, client, bundle] = yield* Effect.all([FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner, HttpClient.HttpClient, Effect.fromOption(routed('@rasm/nx-vite', product), () => new Cause.UnknownError(product, `nx.json states no Vite outputPath to run ${product} from`))]);
     const state = yield* fs.makeTempDirectoryScoped({ prefix: 'portfolio-' });
     const storage = yield* Effect.acquireRelease(
         Effect.sync(
@@ -98,12 +93,7 @@ const served = Effect.gen(function* () {
         ),
         (held) => Effect.promise(() => held.dispose()),
     );
-    const [stored, port, access, allowed] = yield* Effect.all([
-        Effect.promise(() => storage.ready),
-        allocated,
-        Schema.encodeEffect(Access.json)(Access.make({ source: { _tag: 'Forwarded', ...FORWARDED }, logout: '/' })),
-        Schema.encodeEffect(Allowed)([OWNER[FORWARDED.email]]),
-    ]);
+    const [stored, port, access, allowed] = yield* Effect.all([Effect.promise(() => storage.ready), allocated, Schema.encodeEffect(Access.json)(Access.make({ source: { _tag: 'Forwarded', ...FORWARDED }, logout: '/' })), Schema.encodeEffect(Allowed)([OWNER[FORWARDED.email]])]);
     const origin = `http://127.0.0.1:${port}`;
     const server = yield* spawner.spawn(
         ChildProcess.make(process.execPath, [join(bundle, App.bundle.environment, `${App.bundle.entry}.js`)], {
@@ -125,7 +115,7 @@ const served = Effect.gen(function* () {
     );
     yield* Effect.raceFirst(
         Effect.retry(Effect.timeout(HttpClient.filterStatusOk(client).get(new URL(App.bundle.readiness, origin)), '1 second'), { schedule: Schedule.spaced('100 millis') }),
-        Effect.flatMap(server.exitCode, (code) => Effect.fail(new Cause.UnknownError(code, `${PRODUCT} exits ${code} before it answers ${App.bundle.readiness}`))),
+        Effect.flatMap(server.exitCode, (code) => Effect.fail(new Cause.UnknownError(code, `${product} exits ${code} before it answers ${App.bundle.readiness}`))),
     );
     return { origin };
 });

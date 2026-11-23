@@ -40,10 +40,10 @@ const SEALING = Aead.xchacha20Poly1305;
 const Tagged = Schema.Struct({ _tag: Schema.String });
 class Finished extends Schema.Opaque<Finished, unknown>()(
     Schema.Struct({
-    call: Schema.Int.annotate({ description: 'Number of the call in the early result that returned it' }),
-    tool: Schema.String,
-    result: Schema.optionalKey(Schema.Json),
-    error: Schema.optionalKey(Schema.String),
+        call: Schema.Int.annotate({ description: 'Number of the call in the early result that returned it' }),
+        tool: Schema.String,
+        result: Schema.optionalKey(Schema.Json),
+        error: Schema.optionalKey(Schema.String),
     }),
 ) {}
 const Delivered = Schema.Struct({

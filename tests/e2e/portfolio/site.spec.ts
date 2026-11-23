@@ -1,7 +1,10 @@
-import { expect } from '@playwright/test';
-import { it } from '#/fixtures';
+import { expect, mergeTests } from '@playwright/test';
+import { it as scanned } from '@rasm/testing/playwright';
+import { it as served } from '#/fixtures';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+const it = mergeTests(scanned, served);
 
 it('serves the site with its landmarks, the work index, and no WCAG A or AA violation', async ({ page, axe }) => {
     await page.goto('/');

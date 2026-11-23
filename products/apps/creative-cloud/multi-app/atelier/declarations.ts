@@ -70,7 +70,7 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
             return yield* manifest(yield* files.readFileString(yield* posix.fromFileUrl(new URL('Contents/Resources/json/ScriptingAPIManifest.json', url))));
         });
         const paged = { illustrator, ...(yield* Effect.all({ mediaencoder: Effect.cached(mediaencoder), aftereffects: Effect.cached(documents(files.stream(join(import.meta.dirname, 'after-effects.jsonl')))) })) };
-        const resolved: Record.ReadonlyRecord<typeof Host.Type, Effect.Effect<Effect.Success<typeof paged.illustrator>, Effect.Error<(typeof paged)[keyof typeof paged]>>> = { ...Record.map(compiled, Effect.flatMap(Struct.get('catalog'))), ...paged };
+        const resolved: Record.ReadonlyRecord<keyof typeof CHECKED | keyof typeof PAGED, Effect.Effect<Effect.Success<typeof paged.illustrator>, Effect.Error<(typeof paged)[keyof typeof paged]>>> = { ...Record.map(compiled, Effect.flatMap(Struct.get('catalog'))), ...paged };
         const refused = Effect.fnUntraced(function* (row: Application, line: (at: number) => Option.Option<number>, { host, listed }: { readonly host: keyof typeof CHECKED; readonly listed: Array.NonEmptyReadonlyArray<Finding> }) {
             const { index } = yield* resolved[host];
             const known = new Set([...index.classes, ...index.enumerations]);
@@ -88,7 +88,7 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
             const findings = yield* Effect.transposeOption(Option.map(found, (source) => source.check(program)));
             return yield* Option.match(Option.all({ host, listed: Option.flatMap(findings, Option.liftPredicate(Array.isReadonlyArrayNonEmpty)) }), { onNone: () => Effect.void, onSome: (refusal) => refused(row, line, refusal) });
         });
-        return { index: (host: typeof Host.Type) => Effect.map(resolved[host], Struct.get('index')), page: (host: typeof Host.Type, name: string) => Effect.flatMap(resolved[host], (held) => held.page(name)), check };
+        return { index: (host: keyof typeof resolved) => Effect.map(resolved[host], Struct.get('index')), page: (host: keyof typeof resolved, name: string) => Effect.flatMap(resolved[host], (held) => held.page(name)), check };
     }),
 }) {
     static readonly layer = Layer.effect(Declarations, Declarations.make);
@@ -100,7 +100,7 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
 
 const declarations = Effect.gen(function* () {
     const { index, page } = yield* Declarations;
-    const names = (input: string, host: typeof Host.Type | undefined) =>
+    const names = (input: string, host: Parameters<typeof index>[0] | undefined) =>
         UndefinedOr.match(host, {
             onUndefined: () => Effect.succeed(Array.empty<string>()),
             onDefined: (given) => Effect.map(index(given), ({ classes, enumerations }) => [...classes, ...enumerations].filter((name) => name.toLowerCase().startsWith(input.toLowerCase()))),

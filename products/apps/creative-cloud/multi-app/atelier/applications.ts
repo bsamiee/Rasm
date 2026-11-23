@@ -1,4 +1,4 @@
-import { Event, Installation, Launching, Pressure, type ProcessInstance, RunningInstance, State } from '@rasm/applications';
+import { type Dialog, Event, Installation, Pressure, RunningInstance, State } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/node';
 import { Application } from '@rasm/creative-cloud-desktop';
 import { Handle, Link, Server } from '@rasm/mcp';
@@ -8,8 +8,6 @@ import { McpSchema, Tool } from 'effect/ai';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Happened = { readonly application: string; readonly change: typeof Event.Type } | { readonly pressure: typeof Pressure.Type };
-type Dialog = Extract<typeof Event.Type, { readonly _tag: 'asking' }>['asking'];
 type Asked = Pick<Dialog, 'kind' | 'window' | 'text'> & { readonly [Key in 'title' | 'answers' | 'element']?: Dialog[Key] | undefined };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -36,7 +34,7 @@ const Applications = Tool.make('applications', {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const Target = Context.Reference<{ readonly held: Option.Option<{ readonly row: Application; readonly instance: typeof ProcessInstance.Type }>; readonly followed: HashSet.HashSet<typeof ProcessInstance.Type> }>('@rasm/atelier/applications/Target', {
+const Target = Context.Reference<{ readonly held: Option.Option<{ readonly row: Application; readonly instance: RunningInstance['instance'] }>; readonly followed: HashSet.HashSet<RunningInstance['instance']> }>('@rasm/atelier/applications/Target', {
     defaultValue: () => ({ held: Option.none(), followed: HashSet.empty() }),
 });
 
@@ -49,26 +47,6 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
             Array.makeEquivalence(Equivalence.String),
         );
         const monitored = <A, E>(subscribe: (identifiers: Array.NonEmptyReadonlyArray<string>) => Stream.Stream<A, E>) => Stream.switchMap(identified, Array.match({ onEmpty: () => Stream.empty, onNonEmpty: subscribe }));
-        const named = Effect.fnUntraced(function* (change: typeof Event.Type) {
-            const [rows, listed] = yield* Effect.all([SubscriptionRef.get(running), SubscriptionRef.get(catalog)]);
-            const byBundle = Record.fromIterableBy(listed, (row) => row.url.href);
-            const bundle = Option.map(
-                Array.findFirst(rows, (row) => row.instance === change.instance),
-                Struct.get('url'),
-            );
-            const listedName = Option.map(
-                Option.flatMap(bundle, (url) => Record.get(byBundle, url.href)),
-                Struct.get('name'),
-            );
-            const startedName = Event.matchOrElse(change, { started: ({ name }) => Option.fromUndefinedOr(name) }, Option.none);
-            return {
-                application: Option.getOrElse(
-                    Option.orElse(listedName, () => startedName),
-                    () => change.instance,
-                ),
-                change,
-            };
-        });
         const refreshed = Effect.catchCause(
             Effect.flatMap(Application.installed, (rows) => SubscriptionRef.set(catalog, rows)),
             (cause) => Effect.logError('Adobe application listing failed, the last listing stands', cause),
@@ -86,17 +64,41 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
             Stream.drop(1),
             Stream.map((pressure) => ({ pressure })),
         );
-        const happened: Stream.Stream<Happened> = Stream.merge(
+        const happened = Stream.merge(
             Stream.mapEffect(
                 monitored((identifiers) => server.events({ identifiers })),
-                named,
+                Effect.fnUntraced(function* (change) {
+                    const [rows, listed] = yield* Effect.all([SubscriptionRef.get(running), SubscriptionRef.get(catalog)]);
+                    const byBundle = Record.fromIterableBy(listed, (row) => row.url.href);
+                    const bundle = Option.map(
+                        Array.findFirst(rows, (row) => row.instance === change.instance),
+                        Struct.get('url'),
+                    );
+                    const listedName = Option.map(
+                        Option.flatMap(bundle, (url) => Record.get(byBundle, url.href)),
+                        Struct.get('name'),
+                    );
+                    const startedName = Event.matchOrElse(change, { started: ({ name }) => Option.fromUndefinedOr(name) }, Option.none);
+                    return {
+                        application: Option.getOrElse(
+                            Option.orElse(listedName, () => startedName),
+                            () => change.instance,
+                        ),
+                        change,
+                    };
+                }),
             ),
             pressures,
         ).pipe(Stream.catchCause((cause) => Stream.fromEffect(Effect.andThen(Effect.logError('Application events ended', cause), Effect.never))));
         const target = Effect.flatMap(Handle, (handle) => handle.get(Target));
-        const shown = (event: Happened) => ('pressure' in event ? Effect.succeed(true) : Effect.map(target, ({ followed }) => HashSet.has(followed, event.change.instance)));
-        yield* Server.use((served) => served.events({ text: rendered, shown, stream: happened }));
-        const aimed = Effect.fnUntraced(function* (aim: { readonly row: Application; readonly instance: typeof ProcessInstance.Type }) {
+        yield* Server.use((served) =>
+            served.events({
+                text: (event) => ('pressure' in event ? `memory ${event.pressure.memory}, thermal ${event.pressure.thermal}` : `${event.application} ${changed(event.change)}`),
+                shown: (event) => ('pressure' in event ? Effect.succeed(true) : Effect.map(target, ({ followed }) => HashSet.has(followed, event.change.instance))),
+                stream: happened,
+            }),
+        );
+        const aimed = Effect.fnUntraced(function* (aim: { readonly row: Application; readonly instance: RunningInstance['instance'] }) {
             const [handle, { followed }] = yield* Effect.all([Handle, target]);
             yield* handle.set(Target, { held: Option.some(aim), followed: HashSet.add(followed, aim.instance) });
         });
@@ -155,12 +157,8 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const shown = ({ number, title, document }: { readonly number: number; readonly title?: string; readonly document?: string }) => [`window ${number}`, ...(title === undefined ? [] : [`"${title}"`]), ...(document === undefined ? [] : [`of ${document}`])].join(' ');
-const ended = Match.type<Extract<typeof Event.Type, { readonly _tag: 'exited' }>['exited']>().pipe(
-    Match.when({ _tag: 'Status' }, ({ status }) => `with status ${status}`),
-    Match.when({ _tag: 'Signal' }, ({ signal }) => `on signal ${signal}`),
-    Match.orElse(() => 'with unread status'),
-);
-const exited = (exit: Extract<typeof Event.Type, { readonly _tag: 'exited' }>['exited']) => `exited ${ended(exit)}${UndefinedOr.match(exit.report, { onUndefined: () => '', onDefined: (report) => `, ${report.kind} report ${report.url.href}` })}`;
+const ended = State.Exited.match({ Status: ({ status }) => `with status ${status}`, Signal: ({ signal }) => `on signal ${signal}`, Unread: () => 'with unread status' });
+const exited = (exit: Extract<RunningInstance['state'], { readonly _tag: 'exited' }>['exited']) => `exited ${ended(exit)}${UndefinedOr.match(exit.report, { onUndefined: () => '', onDefined: (report) => `, ${report.kind} report ${report.url.href}` })}`;
 const labelled = (controls: readonly { readonly id: string; readonly role: string; readonly label?: string }[]) => controls.map(({ id, role, label }) => `${label ?? role} ${id}`).join(', ');
 const answering = ({ answers, element }: Pick<Asked, 'answers' | 'element'>) => {
     const marked = Array.dedupeWith([answers?.accept, answers?.discard, answers?.cancel].filter(Predicate.isNotUndefined), Equivalence.mapInput(Equivalence.String, Struct.get('id')));
@@ -171,18 +169,15 @@ const answering = ({ answers, element }: Pick<Asked, 'answers' | 'element'>) => 
     });
 };
 const asked = ({ kind, window, title, text, answers, element }: Asked) => `${kind} in window ${window} asks${UndefinedOr.match(title, { onUndefined: () => '', onDefined: (named) => ` "${named}"` })}: ${text.join(' ')}, ${answering({ answers, element })}`;
-const rendered = (happened: Happened) =>
-    'pressure' in happened
-        ? `memory ${happened.pressure.memory}, thermal ${happened.pressure.thermal}`
-        : `${happened.application} ${Event.match(happened.change, {
-              started: () => 'started',
-              opened: ({ opened }) => `opened ${shown(opened)}`,
-              closed: ({ closed }) => `closed ${shown(closed)}`,
-              asking: ({ asking }) => asked(asking),
-              answered: ({ answered }) => `${answered.kind} in window ${answered.window} answered`,
-              status: ({ status, process }) => UndefinedOr.match(process, { onUndefined: () => status, onDefined: (thread) => `${status}, main thread ${thread}` }),
-              exited: ({ exited: exit }) => exited(exit),
-          })}`;
+const changed = Event.match({
+    started: () => 'started',
+    opened: ({ opened }) => `opened ${shown(opened)}`,
+    closed: ({ closed }) => `closed ${shown(closed)}`,
+    asking: ({ asking }) => asked(asking),
+    answered: ({ answered }) => `${answered.kind} in window ${answered.window} answered`,
+    status: ({ status, process }) => UndefinedOr.match(process, { onUndefined: () => status, onDefined: (thread) => `${status}, main thread ${thread}` }),
+    exited: ({ exited: exit }) => exited(exit),
+});
 const blocked = (name: string) => (found: Option.Option<RunningInstance>) =>
     Option.match(found, {
         onNone: () => Result.succeed(`${name} no longer runs`),
@@ -218,7 +213,7 @@ const applications = Effect.gen(function* () {
     });
     const open = Effect.fnUntraced(function* (given: string) {
         const [row, instances] = yield* Effect.all([located(given), SubscriptionRef.get(running)]);
-        const launched = Effect.map(Launching.launched(server.launch({ url: row.url })), ({ instance, created }) => ({ instance, created }));
+        const launched = Effect.map(server.launched({ url: row.url }), ({ instance, created }) => ({ instance, created }));
         const { instance, created } = yield* Option.match(Array.findFirst(instances, Installation.runs(row)), { onSome: ({ instance: reused }) => Effect.succeed({ instance: reused, created: false }), onNone: () => launched });
         yield* aimed({ row, instance });
         return { application: row.name, instance, created };

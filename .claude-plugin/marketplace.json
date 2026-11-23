@@ -139,7 +139,7 @@
         {
             "name": "typescript",
             "source": "./plugins/shared/typescript",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
             "author": {
                 "name": "Bardia Samiee"

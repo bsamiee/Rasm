@@ -121,7 +121,7 @@ const ownersOf = ({ nodes, owner }: Graph, invocation: Invocation, paths: readon
 };
 
 const executedFiles = Effect.fnUntraced(function* (options: Targets[string]['options'], reads: string | undefined, call: Call) {
-    const decoded: typeof Options.Type = Option.getOrElse(Schema.decodeUnknownOption(Options)(options), () => ({}));
+    const decoded = Option.getOrElse(Schema.decodeUnknownOption(Options)(options), () => Options.make({}));
     const { command, commands = [], cwd = '' } = decoded;
     const folder = Option.some(call.host.path.join(call.host.root, cwd));
     const bodies = yield* Effect.forEach([...Option.toArray(Option.fromUndefinedOr(command)), ...commands], (text) => bodyOf(text, call));

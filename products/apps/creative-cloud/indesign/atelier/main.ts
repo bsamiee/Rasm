@@ -1,7 +1,7 @@
 import { Adjust, Typeset, Typesetting } from '@rasm/indesign';
 import { adjust, call, change, findChange, font, inspect, KASHIDA_WIDTHS, kerns, listened, Model, preflight, render, runs, STYLISTIC_TAGS, session, thousandths, typeset } from '@rasm/indesign/uxp';
-import { Link } from '@rasm/mcp';
-import { Declaration, HostError, Rendering } from '@rasm/object-model';
+import { Link, type Notice } from '@rasm/mcp';
+import { HostError, Rendering } from '@rasm/object-model';
 import { read } from '@rasm/object-model/host';
 import { Settings } from '@rasm/typography';
 import { UxpManifest } from '@rasm/uxp';
@@ -17,13 +17,13 @@ const SHORTCUT_MULTIPLE = 5;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Steps = Schema.Struct({ kerning: thousandths, baselineShift: Schema.Finite });
+class Steps extends Schema.Opaque<Steps, unknown>()(Schema.Struct({ kerning: thousandths, baselineShift: Schema.Finite })) {}
 const elongating = Settings.fields.kashida.schema.isAnyOf(['Tatweel', 'Stretched']);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(Model.selection, (item) => typeset(Typeset.make({ target: item.toSpecifier(), settings })));
-const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof Steps.Type) => Adjust['deltas']>, multiple: number) {
+const typesetSelection = (settings: Typeset['settings']) => Effect.flatMap(Model.selection, (item) => typeset(Typeset.make({ target: item.toSpecifier(), settings })));
+const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: Steps) => Adjust['deltas']>, multiple: number) {
     const [{ app, owning }, item, delta] = yield* Effect.all([Model, Model.selection, Effect.fromOption(deltas)]);
     const styled = yield* Effect.fromOption(Option.liftPredicate(item, owning('textStyleRanges')), () => new Cause.NoSuchElementError(`text style range in selection ${item.toSpecifier()}`));
     const steps = yield* Model.read(Steps, 'text preferences', () => ({ kerning: multiple * app.textPreferences.kerningKeyIncrement, baselineShift: (multiple * app.textPreferences.baselineShiftKeyIncrement) / styled.textStyleRanges.firstItem().pointSize }));
@@ -32,10 +32,10 @@ const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof
 });
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const [model, permit] = Effect.runSync(Effect.all([Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Declaration.Model))(declared), Model.make), Semaphore.make(1)]));
+const [model, permit] = Effect.runSync(Effect.all([Model.make(declared), Semaphore.make(1)]));
 const scripted = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(session, scope), effect)).pipe(Semaphore.withPermit(permit), Effect.provideService(Model, model));
 const notices = (extension: string) =>
-    Stream.callback<typeof Link.Notice.Type>((queue) =>
+    Stream.callback<Notice>((queue) =>
         listened([model.Document.AFTER_OPEN, model.Document.AFTER_SAVE, model.Document.BEFORE_CLOSE], extension, (event) => {
             const [name, target] = [read(event, 'eventType'), read(event, 'target')];
             if (Predicate.isString(name) && model.document(target)) {
@@ -62,7 +62,7 @@ const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work:
             Marks: { horizontal: ({ kerning }) => ({ marks: { x: kerning, y: 0 } }), vertical: ({ kerning }) => ({ marks: { x: 0, y: kerning } }) },
             Kerning: { horizontal: ({ kerning }) => ({ kerning }), vertical: ({ baselineShift }) => ({ baselineShift }) },
             Tracking: { horizontal: ({ kerning }) => ({ tracking: kerning }), vertical: ({ baselineShift }) => ({ baselineShift }) },
-        } as const satisfies Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, (steps: typeof Steps.Type) => Adjust['deltas']>>),
+        } as const satisfies Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, (steps: Steps) => Adjust['deltas']>>),
     );
     const elongation = picker(
         'Elongation',
@@ -88,7 +88,7 @@ const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work:
             }
             sets.forEach(checked(features));
         });
-    const drawn = <E>(requested: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, Model>) => scripted(Effect.flatMap(requested, typesetSelection)).pipe(Effect.flatMap(displayed));
+    const drawn = <E>(requested: Effect.Effect<Typeset['settings'], E, Model>) => scripted(Effect.flatMap(requested, typesetSelection)).pipe(Effect.flatMap(displayed));
     const changed = () => fork(drawn(Effect.succeedNone).pipe(Effect.onError(Function.constant(Effect.sync(() => withheld(inputs)))), Effect.catchTag('Unmatched', Function.constant(Effect.void))));
     const acted = flow(drawn, Effect.onError(Function.constant(Effect.sync(changed))), fork);
     const elongated = ({ kashida }: Settings) =>

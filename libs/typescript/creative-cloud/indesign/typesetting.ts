@@ -1,5 +1,5 @@
 import { Reference, request, Written } from '@rasm/object-model';
-import { Settings, Source } from '@rasm/typography';
+import { Settings, SettingsPatch, Source } from '@rasm/typography';
 import { Option, Schema, Struct } from 'effect';
 import { RpcGroup } from 'effect/rpc';
 import { Inspection } from '#/views';
@@ -53,7 +53,7 @@ class Runs extends Schema.Class<Runs, { readonly brand: unique symbol }>('Runs')
         }),
     ).annotate({ description: 'Container holding target text or text defaults, with its style ranges' });
 }
-class Typeset extends Schema.Class<Typeset, { readonly brand: unique symbol }>('Typeset')({ target: Adjust.fields.target, settings: Schema.OptionFromOptionalKey(Settings.Partial.check(Schema.isMinProperties(1))) }) {
+class Typeset extends Schema.Class<Typeset, { readonly brand: unique symbol }>('Typeset')({ target: Adjust.fields.target, settings: Schema.OptionFromOptionalKey(SettingsPatch.check(Schema.isMinProperties(1))) }) {
     static readonly Result = Settings.annotate({ description: 'Target settings, first run of mixed text' });
 
     get label(): string {

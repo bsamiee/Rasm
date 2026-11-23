@@ -1,6 +1,45 @@
 # [SCHEMA]
 
-## [01]-[MODELS]
+## [01]-[CLASSES]
+
+Schemas a signature names are classes, one declaration holding the codec and its decoded type, and how a record's values come to exist selects the form:
+
+| [INDEX] | [FORM]                                                          | [VALUES]                                        |
+| :-----: | :-------------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `Schema.Opaque<X, { readonly brand: unique symbol }>()(struct)` | Plain objects decoding and `X.make` alone build |
+|  [02]   | `Schema.Opaque<X, unknown>()(struct)`                           | Plain objects any site builds as a literal      |
+|  [03]   | `Schema.Class<X, { readonly brand: unique symbol }>('X')(...)`  | Instances holding getters and methods           |
+
+```ts
+const SensorId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('SensorId'));
+
+class Reading extends Schema.Opaque<Reading, { readonly brand: unique symbol }>()(Schema.Struct({ sensor: SensorId, level: Schema.Literals(['low', 'high']), at: Schema.DateTimeUtcFromString })) {
+    static readonly json = Schema.fromJsonString(this);
+}
+class Extent extends Schema.Opaque<Extent, unknown>()(Schema.Struct({ start: Schema.Int, end: Schema.Int })) {}
+class Folder extends Schema.Opaque<Folder, unknown>()(Schema.Struct({ name: Schema.String, folders: Schema.Array(Schema.suspend((): Schema.Codec<Folder> => Folder)) })) {}
+
+const highs = (readings: readonly Reading[], sensor: Reading['sensor']) => readings.filter((reading) => reading.sensor === sensor && reading.level === 'high');
+```
+
+`Reading.json` decodes text into a `Reading`, `Reading['sensor']` names its brand and `Reading['level']` its literal set, `{ start: 0, end: 4 }` is an `Extent`, and `Folder` infers its own recursive type:
+- `Opaque` returns the schema it wraps: wire form, JSON Schema, and messages stay the struct's, and statics join in the class body
+- `Schema.Class` constructs an instance on decode and writes a `$ref` definition in JSON Schema, a struct turned class changing both
+- Class instances lose their prototype through a spread, `structuredClone`, or a worker message, and encoding the copy fails with `Expected X`
+- `Equal.equals` and `Hash.hash` read every getter of a class instance, a getter returning a function or host handle breaking both
+- Branded classes take `X.make` at each build site, a spread of one keeping its brand
+- Branded `Opaque` records fail a `Schema.Codec<X, I>` annotation and decode unbranded through a parameter typed `Schema.Codec<A, I>`
+- Records holding a branded `Opaque` encode to its unbranded shape, their `Schema.suspend` annotation stating `Schema.Codec<X, Encoded>`
+- Exported values inferring a mapped type of a branded class (`Struct.evolve`, a rest pattern) fail to emit (TS2527), `X.make` naming the result
+- Unions, brands, and literal sets take no class (TS2509): a record holds each as a field, named `X['<field>']`
+- Unions a signature names join case classes through `Schema.Union([...]).pipe(Schema.toTaggedUnion('_tag'))`, each signature naming its cases
+- Unions only folds read stay one `Schema.TaggedUnion`, `match` typing each handler
+- Static member schemas hold no type name, a member a signature names becoming a class of its own
+- Classes another package's declarations expand join their package entry (TS2883), a record no entry exports staying a `const` named through its holder
+- Schemas no signature names stay a `const`, and a schema no codec reads goes with its type
+- `Schema.toEncoded(X)` under its own class names a wire shape a signature takes, `encodeEffect` and `decodeEffect` typing every other use
+
+## [02]-[MODELS]
 
 Records differing in shape per boundary operation are one `Model.Class` from `effect/schema`. Each field reaches the variants its role names, the class decodes a stored row, and `insert`, `update`, `json`, `jsonCreate`, and `jsonUpdate` are the codecs of each operation. A fact other fields decide is a getter no stored field contradicts:
 
@@ -40,7 +79,7 @@ class Invoice extends Model.Class<Invoice>('Invoice')({
 - `Schema.declare(Schema.is(Struct))` returns the host object itself, its methods keeping their receiver
 - `Struct.pick` reads own enumerable keys, and host getters read by walking `SchemaAST.toEncoded(View.ast)` by field, `_tag` or array member, at every depth
 
-## [02]-[UNIONS]
+## [03]-[UNIONS]
 
 Fields every case shares stay on the class, and the varying part is one `Schema.TaggedUnion` field keyed by tag with each case's fields as the value:
 
@@ -69,10 +108,11 @@ class Activity extends Schema.Class<Activity, { readonly brand: unique symbol }>
 - Encoded cases with no tag declare `_tag: Schema.tagDefaultOmit('<Case>')` beside their `encodeKeys`, decoded cases folding through `Match.valueTags`
 - Record cases beside tagged ones declare `_tag: Schema.optionalKey(Schema.Never)` in a `StructWithRest`, a malformed tagged value failing at its case
 - Cases differing in tag alone share one fields record, a check spanning them sits on the union, and a shared-field reader takes `Extract<U, { field }>`
-- Recursive schemas type only the recursing cases by hand, the rest `typeof Leaf.Type` of one schema union, each slot reading one `Schema.suspend` const
-- Recursive consts annotate `Schema.Codec<T, E>`, and `Schema.suspend((): Schema.Codec<T, E> => X)` breaks the inference cycle
+- Recursive records are classes reading themselves through `Schema.suspend((): Schema.Codec<X> => X)`, a hand interface restating their fields
+- Recursive unions are one hand alias over their case classes, each slot reading one `Schema.suspend` const
+- Recursive union consts annotate `Schema.Codec<T, E>` against that alias, and a case the alias lacks fails to compile
 
-## [03]-[TRANSFORMATIONS]
+## [04]-[TRANSFORMATIONS]
 
 Transformations pair a decode getter from encoded form to domain type with an encode getter back. Schemas declare one direction, `Schema.flip` derives the reverse, and each conversion selects its form:
 
@@ -128,7 +168,7 @@ const Manifest = fromText('YAML', Yaml.parse).pipe(Schema.decodeTo(Schema.Struct
 - Host handles skip encoding through `encodeTo(Schema.optionalKey(Schema.Never), { decode: SchemaGetter.forbidden(f), encode: SchemaGetter.omit() })`
 - `Schema.decodeEffect` types its input as the schema's `Encoded` and `decodeUnknownEffect` as `unknown`, both running one decode
 
-## [04]-[OPTIONALITY]
+## [05]-[OPTIONALITY]
 
 Absence a host returns decodes to `Option`, absence a domain default fills decodes to the value, and the encoded spelling selects the form:
 
@@ -151,7 +191,7 @@ Absence a host returns decodes to `Option`, absence a domain default fills decod
 - `Schema.withConstructorDefault(effect)` lets `make` omit a key, `Effect.succeedNone` filling an `Option` field, where a decoding default keeps it required
 - Keys stored documents and `make` both omit pipe `withDecodingDefaultKey` then `withConstructorDefault` over one value typed `S['Type'] & S['Encoded']`
 
-## [05]-[SERIALIZATION]
+## [06]-[SERIALIZATION]
 
 Field schemas declare the domain type, and each format derives its codec from the class or model variant it encodes. Key spellings a rule decides derive from the fields:
 
@@ -172,7 +212,7 @@ const snakeCased = <S extends Schema.Top & { readonly fields: Schema.Struct.Fiel
 |  [07]   | Tool, form, or API schema | `Schema.toJsonSchemaDocument(X)`                          |
 |  [08]   | Standard Schema validator | `Schema.toStandardSchemaV1(X)`                            |
 
-- `fromJsonString(X)` keeps `typeof X.Encoded` a peer types against, where `toCodecJson` types it `Json`
+- `fromJsonString(X)` keeps the encoded type of `X` a peer types against, where `toCodecJson` types it `Json`
 - Structured text builds through its encoder (`encodeEffect(fromJsonString(X, { space }))` for people, `NetAddress.formatInet`), a template restating it
 - Edits to a document go through its format library's concrete syntax tree, keeping comments and layout, a pattern rewrite restating it
 - Source no TypeScript library parses (Swift) edits through the `ast-grep` CLI under the project's `sgconfig.yml`

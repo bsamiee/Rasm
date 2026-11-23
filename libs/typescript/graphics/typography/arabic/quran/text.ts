@@ -21,8 +21,8 @@ const Ordinal = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
 const Riwayah = Schema.Literals(['Bazzi', 'Douri', 'Hafs', 'Qalun', 'Qunbul', 'Shuba', 'Sousi', 'Warsh'] as const satisfies Readonly<RiwayasNames>).annotate({ description: 'Riwayah counting surah and ayah numbers and divisions' });
 class Bounds extends Schema.Opaque<Bounds, unknown>()(
     Schema.Struct({
-    from: Schema.OptionFromOptionalKey(Ordinal.annotate({ description: 'First ayah counted within the division, its start when absent' })),
-    to: Schema.OptionFromOptionalKey(Ordinal.annotate({ description: 'Last ayah counted within the division, its end when absent' })),
+        from: Schema.OptionFromOptionalKey(Ordinal.annotate({ description: 'First ayah counted within the division, its start when absent' })),
+        to: Schema.OptionFromOptionalKey(Ordinal.annotate({ description: 'Last ayah counted within the division, its end when absent' })),
     }),
 ) {}
 class SurahSelection extends Schema.Opaque<SurahSelection, { readonly brand: unique symbol }>()(Schema.TaggedStruct('Surah', { surah: Schema.String.annotate({ description: 'Surah name or number' }), ...Bounds.fields })) {}
@@ -70,7 +70,12 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
     static readonly Columns = Schema.Struct({ ayahs: headers(AyahRow), surahs: headers(SurahRow) });
     static readonly Selection = Schema.Union([SurahSelection, PartSelection]).annotate({ description: 'Ayahs of a surah or numbered division, within ayah bounds' }).pipe(Schema.toTaggedUnion('_tag'));
     static readonly #rows = <F extends Schema.Struct.Fields>(row: Schema.Struct<F>, text: string, headed: { readonly [K in keyof F]: string }) => Stream.make(text).pipe(Stream.pipeThroughChannel(Csv.decodeSchemaString(row.pipe(Schema.encodeKeys(headed)))({ headers: true, ignoreEmptyLines: true })), Stream.runCollect);
-    static readonly decode = Effect.fn('Quran.decode')(function* (csv: { readonly ayahs: string; readonly surahs: string }, columns: { readonly ayahs: Record.ReadonlyRecord<keyof AyahRow, string>; readonly surahs: Record.ReadonlyRecord<keyof SurahRow, string> }, riwayah: Quran['riwayah'] = Option.none(), tables: readonly SurahNames[] = NAMES) {
+    static readonly decode = Effect.fn('Quran.decode')(function* (
+        csv: { readonly ayahs: string; readonly surahs: string },
+        columns: { readonly ayahs: Record.ReadonlyRecord<keyof AyahRow, string>; readonly surahs: Record.ReadonlyRecord<keyof SurahRow, string> },
+        riwayah: Quran['riwayah'] = Option.none(),
+        tables: readonly SurahNames[] = NAMES,
+    ) {
         const [ayahs, surahs] = yield* Effect.all([Quran.#rows(AyahRow, csv.ayahs, columns.ayahs), Quran.#rows(SurahRow, csv.surahs, columns.surahs)]);
         const ayahsBySurah = Map.groupBy(ayahs, Struct.get('surah'));
         const named = Array.dedupeWith(surahs, sameNumber);

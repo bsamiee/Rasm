@@ -26,13 +26,13 @@ const Subtable: Schema.Codec<Substitution, unknown> = Schema.Union([
 ]).annotate({ description: 'GSUB subtable, a format without one coverage table reading as empty' });
 class Tables extends Schema.Opaque<Tables, { readonly brand: unique symbol }>()(
     Schema.Struct({
-    head: Schema.Struct(Struct.Record(['xMin', 'yMin', 'xMax', 'yMax'], Schema.Finite)),
-    post: Schema.Struct({ isFixedPitch: Schema.Finite.pipe(Schema.decodeTo(Schema.Boolean, { decode: SchemaGetter.Boolean(), encode: SchemaGetter.Number() })), italicAngle: Schema.Finite }),
-    'OS/2': Schema.OptionFromOptional(Schema.Struct({ usWeightClass: Schema.Int, usWidthClass: Schema.Int, fsType: Schema.Struct(Struct.Record(['noEmbedding', 'viewOnly', 'editable', 'noSubsetting', 'bitmapOnly'], Schema.Boolean)) })),
-    'CFF ': Schema.OptionFromOptional(Schema.Struct({ topDict: Schema.Struct({ UnderlinePosition: Schema.Finite, UnderlineThickness: Schema.Finite, FontMatrix: Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]) }) })),
-    GSUB: Schema.OptionFromOptional(Schema.Struct({ lookupList: LazyArray })),
-    JSTF: Schema.Struct({ scriptList: Schema.Array(Schema.Struct({ tag: Schema.String, script: Schema.Struct({ extenderGlyphs: Schema.OptionFromNullOr(Schema.Array(Schema.Int)) }) })) }).pipe(Schema.withDecodingDefault(Effect.succeed({ scriptList: [] }))),
-    fvar: Schema.Struct({ instance: Schema.Array(Schema.Struct({ nameID: Schema.Int, coord: Schema.Array(Schema.Finite), postscriptNameID: Schema.OptionFromOptionalKey(Schema.Int) })) }).pipe(Schema.withDecodingDefault(Effect.succeed({ instance: [] }))),
+        head: Schema.Struct(Struct.Record(['xMin', 'yMin', 'xMax', 'yMax'], Schema.Finite)),
+        post: Schema.Struct({ isFixedPitch: Schema.Finite.pipe(Schema.decodeTo(Schema.Boolean, { decode: SchemaGetter.Boolean(), encode: SchemaGetter.Number() })), italicAngle: Schema.Finite }),
+        'OS/2': Schema.OptionFromOptional(Schema.Struct({ usWeightClass: Schema.Int, usWidthClass: Schema.Int, fsType: Schema.Struct(Struct.Record(['noEmbedding', 'viewOnly', 'editable', 'noSubsetting', 'bitmapOnly'], Schema.Boolean)) })),
+        'CFF ': Schema.OptionFromOptional(Schema.Struct({ topDict: Schema.Struct({ UnderlinePosition: Schema.Finite, UnderlineThickness: Schema.Finite, FontMatrix: Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]) }) })),
+        GSUB: Schema.OptionFromOptional(Schema.Struct({ lookupList: LazyArray })),
+        JSTF: Schema.Struct({ scriptList: Schema.Array(Schema.Struct({ tag: Schema.String, script: Schema.Struct({ extenderGlyphs: Schema.OptionFromNullOr(Schema.Array(Schema.Int)) }) })) }).pipe(Schema.withDecodingDefault(Effect.succeed({ scriptList: [] }))),
+        fvar: Schema.Struct({ instance: Schema.Array(Schema.Struct({ nameID: Schema.Int, coord: Schema.Array(Schema.Finite), postscriptNameID: Schema.OptionFromOptionalKey(Schema.Int) })) }).pipe(Schema.withDecodingDefault(Effect.succeed({ instance: [] }))),
     }),
 ) {}
 class Lookup extends Schema.Opaque<Lookup, { readonly brand: unique symbol }>()(Schema.Struct({ subTables: Schema.Array(Subtable) })) {}

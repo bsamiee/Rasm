@@ -33,28 +33,32 @@ const Ranged = Schema.TemplateLiteralParser(['(Range: ', Schema.Finite, ' to ', 
 const Text = Schema.Union([Schema.String, Schema.Struct({ text: Schema.String }).pipe(Schema.decodeTo(Schema.String, SchemaTransformation.transform({ decode: Struct.get('text'), encode: (text) => ({ text }) })))]);
 const Datatype = Schema.Struct({ type: Text, array: Schema.optionalKey(Schema.Union([Schema.String, Schema.Struct({ size: Schema.String })])), value: Schema.optionalKey(Text), ...Struct.Record(['min', 'max'], Schema.optionalKey(Schema.FiniteFromString)) });
 const Described = { name: Schema.String, shortdesc: Schema.optionalKey(Text), datatype: Schema.optionalKey(Schema.NonEmptyArray(Datatype).annotate({ description: 'Alternatives where a value takes more than one type' })) };
-const Argued = Schema.Struct({ ...Described, optional: Schema.optionalKey(Schema.Literal('true').transform(true)) });
+class Argued extends Schema.Opaque<Argued, { readonly brand: unique symbol }>()(Schema.Struct({ ...Described, optional: Schema.optionalKey(Schema.Literal('true').transform(true)) })) {}
 const Property = Schema.Struct({ ...Described, rwaccess: Schema.optionalKey(Schema.Literal('readonly').transform(true)) });
 const Called = Schema.Struct({ ...Described, parameters: Schema.optionalKey(Schema.Struct({ parameter: Schema.Array(Argued) })) });
 const Elements = Schema.Struct({ type: Schema.Literals(['instance', 'class', 'constructor', 'event']), property: Schema.optionalKey(Schema.Array(Property)), method: Schema.optionalKey(Schema.Array(Called)) });
-const Classdef = Schema.Struct({ ...Described, enumeration: Schema.optionalKey(Schema.Literal('true').transform(true)), superclass: Schema.optionalKey(Text), elements: Schema.Array(Elements).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) });
-const Omv = Schema.Struct({ dictionary: Schema.Struct({ package: Schema.Struct({ classdef: Schema.Array(Classdef) }) }) });
+class Classdef extends Schema.Opaque<Classdef, { readonly brand: unique symbol }>()(Schema.Struct({ ...Described, enumeration: Schema.optionalKey(Schema.Literal('true').transform(true)), superclass: Schema.optionalKey(Text), elements: Schema.Array(Elements).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })) {}
+class Omv extends Schema.Opaque<Omv, { readonly brand: unique symbol }>()(Schema.Struct({ dictionary: Schema.Struct({ package: Schema.Struct({ classdef: Schema.Array(Classdef) }) }) })) {}
 const Stated = Flag('true', 'false');
 const Kind = Flag('class', 'instance');
 const Callable = Schema.Struct({ name: Schema.String, dataType: Schema.String, propKind: Kind, async: Stated, params: Schema.Array(Schema.Struct({ name: Schema.optionalKey(Schema.String), dataType: Schema.String, optional: Stated })) });
 const Constructor = Schema.Struct({ propKind: Schema.Literal('constructor') });
-const Entry = Schema.Struct({
-    name: Schema.String,
-    properties: Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, dataType: Schema.String, propKind: Kind, propType: Flag('readOnly', 'readWrite'), async: Stated }))),
-    methods: Schema.NullOr(Schema.Array(Schema.Union([Callable, Constructor]))),
-});
+class Entry extends Schema.Opaque<Entry, { readonly brand: unique symbol }>()(
+    Schema.Struct({
+        name: Schema.String,
+        properties: Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, dataType: Schema.String, propKind: Kind, propType: Flag('readOnly', 'readWrite'), async: Stated }))),
+        methods: Schema.NullOr(Schema.Array(Schema.Union([Callable, Constructor]))),
+    }),
+) {}
 const Manifest = Schema.fromJsonString(Schema.Array(Entry));
-const Documented = Schema.Struct({
-    name: Schema.String,
-    description: Schema.NullOr(Schema.String),
-    properties: Schema.Array(Schema.Struct({ Name: Schema.String, Type: Schema.String, Access: Flag('R', 'RW'), 'Min Version': Schema.String, Description: Schema.String })),
-    methods: Schema.Array(Schema.Struct({ name: Schema.String, returns: Schema.NullOr(Schema.String), since: Schema.NullOr(Schema.String), description: Schema.NullOr(Schema.String), parameters: Schema.Array(Schema.Struct({ Name: Schema.String, Type: Schema.String, Description: Schema.String })) })),
-});
+class Documented extends Schema.Opaque<Documented, { readonly brand: unique symbol }>()(
+    Schema.Struct({
+        name: Schema.String,
+        description: Schema.NullOr(Schema.String),
+        properties: Schema.Array(Schema.Struct({ Name: Schema.String, Type: Schema.String, Access: Flag('R', 'RW'), 'Min Version': Schema.String, Description: Schema.String })),
+        methods: Schema.Array(Schema.Struct({ name: Schema.String, returns: Schema.NullOr(Schema.String), since: Schema.NullOr(Schema.String), description: Schema.NullOr(Schema.String), parameters: Schema.Array(Schema.Struct({ Name: Schema.String, Type: Schema.String, Description: Schema.String })) })),
+    }),
+) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -289,46 +293,44 @@ const declared = Effect.fnUntraced(function* (compiler: Option.Option<{ readonly
 
 const nonEmpty = (text: string) => Option.liftPredicate(text.trim(), (trimmed) => trimmed !== '');
 const summary = (shortdesc: string | undefined) => Option.flatMap(Option.fromUndefinedOr(shortdesc), nonEmpty);
-const datatyped = (datatypes: Array.NonEmptyReadonlyArray<typeof Datatype.Type> | undefined) => ({
+const datatyped = (datatypes: Classdef['datatype']) => ({
     type: Option.map(Option.fromUndefinedOr(datatypes), (alternatives) => Array.map(alternatives, ({ type, array }) => (array === undefined ? type : `${type}[]`)).join(' | ')),
     minimum: Array.findFirst(datatypes ?? [], ({ min }) => Option.fromUndefinedOr(min)),
     maximum: Array.findFirst(datatypes ?? [], ({ max }) => Option.fromUndefinedOr(max)),
 });
-const parameter = (each: typeof Argued.Type) => Declaration.Parameter.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), optional: each.optional ?? false });
+const parameter = (each: Argued) => Declaration.Parameter.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), optional: each.optional ?? false });
 const grouped =
-    (type: (typeof Elements.Type)['type']) =>
-    ({ elements }: typeof Classdef.Type) =>
+    (type: Classdef['elements'][number]['type']) =>
+    ({ elements }: Classdef) =>
         elements.some((group) => group.type === type);
-const classdef =
-    (constructible: Predicate.Predicate<typeof Classdef.Type>) =>
-    (definition: typeof Classdef.Type): readonly [string, typeof Declaration.Page.Type] => {
-        const { name, shortdesc, enumeration, superclass, elements } = definition;
-        const description = summary(shortdesc);
-        const properties = Array.flatMap(elements, (group) => group.property ?? []);
-        return [
-            name,
-            (enumeration ?? false)
-                ? Declaration.cases.Enumeration.make({ name, description, members: Array.map(properties, (each) => ({ name: each.name, description: summary(each.shortdesc), value: Array.findFirst(each.datatype ?? [], ({ value }) => Option.fromUndefinedOr(value)) })) })
-                : Declaration.cases.Class.make({
-                      name,
-                      description,
-                      parents: Option.toArray(Option.fromUndefinedOr(superclass)),
-                      constructible: constructible(definition),
-                      fields: Array.map(properties, (each) => Declaration.Field.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), readonly: each.rwaccess ?? false })),
-                      methods: Array.flatMap(elements, (group) =>
-                          Array.map(group.type === 'constructor' ? [] : (group.method ?? []), (each) => Declaration.Method.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), parameters: Array.map(each.parameters?.parameter ?? [], parameter) })),
-                      ),
-                  }),
-        ];
-    };
-const classdefs = ({ dictionary }: typeof Omv.Type) => Array.map(dictionary.package.classdef, classdef(dictionary.package.classdef.some(grouped('constructor')) ? grouped('constructor') : Predicate.not(grouped('instance'))));
-const paged = (pages: Record.ReadonlyRecord<string, typeof Declaration.Page.Type>) => Declaration.catalog(pages, Function.identity, Declaration.guards.Enumeration);
+const classdef = (constructible: Predicate.Predicate<Classdef>) => (definition: Classdef) => {
+    const { name, shortdesc, enumeration, superclass, elements } = definition;
+    const description = summary(shortdesc);
+    const properties = Array.flatMap(elements, (group) => group.property ?? []);
+    return [
+        name,
+        (enumeration ?? false)
+            ? Declaration.cases.Enumeration.make({ name, description, members: Array.map(properties, (each) => ({ name: each.name, description: summary(each.shortdesc), value: Array.findFirst(each.datatype ?? [], ({ value }) => Option.fromUndefinedOr(value)) })) })
+            : Declaration.cases.Class.make({
+                  name,
+                  description,
+                  parents: Option.toArray(Option.fromUndefinedOr(superclass)),
+                  constructible: constructible(definition),
+                  fields: Array.map(properties, (each) => Declaration.Field.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), readonly: each.rwaccess ?? false })),
+                  methods: Array.flatMap(elements, (group) =>
+                      Array.map(group.type === 'constructor' ? [] : (group.method ?? []), (each) => Declaration.Method.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), parameters: Array.map(each.parameters?.parameter ?? [], parameter) })),
+                  ),
+              }),
+    ] as const;
+};
+const classdefs = ({ dictionary }: Omv) => Array.map(dictionary.package.classdef, classdef(dictionary.package.classdef.some(grouped('constructor')) ? grouped('constructor') : Predicate.not(grouped('instance'))));
+const paged = <P>(pages: Record.ReadonlyRecord<string, P>) => Declaration.catalog(pages, Function.identity, Declaration.guards.Enumeration);
 const omv = (texts: Array.NonEmptyReadonlyArray<string>) =>
     Effect.map(
         Effect.forEach(texts, (text) => Schema.decodeUnknownEffect(Omv)(PARSER.parse(text))),
         (decoded) => paged(Record.fromEntries(Array.flatMap(decoded, classdefs))),
     );
-const entry = ({ name, properties, methods }: typeof Entry.Type): readonly [string, typeof Declaration.Page.Type] => {
+const entry = ({ name, properties, methods }: Entry) => {
     const [callable, constructors] = Array.partition(methods ?? [], Result.liftPredicate(Schema.is(Callable), Function.identity));
     return [
         name,
@@ -347,10 +349,10 @@ const entry = ({ name, properties, methods }: typeof Entry.Type): readonly [stri
                 }),
             ),
         }),
-    ];
+    ] as const;
 };
 const manifest = (text: string) => Effect.map(Schema.decodeEffect(Manifest)(text), (entries) => paged(Record.fromIterableWith(entries, entry)));
-const documented = (each: (typeof Documented.Type)['methods'][number]) =>
+const documented = (each: Documented['methods'][number]) =>
     Declaration.Method.make({
         name: each.name,
         description: Option.fromNullOr(each.description),
@@ -363,17 +365,18 @@ const documents = <E>(rows: Stream.Stream<Uint8Array, E>) =>
         paged(
             Record.fromIterableWith(
                 pages.filter(({ properties, methods }) => Array.isReadonlyArrayNonEmpty(properties) || Array.isReadonlyArrayNonEmpty(methods)),
-                ({ name, description, properties, methods }): readonly [string, typeof Declaration.Page.Type] => [
-                    name,
-                    Declaration.cases.Class.make({
+                ({ name, description, properties, methods }) =>
+                    [
                         name,
-                        description: Option.fromNullOr(description),
-                        parents: [],
-                        constructible: false,
-                        fields: Array.map(properties, (each) => Declaration.Field.make({ name: each.Name, description: nonEmpty(each.Description), type: nonEmpty(each.Type), version: nonEmpty(each['Min Version']), readonly: each.Access })),
-                        methods: Array.map(methods, documented),
-                    }),
-                ],
+                        Declaration.cases.Class.make({
+                            name,
+                            description: Option.fromNullOr(description),
+                            parents: [],
+                            constructible: false,
+                            fields: Array.map(properties, (each) => Declaration.Field.make({ name: each.Name, description: nonEmpty(each.Description), type: nonEmpty(each.Type), version: nonEmpty(each['Min Version']), readonly: each.Access })),
+                            methods: Array.map(methods, documented),
+                        }),
+                    ] as const,
             ),
         ),
     );

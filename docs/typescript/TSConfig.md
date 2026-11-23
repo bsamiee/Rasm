@@ -30,49 +30,12 @@ Programs and their emit:
 - Test suite programs `references` reach each package they import, else TS6307 refuses the files outside their `include`
 - Applications another project imports pair a composite `tsconfig.json` holding `"files": []` with a `noEmit` `tsconfig.app.json`
 - `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program and `build--tsc` for an emitting one, where `check--tsc` runs the build
-- Runtime `types`, DOM `lib`, and `jsx` sit in the package config that needs them, and files a second runtime runs take a program of their own
-- Workerd test suites pair `tsconfig.node.json` with `tsconfig.worker.json` over `*.workers.test.ts`, and files both runtimes import sit in both
-
-## [03]-[BASE]
-
-```jsonc
-{
-    "compilerOptions": {
-        "target": "esnext",
-        "lib": ["esnext"],
-        "module": "nodenext",
-        "outDir": "${configDir}/dist",
-        "composite": true,
-        "sourceMap": true,
-        "verbatimModuleSyntax": true,
-        "erasableSyntaxOnly": true,
-        "exactOptionalPropertyTypes": true,
-        "noUncheckedIndexedAccess": true,
-        "noPropertyAccessFromIndexSignature": true,
-        "noImplicitOverride": true,
-        "noImplicitReturns": true,
-        "noFallthroughCasesInSwitch": true,
-        "skipLibCheck": true,
-        "plugins": [{ "name": "@effect/language-service" }]
-    }
-}
-```
-
-Package config, source at the package root:
-
-```json
-{
-    "extends": "../../tsconfig.base.json",
-    "references": [{ "path": "../<dependency>" }]
-}
-```
-
-Defaults and runtime globals:
-- `include` defaults to `**/*` and `exclude` to `node_modules` and `outDir`, and the base writes neither
 - Programs name their runtime's globals: Node `["node"]`, Workers `["@cloudflare/workers-types"]`, browsers `["vite/client"]` with DOM `lib`
-- Libraries reading no runtime global set no `types`
+- Libraries reading no runtime global set no `types`, and files a second runtime runs take a program of their own
+- Workerd test suites pair `tsconfig.node.json` with `tsconfig.worker.json` over `*.workers.test.ts`, and files both runtimes import sit in both
+- `include` defaults to `**/*` and `exclude` to `node_modules` and `outDir`, and the base writes neither
 
-## [04]-[COMPILER_OPTIONS]
+## [03]-[COMPILER_OPTIONS]
 
 Written compiler options and the decision each states:
 
@@ -80,22 +43,21 @@ Written compiler options and the decision each states:
 | :-----: | :----------------------------------- | :----------------------- | :------------------------------------------------------------------ |
 |  [01]   | `target`                             | `esnext`                 | Every Node `engines.node` allows runs emitted syntax unlowered      |
 |  [02]   | `lib`                                | `["esnext"]`             | Compiler's newest ECMAScript library, matching `target`             |
-|  [03]   | `lib`                                | `["es2023", "dom"]`      | UXP programs, as UXP's V8 11.8 stages `Promise.withResolvers`       |
-|  [04]   | `module`                             | `nodenext`               | Code Node runs and published libraries, resolution following it     |
-|  [05]   | `module`                             | `preserve`               | Bundled applications, and programs over types `nodenext` misreads   |
-|  [06]   | `outDir`                             | `${configDir}/dist`      | Each package emits into its own `dist`                              |
-|  [07]   | `composite`                          | `true`                   | Implies `declaration` and `incremental`, required for references    |
-|  [08]   | `sourceMap`                          | `true` where `tsc` emits | Stack traces reach source lines                                     |
-|  [09]   | `verbatimModuleSyntax`               | `true`                   | Type-only imports stay marked, implies `isolatedModules`            |
-|  [10]   | `erasableSyntaxOnly`                 | `true`                   | Refuses syntax Node type stripping cannot run (`enum`, namespaces)  |
-|  [11]   | `exactOptionalPropertyTypes`         | `true`                   | Optional keys and keys holding `undefined` stay distinct            |
-|  [12]   | `noUncheckedIndexedAccess`           | `true`                   | Index reads include `undefined`                                     |
-|  [13]   | `noPropertyAccessFromIndexSignature` | `true`                   | Index signature keys read through brackets alone                    |
-|  [14]   | `skipLibCheck`                       | `true`                   | Dependency declarations go unchecked, their own builds checked them |
-|  [15]   | `types`                              | Per program              | Default `[]` loads no globals                                       |
-|  [16]   | `plugins`                            | Effect language service  | Patched `tsc` reports Effect diagnostics as compiler errors         |
-|  [17]   | `jsx`                                | `react-jsx`              | Packages holding `.tsx` alone                                       |
-|  [18]   | `noEmit`                             | `true`                   | Programs no other program references: suites, apps, tools           |
+|  [03]   | `module`                             | `nodenext`               | Code Node runs and published libraries, resolution following it     |
+|  [04]   | `module`                             | `preserve`               | Bundled applications, and programs over types `nodenext` misreads   |
+|  [05]   | `outDir`                             | `${configDir}/dist`      | Each package emits into its own `dist`                              |
+|  [06]   | `composite`                          | `true`                   | Implies `declaration` and `incremental`, required for references    |
+|  [07]   | `sourceMap`                          | `true` where `tsc` emits | Stack traces reach source lines                                     |
+|  [08]   | `verbatimModuleSyntax`               | `true`                   | Type-only imports stay marked, implies `isolatedModules`            |
+|  [09]   | `erasableSyntaxOnly`                 | `true`                   | Refuses syntax Node type stripping cannot run (`enum`, namespaces)  |
+|  [10]   | `exactOptionalPropertyTypes`         | `true`                   | Optional keys and keys holding `undefined` stay distinct            |
+|  [11]   | `noUncheckedIndexedAccess`           | `true`                   | Index reads include `undefined`                                     |
+|  [12]   | `noPropertyAccessFromIndexSignature` | `true`                   | Index signature keys read through brackets alone                    |
+|  [13]   | `skipLibCheck`                       | `true`                   | Dependency declarations go unchecked, their own builds checked them |
+|  [14]   | `types`                              | Per program              | Default `[]` loads no globals                                       |
+|  [15]   | `plugins`                            | Effect language service  | Patched `tsc` reports Effect diagnostics as compiler errors         |
+|  [16]   | `jsx`                                | `react-jsx`              | Packages holding `.tsx` alone                                       |
+|  [17]   | `noEmit`                             | `true`                   | Programs no other program references: suites, apps, tools           |
 
 Options that stay unwritten:
 
@@ -111,9 +73,9 @@ Options that stay unwritten:
 |  [08]   | `declarationMap`                   | Tarball `files` omit maps, and editors open referenced source           |
 
 Options for one case alone:
-- UXP programs take `lib` `es2023`, as `libdynamic-napi` of every 2027 host and beta embeds V8 11.8.172.13, whose ES2024 lacks `Promise.withResolvers`
+- UXP programs take `lib` `["es2023", "dom"]`, as V8 11.8 of every UXP host lacks `Promise.withResolvers` of ES2024
 - `UxpManifest.target` stays `es2022`, the newest year swc `JscTarget` names, as ES2023 adds hashbang syntax alone
-- `rewriteRelativeImportExtensions` rewrites relative `.ts` specifiers alone and refuses `#/` ones (TS2877), and `#/` rows append the extension in their target
+- `rewriteRelativeImportExtensions` rewrites relative `.ts` specifiers alone and refuses `#/` ones (TS2877), and their rows append the extension
 - `allowImportingTsExtensions` permits `.ts` specifiers in programs emitting no JavaScript, and `rewriteRelativeImportExtensions` implies it
 - `isolatedDeclarations` lets Oxc write `.d.ts` per file with no checker, and requires explicit types on every export
 - `customConditions` names a source condition only where `exports` hide source behind one
@@ -121,7 +83,7 @@ Options for one case alone:
 - `composite: false` sits beside `noEmit` only for inferred types no declaration names (TS2883, TS4094) or imports outside `include` (TS6307)
 - `module: preserve` serves `export =` modules read by named import (`@adobe-uxp-types`) and extensionless `.d.ts` re-exports (`icu`, Workers types)
 
-## [05]-[PROJECT_REFERENCES]
+## [04]-[PROJECT_REFERENCES]
 
 Project references and the generator writing them:
 - Programs without references type-check sibling `.ts` source under their own `lib`, `types`, and `paths`, and siblings of another runtime fail
@@ -135,21 +97,11 @@ Project references and the generator writing them:
 - `references` follow each program's own imports: `nx.sync.ignoredDependencies` in a runtime config drops a dependency only another program imports
 - Programs `typescript-sync` never writes (`tsconfig.node.json`, `worker`, `storybook`, `server`) list the packages their own files import
 - Suites importing nothing from a `noEmit` project name it in `ignoredDependencies`, as TS6310 refuses a `noEmit` reference
-- `sync.applyChanges: true` syncs before a terminal task run
 
-## [06]-[COMPILERS]
+## [05]-[COMPILERS]
 
 TypeScript 7 is the native compiler with no compiler API, and TypeScript 6 stays installed for tools importing one:
-
-```yaml
-catalog:
-  typescript: npm:@typescript/typescript6@<6.x>
-  '@typescript/native': npm:typescript@<7.x>
-  '@effect/tsgo': <version>
-```
-
-Packages and binaries of each compiler:
-- `typescript` resolves to TypeScript 6, with the 6.0 API and binary `tsc6`
+- `typescript` resolves to TypeScript 6 through an `npm:` alias, with the 6.0 API and binary `tsc6`
 - `@typescript/native` provides binary `tsc` from TypeScript 7, and `tsc` and `tsc -b` run the native compiler
 - Nx core requires `typescript` from the workspace root
 - `effect-tsgo patch` in root `prepare` patches the native compiler under `typescript`, else under `@typescript/native`

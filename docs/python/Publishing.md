@@ -26,7 +26,7 @@ Rules every packaged member follows:
 
 License and classifier rules:
 - `license-files` globs resolve inside the project folder and refuse `..`, and each project holds a real `LICENSE`
-- `hatchling` stores a symlinked `LICENSE` as a link in the sdist, and wheels built from it drop the file with no error
+- `hatchling` stores a symlinked `LICENSE` as a link in its sdist, and wheels built from it drop the file with no error
 - `uv_build` copies a symlink's target into both archives
 - PEP 639 deprecates `License ::` classifiers beside a `license` expression
 

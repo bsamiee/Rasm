@@ -65,7 +65,6 @@
         "stylelint-declaration-block-no-ignored-properties": "catalog:",
         "stylelint-order": "catalog:",
         "stylelint-plugin-defensive-css": "catalog:",
-        "stylelint-plugin-use-baseline": "catalog:",
         "stylelint-use-logical-spec": "catalog:",
         "stylelint-use-nesting": "catalog:",
         "tsrs": "catalog:",

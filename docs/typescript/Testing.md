@@ -122,10 +122,25 @@ Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)`
 - `@rasm/nx-playwright` infers tag `host:browser` and `test--playwright` per Playwright config, and reports and `test-results` go to `outputPath`
 - Project `test` runs `*.spec.ts` and `*.test.ts` files, and project `media` runs `*.media.ts` files outside the default `testMatch`
 - Project `media` writes to `<outputPath>/media` at a fixed scale factor, color scheme, locale, and zone, with traces and failure screenshots off
-- `media(scenes)` registers one Chrome Web Store screenshot per scene and both promo tiles from the built manifest, the product's `icons/mark.svg`, and its `config.brand`
+- `media(scenes)` registers a Chrome Web Store screenshot per scene and both promo tiles from the built manifest, `icons/mark.svg`, and `config.brand`
 - Projects matching files with an `outputDir` under `outputPath` run in `pack--playwright` after `test--playwright`, the rest in `test--playwright`
 - `pack--playwright` runs reporter `list` and outputs each `outputDir`, and `attach--gh` gets no earlier file, as Playwright empties them first
 - `test--playwright` runs after `build--*` of its suite's dependencies and each reused `webServer` task, and a suite naming a product loads its build
-- `loaded` launches Chromium with the one unpacked Manifest V3 extension among build outputs of its suite's dependencies
+- `loaded` launches one persistent Chromium context per worker and loads its suite's extension into it for each test over CDP
+- `loaded` takes the one unpacked Manifest V3 extension among build outputs of its suite's dependencies
 - `attach--gh` of a host package depends on `pack--*` of each workspace package depending on it and uploads the visible files they write
 - Fixture `axe` of `it` scans the page through `AxeBuilder` at WCAG A and AA tags through 2.2
+- Suites of a served product start its built Node bundle on an allocated port in a fixture, each test with its own database file and object storage
+- Fixtures keep that state in a temporary folder they remove, object storage a Miniflare R2 bucket behind its S3 route
+- No suite reads a developer's local state
+- Suites sign in through an `ACCESS` source `Forwarded`, as the headers of a request state its user
+
+## [09]-[SAFARI]
+
+Safari suites drive the installed Safari, as Playwright WebKit and Vitest browser providers launch builds that differ from it in the CSS they support:
+- Suites are Vitest `node` projects whose manifest states `os: darwin`, and `selenium-webdriver` starts `safaridriver` and one session per file
+- Cases a Chromium suite and a Safari suite share are rows of a width, an in-page read, and its expected value, exported by the Chromium suite
+- Each case sets the window width, loads the page, and polls its read until it equals the expected value
+- Safari comes to the front once as its session opens, and the suite then activates the app that was in front
+- Suites end their session, and quit Safari through its own quit where it was not running before
+- `safaridriver --enable` and Safari's remote automation setting are one-time machine state, which GitHub-hosted macOS images hold

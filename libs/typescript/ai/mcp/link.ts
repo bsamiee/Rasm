@@ -13,8 +13,8 @@ const REDIAL = Duration.seconds(1);
 
 class Call extends Schema.Opaque<Call, { readonly brand: unique symbol }>()(
     Schema.Struct({
-    ...McpSchema.CallTool.payloadSchema.fields,
-    context: Schema.Struct({ clientId: Schema.Int, protocolVersion: Schema.String, clientCapabilities: McpSchema.ClientCapabilities }).annotate({ description: 'Request context of the linked server call' }),
+        ...McpSchema.CallTool.payloadSchema.fields,
+        context: Schema.Struct({ clientId: Schema.Int, protocolVersion: Schema.String, clientCapabilities: McpSchema.ClientCapabilities }).annotate({ description: 'Request context of the linked server call' }),
     }),
 ) {}
 class Notice extends Schema.Opaque<Notice, unknown>()(

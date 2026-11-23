@@ -12,7 +12,7 @@ import type { Span, Word } from '#/shell/script';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 interface Call {
-    readonly request: typeof Request.Type;
+    readonly request: Request;
     readonly analysis: Analysis;
     readonly host: Host['Service'];
     readonly programs: ReadonlyMap<string, Ruleset['programs'][string]>;
@@ -129,7 +129,7 @@ const cut = (invocation: Invocation, parts: Array.NonEmptyReadonlyArray<Span>, b
 
 // --- [RULES]
 
-const once = Effect.fnUntraced(function* ({ session, agent }: Pick<typeof Request.Type, 'session' | 'agent'>, subject: string) {
+const once = Effect.fnUntraced(function* ({ session, agent }: Pick<Request, 'session' | 'agent'>, subject: string) {
     const limiter = yield* RateLimiter.RateLimiter;
     return yield* Effect.isSuccess(limiter.consume({ key: `${session} ${agent ?? 'main'} ${subject}`, limit: 1, window: '10 minutes', algorithm: 'fixed-window', onExceeded: 'fail' }));
 });

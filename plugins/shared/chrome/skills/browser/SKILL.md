@@ -27,6 +27,7 @@ Page tools take `pageId` from `list_pages`, and every session sharing the server
 - Chrome Web Store pages take `click` on Add to Chrome, and the owner answers Chrome's Add extension dialog
 - `install_extension` loads an unpacked build folder and prints its id, and `list_extensions` lists unpacked extensions alone
 - `reload_extension` restarts an unpacked extension's service worker from its folder and closes its open pages, and `uninstall_extension` removes it
+- Chrome removes an extension `install_extension` loaded at its next start
 
 ## [03]-[CHROME_PAGES]
 
@@ -98,6 +99,9 @@ Expressions on `chrome://flags` call its page proxy:
 
 Expressions on `chrome://extensions` and on an extension's own pages change installed extensions:
 - `chrome.developerPrivate.updateExtensionConfiguration` on `chrome://extensions` takes `extensionId` with `fileAccess`, `incognitoAccess`, or `pinnedToToolbar`
+- `chrome.developerPrivate.loadUnpacked({ failQuietly: true, populateError: true })` opens a folder picker and loads an extension that lasts across starts
+- `watch-app` answers that picker by selecting a sidebar row, then a folder row, then pressing Select, and Chrome resolves a symlink to its target
+- `chrome.developerPrivate.updateExtensionCommand({ extensionId, commandName, keybinding })` binds a shortcut a reinstall left inactive
 - Extension pages open as `chrome-extension://<id>/<page>`, where `browser.runtime.sendMessage(<message>)` sends what a page's own script sends
 - Dashboard of uBlock Origin Lite takes `{ what: "applyRulesets", enabledRulesets }`, `{ what: "setDefaultFilteringMode", level }`, and `{ what: "getOptionsPageData" }`
 - Filtering level 3 (Complete) of uBlock Origin Lite holds once `browser.permissions.contains({ origins: ["<all_urls>"] })` returns true

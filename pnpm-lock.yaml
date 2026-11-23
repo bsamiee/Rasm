@@ -495,9 +495,6 @@ catalogs:
     stylelint-plugin-defensive-css:
       specifier: 2.10.0
       version: 2.10.0
-    stylelint-plugin-use-baseline:
-      specifier: 1.4.8
-      version: 1.4.8
     stylelint-use-logical-spec:
       specifier: 6.0.1
       version: 6.0.1
@@ -585,7 +582,6 @@ overrides:
   '@pulumi/pulumi': 3.278.0-alpha.x8c16455
   vite>yaml: 3.0.0-2
   '@vitejs/plugin-react>oxc-transform-react': 0.158.0
-  stylelint-plugin-use-baseline>stylelint: 18.1.0
   '@types/ssh2>@types/node': 26.6.6
   '@pulumi/hostinger>typescript': npm:@typescript/typescript6@6.0.2
   '@pulumi/minio>typescript': npm:@typescript/typescript6@6.0.2
@@ -762,9 +758,6 @@ importers:
       stylelint-plugin-defensive-css:
         specifier: 'catalog:'
         version: 2.10.0(stylelint@18.1.0)
-      stylelint-plugin-use-baseline:
-        specifier: 'catalog:'
-        version: 1.4.8(stylelint@18.1.0)
       stylelint-use-logical-spec:
         specifier: 'catalog:'
         version: 6.0.1(stylelint@18.1.0)
@@ -8130,10 +8123,6 @@ packages:
     resolution: {integrity: sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==}
     engines: {node: '>=0.12.0'}
 
-  is-plain-object@5.1.0:
-    resolution: {integrity: sha512-bUi/yjmtKYcRVUtWRGr0UA6xEFh2I6zWUwMrUXB3s7bmYCaZ8a+0ZsTRkrawh/mzlSD1Y0Ph8bp/U+TvBpWDNw==}
-    engines: {node: '>=0.10.0'}
-
   is-safe-filename@0.1.1:
     resolution: {integrity: sha512-4SrR7AdnY11LHfDKTZY1u6Ga3RuxZdl3YKWWShO5iyuG5h8QS4GD2tOb04peBJ5I7pXbR+CGBNEhTcwK+FzN3g==}
     engines: {node: '>=20'}
@@ -9249,11 +9238,6 @@ packages:
     resolution: {integrity: sha512-/TJaUvd+DGNJyUrVdGgqVNQ31mvODC414jjuYRoUBQoLJinIZQYGlSLkKHCx37m3s3GRp30NRJ9lzAXeat+DsQ==}
     peerDependencies:
       stylelint: ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
-
-  stylelint-plugin-use-baseline@1.4.8:
-    resolution: {integrity: sha512-AJtV32b6aOoZdbiaJaj0OEO8I/wh8TSZUGUHsR/15MHSWPon2IPPVcNfzhCodvB+nBEre9xC2wdVJ8QNOWHBLw==}
-    peerDependencies:
-      stylelint: 18.1.0
 
   stylelint-use-logical-spec@6.0.1:
     resolution: {integrity: sha512-xDKLMSXQWAiC02RoatDFfeGE0msEoItfiw/YPdkPzvAhylZgnDmcwypdSr+SbMnIoaV0OaOS4W2GGB+dOLh3fA==}
@@ -14479,8 +14463,6 @@ snapshots:
 
   is-number@7.0.0: {}
 
-  is-plain-object@5.1.0: {}
-
   is-safe-filename@0.1.1: {}
 
   is-stream@2.0.1: {}
@@ -15778,14 +15760,6 @@ snapshots:
   stylelint-plugin-defensive-css@2.10.0(stylelint@18.1.0):
     dependencies:
       postcss-selector-parser: 7.2.1
-      stylelint: 18.1.0
-
-  stylelint-plugin-use-baseline@1.4.8(stylelint@18.1.0):
-    dependencies:
-      css-tree: 3.2.1
-      is-plain-object: 5.1.0
-      postcss: 8.5.33
-      postcss-value-parser: 4.2.0
       stylelint: 18.1.0
 
   stylelint-use-logical-spec@6.0.1(stylelint@18.1.0):

@@ -62,10 +62,10 @@ const byCell = Iterable.reduce(readings, HashMap.empty<Cell, Chunk.Chunk<Reading
 Optics state a path once and serve every read and write through it, rebuilding each enclosing value on write. Traversals focus every element of one case:
 
 ```ts
-const prices = Optic.id<readonly (typeof Item.Type)[]>().forEach((item) => item.tag('Priced').key('price'));
+const prices = Optic.id<Cart['items']>().forEach((item) => item.tag('Priced').key('price'));
 ```
 
-`Item` is a `Schema.TaggedUnion` with a `Priced` case. `prices.modifyAll(BigDecimal.multiply(rate))` reprices every priced item, `Optic.getAll(prices)` reads their prices, and other items stay unchanged:
+`Cart` is a record class with `items`, an array of a `Schema.TaggedUnion` with a `Priced` case. `prices.modifyAll(BigDecimal.multiply(rate))` reprices every priced item, `Optic.getAll(prices)` reads their prices, and other items stay unchanged:
 - `key` keeps a lens, `tag`, `refine`, and `check` focus a part that can be absent, and `modify` returns a whole lacking it unchanged
 - `getResult` and `replaceResult` return the `SchemaIssue` where a caller acts on an absent focus
 - `Optic.id` copies plain objects and arrays, the values `Schema.Struct`, `Schema.TaggedUnion`, and `Data.taggedEnum` build
@@ -79,10 +79,10 @@ const prices = Optic.id<readonly (typeof Item.Type)[]>().forEach((item) => item.
 Orders compose from the orders value modules export and sit on their type as a static that `Array.max`, `Order.clamp`, and `Combiner.max` read. Literal schemas order by declaration through each value's index in `literals`:
 
 ```ts
-const bySeverity = Order.mapInput(Number.Order, (severity: typeof Severity.Type) => Severity.literals.indexOf(severity));
+const bySeverity = Order.mapInput(Number.Order, (severity: Alert['severity']) => Alert.fields.severity.literals.indexOf(severity));
 ```
 
-`Severity` lists its literals from lowest to highest, and `Alert.order = Order.Struct({ severity: Order.flip(bySeverity), raised: DateTime.Order })` sorts alerts most severe, then oldest, first:
+`Alert` is a record class with `severity` literals listed from lowest to highest, and `Alert.order = Order.Struct({ severity: Order.flip(bySeverity), raised: DateTime.Order })` sorts alerts most severe, then oldest, first:
 - `Order.Struct` and `Order.Tuple` compare fields in key or position order until one differs, `Order.mapInput` over one ordering by a nested part
 - `Order.Boolean` ranks a predicate false first and `Order.Struct` orders a host struct whole, a `0 : 1` key or a tuple of its fields restating them
 - `Schema.toEquivalence(X)` derives field equality, `Equivalence.mapInput` builds one by key for a type lacking it (`URL` by `href`) as a static

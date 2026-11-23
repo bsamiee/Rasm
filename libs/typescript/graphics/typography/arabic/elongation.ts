@@ -9,16 +9,14 @@ const Groups = Schema.Struct({
 const Next = Schema.TaggedUnion({ End: {}, Letter: { groups: Schema.OptionFromOptionalKey(Groups).pipe(Schema.withConstructorDefault(Effect.succeedNone)) } }).annotate({
     description: 'Letter after the pair in its join, End when the pair closes it',
 });
-class Place extends Schema.Opaque<Place, { readonly brand: unique symbol }>()(
-    Schema.Struct({
+const Place = Schema.Struct({
     rank: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).annotate({ description: 'Justification rank, lower ranks taking slack first and equal ranks sharing it by capacity' }),
     stage: Schema.Literals(['text', 'line'])
         .annotate({ description: 'text elongates before line breaking so lines reflow, line fits slack after it' })
         .pipe(Schema.withConstructorDefault(Effect.succeed('line'))),
     ...Struct.Record(['before', 'after'], Schema.OptionFromOptionalKey(Groups.annotate({ description: 'Letter beside the place, any when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone))),
     next: Schema.OptionFromOptionalKey(Next).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-    }),
-) {}
+});
 const Elongated = {
     lower: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).annotate({ description: 'Lower elongation bound in nuqta, the length of each text-stage place and the least of each line-stage place' }),
     upper: Schema.Int.annotate({ description: 'Upper elongation bound in nuqta, each chosen place stretching at most this far' }),
@@ -62,4 +60,4 @@ const naskh = () => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Elongation, type Place };
+export { Elongation };

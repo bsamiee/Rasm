@@ -13,7 +13,7 @@ const CODE = new RegExp(`^(?<product>.+?)(?<suffix>${CHANNELS.slice(1).map(Strin
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Channel = Schema.Literals(CHANNELS).annotate({ description: 'Release channel, prerelease newest, then Beta, then year releases' });
-const Registered = Schema.Struct({ code: Schema.String, directory: Schema.String, launch: Schema.String, build: Schema.NullOr(Schema.String) });
+class Registered extends Schema.Opaque<Registered, { readonly brand: unique symbol }>()(Schema.Struct({ code: Schema.String, directory: Schema.String, launch: Schema.String, build: Schema.NullOr(Schema.String) })) {}
 const Receipt = Schema.Struct({ volume: Schema.String, 'install-location': Schema.String });
 const Info = Schema.Struct({
     CFBundleIdentifier: Schema.String,
@@ -114,10 +114,10 @@ const lines = (text: string) => text.split('\n').filter(String.isNonEmpty);
 const absent = (error: unknown): error is ExitError => Schema.is(ExitError)(error) && error.code === 1 && String.isEmpty(error.stdout);
 const placed =
     (path: Path.Path) =>
-    (bundle: string): { readonly bundle: string; readonly name: string; readonly product: Option.Option<string>; readonly channel: typeof Channel.Type; readonly build: Option.Option<string> } => ({ bundle, name: path.basename(bundle, '.app'), product: Option.none(), channel: CHANNELS[0], build: Option.none() });
+    (bundle: string): { readonly bundle: string; readonly name: string; readonly product: Option.Option<string>; readonly channel: Application['channel']; readonly build: Option.Option<string> } => ({ bundle, name: path.basename(bundle, '.app'), product: Option.none(), channel: CHANNELS[0], build: Option.none() });
 const registered =
     (path: Path.Path) =>
-    ({ code, directory, launch, build }: typeof Registered.Type) => {
+    ({ code, directory, launch, build }: Registered) => {
         const parts = launch.replace(INSTALL_DIRECTORY, directory).split('/');
         const { product = code, suffix } = CODE.exec(code)?.groups ?? {};
         const channel = Option.getOrElse(

@@ -1,9 +1,9 @@
 import { Inspection, Kerns, Typeset, Typesetting } from '@rasm/indesign';
 import { Link, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
-import { Settings, type Source } from '@rasm/typography';
+import { Settings, SettingsPatch, type Source } from '@rasm/typography';
 import { drawsKashida, Kerning, Quran, Symbols, TATWEEL } from '@rasm/typography/arabic';
-import { expandToWords, Face, Justification, ShapedText, Span } from '@rasm/typography/shaping';
+import { expandToWords, Face, FaceInstance, Justification, ShapedText, Span, TextRun } from '@rasm/typography/shaping';
 import { Array, Cause, Context, Effect, Equivalence, FileSystem, Number, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
@@ -29,13 +29,13 @@ const QuranSource = Schema.TaggedUnion({
 const Tools = {
     font: Tool.make('font', {
         description: 'Returns application font with its face, and shapes text in it, justified to width when given',
-        parameters: Face.Instance.pipe(
+        parameters: FaceInstance.pipe(
             Schema.fieldsAssign({
-                ...ShapedText.Run.fields,
+                ...TextRun.fields,
                 name: FONT,
-                text: Schema.OptionFromOptionalKey(ShapedText.Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' })),
+                text: Schema.OptionFromOptionalKey(TextRun.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' })),
                 width: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Line width in em to justify text to, natural width when absent' })),
-                settings: Settings.Partial.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+                settings: SettingsPatch.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
             }),
         ),
         success: Inspection.View.cases.Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) })),
@@ -77,7 +77,7 @@ const placements = (faces: readonly { readonly face: Face; readonly group: reado
         Array.flatMap(faces, ({ face, group }) => Array.map(group, (span) => ({ span, face }))),
         Order.mapInput(Number.Order, ({ span }: { readonly span: { readonly start: number } }) => span.start),
     );
-const specimen = Effect.fnUntraced(function* (data: typeof Source.Type, { coordinates, variations, size, width, settings: given, text, ...run }: Tool.Parameters<typeof Tools.font>) {
+const specimen = Effect.fnUntraced(function* (data: Source, { coordinates, variations, size, width, settings: given, text, ...run }: Tool.Parameters<typeof Tools.font>) {
     const face = yield* Face.open(data, { coordinates, variations, size });
     const settings = yield* Settings.merge(Settings.make({}), Struct.evolve(given, { features: (features = {}) => face.layout.exclusive(features) }));
     const natural = Option.map(text, (body) => ShapedText.of(face, { ...run, text: body }, settings));
@@ -92,13 +92,13 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
     const serving = Link.serves(Typesetting.requests.keys());
     const client = links.call(serving, 'linked application serving typesetting');
     const visible = Context.make(Server.Visible, Effect.map(links.peers, Array.some(serving)));
-    const read = ({ file, postscriptName }: { readonly file: string; readonly postscriptName: Option.Option<string> }) => Effect.map(files.readFile(file), (data): typeof Source.Type => ({ data, postscriptName }));
+    const read = ({ file, postscriptName }: { readonly file: string; readonly postscriptName: Option.Option<string> }) => Effect.map(files.readFile(file), (data) => ({ data, postscriptName }));
     const sourced = Effect.fnUntraced(function* (name: string, characters: string) {
         const file = yield* files.makeTempFileScoped({ suffix: '.otf' });
         const { font, source } = yield* Effect.flatMap(client, (linked) => linked('font', { name, text: characters, file }));
         return { font, source: yield* Effect.transposeOption(Option.map(source, read)) };
     }, Effect.scoped);
-    const faced = Effect.fnUntraced(function* (name: string, characters: string, instance?: typeof Face.Instance.Type) {
+    const faced = Effect.fnUntraced(function* (name: string, characters: string, instance?: FaceInstance) {
         const { source } = yield* sourced(name, characters);
         return yield* Face.open(yield* Effect.fromOption(source, () => Unmatched.of({ subject: 'font file', query: Option.some(name) })), instance);
     });
@@ -106,7 +106,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
         Effect.forEach(
             grouped(runs, first, last),
             Effect.fnUntraced(function* ({ span, group }) {
-                const face = yield* faced(span.font, [...group.map(Struct.get('text')), extra].join(''), Face.Instance.make({ coordinates: span.axes }));
+                const face = yield* faced(span.font, [...group.map(Struct.get('text')), extra].join(''), FaceInstance.make({ coordinates: span.axes }));
                 return { font: span.font, face, group };
             }),
         );

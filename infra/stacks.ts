@@ -21,13 +21,15 @@ const OPERATIONS = { up: 'was not applied', preview: 'was not previewed', destro
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Deployed = Schema.fromJsonString(Schema.Struct(Struct.Record(['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'DOPPLER_IAC_TOKEN', 'EPIC_GHCR_TOKEN', 'GITHUB_TOKEN', 'HOSTINGER_API_TOKEN', 'PULUMI_ACCESS_TOKEN', 'TAILSCALE_OAUTH_CLIENT_ID', 'TAILSCALE_OAUTH_CLIENT_SECRET'], Schema.NonEmptyString)));
-const Request = Schema.Struct({
-    verb: Schema.Literals(['install', 'deploy']).annotate({ description: 'install applies the stacks of this machine in a local backend, deploy the stacks of the repository, its machines, and the hosted apps' }),
-    operation: Schema.Literals(Struct.keys(OPERATIONS)).annotate({ description: 'up applies each stack, preview prints the changes an apply makes and makes none, destroy destroys and removes it' }),
-    stack: Schema.optionalKey(Schema.String).annotate({ description: 'Name of the one stack to run, absent runs every stack in dependency order' }),
-    production: Schema.Boolean.annotate({ description: 'Deploys the stacks of a released version' }),
-    'expect-no-changes': Schema.Boolean.annotate({ description: 'Fails an up or preview that changes a resource' }),
-});
+class Request extends Schema.Opaque<Request, { readonly brand: unique symbol }>()(
+    Schema.Struct({
+        verb: Schema.Literals(['install', 'deploy']).annotate({ description: 'install applies the stacks of this machine in a local backend, deploy the stacks of the repository, its machines, and the hosted apps' }),
+        operation: Schema.Literals(Struct.keys(OPERATIONS)).annotate({ description: 'up applies each stack, preview prints the changes an apply makes and makes none, destroy destroys and removes it' }),
+        stack: Schema.optionalKey(Schema.String).annotate({ description: 'Name of the one stack to run, absent runs every stack in dependency order' }),
+        production: Schema.Boolean.annotate({ description: 'Deploys the stacks of a released version' }),
+        'expect-no-changes': Schema.Boolean.annotate({ description: 'Fails an up or preview that changes a resource' }),
+    }),
+) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -41,7 +43,7 @@ const requested = Effect.flatMap(
     ({ positionals: [verb], values }) => Schema.decodeUnknownEffect(Request)({ verb, ...values }),
 );
 
-const grouped = Effect.fnUntraced(function* ({ verb, production }: typeof Request.Type) {
+const grouped = Effect.fnUntraced(function* ({ verb, production }: Request) {
     const deploy = verb === 'deploy' ? Option.some({ production, rows: yield* deployed }) : Option.none();
     const envVars = Option.match(deploy, { onNone: () => ({ PULUMI_BACKEND_URL: 'file://~', PULUMI_CONFIG_PASSPHRASE: '' }), onSome: ({ rows }) => ({ ...rows, DOPPLER_TOKEN: rows.DOPPLER_IAC_TOKEN }) });
     const root = relative(workspaceRoot, process.cwd()) || '.';
@@ -66,7 +68,7 @@ const grouped = Effect.fnUntraced(function* ({ verb, production }: typeof Reques
     return { envVars, groups };
 });
 
-const applied = Effect.fnUntraced(function* (request: typeof Request.Type) {
+const applied = Effect.fnUntraced(function* (request: Request) {
     const [fs, services] = yield* Effect.all([FileSystem.FileSystem, Effect.context<FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>()]);
     const { envVars, groups } = yield* grouped(request);
     const projectName = manifest.name.replace('@', '').replace('/', '-');

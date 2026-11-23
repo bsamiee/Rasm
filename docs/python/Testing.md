@@ -8,15 +8,13 @@ Rules every pytest suite follows:
 - Test projects are virtual uv members under `tests/` at their source's path, never built or published
 - Tests import packages by import name through the editable install, as a consumer reads them
 - One `[tool.pytest]` table in root `pyproject.toml` configures every suite, as pytest never merges configuration files
-- Suites run under `--import-mode=importlib`
 - Fixtures shared across suites sit in the `tests/support/python` package and load as pytest plugins
 
 ## [02]-[CONFIGURATION]
 
 Effects of root `[tool.pytest]` options:
 - `pytest` walks up from its path arguments' common ancestor, and the first `pytest.toml` or pytest table it finds wins
-- `strict = true` enables `strict_config`, `strict_markers`, `strict_parametrization_ids`, `strict_xfail`, and every later strictness option
-- `uv.lock` pins pytest for strict mode
+- `strict = true` enables every strictness option of the installed pytest, later ones included, and `uv.lock` pins pytest
 - `timeout` fails a test running past its seconds through pytest-timeout, and `--disable-socket --allow-unix-socket` fails each network connection
 - `randomly` shuffles test order per run and prints the `--randomly-seed` value that reruns it
 - `cache_dir = "$PYTEST_CACHE_DIR"` takes the folder from mise `[env]`, as pytest expands variables there and reads no cache variable
@@ -26,7 +24,7 @@ Effects of root `[tool.pytest]` options:
 
 ## [03]-[IMPORT_MODE]
 
-Module names `importlib` mode assigns:
+Module names `--import-mode=importlib` assigns:
 - `importlib` mode names a test module from its package chain, else from its path relative to `rootdir`
 - Test modules in folders that are not packages keep same-named files of different members apart in one session
 - Package-named test folders give members one shared module name, and `pytest` returns the first module under it

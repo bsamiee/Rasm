@@ -8,7 +8,6 @@ import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Method = Relation['indexes'][number]['method'];
 interface Dialect {
     readonly names: { readonly transformQueryNames?: (name: string) => string; readonly transformResultNames?: (name: string) => string };
     readonly type: (entry: Column) => string;
@@ -20,9 +19,9 @@ interface Dialect {
     readonly generated: (sql: SqlClient.SqlClient, expression: Statement.Fragment) => Statement.Fragment;
     readonly constraint: (sql: SqlClient.SqlClient, name: string, text: Statement.Fragment) => Statement.Fragment;
     readonly casefold: (sql: SqlClient.SqlClient, name: string) => Statement.Fragment;
-    readonly opclass: (method: Method, kind: Kind) => Option.Option<Option.Option<{ readonly name: string; readonly extensions: readonly string[] }>>;
+    readonly opclass: (method: Relation['indexes'][number]['method'], kind: Kind) => Option.Option<Option.Option<{ readonly name: string; readonly extensions: readonly string[] }>>;
     readonly projected: (sql: SqlClient.SqlClient, expression: Statement.Fragment, name: string) => Statement.Fragment;
-    readonly methods: readonly Method[];
+    readonly methods: readonly Relation['indexes'][number]['method'][];
     readonly covering: (sql: SqlClient.SqlClient, unique: boolean, include: readonly string[]) => { readonly keys: readonly Statement.Fragment[]; readonly clause: readonly Statement.Fragment[] };
     readonly suffix: (sql: SqlClient.SqlClient, relation: Relation) => Statement.Fragment;
     readonly rename: (sql: SqlClient.SqlClient, from: string, to: Statement.Fragment) => Statement.Statement<object>;

@@ -4,17 +4,15 @@ import recess from 'stylelint-config-recess-order/groups';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const colorFunctions = ['rgb', 'rgba', 'hsl', 'hsla', 'hwb'];
 const systemSyntax = lexer.getType('system-color')?.syntax;
 const systemColors = systemSyntax?.type === 'Group' ? systemSyntax.terms.flatMap((term) => (term.type === 'Keyword' ? [term.name] : [])) : [];
-const valueBans = { display: [String.raw`/\binline-(block|flex|grid|table)\b/`], '/^transition/': [String.raw`/\ball\b/`], '/^(?!--)/': [String.raw`/(?:^|[\s(,])-(?!-)[a-z]+-/`] };
 const vendorPrefix = '/^-(?!-)/';
 
 // --- [STYLELINT] -----------------------------------------------------------------------
 
 export default {
     extends: ['stylelint-config-standard', '@projectwallace/stylelint-plugin/configs/correctness'],
-    plugins: ['stylelint-use-nesting', 'stylelint-use-logical-spec', 'stylelint-order', 'stylelint-declaration-block-no-ignored-properties', 'stylelint-plugin-defensive-css', 'stylelint-plugin-use-baseline'],
+    plugins: ['stylelint-use-nesting', 'stylelint-use-logical-spec', 'stylelint-order', 'stylelint-declaration-block-no-ignored-properties', 'stylelint-plugin-defensive-css'],
     ignoreDisables: true,
     reportDescriptionlessDisables: true,
     reportInvalidScopeDisables: true,
@@ -25,12 +23,7 @@ export default {
             name: 'portfolio',
             files: ['../products/web/portfolio/**/*.css'],
             referenceFiles: ['../products/web/portfolio/site/theme.css'],
-            rules: {
-                'declaration-property-value-disallowed-list': { ...valueBans, '/^(?!content$)/': [String.raw`/\battr\(/`] },
-                'function-disallowed-list': [...colorFunctions, 'if'],
-                'plugin/use-baseline': [true, { available: 'newly' }],
-                'rule-nesting-at-rule-required-list': ['layer'],
-            },
+            rules: { 'rule-nesting-at-rule-required-list': ['layer'] },
         },
     ],
     rules: {
@@ -58,7 +51,7 @@ export default {
 
         'block-no-empty': true,
         'declaration-block-no-duplicate-properties': true,
-        'declaration-property-value-disallowed-list': valueBans,
+        'declaration-property-value-disallowed-list': { display: [String.raw`/\binline-(block|flex|grid|table)\b/`], '/^transition/': [String.raw`/\ball\b/`], '/^(?!--)/': [String.raw`/(?:^|[\s(,])-(?!-)[a-z]+-/`] },
         'font-weight-notation': 'numeric',
         'import-notation': 'string',
         'max-nesting-depth': [2, { ignore: ['blockless-at-rules'], ignoreAtRules: ['layer', 'scope'] }],
@@ -73,7 +66,7 @@ export default {
 
         // --- [FUNCTIONS]
 
-        'function-disallowed-list': colorFunctions,
+        'function-disallowed-list': ['rgb', 'rgba', 'hsl', 'hsla', 'hwb'],
         'function-linear-gradient-no-nonstandard-direction': true,
         'function-no-unknown': true,
         'function-url-no-scheme-relative': true,

@@ -56,7 +56,7 @@ const Declaration = Object.assign(Declared, {
     Parameter,
     Page,
     Model,
-    catalog: <A>(table: Record.ReadonlyRecord<string, A>, page: (entry: A) => typeof Page.Type, enumerated: (entry: A) => boolean) => {
+    catalog: <A, P>(table: Record.ReadonlyRecord<string, A>, page: (entry: A) => P, enumerated: (entry: A) => boolean) => {
         const sorted = (enumerations: boolean) => Array.sort(Record.keys(Record.filter(table, (entry) => enumerated(entry) === enumerations)), Order.String);
         return {
             index: Declared.cases.Index.make({ classes: sorted(false), enumerations: sorted(true) }),
@@ -90,7 +90,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
         return Array.isReadonlyArrayEmpty(this.steps);
     }
 
-    get selector(): Option.Option<typeof Selector.Type> {
+    get selector() {
         return Option.flatMapNullishOr(Array.last(this.steps), Struct.get('selector'));
     }
     get parent(): string {

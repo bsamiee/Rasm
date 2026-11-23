@@ -51,7 +51,7 @@ const local = { host: 'local.rasm.localhost', owner: 'owner@rasm.localhost' } as
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Role = Data.taggedEnum<Role>();
-const Stored = Schema.Struct(Struct.Record(['server', 'within', 'origin', 'region', 'user', 'key'], Schema.String));
+class Stored extends Schema.Opaque<Stored, unknown>()(Schema.Struct(Struct.Record(['server', 'within', 'origin', 'region', 'user', 'key'], Schema.String))) {}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -181,7 +181,7 @@ const stored = (machine: Machine) => {
     return output({ server: serving.urn.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, origin: `https://${address}`, region: 'us-east-1', user, key });
 };
 
-const bucketed = (name: string, storage: Output<typeof Stored.Type>, buckets: Effect.Success<ReturnType<typeof deploy.Machine>>['buckets']) => {
+const bucketed = (name: string, storage: Output<Stored>, buckets: Effect.Success<ReturnType<typeof deploy.Machine>>['buckets']) => {
     const provider = new minio.Provider(name, { minioServer: storage.server, minioUser: storage.user, minioPassword: storage.key });
     const s3 = new aws.Provider(name, {
         region: storage.region,

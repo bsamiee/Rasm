@@ -27,16 +27,8 @@ Marker effects across siblings:
 
 ## [03]-[MYPY]
 
-Root `[tool.mypy]` options and the decision each states:
-
-| [INDEX] | [OPTION]                               | [VALUE] | [REASON]                                      |
-| :-----: | :------------------------------------- | :------ | :-------------------------------------------- |
-|  [01]   | `strict`                               | `true`  | Enables every `--strict` flag                 |
-|  [02]   | `warn_unreachable`                     | `true`  | Outside `--strict`                            |
-|  [03]   | `disallow_any_explicit`, `_unimported` | `true`  | Outside `--strict`                            |
-|  [04]   | `strict_equality_for_none`             | `true`  | Extends `strict_equality`, outside `--strict` |
-
-Runs of mypy and refurb:
+Options and runs of mypy and refurb:
+- `warn_unreachable`, `disallow_any_explicit`, `disallow_any_unimported`, and `strict_equality_for_none` sit outside `--strict` and stand beside it
 - `mypy` walks up from the working folder to `.git` and skips a `pyproject.toml` without `[tool.mypy]`
 - `disable_error_code` names `import-not-found` in place of its parent code `import`, and `import-untyped` guards each `py.typed`
 - `nx-uv` runs mypy and refurb from each member root, or from its parent where the member root holds `__init__.py`
@@ -57,7 +49,7 @@ Configuration lookup of ty:
 ## [05]-[RUFF]
 
 Project roots and configuration lookup of ruff:
-- `src` lists project roots (`products/cli/*`, `libs/python/*/*`), and ruff reads each import package there as first party
+- `src` lists project roots, and ruff reads each import package there as first party
 - `import-private-name` reads a sibling's `_` module as internal to its own package and an outside one as external
 - `ruff` takes `target-version` from the `requires-python` beside each `[tool.ruff]` it finds
 - Members requiring a Python below the root's hold `[tool.ruff] extend` for their own range, and other members hold none

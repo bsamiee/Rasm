@@ -1,61 +1,40 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Effect, Function, Result, Schema, Stream, Struct } from 'effect';
+import { Array, Effect, Function, Schema, Struct } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type AppleEventValue =
-    | null
-    | boolean
-    | number
-    | string
-    | readonly AppleEventValue[]
-    | { readonly _tag: 'record'; readonly type: string; readonly fields: Readonly<Record<string, AppleEventValue>> }
-    | { readonly _tag: 'specifier'; readonly want: string; readonly form: typeof Form.Type; readonly seld: AppleEventValue; readonly from?: AppleEventValue }
-    | typeof Leaf.Type
-    | { readonly _tag?: never; readonly [term: string]: AppleEventValue };
-interface Node {
-    readonly id: string;
-    readonly role?: string;
-    readonly subrole?: string;
-    readonly label?: string;
-    readonly identifier?: string;
-    readonly value?: boolean | number | string;
-    readonly settable: boolean;
-    readonly enabled?: boolean;
-    readonly actions: readonly string[];
-    readonly frame?: readonly [readonly [number, number], readonly [number, number]];
-    readonly count: number;
-    readonly children?: readonly Node[];
-    readonly unreadable: readonly { readonly reads: readonly string[]; readonly role?: string; readonly label?: string; readonly error: number }[];
-}
+type AppleEventValue = null | boolean | number | string | readonly AppleEventValue[] | TypedRecord | Specifier | TypeDescriptor | EnumeratorDescriptor | DateDescriptor | FileDescriptor | OpaqueDescriptor | { readonly _tag?: never; readonly [term: string]: AppleEventValue };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Nested = Schema.suspend((): Schema.Codec<AppleEventValue> => AppleEventValue);
 const Code = Schema.String.annotate({ description: 'Four-character descriptor type' });
-const Form = Schema.Literals(['property', 'index', 'name', 'id', 'relative', 'range', 'test', 'whose']);
-const Leaf = Schema.Union([
-    Schema.TaggedStruct('type', { name: Schema.String }).annotate({ description: 'Class or property by name or code' }),
-    Schema.TaggedStruct('enumerator', { name: Schema.String }).annotate({ description: 'Enumerator by name or code' }),
-    Schema.TaggedStruct('date', { date: Schema.String.annotate({ description: 'ISO 8601 date' }) }),
-    Schema.TaggedStruct('file', { url: Schema.String }),
+class TypedRecord extends Schema.Opaque<TypedRecord, unknown>()(Schema.TaggedStruct('record', { type: Code, fields: Schema.Record(Schema.String, Nested).annotate({ description: 'Values by property name or code' }) }).annotate({ description: 'Record with custom descriptor type' })) {}
+class Specifier extends Schema.Opaque<Specifier, unknown>()(
+    Schema.TaggedStruct('specifier', {
+        want: Schema.String.annotate({ description: 'Specified object class' }),
+        form: Schema.Literals(['property', 'index', 'name', 'id', 'relative', 'range', 'test', 'whose']),
+        seld: Nested.annotate({ description: 'Selection data, or first, middle, last, any, or every for index form' }),
+        from: Schema.optionalKey(Nested.annotate({ description: 'Container specifier, null or absent for application' })),
+    }).annotate({ description: 'Object specifier' }),
+) {}
+class TypeDescriptor extends Schema.Opaque<TypeDescriptor, unknown>()(Schema.TaggedStruct('type', { name: Schema.String }).annotate({ description: 'Class or property by name or code' })) {}
+class EnumeratorDescriptor extends Schema.Opaque<EnumeratorDescriptor, unknown>()(Schema.TaggedStruct('enumerator', { name: Schema.String }).annotate({ description: 'Enumerator by name or code' })) {}
+class DateDescriptor extends Schema.Opaque<DateDescriptor, unknown>()(Schema.TaggedStruct('date', { date: Schema.String.annotate({ description: 'ISO 8601 date' }) })) {}
+class FileDescriptor extends Schema.Opaque<FileDescriptor, unknown>()(Schema.TaggedStruct('file', { url: Schema.String })) {}
+class OpaqueDescriptor extends Schema.Opaque<OpaqueDescriptor, unknown>()(
     Schema.TaggedStruct('opaque', { type: Code, data: Schema.String.annotate({ description: 'Descriptor bytes in base64' }), value: Schema.optionalKey(Schema.String) }).annotate({ description: 'Descriptor no other case decodes, sent back unchanged' }),
-]);
+) {}
 const AppleEventValue: Schema.Codec<AppleEventValue> = Schema.Union([
     Schema.Null,
     Schema.Boolean,
     Schema.Finite,
     Schema.String.annotate({ description: 'Text, or enumerator, class, date, or file URL per parameter type' }),
     Schema.Array(Nested),
-    Schema.TaggedStruct('record', { type: Code, fields: Schema.Record(Schema.String, Nested).annotate({ description: 'Values by property name or code' }) }).annotate({ description: 'Record with custom descriptor type' }),
-    Schema.TaggedStruct('specifier', {
-        want: Schema.String.annotate({ description: 'Specified object class' }),
-        form: Form,
-        seld: Nested.annotate({ description: 'Selection data, or first, middle, last, any, or every for index form' }),
-        from: Schema.optionalKey(Nested.annotate({ description: 'Container specifier, null or absent for application' })),
-    }).annotate({ description: 'Object specifier' }),
-    Leaf,
+    TypedRecord,
+    Specifier,
+    Schema.Union([TypeDescriptor, EnumeratorDescriptor, DateDescriptor, FileDescriptor, OpaqueDescriptor]),
     Schema.StructWithRest(Schema.Struct({ _tag: Schema.optionalKey(Schema.Never) }), [Schema.Record(Schema.String, Nested)]).annotate({ description: 'Plain record by property name or code' }),
 ]);
 const TermKind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'value-type', 'enumeration']).annotate({ description: 'Scripting definition element kind' });
@@ -104,21 +83,23 @@ const Unreadable = Schema.Struct({
     label: Schema.optionalKey(Schema.String),
     error: Schema.Int.annotate({ description: 'AXError code' }),
 });
-const Node: Schema.Codec<Node> = Schema.Struct({
-    id: ElementID,
-    role: Schema.optionalKey(Schema.String.annotate({ description: 'AXRole, AXApplication for the application, AXMenuBar for the menu bar' })),
-    subrole: Schema.optionalKey(Schema.String),
-    label: Schema.optionalKey(Schema.String.annotate({ description: 'AXTitle, AXDescription, or the AXValue of its AXTitleUIElement' })),
-    identifier: Schema.optionalKey(Schema.String.annotate({ description: 'AXIdentifier' })),
-    value: Schema.optionalKey(Value.annotate({ description: 'AXValue, the visible text of a text area' })),
-    settable: Schema.Boolean.annotate({ description: 'AXValue accepts a set action' }),
-    enabled: Schema.optionalKey(Schema.Boolean),
-    actions: Schema.Array(Schema.String.annotate({ description: 'Action names a press action takes, AXRaise refused' })),
-    frame: Schema.optionalKey(Frame),
-    count: Schema.Int.annotate({ description: 'Children, visible rows of tables and outlines' }),
-    children: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<Node> => Node)).annotate({ description: 'Absent below the depth read' })),
-    unreadable: Schema.Array(Unreadable),
-}).annotate({ description: 'Accessibility element with its children to the depth read, the application root holding its windows and menu bar' });
+class Node extends Schema.Opaque<Node, unknown>()(
+    Schema.Struct({
+        id: ElementID,
+        role: Schema.optionalKey(Schema.String.annotate({ description: 'AXRole, AXApplication for the application, AXMenuBar for the menu bar' })),
+        subrole: Schema.optionalKey(Schema.String),
+        label: Schema.optionalKey(Schema.String.annotate({ description: 'AXTitle, AXDescription, or the AXValue of its AXTitleUIElement' })),
+        identifier: Schema.optionalKey(Schema.String.annotate({ description: 'AXIdentifier' })),
+        value: Schema.optionalKey(Value.annotate({ description: 'AXValue, the visible text of a text area' })),
+        settable: Schema.Boolean.annotate({ description: 'AXValue accepts a set action' }),
+        enabled: Schema.optionalKey(Schema.Boolean),
+        actions: Schema.Array(Schema.String.annotate({ description: 'Action names a press action takes, AXRaise refused' })),
+        frame: Schema.optionalKey(Frame),
+        count: Schema.Int.annotate({ description: 'Children, visible rows of tables and outlines' }),
+        children: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<Node> => Node)).annotate({ description: 'Absent below the depth read' })),
+        unreadable: Schema.Array(Unreadable),
+    }).annotate({ description: 'Accessibility element with its children to the depth read, the application root holding its windows and menu bar' }),
+) {}
 const Control = open({
     id: ElementID,
     role: Schema.String,
@@ -206,7 +187,7 @@ const State = Object.assign(States, {
     Failed,
     Exited,
     Window,
-    asking: States.matchOrElse({ running: ({ running }) => running.windows.filter(Struct.get('asking')) }, Array.empty<typeof Window.Type>),
+    asking: States.matchOrElse({ running: ({ running }) => running.windows.filter(Struct.get('asking')) }, Array.empty),
     launching: States.matchOrElse({ running: ({ running }) => running.status === 'launching' }, Function.constFalse),
     reports: States.matchOrElse({ running: ({ running }) => running.active || running.status === 'unresponsive' || running.windows.some(Struct.get('asking')) }, Function.constTrue),
 });
@@ -238,7 +219,9 @@ const Launch = Schema.Struct({
     environment: defaulted(Schema.Record(Schema.String, Schema.String), {}),
     new: defaulted(Schema.Boolean, false).annotate({ description: 'Beside running instances' }),
 });
-const Pressure = Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical', 'unknown']) }).annotate({ description: 'Kernel memory pressure level and thermal state, unknown for a state this build names no case for' });
+class Pressure extends Schema.Opaque<Pressure, unknown>()(
+    Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical', 'unknown']) }).annotate({ description: 'Kernel memory pressure level and thermal state, unknown for a state this build names no case for' }),
+) {}
 const ActivationPolicy = Schema.Literals(['regular', 'accessory', 'prohibited']).annotate({ description: 'Regular in Dock, accessory for menu bar or helper process, prohibited for background only' });
 const Launched = Schema.Struct({
     pid: Pid,
@@ -257,25 +240,9 @@ class RunningInstance extends Schema.Class<RunningInstance, { readonly brand: un
     listening: Schema.Array(Schema.Int).annotate({ description: 'TCP ports the process listens on, read at each state, empty unless running or on a failed read' }),
     listeningFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Listening ports read failure' })),
 }) {}
-const Launchings = Schema.Union([keyed('launched', Launched), keyed('state', RunningInstance), keyed('prompts', Schema.Array(RunningInstance)), keyed('failed', Failed)])
+const Launching = Schema.Union([keyed('launched', Launched), keyed('state', RunningInstance), keyed('prompts', Schema.Array(RunningInstance)), keyed('failed', Failed)])
     .annotate({ description: 'Launch events: launched first, then states and system prompts, ending settled or asking' })
     .pipe(Schema.toTaggedUnion('_tag'));
-const Launching = Object.assign(Launchings, {
-    launched: <E, R>(steps: Stream.Stream<typeof Launchings.Type, E, R>) =>
-        steps.pipe(
-            Stream.filterMapEffect(
-                Launchings.matchOrElse(
-                    {
-                        failed: ({ failed }) => Effect.fail(new Cause.UnknownError(failed, [`${failed.subject} ${failed.reason}`, ...(failed.message === undefined ? [] : [failed.message])].join(': '))),
-                        launched: ({ launched }) => Effect.succeed(Result.succeed(launched)),
-                    },
-                    () => Effect.succeed(Result.failVoid),
-                ),
-            ),
-            Stream.runLast,
-            Effect.flatMap(Effect.fromOption),
-        ),
-});
 const happened = {
     instance: ProcessInstance,
     pid: Pid,
@@ -288,14 +255,16 @@ const Shown = open({
     subrole: Schema.optionalKey(Schema.String.annotate({ description: 'AXSubrole, AXStandardWindow for a document window' })),
     kind: Kind,
 });
-const Dialog = open({
-    window: WindowID,
-    element: Schema.optionalKey(ElementID),
-    kind: Kind,
-    title: Schema.optionalKey(Schema.String),
-    text: Schema.Array(Schema.String),
-    answers: Schema.optionalKey(Answers),
-});
+class Dialog extends Schema.Opaque<Dialog, unknown>()(
+    open({
+        window: WindowID,
+        element: Schema.optionalKey(ElementID),
+        kind: Kind,
+        title: Schema.optionalKey(Schema.String),
+        text: Schema.Array(Schema.String),
+        answers: Schema.optionalKey(Answers),
+    }),
+) {}
 const Event = Schema.Union([
     open({ _tag: Schema.tagDefaultOmit('started'), ...happened, started: Schema.Literal(true), identifier: Schema.optionalKey(Launched.fields.identifier), name: Schema.optionalKey(Schema.String) }),
     open({ _tag: Schema.tagDefaultOmit('opened'), ...happened, opened: Shown }),
@@ -408,4 +377,4 @@ const Automation = RpcGroup.make(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Act, Acted, AppleEventValue, Capture, Automation, Diagnostics, ElementID, Event, Execute, Installation, Launch, Launched, Launching, LongestSide, Node, Pid, Pressure, ProcessInstance, RunningInstance, State, TermKind, Terms, WindowID };
+export { Act, Acted, AppleEventValue, Capture, Automation, Diagnostics, type Dialog, ElementID, Event, Execute, Installation, Launch, Launched, Launching, LongestSide, Node, Pid, Pressure, ProcessInstance, RunningInstance, State, TermKind, Terms, WindowID };

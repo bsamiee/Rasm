@@ -1,6 +1,6 @@
 import 'core-js/modules/web.url.can-parse.js';
-import { Link } from '@rasm/mcp';
-import { type Evaluation, type Failure, HostError, type Render, Rendering, Script, Specifier } from '@rasm/object-model';
+import { Link, type Notice } from '@rasm/mcp';
+import { type Evaluation, HostError, type Render, Rendering, Script, Specifier } from '@rasm/object-model';
 import { type Containment, encode, reference, walk } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
 import { layer } from '@rasm/telemetry';
@@ -214,7 +214,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         }).pipe(Effect.tapCause(Effect.logError), Effect.provide(Uxp.layer(modules)), Effect.runSyncExit);
     };
 }
-class Plugin extends Context.Service<Plugin, typeof UxpManifest.identity.Type>()('@rasm/uxp/plugin') {
+class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonly host: Pick<UxpManifest['host'], 'app'> }>()('@rasm/uxp/plugin') {
     static readonly theme = Stream.callback<unknown, Schema.SchemaError>((queue) =>
         Effect.flatMap(
             Effect.suspend(() => Schema.decodeUnknownEffect(Themed)(document)),
@@ -255,16 +255,16 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.identity.Type>()
             yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() }, commands: handled, panels: shown } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
         }).pipe(Effect.tapCause(Effect.logError), Effect.provide(hosted), Effect.runFork);
     };
-    static readonly extension = <EA, EX extends typeof Failure.Type, ER extends typeof Failure.Type, EN = never>({
+    static readonly extension = <EA, EX extends Error, ER extends Error, EN = never>({
         application,
         execute,
         render,
         notices = Stream.empty,
     }: {
         readonly application: Effect.Effect<Link['application'], EA, Uxp | Path.Path | Scope.Scope>;
-        readonly execute: (code: string, label: string) => Effect.Effect<(typeof Evaluation.Result.Type)['result'], EX, Uxp | Path.Path | Scope.Scope>;
+        readonly execute: (code: string, label: string) => Effect.Effect<Option.Option<Schema.Json>, EX, Uxp | Path.Path | Scope.Scope>;
         readonly render: (request: Render, file: Parameters<Parameters<typeof Uxp.rendered>[0]>[0]) => Effect.Effect<void, ER, Uxp | Path.Path | Scope.Scope>;
-        readonly notices?: Stream.Stream<typeof Link.Notice.Type, EN>;
+        readonly notices?: Stream.Stream<Notice, EN>;
     }): void => {
         const permit = Semaphore.makeUnsafe(1);
         const hosting = Effect.map(

@@ -1,11 +1,11 @@
 import process from 'node:process';
 import { spawn } from '@rasm/process';
 import { child } from '@rasm/rpc';
-import { Cause, Context, Effect, Fiber, FileSystem, Formatter, Layer, Path, Schema, SchemaIssue, Sink, Stream, SubscriptionRef } from 'effect';
+import { Cause, Context, Effect, Fiber, FileSystem, Formatter, Layer, Path, Result, Schema, SchemaIssue, Sink, Stream, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { RpcClient } from 'effect/rpc';
 import { parse } from 'plist';
-import { Automation } from '#/contract';
+import { Automation, Launching } from '#/contract';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -24,6 +24,20 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
         const [installations, discovering] = yield* watched('installations', client.installations({}));
         return {
             ...client,
+            launched: (launch: Parameters<typeof client.launch>[0]) =>
+                client.launch(launch).pipe(
+                    Stream.filterMapEffect(
+                        Launching.matchOrElse(
+                            {
+                                failed: ({ failed }) => Effect.fail(new Cause.UnknownError(failed, [`${failed.subject} ${failed.reason}`, ...(failed.message === undefined ? [] : [failed.message])].join(': '))),
+                                launched: ({ launched }) => Effect.succeed(Result.succeed(launched)),
+                            },
+                            () => Effect.succeed(Result.failVoid),
+                        ),
+                    ),
+                    Stream.runLast,
+                    Effect.flatMap(Effect.fromOption),
+                ),
             installations,
             installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult),
             exited: Effect.raceFirst(handle.exitCode, Effect.andThen(Fiber.join(discovering), handle.exitCode)),

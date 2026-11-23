@@ -216,4 +216,4 @@ const Inspection = Object.assign(Schema.Union([Viewed, Items]), { Readings, View
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, Called, Document, Extent, Font, Inspection, type Issue, Layer, Link, Page, PreflightProcess, Search, Slice, Story, Text };
+export { Application, Called, Document, Extent, Font, Inspection, type Issue, Layer, Link, MODES, Page, PreflightProcess, Search, Slice, Story, Text };

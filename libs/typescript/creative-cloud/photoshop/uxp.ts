@@ -1,4 +1,4 @@
-import type { Link } from '@rasm/mcp';
+import type { Notice } from '@rasm/mcp';
 import { HostError, type Render } from '@rasm/object-model';
 import { type Containment, format, read } from '@rasm/object-model/host';
 import { Uxp } from '@rasm/uxp/plugin';
@@ -102,7 +102,7 @@ const render = Effect.fnUntraced(function* ({ target, label }: Render, written: 
         }),
     );
 });
-const notices = Stream.callback<typeof Link.Notice.Type, HostError>((queue) => {
+const notices = Stream.callback<Notice, HostError>((queue) => {
     const events = ['open', 'save', 'close'];
     const listener = (name: string, descriptor: unknown): void => {
         const target = Option.map(Schema.decodeUnknownOption(Notified)(descriptor), ({ documentID }) => format({ steps: [{ separator: '/', kind: 'document', selector: { _tag: 'Key', key: 'id', value: documentID } }] }));

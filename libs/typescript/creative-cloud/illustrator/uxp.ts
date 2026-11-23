@@ -30,15 +30,13 @@ const listed = (collection: unknown) => {
     const length = read(collection, 'length');
     return Array.makeBy(Predicate.isNumber(length) ? length : 0, (at) => read(collection, `${at}`));
 };
-const opened =
-    (app: object) =>
-    (value: unknown): Option.Option<typeof Document.Type> => {
-        const above = Array.unfold(value, (each) => (Predicate.isObject(each) ? Option.some([each, Schema.is(Document)(each) || read(each, 'parent') === each ? undefined : read(each, 'parent')] as const) : Option.none()));
-        return Option.filter(
-            Option.orElse(Array.findFirst(above, Schema.is(Document)), () => Array.findFirst(listed(read(app, 'documents')), (document) => Record.some(OWNED, ({ collection }) => listed(read(document, collection)).includes(value)))),
-            Schema.is(Document),
-        );
-    };
+const opened = (app: object) => (value: unknown) => {
+    const above = Array.unfold(value, (each) => (Predicate.isObject(each) ? Option.some([each, Schema.is(Document)(each) || read(each, 'parent') === each ? undefined : read(each, 'parent')] as const) : Option.none()));
+    return Option.filter(
+        Option.orElse(Array.findFirst(above, Schema.is(Document)), () => Array.findFirst(listed(read(app, 'documents')), (document) => Record.some(OWNED, ({ collection }) => listed(read(document, collection)).includes(value)))),
+        Schema.is(Document),
+    );
+};
 const hosted = Effect.flatMap(Uxp.required('illustrator'), Schema.decodeUnknownEffect(Module));
 const containment = Effect.map(hosted, ({ app }): Containment => {
     const owner = (value: object): unknown => Option.getOrUndefined(opened(app)(value));

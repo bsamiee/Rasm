@@ -38,6 +38,7 @@ const pluginBundle = (directory: string, exported: readonly string[], config: Us
         {
             build: {
                 ssr: true,
+                sourcemap: true,
                 target: UxpManifest.target,
                 rolldownOptions: {
                     input: join(directory, 'main.ts'),
@@ -48,7 +49,7 @@ const pluginBundle = (directory: string, exported: readonly string[], config: Us
                             (name) => [name, [encoding, name] satisfies [string, string]],
                         ),
                     },
-                    output: { format: 'cjs', entryFileNames: '[name].js', paths: String.replace(HOSTED, ''), codeSplitting: false },
+                    output: { format: 'cjs', entryFileNames: '[name].js', paths: String.replace(HOSTED, ''), codeSplitting: false, sourcemapExcludeSources: true },
                 },
             },
             environments: { ssr: { resolve: { noExternal: true, builtins: [HOSTED], conditions: Array.intersection(defaultServerConditions, defaultClientConditions) } } },

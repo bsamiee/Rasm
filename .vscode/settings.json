@@ -87,6 +87,10 @@
 
     // --- [WORKBENCH] -------------------------------------------------------------------
 
+    // --- [DEBUG]
+
+    "debug.focusWindowOnBreak": false,
+
     // --- [EDITOR]
 
     "chat.disableAIFeatures": true,
@@ -188,6 +192,10 @@
     "js/ts.trace.server": "off",
     "js/ts.tsdk.path": "./node_modules/@typescript/native",
     "js/ts.tsserver.automaticTypeAcquisition.enabled": false,
+
+    // --- [UXP] -------------------------------------------------------------------------
+
+    "uxpvalidator.enabled": false,
 
     // --- [YAML] ------------------------------------------------------------------------
 

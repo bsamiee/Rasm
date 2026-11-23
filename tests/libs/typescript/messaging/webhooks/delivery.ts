@@ -71,7 +71,7 @@ const delivery = (crypto: Crypto) => {
             const webhook = yield* TailscaleEvent.webhook([Redacted.make(vectors.tailscale.secret)]);
             const events = yield* Effect.all(Record.map(documented, (rows) => Schema.decodeEffect(TailscaleEvent.Batch)(rows)));
             const batch = Object.values(events).flat();
-            const deliveries = yield* Queue.unbounded<{ readonly id: string; readonly event: typeof TailscaleEvent.Batch.Type }>();
+            const deliveries = yield* Queue.unbounded<Parameters<Parameters<typeof webhook.receive>[0]>[0]>();
             const text = encoder.encode('not JSON');
             const statuses = yield* Effect.gen(function* () {
                 yield* webhook.deliver(url, { id: 'derived', event: batch }, Schedule.recurs(0));

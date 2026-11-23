@@ -1,7 +1,7 @@
 import { Array, Function, flow, Match, Number, Option, Order, Predicate, pipe, Record, Struct } from 'effect';
 import { Feature } from 'harfbuzzjs';
 import type { JoiningGroup } from 'icu';
-import { Elongation, type Place } from '#/arabic/elongation';
+import { Elongation } from '#/arabic/elongation';
 import { joiningGroups, joins } from '#/arabic/joining';
 import type { Settings } from '#/settings';
 import type { Face } from '#/shaping/face';
@@ -39,9 +39,9 @@ const drawsKashida = (face: Face) => Option.isSome(tatweelAdvance(face)) || face
 
 // --- [PLACES]
 
-const candidates = (text: string, join: Span, rows: readonly Place[]) => {
-    const within = (groups: Place['before']) => (group: JoiningGroup) => Option.match(groups, { onNone: Function.constTrue, onSome: ({ groups: listed, except }) => listed.includes(group.value) !== except });
-    const follows = (next: Place['next'], letter: Option.Option<JoiningGroup>) => Option.match(next, { onNone: Function.constTrue, onSome: Match.valueTags({ End: () => Option.isNone(letter), Letter: ({ groups }) => Option.exists(letter, within(groups)) }) });
+const candidates = (text: string, join: Span, rows: Elongating['places']) => {
+    const within = (groups: Elongating['places'][number]['before']) => (group: JoiningGroup) => Option.match(groups, { onNone: Function.constTrue, onSome: ({ groups: listed, except }) => listed.includes(group.value) !== except });
+    const follows = (next: Elongating['places'][number]['next'], letter: Option.Option<JoiningGroup>) => Option.match(next, { onNone: Function.constTrue, onSome: Match.valueTags({ End: () => Option.isNone(letter), Letter: ({ groups }) => Option.exists(letter, within(groups)) }) });
     const letters = joiningGroups(join.slice(text));
     return Array.getSomes(
         Array.window(letters, 2).map(([before, after], at) => {
@@ -51,7 +51,7 @@ const candidates = (text: string, join: Span, rows: readonly Place[]) => {
         }),
     );
 };
-const kashidaPlaces = (text: string, rows: readonly Place[], allowed: (cluster: number) => boolean = Function.constTrue) =>
+const kashidaPlaces = (text: string, rows: Elongating['places'], allowed: (cluster: number) => boolean = Function.constTrue) =>
     Array.sort(
         Array.getSomes(
             words(text).map((word) =>
@@ -69,7 +69,7 @@ const kashidaPlaces = (text: string, rows: readonly Place[], allowed: (cluster: 
 // --- [ELONGATION]
 
 const elongationOf = (settings: Pick<Settings, 'kashida'>) => Option.liftPredicate(settings.kashida, Elongation.isAnyOf(['Tatweel', 'Stretched']));
-const eligible = (measured: Measured, elongation: Elongating, stretched: boolean, stage: Place['stage']) => {
+const eligible = (measured: Measured, elongation: Elongating, stretched: boolean, stage: Elongating['places'][number]['stage']) => {
     const flagged = (glyph: ShapedText['glyphs'][number]) => glyph.flags.includes('SAFE_TO_INSERT_TATWEEL') || (stretched && measured.face.layout.covers(JUSTIFICATION_ALTERNATES, glyph.glyph));
     const clusters = new Set(measured.shaped.glyphs.filter(flagged).map(Struct.get('cluster')));
     return kashidaPlaces(

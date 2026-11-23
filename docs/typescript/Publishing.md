@@ -35,41 +35,20 @@ Emit and bundle rules:
 
 ## [03]-[PACKAGE_CONTENTS]
 
-Manifest a consumer installs after `pnpm pack`:
+Tarball contents after `pnpm pack` moves `publishConfig` entries over their source entries:
 
-```json
-{
-    "name": "@scope/<package>",
-    "version": "1.4.0",
-    "type": "module",
-    "sideEffects": false,
-    "exports": {
-        ".": "./dist/index.js",
-        "./node": "./dist/node.js",
-        "./package.json": "./package.json"
-    },
-    "imports": { "#/*": "./dist/*.js" },
-    "files": ["dist/**/*.js", "dist/**/*.d.ts"],
-    "peerDependencies": { "effect": "<range>" },
-    "publishConfig": { "access": "public" }
-}
-```
-
-Tarball contents and the reason for each:
-
-| [INDEX] | [CONTENT]                | [IN_TARBALL]      | [REASON]                                       |
-| :-----: | :----------------------- | :---------------- | :--------------------------------------------- |
-|  [01]   | `dist/**/*.js`           | Yes               | Runtime modules `exports` and `imports` name   |
-|  [02]   | `dist/**/*.d.ts`         | Yes               | TypeScript finds them beside each `.js`        |
-|  [03]   | `*.js.map`, `*.d.ts.map` | With source alone | Maps resolve only beside `.ts` files they name |
-|  [04]   | `.ts` source             | Only for maps     | Consumers run `dist`, source serves maps alone |
-|  [05]   | Tests, fixtures, configs | No                | `files` allowlist leaves them out              |
-|  [06]   | `*.tsbuildinfo`          | No                | Build state `composite` writes into `dist`     |
-|  [07]   | `README.md`, `LICENSE`   | Yes               | Packed whatever `files` says                   |
+| [INDEX] | [CONTENT]                | [IN_TARBALL] | [REASON]                                     |
+| :-----: | :----------------------- | :----------- | :------------------------------------------- |
+|  [01]   | `dist/**/*.js`           | Yes          | Runtime modules `exports` and `imports` name |
+|  [02]   | `dist/**/*.d.ts`         | Yes          | TypeScript finds them beside each `.js`      |
+|  [03]   | `*.js.map`, `*.d.ts.map` | No           | Maps resolve only beside `.ts` source        |
+|  [04]   | `.ts` source             | No           | Consumers run `dist`                         |
+|  [05]   | Tests, fixtures, configs | No           | `files` allowlist leaves them out            |
+|  [06]   | `*.tsbuildinfo`          | No           | Build state `composite` writes into `dist`   |
+|  [07]   | `README.md`, `LICENSE`   | Yes          | Packed whatever `files` says                 |
 
 Rules of `files` and `publishConfig`:
 - `files` names `dist/**/*.js` and `dist/**/*.d.ts`, as a `"dist"` row packs maps and `tsconfig.tsbuildinfo` with them
-- Packages publishing maps add `dist/**/*.map` and their source globs (`src/**/*.ts` in Effect's packages) to `files`
 - `publishConfig` entries match source entries key for key, as a key missing there leaves its entry out of the published package
 - `publishConfig.access: "public"` publishes a scoped package as public
 
@@ -98,8 +77,6 @@ Release versions and notes:
 
 Registry upload routes and their credentials:
 - `nx release publish` runs `pnpm publish` on the tarball each project's `pack--pnpm` wrote and `attach--gh` uploads
-- `pnpm publish --dry-run` does everything but the upload
-- `nx-release-publish` runs where `ACTIONS_ID_TOKEN_REQUEST_URL` or `NODE_AUTH_TOKEN` is set, and names both and skips where neither is
 - `pnpm publish` trades the job's OIDC token for a publish token of each package with a trusted publisher
 - Packages with no trusted publisher publish with `NODE_AUTH_TOKEN`, and `PNPM_CONFIG__AUTH` hands it to pnpm for the npm registry
 - Trusted publishers attach to a package npm holds, and each package's first version publishes with `NODE_AUTH_TOKEN`

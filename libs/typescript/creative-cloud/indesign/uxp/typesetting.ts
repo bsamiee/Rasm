@@ -1,8 +1,8 @@
 import { HostError, Specifier } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
-import type { Settings } from '@rasm/typography';
 import type { InsertionPoint, Text, TextDefault, TextStyleRange } from 'adobe:indesign';
 import { Array, Effect, flow, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import type { Adjust, Typeset } from '#/typesetting';
 import { Model } from '#/uxp/model';
 import { InDesignSettings, thousandths } from '#/uxp/settings';
 
@@ -43,7 +43,7 @@ const pointAfterBase = (text: Text) =>
         },
         catch: HostError.refused(`base letter before ${text.toSpecifier()}`),
     }).pipe(Effect.flatMap(Effect.fromOption(() => Unmatched.of({ subject: 'base letter', query: Option.some(text.toSpecifier()) }))));
-const adjust = Effect.fn('adjust')(function* ({ label, target: path, deltas }: { readonly label: string; readonly target: string; readonly deltas: Partial<Omit<typeof Deltas.Type, 'marks'>> & { readonly marks?: Partial<typeof Deltas.Type.marks> } }) {
+const adjust = Effect.fn('adjust')(function* ({ label, target: path, deltas }: Pick<Adjust, 'label' | 'target' | 'deltas'>) {
     const { kerning = 0, tracking = 0, baselineShift = 0, marks = {} } = deltas;
     const [{ text }, target, manual, encoded] = yield* Effect.all([Model, textTarget(path), kerningMethod('Manual'), Effect.orDie(Schema.encodeEffect(Deltas)({ kerning, tracking, baselineShift, marks: { x: 0, y: 0, ...marks } }))]);
     const points: readonly InsertionPoint[] = kerning === 0 ? [] : [yield* Effect.flatMap(textRange(target), pointAfterBase)];
@@ -96,7 +96,7 @@ const runs = Effect.fn('runs')(function* ({ target: path }: { readonly target: s
     });
     return { ...Struct.pick(yield* Model.reference(container), REFERENCED), start: target.index, length: target.length, runs: ranges };
 });
-const typeset = Effect.fn('typeset')(function* ({ label, target: path, settings }: { readonly label: string; readonly target: string; readonly settings: Option.Option<typeof Settings.Partial.Type> }) {
+const typeset = Effect.fn('typeset')(function* ({ label, target: path, settings }: Pick<Typeset, 'label' | 'target' | 'settings'>) {
     const target = yield* textTarget(path);
     yield* Effect.transposeOption(Option.map(settings, (change) => Model.commit(label, InDesignSettings.write(target, change))));
     return yield* InDesignSettings.read(target);

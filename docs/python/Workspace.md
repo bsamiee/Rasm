@@ -21,8 +21,6 @@ uv roots and the Python each one resolves:
 Rules each root follows:
 - Members pinned to Blender's minor under the root empty its `requires-python` range, and `uv lock` fails
 - Blender roots source shared libraries supporting Blender's minor through `{ workspace = "<path>" }`, with their own root's sources
-- `environments` limits the platforms uv solves for
-- `required-environments` makes `uv lock` fail when a package lacks a wheel or source distribution for a listed platform
 - `minimum-libc-version` constrains wheels only through `required-environments`
 - Members without `[build-system]` are virtual: uv installs their dependencies and never builds them
 
@@ -58,13 +56,12 @@ module-root = ""
 
 Fields the manifest states or leaves out:
 
-| [INDEX] | [FIELD]             | [VALUE]                         | [REASON]                                          |
-| :-----: | :------------------ | :------------------------------ | :------------------------------------------------ |
-|  [01]   | `module-root`       | `""`                            | Module folder sits in project folder, no `src/`   |
-|  [02]   | `module-name`       | Product import name             | Products alone, their name differing from default |
-|  [03]   | `import-names`      | Product import name             | Products alone, PEP 794 row naming differing name |
-|  [04]   | `requires`          | `uv_build` bounded to its minor | Unbounded row warns on sdist builds               |
-|  [05]   | `dependencies = []` | Absent                          | Empty list equals absence                         |
+| [INDEX] | [FIELD]        | [VALUE]                         | [REASON]                                          |
+| :-----: | :------------- | :------------------------------ | :------------------------------------------------ |
+|  [01]   | `module-root`  | `""`                            | Module folder sits in project folder, no `src/`   |
+|  [02]   | `module-name`  | Product import name             | Products alone, their name differing from default |
+|  [03]   | `import-names` | Product import name             | Products alone, PEP 794 row naming differing name |
+|  [04]   | `requires`     | `uv_build` bounded to its minor | Unbounded row warns on sdist builds               |
 
 ## [04]-[IMPORT_NAMES]
 
@@ -74,7 +71,7 @@ Distribution and import names per package kind:
 - Packages hold no PEP 420 namespace, as an earlier top-level module of the same name on `sys.path` replaces every portion
 - Library import names never reach Blender's shared site-packages
 - PEP 561 stub distributions take `<package>-stubs`
-- Plugins a tool loads by entry point take the library form (`rasm_refurb`), as the tool holds its own top-level name
+- Plugins a tool loads by entry point take the library form (`rasm_refurb`), as each tool holds its own top-level name
 - `uv_build` refuses a module root outside its project ("Module root must be inside the project"), and no project folder is itself an import package
 - Entry `__init__.py` files forward public names and close on `__all__`, private modules and internal subpackages take `_`
 
@@ -114,4 +111,4 @@ Environment variables and tool sources the roots share:
 - `UV_PYTHON` acts as `--python` and overrides a Blender root's range, and no `[env]` row sets it
 - `ruff` comes from mise `[tools]`, as hk runs it at file level from `PATH`
 - `RUFF_CACHE_DIR` in mise `[env]` moves the ruff cache, and a `cache-dir` row overrides it
-- `UV_CACHE_DIR` in mise `[env]` keeps the uv cache inside the checkout, as wheels uv builds from sdists record its Pixi library path
+- `UV_CACHE_DIR` in mise `[env]` keeps uv's cache inside the checkout, as wheels uv builds from sdists record its Pixi library path

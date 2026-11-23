@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Link, Server, Upstream } from '@rasm/mcp';
+import { Link, type Notice, Server, Upstream } from '@rasm/mcp';
 import { Array, Effect, Function, Layer, Number, Option, Queue, Ref, Schema, Stream, Struct } from 'effect';
 import { McpProtocol, Tool, Toolkit } from 'effect/ai';
 import { RpcTest } from 'effect/rpc';
@@ -13,14 +13,14 @@ const NOTICE = { name: 'documentOpened', target: Option.some('/document[1]'), de
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Trailed = Schema.Struct({ handle: Schema.String, events: Schema.Array(Schema.Struct({ sequence: Schema.Int, text: Schema.String })) });
+class Trailed extends Schema.Opaque<Trailed, { readonly brand: unique symbol }>()(Schema.Struct({ handle: Schema.String, events: Schema.Array(Schema.Struct({ sequence: Schema.Int, text: Schema.String })) })) {}
 const Extension = Toolkit.make(Tool.make('unique', { description: 'Tool of the extension alone', success: Schema.String }));
 const Joined = Toolkit.make(Tool.make('late', { description: 'Tool of the extension joining later', success: Schema.String }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const linked = Effect.fnUntraced(function* (silent: readonly Stream.Stream<readonly Upstream[]>[] = []) {
-    const [notices, late, own, lists, subscribed, seen] = yield* Effect.all([Queue.unbounded<typeof Link.Notice.Type>(), Queue.unbounded<typeof Link.Notice.Type>(), Queue.unbounded<string>(), Queue.unbounded<Link[]>(), Ref.make(0), Ref.make<readonly (typeof Trailed.Type.events)[number][]>([])]);
+    const [notices, late, own, lists, subscribed, seen] = yield* Effect.all([Queue.unbounded<Notice>(), Queue.unbounded<Notice>(), Queue.unbounded<string>(), Queue.unbounded<Link[]>(), Ref.make(0), Ref.make<Trailed['events']>([])]);
     const counted = Stream.unwrap(Effect.as(Ref.update(subscribed, Number.increment), Stream.fromQueue(notices)));
     const [extension, joined] = yield* Effect.all([
         RpcTest.makeClient(Link.Rpcs, { flatten: true }).pipe(Effect.provide(Link.serve(Extension, { notices: counted }).pipe(Layer.provide(Extension.toLayer({ unique: () => Effect.succeed('own') }))))),

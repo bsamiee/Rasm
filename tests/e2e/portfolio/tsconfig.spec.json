@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "lib": ["esnext", "dom"],
+        "types": ["node"]
+    },
+    "include": ["*.spec.ts", "fixtures.ts", "playwright.config.ts"],
+    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "../../support/typescript" }]
+}

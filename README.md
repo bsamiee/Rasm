@@ -190,6 +190,7 @@ Products deliver through the same targets in every ecosystem, development builds
 - `doppler run --config release --command 'nx pack <app>'` packs a Mac app with release signing, notarized as a `.dmg` where `ASC_API_*` rows are set
 - `nx release --skip-publish` versions each `release` project alone from commits since its `<project>@<version>` tag, tags it, and patches dependents
 - New `release` projects take an annotated `<project>@<version>` tag by hand at their manifest version, in place of `--first-release`
+- Tags made by hand take their GitHub release from `gh release create <tag>`, as `attach` uploads to a release `nx release` made
 - `nx release <version> --projects=<projects> --skip-publish` moves projects to an exact version alone, as a prerelease line takes its stable release
 - Commit scopes name one project as `nx show projects` prints it, or none, as `nx release` refuses a scope matching more than one `release` project
 - `nx run-many -t attach -c release` uploads released files to each tag's GitHub release, and stores with no upload API take files by hand

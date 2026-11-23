@@ -48,30 +48,19 @@ const Acting = Tool.make('act', {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const presented = (state: typeof State.Type) => State.matchOrElse(state, { running: ({ running }) => running.windows.filter((window) => window.presented && window.kind !== 'menu') }, () => []);
-const fronted = (state: typeof State.Type) => {
+const presented = (state: RunningInstance['state']) => State.matchOrElse(state, { running: ({ running }) => running.windows.filter((window) => window.presented && window.kind !== 'menu') }, () => []);
+const fronted = (state: RunningInstance['state']) => {
     const shown = presented(state);
     return Option.orElse(
         Array.findFirst(shown, (window) => window.asking || window.element?.subrole === 'AXStandardWindow'),
         () => Array.head(shown),
     );
 };
-const titled = (state: typeof State.Type, number: number) =>
+const titled = (state: RunningInstance['state'], number: number) =>
     Option.flatMap(
         Array.findFirst(presented(state), (window) => window.number === number),
         (window) => Option.fromUndefinedOr(window.title ?? window.element?.title),
     );
-const framed = (taken: Result.Result.Success<(typeof Capture.Result.Type)[string]>) => ({
-    document: Option.fromUndefinedOr(taken.document),
-    image: Option.map(taken.preview, (data) => ({ data, mimeType: 'image/png', file: new URL(taken.file), width: taken.width, height: taken.height })),
-    failure: Option.none<string>(),
-});
-const shot = (application: string, state: typeof State.Type) => (number: string, outcome: (typeof Capture.Result.Type)[string]) => ({
-    application,
-    window: Option.some(Number(number)),
-    title: titled(state, Number(number)),
-    ...Result.match(outcome, { onFailure: ({ message }) => ({ document: Option.none<string>(), image: Option.none(), failure: Option.some(message) }), onSuccess: framed }),
-});
 const named = (listed: readonly Application[]) => (each: RunningInstance) => ({
     each,
     name: Option.getOrElse(
@@ -92,10 +81,19 @@ const showing = (document: string) => (row: { readonly each: RunningInstance; re
 
 const windows = Effect.fnUntraced(function* (links: { readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof Rendering>, RpcClientError.RpcClientError>, Unmatched> }) {
     const [server, { current, running, catalog }, side, { folder }, files, path, random] = yield* Effect.all([ApplicationServer, Inventory, Preview, Output, FileSystem.FileSystem, Path.Path, SecureRandom.SecureRandom]);
-    const shots = Effect.fnUntraced(function* (application: string, each: RunningInstance, source: Capture['source']) {
-        const taken = yield* server.capture({ instance: each.instance, source, longestSide: Option.some(side) });
-        return Record.collect(taken, shot(application, each.state));
-    });
+    const shots = (application: string, each: RunningInstance, source: Capture['source']) =>
+        Effect.map(
+            server.capture({ instance: each.instance, source, longestSide: Option.some(side) }),
+            Record.collect((number, outcome) => ({
+                application,
+                window: Option.some(Number(number)),
+                title: titled(each.state, Number(number)),
+                ...Result.match(outcome, {
+                    onFailure: ({ message }) => ({ document: Option.none<string>(), image: Option.none(), failure: Option.some(message) }),
+                    onSuccess: (shot) => ({ document: Option.fromUndefinedOr(shot.document), image: Option.map(shot.preview, (data) => ({ data, mimeType: 'image/png', file: new URL(shot.file), width: shot.width, height: shot.height })), failure: Option.none<string>() }),
+                }),
+            })),
+        );
     const everyone = Effect.gen(function* () {
         const [rows, listed] = yield* Effect.all([SubscriptionRef.get(running), SubscriptionRef.get(catalog)]);
         return rows.filter((each) => !State.isAnyOf(['exited'])(each.state)).map(named(listed));

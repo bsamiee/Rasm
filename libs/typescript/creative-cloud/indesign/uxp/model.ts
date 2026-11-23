@@ -1,4 +1,4 @@
-import { type Declaration, HostError, Reference, Selector, Specifier } from '@rasm/object-model';
+import { Declaration, HostError, Reference, Selector, Specifier } from '@rasm/object-model';
 import { encode, isPlain } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
 import { Settings } from '@rasm/typography';
@@ -35,7 +35,7 @@ import indesign, {
 } from 'adobe:indesign';
 import { Array, Cause, Context, Deferred, Effect, Equal, Equivalence, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaAST, Struct } from 'effect';
 import { Value } from '#/value';
-import { Extent, type Search } from '#/views';
+import { Extent, type MODES } from '#/views';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -65,7 +65,7 @@ type Owned = {
     readonly textStyleRanges: InDesignDOMObject<unknown> & Pick<Text, 'textStyleRanges'>;
     readonly postscriptName: Font;
     readonly aggregatedResults: PreflightProcess;
-} & Readonly<Record<`change${typeof Search.Type}`, InDesignDOMObject<unknown> & Pick<Document, `${'find' | 'change'}${typeof Search.Type}`>>>;
+} & Readonly<Record<`change${(typeof MODES)[number]}`, InDesignDOMObject<unknown> & Pick<Document, `${'find' | 'change'}${(typeof MODES)[number]}`>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -74,11 +74,15 @@ const STYLISTIC_SETS = 20;
 const STYLISTIC_SET_ACTION = 0x69_74;
 const STYLISTIC_SET_ACTIONS = { minimum: STYLISTIC_SET_ACTION, maximum: STYLISTIC_SET_ACTION + STYLISTIC_SETS - 1 };
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Declared = Schema.fromJsonString(Declaration.Model);
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
-    make: (declared: typeof Declaration.Model.Type) =>
-        Effect.sync(() => {
+    make: (text: string) =>
+        Effect.map(Schema.decodeEffect(Declared)(text), (declared) => {
             const inheriting: <T extends object>(prototype: T) => T = Object.create;
             const domObject = owning('toSpecifier');
             const document = owning('createTOC');
@@ -380,7 +384,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 const corners: readonly (readonly [number, number])[] = Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]: readonly [Page | PageItem, (typeof AnchorPoint)['TOP_LEFT_ANCHOR' | 'BOTTOM_RIGHT_ANCHOR']]) =>
                     each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES),
                 );
-                return Extent.make(Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x }))));
+                return Extent.make(Struct.makeReducer({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x }))));
             },
             catch: HostError.refused(`extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`),
         });
@@ -404,7 +408,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, outcome), Deferred.await(outcome))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: HostError.refused(label) }).pipe(Effect.catch((error) => Deferred.fail(outcome, error)));
         return yield* Deferred.await(outcome).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), closed, { discard: true })));
     });
-    static readonly written = <W, E, R>(label: string, target: InDesignDOMObject<unknown>, body: Effect.Effect<W, E, R>): Effect.Effect<Schema.Struct<typeof Reference.fields>['Type'] & { readonly written: W }, E | HostError, R | Model> =>
+    static readonly written = <W, E, R>(label: string, target: InDesignDOMObject<unknown>, body: Effect.Effect<W, E, R>): Effect.Effect<Omit<Reference, 'brand'> & { readonly written: W }, E | HostError, R | Model> =>
         Model.commit(label, Effect.all([body, Model.reference(target)]).pipe(Effect.map(([members, reference]) => ({ ...reference, written: members }))));
 }
 

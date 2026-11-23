@@ -120,7 +120,7 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
                 Effect.flatMap(Completion.answered(ResultJson, label)),
             );
             const unlinked = Effect.fail(HostError.of({ _tag: 'Unavailable' }, `linked Atelier extension running UXP scripts in ${row.name}`)());
-            const run: Effect.Effect<typeof Evaluation.Result.Type, HostError | Error> = Match.valueTags(found, { Linked: () => evaluated, Unlinked: () => unlinked, Uxp: () => scripted, Script: () => scripted });
+            const run: Effect.Effect<Effect.Success<typeof evaluated>, HostError | Error> = Match.valueTags(found, { Linked: () => evaluated, Unlinked: () => unlinked, Uxp: () => scripted, Script: () => scripted });
             return yield* Effect.catchTag(run, 'HostError', built.relined);
         }),
     );

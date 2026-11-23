@@ -66,12 +66,12 @@ const matching = (query: string, locale?: string) =>
 ```ts
 const matched = (invoices: HashMap.HashMap<string, Invoice>) =>
     Filter.compose(
-        Filter.tagged<typeof Change.Type>()('Paid'),
+        Filter.tagged<Activity['change']>()('Paid'),
         Filter.fromPredicateOption(({ reference }) => HashMap.get(invoices, reference)),
     );
 ```
 
-`Change` is a `Schema.TaggedUnion` with a `Paid` case holding `amount` and `reference` and an empty `Voided` case. `Array.partition(changes, matched(open))` returns the invoice each payment matches beside every change matching none, typed as a `Voided` change or a `Paid` one with an unknown reference:
+`Activity` is a record class with `change`, a `Schema.TaggedUnion` with a `Paid` case holding `amount` and `reference` and an empty `Voided` case. `Array.partition(changes, matched(open))` returns the invoice each payment matches beside every change matching none, typed as a `Voided` change or a `Paid` one with an unknown reference:
 - `Filter.fromPredicate` builds a filter from a refinement, `Filter.fromPredicateOption` from a lookup returning `Option`, failing with its input
 - `Filter.compose` feeds one filter's pass to the next, `Filter.or` runs the second on the input the first rejects, and `Filter.zip` pairs both passes
 - Schema `guards` take `unknown` and leave the remainder `unknown`, `Filter.tagged<A>()` fixes the input type

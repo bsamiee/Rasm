@@ -1,0 +1,20 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "emitDeclarationOnly": true,
+        "lib": ["esnext", "dom"],
+        "types": ["node"]
+    },
+    "include": ["served.ts", "rendering.ts"],
+    "references": [
+        {
+            "path": "../../support/typescript"
+        },
+        {
+            "path": "../../../libs/typescript/data/object-storage/tsconfig.lib.json"
+        },
+        {
+            "path": "../../../libs/typescript/web/hosting/tsconfig.lib.json"
+        }
+    ]
+}

@@ -43,13 +43,13 @@ const gutters = () => {
 
 const indexes = () => {
     const title = document.querySelector('h1')?.getBoundingClientRect();
-    const shown = Array.from(document.querySelectorAll('nav[aria-label="Work index"]')).filter((index) => index.checkVisibility());
+    const shown = [...document.querySelectorAll('nav[aria-label="Work index"]')].filter((index) => index.checkVisibility());
     const apart = ({ left, right, top, bottom }: DOMRect) => title === undefined || right <= title.left || left >= title.right || bottom <= title.top || top >= title.bottom;
     return { forms: shown.map((index) => (index.querySelector('select') === null ? 'links' : 'select')), clear: shown.every((index) => apart(index.getBoundingClientRect())) };
 };
 
 const cover = () => {
-    const chapter = Array.from(document.querySelectorAll('h3')).find(({ textContent }) => textContent === 'Tide Archive');
+    const chapter = [...document.querySelectorAll('h3')].find(({ textContent }) => textContent === 'Tide Archive');
     const figure = chapter?.closest('section')?.querySelector('figure');
     const box = figure?.getBoundingClientRect();
     return box === undefined ? null : { ratio: Math.round((box.width / box.height) * 10) / 10, image: figure?.querySelector('img') !== null };
@@ -67,10 +67,12 @@ const stated = () => ({
 });
 
 const picked = () => {
-    Array.from(document.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Work index"] a'))
-        .find(({ textContent }) => textContent === 'Timber Joints')
-        ?.click();
-    return { current: Array.from(document.querySelectorAll('[aria-current="location"]'), ({ textContent }) => textContent), focused: document.activeElement?.textContent ?? null };
+    [...document.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Work index"] a')].find(({ textContent }) => textContent === 'Timber Joints')?.click();
+    return {
+        current: Array.from(document.querySelectorAll('[aria-current="location"]'), ({ textContent }) => textContent),
+        focused: document.activeElement instanceof HTMLHeadingElement ? document.activeElement.textContent : null,
+        titles: Array.from(document.querySelectorAll('title'), ({ textContent }) => textContent),
+    };
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -82,12 +84,17 @@ const cases: readonly Case[] = [
     { shows: 'sizes the cover of an entry below the fold to the 1600 by 1000 of its drawing before its image is in the page', width: DESKTOP, read: cover, expected: { ratio: 1.6, image: false } },
     { shows: 'frames the hero photograph around its focus point of 20 across and 80 down', width: DESKTOP, read: focus, expected: '20% 80%' },
     {
-        shows: 'holds one title and one description from the published profile and every published entry once the document has streamed and hydrated',
+        shows: 'serves one title and one description from the published profile with every published entry',
         width: DESKTOP,
         read: stated,
         expected: { titles: ['Studio Rasm · Architecture'], descriptions: ['Housing, civic buildings, and studies of timber construction.'], work: ['Harbour Library', 'Timber Joints', 'Quay Pavilion', 'Tide Archive'] },
     },
-    { shows: 'moves the current work and the focus to an entry picked from the side index', width: DESKTOP, read: picked, expected: { current: ['Timber Joints'], focused: 'Timber Joints' } },
+    {
+        shows: 'hydrates the streamed document under its one title, an entry picked from the side index becoming the current work and taking focus',
+        width: DESKTOP,
+        read: picked,
+        expected: { current: ['Timber Joints'], focused: 'Timber Joints', titles: ['Studio Rasm · Architecture'] },
+    },
 ];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
