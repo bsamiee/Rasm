@@ -1,5 +1,8 @@
+import { mkdirSync, symlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { createNodes } from '@rasm/nx-typescript';
 import { it, typescript } from '@rasm/testing/nx';
+import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -51,22 +54,29 @@ describe('eslint check inference', () => {
 
         const [root, app] = [await workspace.run(graph, 'root', 'check--eslint'), await workspace.run(graph, 'app', 'check--eslint')];
 
-        expect([root.success, app.success]).toStrictEqual([true, false]);
+        expect([root.success, app.success, app.terminalOutput.includes('no-debugger')]).toStrictEqual([true, false, true]);
     });
 
-    it('hashes each local module the config imports and each package any of them imports', async ({ workspace }) => {
-        const graph = await workspace
-            .install(typescript, import.meta.resolve('eslint/package.json'))
-            .write({
-                ...ROOT,
-                'eslint.config.mjs': "import { defineConfig } from 'eslint/config';\nimport { files } from './tools/lint/files.mjs';\nimport 'node:path';\n\nexport default defineConfig({ files });\n",
-                'tools/lint/files.mjs': "import manifest from 'typescript/package.json' with { type: 'json' };\n\nexport const files = manifest.name === 'typescript' ? ['**/*.ts'] : [];\n",
-                'apps/app/project.json': '{"name":"app"}',
-                'apps/app/index.ts': 'export {};',
-            })
-            .graph({ createNodes });
+    it('hashes every file the config loads, its local modules and the sources of a workspace package it imports', async ({ workspace }) => {
+        workspace.install(typescript, import.meta.resolve('eslint/package.json')).write({
+            ...ROOT,
+            'eslint.config.mjs': "import { files } from './tools/lint/files.mjs';\nimport { rules } from '@scope/rules';\nimport 'node:path';\n\nexport default [{ files, rules }];\n",
+            'tools/lint/files.mjs': "export const files = ['**/*.ts'];\n",
+            'tools/lint/unused.mjs': 'export {};\n',
+            'libs/rules/package.json': '{"name":"@scope/rules","type":"module","exports":"./index.mjs"}',
+            'libs/rules/index.mjs': "export const rules = { 'no-debugger': 'error' };\n",
+            'apps/app/project.json': '{"name":"app"}',
+            'apps/app/index.ts': 'export {};',
+        });
+        mkdirSync(join(workspace.root, 'node_modules/@scope'));
+        symlinkSync(join(workspace.root, 'libs/rules'), join(workspace.root, 'node_modules/@scope/rules'), 'dir');
+        const graph = await workspace.graph({ createNodes });
+        const inspector = new HashPlanInspector({ ...graph, externalNodes: { 'npm:eslint': { type: 'npm', name: 'npm:eslint', data: { packageName: 'eslint', version: '10.0.0' } } } }, workspace.root);
+        await inspector.init();
 
-        expect(graph.nodes['app']?.data.targets?.['check--eslint']?.inputs).toStrictEqual(['default', '^default', '{workspaceRoot}/eslint.config.mjs', '{workspaceRoot}/tools/lint/files.mjs', { externalDependencies: ['eslint', 'typescript'] }]);
+        const files = inspector.inspectTaskInputs({ project: 'app', target: 'check--eslint' })['app:check--eslint']?.files ?? [];
+
+        expect([['eslint.config.mjs', 'tools/lint/files.mjs', 'libs/rules/index.mjs'].filter((file) => !files.includes(file)), files.includes('tools/lint/unused.mjs')]).toStrictEqual([[], false]);
     });
 
     it('reads the imports of a module the config imports again after it changes', async ({ workspace }) => {
@@ -90,6 +100,7 @@ describe('eslint check inference', () => {
 
         const cached = await workspace.remove('node_modules/typescript').graph({ createNodes });
 
+        expect(fresh.nodes['app']?.data.targets?.['check--eslint']).toBeDefined();
         expect(cached.nodes['app']?.data.targets?.['check--eslint']).toStrictEqual(fresh.nodes['app']?.data.targets?.['check--eslint']);
     });
 

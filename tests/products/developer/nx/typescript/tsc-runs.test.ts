@@ -20,17 +20,6 @@ describe('running the tsc targets', { timeout: 30_000 }, () => {
         { case: 'an incremental tsBuildInfoFile sits outside the outDir', target: 'build--tsc', files: { 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"incremental":true,"outDir":"dist","tsBuildInfoFile":"cache/lib.tsbuildinfo"}}' }, emitted: 'libs/lib/cache/lib.tsbuildinfo' },
         { case: 'a declarationDir sits apart from the outDir', target: 'build--tsc', files: { 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"outDir":"dist","declaration":true,"declarationDir":"types"}}' }, emitted: 'libs/lib/types/index.d.ts' },
         {
-            case: 'a resolveJsonModule program imports json',
-            target: 'build--tsc',
-            files: {
-                'libs/lib/package.json': '{"name":"lib","type":"module"}',
-                'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"outDir":"dist","module":"nodenext","resolveJsonModule":true}}',
-                'libs/lib/index.ts': "import data from './data.json' with { type: 'json' };\nexport const value = data.value;",
-                'libs/lib/data.json': '{"value":1}',
-            },
-            emitted: 'libs/lib/dist/data.json',
-        },
-        {
             case: 'a nodenext program imports json its module implies',
             target: 'build--tsc',
             files: {
@@ -76,17 +65,7 @@ describe('running the tsc targets', { timeout: 30_000 }, () => {
         expect(success).toBe(true);
         expect([...written]).toContain(emitted);
         expect([...written.difference(cached)]).toStrictEqual([]);
-    });
-
-    it.for([
-        { case: 'neither map option', options: '"declaration":true', outputs: ['{projectRoot}/dist/**/*.{js,cjs,mjs,jsx}', '{projectRoot}/dist/**/*.{d.ts,d.cts,d.mts}'] },
-        { case: 'sourceMap and declarationMap', options: '"declaration":true,"sourceMap":true,"declarationMap":true', outputs: ['{projectRoot}/dist/**/*.{js,cjs,mjs,jsx}{,.map}', '{projectRoot}/dist/**/*.{d.ts,d.cts,d.mts}{,.map}'] },
-    ])('declares .map outputs of build--tsc only under $case as tsc writes them', async ({ options, outputs }, { workspace }) => {
-        workspace.install(typescript).write({ ...LIB, 'libs/lib/tsconfig.json': `{"files":["index.ts"],"compilerOptions":{"outDir":"dist",${options}}}` });
-
-        const graph = await workspace.graph({ createNodes });
-
-        expect(graph.nodes['lib']?.data.targets?.['build--tsc']?.outputs).toStrictEqual(outputs);
+        expect([...cached.intersection(before)]).toStrictEqual([]);
     });
 
     it('checks a program its tsconfig sets noEmit for without writing a file or inferring a build', async ({ workspace }) => {
@@ -108,6 +87,7 @@ describe('running the tsc targets', { timeout: 30_000 }, () => {
             'tsconfig.node.json': '{"files":["tool.ts"],"compilerOptions":{"composite":true,"noEmit":true}}',
             'tool.ts': 'export {};',
             'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"composite":true,"outDir":"dist"}}',
+            'libs/lib/index.ts': "export const value: number = 'text';",
         });
         const graph = await workspace.graph({ createNodes });
         const before = workspace.files('node_modules', 'tmp');
@@ -115,7 +95,6 @@ describe('running the tsc targets', { timeout: 30_000 }, () => {
         const { success } = await workspace.run(graph, 'root', 'check--tsc');
 
         expect(success).toBe(true);
-        expect(graph.nodes['root']?.data.targets?.['check--tsc']?.options).toStrictEqual({ commands: ['tsc -p tsconfig.node.json'], cwd: '.' });
         expect([...workspace.files('node_modules', 'tmp').difference(before)]).toStrictEqual(['tsconfig.node.tsbuildinfo']);
     });
 

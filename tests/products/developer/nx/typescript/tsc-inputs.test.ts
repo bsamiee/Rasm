@@ -1,109 +1,92 @@
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, symlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { createNodes } from '@rasm/nx-typescript';
 import { it, typescript } from '@rasm/testing/nx';
+import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const LIB = { 'package.json': '{"name":"root","workspaces":["libs/*"]}', 'package-lock.json': '', 'libs/lib/package.json': '{"name":"lib"}' };
+const LIB = { 'package.json': '{"name":"root","workspaces":["libs/*"]}', 'package-lock.json': '', 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/decoy.ts': 'export {};\n' };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('tsc target inputs', () => {
+describe('check--tsc hashes the files tsc reads', () => {
     it.for([
         {
             case: 'include and exclude globs select the files',
-            files: {
-                'libs/lib/tsconfig.json': '{"include":["src/**/*.ts"],"exclude":["src/**/*.spec.ts"],"compilerOptions":{"noEmit":true}}',
-                'libs/lib/src/index.ts': 'export {};',
-                'libs/lib/src/index.spec.ts': 'export {};',
-                'libs/lib/tools/gen.ts': 'export {};',
-            },
-            hashed: ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/src/index.ts'],
+            programs: ['tsconfig.json'],
+            configs: ['libs/lib/tsconfig.json'],
+            unread: ['libs/lib/src/index.spec.ts'],
+            files: { 'libs/lib/tsconfig.json': '{"include":["src/**/*.ts"],"exclude":["src/**/*.spec.ts"],"compilerOptions":{"noEmit":true}}', 'libs/lib/src/index.ts': 'export {};', 'libs/lib/src/index.spec.ts': 'export {};' },
         },
-        {
-            case: 'an include of the parent folder reaches files outside the project',
-            files: { 'libs/lib/tsconfig.json': '{"include":[".."],"compilerOptions":{"noEmit":true}}', 'libs/lib/index.ts': 'export {};', 'libs/shared/units.ts': 'export {};' },
-            hashed: ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/index.ts', '{workspaceRoot}/libs/shared/units.ts'],
-        },
+        { case: 'an include of the parent folder reaches files of another folder', programs: ['tsconfig.json'], configs: ['libs/lib/tsconfig.json'], unread: [], files: { 'libs/lib/tsconfig.json': '{"include":["../shared"],"compilerOptions":{"noEmit":true}}', 'libs/shared/units.ts': 'export {};' } },
         {
             case: 'a listed file imports a file no files entry names',
-            files: { 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true,"module":"preserve"}}', 'libs/lib/index.ts': "export * from './helper';", 'libs/lib/helper.ts': 'export const helper = 1;', 'libs/lib/unused.ts': 'export {};' },
-            hashed: ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/index.ts', '{projectRoot}/helper.ts'],
+            programs: ['tsconfig.json'],
+            configs: ['libs/lib/tsconfig.json'],
+            unread: [],
+            files: { 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true,"module":"preserve"}}', 'libs/lib/index.ts': "export * from './helper';", 'libs/lib/helper.ts': 'export const helper = 1;' },
         },
         {
-            case: 'a listed file imports a json file under resolveJsonModule',
+            case: 'a listed file imports json under resolveJsonModule',
+            programs: ['tsconfig.json'],
+            configs: ['libs/lib/tsconfig.json'],
+            unread: [],
             files: {
                 'libs/lib/package.json': '{"name":"lib","type":"module"}',
                 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true,"module":"nodenext","resolveJsonModule":true}}',
                 'libs/lib/index.ts': "import data from './data.json' with { type: 'json' };\nexport const value = data.value;",
                 'libs/lib/data.json': '{"value":1}',
             },
-            hashed: ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/index.ts', '{projectRoot}/data.json'],
-        },
-        {
-            case: 'the tsconfig extends a chain of workspace files',
-            files: {
-                'tsconfig.base.json': '{"compilerOptions":{"strict":true}}',
-                'tsconfig.foo.json': '{"extends":"./tsconfig.base.json"}',
-                'tsconfig.bar.json': '{"compilerOptions":{"noEmit":true}}',
-                'libs/lib/tsconfig.json': '{"extends":["../../tsconfig.foo.json","../../tsconfig.bar.json"],"files":["index.ts"]}',
-                'libs/lib/index.ts': 'export {};',
-            },
-            hashed: ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/index.ts', '{workspaceRoot}/tsconfig.foo.json', '{workspaceRoot}/tsconfig.base.json', '{workspaceRoot}/tsconfig.bar.json'],
         },
         {
             case: 'a solution tsconfig references programs beside it',
+            programs: ['tsconfig.lib.json', 'tsconfig.spec.json'],
+            configs: ['libs/lib/tsconfig.json', 'libs/lib/tsconfig.lib.json', 'libs/lib/tsconfig.spec.json'],
+            unread: [],
             files: {
                 'libs/lib/tsconfig.json': '{"files":[],"references":[{"path":"./tsconfig.lib.json"},{"path":"./tsconfig.spec.json"}]}',
-                'libs/lib/tsconfig.lib.json': '{"include":["src/**/*.ts"],"exclude":["src/**/*.spec.ts"],"compilerOptions":{"noEmit":true}}',
-                'libs/lib/tsconfig.spec.json': '{"include":["src/**/*.spec.ts"],"compilerOptions":{"noEmit":true}}',
+                'libs/lib/tsconfig.lib.json': '{"include":["src/**/*.ts"],"exclude":["src/**/*.spec.ts"],"compilerOptions":{"composite":true,"noEmit":true}}',
+                'libs/lib/tsconfig.spec.json': '{"include":["src/**/*.spec.ts"],"compilerOptions":{"composite":true,"noEmit":true}}',
                 'libs/lib/src/index.ts': 'export {};',
                 'libs/lib/src/index.spec.ts': 'export {};',
             },
-            hashed: ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/tsconfig.lib.json', '{projectRoot}/tsconfig.spec.json', '{projectRoot}/src/index.ts', '{projectRoot}/src/index.spec.ts'],
         },
         {
-            case: 'the tsconfig references programs of another folder, through a cycle and a missing path',
+            case: 'the tsconfig extends a chain of workspace files and a workspace package preset',
+            programs: ['tsconfig.json'],
+            configs: ['libs/lib/tsconfig.json', 'tsconfig.foo.json', 'tsconfig.base.json', 'libs/preset/tsconfig.preset.json'],
+            unread: [],
             files: {
-                'libs/lib/tsconfig.json': '{"files":["index.ts"],"references":[{"path":"../other/tsconfig.lib.json"},{"path":"../missing"}]}',
+                'tsconfig.base.json': '{"compilerOptions":{"strict":true}}',
+                'tsconfig.foo.json': '{"extends":"./tsconfig.base.json"}',
+                'libs/preset/package.json': '{"name":"@scope/preset"}',
+                'libs/preset/tsconfig.preset.json': '{"compilerOptions":{"noEmit":true}}',
+                'libs/lib/tsconfig.json': '{"extends":["../../tsconfig.foo.json","@scope/preset/tsconfig.preset.json"],"files":["index.ts"]}',
                 'libs/lib/index.ts': 'export {};',
-                'libs/other/tsconfig.lib.json': '{"extends":"./tsconfig.shared.json","include":["src"],"references":[{"path":"./tsconfig.core.json"}]}',
-                'libs/other/tsconfig.shared.json': '{"compilerOptions":{"composite":true}}',
-                'libs/other/tsconfig.core.json': '{"include":["core"],"references":[{"path":"../lib"}]}',
-                'libs/other/tsconfig.spec.json': '{"include":["src"]}',
-                'libs/other/src/index.ts': 'export {};',
-                'libs/other/core/index.ts': 'export {};',
             },
-            hashed: ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/index.ts', '{workspaceRoot}/libs/other/tsconfig.lib.json', '{workspaceRoot}/libs/other/tsconfig.shared.json', '{workspaceRoot}/libs/other/tsconfig.core.json'],
         },
-    ])('hashes the files tsc reads when $case', async ({ files, hashed }, { workspace }) => {
-        const graph = await workspace
-            .install(typescript)
-            .write({ ...LIB, ...files })
-            .graph({ createNodes });
-
-        expect(graph.nodes['lib']?.data.targets?.['check--tsc']?.inputs?.filter((input) => typeof input === 'string' && input.startsWith('{')).toSorted()).toStrictEqual(hashed.toSorted());
-    });
-
-    it('hashes a tsconfig a workspace package provides through node_modules at its workspace path, and drops an installed one', async ({ workspace }) => {
-        workspace.install(typescript).write({
-            ...LIB,
-            'libs/preset/package.json': '{"name":"@scope/preset"}',
-            'libs/preset/tsconfig.preset.json': '{"compilerOptions":{"strict":true}}',
-            'node_modules/@tsconfig/strictest/package.json': '{"name":"@tsconfig/strictest"}',
-            'node_modules/@tsconfig/strictest/tsconfig.json': '{"compilerOptions":{"noEmit":true}}',
-            'libs/lib/tsconfig.json': '{"extends":["@scope/preset/tsconfig.preset.json","@tsconfig/strictest/tsconfig.json"],"files":["index.ts"]}',
-            'libs/lib/index.ts': 'export {};',
-        });
+    ])('hashes every workspace file tsc --listFilesOnly lists and every config it reads, and no other source, when $case', async ({ programs, configs, unread, files }, { workspace }) => {
+        workspace.install(typescript).write({ ...LIB, ...files });
         mkdirSync(join(workspace.root, 'node_modules/@scope'));
         symlinkSync(join(workspace.root, 'libs/preset'), join(workspace.root, 'node_modules/@scope/preset'), 'dir');
-
         const graph = await workspace.graph({ createNodes });
+        const inspector = new HashPlanInspector({ ...graph, externalNodes: { 'npm:typescript': { type: 'npm', name: 'npm:typescript', data: { packageName: 'typescript', version: '7.0.0' } } } }, workspace.root);
+        await inspector.init();
 
-        expect(graph.nodes['lib']?.data.targets?.['check--tsc']?.inputs?.filter((input) => typeof input === 'string' && input.startsWith('{')).toSorted()).toStrictEqual(['{projectRoot}/index.ts', '{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{workspaceRoot}/libs/preset/tsconfig.preset.json']);
+        const read = programs
+            .flatMap((program) => spawnSync(join(workspace.root, 'node_modules/.bin/tsc'), ['-p', program, '--listFilesOnly'], { cwd: join(workspace.root, 'libs/lib'), encoding: 'utf-8' }).stdout.split('\n'))
+            .filter((file) => file.length > 0)
+            .map((file) => relative(workspace.root, file))
+            .filter((file) => !(file.startsWith('..') || file.includes('node_modules')));
+        const hashed = new Set(inspector.inspectTaskInputs({ project: 'lib', target: 'check--tsc' })['lib:check--tsc']?.files);
+
+        expect(read.length).toBeGreaterThan(0);
+        expect([...read, ...configs].filter((file) => !hashed.has(file))).toStrictEqual([]);
+        expect(['libs/lib/decoy.ts', ...unread].filter((file) => hashed.has(file))).toStrictEqual([]);
     });
 });

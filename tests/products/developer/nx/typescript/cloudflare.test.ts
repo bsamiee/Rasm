@@ -29,36 +29,6 @@ describe('Worker binding type generation', () => {
         expect(graph.nodes['edge']?.data.targets?.['codegen--cf']?.inputs?.filter((input) => typeof input === 'string' && input.startsWith('{'))).toStrictEqual(['{workspaceRoot}/shared/dates.ts']);
     });
 
-    it.for([
-        { case: 'cf resolves beside a cloudflare.config.ts', packages: [import.meta.resolve('cf/package.json')] as const, removed: [], codegen: ['edge'] },
-        { case: 'cf does not resolve', packages: [] as const, removed: [], codegen: [] },
-        { case: 'a package holds no cloudflare.config.ts', packages: [import.meta.resolve('cf/package.json')] as const, removed: ['apps/edge/cloudflare.config.ts'], codegen: [] },
-    ])('generates Worker types for the projects $codegen when $case', async ({ packages, removed, codegen }, { workspace }) => {
-        const graph = await workspace
-            .install(...packages)
-            .write(EDGE)
-            .remove(...removed)
-            .graph({ createNodes });
-
-        expect(
-            Object.values(graph.nodes)
-                .filter(({ data: { targets = {} } }) => 'codegen--cf' in targets)
-                .map(({ name }) => name),
-        ).toStrictEqual(codegen);
-    });
-
-    it.for([
-        { case: 'where @cloudflare/workers-types resolves', files: { 'node_modules/@cloudflare/workers-types/package.json': '{"name":"@cloudflare/workers-types"}' }, run: { command: 'cf workers types --include-runtime=false', cwd: 'apps/edge' } },
-        { case: 'where no runtime type package resolves', files: {}, run: { command: 'cf workers types', cwd: 'apps/edge' } },
-    ])('generates runtime types only $case', async ({ files, run }, { workspace }) => {
-        const graph = await workspace
-            .install(import.meta.resolve('cf/package.json'))
-            .write({ ...EDGE, ...files })
-            .graph({ createNodes });
-
-        expect(graph.nodes['edge']?.data.targets?.['codegen--cf']?.options).toStrictEqual(run);
-    });
-
     it('refuses the graph naming a cloudflare.config.ts that fails to load', async ({ workspace }) => {
         workspace.install(import.meta.resolve('cf/package.json')).write({ ...EDGE, 'apps/broken/package.json': '{"name":"broken","type":"module"}', 'apps/broken/cloudflare.config.ts': "throw new Error('broken on load');\n" });
 

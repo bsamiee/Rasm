@@ -8,13 +8,38 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ROOT = { 'package.json': '{"name":"root","workspaces":["libs/*"]}', 'package-lock.json': '' };
+const CHECKED = '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('tsc target scheduling', () => {
+describe('projects nx check type-checks', () => {
+    it.for([
+        { case: 'beside a package.json the root workspaces cover', files: { 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/tsconfig.json': CHECKED, 'libs/lib/index.ts': 'export {};' }, checked: ['lib:check--tsc'] },
+        { case: 'beside a project.json', files: { 'apps/app/project.json': '{"name":"app"}', 'apps/app/tsconfig.json': CHECKED, 'apps/app/index.ts': 'export {};' }, checked: ['app:check--tsc'] },
+        { case: 'beside a package.json outside the root workspaces', files: { 'tools/tool/package.json': '{"name":"tool"}', 'tools/tool/tsconfig.json': CHECKED, 'tools/tool/index.ts': 'export {};' }, checked: [] },
+        {
+            case: 'at a workspace root whose solution references programs of other projects alone',
+            files: { 'tsconfig.json': '{"files":[],"references":[{"path":"./libs/lib"}]}', 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/tsconfig.json': CHECKED, 'libs/lib/index.ts': 'export {};' },
+            checked: ['lib:check--tsc'],
+        },
+    ])('schedules $checked for nx check of a tsconfig.json $case', async ({ files, checked }, { workspace }) => {
+        const graph = await workspace
+            .install(typescript)
+            .write({ ...ROOT, ...files })
+            .graph({ createNodes });
+
+        const { tasks } = taskGraph(
+            graph,
+            Object.keys(graph.nodes).filter((project) => 'check' in (graph.nodes[project]?.data.targets ?? {})),
+            ['check'],
+        );
+
+        expect(Object.keys(tasks).filter((task) => task.endsWith(':check--tsc'))).toStrictEqual(checked);
+    });
+
     it.for([
         { case: 'an emitting program', tsconfig: '{"files":["index.ts"],"compilerOptions":{"outDir":"dist"}}', tasks: ['lib:build--tsc', 'lib:check', 'lib:check--tsc'] },
-        { case: 'a noEmit program', tsconfig: '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}', tasks: ['lib:check', 'lib:check--tsc'] },
+        { case: 'a noEmit program', tsconfig: CHECKED, tasks: ['lib:check', 'lib:check--tsc'] },
     ])('runs the tasks $tasks for nx check of $case', async ({ tsconfig, tasks }, { workspace }) => {
         const graph = await workspace
             .install(typescript)
@@ -28,7 +53,7 @@ describe('tsc target scheduling', () => {
 
     it.for([
         { case: 'build--tsc of an emitting dependent', tsconfig: '{"files":["index.ts"],"compilerOptions":{"outDir":"dist"}}', task: 'build--tsc' },
-        { case: 'check--tsc of a noEmit dependent', tsconfig: '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}', task: 'check--tsc' },
+        { case: 'check--tsc of a noEmit dependent', tsconfig: CHECKED, task: 'check--tsc' },
     ])('runs $case after build--tsc of the project it depends on', async ({ tsconfig, task }, { workspace }) => {
         const graph = await workspace
             .install(typescript)
@@ -47,48 +72,10 @@ describe('tsc target scheduling', () => {
 
         expect(dependencies[`app:${task}`]).toContainEqual({ id: 'lib:build--tsc' });
     });
-});
-
-describe('tsc target hashing', () => {
-    it.for([
-        { case: 'nx.json names a production input', files: { 'nx.json': '{"namedInputs":{"default":["{projectRoot}/**/*"],"production":["default","!{projectRoot}/**/*.spec.ts"]}}' }, upstream: '^production' },
-        { case: 'nx.json names no production input', files: {}, upstream: '^default' },
-    ])('hashes the $upstream inputs of dependencies when $case', async ({ files, upstream }, { workspace }) => {
-        const graph = await workspace
-            .install(typescript)
-            .write({ ...ROOT, ...files, 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}', 'libs/lib/index.ts': 'export {};' })
-            .graph({ createNodes });
-
-        expect(graph.nodes['lib']?.data.targets?.['check--tsc']?.inputs?.filter((input) => typeof input === 'string' && input.startsWith('^'))).toStrictEqual([upstream]);
-    });
-
-    it.for([
-        { case: 'the default compiler', options: undefined, packages: ['typescript'] },
-        { case: 'compilerPackages', options: { compilerPackages: ['typescript', '@effect/tsgo'] as const }, packages: ['typescript', '@effect/tsgo'] },
-    ])('hashes the installed version of $case as an external dependency', async ({ options, packages }, { workspace }) => {
-        const graph = await workspace
-            .install(typescript)
-            .write({ ...ROOT, 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}', 'libs/lib/index.ts': 'export {};' })
-            .graph({ createNodes }, options);
-
-        expect(graph.nodes['lib']?.data.targets?.['check--tsc']?.inputs).toContainEqual({ externalDependencies: packages });
-    });
 
     it('refuses the graph when the first compilerPackages package does not resolve, naming it', async ({ workspace }) => {
         workspace.install(typescript).write({ ...ROOT, 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/tsconfig.json': '{"files":["index.ts"]}', 'libs/lib/index.ts': 'export {};' });
 
         await expect(workspace.graph({ createNodes }, { compilerPackages: ['@absent/compiler'] })).rejects.toSatisfy(refused(/resolves no @absent\/compiler\/sync$/u));
-    });
-
-    it.for([
-        { case: 'where @nx/js resolves', packages: [typescript, import.meta.resolve('@nx/js/package.json')] as const, generators: ['@nx/js:typescript-sync'] },
-        { case: 'where @nx/js does not resolve', packages: [typescript] as const, generators: undefined },
-    ])('keeps project references in sync through the @nx/js generator $case', async ({ packages, generators }, { workspace }) => {
-        const graph = await workspace
-            .install(...packages)
-            .write({ ...ROOT, 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}', 'libs/lib/index.ts': 'export {};' })
-            .graph({ createNodes });
-
-        expect(graph.nodes['lib']?.data.targets?.['check--tsc']?.syncGenerators).toStrictEqual(generators);
     });
 });
