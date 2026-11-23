@@ -36,7 +36,7 @@ rayon    = "1.12.0"                                          # Data parallelism 
 
 foyer = { version = "0.22.6", features = ["tracing", "serde"] }                                                                        # Hybrid memory and disk caches holding results larger than memory
 moka  = { version = "0.12.16", features = ["future", "sync"] }                                                                         # Bounded caches with per-entry expiry and coalesced async loads
-redis = { version = "2.0.0-rc.3", features = ["tokio-rustls-comp", "tls-rustls-native-roots", "connection-manager", "cluster-async"] } # Valkey commands, pub/sub, streams, and cluster connections over rustls, `tls-rustls-native-roots` naming the root store 2.0 requires beside `tls-rustls`
+redis = { version = "2.0.0-rc.3", features = ["tokio-rustls-comp", "tls-rustls-native-roots", "connection-manager", "cluster-async"] } # Valkey commands, pub/sub, streams, and cluster connections over rustls, `tls-rustls-native-roots` adding the root store `tls-rustls` leaves out
 
 # --- [SYSTEM]
 
@@ -236,7 +236,7 @@ zstd              = { version = "0.14.4", features = ["zstdmt"] }               
 argon2                   = "0.6.0"                                                                             # Password hashing in PHC strings
 crypto_box               = "0.10.0-pre.0"                                                                      # NaCl public-key boxes
 rcgen                    = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem"] }  # X.509 certificates issued to loopback and test endpoints, default `ring` adds ring beside aws-lc-rs
-rsa                      = { version = "0.10.0", features = ["pkcs1v15"] }                                     # PKCS#1 v1.5 signing `pdf_oxide` 0.3.78 calls under `signatures` while requesting `rsa` with default features, which 0.10.0 no longer includes
+rsa                      = { version = "0.10.0", features = ["pkcs1v15"] }                                     # PKCS#1 v1.5 signing `pdf_oxide` calls under `signatures` while requesting `rsa` default features, which leave `pkcs1v15` out
 rustls                   = "0.24.0-dev.3"                                                                      # TLS stack with process-wide aws-lc-rs provider each binary installs
 rustls-platform-verifier = "0.7.1"                                                                             # Certificate verification through OS trust store
 sha2                     = "0.11.1"                                                                            # SHA-2 digests in pure Rust
@@ -247,7 +247,7 @@ x509-parser              = { version = "0.18.1", features = ["verify-aws"] }    
 
 httpsig       = { version = "0.0.27", features = ["rsa-signature"] }                                           # HTTP message signatures
 jsonwebtoken  = { version = "12.0.0", features = ["aws_lc_rs"] }                                               # JWT signing and validation
-openidconnect = { version = "4.1.0", default-features = false, features = ["timing-resistant-secret-traits"] } # OpenID Connect discovery, PKCE flows, and ID token validation, default `reqwest` and `rustls-tls` add reqwest 0.12 on ring beside aws-lc-rs
+openidconnect = { version = "4.1.0", default-features = false, features = ["timing-resistant-secret-traits"] } # OpenID Connect discovery, PKCE flows, and ID token validation, default `reqwest` and `rustls-tls` add an older reqwest on ring beside aws-lc-rs
 totp-rs       = { version = "6.0.0", features = ["otpauth", "gen_secret", "zeroize"] }                         # One-time passwords and otpauth URLs
 webauthn-rs   = { version = "0.6.2", features = ["conditional-ui", "resident-key-support"] }                   # Passkey registration and authentication ceremonies
 webbrowser    = "1.2.7"                                                                                        # Authorization URLs opened in user's browser
@@ -255,8 +255,8 @@ webbrowser    = "1.2.7"                                                         
 # --- [SECRETS]
 
 aws-config                      = { version = "1.13.3", features = ["behavior-version-latest"] }                                                                # AWS credential and region resolution
-aws-sdk-kms                     = { version = "1.133.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # AWS KMS keys, default `rustls` adds hyper 0.14 client on ring
-aws-sdk-sts                     = { version = "1.128.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # STS session credentials under a session policy, default `rustls` adds hyper 0.14 client on ring
+aws-sdk-kms                     = { version = "1.133.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # AWS KMS keys, default `rustls` adds a legacy hyper client on ring
+aws-sdk-sts                     = { version = "1.128.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # STS session credentials under a session policy, default `rustls` adds a legacy hyper client on ring
 azure_identity                  = { version = "1.1.0-beta.2", features = ["tokio"] }                                                                            # Microsoft Entra ID credential chain
 azure_security_keyvault_keys    = "1.1.0-beta.2"                                                                                                                # Azure Key Vault keys and cryptographic operations
 azure_security_keyvault_secrets = "1.1.0-beta.2"                                                                                                                # Azure Key Vault secrets
@@ -306,7 +306,7 @@ tonic-reflection    = "0.14.9"                                                  
 
 # --- [TRANSFER]
 
-object_store = { version = ">=0.13.2, <0.14", features = ["aws", "gcp", "azure", "http"] } # One API over S3, GCS, Azure, HTTP, and local object stores at the release DataFusion 55 and deltalake 1.1 link, `cloud` under each store feature adds reqwest 0.12 on ring and chrono
+object_store = { version = ">=0.13.2, <0.14", features = ["aws", "gcp", "azure", "http"] } # One API over S3, GCS, Azure, HTTP, and local object stores at the release DataFusion and deltalake link, `cloud` under each store feature adds an older reqwest, ring, and chrono
 reqwest_dav  = "0.3.3"                                                                     # WebDAV transfers
 russh        = "0.65.4"                                                                    # SSH clients and servers reaching remote workers
 russh-sftp   = "4.0.0"                                                                     # SFTP over SSH channels
@@ -314,7 +314,7 @@ suppaftp     = { version = "13.0.0", features = ["tokio-rustls-aws-lc-rs"] }    
 
 # --- [OBSERVABILITY]
 
-instrumented-object-store           = ">=55.0.0, <56"                                                                                                                        # Tracing spans around object store reads, writes, and lists, at the release linking object_store 0.13 with DataFusion 55
+instrumented-object-store           = ">=55.0.0, <56"                                                                                                                        # Tracing spans around object store reads, writes, and lists, at the release linking DataFusion's object_store
 log                                 = "0.4.35"                                                                                                                               # Logger registration failure `LogTracer::init` returns
 opentelemetry                       = "0.33.1"                                                                                                                               # Trace, metric, and log API
 opentelemetry-appender-tracing      = "0.33.1"                                                                                                                               # Tracing events exported as log records
@@ -330,7 +330,7 @@ pprof                               = { version = "0.15.0", features = ["flamegr
 pyroscope                           = { version = "2.1.5", features = ["backend-pprof-rs"] }                                                                                 # Continuous profiles pushed to Pyroscope
 sysinfo                             = { version = "0.40.4", default-features = false, features = ["system"] }                                                                # Process and host resource readings, `system` alone links no IOKit
 tracing                             = "0.1.44"                                                                                                                               # Spans and events emitted at service boundaries
-tracing-appender                    = "0.2.5"                                                                                                                                # Rolling and non-blocking file writers, the rolling clock adds `time` 0.3 beside jiff
+tracing-appender                    = "0.2.5"                                                                                                                                # Rolling and non-blocking file writers, the rolling clock adds `time` beside jiff
 tracing-log                         = "0.2.0"                                                                                                                                # `log` records forwarded into tracing at every level, reloadable filter decides each
 tracing-opentelemetry               = "0.34.0"                                                                                                                               # Tracing spans exported as OpenTelemetry spans
 tracing-subscriber                  = { version = "0.3.23", features = ["env-filter"] }                                                                                      # Subscriber registry, reloadable directive filter, per-layer filters, and the `MakeWriter` sink the JSON layer writes to
@@ -351,29 +351,29 @@ iced                 = { version = "0.14.0", features = ["tokio"] }             
 indicatif            = "0.18.6"                                                                                   # Progress bars and spinners
 inquire              = { version = "0.9.5", features = ["editor"] }                                               # Interactive prompts
 minus                = { version = "5.8.0", features = ["static_output", "search"] }                              # In-process pager for a grid taller than the terminal, `/` search
-ratatui              = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] } # Terminal UI layout, buffer diffing, widgets, and the crossterm session, default `all-widgets` adds `time` 0.3 beside jiff through its calendar, default `underline-color` is on through ratatui-crossterm and its weak termwiz edge adds nix 0.29 and thiserror 1 to the metadata clippy reads
+ratatui              = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] } # Terminal UI layout, buffer diffing, widgets, and the crossterm session, default `all-widgets` adds `time` beside jiff through its calendar, default `underline-color` is on through ratatui-crossterm and its weak termwiz edge adds an older nix and thiserror to the metadata clippy reads
 ratatui-core         = { version = "0.1.2", features = ["std", "anstyle"] }                                       # Conversions between terminal styles and TUI styles
-ratatui-image        = { version = "12.0.0-rc.3", default-features = false, features = ["crossterm"] }            # Raster previews in terminal, default `image-defaults` widens the workspace image row and `chafa-dyn` probes pkg-config at build, adds rustix 0.38, thiserror 1 and rand 0.8 beside the catalog
-ratatui-textarea     = "0.9.4"                                                                                    # Multi-line text editing widget, the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
+ratatui-image        = { version = "12.0.0-rc.3", default-features = false, features = ["crossterm"] }            # Raster previews in terminal, default `image-defaults` widens the workspace image row and `chafa-dyn` probes pkg-config at build, adds older rustix, thiserror, and rand beside the catalog's
+ratatui-textarea     = "0.9.4"                                                                                    # Multi-line text editing widget, the ratatui-widgets `calendar` default adds `time` beside jiff
 throbber-widgets-tui = "0.11.1"                                                                                   # Activity indicators of pending effects
 tracing-indicatif    = "0.3.14"                                                                                   # Progress bars driven by tracing spans
 tui-logger           = { version = "0.18.3", features = ["crossterm", "tracing-support"] }                        # Log pane fed by tracing events
-tui-popup            = "0.7.7"                                                                                    # Popups and dialogs, `derive_setters` adds darling 0.21 beside instability's 0.24 and the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
-tui-scrollview       = "0.6.8"                                                                                    # Scrollable viewports, the ratatui-widgets `calendar` default adds `time` 0.3 beside jiff
+tui-popup            = "0.7.7"                                                                                    # Popups and dialogs, `derive_setters` adds an older darling beside instability's and the ratatui-widgets `calendar` default adds `time` beside jiff
+tui-scrollview       = "0.6.8"                                                                                    # Scrollable viewports, the ratatui-widgets `calendar` default adds `time` beside jiff
 tui-tree-widget      = "0.24.1"                                                                                   # Collapsible tree views
 winit                = "0.31.0-beta.4"                                                                            # Platform windows and input events
 
 # --- [DATA_STORAGE]
 
-aws-sdk-s3     = { version = "1.161.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # S3 buckets, tags, and per-request header changes, default `rustls` adds hyper 0.14 client on ring and `sigv4a` its elliptic-curve signer
+aws-sdk-s3     = { version = "1.161.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # S3 buckets, tags, and per-request header changes, default `rustls` adds a legacy hyper client on ring and `sigv4a` its elliptic-curve signer
 clickhouse     = { version = "0.15.3", features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "inserter", "uuid"] }                       # Typed row inserts and selects over ClickHouse
 duckdb         = { version = "1.20001.0", features = ["json", "parquet", "appender-arrow"] }                                                   # In-process analytics over Parquet, CSV, JSON, and attached databases
 jiff-sqlx      = { version = "1.0.0", features = ["postgres", "sqlite"] }                                                                      # jiff values as sqlx column types
 pgvector       = { version = "0.4.2", features = ["sqlx", "halfvec", "serde"] }                                                                # pgvector column types
 sea-query      = { version = "1.0.2", features = ["with-jiff", "with-uuid", "with-json", "postgres-vector", "postgres-array"] }                # DDL and dynamic queries built from typed table definitions
 sea-schema     = { version = "0.18.1", features = ["sqlx-postgres", "sqlx-sqlite", "runtime-tokio"] }                                          # Live schema discovery that owning types diff against
-libsqlite3-sys = "0.40.0"                                                                                                                      # SQLite C API whose `sqlite3_auto_extension` registers sqlite-vec, SQLite 3.54 past RUSTSEC-2026-0459
-sqlite-vec     = "=0.1.9"                                                                                                                      # `vec0` vector tables linked beside the SQLite `sqlx` bundles, registered by an `unsafe` `sqlite3_auto_extension` call, at the newest release that builds (0.1.10-alpha.4 omits `sqlite-vec-diskann.c` and `sqlite-vec-rescore.c`, which its `sqlite-vec.c` includes)
+libsqlite3-sys = "0.40.0"                                                                                                                      # SQLite C API whose `sqlite3_auto_extension` registers sqlite-vec
+sqlite-vec     = "=0.1.9"                                                                                                                      # `vec0` vector tables linked beside the SQLite `sqlx` bundles, registered by an `unsafe` `sqlite3_auto_extension` call, at the newest release that builds, as later prereleases omit `sqlite-vec-diskann.c` and `sqlite-vec-rescore.c` their `sqlite-vec.c` includes
 sqlx           = { version = "0.9.1", default-features = false, features = ["runtime-tokio", "tls-rustls-aws-lc-rs"] }                         # Database pools on tokio with rustls, each member adds the databases and column types it reads
 
 # --- [MESSAGING]
@@ -398,17 +398,17 @@ tokio-serial = "5.5.0"                                                         #
 
 adbc_core                  = "0.25.0"                                                                                      # Database access through ADBC returning record batches
 adbc_driver_manager        = "0.25.0"                                                                                      # ADBC drivers loaded from shared libraries
-arrow                      = { version = ">=59.3.2, <60", features = ["ipc_compression"] }                                 # Columnar record batches, casts between encodings, and IPC under ZSTD and LZ4, at the release DataFusion 55 and deltalake 1.1 link, adding num-bigint 0.5 under arrow-buffer beside nalgebra's 0.4 and zstd 0.13 under arrow-ipc beside reqwest's 0.14
+arrow                      = { version = ">=59.3.2, <60", features = ["ipc_compression"] }                                 # Columnar record batches, casts between encodings, and IPC under ZSTD and LZ4, at the release DataFusion and deltalake link, adding a second num-bigint under arrow-buffer beside nalgebra's and a second zstd under arrow-ipc beside reqwest's
 arrow-flight               = { version = "60.2.0", features = ["flight-sql", "tls-aws-lc"] }                               # Arrow Flight and Flight SQL
 arrow-schema               = { version = ">=59.3.2, <60", features = ["canonical_extension_types"] }                       # Extension types and the canonical uuid type, the `extension` module the arrow facade re-exports nowhere, at arrow's release
 datafusion                 = "55.3.0"                                                                                      # SQL query engine over Arrow and object stores
 datafusion-functions-json  = "0.55.6"                                                                                      # JSON path functions registered on DataFusion sessions
 datafusion-substrait       = "55.3.0"                                                                                      # DataFusion plans converted to and from Substrait
-datafusion-table-providers = { version = "0.15.1", features = ["sqlite"] }                                                 # SQLite tables read and written as Arrow with filter pushdown, common crate adds chrono, time 0.3, sea-query, and arrow `ffi`, `sqlite` adds rusqlite beside sqlx-sqlite on one libsqlite3-sys
+datafusion-table-providers = { version = "0.15.1", features = ["sqlite"] }                                                 # SQLite tables read and written as Arrow with filter pushdown, common crate adds chrono, `time`, sea-query, and arrow `ffi`, `sqlite` adds rusqlite beside sqlx-sqlite on one libsqlite3-sys
 deltalake                  = { version = "1.1.2", features = ["datafusion", "s3", "gcs", "azure"] }                        # Delta Lake tables
 iceberg                    = "0.11.0"                                                                                      # Apache Iceberg tables
 iceberg-catalog-rest       = "0.11.0"                                                                                      # Iceberg REST catalogs
-parquet                    = { version = ">=59.3.2, <60", features = ["object_store", "arrow_canonical_extension_types"] } # Parquet files read and written as record batches over object stores, files and memory, the Parquet UUID logical type mapped to and from `arrow.uuid`, at the release DataFusion 55 and deltalake 1.1 link, its codecs adding brotli 8 and zstd 0.13 beside the 9 and 0.14 reqwest's compression takes
+parquet                    = { version = ">=59.3.2, <60", features = ["object_store", "arrow_canonical_extension_types"] } # Parquet files read and written as record batches over object stores, files and memory, the Parquet UUID logical type mapped to and from `arrow.uuid`, at the release DataFusion and deltalake link, its codecs adding a second brotli and zstd beside those reqwest's compression takes
 polars                     = { version = "0.55.2", features = ["lazy", "parquet", "ipc", "json", "dtype-full", "sql"] }    # Dataframes with lazy query engine
 serde_arrow                = { version = "0.15.1", features = ["arrow-59"] }                                               # Typed records encoded into and decoded from record batches against the schema a record states
 substrait                  = { version = "0.65.0", features = ["parse", "extensions", "serde"] }                           # Substrait plan model
@@ -416,7 +416,7 @@ substrait                  = { version = "0.65.0", features = ["parse", "extensi
 # --- [ARRAYS]
 
 hdf5-metno         = { version = "0.15.1", features = ["static", "zlib", "lzf", "blosc-all"] }                                                                                                     # HDF5 arrays
-icechunk           = { version = "2.3.1", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Versioned tensor stores over object stores, default `s3` adds aws-sdk-s3 on hyper 0.14 and rustls 0.21 with ring beside aws-lc-rs
+icechunk           = { version = "2.3.1", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Versioned tensor stores over object stores, default `s3` adds the AWS SDK S3 client
 netcdf             = { version = "0.12.1", features = ["static"] }                                                                                                                                 # netCDF fields
 zarrs              = { version = "0.23.14", features = ["async", "jiff", "pcodec", "bitround"] }                                                                                                   # Zarr chunked arrays with sharding, pcodec numeric compression, and bit rounding
 zarrs_icechunk     = { version = "0.6.0", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Icechunk sessions as zarrs async stores, default `s3` adds aws-sdk-s3 beside object_store
@@ -428,9 +428,9 @@ almost         = "0.2.0"                                                        
 average        = { version = "0.17.0", default-features = false, features = ["std", "serde"] }                          # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
 bilby          = "0.3.0"                                                                                                # Gauss-Legendre, Jacobi, Laguerre, and Hermite nodes and weights through Golub-Welsch
 bytemuck       = "1.25.2"                                                                                               # nalgebra point slices read in place as the coordinate arrays k-d tree batches take
-csaps          = "0.5.0"                                                                                                # Cubic smoothing splines over weighted curves and grids, adds itertools 0.14 and, through the alga default of its sprs, approx 0.3 and num-complex 0.2 beside the catalog's, its LDL solve is LGPL-2.1 sprs-ldl
+csaps          = "0.5.0"                                                                                                # Cubic smoothing splines over weighted curves and grids, adds a second itertools and, through the alga default of its sprs, older approx and num-complex beside the catalog's, its LDL solve is LGPL-2.1 sprs-ldl
 dashu          = { version = "0.6.2", features = ["num-traits"] }                                                       # Arbitrary-precision integers, rationals, and floats with native numeric traits
-faer           = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg"] }         # Dense and sparse decompositions and solves, default `rand` adds rand 0.9 beside rand 0.10
+faer           = { version = "0.24.4", default-features = false, features = ["std", "rayon", "sparse-linalg"] }         # Dense and sparse decompositions and solves, default `rand` adds an older rand beside the catalog's
 gauss-quad     = { version = "0.3.2", default-features = false, features = ["rayon"] }                                  # Gauss-Legendre and other quadrature rules over parallel nodes, default `libm` swaps std math for libm
 glam           = { version = "0.34.3", features = ["serde"] }                                                           # SIMD f32 vector and matrix math in graphics code
 glamx          = { version = "0.3.1", features = ["nalgebra"] }                                                         # parry poses converted to and from nalgebra isometries
@@ -462,12 +462,12 @@ rustfft      = "6.4.1"                                     # FFT of any length
 # --- [SOLVERS]
 
 basin    = "3.4.0"                                                                                                                                                    # Scalar roots and minimization, bounded robust least squares over nalgebra
-clarabel = { version = "0.11.1", features = ["sdp", "blas-src", "lapack-src"] }                                                                                       # Conic interior-point solves over typed cone blocks, `SolverError` names serde_json under default `serde` alone, `sdp` names `blas_src` and `lapack_src`, which compile empty until the final binary picks one implementation through its own `blas-src` and `lapack-src` rows (Clarabel's `sdp-*` features restate them and exclude each other), adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
+clarabel = { version = "0.11.1", features = ["sdp", "blas-src", "lapack-src"] }                                                                                       # Conic interior-point solves over typed cone blocks, `SolverError` names serde_json under default `serde` alone, `sdp` names `blas_src` and `lapack_src`, which compile empty until the final binary picks one implementation through its own `blas-src` and `lapack-src` rows (Clarabel's `sdp-*` features restate them and exclude each other), adds older thiserror, itertools, derive_builder's darling with strsim on an older syn, and a wasm web-time beside the catalog's
 diffsol  = "0.20.0"                                                                                                                                                   # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
-fmi      = { git = "https://github.com/jondo2010/rust-fmi", rev = "2ffb3e69a15f442f64817eb9129b614236a1f85b", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances at the commit moving zip 8 to 9 past the 0.8.0 release, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes
+fmi      = { git = "https://github.com/jondo2010/rust-fmi", rev = "2ffb3e69a15f442f64817eb9129b614236a1f85b", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances at a commit linking the catalog's zip ahead of any release, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes
 good_lp  = { version = "1.15.3", default-features = false, features = ["highs"] }                                                                                     # LP and MIP models over HiGHS (CMake, bindgen on libclang), reached through `rasm-optimization`'s default `linear` feature, which a consumer turns off to skip the native build; `allocation` takes any good_lp `Solver` a caller enables
 kasuari  = "0.4.13"                                                                                                                                                   # Cassowary constraint solving of layouts
-nlopt    = "0.8.1"                                                                                                                                                    # Bounded, constrained, local and global optimization over NLopt 2.9.1 linked static, its Luksan algorithms under LGPL
+nlopt    = "0.8.1"                                                                                                                                                    # Bounded, constrained, local and global optimization over NLopt linked static, its Luksan algorithms under LGPL
 nuts-rs  = "0.19.1"                                                                                                                                                   # No-U-Turn sampling chains over a `CpuLogpFunc`
 
 # --- [GRAPHS]
@@ -513,7 +513,7 @@ tobj            = { version = "4.0.5", features = ["use_f64"] }                 
 cityjson-json     = "0.11.0"                                                                                                                                               # CityJSON and CityJSONSeq models and feature streams
 cityjson-types    = "0.11.0"                                                                                                                                               # CityJSON 2.0 city objects, boundaries, and transforms
 contour           = "0.13.1"                                                                                                                                               # Contour lines, polygons, and isobands over grids
-flatgeobuf        = { version = "6.0.1", default-features = false, features = ["http"] }                                                                                   # FlatGeobuf files and HTTP range reads, default `default-tls` links platform TLS through reqwest 0.12 native-tls beside rustls
+flatgeobuf        = { version = "6.0.1", default-features = false, features = ["http"] }                                                                                   # FlatGeobuf files and HTTP range reads, default `default-tls` links platform TLS through an older reqwest's native-tls beside rustls
 gdal              = { version = "0.19.0", features = ["array"] }                                                                                                           # GDAL rasters and OGR vectors
 geo               = { version = "0.33.1", features = ["serde"] }                                                                                                           # Planar predicates, booleans, line clipping, sweep intersections, ball-tree radius queries, buffers, simplification, and triangulation
 geo-traits        = "0.3.0"                                                                                                                                                # Geometry access traits GeoArrow and GeoParquet values read through
@@ -525,12 +525,12 @@ geographiclib-rs  = { version = "0.2.7", default-features = false }             
 geohash           = "0.13.2"                                                                                                                                               # Geohash cells
 geojson           = "1.0.0"                                                                                                                                                # GeoJSON
 geoparquet        = { version = "0.10.0", features = ["async"] }                                                                                                           # GeoParquet
-geozero           = { version = "0.15.1", default-features = false, features = ["with-geo", "with-wkb", "with-mvt"] }                                                      # Streaming conversion between WKB, geo-types, and MVT, default `with-geojson` adds geojson 0.24 beside geojson 1
-grib              = { version = "0.21.0", default-features = false, features = ["jpeg2000-unpack-with-hayro", "png-unpack-with-png-crate", "ccsds-unpack-with-rust-aec"] } # GRIB2 fields on latitude–longitude, Gaussian, rotated and projected lattices through grib's own projections, default `jpeg2000-unpack-with-openjpeg` and `ccsds-unpack-with-libaec` build C beside hayro and rust-aec; hayro-jpeg2000 0.4 beside typst's 0.3
+geozero           = { version = "0.15.1", default-features = false, features = ["with-geo", "with-wkb", "with-mvt"] }                                                      # Streaming conversion between WKB, geo-types, and MVT, default `with-geojson` adds an older geojson beside the catalog's
+grib              = { version = "0.21.0", default-features = false, features = ["jpeg2000-unpack-with-hayro", "png-unpack-with-png-crate", "ccsds-unpack-with-rust-aec"] } # GRIB2 fields on latitude–longitude, Gaussian, rotated and projected lattices through grib's own projections, default `jpeg2000-unpack-with-openjpeg` and `ccsds-unpack-with-libaec` build C beside hayro and rust-aec, its hayro-jpeg2000 beside typst's
 h3o               = { version = "0.11.1", features = ["geo"] }                                                                                                             # H3 hexagonal cells
 kml               = "0.15.0"                                                                                                                                               # KML and KMZ, default `zip` turns on zip `time` beside jiff
 osmpbf            = "0.3.8"                                                                                                                                                # OpenStreetMap PBF extracts
-pmtiles           = { version = "0.28.1", features = ["brotli", "http-async", "moka", "reqwest-rustls", "tilejson", "write", "zstd"] }                                     # PMTiles archives read from memory maps and HTTPS, and written, `object-store` links object_store 0.14 beside DataFusion's
+pmtiles           = { version = "0.28.1", features = ["brotli", "http-async", "moka", "reqwest-rustls", "tilejson", "write", "zstd"] }                                     # PMTiles archives read from memory maps and HTTPS, and written, `object-store` links a newer object_store beside DataFusion's
 proj              = "0.32.0"                                                                                                                                               # CRS transforms over PROJ, the system library through pkg-config or else a source build needing `cmake` and a `sqlite3` binary, `Transform` over geo-types geometries
 proj-sys          = "0.28.0"                                                                                                                                               # PROJ C API for calls `proj` wraps none of, `proj_factors` for projection scale and convergence
 projjson          = "0.1.1"                                                                                                                                                # Typed PROJJSON coordinate systems, units, axes, and ellipsoids
@@ -539,13 +539,13 @@ shapefile         = { version = "0.9.0", features = ["geo-types"] }             
 solar-positioning = { version = "0.7.2", default-features = false, features = ["std"] }                                                                                    # SPA solar positions and horizon events over UT Julian dates, default `chrono` adds chrono beside jiff
 stac              = { version = "0.17.7", features = ["std", "geo", "async"] }                                                                                             # STAC catalogs, items, and collections, `geoparquet` links arrow 58 beside DataFusion's
 stac-io           = "0.3.6"                                                                                                                                                # STAC reads, writes, and API searches
-thermalcomfort    = "4.6.2"                                                                                                                                                # PMV, UTCI, adaptive comfort, and psychrometrics; measurements 0.11 quantities, heapless 0.9 beside the 0.6 to 0.8 copies
+thermalcomfort    = "4.6.2"                                                                                                                                                # PMV, UTCI, adaptive comfort, and psychrometrics, over measurements quantities, adds a newer heapless beside the older copies
 
 # --- [COLOR]
 
 color       = { version = "0.3.3", features = ["serde"] }                  # CSS color parsing, serialization, interpolation, and gamut mapping
 colorgrad   = { version = "0.9.0", features = ["preset", "named-colors"] } # Color gradients and colormaps
-colorimetry = { version = "0.1.0", features = ["cct"] }                    # CIE observers, Planckian illuminants, and correlated color temperature, links nalgebra 0.33 and geo 0.29 beside the catalog
+colorimetry = { version = "0.1.0", features = ["cct"] }                    # CIE observers, Planckian illuminants, and correlated color temperature, links older nalgebra and geo beside the catalog's
 moxcms      = "0.9.2"                                                      # ICC profile transforms
 palette     = { version = "0.7.7", features = ["serializing"] }            # Typed color spaces, conversions, and chromatic adaptation
 
@@ -597,32 +597,32 @@ plotly = "0.14.1"                                                               
 
 # --- [DOCUMENTS]
 
-calamine         = "0.38.0"                                                                                                    # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff; ODS writing waits on a spreadsheet-ods release past 1.0.4, which links zip 6 and names chrono `TimeDelta` in its cell values
+calamine         = "0.38.0"                                                                                                    # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff, and ODS writing waits on a spreadsheet-ods release linking the catalog's zip, the newest linking an older zip and naming chrono `TimeDelta` in its cell values
 chromiumoxide    = "0.9.1"                                                                                                     # HTML printed to PDF through Chromium
 docx-rs          = "0.4.22"                                                                                                    # DOCX reading and writing
 hayro            = "0.9.0"                                                                                                     # PDF pages rasterized into caller render contexts
 hayro-svg        = "0.9.0"                                                                                                     # PDF pages converted to SVG
-hayro-syntax     = "0.9.0"                                                                                                     # PDF object, page and stream parsing every hayro member reads, beside krilla's 0.7 copy PDF bytes cross to
+hayro-syntax     = "0.9.0"                                                                                                     # PDF object, page and stream parsing every hayro member reads, beside krilla's older copy PDF bytes cross to
 ironcalc         = "0.9.1"                                                                                                     # Spreadsheet formula evaluation over imported XLSX, adds chrono and chrono-tz beside jiff
 krilla           = { version = "0.8.2", features = ["pdf", "rayon"] }                                                          # PDF creation with subsetting, tagging, PDF/A and PDF/UA export, and embedded PDF pages, defaults stay since krilla-svg asks for them
 krilla-svg       = "0.8.1"                                                                                                     # SVG drawn onto krilla surfaces, links krilla defaults (rustybuzz) and usvg and fontdb defaults (system-font code)
 lopdf            = { version = "0.47.0", default-features = false, features = ["rayon"] }                                      # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
 msoffice-crypto  = { version = "0.1.0", features = ["legacy-binary"] }                                                         # Encrypted Office documents classified and decrypted, ECMA-376 agile and standard packages, and under `legacy-binary` the RC4 and XOR 97-2003 binaries
 pdf_oxide        = { version = "0.3.78", default-features = false, features = ["icc", "signatures", "jpeg2000", "ocr-tract"] } # PDF text, path, table, image and form extraction, editing, PAdES signing, OCR, and PDF/A, UA and X validation; adds chrono and env_logger beside jiff and tracing, and qcms beside moxcms under `icc`
-rust_xlsxwriter  = "0.104.0"                                                                                                   # XLSX writing with formats, tables, charts and constant-memory worksheets, `jiff` feature converting jiff 0.2 values alone
-typst            = "0.15.1"                                                                                                    # Typst typesetting, typst-library adds `time` 0.3 beside jiff, toml 0.8 beside 1, syntect, and hayagriva with biblatex, and turns on image `gif` and `webp`
+rust_xlsxwriter  = "0.104.0"                                                                                                   # XLSX writing with formats, tables, charts and constant-memory worksheets
+typst            = "0.15.1"                                                                                                    # Typst typesetting, typst-library adds `time` beside jiff, an older toml beside the catalog's, syntect, and hayagriva with biblatex, and turns on image `gif` and `webp`
 typst-bundle     = "0.15.1"                                                                                                    # Typst bundle export and the per-format options record paged export reads
 typst-html       = "0.15.1"                                                                                                    # Typst documents exported to HTML
-typst-kit        = { version = "0.15.1", features = ["system-packages", "emit-diagnostics", "timer"] }                         # Typst file and font stores, Universe packages over a caller's downloader, diagnostics, and per-scope Chrome traces, `embedded-fonts` on the row of a crate passing `fonts::embedded()`, `emit-diagnostics` adds codespan-reporting 0.11 with unicode-width 0.1 beside 0.2, `scan-fonts` scans system fonts
+typst-kit        = { version = "0.15.1", features = ["system-packages", "emit-diagnostics", "timer"] }                         # Typst file and font stores, Universe packages over a caller's downloader, diagnostics, and per-scope Chrome traces, `embedded-fonts` on the row of a crate passing `fonts::embedded()`, `emit-diagnostics` adds codespan-reporting with an older unicode-width beside the catalog's, `scan-fonts` scans system fonts
 typst-layout     = "0.15.1"                                                                                                    # Typst paged layout
 typst-pdf        = "0.15.1"                                                                                                    # Typst documents exported to PDF
 typst-render     = "0.15.1"                                                                                                    # Typst pages rendered to PNG
 typst-svg        = "0.15.1"                                                                                                    # Typst pages exported to SVG
-umya-spreadsheet = { git = "https://github.com/MathNya/umya-spreadsheet", rev = "e14032bc282a6d0707f704d2d70f1e1677583458" }   # XLSX read-modify-write with styles at the 4.0.0 commit moving zip 8 to 9 past the 3.1.1 release, ahead of the 4.0.0-beta.1 release capping jiff 0.2 below 0.2.29; adds chrono beside jiff, quick-xml 0.41 beside 0.42, and imagesize 0.14 beside 0.15
+umya-spreadsheet = { git = "https://github.com/MathNya/umya-spreadsheet", rev = "e14032bc282a6d0707f704d2d70f1e1677583458" }   # XLSX read-modify-write with styles at a commit linking the catalog's zip, which the stable release does not, ahead of a prerelease capping jiff 0.2 below the lock's, adding chrono beside jiff and older quick-xml and imagesize beside the catalog's
 
 # --- [MEDIA]
 
-c2pa        = { version = "0.92.2", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds reqwest 0.12 and ureq on ring beside aws-lc-rs
+c2pa        = { version = "0.92.2", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds an older reqwest and ureq on ring beside aws-lc-rs
 cpal        = "0.18.2"                                                                                       # Audio device input and output
 ffmpeg-next = "9.1.0"                                                                                        # Video and audio mux, demux, and encode
 libmpv2     = "7.0.1"                                                                                        # Media playback through mpv
@@ -686,7 +686,7 @@ rstest                 = "0.29.0"                                               
 similar-asserts        = "2.0.0"                                                                                                                                                                                           # Diffed assertion failures over large values
 tokio-test             = "0.4.6"                                                                                                                                                                                           # Scripted read and write peers asserting exact bytes written and read
 test-context           = "0.5.8"                                                                                                                                                                                           # Setup and teardown around each test through a context type, teardown running after a panic
-testcontainers         = { version = ">=0.27.3, <0.28", default-features = false, features = ["aws-lc-rs", "http_wait_plain", "watchdog"] }                                                                                # Disposable service containers with HTTP readiness waits and removal on termination signals, at the release testcontainers-modules 0.15 links (0.28 pins another `bollard-stubs` and fails resolution beside it), default `ring` adds ring beside aws-lc-rs
+testcontainers         = { version = ">=0.27.3, <0.28", default-features = false, features = ["aws-lc-rs", "http_wait_plain", "watchdog"] }                                                                                # Disposable service containers with HTTP readiness waits and removal on termination signals, at the release testcontainers-modules links, default `ring` adds ring beside aws-lc-rs
 testcontainers-modules = { version = "0.15.0", default-features = false, features = ["aws-lc-rs", "clickhouse", "kafka", "localstack", "minio", "mosquitto", "hashicorp_vault", "postgres", "redis", "rustfs", "valkey"] } # Prebuilt service definitions that integration tests start, default `ring` adds ring beside aws-lc-rs
 tracing-test           = "0.2.6"                                                                                                                                                                                           # Captured spans and events asserted in tests
 wiremock               = "0.6.5"                                                                                                                                                                                           # HTTP doubles on loopback server
@@ -930,7 +930,7 @@ libraries = [{ path = "tools/dylint" }]
 # --- [PATCHES] --------------------------------------------------------------------------
 
 [patch.crates-io]
-citationberg = { git = "https://github.com/typst/citationberg", rev = "8966cf7c178b38b621d297c9eb6d0bb81e14be5e" } # CSL styles under hayagriva at the commit moving quick-xml to 0.41, past the 0.38 the 0.7.0 release links
+citationberg = { git = "https://github.com/typst/citationberg", rev = "8966cf7c178b38b621d297c9eb6d0bb81e14be5e" } # CSL styles under hayagriva at a commit linking a newer quick-xml than its release
 
 # --- [PROFILES] -------------------------------------------------------------------------
 
