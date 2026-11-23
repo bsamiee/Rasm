@@ -2377,12 +2377,18 @@ importers:
       '@rasm/extendscript':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/extendscript
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
       '@rasm/search':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/data/search
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
+      acorn:
+        specifier: 'catalog:'
+        version: 8.19.0
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -2395,6 +2401,12 @@ importers:
 
   tests/libs/typescript/creative-cloud/indesign:
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
+      '@rasm/extendscript':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/extendscript
       '@rasm/indesign':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/indesign
@@ -2404,12 +2416,21 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.1(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.1)(@vitest/coverage-v8@5.1.1)(@vitest/ui@5.1.1)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
   tests/libs/typescript/creative-cloud/object-model:
     devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/object-model
@@ -2434,6 +2455,9 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/uxp
@@ -2506,6 +2530,9 @@ importers:
 
   tests/libs/typescript/data/object-storage:
     devDependencies:
+      '@aws-sdk/client-s3':
+        specifier: 'catalog:'
+        version: 3.1175.0
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
         version: 1.9.0(@types/node@26.6.6)(vitest@5.1.1)
@@ -2527,6 +2554,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+      testcontainers:
+        specifier: 'catalog:'
+        version: 12.2.2(bare-buffer@3.7.3)(supports-color@10.2.2)
       vite:
         specifier: 'catalog:'
         version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -2704,9 +2734,6 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.3.1
-      react-aria-components:
-        specifier: 'catalog:'
-        version: 1.22.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react-dom:
         specifier: 'catalog:'
         version: 19.3.1(react@19.3.1)
@@ -2809,6 +2836,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
+      acorn:
+        specifier: 'catalog:'
+        version: 8.19.0
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -3190,6 +3220,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
+      '@effect/sql-pg':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
