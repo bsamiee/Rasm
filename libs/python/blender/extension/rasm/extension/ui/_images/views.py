@@ -58,7 +58,7 @@ class RenderView(msgspec.Struct, frozen=True, kw_only=True):
 
     def show_render_view(self, call: Call[Empty]) -> Outcome[Answer]:
         """Shows the render view with its Sidebar open at the placement's tab."""
-        category = option.of_optional(self.at.members(call.identity).get("bl_category")).bind(lambda tab: option.of_optional(try_downcast(str, tab)))
+        category = option.of_optional(self.at.members().get("bl_category")).bind(lambda tab: option.of_optional(try_downcast(str, tab)))
         tabbed = category.map(lambda tab: EditorState.of(bpy.types.Region, {("active_panel_category",): tab}, Some("UI")).map(lambda state: (state,))).default_value(Ok(()))
 
         def queued(at: Located, sidebar: EditorState, tab: tuple[EditorState, ...]) -> Outcome[None]:

@@ -25,10 +25,6 @@ from rasm.extension.ui._layout.rows import OperatorButton, Property
 from rasm.extension.ui._layout.sections import Section
 from rasm.records import accumulated, Outcome, paired
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type _LightData = bpy.types.PointLight | bpy.types.SpotLight | bpy.types.AreaLight | bpy.types.SunLight
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -170,7 +166,7 @@ def light_bulk(call: Call[Bulk]) -> Outcome[Answer]:
                 Applied.join((
                     *(
                         Snapshot.of(type(light), {("energy",): light.energy * factor, **colored}).apply(light)
-                        for light in dict.fromkeys(item.data for item in items if isinstance(item.data, _LightData.__value__))
+                        for light in dict.fromkeys(item.data for item in items if isinstance(item.data, bpy.types.PointLight | bpy.types.SpotLight | bpy.types.AreaLight | bpy.types.SunLight))
                     ),
                     *(
                         Snapshot.of(type(socket), {("default_value",): socket.default_value * factor}).apply(socket)

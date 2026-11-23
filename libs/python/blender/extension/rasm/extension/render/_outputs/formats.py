@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import ClassVar, Final, override, Self, TYPE_CHECKING
 
 import bpy
-from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
+from expression import Error, Ok, Option, option, try_downcast
 import msgspec
 
 from rasm.extension.commands.operators import answered
@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 EXR: Final = frozenset({"OPEN_EXR", "OPEN_EXR_MULTILAYER"})
-_JPEG2000: Final = MappingProxyType({"JP2": ".jp2", "J2K": ".j2c"})
 _EXTENSIONS: Final = MappingProxyType({
     "BMP": ".bmp",
     "IRIS": ".rgb",
@@ -269,16 +268,9 @@ def format_member(struct: type[Struct]) -> Option[str]:
 
 
 def storage_depth(settings: bpy.types.ImageFormatSettings) -> Option[Depth]:
-    """Returns storage depth, Nothing for packed 10-bit and 12-bit files."""
-    match settings.color_depth:
-        case "8":
-            return Some(Depth.UINT8)
-        case "16":
-            return Some(Depth.HALF if settings.has_linear_colorspace else Depth.UINT16)
-        case "32":
-            return Some(Depth.FLOAT)
-        case _:
-            return NOTHING
+    """Returns the depth storing the format's bits, the float type of a linear format and else the integer one, Nothing for packed 10-bit and 12-bit files."""
+    held = sorted((depth for depth in Depth if depth.bits == int(settings.color_depth)), reverse=settings.has_linear_colorspace)
+    return option.of_optional(next(iter(held), None))
 
 
 def code_step(settings: bpy.types.ImageFormatSettings) -> float:
@@ -293,7 +285,7 @@ def rounds_straight(settings: bpy.types.ImageFormatSettings) -> bool:
 
 def extension(settings: bpy.types.ImageFormatSettings) -> Option[str]:
     """Returns the still suffix a format writes, `.jp2` or `.j2c` by JPEG2000 codec, which only the scene's `RenderSettings.file_extension` states."""
-    return option.of_optional(_JPEG2000.get(settings.jpeg2k_codec) if settings.file_format == "JPEG2000" else _EXTENSIONS.get(settings.file_format))
+    return option.of_optional({"JP2": ".jp2", "J2K": ".j2c"}.get(settings.jpeg2k_codec) if settings.file_format == "JPEG2000" else _EXTENSIONS.get(settings.file_format))
 
 
 def image_formats(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings, ...]:

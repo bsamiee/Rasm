@@ -19,9 +19,8 @@ from rasm.extension.render import chosen, Clock, CompositorEffect, CompositorRec
 from rasm.imaging import Aperture, Estimate, fringed, located, pixels, Population, Precision, Region, Seed, stream, transmitted, uniforms
 from rasm.records import accumulated, AtLeastOne, Fault, Finite, NonNegative, Outcome, paired, Positive, Reason, Unit
 
-from . import bases, emission
-from .bases import Basis, drawn, Perlin, TEXTURE, Voronoi
-from .emission import colored, Emission, Incandescence, spectra, SPECTRUM, Spectrum, spectrum, Tint
+from .bases import bases, Basis, drawn, Perlin, TEXTURE, Voronoi
+from .emission import colored, Emission, emission, Incandescence, spectra, SPECTRUM, Spectrum, spectrum, Tint
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -80,9 +79,6 @@ class Particles(CompositorRecord, frozen=True, kw_only=True):
         Returns:
             Lattice keys, depth scales, centers, radii, gains, and tones of the occupied cells.
         """
-        if not self.shown:
-            empty = np.empty(0, dtype=np.float64)
-            return np.empty((0, 3), dtype=np.int64), empty, np.empty((0, 2), dtype=np.float64), empty, empty, empty
         velocity, focal = self.heading * (self.clock.speed / rate), self.focal
 
         def layer(index: int) -> tuple[npt.NDArray[np.int64] | npt.NDArray[np.float64], ...]:
@@ -323,8 +319,8 @@ class Particles(CompositorRecord, frozen=True, kw_only=True):
 
 _DEFAULTS: Final = Particles()
 _COVERAGE: Final = spectra(item_key(Particles.coverage), Tint(), "Scene-linear cover color by particle tone", Some(True))
-_EMISSION: Final = emission.emission(item_key(Particles.emission), Emission(), "Light a particle adds", Some(False))
-_WIND: Final = bases.bases(item_key(Particles.wind), _DEFAULTS.wind, "Texture displacing each axis independently")
+_EMISSION: Final = emission(item_key(Particles.emission), Emission(), "Light a particle adds", Some(False))
+_WIND: Final = bases(item_key(Particles.wind), _DEFAULTS.wind, "Texture displacing each axis independently")
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 

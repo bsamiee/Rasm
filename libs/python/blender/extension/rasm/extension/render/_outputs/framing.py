@@ -169,7 +169,7 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
 
         def fitted(across: int, up: int) -> Fraction:
             horizontal, vertical = Fraction(across), Fraction(up) / aspect
-            return horizontal if camera.sensor_fit == "HORIZONTAL" else vertical if camera.sensor_fit == "VERTICAL" else max(horizontal, vertical)
+            return {"HORIZONTAL": horizontal, "VERTICAL": vertical}.get(camera.sensor_fit, max(horizontal, vertical))
 
         base = fitted(width, height)
         return Some(fitted(width + 2 * pad_x, height + 2 * pad_y) / base) if base else NOTHING

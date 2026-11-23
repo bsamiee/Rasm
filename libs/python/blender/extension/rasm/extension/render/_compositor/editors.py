@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from functools import cached_property, partial
 from types import MappingProxyType, MemberDescriptorType
-from typing import Annotated, Final
+from typing import Annotated
 
 from bl_ui.properties_compositor import SCENE_PT_compositor_effects
 import bpy
@@ -39,11 +39,6 @@ from rasm.records import accumulated, amended, Fault, Outcome, Reason
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type FilePath = Annotated[str, msgspec.Meta(min_length=1)]
-type _Edited = tuple[Key, tuple[str, ...], Operator[FieldEdit], Keywords, Mapping[str, float | str]]
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_PICKER: Final[Keywords] = {"value_slider": True, "lock_luminosity": True, "cubic": True}
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -220,7 +215,10 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                             Label(text=panel.title, function=FUNCTIONS["label"]),
                             Layout(
                                 rows=(
-                                    Layout(container=Some(partial(gridded, "")), rows=(Property(target=color, function=FUNCTIONS["template_color_picker"], keywords=_PICKER),)),
+                                    Layout(
+                                        container=Some(partial(gridded, "")),
+                                        rows=(Property(target=color, function=FUNCTIONS["template_color_picker"], keywords={"value_slider": True, "lock_luminosity": True, "cubic": True}),),
+                                    ),
                                     Property(target=color),
                                     Property(target=slider, keywords={"slider": True}),
                                 )
@@ -251,7 +249,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             .or_else_with(lambda: Some(self.writing) if isinstance(_form(annotation), msgspec.inspect.StrType) else NOTHING)
         )
 
-    def edited(self, interface: Interface, record: msgspec.Struct, /) -> tuple[_Edited, ...]:
+    def edited(self, interface: Interface, record: msgspec.Struct, /) -> tuple[tuple[Key, tuple[str, ...], Operator[FieldEdit], Keywords, Mapping[str, float | str]], ...]:
         """Reads the edited fields of a record and the records it holds whose item key names no socket of the interface.
 
         Flag field's button is a checkbox under the field's name seeding the other state, every other field's button is labelled by its current value.

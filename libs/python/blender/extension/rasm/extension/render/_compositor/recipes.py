@@ -25,7 +25,7 @@ from rasm.records import accumulated, Fault, Name, Outcome, paired
 _T_co = TypeVar("_T_co", covariant=True)
 
 
-class Valued(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]
+class Valued(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True, omit_defaults=True):  # ruff: ignore[non-pep695-generic-class]
     """Stack, layer, or entry structure with the group input values captured at the item keys under its prefix and the evaluations enabling it, a stock preset holding no values."""
 
     structure: _T_co

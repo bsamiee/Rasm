@@ -210,59 +210,8 @@ class EntryLocks(ConditionalRow, frozen=True, kw_only=True):
             identity.reports.faulted(keyed(identity, entry).map(lambda pair: listed(entry, *pair)))
 
 
-class _Categories(msgspec.Struct, frozen=True, kw_only=True):
-    """Category capture: the categories' settings of a scene and its unlocked view layers, setups keeping each locked setting."""
-
-    @property
-    def preset(self) -> Preset[CategorySettings]:
-        """Setup presets of category settings records."""
-        return _CATEGORY_PRESET
-
-    @staticmethod
-    def captured(members: Members, scene: bpy.types.Scene, /) -> Outcome[CategorySettings]:
-        """Captures scene and view layer category settings."""
-        layers = members.selected(bpy.types.ViewLayer)
-        return paired(
-            Snapshot.capture(scene, Some(members.selected(bpy.types.Scene))),
-            accumulated(Snapshot.capture(layer, Some(layers)).map(lambda snapshot: (layer.name, snapshot)) for layer in scene.view_layers) if layers else Ok(()),
-        ).map(lambda values: CategorySettings(scene=values[0], layers=dict(values[1])))
-
-    @staticmethod
-    def projected(members: Members, scene: bpy.types.Scene, recipe: CategorySettings, current: CategorySettings, /) -> Outcome[tuple[CategorySettings, CategorySettings]]:
-        """Projects recipe settings over current ones on the scene and its unlocked view layers present in both, locked settings kept."""
-
-        def held(locks: _Locks[RnaPath]) -> Outcome[tuple[CategorySettings, CategorySettings]]:
-            layers = tuple(layer for layer in members.unlocked(scene.view_layers) if layer.name in recipe.layers and layer.name in current.layers)
-            return paired(
-                recipe.scene.projected(scene, current.scene, locks.of(_SCENE_HOLDER)),
-                accumulated(recipe.layers[layer.name].projected(layer, current.layers[layer.name], locks.of(layer.name)).map(lambda pair: (layer.name, pair)) for layer in layers),
-            ).map(
-                lambda values: (
-                    CategorySettings(scene=values[0][0], layers={name: pair[0] for name, pair in values[1]}),
-                    CategorySettings(scene=values[0][1], layers={**current.layers, **{name: pair[1] for name, pair in values[1]}}),
-                )
-            )
-
-        return SETTING_LOCKS.read(members.identity, scene).bind(held)
-
-    @staticmethod
-    def applied(_members: Members, scene: bpy.types.Scene, sparse: CategorySettings, /) -> Outcome[None]:
-        """Writes sparse scene and view layer settings, absent fault for a layer the scene no longer holds."""
-        return (
-            sparse.scene
-            .apply(scene)
-            .outcome.bind(lambda _: accumulated(layer_of(scene, name).bind(lambda layer: snapshot.apply(layer).outcome) for name, snapshot in sparse.layers.items()))
-            .map(lambda _: None)
-        )
-
-    @staticmethod
-    def rows(_members: Members, _scope: "SetupScope[CategorySettings]", /) -> tuple[RowContent, ...]:
-        """Draws nothing above the member lists."""
-        return ()
-
-
 class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Category capture with the compositor entries the `effects` own, entry locks kept by every setup, and setup presets drawn as a gallery of `tile` icons.
+    """Capture of the categories' settings on a scene and its view layers with the compositor entries the `effects` own, setting and entry locks kept by every setup, and setup presets drawn as a gallery of `tile` icons.
 
     `tile` returns the preview icon of a slot showing the preview-enabled entries a setup projects over the drawn scene, in stack order.
     """
@@ -276,13 +225,31 @@ class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return Preset(key=KEY, decoder=msgspec.json.Decoder(GenericAlias(EffectSetup, (self.effects.form,))))
 
     def captured(self, members: Members, scene: bpy.types.Scene, /) -> Outcome[EffectSetup]:
-        """Captures category settings and owned entries."""
-        return paired(_CATEGORIES.captured(members, scene), recorded(self.effects, members.identity, scene)).map(lambda pair: EffectSetup(settings=pair[0], effects=pair[1]))
+        """Captures scene and view layer category settings and owned entries."""
+        layers = members.selected(bpy.types.ViewLayer)
+        return paired(
+            Snapshot.capture(scene, Some(members.selected(bpy.types.Scene))),
+            accumulated(Snapshot.capture(layer, Some(layers)).map(lambda snapshot: (layer.name, snapshot)) for layer in scene.view_layers) if layers else Ok(()),
+            recorded(self.effects, members.identity, scene),
+        ).map(lambda values: EffectSetup(settings=CategorySettings(scene=values[0], layers=dict(values[1])), effects=values[2]))
 
     @staticmethod
     def projected(members: Members, scene: bpy.types.Scene, recipe: EffectSetup, current: EffectSetup, /) -> Outcome[tuple[EffectSetup, EffectSetup]]:
-        """Projects recipe settings and entries over current ones, setting and entry locks kept."""
-        return paired(_CATEGORIES.projected(members, scene, recipe.settings, current.settings), ENTRY_LOCKS.read(members.identity, scene)).map(
+        """Projects recipe settings over current ones on the scene and its unlocked view layers present in both, and recipe entries over current ones, setting and entry locks kept."""
+
+        def held(locks: _Locks[RnaPath]) -> Outcome[tuple[CategorySettings, CategorySettings]]:
+            layers = tuple(layer for layer in members.unlocked(scene.view_layers) if layer.name in recipe.settings.layers and layer.name in current.settings.layers)
+            return paired(
+                recipe.settings.scene.projected(scene, current.settings.scene, locks.of(_SCENE_HOLDER)),
+                accumulated(recipe.settings.layers[layer.name].projected(layer, current.settings.layers[layer.name], locks.of(layer.name)).map(lambda pair: (layer.name, pair)) for layer in layers),
+            ).map(
+                lambda values: (
+                    CategorySettings(scene=values[0][0], layers={name: pair[0] for name, pair in values[1]}),
+                    CategorySettings(scene=values[0][1], layers={**current.settings.layers, **{name: pair[1] for name, pair in values[1]}}),
+                )
+            )
+
+        return paired(SETTING_LOCKS.read(members.identity, scene).bind(held), ENTRY_LOCKS.read(members.identity, scene)).map(
             lambda parts: (
                 EffectSetup(settings=parts[0][0], effects=recipe.effects),
                 EffectSetup(settings=parts[0][1], effects=projected(current.effects, recipe.effects, locked=parts[1].whole(WHOLE), fields=parts[1].held)),
@@ -290,9 +257,11 @@ class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         )
 
     def applied(self, members: Members, scene: bpy.types.Scene, sparse: EffectSetup, /) -> Outcome[None]:
-        """Writes sparse settings and entries, locked entries and fields kept."""
+        """Writes sparse scene and view layer settings, absent fault for a layer the scene no longer holds, and sparse entries, locked entries and fields kept."""
         return paired(
-            _CATEGORIES.applied(members, scene, sparse.settings),
+            sparse.settings.scene.apply(scene).outcome.bind(
+                lambda _: accumulated(layer_of(scene, name).bind(lambda layer: snapshot.apply(layer).outcome) for name, snapshot in sparse.settings.layers.items())
+            ),
             ENTRY_LOCKS.read(members.identity, scene).bind(lambda locks: applied(self.effects, members.identity, scene, sparse.effects, locked=locks.whole(WHOLE), fields=locks.held)),
         ).map(lambda _: None)
 
@@ -358,10 +327,6 @@ class SetupScope[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         return self.members.member_scenes(context).bind(lambda scenes: accumulated(map(planned, self.members.unlocked(scenes)))).bind(wrote)
 
 
-# --- [CODECS] ---------------------------------------------------------------------------
-
-_CATEGORY_PRESET: Final = Preset(key=KEY, decoder=msgspec.json.Decoder(CategorySettings))
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -383,7 +348,6 @@ def _held(holder: object) -> Option[tuple[bpy.types.Scene, str]]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_CATEGORIES: Final = _Categories()
 SETTING_LOCKS: Final = _Locking[RnaPath](key="render_setup_locks", form=_Locks[RnaPath], text=rna, parsed=parsed_path)
 ENTRY_LOCKS: Final = _Locking[Key](key="entry_locks", form=_Locks[Key], text=str, parsed=Ok)
 

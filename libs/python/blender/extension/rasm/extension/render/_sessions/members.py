@@ -123,8 +123,8 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         """Returns member scenes under copy form, else source scene."""
         return self.form(context).bind(lambda form: self.copies(context) if form is Form.COPIES else self.source(context).map(lambda scene: (scene,)))
 
-    def members(self, context: bpy.types.Context, *, unlocked: bool = False) -> Outcome[tuple[Owner, ...]]:
-        """Returns members of file form in list order, unlocked ones alone when `unlocked` is set."""
+    def members(self, context: bpy.types.Context) -> Outcome[tuple[Owner, ...]]:
+        """Returns members of file form in list order."""
 
         def selected(form: Form) -> Outcome[tuple[Owner, ...]]:
             match form:
@@ -133,7 +133,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
                 case Form.LAYERS:
                     return self.source(context).map(lambda scene: tuple(scene.view_layers))
 
-        return self.form(context).bind(selected).map(lambda owners: self.unlocked(owners) if unlocked else owners)
+        return self.form(context).bind(selected)
 
     def membership(self, owner: Owner) -> Membership:
         """Returns the membership group of a member scene or view layer."""
@@ -189,7 +189,7 @@ class MemberScope(msgspec.Struct, frozen=True, kw_only=True):
             self.members
             .form(context)
             .bind(
-                lambda form: (self.members.copies(context) if form is Form.COPIES else self.members.source(context).map(lambda scene: (scene,))).map(
+                lambda form: self.members.member_scenes(context).map(
                     lambda scenes: self.members.unlocked(scenes) if self.unlocked and (self.owner_type is bpy.types.Scene or form is Form.COPIES) else scenes
                 )
             )

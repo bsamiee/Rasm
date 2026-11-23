@@ -17,7 +17,7 @@ import msgspec
 from rasm.extension.commands.invocations import Popup
 from rasm.extension.commands.operators import BoundBody, Call, called, confirmed, Done, Empty, Operator
 from rasm.extension.data._lifecycle.identity import Identity, Key
-from rasm.extension.data._lifecycle.registration import Acquisitions, CliCommand, Declaration, Handler, Timer
+from rasm.extension.data._lifecycle.registration import Acquisitions, CliCommand, Declaration, Startup
 from rasm.extension.data._rna.paths import rooted
 from rasm.extension.data._rna.snapshots import assigned
 from rasm.extension.files._sessions import OPTIONS, Pack, pack_started, saved
@@ -202,19 +202,8 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
         return (self.record, QUEUES, RENDER_ORIGINS, *self.sets.prerequisites, FrameSize.attachment, *RoutingRow.prerequisites)
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
-        """Registers commands and native queue observation across file loads."""
-        return self.bound(identity).map(
-            lambda dispatcher: (
-                QUEUES,
-                *self.cli(dispatcher),
-                self.dispatching,
-                *self.controls,
-                *self.setup,
-                self.preference,
-                Timer(body=dispatcher.watched),
-                Handler(handlers=bpy.app.handlers.load_post, body=lambda: dispatcher.watched().map(lambda _: None)),
-            )
-        )
+        """Registers commands and the queue observation started after each registration and file load."""
+        return self.bound(identity).map(lambda dispatcher: (QUEUES, *self.cli(dispatcher), self.dispatching, *self.controls, *self.setup, self.preference, Startup(body=dispatcher.watched)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -270,7 +259,7 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
             .bind(lambda source: spawned(dispatcher.host.argv(RunCommand.PREPARE, PrepareArguments(plan=stem, target=target), Some(str(source))), detached=True))
             .map(partial(dispatcher.state.started, stem))
             .map(lambda _: identity.reports.logger.info("Plan sent", plan=stem, jobs=len(plan.scopes)))
-            .map(lambda _: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, log at {identity.reports.log(identity.identifier(RunCommand.PREPARE))}"),)))
+            .map(lambda _: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, logs in {identity.reports.logs}"),)))
         )
 
     return (
@@ -314,7 +303,7 @@ def stop(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
 
 
 def open_log(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
-    """Opens the render log of the last sent queue, else the log of the `prepare` command its plan ran."""
+    """Opens the render log of the last sent queue, else the folder holding the logs of the `prepare` command its plan ran."""
 
     def opened(_plan: str) -> Outcome[Done]:
         log = (
@@ -322,7 +311,7 @@ def open_log(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
             .bind(lambda held: held.sent)
             .filter(lambda record: isinstance(record.target, LocalMachine))
             .map(lambda record: dispatcher.host.path(record.queue.stem, RunFile.LOG))
-            .default_value(call.identity.reports.log(call.identity.identifier(RunCommand.PREPARE)))
+            .default_value(call.identity.reports.logs)
         )
         return called(bpy.ops.wm.path_open, {"filepath": str(log)}).map(lambda _: Done())
 

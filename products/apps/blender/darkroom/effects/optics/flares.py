@@ -177,11 +177,9 @@ class LensFlare(CompositorRecord, frozen=True, kw_only=True):
         disc = coverage(edge, diameter, 0.0, pixel)
         hidden, shown = (Expr(kind=bpy.types.CompositorNodeLevels, inputs=(("Image", image), ("Channel", "Red")), socket="Mean") for image in (disc * occluded, disc))
         visible = front * (1.0 - hidden / shown)
-        direction = xyz(*(math(operation, math("ARCTAN2", offset["Y"], offset["X"])) for operation in ("COSINE", "SINE")))
         time = clocked(read, _STARBURST.panel(CLOCK.key))
-        ((streak, _),) = textured(
-            shell, _STARBURST.panel(_STREAKS), self.starburst_basis, vector("SCALE", direction, read(_STARBURST, _STREAK_DENSITY) / tau), time, seed, streams=(stream(LensFlare.starburst_basis),)
-        )
+        spoke = vector("SCALE", vector("NORMALIZE", offset), read(_STARBURST, _STREAK_DENSITY) / tau)
+        ((streak, _),) = textured(shell, _STARBURST.panel(_STREAKS), self.starburst_basis, spoke, time, seed, streams=(stream(LensFlare.starburst_basis),))
         star_tone, star_falloff = ramped(rho, read(_STARBURST, _STREAK_LENGTH))
         turned = rotated(offset, read(_ANAMORPHIC, _SQUEEZE_ANGLE), inverted=True)
         bar_tone, bar_falloff = ramped(abs(turned["X"]), read(_ANAMORPHIC, _BAR_LENGTH))

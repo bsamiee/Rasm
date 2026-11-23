@@ -43,15 +43,12 @@ from rasm.rendering import Output
 
 type ResultKind = Literal["RENDER_RESULT", "COMPOSITING"]
 type Consume = Callable[[CompletedRender], Outcome[Option[str]]]
-type Receipt = Callable[[bpy.types.Scene], Outcome[tuple[Written, ...]]]
+type _Receipt = Callable[[bpy.types.Scene], Outcome[tuple[Written, ...]]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 COMBINED: Final = "Combined"
 _COMPOSITE: Final = "Composite"
-_SAVED: Final = OutputFormat(
-    media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", color_depth="32", exr_codec="ZIP", use_exr_interleave=False, views_format="MULTIVIEW", color_management="FOLLOW_SCENE"
-)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -186,7 +183,7 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
     """Render image and target slot held until the native job completes."""
 
     target: Option[tuple[bpy.types.Image, bpy.types.RenderSlot]]
-    files: Option[Receipt]
+    files: Option[_Receipt]
     layer: Option[str]
     animation: bool
     frame: Outcome[Option[_Frame]] = Ok(NOTHING)
@@ -213,7 +210,7 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
         """Retains a borrowed native slot or one authoritative multilayer scene receipt."""
 
         def copied(files: tuple[Written, ...]) -> Outcome[Path]:
-            match tuple(file for file in files if file.output is Output.PREVIEW and file.format.file_format == "OPEN_EXR_MULTILAYER"):
+            match tuple(file for file in files if file.output is Output.PREVIEW and file.format.layered):
                 case (file,):
                     return catch(copyfile, exception=OSError)(file.path, path).map(lambda _: path).map_error(partial(Fault.of, Reason.FAILED, str(path)))
                 case found:
@@ -221,7 +218,9 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
 
         if self.target.is_none():
             return self.written.to_result_with(partial(Fault.of, Refusal.REQUIRED, repr(scene), member="pre-operator target or native written receipt")).bind(lambda produced: produced[0].bind(copied))
-        with _SAVED.held(scene.render.image_settings) as formatted:
+        with OutputFormat(
+            media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", color_depth="32", exr_codec="ZIP", use_exr_interleave=False, views_format="MULTIVIEW", color_management="FOLLOW_SCENE"
+        ).held(scene.render.image_settings) as formatted:
             return formatted.bind(lambda _: self.exported(scene, path))
 
     def codes(self, scene: bpy.types.Scene, frame: _Frame, folder: Path, identity: Identity) -> Outcome[Option[npt.NDArray[np.uint8 | np.uint16]]]:
@@ -364,7 +363,7 @@ class _RenderOrigins:
         return self
 
     @contextmanager
-    def requested(self, scene: bpy.types.Scene, layer: Option[str], files: Option[Receipt], *, animation: bool) -> Generator[None]:
+    def requested(self, scene: bpy.types.Scene, layer: Option[str], files: Option[_Receipt], *, animation: bool) -> Generator[None]:
         """Borrows the pre-operator image and slot, which the caller keeps alive until completion."""
         key, prior = scene.session_uid, self.requests.get(scene.session_uid)
         target = built("RENDER_RESULT").to_option().bind(lambda image: option.of_optional(image.render_slots.active).map(lambda slot: (image, slot)))
@@ -650,7 +649,6 @@ __all__ = [
     "Consume",
     "Finish",
     "Finishing",
-    "Receipt",
     "RenderSource",
     "ResultKind",
     "ResultRead",

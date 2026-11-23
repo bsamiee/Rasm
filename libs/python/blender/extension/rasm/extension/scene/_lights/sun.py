@@ -216,17 +216,15 @@ class _SceneSun(msgspec.Struct, frozen=True, kw_only=True):
 def _sited(setup: SunSetup) -> Outcome[tuple[Site, Study]]:
     """Returns the site and timing a setup states, a moment as a one-frame study, `outside` for a site or time zone the record refuses."""
     start = datetime.datetime.combine(datetime.date(setup.year, setup.month, 1) + datetime.timedelta(days=setup.day - 1), datetime.time(setup.hour, setup.minute))
-    match _Timing[setup.timing]:
-        case _Timing.DAY:
-            timing = Study(start=start, step=datetime.timedelta(minutes=setup.minutes), frames=setup.frames)
-        case _Timing.SEASON:
-            timing = Study(start=start, step=datetime.timedelta(days=setup.days), frames=setup.frames)
-        case _Timing.MOMENT:
-            timing = Study(start=start, step=datetime.timedelta(), frames=1)
+    step, frames = {
+        _Timing.MOMENT: (datetime.timedelta(), 1),
+        _Timing.DAY: (datetime.timedelta(minutes=setup.minutes), setup.frames),
+        _Timing.SEASON: (datetime.timedelta(days=setup.days), setup.frames),
+    }[_Timing[setup.timing]]
     site = catch(lambda: msgspec.convert({"latitude": setup.latitude, "longitude": setup.longitude, "north": setup.north, "zone": setup.zone}, Site), exception=msgspec.ValidationError)().map_error(
         lambda error: Fault.of(Reason.OUTSIDE, repr(setup), error, member="a site the time zone database holds")
     )
-    return site.map(lambda held: (held, timing))
+    return site.map(lambda held: (held, Study(start=start, step=step, frames=frames)))
 
 
 def _sun_placed(scene: bpy.types.Scene, identity: Identity) -> Outcome[bpy.types.Object]:
@@ -241,13 +239,14 @@ def _sun_placed(scene: bpy.types.Scene, identity: Identity) -> Outcome[bpy.types
     """
     name = f"{scene.name} Sun"
 
-    def ranged(setup: SunSetup, count: int) -> Outcome[None]:
-        return Ok(None) if setup.timing == _Timing.MOMENT.name else written(scene, ("frame_end",), scene.frame_start + count - 1).map(lambda _: None)
-
     def keyed(
-        setup: SunSetup, position: SunPosition, sun: bpy.types.Object, following: tuple[tuple[bpy.types.NodeTree, tuple[bpy.types.ShaderNodeTexSky | bpy.types.ShaderNodeTexEnvironment, float]], ...]
+        distance: float,
+        timing: Study,
+        position: SunPosition,
+        sun: bpy.types.Object,
+        following: tuple[tuple[bpy.types.NodeTree, tuple[bpy.types.ShaderNodeTexSky | bpy.types.ShaderNodeTexEnvironment, float]], ...],
     ) -> Outcome[None]:
-        frames, located = (scene.frame_start + np.arange(position.elevation.size)).tolist(), position.vectors * setup.distance
+        frames, located = (scene.frame_start + np.arange(timing.frames)).tolist(), position.vectors * distance
         rows = (
             *((sun, ("location", axis), located[:, axis]) for axis in range(3)),
             (sun, ("rotation_euler", 0), position.elevation - math.pi / 2.0),
@@ -256,9 +255,10 @@ def _sun_placed(scene: bpy.types.Scene, identity: Identity) -> Outcome[bpy.types
             *((owner, path, value(position)) for tree, follower in following for owner, path, value in _channels(tree, *follower)),
         )
         return written(sun, ("rotation_mode",), "XYZ").bind(
-            lambda _: accumulated((*(Animation(path=path, source=Keys(points=tuple(zip(frames, values.tolist())))).apply(owner) for owner, path, values in rows), ranged(setup, len(frames)))).map(
-                lambda _: None
-            )
+            lambda _: accumulated((
+                *(Animation(path=path, source=Keys(points=tuple(zip(frames, values.tolist())))).apply(owner) for owner, path, values in rows),
+                *((written(scene, ("frame_end",), frames[-1]).map(lambda _: None),) if timing.step else ()),
+            )).map(lambda _: None)
         )
 
     def followed(tree: bpy.types.NodeTree) -> Outcome[tuple[tuple[bpy.types.NodeTree, tuple[bpy.types.ShaderNodeTexSky | bpy.types.ShaderNodeTexEnvironment, float]], ...]]:
@@ -281,7 +281,7 @@ def _sun_placed(scene: bpy.types.Scene, identity: Identity) -> Outcome[bpy.types
                 .bind(lambda _: paired(lit(), _tree(scene).map(followed).default_value(Ok(()))))
                 .bind(
                     lambda pair: (
-                        keyed(setup, position, pair[0][0], pair[1])
+                        keyed(setup.distance, timing, position, pair[0][0], pair[1])
                         .bind(lambda _: _paths_placed(site, timing.start.year, Some(setup).filter(lambda held: held.use_paths), scene, identity))
                         .map(lambda _: pair[0][0])
                     )

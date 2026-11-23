@@ -35,7 +35,6 @@ from rasm.records import accumulated, Fault, Outcome, paired, Reason
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 FORMATS: Final = MappingProxyType({row.name: row for row in (*LutFormat.writable(), *LutFormat.bakeable())})
-_LATTICE: Final = OutputFormat(media_type="IMAGE", file_format="OPEN_EXR", color_depth="32")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -102,7 +101,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         ("render", "use_sequencer"): True,
                         ("render", "use_compositing"): False,
                         ("render", "filepath"): str(look),
-                        **member_paths(_LATTICE.members(("render", "image_settings"))),
+                        **member_paths(OutputFormat(media_type="IMAGE", file_format="OPEN_EXR", color_depth="32").members(("render", "image_settings"))),
                         ("frame_start",): 1,
                         ("frame_end",): 1,
                     }
@@ -164,10 +163,10 @@ def lattice_of(fields: LatticeFields) -> Lattice:
     return Lattice(size=fields.size, spacing=msgspec.convert({"kind": fields.spacing}, Spacing.__value__))
 
 
-def output(properties: Baking | Writing) -> LutOutput:
-    """Returns exact writer for a writable format, else a lattice bake."""
+def output(properties: Baking) -> LutOutput:
+    """Returns the exact writer of a format `GroupTransform` writes, else a bake at the form's lattice."""
     row = FORMATS[properties.format]
-    return LutOutput(format=row, lattice=Some(lattice_of(properties)) if isinstance(properties, Baking) and row not in LutFormat.writable() else NOTHING)
+    return LutOutput(format=row, lattice=NOTHING if row in LutFormat.writable() else Some(lattice_of(properties)))
 
 
 def extension(properties: Baking | Writing) -> tuple[str]:

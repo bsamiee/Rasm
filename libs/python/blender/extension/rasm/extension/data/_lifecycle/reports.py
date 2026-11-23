@@ -81,11 +81,11 @@ class _Write:
 class Reports(AbstractContextManager["Reports"]):
     """Extension log file, callback fault log, and queued requests, entered first in registration scope.
 
-    The log file is `logs/<extension id>.log` under the extension's user folder, JSON records every Blender session of the extension appends and rotates under one lock.
+    `logs` is the folder under the extension's user folder holding its log file `<extension id>.log`, JSON records every Blender session of the extension appends and rotates under one lock.
     The logger binds the stdlib logger named for the extension package and sets no process-wide logging state, so outside the scope its warnings and errors print through stdlib `logging` alone.
     The file opens under default settings and reopens under each `configured` call once preferences are readable.
     Spans come from a tracer provider of the extension alone, so each carries the ids its records and the processes it starts continue, and they export only to the collector a preference names, each send reading `bpy.app.online_access`.
-    A background process running one command of the extension records as that command's own program through `commanded`, into `logs/<command>.log`.
+    A background process running one command of the extension records as that command's own program through `commanded`, into the files of `logs` the process part of `telemetry` names per process.
     Host facts alone sit here: the extension folder, the preferences a `configured` call reads, `bpy.app.online_access`, and the save and render events that flush spans.
     Log records of a session are not exported: the SDK holds its logger provider and OTLP log exporter in private modules alone (`opentelemetry.sdk._logs`, `opentelemetry.exporter.otlp.proto.http._log_exporter`).
     """
@@ -97,7 +97,6 @@ class Reports(AbstractContextManager["Reports"]):
         "_export",
         "_extension",
         "_flushed",
-        "_folder",
         "_loaded",
         "_lock",
         "_logged",
@@ -108,6 +107,7 @@ class Reports(AbstractContextManager["Reports"]):
         "_telemetry",
         "_version",
         "logger",
+        "logs",
         "settings",
         "ticked",
         "tracer",
@@ -115,7 +115,7 @@ class Reports(AbstractContextManager["Reports"]):
 
     def __init__(self, package: str, folder: Path, /, *, extension: str, version: str) -> None:
         """Initializes the empty queue, with the logger writing to the extension's user folder while the scope is open."""
-        self._package, self._folder, self._extension, self._version, self._service = package, folder / "logs", extension, version, extension
+        self._package, self.logs, self._extension, self._version, self._service = package, folder / "logs", extension, version, extension
         self._scope, self._telemetry = ExitStack(), ExitStack()
         self.logger, self.settings = logger(package), LogSettings()
         self.tracer = trace.get_tracer(package)
@@ -207,7 +207,7 @@ class Reports(AbstractContextManager["Reports"]):
         """Holds a background process running one command of the extension instrumented as the command's own program until the command ends.
 
         The process is the command's alone, so the process part of `telemetry` takes it whole in place of the extension log.
-        The root logger writes every record to `logs/<command>.log` under the command's name, spans continue the trace context the launcher wrote into the process environment, and unhandled exceptions and fatal errors of any code record there.
+        The root logger writes every record under the command's name to the file of `logs` that part names for the process, spans continue the trace context the launcher wrote into the process environment, and unhandled exceptions and fatal errors of any code record there.
         Signals export as the `OTEL_*` variables of the process environment name, spans also to the collector a preference names.
         A host refusing online access sets `OTEL_SDK_DISABLED=true` for the process and each process it starts, so no signal records or sends.
 
@@ -219,7 +219,7 @@ class Reports(AbstractContextManager["Reports"]):
         if not bpy.app.online_access:
             os.environ[OTEL_SDK_DISABLED] = "true"
         with instrumented(
-            self.path,
+            self.logs,
             service=command,
             version=self._version,
             settings=self.settings,
@@ -231,12 +231,8 @@ class Reports(AbstractContextManager["Reports"]):
 
     @property
     def path(self) -> Path:
-        """Log file of the program this process records as: the extension, or the command a background process runs."""
-        return self.log(self._service)
-
-    def log(self, program: str, /) -> Path:
-        """Returns the log file of a program of the extension: the extension ID, or the identifier of one of its commands."""
-        return self._folder / f"{program}.log"
+        """Log file of the extension, the one file every session of it appends to."""
+        return self.logs / f"{self._extension}.log"
 
     def handler(self, path: Path, /) -> logging.Handler:
         """Returns the handler writing records to a path under the held settings and the name of the program this process records as, the log file's and each run log's."""

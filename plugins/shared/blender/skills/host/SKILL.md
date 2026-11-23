@@ -5,7 +5,7 @@ description: "Use when driving Blender or reading bpy members from the installed
 
 # [BLENDER_HOST]
 
-Covers MCP-driven GUI sessions, background runs, extension installs, logs, and evaluation runs of the `blender` executable on `PATH`, with workflows installed extensions serve. Use `blender:coding` for code a session or run executes.
+Covers MCP-driven GUI sessions, background runs, extension installs, logs, evaluation runs, and debug sessions of the `blender` executable on `PATH`, with workflows installed extensions serve. Use `blender:coding` for code a session or run executes.
 
 [REFERENCES]:
 - [01]-[GIS_SITE](references/gis-site.md): Georeferenced scenes, terrain, imagery, OSM, point clouds, and sun placement
@@ -184,3 +184,39 @@ Blender resolves user folders through `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DA
 - `--python-use-system-env` before other arguments reads `PYTHONPYCACHEPREFIX` and `PYTHONUSERBASE` from the process
 - Fresh profiles load Blender's bundled interpreter alone, and repository packages reach a run as an extension `nx install <project>` installed on the user's profile ([07])
 - Crash reports sit in the folder's root
+
+## [10]-[DEBUGGING]
+
+Server `debugger` attaches to debugpy inside a GUI, debugpy importing from `$BLENDER_SYSTEM_SCRIPTS/modules` on Blender's `sys.path`:
+1. `execute_blender_code` runs `import debugpy; result = {"endpoint": list(debugpy.listen(("127.0.0.1", 5678)))}`, starting the adapter on Blender's bundled `python3.13`
+2. `create_debug_session` with `language` `python`, then `set_breakpoint` with a repository source `file` and `line`
+3. `attach_to_process` with `host` `127.0.0.1`, `port` `5678`, `stopOnEntry` false, `justMyCode` false, and `adapterConfig` `{"redirectOutput": true, "pathMappings": [...]}`
+4. `execute_blender_code` registers the code under test through `bpy.app.timers.register(<function>, first_interval=<seconds>)` and returns at once
+5. `wait_for_stop` returns the stop with frames and locals, and `get_stack_trace`, `get_local_variables` with `names`, and `evaluate_expression` read the paused frame
+6. `continue_execution`, then `detach_from_process` with `terminateProcess` false, leaves Blender running and the endpoint open for the next attach
+
+`pathMappings` entries map each bundled package before the extension root, as installed extensions are copies whose imports resolve in the build alone:
+- `localRoot` `<repo>/libs/python/<group>/<package>/rasm/<package>` maps to `remoteRoot` `<extension folder>/rasm/<package>`
+- `localRoot` `<repo>/products/apps/blender/<project>` maps to `remoteRoot` `~/Library/Application Support/Blender/<version>/extensions/user_default/<id>`
+- Breakpoints bind by line, so repository lines match the installed build only after `nx install <project>`
+
+Debug sessions follow host rules:
+- Breakpoints pause Blender's main thread, and both MCP servers answer nothing until `continue_execution`, so no MCP call runs code that hits a breakpoint
+- Breakpoints set before an extension reload (`addon_utils.disable(<module>)`, deleting `<module>` keys from `sys.modules`, `addon_utils.enable(<module>)`) stop in the re-imported module
+- Clients exiting without `detach_from_process` close the adapter, and `debugpy.listen` refuses until Blender restarts
+- Exception breakpoints set to `all` stop at every standard-library raise of an import, and `uncaught`, or `all` set at the first stop in the code under test, skips them
+- `get_output` holds the process's prints from the attach on under `redirectOutput` true alone
+- `get_variables` on a `Panel` instance inside `draw` crashes Blender in `Panel_bl_description_length`, so `evaluate_expression` reads its named members (`self.bl_label`) while `self` in a locals list stays safe
+- `debugpy.listen` warns on stderr that frozen modules can miss standard-library breakpoints, `PYDEVD_DISABLE_FILE_VALIDATION=1` silencing it
+- Python attach takes a `port` alone, as `attach_to_process` refuses a `processId` for Python
+
+Startup code (an extension's module top level and `register()`) stops under startup module `debugpy_listen.py`, which listens on `BLENDER_DEBUGPY_PORT` and waits for a client when the variable is set:
+- Blender registers every script path's `startup` modules, then enables extensions, then runs `--python-expr` and `--python`, so only a startup module runs before an extension imports
+- `watch-app launch org.blenderfoundation.blender --environment BLENDER_DEBUGPY_PORT=<port> --arguments --no-window-focus --python-use-system-env` run in the background holds a GUI unresponsive in the wait
+- `BLENDER_DEBUGPY_PORT=<port> blender --python-use-system-env --background --python-exit-code 1 --python <script.py>` holds a background run in the wait
+- `set_breakpoint` on the extension's `register()` and module lines, then `attach_to_process`, then `wait_for_stop` returns the stop under `addon_utils.enable`
+
+Background runs debug code a script runs through `debugpy.listen(("127.0.0.1", <port>))` and `debugpy.wait_for_client()` at the script's top:
+- `blender --python-use-system-env --background --python-exit-code 1 --python <script.py>` runs in the background until a client attaches
+- Breakpoints set before `attach_to_process` bind ahead of `wait_for_client` returning, and `wait_for_stop` returns the first stop
+- `wait_for_stop` after the last `continue_execution` answers `stopped` once Blender quits

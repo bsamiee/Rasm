@@ -11,7 +11,6 @@ import bpy
 from expression import NOTHING, Nothing, Ok, Option, option, Some
 import msgspec
 import numpy as np
-import numpy.typing as npt
 import PyOpenColorIO
 
 from rasm.extension import render
@@ -26,7 +25,7 @@ from rasm.extension.ui import (
     captured,
     Child,
     Drawing,
-    DrawType,
+    DrawingPart,
     FrameRegion,
     HandlerRefresh,
     Located,
@@ -121,77 +120,6 @@ _READINGS: Final = Resource[dict[Handle[bpy.types.Scene], tuple[object, float]]]
 _SIGNAL: Final = Resource[Signal](made=lambda _identity: nullcontext(Signal()))
 
 
-class _Follower:
-    """Viewport part metering the shown camera frame through the inverse of its formation, stepping toward targets consecutive readings agree on."""
-
-    __slots__ = ("identity", "step")
-    draw_type: ClassVar[DrawType] = "PRE_VIEW"
-
-    def __init__(self, identity: Identity, step: Callable[[Handle[bpy.types.Scene], object], None]) -> None:
-        """Holds the identity and deferred exposure step."""
-        self.identity, self.step = identity, step
-
-    def read(self, _metrics: Metrics) -> Outcome[Option[_Following]]:
-        """Returns enabled metering with the inverse pipeline used by this viewport."""
-        config, identity = PyOpenColorIO.GetCurrentConfig(), self.identity
-
-        def followed(scene: bpy.types.Scene, metering: Metering) -> Outcome[Option[_Following]]:
-            if not metering.use_follow:
-                _READINGS[identity].pop(Handle.of(scene), None)
-                return Ok(NOTHING)
-            view, composited = viewed(scene), _COMPOSITED.holds(bpy.context)
-            entries = AutoExposure.viewport_entries(identity, scene) if composited else ()
-            inverse = (
-                AutoExposure.requested(config, scene, entries, view).map(lambda request: _INVERSES[identity].value(scene.session_uid, request))
-                if entries
-                else view
-                .processor(config)
-                .bind(lambda built: processor(config, PyOpenColorIO.GroupTransform([built.createGroupTransform()], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)))
-                .map(lambda built: Some(built.getDefaultCPUProcessor()))
-            )
-            return paired(inverse, gain(identity, scene, enabled=Enabled.PREVIEW) if composited else Ok(0.0)).map(
-                lambda found: Some(
-                    _Following(
-                        scene=Handle.of(scene),
-                        meter=metering.meter,
-                        bias=metering.bias,
-                        tolerance=metering.follow.tolerance,
-                        config=config,
-                        inverse=found[0].map(lambda built: (built, math.exp2(-found[1]))),
-                    )
-                )
-            )
-
-        return root_in(bpy.types.Scene, bpy.context).map(lambda scene: AutoExposure.attachment.read(identity, scene).bind(partial(followed, scene))).default_value(Ok(NOTHING))
-
-    def drawn(self, state: _Following, canvas: Canvas) -> None:
-        """Meters the scene ahead of the chain in the visible camera frame, through the composited formation's inverse with the Exposure gain divided out while the viewport composites and the view's inverse otherwise, and defers targets two readings agree on."""
-        reports, previous = self.identity.reports, _READINGS[self.identity]
-
-        def metered(plane: npt.NDArray[np.float32]) -> Option[float]:
-            return reports.reported(lambda: state.meter.stops(state.config, plane))().bind(lambda value: value).map(lambda value: value + state.bias)
-
-        match bpy.context.scene, canvas.region, bpy.context.region_data:
-            case bpy.types.Scene() as scene, bpy.types.Region() as region, bpy.types.RegionView3D() as view:
-                viewing = view.view_perspective == "CAMERA"
-                rect = camera_frame(scene, region, view, canvas.extent) if viewing else Some(canvas.extent)
-                reading = state.inverse.bind(
-                    lambda held: rect.bind(reports.reported(captured)).map(lambda plane: applied(held[0], plane) * np.array((held[1], held[1], held[1], 1.0), np.float32))
-                ).bind(metered)
-            case _:
-                reading = NOTHING
-
-        match reading:
-            case Some(value):
-                agreed = option.of_optional(previous.get(state.scene)).filter(lambda prior: abs(value - prior[1]) <= state.tolerance).is_some()
-                token = object()
-                previous[state.scene] = token, value
-                if agreed:
-                    self.step(state.scene, token)
-            case Nothing():
-                previous.pop(state.scene, None)
-
-
 class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
     """Scene meter of the earliest Exposure entry's input frame, writing absolute stops into that entry, and the viewport following it through OCIO's inverse of a lattice sampled through the composited formation."""
 
@@ -203,25 +131,18 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
     # --- [EXPOSURE]
 
     @staticmethod
-    def entry(identity: Identity, scene: bpy.types.Scene) -> Outcome[bpy.types.SceneCompositorEffect]:
-        """Returns the earliest Exposure entry, absent fault without one."""
-        return exposure.earliest(identity, scene).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=exposure.kind))
+    def consumed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
+        """Writes the stops metered from the entry's input plus bias into the entry, naming the undo step from the command on a change."""
 
-    @staticmethod
-    def written(identity: Identity, scene: bpy.types.Scene, stops: float) -> Outcome[bool]:
-        """Writes the earliest Exposure entry's stops input, answering whether it changed."""
-        return AutoExposure.entry(identity, scene).bind(lambda held: entered(identity, held, {path_key(STOPS): stops}))
+        def kept(metering: Metering) -> Outcome[Option[str]]:
+            return (
+                metering.meter
+                .stops(PyOpenColorIO.GetCurrentConfig(), file.pixels)
+                .bind(lambda measured: measured.map(lambda value: entered(identity, entry, {path_key(STOPS): value + metering.bias})).default_value(Ok(False)))
+                .map(lambda changed: Some(bpy.path.display_name(meter_exposure.key)) if changed else NOTHING)
+            )
 
-    @staticmethod
-    def consumed(identity: Identity, scene: bpy.types.Scene, _entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
-        """Writes the metered stops plus bias, naming the undo step from the command on a change."""
-
-        def kept(metering: Metering, measured: Option[float]) -> Outcome[Option[str]]:
-            return measured.map(
-                lambda value: AutoExposure.written(identity, scene, value + metering.bias).map(lambda changed: Some(bpy.path.display_name(meter_exposure.key)) if changed else NOTHING)
-            ).default_value(Ok(NOTHING))
-
-        return AutoExposure.attachment.read(identity, scene).bind(lambda metering: metering.meter.stops(PyOpenColorIO.GetCurrentConfig(), file.pixels).bind(lambda measured: kept(metering, measured)))
+        return AutoExposure.attachment.read(identity, scene).bind(kept)
 
     @staticmethod
     def stepped(identity: Identity, handle: Handle[bpy.types.Scene], token: object) -> Outcome[Option[str]]:
@@ -311,12 +232,9 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
 
         def wanted(located: tuple[Located, ...]) -> Outcome[tuple[queue.Job, ...]]:
             sources: dict[bpy.types.Scene, None] = {}
-            for at in located:
-                for region in at.area.regions:
-                    if region.type != "WINDOW":
-                        continue
-                    with bpy.context.temp_override(window=at.window, area=at.area, region=region):
-                        sources.update(dict.fromkeys((at.window.scene,) if _COMPOSITED.holds(bpy.context) else ()))
+            for at in (msgspec.structs.replace(viewport, region=Some(region)) for viewport in located for region in viewport.area.regions if region.type == "WINDOW"):
+                with at.override:
+                    sources.update(dict.fromkeys((at.window.scene,) if _COMPOSITED.holds(bpy.context) else ()))
             active = tuple((scene, entries) for scene in sources for entries in (AutoExposure.viewport_entries(identity, scene),) if entries)
             following, readings = frozenset(Handle.of(at.window.scene) for at in located), _READINGS[identity]
             for handle in readings.keys() - following:
@@ -329,6 +247,69 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         return AutoExposure.followed(identity, context).bind(wanted)
+
+    # --- [VIEWPORT]
+
+    @staticmethod
+    def following(identity: Identity, _metrics: Metrics) -> Outcome[Option[_Following]]:
+        """Returns enabled metering with the inverse pipeline used by this viewport."""
+        config = PyOpenColorIO.GetCurrentConfig()
+
+        def followed(scene: bpy.types.Scene, metering: Metering) -> Outcome[Option[_Following]]:
+            if not metering.use_follow:
+                _READINGS[identity].pop(Handle.of(scene), None)
+                return Ok(NOTHING)
+            view, composited = viewed(scene), _COMPOSITED.holds(bpy.context)
+            entries = AutoExposure.viewport_entries(identity, scene) if composited else ()
+            inverse = (
+                AutoExposure.requested(config, scene, entries, view).map(lambda request: _INVERSES[identity].value(scene.session_uid, request))
+                if entries
+                else view
+                .processor(config)
+                .bind(lambda built: processor(config, PyOpenColorIO.GroupTransform([built.createGroupTransform()], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)))
+                .map(lambda built: Some(built.getDefaultCPUProcessor()))
+            )
+            return paired(inverse, gain(identity, scene, enabled=Enabled.PREVIEW) if composited else Ok(0.0)).map(
+                lambda found: Some(
+                    _Following(
+                        scene=Handle.of(scene),
+                        meter=metering.meter,
+                        bias=metering.bias,
+                        tolerance=metering.follow.tolerance,
+                        config=config,
+                        inverse=found[0].map(lambda built: (built, math.exp2(-found[1]))),
+                    )
+                )
+            )
+
+        return root_in(bpy.types.Scene, bpy.context).map(lambda scene: AutoExposure.attachment.read(identity, scene).bind(partial(followed, scene))).default_value(Ok(NOTHING))
+
+    @staticmethod
+    def metered(identity: Identity, step: Callable[[Handle[bpy.types.Scene], object], None], state: _Following, canvas: Canvas) -> None:
+        """Meters the scene ahead of the chain in the visible camera frame, through the composited formation's inverse with the Exposure gain divided out while the viewport composites and the view's inverse otherwise, and defers targets two readings agree on."""
+        reports, previous = identity.reports, _READINGS[identity]
+        match bpy.context.scene, canvas.region, bpy.context.region_data:
+            case bpy.types.Scene() as scene, bpy.types.Region() as region, bpy.types.RegionView3D() as view:
+                rect = camera_frame(scene, region, view, canvas.extent) if view.view_perspective == "CAMERA" else Some(canvas.extent)
+                reading = (
+                    state.inverse
+                    .bind(lambda held: rect.bind(reports.reported(captured)).map(lambda plane: applied(held[0], plane) * np.array((held[1], held[1], held[1], 1.0), np.float32)))
+                    .bind(reports.reported(partial(state.meter.stops, state.config)))
+                    .bind(lambda value: value)
+                    .map(lambda value: value + state.bias)
+                )
+            case _:
+                reading = NOTHING
+
+        match reading:
+            case Some(value):
+                agreed = option.of_optional(previous.get(state.scene)).filter(lambda prior: abs(value - prior[1]) <= state.tolerance).is_some()
+                token = object()
+                previous[state.scene] = token, value
+                if agreed:
+                    step(state.scene, token)
+            case Nothing():
+                previous.pop(state.scene, None)
 
     # --- [REGISTRATION]
 
@@ -380,7 +361,9 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
                 Handler(handlers=bpy.app.handlers.frame_change_pre, body=framed),
                 Overlay[_Following](
                     drawing=Drawing(
-                        area=_VIEWPORTS, part=_Follower(identity, step), refreshes=(_SIGNAL[identity], HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,)))
+                        area=_VIEWPORTS,
+                        part=DrawingPart(read=partial(self.following, identity), drawn=partial(self.metered, identity, step), draw_type="PRE_VIEW"),
+                        refreshes=(_SIGNAL[identity], HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,))),
                     ),
                     respect_overlays=False,
                 ),
@@ -396,7 +379,14 @@ def meter_exposure(call: Call[Empty]) -> Outcome[Answer]:
     """Meter the Exposure entry input and write absolute stops."""
     return (
         rooted(bpy.types.Scene, call.context)
-        .bind(lambda scene: AutoExposure.entry(call.identity, scene).bind(lambda held: READ.entering(call.identity, scene, held, AutoExposure.consumed)))
+        .bind(
+            lambda scene: (
+                exposure
+                .earliest(call.identity, scene)
+                .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=exposure.kind))
+                .bind(lambda held: READ.entering(call.identity, scene, held, AutoExposure.consumed))
+            )
+        )
         .map(lambda _: Done(notes=(("INFO", "Metering exposure entry input"),)))
     )
 
@@ -416,7 +406,6 @@ def _metered(identity: Identity, scene: bpy.types.Scene, region: Region) -> Outc
 _meter_pick: Final = picking("CROSSHAIR", Picked, pick_meter_region)
 rows: Final = (
     AutoExposure(),
-    _meter_pick,
     Tools(
         space="IMAGE_EDITOR",
         mode=Some("VIEW"),

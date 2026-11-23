@@ -7,6 +7,7 @@ from functools import partial
 from typing import Annotated, ClassVar, Final, TYPE_CHECKING
 
 import bpy
+from bpy_extras.io_utils import axis_conversion
 from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 from mathutils import Matrix, Vector
@@ -299,7 +300,7 @@ def _rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Con
                 return Ok((low + high) / 2.0)
 
     def framed() -> Outcome[Matrix]:
-        world = Matrix(((1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0)))
+        world = axis_conversion(from_forward="-Z", from_up="Y")
 
         def oriented(found: Located) -> Outcome[Matrix]:
             match found.area.spaces.active:

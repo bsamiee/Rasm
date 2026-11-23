@@ -88,7 +88,7 @@ def widened(camera: bpy.types.Camera, factor: float) -> Option[Snapshot]:
             values = {("ortho_scale",): camera.ortho_scale * factor}
         case "PERSP":
             values = {("sensor_width",): camera.sensor_width * factor, **({("sensor_height",): camera.sensor_height * factor} if camera.sensor_fit == "VERTICAL" else {})}
-        case "PANO" | "CUSTOM":
+        case _:
             return NOTHING
     return Some(Snapshot.of(bpy.types.Camera, {**values, ("shift_x",): camera.shift_x / factor, ("shift_y",): camera.shift_y / factor}))
 
@@ -109,10 +109,11 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
         depths = tuple(-(view @ point).z for point in points)
         span = min(depths), max(depths)
         ortho = Descriptor.of(bpy.types.Camera, ("ortho_scale",), bpy.types.FloatProperty).prop
+        scaled = camera.type == "ORTHO"
 
         def wrote() -> None:
             camera.clip_start, camera.clip_end = (float(np.nextafter(np.float32(span[0]), np.float32(clips[0].hard_min))), float(np.nextafter(np.float32(span[1]), np.float32(clips[1].hard_max))))
-            if camera.type == "ORTHO":
+            if scaled:
                 camera.ortho_scale = scale
 
         return paired(
@@ -120,7 +121,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
                 lambda values: all(clip.hard_min <= value <= clip.hard_max for clip, value in zip(clips, values)),
                 lambda values: Fault.of(Reason.OUTSIDE, f"{item!r} clipping", values, member="native camera clip ranges"),
             ),
-            Ok(scale).filter_with(lambda value: camera.type != "ORTHO" or value <= ortho.hard_max, lambda value: Fault.of(Reason.OUTSIDE, f"{item!r} framing", value, member=ortho.name)),
+            Ok(scale).filter_with(lambda value: not scaled or value <= ortho.hard_max, lambda value: Fault.of(Reason.OUTSIDE, f"{item!r} framing", value, member=ortho.name)),
         ).bind(lambda _: catch(wrote, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(item))))
 
     def shifted(camera: bpy.types.Camera, points: tuple[Vector, ...], scale: float, view: Matrix) -> Outcome[None]:

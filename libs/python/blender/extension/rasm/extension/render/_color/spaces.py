@@ -152,8 +152,8 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def staged(stage: Path) -> Outcome[object]:
             prior = kept if kept.is_dir() else self.folder
             return (
-                self.merged
-                .bind(lambda parts: parts[1].staged(parts[0], stage))
+                self
+                .staged(stage)
                 .bind(lambda config: committed(stage / "config.ocio", config.serialize().encode()))
                 .bind(lambda _: files_copied(((prior, stage / identity.manifest.id),)) if prior.is_dir() else folder_made(stage / identity.manifest.id))
             )
@@ -204,9 +204,23 @@ class HdrWindow(Condition, frozen=True, kw_only=True):
     absolute: bool = False
 
     def formed(self, context: bpy.types.Context) -> bool:
-        """Whether the context scene's preview forms the frame into an HDR display space, absolute PQ under `absolute`."""
+        """Whether the context scene's preview, its display formation or else the scene view of a color encoding, forms the frame into an HDR display space, absolute PQ under `absolute`."""
         config = PyOpenColorIO.GetCurrentConfig()
-        return option.of_optional(context.scene).bind(_shown).bind(lambda view: view.colorspace(config)).filter(pq if self.absolute else hdr).is_some()
+        source: Option[_Origin] = _linear(config)
+        return (
+            option
+            .of_optional(context.scene)
+            .bind(
+                lambda scene: (
+                    flow(config, (entry for entry in scene.compositor_effects if entry.enable_for_preview), source)
+                    .default_value(source)
+                    .bind(lambda origin: Some(origin) if isinstance(origin, DisplayView) else Some(viewed(scene)).filter(lambda _: not config.getColorSpace(origin).isData()))
+                )
+            )
+            .bind(lambda view: view.colorspace(config))
+            .filter(pq if self.absolute else hdr)
+            .is_some()
+        )
 
     @override
     def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
@@ -257,17 +271,6 @@ def followed(scene: bpy.types.Scene, nodes: Iterable[bpy.types.CompositorNodeCon
     """Writes the scene display device to each display node showing another, returning each written node with the view Blender matched to the device."""
     display = viewed(scene).display
     return accumulated(written(node, ("display_settings", "display_device"), display).map(lambda _: (node, viewed(node))) for node in nodes if viewed(node).display != display)
-
-
-def _shown(scene: bpy.types.Scene) -> Option[DisplayView]:
-    """Returns the effective preview's display formation or scene view, Nothing for data or an unknown encoding."""
-    config = PyOpenColorIO.GetCurrentConfig()
-    source: Option[_Origin] = _linear(config)
-    return (
-        flow(config, (entry for entry in scene.compositor_effects if entry.enable_for_preview), source)
-        .default_value(source)
-        .bind(lambda origin: Some(origin) if isinstance(origin, DisplayView) else Some(viewed(scene)).filter(lambda _: not config.getColorSpace(origin).isData()))
-    )
 
 
 def entering_space(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect, identifier: str) -> Option[str]:
@@ -358,14 +361,9 @@ def _traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.
             active.remove(state)
             answer = Some(completed[state])
         else:
-            if child in completed:
-                answer = Some(completed[child])
-            elif child in active:
-                answer = Some(NOTHING)
-            else:
+            if (answer := Some(completed[child]) if child in completed else Some(NOTHING) if child in active else NOTHING).is_none():
                 active.add(child)
                 pending.append((child, walked(child)))
-                answer = NOTHING
     return completed[root]
 
 

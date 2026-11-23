@@ -4,7 +4,7 @@ from collections import deque
 from collections.abc import Callable, Mapping
 from contextlib import ExitStack
 from functools import partial, reduce
-from itertools import starmap
+from itertools import chain, starmap
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Self, TYPE_CHECKING
@@ -267,21 +267,25 @@ class _Job:
 
         return reduce(step, path, grouped(entry).map(lambda tree: ((entry,), tree)))
 
-    def active(self, target: tuple[bpy.types.SceneCompositorEffect, StageTarget]) -> Outcome[bool]:
-        """Reads parent execution controls and the preparation gate from evaluated native inputs."""
-        entry, (path, _, record, _, gates) = target
-        gate = record.record.prepared_when
-        if not gates and gate is None:
-            return Ok(True)
-        with bpy.context.temp_override(scene=self.scene):
-            evaluated = self.scene.evaluated_get(bpy.context.evaluated_depsgraph_get())
-        reading = evaluated.compositor_effects[entry.name]
-        for owner, keys in gates.items():
-            if (
-                enabled := self.resolved(entry, owner).bind(lambda found: self.values(found[0], reading, found[1])).bind(lambda values: accumulated(value(values, bool, key) for key in keys).map(all))
-            ) != Ok(True):
-                return enabled
-        return Ok(True) if gate is None else self.resolved(entry, path).bind(lambda found: self.values(found[0], reading, found[1])).bind(lambda values: value(values, bool, gate))
+    def active(self, staged: tuple[tuple[bpy.types.SceneCompositorEffect, StageTarget], ...]) -> Outcome[tuple[tuple[bpy.types.SceneCompositorEffect, StageTarget], ...]]:
+        """Selects the targets whose parent execution controls and preparation gate hold in evaluated native inputs."""
+
+        def enabled(target: tuple[bpy.types.SceneCompositorEffect, StageTarget]) -> Outcome[bool]:
+            entry, (path, _, record, _, gates) = target
+            gate = record.record.prepared_when
+            if not gates and gate is None:
+                return Ok(True)
+            with bpy.context.temp_override(scene=self.scene):
+                evaluated = self.scene.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            reading = evaluated.compositor_effects[entry.name]
+            for owner, keys in gates.items():
+                if (
+                    held := self.resolved(entry, owner).bind(lambda found: self.values(found[0], reading, found[1])).bind(lambda values: accumulated(value(values, bool, key) for key in keys).map(all))
+                ) != Ok(True):
+                    return held
+            return Ok(True) if gate is None else self.resolved(entry, path).bind(lambda found: self.values(found[0], reading, found[1])).bind(lambda values: value(values, bool, gate))
+
+        return accumulated(enabled(target).map(lambda held: (target,) if held else ()) for target in staged).map(lambda found: tuple(chain.from_iterable(found)))
 
     def values(self, owners: tuple[_Owner, ...], reading: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree) -> Outcome[Mapping[Key, Value]]:
         """Reads target sockets through their native group-input ancestry to evaluated entry values."""
@@ -540,26 +544,23 @@ class _Job:
 
             def selected(targets: tuple[tuple[bpy.types.SceneCompositorEffect, StageTarget], ...]) -> Outcome[None]:
                 if not targets:
+                    layered = msgspec.structs.replace(self.format, media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", use_exr_interleave=False)
                     with ExitStack() as capture:
                         for source in self.sources:
                             capture.enter_context(intermediate(self.identity, source))
                             capture.callback(setattr, source.render, "use_compositing", source.render.use_compositing)
-                            source.render.use_compositing = False
-                        for source in self.sources:
                             capture.callback(setattr, source.render, "filepath", source.render.filepath)
-                            source.render.filepath = str(self.pass_path(source))
-                            if isinstance(
-                                result := capture
-                                .enter_context(
-                                    msgspec.structs.replace(self.format, media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", use_exr_interleave=False).held(source.render.image_settings)
-                                )
+                            source.render.use_compositing, source.render.filepath = False, str(self.pass_path(source))
+                        return reduce(
+                            lambda done, source: (
+                                done
+                                .bind(lambda _: capture.enter_context(layered.held(source.render.image_settings)))
                                 .bind(lambda _: native(self.identity, source, RenderCall(write_still=True)))
-                                .bind(lambda _: self.captured(source, frame)),
-                                Error,
-                            ):
-                                return result
-                    self.prepared[frame] = original
-                    return Ok(None)
+                                .bind(lambda _: self.captured(source, frame))
+                            ),
+                            self.sources,
+                            Ok(None),
+                        ).map(lambda _: self.prepared.update({frame: original}))
                 reference = self.rasters.map(Ok).default_with(lambda: FrameSize().bound(self.identity).bind(lambda framed: framed.rasters(self.scene)))
                 return (
                     self
@@ -570,13 +571,7 @@ class _Job:
                     )
                 )
 
-            return (
-                accumulated(self.active(target).map(lambda enabled: Some(target) if enabled else NOTHING) for target in staged)
-                .map(lambda found: tuple(target for active in found for target in active.to_list()))
-                .bind(selected)
-                if call.animation
-                else selected(staged)
-            )
+            return self.active(staged).bind(selected) if call.animation else selected(staged)
 
         return self.restored(original).bind(started)
 
@@ -663,13 +658,7 @@ class StagedRender(msgspec.Struct, frozen=True, kw_only=True):
 
         def rendered(staged: tuple[tuple[bpy.types.SceneCompositorEffect, StageTarget], ...]) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
             job = _Job(identity, scene, self.precision, rasters)
-            return (
-                job.rendered(call, staged)
-                if call.animation and staged
-                else accumulated(job.active(target).map(lambda enabled: Some(target) if enabled else NOTHING) for target in staged)
-                .map(lambda found: tuple(target for active in found for target in active.to_list()))
-                .bind(lambda selected: job.rendered(call, selected) if selected else native(identity, scene, call))
-            )
+            return job.rendered(call, staged) if call.animation and staged else job.active(staged).bind(lambda selected: job.rendered(call, selected) if selected else native(identity, scene, call))
 
         return self.stacks.map(lambda bind: bind(identity).map(Some)).default_value(Ok(NOTHING)).bind(targets).bind(rendered) if scene.render.use_compositing else native(identity, scene, call)
 

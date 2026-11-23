@@ -419,7 +419,7 @@ def _awaited(state: RetryCallState, /) -> float:
         float(stated)
         if stated.isdecimal()
         else catch(parsedate_to_datetime, exception=ValueError)(stated)
-        .map(lambda moment: max((moment - datetime.datetime.now(datetime.UTC)).total_seconds(), 0.0))
+        .map(lambda moment: max((moment.replace(tzinfo=moment.tzinfo or datetime.UTC) - datetime.datetime.now(datetime.UTC)).total_seconds(), 0.0))
         .default_with(lambda _: wait_exponential_jitter()(state))
     )
 

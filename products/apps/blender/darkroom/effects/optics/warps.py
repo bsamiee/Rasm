@@ -3,7 +3,8 @@
 from collections.abc import Mapping
 import functools
 from math import log2, pi, radians
-from types import MappingProxyType, MemberDescriptorType
+from operator import mul
+from types import MemberDescriptorType
 from typing import Annotated, Final, override
 
 import bpy
@@ -88,7 +89,6 @@ _SHAKE: Final = InterfacePanel.of(
     toggle=Some(False),
 )
 _POSES: Final = ShutterPoses(sockets=(_TRAVEL, _TURN, _ZOOM, *(item[0] for panel in (_PERSPECTIVE, _PLACEMENT, _SHAKE) for _, item, _, _ in panel.walked() if isinstance(item, tuple))))
-_POSED: Final = MappingProxyType({socket.key: socket for socket in _POSES.poses})
 
 # --- [PROJECTION]
 
@@ -131,7 +131,7 @@ class Transform(CompositorRecord, frozen=True, kw_only=True):
         gate = shell.input(_SHAKE)
 
         def value(side: int | None, *path: Step) -> Expr:
-            return shell.input(*path) if side is None else shell.input(_POSED[ShutterPoses.key(side, path_key(*path))])
+            return shell.input(*path) if side is None else shell.input(ShutterPoses.key(side, path_key(*path)))
 
         def pose(side: int | None) -> Expr:
             offset: Expr | float = 0.0 if side is None else opening + float(side)
@@ -179,7 +179,7 @@ class Transform(CompositorRecord, frozen=True, kw_only=True):
         center = (0.5, 0.5, 1.0)
         opened, stepped = (frame.sampled(mapped(1, mapped(0, frame.from_uv(at)), forward=True)) for at in (center, vector("ADD", center, vector("DIVIDE", (1.0, 0.0, 0.0), dimensions(shell.color)))))
         still = functools.reduce(
-            lambda held, match: held * match,
+            mul,
             (
                 switched(shell.input(_CORNER_PIN), 1.0, 0.0),
                 math("COMPARE", abs(value(None, _PERSPECTIVE, _HEADING)) + abs(value(None, _PERSPECTIVE, _ELEVATION)), 0.0, 0.0),

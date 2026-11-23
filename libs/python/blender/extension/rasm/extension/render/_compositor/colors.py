@@ -11,7 +11,7 @@ import PyOpenColorIO
 
 from rasm.extension.data._lifecycle.identity import Key
 from rasm.extension.nodes import functions
-from rasm.extension.nodes._graphs import Component, composed, directed, equal, Expr, group_input, inverted, math, matrix, mixed, rgba, Term, vector, where, xyz
+from rasm.extension.nodes._graphs import Component, composed, directed, equal, Expr, group_input, inverted, math, matrix, mixed, rgba, Term, transform, vector, where, xyz
 from rasm.extension.nodes._interfaces import Interface, Socket
 from rasm.extension.nodes.changes import NodeGroup
 from rasm.imaging import lin_to_log, luma
@@ -50,9 +50,9 @@ def converted_color(key: Key, config: PyOpenColorIO.Config, source: str, target:
     )
 
 
-def pointwise_color(key: Key, entering: Term, operation: Callable[[Expr], Outcome[Expr]]) -> Outcome[Expr]:
+def pointwise_color(key: Key, entering: Expr, operation: Callable[[Expr], Outcome[Expr]]) -> Outcome[Expr]:
     """Applies straight-color graph to associated RGB, zero alpha keeping transformed RGB."""
-    alpha = Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", entering),), members={"mode": "RGB"}, socket="Alpha")
+    alpha = entering["Alpha"]
 
     def associated(adjusted: Expr) -> Expr:
         restored = with_alpha(adjusted, alpha)
@@ -184,8 +184,7 @@ def spanned(points: tuple[Expr, ...], white: Term) -> Expr:
         for column, point in enumerate(points, 1)
         for cell, value in (((1, column), point["X"] / point["Y"]), ((2, column), 1.0), ((3, column), (1.0 - point["X"] - point["Y"]) / point["Y"]))
     })
-    scales = directed(white, inverted(columns))
-    return composed(columns, matrix({(index, index): scales[axis] for index, axis in enumerate(AXES, 1)}))
+    return composed(columns, transform("Scale", directed(white, inverted(columns))))
 
 
 # --- [CHANNELS]

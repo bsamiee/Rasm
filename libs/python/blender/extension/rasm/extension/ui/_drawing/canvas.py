@@ -318,44 +318,26 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
     height: int
     format: Literal["RGBA8", "RGBA16", "RGBA16F", "RGBA32F"] = "RGBA8"
 
-    def read(self, draw: Callable[[gpu.types.GPUFrameBuffer], Outcome[None]]) -> Outcome[npt.NDArray[np.float32]]:
-        """Draws into an owned framebuffer and reads top-first RGBA, restoring caller binding, viewport and scissor."""
+    def drawn(self, canvas: Canvas, draw: Callable[[Canvas], None]) -> Outcome[npt.NDArray[np.float32]]:
+        """Draws a cleared pixel canvas under pixel projection with depth test off into an owned framebuffer at its full viewport, returning top-first RGBA."""
+        width, height = size = max(1, self.width), max(1, self.height)
+        pixels = msgspec.structs.replace(canvas, extent=Rect(x=0.0, y=0.0, width=float(width), height=float(height)), clipping=NOTHING, pointer=NOTHING)
 
-        def opened() -> Outcome[tuple[gpu.types.GPUTexture, gpu.types.GPUTexture, gpu.types.GPUFrameBuffer]]:
+        def painted(_: None) -> Outcome[npt.NDArray[np.float32]]:
             try:
-                color = gpu.types.GPUTexture((max(1, self.width), max(1, self.height)), format=self.format)
-                depth = gpu.types.GPUTexture((color.width, color.height), format="DEPTH32F_STENCIL8")
+                color, depth = gpu.types.GPUTexture(size, format=self.format), gpu.types.GPUTexture(size, format="DEPTH32F_STENCIL8")
                 buffer = gpu.types.GPUFrameBuffer(depth_slot=depth, color_slots=color)
             except (TypeError, RuntimeError) as error:
                 return Error(Fault.of(Refusal.REFUSED, type(self).__name__, error))
-            return Ok((color, depth, buffer))
+            with buffer.bind():  # type: ignore[func-returns-value]  # ty: ignore[invalid-context-manager]
+                with pixels.drawn(), Canvas.depth_tested("NONE"):
+                    buffer.clear(color=CLEAR, depth=1.0)
+                    gpu.matrix.load_identity()
+                    gpu.matrix.load_projection_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / width, 2.0 / height, 1.0, 1.0)))
+                    draw(pixels)
+                return captured(pixels.extent)
 
-        def drawn(target: tuple[gpu.types.GPUTexture, gpu.types.GPUTexture, gpu.types.GPUFrameBuffer]) -> Outcome[npt.NDArray[np.float32]]:
-            color, _, buffer = target
-            with ExitStack() as stack:
-                stack.callback(gpu.state.viewport_set, *gpu.state.viewport_get())
-                stack.callback(gpu.state.scissor_set, *gpu.state.scissor_get())
-                with buffer.bind():  # type: ignore[func-returns-value]  # ty: ignore[invalid-context-manager]
-                    buffer.viewport_set(0, 0, color.width, color.height)
-                    gpu.state.scissor_set(0, 0, color.width, color.height)
-                    return draw(buffer).bind(lambda _: captured(Rect(x=0.0, y=0.0, width=float(color.width), height=float(color.height))))
-
-        return catch(gpu.init, exception=SystemError)().map_error(partial(Fault.of, Refusal.REFUSED, "gpu.init")).bind(lambda _: opened()).bind(drawn)
-
-    def drawn(self, canvas: Canvas, draw: Callable[[Canvas], None]) -> Outcome[npt.NDArray[np.float32]]:
-        """Draws a cleared pixel canvas under pixel projection with depth test off, returning top-first RGBA."""
-
-        def painted(buffer: gpu.types.GPUFrameBuffer) -> Outcome[None]:
-            _, _, width, height = buffer.viewport_get()
-            pixels = msgspec.structs.replace(canvas, extent=Rect(x=0.0, y=0.0, width=float(width), height=float(height)), clipping=NOTHING, pointer=NOTHING)
-            with pixels.drawn(), Canvas.depth_tested("NONE"):
-                buffer.clear(color=CLEAR, depth=1.0)
-                gpu.matrix.load_identity()
-                gpu.matrix.load_projection_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / width, 2.0 / height, 1.0, 1.0)))
-                draw(pixels)
-            return Ok(None)
-
-        return self.read(painted)
+        return catch(gpu.init, exception=SystemError)().map_error(partial(Fault.of, Refusal.REFUSED, "gpu.init")).bind(painted)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

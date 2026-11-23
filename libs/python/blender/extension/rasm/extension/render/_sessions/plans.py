@@ -72,10 +72,6 @@ class RenderScope(Enum):
     CAMERAS = auto()
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_ONLINE: Final = Setting(descriptor=Descriptor(root=bpy.types.Preferences, owner=("system",), prop=bpy.types.PreferencesSystem.bl_rna.properties["use_online_access"]))
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -263,7 +259,7 @@ class QueueState:
 
     def watched(self, tick: Callable[[], float | None]) -> None:
         """Starts the observation timer unless one runs, the timer stopping itself once nothing is pending."""
-        if not self.watching.filter(bpy.app.timers.is_registered).is_some():
+        if self.watching.filter(bpy.app.timers.is_registered).is_none():
             self.watching = Some(tick)
             bpy.app.timers.register(tick, first_interval=1.0, persistent=True)
 
@@ -304,7 +300,8 @@ class Dispatcher(msgspec.Struct, frozen=True):
     @staticmethod
     def connected() -> Outcome[None]:
         """Requires `bpy.app.online_access`, set by preferences and `--offline-mode`."""
-        return Ok(None) if bpy.app.online_access else Error(Fault.of(Refusal.REQUIRED, _ONLINE.message))
+        online = Setting(descriptor=Descriptor(root=bpy.types.Preferences, owner=("system",), prop=bpy.types.PreferencesSystem.bl_rna.properties["use_online_access"]))
+        return Ok(None) if bpy.app.online_access else Error(Fault.of(Refusal.REQUIRED, online.message))
 
     @staticmethod
     def posted(listener: Outcome[Listener], notice: Notice) -> Outcome[None]:
@@ -337,7 +334,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 case RenderScope.LAYER:
                     return rooted(bpy.types.ViewLayer, context).map(lambda layer: (JobScope(scene=scene.name, layer=layer.name, camera=marked(scene)),))
                 case RenderScope.CAMERAS:
-                    return Ok(tuple(JobScope(scene=scene.name, camera=FixedCamera(camera=camera.name)) for camera in context.selected_objects if camera.type == "CAMERA"))
+                    return Ok(tuple(JobScope(scene=scene.name, camera=FixedCamera(camera=camera.name)) for camera in context.selected_objects if isinstance(camera.data, bpy.types.Camera)))
 
         return (
             rooted(bpy.types.Scene, context)
@@ -413,10 +410,10 @@ class Dispatcher(msgspec.Struct, frozen=True):
         """Host timer body refreshing the observation each second, stopping once no dispatched run is pending."""
         return 1.0 if self.identity.reports.reported(self.ticked)().default_value(value=False) else None
 
-    def watched(self) -> Outcome[Option[float]]:
-        """Observes a dispatched run until nothing it dispatched is pending, the session state holding the one timer, answering as a one-shot timer body."""
+    def watched(self) -> Outcome[None]:
+        """Observes a dispatched run until nothing it dispatched is pending, the session state holding the one timer."""
         self.state.watched(self.tick)
-        return Ok(NOTHING)
+        return Ok(None)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

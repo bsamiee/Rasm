@@ -13,7 +13,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, Generic, TypeVar
 
 import bpy
-from expression import Error, NOTHING, Ok, Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Result, Some, try_downcast
 from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
@@ -128,16 +128,15 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
             return struct_at(root, owner).bind(defined) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else definition_at(rna_definition(root), owner)
 
         def within(prop: bpy.types.Property, coordinates: tuple[int, ...]) -> bool:
-            dimensions = Descriptor.dimensions(prop)
-            return not coordinates or (len(coordinates) == len(dimensions) and all(0 <= coordinate < size for coordinate, size in zip(coordinates, dimensions)))
+            return not coordinates or (len(coordinates) == len(dimensions := Descriptor.dimensions(prop)) and all(0 <= coordinate < size for coordinate, size in zip(coordinates, dimensions)))
 
         return (
             Descriptor
             .split(path)
-            .bind(lambda split: owned(split[0]).bind(lambda owner: catch(lambda: owner.properties[split[1]], exception=KeyError)().to_option()).map(lambda prop: (split, prop)))
+            .bind(lambda split: owned(split[0]).bind(lambda owner: option.of_optional(try_downcast(bpy.types.Property, owner.properties.get(split[1])))).map(lambda prop: (split, prop)))
             .filter(lambda found: within(found[1], found[0][2]))
             .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(root), member=rna(path)))
-            .bind(lambda found: typed(kind, rna(path), found[1]).map(lambda prop: Descriptor[K](root=stated, owner=found[0][0], prop=prop, coordinates=found[0][2])))
+            .bind(lambda found: typed(kind, rna(path), found[1]).map(lambda prop: Descriptor(root=stated, owner=found[0][0], prop=prop, coordinates=found[0][2])))
         )
 
     @staticmethod
@@ -215,7 +214,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
             case _:
                 found = NOTHING
         return found.bind(lambda value: struct_at(value, self.owner)).filter(
-            lambda owner: defined(owner).filter(lambda held: self.prop in held.properties.values()).is_some() and (inactive or effective(owner))
+            lambda owner: defined(owner).filter(lambda held: try_downcast(bpy.types.Property, held.properties.get(self.prop.identifier)) == self.prop).is_some() and (inactive or effective(owner))
         )
 
     def leaves(self, compound: tuple[type[Struct], ...] = (), entered: frozenset[str] = frozenset()) -> "tuple[Descriptor, ...]":
@@ -408,11 +407,8 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
     def shown(self, value: Value) -> str:
         """Returns enum label or display text of stored value."""
         match self.prop, value:
-            case bpy.types.EnumProperty() as prop, str():
-                try:
-                    return prop.enum_items[value].name
-                except KeyError:
-                    return value
+            case bpy.types.EnumProperty(enum_items=items), str():
+                return option.of_optional(items.get(value)).map(lambda item: item.name).default_value(value)
             case _, bool():
                 return "on" if value else "off"
             case bpy.types.StringProperty(subtype="BYTE_STRING"), str():

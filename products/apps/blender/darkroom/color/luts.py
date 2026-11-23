@@ -11,7 +11,7 @@ from expression.collections import Block
 import PyOpenColorIO
 
 from rasm.extension.commands import Answer, Call, Done, Empty, Operator, Popup, Save
-from rasm.extension.data import Callbacks, choices, IconedItem, Identity, Job, Key, Mark, rooted, Struct
+from rasm.extension.data import Callbacks, choices, IconedItem, Identity, Job, Key, Mark, root_in, rooted, Struct
 from rasm.extension.render import Baking, ConfigInstall, ConfigView, extension, lattice_of, LatticeFields, LutExport, output, PreviewScene, viewed
 from rasm.extension.settings import Attachment
 from rasm.extension.ui import Append, OperatorButton
@@ -42,7 +42,7 @@ def selected(identity: Identity, scene: bpy.types.Scene, kinds: Option[frozenset
     pinned = frozenset(held.ownership.key for held in chain.pinned)
 
     def wanted(entry: bpy.types.SceneCompositorEffect) -> bool:
-        unpinned = option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in pinned).is_none()
+        unpinned = option.of_optional(entry.node_group).bind(partial(Mark.read, identity)).filter(lambda mark: mark.key in pinned).is_none()
         return unpinned and kinds.map(lambda held: chain.row(identity, entry).filter(lambda row: row.kind in held).is_some()).default_value(value=True)
 
     checked = Block((entry, chain.pointwise(identity, entry)) for entry in scene.compositor_effects if entry.enable_for_render and wanted(entry))
@@ -79,7 +79,7 @@ def bake_chain(call: Call[Baking]) -> Outcome[Answer]:
 
 def _offered(identity: Identity, _owner: Struct, context: bpy.types.Context | None) -> tuple[IconedItem, ...]:
     """Item rows of the context scene's tone entries in stack order, each titled by its effect, the first the default."""
-    scenes = option.of_optional(context).bind(lambda held: rooted(bpy.types.Scene, held).to_option()).to_list()
+    scenes = option.of_optional(context).bind(lambda held: root_in(bpy.types.Scene, held)).to_list()
     members = frozenset(row.kind for row in tones)
     entries = (held for scene in scenes for held in chain.owned(identity, scene) if held.row.kind in members)
     return choices(tuple((held.entry.name, held.entry.name, held.row.title, 0, index) for index, held in enumerate(entries)))

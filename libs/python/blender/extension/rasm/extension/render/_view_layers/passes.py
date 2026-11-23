@@ -87,11 +87,8 @@ class CryptomatteKind(_PassFlag):
     @property
     def index(self) -> Option[tuple[Descriptor, str]]:
         """View layer flag and pass name of the kind's index pass, which Cycles alone writes, Nothing for a kind the view layer holds no index flag of."""
-        return (
-            Some(f"use_pass_{str(self.name).lower()}_index")
-            .filter(lambda flag: flag in bpy.types.ViewLayer.bl_rna.properties)
-            .map(lambda flag: (Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties[flag]), f"{self.label} Index"))
-        )
+        flag: bpy.types.Property | None = bpy.types.ViewLayer.bl_rna.properties.get(f"use_pass_{str(self.name).lower()}_index")
+        return option.of_optional(flag).map(lambda prop: (Descriptor(root=bpy.types.ViewLayer, prop=prop), prop.name))
 
     @property
     def color(self) -> Descriptor:
@@ -107,19 +104,18 @@ class CryptomatteKind(_PassFlag):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-EMISSION: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_emit"])
-ENVIRONMENT: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_environment"])
-OCCLUSION: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_ambient_occlusion"])
+EMISSION, ENVIRONMENT, OCCLUSION, _DEPTH = (
+    Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties[f"use_pass_{name}"]) for name in ("emit", "environment", "ambient_occlusion", "z")
+)
 DENOISING_ALBEDO: Final = "Denoising Albedo"
 DENOISING_NORMAL: Final = "Denoising Normal"
-_DEPTH: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_z"])
 _ENGINE: Final = Descriptor(root=bpy.types.Scene, owner=("render",), prop=bpy.types.RenderSettings.bl_rna.properties["engine"])
 _CYCLES: Final = Setting(descriptor=_ENGINE, accepted=("CYCLES",))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
+class PassFlags(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Writable `use_pass_*` flags of `ViewLayer` and its pointer structs in the running build, in RNA order with owning class."""
 
     every: tuple[tuple[type[Struct], Descriptor], ...]
@@ -146,7 +142,7 @@ class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
             )
         )
 
-    @property
+    @functools.cached_property
     def families(self) -> Mapping[Family, tuple[frozenset[Descriptor], frozenset[Descriptor], frozenset[Descriptor]]]:
         """Direct, indirect, and color flags of each family, the flags named `use_pass_<family>_<slot>` on any owner."""
         named: defaultdict[str, set[Descriptor]] = defaultdict(set)
@@ -158,19 +154,17 @@ class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
 
         return {family: (slot(family, LightSlot.DIRECT), slot(family, LightSlot.INDIRECT), slot(family, LightSlot.COLOR)) for family in Family}
 
-    @property
+    @functools.cached_property
     def lobes(self) -> frozenset[Descriptor]:
         """Every family flag."""
         return frozenset(flag for slots in self.families.values() for slot in slots for flag in slot)
 
     def enabled_for(self, totals: Family, derived: Derived, ids: CryptomatteKind) -> frozenset[Descriptor]:
         """Returns flags the families summed, the derived layers, and the ID kinds read."""
-        families = self.families
-
         return frozenset(entity.flag for entity in ids).union(
-            *(slot for family in totals for slot in families[family]),
-            *(direct | color for direct, _, color in families.values() if Derived.DIRECT_LIGHT in derived),
-            *(indirect | color for _, indirect, color in families.values() if Derived.INDIRECT_LIGHT in derived),
+            *(slot for family in totals for slot in self.families[family]),
+            *(direct | color for direct, _, color in self.families.values() if Derived.DIRECT_LIGHT in derived),
+            *(indirect | color for _, indirect, color in self.families.values() if Derived.INDIRECT_LIGHT in derived),
             {_DEPTH} if derived & (Derived.DEPTH_MAP | Derived.INVERSE_DEPTH) else (),
         )
 

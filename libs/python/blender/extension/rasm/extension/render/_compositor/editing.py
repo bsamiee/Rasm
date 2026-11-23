@@ -80,9 +80,8 @@ _GAPS: Final = _Gaps()
 class Arranger(msgspec.Struct, frozen=True, kw_only=True):
     """Registration row arranging owned nodes on each editor draw."""
 
-    gaps: _Gaps = _GAPS
-
-    def moves(self, tree: bpy.types.NodeTree, identity: Identity) -> tuple[tuple[str, tuple[float, float]], ...]:
+    @staticmethod
+    def moves(tree: bpy.types.NodeTree, identity: Identity) -> tuple[tuple[str, tuple[float, float]], ...]:
         """Returns changed owned node positions once every owned node draws."""
         marked = _placeable(tree, identity)
         slots = {socket.as_pointer(): slot for node in marked.values() for slot, socket in enumerate(node.outputs)}
@@ -105,7 +104,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(
             (name, at)
             for measured in sizes.filter(lambda held: all(width > 0.0 and height > 0.0 for width, height in held.values())).to_list()
-            for name, at in self.gaps.arranged(measured, links, bands, origin).items()
+            for name, at in _GAPS.arranged(measured, links, bands, origin).items()
             if not LOCATION.equal(LOCATION.read(marked[name]), at)
         )
 
@@ -129,10 +128,11 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
                 def drew() -> None:
                     context = bpy.context
                     match context.space_data, context.window:
-                        case bpy.types.SpaceNodeEditor(edit_tree=bpy.types.NodeTree(is_editable=True) as tree), bpy.types.Window() as window if not window.modal_operators:
-                            if places := self.moves(tree, identity):
-                                for found in holder(tree).to_list():
-                                    later(Handle.of(found), places)
+                        case bpy.types.SpaceNodeEditor(edit_tree=bpy.types.NodeTree(is_editable=True) as tree), bpy.types.Window() as window if not window.modal_operators and (
+                            places := self.moves(tree, identity)
+                        ):
+                            for found in holder(tree).to_list():
+                                later(Handle.of(found), places)
 
                 with draw_handler(bpy.types.SpaceNodeEditor, drew, "WINDOW", "POST_VIEW") as added:
                     yield added
@@ -211,10 +211,6 @@ def inserted(
         start: Outcome[tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]] = Ok((target, {}))
         return reduce(added, reversed(requests), start).bind(finished)
 
-    def replaced(replacements: Mapping[bpy.types.NodeLink, tuple[Incoming, ...]]) -> Outcome[None]:
-        targets = tuple(dict.fromkeys(endpoints(link)[3] for link in replacements))
-        return accumulated(linked_into(target, tuple(replacement for link in links_of(target) for replacement in replacements.get(link, (link,)))) for target in targets).map(lambda _: None)
-
     def spliced(node: bpy.types.Node, owned: bpy.types.NodeTree) -> Outcome[bpy.types.Node]:
         sources = tuple(socket for active in after.to_list() for socket in tuple(each for each in active.outputs if each.enabled)[:1])
         at = after.map(lambda active: (active.location_absolute.x + active.width + _GAPS.across, active.location_absolute.y)).default_value(cursor)
@@ -226,8 +222,11 @@ def inserted(
                 )
 
             links = tuple(link for link in links_of(source) if link.is_valid)
+            targets = tuple(dict.fromkeys(endpoints(link)[3] for link in links))
             return paired(socket(node.inputs), socket(node.outputs)).bind(
-                lambda pair: linked_into(pair[0], ((source, False),)).bind(lambda _: replaced({link: ((pair[1], link.is_muted),) for link in links}))
+                lambda pair: linked_into(pair[0], ((source, False),)).bind(
+                    lambda _: accumulated(linked_into(target, tuple((pair[1], link.is_muted) if link in links else link for link in links_of(target))) for target in targets).map(lambda _: None)
+                )
             )
 
         def activated(_: object) -> bpy.types.Node:

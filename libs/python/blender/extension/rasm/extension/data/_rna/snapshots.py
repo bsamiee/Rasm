@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import Final, Protocol, Self, TypeIs
 
 import bpy
-from expression import Error, NOTHING, Ok, Option, option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -212,10 +212,10 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         """JSON text of the snapshot in deterministic key order, the form a clipboard or text block holds."""
         return msgspec.json.encode(self, order="deterministic").decode()
 
-    @classmethod
-    def parsed(cls, subject: str, text: str) -> Outcome[Self]:
+    @staticmethod
+    def parsed(subject: str, text: str) -> Outcome["Snapshot"]:
         """Returns the snapshot JSON text holds, unreadable fault over subject for text no snapshot wrote."""
-        return catch(lambda: msgspec.json.decode(text, type=cls), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.UNREADABLE, subject))
+        return catch(SNAPSHOT_DECODER.decode, exception=msgspec.DecodeError)(text).map_error(partial(Fault.of, Reason.UNREADABLE, subject))
 
     def copied(self, manager: bpy.types.WindowManager) -> None:
         """Copies snapshot to the system clipboard as JSON."""
@@ -541,7 +541,7 @@ def applied_tree[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: C
             for key, held in values.items()
             if (prop.identifier,) in held
             for struct in struct_at(owner, key, bpy.types.bpy_struct).to_list()
-            if prop in rna_definition(struct).properties.values()
+            if try_downcast(bpy.types.Property, rna_definition(struct).properties.get(prop.identifier)) == prop
         )
         completed = frozenset((key, (descriptor.prop.identifier,)) for _, key, descriptor, _ in leads)
 

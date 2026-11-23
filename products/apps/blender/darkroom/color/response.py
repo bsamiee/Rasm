@@ -90,12 +90,12 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [DEMAND]
 
-    def fed(self, signal: Signal, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
-        """Returns sampling per actual scene and plot size demanded by chart-enabled windows, equal requests keeping their responses."""
+    def fed(self, signal: Signal, editors: AreaQuery, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
+        """Returns sampling per actual scene and plot size demanded by chart-enabled windows of the editors the chart draws over, equal requests keeping their responses."""
         latest, columns, config = _LATEST[identity], _COLUMNS[identity], PyOpenColorIO.GetCurrentConfig()
         config_id = config.getCacheID()
         windows = (window for manager in root_in(bpy.types.WindowManager, context).to_list() for window in manager.windows)
-        visible = tuple(dict.fromkeys(at.window for at in AreaQuery(space=bpy.types.SpaceImageEditor, ui_type=Some("IMAGE_EDITOR"), shows=Some(_VIEWER)).located(windows)))
+        visible = tuple(dict.fromkeys(at.window for at in editors.located(windows)))
 
         def queued(request: _Request) -> Outcome[tuple[Job, ...]]:
             slot = request.scene.uid, request.columns
@@ -106,17 +106,13 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
 
         def requested(
             scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], sizes: tuple[int, ...], window: tuple[float, float], guide: PyOpenColorIO.Processor
-        ) -> Outcome[tuple[Job, ...]]:
+        ) -> Outcome[tuple[tuple[Job, ...], ...]]:
             codes = tuple(map(float, applied(guide.getDefaultCPUProcessor(), np.repeat(np.asarray(self.levels, dtype=np.float32)[:, None], 3, axis=1)).mean(axis=1)))
             source, names, view, frame = Handle.of(scene), tuple(entry.name for entry in entries), closing(identity, scene, entries), (scene.frame_current_final, rate(scene))
-            return (
-                fingerprinted(entries)
-                .bind(
-                    lambda content: accumulated(
-                        queued(_Request(scene=source, entries=names, view=view, frame=frame, columns=size, window=window, codes=codes, config=config_id, content=content)) for size in sizes
-                    )
+            return fingerprinted(entries).bind(
+                lambda content: accumulated(
+                    queued(_Request(scene=source, entries=names, view=view, frame=frame, columns=size, window=window, codes=codes, config=config_id, content=content)) for size in sizes
                 )
-                .map(lambda batches: tuple(job for jobs in batches for job in jobs))
             )
 
         def prepared(windows: tuple[bpy.types.Window, ...]) -> Outcome[tuple[Job, ...]]:
@@ -149,7 +145,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
                         accumulated(encoding(identity, scene, config).map(lambda found: found[1]) for scene, _, _ in active),
                     ).bind(
                         lambda parts: accumulated(requested(scene, entries, sizes, parts[0], guide) for (scene, entries, sizes), guide in zip(active, parts[1])).map(
-                            lambda batches: tuple(job for jobs in batches for job in jobs)
+                            lambda batches: tuple(job for sized in batches for jobs in sized for job in jobs)
                         )
                     )
                     if active
@@ -193,15 +189,9 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
         """Holds the request cell, the screen switch, the queue feed, the chart over the Viewer image refreshed by its signal and switch, and the invalidations of requests covering no content."""
         signal = Signal()
+        overlay = overlaid(DrawingPart(read=partial(self.chart, identity), drawn=Chart.drawn), _VIEWER, (signal, (ResponseChart, "shown")))
         with Latest.invalidating(identity, _LATEST, lambda request, _scene: any(key.is_none() for key in request.content), signal.fired) as lifecycle:
-            yield Ok((
-                *lifecycle,
-                _COLUMNS,
-                _CHARTED,
-                PreviewScene(),
-                PreviewFeed(feed=partial(self.fed, signal)),
-                overlaid(DrawingPart(read=partial(self.chart, identity), drawn=Chart.drawn), _VIEWER, (signal, (ResponseChart, "shown"))),
-            ))
+            yield Ok((*lifecycle, _COLUMNS, _CHARTED, PreviewScene(), PreviewFeed(feed=partial(self.fed, signal, overlay.drawing.area)), overlay))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

@@ -182,9 +182,7 @@ class ContextMenu(msgspec.Struct, frozen=True, kw_only=True):
 
                 def operation() -> bpy.types.Struct:
                     module, _, name = dotted.partition(".")
-                    held = getattr(getattr(bpy.ops, module), name)
-                    held.get_rna_type()
-                    return rna_definition(held.get_rna_type())
+                    return rna_definition(getattr(getattr(bpy.ops, module), name).get_rna_type())
 
                 return (
                     catch(operation, exception=KeyError)()

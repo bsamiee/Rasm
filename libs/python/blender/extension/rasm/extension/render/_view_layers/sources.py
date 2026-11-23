@@ -69,7 +69,7 @@ class Recolor(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_NUKE_LAYERS: Final = MappingProxyType({"Combined": "rgba", "Position": "Pworld", "Depth": "z"})
+_NUKE_LAYERS: Final = MappingProxyType({"Image": "rgba", "Position": "Pworld", "Depth": "z"})
 NUKE_CHANNELS: Final = MappingProxyType({"Depth": "Z"})
 _NUKE_AXES: Final[Mapping[VectorSpace, tuple[_Axis, _Axis, _Axis]]] = MappingProxyType({VectorSpace.WORLD: (1, 3, -2), VectorSpace.CAMERA: (1, 2, -3)})
 
@@ -163,16 +163,14 @@ def _named(layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> tuple[tuple[s
 
 def _located(scene: bpy.types.Scene, matte: Matte, layer: Option[str] = NOTHING) -> Outcome[tuple[bpy.types.ViewLayer, CryptomatteKind]]:
     """Resolves the matte's native namespace, or a routed file's known layer and bare pass name."""
+    owner, _, bare = matte.name.rpartition(".")
+    absent = functools.partial(Fault.of, Reason.ABSENT, str(matte.file.path), member=matte.name)
     return (
         layer
-        .map(lambda name: layer_of(scene, name).map(lambda held: (held,)))
-        .default_with(lambda: Ok(tuple(scene.view_layers)))
-        .bind(
-            lambda layers: next(
-                (Some((held, entity)) for held in layers for entity in CryptomatteKind if matte.name == f"{held.name}.{entity.pass_name}" or (layer.is_some() and matte.name == entity.pass_name)),
-                NOTHING,
-            ).to_result_with(lambda: Fault.of(Reason.ABSENT, str(matte.file.path), member=matte.name))
-        )
+        .map(lambda name: layer_of(scene, name))
+        .default_with(lambda: layer_of(scene, owner).map_error(lambda _: absent()))
+        .filter_with(lambda held: owner in {"", held.name}, lambda _: absent())
+        .bind(lambda held: CryptomatteKind.named(bare).to_result_with(absent).map(lambda entity: (held, entity)))
     )
 
 
@@ -370,15 +368,18 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
                 return Ok(read)
 
     def passed(name: str, socket: bpy.types.NodeSocket) -> Outcome[tuple[FileSocket, ...]]:
-        dimensions = Descriptor.resolve(socket, ("default_value",), bpy.types.FloatProperty).map(lambda member: Some(member.prop.array_length)) if socket.type == "VECTOR" else Ok(NOTHING)
+        carrier = base_socket(type(socket))
+        dimensions = (
+            Descriptor.resolve(socket, ("default_value",), bpy.types.FloatProperty).map(lambda member: Some(member.prop.array_length)) if carrier is bpy.types.NodeSocketVector else Ok(NOTHING)
+        )
         classed = (
             Output.MATTE
             if any(name.startswith(entity.pass_name) and name.removeprefix(entity.pass_name).isdigit() for entity in CryptomatteKind)
             else Output.DATA
-            if role is Role.DATA or socket.type != "RGBA"
+            if role is Role.DATA or carrier is not bpy.types.NodeSocketColor
             else Output.BEAUTY
         )
-        return paired(oriented(name), dimensions).map(lambda pair: sourced(pair[0], key(type(live), socket.identifier), name, base_socket(type(socket)), classed, pair[1]))
+        return paired(oriented(name), dimensions).map(lambda pair: sourced(pair[0], key(type(live), socket.identifier), name, carrier, classed, pair[1]))
 
     def totaled(family: Family) -> Outcome[tuple[FileSocket, ...]]:
         return (
@@ -387,12 +388,21 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
             .map(lambda summed: sourced(summed, key(type(family), family.name), family.total, bpy.types.NodeSocketColor, Output.BEAUTY))
         )
 
-    def lighting(slots: tuple[tuple[frozenset[Descriptor], frozenset[Descriptor], frozenset[Descriptor]], ...], kind: Derived) -> Outcome[tuple[FileSocket, ...]]:
-        match tuple(found for held in slots for found in lobed(held, outputs, group).to_list()):
-            case (first, *rest):
-                return Ok(sourced(sum(rest, first), key(type(kind), kind.name), kind.label, bpy.types.NodeSocketColor, Output.BEAUTY))
+    def derived(kind: Derived) -> Outcome[tuple[FileSocket, ...]]:
+        match kind:
+            case Derived.DEPTH_MAP | Derived.INVERSE_DEPTH:
+                return (
+                    option
+                    .of_optional(outputs.get("Depth"))
+                    .to_result_with(lambda: missing("Depth"))
+                    .map(lambda read: Expr(kind=bpy.types.CompositorNodeNormalize, inputs=(("Value", read),)) if kind is Derived.DEPTH_MAP else 1.0 / read)
+                    .map(lambda term: sourced(term, key(Derived, kind.name), kind.label, bpy.types.NodeSocketFloat, Output.DATA))
+                )
             case _:
-                return Ok(())
+                empty = frozenset[Descriptor]()
+                slots = ((direct if kind is Derived.DIRECT_LIGHT else empty, indirect if kind is Derived.INDIRECT_LIGHT else empty, color) for direct, indirect, color in families.values())
+                lit = tuple(found for held in slots for found in lobed(held, outputs, group).to_list())
+                return Ok(sourced(sum(lit[1:], lit[0]), key(Derived, kind.name), kind.label, bpy.types.NodeSocketColor, Output.BEAUTY) if lit else ())
 
     def identified(entity: CryptomatteKind) -> Outcome[tuple[FileSocket, ...]]:
         source = f"{layer.name}.{entity.pass_name}"
@@ -415,30 +425,10 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
             )
         )
 
-    derived = flagged(Derived, routing.derived)
-    depth = option.of_optional(outputs.get("Depth")).to_result_with(lambda: missing("Depth"))
-    empty = frozenset[Descriptor]()
     return accumulated((
         *itertools.starmap(passed, offered.items()),
         *map(totaled, flagged(Family, routing.totals)),
-        *((lighting(tuple((direct, empty, color) for direct, _, color in families.values()), Derived.DIRECT_LIGHT),) if Derived.DIRECT_LIGHT in derived else ()),
-        *((lighting(tuple((empty, indirect, color) for _, indirect, color in families.values()), Derived.INDIRECT_LIGHT),) if Derived.INDIRECT_LIGHT in derived else ()),
-        *(
-            (
-                depth.map(
-                    lambda read: sourced(
-                        Expr(kind=bpy.types.CompositorNodeNormalize, inputs=(("Value", read),)), key(Derived, Derived.DEPTH_MAP.name), Derived.DEPTH_MAP.label, bpy.types.NodeSocketFloat, Output.DATA
-                    )
-                ),
-            )
-            if Derived.DEPTH_MAP in derived
-            else ()
-        ),
-        *(
-            (depth.map(lambda read: sourced(1.0 / read, key(Derived, Derived.INVERSE_DEPTH.name), Derived.INVERSE_DEPTH.label, bpy.types.NodeSocketFloat, Output.DATA)),)
-            if Derived.INVERSE_DEPTH in derived
-            else ()
-        ),
+        *map(derived, flagged(Derived, routing.derived)),
         *map(identified, flagged(CryptomatteKind, routing.ids)),
     )).map(lambda parts: tuple(source for part in parts for source in part))
 

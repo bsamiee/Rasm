@@ -91,7 +91,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
     # --- [CHANNELS]
 
     def apply(self, block: bpy.types.ID) -> Outcome[bool]:
-        """Reconciles the channel on block, an existing F-curve or driver kept and a missing one added at the host's `index=-1` for a scalar member.
+        """Reconciles the channel on block, existing animation data (`animation_data_create` tags a depsgraph rebuild per call), F-curve, or driver kept and a missing one added at the host's `index=-1` for a scalar member.
 
         Args:
             block: ID the channel's owner sits under.
@@ -174,8 +174,8 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
         return paired(self.channel(block), content).bind(
             lambda found: (
-                option
-                .of_optional(block.animation_data_create())
+                struct_at(block, ("animation_data",), bpy.types.AnimData)
+                .or_else_with(lambda: option.of_optional(block.animation_data_create()))
                 .to_result_with(partial(Fault.of, Reason.ABSENT, repr(block), member="animation_data"))
                 .bind(lambda data: curve_of(data, *found[0]))
                 .bind(lambda curve: accumulated((found[1](curve), written(curve, ("mute",), value=False).map(lambda wrote: wrote.is_some()), modified(curve))).map(any))

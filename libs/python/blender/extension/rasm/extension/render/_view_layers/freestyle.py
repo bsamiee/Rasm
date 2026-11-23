@@ -33,9 +33,7 @@ _SETTINGS, _LINESET = (
     for kind in (bpy.types.FreestyleSettings, bpy.types.FreestyleLineSet)
 )
 _STACKS: Final = tuple(
-    prop.identifier
-    for prop in bpy.types.FreestyleLineStyle.bl_rna.properties
-    if isinstance(prop, bpy.types.CollectionProperty) and prop.srna is not None and "new" in prop.srna.functions and "type" in prop.srna.functions["new"].parameters
+    prop.identifier for prop in bpy.types.FreestyleLineStyle.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty) and isinstance(prop.fixed_type, bpy.types.LineStyleModifier)
 )
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -91,11 +89,8 @@ def _captured(layer: bpy.types.ViewLayer) -> Outcome[_Freestyle]:
     settings = layer.freestyle_settings
 
     def lineset(held: bpy.types.FreestyleLineSet) -> Outcome[_LineSet]:
-        def styled(style: bpy.types.FreestyleLineStyle) -> Outcome[_LineSet]:
-            modifiers = {stack: tuple(_StyleModifier(name=item.name, kind=item.type) for item in getattr(style, stack)) for stack in _STACKS}
-            return paired(Snapshot.capture(held, Some(_LINESET)), Snapshot.capture(style)).map(lambda pair: _LineSet(name=held.name, values=pair[0], style=pair[1], modifiers=modifiers))
-
-        return styled(held.linestyle)
+        modifiers = {stack: tuple(_StyleModifier(name=item.name, kind=item.type) for item in getattr(held.linestyle, stack)) for stack in _STACKS}
+        return paired(Snapshot.capture(held, Some(_LINESET)), Snapshot.capture(held.linestyle)).map(lambda pair: _LineSet(name=held.name, values=pair[0], style=pair[1], modifiers=modifiers))
 
     return paired(Snapshot.capture(settings, Some(_SETTINGS)), accumulated(map(lineset, settings.linesets))).map(lambda pair: _Freestyle(settings=pair[0], linesets=pair[1]))
 
@@ -129,19 +124,20 @@ def _applied(identity: Identity, freestyle: _Freestyle, layer: bpy.types.ViewLay
         return accumulated(map(removed, tuple(held)[count:])).bind(lambda _: accumulated(map(added, desired[count:]))).map(lambda _: None)
 
     def built(row: _LineSet) -> Outcome[Applied]:
-        match catch(lambda: linesets[row.name], exception=KeyError)():
-            case Ok(held):
+        found: bpy.types.FreestyleLineSet | None = linesets.get(row.name)
+        match found:
+            case None:
+                held = linesets.new(row.name)
+                created = held.linestyle
+                created.name = f"{layer.name} {row.name}"
+                style = ownership.owned(identity, created)
+            case held:
                 current = held.linestyle
                 style = (
                     Ok(current)
                     if current.is_editable and ownership.marked(identity, current).is_some() and current.users == 1
                     else ownership.created(identity, bpy.data.linestyles.new, f"{layer.name} {row.name}")
                 )
-            case _:
-                held = linesets.new(row.name)
-                created = held.linestyle
-                created.name = f"{layer.name} {row.name}"
-                style = ownership.owned(identity, created)
 
         def written(owned: bpy.types.FreestyleLineStyle) -> Outcome[Applied]:
             def finished() -> Outcome[Applied]:

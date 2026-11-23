@@ -35,7 +35,6 @@ from rasm.records import Case, Fault, Outcome, paired, Reason
 
 _IDLE: Final = Job(kind="RENDER")
 _DEPTHS: Final = choices((depth.name, depth.name, "") for depth in Depth)
-_SOURCES: Final = choices(item for item in Descriptor.of(bpy.types.Image, ("type",), bpy.types.EnumProperty).prop.enum_items if item.identifier in get_args(ResultKind.__value__))
 _WRITERS: Final = MappingProxyType({row.name: row for row in Format.writable()})
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -56,7 +55,14 @@ class CameraView(bpy.types.PropertyGroup):
 class Still(CameraView):
     """Source, writer, stored depth, display encoding, and formation policy."""
 
-    source: Annotated[str, bpy.props.EnumProperty(name="Source", description="Image the still writes", items=_SOURCES)]
+    source: Annotated[
+        str,
+        bpy.props.EnumProperty(
+            name="Source",
+            description="Image the still writes",
+            items=choices(item for item in Descriptor.of(bpy.types.Image, ("type",), bpy.types.EnumProperty).prop.enum_items if item.identifier in get_args(ResultKind.__value__)),
+        ),
+    ]
     format: Annotated[
         str,
         bpy.props.EnumProperty(
@@ -280,6 +286,8 @@ def _compression(properties: Still) -> Outcome[Option[Compression]]:
 
 def proxied(image: bpy.types.Image, identity: Identity, downscale: Scaled | LongestSide, config: PyOpenColorIO.Config) -> Outcome[Option[str]]:
     """Points image at a linear-light proxy beside its source file, Nothing when the source fits."""
+    key = identity.identifier("proxy")
+    source = Path(option.of_optional(try_downcast(str, image.get(key))).default_with(lambda: bpy.path.abspath(image.filepath, library=image.library)))
 
     def linear(file: ImageFile, width: int, height: int) -> Outcome[npt.NDArray[np.float32]]:
         def moved(values: npt.NDArray[np.float32], direction: PyOpenColorIO.TransformDirection) -> Outcome[npt.NDArray[np.float32]]:
@@ -292,7 +300,7 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Scaled | Long
             .bind(lambda values: moved(values, PyOpenColorIO.TRANSFORM_DIR_INVERSE))
         )
 
-    def proxy(key: str, source: Path, row: Format, file: ImageFile, width: int, height: int) -> Outcome[str]:
+    def proxy(row: Format, file: ImageFile, width: int, height: int) -> Outcome[str]:
         target = source.with_stem(f"{source.stem}.{width}x{height}")
         depth = row.depths[-1] if image.is_float else Depth.UINT8
         return (
@@ -302,33 +310,26 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Scaled | Long
             .bind(lambda _: written(image, ("filepath",), str(target)).map(lambda _: str(target)))
         )
 
-    def sourced(key: str) -> Outcome[Option[str]]:
-        source = Path(option.of_optional(try_downcast(str, image.get(key))).default_with(lambda: bpy.path.abspath(image.filepath, library=image.library)))
-        return Format.of(source).bind(
-            lambda row: read_file(source, config).bind(
-                lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: proxy(key, source, row, file, *size).map(Some)).default_value(Ok(NOTHING))
-            )
+    return Format.of(source).bind(
+        lambda row: read_file(source, config).bind(
+            lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: proxy(row, file, *size).map(Some)).default_value(Ok(NOTHING))
         )
-
-    return sourced(identity.identifier("proxy"))
+    )
 
 
 def restored(image: bpy.types.Image, identity: Identity) -> Outcome[None]:
     """Points image back at its stored source path and removes the proxy property."""
-
-    def back(key: str) -> Outcome[None]:
-        return (
-            option
-            .of_optional(try_downcast(str, image.get(key)))
-            .map(
-                lambda source: (
-                    written(image, ("filepath",), source).bind(lambda _: catch(image.pop, exception=KeyError)(key).map_error(partial(Fault.of, Refusal.REFUSED, repr(image)))).map(lambda _: None)
-                )
+    key = identity.identifier("proxy")
+    return (
+        option
+        .of_optional(try_downcast(str, image.get(key)))
+        .map(
+            lambda source: (
+                written(image, ("filepath",), source).bind(lambda _: catch(image.pop, exception=KeyError)(key).map_error(partial(Fault.of, Refusal.REFUSED, repr(image)))).map(lambda _: None)
             )
-            .default_value(Ok(None))
         )
-
-    return back(identity.identifier("proxy"))
+        .default_value(Ok(None))
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

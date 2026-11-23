@@ -49,9 +49,6 @@ _CAPACITY: Final = Descriptor.of(bpy.types.RenderSettings, ("filepath",), bpy.ty
 _EDITED: Final = Setting(
     descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]), accepted=(bpy.types.CompositorNodeTree.__name__,)
 ) & Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner=("edit_tree",), prop=bpy.types.ID.bl_rna.properties["is_editable"]))
-_FILE_OUTPUT: Final = Setting(
-    descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner=("edit_tree", "nodes"), prop=bpy.types.Nodes.bl_rna.properties["active"]), accepted=(bpy.types.CompositorNodeOutputFile.__name__,)
-)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -111,11 +108,11 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def copied(self) -> Self:
         """Job-copy path spelling source folder and file name literally."""
-        return msgspec.structs.replace(self, root=_escaped(self.base.as_posix()), spelled=self.spelled - {TextKey.FILE})
+        return msgspec.structs.replace(self, root=os.fsdecode(bpy.path.template_escape(self.base.as_posix())), spelled=self.spelled - {TextKey.FILE})
 
     def rerooted(self, base: Path) -> Self:
         """Returns path under worker's mapped output directory."""
-        return msgspec.structs.replace(self, base=base, root=_escaped(base.as_posix()))
+        return msgspec.structs.replace(self, base=base, root=os.fsdecode(bpy.path.template_escape(base.as_posix())))
 
     def spelling(self, part: Field) -> Option[str]:
         """Returns native variables for selected words and frame padding."""
@@ -164,7 +161,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
     def text(self, layer: str, output: Output, item: Option[str] = NOTHING) -> Outcome[str]:
         """Composes a relative native template with literal field values."""
         filled = self._filled(layer, output, item)
-        return self.name.compose(msgspec.structs.replace(filled, texts={key: _escaped(value) for key, value in filled.texts.items()}), self.spelling)
+        return self.name.compose(msgspec.structs.replace(filled, texts={key: os.fsdecode(bpy.path.template_escape(value)) for key, value in filled.texts.items()}), self.spelling)
 
     def scene_output(self, scene: bpy.types.Scene, *, layer: Option[bpy.types.ViewLayer] = NOTHING) -> Outcome[str]:
         """Composes the requested layer's preview path, resolving native target-scene context when none was requested."""
@@ -219,7 +216,9 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda variable: resolved(f"{{{variable.name}}}", variable.value))
                 .default_with(lambda: Error(Fault.of(Reason.ABSENT, "bpy.data.project.variables", member=outputs.variable)))
                 if outputs.use_variable
-                else rooted(bpy.types.Preferences, bpy.context).map(lambda preferences: preferences.filepaths.render_output_directory).bind(lambda folder: resolved(_escaped(folder), folder))
+                else rooted(bpy.types.Preferences, bpy.context)
+                .map(lambda preferences: preferences.filepaths.render_output_directory)
+                .bind(lambda folder: resolved(os.fsdecode(bpy.path.template_escape(folder)), folder))
             )
 
         outputs = self.attached.struct(scene)
@@ -265,11 +264,6 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
 def today() -> datetime.date:
     """Returns the local calendar date an entry point composes output paths at, read once per entry."""
     return datetime.datetime.now(datetime.UTC).astimezone().date()
-
-
-def _escaped(text: str) -> str:
-    """Returns text the host's path templates read literally, each brace doubled, a spelling no host member states."""
-    return text.replace("{", "{{").replace("}", "}}")
 
 
 def _frame_file(render: bpy.types.RenderSettings, frame: int, view: Option[bpy.types.SceneRenderView] = NOTHING) -> Outcome[Path]:
@@ -344,7 +338,7 @@ def image_path(scene: bpy.types.Scene, base: str, extension: str, view: Option[b
         prefix = 4 if text.startswith("\\\\?\\") else 2 if text.startswith("\\\\") else 0
         text = text[:prefix] + text[prefix:].replace("\\", "/")
         text = _path_bytes(f"{bpy.path.abspath('//')}{text[2:]}" if text.startswith("//") else bpy.path.abspath(text))
-        trailing = text.endswith(tuple("/\\" if os.name == "nt" else "/"))
+        trailing = text.endswith((os.sep, os.altsep or os.sep))
         terminal_dot = text.endswith(f"{os.sep}.")
         terminal_parent = text.endswith(f"{os.sep}..")
         text = os.path.normpath(text[:-1] if terminal_dot else text) if text else text
@@ -352,10 +346,10 @@ def image_path(scene: bpy.types.Scene, base: str, extension: str, view: Option[b
         text = f"{text}{'' if text.endswith(os.sep) else os.sep}." if terminal_dot else text
         text = f"{text}{os.sep}" if trailing and not text.endswith(os.sep) else text
         text = framed(text)
-        text = _path_suffix(text, bpy.app.translations.pgettext_data("Untitled")) if text.endswith(tuple("/\\" if os.name == "nt" else "/")) else text
+        text = _path_suffix(text, bpy.app.translations.pgettext_data("Untitled")) if text.endswith((os.sep, os.altsep or os.sep)) else text
         previous = ntpath.splitext(text)[1]
         text = view_path(scene, text, view)
-        accepted = {".jpg", ".jpeg"} if extension == ".jpg" else {".tif", ".tiff"} if extension == ".tif" else {extension}
+        accepted = {".jpg": {".jpg", ".jpeg"}, ".tif": {".tif", ".tiff"}}.get(extension, {extension})
         if use_extension and previous.lower() not in accepted:
             stem, previous = ntpath.splitext(text)
             replaced = previous.lower() in bpy.path.extensions_image  # ty: ignore[missing-attribute]
@@ -380,8 +374,7 @@ def file_output_path(
     view: Option[bpy.types.SceneRenderView] = NOTHING,
 ) -> Outcome[Path]:
     """Resolves an owned File Output's live strings, actual item name, format and render mode."""
-    separators = "/\\" if os.name == "nt" else "/"
-    base = _path_bytes(f"{node.directory}{'' if node.directory.endswith(tuple(separators)) else os.sep}{node.file_name}{item.map(lambda held: held.name).default_value('')}")
+    base = _path_bytes(f"{node.directory}{'' if node.directory.endswith((os.sep, os.altsep or os.sep)) else os.sep}{node.file_name}{item.map(lambda held: held.name).default_value('')}")
 
     def chosen(paths: tuple[Path, ...]) -> Outcome[Path]:
         match tuple(dict.fromkeys(paths)):
@@ -487,7 +480,18 @@ def output_replace(call: Call[Replace]) -> Outcome[Answer]:
     return _planned(call.context.selected_nodes, call.properties).bind(lambda renames: _applied(renames, "No selected path holds find text"))
 
 
-@Operator.of(Bump, condition=Some(_EDITED & _FILE_OUTPUT), options=frozenset({"UNDO_GROUPED"}), undo_group=Some("output_version"))
+@Operator.of(
+    Bump,
+    condition=Some(
+        _EDITED
+        & Setting(
+            descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner=("edit_tree", "nodes"), prop=bpy.types.Nodes.bl_rna.properties["active"]),
+            accepted=(bpy.types.CompositorNodeOutputFile.__name__,),
+        )
+    ),
+    options=frozenset({"UNDO_GROUPED"}),
+    undo_group=Some("output_version"),
+)
 def output_version(call: Call[Bump]) -> Outcome[Answer]:
     """Move version tokens in active File Output node."""
     match call.context.active_node:

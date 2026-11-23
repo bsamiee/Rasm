@@ -38,8 +38,8 @@ class Voronoi(Case, frozen=True, kw_only=True):
 
     @property
     def feature_cells(self) -> textures.Voronoi:
-        """Cells whose `Color` belongs to the nearest feature, F1 Euclidean cells where the feature measures edges."""
-        return msgspec.structs.replace(self.texture, feature="F1", distance="EUCLIDEAN") if self.texture.feature == "DISTANCE_TO_EDGE" else self.texture
+        """Cells whose `Color` belongs to the nearest feature, F1 Euclidean cells where the feature (edge distance, n-sphere radius) holds no `Color` output."""
+        return msgspec.structs.replace(self.texture, feature="F1", distance="EUCLIDEAN") if self.texture.feature in {"DISTANCE_TO_EDGE", "N_SPHERE_RADIUS"} else self.texture
 
 
 class Wave(Case, frozen=True, kw_only=True):
@@ -89,7 +89,7 @@ def cased[T: msgspec.Struct](kinds: tuple[type[T], ...], current: T) -> tuple[T,
 # --- [PANELS]
 
 
-def bases(key: Key, chosen: Basis, description: str, name: str | None = None) -> InterfacePanel:
+def bases(key: Key, chosen: Basis, description: str) -> InterfacePanel:
     """Basis panel at `key`: its texture menu defaulting to the chosen case, then one panel per case holding its texture inputs, its own fields, and its density cut, every other case at its defaults."""
 
     def panel(case: Basis) -> InterfacePanel:
@@ -99,14 +99,14 @@ def bases(key: Key, chosen: Basis, description: str, name: str | None = None) ->
         return msgspec.structs.replace(own, inputs=(*texture, *own.inputs), panels=(cut,))
 
     menu = msgspec.structs.replace(TEXTURE, default_value=MenuItem.of(type(chosen)).name)
-    return InterfacePanel.of(key, Interface(inputs=(menu,), panels=tuple(map(panel, cased(_KINDS, chosen)))), name=name, description=description)
+    return InterfacePanel.of(key, Interface(inputs=(menu,), panels=tuple(map(panel, cased(_KINDS, chosen)))), description=description)
 
 
 # --- [NODES]
 
 
 def textured(
-    shell: GraphInputs, panel: InterfacePanel, chosen: Basis, point: Expr, time: Scalar, seed: Scalar, *, loss: Scalar = 0.0, streams: tuple[int, *tuple[int, ...]] = (0,)
+    shell: GraphInputs, panel: InterfacePanel, chosen: Basis, point: Expr, time: Scalar, seed: Scalar, *, loss: Scalar = 0.0, streams: tuple[int, *tuple[int, ...]]
 ) -> tuple[tuple[Expr, Expr], ...]:
     """Returns density and tone per stream of the basis panel's texture menu, every stream switched by the one menu.
 
@@ -128,8 +128,7 @@ def textured(
         read = Some(lambda *path: shell.input(panel.socket(type(case), *path)))
         return tuple(part for stream in streams for part in drawn(case, point, time, origin(seed, float(stream)), read, loss))
 
-    first, *rest = menus(shell.input(panel, TEXTURE), {MenuItem.of(type(case)): streamed(case) for case in cased(_KINDS, chosen)})
-    columns = (first, *rest)
+    columns: tuple[Expr, ...] = menus(shell.input(panel, TEXTURE), {MenuItem.of(type(case)): streamed(case) for case in cased(_KINDS, chosen)})
     return tuple(zip(columns[::2], columns[1::2]))
 
 
@@ -138,7 +137,6 @@ def textured(
 
 def drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Callable[[*tuple[object, ...]], Expr]], loss: Scalar = 0.0) -> tuple[Expr, Expr]:
     """Density and tone of one case at a decorrelation offset, its sockets read through `read` where the graph holds them, the record's values where it reads `Nothing`."""
-    kind = type(case)
 
     def operand(held: Scalar, *path: object) -> Scalar:
         return read.map(lambda reader: reader(*path)).default_value(held)
@@ -163,7 +161,7 @@ def drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Cal
         case White(texture=noise, spacing=spacing):
             cell = operand(spacing, White.spacing)
             raw = textures.evolving(noise, vector("FLOOR", (point + offset) / xyz(cell, cell, 1.0)), math("FLOOR", time), linked=linked(White.texture))
-    density = case.cut.node(raw - loss, linked=linked(kind.cut))
+    density = case.cut.node(raw - loss, linked=linked(type(case).cut))
     match case:
         case Voronoi(cell_color=cell_color):
             color = textures.evolving(case.feature_cells, point + offset, time, socket="Color", socket_type=bpy.types.NodeSocketColor, linked=linked(Voronoi.texture))

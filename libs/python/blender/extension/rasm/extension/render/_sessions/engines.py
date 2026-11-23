@@ -203,6 +203,8 @@ def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome
             case Error(faults):
                 return faults
             case Ok(tile):
+                for field, value in tile.stamps:
+                    final.stamp_data_add_field(field, value)
                 height, width = tile.planes[0][1].shape[:2]
                 if (result := engine.begin_result(tile.x, tile.y, width, height, layer=layer, view=tile.view)) is None:
                     return absent
@@ -216,8 +218,6 @@ def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome
                         for pass_, plane in tile.planes
                         for found in (result.layers[0].passes.find_by_name(pass_.name, tile.view),)
                     )
-                    for field, value in tile.stamps:
-                        final.stamp_data_add_field(field, value)
                     area += result.resolution_x * result.resolution_y
                 finally:
                     engine.end_result(result, cancel=engine.test_break())

@@ -7,7 +7,7 @@ from functools import partial
 from typing import Final, Self, TypedDict, Unpack
 
 import bpy
-from expression import Error, NOTHING, Nothing, Ok, Option, option, Some, try_downcast
+from expression import Error, NOTHING, Nothing, Ok, Option, option, Some
 from expression.extra.result import catch
 import idprop
 import msgspec
@@ -52,15 +52,12 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def read(cls, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Option[Self]:
-        """Returns validated mark, Nothing for a missing mark or invalid key, other invalid fields read as Nothing."""
-        group = custom_read(holder, identity.manifest.id).to_option().bind(lambda found: option.of_optional(try_downcast(idprop.types.IDPropertyGroup, found)))
-
-        def field[V](name: str, kind: TypeForm[V]) -> Option[V]:
-            return group.bind(lambda held: converted_value(held.get(name), kind, name).to_option())
-
-        return field("key", Key).map(
-            lambda key: cls(key=key, of=group.bind(lambda held: option.of_optional(try_downcast(bpy.types.ID, held.get("of")))), content=field("content", ContentHash), slot=field("slot", int))
-        )
+        """Returns validated mark, Nothing for a missing mark or invalid key, an absent or invalid other field read as Nothing."""
+        match custom_read(holder, identity.manifest.id):
+            case Ok(idprop.types.IDPropertyGroup() as held):
+                return _field(held, "key", Key).map(lambda key: cls(key=key, of=_field(held, "of", bpy.types.ID), content=_field(held, "content", ContentHash), slot=_field(held, "slot", int)))
+            case _:
+                return NOTHING
 
     def write(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Outcome[None]:
         """Writes present fields under manifest ID."""
@@ -243,6 +240,12 @@ def tracked[T](scope: ExitStack, removed: Callable[[T], object], made: Outcome[T
 def released(blocks: tuple[bpy.types.ID, ...]) -> Outcome[int]:
     """Removes blocks in one `batch_remove`, returning their count."""
     return (catch(bpy.data.batch_remove, exception=RuntimeError)(ids=blocks) if blocks else Ok(None)).map(lambda _: len(blocks)).map_error(partial(Fault.of, Refusal.REFUSED, repr(blocks)))
+
+
+def _field[V](held: idprop.types.IDPropertyGroup, name: str, kind: TypeForm[V], /) -> Option[V]:
+    """Returns a stored mark field as kind, Nothing for an absent field, which no conversion reads, or an invalid one."""
+    value: object = held.get(name)
+    return option.of_optional(value).bind(lambda stored: converted_value(stored, kind, name).to_option())
 
 
 def _held[T: bpy.types.ID](identity: Identity, kind: type[T], keys: frozenset[Key]) -> tuple[tuple[T, Mark], ...]:

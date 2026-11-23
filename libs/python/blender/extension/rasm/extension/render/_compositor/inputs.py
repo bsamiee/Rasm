@@ -203,9 +203,9 @@ class _WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                     for entry in scene.compositor_effects
                     for group in option.of_optional(entry.node_group).to_list()
                     for socket in interface_sockets(group)
+                    if isinstance(socket, bpy.types.NodeTreeInterfaceSocketColor)
                     for owner in interface_input(entry, socket.identifier).to_option().to_list()
                     for descriptor in Descriptor.resolve(owner, ("value",), bpy.types.FloatProperty).to_option().to_list()
-                    if descriptor.prop.subtype == "COLOR"
                 )
                 for _, values in held:
                     cpu.applyRGB(values[:3])

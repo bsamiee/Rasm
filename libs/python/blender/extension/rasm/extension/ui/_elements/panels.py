@@ -9,13 +9,12 @@ from typing import Final, Generic, Literal, Self, TYPE_CHECKING, TypeVar
 import _bpy_types  # ruff: ignore[import-private-name]
 from bl_ui.space_properties import PropertiesAnimationMixin
 import bpy
-from expression import Error, NOTHING, Ok, Option, Some
-from expression.extra.result import catch
+from expression import NOTHING, Option, Some
 import msgspec
 
 from rasm.extension.commands import invocations, keymaps, operators
 from rasm.extension.data._lifecycle.identity import Identity, Key
-from rasm.extension.data._lifecycle.registration import Acquisitions, Declaration, entered, Gathering, Tier
+from rasm.extension.data._lifecycle.registration import Acquisitions, Classes, Declaration, entered, Gathering, Tier
 from rasm.extension.data._rna.conditions import Condition, satisfied
 from rasm.extension.data._rna.paths import rna_definition, Struct
 from rasm.extension.data._rna.properties import declaring
@@ -33,7 +32,6 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type FixedPlacement = Beside | Child | Sidebar | EditorRegion
-type _PanelPlacement = FixedPlacement | _DynamicPlacement
 _G_co = TypeVar("_G_co", bound=bpy.types.PropertyGroup, covariant=True, default=bpy.types.PropertyGroup)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -46,11 +44,10 @@ class Beside(msgspec.Struct, frozen=True):
 
     panel: type[_bpy_types.Panel]
 
-    def members(self, _identity: Identity) -> dict[str, object]:
+    def members(self) -> dict[str, object]:
         """Copies the stock panel's editor, region, and whichever of tab context and Sidebar category it declares."""
         declared: type[bpy.types.Panel] = self.panel  # ty: ignore[invalid-assignment]
-        tabs = {"bl_context": catch(lambda: declared.bl_context, exception=AttributeError)(), "bl_category": catch(lambda: declared.bl_category, exception=AttributeError)()}
-        return {"bl_space_type": declared.bl_space_type, "bl_region_type": declared.bl_region_type, **{member: tab for member, held in tabs.items() for tab in held.to_option().to_list()}}
+        return {"bl_space_type": declared.bl_space_type, "bl_region_type": declared.bl_region_type, **{tab: getattr(declared, tab) for tab in ("bl_context", "bl_category") if hasattr(declared, tab)}}
 
 
 class Child(msgspec.Struct, frozen=True, kw_only=True):
@@ -58,7 +55,7 @@ class Child(msgspec.Struct, frozen=True, kw_only=True):
 
     parent: type[_bpy_types.Panel]
 
-    def members(self, _identity: Identity) -> dict[str, object]:
+    def members(self) -> dict[str, object]:
         """Copies the parent's editor and region and names it as parent."""
         parent: type[bpy.types.Panel] = self.parent  # ty: ignore[invalid-assignment]
         return {"bl_space_type": parent.bl_space_type, "bl_region_type": parent.bl_region_type, "bl_parent_id": rna_definition(parent).identifier}
@@ -70,7 +67,7 @@ class Sidebar(msgspec.Struct, frozen=True, kw_only=True):
     space: "rna_enums.SpaceTypeItems"
     category: str
 
-    def members(self, _identity: Identity) -> dict[str, object]:
+    def members(self) -> dict[str, object]:
         """Places the panel in the tab."""
         return {"bl_space_type": self.space, "bl_region_type": "UI", "bl_category": self.category}
 
@@ -81,16 +78,9 @@ class EditorRegion(msgspec.Struct, frozen=True, kw_only=True):
     space: "rna_enums.SpaceTypeItems"
     region: "rna_enums.RegionTypeItems"
 
-    def members(self, _identity: Identity) -> dict[str, object]:
+    def members(self) -> dict[str, object]:
         """Places the panel in the region."""
         return {"bl_space_type": self.space, "bl_region_type": self.region}
-
-
-class _DynamicPlacement(msgspec.Struct, frozen=True, kw_only=True):
-    """Placement read at registration and again after each `changed` firing."""
-
-    read: Callable[[Identity], Outcome[FixedPlacement]]
-    changed: Signal
 
 
 class PanelCopy(msgspec.Struct, frozen=True, kw_only=True):
@@ -110,7 +100,7 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
     """
 
     section: Section[bpy.types.PropertyGroup]
-    at: _PanelPlacement
+    at: FixedPlacement
     condition: Option[Condition] = NOTHING
     copies: tuple[PanelCopy, ...] = ()
     children: tuple[Section[bpy.types.PropertyGroup], ...] = ()
@@ -123,9 +113,9 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(cls(section=popover, at=POPOVER) for section in sections_in(rows) for popover in section.popover.to_list())
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
-        """Returns the sections, a popover panel per values popover they reach, and the scope registering every placement."""
+        """Returns the sections, a popover panel per values popover they reach, and the panel classes of every placement, built when the interface tier opens."""
         roots = (self.section, *self.children)
-        return (*roots, *Panel.popovers(roots), (Tier.INTERFACE, _displayed(self, identity)))
+        return (*roots, *Panel.popovers(roots), (Tier.INTERFACE, Classes(build=partial(_displayed, self, identity))))
 
 
 # --- [PREFERENCES]
@@ -252,9 +242,8 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
 # --- [REGISTRATION]
 
 
-@contextmanager
-def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
-    """Registers the panel classes at every placement for the scope, re-registering a docked placement after each `changed` firing that moves it."""
+def _displayed(panel: Panel, identity: Identity) -> Outcome[tuple[type, ...]]:
+    """Builds the panel classes of every placement once the sections realize."""
 
     def slug(at: FixedPlacement) -> str:
         """Returns a copy's key suffix: the stock panel's identifier, or the editor with its tab or region, in lowercase snake case."""
@@ -264,11 +253,6 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
             case Sidebar(space=space, category=named) | EditorRegion(space=space, region=named):
                 text = f"{space} {named}"
         return "_".join(match.group() for match in re.finditer(r"[a-z0-9]+", text.lower()))
-
-    sites = ((panel.section.key, panel.at, panel.condition), *((f"{panel.section.key}_{slug(copy.at)}", copy.at, copy.condition) for copy in panel.copies))
-    drawn = paired(panel.section.realized(identity), accumulated(child.realized(identity) for child in panel.children))
-    held: list[tuple[FixedPlacement, ...]] = []
-    classes = ExitStack()
 
     def classed(
         section: Section[bpy.types.PropertyGroup], draws: SectionDraws, name: str, members: Mapping[str, object], options: frozenset[str], condition: Option[Condition]
@@ -298,42 +282,17 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
     def placed(draws: tuple[SectionDraws, tuple[SectionDraws, ...]], stem: str, at: FixedPlacement, condition: Option[Condition]) -> tuple[type[bpy.types.Panel], ...]:
         """Builds the panel class at one placement, ordered above the Animation panel, then its child panel classes in registration order."""
         top, children = draws
-        placing = {**at.members(identity), "bl_owner_id": identity.package}
+        placing = {**at.members(), "bl_owner_id": identity.package}
         ordered = {**placing, "bl_order": PropertiesAnimationMixin.bl_order - 1, **panel.units.map(lambda width: {"bl_ui_units_x": width}).default_value({})}
-        shared = {key: value for key, value in placing.items() if key != "bl_parent_id"}
-
         name = identity.name(bpy.types.Panel, stem)
         return (
             classed(panel.section, top, name, ordered, panel.options, condition),
-            *(classed(child, each, identity.name(bpy.types.Panel, f"{stem}_{child.key}"), {**shared, "bl_parent_id": name}, frozenset(), NOTHING) for child, each in zip(panel.children, children)),
+            *(classed(child, each, identity.name(bpy.types.Panel, f"{stem}_{child.key}"), {**placing, "bl_parent_id": name}, frozenset(), NOTHING) for child, each in zip(panel.children, children)),
         )
 
-    def resolved() -> Outcome[tuple[FixedPlacement, ...]]:
-        return accumulated(at.read(identity) if isinstance(at, _DynamicPlacement) else Ok(at) for _, at, _ in sites)
-
-    def registered(now: tuple[FixedPlacement, ...]) -> Outcome[None]:
-        with ExitStack() as entering:
-            if (answer := drawn.bind(lambda draws: entered(identity, entering, tuple(cls for (stem, _, condition), at in zip(sites, now) for cls in placed(draws, stem, at, condition))))).is_ok():
-                classes.enter_context(entering.pop_all())
-                held[:] = [now]
-            return answer
-
-    def rebuilt() -> Outcome[Option[str]]:
-        def replaced(now: tuple[FixedPlacement, ...]) -> Outcome[None]:
-            if held == [now]:
-                return Ok(None)
-            previous = tuple(held)
-            classes.close()
-            held.clear()
-            return registered(now).or_else_with(lambda faults: paired(Error(faults), accumulated(map(registered, previous))).map(lambda _: None))
-
-        return resolved().bind(replaced).map(lambda _: NOTHING)
-
-    with ExitStack() as scope:
-        scope.enter_context(classes)
-        pending = scope.enter_context(identity.reports.deferred(rebuilt))
-        followed = accumulated(scope.enter_context(signal.followed(lambda: Ok(pending()))) for signal in dict.fromkeys(at.changed for _, at, _ in sites if isinstance(at, _DynamicPlacement)))
-        yield followed.bind(lambda _: resolved().bind(registered))
+    sites = ((panel.section.key, panel.at, panel.condition), *((f"{panel.section.key}_{slug(copy.at)}", copy.at, copy.condition) for copy in panel.copies))
+    drawn = paired(panel.section.realized(identity), accumulated(child.realized(identity) for child in panel.children))
+    return drawn.map(lambda draws: tuple(cls for stem, at, condition in sites for cls in placed(draws, stem, at, condition)))
 
 
 # --- [PREFERENCES]

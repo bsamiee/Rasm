@@ -1,4 +1,4 @@
-"""Darkroom chart calibration: a color chart placed over an image or node preview, fitted against its reference, and written into the earliest Primaries entry's channel mixer."""
+"""Darkroom chart calibration: a color chart placed over an image or node preview with its flip icons, fitted against its reference, and written into the earliest Primaries entry's channel mixer."""
 
 from pathlib import Path
 from types import MappingProxyType
@@ -11,7 +11,7 @@ import bpy
 from rasm.extension.commands import Answer, Call, Done, Empty, Operator
 from rasm.extension.data import rooted
 from rasm.extension.render import ChartCalibration, ChartEditing, entered, path_key
-from rasm.extension.ui import Beside, OperatorButton, Panel
+from rasm.extension.ui import Beside, Icons, OperatorButton, Panel
 from rasm.records import Outcome, paired
 
 from ..catalog import chain
@@ -21,7 +21,6 @@ from ..effects.grade.colorimetry import MIXER, Primaries, REMAP
 
 _FLIP: Final = Path("flip.svg")
 _VERTICAL: Final = Path("flip-vertical.svg")
-turned: Final = MappingProxyType({_VERTICAL: _FLIP})
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -42,10 +41,14 @@ def apply_calibration(call: Call[Empty]) -> Outcome[Answer]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_editing: Final = ChartEditing(horizontal=_FLIP, vertical=_VERTICAL)
-_calibration: Final = ChartCalibration(charts=_editing, actions=(OperatorButton(target=apply_calibration),))
-rows: Final = (_editing, _calibration, Panel(section=_calibration.section(), at=Beside(IMAGE_PT_image_properties)), Panel(section=_calibration.node_section(), at=Beside(NODE_PT_active_node_generic)))
+_calibration: Final = ChartCalibration(charts=ChartEditing(horizontal=_FLIP, vertical=_VERTICAL), actions=(OperatorButton(target=apply_calibration),))
+rows: Final = (
+    Icons(turned=MappingProxyType({_VERTICAL: _FLIP})),
+    _calibration,
+    Panel(section=_calibration.section(), at=Beside(IMAGE_PT_image_properties)),
+    Panel(section=_calibration.node_section(), at=Beside(NODE_PT_active_node_generic)),
+)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["rows", "turned"]
+__all__ = ["rows"]

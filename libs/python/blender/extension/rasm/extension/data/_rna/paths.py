@@ -3,7 +3,7 @@
 import ast
 from collections import deque
 from collections.abc import Callable, Iterable, Iterator
-from functools import partial
+from functools import cache, partial
 from itertools import islice
 from typing import overload
 
@@ -71,18 +71,18 @@ def parsed_path(text: str) -> Outcome[RnaPath]:
         node = inner
 
 
+def defined(struct: Native | type[Struct]) -> Option[bpy.types.Struct]:
+    """Returns the RNA definition a live struct, collection, or struct type holds, Nothing for a collection declaring no members (`CurveMapping.curves`)."""
+    return option.of_optional(try_downcast(bpy.types.Struct, getattr(struct, "bl_rna", None)))
+
+
 def rna_definition(struct: Native | type[Struct]) -> bpy.types.Struct:
-    """Returns the RNA definition of a live struct, a collection holding its own definition, or a struct type, `TypeError` for a collection declaring no members (`Scene.objects`)."""
-    match getattr(struct, "bl_rna", None):
-        case bpy.types.Struct() as held:
+    """Returns the RNA definition of a live struct, a collection holding its own definition, or a struct type, `TypeError` for a collection declaring no members (`CurveMapping.curves`)."""
+    match defined(struct):
+        case Some(held):
             return held
         case _:
             raise TypeError(struct)
-
-
-def defined(struct: Native) -> Option[bpy.types.Struct]:
-    """Returns the RNA definition a live struct or collection holds, Nothing for a collection declaring no members (`Scene.objects`)."""
-    return catch(rna_definition, exception=TypeError)(struct).to_option()
 
 
 def id_path(struct: Struct) -> Option[RnaPath]:
@@ -225,8 +225,9 @@ def _held(struct: Struct, parent: Struct) -> Option[RnaPath]:
     return option.of_optional(next(steps, None)).bind(lambda found: id_path(parent).map(lambda base: (*base, *found)))
 
 
+@cache
 def _members[K: Native](root: type[K]) -> tuple[str, ...]:
-    """Returns context pointers able to hold root type."""
+    """Returns context pointers able to hold root type, read from the context's static definition once per type."""
     return tuple(prop.identifier for prop in bpy.types.Context.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and issubclass(root, type(prop.fixed_type)))
 
 

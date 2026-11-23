@@ -9,9 +9,8 @@ from types import GenericAlias
 from typing import Annotated, ClassVar, Final, Generic, overload, TypeVar
 
 import bpy
-from expression import Error, NOTHING, Ok, Option, option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.collections import Block
-from expression.extra.result import catch
 import msgspec
 import OpenImageIO
 import PyOpenColorIO
@@ -259,10 +258,11 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
 
     def named(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Finds named entry among the effect's owned groups."""
+        keys = frozenset(owner.key for owner in self.ownerships)
         return (
-            catch(lambda: scene.compositor_effects[name], exception=KeyError)()
-            .to_option()
-            .filter(lambda entry: entry in self.entries(identity, scene))
+            option
+            .of_optional(try_downcast(bpy.types.SceneCompositorEffect, scene.compositor_effects.get(name)))
+            .filter(lambda entry: option.of_optional(entry.node_group).bind(partial(Mark.read, identity)).filter(lambda mark: mark.key in keys).is_some())
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))
         )
 

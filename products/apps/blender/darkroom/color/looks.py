@@ -67,9 +67,7 @@ def _offered(identity: Identity, owner: Struct, _context: bpy.types.Context | No
 
 def _current(identity: Identity, owner: Struct) -> int:
     """Returns the position of the look the holder's view applies."""
-    looks = _looks(PyOpenColorIO.GetCurrentConfig())
-    look = id_data(bpy.types.Scene, owner).map(lambda scene: viewed(_viewing(identity, scene)).looks_override).default_value(NO_LOOK)
-    return looks.index(look)
+    return _looks(PyOpenColorIO.GetCurrentConfig()).index(id_data(bpy.types.Scene, owner).map(lambda scene: viewed(_viewing(identity, scene)).looks_override).default_value(NO_LOOK))
 
 
 @contextmanager

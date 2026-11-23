@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import Annotated, ClassVar, TYPE_CHECKING
 
 import bpy
-from expression import NOTHING, Ok, Option, Some
+from expression import Ok, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -229,10 +229,9 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
                     context = bpy.context
 
                     def handed(record: Sets) -> None:
-                        if record.across and scene == context.scene:
-                            for owner in (scene, context.view_layer):
-                                if owner is not None and any(isinstance(owner, category.root) for category in members.categories):
-                                    deferred(owner)
+                        for owner in (scene, context.view_layer) if record.across and scene == context.scene else ():
+                            if owner is not None and any(isinstance(owner, category.root) for category in members.categories):
+                                deferred(owner)
 
                     return rooted(bpy.types.WindowManager, context).map(lambda manager: handed(members.sets.struct(manager)))
 
@@ -277,16 +276,10 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
 
 
 def render_set_convert(members: Members, call: Call[Converting]) -> Outcome[Answer]:
-    """Transfers render sets between copied scenes and view layers."""
-    return _converted(members, Form[call.properties.form], call.context).map(
-        lambda names: names.map(lambda made: Done(notes=tuple(("INFO", f"Created {name}") for name in made))).default_value(Unchanged(reason=f"Render sets use {call.properties.form.lower()}"))
-    )
+    """Transfers render sets between copied scenes and view layers, removing created owners on failure and changing nothing under the current form."""
+    form, context = Form[call.properties.form], call.context
 
-
-def _converted(members: Members, form: Form, context: bpy.types.Context) -> Outcome[Option[tuple[str, ...]]]:
-    """Converts render set form, removing created owners on failure, `Nothing` for current form."""
-
-    def switched(current: Sets, rollback: ExitStack) -> Outcome[Option[tuple[str, ...]]]:
+    def switched(current: Sets, rollback: ExitStack) -> Outcome[Answer]:
         def committed(names: tuple[str, ...], old: tuple[bpy.types.Scene, ...] = ()) -> Outcome[tuple[str, ...]]:
             def replaced(scene: bpy.types.Scene) -> Outcome[tuple[str, ...]]:
                 shown(scene, old)
@@ -329,13 +322,14 @@ def _converted(members: Members, form: Form, context: bpy.types.Context) -> Outc
 
         match Form[current.form], form:
             case Form.COPIES, Form.LAYERS:
-                return members.copies(context).bind(layered).map(Some)
+                converted = members.copies(context).bind(layered)
             case Form.LAYERS, Form.COPIES:
-                return members.source(context).bind(copied).map(Some)
+                converted = members.source(context).bind(copied)
             case _:
-                return Ok(NOTHING)
+                return Ok(Unchanged(reason=f"Render sets use {call.properties.form.lower()}"))
+        return converted.map(lambda names: Done(notes=tuple(("INFO", f"Created {name}") for name in names)))
 
-    def held(manager: bpy.types.WindowManager) -> Outcome[Option[tuple[str, ...]]]:
+    def held(manager: bpy.types.WindowManager) -> Outcome[Answer]:
         with ExitStack() as rollback:
             return switched(members.sets.struct(manager), rollback)
 

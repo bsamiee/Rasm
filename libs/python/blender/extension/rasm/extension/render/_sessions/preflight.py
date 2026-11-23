@@ -44,22 +44,6 @@ class _Folder(conditions.Condition, frozen=True, kw_only=True):
         return f"writable {rna_definition(bpy.types.RenderSettings).properties['filepath'].name} folder"
 
 
-class _Measure(msgspec.Struct, frozen=True, kw_only=True):
-    """Evaluated instance geometry and loaded image memory for one view layer."""
-
-    objects: int
-    vertices: int
-    faces: int
-    triangles: int
-    images: int
-    image_bytes: int
-
-    @property
-    def notes(self) -> tuple[str, ...]:
-        """Counts and image memory as report lines."""
-        return (f"Objects {self.objects:,}", f"Vertices {self.vertices:,}", f"Faces {self.faces:,}", f"Triangles {self.triangles:,}", f"Images {self.images:,} ({self.image_bytes / 2**20:,.1f} MiB)")
-
-
 class Shader(bpy.types.PropertyGroup):
     """Shader node class to list material users of."""
 
@@ -128,8 +112,22 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     @staticmethod
     def measure_view_layer(call: Call[Empty]) -> Outcome[Answer]:
-        """Reports the evaluated geometry and image memory of the view layer."""
-        return rooted(bpy.types.ViewLayer, call.context).bind(_measured).map(lambda measure: Done(notes=tuple(("INFO", text) for text in measure.notes)))
+        """Reports the evaluated instance geometry and loaded image memory of the view layer."""
+
+        def counted(depsgraph: bpy.types.Depsgraph) -> Answer:
+            data = tuple(item.data for instance in depsgraph.object_instances for item in option.of_optional(instance.object).to_list())
+            meshes = tuple(mesh for mesh in data if isinstance(mesh, bpy.types.Mesh))
+            images = tuple(image for block in depsgraph.ids for image in (block.original,) if isinstance(image, bpy.types.Image))
+            counts = {
+                "Objects": len(data),
+                "Vertices": sum(len(mesh.vertices) for mesh in meshes),
+                "Faces": sum(len(mesh.polygons) for mesh in meshes),
+                "Triangles": sum(len(mesh.loop_triangles) for mesh in meshes),
+            }
+            memory = sum(prod(image.size) * image.channels * (4 if image.is_float else 1) for image in images)
+            return Done(notes=(*(("INFO", f"{name} {count:,}") for name, count in counts.items()), ("INFO", f"Images {len(images):,} ({memory / 2**20:,.1f} MiB)")))
+
+        return rooted(bpy.types.ViewLayer, call.context).bind(evaluated_depsgraph).map(counted)
 
     @staticmethod
     def open_library(call: Call[Empty]) -> Outcome[Answer]:
@@ -159,8 +157,6 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [AUDIT]
 
 
 def _active(context: bpy.types.Context) -> Outcome[bpy.types.ID]:
@@ -206,29 +202,6 @@ def shader_kinds() -> tuple[type[bpy.types.ShaderNode], ...]:
 def shader_rows(kinds: tuple[type[bpy.types.ShaderNode], ...]) -> tuple[tuple[str, str, str], ...]:
     """Returns enum rows of shader classes, cached so the host's dynamic enum reads keep their strings."""
     return tuple((kind.__name__, rna.name, rna.description) for kind in kinds for rna in (rna_definition(kind),))
-
-
-# --- [MEASURES]
-
-
-def _measured(view_layer: bpy.types.ViewLayer) -> Outcome[_Measure]:
-    """Counts evaluated instance geometry and image memory of view layer."""
-
-    def counted(depsgraph: bpy.types.Depsgraph) -> _Measure:
-        """Counts instance meshes and images of depsgraph."""
-        data = tuple(item.data for instance in depsgraph.object_instances for item in option.of_optional(instance.object).to_list())
-        meshes = tuple(mesh for mesh in data if isinstance(mesh, bpy.types.Mesh))
-        images = tuple(image for block in depsgraph.ids for image in (block.original,) if isinstance(image, bpy.types.Image))
-        return _Measure(
-            objects=len(data),
-            vertices=sum(len(mesh.vertices) for mesh in meshes),
-            faces=sum(len(mesh.polygons) for mesh in meshes),
-            triangles=sum(len(mesh.loop_triangles) for mesh in meshes),
-            images=len(images),
-            image_bytes=sum(prod(image.size) * image.channels * (4 if image.is_float else 1) for image in images),
-        )
-
-    return evaluated_depsgraph(view_layer).map(counted)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -2,8 +2,7 @@
 
 from collections import Counter
 from collections.abc import Callable, Iterator, Sequence
-from datetime import datetime, timedelta, UTC
-from email.utils import format_datetime
+from datetime import timedelta
 from http import HTTPMethod
 
 from expression import Error, NOTHING, Option, Some
@@ -78,9 +77,9 @@ def test_a_busy_server_is_asked_again_after_its_retry_after_delay(server: Server
     assert second.at - first.at >= timedelta(seconds=1)
 
 
-def test_a_retry_after_date_in_the_past_is_asked_again_at_once(server: Server) -> None:
-    """An HTTP-date `Retry-After` already past repeats the request without waiting."""
-    past = format_datetime(datetime(2026, 1, 1, tzinfo=UTC), usegmt=True)
+@pytest.mark.parametrize("past", ["Sun, 06 Nov 1994 08:49:37 GMT", "Sunday, 06-Nov-94 08:49:37 GMT", "Sun Nov  6 08:49:37 1994"])
+def test_a_retry_after_date_in_the_past_is_asked_again_at_once(server: Server, past: str) -> None:
+    """A `Retry-After` already past, in each HTTP-date form RFC 9110 5.6.7 has a recipient accept, repeats the request without waiting."""
     url, received = server(iter([Answer(status=503, headers={"retry-after": past})]))
     assert _sent(url).is_ok()
     first, second = received

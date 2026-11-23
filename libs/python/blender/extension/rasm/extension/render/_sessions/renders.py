@@ -25,7 +25,7 @@ from rasm.extension.data._rna.restoration import BeforeAfter
 from rasm.extension.data._rna.snapshots import assigned, Snapshot, SNAPSHOT_DECODER
 from rasm.extension.render._outputs.framing import Framed, FrameSize
 from rasm.extension.render._outputs.paths import OutputPath, today
-from rasm.extension.render._outputs.results import animation_files, Receipt, RENDER_ORIGINS, still_files
+from rasm.extension.render._outputs.results import animation_files, RENDER_ORIGINS, still_files
 from rasm.extension.render._view_layers.passes import layer_of, soloed
 from rasm.extension.render._view_layers.routing import PassRouting, RoutingRow
 from rasm.extension.settings._attachments import Attached, Attachment, Recovery, RetentionSettings
@@ -140,9 +140,9 @@ def _rendering(scene: bpy.types.Scene, layer: Option[bpy.types.ViewLayer]) -> Ge
         settings.use_lock_interface = locked
 
 
-def native(identity: Identity, scene: bpy.types.Scene, call: RenderCall, *, files: Option[Receipt] = NOTHING) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
-    """Renders under the native lock with explicit receipts or paths of the native write mode."""
-    receipts = files.or_else(Some(animation_files) if call.animation else Some(still_files) if call.write_still else NOTHING)
+def native(identity: Identity, scene: bpy.types.Scene, call: RenderCall) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
+    """Renders under the native lock with the paths of the native write mode as receipts."""
+    receipts = Some(animation_files) if call.animation else Some(still_files) if call.write_still else NOTHING
 
     def rendered(layer: Option[bpy.types.ViewLayer]) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
         with _rendering(scene, layer), RENDER_ORIGINS[identity].requested(scene, call.layer, receipts, animation=call.animation):
@@ -345,10 +345,8 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 def reads_render(node: bpy.types.Node) -> TypeGuard[bpy.types.CompositorNodeRLayers | bpy.types.CompositorNodeCryptomatteV2]:
     """Answers whether a compositor node reads a scene render: a Render Layers node, or a Cryptomatte node sourcing the render."""
     match node:
-        case bpy.types.CompositorNodeRLayers():
+        case bpy.types.CompositorNodeRLayers() | bpy.types.CompositorNodeCryptomatteV2(source="RENDER"):
             return True
-        case bpy.types.CompositorNodeCryptomatteV2(source=source):
-            return source == "RENDER"
         case _:
             return False
 

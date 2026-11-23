@@ -134,7 +134,7 @@ def capturing(
             scope.callback(setattr, active, "is_active", True)  # ruff: ignore[boolean-positional-value-in-call]
         suffix = tuple(scene.compositor_effects)[at:] if stop else ()
         for entry in suffix:
-            scope.callback(setattr, entry, "enable_for_render", entry.enable_for_render)
+            scope.callback(setattr, entry, Enabled.RENDER, entry.enable_for_render)
 
         def placed(tree: bpy.types.NodeTree) -> Outcome[bpy.types.SceneCompositorEffect]:
             scope.callback(bpy.data.node_groups.remove, tree)
@@ -143,7 +143,7 @@ def capturing(
         yield (
             composites
             .check(bpy.context, Some(scene))
-            .bind(lambda _: accumulated(written(entry, ("enable_for_render",), value=False) for entry in suffix))
+            .bind(lambda _: accumulated(Enabled.RENDER.descriptor.write(entry, value=False) for entry in suffix))
             .bind(lambda _: functions.built("input_capture", interface, {COLOR_RESULT.key: group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor).keeping(*output)}, bpy.types.CompositorNodeTree))
             .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
             .bind(lambda group: made(group, identity, of=Some(scene)))

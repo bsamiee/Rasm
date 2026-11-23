@@ -65,7 +65,7 @@ class PixelGrid(msgspec.Struct, frozen=True, kw_only=True):
             socket="Vector Value",
             socket_type=bpy.types.NodeSocketVector,
         )
-        return cls(base=vector("ADD", vector("MULTIPLY", vector("SUBTRACT", centre, offset), inverse), (0.0, 0.0, 1.0)), inverse=inverse, point=centre, offset=offset, sides=sides)
+        return cls(base=vector("MULTIPLY_ADD", vector("SUBTRACT", centre, offset), inverse, (0.0, 0.0, 1.0)), inverse=inverse, point=centre, offset=offset, sides=sides)
 
     def at(self, offset: Scalar | tuple[float, ...], scale: Scalar | tuple[float, ...]) -> Expr:
         """Builds Map UV coordinate `offset ⊙ scale + base`.
@@ -121,7 +121,7 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
             fraction=vector("DIVIDE", point, extent),
             scale=vector("DIVIDE", greater, axes),
             uv_scale=vector("MULTIPLY", camera, grid.inverse),
-            margin=vector("ADD", vector("MULTIPLY", vector("SUBTRACT", offset, grid.offset), grid.inverse), (0.0, 0.0, 1.0)),
+            margin=vector("MULTIPLY_ADD", vector("SUBTRACT", offset, grid.offset), grid.inverse, (0.0, 0.0, 1.0)),
         )
 
     def sampled(self, fraction: Scalar) -> Expr:
@@ -167,7 +167,7 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
         horizontal, vertical = matrix({(1, 2): math("TANGENT", skew_x)}), matrix({(2, 1): math("TANGENT", skew_y)})
         turn = transform("Rotation", Expr(kind=bpy.types.FunctionNodeEulerToRotation, inputs=(("Euler", xyz(z=rotation)),), socket="Rotation"))
         linear = composed(turn, composed(vertical, composed(horizontal, transform("Scale", xyz(scale_x, scale_y, 1.0)))))
-        return composed(transform("Translation", vector("SUBTRACT", vector("ADD", vector("MULTIPLY", position, self.extent), pivot_point), directed(pivot_point, linear))), linear)
+        return composed(transform("Translation", vector("SUBTRACT", vector("MULTIPLY_ADD", position, self.extent, pivot_point), directed(pivot_point, linear))), linear)
 
     def placed(self, source: Scalar, forward: Expr) -> Expr:
         """Places the displayed rectangle through rotate, scale, rotate, and translate nodes of the matrix's singular value decomposition, keeping deferred bounds.
@@ -199,7 +199,7 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
         stretched = Expr(
             kind=bpy.types.CompositorNodeScale, inputs=(("Image", unrotated), ("X", decomposed["X"]), ("Y", decomposed["Y"] * reflection)), socket="Image", socket_type=bpy.types.NodeSocketColor
         )
-        shifted = vector("ADD", location, vector("MULTIPLY", vector("SUBTRACT", transformed(center, forward), center), self.scale))
+        shifted = vector("MULTIPLY_ADD", vector("SUBTRACT", transformed(center, forward), center), self.scale, location)
         image = translated(rotated(stretched, "U", 1.0), shifted)
         return switched(inverted(pixel).at("Invertible", bpy.types.NodeSocketBool), (0.0, 0.0, 0.0, 0.0), image)
 

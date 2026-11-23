@@ -32,8 +32,6 @@ _APERTURE: Final = Socket(key="aperture", kind=bpy.types.NodeSocketBool, descrip
 _VEIL_SIZE: Final = Socket(key="size", kind=bpy.types.NodeSocketFloatFactor, description="Spread over greater frame side, from a frame spanning 180 to 10 degrees", default_value=0.5)
 _VEIL: Final = InterfacePanel.of("veil", Interface(inputs=(_VEIL_SIZE,)), description="Spencer photopic veiling glare", toggle=Some(True))
 _STRENGTH: Final = Socket(key="strength", kind=bpy.types.NodeSocketFloat, description="Ghost light multiple of highlights", min_value=0.0, default_value=1.0)
-_ITERATIONS: Final = Socket(key="iterations", kind=StockInput(node=bpy.types.CompositorNodeGlare, input="Iterations"))
-_COLOR_MODULATION: Final = Socket(key="color_modulation", kind=StockInput(node=bpy.types.CompositorNodeGlare, input="Color Modulation"))
 _GHOST_HIGHLIGHTS: Final = InterfacePanel.of("highlights", masks.HIGHLIGHTS, description="Light forming ghosts")
 _RADIUS: Final = Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Halo blur radius over greater frame side", min_value=0.0, default_value=0.0067)
 _COLOR: Final = Socket(key="color", kind=bpy.types.NodeSocketColor, description="Film re-exposure per channel", default_value=(1.0, 0.1, 0.0, 1.0))
@@ -120,22 +118,20 @@ class Ghosts(CompositorRecord, frozen=True, kw_only=True):
     @override
     def graph(self, shell: GraphInputs) -> Outcome[Expr]:
         """Adds recursive highlight ghosts to scene light."""
-        ghosts = Expr(
+        reflected = Expr(
             kind=bpy.types.CompositorNodeGlare,
             inputs=(
                 ("Image", shell.color),
                 ("Type", "Ghosts"),
-                ("Highlights Threshold", shell.input(_GHOST_HIGHLIGHTS, _THRESHOLD)),
-                ("Highlights Smoothness", shell.input(_GHOST_HIGHLIGHTS, _SMOOTHNESS)),
+                *((stock.input, shell.input(_GHOST_HIGHLIGHTS, socket)) for socket in masks.HIGHLIGHTS.inputs for stock in socket.stock.to_list()),
                 ("Quality", "High"),
                 ("Strength", shell.input(_STRENGTH)),
-                ("Iterations", shell.input(_ITERATIONS)),
-                ("Color Modulation", shell.input(_COLOR_MODULATION)),
+                *((stock.input, shell.input(socket)) for socket in ghosts.interface.inputs for stock in socket.stock.to_list()),
             ),
             socket="Glare",
             socket_type=bpy.types.NodeSocketColor,
         ).keyed("ghosts")
-        return Ok(mixed(1.0, shell.color, ghosts, blend="ADD"))
+        return Ok(mixed(1.0, shell.color, reflected, blend="ADD"))
 
 
 class Halation(CompositorRecord, frozen=True, kw_only=True):
@@ -161,7 +157,17 @@ def _spread(shell: GraphInputs, size: Scalar) -> Expr:
 
 bloom: Final = CompositorEffect(record=Bloom, interface=Interface(inputs=(_SCATTER, _SIZE), panels=(_LENS_DIRT,)), registers=(_DIRT_FIELDS,))
 glare: Final = CompositorEffect(record=Glare, interface=Interface(inputs=(_APERTURE,), panels=(_VEIL,)), registers=(_KERNELS,))
-ghosts: Final = CompositorEffect(record=Ghosts, interface=Interface(inputs=(_STRENGTH, _ITERATIONS, _COLOR_MODULATION), panels=(_GHOST_HIGHLIGHTS,)))
+ghosts: Final = CompositorEffect(
+    record=Ghosts,
+    interface=Interface(
+        inputs=(
+            _STRENGTH,
+            Socket(key="iterations", kind=StockInput(node=bpy.types.CompositorNodeGlare, input="Iterations")),
+            Socket(key="color_modulation", kind=StockInput(node=bpy.types.CompositorNodeGlare, input="Color Modulation")),
+        ),
+        panels=(_GHOST_HIGHLIGHTS,),
+    ),
+)
 halation: Final = CompositorEffect(record=Halation, interface=Interface(inputs=(_RADIUS, _COLOR), panels=(_HALO_HIGHLIGHTS,)))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
