@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { env } from 'node:process';
@@ -84,6 +84,19 @@ describe('cache', () => {
         await workspace.graph({ createNodes, createDependencies });
 
         expect(analyses(analyzer.logged('calls'))).toBe(2);
+    });
+
+    it('writes the listing of files the build reads outside the workspace on an analysis alone, leaving it untouched while the analysis is reused', async ({ workspace }) => {
+        const outside = mkdtempSync(join(tmpdir(), 'dotnet-outside-'));
+        onTestFinished(() => rmSync(outside, { recursive: true }));
+        await workspace.write({ 'apps/App/App.csproj': PROJECT, ...report([node('apps/App/App.csproj', { external: [join(outside, 'Host.dll')] })], { evaluated: ['apps/App/App.csproj'] }) }).graph({ createNodes, createDependencies });
+        const folder = join(workspace.root, 'tmp/project-graph-cache/dotnet-external');
+        const listings = readdirSync(folder).map((file) => join(folder, file));
+        const written = listings.map((file) => statSync(file, { bigint: true }).mtimeNs);
+
+        await workspace.graph({ createNodes, createDependencies });
+
+        expect([listings.map((file) => readFileSync(file, 'utf-8')), listings.map((file) => statSync(file, { bigint: true }).mtimeNs)]).toStrictEqual([[join(outside, 'Host.dll')], written]);
     });
 
     it('reuses the analysis of a workspace holding solutions alone', async ({ workspace, analyzer }) => {

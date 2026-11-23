@@ -121,7 +121,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
     yield* Option.isNone(cached) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, report), (stamp) => Effect.sync(() => new PluginCache(slot, { [key]: { report, stamp } }).writeToDisk())) : Effect.void;
     yield* Ref.set(edges, related(report));
     yield* Effect.forEach(
-        report.nodes.filter((node) => node.external.length > 0),
+        report.nodes.filter((node) => Option.isNone(cached) && node.external.length > 0),
         (node) => Effect.andThen(fs.makeDirectory(dirname(listing(node)), { recursive: true }), fs.writeFileString(listing(node), node.external.join('\n'))),
         { discard: true },
     );
