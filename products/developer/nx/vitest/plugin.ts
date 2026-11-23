@@ -127,7 +127,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
     });
     const depended = Array.dedupe([entry, ...config.configFileDependencies, ...declared.flatMap(({ viteConfig }) => viteConfig.configFileDependencies)].map(local)).filter(within);
     const provider = coverage.provider === 'custom' ? Array.fromNullishOr(coverage.customProviderModule) : [`@vitest/coverage-${coverage.provider}`];
-    const { packages, linked } = yield* packaged([...provider.map((specifier) => [specifier, entry] as const), ...(yield* parsed(vite.parseSync, workspaceRoot, depended))]);
+    const { packages, linked, folders } = yield* packaged([...provider.map((specifier) => [specifier, entry] as const), ...(yield* parsed(vite.parseSync, workspaceRoot, depended))]);
     return {
         suites,
         packages,
@@ -135,7 +135,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
         loaded: depended,
         triggers: Array.difference(forceRerunTriggers, defaults.configDefaults.forceRerunTriggers).map((glob) => (isAbsolute(glob) ? local(glob) : glob)),
         shared: Array.dedupe([attachmentsDir, ...reports].map((at) => local(resolve(root, at)))),
-        sources: Array.dedupe([...depended, 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...(lists ? workspaces.positive : []), ...probes.flatMap((probe) => probe.manifests)]),
+        sources: Array.dedupe([...depended, ...folders.map((folder) => posix.join(local(folder), '**/*')), 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...(lists ? workspaces.positive : []), ...probes.flatMap((probe) => probe.manifests)]),
     };
 });
 
