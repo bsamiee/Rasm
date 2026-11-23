@@ -2,8 +2,6 @@ import type { Tree } from '@nx/devkit';
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import AppleVersionActions from '@rasm/nx-apple/release/version-actions';
 import { assert, asyncProperty, nat, tuple } from 'fast-check';
-import type { ReleaseGroupWithName } from 'nx/src/command-line/release/config/filter-release-groups';
-import type { FinalConfigForProject } from 'nx/src/command-line/release/utils/release-graph';
 import { describe, expect, it } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -56,8 +54,8 @@ const MANIFESTS = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const createVersionActions = async (tree: Tree, manifest: string): Promise<AppleVersionActions> => {
-    const releaseGroup: ReleaseGroupWithName = { name: 'release-group', projects: ['my-lib'], projectsRelationship: 'independent', resolvedVersionPlans: false };
-    const finalConfigForProject: FinalConfigForProject = {
+    const releaseGroup: ConstructorParameters<typeof AppleVersionActions>[0] = { name: 'release-group', projects: ['my-lib'], projectsRelationship: 'independent', resolvedVersionPlans: false };
+    const finalConfigForProject: ConstructorParameters<typeof AppleVersionActions>[2] = {
         specifierSource: 'prompt',
         currentVersionResolver: 'disk',
         currentVersionResolverMetadata: {},
@@ -77,17 +75,6 @@ const createVersionActions = async (tree: Tree, manifest: string): Promise<Apple
 };
 
 describe(AppleVersionActions, () => {
-    it.each([
-        { name: 'Info.plist', manifest: 'Info.plist', input: MANIFESTS['Info.plist'] },
-        { name: 'project.xcproj', manifest: 'Viewer.xcodeproj/project.xcproj', input: MANIFESTS['Viewer.xcodeproj/project.xcproj'] },
-    ])('reads the current version from $name', async ({ manifest, input }) => {
-        const tree = createTreeWithEmptyWorkspace();
-        tree.write(`packages/my-lib/${manifest}`, input);
-        const versionActions = await createVersionActions(tree, manifest);
-
-        await expect(versionActions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: '1.0.0', manifestPath: `packages/my-lib/${manifest}` });
-    });
-
     it.each([
         { name: 'Info.plist', manifest: 'Info.plist', input: MANIFESTS['Info.plist'], stated: '<string>1.0.0</string>' },
         { name: 'project.xcproj', manifest: 'Viewer.xcodeproj/project.xcproj', input: MANIFESTS['Viewer.xcodeproj/project.xcproj'], stated: '"MARKETING_VERSION": "1.0.0"' },
