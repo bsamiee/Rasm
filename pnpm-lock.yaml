@@ -1748,9 +1748,6 @@ importers:
       '@adobe/premierepro':
         specifier: 'catalog:'
         version: 27.1.0-beta.23
-      '@nx/devkit':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.2(nx@24.1.0-beta.2)
       '@rasm/process':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/runtime/process

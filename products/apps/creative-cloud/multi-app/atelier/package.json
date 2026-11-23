@@ -29,7 +29,6 @@
     "devDependencies": {
         "@adobe/cc-ext-uxp-types": "catalog:",
         "@adobe/premierepro": "catalog:",
-        "@nx/devkit": "catalog:",
         "@rasm/process": "workspace:*",
         "@rasm/vite": "workspace:*",
         "@types/node": "catalog:",
@@ -38,17 +37,5 @@
         "indesign-uxp-types": "catalog:",
         "uxp-after-effects": "catalog:",
         "vite": "catalog:"
-    },
-    "nx": {
-        "targets": {
-            "build--vite": {
-                "inputs": [
-                    "...",
-                    "{projectRoot}/macos/Atelier.xcodeproj/project.xcproj",
-                    "{projectRoot}/macos/Atelier.entitlements",
-                    "{workspaceRoot}/Xcode.xcconfig"
-                ]
-            }
-        }
     }
 }

@@ -45,13 +45,16 @@ const stamped = Effect.fnUntraced(function* (workspaceRoot: string, { evaluated,
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
     const argv = [...launched(ANALYZER), workspaceRoot] as const;
+    const published = ['dotnet', 'publish', `${basename(ANALYZER, extname(ANALYZER))}.csproj`] as const;
+    const fs = yield* FileSystem.FileSystem;
+    yield* (yield* fs.exists(ANALYZER)) ? Effect.void : spawned(published, { cwd: dirname(dirname(ANALYZER)) });
     const seconds = yield* Timeout;
     const stdout = yield* spawned(argv, { cwd: workspaceRoot, env: environment(workspaceRoot), stdin: Stream.encodeText(Stream.make(matched.join('\n'))) }).pipe(
         Effect.timeoutOrElse({ duration: Duration.seconds(seconds), orElse: () => Effect.fail(new Cause.UnknownError(seconds, `${CommandLine.display(argv)} ran past ${seconds} seconds, set NX_DOTNET_PROJECT_GRAPH_TIMEOUT to a higher count of seconds`)) }),
     );
     const report = yield* Effect.mapError(
         Schema.decodeEffect(Reported)(stdout),
-        (error) => new Cause.UnknownError(error, `${CommandLine.display(argv)} printed a report this plugin cannot read, as ${relative(workspaceRoot, ANALYZER)} predates the plugin, run mise deps msbuild-analyzer to rebuild it: ${error.message}`),
+        (error) => new Cause.UnknownError(error, `${CommandLine.display(argv)} printed a report this plugin cannot read, as ${relative(workspaceRoot, ANALYZER)} predates the plugin, ${line(published)} in ${relative(workspaceRoot, dirname(dirname(ANALYZER)))} rebuilds it: ${error.message}`),
     );
     const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs }) => inputs)))));
     return { ...report, nodes: report.nodes.map((node) => ({ ...node, inputs: node.inputs.filter((input) => known.has(input)) })) };
@@ -147,7 +150,15 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
                         help: { command: 'dotnet restore --help', example: { options: { dryRun: true } } },
                     },
                 };
-                return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(Option.isSome(named) ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: aggregated({ upgrade: { dotnet: upgrade } }, manifest, 'dotnet') } } }];
+                const purged = ['dotnet', 'nuget', 'locals', 'all', '--clear'] as const;
+                const clean: TargetConfiguration = {
+                    executor: `${distribution.name}:clean`,
+                    options: { cwd: dirname(file) },
+                    configurations: { cache: { commands: [purged] } },
+                    inputs: [{ externalDependencies: [] }],
+                    metadata: { description: `Under configuration cache, empties every NuGet local folder ${basename(file)} reads, the global packages, HTTP cache, temp, and plugin cache, with ${line(purged)}`, help: { command: 'dotnet nuget locals --help', example: { args: [] } } },
+                };
+                return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(Option.isSome(named) ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: aggregated({ upgrade: { dotnet: upgrade }, clean: { nuget: clean } }, manifest, 'dotnet') } } }];
             }),
     );
     const results = [

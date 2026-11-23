@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-typescript",
     "version": "0.1.0",
-    "description": "Nx plugin inferring a TypeScript check or build per tsconfig.json read through the native compiler API, a publint package check, an eslint check per project a flat config governs, Worker binding types per cloudflare.config.ts, a package manager tarball per package stating a version, and the jscpd duplicate check, knip unused code check, stylelint check of every style file Git lists, and package manager upgrade of the workspace root",
+    "description": "Nx plugin inferring TypeScript checks and builds per tsconfig.json, package checks and tarballs, and workspace jscpd, knip, stylelint, and upgrade targets",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -16,6 +16,7 @@
     ],
     "type": "module",
     "imports": {
+        "#/*": "./*.ts",
         "#/*.json": "./*.json"
     },
     "exports": {
@@ -26,6 +27,7 @@
     },
     "publishConfig": {
         "imports": {
+            "#/*": "./dist/*.js",
             "#/*.json": "./*.json"
         },
         "exports": {

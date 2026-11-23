@@ -152,19 +152,17 @@ Nx runs project-level work over a graph its plugins infer:
 - `test` runs a project's test runners
 - `serve` runs a project's development servers until the run ends, and Compose services it starts stay up
 - `preview` builds a project, then serves its build output as `serve` does
-- `upgrade` moves an ecosystem root's dependency requirements and locks to newer releases through its own tool
-- `clean` removes the outputs a project's targets declare and runs its tool's clean
+- `upgrade` moves an ecosystem root's dependency requirements and locks to newer releases through its own tool, mise tool rows last
+- `clean` removes the outputs a project's targets declare through its tool's clean, and configuration `cache` empties the caches its tools keep
 
 ## [05]-[COMMANDS]
 
 Workspace commands, by tool:
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over named paths
 - `mise bootstrap` configures a machine for the workspace after a clone
-- `mise deps` installs project dependencies with changed inputs or missing outputs
-- `mise upgrade` after `nx run-many -t upgrade` moves every `latest` tool row and its lock to the newest release
-- `mise install` of a new Rust toolchain runs `cargo clean` and prunes the old toolchain, as every artifact the old toolchain built is stale
-- `mise daemons start docker` and `mise daemons stop docker` start and stop the container engine
-- `nx build @rasm/nx-apple-darwin-arm64` builds the `@rasm/nx-apple` core that reads Xcode projects, on a Mac after a clone
+- `mise install` installs every tool and project dependency, and a new Rust toolchain runs `cargo clean` and prunes the old one
+- `nx clean` from the root removes every output in and outside the repository, and `nx clean -c cache` empties every cache
+- `nx upgrade` from the root moves every project to newer releases, then every mise tool row and its lock
 - `nx sync` writes executor schemas and tsconfig `references`, and non-terminal runs outside CI stop on stale ones until it runs, never `--skip-sync`
 - `nx migrate <version>`, `nx migrate --run-migrations`, then `pnpm dedupe` apply a new Nx release
 - `pixi run --locked python` runs Python with Pixi's native libraries on the library search path
@@ -228,11 +226,11 @@ Roots split, nest, or hold more where a host or tool decides:
 
 mise installs every tool and holds every variable and machine's OS state, and `infra/` programs declare what runs on each machine:
 - `.config/mise.toml` `[tools]` rows stay at `latest` where a backend lists releases, and a `version_regex` excludes development builds
-- `[env]` holds process variables, and platform rows and daemons sit in the `.config/mise.<os>.toml` mise loads, as only a file limits a row to one OS
+- `[env]` holds process variables, and platform rows sit in the `.config/mise.<os>.toml` mise loads, as only a file limits a row to one OS
 - Doppler project `rasm` and 1Password hold every secret, a registry token as a `rasm/release` row named as the variable its publish target reads
 - Machines take a `hosts` row in `infra/platform-stack.ts` and a `[bootstrap.remote.hosts]` row, and accounts and tailnet addresses stay in services
 - `[bootstrap]` holds what a machine's OS keeps across boots, and Pulumi stacks hold what runs on the machine and how it is reached
 - Roles in a `hosts` row decide a machine's services, and a role's OS state sits in the mise environment its bootstrap row loads
 - App `hosting.config.ts` targets name Cloudflare or a machine with role `Apps`, and `nx install @rasm/infra` runs role `Apps` under `rasm.localhost`
-- Container engines run under systemd on machines and, on the owner's Mac, in a Colima VM pitchfork supervises and `DOCKER_HOST` names
-- Daemons are mise `[daemons]` rows pitchfork supervises, started by name or with agent sessions entering the project
+- Container engines run under systemd on machines and, on the owner's Mac, in a Colima VM `DOCKER_HOST` names
+- Tasks reading the engine depend on the root's `install--*` targets, and `install--colima` starts the Mac's VM and leaves it up

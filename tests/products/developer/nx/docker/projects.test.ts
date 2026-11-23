@@ -45,13 +45,13 @@ describe('compose projects', () => {
             services: 'a build beside the Compose file',
             compose: 'services:\n    app:\n        build: .\n',
             files: { 'proj/Dockerfile': 'FROM scratch\n' },
-            targets: ['build--compose', 'check--buildx', 'check--compose', 'install--compose', 'serve--compose'],
+            targets: ['build--compose', 'check--buildx', 'check--compose', 'clean--compose', 'install--compose', 'serve--compose'],
         },
         {
             services: 'a build from a folder no project holds',
             compose: 'services:\n    app:\n        build:\n            context: ../images/app\n',
             files: { 'images/app/Dockerfile': 'FROM scratch\n' },
-            targets: ['build--compose', 'check--buildx', 'check--compose', 'install--compose'],
+            targets: ['build--compose', 'check--buildx', 'check--compose', 'clean--compose', 'install--compose'],
         },
     ])('gives a Compose project of $services the tool targets $targets', async ({ compose, files, targets }, { workspace }) => {
         const graph = await workspace.write({ ...files, 'proj/project.json': '{"name":"proj"}', 'proj/compose.yaml': compose }).graph({ createNodes, createDependencies });

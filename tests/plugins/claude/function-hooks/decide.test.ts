@@ -100,7 +100,7 @@ const BROWSER_CALLS = [
     ['playwright show-report', 'e2e', ALLOWED],
 ] as const;
 const SESSION_CALLS = [
-    ['launchctl submit -l probe -- /bin/sleep 9', { _tag: 'Deny', reason: 'launchctl submit detached jobs outlive the session; use run_in_background and TaskStop, or a mise [daemons] row' }],
+    ['launchctl submit -l probe -- /bin/sleep 9', { _tag: 'Deny', reason: 'launchctl submit detached jobs outlive the session; use run_in_background and TaskStop' }],
     ['claude -p hi', ALLOWED],
     ['seq 3 | xargs -P 0 echo', REWRITTEN(`seq 3 | xargs -P ${CORES} echo`, `xargs -P 0 became ${CORES}`)],
     ['parallel -j0 echo ::: a', REWRITTEN(`parallel -j${CORES} echo ::: a`, `parallel -j0 became -j${CORES}`)],

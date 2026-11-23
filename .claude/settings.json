@@ -17,18 +17,6 @@
       "mcp__plugin_dotnet_roslyn-codelens__set_active_solution"
     ]
   },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "mise daemons register && mise exec -- pitchfork project enter --pid \"$PPID\""
-          }
-        ]
-      }
-    ]
-  },
   "worktree": {
     "bgIsolation": "none"
   },

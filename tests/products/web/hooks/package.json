@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-hooks",
     "private": true,
-    "description": "Webhook receiver suite over the built Node bundle on an allocated port against a Postgres container: a signed delivery per sender accepted, changed, stale, unsigned, and unrouted deliveries refused, refusal before the body parses, and a repeated delivery accepted again",
+    "description": "@rasm/hooks suites over its built Node bundle against a Postgres container, covering signed, refused, and repeated deliveries",
     "type": "module",
     "devDependencies": {
         "@effect/platform-node": "catalog:",

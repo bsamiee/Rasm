@@ -27,12 +27,5 @@
         "executableFiles": [
             "./.build/out/Products/Release/nx-apple-analyzer"
         ]
-    },
-    "nx": {
-        "targets": {
-            "build--swift-build": {
-                "defaultConfiguration": "release"
-            }
-        }
     }
 }

@@ -17,10 +17,9 @@
     },
   ],
   "files": [
-    { "path": "../../../../../../.artifacts/vite/@rasm/atelier/server", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
+    { "path": "../../../../../../.artifacts/vite/@rasm/atelier/server", "target-membership": [ "Atelier/copy/Embed Server" ] },
     { "path": "../../../../../../.artifacts/vite/@rasm/atelier/tsc", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
     { "path": "../../../../../../.artifacts/vite/@rasm/atelier/typescript/lib.d.ts", "target-membership": [ "Atelier/resources" ] },
-    { "path": "../../../../../../.artifacts/vite/@rasm/atelier/LaunchAgents", "target-membership": [ "Atelier/copy/Embed Server Agent" ] },
     { "path": "<PROJECT>/../../../../../../Xcode.xcconfig" },
     { "path": "AppIcon.icon", "target-membership": [ "Atelier/resources" ] },
     {
@@ -48,6 +47,28 @@
           "relative-path": "Helpers",
         }, {
           "kind": "script",
+          "name": "Sign Server",
+          "input-paths": [
+            "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/server",
+            "$(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS)",
+          ],
+          "output-paths": [
+            "$(DERIVED_FILE_DIR)/server.entitlements",
+            "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/$(PRODUCT_BUNDLE_IDENTIFIER).server.plist",
+          ],
+          "shell": "/bin/sh",
+          "script": [
+            "set -eu",
+            "label=\"$PRODUCT_BUNDLE_IDENTIFIER.server\"",
+            "plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_0\" \"$SCRIPT_INPUT_FILE_1\"",
+            "plutil -insert 'com\\.apple\\.security\\.cs\\.allow-jit' -bool YES \"$SCRIPT_OUTPUT_FILE_0\"",
+            "codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --identifier \"$label\" --options runtime --entitlements \"$SCRIPT_OUTPUT_FILE_0\" \"$SCRIPT_INPUT_FILE_0\"",
+            "mkdir -p \"${SCRIPT_OUTPUT_FILE_1%/*}\"",
+            "printf '{\"Label\":\"%s\",\"ProcessType\":\"Interactive\",\"KeepAlive\":true,\"BundleProgram\":\"Contents/Helpers/server\",\"SpawnConstraint\":{\"signing-identifier\":\"%s\",\"team-identifier\":\"%s\"}}' \"$label\" \"$label\" \"$DEVELOPMENT_TEAM\" | plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_1\" -",
+            "",
+          ],
+        }, {
+          "kind": "script",
           "name": "Link Compiler Library",
           "input-paths": [
             "$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/lib.d.ts",
@@ -57,11 +78,6 @@
           ],
           "shell": "/bin/sh",
           "script": "ln -sfh ../Resources/lib.d.ts \"$SCRIPT_OUTPUT_FILE_0\"",
-        }, {
-          "kind": "copy",
-          "name": "Embed Server Agent",
-          "bundle-base-path": "contents-directory",
-          "relative-path": "Library",
         },
       ],
       "package-product-members": [

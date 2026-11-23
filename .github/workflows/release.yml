@@ -59,7 +59,6 @@ jobs:
             - &tools
               uses: ./.github/actions/tools
             - uses: ./.github/actions/signing
-            - run: nx build @rasm/nx-apple-darwin-arm64
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} ${PROJECTS:+--projects="${PROJECTS}"} --skip-publish --dry-run=${{ inputs.dry-run }}
               env:
                   SPECIFIER: ${{ inputs.specifier }}

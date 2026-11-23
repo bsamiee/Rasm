@@ -27,7 +27,6 @@ set(shared
     ${upstream}
 )
 file(GLOB entries RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*/grammar.js")
-file(GLOB catalogs CONFIGURE_DEPENDS "${package_dir}/outline/*.yml")
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -35,6 +34,8 @@ foreach(entry IN LISTS entries)
     cmake_path(GET entry PARENT_PATH language)
     set(source "${CMAKE_CURRENT_SOURCE_DIR}/${language}")
     set(generated "${CMAKE_CURRENT_BINARY_DIR}/${language}")
+    set(catalog "${package_dir}/outline/${language}.yml")
+    set(outline "${CMAKE_CURRENT_BINARY_DIR}/outline/${language}.yml")
     add_custom_command(
         OUTPUT "${generated}/grammar.json" "${generated}/node-types.json" "${generated}/parser.c"
         COMMAND "${TREE_SITTER}" generate --output "${generated}" "${source}/grammar.js"
@@ -48,8 +49,23 @@ foreach(entry IN LISTS entries)
         DEPENDS "${generated}/grammar.json" "${CMAKE_CURRENT_SOURCE_DIR}/header.cmake"
         VERBATIM
     )
+    add_custom_command(
+        OUTPUT "${outline}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/outline"
+        COMMAND "${NODE}" "${package_dir}/outline/main.ts" "${sgconfig}" "${catalog}" "${outline}"
+        DEPENDS "${catalog}" "${package_dir}/outline/main.ts" "${sgconfig}"
+        VERBATIM
+    )
     file(GLOB scanner "${source}/scanner.c")
-    add_library(${language} MODULE "${generated}/parser.c" "${generated}/grammar.h" "${CMAKE_CURRENT_SOURCE_DIR}/compose.c" ${scanner})
+    add_library(
+        ${language}
+        MODULE
+        "${generated}/parser.c"
+        "${generated}/grammar.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/compose.c"
+        ${scanner}
+        "${outline}"
+    )
     target_include_directories(${language} PRIVATE "${generated}" "${node_modules}")
     target_compile_features(${language} PRIVATE c_std_11)
     target_compile_options(${language} PRIVATE "SHELL:-include ${generated}/grammar.h" "$<$<C_COMPILER_ID:GNU>:-fno-strict-aliasing>")
@@ -58,17 +74,3 @@ foreach(entry IN LISTS entries)
         PROPERTIES PREFIX "" C_VISIBILITY_PRESET hidden LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     )
 endforeach()
-
-foreach(catalog IN LISTS catalogs)
-    cmake_path(GET catalog FILENAME name)
-    set(outline "${CMAKE_CURRENT_BINARY_DIR}/outline/${name}")
-    add_custom_command(
-        OUTPUT "${outline}"
-        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/outline"
-        COMMAND "${NODE}" "${package_dir}/outline/main.ts" "${sgconfig}" "${catalog}" "${outline}"
-        DEPENDS "${catalog}" "${package_dir}/outline/main.ts" "${sgconfig}"
-        VERBATIM
-    )
-    list(APPEND outlines "${outline}")
-endforeach()
-add_custom_target(outlines ALL DEPENDS ${outlines})

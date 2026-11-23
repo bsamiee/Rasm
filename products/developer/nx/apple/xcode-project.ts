@@ -3,6 +3,7 @@ import type { TargetConfiguration } from '@nx/devkit';
 import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record, Schema } from 'effect';
+import { RESOLVED } from '#/swift-package';
 import { APPCAST, ATTACH, INPUTS, NOTARY, type Options, type Part, PLUGIN, sequenced, tokened } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -46,6 +47,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every((at) => Option.isSome(packaged(at))) }));
     const locals = Array.dedupe(Array.getSomes(container.projects.map(packaged)));
+    const seed = Array.head(Array.getSomes(container.projects.map((at) => Option.as(packaged(at), join(at, RESOLVED)))));
     const archives = Array.getSomes(schemes.map(({ name: scheme, archive }) => Option.map(Option.fromUndefinedOr(archive), (held) => ({ scheme, ...held }))));
     const output = (scheme: string) => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, scheme));
     const archived = Array.getSomes(
@@ -96,10 +98,16 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
             check: { xcodebuild: { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Type-checks each shared scheme with xcodebuild build', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } } } },
             upgrade: {
                 xcodebuild: sequenced(
-                    [['rm', '-rf', join(cloned, 'workspace-state.json'), join(cloned, 'checkouts'), lock] as const, ...schemes.slice(0, 1).map((scheme) => ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', cloned, '-scheme', scheme.name] as const)],
+                    [
+                        ...Option.match(seed, {
+                            onNone: () => [['rm', '-rf', join(cloned, 'workspace-state.json'), join(cloned, 'checkouts'), lock] as const],
+                            onSome: (from) => [['rm', '-rf', join(cloned, 'workspace-state.json'), join(cloned, 'checkouts')] as const, ['cp', from, lock] as const],
+                        }),
+                        ...schemes.slice(0, 1).map((scheme) => ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', cloned, '-scheme', scheme.name] as const),
+                    ],
                     {
                         technologies: ['xcode'],
-                        description: `Removes ${name}'s Package.resolved and the checkouts and state of its upgrade package folder, keeping that folder's git mirrors, then resolves its package references to the newest releases their requirements and the local packages they name allow with xcodebuild -resolvePackageDependencies, after upgrade--swift-package of each local package moves its requirements`,
+                        description: `Removes the checkouts and state of ${name}'s upgrade package folder, keeping its git mirrors, and replaces ${name}'s Package.resolved with the one of the local package it names, after upgrade--swift-package of that package moves it, or removes it where ${name} names none, then resolves its package references with xcodebuild -resolvePackageDependencies, which keeps each pin their requirements allow and so resolves the versions the local package resolved, else the newest releases their requirements allow`,
                         help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
                     },
                     { inputs: read, ...(locals.length > 0 && { dependsOn: [{ projects: locals, target: 'upgrade--swift-package', params: 'forward' }] }) },
@@ -176,7 +184,16 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                             cwd: '.',
                             targets: Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat(),
                         },
-                        metadata: { technologies: ['xcode'], description: 'Removes the build products of each shared scheme with xcodebuild clean, then each archive and the DerivedData folder of the coverage configuration', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
+                        configurations: {
+                            cache: {
+                                commands: schemes.slice(0, 1).map((scheme) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme.name, ['-json'])]),
+                            },
+                        },
+                        metadata: {
+                            technologies: ['xcode'],
+                            description: `Removes the build products of each shared scheme with xcodebuild clean, then each archive and the DerivedData folder of the coverage configuration, and under configuration cache removes the per-user DerivedData folder of ${name}, two folders above the BUILD_ROOT xcodebuild -showBuildSettings -json prints`,
+                            help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
+                        },
                     },
                 },
             }),

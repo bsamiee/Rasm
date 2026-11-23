@@ -401,7 +401,7 @@ const WAITS: Ruleset = {
         },
         ffmpeg: { rules: [silentSleep] },
         ping: { rules: [loopbackPing] },
-        launchctl: { rules: [perSubcommand({ submit: [() => refusal('launchctl submit detached jobs outlive the session; use run_in_background and TaskStop, or a mise [daemons] row')] })] },
+        launchctl: { rules: [perSubcommand({ submit: [() => refusal('launchctl submit detached jobs outlive the session; use run_in_background and TaskStop')] })] },
     },
     every: [(invocation) => (invocation.command.busy ? refusal('Loop body never waits and spins a core, put sleep <seconds> in it') : [])],
     calls: [backgroundJob, pipedStatus, zshParameter, idleCall, polledTask, endlessLoop, waitLoop],

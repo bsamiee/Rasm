@@ -4,53 +4,74 @@ node_modules/
 
 # --- [TOOL_WRITES] ----------------------------------------------------------------------
 
-.git/
+# --- [STATE]
+
 .cache/
-.artifacts/
-.nx/workspace-data
+.git/
 .nx/migrate-runs
-.build/
+.nx/workspace-data
 .swiftpm/configuration/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 /.cargo/rustc-source
-dist/
+__pycache__/
+
+# --- [OUTPUTS]
+
+.artifacts/
+.build/
 .cloudflare/
+/plugins/**/evals/results/
 coverage/
+dist/
+plugins/claude/function-hooks/types/claude-code
 storybook-static/
-.vs/
+
+# --- [SNAPSHOTS]
+
 *.pending-snap
 *.snap.new
-/plugins/**/evals/results/
 
 # --- [HOST_WRITES] ----------------------------------------------------------------------
 
-*.rhl
+# --- [DOCUMENTS]
+
 *.3dmbak
-*.blend[0-9]*
 *.blend@
+*.blend[0-9]*
+*.rhl
+
+# --- [EDITORS]
+
+.vs/
 xcuserdata/
-__pycache__/
+
+# --- [UNREAL]
+
 /products/apps/unreal/**/Binaries/
 /products/apps/unreal/**/DerivedDataCache/
 /products/apps/unreal/**/Intermediate/
-/products/apps/unreal/**/Plugins/
 /products/apps/unreal/**/Saved/
 
 # --- [SECRETS] --------------------------------------------------------------------------
 
+# --- [ENV]
+
 .env
-.env.local
 .env.*.local
 .env.development
+.env.local
 .env.production
 .secrets
-gha-creds-*.json
-*.pem
-*.key
-*.secret
+
+# --- [KEYS]
+
 *.cert
 *.crt
+*.key
+*.pem
+*.secret
 credentials.json
+gha-creds-*.json
 
 # --- [LOGS] -----------------------------------------------------------------------------
 
@@ -59,16 +80,24 @@ credentials.json
 
 # --- [MACHINE] --------------------------------------------------------------------------
 
+# --- [LOCAL_CONFIG]
+
+*.user
 .miserc.local.toml
 CMakeUserPresets.json
-mise.local.toml
 mise.local.lock
-*.user
-*.orig
-.DS_Store
+mise.local.toml
+
+# --- [OS]
+
 .AppleDouble
+.DS_Store
 .LSOverride
 Thumbs.db
+
+# --- [SCRATCH]
+
+*.orig
 .archive/
 .tmp/
 

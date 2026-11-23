@@ -6,13 +6,13 @@ Machines, accounts, and services the `infra/` stacks declare.
 
 Each place holding state changes through one action:
 
-| [INDEX] | [PLACE]                              | [DECIDED_BY]                                                   | [UPDATED_BY]                |
-| :-----: | :----------------------------------- | :------------------------------------------------------------- | :-------------------------- |
-|  [01]   | Owner's Mac                          | Tool versions, lock files, Nx cache folder                     | `mise install`, `mise deps` |
-|  [02]   | CI runner                            | Pushed commit                                                  | `git push`                  |
-|  [03]   | GitHub, Doppler, Cloudflare, tailnet | `infra/repository-stack.ts`, Doppler's sync                    | Workflow `Deploy`           |
-|  [04]   | Google Cloud project `rasm-release`  | `infra/repository-stack.ts`                                    | Workflow `Deploy`           |
-|  [05]   | Machines                             | Table `hosts` of `infra/platform-stack.ts`, mise `[bootstrap]` | Workflow `Deploy`           |
+| [INDEX] | [PLACE]                              | [DECIDED_BY]                                                   | [UPDATED_BY]      |
+| :-----: | :----------------------------------- | :------------------------------------------------------------- | :---------------- |
+|  [01]   | Owner's Mac                          | Tool versions, lock files, Nx cache folder                     | `mise install`    |
+|  [02]   | CI runner                            | Pushed commit                                                  | `git push`        |
+|  [03]   | GitHub, Doppler, Cloudflare, tailnet | `infra/repository-stack.ts`, Doppler's sync                    | Workflow `Deploy` |
+|  [04]   | Google Cloud project `rasm-release`  | `infra/repository-stack.ts`                                    | Workflow `Deploy` |
+|  [05]   | Machines                             | Table `hosts` of `infra/platform-stack.ts`, mise `[bootstrap]` | Workflow `Deploy` |
 
 ## [02]-[MACHINES]
 

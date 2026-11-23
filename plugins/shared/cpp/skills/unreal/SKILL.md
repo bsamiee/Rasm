@@ -1,6 +1,6 @@
 ---
 name: unreal
-description: "Use when debugging, rebuilding, or reloading code running inside Unreal Engine on macOS, or reading its logs and crash reports, covering lldb and mcp-debugger attaches, Hot Reload, Python remote execution, and Blueprint and Verse limits"
+description: "Use when debugging, rebuilding, or reloading code running inside Unreal Engine on macOS, or reading its logs and crash reports, covering mcp-debugger attaches, Hot Reload, Python remote execution, and Blueprint and Verse limits"
 ---
 
 # [CPP_UNREAL]
@@ -24,29 +24,12 @@ Engine facts every route reads:
 
 Routes by code kind:
 
-| [INDEX] | [CODE]                | [ROUTE]                                                                  |
-| :-----: | :-------------------- | :----------------------------------------------------------------------- |
-|  [01]   | C++ modules, plug-ins | `lldb` server through daemon `rasm/lldb`, with Epic's formatters         |
-|  [02]   | C++ through DAP       | `debugger` server, `language` `cpp`                                      |
-|  [03]   | Embedded Python       | `remote_execution.py` for runs, `debugger` server `python` for stops     |
-|  [04]   | Blueprint             | `lldb` stop in `FFrame::KismetExecutionMessage`, no Blueprint breakpoint |
-|  [05]   | Verse                 | None, the engine holds no Verse debugger client                          |
-
-`lldb` tools load through ToolSearch as `mcp__plugin_swift_lldb__<tool>` (`command`, `debugger_list`), and a session runs in order:
-1. `mise daemons start lldb` starts Xcode's `lldb` under pitchfork with `protocol-server start MCP`, and sessions entering Rasm start it
-2. `command` `command script import "<engine>/Extras/LLDBDataFormatters/UEDataFormatters_2ByteChars.py"` loads Epic's summaries once per daemon
-3. `command` `thread list` after `process attach --pid <pid>` shows `GameThread` in `__semwait_signal` while `-WaitForDebugger` waits
-4. `command` `process continue` returns at once, and `process status` reads the `EXC_BREAKPOINT` stop in `GuardedMain`
-5. `command` `breakpoint set -f <file> -l <line>`, `thread backtrace`, `frame variable`, and `expr -- <expression>` read each stop
-6. `command` `process detach` leaves the engine running, `process kill` ends it, and `target delete --all` clears the shared server
-
-`lldb` daemon rules:
-- Every client shares one daemon `lldb`, so targets, breakpoints, and formatters persist until `target delete --all` or a restart
-- `mise daemons restart lldb` replaces a hung daemon, and the `lldb` row reaches the new one with no client change
-- `script` hangs the daemon for every client, and `command script import` loads Python modules
-- `lldb` that `lldb-mcp` starts with no daemon running fails `process attach` with `Bad file descriptor` and never exits
-- `~/.lldb/lldb-mcp-<pid>.json` left by a dead `lldb` stops every `lldb-mcp` start until removed
-- LLVM's `lldb` from mise has no Python and refuses `command script import`
+| [INDEX] | [CODE]                | [ROUTE]                                                                      |
+| :-----: | :-------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | C++ modules, plug-ins | `debugger` server, `language` `cpp`                                          |
+|  [02]   | Embedded Python       | `remote_execution.py` for runs, `debugger` server `python` for stops         |
+|  [03]   | Blueprint             | `debugger` stop in `FFrame::KismetExecutionMessage`, no Blueprint breakpoint |
+|  [04]   | Verse                 | None, the engine holds no Verse debugger client                              |
 
 `debugger` tools load through ToolSearch as `mcp__plugin_tool_debugger__<tool>`, and a C++ session runs in order:
 1. `create_debug_session` takes `language` `cpp`, and `CODELLDB_PATH` points it at the CodeLLDB that mise installs
@@ -84,12 +67,12 @@ C++ rebuilds reach a running editor through Hot Reload, as Live Coding sits unde
 
 ## [05]-[SYMBOLS]
 
-Editor symbols give engine frames locals and Epic's formatted `FString`, `FName`, `TArray`, and `UObject` values, and install once per engine:
+Editor symbols give engine frames locals, and install once per engine:
 1. `jq .InstallTags` of the `.item` with `AppName` `UE_5.8` under `~/Library/Application Support/Epic/EpicGamesLauncher/Data/Manifests` lacks `editor_symbols`
 2. `<engine>/Binaries/Mac/libUnrealEditor-Core.dSYM` is absent while the tag is missing, as each dSYM sits beside its dylib
 3. `df -h /Users/Shared` shows room for 136.80 GiB installed, as the tag holds 3263 files and downloads at most 24.66 GiB of chunks
 4. `watch-app` drives Epic Games Launcher in the background to the engine's Options and "Editor symbols for debugging", read before each press
-5. `frame variable` at an engine stop after the install prints locals, and an `FString` local prints `string=<text>`
+5. `get_local_variables` at an engine stop after the install lists the frame's locals
 
 Symbol installs follow launcher rules:
 - Epic Games Launcher holds the Epic sign-in, and no CLI on disk adds an install tag

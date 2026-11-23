@@ -1,7 +1,7 @@
 {
     "name": "@rasm/infra",
     "private": true,
-    "description": "IaC programs for the repository, its machines, and app hosting",
+    "description": "Pulumi programs for the repository, machines, and app hosting",
     "bin": "./stacks.ts",
     "type": "module",
     "imports": {

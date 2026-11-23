@@ -2,6 +2,7 @@ import { posix } from 'node:path';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, combineGlobPatterns, globWithWorkspaceContext, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
 import { aggregated, namedInput, run, Targets, type Verbs } from '@rasm/nx-distribution/inference';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Effect, FileSystem, Option, Predicate, Record, Result, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -46,19 +47,29 @@ const programmed = ({ name, bin, dependencies, devDependencies }: Manifest, file
 
 const targets = (root: string, entry: string, hosted: boolean, built: boolean, context: CreateNodesContext): Verbs => {
     const named = namedInput(root, context);
-    return Record.map(VERBS, ({ args, ordered }, verb): Readonly<Record<string, TargetConfiguration>> => {
-        const command = ['node', posix.relative(root, entry), ...args].map(quoteShellArg).join(' ');
-        return {
-            pulumi: {
-                command,
-                options: { cwd: root },
-                dependsOn: ordered ? [...(hosted || built ? ['build--*'] : []), ...(hosted && !built ? [] : ['^build--*']), `^${verb}--*`] : [],
-                parallelism: false,
-                inputs: [named, `^${named}`, { externalDependencies: [] }],
-                metadata: { description: `Runs the Pulumi Automation API program ${hosted ? 'the project depends on' : 'of the project'} with ${command}` },
-            },
-        };
-    });
+    const removed = ['pulumi', 'plugin', 'rm', '--all', '--yes'];
+    const clean: TargetConfiguration = {
+        executor: `${distribution.name}:clean`,
+        configurations: { cache: { commands: [removed] } },
+        inputs: [{ externalDependencies: [] }],
+        metadata: { description: `Under configuration cache, removes every plugin the Pulumi CLI downloaded into its home with ${removed.join(' ')}`, help: { command: 'pulumi plugin rm --help', example: { args: [] } } },
+    };
+    return {
+        ...(hosted ? {} : { clean: { pulumi: clean } }),
+        ...Record.map(VERBS, ({ args, ordered }, verb): Readonly<Record<string, TargetConfiguration>> => {
+            const command = ['node', posix.relative(root, entry), ...args].map(quoteShellArg).join(' ');
+            return {
+                pulumi: {
+                    command,
+                    options: { cwd: root },
+                    dependsOn: ordered ? [...(hosted || built ? ['build--*'] : []), ...(hosted && !built ? [] : ['^build--*']), `^${verb}--*`] : [],
+                    parallelism: false,
+                    inputs: [named, `^${named}`, { externalDependencies: [] }],
+                    metadata: { description: `Runs the Pulumi Automation API program ${hosted ? 'the project depends on' : 'of the project'} with ${command}` },
+                },
+            };
+        }),
+    };
 };
 
 const inferred = (programs: ReadonlyMap<string, string>, tracked: ReadonlySet<string>, { name, dependencies, nx }: Manifest, file: string, context: CreateNodesContext): Option.Option<readonly [string, CreateNodesResult]> => {

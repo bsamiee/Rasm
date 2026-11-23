@@ -4,5 +4,5 @@
         "noEmit": true,
         "plugins": []
     },
-    "include": [".", "../types", "../../../../.cache/claude-code"]
+    "include": [".", "../types"]
 }

@@ -1,5 +1,5 @@
-import { createRequire } from 'node:module';
-import { join, posix, relative, resolve } from 'node:path';
+import { createRequire, findPackageJSON } from 'node:module';
+import { dirname, join, posix, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, type CreateNodesResult, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
@@ -18,10 +18,13 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const OWN = fingerprinted(import.meta.dirname);
+const CLOUDFLARE = { plugin: '@cloudflare/vite-plugin', output: '@cloudflare/build-output-utils' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ outputPath: Folder }).annotate({ description: 'outputPath: workspace folder vite build writes to, {projectName} naming the project, absent leaves build.outDir of the config' });
+const Exported = Schema.fromJsonString(Schema.Struct({ exports: Schema.Struct({ '.': Schema.Struct({ import: Schema.String }) }) })).annotate({ description: `The import entry of the root export of ${CLOUDFLARE.output}, the package ${CLOUDFLARE.plugin} writes its Build Output tree through` });
+const Emitted = Schema.Struct({ BUILD_OUTPUT_ROOT: Schema.String }).annotate({ description: `The Build Output root ${CLOUDFLARE.output} exports, relative to the Vite root, holding the root config and every Worker and Container ${CLOUDFLARE.plugin} writes beside the environment build folders` });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -41,7 +44,10 @@ const secluded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, outDir: Option.Option<string>) {
     const fs = yield* FileSystem.FileSystem;
     const [root, folder, at] = [posix.dirname(file), join(workspaceRoot, posix.dirname(file)), join(workspaceRoot, file)];
-    const vite = yield* Effect.tryPromise({ try: (): Promise<{ readonly resolveConfig: typeof resolveConfig; readonly parseSync: typeof parseSync }> => import(pathToFileURL(createRequire(at).resolve('vite')).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no vite`) });
+    const vite = yield* Effect.tryPromise({
+        try: (): Promise<{ readonly resolveConfig: typeof resolveConfig; readonly parseSync: typeof parseSync }> => import(pathToFileURL(createRequire(at).resolve('vite')).href),
+        catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no vite`),
+    });
     const stated = MutableRef.make(false);
     const capture = { name: 'nx-vite-stated-server', enforce: 'post', config: { order: 'post', handler: (user: { readonly server?: unknown; readonly preview?: unknown }) => MutableRef.update(stated, (held) => held || user.server !== undefined || user.preview !== undefined) } } as const;
     const resolved = (command: 'build' | 'serve', mode: string, inline: Pick<InlineConfig, 'build' | 'logLevel'>) =>
@@ -63,14 +69,28 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     const signals = config.plugins.some(({ name }) => name === nxReadySignal().name);
     const buildable = library || entry || config.builder?.buildApp !== undefined || builds.some((build) => build.rolldownOptions.input !== undefined);
     const served = buildable && ((!library && (entry || signals)) || MutableRef.get(stated) || (yield* Effect.map(Effect.option(resolved('serve', 'development', { logLevel: 'silent' })), () => MutableRef.get(stated))));
-    const written = Array.dedupe(builds.map((build) => normalizePath(relative(workspaceRoot, resolve(config.root, build.outDir)))));
+    const loaded = Array.dedupe(config.configFileDependencies.map((dependency) => normalizePath(relative(workspaceRoot, dependency)))).filter(within);
+    const sources = loaded.filter((dependency) => posix.relative(root, dependency).startsWith('..'));
+    const { packages, linked } = yield* packaged(yield* parsed(vite.parseSync, workspaceRoot, loaded));
+    const emitted = yield* Effect.forEach(
+        packages.filter((name) => name === CLOUDFLARE.plugin),
+        Effect.fnUntraced(function* (name) {
+            const unresolved = (cause: unknown) => new Cause.UnknownError(cause, `${file} resolves no ${CLOUDFLARE.output} through ${name}`);
+            const manifest = yield* Effect.reduce(
+                [name, CLOUDFLARE.output],
+                () => at,
+                (from, specifier) => Effect.flatMap(Effect.mapError(Effect.fromOption(Option.flatMap(Option.liftThrowable(findPackageJSON)(specifier, pathToFileURL(from)), Option.fromUndefinedOr)), unresolved), fs.realPath),
+            );
+            const { exports } = yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Exported));
+            const utilities = yield* Effect.tryPromise({ try: (): Promise<unknown> => import(pathToFileURL(join(dirname(manifest), exports['.'].import)).href), catch: unresolved });
+            return (yield* Schema.decodeUnknownEffect(Emitted)(utilities)).BUILD_OUTPUT_ROOT;
+        }),
+    );
+    const written = Array.dedupe([...builds.map((build) => build.outDir), ...emitted].map((to) => normalizePath(relative(workspaceRoot, resolve(config.root, to)))));
     const folders = Option.liftPredicate(
         written.filter((to) => !written.some((other) => to.startsWith(`${other}/`))),
         () => buildable,
     );
-    const loaded = Array.dedupe(config.configFileDependencies.map((dependency) => normalizePath(relative(workspaceRoot, dependency)))).filter(within);
-    const sources = loaded.filter((dependency) => posix.relative(root, dependency).startsWith('..'));
-    const { packages, linked } = yield* packaged(yield* parsed(vite.parseSync, workspaceRoot, loaded));
     return {
         type: library ? ('library' as const) : ('application' as const),
         signals,

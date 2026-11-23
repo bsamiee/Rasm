@@ -28,11 +28,11 @@ const DUPLICATES = ['.jscpd.json', '.config/jscpd.json', '.config/.jscpd.json'];
 const PACKAGE = /^(?![./]|node:)(?<name>(?:@[^/]+\/)?[^/]+)/u;
 const UNPACKAGED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 const MANAGERS = {
-    npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], workspace: { json: posix.join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [] },
-    pnpm: { argv: ['pnpm', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], workspace: posix.join('{workspaceRoot}', 'pnpm-workspace.yaml'), catalogs: ['pnpm-workspace.yaml'] },
-    yarn: { argv: ['yarn', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], workspace: posix.join('{workspaceRoot}', '.yarnrc.yml'), catalogs: ['.yarnrc.yml'] },
-    bun: { argv: ['bun', 'pm', 'pack'], to: (at: string) => ['--destination', at], workspace: { json: posix.join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [] },
-} as const satisfies Record<PackageManager, { readonly argv: readonly string[]; readonly to: (at: string) => readonly string[]; readonly workspace: NonNullable<TargetConfiguration['inputs']>[number]; readonly catalogs: readonly string[] }>;
+    npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], workspace: { json: posix.join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [], lock: ['install', 'dedupe'], prune: ['cache', 'verify'] },
+    pnpm: { argv: ['pnpm', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], workspace: posix.join('{workspaceRoot}', 'pnpm-workspace.yaml'), catalogs: ['pnpm-workspace.yaml'], lock: ['dedupe'], prune: ['store', 'prune'] },
+    yarn: { argv: ['yarn', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], workspace: posix.join('{workspaceRoot}', '.yarnrc.yml'), catalogs: ['.yarnrc.yml'], lock: ['install', 'dedupe'], prune: ['cache', 'clean'] },
+    bun: { argv: ['bun', 'pm', 'pack'], to: (at: string) => ['--destination', at], workspace: { json: posix.join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [], lock: ['install', 'dedupe'], prune: ['pm', 'cache', 'rm'] },
+} as const satisfies Record<PackageManager, { readonly argv: readonly string[]; readonly to: (at: string) => readonly string[]; readonly workspace: NonNullable<TargetConfiguration['inputs']>[number]; readonly catalogs: readonly string[]; readonly lock: readonly string[]; readonly prune: readonly string[] }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -300,6 +300,14 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
                         options: { catalogs },
                         inputs: [{ externalDependencies: [] }],
                         metadata: { description: `Moves every exact version of the catalogs and package manifests to the newest dist-tag head published since, then installs and deduplicates the lockfile with ${manager}`, help: { command: `${exec} nx run --help`, example: { options: { dryRun: true } } } },
+                    },
+                },
+                clean: {
+                    [manager]: {
+                        executor: `${distribution.name}:clean`,
+                        configurations: { cache: { commands: [[manager, ...MANAGERS[manager].prune]] } },
+                        inputs: [{ externalDependencies: [] }],
+                        metadata: { description: `Under configuration cache, removes the packages no project of the store or cache of ${manager} references with ${manager} ${MANAGERS[manager].prune.join(' ')}`, help: { command: `${manager} ${MANAGERS[manager].prune.join(' ')} --help`, example: { args: [] } } },
                     },
                 },
                 check: {
@@ -621,4 +629,4 @@ const createNodes: CreateNodes = [`**/{${CONFIG},${MANIFEST},${WORKER},${PROJECT
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createNodes };
+export { createNodes, MANAGERS };

@@ -62,7 +62,7 @@ describe('projects the plugin infers', () => {
                 .flatMap(({ data: { targets = {} } }) => Object.keys(targets))
                 .filter((target) => target.includes('--'))
                 .toSorted(),
-        ).toStrictEqual(['attach--gh', 'build--tsc', 'check--eslint', 'check--eslint', 'check--eslint', 'check--jscpd', 'check--tsc', 'check--tsc', 'clean--cf', 'clean--npm', 'clean--tsc', 'codegen--cf', 'pack--npm', 'upgrade--npm'].toSorted());
+        ).toStrictEqual(['attach--gh', 'build--tsc', 'check--eslint', 'check--eslint', 'check--eslint', 'check--jscpd', 'check--tsc', 'check--tsc', 'clean--cf', 'clean--npm', 'clean--npm', 'clean--tsc', 'codegen--cf', 'pack--npm', 'upgrade--npm'].toSorted());
         expect(unaggregated(graph)).toStrictEqual([]);
     });
 });

@@ -5,76 +5,106 @@ min_version = "2026.11.1"
 # --- [SETTINGS] -------------------------------------------------------------------------
 
 [settings]
-aqua.cosign                         = false
-aqua.minisign                       = false
-auto_install                        = false
-download_cache_max_size             = "32GiB"
+# --- [BEHAVIOR]
+
+auto_install            = false
+download_cache_max_size = "32GiB"
+experimental            = true
+status.missing_tools    = "always"
+
+# --- [RESOLUTION]
+
+lockfile_platforms      = ["linux-arm64", "linux-x64", "macos-arm64", "windows-x64"]
+minimum_release_age     = "0s"
+prereleases             = true
+registry_floating       = true
+use_versions_host_track = false
+
+# --- [VERIFICATION]
+
+aqua.cosign         = false
+aqua.minisign       = false
+github_attestations = false
+gpg_verify          = false
+npm.provenance      = false
+slsa                = false
+
+# --- [LANGUAGES]
+
 dotnet.cli_telemetry_optout         = true
-experimental                        = true
-github_attestations                 = false
-gpg_verify                          = false
 idiomatic_version_file_enable_tools = ["rust"]
 java.shorthand_vendor               = "corretto"
-lockfile_platforms                  = ["linux-arm64", "linux-x64", "macos-arm64", "windows-x64"]
-minimum_release_age                 = "0s"
-npm.provenance                      = false
-prereleases                         = true
 python.uv_venv_auto                 = "source"
-registry_floating                   = true
-slsa                                = false
-status.missing_tools                = "always"
-use_versions_host_track             = false
 
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-_.path                                   = "node_modules/.bin"
-BUILDX_EXPERIMENTAL                      = "1"
-CACHE_DIR                                = "{{config_root}}/.cache"
-CARGO_LLVM_COV_DENY_WARNINGS             = "1"
-CF_QUIET                                 = "1"
-CLOUDFLARE_DEV_REGISTRY_PATH             = "{{ env.CACHE_DIR }}/cloudflare/registry"
-CODELLDB_PATH                            = { tools = true, value = '''{% set codelldb = tools["github:vadimcn/codelldb"]?.path %}{% if codelldb %}{{ codelldb }}/extension/adapter/codelldb{% if os() == "windows" %}.exe{% endif %}{% endif %}''' }
-CTX7_TELEMETRY_DISABLED                  = "1"
+# --- [PATH]
+
+_.path = "node_modules/.bin"
+
+# --- [ROOTS]
+
+ARTIFACTS_DIR = "{{config_root}}/.artifacts"
+CACHE_DIR     = "{{config_root}}/.cache"
+
+# --- [OUTPUTS]
+
+FOUNDRY_OUTPUT_DIR   = "{{ env.ARTIFACTS_DIR }}/foundry"
+WATCH_APP_OUTPUT_DIR = "{{ env.ARTIFACTS_DIR }}/watch-app"
+
+# --- [CACHES]
+
+CLOUDFLARE_DEV_REGISTRY_PATH   = "{{ env.CACHE_DIR }}/cloudflare/registry"
+FOUNDRY_CACHE_DIR              = "{{ env.CACHE_DIR }}/foundry"
+GHIDRA_JAVA_OPTIONS            = "-Dapplication.cachedir={{ env.CACHE_DIR }}/ghidra/cache -Dapplication.tempdir={{ env.CACHE_DIR }}/ghidra/tmp"
+HK_CACHE_DIR                   = "{{ env.CACHE_DIR }}/hk"
+HK_PKL_CACHE_DIR               = "{{ env.CACHE_DIR }}/pklr"
+HYPOTHESIS_STORAGE_DIRECTORY   = "{{ env.CACHE_DIR }}/hypothesis"
+NODE_COMPILE_CACHE             = "{{ env.CACHE_DIR }}/node"
+NX_WORKSPACE_DATA_DIRECTORY    = "{{ env.CACHE_DIR }}/nx/workspace-data"
+PLAYWRIGHT_TRANSFORM_CACHE_DIR = "{{ env.CACHE_DIR }}/playwright/transform"
+PYTEST_CACHE_DIR               = "{{ env.CACHE_DIR }}/pytest"
+PYTHONPYCACHEPREFIX            = "{{ env.CACHE_DIR }}/python"
+RUFF_CACHE_DIR                 = "{{ env.CACHE_DIR }}/ruff"
+SE_CACHE_PATH                  = "{{ env.CACHE_DIR }}/selenium"
+TOMBI_CACHE_HOME               = "{{ env.CACHE_DIR }}/tombi"
+UV_CACHE_DIR                   = "{{ env.CACHE_DIR }}/uv"
+VCPKG_BINARY_SOURCES           = "clear;files,{{ env.CACHE_DIR }}/vcpkg/archives,readwrite"
+VCPKG_DOWNLOADS                = "{{ env.CACHE_DIR }}/vcpkg/downloads"
+
+# --- [INSTALLED_TOOLS]
+
+CODELLDB_PATH      = { tools = true, value = '''{% set codelldb = tools["github:vadimcn/codelldb"]?.path %}{% if codelldb %}{{ codelldb }}/extension/adapter/codelldb{% if os() == "windows" %}.exe{% endif %}{% endif %}''' }
+GHIDRA_CLASSPATH   = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
+GHIDRA_INSTALL_DIR = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
+JAVAC_PLUGINS      = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
+VCPKG_ROOT         = { tools = true, value = '{{ tools["github:microsoft/vcpkg-tool"]?.path or "" }}' }
+
+# --- [SERVICES]
+
 DOPPLER_CONFIG                           = "dev"
 DOPPLER_PROJECT                          = "rasm"
-DOTNET_NOLOGO                            = "1"
-FOUNDRY_CACHE_DIR                        = "{{ env.CACHE_DIR }}/foundry"
-FOUNDRY_OUTPUT_DIR                       = "{{config_root}}/.artifacts/foundry"
-GHIDRA_CLASSPATH                         = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
-GHIDRA_INSTALL_DIR                       = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
-GHIDRA_JAVA_OPTIONS                      = "-Dapplication.settingsdir={{ env.CACHE_DIR }}/ghidra/settings -Dapplication.cachedir={{ env.CACHE_DIR }}/ghidra/cache -Dapplication.tempdir={{ env.CACHE_DIR }}/ghidra/tmp"
-HK_CACHE_DIR                             = "{{ env.CACHE_DIR }}/hk"
-HK_MISE                                  = "1"
-HK_PKL_CACHE_DIR                         = "{{ env.CACHE_DIR }}/pklr"
-HYPOTHESIS_STORAGE_DIRECTORY             = "{{ env.CACHE_DIR }}/hypothesis"
-JAVAC_PLUGINS                            = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
-NODE_COMPILE_CACHE                       = "{{ env.CACHE_DIR }}/node"
 NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN = { default = '''{% if env?.CI != "true" %}{% set login = get_env(name="DOPPLER_CONFIG_DIR", default=get_env(name="HOME", default="") ~ "/.doppler") ~ "/.doppler.yaml" %}{% set key = "NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN" ~ env.DOPPLER_PROJECT ~ env.DOPPLER_CONFIG %}{% if login is file %}{% set key = key ~ (login | hash_file) %}{% endif %}{% set read = "doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null || true" %}{{ exec(command=read, cache_key=key, cache_duration="15m") or exec(command=read, cache_key=key ~ "-empty", cache_duration="1m") }}{% endif %}''', redact = true, tools = true }
 NX_SELF_HOSTED_REMOTE_CACHE_SERVER       = { default = '''{% if env?.CI != "true" %}{% set login = get_env(name="DOPPLER_CONFIG_DIR", default=get_env(name="HOME", default="") ~ "/.doppler") ~ "/.doppler.yaml" %}{% set key = "NX_SELF_HOSTED_REMOTE_CACHE_SERVER" ~ env.DOPPLER_PROJECT ~ env.DOPPLER_CONFIG %}{% if login is file %}{% set key = key ~ (login | hash_file) %}{% endif %}{% set read = "doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_SERVER --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null || true" %}{{ exec(command=read, cache_key=key, cache_duration="15m") or exec(command=read, cache_key=key ~ "-empty", cache_duration="1m") }}{% endif %}''', tools = true }
-NX_WORKSPACE_DATA_DIRECTORY              = "{{ env.CACHE_DIR }}/nx/workspace-data"
-PLAYWRIGHT_TRANSFORM_CACHE_DIR           = "{{ env.CACHE_DIR }}/playwright/transform"
-PULUMI_HOME                              = "{{ env.CACHE_DIR }}/pulumi"
-PYTEST_CACHE_DIR                         = "{{ env.CACHE_DIR }}/pytest"
-PYTHONPYCACHEPREFIX                      = "{{ env.CACHE_DIR }}/python"
-RUFF_CACHE_DIR                           = "{{ env.CACHE_DIR }}/ruff"
-RUSTUP_AUTO_INSTALL                      = "0"
-RUSTUP_TOOLCHAIN                         = false
-SE_CACHE_PATH                            = "{{ env.CACHE_DIR }}/selenium"
-SHELLCHECK_OPTS                          = "--rcfile={{config_root}}/.config/shellcheckrc"
-SWIFT_BACKTRACE                          = "enable=yes,interactive=no,warnings=suppressed"
 TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE    = "/var/run/docker.sock"
-TOMBI_CACHE_HOME                         = "{{ env.CACHE_DIR }}/tombi"
-TY_UV                                    = "1"
-UV_CACHE_DIR                             = "{{ env.CACHE_DIR }}/uv"
-UV_PYTHON_PREFERENCE                     = "only-managed"
-VCPKG_BINARY_SOURCES                     = "clear;files,{{ env.CACHE_DIR }}/vcpkg/archives,readwrite"
-VCPKG_DISABLE_METRICS                    = "1"
-VCPKG_DOWNLOADS                          = "{{ env.CACHE_DIR }}/vcpkg/downloads"
-VCPKG_FORCE_SYSTEM_BINARIES              = "1"
-VCPKG_ROOT                               = { tools = true, value = '{{ tools["github:microsoft/vcpkg-tool"]?.path or "" }}' }
-WATCH_APP_OUTPUT_DIR                     = "{{config_root}}/.artifacts"
-X_VCPKG_REGISTRIES_CACHE                 = "{{ env.CACHE_DIR }}/vcpkg/registries"
+
+# --- [BEHAVIOR]
+
+BUILDX_EXPERIMENTAL          = "1"
+CARGO_LLVM_COV_DENY_WARNINGS = "1"
+CF_QUIET                     = "1"
+CTX7_TELEMETRY_DISABLED      = "1"
+DOTNET_NOLOGO                = "1"
+HK_MISE                      = "1"
+RUSTUP_AUTO_INSTALL          = "0"
+RUSTUP_TOOLCHAIN             = false
+SHELLCHECK_OPTS              = "--rcfile={{config_root}}/.config/shellcheckrc"
+SWIFT_BACKTRACE              = "enable=yes,interactive=no,warnings=suppressed"
+TY_UV                        = "1"
+UV_PYTHON_PREFERENCE         = "only-managed"
+VCPKG_DISABLE_METRICS        = "1"
+VCPKG_FORCE_SYSTEM_BINARIES  = "1"
 
 # --- [DEPS] -----------------------------------------------------------------------------
 
@@ -90,12 +120,6 @@ outputs = [".venv/"]
 run     = "uv sync --locked"
 sources = ["pyproject.toml", "uv.lock"]
 
-[deps.msbuild-analyzer]
-dir     = "products/developer/nx/dotnet/analyzer"
-outputs = ["dist/"]
-run     = "dotnet publish MsbuildAnalyzer.csproj"
-sources = ["*.cs", "MsbuildAnalyzer.csproj", "packages.lock.json", "{{ config_root }}/Directory.Build.props", "{{ config_root }}/Directory.Build.targets", "{{ config_root }}/Directory.Packages.props", "{{ config_root }}/global.json", "{{ config_root }}/NuGet.config"]
-
 [deps.playwright]
 auto    = true
 depends = ["pnpm"]
@@ -110,15 +134,17 @@ sources = ["pixi.lock", "pyproject.toml", "uv.lock"]
 
 # --- [HOOKS] ----------------------------------------------------------------------------
 
-[hooks.postinstall]
-run         = '''printf %s "$MISE_INSTALLED_TOOLS" | jq -e 'any(.[]; .name == "rust")' >/dev/null || exit 0; cargo clean && mise prune --tools rust'''
-run_windows = '''echo %MISE_INSTALLED_TOOLS%| jq -e "any(.[]; .name == \"rust\")" >nul || exit /b 0 & cargo clean && mise prune --tools rust'''
+[hooks]
+postinstall = [
+    { run = '''printf %s "$MISE_INSTALLED_TOOLS" | jq -e 'any(.[]; .name == "rust")' >/dev/null || exit 0; cargo clean && mise prune --tools rust''', run_windows = '''echo %MISE_INSTALLED_TOOLS%| jq -e "any(.[]; .name == \"rust\")" >nul || exit /b 0 & cargo clean && mise prune --tools rust''' },
+    "mise deps install",
+]
 
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 
 [bootstrap.hooks]
 final      = "mise exec -- hk install"
-post-tools = "mise deps install --only pnpm --only msbuild-analyzer"
+post-tools = "mise deps install"
 
 [bootstrap.remote]
 mise_env = ["linux"]
@@ -133,16 +159,10 @@ user     = "root"
 host = "lucky"
 user = "root"
 
-# --- [DAEMONS] --------------------------------------------------------------------------
-
-[daemons_settings]
-namespace = "rasm"
-
 # --- [VARS] -----------------------------------------------------------------------------
 
 [vars]
 docker_plugin = 'plugins="$${DOCKER_CONFIG:-$$HOME/.docker}/cli-plugins" && mkdir -p "$$plugins" && for bin in "$$MISE_TOOL_INSTALL_PATH"/docker-*; do ln -sf "$$bin" "$$plugins/"; done'
-maven         = "https://repo1.maven.org/maven2"
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 
@@ -151,102 +171,123 @@ resvg = "github:linebender/resvg"
 usvg  = "github:linebender/resvg"
 
 [tools]
-"aqua:owenlamont/ryl"                                                        = "latest"
-"aqua:taiki-e/cargo-llvm-cov"                                                = "latest"
-ast-grep                                                                     = "latest"
-carapace                                                                     = "latest"
-cargo-deny                                                                   = "latest"
-cargo-insta                                                                  = "latest"
-cargo-nextest                                                                = "latest"
-"cargo:cargo-edit"                                                           = "latest"
-cmake                                                                        = "latest"
-colima                                                                       = { os = ["macos"], version = "latest" }
-"conda:openssh"                                                              = { os = ["linux"], version = "latest" }
-"conda:pkgconf"                                                              = "latest"
-docker-compose                                                               = { os = ["unix"], postinstall = { run = "{{ vars.docker_plugin }}", when = "always" }, version = "latest" }
-doppler                                                                      = "latest"
-dotnet                                                                       = "latest"
-"dotnet:dotnet-counters"                                                     = "latest"
-"dotnet:dotnet-dump"                                                         = "latest"
-"dotnet:dotnet-stack"                                                        = "latest"
-"dotnet:dotnet-trace"                                                        = "latest"
-"dotnet:ilspycmd"                                                            = { postinstall = '''{% if os() == "windows" %}{% set at = "%MISE_TOOL_INSTALL_PATH%" %}{% set version = "%MISE_TOOL_VERSION%" %}{% else %}{% set at = "$MISE_TOOL_INSTALL_PATH" %}{% set version = "$MISE_TOOL_VERSION" %}{% endif %}dotnet tool uninstall ilspycmd --tool-path "{{ at }}/bin" && dotnet tool install ilspycmd --tool-path "{{ at }}/bin" --version {{ version }} --allow-roll-forward''', version = "latest" }
+# --- [SHELL]
+
+ast-grep             = "latest"
+carapace             = "latest"
+duckdb               = "latest"
+fd                   = "latest"
+"github:harehare/mq" = "latest"
+hyperfine            = "latest"
+jq                   = "latest"
+ripgrep              = "latest"
+sd                   = "latest"
+tree-sitter          = "latest"
+xh                   = "latest"
+yq                   = "latest"
+
+# --- [CHECKERS]
+
+"aqua:owenlamont/ryl"          = "latest"
+editorconfig-checker           = "latest"
+"github:BlankSpruce/gersemi"   = "latest"
+"github:fonttools/fontspector" = { version = "latest", version_prefix = "fontspector-v" }
+"github:pmd/pmd"               = { version = "latest", version_prefix = "pmd_releases/", version_regex = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$' }
+"github:sbdchd/squawk"         = "latest"
+"github:trailofbits/dylint"    = { matching = "cargo-dylint-", os = ["unix"], version = "latest" }
+google-java-format             = "latest"
+hk                             = { depends = ["sd"], postinstall = { run = '''{% if os() != "windows" %}sd 'download/v[^/]+/hk@[^#]+#' "download/v$MISE_TOOL_VERSION/hk@$MISE_TOOL_VERSION#" "$MISE_CONFIG_ROOT/.config/hk.pkl"{% endif %}''', when = "always" }, version = "latest" }
+"http:dataflow-errorprone"     = { bin = "dataflow-errorprone.jar", format = "raw", url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/{{ version }}/dataflow-errorprone-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+"http:dataflow-nullaway"       = { bin = "dataflow-nullaway.jar", format = "raw", url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/{{ version }}/dataflow-nullaway-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+"http:error-prone"             = { bin = "error-prone.jar", format = "raw", url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/{{ version }}/error_prone_core-{{ version }}-with-dependencies.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+"http:jspecify"                = { bin = "jspecify.jar", format = "raw", url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/{{ version }}/jspecify-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+"http:nullaway"                = { bin = "nullaway.jar", format = "raw", url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/{{ version }}/nullaway-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+jactionlint                    = "latest"
+jscpd                          = "latest"
+pkl                            = "latest"
+"pypi:check-jsonschema"        = { python = "3.15", version = "latest" }
+ruff                           = "latest"
+shellcheck                     = "latest"
+shfmt                          = "latest"
+swiftlint                      = { os = ["macos"], version = "latest" }
+tombi                          = "latest"
+
+# --- [TOOLCHAINS]
+
+"aqua:taiki-e/cargo-llvm-cov" = "latest"
+cargo-deny                    = "latest"
+cargo-insta                   = "latest"
+cargo-nextest                 = "latest"
+"cargo:cargo-edit"            = "latest"
+cmake                         = "latest"
+"conda:pkgconf"               = "latest"
+dotnet                        = "latest"
+"github:llvm/llvm-project"    = { bin_path = "bin", matching_regex = '^(clang\+)?(?i:llvm)-\d', strip_components = 1, version = "latest", version_prefix = "llvmorg-" }
+"github:microsoft/vcpkg-tool" = { additional_asset_patterns = ["vcpkg-standalone-bundle.tar.gz"], bin = "vcpkg", version = "latest" }
+"http:rustc-source"           = { os = ["unix"], postinstall = { run = 'rm -rf "$MISE_TOOL_INSTALL_PATH/src/llvm-project" && ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/.cargo/rustc-source"', when = "always" }, strip_components = 1, url = "https://static.rust-lang.org/dist/{{ version }}/rustc-nightly-src.tar.xz", version = "{{ read_toml(path=config_root ~ '/rust-toolchain.toml')['toolchain']['channel'] | trim_start(pat='nightly-') }}" }
+java                          = "latest"
+ninja                         = "latest"
+node                          = { postinstall = '''node -e "require('node:fs').rmSync(process.env.NODE_COMPILE_CACHE, { recursive: true, force: true })"''', version = "latest" }
+pixi                          = "latest"
+pnpm                          = "latest"
+uv                            = "latest"
+
+# --- [DIAGNOSTICS]
+
+"dotnet:dotnet-counters"     = "latest"
+"dotnet:dotnet-dump"         = "latest"
+"dotnet:dotnet-stack"        = "latest"
+"dotnet:dotnet-trace"        = "latest"
+"dotnet:ilspycmd"            = { postinstall = '''{% if os() == "windows" %}{% set at = "%MISE_TOOL_INSTALL_PATH%" %}{% set version = "%MISE_TOOL_VERSION%" %}{% else %}{% set at = "$MISE_TOOL_INSTALL_PATH" %}{% set version = "$MISE_TOOL_VERSION" %}{% endif %}dotnet tool uninstall ilspycmd --tool-path "{{ at }}/bin" && dotnet tool install ilspycmd --tool-path "{{ at }}/bin" --version {{ version }} --allow-roll-forward''', version = "latest" }
+"github:Samsung/netcoredbg"  = "latest"
+"github:vadimcn/codelldb"    = { bin_path = "extension/adapter", format = "zip", os = ["macos"], version = "latest" }
+"npm:@debugmcp/mcp-debugger" = { os = ["macos"], version = "latest" }
+
+# --- [CONTAINERS]
+
+colima                                    = { os = ["macos"], version = "latest" }
+docker-compose                            = { os = ["unix"], postinstall = { run = "{{ vars.docker_plugin }}", when = "always" }, version = "latest" }
+"github:docker/buildx"                    = { bin = "docker-buildx", os = ["unix"], postinstall = { run = "{{ vars.docker_plugin }}", when = "always" }, version = "latest" }
+"github:docker/docker-credential-helpers" = { bin = "docker-credential-osxkeychain", matching = "docker-credential-osxkeychain", os = ["macos"], version = "latest" }
+"http:docker-cli"                         = { checksum_url = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz.sha256', os = ["unix"], url = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz', version = "latest", version_list_url = "https://download.docker.com/mac/static/test/aarch64/", version_order = "semver", version_regex = 'href="docker-cli_([^"]+)\.tgz"' }
+lima                                      = { os = ["macos"], version = "latest" }
+
+# --- [SERVICES]
+
+"conda:openssh"                             = { os = ["linux"], version = "latest" }
+doppler                                     = "latest"
+gcloud                                      = "latest"
+gh                                          = "latest"
+git-lfs                                     = "latest"
+"github:Link-/gh-token"                     = { bin = "gh-token", version = "latest" }
+"github:rudrankriyam/App-Store-Connect-CLI" = { bin = "asc", os = ["macos"], version = "latest" }
+"github:sparkle-project/Sparkle"            = { os = ["macos"], version = "latest" }
+pulumi                                      = "latest"
+
+# --- [AGENTS]
+
 "dotnet:Microsoft.AITools.BinlogMcp"                                         = "latest"
 "dotnet:NuGet.Mcp.Server"                                                    = "latest"
 "dotnet:RoslynCodeLens.Mcp"                                                  = "latest"
-duckdb                                                                       = "latest"
-editorconfig-checker                                                         = "latest"
-fd                                                                           = "latest"
-gcloud                                                                       = "latest"
-gh                                                                           = "latest"
-git-lfs                                                                      = "latest"
-"github:BlankSpruce/gersemi"                                                 = "latest"
-"github:docker/buildx"                                                       = { bin = "docker-buildx", os = ["unix"], postinstall = { run = "{{ vars.docker_plugin }}", when = "always" }, version = "latest" }
-"github:fonttools/fontspector"                                               = { version = "latest", version_prefix = "fontspector-v" }
-"github:harehare/mq"                                                         = "latest"
-"github:Link-/gh-token"                                                      = { bin = "gh-token", version = "latest" }
-"github:rudrankriyam/App-Store-Connect-CLI"                                  = { bin = "asc", os = ["macos"], version = "latest" }
-"github:Samsung/netcoredbg"                                                  = "latest"
-"github:sbdchd/squawk"                                                       = "latest"
-"github:sparkle-project/Sparkle"                                             = { os = ["macos"], version = "latest" }
-"github:trailofbits/dylint"                                                  = { matching = "cargo-dylint-", os = ["unix"], version = "latest" }
-google-java-format                                                           = "latest"
-hk                                                                           = { depends = ["sd"], postinstall = { run = '''{% if os() != "windows" %}sd 'download/v[^/]+/hk@[^#]+#' "download/v$MISE_TOOL_VERSION/hk@$MISE_TOOL_VERSION#" "$MISE_CONFIG_ROOT/.config/hk.pkl"{% endif %}''', when = "always" }, version = "latest" }
-hyperfine                                                                    = "latest"
-imagemagick                                                                  = "latest"
-jactionlint                                                                  = "latest"
-java                                                                         = "latest"
-jq                                                                           = "latest"
-jscpd                                                                        = "latest"
-lima                                                                         = { os = ["macos"], version = "latest" }
-ninja                                                                        = "latest"
-node                                                                         = { postinstall = '''node -e "require('node:fs').rmSync(process.env.NODE_COMPILE_CACHE, { recursive: true, force: true })"''', version = "latest" }
+"http:claude-code-types"                                                     = { os = ["unix"], postinstall = { run = 'ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/plugins/claude/function-hooks/types/claude-code"', when = "always" }, url = "https://raw.githubusercontent.com/anthropics/claude-code/v{{ version }}/mods/types/claude-code.d.ts", version = "latest", version_list_url = "https://api.github.com/repos/anthropics/claude-code/tags", version_order = "semver" }
 "npm:@aredotna/cli"                                                          = "latest"
-"npm:@bubblydoo/uxp-cli"                                                     = { allow_builds = ["@adobe-fixed-uxp/uxp-devtools-helper"], allow_low_downloads = true, os = ["macos", "windows"], version = "latest" }
-"npm:@debugmcp/mcp-debugger"                                                 = { os = ["macos"], version = "latest" }
 "npm:@modelcontextprotocol/conformance"                                      = "latest"
 "npm:@tavily/cli"                                                            = { allow_low_downloads = true, os = ["macos"], version = "latest" }
 "npm:ctx7"                                                                   = "latest"
-pitchfork                                                                    = { os = ["macos"], version = "latest" }
-pixi                                                                         = "latest"
-pkl                                                                          = "latest"
-pnpm                                                                         = "latest"
-pulumi                                                                       = "latest"
-"pypi:check-jsonschema"                                                      = { python = "3.15", version = "latest" }
 "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = { os = ["macos"], version = "v1" }
 "pypi:mcp-for-blender"                                                       = { os = ["macos"], version = "latest" }
-resvg                                                                        = "latest"
-ripgrep                                                                      = "latest"
-ruff                                                                         = "latest"
-sd                                                                           = "latest"
-shellcheck                                                                   = "latest"
-shfmt                                                                        = "latest"
-swiftlint                                                                    = { os = ["macos"], version = "latest" }
-tombi                                                                        = "latest"
-tree-sitter                                                                  = "latest"
-usvg                                                                         = { matching = "usvg", version = "latest" }
-uv                                                                           = "latest"
-xh                                                                           = "latest"
-yq                                                                           = "latest"
 
-[tools."github:docker/docker-credential-helpers"]
-bin      = "docker-credential-osxkeychain"
-matching = "docker-credential-osxkeychain"
-os       = ["macos"]
-version  = "latest"
+# --- [HOSTS]
 
-[tools."github:llvm/llvm-project"]
-bin_path         = "bin"
-matching_regex   = '^(clang\+)?(?i:llvm)-\d'
-strip_components = 1
-version          = "latest"
-version_prefix   = "llvmorg-"
+"http:blender-ext"       = { url = "https://raw.githubusercontent.com/blender/blender/v{{ version }}/scripts/addons_core/bl_pkg/cli/blender_ext.py", version = "latest", version_list_url = "https://api.github.com/repos/blender/blender/tags", version_order = "semver" }
+"http:yak"               = { bin = "yak", url = 'https://files.mcneel.com/yak/tools/{{ version }}/{{ os(macos="osx", linux="linux", windows="win") }}-{{ arch(x64="x64", arm64="arm64") }}/yak{{ os(macos="", linux="", windows=".exe") }}', version = "latest", version_list_url = "https://s3.amazonaws.com/files.na.mcneel.com/?prefix=yak/tools/", version_regex = "<Key>yak/tools/([^/]+)/osx-arm64/yak</Key>" }
+"npm:@bubblydoo/uxp-cli" = { allow_builds = ["@adobe-fixed-uxp/uxp-devtools-helper"], allow_low_downloads = true, os = ["macos", "windows"], version = "latest" }
 
-[tools."github:microsoft/vcpkg-tool"]
-additional_asset_patterns = ["vcpkg-standalone-bundle.tar.gz"]
-bin                       = "vcpkg"
-postinstall               = { run = '{% if os() != "windows" %}mkdir -p "$X_VCPKG_REGISTRIES_CACHE"{% endif %}', when = "always" }
-version                   = "latest"
+# --- [MEDIA]
+
+imagemagick = "latest"
+resvg       = "latest"
+usvg        = { matching = "usvg", version = "latest" }
 
 [tools."github:NationalSecurityAgency/ghidra"]
 bin_path         = "support"
@@ -264,91 +305,3 @@ fi
 strip_components = 1
 version          = "latest"
 version_prefix   = "Ghidra_"
-
-[tools."github:pmd/pmd"]
-version        = "latest"
-version_prefix = "pmd_releases/"
-version_regex  = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$'
-
-[tools."github:vadimcn/codelldb"]
-bin_path = "extension/adapter"
-format   = "zip"
-os       = ["macos"]
-version  = "latest"
-
-[tools."http:blender-ext"]
-url              = "https://raw.githubusercontent.com/blender/blender/v{{ version }}/scripts/addons_core/bl_pkg/cli/blender_ext.py"
-version          = "latest"
-version_list_url = "https://api.github.com/repos/blender/blender/tags"
-version_order    = "semver"
-
-[tools."http:claude-code-types"]
-os               = ["unix"]
-postinstall      = { run = 'mkdir -p "$MISE_CONFIG_ROOT/.cache" && ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/.cache/claude-code"', when = "always" }
-url              = "https://raw.githubusercontent.com/anthropics/claude-code/v{{ version }}/mods/types/claude-code.d.ts"
-version          = "latest"
-version_list_url = "https://api.github.com/repos/anthropics/claude-code/tags"
-version_order    = "semver"
-
-[tools."http:dataflow-errorprone"]
-bin              = "dataflow-errorprone.jar"
-format           = "raw"
-url              = "{{ vars.maven }}/io/github/eisop/dataflow-errorprone/{{ version }}/dataflow-errorprone-{{ version }}.jar"
-version          = "latest"
-version_list_url = "{{ vars.maven }}/io/github/eisop/dataflow-errorprone/maven-metadata.xml"
-version_regex    = "<version>([^<]+)</version>"
-
-[tools."http:dataflow-nullaway"]
-bin              = "dataflow-nullaway.jar"
-format           = "raw"
-url              = "{{ vars.maven }}/org/checkerframework/dataflow-nullaway/{{ version }}/dataflow-nullaway-{{ version }}.jar"
-version          = "latest"
-version_list_url = "{{ vars.maven }}/org/checkerframework/dataflow-nullaway/maven-metadata.xml"
-version_regex    = "<version>([^<]+)</version>"
-
-[tools."http:docker-cli"]
-checksum_url     = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz.sha256'
-os               = ["unix"]
-url              = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz'
-version          = "latest"
-version_list_url = "https://download.docker.com/mac/static/test/aarch64/"
-version_order    = "semver"
-version_regex    = 'href="docker-cli_([^"]+)\.tgz"'
-
-[tools."http:error-prone"]
-bin              = "error-prone.jar"
-format           = "raw"
-url              = "{{ vars.maven }}/com/google/errorprone/error_prone_core/{{ version }}/error_prone_core-{{ version }}-with-dependencies.jar"
-version          = "latest"
-version_list_url = "{{ vars.maven }}/com/google/errorprone/error_prone_core/maven-metadata.xml"
-version_regex    = "<version>([^<]+)</version>"
-
-[tools."http:jspecify"]
-bin              = "jspecify.jar"
-format           = "raw"
-url              = "{{ vars.maven }}/org/jspecify/jspecify/{{ version }}/jspecify-{{ version }}.jar"
-version          = "latest"
-version_list_url = "{{ vars.maven }}/org/jspecify/jspecify/maven-metadata.xml"
-version_regex    = "<version>([^<]+)</version>"
-
-[tools."http:nullaway"]
-bin              = "nullaway.jar"
-format           = "raw"
-url              = "{{ vars.maven }}/com/uber/nullaway/nullaway/{{ version }}/nullaway-{{ version }}.jar"
-version          = "latest"
-version_list_url = "{{ vars.maven }}/com/uber/nullaway/nullaway/maven-metadata.xml"
-version_regex    = "<version>([^<]+)</version>"
-
-[tools."http:rustc-source"]
-os               = ["unix"]
-postinstall      = { run = 'rm -rf "$MISE_TOOL_INSTALL_PATH/src/llvm-project" && ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/.cargo/rustc-source"', when = "always" }
-strip_components = 1
-url              = "https://static.rust-lang.org/dist/{{ version }}/rustc-nightly-src.tar.xz"
-version          = "{{ read_toml(path=config_root ~ '/rust-toolchain.toml')['toolchain']['channel'] | trim_start(pat='nightly-') }}"
-
-[tools."http:yak"]
-bin              = "yak"
-url              = 'https://files.mcneel.com/yak/tools/{{ version }}/{{ os(macos="osx", linux="linux", windows="win") }}-{{ arch(x64="x64", arm64="arm64") }}/yak{{ os(macos="", linux="", windows=".exe") }}'
-version          = "latest"
-version_list_url = "https://s3.amazonaws.com/files.na.mcneel.com/?prefix=yak/tools/"
-version_regex    = "<Key>yak/tools/([^/]+)/osx-arm64/yak</Key>"

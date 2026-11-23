@@ -98,7 +98,6 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
     });
     const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
     const covered = { ...tested(node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Option.toArray(coverage).flatMap((at) => ['--results-directory', posix.relative(root, at)])), outputs: Option.toArray(coverage).map((at) => posix.join('{workspaceRoot}', at)) };
-    const cleaned = moded(({ configuration }) => ({ commands: [['dotnet', 'clean', node.file, '--configuration', configuration, '-p:BuildProjectReferences=false']] }));
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
         executor: `${PLUGIN}:format`,
         options: { commands, project },
@@ -178,9 +177,8 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
             dotnet: {
                 executor: `${distribution.name}:clean`,
                 inputs: compiled,
-                options: { ...cleaned.options, targets: Record.collect(tools, (named, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${named}--${tool}`)).flat() },
-                configurations: cleaned.configurations,
-                metadata: metadata('clean', `Removes the build outputs of ${node.name} with dotnet clean`),
+                options: { targets: Record.collect(tools, (named, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${named}--${tool}`)).flat() },
+                metadata: metadata('clean', `Removes the outputs every configuration of the build and pack targets of ${node.name} declares`),
             },
         },
         attach: {

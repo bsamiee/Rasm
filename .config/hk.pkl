@@ -4,8 +4,8 @@ import "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Builtin
 
 // --- [SETTINGS] -------------------------------------------------------------------------
 
-fail_fast = false
 exclude = "infra/sdks/**"
+fail_fast = false
 
 // --- [STEPS] ----------------------------------------------------------------------------
 
@@ -15,16 +15,6 @@ steps {
       command = "cd tools/ast-grep/grammars && cmake --workflow --preset default"
       effect = "write"
     }
-    cache = true
-    cache_inputs =
-      List(
-        "tools/ast-grep/grammars/**",
-        "tools/ast-grep/outline/**",
-        "tools/ast-grep/package.json",
-        "sgconfig.yml",
-        "pnpm-lock.yaml",
-        ".config/mise.lock",
-      )
     stomp = true
   }
   ["ast-grep"] {

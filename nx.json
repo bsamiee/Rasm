@@ -1,14 +1,10 @@
 {
     "$schema": "./node_modules/nx/schemas/nx-schema.json",
+    "neverConnectToCloud": true,
     "cacheDirectory": ".cache/nx/workspace-data/cache",
     "maxCacheSize": "20GB",
     "useDaemonProcess": false,
     "analytics": false,
-    "neverConnectToCloud": true,
-    "sync": {
-        "applyChanges": true,
-        "globalGenerators": ["@rasm/nx-distribution:executor-schemas"]
-    },
     "plugins": [
         {
             "plugin": "@rasm/nx-distribution",
@@ -20,9 +16,9 @@
         {
             "plugin": "@rasm/nx-apple",
             "options": {
-                "trustPackages": true,
                 "outputPath": ".artifacts/apple/{projectName}",
-                "coveragePath": ".artifacts/coverage/{projectName}"
+                "coveragePath": ".artifacts/coverage/{projectName}",
+                "trustPackages": true
             }
         },
         {
@@ -33,10 +29,10 @@
         },
         {
             "plugin": "@rasm/nx-cmake",
-            "exclude": ["tools/ast-grep/grammars/**"],
             "options": {
                 "outputPath": ".artifacts/cmake/projects/{projectName}",
-                "coveragePath": ".artifacts/coverage/{projectName}"
+                "coveragePath": ".artifacts/coverage/{projectName}",
+                "prebuilt": ["tools/ast-grep/grammars"]
             }
         },
         {
@@ -53,15 +49,14 @@
                 "coveragePath": ".artifacts/coverage/{projectName}"
             }
         },
-        "@rasm/nx-docker",
         "@rasm/nx-pulumi",
         {
             "plugin": "@rasm/nx-typescript",
             "options": {
+                "outputPath": ".artifacts/pnpm/{projectName}",
                 "compilerPackages": ["@typescript/native", "@effect/tsgo"],
                 "knipConfig": ".config/knip.json",
-                "stylelintConfig": ".config/stylelint.config.ts",
-                "outputPath": ".artifacts/pnpm/{projectName}"
+                "stylelintConfig": ".config/stylelint.config.ts"
             }
         },
         {
@@ -88,14 +83,16 @@
             "options": {
                 "outputPath": ".artifacts/storybook/{projectName}"
             }
-        }
-    ],
-    "targetDefaults": {
-        "{build,install}--yak": {
-            "configurations": {
-                "debug": {}
-            }
         },
+        "@rasm/nx-docker"
+    ],
+    "pluginsConfig": {
+        "@nx/js": {
+            "analyzeSourceFiles": false,
+            "projectsAffectedByDependencyUpdates": "auto"
+        }
+    },
+    "targetDefaults": {
         "{deploy,dry-run}--pulumi": {
             "configurations": {
                 "release": { "args": "--production" },
@@ -120,10 +117,23 @@
             }
         }
     },
-    "pluginsConfig": {
-        "@nx/js": {
-            "analyzeSourceFiles": false,
-            "projectsAffectedByDependencyUpdates": "auto"
+    "sync": {
+        "applyChanges": true,
+        "globalGenerators": ["@rasm/nx-distribution:executor-schemas"]
+    },
+    "release": {
+        "projects": ["tag:release"],
+        "projectsRelationship": "independent",
+        "releaseTag": { "strictPreid": false },
+        "version": { "conventionalCommits": true },
+        "changelog": {
+            "projectChangelogs": {
+                "createRelease": "github",
+                "file": false
+            }
+        },
+        "git": {
+            "commitMessage": "chore: publish"
         }
     },
     "conformance": {
@@ -178,20 +188,5 @@
             { "rule": "./tools/conformance/release-projects/rule.ts" },
             { "rule": "./tools/conformance/portable-graph/rule.ts" }
         ]
-    },
-    "release": {
-        "projects": ["tag:release"],
-        "projectsRelationship": "independent",
-        "releaseTag": { "strictPreid": false },
-        "version": { "conventionalCommits": true },
-        "changelog": {
-            "projectChangelogs": {
-                "createRelease": "github",
-                "file": false
-            }
-        },
-        "git": {
-            "commitMessage": "chore: publish"
-        }
     }
 }

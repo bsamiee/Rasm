@@ -5,9 +5,6 @@ agents = { max_concurrent_threads_per_session = 30 }
 apps   = { _default = { default_tools_approval_mode = "approve" } }
 notice = { hide_full_access_warning = true }
 
-[hooks]
-SessionStart = [{ hooks = [{ type = "command", command = "mise daemons register && mise exec -- pitchfork project enter --pid \"$PPID\"" }] }]
-
 [plugins]
 "blender@rasm"       = { enabled = true }
 "dotnet@rasm"        = { enabled = true }

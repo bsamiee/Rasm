@@ -19,7 +19,7 @@ const holds = ({ nodes }: ProjectGraph, projects: readonly string[], pattern: st
 
 const resolves = (graph: ProjectGraph, project: string, entry: string | TargetDependencyConfig) => {
     const { target, projects, dependencies = false } = normalizeTargetDependencyWithStringProjects(expandDependencyConfigSyntaxSugar(entry, graph, project));
-    return dependencies || (projects === undefined && isGlobPattern(target)) ? Record.keys(graph.nodes).some((owner) => holds(graph, [owner], target)) : holds(graph, projects === undefined ? [project] : findMatchingProjects(projects, graph.nodes), target);
+    return dependencies || isGlobPattern(target) ? Record.keys(graph.nodes).some((owner) => holds(graph, [owner], target)) : holds(graph, projects === undefined ? [project] : findMatchingProjects(projects, graph.nodes), target);
 };
 
 const configured = ({ nodes }: ProjectGraph, { tasks }: TaskGraph, id: string) => {

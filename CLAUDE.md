@@ -30,7 +30,7 @@
 - Use `delegate:antigravity` skill for video, audio, and bulk image or scanned-page reading
 - Use `writing:prose` skill for when writing, editing, or reviewing prose of any kind
 - Use `dotnet:codelens` skill to read, trace, or change any file in a .NET solution
-- Use `nx build`/`nx test` for Xcode builds and tests, `xcrun simctl`, `devicectl`, and `xcresulttool` for simulators, devices, and results, `lldb` MCP for a debug session
+- Use `nx build`/`nx test` for Xcode builds and tests, `xcrun simctl`, `devicectl`, and `xcresulttool` for simulators, devices, and results
 
 [CLI_TOOLING]:
 

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-database",
     "private": true,
-    "description": "Database suites over SQLite, D1, PostgreSQL, and ClickHouse",
+    "description": "@rasm/database suites over SQLite, D1, PostgreSQL, and ClickHouse",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"

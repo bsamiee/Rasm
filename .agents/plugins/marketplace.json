@@ -92,7 +92,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.5.0",
+            "version": "0.5.1",
             "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, Unreal Engine debugging, reloads, and logs on macOS, and the Unreal Engine editor MCP server",
             "author": {
                 "name": "Bardia Samiee"
@@ -271,7 +271,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.9.0",
+            "version": "0.9.2",
             "description": "Dependency source, web, Are.na, and Gemini Notebook research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
@@ -297,16 +297,15 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.4.1",
-            "description": "Swift design with typed throws, value types, and structured concurrency, and LLDB sessions",
+            "version": "0.4.2",
+            "description": "Swift design with typed throws, value types, and structured concurrency",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
-            "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Swift",
-                "shortDescription": "Swift design with typed throws, value types, and structured concurrency, and LLDB sessions",
+                "shortDescription": "Swift design with typed throws, value types, and structured concurrency",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"

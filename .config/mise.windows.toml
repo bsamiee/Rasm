@@ -3,4 +3,3 @@
 [env]
 GHIDRA_PROJECT_DIR                    = "{{ env.LOCALAPPDATA }}/rasm/ghidra/projects"
 TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = "//var/run/docker.sock"
-X_VCPKG_REGISTRIES_CACHE              = false

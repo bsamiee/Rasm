@@ -1,5 +1,4 @@
 import { availableParallelism, devNull } from 'node:os';
-import process from 'node:process';
 import type { ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Function, Glob, Match, Option, Predicate, Record, Result, Schema, String, Struct } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
@@ -706,14 +705,6 @@ const TASKS: Ruleset = {
         parallel: { flags: ['-j, --jobs=', '-P, --max-procs='], rules: [cores(/./u, '--jobs', '--max-procs')] },
         make: { aliases: ['gmake'], rules: [cores(/^\d+$/u, '--jobs')] },
         ninja: { flags: ['-j='], rules: [cores(/./u, '-j')] },
-        pitchfork: {
-            flags: ['-f, --force'],
-            rules: [
-                perSubcommand({
-                    supervisor: [when(({ path, operands, has }) => process.platform === 'darwin' && has('--force') && [...path, ...operands.map(({ text }) => text)].some((word) => word === 'start' || word === 'run'), respell({ drops: ['--force'], notify: true }))],
-                }),
-            ],
-        },
     },
     every: [nxTarget, hkStep],
 };

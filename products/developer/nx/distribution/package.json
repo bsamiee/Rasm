@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-distribution",
     "version": "0.1.0",
-    "description": "Nx plugin inferring host packages from their manifests, one row per kind (Blender extension, Yak package, Adobe UXP .ccx, Chrome extension, Unreal plug-in): each row builds the package with its host tool, installs it where the host loads it, attaches it to the project's GitHub release, and publishes it to the host store taking uploads; it holds the clean, attach, and publish executors every plugin names by package, the sync generator writing each plugin's executor schemas, and the upgrade target moving every GitHub Actions reference in the workflows to its newest release through jactionlint",
+    "description": "Nx plugin inferring build, install, attach, and publish targets of host packages (Blender, Yak, UXP, Chrome, Unreal) from their manifests, and the clean, attach, and publish executors every plugin names",
     "license": "MIT",
     "repository": {
         "type": "git",

@@ -33,6 +33,23 @@
             "description": "Folder the commands run in, relative to the workspace root",
             "default": "."
         },
+        "folders": {
+            "type": "array",
+            "description": "Folders whose entries are removed, keeping the entry holding Nx's workspace data, each an environment variable naming a folder followed by path segments under it",
+            "default": [],
+            "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": [
+                    {
+                        "type": "string"
+                    }
+                ],
+                "additionalItems": {
+                    "type": "string"
+                }
+            }
+        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, appended after the configured arguments",
@@ -46,8 +63,8 @@
             }
         }
     },
-    "required": ["targets", "commands", "cwd"],
+    "required": ["targets", "commands", "cwd", "folders"],
     "additionalProperties": true,
     "title": "Clean",
-    "description": "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare, keeping any the workspace tracks as source"
+    "description": "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare, keeping any the workspace tracks as source, and empties the named folders"
 }

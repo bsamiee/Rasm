@@ -40,7 +40,7 @@ describe('clean executor', () => {
     it('removes what the inferred build wrote and keeps the manifest it read', async ({ workspace }) => {
         const graph = await workspace.write({ '.gitignore': '*.yak\n', 'rhino/manifest.yml': 'name: marker\nversion: 1.2.3\nauthors: [Suite]\ndescription: Marks points\n', 'rhino/marker-1.2.3-rh8-any.yak': 'archive' }).graph({ createNodes });
 
-        const stated: unknown = { commands: [], cwd: '.', ...graph.nodes['marker']?.data.targets?.['clean--yak']?.options };
+        const stated: unknown = { commands: [], cwd: '.', folders: [], ...graph.nodes['marker']?.data.targets?.['clean--yak']?.options };
         assert(Schema.is(Clean)(stated), 'clean--yak states clean options');
 
         await execute(stated, workspace.context(graph, 'marker', 'clean--yak'));
@@ -51,15 +51,23 @@ describe('clean executor', () => {
     it('removes each declared output and keeps each file the workspace tracks under one', async ({ workspace }) => {
         const graph = await workspace.write(lib).graph({ createNodes });
 
-        await execute({ targets: ['pack', 'stage'], commands: [], cwd: '.' }, workspace.context(graph, 'lib', 'clean'));
+        await execute({ targets: ['pack', 'stage'], commands: [], cwd: '.', folders: [] }, workspace.context(graph, 'lib', 'clean'));
 
         expect(['lib/packed/lib.tgz', 'lib/staged/built.txt', 'lib/staged/tracked.txt', 'lib/index.js'].filter((file) => existsSync(join(workspace.root, file)))).toStrictEqual(['lib/staged/tracked.txt', 'lib/index.js']);
+    });
+
+    it('removes each folder under the project root a removal left empty', async ({ workspace }) => {
+        const graph = await workspace.write(lib).graph({ createNodes });
+
+        await execute({ targets: ['pack'], commands: [], cwd: '.', folders: [] }, workspace.context(graph, 'lib', 'clean'));
+
+        expect(['lib/packed', 'lib'].filter((file) => existsSync(join(workspace.root, file)))).toStrictEqual(['lib']);
     });
 
     it('removes the outputs of every configuration of a target', async ({ workspace }) => {
         const graph = await workspace.write(lib).graph({ createNodes });
 
-        await execute({ targets: ['archive'], commands: [], cwd: '.' }, workspace.context(graph, 'lib', 'clean'));
+        await execute({ targets: ['archive'], commands: [], cwd: '.', folders: [] }, workspace.context(graph, 'lib', 'clean'));
 
         expect(['.artifacts/distribution/lib', '.artifacts/release/lib', '.artifacts'].filter((file) => existsSync(join(workspace.root, file)))).toStrictEqual(['.artifacts']);
     });
@@ -67,7 +75,7 @@ describe('clean executor', () => {
     it("runs the tool's own clean commands in the folder cwd names", async ({ workspace }) => {
         const graph = await workspace.write(lib).graph({ createNodes });
 
-        await execute({ targets: [], commands: [[execPath, join(workspace.root, 'tools/record.js'), 'cleaned.txt', 'swept']], cwd: 'lib' }, workspace.context(graph, 'lib', 'clean'));
+        await execute({ targets: [], commands: [[execPath, join(workspace.root, 'tools/record.js'), 'cleaned.txt', 'swept']], cwd: 'lib', folders: [] }, workspace.context(graph, 'lib', 'clean'));
 
         expect(readFileSync(join(workspace.root, 'lib/cleaned.txt'), 'utf-8')).toBe('swept');
     });

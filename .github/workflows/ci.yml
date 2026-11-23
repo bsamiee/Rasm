@@ -152,7 +152,6 @@ jobs:
                   xcode-version: latest-stable
             - *tools
             - uses: ./.github/actions/signing
-            - run: nx build @rasm/nx-apple-darwin-arm64
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,!tag:os:all,tag:host:rhino'
             - if: ${{ !cancelled() && steps.graph.outcome == 'success' && steps.graph.outputs.cache-hit != 'true' }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

@@ -188,7 +188,10 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<st
                     ],
                 },
             ],
-            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
+            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [
+                `${verb}--${tool}`,
+                { ...target, ...(verb === 'clean' && { configurations: { ...target.configurations, cache: { targets: [], commands: [], folders: [], ...target.configurations?.['cache'] } } }), metadata: { technologies: [technology], ...target.metadata } },
+            ]),
         ]).flat(),
     );
 

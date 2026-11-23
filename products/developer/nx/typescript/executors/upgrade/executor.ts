@@ -1,22 +1,17 @@
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { detectPackageManager, type PackageManager } from '@nx/devkit';
+import { detectPackageManager } from '@nx/devkit';
 import { dried, executor, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Boolean, Cause, DateTime, Effect, FileSystem, Match, Option, Order, Predicate, Record, Result, Schema, SemVer } from 'effect';
 import { CommandLine } from 'effect/process';
 import npa from 'npm-package-arg';
 import { packageRegistryView, parseRegistryViewJson } from 'nx/src/utils/package-manager';
 import { Composer, CST, Parser, Scalar, YAMLMap } from 'yaml';
+import { MANAGERS } from '#/plugin';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SECTIONS = [['catalog'], ['catalogs', '*'], ['workspaces', 'catalog'], ['workspaces', 'catalogs', '*'], ['dependencies'], ['devDependencies'], ['optionalDependencies']] as const;
-const MANAGERS = {
-    npm: { lock: ['install', 'dedupe'], prune: ['cache', 'verify'] },
-    pnpm: { lock: ['dedupe'], prune: ['store', 'prune'] },
-    yarn: { lock: ['install', 'dedupe'], prune: ['cache', 'clean'] },
-    bun: { lock: ['install', 'dedupe'], prune: ['pm', 'cache', 'rm'] },
-} as const satisfies Record<PackageManager, Readonly<Record<'lock' | 'prune', readonly string[]>>>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

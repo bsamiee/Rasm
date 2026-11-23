@@ -2,7 +2,7 @@
     "name": "@rasm/portfolio",
     "version": "0.1.0",
     "private": true,
-    "description": "Architectural portfolio website",
+    "description": "Architectural projects and studies published as one server-rendered page with an owner-only editor",
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
@@ -63,14 +63,6 @@
     "nx": {
         "implicitDependencies": [
             "@rasm/infra"
-        ],
-        "targets": {
-            "build--vite": {
-                "outputs": [
-                    "...",
-                    "{projectRoot}/.cloudflare/output"
-                ]
-            }
-        }
+        ]
     }
 }

@@ -1,10 +1,11 @@
 import { basename, dirname, extname, join, matchesGlob, relative, resolve } from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, inferring, manifested, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Context, Effect, FileSystem, flow, Layer, Option, Record, Result, Schema, Stream } from 'effect';
-import { Described, ENTITLEMENTS, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
+import { Described, ENTITLEMENTS, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, RESOLVED, Shipped, sources } from '#/swift-package';
 import { analyzer, Options, type Part, PLUGIN, tokened } from '#/targets';
 import { Analyzed, xcodeParts } from '#/xcode-project';
 
@@ -60,7 +61,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     });
     const packages = yield* Effect.forEach(
         Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(result, (manifest) => ({ file, root: dirname(file), manifest }))),
-        Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists' | 'entitled' | 'bins' | 'whole'>) {
+        Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists' | 'entitled' | 'bins' | 'whole' | 'shipped'>) {
             const held = (named: (module: string) => string) =>
                 Effect.map(
                     Effect.filter(
@@ -70,11 +71,13 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
                     (found) => new Map(found),
                 );
             const [plists, entitled] = yield* Effect.all([held(() => INFO), held((module) => `${module}${ENTITLEMENTS}`)]);
+            const listed = join(workspaceRoot, swiftPackage.root, PACKAGED);
+            const { files: shipped } = yield* (yield* fs.exists(listed)) ? Effect.flatMap(fs.readFileString(listed), Schema.decodeEffect(Shipped)) : Effect.succeed({ files: [] });
             const { products, targets } = swiftPackage.manifest;
             const shown = (...argv: readonly string[]) => Effect.map(spawned(['swift', ...argv, '--package-path', swiftPackage.root, '--experimental-skip-acquiring-lock'], { cwd: workspaceRoot }), (at) => relative(workspaceRoot, at.trim()));
             const whole = Array.isReadonlyArrayNonEmpty(products) && products.every(({ type }) => 'executable' in type) && targets.every(({ resources }) => resources.length === 0);
             const bins = yield* Effect.all({ debug: shown('build', '--show-bin-path'), release: shown('build', '--configuration', 'release', '--show-bin-path'), codecov: shown('test', '--show-codecov-path') }, { concurrency: 'unbounded' });
-            return { ...swiftPackage, bins, whole, plists, entitled } satisfies Package;
+            return { ...swiftPackage, bins, whole, plists, entitled, shipped } satisfies Package;
         }),
     );
     const described = new Map(packages.map((swiftPackage) => [resolve(workspaceRoot, swiftPackage.root), swiftPackage] as const));
@@ -157,13 +160,28 @@ const createNodes: CreateNodes = [
     FILES,
     inferring(Options, run, function* (matched, settings, { workspaceRoot }) {
         const [files, fs] = [process.platform === HOST ? matched.toSorted() : [], yield* FileSystem.FileSystem];
-        const [hashed, developer, swift, compiled] = yield* Effect.all([own, Effect.option(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot })), Effect.option(spawned(['which', 'swift'], { cwd: workspaceRoot })), Effect.option(Effect.tap(analyzer, (at) => fs.stat(at)))], { concurrency: 'unbounded' });
+        const [hashed, developer, swift, compiled] = yield* Effect.all(
+            [
+                own,
+                Effect.option(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot })),
+                Effect.option(spawned(['which', 'swift'], { cwd: workspaceRoot })),
+                Effect.option(
+                    Effect.gen(function* () {
+                        const at = yield* analyzer;
+                        yield* (yield* fs.exists(at)) ? Effect.void : spawned(['swift', 'build', '--package-path', dirname(fileURLToPath(import.meta.resolve(`${CORE}/package.json`))), '--force-resolved-versions', '--configuration', 'release'], { cwd: workspaceRoot });
+                        return at;
+                    }),
+                ),
+            ],
+            { concurrency: 'unbounded' },
+        );
         const cache = new PluginCache<Graph>(join(workspaceDataDirectory, 'apple.hash'));
         const stamps = [
             ...Option.toArray(developer),
             ...Option.toArray(Option.flatMap(developer, (path) => Option.fromNullishOr(hashFile(join(path.trim(), '..', 'version.plist'))))),
             ...[...Option.toArray(swift), ...Option.toArray(compiled)].flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file.trim()))]),
             ...Option.toArray(yield* Config.option(Config.String('TOOLCHAINS'))),
+            ...files.filter((file) => basename(file) === MANIFEST).flatMap((file) => Array.fromNullishOr(hashFile(join(workspaceRoot, dirname(file), PACKAGED)))),
         ];
         const digest = hashArray([hashObject(settings), hashed, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), ...stamps, ...files]);
         const stored = Option.fromNullishOr(cache.get(digest));

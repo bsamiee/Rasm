@@ -30,12 +30,37 @@ const ENVIRONMENT = Config.all({ outer: Config.map(Config.option(Config.String('
 const WORKFLOWS = '**/.github/workflows/*.{yml,yaml}';
 const COMPOSITES = '**/.github/actions/*/action.{yml,yaml}';
 const PACKAGE = 'package.json';
-const FILES = combineGlobPatterns([...Array.dedupe(HOSTS.map(({ manifest }) => `**/${posix.basename(manifest)}`)), `**/${PACKAGE}`, WORKFLOWS, COMPOSITES]);
+const MISE = '.config/mise.toml';
+const FILES = combineGlobPatterns([...Array.dedupe(HOSTS.map(({ manifest }) => `**/${posix.basename(manifest)}`)), `**/${PACKAGE}`, WORKFLOWS, COMPOSITES, MISE]);
 const WITHHELD = ['archive', 'build', 'operations', 'publish'] as const;
 const UPSTREAM = { dependentTasksOutputFiles: '**/*' } as const;
 const RECEIVED: NonNullable<TargetConfiguration['inputs']> = [UPSTREAM, { externalDependencies: [] }];
 const UNSTATED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 const RELEASED: NonNullable<TargetConfiguration['inputs']> = [{ dependentTasksOutputFiles: '**/[!.]*' }, { externalDependencies: [] }];
+const ROOT: Verbs = {
+    clean: {
+        mise: {
+            executor: `${PLUGIN}:clean`,
+            dependsOn: [{ projects: '*', target: 'clean--!(mise)', params: 'forward' }],
+            options: { folders: [['ARTIFACTS_DIR']] },
+            configurations: { cache: { commands: [['mise', 'prune', '--yes']], folders: [['CACHE_DIR']] } },
+            inputs: UNSTATED,
+            metadata: {
+                description: `Empties the folder ARTIFACTS_DIR of ${MISE} names once every other clean target ran, and under configuration cache runs mise prune and empties the folder CACHE_DIR names but the entry holding Nx workspace data`,
+                help: { command: 'mise prune --help', example: { options: { folders: [['ARTIFACTS_DIR']] } } },
+            },
+        },
+    },
+    upgrade: {
+        mise: {
+            executor: `${PLUGIN}:upgrade`,
+            dependsOn: [{ projects: '*', target: 'upgrade--!(mise)', params: 'forward' }],
+            options: { cwd: '.', commands: [{ apply: ['mise', 'upgrade'], preview: ['mise', 'upgrade', '--dry-run'] }] },
+            inputs: [{ externalDependencies: [] }],
+            metadata: { description: `Moves every tool row of ${MISE} to its newest release and rewrites its lock with mise upgrade, once every other upgrade target ran`, help: { command: 'mise upgrade --help', example: { options: { dryRun: true } } } },
+        },
+    },
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -129,7 +154,8 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
         const hosting = loading.filter((other) => other !== item);
         const lone = item.fields.folders === undefined && item.host.standalone === true && !hosting.some((other) => other.host.build !== undefined);
         const offered: Host = lone ? Struct.omit(item.host, WITHHELD) : item.host;
-        const { technology, archive, platforms = [], standalone = false, build, operations = {}, install, publish, write, output } = offered;
+        const { technology, archive, platforms = [], standalone = false, configurations = [], build, operations = {}, install, publish, write, output } = offered;
+        const forwarded = Array.match(configurations, { onEmpty: () => ({}), onNonEmpty: (names) => ({ configurations: Record.fromIterableWith(names, (name) => [name, {}] as const) }) });
         const manifest = posix.relative(item.root, item.file);
         const packages = item.fields.packages ?? {};
         const linked = Array.dedupe([...[...declared.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)].map((other) => other.fields.name), ...Object.values(packages).map(({ project }) => project)]);
@@ -178,6 +204,7 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
                     executor: `${PLUGIN}:install`,
                     dependsOn: [unpacked ? `build--!(${technology})` : builder],
                     inputs: RECEIVED,
+                    ...forwarded,
                     metadata: { description: `Installs what build wrote in the run's configuration where its host loads it with ${command}`, help: { command: help, example: { args: [] } } },
                 }),
             ),
@@ -194,6 +221,7 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
                     ...(written.length > 0 && { cache: true }),
                     inputs: engined,
                     outputs: written,
+                    ...forwarded,
                     metadata: { description: `Builds the ${technology} project its ${manifest} declares with ${command}`, help: { command: help, example: { options: { outputPath } } } },
                 })),
                 check: Option.firstSomeOf([
@@ -283,12 +311,18 @@ const workflows = (files: readonly string[], workspaceRoot: string) =>
         },
     );
 
+const workspace = (files: readonly string[], workspaceRoot: string) =>
+    Effect.forEach(
+        files.filter((file) => file === MISE),
+        (file) => Effect.map(manifested(workspaceRoot, '.'), (stated) => [file, { projects: { '.': { root: '.', targets: aggregated(ROOT, stated, 'mise') } } }] as const),
+    );
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes = [
     FILES,
     inferring(Options, run, function* (files, settings, context) {
-        const [{ declared, failures }, actions] = yield* Effect.all([read(files, context), workflows(files, context.workspaceRoot)]);
+        const [{ declared, failures }, actions, root] = yield* Effect.all([read(files, context), workflows(files, context.workspaceRoot), workspace(files, context.workspaceRoot)]);
         const results = [
             ...projects(
                 declared.filter(({ fields }) => fields.installed !== true),
@@ -297,6 +331,7 @@ const createNodes: CreateNodes = [
                 tagged(context.nxJsonConfiguration),
             ),
             ...actions,
+            ...root,
         ];
         return yield* Array.match(failures, { onEmpty: () => Effect.succeed(results), onNonEmpty: (refused) => Effect.fail(new AggregateCreateNodesError(refused, results)) });
     }),

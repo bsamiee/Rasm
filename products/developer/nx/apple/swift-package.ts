@@ -1,4 +1,4 @@
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, matchesGlob, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
@@ -14,12 +14,14 @@ interface Package {
     readonly entitled: ReadonlyMap<string, string>;
     readonly bins: Readonly<Record<'debug' | 'release' | 'codecov', string>>;
     readonly whole: boolean;
+    readonly shipped: readonly string[];
     readonly manifest: Described;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MANIFEST = 'Package.swift';
+const PACKAGED = 'package.json';
 const INFO = 'Info.plist';
 const ENTITLEMENTS = '.entitlements';
 const RESOLVED = 'Package.resolved';
@@ -40,6 +42,7 @@ class Described extends Schema.Opaque<Described, unknown>()(
         }),
     ),
 ) {}
+const Shipped = Schema.fromJsonString(Schema.Struct({ files: Listed })).annotate({ description: 'The files row of the package.json beside a Package.swift, the paths npm publishes, a release product among them making release the default configuration of its build' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -54,7 +57,7 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
 ];
 
 const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
-    const { file, root, plists, entitled, manifest, bins, whole } = local;
+    const { file, root, plists, entitled, manifest, bins, whole, shipped } = local;
     const modules = manifest.targets.filter((module) => module.product_memberships.length > 0 && module.name !== manifest.name);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
@@ -82,6 +85,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
                     options: { outputs: written(bins.debug) },
                     outputs: written(bins.debug).map((_, index) => `{options.outputs.${index}}`),
                     configurations: { release: { runs: [[...build, '--configuration', 'release']], outputs: written(bins.release) } },
+                    ...(manifest.products.some(({ name }) => shipped.some((entry) => matchesGlob(relative(root, join(bins.release, name)), entry))) && { defaultConfiguration: 'release' }),
                 },
             ),
         },
@@ -200,4 +204,4 @@ const packageEdges = ({ file, manifest }: Package, described: ReadonlyMap<string
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Described, ENTITLEMENTS, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources };
+export { Described, ENTITLEMENTS, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, RESOLVED, Shipped, sources };

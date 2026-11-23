@@ -209,10 +209,10 @@ const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, m
     );
     const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
     const cleaned = Option.match(nested, {
-        onNone: () => ({ commands: [['cargo', 'clean']] as const, description: 'Removes the build folder of the workspace with cargo clean' }),
+        onNone: () => ({ commands: [['cargo', 'clean']] as const, cache: { folders: [['CARGO_HOME', 'log']] }, description: 'Removes the build folder of the workspace with cargo clean, and under configuration cache empties the build analysis logs cargo writes to $CARGO_HOME/log' }),
         onSome: ({ crate }) => {
             const profiles = ['dev', 'release', ...workspace.profiles];
-            return { commands: profiles.map((profile) => ['cargo', 'clean', '--package', crate.name, '--profile', profile, LOCKED] as const), description: `Removes the build artifacts of ${crate.name} in profiles ${profiles.join(', ')} with cargo clean --profile` };
+            return { commands: profiles.map((profile) => ['cargo', 'clean', '--package', crate.name, '--profile', profile, LOCKED] as const), cache: {}, description: `Removes the build artifacts of ${crate.name} in profiles ${profiles.join(', ')} with cargo clean --profile` };
         },
     });
     return aggregated(
@@ -234,6 +234,7 @@ const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, m
                     executor: `${distribution.name}:clean`,
                     inputs: SOURCES,
                     options: { commands: cleaned.commands, cwd: workspace.root, targets: removed },
+                    configurations: { cache: cleaned.cache },
                     metadata: { description: cleaned.description, help: { command: 'cargo clean --help', example: { args: ['--dry-run'] } } },
                 },
             },

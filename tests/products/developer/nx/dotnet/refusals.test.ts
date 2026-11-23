@@ -30,13 +30,13 @@ describe('analyzer report', () => {
     it('refuses a report it cannot decode, naming the rebuild of the analyzer', async ({ workspace }) => {
         workspace.write({ 'apps/App/App.csproj': PROJECT, [STUB.report]: 'Unhandled exception. System.IO.FileNotFoundException' });
 
-        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/printed a report this plugin cannot read, as \S+MsbuildAnalyzer\.dll predates the plugin, run mise deps msbuild-analyzer to rebuild it: /u));
+        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/printed a report this plugin cannot read, as \S+MsbuildAnalyzer\.dll predates the plugin, dotnet publish MsbuildAnalyzer\.csproj in \S+ rebuilds it: /u));
     });
 
     it('names the field a report of an older analyzer lacks, and leaves the report itself out', async ({ workspace }) => {
         workspace.write({ 'apps/App/App.csproj': PROJECT, [STUB.report]: JSON.stringify({ nodes: [], failures: [{ file: 'secret.csproj', message: 'held' }] }) });
 
-        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/run mise deps msbuild-analyzer to rebuild it: (?!.*secret\.csproj).*\["evaluated"\]/su));
+        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/rebuilds it: (?!.*secret\.csproj).*\["evaluated"\]/su));
     });
 
     it('refuses each project MSBuild failed to evaluate with its message', async ({ workspace }) => {

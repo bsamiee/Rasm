@@ -2830,28 +2830,10 @@ version = "1.12.3"
 backend = "github:vadimcn/codelldb"
 specifiers = ["latest"]
 
-[tools."github:vadimcn/codelldb"."platforms.linux-arm64"]
-checksum = "sha256:0887f67d440554617894266f80706b700907c36b95e6e49d23b95a0e05318101"
-checksum_source = "mise-versions"
-url = "https://github.com/vadimcn/codelldb/releases/download/v1.12.3/codelldb-linux-arm64.vsix"
-url_api = "https://api.github.com/repos/vadimcn/codelldb/releases/assets/526730277"
-
-[tools."github:vadimcn/codelldb"."platforms.linux-x64"]
-checksum = "sha256:1cd7f386598022b51a5b93b9ffa23e812b23f519cfe1833384ec4bef4bfd1be1"
-checksum_source = "mise-versions"
-url = "https://github.com/vadimcn/codelldb/releases/download/v1.12.3/codelldb-linux-x64.vsix"
-url_api = "https://api.github.com/repos/vadimcn/codelldb/releases/assets/526730273"
-
 [tools."github:vadimcn/codelldb"."platforms.macos-arm64"]
 checksum = "sha256:2f114a990e1b368dd1dbd33c80c0e719767af2d228391ec0df0571c957f9ac91"
 url = "https://github.com/vadimcn/codelldb/releases/download/v1.12.3/codelldb-darwin-arm64.vsix"
 url_api = "https://api.github.com/repos/vadimcn/codelldb/releases/assets/526730278"
-
-[tools."github:vadimcn/codelldb"."platforms.windows-x64"]
-checksum = "sha256:a916e509308dac817732f63ca604a8b93ed29cd16f38a2fa9f0b64ed58e8f51a"
-checksum_source = "mise-versions"
-url = "https://github.com/vadimcn/codelldb/releases/download/v1.12.3/codelldb-win32-x64.vsix"
-url_api = "https://api.github.com/repos/vadimcn/codelldb/releases/assets/526730272"
 
 [[tools.google-java-format]]
 version = "2.0.0"
@@ -3846,17 +3828,6 @@ version = "0.12.2"
 aube = { path = "mise/locks/npm-ctx7/0.12.2", digest = "sha256:8a9184b2aeb0d80320b568ad9ed830a352ccdf00db1fb00339eec98ff3fbe3a6" }
 backend = "npm:ctx7"
 specifiers = ["latest"]
-
-[[tools.pitchfork]]
-version = "2.35.0"
-backend = "packslip:github.com/jdx/pitchfork"
-specifiers = ["latest"]
-
-[tools.pitchfork."platforms.macos-arm64"]
-checksum = "sha256:e1f0a9e233559af12f9d636b1959c3c5b0a24ae255ea36799892da3f35c30f79"
-url = "https://github.com/jdx/pitchfork/releases/download/v2.35.0/pitchfork-aarch64-apple-darwin.tar.gz"
-signer = "sigstore-oidc:https://github.com/jdx/pitchfork/.github/workflows/release.yml"
-repository_ids = { repository = "899500793" }
 
 [[tools.pixi]]
 version = "0.84.2"

@@ -51,6 +51,7 @@ interface Host {
     readonly platforms?: readonly string[];
     readonly standalone?: true;
     readonly hosted?: true;
+    readonly configurations?: readonly string[];
     readonly engine?: { readonly fields: readonly string[]; readonly stamp: (descriptor: string) => Effect.Effect<Option.Option<string>, never, Services> };
     readonly operations?: Partial<Record<'check' | 'test' | 'pack' | 'install', { readonly command: string; readonly options: Readonly<Record<string, unknown>> }>>;
     readonly output: string;
@@ -307,6 +308,7 @@ const HOSTS: readonly Host[] = [
         manifest: 'manifest.yml',
         technology: 'yak',
         archive: '.yak',
+        configurations: ['debug'],
         output: '.',
         read: (text) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), Struct.pick(['name', 'version']))),
         write: (text, version, file) =>
