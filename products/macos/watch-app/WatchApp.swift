@@ -12,7 +12,7 @@ struct WatchApp: AsyncParsableCommand {
         abstract: "Observes and drives installed applications in the background. Exits 1 after printing any fail line",
         discussion: """
             \(Program.current.name) holds its own grants whatever process starts it: Accessibility for every command but find, processes, and log, Screen & System Audio \
-            Recording for capture and watch --record, and event posting for key and set. The first command needing a grant opens its system prompt once, and a missing grant \
+            Recording for capture and watch --record, and event posting for key, set, and click. The first command needing a grant opens its system prompt once, and a missing grant \
             prints a fail line.
 
             Settings read \(Program.current.name.uppercased().replacing("-", with: "_"))_<KEY> from the environment, then key <key> of defaults domain \(Program.current.identifier) \
@@ -22,7 +22,7 @@ struct WatchApp: AsyncParsableCommand {
             and log.files its rotation, and OTEL_* variables OpenTelemetry export.
             """,
         version: Program.current.version ?? "",
-        subcommands: [Find.self, ProcessTable.self, Watch.self, Launch.self, Read.self, Capture.self, Perform.self, SetValue.self, Key.self, Quit.self, Log.self],
+        subcommands: [Find.self, ProcessTable.self, Watch.self, Launch.self, Read.self, Capture.self, Perform.self, SetValue.self, Key.self, Click.self, Quit.self, Log.self],
     )
 
     static func main() async {

@@ -74,6 +74,7 @@ watch-app capture <app-or-pid>... [--window <number> | --element <id>] [--longes
 watch-app perform <id> <action>
 watch-app set <id> -- '<text>'
 watch-app key <pid> <code>
+watch-app click <pid> <x> <y>
 watch-app log [<run pid>]
 ```
 
@@ -88,13 +89,15 @@ watch-app log [<run pid>]
 - `set` bypasses change tracking: the document stays unedited, autosave can write the text, and closing asks nothing
 - `key` posts one virtual key code (36 Return, 53 Escape) to the process's key window, frontmost app and cursor unchanged
 - Only a row leaving proves a key answered, as busy hosts run the key when their loop resumes
-- `perform`, `set`, and `key` print the next state once the acted window leaves, a row asks, or a menu item's action changes the state, bounded at 2 heartbeats
+- `click` takes a screen point from a window `frame` for targets with no element id, such as a canvas
+- `click` presses an element with `AXPress` under the point in the background, and else raises the window, brings its app to the front, and posts a system click once the window is topmost at the point, the pointer returning at once
+- `perform`, `set`, `key`, and `click` print the next state once the acted window leaves, a row asks, or a menu item's action changes the state, bounded at 2 heartbeats
 - Controls opening a modal dialog answer once the action returns
 - Ids name one element of one presentation and go stale once its window closes or shows again
 - Menu item ids hold a path of positions from the menu bar, and take `AXPress` in a background app with no Automation grant
 - Menu items read `enabled` as the app last validated them, false under a launch-time modal and in Acrobat
 - Failed actions print a `fail` line keyed by `id` with `reason` `unresolved`, `disabled`, `refused`, or `unanswered`, and refused or unanswered actions can have run, so `read` precedes a retry
-- Grants belong to bundle `app.rasm.watch-app`: Accessibility for all but `find`, `processes`, and `log`, Screen Recording for `capture` and `--record`, event posting for `key` and `set`, Automation per app for `quit`
+- Grants belong to bundle `app.rasm.watch-app`: Accessibility for all but `find`, `processes`, and `log`, Screen Recording for `capture` and `--record`, event posting for `key`, `set`, and `click`, Automation per app for `quit`
 - `log` prints one line per run of the session with `pid`, `at`, `argv`, `exit`, and the last line per key, and a run pid prints every record of that run
 
 Settings read `WATCH_APP_<KEY>`, then `<key>` of defaults domain `app.rasm.watch-app`, and `watch-app --help` prints each folder:

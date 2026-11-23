@@ -143,6 +143,7 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
     case set(element: Element.ID, value: JSONValue)
     case choose(element: Element.ID, item: String)
     case key(key: Key, modifiers: Set<Modifier>)
+    case click(point: SIMD2<Double>)
 
     public var description: String {
         switch self {
@@ -150,13 +151,14 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
             case .set(let element, let value): "set \(kAXValueAttribute) \(value) on \(element)"
             case .choose(let element, let item): "choose \(String(reflecting: item)) on \(element)"
             case .key(let key, let modifiers): "key \(key) with \(modifiers.map(\.rawValue).sorted())"
+            case .click(let point): "click at \(point.x),\(point.y)"
         }
     }
 
     var element: Element.ID? {
         switch self {
             case .press(let element, _), .set(let element, _), .choose(let element, _): element
-            case .key: nil
+            case .key, .click: nil
         }
     }
 
@@ -170,7 +172,7 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
         }
         let keys: [(key: Key, modifiers: Set<Modifier>)] =
             switch self {
-                case .press: []
+                case .press, .click: []
                 case .key(let key, let modifiers): [(key, modifiers)]
                 case .set(_, let value): value.text.map { text in typing(text) } ?? []
                 case .choose(_, let item): typing(item)
@@ -185,9 +187,11 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension ElementAction {
-    fileprivate func run(in process: pid_t, strokes: [(code: CGKeyCode, flags: CGEventFlags, text: String?)]) throws(ApplicationFailure) -> CGWindowID? {
-        if case .press(_, kAXRaiseAction) = self {
-            throw ApplicationFailure(subject: "\(self), raising a window takes focus from the frontmost application", reason: .refused(nil))
+    fileprivate func run(in process: pid_t, strokes: [(code: CGKeyCode, flags: CGEventFlags, text: String?)], clock: some Clock<Duration>) async throws(ApplicationFailure) -> CGWindowID? {
+        switch self {
+            case .press(_, kAXRaiseAction): throw ApplicationFailure(subject: "\(self), raising a window takes focus from the frontmost application", reason: .refused(nil))
+            case .click(let point): return try await Self.click(at: CGPoint(x: point.x, y: point.y), in: process, clock: clock)
+            case .press, .set, .choose, .key: break
         }
         guard let id = element else {
             let focused: CGWindowID?
@@ -208,7 +212,7 @@ extension ElementAction {
                 case (.press(_, let action), _): AXUIElementPerformAction(node, action as CFString)
                 case (.set(_, let value), _): try assign(value, to: node, role: read.values[kAXRoleAttribute] as? String, in: owner, typing: strokes)
                 case (.choose(_, let item), _): try assign(.string(item), to: node, role: read.values[kAXRoleAttribute] as? String, in: owner, typing: strokes)
-                case (.key, _): .success
+                case (.key, _), (.click, _): .success
             }
         guard outcome != .success else { return read.values[kAXWindowAttribute].flatMap(AXUIElement.checked)?.window }
         throw ApplicationFailure(outcome, subject: description, process: owner, answering: self) {
@@ -224,6 +228,36 @@ extension ElementAction {
             if !units.isEmpty { units.withUnsafeBufferPointer { units in unsafe event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units.baseAddress) } }
             event.postToPid(process)
         }
+    }
+
+    private static func click(at location: CGPoint, in process: pid_t, clock: some Clock<Duration>) async throws(ApplicationFailure) -> CGWindowID? {
+        let (application, subject) = (AXUIElement.application(process), "\(location.x),\(location.y) of process \(process)")
+        var hit: AXUIElement?
+        let found = unsafe AXUIElementCopyElementAtPosition(application, Float(location.x), Float(location.y), &hit)
+        if found == .success, let hit, try hit.actionNames().contains(kAXPressAction) {
+            let pressed = AXUIElementPerformAction(hit, kAXPressAction as CFString)
+            guard pressed == .success else { throw ApplicationFailure(subject: subject, reason: .refused(pressed)) }
+            return hit.window
+        }
+        guard let target = InstanceState.Window.owned(by: process).first(where: { window in window.onScreen && window.layer == 0 && window.frame.contains(location) }) else {
+            throw ApplicationFailure(subject: subject, reason: .noWindow)
+        }
+        let topmost = { () -> CGWindowID? in
+            (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []).lazy.compactMap(InstanceState.Window.init)
+                .first { window in window.layer == 0 && window.frame.contains(location) }?.number
+        }
+        let raised = try application.elements(kAXWindowsAttribute).first { window in window.window == target.number }.map { window in AXUIElementPerformAction(window, kAXRaiseAction as CFString) }
+        let frontmost = AXUIElementSetAttributeValue(application, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+        guard raised ?? .success == .success, frontmost == .success else { throw ApplicationFailure(subject: subject, reason: .refused(frontmost == .success ? raised : frontmost)) }
+        let deadline = clock.now.advanced(by: messagingTimeout)
+        let ordered = await AsyncTimerSequence(interval: .milliseconds(10), clock: clock).prefix { instant in instant < deadline }.first { _ in topmost() == target.number }
+        guard ordered != nil else { throw ApplicationFailure(subject: "\(subject), window \(target.number) stayed under another window", reason: .noWindow) }
+        let pointer = CGEvent(source: nil)?.location
+        for type in [CGEventType.leftMouseDown, .leftMouseUp] {
+            CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: location, mouseButton: .left)?.post(tap: .cghidEventTap)
+        }
+        if let pointer { CGWarpMouseCursorPosition(pointer) }
+        return target.number
     }
 
     private func assign(
@@ -332,7 +366,7 @@ extension Instance {
         for action in actions where outcomes.last?.is(\.failure) != true {
             let strokes = await MainActor.run { action.strokes }
             let outcome = await Result { () async throws(ApplicationFailure) in
-                try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in try action.run(in: process.pid, strokes: strokes) }
+                try await withTaskExecutorPreference(accessibility) { () async throws(ApplicationFailure) in try await action.run(in: process.pid, strokes: strokes, clock: clock) }
             }
             let settled: Result<CGWindowID?, ApplicationFailure> =
                 switch outcome {

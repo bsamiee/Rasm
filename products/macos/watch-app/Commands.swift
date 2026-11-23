@@ -385,6 +385,40 @@ struct Key: AsyncParsableCommand {
     }
 }
 
+struct Click: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Clicks a screen point of a process window. Prints its next state",
+        discussion: """
+            Points are global screen points with the origin at the top left of the main display, as window frame values read. An element with a press action under \
+            the point is pressed in the background. Any other target, such as a canvas, raises its window, brings the app to the front, and takes a system click \
+            there once the window is topmost, the pointer returning at once
+            """,
+    )
+
+    @Argument(help: "Process ID from a line")
+    var pid: pid_t
+
+    @Argument(help: "Horizontal screen point")
+    var x: Double
+
+    @Argument(help: "Vertical screen point")
+    var y: Double
+
+    func run() async {
+        let pid = pid
+        await act(
+            Self.self,
+            .click(point: SIMD2(x, y)),
+            on: { () throws(ApplicationFailure) in
+                guard let application = NSRunningApplication(processIdentifier: pid) else { throw ApplicationFailure(subject: String(pid), reason: .noProcess) }
+                return try Instance(application)
+            },
+            key: String(pid),
+            grants: [.accessibility, .postEvent],
+        )
+    }
+}
+
 struct Quit: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Sends each running instance the quit event. Prints states and exits 1 unless each instance exited")
 
