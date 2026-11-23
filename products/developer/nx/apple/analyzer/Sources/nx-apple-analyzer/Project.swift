@@ -58,7 +58,6 @@ struct Analysis {
     let configurations: [String]
     let projects: [String]
     let buildFiles: [String]
-    let buildSettings: [String: [String: String]]
     let built: Built
     let references: [Reference]
 }
@@ -100,18 +99,10 @@ func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(Analyze
             )
         }
         let located = settings.flatMap { held in
-            Resolved.allCases.filter(\.locates).compactMap { (located: Resolved) -> Reference? in
+            Resolved.allCases.compactMap { (located: Resolved) -> Reference? in
                 switch held.resolved(located.rawValue) {
                     case nil, .some(""): nil
                     case .some(let value): Reference(owner: "target \(target.name)", setting: located.rawValue, path: value.map { at in joined(root, at) })
-                }
-            }
-        }
-        let stated = settings.first { held in held.configuration == decoded.defaultConfigurationName.rawValue }.map { held in
-            Resolved.allCases.compactMap { (setting: Resolved) -> (String, String)? in
-                switch held.resolved(setting.rawValue) {
-                    case nil, .some(nil), .some(""): nil
-                    case .some(let value?): (setting.rawValue, setting.locates ? joined(root, value).string : value)
                 }
             }
         }
@@ -119,9 +110,7 @@ func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(Analyze
         let installed = bundle.map { file in settings.filter { held in held.resolved(skipInstall) != enabled }.map { held in (held.configuration, file) } } ?? []
         return (
             id: target.objectID.rawValue,
-            name: target.name,
             installed: Dictionary(installed) { first, _ in first },
-            settings: Dictionary(stated ?? []) { first, _ in first },
             references: specialized.values.flatMap(\.self).map(\.reference) + located,
         )
     }
@@ -133,7 +122,6 @@ func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(Analyze
         configurations: configurations,
         projects: Set(remotes.map(\.string) + locals).sorted(),
         buildFiles: Set(tree.built.map(\.string)).sorted(),
-        buildSettings: Dictionary(evaluated.map { held in (held.name, held.settings) }) { first, _ in first },
         built: Built(configuration: decoded.defaultConfigurationName.rawValue, products: Dictionary(evaluated.map { held in (held.id, held.installed) }) { first, _ in first }),
         references: project.values.joined().map(\.reference) + evaluated.flatMap(\.references),
     )
@@ -150,7 +138,6 @@ func project(_ analysis: Analysis, built: [String: Built]) throws(AnalyzerError)
             inputs: Set(references.compactMap(\.path).map(\.string)).sorted(),
             projects: analysis.projects,
             buildFiles: analysis.buildFiles,
-            buildSettings: analysis.buildSettings,
         ),
         references,
     )

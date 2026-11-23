@@ -72,17 +72,8 @@ private final class Workspace {
         """
     }
 
-    func viewer(schemes: [Scheme] = [], inputs: [String] = [], projects: [String] = [], settings: [String: String] = [:]) -> Container {
-        let stated = ["PRODUCT_BUNDLE_IDENTIFIER": "example.fixture.viewer"].merging(settings) { _, given in given }
-        return Container(
-            path: self["Viewer.xcodeproj"],
-            schemes: schemes,
-            configurations: ["Debug", "Release"],
-            inputs: inputs,
-            projects: projects,
-            buildFiles: [self["Sources"]],
-            buildSettings: ["Viewer": stated],
-        )
+    func viewer(schemes: [Scheme] = [], inputs: [String] = [], projects: [String] = []) -> Container {
+        Container(path: self["Viewer.xcodeproj"], schemes: schemes, configurations: ["Debug", "Release"], inputs: inputs, projects: projects, buildFiles: [self["Sources"]])
     }
 }
 
@@ -146,9 +137,8 @@ struct AnalyzerSmokeTests {
             "Configs/Shared.xcconfig": "SWIFT_VERSION = 6.0\n", "Info.plist": "", "Viewer.entitlements": "",
         ])
         let inputs = ["Configs/Base.xcconfig", "Configs/Shared.xcconfig", "Info.plist", "Viewer.entitlements"].map { file in workspace[file] }
-        let settings = ["INFOPLIST_FILE": workspace["Info.plist"], "CODE_SIGN_ENTITLEMENTS": workspace["Viewer.entitlements"]]
 
-        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(inputs: inputs, settings: settings)], failures: [:]))
+        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(inputs: inputs)], failures: [:]))
     }
 
     @Test
@@ -160,29 +150,21 @@ struct AnalyzerSmokeTests {
             "Debug.entitlements": "", "Release.entitlements": "",
         ])
         let inputs = ["Configs/Base.xcconfig", "Debug.entitlements", "Release.entitlements"].map { file in workspace[file] }
-        let settings = ["CODE_SIGN_ENTITLEMENTS": workspace["Release.entitlements"]]
 
-        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(inputs: inputs, settings: settings)], failures: [:]))
+        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(inputs: inputs)], failures: [:]))
     }
 
     @Test
-    func buildSettingsOfTheDefaultConfiguration_resolveThroughIncludesExpressionsAndConditions() throws {
+    func locatedSettings_resolveExpressionsThroughIncludes() throws {
         let configurations = #"{ "name": "Debug", "file": "Configs/Base.xcconfig" }, { "name": "Release", "file": "Configs/Base.xcconfig" }"#
         let workspace = try Workspace([
             "Viewer.xcodeproj/project.xcproj": Workspace.project(configurations: configurations, files: [configs]),
-            "Configs/Base.xcconfig": "#include \"Shared.xcconfig\"\nDEVELOPMENT_TEAM = $(TEAM_PREFIX)9R367P\nDEVELOPMENT_TEAM[config=Debug] = DEBUGTEAM0\n",
-            "Configs/Shared.xcconfig": "TEAM_PREFIX = BBXB\n",
+            "Configs/Base.xcconfig": "#include \"Shared.xcconfig\"\nCODE_SIGN_ENTITLEMENTS = $(SIGNING_FOLDER)/Viewer.entitlements\n",
+            "Configs/Shared.xcconfig": "SIGNING_FOLDER = Signing\n", "Signing/Viewer.entitlements": "",
         ])
-        let inputs = ["Configs/Base.xcconfig", "Configs/Shared.xcconfig"].map { file in workspace[file] }
+        let inputs = ["Configs/Base.xcconfig", "Configs/Shared.xcconfig", "Signing/Viewer.entitlements"].map { file in workspace[file] }
 
-        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(inputs: inputs, settings: ["DEVELOPMENT_TEAM": "BBXB9R367P"])], failures: [:]))
-    }
-
-    @Test
-    func unresolvedBuildSettings_stayOutOfTheirTarget() throws {
-        let workspace = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(settings: #""DEVELOPMENT_TEAM": "$(TEAM_OF_THE_MACHINE)""#)])
-
-        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer()], failures: [:]))
+        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(inputs: inputs)], failures: [:]))
     }
 
     @Test
@@ -210,7 +192,7 @@ struct AnalyzerSmokeTests {
             "Viewer.xcodeproj/project.xcproj": Workspace.project(),
             "Apps.xcworkspace/contents.xcworkspacedata": #"<?xml version="1.0" encoding="UTF-8"?><Workspace version="1.0"><FileRef location="group:Viewer.xcodeproj"/></Workspace>"#,
         ])
-        let listed = Container(path: workspace["Apps.xcworkspace"], schemes: [], configurations: [], inputs: [], projects: [workspace["Viewer.xcodeproj"]], buildFiles: [], buildSettings: [:])
+        let listed = Container(path: workspace["Apps.xcworkspace"], schemes: [], configurations: [], inputs: [], projects: [workspace["Viewer.xcodeproj"]], buildFiles: [])
 
         #expect(report([workspace.root.appending("Viewer.xcodeproj"), workspace.root.appending("Apps.xcworkspace")]) == Report(containers: [workspace.viewer(), listed], failures: [:]))
     }
