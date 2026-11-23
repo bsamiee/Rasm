@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(single_impl_trait, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::cell::Cell;
 use core::hint::black_box;
 use std::collections::VecDeque;
@@ -51,6 +53,7 @@ impl AsRef<Limits> for Limits {
 
 impl History {
     fn trim(&mut self) {
+        //~v manual_retain_back
         while self.entries.len() > self.limit {
             self.entries.pop_front();
         }
@@ -60,6 +63,7 @@ impl History {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn bounded(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
+    //~v manual_retain_back
     while recent.len() > kept {
         let _ = recent.pop_front();
     }
@@ -67,6 +71,7 @@ fn bounded(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
 }
 
 fn reversed(mut recent: VecDeque<u32>) -> VecDeque<u32> {
+    //~v manual_retain_back
     while 3 < recent.len() {
         recent.pop_front();
     }
@@ -74,13 +79,14 @@ fn reversed(mut recent: VecDeque<u32>) -> VecDeque<u32> {
 }
 
 fn drained(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
-    recent.drain(..recent.len().saturating_sub(kept));
+    recent.drain(..recent.len().saturating_sub(kept)); //~ manual_retain_back
     recent
 }
 
 fn collected(mut recent: VecDeque<u32>, kept: usize) -> Vec<u32> { recent.drain(..recent.len().saturating_sub(kept)).collect() }
 
 fn dropped(mut recent: VecDeque<String>, kept: usize) -> VecDeque<String> {
+    //~v manual_retain_back
     while recent.len() > kept {
         drop(recent.pop_front());
     }
@@ -88,6 +94,7 @@ fn dropped(mut recent: VecDeque<String>, kept: usize) -> VecDeque<String> {
 }
 
 fn assigned(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
+    //~v manual_retain_back
     while recent.len() > kept {
         _ = recent.pop_front();
     }
@@ -105,6 +112,7 @@ fn guarded(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
 }
 
 fn counted(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
+    //~v manual_retain_back
     for _ in 0..recent.len().saturating_sub(kept) {
         recent.pop_front();
     }
@@ -112,6 +120,7 @@ fn counted(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
 }
 
 fn ranged(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
+    //~v manual_retain_back
     for _ in kept..recent.len() {
         recent.pop_front();
     }
@@ -119,7 +128,7 @@ fn ranged(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
 }
 
 fn tested(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
-    while recent.len() > kept && recent.pop_front().is_some() {}
+    while recent.len() > kept && recent.pop_front().is_some() {} //~ manual_retain_back
     recent
 }
 
@@ -130,6 +139,7 @@ fn subtracted(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
 
 macro_rules! trimmed {
     ($recent:expr, $kept:expr) => {
+        //~v manual_retain_back
         while $recent.len() > $kept {
             $recent.pop_front();
         }
@@ -175,6 +185,7 @@ fn listed(mut recent: Vec<u32>, kept: usize) -> Vec<u32> {
 }
 
 fn nested(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
+    //~v manual_retain_back
     while recent.len() > kept {
         {
             {
@@ -193,6 +204,7 @@ fn indexed(mut recent: VecDeque<u32>, kept: &[usize], index: fn() -> usize) -> V
 }
 
 fn qualified(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
+    //~v manual_retain_back
     while VecDeque::len(&recent) > kept {
         VecDeque::pop_front(&mut recent);
     }
@@ -228,6 +240,7 @@ fn overridden(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
 }
 
 fn shadowed(mut recent: &mut VecDeque<u32>, kept: usize) {
+    //~v manual_retain_back
     while recent.len() > kept {
         recent.pop_front();
     }

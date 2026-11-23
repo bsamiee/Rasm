@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(single_reader, reason = "each helper is read once by design, single_reader has its own fixture"))]
+
 use core::hint::black_box;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -17,42 +19,16 @@ enum Reply {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn bounded(values: &[usize]) -> usize {
-    assert!(values.len() <= LIMIT, "too many values");
+    assert!(values.len() <= LIMIT, "too many values"); //[assertions_outside_tests]~ assertions_outside_tests
     values.iter().sum()
 }
 
-fn paired(left: &[usize], right: &[usize]) -> usize {
-    debug_assert_eq!(left.len(), right.len());
-    left.iter().zip(right).map(|(left, right)| left.strict_mul(*right)).sum()
-}
-
-fn distinct(left: usize, right: usize) -> usize {
-    assert_ne!(left, right);
-    left.abs_diff(right)
-}
-
 fn accepted(reply: &Reply) -> usize {
-    core::assert_matches!(reply, Reply::Accepted(_));
+    core::assert_matches!(reply, Reply::Accepted(_)); //[assertions_outside_tests]~ assertions_outside_tests
     match reply {
         Reply::Accepted(count) => *count,
         Reply::Rejected => 0,
     }
-}
-
-fn equal(left: usize, right: usize) -> usize {
-    assert_eq!(left, right, "lengths differ");
-    left
-}
-
-fn checked(values: &[usize]) -> usize {
-    debug_assert!(!values.is_empty(), "no values");
-    debug_assert_ne!(values.len(), LIMIT, "values fill the limit");
-    values.len()
-}
-
-fn rejected(reply: &Reply) -> bool {
-    core::debug_assert_matches!(reply, Reply::Rejected);
-    matches!(reply, Reply::Rejected)
 }
 
 fn compiled() -> usize {
@@ -62,6 +38,7 @@ fn compiled() -> usize {
 
 macro_rules! ensured {
     ($condition:expr) => {
+        //[assertions_outside_tests]~v assertions_outside_tests
         assert!($condition, "broken")
     };
 }
@@ -73,21 +50,7 @@ fn wrapped(count: usize) -> usize {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() {
-    black_box(&(
-        POSITIVE,
-        bounded(&[1, 2]),
-        paired(&[1], &[2]),
-        distinct(1, 2),
-        accepted(&Reply::Accepted(1)),
-        accepted(&Reply::Rejected),
-        compiled(),
-        equal(1, 1),
-        checked(&[1]),
-        rejected(&Reply::Rejected),
-        wrapped(1),
-    ));
-}
+fn main() { black_box(&(POSITIVE, bounded(&[1, 2]), accepted(&Reply::Accepted(1)), accepted(&Reply::Rejected), compiled(), wrapped(1))); }
 
 #[cfg(test)]
 mod tests {

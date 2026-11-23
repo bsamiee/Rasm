@@ -1,10 +1,12 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, single_reader, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::cell::{Cell, Ref, RefCell};
 use core::hint::black_box;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn summed(items: &[u32]) -> u32 {
-    let total = Cell::new(0);
+    let total = Cell::new(0); //~ needless_cell
     for item in items {
         total.update(|current| item.strict_add(current));
     }
@@ -46,7 +48,7 @@ fn returned(start: u32) -> Cell<u32> {
 }
 
 fn value_operations(start: u32) -> (u32, u32, u32) {
-    let value = Cell::new(start);
+    let value = Cell::new(start); //~ needless_cell
     value.set(start.strict_add(1));
     let previous = value.replace(start.strict_add(2));
     let taken = value.take();

@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, stringified_error, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::f64::consts::PI;
 use core::fmt;
 use core::hint::black_box;
@@ -76,7 +78,7 @@ impl Policy {
 }
 
 impl Render for Page {
-    fn render(&self) -> String { String::from("page") }
+    fn render(&self) -> String { String::from("page") } //~ parameterizable_body
 }
 
 impl Render for Banner {
@@ -119,11 +121,11 @@ impl Circle {
     fn perimeter(&self) -> f64 { PI * self.radius * 2.0 }
 }
 
-const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.saturating_mul(2)) }
+const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.saturating_mul(2)) } //~ parameterizable_body
 
 const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT.saturating_mul(2)) }
 
-fn total_squares(shapes: &[Square]) -> f64 { shapes.iter().map(Shape::area).sum() }
+fn total_squares(shapes: &[Square]) -> f64 { shapes.iter().map(Shape::area).sum() } //~ parameterizable_body
 
 fn total_circles(shapes: &[Circle]) -> f64 { shapes.iter().map(Shape::area).sum() }
 
@@ -165,7 +167,7 @@ fn uptime() -> Uptime { Default::default() }
 
 fn clock() -> Clock { Default::default() }
 
-fn started(value: u64) -> Uptime { Uptime::from(value.strict_add(1)) }
+fn started(value: u64) -> Uptime { Uptime::from(value.strict_add(1)) } //~ parameterizable_body
 
 fn ticked(value: u64) -> Clock { Clock::from(value.strict_add(1)) }
 

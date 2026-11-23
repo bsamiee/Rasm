@@ -1,13 +1,17 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, single_reader, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+//~v single_impl_trait
 pub(crate) trait Store: Send + Sync {
     fn get(&self, key: u32) -> Option<u32>;
 }
 
+//~v single_impl_trait
 trait Clock {
     fn tick(&self) -> u64;
 
@@ -36,6 +40,7 @@ trait Shape {
     fn shape(&self) -> Self::Output;
 }
 
+//~v single_impl_trait
 trait Lookup {
     fn lookup(&self, key: u32) -> Option<u32>;
 }
@@ -44,6 +49,7 @@ trait Sink {
     fn put(&self, value: u32) -> u32;
 }
 
+//~v single_impl_trait
 trait Adjusted {
     fn adjusted(&self, value: u32) -> u32;
 }
@@ -54,6 +60,7 @@ where F: Fn(u32) -> u32
     fn adjusted(&self, value: u32) -> u32 { self(value).strict_add(1) }
 }
 
+//~v single_impl_trait
 trait Doubled {
     const SCALE: u32;
 
@@ -177,6 +184,7 @@ fn main() {
     ));
 }
 
+//~v single_impl_trait
 trait Handler {
     fn handle(&self, key: u32) -> u32;
 }

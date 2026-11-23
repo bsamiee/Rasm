@@ -1,10 +1,12 @@
-use core::cell::UnsafeCell as Cell;
-use core::cmp::{Reverse as Flipped, *};
-use core::fmt::{self as format, Error, Write as _};
+#![cfg_attr(dylint_lib = "rasm_lints", allow(discarded_error, forwarding_function, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
+use core::cell::UnsafeCell as Cell; //~ needless_import_rename
+use core::cmp::{Reverse as Flipped, *}; //~ needless_import_rename
+use core::fmt::{self as format, Error, Write as _}; //~ needless_import_rename
 use core::hint::black_box;
-use core::mem::{drop as discard, take as taken};
+use core::mem::{drop as discard, take as taken}; //~ needless_import_rename
 use core::sync::atomic::{AtomicU32, Ordering as Atomic};
-use std::collections::BTreeMap as Map;
+use std::collections::BTreeMap as Map; //~ needless_import_rename
 use std::ffi::{self, OsStr};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult};
 #[cfg(unix)]
@@ -12,7 +14,7 @@ use std::os::unix::ffi::OsStrExt as Native;
 #[cfg(windows)]
 use std::os::windows::ffi::OsStrExt as Native;
 use std::process::ExitCode;
-use std::sync::Arc as Shared;
+use std::sync::Arc as Shared; //~ needless_import_rename
 use std::time::Instant as Clock;
 use std::vec::Vec as Items;
 
@@ -48,7 +50,7 @@ fn loaded(counter: &AtomicU32) -> bool { max(counter.load(Atomic::Relaxed), 1).c
 fn elapsed(start: Option<Clock>, local: &Instant) -> bool { start.is_some_and(|start| start.duration_since(start).is_zero()) && format!("{local:?}").is_empty() }
 
 const fn waited() -> bool {
-    use core::time::Duration as Span;
+    use core::time::Duration as Span; //~ needless_import_rename
     Span::from_secs(1).is_zero()
 }
 
@@ -107,7 +109,7 @@ fn implicit_shadow<Write>(value: Write) -> Write {
 }
 
 fn later_binding() {
-    use core::mem::take as removed;
+    use core::mem::take as removed; //~ needless_import_rename
     let mut values = vec![1_u8];
     let previous = removed(&mut values);
     let take = values.len();

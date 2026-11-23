@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(wrapping_arithmetic, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -24,13 +26,13 @@ macro_rules! scaled {
 
 macro_rules! offset {
     () => {
-        fn shift(&self, delta: u32) -> u32 { self.0 + delta }
+        fn shift(&self, delta: u32) -> u32 { self.0 + delta } //~ renamed_function_params_in_macro
     };
 }
 
 impl Scale for Gauge {
     scaled! {
-        scale(by) => u32::wrapping_mul;
+        scale(by) => u32::wrapping_mul; //~ renamed_function_params_in_macro
         clamp(limit) => u32::min;
     }
 

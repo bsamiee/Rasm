@@ -1,4 +1,5 @@
 #![feature(iterator_try_collect)]
+#![cfg_attr(dylint_lib = "rasm_lints", allow(untyped_error, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
 
 use core::hint::black_box;
 use core::pin::pin;
@@ -45,9 +46,9 @@ async fn buffered(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { stream::iter(i
 
 async fn buffered_kept(ids: Vec<u32>) -> Result<Vec<u32>, NEVec<io::Error>> { stream::iter(ids).map(fetch).buffered(4).collect::<Vec<_>>().await.into_iter().collect::<Validated<_, _>>().ok() }
 
-async fn joined(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().collect() }
+async fn joined(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().collect() } //~ short_circuited_join
 
-async fn tried(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().try_collect() }
+async fn tried(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().try_collect() } //~ short_circuited_join
 
 async fn joined_kept(ids: Vec<u32>) -> Result<Vec<u32>, NEVec<io::Error>> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().collect::<Validated<_, _>>().ok() }
 
@@ -60,9 +61,9 @@ async fn optional() -> Option<u32> {
     Some(left?.strict_add(right?))
 }
 
-async fn buffered_collected(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { stream::iter(ids).map(fetch).buffered(4).collect::<Vec<_>>().await.into_iter().collect() }
+async fn buffered_collected(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { stream::iter(ids).map(fetch).buffered(4).collect::<Vec<_>>().await.into_iter().collect() } //~ short_circuited_join
 
-async fn set_joined(set: tokio::task::JoinSet<Result<u32, io::Error>>) -> Result<Vec<u32>, io::Error> { set.join_all().await.into_iter().collect() }
+async fn set_joined(set: tokio::task::JoinSet<Result<u32, io::Error>>) -> Result<Vec<u32>, io::Error> { set.join_all().await.into_iter().collect() } //~ short_circuited_join
 
 async fn separate_callbacks() -> (Result<u32, u8>, Result<u32, u8>) {
     let (left, right) = future::join(future::ready(Ok::<_, u8>(1_u32)), future::ready(Ok::<_, u8>(2_u32))).await;

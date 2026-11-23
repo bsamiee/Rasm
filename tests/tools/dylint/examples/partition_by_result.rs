@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, single_impl_trait, single_reader, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 use core::num::{ParseIntError, TryFromIntError};
 use std::rc::Rc;
@@ -24,29 +26,31 @@ const fn large(value: &u8) -> bool { *value > 9 }
 
 fn small(result: &Parsed) -> bool { result.is_small() }
 
-fn named(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(passed) }
+fn named(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(passed) } //~ partition_by_result
 
-fn pathed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(Result::is_err) }
+fn pathed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(Result::is_err) } //~ partition_by_result
 
-fn closed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| result.is_ok()) }
+fn closed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| result.is_ok()) } //~ partition_by_result
 
-fn negated(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| !result.as_ref().is_err()) }
+fn negated(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| !result.as_ref().is_err()) } //~ partition_by_result
 
-fn called(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| Result::is_ok(result)) }
+fn called(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| Result::is_ok(result)) } //~ partition_by_result
 
-fn qualified(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { Iterator::partition(results.into_iter(), Result::is_ok) }
+fn qualified(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { Iterator::partition(results.into_iter(), Result::is_ok) } //~ partition_by_result
 
-fn borrowed(results: &[Parsed]) -> (Vec<&Parsed>, Vec<&Parsed>) { results.iter().partition(|result| result.is_ok()) }
+fn borrowed(results: &[Parsed]) -> (Vec<&Parsed>, Vec<&Parsed>) { results.iter().partition(|result| result.is_ok()) } //~ partition_by_result
 
 fn borrowed_values(results: &[Parsed]) -> (Vec<&u8>, Vec<&ParseIntError>) { results.iter().map(Result::as_ref).partition_result() }
 
-fn matched(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| matches!(result, Ok(_))) }
+fn matched(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| matches!(result, Ok(_))) } //~ partition_by_result
 
-fn dereferenced(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| (*result).is_err()) }
+fn dereferenced(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| (*result).is_err()) } //~ partition_by_result
 
+//~v partition_by_result
 fn copied(results: Vec<Result<u8, TryFromIntError>>) -> (Vec<Result<u8, TryFromIntError>>, Vec<Result<u8, TryFromIntError>>) { results.into_iter().partition(|&result| result.is_ok()) }
 
 fn armed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) {
+    //~v partition_by_result
     results.into_iter().partition(|result| match result {
         Ok(_) => true,
         Err(_) => false,

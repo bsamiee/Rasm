@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(debug_main_error, needless_import_rename, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 use core::{fmt, write as put};
 use std::format as render;
@@ -45,24 +47,30 @@ impl Status {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+//~vvvv display_format
+//~vvv display_format
+//~vv display_format
+//~v display_format
 fn displayed(value: &Reading) -> impl IntoIterator<Item = String> { [format!("{value}"), format!("{0}", value), format!("{}", value), render!("{value}"), ToString::to_string(value)] }
 
 fn options(value: &Reading) -> impl IntoIterator<Item = String> { [format!("{value:>9}"), format!("{value:.2}"), format!("{value:?}"), format!("reading: {value}")] }
 
 fn literals() -> impl fmt::Display {
     fmt::from_fn(|formatter| {
-        write!(formatter, "plain")?;
-        write!(formatter, "{{escaped}}\n")?;
-        write!(formatter, r#"raw "{{value}}""#)?;
-        writeln!(formatter, "row")?;
-        writeln!(formatter)?;
-        put!(formatter, "alias")?;
+        write!(formatter, "plain")?; //~ literal_write
+        write!(formatter, "{{escaped}}\n")?; //~ literal_write
+        write!(formatter, r#"raw "{{value}}""#)?; //~ literal_write
+        writeln!(formatter, "row")?; //~ literal_write
+        writeln!(formatter)?; //~ literal_write
+        put!(formatter, "alias")?; //~ literal_write
         formatter.write_str("direct")
     })
 }
 
 fn ordinary_text(value: &str, owned: &String) -> impl IntoIterator<Item = String> { [format!("{value}"), format!("{owned}"), format!("literal"), String::new()] }
 
+//~vv display_format
+//~v display_format
 fn literal_arguments() -> impl IntoIterator<Item = String> { [format!("{}", 42_u32), format!("{}", format_args!("{}", 7_u8))] }
 
 fn temporary_owners() -> impl IntoIterator<Item = String> { [format!("{}", Box::new(1)), format!("{}", &Box::new(2)), format!("{}", format_args!("{}", Box::new(3)))] }

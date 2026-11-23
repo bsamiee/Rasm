@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(single_reader, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::future::ready;
 use core::hint::black_box;
 
@@ -10,7 +12,7 @@ struct Gauge {
 impl Gauge {
     fn raised(&self, step: u32) -> u32 { self.level.strict_add(step) }
 
-    fn lifted(&self, step: u32) -> u32 { self.raised(step) }
+    fn lifted(&self, step: u32) -> u32 { self.raised(step) } //~ forwarding_function
 
     fn level(&self) -> u32 { self.level }
 }
@@ -25,19 +27,19 @@ impl Gauge {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn scaled(value: u32, factor: u32) -> u32 { value.strict_mul(factor) }
+fn scaled(value: u32, factor: u32) -> u32 { value.strict_mul(factor) } //~ forwarding_function
 
-fn forwarded(value: u32, factor: u32) -> u32 { scaled(value, factor) }
+fn forwarded(value: u32, factor: u32) -> u32 { scaled(value, factor) } //~ forwarding_function
 
-fn swapped(value: u32, factor: u32) -> u32 { scaled(factor, value) }
+fn swapped(value: u32, factor: u32) -> u32 { scaled(factor, value) } //~ forwarding_function
 
 fn fixed(value: u32) -> u32 { scaled(value, 2) }
 
 fn squared(value: u32) -> u32 { scaled(value, value) }
 
-fn borrowed(text: String) -> usize { str::len(&text) }
+fn borrowed(text: String) -> usize { str::len(&text) } //~ forwarding_function
 
-fn trimmed(text: &str) -> &str { text.trim() }
+fn trimmed(text: &str) -> &str { text.trim() } //~ forwarding_function
 
 fn discarded(value: u32) { scaled(value, value); }
 
@@ -45,13 +47,13 @@ fn widened(value: u32) -> u64 { u64::from(scaled(value, 3)) }
 
 fn noted(value: u32) { black_box(value); }
 
-fn relayed(value: u32) { noted(value) }
+fn relayed(value: u32) { noted(value) } //~ forwarding_function
 
 fn countdown(steps: u32) -> u32 { if steps == 0 { 0 } else { countdown(steps.strict_sub(1)) } }
 
-async fn fetched(value: u32) -> u32 { ready(value).await }
+async fn fetched(value: u32) -> u32 { ready(value).await } //~ forwarding_function
 
-async fn awaited(value: u32) -> u32 { fetched(value).await }
+async fn awaited(value: u32) -> u32 { fetched(value).await } //~ forwarding_function
 
 macro_rules! forwarder {
     ($name:ident) => {

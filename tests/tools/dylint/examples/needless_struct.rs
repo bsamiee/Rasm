@@ -8,6 +8,7 @@ struct Interval {
     end: u32,
 }
 
+//~v needless_struct
 struct Label {
     text: String,
 }

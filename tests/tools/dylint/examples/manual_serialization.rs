@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(discarded_error, forwarding_function, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 
 use rmcp::ErrorData;
@@ -13,14 +15,15 @@ struct Port {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn tried(port: &Port) -> Result<ContentBlock, serde_json::Error> { Ok(ContentBlock::text(serde_json::to_string(port)?)) }
+fn tried(port: &Port) -> Result<ContentBlock, serde_json::Error> { Ok(ContentBlock::text(serde_json::to_string(port)?)) } //~ manual_serialization
 
 fn bound(port: &Port) -> Result<ContentBlock, serde_json::Error> {
     let text = serde_json::to_string(port)?;
+    //~v manual_serialization
     Ok(ContentBlock::text(text))
 }
 
-fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
+fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) } //~ manual_serialization
 
 fn pretty(port: &Port) -> Result<ContentBlock, serde_json::Error> { Ok(ContentBlock::text(serde_json::to_string_pretty(port)?)) }
 

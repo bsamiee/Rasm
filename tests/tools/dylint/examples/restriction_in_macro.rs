@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::fmt::Write as _;
 use core::future;
 use core::hint::black_box;
@@ -10,24 +12,28 @@ use tokio::pin as pinned;
 
 macro_rules! taken {
     ($value:expr) => {
+        //~v unwrap_used_in_macro
         $value.unwrap()
     };
 }
 
 macro_rules! taken_qualified {
     ($value:expr) => {
+        //~v unwrap_used_in_macro
         Option::unwrap($value)
     };
 }
 
 macro_rules! required_qualified {
     ($value:expr) => {
+        //~v expect_used_in_macro
         Result::expect($value, "value is present")
     };
 }
 
 macro_rules! required {
     ($value:expr) => {
+        //~v expect_used_in_macro
         $value.expect("value is present")
     };
 }
@@ -35,6 +41,7 @@ macro_rules! required {
 macro_rules! ensured {
     ($condition:expr) => {
         if !$condition {
+            //~v panic_in_macro
             panic!("broken")
         }
     };
@@ -42,12 +49,14 @@ macro_rules! ensured {
 
 macro_rules! pending {
     () => {
+        //~v panic_in_macro
         todo!()
     };
 }
 
 macro_rules! said {
     ($($argument:tt)*) => {
+        //~v print_in_macro
         println!($($argument)*)
     };
 }
@@ -86,6 +95,7 @@ macro_rules! shown {
 
 macro_rules! written {
     ($out:expr, $value:expr) => {
+        //~v use_debug_in_macro
         write!($out, "{:?}", $value)
     };
 }
@@ -97,21 +107,22 @@ fn writing(out: &mut String, value: u32) -> core::fmt::Result { written!(out, va
 fn pinned_values() {
     let first = future::ready(1);
     let second = future::ready(2);
-    tokio::pin!(first, second);
+    tokio::pin!(first, second); //~ tokio_pin
     black_box((first, second));
 }
 
 fn aliased_pinning() {
     let value = future::ready(3);
-    pinned!(value);
+    pinned!(value); //~ tokio_pin
     black_box(value);
 }
 
 fn nested_pinning() {
+    //~v tokio_pin
     tokio::pin! {
         let outer = async {
             let inner = future::ready(4);
-            pinned!(inner);
+            pinned!(inner); //~ tokio_pin
             black_box(inner);
         };
         let other = future::ready(5);

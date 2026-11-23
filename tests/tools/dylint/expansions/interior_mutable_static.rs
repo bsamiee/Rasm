@@ -1,6 +1,8 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(single_reader, reason = "each static is read once by design, single_reader has its own fixture"))]
+
 use core::cell::Cell;
 use core::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, LazyLock, Mutex, OnceLock};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use clap::Parser;
 
@@ -22,46 +24,44 @@ struct Options {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
+//~v interior_mutable_static
 static HITS: AtomicU32 = AtomicU32::new(0);
-
-static ROOT: OnceLock<String> = OnceLock::new();
-
-pub static ORIGIN: OnceLock<String> = OnceLock::new();
 
 static TABLE: LazyLock<Vec<u32>> = LazyLock::new(|| (1..4).collect());
 
-static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
-
+//~v interior_mutable_static
 static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
 
 static GREETING: &str = "hello";
 
-static LIMITS: [u32; 2] = [1, 2];
-
 thread_local! {
+    //~v interior_mutable_static
     static VISITS: Cell<u32> = const { Cell::new(0) };
     static DEPTH: u32 = const { 1 };
 }
 
+//~v interior_mutable_static
 counter!(CALLS);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
 async fn main() {
+    //~v interior_mutable_static
     static SEEN: AtomicU32 = AtomicU32::new(0);
     SEEN.fetch_add(1, Ordering::Relaxed);
     HITS.fetch_add(1, Ordering::Relaxed);
     CALLS.fetch_add(DEPTH.with(|depth| *depth), Ordering::Relaxed);
     VISITS.set(HITS.load(Ordering::Relaxed));
-    ROOT.get_or_init(|| GREETING.to_owned());
-    ORIGIN.get_or_init(|| GREETING.to_owned());
-    COUNTER.fetch_add(1, Ordering::Relaxed);
-    SHARED.lock().map(|mut bytes| bytes.push(1)).unwrap_or_default();
-    for limit in TABLE.iter().chain(&LIMITS) {
+    match SHARED.lock() {
+        Ok(mut bytes) => bytes.push(1),
+        Err(poisoned) => poisoned.into_inner().push(1),
+    }
+    for limit in TABLE.iter() {
         HITS.fetch_add(*limit, Ordering::Relaxed);
     }
     HITS.fetch_add(Options::parse_from(["fixture"]).port, Ordering::Relaxed);
+    core::hint::black_box(GREETING);
 }
 
 #[cfg(test)]

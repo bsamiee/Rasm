@@ -1,4 +1,5 @@
 #![feature(const_default, const_trait_impl, default_field_values)]
+#![cfg_attr(dylint_lib = "rasm_lints", allow(interior_mutable_static, single_impl_trait, single_reader, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
 
 use core::hint::black_box;
 use core::sync::atomic::{AtomicU8, Ordering};
@@ -35,7 +36,7 @@ struct Blank {
 }
 
 impl Default for Retry {
-    fn default() -> Self { Self { attempts: 3, label: String::new() } }
+    fn default() -> Self { Self { attempts: 3, label: String::new() } } //~ manual_default_field_values
 }
 
 impl Default for Buffered {
@@ -60,7 +61,7 @@ impl Config {
 }
 
 impl Default for Config {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self { Self::new() } //~ manual_default_field_values
 }
 
 #[derive(Debug)]
@@ -77,7 +78,7 @@ impl Limits {
 }
 
 impl Default for Limits {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self { Self::new() } //~ manual_default_field_values
 }
 
 #[derive(Debug)]
@@ -87,7 +88,7 @@ struct Attributed {
 
 #[automatically_derived]
 impl Default for Attributed {
-    fn default() -> Self { Self { attempts: 3 } }
+    fn default() -> Self { Self { attempts: 3 } } //~ manual_default_field_values
 }
 
 #[derive(Debug)]
@@ -187,7 +188,7 @@ impl Custom {
 }
 
 impl Default for Custom {
-    fn default() -> Self { Self::fresh() }
+    fn default() -> Self { Self::fresh() } //~ manual_default_field_values
 }
 
 #[derive(Debug)]
@@ -207,7 +208,7 @@ struct Nested {
 }
 
 impl Default for Nested {
-    fn default() -> Self { Self { values: (Number::new(), 0) } }
+    fn default() -> Self { Self { values: (Number::new(), 0) } } //~ manual_default_field_values
 }
 
 #[derive(Debug)]
@@ -373,14 +374,14 @@ struct Constant {
 }
 
 const impl Default for Constant {
-    fn default() -> Self { Self { attempts: 3 } }
+    fn default() -> Self { Self { attempts: 3 } } //~ manual_default_field_values
 }
 
 #[derive(Debug)]
 struct Tuple(u8);
 
 impl Default for Tuple {
-    fn default() -> Self { Self { 0: 3 } }
+    fn default() -> Self { Self { 0: 3 } } //~ manual_default_field_values
 }
 
 mod model {

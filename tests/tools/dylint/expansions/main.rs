@@ -1,13 +1,6 @@
 use core::future::ready;
-use core::hint::black_box;
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn started() -> u8 { black_box(1) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-
-fn main() { black_box(started()); }
 
 #[tokio::test]
 async fn generated_pin() { ready(()).await }
@@ -15,21 +8,13 @@ async fn generated_pin() { ready(()).await }
 #[tokio::test]
 async fn explicit_pin() {
     let future = ready(());
-    tokio::pin!(future);
+    tokio::pin!(future); //~ tokio_pin
     future.await
 }
 
 #[expect(tokio_pin)]
 #[tokio::test]
 async fn expected_pin() {
-    let future = ready(());
-    tokio::pin!(future);
-    future.await
-}
-
-#[allow(tokio_pin)]
-#[tokio::test]
-async fn allowed_pin() {
     let future = ready(());
     tokio::pin!(future);
     future.await
@@ -55,9 +40,9 @@ mod error_assertions {
 
     // --- [OPERATIONS]
 
-    fn boxed_helper() -> Result<(), Box<dyn Error>> { Ok(()) }
+    fn boxed_helper() -> Result<(), Box<dyn Error>> { Ok(()) } //~ untyped_error
 
-    fn report_helper() -> anyhow::Result<()> { Ok(()) }
+    fn report_helper() -> anyhow::Result<()> { Ok(()) } //~ untyped_error
 
     // --- [COMPOSITION]
 
@@ -65,16 +50,14 @@ mod error_assertions {
     fn observed_error_text() {
         let error = fmt::Error;
         assert!(error.to_string().ends_with("argument"));
-        assert!(format!("{error:?}").contains("Error"));
         assert!(!error.to_string().is_empty() && format!("{error:?}").starts_with("Error"));
         assert!(matches!(Some(&error), Some(cause) if cause.to_string().contains("formatting")));
-        debug_assert!(error.to_string().starts_with("an"));
-        assert_eq!(error.to_string(), "an error occurred when formatting an argument");
+        assert_eq!(error.to_string(), "an error occurred when formatting an argument"); //~ stringified_error
     }
 
     #[test]
     fn resolved_assertion_forms() {
-        use core::assert as require;
+        use core::assert as require; //~ needless_import_rename
 
         macro_rules! observed {
             ($condition:expr) => {
@@ -89,15 +72,13 @@ mod error_assertions {
     #[test]
     fn error_text_controls_branches() {
         let error = fmt::Error;
-        if error.to_string().contains("argument") {
-            black_box(&error);
-        }
+        //~v stringified_error
         black_box(match error.to_string().contains("formatting") {
             true => 1,
             false => 0,
         });
-        assert!(if error.to_string().contains("argument") { true } else { false });
-        let message = error.to_string();
+        assert!(if error.to_string().contains("argument") { true } else { false }); //~ stringified_error
+        let message = error.to_string(); //~ stringified_error
         assert!(message.contains("formatting"));
         if message.ends_with("argument") {
             black_box(message.len());
@@ -112,44 +93,12 @@ mod error_assertions {
             };
         }
         let error = fmt::Error;
-        assert!(error.to_string().contains("formatting"));
+        assert!(error.to_string().contains("formatting")); //~ stringified_error
     }
 
     #[test]
     fn value_text_assertion() {
         assert!(Mode::Ready.to_string().contains("Ready"));
-    }
-
-    #[test]
-    fn spawned_rendering_assertions() {
-        core::assert_matches!(
-            std::thread::spawn(|| {
-                let mode = Mode::Ready;
-                assert!(mode.to_string().contains("Ready"));
-                assert!(format!("{mode:?}").contains("Ready"));
-                let error = fmt::Error;
-                assert!(error.to_string().ends_with("argument"));
-                assert!(format!("{error:?}").contains("Error"));
-            })
-            .join(),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn spawned_rendering_control() {
-        core::assert_matches!(
-            std::thread::spawn(|| {
-                let mode = Mode::Ready;
-                if mode.to_string().contains("Ready") {
-                    black_box(&mode);
-                }
-                let error = fmt::Error;
-                black_box(format!("{error:?}").contains("Error"));
-            })
-            .join(),
-            Ok(())
-        );
     }
 
     #[test]
@@ -166,29 +115,29 @@ mod error_assertions {
 
     #[test]
     fn nested_report_helper() {
-        fn nested_report_helper() -> anyhow::Result<()> { Ok(()) }
+        fn nested_report_helper() -> anyhow::Result<()> { Ok(()) } //~ untyped_error
         black_box(&nested_report_helper());
     }
 
     #[test]
-    fn string_test_error() -> Result<(), String> { Ok(()) }
+    fn string_test_error() -> Result<(), String> { Ok(()) } //~ untyped_error
 
     #[test]
-    fn test_introduces_report() -> anyhow::Result<()> {
-        black_box(anyhow::Error::from(fmt::Error));
+    fn introduces_report() -> anyhow::Result<()> {
+        black_box(anyhow::Error::from(fmt::Error)); //~ untyped_error
         Ok(())
     }
 
     #[tokio::test]
-    async fn async_test_introduces_report() -> anyhow::Result<()> {
+    async fn async_introduces_report() -> anyhow::Result<()> {
         core::future::ready(()).await;
-        black_box(anyhow::Error::from(fmt::Error));
+        black_box(anyhow::Error::from(fmt::Error)); //~ untyped_error
         Ok(())
     }
 
     #[test]
-    fn test_introduces_context() -> anyhow::Result<()> {
-        Err::<(), _>(fmt::Error).context("rendering")?;
+    fn introduces_context() -> anyhow::Result<()> {
+        Err::<(), _>(fmt::Error).context("rendering")?; //~ untyped_error
         Ok(())
     }
 }

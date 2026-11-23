@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::cell::Cell;
 use core::hint::black_box;
 use core::ops::Deref;
@@ -24,19 +26,19 @@ impl Projected {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn blank(path: &Path) -> bool { path.as_os_str().is_empty() }
+fn blank(path: &Path) -> bool { path.as_os_str().is_empty() } //~ manual_path_is_empty
 
-fn blank_owned(path: &PathBuf) -> bool { path.as_os_str().is_empty() }
+fn blank_owned(path: &PathBuf) -> bool { path.as_os_str().is_empty() } //~ manual_path_is_empty
 
-fn joined(root: &Path, child: &str) -> bool { root.join(child).as_os_str().is_empty() }
+fn joined(root: &Path, child: &str) -> bool { root.join(child).as_os_str().is_empty() } //~ manual_path_is_empty
 
 fn blank_component(component: Component<'_>) -> bool { component.as_os_str().is_empty() }
 
 fn direct(path: &Path) -> bool { path.is_empty() }
 
-fn qualified(path: &Path) -> bool { std::ffi::OsStr::is_empty(Path::as_os_str(path)) }
+fn qualified(path: &Path) -> bool { std::ffi::OsStr::is_empty(Path::as_os_str(path)) } //~ manual_path_is_empty
 
-fn projected(path: &Projected) -> bool { path.as_os_str().is_empty() }
+fn projected(path: &Projected) -> bool { path.as_os_str().is_empty() } //~ manual_path_is_empty
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

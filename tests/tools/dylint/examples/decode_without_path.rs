@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, parameterizable_body, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 
 use serde::de::value;
@@ -42,11 +44,11 @@ impl<'de> Deserialize<'de> for Wrapped {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn decoded(text: &str) -> Result<Port, serde_json::Error> { Port::deserialize(&mut serde_json::Deserializer::from_str(text)) }
+fn decoded(text: &str) -> Result<Port, serde_json::Error> { Port::deserialize(&mut serde_json::Deserializer::from_str(text)) } //~ decode_without_path
 
-fn qualified(text: &str) -> Result<Reply, serde_json::Error> { <Reply as Deserialize>::deserialize(&mut serde_json::Deserializer::from_str(text)) }
+fn qualified(text: &str) -> Result<Reply, serde_json::Error> { <Reply as Deserialize>::deserialize(&mut serde_json::Deserializer::from_str(text)) } //~ decode_without_path
 
-fn converted(value: serde_json::Value) -> Result<Port, serde_json::Error> { Port::deserialize(value) }
+fn converted(value: serde_json::Value) -> Result<Port, serde_json::Error> { Port::deserialize(value) } //~ decode_without_path
 
 fn text(value: &serde_json::Value) -> Result<&str, serde_json::Error> { <&str>::deserialize(value) }
 
@@ -61,13 +63,13 @@ fn manually_tracked(text: &str) -> Result<Port, serde_json::Error> {
 
 fn keyword(text: &str) -> Result<Keyword, value::Error> { Keyword::deserialize(value::StrDeserializer::new(text)) }
 
-fn keyword_json(text: &str) -> Result<Keyword, serde_json::Error> { Keyword::deserialize(&mut serde_json::Deserializer::from_str(text)) }
+fn keyword_json(text: &str) -> Result<Keyword, serde_json::Error> { Keyword::deserialize(&mut serde_json::Deserializer::from_str(text)) } //~ decode_without_path
 
-fn scalar_record(text: &str) -> Result<Port, value::Error> { Port::deserialize(value::StrDeserializer::new(text)) }
+fn scalar_record(text: &str) -> Result<Port, value::Error> { Port::deserialize(value::StrDeserializer::new(text)) } //~ decode_without_path
 
 fn unit<'de, D: Deserializer<'de>>(deserializer: D) -> Result<(), D::Error> { <()>::deserialize(deserializer) }
 
-fn custom_unit(text: &str) -> Result<Delegated, value::Error> { Delegated::deserialize(value::StrDeserializer::new(text)) }
+fn custom_unit(text: &str) -> Result<Delegated, value::Error> { Delegated::deserialize(value::StrDeserializer::new(text)) } //~ decode_without_path
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

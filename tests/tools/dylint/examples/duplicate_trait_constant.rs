@@ -1,9 +1,11 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(single_reader, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 trait Arity {
-    const ARITY: usize;
+    const ARITY: usize; //~ duplicate_trait_constant
 }
 
 trait Width {
@@ -11,7 +13,7 @@ trait Width {
 }
 
 trait Depth {
-    const DEPTH: u8 = 1;
+    const DEPTH: u8 = 1; //~ duplicate_trait_constant
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -125,7 +127,7 @@ mod private_paths {
     // --- [TYPES]
 
     trait Meta {
-        const VALUE: u32;
+        const VALUE: u32; //~ duplicate_trait_constant
     }
 
     // --- [OPERATIONS]
@@ -170,7 +172,7 @@ mod self_dependency {
     }
 
     trait Other {
-        const NAME: &'static str;
+        const NAME: &'static str; //~ duplicate_trait_constant
     }
 
     // --- [OPERATIONS]
@@ -242,7 +244,7 @@ mod declaration_references {
 
     trait Own {
         const NAME: &'static str;
-        const VALUE: &'static str;
+        const VALUE: &'static str; //~ duplicate_trait_constant
     }
 
     trait Base<T> {
@@ -262,7 +264,7 @@ mod declaration_references {
     }
 
     trait Generic<T: Named> {
-        const VALUE: &'static str;
+        const VALUE: &'static str; //~ duplicate_trait_constant
     }
 
     // --- [OPERATIONS]
@@ -360,7 +362,7 @@ mod lifetime_relationships {
     }
 
     trait Shortened<'a>: StaticSource {
-        const VALUE: &'a str;
+        const VALUE: &'a str; //~ duplicate_trait_constant
     }
 
     // --- [OPERATIONS]

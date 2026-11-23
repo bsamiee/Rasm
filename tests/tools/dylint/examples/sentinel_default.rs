@@ -1,4 +1,5 @@
 #![feature(allocator_ext, btreemap_alloc)]
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
 
 use core::hint::black_box;
 use std::alloc::System;
@@ -48,9 +49,9 @@ impl BuildHasher for HashBuilder {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn viewed(value: Option<&String>) -> &str { value.map(String::as_str).unwrap_or_default() }
+fn viewed(value: Option<&String>) -> &str { value.map(String::as_str).unwrap_or_default() } //~ empty_string_default
 
-fn cloned(map: &BTreeMap<u32, String>, key: u32) -> String { map.get(&key).cloned().unwrap_or_default() }
+fn cloned(map: &BTreeMap<u32, String>, key: u32) -> String { map.get(&key).cloned().unwrap_or_default() } //~ empty_string_default
 
 fn counted(value: Option<u32>) -> u32 { value.unwrap_or_default() }
 
@@ -62,9 +63,9 @@ fn listed(value: Option<Vec<u32>>) -> Vec<u32> { value.unwrap_or_default() }
 
 fn mapped(value: Option<BTreeMap<u32, u32>>) -> BTreeMap<u32, u32> { value.unwrap_or_default() }
 
-fn located(value: Option<PathBuf>) -> PathBuf { value.unwrap_or_default() }
+fn located(value: Option<PathBuf>) -> PathBuf { value.unwrap_or_default() } //~ empty_string_default
 
-fn named(value: Option<OsString>) -> OsString { value.unwrap_or_default() }
+fn named(value: Option<OsString>) -> OsString { value.unwrap_or_default() } //~ empty_string_default
 
 fn sliced(value: Option<&[u8]>) -> &[u8] { value.unwrap_or_default() }
 
@@ -86,17 +87,18 @@ fn map_empty(value: Option<BTreeMap<u32, u32>>) -> bool { value.unwrap_or_defaul
 
 fn set_empty(value: Option<BTreeSet<u32>>) -> bool { value.unwrap_or_default().is_empty() }
 
-fn numeric(value: Option<u32>) -> bool { value.unwrap_or_default() == 0 }
+fn numeric(value: Option<u32>) -> bool { value.unwrap_or_default() == 0 } //~ sentinel_default
 
-fn textual(value: Option<&str>) -> bool { value.unwrap_or("").is_empty() }
+fn textual(value: Option<&str>) -> bool { value.unwrap_or("").is_empty() } //~ empty_string_default
 
-fn borrowed(value: Option<&[u8]>) -> bool { value.unwrap_or_default().is_empty() }
+fn borrowed(value: Option<&[u8]>) -> bool { value.unwrap_or_default().is_empty() } //~ sentinel_default
 
-fn mapped_test(value: Option<u32>) -> bool { value.map_or(0, |value| value.saturating_mul(2)) == 0 }
+fn mapped_test(value: Option<u32>) -> bool { value.map_or(0, |value| value.saturating_mul(2)) == 0 } //~ sentinel_default
 
-fn mapped_default_test(value: Option<u32>) -> bool { value.map_or_default(|value| value.saturating_mul(2)) == 0 }
+fn mapped_default_test(value: Option<u32>) -> bool { value.map_or_default(|value| value.saturating_mul(2)) == 0 } //~ sentinel_default
 
 fn matched(value: Option<char>) -> bool {
+    //~v sentinel_default
     match value.unwrap_or_default() {
         '\0' => false,
         _ => true,
@@ -142,6 +144,8 @@ fn listed_empty(value: Option<Vec<u32>>) -> bool { value.unwrap_or_default().is_
 
 macro_rules! tested {
     ($value:expr) => {
+        //~vv empty_string_default
+        //~v empty_string_default
         $value.unwrap_or("") == ""
     };
 }
@@ -165,16 +169,16 @@ fn suffixed(mut text: String, suffix: &str) -> String {
 }
 
 fn pushed(mut text: String, value: Option<&str>) -> String {
-    text.push_str(value.unwrap_or_default());
+    text.push_str(value.unwrap_or_default()); //~ empty_string_default
     text
 }
 
-fn spanned(value: Option<&str>) -> core::ops::Range<&str> { core::ops::Range { start: value.unwrap_or_default(), end: "z" } }
+fn spanned(value: Option<&str>) -> core::ops::Range<&str> { core::ops::Range { start: value.unwrap_or_default(), end: "z" } } //~ empty_string_default
 
-fn prefixed(value: Option<&str>) -> String { suffixed(String::from("a"), value.unwrap_or_default()) }
+fn prefixed(value: Option<&str>) -> String { suffixed(String::from("a"), value.unwrap_or_default()) } //~ empty_string_default
 
-fn labeled(value: Option<String>) -> Labeled { Labeled { name: value.unwrap_or_default(), rank: 1 } }
+fn labeled(value: Option<String>) -> Labeled { Labeled { name: value.unwrap_or_default(), rank: 1 } } //~ empty_string_default
 
 fn valued(value: Option<String>) -> serde_json::Value { serde_json::Value::String(value.unwrap_or_default()) }
 
-fn rendered(value: Option<&str>) -> String { format!("[{}]", value.unwrap_or_default()) }
+fn rendered(value: Option<&str>) -> String { format!("[{}]", value.unwrap_or_default()) } //~ empty_string_default

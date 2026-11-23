@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const ENDPOINT: &str = "OTEL_EXPORTER_OTLP_ENDPOINT";
+const ENDPOINT: &str = "OTEL_EXPORTER_OTLP_ENDPOINT"; //~ restated_constant
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -18,12 +18,15 @@ struct Event {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+//~vv restated_constant SERVICE_NAME
+//~v restated_constant HTTP_SERVER_REQUEST_DURATION
 const fn spelled() -> [(&'static str, &'static str); 2] { [("service.name", "bridge"), ("http.server.request.duration", "1.5")] }
 
-fn located(key: &str) -> bool { matches!(key, "code.file.path") }
+fn located(key: &str) -> bool { matches!(key, "code.file.path") } //~ restated_constant
 
 macro_rules! namespaced {
     () => {
+        //~v restated_constant
         "service.namespace"
     };
 }

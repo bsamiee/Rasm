@@ -24,20 +24,12 @@ name       = "duplicate_trait_constant_exported"
 crate-type = ["lib"]
 
 [[example]]
-name = "interior_mutable_static"
-path = "expansions/interior_mutable_static.rs"
-
-[[example]]
 name       = "macro_alias_exported"
 crate-type = ["lib"]
 
 [[example]]
 name = "macro_matching"
 path = "expansions/macro_matching.rs"
-
-[[example]]
-name = "orphan_module_target"
-path = "examples/orphan_module_target/suite.rs"
 
 [[example]]
 name       = "manual_path_is_empty_no_std"
@@ -54,6 +46,10 @@ crate-type = ["lib"]
 [[example]]
 name       = "needless_reference_field_exported"
 crate-type = ["lib"]
+
+[[example]]
+name = "orphan_module_target"
+path = "examples/orphan_module_target/suite.rs"
 
 [[example]]
 name       = "reexported_dependency"
@@ -99,13 +95,13 @@ serde_json                         = { workspace = true }
 serde_path_to_error                = { workspace = true }
 uuid                               = { workspace = true }
 fs-err                             = { workspace = true, features = ["tokio"] }
+walkdir                            = { workspace = true }
 rmcp                               = { workspace = true }
 opentelemetry-otlp                 = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 clap                               = { workspace = true }
 nuts-rs                            = { workspace = true }
-insta                              = { workspace = true, features = ["glob"] }
 rasm-lints-auxiliary               = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------

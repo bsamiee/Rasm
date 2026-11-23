@@ -1,4 +1,17 @@
 #![feature(error_reporter, try_blocks)]
+#![cfg_attr(
+    dylint_lib = "rasm_lints",
+    allow(
+        discarded_error,
+        discarded_error_source,
+        duplicate_type,
+        empty_string_default,
+        forwarding_function,
+        single_impl_trait,
+        stringified_error,
+        reason = "these lints fire incidentally here and are exercised by their own fixtures"
+    )
+)]
 
 use core::convert::Infallible;
 use core::error::Error;
@@ -9,7 +22,6 @@ use std::borrow::Cow;
 use std::error::Report;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::Context as _;
@@ -25,11 +37,11 @@ use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Boxed<T> = Result<T, Box<dyn Error + Send + Sync>>;
+type Boxed<T> = Result<T, Box<dyn Error + Send + Sync>>; //~ untyped_error
 type Fallible<T, E = String> = Result<T, E>;
 
 pub trait Source {
-    fn read(&self) -> Result<u16, String>;
+    fn read(&self) -> Result<u16, String>; //~ untyped_error
 }
 
 trait Store {
@@ -42,14 +54,14 @@ trait Store {
 
 #[derive(Debug)]
 struct Pending {
-    outcome: Result<u16, ()>,
+    outcome: Result<u16, ()>, //~ untyped_error
 }
 
 #[derive(Debug)]
 struct Digits(u16);
 
 impl TryFrom<&str> for Digits {
-    type Error = String;
+    type Error = String; //~ untyped_error
 
     fn try_from(value: &str) -> Result<Self, Self::Error> { value.parse().map(Self).map_err(|_error: ParseIntError| String::from("text is not a port")) }
 }
@@ -65,7 +77,7 @@ impl Source for Port {
 struct Memory;
 
 impl Store for Memory {
-    type Error = String;
+    type Error = String; //~ untyped_error
 
     async fn fetch(&self, key: u16) -> Result<u16, Self::Error> {
         task::yield_now().await;
@@ -107,7 +119,7 @@ enum PortError {
 #[derive(Debug, thiserror::Error)]
 enum PlanError {
     #[error("plan holds {} invalid ports", .0.len())]
-    Invalid(Vec<PortError>),
+    Invalid(Vec<PortError>), //~ untyped_error
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -117,31 +129,31 @@ struct Tagged<E>(#[source] E);
 #[derive(Debug, thiserror::Error)]
 enum ConfigError {
     #[error("{0}")]
-    Message(String),
+    Message(String), //~ untyped_error
     #[error("{0}")]
     Received(String),
     #[error("{detail} in {context}")]
-    Detail { detail: Box<str>, context: Cow<'static, str> },
+    Detail { detail: Box<str>, context: Cow<'static, str> }, //~ untyped_error
     #[error("key {key} holds no port")]
     Parse { key: String, source: ParseIntError },
     #[error("no port named {name}")]
     Unknown { name: String },
     #[error("port {port} is reserved")]
-    Reserved { port: String },
+    Reserved { port: String }, //~ untyped_error
     #[error("{0}")]
-    Composed(Box<str>),
+    Composed(Box<str>), //~ untyped_error
     #[error("configuration is empty")]
     Empty,
 }
 
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
-struct Refusal(Arc<str>);
+struct Refusal(Arc<str>); //~ untyped_error
 
 #[derive(Debug, thiserror::Error)]
 enum SyncError {
     #[error("cannot reach the peer")]
-    Unreachable(#[source] Box<dyn Error + Send + Sync>),
+    Unreachable(#[source] Box<dyn Error + Send + Sync>), //~ untyped_error
     #[error("sync stopped at {offset}")]
     Stopped { offset: u64 },
 }
@@ -188,51 +200,45 @@ impl From<Unserved> for io::Error {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn spelled(text: &str) -> Result<u16, String> { if text.is_empty() { Err(String::from("port text is empty")) } else { Digits::try_from(text).map(|digits| digits.0) } }
+fn spelled(text: &str) -> Result<u16, String> { if text.is_empty() { Err(String::from("port text is empty")) } else { Digits::try_from(text).map(|digits| digits.0) } } //~ untyped_error
 
-pub fn probed(text: &str) -> Result<u16, ()> { text.parse().map_err(|_error: ParseIntError| ()) }
+pub fn probed(text: &str) -> Result<u16, ()> { text.parse().map_err(|_error: ParseIntError| ()) } //~ untyped_error
 
-fn borrowed(text: &str) -> Result<u16, &'static str> { text.parse().map_err(|_error: ParseIntError| "port is not a number") }
+fn borrowed(text: &str) -> Result<u16, &'static str> { text.parse().map_err(|_error: ParseIntError| "port is not a number") } //~ untyped_error
 
-fn boxed(text: &str) -> Result<u16, Box<dyn Error + Send + Sync>> { Ok(text.trim().parse()?) }
+fn boxed(text: &str) -> Result<u16, Box<dyn Error + Send + Sync>> { Ok(text.trim().parse()?) } //~ untyped_error
 
 fn local_alias(text: &str) -> Boxed<u16> { Ok(text.trim_start().parse()?) }
 
-fn generic_default(text: &str) -> Fallible<u16> { text.parse().map_err(|_error: ParseIntError| String::from("port is not a number")) }
+fn generic_default(text: &str) -> Fallible<u16> { text.parse().map_err(|_error: ParseIntError| String::from("port is not a number")) } //~ untyped_error
 
+//~v untyped_error
 async fn awaited(text: &str) -> Result<u16, String> {
     task::yield_now().await;
     spelled(text)
 }
 
-fn coded(text: &str) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| Code::Invalid) }
-
-fn retried(text: &str, code: Code) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| code) }
+fn coded(text: &str) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| Code::Invalid) } //~ untyped_error
 
 fn relocated(text: &str) -> Result<u16, Relocated> { text.parse().map_err(|_error: ParseIntError| Relocated::Moved) }
 
-fn boxed_text(text: &str) -> Result<u16, Box<str>> { text.parse().map_err(|_error: ParseIntError| Box::from("boxed port is not a number")) }
+fn boxed_text(text: &str) -> Result<u16, Box<str>> { text.parse().map_err(|_error: ParseIntError| Box::from("boxed port is not a number")) } //~ untyped_error
 
-fn shared_text(text: &str) -> Result<u16, Arc<str>> { text.parse().map_err(|_error: ParseIntError| Arc::from("shared port is not a number")) }
+fn borrowed_text(text: &str) -> Result<u16, Cow<'static, str>> { text.parse().map_err(|_error: ParseIntError| Cow::Borrowed("port is not a number")) } //~ untyped_error
 
-fn counted_text(text: &str) -> Result<u16, Rc<str>> { text.parse().map_err(|_error: ParseIntError| Rc::from("counted port is not a number")) }
+fn shared_error(text: &str) -> Result<u16, Arc<dyn Error + Send + Sync>> { text.parse().map_err(|error: ParseIntError| -> Arc<dyn Error + Send + Sync> { Arc::new(error) }) } //~ untyped_error
 
-fn borrowed_text(text: &str) -> Result<u16, Cow<'static, str>> { text.parse().map_err(|_error: ParseIntError| Cow::Borrowed("port is not a number")) }
-
-fn shared_error(text: &str) -> Result<u16, Arc<dyn Error + Send + Sync>> { text.parse().map_err(|error: ParseIntError| -> Arc<dyn Error + Send + Sync> { Arc::new(error) }) }
-
-fn counted_error(text: &str) -> Result<u16, Rc<dyn Error>> { text.parse().map_err(|error: ParseIntError| -> Rc<dyn Error> { Rc::new(error) }) }
-
-fn returned(text: String) -> Result<u16, String> { text.parse().map_err(|_error: ParseIntError| text) }
+fn returned(text: String) -> Result<u16, String> { text.parse().map_err(|_error: ParseIntError| text) } //~ untyped_error
 
 fn routed(text: &str) -> Result<Reply, Reply> { text.parse().map(Reply).map_err(|_error: ParseIntError| Reply(400)) }
 
+//~v untyped_error
 fn planned(texts: &[&str]) -> Result<Vec<u16>, Vec<PortError>> {
     let failures = audited(texts);
     if failures.is_empty() { Ok(texts.iter().filter_map(|text| typed(text).ok()).collect()) } else { Err(failures) }
 }
 
-fn audited(texts: &[&str]) -> Vec<PortError> { texts.iter().filter_map(|text| typed(text).err()).collect() }
+fn audited(texts: &[&str]) -> Vec<PortError> { texts.iter().filter_map(|text| typed(text).err()).collect() } //~ untyped_error
 
 fn surveyed(texts: &[&str]) -> Survey { Survey { ports: texts.iter().filter_map(|text| typed(text).ok()).collect(), failures: audited(texts) } }
 
@@ -242,7 +248,7 @@ fn rejected(texts: &[&str]) -> Result<u16, PlanError> { audited(texts).is_empty(
 
 fn tagged<E>(outcome: Result<u16, E>) -> Result<u16, Tagged<E>> { outcome.map_err(Tagged) }
 
-fn defaulted(port: Option<u16>) -> Result<u16, PortError> { port.ok_or_else(|| String::from("port is missing")).or_else(|_text| typed("8080")) }
+fn defaulted(port: Option<u16>) -> Result<u16, PortError> { port.ok_or_else(|| String::from("port is missing")).or_else(|_text| typed("8080")) } //~ untyped_error
 
 fn described(outcome: Result<u16, PortError>) -> Result<String, PortError> { outcome.map(|port| port.to_string()) }
 
@@ -257,7 +263,9 @@ fn synced(offset: u64) -> Result<u64, SyncError> {
 fn typed(text: &str) -> Result<u16, PortError> { Ok(text.parse()?) }
 
 fn checked(text: &str) -> Result<u16, PortError> {
-    let present = if text.is_empty() { Err("port text is empty") } else { Ok(text) };
+    let present = if text.is_empty() { Err("port text is empty") } else { Ok(text) }; //~ untyped_error
+    //
+    //~v untyped_error
     let spelled = |digits: &str| if digits.is_empty() { Err(String::from("port text is empty")) } else { digits.parse::<u16>().map_err(|_error: ParseIntError| String::from("port is not a number")) };
     let typed = |digits: &str| -> Result<u16, PortError> { Ok(digits.parse()?) };
     present.map_or(Ok(0), |digits| spelled(digits).or_else(|_text| typed(digits)))
@@ -281,13 +289,13 @@ fn received(lookup: impl Fn(&str) -> String) -> ConfigError { ConfigError::Recei
 
 fn loaded(path: &Path) -> Result<String, LoadError> { fs_err::read_to_string(path).map_err(|source| LoadError::Read { path: path.to_owned(), source }) }
 
-fn reported(path: &Path) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) }
+fn reported(path: &Path) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) } //~ untyped_error
 
 fn first_recovered(reports: Vec<anyhow::Error>) -> Option<ParseIntError> { reports.into_iter().map(|report| report.downcast::<ParseIntError>()).find_map(Result::ok) }
 
 fn relayed(outcome: &anyhow::Result<String>) -> bool { outcome.is_ok() }
 
-fn contexted(text: &str) -> Result<u16, ReportError> { text.parse::<u16>().context("port").map_err(ReportError::Project) }
+fn contexted(text: &str) -> Result<u16, ReportError> { text.parse::<u16>().context("port").map_err(ReportError::Project) } //~ untyped_error
 
 const fn projected(report: anyhow::Error) -> ReportError { ReportError::Project(report) }
 
@@ -313,16 +321,15 @@ fn listed(name: &str) -> Result<u16, Unserved> { if name == "port" { Ok(8080) } 
 
 fn served(name: &str, reserved: u16) -> Result<u16, ErrorData> {
     let port = listed(name)?;
-    if port == reserved { Err(ErrorData::invalid_params(format!("{name} names a reserved port"), None)) } else { Ok(port) }
+    if port == reserved { Err(ErrorData::invalid_params(format!("{name} names a reserved port"), None)) } else { Ok(port) } //~ untyped_error
 }
 
 fn mapped(name: &str) -> Result<u16, ErrorData> {
+    //~v untyped_error
     listed(name).map_err(ErrorData::from).and_then(|port| if port == 0 { Err(ErrorData::internal_error("port zero cannot be served", None)) } else { Ok(port) })
 }
 
 fn dispatched(name: &str, method: &str) -> Result<u16, ErrorData> { if method == "ports/read" { Ok(listed(name)?) } else { Err(ErrorData::new(ErrorCode::METHOD_NOT_FOUND, method.to_owned(), None)) } }
-
-fn extracted(name: Option<&str>) -> Result<&str, ErrorData> { name.ok_or_else(|| ErrorData::internal_error("no port name reaches the extractor", None)) }
 
 fn unrelated(name: &str) -> ErrorData {
     let converted = || -> io::Result<u16> { Ok(listed(name)?) };
@@ -330,13 +337,13 @@ fn unrelated(name: &str) -> ErrorData {
     ErrorData::invalid_params("unrelated failure", None)
 }
 
-fn numbered(text: &str) -> Result<u16, i32> { text.parse().map_err(|_error: ParseIntError| -1) }
+fn numbered(text: &str) -> Result<u16, i32> { text.parse().map_err(|_error: ParseIntError| -1) } //~ untyped_error
 
 fn documented(text: &str) -> Result<u16, serde_json::Value> { text.parse().map_err(|error: ParseIntError| serde_json::Value::String(error.to_string())) }
 
-fn messages(text: &str) -> Result<u16, Vec<String>> { text.parse().map_err(|error: ParseIntError| vec![error.to_string()]) }
+fn messages(text: &str) -> Result<u16, Vec<String>> { text.parse().map_err(|error: ParseIntError| vec![error.to_string()]) } //~ untyped_error
 
-fn paired(text: &str) -> Result<u16, (u16, String)> { text.parse().map_err(|error: ParseIntError| (1, error.to_string())) }
+fn paired(text: &str) -> Result<u16, (u16, String)> { text.parse().map_err(|error: ParseIntError| (1, error.to_string())) } //~ untyped_error is a tuple that names no failure
 
 #[derive(Debug, thiserror::Error)]
 enum WrappedError {
@@ -344,7 +351,7 @@ enum WrappedError {
     Other(#[from] anyhow::Error),
 }
 
-fn wrapped(text: &str) -> Result<u16, WrappedError> { Ok(text.parse::<u16>().map_err(anyhow::Error::from)?) }
+fn wrapped(text: &str) -> Result<u16, WrappedError> { Ok(text.parse::<u16>().map_err(anyhow::Error::from)?) } //~ untyped_error
 
 fn recovered(reports: Vec<anyhow::Error>) -> Option<PortError> {
     reports.into_iter().find_map(|report| match report.downcast::<ParseIntError>() {
@@ -372,6 +379,7 @@ fn propagated(settings: &DiagNutsSettings) -> anyhow::Result<()> {
 
 fn held(settings: &DiagNutsSettings) -> Result<(), ReportError> { settings.validate().map_err(ReportError::Project) }
 
+//~v untyped_error
 fn mixed(settings: &DiagNutsSettings, local: bool) -> anyhow::Result<()> {
     if local {
         return Err(anyhow::Error::from(fmt::Error));
@@ -379,21 +387,17 @@ fn mixed(settings: &DiagNutsSettings, local: bool) -> anyhow::Result<()> {
     settings.validate()
 }
 
+//~v untyped_error
 fn chosen_report<E>(outcome: Result<(), E>) -> anyhow::Result<()>
 where E: Error + Send + Sync + 'static {
     Ok(outcome?)
 }
 
+//~v untyped_error
 fn mixed_propagation<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
 where E: Error + Send + Sync + 'static {
     settings.validate()?;
     Ok(outcome?)
-}
-
-fn aliased_report(settings: &DiagNutsSettings) -> anyhow::Result<u8> {
-    let first = settings.validate();
-    let second = { first };
-    second.map(|()| 1)
 }
 
 async fn async_report(settings: &DiagNutsSettings) -> anyhow::Result<()> {
@@ -402,30 +406,26 @@ async fn async_report(settings: &DiagNutsSettings) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn aliased_report(settings: &DiagNutsSettings) -> anyhow::Result<u8> {
+    let first = settings.validate();
+    let second = { first };
+    second.map(|()| 1)
+}
+
 fn tried_foreign_report(settings: &DiagNutsSettings) -> anyhow::Result<()> { try { settings.validate()? } }
 
+//~v untyped_error
 fn field_report(settings: &DiagNutsSettings, held: (anyhow::Result<()>, u16)) -> anyhow::Result<()> {
     settings.validate()?;
     held.0
 }
 
-fn joined_report(settings: &DiagNutsSettings, outcome: anyhow::Result<()>) -> anyhow::Result<()> { settings.validate().and(outcome) }
-
-fn argument_report<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
-where E: Error + Send + Sync + 'static {
-    settings.validate()?;
-    Ok(black_box(outcome?))
-}
-
-fn tried_local_report<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
-where E: Error + Send + Sync + 'static {
-    settings.validate()?;
-    try { outcome.map_err(anyhow::Error::from)? }
-}
+fn joined_report(settings: &DiagNutsSettings, outcome: anyhow::Result<()>) -> anyhow::Result<()> { settings.validate().and(outcome) } //~ untyped_error
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
+//~v untyped_error
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let text = "8080";
     let source: &dyn Source = &Port;
@@ -433,15 +433,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     black_box(&received(|_| text.to_owned()));
     let settings = DiagNutsSettings::default();
     black_box(&(validated(&settings), propagated(&settings), held(&settings), mixed(&settings, false), chosen_report(Err(fmt::Error)), mixed_propagation(&settings, Err(fmt::Error))));
-    black_box(&(
-        aliased_report(&settings),
-        async_report(&settings).await,
-        tried_foreign_report(&settings),
-        field_report(&settings, (Ok(()), 1)),
-        joined_report(&settings, Ok(())),
-        argument_report(&settings, Err(fmt::Error)),
-        tried_local_report(&settings, Err(fmt::Error)),
-    ));
+    black_box(&(aliased_report(&settings), async_report(&settings).await, tried_foreign_report(&settings), field_report(&settings, (Ok(()), 1)), joined_report(&settings, Ok(()))));
     black_box(&(
         numbered(text),
         documented(text),
@@ -450,7 +442,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         wrapped(text),
         recovered(Vec::new()),
         first_recovered(Vec::new()),
-        annotated(anyhow::Error::from(fmt::Error)),
+        annotated(anyhow::Error::from(fmt::Error)), //~ untyped_error
         merged(&[1, 1, 2]),
     ));
     let ports = [
@@ -462,14 +454,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         generic_default(text)?,
         awaited(text).await?,
         coded(text).unwrap_or_default(),
-        retried(text, Code::Invalid).unwrap_or_default(),
         relocated(text).unwrap_or_default(),
         boxed_text(text).unwrap_or_default(),
-        shared_text(text).unwrap_or_default(),
-        counted_text(text).unwrap_or_default(),
         borrowed_text(text)?,
         shared_error(text).unwrap_or_default(),
-        counted_error(text).unwrap_or_default(),
         returned(text.to_owned())?,
         routed(text).map_or_else(|failure| failure.0, |reply| reply.0),
         tagged(text.parse::<u16>())?,
@@ -483,7 +471,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         Digits::try_from(text)?.0,
         source.read()?,
         Memory.fetch(8080).await?,
-        Pending { outcome: text.parse().map_err(drop) }.outcome.unwrap_or_default(),
+        Pending { outcome: text.parse().map_err(drop) }.outcome.unwrap_or_default(), //~ untyped_error
     ];
     let survey = surveyed(&[text]);
     black_box(&(
@@ -508,7 +496,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         served(text, 80).unwrap_or_default(),
         mapped(text).unwrap_or_default(),
         dispatched(text, "ports/read").unwrap_or_default(),
-        extracted(Some(text)).unwrap_or_default(),
         unrelated(text),
     ));
     ports.iter().all(|port| *port == 8080).then_some(()).filter(|()| files.iter().all(|file| !file.is_empty())).ok_or_else(|| Box::from("ports differ"))

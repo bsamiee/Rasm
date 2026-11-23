@@ -1,4 +1,5 @@
 #![feature(error_generic_member_access)]
+#![cfg_attr(dylint_lib = "rasm_lints", allow(stringified_error, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
 
 use core::error::{Error, Request, request_value};
 use core::fmt;
@@ -27,12 +28,13 @@ impl fmt::Display for Manual {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("manual failure") }
 }
 
-impl Error for Manual {}
+impl Error for Manual {} //~ manual_error_impl
 
 #[derive(Debug, derive_more::Display)]
 #[display("source failure")]
 struct Sourced<E>(E);
 
+//~v manual_error_impl
 impl<E: Error + 'static> Error for Sourced<E> {
     fn source(&self) -> Option<&(dyn Error + 'static)> { Some(&self.0) }
 }
@@ -76,7 +78,7 @@ struct Hidden {
     backtrace: Backtrace,
 }
 
-impl Error for Hidden {}
+impl Error for Hidden {} //~ manual_error_impl
 
 #[derive(Debug, derive_more::Display, derive_more::Error)]
 #[display("supported {source}, trace {backtrace}")]

@@ -3,7 +3,7 @@ use core::hint::black_box;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-struct Joined<'items>(&'items [u8]);
+struct Joined<'items>(&'items [u8]); //~ manual_fmt_from_fn
 
 struct Stored<'items>(&'items [u8]);
 
@@ -95,7 +95,7 @@ impl fmt::Display for Nested {
 
 fn main() {
     let values = [1, 2, 3];
-    let joined = format!("{}", Joined(&values));
+    let joined = format!("{}", Joined(&values)); //~ display_format
     let holder = Holder { label: Stored(&values) };
     let twice = format!("{}{}", Twice(1), Twice(2));
     let traced = usize::from(Traced(4).0);

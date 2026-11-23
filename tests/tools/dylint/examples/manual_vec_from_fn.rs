@@ -11,9 +11,9 @@ impl FromIterator<Token> for Vec<bool> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn squares(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(index)).collect::<Vec<_>>() }
+fn squares(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(index)).collect::<Vec<_>>() } //~ manual_vec_from_fn
 
-fn labels(count: usize) -> Vec<String> { (0..count).map(|index| index.to_string()).collect() }
+fn labels(count: usize) -> Vec<String> { (0..count).map(|index| index.to_string()).collect() } //~ manual_vec_from_fn
 
 fn offset(count: usize) -> Vec<usize> { (1..count).map(|index| index.strict_mul(2)).collect() }
 
@@ -28,6 +28,7 @@ fn custom(count: usize) -> Vec<bool> { (0..count).map(Token).collect() }
 fn shadowed(count: usize) -> Vec<usize> {
     struct Vec;
     black_box(Vec);
+    //~v manual_vec_from_fn
     (0..count).map(|index| index.strict_mul(2)).collect()
 }
 

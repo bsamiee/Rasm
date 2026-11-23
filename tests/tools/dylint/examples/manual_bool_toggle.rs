@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(single_impl_trait, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::cell::Cell;
 use core::hint::black_box;
 use core::ops::{Deref, DerefMut};
@@ -37,9 +39,9 @@ impl DerefMut for Observed {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn flipped(flag: &mut bool) { *flag = !*flag; }
+fn flipped(flag: &mut bool) { *flag = !*flag; } //~ manual_bool_toggle
 
-fn xored(flag: &mut bool) { *flag ^= true; }
+fn xored(flag: &mut bool) { *flag ^= true; } //~ manual_bool_toggle
 
 fn inverted(bits: &mut u32) { *bits = !*bits; }
 
@@ -53,12 +55,12 @@ fn kept() -> bool {
 
 fn set(flag: &mut bool) { *flag |= true; }
 
-fn boxed(flag: &mut Box<bool>) { **flag = !**flag; }
+fn boxed(flag: &mut Box<bool>) { **flag = !**flag; } //~ manual_bool_toggle
 
 fn observed(flag: &mut Observed) { **flag = !**flag; }
 
 fn shadowed(mut flag: &mut bool) {
-    *flag = !*flag;
+    *flag = !*flag; //~ manual_bool_toggle
     Toggle::toggle(&mut flag);
 }
 

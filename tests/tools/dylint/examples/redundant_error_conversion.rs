@@ -1,4 +1,5 @@
 #![feature(try_blocks, try_blocks_heterogeneous)]
+#![cfg_attr(dylint_lib = "rasm_lints", allow(discarded_error, duplicate_type, manual_error_impl, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
 
 use core::hint::black_box;
 use core::num::{ParseFloatError, ParseIntError};
@@ -57,10 +58,12 @@ enum ScaleError {
     Archive(#[source] Box<LocatedError>),
 }
 
+//~v redundant_error_conversion
 impl From<ParseFloatError> for ScaleError {
     fn from(value: ParseFloatError) -> Self { Self::Parse(value) }
 }
 
+//~v redundant_error_conversion
 impl From<Utf8Error> for ScaleError {
     fn from(value: Utf8Error) -> Self { Self::Text { source: value } }
 }
@@ -83,6 +86,7 @@ enum ReadError {
     Io(#[source] io::Error),
 }
 
+//~v redundant_error_conversion
 impl From<io::Error> for ReadError {
     fn from(value: io::Error) -> Self { Self::Io(value) }
 }
@@ -94,6 +98,7 @@ enum AttributedError {
 }
 
 #[automatically_derived]
+//~v redundant_error_conversion
 impl From<Utf8Error> for AttributedError {
     fn from(value: Utf8Error) -> Self { Self::Text(value) }
 }
@@ -116,13 +121,13 @@ impl From<ParseIntError> for ManualError {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn port(bytes: &[u8]) -> Result<u16, PortError> {
-    let text = str::from_utf8(bytes).map_err(Into::<PortError>::into)?;
+    let text = str::from_utf8(bytes).map_err(Into::<PortError>::into)?; //~ redundant_error_conversion
     let port = text.trim().parse().map_err(PortError::from)?;
     Ok(port)
 }
 
 fn variant(bytes: &[u8]) -> Result<u16, PortError> {
-    let text = str::from_utf8(bytes).map_err(PortError::Text)?;
+    let text = str::from_utf8(bytes).map_err(PortError::Text)?; //~ redundant_error_conversion
     text.trim().parse().map_err(Into::into)
 }
 
@@ -132,7 +137,7 @@ fn retried(bytes: &[u8]) -> Result<&str, PortError> {
 }
 
 fn wrapped(bytes: &[u8]) -> Result<&str, LocatedError> {
-    let text = str::from_utf8(bytes).map_err(LocatedError)?;
+    let text = str::from_utf8(bytes).map_err(LocatedError)?; //~ redundant_error_conversion
     Ok(text)
 }
 
@@ -142,13 +147,13 @@ fn located(bytes: &[u8]) -> Result<&str, OuterError> {
 }
 
 fn expanded(bytes: &[u8]) -> Result<&str, PortError> {
-    let text = text!(bytes).map_err(PortError::from)?;
+    let text = text!(bytes).map_err(PortError::from)?; //~ redundant_error_conversion
     Ok(text)
 }
 
 fn generic<E>(bytes: &[u8]) -> Result<&str, E>
 where E: From<Utf8Error> {
-    let text = str::from_utf8(bytes).map_err(E::from)?;
+    let text = str::from_utf8(bytes).map_err(E::from)?; //~ redundant_error_conversion
     Ok(text)
 }
 
@@ -178,7 +183,7 @@ fn closured(text: &str) -> Result<u16, PortError> {
 }
 
 fn variant_closure(bytes: &[u8]) -> Result<&str, PortError> {
-    let text = str::from_utf8(bytes).map_err(|error| PortError::Text(error))?;
+    let text = str::from_utf8(bytes).map_err(|error| PortError::Text(error))?; //~ redundant_error_conversion
     Ok(text)
 }
 

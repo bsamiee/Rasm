@@ -1,10 +1,10 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use futures::future::join;
-pub use itertools;
-pub use nonempty_collections::{NEVec, nev};
+pub use futures::future::join; //~ reexported_dependency
+pub use itertools; //~ reexported_dependency
+pub use nonempty_collections::{NEVec, nev}; //~ reexported_dependency
 pub use serde_json::{Map, Number, Value};
-pub use tokio::sync::watch::*;
+pub use tokio::sync::watch::*; //~ reexported_dependency
 pub use uuid::Uuid;
 
 // --- [MODELS] --------------------------------------------------------------------------

@@ -76,22 +76,23 @@ impl Drop for ObservedHasher<'_> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn owned(left: Vec<u32>, right: Vec<u32>) -> Vec<u32> { left.into_iter().chain(right).collect() }
+fn owned(left: Vec<u32>, right: Vec<u32>) -> Vec<u32> { left.into_iter().chain(right).collect() } //~ explicit_iter_chain_zip
 
-fn borrowed(values: &[u32], weights: &[u32]) -> u32 { values.iter().zip(weights).map(|(value, weight)| value.strict_mul(*weight)).sum() }
+fn borrowed(values: &[u32], weights: &[u32]) -> u32 { values.iter().zip(weights).map(|(value, weight)| value.strict_mul(*weight)).sum() } //~ explicit_iter_chain_zip
 
 fn bound(weights: &[u32]) -> u32 {
     let values = vec![1_u32, 2];
+    //~v explicit_iter_chain_zip
     values.iter().zip(weights).map(|(value, weight)| value.strict_add(*weight)).sum()
 }
 
 fn scaled(weights: &[u32]) -> Vec<u32> {
     let mut values = vec![1_u32, 2];
-    values.iter_mut().zip(weights).for_each(|(value, weight)| *value = value.strict_mul(*weight));
+    values.iter_mut().zip(weights).for_each(|(value, weight)| *value = value.strict_mul(*weight)); //~ explicit_iter_chain_zip
     values
 }
 
-fn keyed(map: &BTreeMap<u32, u32>, extra: &[(u32, u32)]) -> usize { map.iter().chain(extra.iter().map(|(key, value)| (key, value))).count() }
+fn keyed(map: &BTreeMap<u32, u32>, extra: &[(u32, u32)]) -> usize { map.iter().chain(extra.iter().map(|(key, value)| (key, value))).count() } //~ explicit_iter_chain_zip
 
 fn ring(ring: &Ring, other: &[u32]) -> usize { ring.iter().zip(other).count() }
 

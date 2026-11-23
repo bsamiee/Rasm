@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(interior_mutable_static, single_reader, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 use std::alloc::System;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -11,7 +13,7 @@ struct Catalog {
 impl Catalog {
     fn split(&self) -> (Vec<&'static str>, Vec<&'static str>) {
         let blank = self.words.iter().filter(|word| word.is_empty()).copied().collect();
-        let filled = self.words.iter().filter(|word| !word.is_empty()).copied().collect();
+        let filled = self.words.iter().filter(|word| !word.is_empty()).copied().collect(); //~ manual_partition
         (blank, filled)
     }
 }
@@ -46,7 +48,7 @@ static EMPTY: Catalog = Catalog { words: Vec::new() };
 
 fn halves(words: &[&'static str]) -> (Vec<&'static str>, Vec<&'static str>) {
     let blank = words.iter().filter(|word| str::is_empty(word)).copied().collect();
-    let filled = words.iter().filter(|word| !str::is_empty(word)).copied().collect();
+    let filled = words.iter().filter(|word| !str::is_empty(word)).copied().collect(); //~ manual_partition
     (blank, filled)
 }
 
@@ -65,7 +67,7 @@ fn closures(words: &[&'static str]) -> (Vec<&'static str>, Vec<&'static str>) {
 fn closure_halves(words: &[&'static str]) -> (Vec<&'static str>, Vec<&'static str>) {
     let split = || {
         let blank = words.iter().filter(|word| word.is_empty()).copied().collect();
-        let filled = words.iter().filter(|word| !word.is_empty()).copied().collect();
+        let filled = words.iter().filter(|word| !word.is_empty()).copied().collect(); //~ manual_partition
         (blank, filled)
     };
     split()
@@ -79,13 +81,13 @@ fn tuple_members(items: &[(i32, i32)]) -> (Vec<(i32, i32)>, Vec<(i32, i32)>) {
 
 fn tuple_halves(items: &[(i32, i32)]) -> (Vec<(i32, i32)>, Vec<(i32, i32)>) {
     let positive = items.iter().filter(|(value, _)| *value > 0).copied().collect();
-    let negative = items.iter().filter(|(value, _)| !(*value > 0)).copied().collect();
+    let negative = items.iter().filter(|(value, _)| !(*value > 0)).copied().collect(); //~ manual_partition
     (positive, negative)
 }
 
 fn borrowed(items: &[u8]) -> (Vec<&u8>, Vec<&u8>) {
     let selected = items.iter().filter(|value| **value > 0).collect();
-    let rejected = items.iter().filter(|value| !(**value > 0)).collect();
+    let rejected = items.iter().filter(|value| !(**value > 0)).collect(); //~ manual_partition
     (selected, rejected)
 }
 
@@ -115,7 +117,7 @@ fn allocated_collection(items: &[Catalog]) -> (Vec<&Catalog, System>, Vec<&Catal
 
 fn qualified(items: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let selected = Iterator::collect(Iterator::copied(Iterator::filter(<[u8]>::iter(items), |value| **value > 0)));
-    let rejected = Iterator::collect(Iterator::copied(Iterator::filter(<[u8]>::iter(items), |value| !(**value > 0))));
+    let rejected = Iterator::collect(Iterator::copied(Iterator::filter(<[u8]>::iter(items), |value| !(**value > 0)))); //~ manual_partition
     (selected, rejected)
 }
 

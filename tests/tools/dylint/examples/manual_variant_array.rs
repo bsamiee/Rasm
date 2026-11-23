@@ -50,10 +50,10 @@ const PRIORITY: [Mode; 2] = [Mode::Slow, Mode::Fast];
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
-    black_box(&([ALL.len(), HOT.len(), PRIORITY.len(), Mode::VARIANTS.len()], [Mode::Fast, Mode::Slow].contains(&Mode::Slow)));
-    black_box([Measure::<4>::Low, Measure::<4>::High].contains(&Measure::<4>::High));
+    black_box(&([ALL.len(), HOT.len(), PRIORITY.len(), Mode::VARIANTS.len()], [Mode::Fast, Mode::Slow].contains(&Mode::Slow))); //~ manual_variant_array
+    black_box([Measure::<4>::Low, Measure::<4>::High].contains(&Measure::<4>::High)); //~ manual_variant_array
     black_box([Mode::Fast, Mode::Slow].into_iter().count());
     black_box([State::Open, State::Closed].contains(&State::Open));
     black_box([Resource::Open, Resource::Closed].into_iter().take(1).count());
-    black_box([Visible::Shown, Visible::Hidden].contains(&Visible::Hidden));
+    black_box([Visible::Shown, Visible::Hidden].contains(&Visible::Hidden)); //~ manual_variant_array
 }

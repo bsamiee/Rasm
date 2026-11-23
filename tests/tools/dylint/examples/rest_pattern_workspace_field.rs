@@ -35,7 +35,7 @@ mod sealed {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const fn rest(window: Window) -> u16 {
-    let Window { start, .. } = window;
+    let Window { start, .. } = window; //~ rest_pattern_workspace_field
     start
 }
 
@@ -46,8 +46,8 @@ const fn listed(window: Window) -> (u16, &'static str) {
 
 const fn variant(gesture: Gesture) -> u8 {
     match gesture {
-        Gesture::Drag { from, .. } => from,
-        Gesture::Pinch(first, ..) => first,
+        Gesture::Drag { from, .. } => from, //~ rest_pattern_workspace_field
+        Gesture::Pinch(first, ..) => first, //~ rest_pattern_workspace_field
         Gesture::Tap => 0,
     }
 }
@@ -61,7 +61,7 @@ const fn target(gesture: Gesture) -> u8 {
 }
 
 const fn private(token: sealed::Token) -> u8 {
-    let sealed::Token { id, .. } = token;
+    let sealed::Token { id, .. } = token; //~ rest_pattern_workspace_field
     id
 }
 
@@ -95,7 +95,7 @@ const fn raw_fields() -> (u8, u8) {
         r#type: u8,
     }
     let fields = Fields { kept: 0, r#type: 1 };
-    let Fields { kept, .. } = fields;
+    let Fields { kept, .. } = fields; //~ rest_pattern_workspace_field
     (kept, fields.r#type)
 }
 

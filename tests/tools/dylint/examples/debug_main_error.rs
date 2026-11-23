@@ -10,6 +10,7 @@ enum Failure {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+//~v debug_main_error
 fn main() -> Result<(), Failure> {
     fs::read_to_string("settings.toml").map_err(Failure::Read)?;
     Ok(())

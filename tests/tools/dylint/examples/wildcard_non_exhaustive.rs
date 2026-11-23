@@ -17,7 +17,7 @@ enum LocalChoice {
 const fn local_choice(value: LocalChoice) -> u8 {
     match value {
         LocalChoice::First => 1,
-        _ => 0,
+        _ => 0, //~ wildcard_workspace_enum_match_arm
     }
 }
 
@@ -41,7 +41,7 @@ const fn known_outer(value: Outer<Inner>) -> u8 {
 const fn inner_wildcard(value: Outer<Inner>) -> u8 {
     match value {
         Outer::Known(Inner::Left) => 1,
-        Outer::Known(_) => 2,
+        Outer::Known(_) => 2, //~ wildcard_workspace_enum_match_arm
         _ => 0,
     }
 }
@@ -49,7 +49,7 @@ const fn inner_wildcard(value: Outer<Inner>) -> u8 {
 const fn separate_tuple(value: (Choice, Inner)) -> u8 {
     match value {
         (Choice::First, Inner::Left) => 1,
-        (_, _) => 0,
+        (_, _) => 0, //~ wildcard_workspace_enum_match_arm
     }
 }
 

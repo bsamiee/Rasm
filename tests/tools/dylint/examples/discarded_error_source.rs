@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(discarded_error, forwarding_function, untyped_error, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::alloc::{Layout, LayoutError};
 use core::hint::black_box;
 use core::num::{NonZero, ParseIntError, TryFromIntError};
@@ -28,15 +30,15 @@ struct Reserved;
 
 fn parse(text: &str) -> Result<u16, ParseIntError> { text.parse() }
 
-fn named(text: &str) -> Result<u16, Failure> { parse(text).map_err(|_error| Failure::Missing) }
+fn named(text: &str) -> Result<u16, Failure> { parse(text).map_err(|_error| Failure::Missing) } //~ discarded_error_source
 
-fn ignored(text: &str) -> Result<u16, Failure> { parse(text).map_err(|_| Failure::Missing) }
+fn ignored(text: &str) -> Result<u16, Failure> { parse(text).map_err(|_| Failure::Missing) } //~ discarded_error_source
 
-fn retried(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_| Err(Failure::Missing)) }
+fn retried(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_| Err(Failure::Missing)) } //~ discarded_error_source
 
-fn retried_named(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_ignored| Err(Failure::Missing)) }
+fn retried_named(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_ignored| Err(Failure::Missing)) } //~ discarded_error_source
 
-fn destructured(text: &str) -> Result<u16, Failure> { text.parse::<u16>().map_err(anyhow::Error::from).map_err(|anyhow::Error { .. }| Failure::Missing) }
+fn destructured(text: &str) -> Result<u16, Failure> { text.parse::<u16>().map_err(anyhow::Error::from).map_err(|anyhow::Error { .. }| Failure::Missing) } //~ discarded_error_source
 
 fn kept(text: &str) -> Result<u16, Failure> { parse(text).map_err(Failure::Parse) }
 
@@ -44,7 +46,7 @@ fn read(text: &str) -> Result<u16, Failure> { parse(text).map_err(|error| Failur
 
 fn text_restated(name: &str) -> Result<ColorChoice, Failure> { name.parse().map_err(|_: String| Failure::Color { color: name.to_owned() }) }
 
-fn text_dropped(name: &str) -> Result<ColorChoice, Failure> { name.parse().map_err(|_: String| Failure::Missing) }
+fn text_dropped(name: &str) -> Result<ColorChoice, Failure> { name.parse().map_err(|_: String| Failure::Missing) } //~ discarded_error_source
 
 fn text_retried(name: &str) -> Result<ColorChoice, Failure> { name.parse().or_else(|_: String| Err(Failure::Color { color: name.to_owned() })) }
 
@@ -76,6 +78,7 @@ fn early_return(value: u64) -> Result<u16, Failure> {
                 u32::from(converted)
             })
         })
+        //~v discarded_error_source
         .map_err(|_| Failure::Missing)
 }
 
@@ -87,6 +90,7 @@ fn early_error(value: u64) -> Result<u16, Failure> {
                 u32::from(valid)
             })
         })
+        //~v discarded_error_source
         .map_err(|_| Failure::Missing)
 }
 
@@ -100,29 +104,30 @@ fn outer_break(value: u64) -> Result<u16, Failure> {
                 u32::from(converted)
             })
         })
+        //~v discarded_error_source
         .map_err(|_| Failure::Missing)
 }
 
-fn two_sided(value: i32) -> Result<u16, Failure> { u16::try_from(value).map_err(|_| Failure::Missing) }
+fn two_sided(value: i32) -> Result<u16, Failure> { u16::try_from(value).map_err(|_| Failure::Missing) } //~ discarded_error_source
 
-fn nonzero(value: NonZero<i32>) -> Result<NonZero<u16>, Failure> { NonZero::try_from(value).map_err(|_| Failure::Missing) }
+fn nonzero(value: NonZero<i32>) -> Result<NonZero<u16>, Failure> { NonZero::try_from(value).map_err(|_| Failure::Missing) } //~ discarded_error_source
 
-fn opaque(read: impl FnOnce() -> Result<u16, TryFromIntError>) -> Result<u16, Failure> { read().map_err(|_| Failure::Missing) }
+fn opaque(read: impl FnOnce() -> Result<u16, TryFromIntError>) -> Result<u16, Failure> { read().map_err(|_| Failure::Missing) } //~ discarded_error_source
 
-fn reserved(value: Result<u16, Reserved>) -> Result<u16, Failure> { value.map_err(|_| Failure::Missing) }
+fn reserved(value: Result<u16, Reserved>) -> Result<u16, Failure> { value.map_err(|_| Failure::Missing) } //~ discarded_error_source
 
 fn array_layout(count: usize) -> Result<usize, Failure> { Layout::array::<u8>(count).map(|layout| layout.size()).map_err(|LayoutError { .. }| Failure::Missing) }
 
-fn aligned_layout(size: usize, align: usize) -> Result<Layout, Failure> { Layout::from_size_align(size, align).map_err(|LayoutError { .. }| Failure::Missing) }
+fn aligned_layout(size: usize, align: usize) -> Result<Layout, Failure> { Layout::from_size_align(size, align).map_err(|LayoutError { .. }| Failure::Missing) } //~ discarded_error_source
 
-fn opaque_layout(read: impl FnOnce() -> Result<Layout, LayoutError>) -> Result<Layout, Failure> { read().map_err(|LayoutError { .. }| Failure::Missing) }
+fn opaque_layout(read: impl FnOnce() -> Result<Layout, LayoutError>) -> Result<Layout, Failure> { read().map_err(|LayoutError { .. }| Failure::Missing) } //~ discarded_error_source
 
 fn external() -> [Result<u16, Failure>; 4] {
     [
         Err(SingleError).map_err(|_| Failure::Missing),
         Err(SingleError).or_else(|_| Err(Failure::Missing)),
-        Err(OpenError::default()).map_err(|_| Failure::Missing),
-        Err(DroppedError).map_err(|_| Failure::Missing),
+        Err(OpenError::default()).map_err(|_| Failure::Missing), //~ discarded_error_source
+        Err(DroppedError).map_err(|_| Failure::Missing),         //~ discarded_error_source
     ]
 }
 

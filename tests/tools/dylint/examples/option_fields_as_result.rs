@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(discarded_error, stringified_error, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::error::Error;
 use core::hint::black_box;
 use core::num::ParseIntError;
@@ -32,13 +34,13 @@ struct Job {
 #[derive(Debug)]
 struct Parsed {
     port: Option<u16>,
-    failure: Option<ParseIntError>,
+    failure: Option<ParseIntError>, //~ option_fields_as_result
 }
 
 #[derive(Debug)]
 struct Reply {
     value: Option<u16>,
-    refusal: Option<Closed>,
+    refusal: Option<Closed>, //~ option_fields_as_result
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -81,7 +83,7 @@ fn reply(outcome: Result<u16, Closed>) -> Reply { Reply { value: outcome.ok(), r
 #[derive(Debug)]
 pub struct Exchange {
     pub value: Option<u32>,
-    pub error: Option<String>,
+    pub error: Option<String>, //~ option_fields_as_result
 }
 
 fn exchange(text: &str) -> Exchange {

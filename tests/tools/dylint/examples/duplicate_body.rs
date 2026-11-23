@@ -1,3 +1,8 @@
+#![cfg_attr(
+    dylint_lib = "rasm_lints",
+    allow(discarded_error, empty_string_default, forwarding_function, manual_upcast, reason = "these lints fire incidentally here and are exercised by their own fixtures")
+)]
+
 use core::f64::consts::PI;
 use core::fmt::{self, Debug, Display};
 use core::hint::black_box;
@@ -113,7 +118,7 @@ macro_rules! stepped {
 impl Route {
     fn path(&self) -> String { self.segments.join("/") }
 
-    fn url_path(&self) -> String { self.segments.join("/") }
+    fn url_path(&self) -> String { self.segments.join("/") } //~ duplicate_body
 }
 
 impl Shape for Square {
@@ -129,7 +134,7 @@ impl Shape for Circle {
 }
 
 impl Display for Square {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") }
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") } //~ duplicate_body
 }
 
 impl Display for Circle {
@@ -137,6 +142,7 @@ impl Display for Circle {
 }
 
 impl<C> Extend<C> for Square {
+    //~v duplicate_body
     fn extend<I>(&mut self, items: I)
     where I: IntoIterator<Item = C> {
         items.into_iter().for_each(drop);
@@ -163,7 +169,7 @@ impl Neg for Box<Circle> {
 }
 
 impl Display for Labeled<u8> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(self.name) }
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(self.name) } //~ duplicate_body
 }
 
 impl Display for Labeled<u16> {
@@ -218,7 +224,7 @@ stepped!();
 
 fn total(values: &[u32]) -> u32 { values.iter().sum() }
 
-fn sum(numbers: &[u32]) -> u32 { numbers.iter().sum() }
+fn sum(numbers: &[u32]) -> u32 { numbers.iter().sum() } //~ duplicate_body
 
 fn shown<T: Display>(value: &T) -> String { value.to_string() }
 
@@ -226,7 +232,7 @@ fn rendered<T: Display + Debug>(value: &T) -> String { value.to_string() }
 
 async fn first(value: u32) -> u32 { value.strict_add(1) }
 
-async fn second(value: u32) -> u32 { value.strict_add(1) }
+async fn second(value: u32) -> u32 { value.strict_add(1) } //~ duplicate_body
 
 const fn shared() -> u32 { 1 }
 
@@ -372,7 +378,7 @@ mod contracts {
 
     pub(super) fn borrowed<'a>(value: &'a str) -> &'a str { value }
 
-    pub(super) fn renamed<'other>(value: &'other str) -> &'other str { value }
+    pub(super) fn renamed<'other>(value: &'other str) -> &'other str { value } //~ duplicate_body
 
     pub(super) fn independent<'a, 'b>(first: &'a str, second: &'b str) -> (&'a str, &'b str) { (first, second) }
 
@@ -380,7 +386,7 @@ mod contracts {
 
     pub(super) fn outlives<'long: 'short, 'short>(first: &'long str, second: &'short str) -> (&'long str, &'short str) { (first, second) }
 
-    pub(super) fn renamed_outlives<'a: 'b, 'b>(first: &'a str, second: &'b str) -> (&'a str, &'b str) { (first, second) }
+    pub(super) fn renamed_outlives<'a: 'b, 'b>(first: &'a str, second: &'b str) -> (&'a str, &'b str) { (first, second) } //~ duplicate_body
 }
 
 mod parameter_drops {
@@ -397,7 +403,7 @@ mod parameter_drops {
 
         fn reordered<T>(Fields { last: _last, first: _first }: Fields<T>, visit: impl FnOnce()) { visit() }
 
-        fn renamed<T>(Fields { first: _head, last: _tail }: Fields<T>, visit: impl FnOnce()) { visit() }
+        fn renamed<T>(Fields { first: _head, last: _tail }: Fields<T>, visit: impl FnOnce()) { visit() } //~ duplicate_body
 
         let events = RefCell::new(Vec::new());
         let fields = || {
@@ -425,7 +431,7 @@ mod stateful_binary {
 
     pub(super) fn reversed_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(right), state.replace(left)) }
 
-    pub(super) fn repeated_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(left), state.replace(right)) }
+    pub(super) fn repeated_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(left), state.replace(right)) } //~ duplicate_body
 
     pub(super) fn length_forward(visit: impl FnOnce(usize) -> usize) -> usize {
         let items = [0_u8; {
@@ -454,11 +460,11 @@ mod default_relocation {
     // --- [TYPES]
 
     trait Counted {
-        fn count(values: &[u8]) -> usize;
+        fn count(values: &[u8]) -> usize; //~ duplicate_body
     }
 
     trait Described<T: ToString> {
-        fn width(value: &T) -> usize;
+        fn width(value: &T) -> usize; //~ duplicate_body
     }
 
     trait Characters<T> {

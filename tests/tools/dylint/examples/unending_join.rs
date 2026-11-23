@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(single_reader, untyped_error, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::convert::Infallible;
 use core::future::ready;
 use core::hint::black_box;
@@ -19,6 +21,7 @@ impl Progress {
         let updates = WatchStream::new(self.0.subscribe());
         let (output, ()) = future::join(
             call,
+            //~v unending_join
             updates.for_each(|update| {
                 black_box(update);
                 ready(())
@@ -65,7 +68,7 @@ struct Holder {
 
 async fn tallied() -> usize {
     let (sender, received) = broadcast::channel::<u32>(4);
-    let (seen, ()) = tokio::join!(BroadcastStream::new(received).count(), task::yield_now());
+    let (seen, ()) = tokio::join!(BroadcastStream::new(received).count(), task::yield_now()); //~ unending_join
     black_box(&sender);
     seen
 }
@@ -79,7 +82,7 @@ async fn handed(total: u32) -> usize {
 
 async fn dropped_after() -> usize {
     let (sender, received) = broadcast::channel::<u32>(4);
-    let (seen, ()) = future::join(BroadcastStream::new(received).count(), task::yield_now()).await;
+    let (seen, ()) = future::join(BroadcastStream::new(received).count(), task::yield_now()).await; //~ unending_join
     drop(sender);
     seen
 }
@@ -101,7 +104,7 @@ async fn callback_after_drop() -> usize {
 
 async fn borrowed_sender() -> usize {
     let (sender, received) = broadcast::channel::<u32>(4);
-    let (seen, sent) = future::join(BroadcastStream::new(received).count(), async { sender.send(1) }).await;
+    let (seen, sent) = future::join(BroadcastStream::new(received).count(), async { sender.send(1) }).await; //~ unending_join
     black_box(&sent);
     seen
 }
@@ -116,7 +119,7 @@ async fn macro_handed(total: u32) -> usize {
 async fn nested_sender() -> usize {
     let (sender, received) = broadcast::channel::<u32>(4);
     async move {
-        let (seen, ()) = future::join(BroadcastStream::new(received).count(), task::yield_now()).await;
+        let (seen, ()) = future::join(BroadcastStream::new(received).count(), task::yield_now()).await; //~ unending_join
         black_box(sender);
         seen
     }
@@ -186,6 +189,7 @@ async fn local_reference() -> usize {
 async fn owned_arc_sender() -> usize {
     let sender = std::sync::Arc::new(watch::Sender::new(0_u32));
     let received = sender.subscribe();
+    //~v unending_join
     future::join(WatchStream::new(received).count(), task::yield_now()).await.0
 }
 

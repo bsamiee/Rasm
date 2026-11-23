@@ -24,11 +24,11 @@ impl<State> Deref for Message<State> {
 }
 
 impl Message<Draft> {
-    fn send(self) -> Message<Sent> { Message { state: PhantomData, body: self.body, id: self.id } }
+    fn send(self) -> Message<Sent> { Message { state: PhantomData, body: self.body, id: self.id } } //~ manual_type_changing_struct_update
 
     fn merged(self, other: Self) -> Message<Sent> { Message { state: PhantomData, body: self.body, id: other.id } }
 
-    fn projected(self) -> Message<Sent> { Message { state: PhantomData, id: self.2, body: self.body } }
+    fn projected(self) -> Message<Sent> { Message { state: PhantomData, id: self.2, body: self.body } } //~ manual_type_changing_struct_update
 
     fn reordered(mut self) -> Message<Sent> {
         Message {

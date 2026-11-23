@@ -3,6 +3,7 @@ use core::mem::ManuallyDrop;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+//~v manual_drop_guard
 struct Guard<F>(Option<F>)
 where F: FnOnce();
 
@@ -16,6 +17,7 @@ where F: FnOnce()
     }
 }
 
+//~v manual_drop_guard
 struct Deferred<F>(F)
 where F: FnMut();
 
@@ -38,6 +40,7 @@ where F: FnMut(u8) -> bool
     fn drop(&mut self) { self.items.retain(|&item| (self.keep)(item)); }
 }
 
+//~v manual_drop_guard
 struct Manual<F>(ManuallyDrop<F>)
 where F: FnMut();
 

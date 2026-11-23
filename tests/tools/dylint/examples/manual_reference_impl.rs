@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(duplicate_body, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::any::Any;
 use core::convert::Infallible;
 use core::fmt;
@@ -88,14 +90,17 @@ impl fmt::Debug for Tagged {
 #[derive(Debug)]
 struct Title(String);
 
+//~v manual_reference_impl
 impl AsRef<String> for Title {
     fn as_ref(&self) -> &String { &self.0 }
 }
 
+//~v manual_reference_impl
 impl AsRef<str> for Title {
     fn as_ref(&self) -> &str { self.0.as_ref() }
 }
 
+//~v manual_reference_impl
 impl AsMut<String> for Title {
     fn as_mut(&mut self) -> &mut String { &mut self.0 }
 }

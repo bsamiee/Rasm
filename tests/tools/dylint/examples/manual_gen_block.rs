@@ -1,9 +1,12 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(duplicate_body, manual_bool_toggle, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::cell::{Cell, RefCell};
 use core::hint::black_box;
 use core::iter::FusedIterator;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+//~v manual_gen_block
 struct Countdown {
     left: u8,
 }
@@ -13,6 +16,7 @@ struct Repeated {
     left: u8,
 }
 
+//~v manual_gen_block
 struct Restart {
     left: u8,
 }

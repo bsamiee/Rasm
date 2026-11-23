@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(stringly_typed_value, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 use core::panic::AssertUnwindSafe;
 use std::rc::Rc;
@@ -13,6 +15,7 @@ struct Profile {
 
 fn named(name: &str) -> u8 {
     let owned = name.to_owned();
+    //~v manual_deref_pattern
     match owned.as_str() {
         "a" => 1,
         "b" => 2,
@@ -22,16 +25,17 @@ fn named(name: &str) -> u8 {
 
 fn counted(values: &[u8]) -> u8 {
     let owned = values.to_vec();
-    if let [first, second] = owned.as_slice() { first.strict_add(*second) } else { 0 }
+    if let [first, second] = owned.as_slice() { first.strict_add(*second) } else { 0 } //~ manual_deref_pattern
 }
 
 fn leading(values: &[u8]) -> u8 {
     let owned = values.to_vec();
-    let [first, ..] = owned.as_slice() else { return 0 };
+    let [first, ..] = owned.as_slice() else { return 0 }; //~ manual_deref_pattern
     *first
 }
 
 fn optional(profile: &Profile) -> u8 {
+    //~v manual_deref_pattern
     match profile.name.as_deref() {
         Some("b") => 1,
         Some("c") => 2,
@@ -40,6 +44,7 @@ fn optional(profile: &Profile) -> u8 {
 }
 
 fn shared(value: &Rc<u8>) -> u8 {
+    //~v manual_deref_pattern
     match &**value {
         5 => 1,
         6 => 2,
@@ -49,6 +54,7 @@ fn shared(value: &Rc<u8>) -> u8 {
 
 fn boxed(value: u8) -> u8 {
     let held = Box::new(value);
+    //~v manual_deref_pattern
     match &*held {
         5 => 1,
         6 => 2,

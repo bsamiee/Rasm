@@ -1,5 +1,0 @@
----
-source: tests/tools/dylint/ui/main.rs
-input_file: tests/tools/dylint/examples/macro_alias_exported.rs
----
-

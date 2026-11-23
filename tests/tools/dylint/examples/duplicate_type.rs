@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(discarded_error, single_reader, untyped_error, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::cmp::Ordering;
 use core::fmt;
 use core::hint::black_box;
@@ -18,6 +20,7 @@ struct Origin {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 struct Endpoint {
     host: String,
     port: u16,
@@ -44,6 +47,7 @@ struct Users {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 struct Groups {
     items: Vec<Group>,
     cursor: Option<String>,
@@ -56,12 +60,14 @@ struct Paged<T> {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 struct Members {
     entries: Vec<User>,
     next: Option<String>,
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 enum Event {
     Moved { x: f64, y: f64 },
     Clicked { x: f64, y: f64 },
@@ -69,7 +75,7 @@ enum Event {
 
 #[derive(Debug)]
 enum Request {
-    Fetch { host: String, port: u16 },
+    Fetch { host: String, port: u16 }, //~ duplicate_type
     Close,
 }
 
@@ -81,6 +87,7 @@ struct Link {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 struct Location {
     host: String,
     path: String,
@@ -105,6 +112,7 @@ struct Address {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 struct AddressDto {
     port: u16,
     limit: u32,
@@ -117,6 +125,7 @@ struct Account {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 struct AccountRow {
     user: String,
     address: String,
@@ -126,7 +135,7 @@ struct AccountRow {
 struct Celsius(f64);
 
 #[derive(Debug)]
-struct Reading(f64);
+struct Reading(f64); //~ duplicate_type
 
 #[derive(Debug)]
 struct Fahrenheit(f64);
@@ -170,6 +179,7 @@ enum Shape {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+//~v duplicate_type
 enum ShapeKind {
     Circle,
     Square,
@@ -195,6 +205,7 @@ enum Phase {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+//~v duplicate_type
 enum Signal {
     Begin,
     End,
@@ -219,6 +230,7 @@ struct Notice<M, P> {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 struct Invocation<M, P> {
     method: M,
     params: Option<P>,
@@ -238,6 +250,7 @@ enum Message {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 enum Frame {
     Text(String),
     Bytes(Vec<u8>),
@@ -258,6 +271,7 @@ enum Extreme {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 struct Bounds {
     start: u32,
     end: u32,
@@ -283,6 +297,7 @@ struct Logged {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 struct Captured {
     status: ExitStatus,
     stdout: Vec<u8>,
@@ -290,6 +305,7 @@ struct Captured {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 enum Rejected<T> {
     Full(T),
     Disconnected(T),
@@ -302,6 +318,7 @@ enum Maybe<T> {
 }
 
 #[derive(Debug)]
+//~v duplicate_type
 enum Outcome<T, E> {
     Ok(T),
     Err(E),
@@ -317,6 +334,7 @@ enum Pending<T> {
 // --- [ERRORS] --------------------------------------------------------------------------
 
 #[derive(Debug, thiserror::Error)]
+//~v duplicate_type
 enum ManifestError {
     #[error("cannot read the manifest")]
     Read(#[source] io::Error),
@@ -327,6 +345,7 @@ enum ManifestError {
 }
 
 #[derive(Debug, thiserror::Error)]
+//~v duplicate_type
 enum ServeError<X> {
     #[error("cannot start the runtime")]
     Runtime(#[source] io::Error),
@@ -345,6 +364,7 @@ enum SettingsError {
 }
 
 #[derive(Debug, thiserror::Error)]
+//~v duplicate_type
 enum SchemaError {
     #[error("{path} breaks the schema at line {line}")]
     Invalid { path: String, line: u32 },
@@ -410,6 +430,7 @@ impl Gate for Both {
 
 fn decoded(dto: &AddressDto) -> u16 {
     #[derive(Debug)]
+    //~v duplicate_type
     struct Shim {
         port: u16,
         limit: u32,
@@ -611,6 +632,7 @@ mod contracts {
 
     #[derive(Debug)]
     #[repr(i8)]
+    //~v duplicate_type
     enum NativeOrder {
         Less = -1,
         Equal,
@@ -624,12 +646,14 @@ mod contracts {
     }
 
     #[derive(Debug)]
+    //~v duplicate_type
     struct Echo<const N: usize> {
         data: [u8; N],
         stamp: u8,
     }
 
     #[derive(Debug)]
+    //~v duplicate_type
     struct Numbered<const N: usize> {
         level: u16,
         ready: bool,
@@ -642,12 +666,14 @@ mod contracts {
     }
 
     #[derive(Debug)]
+    //~v duplicate_type
     struct Defaulted<const N: usize = 4> {
         level: u16,
         ready: bool,
     }
 
     #[derive(Debug)]
+    //~v duplicate_type
     struct Strict<T: Clone> {
         payload: T,
         rank: u8,
@@ -660,6 +686,7 @@ mod contracts {
     }
 
     #[derive(Debug)]
+    //~v duplicate_type
     struct Fixed {
         text: &'static str,
         count: u8,
@@ -672,6 +699,7 @@ mod contracts {
     }
 
     #[derive(Debug)]
+    //~v duplicate_type
     struct Joined<'a> {
         first: &'a str,
         last: &'a str,
@@ -894,6 +922,7 @@ mod mapped_fields {
     }
 
     #[derive(Debug)]
+    //~v duplicate_type
     enum Renamed {
         Values(u8, u8),
         Finished,

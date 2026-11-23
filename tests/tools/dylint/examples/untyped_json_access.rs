@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(empty_string_default, forwarding_function, single_reader, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 use core::ops::Index;
 
@@ -47,11 +49,15 @@ enum FixtureError {
 
 fn tool_name(text: &str) -> Result<Option<String>, Error<serde_json::Error>> {
     let document: Value = deserialize(&mut Deserializer::from_str(text))?;
+    //~vv untyped_json_access
+    //~v untyped_json_access
     Ok(document.get("name").and_then(Value::as_str).map(str::to_owned))
 }
 
 fn tool_size(bytes: &[u8]) -> Result<u64, Error<serde_json::Error>> {
     let document = deserialize::<_, Value>(&mut Deserializer::from_slice(bytes))?;
+    //~vv untyped_json_access
+    //~v untyped_json_access
     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
 }
 
@@ -60,22 +66,23 @@ fn object_keys(document: Value) -> Result<Vec<String>, Error<serde_json::Error>>
     Ok(object.keys().cloned().collect())
 }
 
-fn object_name(object: &Map<String, Value>) -> Option<&Value> { object.get("name") }
+fn object_name(object: &Map<String, Value>) -> Option<&Value> { object.get("name") } //~ untyped_json_access
 
-fn constant_name(object: &Map<String, Value>) -> Option<&Value> { Map::get(object, NAME) }
+fn constant_name(object: &Map<String, Value>) -> Option<&Value> { Map::get(object, NAME) } //~ untyped_json_access
 
 fn renamed(object: &mut Map<String, Value>) -> Option<Value> { object.insert("name".to_owned(), Value::Null) }
 
-fn first(document: &Value) -> Option<&Value> { document.pointer("/items/0") }
+fn first(document: &Value) -> Option<&Value> { document.pointer("/items/0") } //~ untyped_json_access
 
-fn textual(document: &Value) -> Option<&str> { if let Value::String(text) = document { Some(text) } else { None } }
+fn textual(document: &Value) -> Option<&str> { if let Value::String(text) = document { Some(text) } else { None } } //~ untyped_json_access
 
 fn streamed(text: &str) -> Option<Result<Value, serde_json::Error>> { Deserializer::from_str(text).into_iter::<Value>().next() }
 
 fn member<'document>(object: &'document Map<String, Value>, key: &str) -> Option<&'document Value> { object.get(key) }
 
-fn keyed<'document>(object: &'document Map<String, Value>, key: &str) -> Option<&'document str> { object.get(key).and_then(Value::as_str) }
+fn keyed<'document>(object: &'document Map<String, Value>, key: &str) -> Option<&'document str> { object.get(key).and_then(Value::as_str) } //~ untyped_json_access
 
+//~v untyped_json_access
 fn picked<'document>(object: &'document Map<String, Value>, keys: &[&str]) -> Vec<&'document str> { keys.iter().copied().filter_map(|key| object.get(key).and_then(Value::as_str)).collect() }
 
 fn nested<'document>(document: &'document Value, key: &str) -> Option<&'document Value> { document.get(key) }
@@ -100,6 +107,7 @@ fn rendered(counts: &[u32]) -> Result<String, serde_json::Error> { serde_json::t
 
 fn bound_key(document: &Value) -> Option<&Value> {
     let key = "name";
+    //~v untyped_json_access
     document.get(key)
 }
 

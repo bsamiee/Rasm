@@ -17,9 +17,9 @@ struct Borrowed<'output> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn decoded(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).into_owned() }
+fn decoded(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).into_owned() } //~ manual_from_utf8_lossy_owned
 
-fn decoded_output(output: Output) -> String { String::from_utf8_lossy(&output.stdout).into_owned() }
+fn decoded_output(output: Output) -> String { String::from_utf8_lossy(&output.stdout).into_owned() } //~ manual_from_utf8_lossy_owned
 
 fn reused(bytes: Vec<u8>) -> (String, usize) { (String::from_utf8_lossy(&bytes).into_owned(), bytes.len()) }
 
@@ -40,11 +40,11 @@ fn boxed(bytes: Vec<u8>) -> Box<str> { String::from_utf8_lossy(&bytes).into() }
 
 fn fixed(bytes: [u8; 2]) -> String { String::from_utf8_lossy(&bytes).into_owned() }
 
-fn qualified(bytes: Vec<u8>) -> String { std::borrow::Cow::into_owned(String::from_utf8_lossy(&bytes)) }
+fn qualified(bytes: Vec<u8>) -> String { std::borrow::Cow::into_owned(String::from_utf8_lossy(&bytes)) } //~ manual_from_utf8_lossy_owned
 
-fn converted(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).into() }
+fn converted(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).into() } //~ manual_from_utf8_lossy_owned
 
-fn displayed(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).to_string() }
+fn displayed(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).to_string() } //~ manual_from_utf8_lossy_owned
 
 fn allocated() -> String {
     let mut bytes = Vec::new_in(std::alloc::System);
@@ -73,6 +73,7 @@ fn captured_before(bytes: Vec<u8>) -> (String, usize) {
 fn closure_local() -> String {
     let decode = || {
         let bytes = vec![118];
+        //~v manual_from_utf8_lossy_owned
         String::from_utf8_lossy(&bytes).into_owned()
     };
     decode()
@@ -81,6 +82,7 @@ fn closure_local() -> String {
 fn shadowed(bytes: Vec<u8>) -> String {
     struct String;
     black_box(String);
+    //~v manual_from_utf8_lossy_owned
     std::string::String::from_utf8_lossy(&bytes).into_owned()
 }
 

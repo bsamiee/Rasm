@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(display_format, stringified_error, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 use std::collections::BTreeMap;
 
@@ -23,13 +25,13 @@ struct Typed {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn account(name: &str) -> Account { Account { user_id: Uuid::new_v4().to_string(), name: name.to_owned() } }
+fn account(name: &str) -> Account { Account { user_id: Uuid::new_v4().to_string(), name: name.to_owned() } } //~ stringified_uuid
 
 fn session(id: Uuid) -> Session { Session { key: format!("session-{id}") } }
 
 fn rotated(session: &mut Session) {
     let fresh = Uuid::new_v4();
-    session.key = fresh.hyphenated().to_string();
+    session.key = fresh.hyphenated().to_string(); //~ stringified_uuid
 }
 
 fn typed() -> Typed { Typed { user_id: Uuid::new_v4() } }
@@ -41,11 +43,11 @@ fn keyed() -> BTreeMap<String, u32> {
 
 fn failed(error: uuid::Error) -> Session { Session { key: error.to_string() } }
 
-fn formatted(id: Uuid) -> Session { Session { key: format!("{id}") } }
+fn formatted(id: Uuid) -> Session { Session { key: format!("{id}") } } //~ stringified_uuid
 
 fn counted(id: Uuid) -> Session { Session { key: format!("{}", id.as_bytes().len()) } }
 
-fn qualified(id: Uuid) -> Session { Session { key: ToString::to_string(&id.hyphenated()) } }
+fn qualified(id: Uuid) -> Session { Session { key: ToString::to_string(&id.hyphenated()) } } //~ stringified_uuid
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

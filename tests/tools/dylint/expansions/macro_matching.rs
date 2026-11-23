@@ -41,11 +41,11 @@ impl Deref for Traced {
 #[cfg(not(test))]
 fn alternatives(value: &State, states: &[State], index: usize, traced: &Traced) -> impl IntoIterator<Item = bool> {
     [
-        matches!(value, State::Ready(_)) || matches!(value, State::Waiting),
-        !matches!(value, State::Ready(_)) && !matches!(value, State::Waiting),
-        matches!(states[index], State::Ready(_)) | matches!(states[index], State::Waiting),
-        matches!(traced.state, State::Ready(1)) || matches!(traced.state, State::Ready(2)) || matches!(traced.state, State::Waiting),
-        matches!(*value, State::Ready(_)) || matches!(*value, State::Waiting),
+        matches!(value, State::Ready(_)) || matches!(value, State::Waiting),                //~ chained_matches
+        !matches!(value, State::Ready(_)) && !matches!(value, State::Waiting),              //~ chained_matches
+        matches!(states[index], State::Ready(_)) | matches!(states[index], State::Waiting), //~ chained_matches
+        matches!(traced.state, State::Ready(1)) || matches!(traced.state, State::Ready(2)) || matches!(traced.state, State::Waiting), //~ chained_matches
+        matches!(*value, State::Ready(_)) || matches!(*value, State::Waiting),              //~ chained_matches
     ]
 }
 
@@ -73,13 +73,13 @@ fn shadowed(value: &State) -> bool {
 #[cfg(not(test))]
 fn bindings(value: itertools::Either<u8, u8>) -> impl IntoIterator<Item = bool> {
     [
-        matches!(value, itertools::Either::Left(_part @ 1)) || matches!(value, itertools::Either::Right(_part @ 2)),
-        matches!(value, itertools::Either::Left(ref _part @ 1)) || matches!(value, itertools::Either::Right(ref _part @ 2)),
+        matches!(value, itertools::Either::Left(_part @ 1)) || matches!(value, itertools::Either::Right(_part @ 2)), //~ chained_matches
+        matches!(value, itertools::Either::Left(ref _part @ 1)) || matches!(value, itertools::Either::Right(ref _part @ 2)), //~ chained_matches
     ]
 }
 
 #[cfg(not(test))]
-fn borrowed(value: &itertools::Either<String, u8>) -> bool { matches!(value, itertools::Either::Left(_)) || matches!(value, itertools::Either::Right(1)) }
+fn borrowed(value: &itertools::Either<String, u8>) -> bool { matches!(value, itertools::Either::Left(_)) || matches!(value, itertools::Either::Right(1)) } //~ chained_matches
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -95,10 +95,10 @@ fn main() {
 #[test]
 fn pattern_assertions() {
     let value = Some(black_box([State::Waiting, State::Stopped]));
-    assert!(value.is_some(), "received value");
-    debug_assert!(value.is_none());
-    assert!(matches!(value, Some(_)));
-    assert!(matches!(value, Some(_) if black_box(true)), "guard");
+    assert!(value.is_some(), "received value"); //~ assert_matches
+    debug_assert!(value.is_none()); //~ assert_matches
+    assert!(matches!(value, Some(_))); //~ assert_matches
+    assert!(matches!(value, Some(_) if black_box(true)), "guard"); //~ assert_matches
 }
 
 #[cfg(test)]
@@ -112,17 +112,19 @@ fn assertion_contracts() {
     assert!(matches!(Box::new(1), _ if black_box(false)));
     let traced = Traced { visited: Cell::new(false), state: State::Ready(1) };
     assert!(traced.is_some());
-    assert!(matches!(traced.state, State::Ready(1)));
+    assert!(matches!(traced.state, State::Ready(1))); //~ assert_matches
 }
 
 #[cfg(test)]
 #[test]
 fn aliased_assertions() {
+    //~vv needless_import_rename
+    //~v needless_import_rename
     use core::{assert as require, matches as fits};
 
     let value = Some(black_box(3_u8));
-    require!(fits!(value, Some(_)));
-    require!(fits!(value, Some(count) if count > 1));
+    require!(fits!(value, Some(_))); //~ assert_matches
+    require!(fits!(value, Some(count) if count > 1)); //~ assert_matches
 }
 
 #[cfg(test)]
@@ -168,8 +170,8 @@ fn shadowed_option_constructors() {
 
     let present = Option::Some(black_box(3_u8));
     let absent = Option::<u8>::None;
-    assert!(present.is_some());
-    assert!(absent.is_none());
+    assert!(present.is_some()); //~ assert_matches
+    assert!(absent.is_none()); //~ assert_matches
     black_box((Some, None));
 }
 

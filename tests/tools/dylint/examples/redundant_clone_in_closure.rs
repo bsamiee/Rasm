@@ -36,15 +36,15 @@ struct ReadError {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn mapped(path: String, text: &str) -> Result<u16, ReadError> { text.parse().map_err(|source| ReadError { path: path.clone(), source }) }
+fn mapped(path: String, text: &str) -> Result<u16, ReadError> { text.parse().map_err(|source| ReadError { path: path.clone(), source }) } //~ redundant_clone_in_closure
 
-fn fallback(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(name.clone())) }
+fn fallback(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(name.clone())) } //~ redundant_clone_in_closure
 
-fn deferred(name: String) -> String { block_on(async { name.clone() }) }
+fn deferred(name: String) -> String { block_on(async { name.clone() }) } //~ redundant_clone_in_closure
 
-fn owned(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(name.to_owned())) }
+fn owned(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(name.to_owned())) } //~ redundant_clone_in_closure
 
-fn called(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(Clone::clone(&name))) }
+fn called(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(Clone::clone(&name))) } //~ redundant_clone_in_closure
 
 async fn awaited(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(name.clone())) }
 

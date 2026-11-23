@@ -1,4 +1,5 @@
 #![feature(can_vector)]
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, single_reader, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
 
 use core::hint::black_box;
 use core::time::Duration;
@@ -32,31 +33,32 @@ impl<T> io::Read for Memory<T> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-async fn slept() { thread::sleep(Duration::ZERO); }
+async fn slept() { thread::sleep(Duration::ZERO); } //~ blocking_call_in_async
 
 fn called<F: FnOnce() + 'static>(call: F) { call(); }
 
 async fn inline_callback() { called(|| thread::sleep(Duration::ZERO)); }
 
-async fn module_function(path: &Path) -> io::Result<String> { fs_err::read_to_string(path) }
+async fn module_function(path: &Path) -> io::Result<String> { fs_err::read_to_string(path) } //~ blocking_call_in_async
 
-async fn native_read(path: &Path) -> io::Result<Vec<u8>> { std::fs::read(path) }
+async fn native_read(path: &Path) -> io::Result<Vec<u8>> { std::fs::read(path) } //~ blocking_call_in_async
 
-async fn described(path: &Path) -> io::Result<u64> { path.fs_err_metadata().map(|metadata| metadata.len()) }
+async fn described(path: &Path) -> io::Result<u64> { path.fs_err_metadata().map(|metadata| metadata.len()) } //~ blocking_call_in_async
 
 async fn first_line(file: io::Result<File>) -> io::Result<String> {
     let mut line = String::new();
-    BufReader::new(file?).read_line(&mut line)?;
+    BufReader::new(file?).read_line(&mut line)?; //~ blocking_call_in_async
     Ok(line)
 }
 
 async fn sizes(paths: &[PathBuf]) -> io::Result<Vec<usize>> { paths.iter().map(|path| fs_err::read(path).map(|bytes| bytes.len())).collect() }
 
-async fn doubled(path: &Path) -> io::Result<Vec<u8>> { both!(path) }
+async fn doubled(path: &Path) -> io::Result<Vec<u8>> { both!(path) } //~ blocking_call_in_async
 
 async fn offloaded(path: PathBuf) -> io::Result<String> { task::spawn_blocking(move || fs_err::read_to_string(path)).await? }
 
 async fn scoped() {
+    //~v blocking_call_in_async
     thread::scope(|scope| {
         scope.spawn(|| thread::sleep(Duration::ZERO));
     });
@@ -76,7 +78,7 @@ async fn drained(received: std::sync::mpsc::Receiver<u8>) -> usize { received.it
 
 async fn served(listener: std::net::TcpListener) -> usize { listener.incoming().take(1).count() }
 
-async fn qualified_read(file: &mut File) -> io::Result<usize> { File::read(file, &mut [0; 1]) }
+async fn qualified_read(file: &mut File) -> io::Result<usize> { File::read(file, &mut [0; 1]) } //~ blocking_call_in_async
 
 async fn rayon_offloaded() { rayon::spawn(|| thread::sleep(Duration::ZERO)); }
 
@@ -88,13 +90,14 @@ async fn buffered_lines(reader: BufReader<File>) -> io::Lines<BufReader<File>> {
 
 async fn capabilities(file: &File) -> bool { file.is_read_vectored() }
 
-async fn timed_received(received: &std::sync::mpsc::Receiver<u8>) -> Result<u8, std::sync::mpsc::RecvTimeoutError> { received.recv_timeout(Duration::from_secs(1)) }
+async fn timed_received(received: &std::sync::mpsc::Receiver<u8>) -> Result<u8, std::sync::mpsc::RecvTimeoutError> { received.recv_timeout(Duration::from_secs(1)) } //~ blocking_call_in_async
 
-async fn timed_connect(address: &std::net::SocketAddr) -> io::Result<std::net::TcpStream> { std::net::TcpStream::connect_timeout(address, Duration::from_secs(1)) }
+async fn timed_connect(address: &std::net::SocketAddr) -> io::Result<std::net::TcpStream> { std::net::TcpStream::connect_timeout(address, Duration::from_secs(1)) } //~ blocking_call_in_async
 
 async fn deferred_callback() -> impl FnOnce() { || thread::sleep(Duration::ZERO) }
 
 async fn blocked_frame() {
+    //~v blocking_call_in_async
     futures::executor::block_on(async {
         let state = std::rc::Rc::new(());
         core::future::pending::<()>().await;

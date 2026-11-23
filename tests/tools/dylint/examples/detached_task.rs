@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, single_reader, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 use std::thread;
 
@@ -14,7 +16,7 @@ struct Worker {
 struct Releaser;
 
 impl Drop for Releaser {
-    fn drop(&mut self) { tokio::spawn(async {}); }
+    fn drop(&mut self) { tokio::spawn(async {}); } //~ detached_task
 }
 
 // --- [MACROS] --------------------------------------------------------------------------
@@ -27,29 +29,29 @@ macro_rules! spawned {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn statement() { tokio::spawn(async {}); }
+fn statement() { tokio::spawn(async {}); } //~ detached_task
 
 fn local_statement() {
     let state = std::rc::Rc::new(());
-    tokio::task::spawn_local(async move { black_box(state) });
+    tokio::task::spawn_local(async move { black_box(state) }); //~ detached_task
 }
 
-fn runtime_statement(runtime: &tokio::runtime::Runtime) { runtime.spawn(async {}); }
+fn runtime_statement(runtime: &tokio::runtime::Runtime) { runtime.spawn(async {}); } //~ detached_task
 
-fn unread() { let _worker = thread::spawn(|| 1_i32); }
+fn unread() { let _worker = thread::spawn(|| 1_i32); } //~ detached_task
 
-async fn threaded() { let _worker = thread::spawn(|| 1_i32); }
+async fn threaded() { let _worker = thread::spawn(|| 1_i32); } //~ detached_task
 
-fn dropped() { drop(tokio::spawn(async {})); }
+fn dropped() { drop(tokio::spawn(async {})); } //~ detached_task
 
-fn finished() -> bool { tokio::spawn(async {}).is_finished() }
+fn finished() -> bool { tokio::spawn(async {}).is_finished() } //~ detached_task
 
 fn restart(worker: &mut Worker) { worker.task = tokio::spawn(async { 2 }); }
 
-fn detached(set: &mut JoinSet<u64>) { set.detach_all(); }
+fn detached(set: &mut JoinSet<u64>) { set.detach_all(); } //~ detached_task
 
 fn expanded() {
-    spawned!(async {});
+    spawned!(async {}); //~ detached_task
 }
 
 fn tracked(tracker: &TaskTracker) { tracker.spawn(async {}); }
@@ -91,7 +93,7 @@ async fn closure_unread() {
     [0_u8]
         .into_iter()
         .map(|_| {
-            let _worker = thread::spawn(|| 1_u8);
+            let _worker = thread::spawn(|| 1_u8); //~ detached_task
         })
         .for_each(drop);
 }
@@ -108,8 +110,8 @@ where F: Future + Send + 'static {
 }
 
 fn untracked(tracker: &TaskTracker) {
-    ignored_tracker(tracker);
-    ignored_future(tracker.track_future(async {}));
+    ignored_tracker(tracker); //~ detached_task
+    ignored_future(tracker.track_future(async {})); //~ detached_task
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

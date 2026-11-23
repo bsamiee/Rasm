@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 use std::sync::LazyLock;
 
@@ -5,19 +7,19 @@ use serde::{Serialize, Serializer};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const LIMIT: usize = 8;
+const LIMIT: usize = 8; //~ single_reader
 
 const SHARED: usize = 2;
 
-static BANNER: &str = "ports";
+static BANNER: &str = "ports"; //~ single_reader
 
-const DEPTH: usize = 2;
+const DEPTH: usize = 2; //~ single_reader
 
 const WIDTH: usize = 4;
 
 const SIZE: usize = 2;
 
-static PORTS: LazyLock<Vec<u16>> = LazyLock::new(|| (1..=4).map(|step: u16| step.strict_mul(80)).collect());
+static PORTS: LazyLock<Vec<u16>> = LazyLock::new(|| (1..=4).map(|step: u16| step.strict_mul(80)).collect()); //~ single_reader
 
 #[used]
 static KEPT: u8 = 4;
@@ -41,11 +43,11 @@ mod geometry {
 }
 
 mod shapes {
-    const SIDES: usize = 4;
+    const SIDES: usize = 4; //~ single_reader
 
     pub(crate) fn perimeter(side: usize) -> usize { side.strict_mul(SIDES) }
 
-    pub(crate) fn area(side: usize) -> usize { side.strict_mul(side).strict_add(1) }
+    pub(crate) fn area(side: usize) -> usize { side.strict_mul(side).strict_add(1) } //~ single_reader
 }
 
 struct Window {
@@ -113,11 +115,11 @@ impl Report {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn digits(text: &str) -> usize { text.chars().filter(char::is_ascii_digit).count() }
+fn digits(text: &str) -> usize { text.chars().filter(char::is_ascii_digit).count() } //~ single_reader
 
 fn parsed(text: &str) -> usize { digits(text).min(LIMIT) }
 
-fn countdown(steps: usize) -> usize { if steps == 0 { 0 } else { countdown(steps.strict_sub(1)) } }
+fn countdown(steps: usize) -> usize { if steps == 0 { 0 } else { countdown(steps.strict_sub(1)) } } //~ single_reader
 
 fn started(steps: usize) -> usize { countdown(steps).strict_add(1) }
 
@@ -131,7 +133,7 @@ fn titled() -> String { format!("{BANNER}:") }
 
 fn direct(text: &str) -> usize { text.len() }
 
-fn expanded(text: &str) -> usize { text.chars().count() }
+fn expanded(text: &str) -> usize { text.chars().count() } //~ single_reader
 
 macro_rules! measured {
     ($text:expr) => {
@@ -141,7 +143,7 @@ macro_rules! measured {
 
 fn measuring(text: &str) -> usize { measured!(text) }
 
-fn scaled(width: usize) -> usize { width.strict_add(1) }
+fn scaled(width: usize) -> usize { width.strict_add(1) } //~ single_reader
 
 macro_rules! reader {
     ($name:ident, $read:expr) => {
@@ -151,7 +153,7 @@ macro_rules! reader {
 
 reader!(widened, scaled);
 
-pub fn exported(text: &str) -> usize { text.len().strict_add(SHARED) }
+pub fn exported(text: &str) -> usize { text.len().strict_add(SHARED) } //~ single_reader
 
 fn relayed(text: &str) -> usize { exported(text).strict_mul(2) }
 
@@ -187,13 +189,13 @@ fn outer(text: &str) -> usize {
 
 fn sided(side: usize) -> usize { geometry::Square::new(side).side() }
 
-fn halved(width: usize) -> usize { width.strict_div(2) }
+fn halved(width: usize) -> usize { width.strict_div(2) } //~ single_reader
 
 fn padded() -> usize { [1_u8; DEPTH + 1].len() }
 
 fn gridded(grid: &Grid) -> usize { framed(grid).strict_add(WIDTH) }
 
-const fn seed() -> u8 { 3 }
+const fn seed() -> u8 { 3 } //~ single_reader
 
 fn opened() -> u8 { 1 }
 
@@ -213,13 +215,13 @@ fn vowels(text: &str) -> usize { text.chars().filter(|letter| "aeiou".contains(*
 
 fn counted(text: &str) -> usize { vowels(text) }
 
-fn graded(score: u8) -> u8 { if score > 4 { if score > 7 { 2 } else { 1 } } else { 0 } }
+fn graded(score: u8) -> u8 { if score > 4 { if score > 7 { 2 } else { 1 } } else { 0 } } //~ single_reader
 
 fn ranked(score: u8) -> u8 { if score > 2 { if score > 5 { if score > 8 { 3 } else { 2 } } else { 1 } } else { 0 } }
 
 fn grade(score: u8) -> u8 { graded(score).strict_add(ranked(score)) }
 
-fn floored(width: usize) -> usize { if width.is_power_of_two() { width } else { width.next_power_of_two() } }
+fn floored(width: usize) -> usize { if width.is_power_of_two() { width } else { width.next_power_of_two() } } //~ single_reader
 
 fn wrapped(width: usize) -> usize {
     fn unwrapped(width: usize) -> usize { floored(width).strict_mul(2) }
@@ -236,9 +238,9 @@ fn layered(width: usize) -> usize {
     middle(width)
 }
 
-fn listed<T>(item: T) -> Vec<T> { vec![item] }
+fn listed<T>(item: T) -> Vec<T> { vec![item] } //~ single_reader
 
-fn optional<T>(item: T) -> Option<T> { Some(item) }
+fn optional<T>(item: T) -> Option<T> { Some(item) } //~ single_reader
 
 fn doubled<T: Copy>(item: T) -> [Option<T>; 2] { [optional(item), optional(item)] }
 
@@ -247,19 +249,19 @@ where T: Copy {
     (listed(item), item)
 }
 
-fn repeated<T: Copy>(item: T, levels: usize) -> Vec<T> { levels.checked_sub(1).map_or_else(Vec::new, |rest| [vec![item], repeated(item, rest)].concat()) }
+fn repeated<T: Copy>(item: T, levels: usize) -> Vec<T> { levels.checked_sub(1).map_or_else(Vec::new, |rest| [vec![item], repeated(item, rest)].concat()) } //~ single_reader
 
 fn tripled<T: Copy>(item: T) -> Vec<T> { repeated(item, 3) }
 
-fn advanced(cursor: &Cursor) -> usize { cursor.position.strict_add(1) }
+fn advanced(cursor: &Cursor) -> usize { cursor.position.strict_add(1) } //~ single_reader
 
-fn rewound(cursor: &Cursor) -> usize { cursor.position.saturating_sub(1) }
+fn rewound(cursor: &Cursor) -> usize { cursor.position.saturating_sub(1) } //~ single_reader
 
 fn stepped(cursor: &Cursor) -> [usize; 2] { [advanced(cursor), rewound(cursor)] }
 
-fn framed(grid: &Grid) -> usize { grid.cells.len() }
+fn framed(grid: &Grid) -> usize { grid.cells.len() } //~ single_reader
 
-fn spanned(left: &Window, right: &Window) -> usize { left.width.abs_diff(right.width) }
+fn spanned(left: &Window, right: &Window) -> usize { left.width.abs_diff(right.width) } //~ single_reader
 
 fn compared(width: usize) -> usize { spanned(&Window { width }, &Window { width: 1 }) }
 

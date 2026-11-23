@@ -26,13 +26,13 @@ struct Batch {
 
 #[derive(Debug)]
 struct Lookup {
-    found: bool,
+    found: bool, //~ redundant_option_flag
     value: Option<u16>,
 }
 
 #[derive(Debug)]
 struct Cached {
-    missing: bool,
+    missing: bool, //~ redundant_option_flag
     entry: Option<String>,
 }
 
@@ -50,13 +50,13 @@ struct Pending {
 
 #[derive(Debug)]
 pub struct Outcome {
-    pub ok: bool,
+    pub ok: bool, //~ redundant_option_flag
     pub value: Option<String>,
 }
 
 #[derive(Debug)]
 struct Parsed {
-    parsed: bool,
+    parsed: bool, //~ redundant_option_flag
     port: Option<u16>,
 }
 

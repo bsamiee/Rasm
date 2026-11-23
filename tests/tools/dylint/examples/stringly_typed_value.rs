@@ -1,4 +1,5 @@
 #![feature(deref_patterns)]
+#![cfg_attr(dylint_lib = "rasm_lints", allow(discarded_error, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
 
 use core::hint::black_box;
 use core::ops::Deref;
@@ -10,6 +11,7 @@ use std::io::{self, BufRead};
 trait Severity {
     fn base(&self) -> usize;
 
+    //~v stringly_typed_value
     fn weight(&self, level: &str) -> usize {
         if level == "warn" {
             self.base().strict_mul(2)
@@ -30,7 +32,7 @@ const PAUSE: &str = "pause";
 
 #[derive(Debug)]
 struct Job {
-    kind: String,
+    kind: String, //~ stringly_typed_value
     name: String,
 }
 
@@ -48,7 +50,7 @@ impl Severity for Job {
 
 #[derive(Debug)]
 struct Step {
-    state: &'static str,
+    state: &'static str, //~ stringly_typed_value
     label: &'static str,
 }
 
@@ -82,7 +84,7 @@ fn finished(steps: &[Step]) -> usize { steps.iter().filter(|step| step.state == 
 
 fn labels(steps: &[Step]) -> Vec<&'static str> { steps.iter().map(|step| step.label).collect() }
 
-fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
+fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } } //~ stringly_typed_value
 
 fn trimmed(mode: &Trimmed) -> u32 {
     match &**mode {
@@ -103,7 +105,7 @@ fn dispatched(input: &str) -> usize {
 }
 
 fn mode(input: &str) -> usize {
-    let mode = "fast";
+    let mode = "fast"; //~ stringly_typed_value
     match mode {
         "fast" => input.len(),
         "slow" => input.len().strict_mul(2),
@@ -143,6 +145,7 @@ fn returned(text: &str) -> Option<Color> {
     None
 }
 
+//~v stringly_typed_value
 fn leveled(level: &str, text: &str) -> usize {
     if level == "warn" {
         text.len()
@@ -160,12 +163,13 @@ fn answered(input: &mut dyn BufRead) -> bool {
 }
 
 fn tallied(words: &[&str]) -> usize {
-    let mut tally = BTreeMap::new();
+    let mut tally = BTreeMap::new(); //~ stringly_typed_value
     tally.insert("ok", words.len());
     tally.insert("err", 0);
     tally.get("ok").copied().unwrap_or_default().strict_add(tally["err"])
 }
 
+//~v stringly_typed_value
 fn speed(mode: &str) -> u32 {
     match mode {
         "fast" => 1,
@@ -184,7 +188,7 @@ fn flag(text: &str) -> bool {
 
 #[derive(Debug)]
 pub struct Request {
-    pub kind: String,
+    pub kind: String, //~ stringly_typed_value
 }
 
 fn format_of(request: &Request) -> u32 {

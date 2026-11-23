@@ -22,11 +22,11 @@ pub struct Settings {
 }
 
 struct Walker<'cx, 'tcx> {
-    cx: &'cx Context<'tcx>,
+    cx: &'cx Context<'tcx>, //~ needless_reference_field
 }
 
 struct Shared<'settings> {
-    settings: &'settings Settings,
+    settings: &'settings Settings, //~ needless_reference_field
     label: &'settings str,
 }
 
@@ -36,7 +36,7 @@ struct Named<'settings> {
 
 #[derive(Debug)]
 pub struct Exposed<'settings> {
-    pub settings: &'settings Settings,
+    pub settings: &'settings Settings, //~ needless_reference_field
 }
 
 struct Exclusive<'settings> {
@@ -65,7 +65,7 @@ struct Holder<'settings> {
 
 #[derive(Clone, Debug)]
 struct Derived<'settings> {
-    settings: &'settings Settings,
+    settings: &'settings Settings, //~ needless_reference_field
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -85,7 +85,7 @@ struct Rendered<'settings> {
     settings: &'settings Settings,
 }
 
-struct Tagged<'settings>(&'settings Settings);
+struct Tagged<'settings>(&'settings Settings); //~ needless_reference_field
 
 struct Unpacked<'settings>(&'settings Settings);
 
@@ -108,7 +108,7 @@ where T: Width
 struct Scoped<'value, T>
 where T: Width<Value = u8>
 {
-    source: &'value Projected<T>,
+    source: &'value Projected<T>, //~ needless_reference_field
 }
 
 #[derive(Clone, Copy)]

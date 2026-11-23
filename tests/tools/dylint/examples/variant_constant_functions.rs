@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(discarded_error, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::hint::black_box;
 use core::time::Duration;
 use std::collections::BTreeMap;
@@ -5,6 +7,7 @@ use std::collections::BTreeMap;
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+//~v variant_constant_functions
 enum Unit {
     Meter,
     Foot,
@@ -17,6 +20,7 @@ enum Level {
 }
 
 #[derive(Clone, Copy, Debug)]
+//~v variant_constant_functions
 enum Pace {
     Slow,
     Fast,

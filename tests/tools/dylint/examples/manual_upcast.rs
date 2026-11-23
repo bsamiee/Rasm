@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(forwarding_function, single_impl_trait, reason = "these lints fire incidentally here and are exercised by their own fixtures"))]
+
 use core::any::Any;
 use core::fmt::{self, Display};
 use core::hint::black_box;
@@ -6,11 +8,13 @@ use core::hint::black_box;
 
 trait Shape: Display {
     fn area(&self) -> u32;
-    fn as_display(&self) -> &dyn Display;
+    fn as_display(&self) -> &dyn Display; //~ manual_upcast
     fn threaded(&self) -> &(dyn Display + Send);
+    //~v manual_upcast
     fn shared(&self) -> &(dyn Display + Send)
     where Self: Send;
     fn permanent(&self) -> &(dyn Display + 'static);
+    //~v manual_upcast
     fn retained(&self) -> &(dyn Display + 'static)
     where Self: 'static;
     fn supplied(&self, token: String) -> &dyn Display;
@@ -18,7 +22,7 @@ trait Shape: Display {
 
 trait Named: Display {
     fn name(&self) -> String;
-    fn as_named_display(&mut self) -> &mut dyn Display;
+    fn as_named_display(&mut self) -> &mut dyn Display; //~ manual_upcast
 }
 
 trait Labeled: Display {
@@ -27,6 +31,7 @@ trait Labeled: Display {
 
 trait Boxed: Display {
     fn into_display(self: Box<Self>) -> Box<dyn Display>;
+    //~v manual_upcast
     fn into_static(self: Box<Self>) -> Box<dyn Display>
     where Self: 'static;
 }
@@ -49,11 +54,13 @@ trait View {
 }
 
 trait Defaulted: Display {
+    //~v manual_upcast
     fn as_shown(&self) -> &dyn Display
     where Self: Sized {
         self
     }
 
+    //~v manual_upcast
     fn sized_any(&self) -> &dyn Any
     where Self: Sized + 'static {
         self
@@ -63,7 +70,7 @@ trait Defaulted: Display {
 trait Tagged<T> {}
 
 trait TypedView<'a>: Tagged<&'a u8> {
-    fn narrow(&self) -> &dyn Tagged<&'a u8>;
+    fn narrow(&self) -> &dyn Tagged<&'a u8>; //~ manual_upcast
     fn wide(&self) -> &dyn Tagged<u16>;
     fn static_tag(&self) -> &dyn Tagged<&'static u8>;
 }
@@ -73,7 +80,7 @@ trait Configured {
 }
 
 trait ConfiguredView: Configured {
-    fn configured(&self) -> &dyn Configured<Item = Self::Item>;
+    fn configured(&self) -> &dyn Configured<Item = Self::Item>; //~ manual_upcast
 }
 
 trait FixedView: Configured {
@@ -81,8 +88,8 @@ trait FixedView: Configured {
 }
 
 trait Threaded: Display + Send + Any {
-    fn display(&self) -> &(dyn Display + Send);
-    fn reflected(&self) -> &dyn Any;
+    fn display(&self) -> &(dyn Display + Send); //~ manual_upcast
+    fn reflected(&self) -> &dyn Any; //~ manual_upcast
 }
 
 trait Witness {
@@ -90,7 +97,7 @@ trait Witness {
 }
 
 trait Projected<T: Witness<Value = Self>>: Display {
-    fn projected(&self) -> &dyn Display;
+    fn projected(&self) -> &dyn Display; //~ manual_upcast
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
