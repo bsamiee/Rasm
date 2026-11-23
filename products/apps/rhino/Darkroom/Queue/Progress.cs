@@ -30,10 +30,11 @@ internal sealed partial class RunEnd {
 
 [Union]
 internal abstract partial record RunState {
-    public sealed record Absent : RunState;
-    public sealed record Active(int ProcessId, Instant Heard) : RunState;
-    public sealed record Ended(RunEnd End) : RunState;
-    public sealed record Crashed(Instant Heard) : RunState;
+    public Fin<Unit> Free => this is Active active ? new DarkroomFault((FormattableString)$"render queue in process {active.ProcessId}", DarkroomReason.Running) : unit;
+
+    public sealed record Idle : RunState;
+    public sealed record Active(int ProcessId) : RunState;
+    public sealed record Crashed : RunState;
 }
 
 internal sealed record Relaunch(string Job, Duration Delay);
@@ -90,15 +91,13 @@ internal sealed record QueueProgress(
     public static IO<(QueueSettings Settings, Option<QueueProgress> Prior, RunState State)> Observed(QueueContext context) =>
         from settings in context.Settings
         from prior in Read(context.Record)
-        from state in prior.Match(
-            Some: held => held.Ended.Match(
-                Some: static end => IO.pure<RunState>(new RunState.Ended(end)),
-                None: () =>
-                    from heard in IO.lift(() => File.GetLastWriteTimeUtc(context.Record).ToInstant())
-                    from now in IO.lift(context.Clock.GetCurrentInstant)
-                    from live in Live(held)
-                    select live && now - heard < settings.Heartbeat.Silence ? (RunState)new RunState.Active(held.ProcessId, heard) : new RunState.Crashed(heard)),
-            None: static () => IO.pure<RunState>(new RunState.Absent()))
+        from state in prior.Filter(static held => held.Ended.IsNone).Match(
+            Some: held =>
+                from heard in IO.lift(() => File.GetLastWriteTimeUtc(context.Record).ToInstant())
+                from now in IO.lift(context.Clock.GetCurrentInstant)
+                from live in Live(held)
+                select live && now - heard < settings.Heartbeat.Silence ? (RunState)new RunState.Active(held.ProcessId) : new RunState.Crashed(),
+            None: static () => IO.pure<RunState>(new RunState.Idle()))
         select (settings, prior, state);
 
     private static IO<bool> Live(QueueProgress record) =>
@@ -125,11 +124,7 @@ internal static partial class QueueRuns {
         (from lease in QueueProgress.Acquire(context.Record)
          from observed in QueueProgress.Observed(context)
          let settings = observed.Settings
-         from free in IO.lift(observed.State.Switch<Fin<Unit>>(
-             absent: static _ => unit,
-             active: static active => new PreflightFinding.QueueActive(active.ProcessId).Error,
-             ended: static _ => unit,
-             crashed: static _ => unit))
+         from free in IO.lift(observed.State.Free)
          from started in QueueProgress.Started(job, batch, resumed, settings)
          from held in atomIO(started)
          from began in IO.lift(context.Clock.GetTimestamp)

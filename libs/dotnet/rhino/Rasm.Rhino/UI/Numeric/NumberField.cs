@@ -28,7 +28,7 @@ public sealed partial class NumberScale {
 }
 
 public sealed record NumberRange(double Low, double High) {
-    internal const double Divisions = 100d;
+    private const double Divisions = 100d;
 
     public Option<double> Step { get; init; }
     public Option<int> Decimals { get; init; }
@@ -47,23 +47,27 @@ public sealed record NumberRange(double Low, double High) {
             Some: step => Low + (Math.Round((value - Low) / step, MidpointRounding.ToEven) * step),
             None: () => Scale.Value(this, Math.Round(Scale.Fraction(this, value) * Divisions, MidpointRounding.ToEven) / Divisions)));
 
-    internal Unit Applied(NumericUpDownWithUnitParsing field) {
+    internal void Applied(NumericUpDownWithUnitParsing field) {
         (field.MinValue, field.MaxValue, field.Suffix) = (Low, High, Conversions.Unset(Suffix.Map(static suffix => $" {suffix}")));
         Step.Iter(step => field.Increment = step);
         Decimals.Iter(decimals => (field.DecimalPlaces, field.MaximumDecimalPlaces) = (decimals, decimals));
-        return unit;
     }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-internal sealed class ScaledField(NumberRange range) : NumericUpDownWithUnitParsing {
-    private const double Fine = 0.1d;
+internal sealed class ScaledField : NumericUpDownWithUnitParsing {
+    private readonly NumberRange range;
+
+    internal ScaledField(NumberRange range) {
+        this.range = range;
+        range.Applied(this);
+    }
 
     protected override double UpdateValueForStepWheelOrDrag(double current, bool up, int dragDistance = -1) =>
         (Keyboard.Modifiers & (Keys.Shift | Application.Instance.CommonModifier)) switch {
             Keys.None when range.Step.IsSome => base.UpdateValueForStepWheelOrDrag(current, up, dragDistance),
-            var modifiers => range.Stepped(current, (dragDistance < 0 ? 1d : dragDistance) * (up ? 1d : -1d) * (modifiers.HasFlag(Application.Instance.CommonModifier) ? Fine : 1d)) switch {
+            var modifiers => range.Stepped(current, (dragDistance < 0 ? 1d : dragDistance) * (up ? 1d : -1d) * (modifiers.HasFlag(Application.Instance.CommonModifier) ? 0.1d : 1d)) switch {
                 var stepped => modifiers.HasFlag(Keys.Shift) ? range.Snapped(stepped) : stepped,
             },
         };
@@ -79,7 +83,6 @@ public static class NumberFields {
 
     public static IO<(NumericUpDownWithUnitParsing Control, Func<double, IO<Unit>> Show)> Scalar(NumberRange range, Func<Edit<double>, IO<Unit>> edited) =>
         from field in use(() => Values.Fielded(new ScaledField(range)))
-        from ranged in IO.lift(() => range.Applied(field))
         from digits in Values.Digits(field)
         from show in Values.Bound(field, Values.Numeric(field), Values.Stepping, None, None, edited)
         select (Control: (NumericUpDownWithUnitParsing)field, Show: (Func<double, IO<Unit>>)(value => show(Some(value))));

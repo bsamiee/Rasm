@@ -23,14 +23,11 @@ public sealed record PointRow(Option<Point3d> Value, Func<Edit<Point3d>, IO<Unit
             select field).As()
         from shows in fields.Map(static (field, axis) => (Field: field, Axis: axis)).TraverseM(held =>
             Values.Bound(held.Field, Values.Numeric(held.Field), Values.Stepping, None, first.Value.Map(point => point[held.Axis]), edit =>
-                latest.Bind(row => row.Edited(edit.Mapped(value => Placed(fields, held.Axis, value)))))).As()
+                latest.Bind(row => row.Edited(edit.Mapped(value => fields.Map((field, at) => at == held.Axis ? value : field.Value) switch {
+                    var coordinates => new Point3d(coordinates[0], coordinates[1], coordinates[2]),
+                }))))).As()
         from line in RowTable.Lined(fields.Map(static field => new TableCell(field, scaleWidth: true)))
         select new RowCells(line, latest.Bind(row => shows.Map((show, axis) => show(row.Value.Map(point => point[axis]))).TraverseM(static shown => shown).As()).Map(unit));
-
-    private static Point3d Placed(Seq<NumericUpDownWithUnitParsing> fields, int axis, double value) =>
-        fields.Map((field, at) => at == axis ? value : field.Value) switch {
-            var coordinates => new Point3d(coordinates[0], coordinates[1], coordinates[2]),
-        };
 }
 
 public sealed record DateSpanRow(Option<DateInterval> Value, DateInterval Limits, Func<Edit<DateInterval>, IO<Unit>> Edited) : IRow<DateSpanRow> {

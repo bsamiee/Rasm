@@ -22,7 +22,7 @@ namespace Rasm.Rhino.Viewport.Pages;
 [ValidationError<RhinoFault>]
 public sealed partial class LayoutName {
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = string.IsNullOrWhiteSpace(value) ? new RhinoFault($"value = '{value}'", RhinoReason.Invalid) : null;
+        validationError = string.IsNullOrWhiteSpace(value) ? new RhinoFault(value, RhinoReason.Invalid) : null;
 }
 
 public sealed record FrameStyle(LineGroup Lines, ComponentRef<Layer> Layer, ComponentRef<DimensionStyle> Lettering);

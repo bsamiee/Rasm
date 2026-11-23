@@ -107,8 +107,6 @@ public sealed record ObjectRequest<T>(string Prompt) : GetterRequest<GetObject, 
     public SelectionEnd End { get; init; } = new SelectionEnd.AtCount(1);
 }
 
-public sealed record StageTrail<TStage>(TStage Current, Seq<TStage> Earlier);
-
 public sealed record StageKit<TStage, TValue>(
     Func<TStage, IO<StageStep<TStage, TValue>>> Advance,
     Func<TStage, IO<StageStep<TStage, TValue>>> Replace,
@@ -118,17 +116,18 @@ public sealed record StageKit<TStage, TValue>(
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record StageStep<TStage, TValue> {
-    internal static IO<Next<StageTrail<TStage>, TValue>> Transition(StageTrail<TStage> trail, Func<TStage, StageKit<TStage, TValue>, IO<StageStep<TStage, TValue>>> prompt) =>
+    internal static IO<Next<(TStage Current, Seq<TStage> Earlier), TValue>> Transition(
+        (TStage Current, Seq<TStage> Earlier) trail, Func<TStage, StageKit<TStage, TValue>, IO<StageStep<TStage, TValue>>> prompt) =>
         from step in prompt(trail.Current, Kit(trail)) | @catch(Getters.Retried, static error => IO.pure<StageStep<TStage, TValue>>(new Retry(error)))
         from next in step.Switch(
             trail,
-            advance: static (at, advance) => IO.pure(Next.Loop<StageTrail<TStage>, TValue>(advance.Undoable ? new StageTrail<TStage>(advance.Stage, at.Current.Cons(at.Earlier)) : at with { Current = advance.Stage })),
-            back: static (_, back) => IO.pure(Next.Loop<StageTrail<TStage>, TValue>(new StageTrail<TStage>(back.Stage, back.Earlier))),
-            retry: static (at, retry) => IO.lift(() => RhinoApp.WriteLine(retry.Rejection.Messages())).Map(_ => Next.Loop<StageTrail<TStage>, TValue>(at)),
-            done: static (_, done) => IO.pure(Next.Done<StageTrail<TStage>, TValue>(done.Value)))
+            advance: static (at, advance) => IO.pure(Next.Loop<(TStage Current, Seq<TStage> Earlier), TValue>((advance.Stage, advance.Undoable ? at.Current.Cons(at.Earlier) : at.Earlier))),
+            back: static (_, back) => IO.pure(Next.Loop<(TStage Current, Seq<TStage> Earlier), TValue>((back.Stage, back.Earlier))),
+            retry: static (at, retry) => IO.lift(() => RhinoApp.WriteLine(retry.Rejection.Messages())).Map(_ => Next.Loop<(TStage Current, Seq<TStage> Earlier), TValue>(at)),
+            done: static (_, done) => IO.pure(Next.Done<(TStage Current, Seq<TStage> Earlier), TValue>(done.Value)))
         select next;
 
-    private static StageKit<TStage, TValue> Kit(StageTrail<TStage> trail) =>
+    private static StageKit<TStage, TValue> Kit((TStage Current, Seq<TStage> Earlier) trail) =>
         new(
             static stage => IO.pure<StageStep<TStage, TValue>>(new Advance(stage, Undoable: true)),
             static stage => IO.pure<StageStep<TStage, TValue>>(new Advance(stage, Undoable: false)),
@@ -223,8 +222,6 @@ public static class Getters {
         from answer in value is Error error ? IO.fail<T>(error) : message(value)
         select answer;
 
-    private static IO<T> Unhandled<T>(object value) => IO.fail<T>(new RhinoFault(value.GetType(), RhinoReason.Mismatched));
-
     // --- [POINTS]
 
     public static IO<T> Point<T>(RhinoDoc doc, PointRequest<T> request, Func<WorldPick, IO<T>> picked) =>
@@ -254,7 +251,7 @@ public static class Getters {
         where TGetter : GetPoint =>
         Run(
             create,
-            request.Handlers.IsEmpty ? request : request with { Accept = request.Accept with { Message = request.Accept.Message | Some(Unhandled<T>) } },
+            request.Handlers.IsEmpty ? request : request with { Accept = request.Accept with { Message = request.Accept.Message | Some<Func<object, IO<T>>>(static value => IO.fail<T>(new RhinoFault(value.GetType(), RhinoReason.Mismatched))) } },
             doc,
             getter =>
                 from handlers in request.Handlers.TraverseM(handler => handler.Attach(getter)).As()
@@ -298,48 +295,35 @@ public static class Getters {
     // --- [ENTRIES]
 
     public static IO<T> Number<T>(RhinoDoc doc, EntryRequest<GetNumber, double, T> request, Func<Entered<double>, IO<T>> entered) =>
-        Number(doc, request, identity, identity, entered);
+        Entry(static () => new GetNumber(), doc, request, static (getter, value) => getter.SetDefaultNumber(value), static getter => getter.Get(), GetResult.Number, static getter => getter.Number(), entered);
 
     public static IO<T> Integer<T>(RhinoDoc doc, EntryRequest<GetInteger, int, T> request, Func<Entered<int>, IO<T>> entered) =>
-        Run(
-            static () => new GetInteger(),
-            request,
-            doc,
-            getter => IO.lift(() => {
-                request.Default.Iter(getter.SetDefaultInteger);
-                return getter.Get();
-            }),
-            getter => Seq(new Route<T>(GetResult.Number, IO.lift(() => new Entered<int>(getter.Number(), getter.GotDefault())).Bind(entered))));
+        Entry(static () => new GetInteger(), doc, request, static (getter, value) => getter.SetDefaultInteger(value), static getter => getter.Get(), GetResult.Number, static getter => getter.Number(), entered);
 
     public static IO<T> Distance<T>(RhinoDoc doc, EntryRequest<GetNumber, Length, T> request, Func<Entered<Length>, IO<T>> entered) =>
-        IO.lift(() => Viewports.Units(doc, Optional(doc.Views.ActiveView).Map(static view => view.ActiveViewport))).Bind(space =>
-            Number(doc, request, value => Quantities.As(value, space), number => Quantities.From(number, space), entered));
+        IO.lift(() => Viewports.Units(doc, Optional(doc.Views.ActiveView).Map(static view => view.ActiveViewport))).Bind(space => Entry(
+            static () => new GetNumber(), doc, request, (getter, value) => getter.SetDefaultNumber(Quantities.As(value, space)), static getter => getter.Get(), GetResult.Number,
+            getter => Quantities.From(getter.Number(), space), entered));
 
     public static IO<T> Text<T>(RhinoDoc doc, EntryRequest<GetString, string, T> request, bool literal, Func<Entered<string>, IO<T>> entered) =>
-        Run(
-            static () => new GetString(),
-            request,
-            doc,
-            getter => IO.lift(() => {
-                request.Default.Iter(getter.SetDefaultString);
-                return literal ? getter.GetLiteralString() : getter.Get();
-            }),
-            getter => Seq(new Route<T>(GetResult.String, IO.lift(() => new Entered<string>(getter.StringResult(), getter.GotDefault())).Bind(entered))));
+        Entry(static () => new GetString(), doc, request, static (getter, value) => getter.SetDefaultString(value), getter => literal ? getter.GetLiteralString() : getter.Get(), GetResult.String,
+            static getter => getter.StringResult(), entered);
 
     public static IO<T> Choice<T>(RhinoDoc doc, GetterRequest<GetOption, T> request) =>
         Run(static () => new GetOption(), request, doc, static getter => IO.lift(getter.Get), static _ => Seq<Route<T>>());
 
-    private static IO<T> Number<TValue, T>(
-        RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<TValue, double> shown, Func<double, TValue> read, Func<Entered<TValue>, IO<T>> entered) =>
+    private static IO<T> Entry<TGetter, TValue, T>(
+        Func<TGetter> create, RhinoDoc doc, EntryRequest<TGetter, TValue, T> request, Action<TGetter, TValue> seed, Func<TGetter, GetResult> get, GetResult answered,
+        Func<TGetter, TValue> read, Func<Entered<TValue>, IO<T>> entered) where TGetter : GetBaseClass =>
         Run(
-            static () => new GetNumber(),
+            create,
             request,
             doc,
             getter => IO.lift(() => {
-                request.Default.Iter(value => getter.SetDefaultNumber(shown(value)));
-                return getter.Get();
+                request.Default.Iter(value => seed(getter, value));
+                return get(getter);
             }),
-            getter => Seq(new Route<T>(GetResult.Number, IO.lift(() => new Entered<TValue>(read(getter.Number()), getter.GotDefault())).Bind(entered))));
+            getter => Seq(new Route<T>(answered, IO.lift(() => new Entered<TValue>(read(getter), getter.GotDefault())).Bind(entered))));
 
     // --- [DRAGS]
 
@@ -363,7 +347,7 @@ public static class Getters {
     // --- [STAGES]
 
     public static IO<TValue> Stages<TStage, TValue>(TStage entry, Func<TStage, StageKit<TStage, TValue>, IO<StageStep<TStage, TValue>>> prompt) =>
-        Monad.recur(new StageTrail<TStage>(entry, []), trail => StageStep<TStage, TValue>.Transition(trail, prompt)).As();
+        Monad.recur((Current: entry, Earlier: Seq<TStage>()), trail => StageStep<TStage, TValue>.Transition(trail, prompt)).As();
 
     // --- [WAITING]
 

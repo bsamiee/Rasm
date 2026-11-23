@@ -228,8 +228,7 @@ internal static class RuiFiles {
             Bitmap(file, face).ToSeq(),
             Platforms(face.Platforms),
             text.Of("text", face.Caption),
-            face.Help.Map(help => text.Of("tooltip", help)).ToSeq(),
-            face.Help.Map(help => text.Of("help_text", help)).ToSeq(),
+            face.Help.ToSeq().Bind(help => Seq(text.Of("tooltip", help), text.Of("help_text", help))),
             text.Of("button_text", face.Caption),
             text.Of("menu_text", face.Caption),
             macro.Map(static held => new XElement("script", held.Text)).ToSeq());

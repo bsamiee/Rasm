@@ -21,22 +21,6 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
     private const int Version = 2;
     private const string Start = "[RIMAGE-START]";
     private const string Body = "[RIMAGE-BODY]";
-    private const string Chan = "[RIMAGE-CHAN]";
-    private const string Width = "width";
-    private const string Height = "height";
-    private const string ChannelList = "channels";
-    private const string ChannelEntry = "channel";
-    private const string Uuid = "uuid";
-    private const string Offset = "start";
-    private const string PostEffects = "post-effects-new";
-    private const string PlugIn = "plug-in";
-    private const string ToneMapping = "tone-mapping";
-    private const string Selection = "selection";
-    private const string Id = "id";
-    private const string Name = "name";
-    private const string On = "on";
-    private const string Shown = "shown";
-    private const string Fields = "state";
 
     // --- [READS]
 
@@ -45,11 +29,11 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
     public static IO<Rimage> Open(string fileName) =>
         Read(fileName, (_, index) =>
             from size in Measured(index.Xml, fileName)
-            from effects in Optional(index.Xml.Element(PostEffects)).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
+            from effects in Optional(index.Xml.Element("post-effects-new")).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
             from entries in Products.Each(
                 from stage in toSeq(effects.Elements())
-                from entry in toSeq(stage.Elements(PlugIn))
-                where entry.Attribute(Name) is not null
+                from entry in toSeq(stage.Elements("plug-in"))
+                where entry.Attribute("name") is not null
                 select (Stage: stage, Entry: entry),
                 (row, _) => Entry(fileName, effects, row.Stage, row.Entry))
             select new Rimage(fileName, size, entries.Map(static entry => entry.Effect), toHashMap(entries.Map(static entry => (entry.Effect.Id, entry.Fields)))));
@@ -87,8 +71,8 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
     }
 
     private static Fin<Size> Measured(XElement xml, string fileName) =>
-        (Child(xml, Width, parseInt).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable)),
-         Child(xml, Height, parseInt).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable)))
+        (Child(xml, "width", parseInt).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable)),
+         Child(xml, "height", parseInt).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable)))
             .Apply(static (width, height) => new Size(width, height))
             .As()
             .Bind(size => size is { Width: > 0, Height: > 0 } && (long)size.Width * size.Height <= System.Array.MaxLength / 4
@@ -96,13 +80,13 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
                 : new RhinoFault(fileName, RhinoReason.Unreadable));
 
     private static Fin<(EffectEntry Effect, HashMap<string, string> Fields)> Entry(string fileName, XElement effects, XElement stage, XElement entry) =>
-        from id in Optional(entry.Attribute(Id)).Bind(static attribute => parseGuid(attribute.Value)).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
-        from effect in string.Equals(stage.Name.LocalName, ToneMapping, StringComparison.Ordinal)
-            ? (Optional(stage.Attribute(Selection)).Map(static attribute => attribute.Value) | Optional(effects.Element($"{stage.Name.LocalName}-{Selection}")).Map(static element => element.Value))
+        from id in Optional(entry.Attribute("id")).Bind(static attribute => parseGuid(attribute.Value)).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
+        from effect in string.Equals(stage.Name.LocalName, "tone-mapping", StringComparison.Ordinal)
+            ? (Optional(stage.Attribute("selection")).Map(static attribute => attribute.Value) | Optional(effects.Element("tone-mapping-selection")).Map(static element => element.Value))
                 .Traverse(text => parseGuid(text).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))).As()
                 .Map(selected => (EffectEntry)new EffectEntry.Selectable(id, EffectList.ToneMapper(selected) == id))
-            : (Flag(entry, On, fileName), Flag(entry, Shown, fileName)).Apply((enabled, shown) => (EffectEntry)new EffectEntry.Listed(id, enabled, shown)).As()
-        let fields = toHashMap(Optional(entry.Element(Fields)).ToSeq().Bind(static state => toSeq(state.Elements())).Map(static field => (field.Name.LocalName, field.Value)))
+            : (Flag(entry, "on", fileName), Flag(entry, "shown", fileName)).Apply((enabled, shown) => (EffectEntry)new EffectEntry.Listed(id, enabled, shown)).As()
+        let fields = toHashMap(Optional(entry.Element("state")).ToSeq().Bind(static state => toSeq(state.Elements())).Map(static field => (field.Name.LocalName, field.Value)))
         select (effect, fields);
 
     private static Fin<bool> Flag(XElement entry, string part, string fileName) =>
@@ -110,11 +94,11 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
             .Map(static value => value.IfNone(noneValue: false));
 
     private static Fin<HashMap<Guid, long>> Offsets(XElement xml, string fileName) =>
-        Optional(xml.Element(ChannelList))
-            .Bind(static channels => toSeq(channels.Elements(ChannelEntry))
+        Optional(xml.Element("channels"))
+            .Bind(static channels => toSeq(channels.Elements("channel"))
                 .Traverse(static channel =>
-                    from id in Child(channel, Uuid, parseGuid)
-                    from start in Child(channel, Offset, parseLong)
+                    from id in Child(channel, "uuid", parseGuid)
+                    from start in Child(channel, "start", parseLong)
                     select (Id: id, Start: start))
                 .As())
             .ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
@@ -123,7 +107,7 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
     private Fin<Memory2D<float>> Filled(FileStream file, long body, HashMap<Guid, long> offsets, RenderWindow.StandardChannels channel) =>
         from starts in Channels.Components(channel).Traverse(component => offsets.Find(RenderWindow.ChannelId(component)).ToFin(new RhinoFault(FileName, RhinoReason.Unreadable))).As()
         let bytes = (long)sizeof(float) * Size.Width * Size.Height
-        let marker = Chan.Length + Unsafe.SizeOf<Guid>()
+        let marker = "[RIMAGE-CHAN]".Length + Unsafe.SizeOf<Guid>()
         let length = file.Length
         from bounded in RhinoFault.Unless(!starts.IsEmpty && starts.ForAll(start => start >= 0 && start <= length - body - marker - bytes), RhinoReason.Unreadable, FileName)
         select Planes(file, starts.Map(start => body + start + marker).Strict());

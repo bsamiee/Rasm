@@ -55,13 +55,8 @@ public static class Selections {
     private static IO<T> Activated<T>(ViewportRef row, IO<T> body) =>
         row.View is RhinoPageView page
             ? IO.lift(() => Conversions.Present(page.ActiveDetailId))
-                .Bind(prior => Active(page, Conversions.Present(row.Viewport.ViewportType is ViewportType.DetailViewport, row.Viewport.Id)) >> body.Finally(Active(page, prior)))
+                .Bind(prior => Viewports.Activate(page, Conversions.Present(row.Viewport.ViewportType is ViewportType.DetailViewport, row.Viewport.Id)) >> body.Finally(Viewports.Activate(page, prior)))
             : body;
-
-    private static IO<Unit> Active(RhinoPageView page, Option<Guid> detail) =>
-        detail.Match(
-            Some: id => Products.Accepted(() => page.SetActiveDetail(id)),
-            None: () => IO.lift(page.SetPageAsActive));
 
     // --- [PICKS]
 

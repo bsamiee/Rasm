@@ -17,6 +17,7 @@ public sealed partial class RhinoReason {
     public static readonly RhinoReason Unavailable = new("unavailable in its plug-in state");
     public static readonly RhinoReason Unsupported = new("not supported by the host");
     public static readonly RhinoReason Raised = new("script raised");
+    public static readonly RhinoReason Unfinished = new("did not complete");
     public static readonly RhinoReason Nothing = new("command ended with nothing");
     public static readonly RhinoReason Exited = new("command ended with Rhino exiting");
     public static readonly RhinoReason Unknown = new("unknown command");

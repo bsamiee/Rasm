@@ -128,9 +128,10 @@ public static class DisplayModeRules {
 
     private static HostEvent<(uint Document, Option<Guid> Object)> Touched =>
         Subscriptions.Merged(
-            Touches(Subscriptions.Watched<RhinoObjectEventArgs>(static (watcher, h) => watcher.AddRhinoObject += h).Documents(static args => args.TheObject?.Document),
-                static args => Optional(args.TheObject).Map(static found => Some(found.Id))),
-            Touches(Subscriptions.Watched<RhinoObjectEventArgs>(static (watcher, h) => watcher.UndeleteRhinoObject += h).Documents(static args => args.TheObject?.Document),
+            Touches(Subscriptions.Watched<RhinoObjectEventArgs>(static (watcher, h) => {
+                watcher.AddRhinoObject += h;
+                watcher.UndeleteRhinoObject += h;
+            }).Documents(static args => args.TheObject?.Document),
                 static args => Optional(args.TheObject).Map(static found => Some(found.Id))),
             Touches(Subscriptions.On<RhinoModifyObjectAttributesEventArgs>(static h => RhinoDoc.ModifyObjectAttributes += h, static h => RhinoDoc.ModifyObjectAttributes -= h)
                     .Documents(static args => args.DocumentSerialNumber),

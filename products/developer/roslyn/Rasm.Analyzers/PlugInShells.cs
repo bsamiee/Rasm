@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Rasm.Analyzers;
@@ -24,9 +25,17 @@ public sealed class PlugInShells : IIncrementalGenerator {
     public void Initialize(IncrementalGeneratorInitializationContext context) =>
         context.RegisterSourceOutput(
             context.SyntaxProvider.CreateSyntaxProvider(
-                static (node, _) => node is ClassDeclarationSyntax { BaseList: not null, Parent: BaseNamespaceDeclarationSyntax or CompilationUnitSyntax },
-                static (syntax, token) => Shelled(syntax, token)).Where(static shell => shell is not null),
-            static (output, shell) => output.AddSource($"{shell!.Value.Name}.g.cs", shell.Value.Source));
+                    static (node, _) => node is ClassDeclarationSyntax { BaseList: not null, Parent: BaseNamespaceDeclarationSyntax or CompilationUnitSyntax },
+                    static (syntax, token) => Shelled(syntax, token)).Where(static shell => shell is not null)
+                .Combine(context.AnalyzerConfigOptionsProvider.Select(static (options, _) => options.GlobalOptions.TryGetValue("build_property.PlugInBody", out string? body) ? body : ""))
+                .Where(static shell => shell.Right.Length > 0),
+            static (output, shell) => output.AddSource($"{shell.Left!.Value.Name}.g.cs", $$"""
+                {{shell.Left.Value.Source}}
+
+                file static class Copy {
+                    public static readonly global::System.Reflection.Assembly Loaded = new Context(typeof(Copy).Assembly.Location).LoadFromAssemblyPath(global::System.IO.Path.Join(global::System.IO.Path.GetDirectoryName(typeof(Copy).Assembly.Location), {{SymbolDisplay.FormatLiteral(shell.Right, quote: true)}}));
+                }
+                """));
 
     private static (string Name, string Source)? Shelled(GeneratorSyntaxContext syntax, CancellationToken token) =>
         syntax.SemanticModel.GetDeclaredSymbol(syntax.Node, token) is INamedTypeSymbol { IsGenericType: false } defined
@@ -45,10 +54,6 @@ public sealed class PlugInShells : IIncrementalGenerator {
 
                     public static T Private<T>(T attach) where T : global::System.Delegate =>
                         (T)((global::System.Reflection.MethodInfo)Copy.Loaded.ManifestModule.ResolveMethod(attach.Method.MetadataToken)!).CreateDelegate(typeof(T));
-                }
-
-                file static class Copy {
-                    public static readonly global::System.Reflection.Assembly Loaded = new Context(typeof(Copy).Assembly.Location).LoadFromAssemblyPath(typeof(Copy).Assembly.Location);
                 }
 
                 file sealed class Context(string path) : global::System.Runtime.Loader.AssemblyLoadContext(global::System.IO.Path.GetFileNameWithoutExtension(path)) {

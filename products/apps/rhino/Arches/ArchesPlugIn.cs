@@ -19,13 +19,13 @@ internal abstract class ArchesPlugIn : IDefined<PlugInDefinition> {
                     face,
                     from family in toSeq(ArchFamily.Items)
                     select (from choice in toSeq(family.Choices)
-                            let option = choice.Option
-                            let button = new CommandFace(option, choice.Switch(plain: static held => held.Arch.Caption, foiled: static held => held.Arch.Caption)) { Help = choice.Help, Icon = new IconResource(typeof(ArchesPlugIn).Assembly, $"{option}.svg") }
-                            let macro = new Macro(family.Command, [new ScriptStep.Assign(ArchPrompts.Type, new ScriptValue.Word(ScriptWord.Named, option))])
+                            let label = choice.Face
+                            let button = new CommandFace(label.Option, label.Caption) { Help = label.Help, Icon = new IconResource(typeof(ArchesPlugIn).Assembly, $"{label.Option}.svg") }
+                            let macro = new Macro(family.Command, [new ScriptStep.Assign(ArchPrompts.Type, new ScriptValue.Named(label.Option))])
                             select (Command<Macro>)new Command<Macro>.Run(button, macro) {
                                 Alternate = (
-                                    button with { Help = $"{choice.Help}, both sides from the middle" },
-                                    macro with { Steps = macro.Steps.Add(new ScriptStep.Assign(ArchPrompts.BothSides, new ScriptValue.Word(ScriptWord.Named, LabelPair.NoYes.On))) }),
+                                    button with { Help = $"{label.Help}, both sides from the middle" },
+                                    macro with { Steps = macro.Steps.Add(new ScriptStep.Assign(ArchPrompts.BothSides, new ScriptValue.Named(LabelPair.NoYes.On))) }),
                             })))))],
             },
         },

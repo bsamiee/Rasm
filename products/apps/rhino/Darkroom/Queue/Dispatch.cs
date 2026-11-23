@@ -148,7 +148,7 @@ internal static partial class Dispatch {
             select step);
 
     private static IO<Unit> Shown(QueueState state) =>
-        IO.lift(() => state.Entries.Iter(static (index, entry) => Entry(Session.Logger, index + 1, entry.Label, entry.Renders)));
+        IO.lift(() => state.Entries.Iter(static (index, entry) => RhinoApp.WriteLine(LocalText.Of(entry.Renders ? "{0}: {1}" : "{0}: {1} (off)", index + 1, entry.Label).Local)));
 
     // --- [SENDING]
 
@@ -164,9 +164,9 @@ internal static partial class Dispatch {
                       from resumed in resume ? QueueProgress.Read(context.Record).Map(static prior => prior.Filter(static record => !record.Succeeded)) : IO.pure(Option<QueueProgress>.None)
                       from stamp in IO.lift(() => context.Clock.ToZonedClock().GetCurrentLocalDateTime())
                       from check in Preflight.Check(context, doc, plan, target).OnUiThread()
-                      from cautioned in IO.lift(() => check.Cautions.Iter(static caution => Cautioned(Session.Logger, caution.Error.Message)))
-                      from estimated in IO.lift(() => check.Memory.Iter(static (index, bytes) => Estimated(Session.Logger, index + 1, bytes)))
-                      from verdict in IO.lift(check.Refusals.Traverse(static refusal => Fin.Fail<Unit>(refusal.Error)).As().Map(static _ => unit))
+                      from cautioned in IO.lift(() => check.Cautions.Iter(static caution => Cautioned(Session.Logger, caution.Message)))
+                      from estimated in IO.lift(() => check.Memory.Iter(static (index, bytes) => RhinoApp.WriteLine(LocalText.Of("Entry {0} needs an estimated {1:N0} bytes of memory", index + 1, bytes).Local))).OnUiThread()
+                      from verdict in IO.lift(check.Refusals.Traverse(static refusal => Fin.Fail<Unit>(refusal)).As().Map(static _ => unit))
                       select target.Switch(
                           (Context: context, Doc: doc, Plan: plan, Stamp: stamp, Resumed: resumed, Scope: scope),
                           local: static (state, _) => IO.lift(Unit () => ignore(Session.StartOperationAsync($"{nameof(QueueRuns)}.{nameof(QueueRuns.Run)}", (
@@ -330,10 +330,4 @@ internal static partial class Dispatch {
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Render queue preflight caution: {Caution}")]
     private static partial void Cautioned(ILogger logger, string caution);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "Render queue entry {Index} needs an estimated {Bytes} bytes of memory")]
-    private static partial void Estimated(ILogger logger, int index, ulong bytes);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "Render queue entry {Index}: {Label}, renders {Renders}")]
-    private static partial void Entry(ILogger logger, int index, string label, bool renders);
 }

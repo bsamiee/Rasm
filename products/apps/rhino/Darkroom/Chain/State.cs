@@ -45,8 +45,8 @@ internal sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
 
     // --- [CATALOG]
 
-    private static readonly Lazy<(HashMap<Guid, (EffectKind Kind, int Index)> Kinds, ChainState Default)> Declared = new(static () => (
-        toHashMap(Kinds.Ordered.Map(static (kind, index) => (kind.Id, (kind, index)))),
+    private static readonly Lazy<(HashMap<Guid, EffectKind> Kinds, ChainState Default)> Declared = new(static () => (
+        toHashMap(Kinds.Ordered.Map(static kind => (kind.Id, kind))),
         new ChainState([.. Kinds.Ordered.Filter(static kind => kind.Listed).Map(static kind => new ChainEntry(kind.Id, On: true, kind.Mix.IfNone(1f)))], ValueSet.Empty)));
 
     internal static ChainState Default => Declared.Value.Default;
@@ -54,7 +54,8 @@ internal sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
     // --- [CHAINS]
 
     private Fin<Seq<(EffectKind Kind, float Mix)>> Running =>
-        Entries.Filter(static entry => entry.On).Traverse(static entry => Cataloged(entry.Kind).Map(held => (held.Kind, entry.Mix))).As()
+        Entries.Filter(static entry => entry.On).Traverse(static entry =>
+                Declared.Value.Kinds.Find(entry.Kind).ToFin(new DarkroomFault(entry.Kind, DarkroomReason.Unlisted)).Map(kind => (Kind: kind, entry.Mix))).As()
             .Map(static runs => toSeq(runs.OrderBy(static run => run.Kind.Stage)));
 
     internal Fin<Seq<GuideChannel>> Needs =>
@@ -64,9 +65,6 @@ internal sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
         Running.Bind(runs => runs.FoldM((Passes: Seq<(EffectKind Kind, PixelPass Pass)>(), Context: context), (held, run) =>
             run.Kind.Step(Values, run.Mix, held.Context).Map(staged =>
                 (Passes: held.Passes + staged.Pass.Map(pass => (run.Kind, Pass: pass)).ToSeq(), staged.Context))).As());
-
-    private static Fin<(EffectKind Kind, int Index)> Cataloged(Guid kind) =>
-        Declared.Value.Kinds.Find(kind).ToFin(new DarkroomFault(kind, DarkroomReason.Unlisted));
 
     // --- [DOCUMENTS]
 

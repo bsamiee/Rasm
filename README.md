@@ -217,6 +217,7 @@ Roots split, nest, or hold more where a host or tool decides:
 - `[tool.uv]` applies from the root being locked alone, nested uv roots take a `[deps.<root>]` mise row, and Pixi supplies native libraries for sdists
 - Host SDKs come from packages, every OS builds, checks, and packs host projects, and only running a host needs it installed, Unreal Engine aside
 - Host projects target their host's runtime and carry every dependency except SDK assemblies the host supplies
+- .NET runs build Release unless they name configuration `debug`, which reaches references and Yak packages, libraries embed their PDB, and Rhino products keep theirs beside `lib/<Name>.dll`
 - Folder `Directory.Build.props` files name a host, and conditional `Update` rows of `Directory.Packages.props` hold its runtime line
 - Swift modules, app code included, are root `Package.swift` targets, and Xcode app targets hold bundle, icon, and signing over their app module
 - C++ packages each declare their own `project()`, and toolchain, presets, CI, and release stay whole before any package exists

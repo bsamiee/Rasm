@@ -27,7 +27,7 @@ public static class Session {
     private static readonly Atom<Option<JoinableTaskContext>> UiThread = Atom(Option<JoinableTaskContext>.None);
 
     private static IO<JoinableTaskContext> Threading =>
-        IO.liftAsync(static environment => UiThread.Value.IsSome || !RhinoApp.InvokeRequired
+        IO.liftAsync(static environment => UiThread.Value.IsSome || RhinoApp.IsOnMainThread
                 ? Task.FromResult(Joined())
                 : Eto.Forms.Application.Instance.InvokeAsync(Joined).WaitAsync(environment.Token))
             .Bind(static joined => IO.lift(joined.ToFin()));

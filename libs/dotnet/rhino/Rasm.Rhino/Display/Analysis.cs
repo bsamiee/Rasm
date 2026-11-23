@@ -202,12 +202,8 @@ public abstract class DefinedAnalysisMode<TSelf> : VisualAnalysisMode where TSel
 
     // --- [DRAWING]
 
-    protected sealed override void DrawCurveObject(CurveObject curve, DisplayPipeline pipeline) {
-        if (drawObject.Case is Action<RhinoObject, DisplayPipeline> draw)
-            draw(curve, pipeline);
-        else
-            base.DrawCurveObject(curve, pipeline);
-    }
+    protected sealed override void DrawCurveObject(CurveObject curve, DisplayPipeline pipeline) =>
+        drawObject.Match(Some: draw => draw(curve, pipeline), None: () => base.DrawCurveObject(curve, pipeline));
 
     protected sealed override void DrawBrepObject(BrepObject brep, DisplayPipeline pipeline) => Drawn(brep, pipeline);
 
@@ -227,13 +223,7 @@ public abstract class DefinedAnalysisMode<TSelf> : VisualAnalysisMode where TSel
 
     protected sealed override void DrawNurbsSurface(RhinoObject obj, NurbsSurface surface, DisplayPipeline pipeline) => Drawn(obj, surface, pipeline);
 
-    private void Drawn(RhinoObject obj, DisplayPipeline pipeline) {
-        if (drawObject.Case is Action<RhinoObject, DisplayPipeline> draw)
-            draw(obj, pipeline);
-    }
+    private void Drawn(RhinoObject obj, DisplayPipeline pipeline) => drawObject.Iter(draw => draw(obj, pipeline));
 
-    private void Drawn(RhinoObject obj, GeometryBase geometry, DisplayPipeline pipeline) {
-        if (drawGeometry.Case is Action<RhinoObject, GeometryBase, DisplayPipeline> draw)
-            draw(obj, geometry, pipeline);
-    }
+    private void Drawn(RhinoObject obj, GeometryBase geometry, DisplayPipeline pipeline) => drawGeometry.Iter(draw => draw(obj, geometry, pipeline));
 }

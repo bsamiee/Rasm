@@ -94,11 +94,10 @@ public abstract class SubobjectsHost : SelCommandHost<CommandInput.Subobjects> {
 
     protected sealed override bool SelFilter(RhinoObject rhObj) => Body.Definition.Input.Filter(rhObj) is SelectionAnswer.Whole;
 
-    protected sealed override bool SelSubObjectFilter(RhinoObject rhObj, List<ComponentIndex> indicesToSelect) =>
-        Body.Definition.Input.Filter(rhObj) is SelectionAnswer.Subobjects parts && Selected(indicesToSelect, parts.Indices);
-
-    private static bool Selected(List<ComponentIndex> indices, IterableNE<ComponentIndex> parts) {
-        indices.AddRange(parts);
+    protected sealed override bool SelSubObjectFilter(RhinoObject rhObj, List<ComponentIndex> indicesToSelect) {
+        if (Body.Definition.Input.Filter(rhObj) is not SelectionAnswer.Subobjects parts)
+            return false;
+        indicesToSelect.AddRange(parts.Indices);
         return true;
     }
 }

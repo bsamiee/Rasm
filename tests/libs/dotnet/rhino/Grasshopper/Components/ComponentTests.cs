@@ -7,7 +7,6 @@ using Grasshopper2.Extensions;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Standard;
 using Grasshopper2.UI;
-using Rasm.Grasshopper;
 using Rasm.Grasshopper.Components;
 using Rasm.Grasshopper.Data;
 using Rasm.Grasshopper.Doc;
@@ -37,7 +36,7 @@ public sealed class Subtraction : Component<Subtraction>, IComponentDefinition<S
         return access =>
             from a in minuend(access)
             from b in subtrahend(access)
-            from kept in GrasshopperFault.Unless(a >= b, GrasshopperReason.Invalid, b)
+            from kept in RhinoFault.Unless(a >= b, RhinoReason.Invalid, b)
             select difference(access, a - b);
     }
 
@@ -77,11 +76,11 @@ public sealed class ComponentTests {
     public Task SubtrahendAboveItsMinuendFailsTheSolutionWithTheFullComponentMessage() =>
         Gen.Int[-1_000_000, 1_000_000].Select(Gen.Int[1, 1_000_000]).SampleAsync(static async (minuend, excess) => {
             double subtrahend = (minuend + excess) * ModelGrid.Model.Absolute;
-            GrasshopperFault fault = await Expect<GrasshopperFault>.FailAsync(
+            RhinoFault fault = await Expect<RhinoFault>.FailAsync(
                 Subtraction.Placed([minuend * ModelGrid.Model.Absolute], [subtrahend]).Bind(static placed => Solutions.Run(placed.Document, SolutionMode.Headless)).Bracket());
-            Assert.Equal(GrasshopperReason.Unfinished, fault.Reason);
+            Assert.Equal(RhinoReason.Unfinished, fault.Reason);
             Assert.Equal(
-                [string.Create(CultureInfo.InvariantCulture, $"{GrasshopperReason.Unfinished.Message}: {nameof(Subtraction)}: {GrasshopperReason.Invalid.Message}: b = {subtrahend}")],
+                [string.Create(CultureInfo.InvariantCulture, $"{RhinoReason.Unfinished.Message}: {nameof(Subtraction)}: {RhinoReason.Invalid.Message}: b = {subtrahend}")],
                 fault.Inner.ToSeq().Bind(static inner => inner.AsIterable().ToSeq()).Map(static leaf => leaf.Message));
         });
 
@@ -93,7 +92,7 @@ public sealed class ComponentTests {
 
     [Fact]
     public async Task IdentityWithoutAnOwnerFailsAsMissing() =>
-        Assert.Equal(GrasshopperReason.Missing, (await Expect<GrasshopperFault>.FailAsync(IO.lift(static () => new ValueParameter<double>().CustomIoId).OnUiThread())).Reason);
+        Assert.Equal(RhinoReason.Missing, (await Expect<RhinoFault>.FailAsync(IO.lift(static () => new ValueParameter<double>().CustomIoId).OnUiThread())).Reason);
 
     // --- [GENERATORS]
 

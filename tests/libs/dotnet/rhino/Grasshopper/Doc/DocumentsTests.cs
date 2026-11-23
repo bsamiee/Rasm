@@ -3,7 +3,6 @@ using Grasshopper2.Data;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.Undo;
-using Rasm.Grasshopper;
 using Rasm.Grasshopper.Doc;
 using Rasm.Rhino.Tests.Grasshopper.Components;
 using Rasm.Testing;
@@ -35,15 +34,15 @@ public sealed class DocumentsTests(Fixtures fixtures) {
     [Fact]
     public async Task EvaluateOfAnInputTheDefinitionLacksFailsAsMissing() {
         Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed(Seq("x")));
-        GrasshopperFault fault = await Expect<GrasshopperFault>.FailAsync(Evaluated(document, "z", Seq(1.0)));
-        Assert.Equal((GrasshopperReason.Missing, (object?)"z"), (fault.Reason, fault.Subject));
+        RhinoFault fault = await Expect<RhinoFault>.FailAsync(Evaluated(document, "z", Seq(1.0)));
+        Assert.Equal((RhinoReason.Missing, (object?)"z"), (fault.Reason, fault.Subject));
     }
 
     [Fact]
-    public async Task EvaluateOfTwoInputsOfOneNameFailsAsInvalid() {
+    public async Task EvaluateOfTwoInputsOfOneNameFailsAsRepeated() {
         Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed(Seq("x", "x")));
-        GrasshopperFault fault = await Expect<GrasshopperFault>.FailAsync(Evaluated(document, "x", Seq(1.0)));
-        Assert.Equal((GrasshopperReason.Invalid, (object?)"x"), (fault.Reason, fault.Subject));
+        RhinoFault fault = await Expect<RhinoFault>.FailAsync(Evaluated(document, "x", Seq(1.0)));
+        Assert.Equal((RhinoReason.Repeated, "x"), (fault.Reason, fault.Subject is (string name, _) ? name : null));
     }
 
     // --- [FILES]
@@ -64,7 +63,7 @@ public sealed class DocumentsTests(Fixtures fixtures) {
             from placed in Subtraction.Placed([5.0, 9.5], [2.0, 0.25])
             from bytes in DocumentFiles.Store(placed.Document, FileContents.Objects)
             from read in use(DocumentFiles.Read(bytes), static held => IO.lift(held.Close))
-            from copy in IO.lift(Optional(read.Objects.Find(placed.Component.InstanceId) as Subtraction).ToFin(new GrasshopperFault(placed.Component.InstanceId, GrasshopperReason.Missing)))
+            from copy in IO.lift(Optional(read.Objects.Find(placed.Component.InstanceId) as Subtraction).ToFin(new RhinoFault(placed.Component.InstanceId, RhinoReason.Missing)))
             from solved in Solutions.Run(read, SolutionMode.Headless)
             select Subtraction.Solved(copy)).Bracket()));
 

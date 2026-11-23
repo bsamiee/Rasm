@@ -208,12 +208,10 @@ internal sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
     // --- [LAYOUT]
 
     private Unit Fit() =>
-        above.Iter(count => SetFullHeightSection(SectionAt(VisibleFullHeightIndex(toSeq(Sections).Strict(), count))));
-
-    private static int VisibleFullHeightIndex(Seq<ICollapsibleSection> sections, int above) =>
-        sections.At(above).Exists(static fill => fill.Hidden)
-            ? sections.Filter(static section => !section.Hidden).Count
-            : sections.Take(above).Filter(static section => !section.Hidden).Count;
+        above.Iter(count => {
+            Seq<ICollapsibleSection> sections = toSeq(Sections).Strict();
+            SetFullHeightSection(SectionAt((sections.At(count).Exists(static fill => fill.Hidden) ? sections : sections.Take(count)).Filter(static section => !section.Hidden).Count));
+        });
 
     protected override void OnPreLoad(EventArgs e) {
         base.OnPreLoad(e);

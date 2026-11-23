@@ -9,8 +9,9 @@
         <TargetExt>.rhp</TargetExt>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <IsPublishable>true</IsPublishable>
-        <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
         <PublishDocumentationFiles>false</PublishDocumentationFiles>
-        <PublishReferencesSymbols>false</PublishReferencesSymbols>
+        <DebugType>portable</DebugType>
+        <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
+        <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
     </PropertyGroup>
 </Project>

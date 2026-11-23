@@ -36,12 +36,10 @@ public static class DisplayModes {
     public static IO<Unit> Declared(DisplayModeSpec spec) =>
         from loaded in Reconcile(spec)
         from opened in when(!spec.Successors.IsEmpty, Subscriptions.Watched<DocumentOpenEventArgs>(static (watcher, h) => watcher.EndOpenDocument += h).Documents()
-            .Attach(args => IO.lift(() => Conversions.Required(args.Document)).Bind(doc => Reassigned(doc, Successors(Session.PlugIn.Id, spec))))).As()
+            .Attach(args => IO.lift(() => Conversions.Required(args.Document)).Bind(doc =>
+                Reassigned(doc, toHashMap(spec.Successors.AsIterable().Map(static pair => (Uuid.NewNameBased(Session.PlugIn.Id, pair.Key), Id(Session.PlugIn.Id, pair.Value)))))))).As()
         from refreshed in spec.Refreshed.TraverseM(signal => signal.Attach(_ => Reconcile(spec).Map(unit))).As()
         select unit;
-
-    private static HashMap<Guid, Guid> Successors(Guid owner, DisplayModeSpec spec) =>
-        toHashMap(spec.Successors.AsIterable().Map(pair => (Uuid.NewNameBased(owner, pair.Key), Id(owner, pair.Value))));
 
     // --- [RECONCILIATION]
 
@@ -86,16 +84,14 @@ public static class DisplayModes {
 
     private static IO<(HashMap<(Option<string> Section, string Key), string> Table, HashMap<(Option<string> Section, string Key), string> Owned)> Intended(
         DisplayModeDefinition mode, HashMap<(Option<string> Section, string Key), string> source, FolderPath package) =>
-        from formatted in IO.lift(() => Ini.Merged(Root(mode, source) + mode.Keys).Traverse(key => key.Value.Formatted(Some(package)).Map(text => ((key.Section, key.Key), text))).As())
+        from formatted in IO.lift(() => Ini.Merged(
+                Seq(new ModeKey(None, "Name", new ModeValue.Text(mode.Name)), new ModeKey(None, Order, new ModeValue.Whole(0)), new ModeKey(None, "AddToMenu", new ModeValue.Flag(Value: true)))
+                + Conversions.Present(source.Find((None, Order)).Bind(Ini.Integral).Exists(static order => order < 0), new ModeKey(None, DerivedFrom, new ModeValue.Id(mode.Base))).ToSeq()
+                + mode.Keys)
+            .Traverse(key => key.Value.Formatted(Some(package)).Map(text => ((key.Section, key.Key), text))).As())
         from touched in Touched(mode.Base, mode.Edits, source)
         let owned = touched.AddOrUpdateRange(toHashMap(formatted).AsIterable())
         select (source.AddOrUpdateRange(owned.AsIterable()), owned.Filter(static (key, _) => !Volatile(key)));
-
-    private static Seq<ModeKey> Root(DisplayModeDefinition mode, HashMap<(Option<string> Section, string Key), string> source) =>
-        Seq(new ModeKey(None, "Name", new ModeValue.Text(mode.Name)), new ModeKey(None, Order, new ModeValue.Whole(0)), new ModeKey(None, "AddToMenu", new ModeValue.Flag(Value: true)))
-        + (source.Find((None, Order)).Bind(Ini.Integral).Exists(static order => order < 0)
-            ? Seq(new ModeKey(None, DerivedFrom, new ModeValue.Id(mode.Base)))
-            : Seq<ModeKey>());
 
     private static IO<HashMap<(Option<string> Section, string Key), string>> Touched(Guid source, Seq<Action<DisplayModeDescription>> edits, HashMap<(Option<string> Section, string Key), string> before) =>
         edits.IsEmpty

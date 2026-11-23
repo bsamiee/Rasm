@@ -146,10 +146,7 @@ internal sealed class HostedView {
         from body in ViewBody.Open(row, document, mode, listening)
         from frame in row.Children.Exists(static child => child.Fill)
             ? IO.pure(body.Content)
-            : Containers.Frame(static () => new RhinoScrollableDialogPanel()).Bind(scroll => IO.lift(() => {
-                scroll.Content = body.Content;
-                return (Control)scroll;
-            }))
+            : Containers.Frame(() => new RhinoScrollableDialogPanel { Content = body.Content }).Map(static Control (scroll) => scroll)
         select (body, frame);
 
     internal static IO<(ViewBody Body, Control Frame)> Styled(IO<(ViewBody Body, Control Frame)> opened) =>

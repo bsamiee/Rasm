@@ -41,8 +41,6 @@ public sealed partial class IconSlot {
 
     public IO<Size> Square => Extent.Map(static extent => new Size(extent, extent));
 
-    public IO<Size> Pixels => Device(None);
-
     public IO<Size> Device(Option<Control> owner) =>
         Native.Filter(_ => owner.IsNone).IfNone(() =>
             from extent in Extent
@@ -72,7 +70,7 @@ public static class Icons {
     public static IO<Bitmap> Raster(IconResource icon, Size pixels) =>
         IO.lift(() => Conversions.Required(icon.Assembly.SystemDrawingAssets().Bitmaps.TryGet(icon.Id, pixels), call: icon.Id));
 
-    public static IO<Icon> DrawingIcon(IconResource icon, IconSlot slot) => slot.Pixels.Bind(pixels => DrawingIcon(icon, pixels));
+    public static IO<Icon> DrawingIcon(IconResource icon, IconSlot slot) => slot.Device(None).Bind(pixels => DrawingIcon(icon, pixels));
 
     public static IO<Icon> DrawingIcon(IconResource icon, Size pixels) =>
         IO.lift(() => Conversions.Required(icon.Assembly.SystemDrawingAssets().Icons.TryGet(icon.Id, pixels), call: icon.Id));

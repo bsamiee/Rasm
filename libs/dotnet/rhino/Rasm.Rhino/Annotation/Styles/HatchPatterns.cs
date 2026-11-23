@@ -62,7 +62,7 @@ public static class HatchPatterns {
         Products.Accepted(() => HatchPattern.WriteToFile(path, patterns));
 
     public static IO<Committed<ReconciledStyles>> Import(RhinoDoc doc, InputPath path, string name, RedrawPolicy redraw) =>
-        ReadFile(path).Bind(patterns => StyleTables.Reconcile(doc, new StyleSpec { HatchPatterns = patterns.Map(static pattern => (pattern.Name, (Func<HatchPattern>)(() => new HatchPattern(pattern)))) }, name, redraw)).Bracket();
+        ReadFile(path).Bind(patterns => StyleTables.Reconcile(doc, new StyleSpec { HatchPatterns = patterns.Map(static pattern => (pattern.Name, fun(() => new HatchPattern(pattern)))) }, name, redraw)).Bracket();
 
     // --- [CURRENT]
 

@@ -48,7 +48,7 @@ public static class Projections {
         };
 
     private static IO<Curve> Placed(Curve source, Transform placement) =>
-        from copy in Products.Of(source.DuplicateCurve)
+        from copy in use(Products.Of(source.DuplicateCurve))
         from moved in Products.Accepted(() => copy.Transform(placement))
         select copy;
 

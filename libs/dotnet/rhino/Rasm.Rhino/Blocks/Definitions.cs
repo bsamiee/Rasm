@@ -4,6 +4,7 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
+using PreviewKey = (uint Document, int Definition, System.Guid Mode, Rhino.Display.DefinedViewportProjection Projection, Rhino.Display.IsometricCamera Camera, bool Decorations, System.Drawing.Size Pixels);
 
 namespace Rasm.Rhino.Blocks;
 
@@ -45,8 +46,7 @@ public static class Definitions {
 
     private static readonly Ref<bool> Watching = Ref(value: false);
 
-    private static readonly Ref<HashMap<(uint Document, int Definition, Guid Mode, DefinedViewportProjection Projection, IsometricCamera Camera, bool Decorations, Size Pixels), Bitmap>> Previews =
-        Ref(HashMap<(uint Document, int Definition, Guid Mode, DefinedViewportProjection Projection, IsometricCamera Camera, bool Decorations, Size Pixels), Bitmap>());
+    private static readonly Ref<HashMap<PreviewKey, Bitmap>> Previews = Ref(HashMap<PreviewKey, Bitmap>());
 
     // --- [FACTS]
 
@@ -125,9 +125,9 @@ public static class Definitions {
                  .Attach(static args => IO.lift(() => Evicted(key => key.Document == args.Document.RuntimeSerialNumber && key.Definition == args.InstanceDefinitionIndex))))
             .Scoped()).As());
 
-    private static Unit Evicted(Func<(uint Document, int Definition, Guid Mode, DefinedViewportProjection Projection, IsometricCamera Camera, bool Decorations, Size Pixels), bool> stale) =>
+    private static Unit Evicted(Func<PreviewKey, bool> stale) =>
         atomic(() => {
-            HashMap<(uint Document, int Definition, Guid Mode, DefinedViewportProjection Projection, IsometricCamera Camera, bool Decorations, Size Pixels), Bitmap> removed = Previews.Value.Filter((key, _) => stale(key));
+            HashMap<PreviewKey, Bitmap> removed = Previews.Value.Filter((key, _) => stale(key));
             Previews.Value = Previews.Value.RemoveRange(removed.Keys);
             return removed;
         }).Values.Iter(static bitmap => bitmap.Dispose());

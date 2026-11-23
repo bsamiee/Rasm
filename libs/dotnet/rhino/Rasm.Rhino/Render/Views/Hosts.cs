@@ -104,7 +104,7 @@ internal sealed class DefinedContentSection : EtoContentUISection3, ICollapsible
             .Bind(selected => rows.Changed(toSeq(changed.Filter(selected.Contains).Keys))))
         from attached in Subscriptions.On<RenderContentFieldChangedEventArgs>(static h => RenderContent.ContentFieldChanged += h, static h => RenderContent.ContentFieldChanged -= h)
             .Documents(static args => args.Document)
-            .Attach(args => post(ContentViews.FieldKey(args.Content, args.FieldName), args.Content.Id))
+            .Attach(args => post(EntryKey.Named(EntryKey.TypeOwner(args.Content.TypeId), args.FieldName), args.Content.Id))
         select unit;
 
     protected override void Dispose(bool disposing) {
@@ -116,10 +116,6 @@ internal sealed class DefinedContentSection : EtoContentUISection3, ICollapsible
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ContentViews {
-
-    // --- [SECTIONS]
-
-    public static EntryKey FieldKey(RenderContent content, string field) => EntryKey.Named(EntryKey.TypeOwner(content.TypeId), field);
 
     // --- [PANELS]
 

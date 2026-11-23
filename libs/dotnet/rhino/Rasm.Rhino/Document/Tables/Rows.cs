@@ -60,6 +60,10 @@ public sealed record RowSpec<T>(string Key, Seq<RowEdit<T>> Edits) where T : cla
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RowPlan<TRow, TSpec> {
+    internal Option<TSpec> Wanted => Switch(create: static create => Some(create.Spec), change: static change => Some(change.Spec), remove: static _ => None, order: static _ => None);
+
+    internal Option<TRow> Existing => Switch(create: static _ => None, change: static change => Some(change.Row), remove: static remove => Some(remove.Row), order: static _ => None);
+
     public sealed record Create(TSpec Spec) : RowPlan<TRow, TSpec>;
 
     public sealed record Change(TRow Row, TSpec Spec) : RowPlan<TRow, TSpec>;
@@ -173,7 +177,9 @@ public static class Rows {
     public static IO<T> Add<T>(RhinoDoc doc, TableKind<T> kind, Option<string> key, Seq<RowEdit<T>> edits) where T : ModelComponent =>
         (from fresh in use(kind.Fresh)
          from placed in IO.lift(kind.Place(doc, None, key.IfNone(() => kind.FreeName(doc))))
-         from added in Edits.Apply(Added(doc, kind), fresh, (placed + edits).Map(static edit => edit.Write))
+         from staged in Edits.Apply(Stages.InPlace<T>(), fresh, (placed + edits).Map(static edit => edit.Write))
+         from index in IO.lift(Conversions.Required(Conversions.Present(kind.Add(doc, staged))))
+         from added in Find(kind.Table(doc), new ComponentRef<T>.ByIndex(index))
          select added).Bracket();
 
     // --- [STAGES]
@@ -184,14 +190,7 @@ public static class Rows {
             Unchanged: (live, _) => Satisfied(edits, live),
             Commit: (live, staged) => Products.Accepted(() => kind.Modify(doc, staged, live.Index)).Map(_ => live));
 
-    private static Stage<T> Added<T>(RhinoDoc doc, TableKind<T> kind) where T : ModelComponent =>
-        new(
-            Copy: static fresh => IO.pure(fresh),
-            Unchanged: static (_, _) => false,
-            Commit: (_, staged) => IO.lift(() => Conversions.Required(Conversions.Present(kind.Add(doc, staged))))
-                .Bind(index => Find(kind.Table(doc), new ComponentRef<T>.ByIndex(index))));
-
-    private static bool Satisfied<T>(Seq<RowEdit<T>> edits, T row) where T : class =>
+    internal static bool Satisfied<T>(Seq<RowEdit<T>> edits, T row) where T : class =>
         edits.ForAll(edit => edit.Holds.Exists(holds => holds(row)));
 
     // --- [PLANS]
@@ -216,16 +215,8 @@ public static class Rows {
                 var declared => kind.Arrange(unique.Map(static spec => spec.Key))
                     .Map(keys => keys.Map(key => toSeq(declared[key]).Head.IfNone(() => new RowSpec<T>(key, [])))),
             }))))
-        let arranged = matched.Choose(static step => step.Switch(
-            create: static create => Some(create.Spec.Key),
-            change: static change => Some(change.Spec.Key),
-            remove: static _ => None,
-            order: static _ => None))
-        let removed = toHashSet(matched.Choose(static step => step.Switch(
-            create: static _ => Option<Guid>.None,
-            change: static _ => None,
-            remove: static remove => Some(remove.Row.Id),
-            order: static _ => None)))
+        let arranged = matched.Choose(static step => step.Wanted.Map(static spec => spec.Key))
+        let removed = toHashSet(matched.Choose(static step => step is RowPlan<T, RowSpec<T>>.Remove remove ? Some(remove.Row.Id) : None))
         let pending = matched.Filter(step => step.Switch(
             (Document: doc, Kind: kind, Removed: removed),
             create: static (_, _) => true,

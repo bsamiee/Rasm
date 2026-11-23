@@ -16,14 +16,14 @@ internal static class Kinds {
 
     // --- [ROWS]
 
-    public static EffectRow<LutTable.Cdl> ColorDecisionList { get; } = new LutTable.Cdl(CdlStyle.FwdNoClamp, Vector3.One, Vector3.Zero, Vector3.One, 1f) switch {
+    private static EffectRow<LutTable.Cdl> ColorDecisionList { get; } = new LutTable.Cdl(CdlStyle.FwdNoClamp, Vector3.One, Vector3.Zero, Vector3.One, 1f) switch {
         var neutral => new(neutral, (state, context) => state == neutral ? None
             : Some<PixelPass>(new PixelPass.Point(FormationTables.AgXLog.Around(new ColorEncoding(context.Working, context.Signal), state).Apply))) {
             Name = nameof(ColorDecisionList), StatePath = ["Correction"],
         },
     };
 
-    public static EffectRow<Wacton.Unicolour.Temperature> WhiteBalance { get; } = new Unicolour(Configuration.Default, Configuration.Default.Xyz.WhitePoint.Chromaticity).Temperature switch {
+    private static EffectRow<Wacton.Unicolour.Temperature> WhiteBalance { get; } = new Unicolour(Configuration.Default, Configuration.Default.Xyz.WhitePoint.Chromaticity).Temperature switch {
         var neutral => new(neutral, (state, context) => EqualityComparer<Wacton.Unicolour.Temperature>.Default.Equals(state, neutral) ? None
             : Some<PixelPass>(new PixelPass.Point(new LutTable.Affine(context.Working.Adapting(state.WhitePoint)).Apply))) {
             Name = nameof(WhiteBalance), StatePath = ["White"],
@@ -34,36 +34,36 @@ internal static class Kinds {
         },
     };
 
-    public static EffectRow<HueRange> HueIsolation { get; } = HueRange.Open switch {
+    private static EffectRow<HueRange> HueIsolation { get; } = HueRange.Open switch {
         var open => new(open, (state, context) => state == open ? None : Some<PixelPass>(new PixelPass.Point(state.Isolated(GradingStyle.Linear, context.Working)))) {
             Name = nameof(HueIsolation), StatePath = ["Range"],
         },
     };
 
-    public static EffectRow<GradingTone> ToneZones { get; } = new(GradingTone.Neutral(GradingStyle.Linear),
+    private static EffectRow<GradingTone> ToneZones { get; } = new(GradingTone.Neutral(GradingStyle.Linear),
         static (state, _) => state.Graded(GradingStyle.Linear).Map(static graded => (PixelPass)new PixelPass.Point(graded))) {
         Name = nameof(ToneZones), StatePath = ["Zones"],
     };
 
-    public static EffectRow<GradingHueCurve> HueCurveGrade { get; } = new(GradingHueCurve.Neutral(GradingStyle.Linear),
+    private static EffectRow<GradingHueCurve> HueCurveGrade { get; } = new(GradingHueCurve.Neutral(GradingStyle.Linear),
         static (state, context) => state.Graded(GradingStyle.Linear, context.Working).Map(static graded => (PixelPass)new PixelPass.Point(graded))) {
         Name = nameof(HueCurveGrade), StatePath = ["Curves"],
     };
 
-    public static EffectRow<Seq<RampStop>> GradientMapping { get; } = new(
+    private static EffectRow<Seq<RampStop>> GradientMapping { get; } = new(
         [new(new Unicolour(ColourSpace.RgbLinear, 0d, 0d, 0d), 0f), new(new Unicolour(ColourSpace.RgbLinear, 1d, 1d, 1d), 1f)],
         static (state, context) => Some<PixelPass>(new PixelPass.Point(RampLight.Of(state, context).Graded(context.Working)))) {
         Name = nameof(GradientMapping), StatePath = ["Ramp"],
     };
 
-    public static EffectRow<float> Sharpen { get; } = 0f switch {
+    private static EffectRow<float> Sharpen { get; } = 0f switch {
         var amount => new(amount, (state, context) => state == amount ? None
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => LocalContrast.Sharpened(frame, state, context.Exposure, context.Working, progress)))) {
             Name = nameof(Sharpen), StatePath = ["Sharpness"],
         },
     };
 
-    public static EffectRow<float> VeilingGlare { get; } = new(0.5f,
+    private static EffectRow<float> VeilingGlare { get; } = new(0.5f,
         static (state, context) => Some<PixelPass>(new PixelPass.Frame((frame, progress) => context.Derivations.Derived((Size: state, context.Extent, Window: frame.Size),
             static key => PointSpread.Veiling(key.Window, double.Lerp(180d, 10d, double.Cbrt(key.Size)) / int.Max(key.Extent.Width, key.Extent.Height))).Bind(
             spread => frame.Spread(0f, 0f, light => spread.Convolve(light, WrapMode.Black), BlendingMode.Normal, 1f, [], progress))))) {

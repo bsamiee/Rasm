@@ -67,9 +67,8 @@ public abstract partial record ModeValue {
             packaged: static (folder, packaged) => InputPath.Of(folder.Match(Some: held => Path.GetFullPath(packaged.Path, held), None: () => packaged.Path)).Map(static path => (string)path));
 
     internal bool Holds(string host, Option<FolderPath> package) =>
-        this is Packaged packaged
-            ? InputPath.Of(package.Match(Some: folder => Path.GetFullPath(packaged.Path, folder), None: () => packaged.Path))
-                .Exists(path => string.Equals(host, path, StringComparison.Ordinal))
+        this is Packaged
+            ? Formatted(package).Exists(path => string.Equals(host, path, StringComparison.Ordinal))
             : Parsed(host).Exists(value => value == this);
 
     private Option<ModeValue> Parsed(string host) =>

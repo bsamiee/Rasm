@@ -118,13 +118,6 @@ public static class CommandRows {
     private static IO<Unit> Gated(Option<RowRule> gate, IO<Unit> press, RowScope scope) =>
         Holds(gate, scope).Bind(holds => when(holds, press).As());
 
-    private static IO<IO<Unit>> Delivered(Command<Invoke>.Run run, RowScope scope) =>
-        run.Invoke.Switch(
-            (Run: run, Scope: scope),
-            script: static (at, script) => IO.pure(from document in at.Scope.DocumentIO from ran in Documents.RunScript(document, script.Macro.Text, echo: false, Some(at.Run.Face.Caption)) select ran),
-            effect: static (at, effect) => IO.pure(effect.Run(at.Scope)),
-            popup: static (at, popup) => Popped(popup, at.Scope).Map(static menu => IO.lift(menu.Show)));
-
     private static Seq<(Command<Invoke>.Run Run, Option<RowRule> Gate)> Runs(Seq<Seq<Command<Invoke>>> groups) =>
         groups.Flatten().Bind(static command => command.Switch(
             run: static run => Seq((Run: run, Gate: run.Enabled)),
@@ -149,7 +142,11 @@ public static class CommandRows {
             from enabled in writeIO(allowed, holds)
             from marked in marking(command)
             select holds
-        from deliver in Delivered(run, scope)
+        from deliver in run.Invoke.Switch(
+            (Run: run, Scope: scope),
+            script: static (at, script) => IO.pure(from document in at.Scope.DocumentIO from ran in Documents.RunScript(document, script.Macro.Text, echo: false, Some(at.Run.Face.Caption)) select ran),
+            effect: static (at, effect) => IO.pure(effect.Run(at.Scope)),
+            popup: static (at, popup) => Popped(popup, at.Scope).Map(static menu => IO.lift(menu.Show)))
         from execute in IO.lift(() => new AsyncRelayCommand(async () => await Session.StartAsync(updated.Bind(holds => when(holds, deliver).As()).Finally(updated.Map(unit).OnUiThread())).ConfigureAwait(true), () => allowed.Value))
         from delegated in use(IO.lift(() => { command.DelegatedCommand = execute; return command; }), static held => IO.lift(() => { held.DelegatedCommand = null; }))
         let refresh = updated.Map(unit) >> IO.lift(execute.NotifyCanExecuteChanged)

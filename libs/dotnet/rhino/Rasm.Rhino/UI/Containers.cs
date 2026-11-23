@@ -9,11 +9,9 @@ namespace Rasm.Rhino.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record SplitterSetting(string Name, double Default, SplitterFixedPanel Fixed) {
-    private const string Positions = "splitter-positions";
-
     public static SplitterSetting Shared(string name) => new(name, 0.5d, SplitterFixedPanel.None);
 
-    public Preference<double> Position => Preferences.Setting(ViewCatalog.Settings.Child(Positions), Name, Default, hidden: true);
+    public Preference<double> Position => Preferences.Setting(ViewCatalog.Settings.Child("splitter-positions"), Name, Default, hidden: true);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -61,14 +59,10 @@ internal static class Containers {
 
     private static IO<Control> Split(ContainerRow.Split split, RowScope scope) =>
         from position in split.Setting.Position.Read
-        from splitter in use(static () => new Splitter())
+        from splitter in use(() => new Splitter { ID = split.Setting.Name, Orientation = split.Orientation, FixedPanel = split.Setting.Fixed, SplitterWidth = RhinoLayout.SplitterWidth })
         from first in ViewOps.Realize(toSeq(split.First), scope)
         from second in ViewOps.Realize(toSeq(split.Second), scope)
-        from configured in IO.lift(() => {
-            (splitter.ID, splitter.Orientation, splitter.FixedPanel, splitter.SplitterWidth) =
-                (split.Setting.Name, split.Orientation, split.Setting.Fixed, RhinoLayout.SplitterWidth);
-            (splitter.Panel1, splitter.Panel2, splitter.RelativePosition) = (first, second, position);
-        })
+        from configured in IO.lift(() => { (splitter.Panel1, splitter.Panel2, splitter.RelativePosition) = (first, second, position); })
         from attached in Subscriptions.On<EventArgs>(h => splitter.PositionChangeCompleted += h, h => splitter.PositionChangeCompleted -= h)
             .Attach(_ => IO.lift(() => splitter.RelativePosition).Bind(split.Setting.Position.Write))
         select (Control)splitter;
@@ -96,11 +90,8 @@ internal static class Containers {
     // --- [TILES]
 
     private static IO<Control> Tiles(ContainerRow.Tiles tiles, RowScope scope) =>
-        from row in use(static () => new TopRowButtonLayout())
+        from row in use(static () => new TopRowButtonLayout { ItemPadding = RhinoLayout.Padding(RhinoLayout.PaddingType.ButtonRow) })
         from cells in toSeq(tiles.Cells).TraverseM(command => CommandRows.Button(command, IconSlot.PanelButton, scope)).As()
-        from configured in IO.lift(() => {
-            row.ItemPadding = RhinoLayout.Padding(RhinoLayout.PaddingType.ButtonRow);
-            cells.Iter(cell => row.Items.Add(cell.Control));
-        })
+        from configured in IO.lift(() => cells.Iter(cell => row.Items.Add(cell.Control)))
         select (Control)row;
 }

@@ -106,7 +106,7 @@ public static class SectionStyles {
         from styles in Products.Many(() => native.Styles, required: false)
         from patterns in Products.Many(() => native.Patterns, required: false)
         from sectioned in styles.TraverseM(style => Definition(style, Some(patterns)).Map(definition => (style.Name, definition.Definition))).As()
-        select new StyleSpec { SectionStyles = sectioned, HatchPatterns = patterns.Map(static pattern => (pattern.Name, (Func<HatchPattern>)(() => new HatchPattern(pattern)))) };
+        select new StyleSpec { SectionStyles = sectioned, HatchPatterns = patterns.Map(static pattern => (pattern.Name, fun(() => new HatchPattern(pattern)))) };
 
     public static IO<Committed<ReconciledStyles>> Import(RhinoDoc doc, InputPath path, string name, RedrawPolicy redraw) =>
         ReadFile(path).Bind(spec => StyleTables.Reconcile(doc, spec, name, redraw)).Bracket();

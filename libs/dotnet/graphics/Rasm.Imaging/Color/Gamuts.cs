@@ -173,9 +173,6 @@ public sealed partial class GamutCompression : IFixedFunction {
         }
     }
 
-    public static Fin<GamutCompression> Validated(Vector3 threshold, Vector3 limit, float power) =>
-        TryCreate(threshold, limit, power, out GamutCompression? compression, out ImagingFault? fault) ? compression : fault;
-
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Vector3 threshold, ref Vector3 limit, ref float power) =>
         validationError =
             Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(threshold, Vector3.Zero) & Vector3.LessThan(threshold, Vector3.One) & Vector3.GreaterThan(limit, Vector3.One) & Vector3.IsFinite(limit))

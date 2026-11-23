@@ -12,8 +12,6 @@ namespace Rasm.Rhino.Persistence;
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ArchiveSource {
     public sealed record Located(InputPath Path, File3dm.TableTypeFilter Tables, File3dm.ObjectTypeFilter Objects) : ArchiveSource {
-        internal override IO<InputPath> Existing() => IO.pure(Path);
-
         internal override IO<ArchiveRead> Open() =>
             IO.lift(Fin<ArchiveRead> () => File3dm.ReadWithLog(Path, Tables, Objects, out string log) is { } model
                 ? new ArchiveRead(model, Conversions.Present(log))
@@ -21,14 +19,9 @@ public abstract partial record ArchiveSource {
     }
 
     public sealed record Buffered(Arr<byte> Bytes) : ArchiveSource {
-        internal override IO<InputPath> Existing() =>
-            IO.fail<InputPath>(new RhinoFault(nameof(Buffered), RhinoReason.Unsupported));
-
         internal override IO<ArchiveRead> Open() =>
             IO.lift(() => Conversions.Required(File3dm.FromByteArray([.. Bytes])).Map(static model => new ArchiveRead(model, None)));
     }
-
-    internal abstract IO<InputPath> Existing();
 
     internal abstract IO<ArchiveRead> Open();
 }

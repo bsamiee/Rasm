@@ -44,9 +44,7 @@ public static class ConstructionPlanes {
         Entries = Entries,
         Rename = Rename,
         Delete = Delete,
-        Hold = static (doc, viewport) => Held(doc, viewport.Match(
-            Some: static id => new ViewportSet.One(new ViewportTarget.Id(id)),
-            None: static () => (ViewportSet)new ViewportSet.One(new ViewportTarget.Active()))),
+        Hold = static (doc, viewport) => Held(doc, new ViewportSet.One(viewport.Match<ViewportTarget>(Some: static id => new ViewportTarget.Id(id), None: static () => new ViewportTarget.Active()))),
         TransformEntry = Some(Transform),
         Import = Some(Import),
         Archive = Some<Func<RhinoDoc, Seq<NamedEntry>, File3dm, IO<Unit>>>(static (doc, entries, archive) =>

@@ -65,17 +65,11 @@ public static class Notices {
         from answer in IO.lift(() => StatusBar.ShowProgressMeter(doc.RuntimeSerialNumber, 0, total, LocalText.Of(label).Local, embedLabel: true, showPercentComplete: true))
         from shown in IO.lift(RhinoFault.Unless(answer is 1, RhinoReason.Declined, answer))
         from hidden in use(IO.pure(doc.RuntimeSerialNumber), static serial => IO.lift(() => StatusBar.HideProgressMeter(serial)).OnUiThread().Map(unit))
-        from moved in Subscriptions.Changed(reading).Attach(work => Moved(work, doc.RuntimeSerialNumber).OnUiThread())
+        from moved in Subscriptions.Changed(reading).Attach(work => IO.lift(() => (work is Loading<T>.Pending pending ? pending.Work.Map(progress => (pending.Stage, progress.Positions.Value)) : None).Iter(moved =>
+            _ = moved.Stage.Match(
+                Some: stage => StatusBar.UpdateProgressMeter(doc.RuntimeSerialNumber, LocalText.Of(stage).Local, moved.Value, absolute: true),
+                None: () => StatusBar.UpdateProgressMeter(doc.RuntimeSerialNumber, moved.Value, absolute: true)))).OnUiThread())
         select unit;
-
-    private static IO<Unit> Moved<T>(Loading<T> work, uint serial) where T : notnull =>
-        IO.lift(() => work.Switch(
-            serial,
-            pending: static (held, pending) => pending.Work.Iter(progress => _ = pending.Stage.Match(
-                Some: stage => StatusBar.UpdateProgressMeter(held, LocalText.Of(stage).Local, progress.Positions.Value, absolute: true),
-                None: () => StatusBar.UpdateProgressMeter(held, progress.Positions.Value, absolute: true))),
-            ready: static (_, _) => unit,
-            failed: static (_, _) => unit));
 
     public static IO<Unit> Taskbar<T>(Loading<T> work) where T : notnull =>
         work.Switch(
@@ -134,13 +128,12 @@ public static class Notices {
     // --- [TRAY]
 
     public static IO<Unit> Tray(Command<Invoke>.Menu menu, RowScope scope) =>
-        from tray in use(static () => new Eto.Forms.TrayIndicator())
+        from tray in use(() => new Eto.Forms.TrayIndicator { Title = LocalText.Of(menu.Face.Caption).Local })
         from themed in menu.Face.Icon.Traverse(icon => Icons.Themed(icon, IconSlot.Small, None, frames => tray.Image = frames)).As()
         from popup in CommandRows.Menu(menu.Groups, scope)
         from assigned in IO.lift(() => tray.Menu = popup.Menu)
         from activated in menu.Primary.Traverse(primary => CommandRows.Press(primary, scope).Bind(press =>
             Subscriptions.On<EventArgs>(h => tray.Activated += h, h => tray.Activated -= h).Attach(_ => press))).As()
         from shown in IO.lift(tray.Show)
-        from titled in IO.lift(() => tray.Title = LocalText.Of(menu.Face.Caption).Local)
         select unit;
 }

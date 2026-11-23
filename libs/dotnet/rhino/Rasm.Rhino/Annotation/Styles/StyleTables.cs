@@ -79,26 +79,20 @@ public static class StyleTables {
 
     private static Seq<RowPlan<DimensionStyle, (string Name, DimensionStyleSpec Spec)>> WriteOrder(Seq<RowPlan<DimensionStyle, (string Name, DimensionStyleSpec Spec)>> plan) =>
         (from dependent in plan
-         from spec in Spec(dependent).ToSeq()
+         from spec in dependent.Wanted.ToSeq()
          from address in spec.Spec.Source.Bind(static source => source.Switch(
              builtIn: static _ => Option<ComponentRef<DimensionStyle>>.None,
              row: static row => Some(row.Address))).ToSeq()
          from dependency in plan
          where dependency != dependent && address.Switch(
              dependency,
-             byId: static (step, byId) => Row(step).Exists(live => live.Id == byId.Id),
-             byIndex: static (step, byIndex) => Row(step).Exists(live => live.Index == byIndex.Index),
-             byName: static (step, byName) => Spec(step).Exists(held => Rows.Names<DimensionStyle>().Equals(held.Name, byName.Name)))
+             byId: static (step, byId) => step.Existing.Exists(live => live.Id == byId.Id),
+             byIndex: static (step, byIndex) => step.Existing.Exists(live => live.Index == byIndex.Index),
+             byName: static (step, byName) => step.Wanted.Exists(held => Rows.Names<DimensionStyle>().Equals(held.Name, byName.Name)))
          select new SEquatableEdge<RowPlan<DimensionStyle, (string Name, DimensionStyleSpec Spec)>>(dependency, dependent))
         .ToLookup(static edge => edge.Source) switch {
             var edges => toSeq(plan.ToBidirectionalGraph(step => edges[step], allowParallelEdges: false).SourceFirstBidirectionalTopologicalSort()),
         };
-
-    private static Option<TSpec> Spec<TRow, TSpec>(RowPlan<TRow, TSpec> step) =>
-        step.Switch(create: static create => Some(create.Spec), change: static change => Some(change.Spec), remove: static _ => None, order: static _ => None);
-
-    private static Option<TRow> Row<TRow, TSpec>(RowPlan<TRow, TSpec> step) =>
-        step.Switch(create: static _ => None, change: static change => Some(change.Row), remove: static remove => Some(remove.Row), order: static _ => None);
 
     // --- [GRAPHS]
 
@@ -131,7 +125,7 @@ public static class StyleTables {
 
     private static Seq<(ComponentIdentity Row, IO<bool> Delete)> Candidates<T, TSpec>(RhinoDocCommonTable<T> table, Seq<RowPlan<T, TSpec>> plan, Func<T, bool> held)
         where T : ModelComponent =>
-        plan.Map(static step => step.Switch(create: static _ => None, change: static _ => None, remove: static remove => Some(remove.Row), order: static _ => None)).Somes().Map(row => (
+        plan.Choose(static step => step is RowPlan<T, TSpec>.Remove remove ? Some(remove.Row) : None).Map(row => (
             new ComponentIdentity(row.Id, row.ComponentType),
             IO.lift(() => held(row)).Bind(kept => kept ? IO.pure(value: false) : Products.Accepted(() => table.Delete(row)).Map(static _ => true))));
 
@@ -149,24 +143,16 @@ public static class StyleTables {
     private static IO<Seq<(string Name, int Index)>> Applied<T, TSpec>(
         RhinoDoc doc, TableKind<T> kind, Seq<RowPlan<T, (string Name, TSpec Spec)>> plan, Func<Option<T>, TSpec, IO<T>> staged, Func<T, T, IO<bool>> unchanged)
         where T : ModelComponent =>
-        plan.TraverseM(step => step.Switch(
-                (Doc: doc, Kind: kind, Staged: staged, Unchanged: unchanged),
-                create: static (state, create) =>
-                    (from row in state.Staged(None, create.Spec.Spec)
-                     from named in IO.lift(() => { row.Name = create.Spec.Name; })
-                     from index in IO.lift(Conversions.Required(Conversions.Present(state.Kind.Add(state.Doc, row))))
-                     select Some((create.Spec.Name, index))).Bracket(),
-                change: static (state, change) =>
-                    (from row in state.Staged(Some(change.Row), change.Spec.Spec)
-                     from named in IO.lift(() => { row.Name = change.Spec.Name; })
-                     from same in state.Unchanged(change.Row, row)
-                     from modified in unless(same && string.Equals(change.Row.Name, change.Spec.Name, StringComparison.Ordinal),
-                         Products.Accepted(() => state.Kind.Modify(state.Doc, row, change.Row.Index))).As()
-                     select Some((change.Spec.Name, change.Row.Index))).Bracket(),
-                remove: static (_, _) => IO.pure(Option<(string, int)>.None),
-                order: static (_, _) => IO.pure(Option<(string, int)>.None)))
-            .As()
-            .Map(static written => written.Somes().Strict());
+        plan.Choose(static step => step.Wanted.Map(spec => (Live: step.Existing, Spec: spec))).TraverseM(held =>
+            (from row in staged(held.Live, held.Spec.Spec)
+             from named in IO.lift(() => { row.Name = held.Spec.Name; })
+             from index in held.Live.Match(
+                 Some: live =>
+                     from same in unchanged(live, row)
+                     from modified in unless(same && string.Equals(live.Name, held.Spec.Name, StringComparison.Ordinal), Products.Accepted(() => kind.Modify(doc, row, live.Index))).As()
+                     select live.Index,
+                 None: () => IO.lift(Conversions.Required(Conversions.Present(kind.Add(doc, row)))))
+             select (held.Spec.Name, index)).Bracket()).As();
 
     private static Func<Option<T>, TSpec, IO<T>> Written<T, TSpec>(TableKind<T> kind, Func<T, TSpec, IO<Unit>> write) where T : ModelComponent =>
         (live, spec) =>

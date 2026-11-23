@@ -110,19 +110,19 @@ public static class RhinoObjects {
 
     // --- [REPLACEMENT]
 
-    public static Stage<T> Replacement<T>(RhinoDoc doc, Guid id, bool ignoreModes) where T : GeometryBase =>
+    public static Stage<T> Replacement<T>(Func<T, IO<Unit>> commit) where T : GeometryBase =>
         Stages.Geometry<T>() switch {
             var geometry => geometry with {
                 Commit = (live, staged) =>
                     from valid in geometry.Commit(live, staged)
-                    from replaced in Products.Accepted(() => doc.Objects.Replace(id, valid, ignoreModes))
+                    from committed in commit(valid)
                     select valid,
             },
         };
 
     public static IO<TResult> ReplaceGeometry<T, TResult>(RhinoDoc doc, Guid id, Func<T, IO<(T Geometry, TResult Result)>> edit) where T : GeometryBase =>
         (from live in IO.lift(() => Conversions.Required(doc.Objects.FindId(id)).Bind(static found => Conversions.Cast<T>(found.Geometry)))
-         let stage = Replacement<T>(doc, id, ignoreModes: false)
+         let stage = Replacement<T>(valid => Products.Accepted(() => doc.Objects.Replace(id, valid, ignoreModes: false)))
          from staged in stage.Copy(live)
          from edited in edit(staged)
          from committed in stage.Commit(live, edited.Geometry)

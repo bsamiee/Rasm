@@ -119,9 +119,12 @@ public abstract partial record LightPower {
     }
 
     public static Option<LightPower> Of(Light light) =>
-        Some(light.PowerWatts).Filter(static watts => watts > 0d).Map(static watts => (LightPower)new Watts(Power.FromWatts(Quantities.Exact(watts))))
-        || Some(light.PowerLumens).Filter(static lumens => lumens > 0d).Map(static lumens => (LightPower)new Lumens(LuminousFlux.FromLumens(Quantities.Exact(lumens))))
-        || Some(light.PowerCandela).Filter(static candela => candela > 0d).Map(static candela => (LightPower)new Candela(LuminousIntensity.FromCandela(Quantities.Exact(candela))));
+        light switch {
+            { PowerWatts: > 0d } => new Watts(Power.FromWatts(Quantities.Exact(light.PowerWatts))),
+            { PowerLumens: > 0d } => new Lumens(LuminousFlux.FromLumens(Quantities.Exact(light.PowerLumens))),
+            { PowerCandela: > 0d } => new Candela(LuminousIntensity.FromCandela(Quantities.Exact(light.PowerCandela))),
+            _ => None,
+        };
 }
 
 public sealed record LightSpec(Option<string> Name, bool Enabled, LightShape Shape, LightColor Color, double Intensity, Option<LightPower> Power, double ShadowIntensity, Vector3d AttenuationVector);
@@ -171,16 +174,6 @@ public static class Lights {
 
     // --- [STAGES]
 
-    public static Stage<Light> Stage(RhinoDoc doc, Guid id) =>
-        Stages.Geometry<Light>() switch {
-            var geometry => geometry with {
-                Commit = (live, staged) =>
-                    from valid in geometry.Commit(live, staged)
-                    from modified in Products.Accepted(() => doc.Lights.Modify(id, valid))
-                    select valid,
-            },
-        };
-
     public static Step<Light> Written(LightSpec spec, float gamma) =>
         Steps.Then<Light>(staged => Written(staged, spec, spec.Color.Emitted(gamma)));
 
@@ -204,7 +197,7 @@ public static class Lights {
     public static IO<(Seq<Error> Fails, Seq<ManagedLight> Succs)> Managed(RhinoDoc doc) =>
         (from client in use(() => new LightManagerSupportClient(doc.RuntimeSerialNumber))
          from lights in use(client.GetLights)
-         select toSeq(Range(0, lights.Count())).Map(index => lights.ElementAt(index))
+         select toSeq(Range(0, lights.Count())).Map(lights.ElementAt)
              .Map(light => State(light).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition()).Bracket();
 
     // --- [WRITES]
@@ -219,7 +212,7 @@ public static class Lights {
     public static IO<Unit> Modify(RhinoDoc doc, Guid id, LightSpec spec) =>
         (from gamma in PreProcessGamma(doc)
          from live in Found(doc, id)
-         from modified in Edits.Apply(Stage(doc, id), live.LightGeometry, Seq(Written(spec, gamma)))
+         from modified in Edits.Apply(RhinoObjects.Replacement<Light>(valid => Products.Accepted(() => doc.Lights.Modify(id, valid))), live.LightGeometry, Seq(Written(spec, gamma)))
          select unit).Bracket();
 
     public static IO<LightObject> Found(RhinoDoc doc, Guid id) =>

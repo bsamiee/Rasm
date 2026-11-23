@@ -14,8 +14,6 @@ namespace Rasm.Rhino.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class ButtonFace {
     public static readonly ButtonFace Icon = new("control_only");
     public static readonly ButtonFace Text = new("text_only");
@@ -52,23 +50,17 @@ public sealed partial class MacroEntry {
     public string Prefix { get; }
 }
 
-[SmartEnum]
-public sealed partial class ScriptWord {
-    public static readonly ScriptWord Named = new(static value => $"_{value}");
-    public static readonly ScriptWord Quoted = new(static value => $"\"{value}\"");
-
-    [UseDelegateFromConstructor]
-    public partial string Written(string value);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ScriptValue {
     public string Text =>
         Switch(
-            word: static held => held.Form.Written(held.Value),
+            named: static held => $"_{held.Value}",
+            quoted: static held => $"\"{held.Value}\"",
             number: static held => held.Value.ToString("R", CultureInfo.InvariantCulture));
 
-    public sealed record Word(ScriptWord Form, string Value) : ScriptValue;
+    public sealed record Named(string Value) : ScriptValue;
+
+    public sealed record Quoted(string Value) : ScriptValue;
 
     public sealed record Number(double Value) : ScriptValue;
 }
@@ -156,7 +148,7 @@ public abstract partial record MenuEntry {
 
     public Guid Id { get; }
 
-    public Seq<MenuEntry> Flattened =>
+    internal Seq<MenuEntry> Flattened =>
         toSeq(SuperEnumerable.TraverseDepthFirst(this, static entry => entry.Switch(separator: static _ => Seq<MenuEntry>(), item: static _ => Seq<MenuEntry>(), submenu: static held => held.Children)));
 
     public sealed record Separator(Guid Id) : MenuEntry(Id);

@@ -195,9 +195,9 @@ public sealed class SceneView : Drawable {
         Popped held = new(popup, ParentWindow, format);
         held.Form.Content = held.Surface;
         held.Surface.Paint += (_, args) => Painted(Some(popup.Path), held.Surface, args.Graphics, held.Backing);
-        held.Surface.MouseDown += (_, args) => args.Handled = Pointed(args, EditPhase.Begin, 1, popup.Path);
-        held.Surface.MouseMove += (_, args) => args.Handled = Pointed(args, EditPhase.Step, 0, popup.Path);
-        held.Surface.MouseUp += (_, args) => args.Handled = Pointed(args, EditPhase.Commit, 0, popup.Path);
+        held.Surface.MouseDown += (_, args) => args.Handled = Pointed(args, EditPhase.Begin, 1, Some(popup.Path));
+        held.Surface.MouseMove += (_, args) => args.Handled = Pointed(args, EditPhase.Step, 0, Some(popup.Path));
+        held.Surface.MouseUp += (_, args) => args.Handled = Pointed(args, EditPhase.Commit, 0, Some(popup.Path));
         held.Form.Show();
         return held;
     }
@@ -208,8 +208,11 @@ public sealed class SceneView : Drawable {
         return held;
     }
 
-    private bool Pointed(MouseEventArgs args, EditPhase phase, int clicks, Seq<Key> popup) =>
-        popups.Find(popup).Map(static held => held.Popup.Frame.Location).Bind(origin => Projection.Pointed(args, phase, clicks, origin)).Exists(Received);
+    private bool Pointed(MouseEventArgs args, EditPhase phase, int clicks, Option<Seq<Key>> popup = default) =>
+        popup.Match(Some: path => popups.Find(path).Map(static held => held.Popup.Frame.Location), None: static () => Some(SKPoint.Empty))
+            .Bind(origin => InputEvent.Pointed(Edit.Of(phase, new PointerSample(Projection.At(args.Location, origin))),
+                args.Buttons.HasFlag(MouseButtons.Primary), args.Buttons.HasFlag(MouseButtons.Alternate), clicks, Projection.Modifiers(args.Modifiers)))
+            .Exists(Received);
 
     // --- [DRAWING]
 
@@ -252,24 +255,24 @@ public sealed class SceneView : Drawable {
     }
 
     protected override void OnMouseDown(MouseEventArgs e) {
-        e.Handled = Projection.Pointed(e, EditPhase.Begin, 1, SKPoint.Empty).Exists(Received);
+        e.Handled = Pointed(e, EditPhase.Begin, 1);
         if (e.Handled && e.Buttons.HasFlag(MouseButtons.Primary)) CaptureMouse();
         base.OnMouseDown(e);
     }
 
     protected override void OnMouseDoubleClick(MouseEventArgs e) {
-        e.Handled = Projection.Pointed(e, EditPhase.Begin, 2, SKPoint.Empty).Exists(Received);
+        e.Handled = Pointed(e, EditPhase.Begin, 2);
         base.OnMouseDoubleClick(e);
     }
 
     protected override void OnMouseMove(MouseEventArgs e) {
-        e.Handled = Projection.Pointed(e, EditPhase.Step, 0, SKPoint.Empty).Exists(Received);
+        e.Handled = Pointed(e, EditPhase.Step, 0);
         base.OnMouseMove(e);
     }
 
     protected override void OnMouseUp(MouseEventArgs e) {
         ReleaseMouseCapture();
-        e.Handled = Projection.Pointed(e, EditPhase.Commit, 0, SKPoint.Empty).Exists(Received);
+        e.Handled = Pointed(e, EditPhase.Commit, 0);
         base.OnMouseUp(e);
     }
 

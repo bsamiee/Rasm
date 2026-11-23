@@ -65,8 +65,8 @@ internal sealed partial class FoiledArch {
 
 [Union]
 internal abstract partial record ArchChoice {
-    public string Help => Switch(plain: static choice => choice.Arch.Help, foiled: static choice => choice.Arch.Help);
-    public string Option => Switch(plain: static choice => choice.Arch.Key, foiled: static choice => choice.Arch.Key);
+    public (string Option, string Caption, string Help) Face =>
+        Switch(plain: static choice => (choice.Arch.Key, choice.Arch.Caption, choice.Arch.Help), foiled: static choice => (choice.Arch.Key, choice.Arch.Caption, choice.Arch.Help));
 
     public Either<PlainArch, IO<Seq<Curve>>> Spanned(ArchSpan span) =>
         Switch(span,

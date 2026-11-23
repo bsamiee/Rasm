@@ -1,6 +1,7 @@
 using Grasshopper2.Data;
 using Grasshopper2.Data.Meta;
 using Grasshopper2.Data.Rules;
+using Rasm.Rhino;
 
 namespace Rasm.Grasshopper.Data;
 
@@ -18,7 +19,7 @@ public static class Metadata {
         public Fin<MetaData> Write<T>(MetaData meta, T value) =>
             MetaValue.TryCreate(value, out MetaValue entry, out string failure)
                 ? MetaData.Merge(MergeBehaviour.Overwrite, meta, new MetaData((name, entry)))
-                : new GrasshopperFault(name.ToString(), GrasshopperReason.Declined, Inner: Error.New(failure));
+                : new RhinoFault(name.ToString(), RhinoReason.Declined, Inner: Error.New(failure));
     }
 }
 
@@ -33,7 +34,7 @@ public static class Trees {
 
         public Fin<Tree<T>> Matching(string siteRule) =>
             Optional(SiteRule.TryParse(siteRule, out string message))
-                .ToFin(new GrasshopperFault(siteRule, GrasshopperReason.Unreadable, Inner: Optional(message).Map(static text => Error.New(text))))
+                .ToFin(new RhinoFault(siteRule, RhinoReason.Unreadable, Inner: Optional(message).Map(static text => Error.New(text))))
                 .Map(tree.Matching);
     }
 }

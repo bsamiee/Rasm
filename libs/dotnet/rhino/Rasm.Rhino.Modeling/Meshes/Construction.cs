@@ -119,8 +119,7 @@ public static class MeshConstruction {
         from held in IO.lift(() => source.Within(components))
         from extruder in use(() => new MeshExtruder(source, held))
         from configured in IO.lift(() => configure(extruder))
-        from answered in IO.lift(() => (Accepted: extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map), Mesh: mesh, Map: map))
+        from answered in Products.Accepted(() => (extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map), (Mesh: mesh, Map: map)), nameof(MeshExtruder.ExtrudedMesh))
         from extruded in Products.Of(() => answered.Mesh, nameof(MeshExtruder.ExtrudedMesh))
-        from accepted in IO.lift(RhinoFault.Unless(answered.Accepted, RhinoReason.Declined, components.Count))
         select (Mesh: extruded, Components: toSeq(answered.Map), WallFaces: toSeq(extruder.GetWallFaces()));
 }

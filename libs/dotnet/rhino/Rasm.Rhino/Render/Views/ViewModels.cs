@@ -1,4 +1,3 @@
-using Rhino.Render;
 using Rhino.Render.DataSources;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
@@ -8,27 +7,12 @@ namespace Rasm.Rhino.Render.Views;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed class ProviderId<T> where T : class {
-    internal ProviderId(Guid id) => Id = id;
-
-    public Guid Id { get; }
+public sealed class ProviderId<T>(Guid id) where T : class {
+    public Guid Id { get; } = id;
 }
 
 public static class Provider {
     public static readonly ProviderId<RhinoSettings> RhinoSettings = new(ProviderIds.RhinoSettings);
-    public static readonly ProviderId<Sun> Sun = new(ProviderIds.Sun);
-    public static readonly ProviderId<Skylight> Skylight = new(ProviderIds.Skylight);
-    public static readonly ProviderId<GroundPlane> GroundPlane = new(ProviderIds.GroundPlane);
-    public static readonly ProviderId<LinearWorkflow> LinearWorkflow = new(ProviderIds.LinearWorkflow);
-    public static readonly ProviderId<Dithering> Dithering = new(ProviderIds.Dithering);
-    public static readonly ProviderId<RenderChannels> RenderChannels = new(ProviderIds.RenderChannels);
-    public static readonly ProviderId<ICurrentEnvironment> CurrentEnvironment = new(ProviderIds.CurrentEnvironment);
-    public static readonly ProviderId<RenderContentCollection> ContentDisplayCollection = new(ProviderIds.ContentDisplayCollection);
-    public static readonly ProviderId<RenderContentCollection> ContentDatabase = new(ProviderIds.ContentDatabase);
-    public static readonly ProviderId<RenderContentCollection> ContentSelectionForSetParams = new(ProviderIds.ContentSelectionForSetParams);
-    public static readonly ProviderId<RdkSelectionNavigator> SelectionNavigator = new(ProviderIds.SelectionNavigator);
-    public static readonly ProviderId<RdkEdit> RdkEdit = new(ProviderIds.RdkEdit);
-    public static readonly ProviderId<IDisposable> RdkRenderingPostEffects = new(ProviderIds.RdkRenderingPostEffects);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

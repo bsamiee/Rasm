@@ -62,9 +62,6 @@ internal sealed record PassContext(
 internal sealed partial class DarkroomReason {
     public static readonly DarkroomReason Stated = new("rejected input");
     public static readonly DarkroomReason Unlisted = new("not a listed effect kind");
-    public static readonly DarkroomReason Unchained = new("absent from the chain");
-    public static readonly DarkroomReason Staged = new("runs in another stage");
-    public static readonly DarkroomReason Unmixed = new("takes no mix");
     public static readonly DarkroomReason Lights = new("no scene lights");
     public static readonly DarkroomReason Empty = new("no entry");
     public static readonly DarkroomReason Unviewed = new("no such view in the document");

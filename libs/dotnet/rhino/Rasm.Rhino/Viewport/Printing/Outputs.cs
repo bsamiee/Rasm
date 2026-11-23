@@ -197,11 +197,8 @@ public static class Outputs {
         select rows;
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToPdf(RhinoDoc doc, IterableNE<PdfSource> sources, PageText text, bool layers, FileOutput output) =>
-        from names in IO.lift(() => Names(1, FileExtension.Create(".pdf"), output))
-        from rows in Destinations.Resolve(doc, output.Folder, output.Stem, output.Overwrite, output.Convention, names)
-        from pdf in Composed(doc, toSeq(sources), text, layers)
-        from written in rows.TraverseM(row => FilePublication.Write(row.Path, output.Overwrite, stream => IO.lift(() => pdf.Write(stream)))).As()
-        select rows;
+        Written(doc, Seq(unit), FileExtension.Create(".pdf"), output, (_, path) =>
+            Composed(doc, toSeq(sources), text, layers).Bind(pdf => FilePublication.Write(path, output.Overwrite, stream => IO.lift(() => pdf.Write(stream)))));
 
     public static IO<Unit> ToPdf(RhinoDoc doc, IterableNE<PdfSource> sources, PageText text, bool layers, Stream target) =>
         Composed(doc, toSeq(sources), text, layers).Bind(pdf => IO.lift(() => pdf.Write(target)));

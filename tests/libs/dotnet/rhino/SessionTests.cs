@@ -12,8 +12,8 @@ public sealed class SessionTests {
 
     [Fact]
     public async Task OnUiThreadMovesWorkFromTheTestThreadOntoRhinoMainThread() {
-        Assert.Equal((false, true), (RhinoApp.IsOnMainThread, RhinoApp.InvokeRequired));
-        Assert.Equal((true, false), await RhinoHost.RunAsync(IO.lift(static () => (RhinoApp.IsOnMainThread, RhinoApp.InvokeRequired)).OnUiThread()));
+        Assert.False(RhinoApp.IsOnMainThread);
+        Assert.True(await RhinoHost.RunAsync(IO.lift(static () => RhinoApp.IsOnMainThread).OnUiThread()));
     }
 
     [Fact]

@@ -60,7 +60,7 @@ public static class Earth {
     public static Stage<EarthAnchorPoint> Stage(RhinoDoc doc, Seq<RowEdit<EarthAnchorPoint>> edits) =>
         new(
             Copy: _ => IO.lift(() => doc.EarthAnchorPoint),
-            Unchanged: (live, _) => edits.ForAll(edit => edit.Holds.Exists(holds => holds(live))),
+            Unchanged: (live, _) => Rows.Satisfied(edits, live),
             Commit: (live, staged) => Commits.Undoable(doc, nameof(RhinoDoc.EarthAnchorPoint), IO.pure(live), anchor => IO.lift(() => { doc.EarthAnchorPoint = anchor; }), staged).Map(_ => staged));
 
     public static IO<EarthAnchorPoint> Edit(RhinoDoc doc, Seq<RowEdit<EarthAnchorPoint>> edits) =>

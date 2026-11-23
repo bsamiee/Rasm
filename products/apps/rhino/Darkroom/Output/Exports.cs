@@ -28,14 +28,12 @@ internal sealed record LutChoice(int Size, float Low, float Span, Gamut Gamut, T
 internal sealed record OutputEdit(OutputBook Book, int Current) {
     private Option<OutputTarget> Target => toSeq(Book.Targets).At(Current);
 
-    public Seq<OptionSpec<StageStep<OutputEdit, OutputBook>>> Options(StageKit<OutputEdit, OutputBook> kit) =>
+    public Seq<OptionSpec<StageStep<OutputEdit, OutputBook>>> Options(RhinoDoc doc, StageKit<OutputEdit, OutputBook> kit) =>
         [
             OptionSpecs.Of(OptionType.List(toSeq(TargetFile.Items), static file => file.Key), TargetFile.Png, file =>
                 kit.Advance(new OutputEdit(Book with { Targets = Book.Targets.Add(OutputTarget.Default.Retyped(file)) }, Book.Targets.Count)), caption: "Add"),
-            OptionSpecs.Of(OptionType.Text(allowEmptyString: false), Book.Folder.ToValue(), text =>
-                OutputFolder.Validated(text).Match(Succ: held => kit.Advance(this with { Book = Book with { Folder = held } }), Fail: kit.Retry), caption: "Folder"),
-            OptionSpecs.Of(OptionType.Text(allowEmptyString: true), Book.Stem.ToValue(), text =>
-                Stem.Validated(text).Match(Succ: held => kit.Advance(this with { Book = Book with { Stem = held } }), Fail: kit.Retry), caption: "Stem"),
+            Exports.Literal(doc, "Folder", Book.Folder.ToValue(), text => OutputFolder.Validated(text).Map(held => this with { Book = Book with { Folder = held } }), kit),
+            Exports.Literal(doc, nameof(Stem), Book.Stem.ToValue(), text => Stem.Validated(text).Map(held => this with { Book = Book with { Stem = held } }), kit),
             OptionSpecs.Of(OptionType.Toggle(LabelPair.NoYes), Book.Overwrite, overwrite => kit.Advance(this with { Book = Book with { Overwrite = overwrite } })),
             .. Book.Targets.IsEmpty ? [] : Seq(OptionSpecs.Of(OptionType.Integer(1, Book.Targets.Count), Current + 1, index => kit.Advance(this with { Current = index - 1 }), caption: nameof(Target))),
             .. Target.ToSeq().Bind(target => Targeted(target, kit)),
@@ -99,8 +97,7 @@ internal static class Exports {
                 OptionSpecs.Of(OptionType.Number(-24d, 16d), (double)choice.Low, low => kit.Advance(choice with { Low = (float)low })),
                 OptionSpecs.Of(OptionType.Number(1d, 40d), (double)choice.Span, span => kit.Advance(choice with { Span = (float)span })),
                 OptionSpecs.Of(OptionType.List(Gamut.Known, static gamut => gamut.Rgb.Name), choice.Gamut, gamut => kit.Advance(choice with { Gamut = gamut })),
-                OptionSpecs.Of(OptionType.Text(allowEmptyString: false), choice.Transfer.ToValue(), text =>
-                    Transfer.Read(text).Match(Succ: transfer => kit.Advance(choice with { Transfer = transfer }), Fail: kit.Retry), caption: nameof(Transfer)),
+                Literal(doc, nameof(Transfer), choice.Transfer.ToValue(), text => Transfer.Read(text).Map(transfer => choice with { Transfer = transfer }), kit),
                 OptionSpecs.Of(OptionType.List(toSeq(LutFormat.Items), static format => format.Key), choice.Format, format => kit.Advance(choice with { Format = format })),
             ],
         }))
@@ -125,8 +122,20 @@ internal static class Exports {
         from book in OutputBook.Read(doc)
         from edited in Getters.Stages<OutputEdit, OutputBook>(new OutputEdit(book, 0), (edit, kit) => Getters.Choice(doc, new GetterRequest<GetOption, StageStep<OutputEdit, OutputBook>>("Output") {
             Accept = kit.Accept with { Nothing = Some(new NothingEntry<StageStep<OutputEdit, OutputBook>>(None, kit.Done(edit.Book))) },
-            Options = edit.Options(kit),
+            Options = edit.Options(doc, kit),
         }))
         from written in edited.Written(doc)
         select written;
+
+    // --- [ENTRIES]
+
+    internal static OptionSpec<StageStep<TStage, TValue>> Literal<TStage, TValue>(
+        RhinoDoc doc, string caption, string current, Func<string, Fin<TStage>> parsed, StageKit<TStage, TValue> kit) =>
+        OptionSpecs.Plain(caption, Conversions.Present(current), hidden: false, _ => Getters.Text(
+            doc,
+            new EntryRequest<GetString, string, StageStep<TStage, TValue>>(caption) {
+                Accept = new() { Nothing = Some(new NothingEntry<StageStep<TStage, TValue>>(Conversions.Present(current), parsed(current).Match(Succ: kit.Replace, Fail: kit.Retry))) },
+            },
+            literal: true,
+            entered => parsed(entered.Value).Match(Succ: kit.Advance, Fail: kit.Retry)));
 }

@@ -31,8 +31,6 @@ internal sealed partial class Hold {
 
     public Duration Held(Duration clock) => Duration.FromNanoseconds(_value.ToInt128Nanoseconds() * Period(clock));
 
-    public static Fin<Hold> Validated(Duration value) => TryCreate(value, out Hold? hold, out DarkroomFault? fault) ? hold : fault;
-
     static partial void ValidateFactoryArguments(ref DarkroomFault? validationError, ref Duration value) =>
         validationError = value >= Shortest && value <= Longest ? null
             : new DarkroomFault(value, DarkroomReason.Invalid, Expression: "hold");
@@ -57,13 +55,13 @@ internal sealed record GeneratedLayer(BlendingMode Mode, float Exposure) {
     public static GeneratedLayer Default { get; } = new(BlendingMode.Normal, 0f);
     public static GeneratedLayer Added { get; } = Default with { Mode = BlendingMode.Add };
 
-    public Fin<Option<PixelPass>> Pass(Fin<Action<Span<Vector4>, int, int>> fill) => fill.Map(layer => Some<PixelPass>(new PixelPass.Positional(Layered(layer, float.Exp2(Exposure), Mode))));
+    public Fin<Option<PixelPass>> Pass(Fin<Action<Span<Vector4>, int, int>> fill) => fill.Map(layer => Some<PixelPass>(Layered(layer)));
 
-    public Fin<Unit> Run(Fin<Action<Span<Vector4>, int, int>> fill, PixelFrame frame, Option<IProgress<int>> progress) =>
-        fill.Bind(layer => new PixelPass.Positional(Layered(layer, float.Exp2(Exposure), Mode)).Run(frame, progress));
+    public Fin<Unit> Run(Fin<Action<Span<Vector4>, int, int>> fill, PixelFrame frame, Option<IProgress<int>> progress) => fill.Bind(layer => Layered(layer).Run(frame, progress));
 
-    private static Action<Span<Vector4>, int, int> Layered(Action<Span<Vector4>, int, int> fill, float gain, BlendingMode mode) =>
-        (row, x, y) => {
+    private PixelPass.Positional Layered(Action<Span<Vector4>, int, int> fill) {
+        (float gain, BlendingMode mode) = (float.Exp2(Exposure), Mode);
+        return new((row, x, y) => {
             using SpanOwner<Vector4> layer = SpanOwner<Vector4>.Allocate(row.Length);
             using SpanOwner<float> weights = SpanOwner<float>.Allocate(row.Length);
             fill(layer.Span, x, y);
@@ -75,7 +73,8 @@ internal sealed record GeneratedLayer(BlendingMode Mode, float Exposure) {
                 mode.Mixed(row, layer.Span, weights.Span);
                 layer.Span.CopyTo(row);
             }
-        };
+        });
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

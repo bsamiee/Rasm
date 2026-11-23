@@ -55,10 +55,10 @@ internal sealed class ObjectBody<TState, TGeometry>(ObjectDefinition<TState, TGe
 
     // --- [DOCUMENTS]
 
-    internal IO<Guid> Added<TObject>(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes, Func<TGeometry, IO<TObject>> fresh, Action<TObject, TGeometry> add) where TObject : RhinoObject =>
+    internal IO<Guid> Added<TObject>(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes, Action<TObject, TGeometry> add) where TObject : RhinoObject, new() =>
         from built in IO.lift(() => Built(state))
         from id in use(() => built).Bind(geometry =>
-            (from made in fresh(geometry)
+            (from made in use(static () => new TObject())
              from _ in IO.lift(() => add(made, geometry))
              from placed in IO.lift(Conversions.Required(Conversions.Present(made.Id)))
              select placed).BracketFail()).Bracket()
@@ -130,15 +130,12 @@ public abstract class DefinedCurveObject<TSelf, TState> : CustomCurveObject
     // --- [DOCUMENTS]
 
     public static IO<Guid> Add(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes, Option<HistoryRecord> history) =>
-        new ObjectBody<TState, Curve>(TSelf.Definition).Added(doc, state, attributes, Fresh, (fresh, _) => doc.Objects.AddRhinoObject(fresh, history.ValueUnsafe()));
+        new ObjectBody<TState, Curve>(TSelf.Definition).Added<TSelf>(doc, state, attributes, (fresh, curve) => {
+            fresh.SetCurve(curve);
+            doc.Objects.AddRhinoObject(fresh, history.ValueUnsafe());
+        });
 
     public IO<Unit> Edit(RhinoDoc doc, Func<TState, TState> change) => body.Edited(this, doc, change);
-
-    private static IO<TSelf> Fresh(Curve curve) =>
-        use(static () => new TSelf()).Map(fresh => {
-            fresh.SetCurve(curve);
-            return fresh;
-        });
 
     // --- [CALLBACKS]
 
@@ -170,15 +167,12 @@ public abstract class DefinedMeshObject<TSelf, TState> : CustomMeshObject
     // --- [DOCUMENTS]
 
     public static IO<Guid> Add(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes, Option<HistoryRecord> history) =>
-        new ObjectBody<TState, Mesh>(TSelf.Definition).Added(doc, state, attributes, Fresh, (fresh, _) => doc.Objects.AddRhinoObject(fresh, history.ValueUnsafe()));
+        new ObjectBody<TState, Mesh>(TSelf.Definition).Added<TSelf>(doc, state, attributes, (fresh, mesh) => {
+            fresh.SetMesh(mesh);
+            doc.Objects.AddRhinoObject(fresh, history.ValueUnsafe());
+        });
 
     public IO<Unit> Edit(RhinoDoc doc, Func<TState, TState> change) => body.Edited(this, doc, change);
-
-    private static IO<TSelf> Fresh(Mesh mesh) =>
-        use(static () => new TSelf()).Map(fresh => {
-            fresh.SetMesh(mesh);
-            return fresh;
-        });
 
     // --- [CALLBACKS]
 
@@ -212,7 +206,7 @@ public abstract class DefinedBrepObject<TSelf, TState> : CustomBrepObject
     // --- [DOCUMENTS]
 
     public static IO<Guid> Add(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes) =>
-        new ObjectBody<TState, Brep>(TSelf.Definition).Added(doc, state, attributes, static _ => use(static () => new TSelf()), (fresh, brep) => doc.Objects.AddRhinoObject(fresh, brep));
+        new ObjectBody<TState, Brep>(TSelf.Definition).Added<TSelf>(doc, state, attributes, (fresh, brep) => doc.Objects.AddRhinoObject(fresh, brep));
 
     public IO<Unit> Edit(RhinoDoc doc, Func<TState, TState> change) => body.Edited(this, doc, change);
 
@@ -246,7 +240,7 @@ public abstract class DefinedPointObject<TSelf, TState> : CustomPointObject
     // --- [DOCUMENTS]
 
     public static IO<Guid> Add(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes) =>
-        new ObjectBody<TState, Point>(TSelf.Definition).Added(doc, state, attributes, static _ => use(static () => new TSelf()), (fresh, point) => doc.Objects.AddRhinoObject(fresh, point));
+        new ObjectBody<TState, Point>(TSelf.Definition).Added<TSelf>(doc, state, attributes, (fresh, point) => doc.Objects.AddRhinoObject(fresh, point));
 
     public IO<Unit> Edit(RhinoDoc doc, Func<TState, TState> change) => body.Edited(this, doc, change);
 

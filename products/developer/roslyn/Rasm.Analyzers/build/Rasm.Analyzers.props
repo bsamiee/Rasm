@@ -6,4 +6,8 @@
     <ItemGroup Label="Project References">
         <CompilerVisibleProperty Include="ProjectReferenceAssemblies" />
     </ItemGroup>
+
+    <ItemGroup Label="Plug-In Shells">
+        <CompilerVisibleProperty Include="PlugInBody" />
+    </ItemGroup>
 </Project>

@@ -79,9 +79,7 @@ public static class Details {
         from page in Products.Of(() => found.Object.ParentPageView)
         from held in IO.lift(State(doc, found.Object, found.Geometry))
         let change = wanted.Except(held)
-        from activated in change.Active.Traverse(active => active
-            ? Products.Accepted(() => page.SetActiveDetail(detailId))
-            : IO.lift(page.SetPageAsActive)).As()
+        from activated in change.Active.Traverse(active => Viewports.Activate(page, Conversions.Present(active, detailId))).As()
         from scaled in change.Scale.Traverse(scale => Products.Accepted(() => found.Geometry.SetScale(
             Quantities.As(scale.ToModel(Quantities.From(1d, doc.PageUnits)), doc.ModelUnits), doc.ModelUnits, 1d, doc.PageUnits))).As()
         from locked in IO.lift(() => change.ProjectionLocked.Iter(value => found.Geometry.IsProjectionLocked = value))

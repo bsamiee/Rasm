@@ -101,12 +101,11 @@ public static class Products {
 
     // --- [RELEASES]
 
-    public static IO<Unit> Released(Action release) => use(static () => new object(), _ => IO.lift(release)).Map(unit);
+    public static IO<Unit> Released(Action release) => Released(IO.lift(release));
 
     public static IO<Unit> Released(IO<Unit> release) => use(static () => new object(), _ => release).Map(unit);
 
-    public static IO<Unit> Changed<T>(Func<T> read, Action<T> write, T value) =>
-        IO.lift(read).Bind(prior => Released(() => write(prior)) >> IO.lift(() => write(value)));
+    public static IO<Unit> Changed<T>(Func<T> read, Action<T> write, T value) => Changed(read, write, _ => value);
 
     public static IO<Unit> Changed<T>(Func<T> read, Action<T> write, Func<T, T> change) =>
         IO.lift(read).Bind(prior => Released(() => write(prior)) >> IO.lift(() => write(change(prior))));

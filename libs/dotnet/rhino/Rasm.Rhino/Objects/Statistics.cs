@@ -24,7 +24,7 @@ public sealed record DocumentStatistics(
 
     public int LayerLevelCount => LayerDepths.Values.Fold(0, static (levels, depth) => int.Max(levels, depth + 1));
 
-    public int PlacementCount => DefinitionGraph.Placements.Values.Fold(0, static (sum, placed) => sum + placed.Count);
+    public int PlacementCount => DefinitionGraph.Placements.Values.Sum(static placed => placed.Count);
 
     // --- [READS]
 

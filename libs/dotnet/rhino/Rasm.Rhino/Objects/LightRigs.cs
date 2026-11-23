@@ -144,9 +144,10 @@ public static class LightRigs {
         Subscriptions.Merged(
             Subscriptions.Watched<RhinoReplaceObjectEventArgs>(static (watcher, h) => watcher.ReplaceRhinoObject += h).Documents(static args => args.DocumentSerialNumber).In(serial)
                 .Choose(args => Conversions.Present(ids.Contains(args.ObjectId), unit)),
-            Subscriptions.Watched<RhinoObjectEventArgs>(static (watcher, h) => watcher.DeleteRhinoObject += h).Documents(static args => args.TheObject?.Document).In(serial)
-                .Choose(args => Conversions.Present(ids.Contains(args.ObjectId), unit)),
-            Subscriptions.Watched<RhinoObjectEventArgs>(static (watcher, h) => watcher.UndeleteRhinoObject += h).Documents(static args => args.TheObject?.Document).In(serial)
-                .Choose(args => Conversions.Present(ids.Contains(args.ObjectId), unit)),
+            Subscriptions.Watched<RhinoObjectEventArgs>(static (watcher, h) => {
+                watcher.DeleteRhinoObject += h;
+                watcher.UndeleteRhinoObject += h;
+            })
+                .Documents(static args => args.TheObject?.Document).In(serial).Choose(args => Conversions.Present(ids.Contains(args.ObjectId), unit)),
             RhinoObjects.Transformed.In(serial).Choose(args => Conversions.Present(args.ObjectIds.Exists(ids.Contains) || args.GripOwnerIds.Exists(ids.Contains), unit)));
 }

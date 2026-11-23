@@ -76,6 +76,6 @@ public static class Drawings {
         select silhouettes;
 
     private static IO<Seq<Silhouette>> Traced(Func<Silhouette[]?> compute) =>
-        IO.lift(() => Optional(compute()).ToFin(new RhinoFault(nameof(Silhouette), RhinoReason.Missing)))
+        IO.lift(() => Conversions.Required(compute(), call: nameof(Silhouette)))
             .Bind(static rows => Products.Each(toSeq(rows).Map(static silhouette => Products.Maybe(() => silhouette.Curve).Map(_ => silhouette)).Strict()));
 }

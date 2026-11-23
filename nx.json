@@ -91,6 +91,11 @@
         }
     ],
     "targetDefaults": {
+        "{build,install}--yak": {
+            "configurations": {
+                "debug": {}
+            }
+        },
         "{deploy,dry-run}--pulumi": {
             "configurations": {
                 "release": { "args": "--production" },

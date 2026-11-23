@@ -243,7 +243,6 @@ public static class Values {
     public static ValueRow<NumericUpDownWithUnitParsing, double> Number(Option<double> value, NumberRange range, Func<Edit<double>, IO<Unit>> edited) =>
         new(() => Fielded(new ScaledField(range)), static (field, _) => IO.pure(Numeric(field)), IO.pure(value), edited) {
             Previewing = Stepping,
-            Shaped = (field, _, _) => IO.lift(() => range.Applied(field)),
             Attached = Digits,
         };
 

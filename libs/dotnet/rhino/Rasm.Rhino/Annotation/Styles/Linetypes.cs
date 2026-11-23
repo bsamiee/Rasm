@@ -165,7 +165,7 @@ public static class Linetypes {
     // --- [TEXT]
 
     public static IO<Seq<Length>> Parse(string text, bool millimeters) =>
-        Products.Of(() => Linetype.CreateFromPatternString(text, millimeters)).Map(Segments).Bracket();
+        use(Products.Of(() => Linetype.CreateFromPatternString(text, millimeters))).Map(Segments).Bracket();
 
     public static IO<string> Text(Seq<Length> pattern, bool millimeters) =>
         (from scratch in use(static () => new Linetype())
@@ -204,7 +204,7 @@ public static class Linetypes {
 
     public static IO<Seq<(string Name, LinetypeDefinition Definition)>> ReadFile(InputPath path) =>
         (from rows in Products.Many(() => Linetype.ReadFromFile(path))
-         from definitions in rows.TraverseM(static row => Definition(row).Map(definition => (row.Name, Definition: definition))).As()
+         from definitions in rows.TraverseM(static row => use(IO.pure(row)).Bind(Definition).Map(definition => (row.Name, Definition: definition))).As()
          select definitions).Bracket();
 
     // --- [UNITS]

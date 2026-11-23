@@ -87,11 +87,7 @@ public abstract partial record NamedChange {
                     toSeq(entries[table]), toSeq(states[table]),
                     static entry => entry.Name, static state => (string)state.Name, table.Comparer, pruned.Contains(table) ? Prune.Delete : Prune.Keep))
                 .As()
-                .Map(static plans => plans.Flatten().Choose(static step => step.Switch(
-                    create: static create => Some<NamedChange>(new Save(create.Spec)),
-                    change: static change => Some<NamedChange>(new Save(change.Spec)),
-                    remove: static remove => Some<NamedChange>(new Delete(remove.Row)),
-                    order: static _ => Option<NamedChange>.None))),
+                .Map(static plans => plans.Flatten().Choose(static step => step.Wanted.Map<NamedChange>(static state => new Save(state)) || step.Existing.Map<NamedChange>(static entry => new Delete(entry)))),
         };
 
     // --- [APPLICATION]

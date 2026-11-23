@@ -29,7 +29,7 @@ public abstract partial record Thumbnail {
                 else Plotted(at.Graphics, at.Bounds, at.Color, hatching.Extent, hatching.Lines.Map(static line => (Closed: false, Points: Seq(line.From, line.To))));
             });
 
-    public IO<Unit> Release => IO.lift(() => Switch(raster: static raster => raster.Pixels.Dispose(), linework: static _ => { }, hatching: static _ => { }));
+    public IO<Unit> Release => IO.lift(() => (this as Raster)?.Pixels.Dispose());
 
     private static void Fitted(Graphics graphics, Image image, RectangleF bounds) {
         float scale = float.Min(bounds.Width / image.Width, bounds.Height / image.Height);

@@ -57,19 +57,7 @@ public static class Viewports {
     // --- [RESOLUTION]
 
     public static IO<ViewportRef> Resolve(RhinoDoc doc, ViewportTarget target) =>
-        IO.lift(() => target.Switch(
-                doc,
-                active: static (document, _) => Conversions.Required(document.Views.ActiveView)
-                    .Map(static view => new ViewportRef(view, view.ActiveViewport, None)),
-                named: static (document, named) => Conversions.Required(document.Views.Find(named.Name, compareCase: false))
-                    .Map(static view => new ViewportRef(view, view.MainViewport, None)),
-                id: static (document, id) => document.Objects.FindId(id.ViewportId) is DetailViewObject detail
-                    ? Conversions.Required(detail.ParentPageView).Map(page => Detailed(page, detail))
-                    : Conversions.Required(document.Views.Find(id.ViewportId)).Map(static view => new ViewportRef(view, view.MainViewport, None)),
-                serial: static (document, serial) => Conversions.Required(Optional(RhinoView.FromRuntimeSerialNumber(serial.ViewSerial))
-                        .Filter(view => view.Document?.RuntimeSerialNumber == document.RuntimeSerialNumber))
-                    .Map(static view => new ViewportRef(view, view.MainViewport, None))))
-            .Bind(static row => use(() => row));
+        IO.lift(() => Found(doc, target).ToFin(new RhinoFault(target, RhinoReason.Missing))).Bind(static row => use(() => row));
 
     public static IO<Seq<ViewportRef>> Resolve(RhinoDoc doc, ViewportSet set) =>
         set.Switch(
@@ -101,15 +89,22 @@ public static class Viewports {
     private static ViewportRef Detailed(RhinoPageView page, DetailViewObject detail) =>
         detail.IsActive ? new ViewportRef(page, page.ActiveViewport, None) : new ViewportRef(page, detail.Viewport, Some(detail));
 
-    private static Option<Guid> Identified(RhinoDoc doc, ViewportTarget target) =>
+    private static Option<ViewportRef> Found(RhinoDoc doc, ViewportTarget target) =>
         target.Switch(
             doc,
-            active: static (document, _) => Optional(document.Views.ActiveView).Map(static view => view.ActiveViewportID),
-            named: static (document, named) => Optional(document.Views.Find(named.Name, compareCase: false)).Map(static view => view.MainViewport.Id),
-            id: static (_, id) => Some(id.ViewportId),
+            active: static (document, _) => Optional(document.Views.ActiveView).Map(static view => new ViewportRef(view, view.ActiveViewport, None)),
+            named: static (document, named) => Optional(document.Views.Find(named.Name, compareCase: false)).Map(static view => new ViewportRef(view, view.MainViewport, None)),
+            id: static (document, id) => document.Objects.FindId(id.ViewportId) is DetailViewObject detail
+                ? Optional(detail.ParentPageView).Map(page => Detailed(page, detail))
+                : Optional(document.Views.Find(id.ViewportId)).Map(static view => new ViewportRef(view, view.MainViewport, None)),
             serial: static (document, serial) => Optional(RhinoView.FromRuntimeSerialNumber(serial.ViewSerial))
                 .Filter(view => view.Document?.RuntimeSerialNumber == document.RuntimeSerialNumber)
-                .Map(static view => view.MainViewport.Id));
+                .Map(static view => new ViewportRef(view, view.MainViewport, None)));
+
+    internal static IO<Unit> Activate(RhinoPageView page, Option<Guid> detail) =>
+        detail.Match(
+            Some: id => Products.Accepted(() => page.SetActiveDetail(id)),
+            None: () => IO.lift(page.SetPageAsActive));
 
     // --- [EDITS]
 
@@ -157,7 +152,7 @@ public static class Viewports {
         Preferences.Of(
             With(doc, target, row => read(row.Viewport)),
             value => Edit(doc, new ViewportSet.One(target), port => write(port, value), new RedrawPolicy.AllViews(Deferred: true)).Map(unit),
-            Some(Changed(doc).Choose(id => Conversions.Present(Identified(doc, target) == Some(id), unit))));
+            Some(Changed(doc).Choose(id => Conversions.Present(Found(doc, target).Map(static row => row.Viewport.Id) == Some(id), unit))));
 
     // --- [SCREENS]
 

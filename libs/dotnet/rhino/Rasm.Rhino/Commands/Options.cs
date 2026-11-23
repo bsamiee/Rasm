@@ -67,9 +67,6 @@ public static class OptionType {
             holder => getter.AddOptionDouble(name, ref holder),
             holder => Fin.Succ(Quantities.From(holder.CurrentValue, spaceUnit)));
 
-    public static Func<GetBaseClass, LocalizeStringPair, string, IO<AddedOption<string>>> Text(bool allowEmptyString) =>
-        (getter, name, initial) => Held(() => new OptionString(initial, allowEmptyString), holder => getter.AddOptionString(name, ref holder), static holder => Fin.Succ(holder.CurrentValue));
-
     public static Func<GetBaseClass, LocalizeStringPair, TItem, IO<AddedOption<TItem>>> List<TItem>(Seq<TItem> items, Func<TItem, string> caption) where TItem : notnull =>
         (getter, name, initial) =>
             from values in items.TraverseM(item => Named(caption(item))).As()

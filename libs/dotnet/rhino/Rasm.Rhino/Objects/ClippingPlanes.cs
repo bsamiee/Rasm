@@ -18,7 +18,7 @@ public static class ClippingPlanes {
          select id).Bracket();
 
     public static IO<Seq<Guid>> Edit(RhinoDoc doc, Seq<ClippingPlaneObject> planes, Func<ClippingPlaneObject, Seq<Step<ClippingPlaneSurface>>> steps) =>
-        planes.Map((plane, index) => Edits.Apply(RhinoObjects.Replacement<ClippingPlaneSurface>(doc, plane.Id, ignoreModes: true), plane.ClippingPlaneGeometry, steps(plane)).Map(_ => plane.Id).Bracket()
+        planes.Map((plane, index) => Edits.Apply(RhinoObjects.Replacement<ClippingPlaneSurface>(valid => Products.Accepted(() => doc.Objects.Replace(plane.Id, valid, ignoreModes: true))), plane.ClippingPlaneGeometry, steps(plane)).Map(_ => plane.Id).Bracket()
                 .MapFail(error => new RhinoFault(plane.Id, RhinoReason.Declined, index, error)))
             .TraverseM(static edit => edit).As();
 
@@ -49,9 +49,8 @@ public static class ClippingPlanes {
         IO.lift(() => Conversions.Rows(doc.Objects.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = false, LockedObjects = true, ReferenceObjects = true }))
                 .Filter(found => found is not ClippingPlaneObject && planes.Exists(plane => plane.ObjectParticipates(found.Id))).Strict())
             .Bind(objects => objects.TraverseM(found =>
-                Products.Maybe(() => RhinoObject.GetFillSurfaces(found, planes, unclippedFills)).Bind(fills => fills.Filter(static held => held.Length > 0).Match(
-                    Some: held => Products.Many(() => held).Map(owned => Some((Object: found.Id, Fills: owned))),
-                    None: static () => IO.pure(Option<(Guid Object, Seq<Brep> Fills)>.None)))).As())
+                Products.Maybe(() => RhinoObject.GetFillSurfaces(found, planes, unclippedFills)).Bind(fills => fills.Filter(static held => held.Length > 0)
+                    .Traverse(held => Products.Many(() => held).Map(owned => (Object: found.Id, Fills: owned))).As())).As())
             .Map(static rows => rows.Somes());
 
     // --- [FACTS]

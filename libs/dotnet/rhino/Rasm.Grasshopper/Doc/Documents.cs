@@ -8,7 +8,6 @@ using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.UI.Canvas;
 using Rasm.Rhino;
-using SuperLinq;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -28,7 +27,7 @@ public static class Solutions {
              ? IO.lift(() => document.Solution.StartWait(source, mode))
              : IO.liftAsync(() => document.Solution.Start(source, mode))
                  .Catch(static error => error.Is(Errors.Cancelled), _ => IO.fail<Solution>(Cancellation(nameof(SolutionServer.Start), token)))
-         from owned in IO.lift(GrasshopperFault.Unless(solution.Token == source.Token, GrasshopperReason.Taken, solution.Id))
+         from owned in IO.lift(RhinoFault.Unless(solution.Token == source.Token, RhinoReason.Taken, solution.Id))
          from finished in IO.lift(Finished(document, solution, faults.Value.Find(solution.Id), token))
          select finished).Bracket();
 
@@ -50,14 +49,14 @@ public static class Solutions {
                where member.State?.RelevantId == solution.Id
                from message in toSeq(member.IterateOverAllMessages())
                where message.Level is MessageLevel.Error
-               select (Error)new GrasshopperFault($"{Conversions.Present(member.DisplayName).IfNone(member.Nomen.Name)}: {message.Text}", GrasshopperReason.Unfinished, Inner: Optional(message.Info).Filter(static info => info.Length > 0).Map(static info => Error.New(info))))) switch {
+               select (Error)new RhinoFault($"{Conversions.Present(member.DisplayName).IfNone(member.Nomen.Name)}: {message.Text}", RhinoReason.Unfinished, Inner: Optional(message.Info).Filter(static info => info.Length > 0).Map(static info => Error.New(info))))) switch {
                    (SolutionPhase.Cancelled, _) => Cancellation(solution.Id.ToString(), token),
                    (SolutionPhase.Completed, { IsEmpty: true }) => solution,
-                   (var phase, var messages) => new GrasshopperFault($"solution {solution.Id} in {phase}", GrasshopperReason.Unfinished, Inner: messages.IsEmpty ? None : Some(Error.Many(messages))),
+                   (var phase, var messages) => new RhinoFault($"solution {solution.Id} in {phase}", RhinoReason.Unfinished, Inner: messages.IsEmpty ? None : Some(Error.Many(messages))),
                };
 
     private static Error Cancellation(string subject, CancellationToken token) =>
-        token.IsCancellationRequested ? Errors.Cancelled : new GrasshopperFault(subject, SolutionServer.EnableSolutions ? GrasshopperReason.Taken : GrasshopperReason.Declined);
+        token.IsCancellationRequested ? Errors.Cancelled : new RhinoFault(subject, SolutionServer.EnableSolutions ? RhinoReason.Taken : RhinoReason.Declined);
 }
 
 public static class DocumentFiles {
@@ -70,12 +69,12 @@ public static class DocumentFiles {
              DocumentIO io = new(document: null, trackFiles, reportErrors: false, retainRoot: false, resolvePlugins);
              return io.Open(path, blocking, found => held.Swap(_ => Some(found))) ? Optional(io.Document) : None;
          })
-         from document in IO.lift((opened | held.Value).ToFin(new GrasshopperFault(path, GrasshopperReason.Unreadable)))
+         from document in IO.lift((opened | held.Value).ToFin(new RhinoFault(path, RhinoReason.Unreadable)))
          select document)
-        | @catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new GrasshopperFault(path, GrasshopperReason.Missing, Inner: error)))
+        | @catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new RhinoFault(path, RhinoReason.Missing, Inner: error)))
         | @catch(
             static error => error.HasException<UnauthorizedAccessException>() || error.HasException<SecurityException>() || error.HasException<IOException>() || error.HasException<InvalidDataException>(),
-            error => IO.fail<Document>(new GrasshopperFault(path, GrasshopperReason.Unreadable, Inner: error)));
+            error => IO.fail<Document>(new RhinoFault(path, RhinoReason.Unreadable, Inner: error)));
 
     public static IO<Document> Open(DocumentBag bag, string path) =>
         from roots in IO.lift(() => toSeq(bag.All).Map(static stack => stack.Root).Strict())
@@ -122,7 +121,7 @@ public static class DocumentFiles {
     // --- [RELEASE]
 
     public static IO<Unit> Pop(DocumentBag bag, Document document, bool accept) =>
-        from head in IO.lift(() => GrasshopperFault.Unless(bag.All.Any(stack => stack.Head == document), GrasshopperReason.Missing, document))
+        from head in IO.lift(() => RhinoFault.Unless(bag.All.Any(stack => stack.Head == document), RhinoReason.Missing, document))
         from hidden in IO.lift(() => { document.Display.Enabled = false; })
         from popped in IO.lift(() => ignore(bag.Pop(document, accept)))
         select unit;
@@ -135,7 +134,7 @@ public static class DocumentFiles {
          from cluster in DocumentEdits.Add(host, new Cluster { InnerDocument = inner, RelayMessages = true })
          from boundary in IO.lift(Boundary(cluster))
          from fed in IO.lift(inputs.ToSeq()
-             .Traverse(input => boundary.Inputs.Find(input.Key).ToFin(new GrasshopperFault(input.Key, GrasshopperReason.Missing)).Map(parameter => (Parameter: parameter, Tree: input.Value)))
+             .Traverse(input => boundary.Inputs.Find(input.Key).ToFin(new RhinoFault(input.Key, RhinoReason.Missing)).Map(parameter => (Parameter: parameter, Tree: input.Value)))
              .As())
          from assigned in IO.lift(() => fed.Iter(static input => input.Parameter.PersistentDataWeak = input.Tree))
          from solved in Solutions.Run(host, SolutionMode.Headless)
@@ -144,16 +143,11 @@ public static class DocumentFiles {
 
     private static Fin<(HashMap<string, IParameter> Inputs, Seq<(string Name, IParameter Parameter)> Outputs)> Boundary(Cluster cluster) {
         cluster.EnsureMaps(out Listen[] listens, out Shout[] shouts);
-        return (Unique(Paired(listens, cluster.Parameters.Input)), Unique(Paired(shouts, cluster.Parameters.Output)))
+        return (Conversions.Unique(Paired(listens, cluster.Parameters.Input), static port => port.Name, StringComparer.Ordinal),
+                Conversions.Unique(Paired(shouts, cluster.Parameters.Output), static port => port.Name, StringComparer.Ordinal))
             .Apply(static (inputs, outputs) => (toHashMap(inputs), outputs)).As();
 
         static Seq<(string Name, IParameter Parameter)> Paired(IEnumerable<IDocumentObject?> members, Func<int, IParameter> parameter) =>
             toSeq(members).Map(static (member, index) => (Member: Optional(member), Index: index)).Choose(slot => slot.Member.Map(found => (found.UserName, parameter(slot.Index)))).Strict();
-
-        static Fin<Seq<(string Name, IParameter Parameter)>> Unique(Seq<(string Name, IParameter Parameter)> ports) =>
-            toSeq(ports.DuplicatesBy(static port => port.Name, StringComparer.Ordinal))
-                .Traverse(static repeated => Fin.Fail<Unit>(new GrasshopperFault(repeated.Name, GrasshopperReason.Invalid)))
-                .As()
-                .Map(_ => ports);
     }
 }

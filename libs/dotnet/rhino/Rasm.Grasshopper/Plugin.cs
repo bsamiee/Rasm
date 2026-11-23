@@ -5,8 +5,10 @@ using Grasshopper2.UI.Icon;
 using Rasm.Rhino;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Styling;
 using Rhino.FileIO;
+using Rhino.PlugIns;
 
 namespace Rasm.Grasshopper;
 
@@ -29,7 +31,8 @@ public static class PluginShell {
         Hosted(host, typeof(TDefinition).Assembly, TDefinition.Definition.PlugIn);
 
     private static (Action OnLoaded, IIcon Icon) Hosted(Plugin host, Assembly assembly, PlugInDefinition definition) =>
-        (() => InputPath.Of(assembly.Location)
+        (() => Toolbars.Identity(assembly)
+                .Bind(static id => InputPath.Of(PlugIn.PathFromId(id)))
                 .Bind(static path => PlugInRegistry.LoadPlugIn(path).RunSafe())
                 .Bind(_ => Session.RunSafe(
                     (from errors in IO.lift(() => toSeq(assembly.GetTypes())
@@ -37,7 +40,7 @@ public static class PluginShell {
                                  && type.IsAssignableTo(typeof(IDocumentObject)) && type.GetConstructor(Type.EmptyTypes) is not null)
                              .Filter(type => !ObjectProxies.RegisterObject(type, host))
                              .Strict())
-                         .Bind(static declined => IO.lift(GrasshopperFault.Unless(declined.IsEmpty, GrasshopperReason.Declined, declined)))
+                         .Bind(static declined => IO.lift(RhinoFault.Unless(declined.IsEmpty, RhinoReason.Declined, declined)))
                          .Cons(definition.Grasshopper)
                          .Map<K<IO, Unit>>(static step => step).Fails().As()
                      from loaded in guard(errors.IsEmpty, Error.Many(errors))

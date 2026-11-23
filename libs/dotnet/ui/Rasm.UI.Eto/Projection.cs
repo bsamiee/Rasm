@@ -21,39 +21,27 @@ internal static class Projection {
     }
 
     private static HashMap<Token, SKColorF> Chrome() =>
-        toHashMap(Seq(
+        toHashMap(Seq<(Token Token, Color Color)>(
             (Token.Canvas, SystemColors.WindowBackground), (Token.CanvasText, SystemColors.ControlText),
             (Token.AccentColor, SystemColors.Highlight), (Token.AccentColorText, SystemColors.HighlightText),
             (Token.Highlight, SystemColors.Selection), (Token.HighlightText, SystemColors.SelectionText),
             (Token.ButtonFace, SystemColors.Control), (Token.ButtonText, SystemColors.ControlText),
             (Token.Field, SystemColors.ControlBackground), (Token.FieldText, SystemColors.ControlText))
-            .Map(static held => (held.Item1, new SKColorF(held.Item2.R, held.Item2.G, held.Item2.B, held.Item2.A))));
+            .Map(static held => (held.Token, new SKColorF(held.Color.R, held.Color.G, held.Color.B, held.Color.A))));
 
     private static Unicolour Tone(Color color) => new(ColourSpace.Rgb, color.R, color.G, color.B, color.A);
 
     // --- [INPUT]
 
-    private static readonly HashMap<CursorShape, CursorType> Shapes = HashMap(
-        (CursorShape.Default, CursorType.Default),
-        (CursorShape.Pointer, CursorType.Pointer),
-        (CursorShape.Text, CursorType.IBeam),
-        (CursorShape.Crosshair, CursorType.Crosshair),
-        (CursorShape.Move, CursorType.SizeAll),
-        (CursorShape.Grab, CursorType.Move),
-        (CursorShape.Grabbing, CursorType.Move),
-        (CursorShape.ColumnResize, CursorType.VerticalSplit),
-        (CursorShape.RowResize, CursorType.HorizontalSplit),
-        (CursorShape.NotAllowed, CursorType.NotAllowed));
-
-    internal static Cursor Pointer(CursorShape shape) => Cursors.Cached(Shapes[shape]);
+    internal static Cursor Pointer(CursorShape shape) =>
+        Cursors.Cached(shape.Map(
+            @default: CursorType.Default, pointer: CursorType.Pointer, text: CursorType.IBeam, crosshair: CursorType.Crosshair, move: CursorType.SizeAll,
+            grab: CursorType.Move, grabbing: CursorType.Move, columnResize: CursorType.VerticalSplit, rowResize: CursorType.HorizontalSplit, notAllowed: CursorType.NotAllowed));
 
     internal static KeyModifiers Modifiers(Keys keys) =>
         new(Primary: (keys & Application.Instance.CommonModifier) is not Keys.None, Alternate: (keys & Application.Instance.AlternateModifier) is not Keys.None, Shift: keys.HasFlag(Keys.Shift));
 
     internal static SKPoint At(PointF location, SKPoint origin) => new(location.X + origin.X, location.Y + origin.Y);
-
-    internal static Option<InputEvent> Pointed(MouseEventArgs args, EditPhase phase, int clicks, SKPoint origin) =>
-        InputEvent.Pointed(Edit.Of(phase, new PointerSample(At(args.Location, origin))), args.Buttons.HasFlag(MouseButtons.Primary), args.Buttons.HasFlag(MouseButtons.Alternate), clicks, Modifiers(args.Modifiers));
 
     internal static Option<InputEvent> Keyed(Option<Mount> mount, KeyEventArgs args) =>
         Modifiers(args.Modifiers) switch {

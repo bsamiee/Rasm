@@ -13,10 +13,9 @@ public static class Points {
     // --- [CLOUDS]
 
     public static IO<(PointCloud Above, PointCloud Below)> Split(PointCloud cloud, Plane plane) =>
-        from split in IO.lift(() => (Accepted: cloud.Split(plane, out PointCloud? above, out PointCloud? below), Above: above, Below: below))
+        from split in Products.Accepted(() => (cloud.Split(plane, out PointCloud? above, out PointCloud? below), (Above: above, Below: below)))
         from above in Products.Of(() => split.Above)
         from below in Products.Of(() => split.Below)
-        from accepted in Products.Accepted(() => split.Accepted)
         select (above, below);
 
     // --- [NORMALS]

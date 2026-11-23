@@ -97,13 +97,10 @@ public static class SurfaceConstruction {
     // --- [REFITTING]
 
     public static IO<(NurbsSurface A, NurbsSurface B)> MakeCompatible(Surface a, Surface b) =>
-        from answered in IO.lift(() => (Accepted: NurbsSurface.MakeCompatible(a, b, out NurbsSurface first, out NurbsSurface second), First: first, Second: second))
-        from first in Products.Maybe(() => answered.First, nameof(NurbsSurface.MakeCompatible))
-        from second in Products.Maybe(() => answered.Second, nameof(NurbsSurface.MakeCompatible))
-        from compatible in IO.lift(from accepted in RhinoFault.Unless(answered.Accepted, RhinoReason.Declined, answered.Accepted)
-                                   from pair in (Conversions.Required(first), Conversions.Required(second)).Apply(static (held, other) => (A: held, B: other)).As()
-                                   select pair)
-        select compatible;
+        from answered in Products.Accepted(() => (NurbsSurface.MakeCompatible(a, b, out NurbsSurface first, out NurbsSurface second), (First: first, Second: second)), nameof(NurbsSurface.MakeCompatible))
+        from first in Products.Of(() => answered.First, nameof(NurbsSurface.MakeCompatible))
+        from second in Products.Of(() => answered.Second, nameof(NurbsSurface.MakeCompatible))
+        select (first, second);
 
     // --- [REVOLUTION]
 

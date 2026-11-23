@@ -64,7 +64,7 @@ public static class MeshIntersections {
     // --- [POINTS]
 
     public static IO<Seq<(Point3d Point, int Index)>> Points(Func<(Point3d[]? Points, int[]? Indices)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
-        IO.lift(call).Bind(answered => IO.lift(from points in Optional(answered.Points).ToFin(new RhinoFault(member, RhinoReason.Missing))
-                                               from indices in Optional(answered.Indices).ToFin(new RhinoFault(member, RhinoReason.Missing))
+        IO.lift(call).Bind(answered => IO.lift(from points in Conversions.Required(answered.Points, call: member)
+                                               from indices in Conversions.Required(answered.Indices, call: member)
                                                select toSeq(points).Zip(toSeq(indices), static (point, index) => (Point: point, Index: index)).Strict()));
 }

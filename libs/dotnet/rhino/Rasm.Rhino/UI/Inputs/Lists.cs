@@ -151,7 +151,8 @@ internal static class Lists {
                     check: static _ => Seq<Func<TItem, IconResource>>(),
                     glyph: static glyph => Seq(glyph.Icon),
                     progress: static _ => Seq<Func<TItem, IconResource>>())
-                from item in Flattened(row, row.Items)
+                from top in row.Items
+                from item in toSeq(SuperEnumerable.TraverseDepthFirst(top, child => row.Branches.ToSeq().Bind(branches => branches.Children.Get(child))))
                 select icon(item)))
             .TraverseM(static icon => Icons.Frames(icon, IconSlot.Small).Map(frames => (icon, frames))).As()
         from next in list.SwapIO(state => Filled(row, state with { Icons = toHashMap(icons) }, kept))
@@ -160,9 +161,6 @@ internal static class Lists {
             grid.ReloadItem(reload.Node, reloadChildren: false);
         }))).As()
         select unit;
-
-    private static Seq<TItem> Flattened<TItem, TKey>(ListRow<TItem, TKey> row, Seq<TItem> items) where TItem : notnull where TKey : notnull =>
-        items.Bind(item => toSeq(SuperEnumerable.TraverseDepthFirst(item, child => row.Branches.ToSeq().Bind(branches => branches.Children.Get(child)))));
 
     private static ListState<TItem> Filled<TItem, TKey>(ListRow<TItem, TKey> row, ListState<TItem> state, Func<TItem, bool> keep) where TItem : notnull where TKey : notnull =>
         (Before: state.Nodes.Bind(static node => node.Preorder), After: Built(row, state.Sorted, row.Items, Open(row, state.Nodes), keep)) switch {
@@ -177,17 +175,15 @@ internal static class Lists {
     private static Seq<RowItem<TItem>> Built<TItem, TKey>(ListRow<TItem, TKey> row, Option<(int Column, bool Descending)> sorted, Seq<TItem> items, HashSet<TKey> open, Func<TItem, bool> keep)
         where TItem : notnull
         where TKey : notnull =>
-        Sorted(items, (from held in sorted
-                       from column in toSeq(row.Columns).At(held.Column)
-                       from order in column.Order
-                       select held.Descending ? (left, right) => order(right, left) : order)
-                | row.Ordered.Map(static name => (Comparison<TItem>)((left, right) => Localization.LogicalSort(name(left), name(right)))))
+        ((from held in sorted
+          from column in toSeq(row.Columns).At(held.Column)
+          from order in column.Order
+          select held.Descending ? (left, right) => order(right, left) : order)
+         | row.Ordered.Map(static name => (Comparison<TItem>)((left, right) => Localization.LogicalSort(name(left), name(right)))))
+            .Match(Some: compare => toSeq(items.Order(System.Collections.Generic.Comparer<TItem>.Create(compare))), None: () => items)
             .Map(item => (Item: item, Kids: Built(row, sorted, row.Branches.ToSeq().Bind(branches => branches.Children.Get(item)), open, keep)))
             .Filter(pair => !pair.Kids.IsEmpty || keep(pair.Item))
             .Map(pair => new RowItem<TItem>(pair.Item, pair.Kids) { Expanded = open.Contains(row.Key(pair.Item)) });
-
-    private static Seq<TItem> Sorted<TItem>(Seq<TItem> items, Option<Comparison<TItem>> order) =>
-        order.Match(Some: compare => toSeq(items.Order(System.Collections.Generic.Comparer<TItem>.Create(compare))), None: () => items);
 
     internal static Seq<TItem> Replaced<TItem, TKey>(Func<TItem, TKey> key, Option<ListBranches<TItem, TKey>> branches, Seq<TItem> items, TItem edited) where TItem : notnull where TKey : notnull =>
         items.Map(item => EqDefault<TKey>.Equals(key(item), key(edited))
@@ -195,13 +191,13 @@ internal static class Lists {
             : branches.Fold(item, (held, tree) => tree.Children.Update(kids => Replaced(key, branches, kids, edited), held)));
 
     private static Seq<TItem> Reordered<TItem, TKey>(ListRow<TItem, TKey> row, Seq<TItem> items, HashSet<TKey> moved, TKey target, bool after) where TItem : notnull where TKey : notnull =>
-        items.Exists(item => EqDefault<TKey>.Equals(row.Key(item), target)) && items.Filter(item => moved.Contains(row.Key(item))).Count == moved.Count
-            ? items.Filter(item => !moved.Contains(row.Key(item))) switch {
-                var rest => rest.Map(static (item, at) => (Item: item, At: at)).Find(held => EqDefault<TKey>.Equals(row.Key(held.Item), target)).Map(held => held.At + (after ? 1 : 0)).IfNone(rest.Count) switch {
-                    var place => rest.Take(place) + items.Filter(item => moved.Contains(row.Key(item))) + rest.Skip(place),
+        (Kept: items.Filter(item => !moved.Contains(row.Key(item))), Chosen: items.Filter(item => moved.Contains(row.Key(item)))) switch {
+            var split when split.Chosen.Count == moved.Count && items.Exists(item => EqDefault<TKey>.Equals(row.Key(item), target)) =>
+                split.Kept.Map(static (item, at) => (Item: item, At: at)).Find(held => EqDefault<TKey>.Equals(row.Key(held.Item), target)).Map(held => held.At + (after ? 1 : 0)).IfNone(split.Kept.Count) switch {
+                    var place => split.Kept.Take(place) + split.Chosen + split.Kept.Skip(place),
                 },
-            }
-            : items.Map(item => row.Branches.Fold(item, (held, tree) => tree.Children.Update(kids => Reordered(row, kids, moved, target, after), held)));
+            _ => items.Map(item => row.Branches.Fold(item, (held, tree) => tree.Children.Update(kids => Reordered(row, kids, moved, target, after), held))),
+        };
 
     // --- [COLUMNS]
 

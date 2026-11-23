@@ -1,7 +1,4 @@
 <Solution>
-    <Configurations>
-        <BuildType Name="Release" />
-    </Configurations>
     <Folder Name="/libs/" />
     <Folder Name="/libs/dotnet/" />
     <Folder Name="/libs/dotnet/drawing/">
@@ -49,7 +46,7 @@
     <Folder Name="/tests/libs/dotnet/" />
     <Folder Name="/tests/libs/dotnet/rhino/">
         <Project Path="tests/libs/dotnet/rhino/Rasm.Rhino.Tests.csproj">
-            <BuildType Solution="Release|*" Project="Interface" />
+            <BuildType Solution="*|*" Project="Interface" />
         </Project>
     </Folder>
     <Folder Name="/tests/products/" />

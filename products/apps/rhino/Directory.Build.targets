@@ -11,6 +11,7 @@
         <_PlugInRui>$(IntermediateOutputPath)$(TargetName).rui</_PlugInRui>
         <_PlugInRuiReferences>$(IntermediateOutputPath)$(TargetName).rui.rsp</_PlugInRuiReferences>
         <_PlugInRuiStamp>$(IntermediateOutputPath)$(TargetName).rui.stamp</_PlugInRuiStamp>
+        <PlugInBody>lib/$(TargetName).dll</PlugInBody>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
@@ -19,6 +20,8 @@
         <PlugInDescription Include="Organization" Exclude="@(PlugInDescription)" Value="$(Authors)" />
         <PlugInDescription Include="WebSite" Exclude="@(PlugInDescription)" Value="$(PackageProjectUrl)" />
         <None Update="manifest.yml" CopyToPublishDirectory="PreserveNewest" />
+        <None Include="@(IntermediateAssembly)" TargetPath="$(PlugInBody)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+        <None Include="@(_DebugSymbolsIntermediatePath)" TargetPath="$([System.IO.Path]::GetDirectoryName('$(PlugInBody)'))/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
         <_PlugInIconFrame Include="$(_PlugInIconPngFrame);48;32;24;16" />
         <_PlugInRaster Include="@(_PlugInIconFrame->'$(_PlugInAssetDir)%(Identity).png')" />
     </ItemGroup>

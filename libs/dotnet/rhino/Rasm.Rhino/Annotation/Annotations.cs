@@ -13,10 +13,6 @@ namespace Rasm.Rhino.Annotation;
 public delegate IO<Seq<Seq<T>>> OutlineFactory<T>(TextEntity text, DimensionStyle style, bool makeSmallCaps, double smallCapsScale, double spacing)
     where T : GeometryBase;
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-public sealed record OutlineOptions(Option<double> SmallCapsScale, double Spacing, Option<Transform> Transform);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Annotations {
@@ -42,8 +38,8 @@ public static class Annotations {
         RhinoDoc doc, DetailViewObject detail, Line span, Point3d through, Option<ComponentRef<DimensionStyle>> style, Seq<Step<DimensionStyle>> overrides) =>
         (from page in IO.lift(() => (Xform: detail.WorldToPageTransform, Scale: RhinoMath.UnitScale(doc.PageUnitSystem, doc.ModelUnitSystem) / detail.DetailGeometry.PageToModelRatio))
          let points = (Start: page.Xform * span.From, End: page.Xform * span.To, Line: page.Xform * through)
-         from dimension in Create(doc, style, overrides, parent => LinearDimension.Create(
-             AnnotationType.Rotated, parent, Plane.WorldXY, Vector3d.XAxis, points.Start, points.End, points.Line, Math.Atan2(points.End.Y - points.Start.Y, points.End.X - points.Start.X)))
+         from dimension in use(Create(doc, style, overrides, parent => LinearDimension.Create(
+             AnnotationType.Rotated, parent, Plane.WorldXY, Vector3d.XAxis, points.Start, points.End, points.Line, Math.Atan2(points.End.Y - points.Start.Y, points.End.X - points.Start.X))))
          from measured in IO.lift(() => { (dimension.DetailMeasured, dimension.DistanceScale) = (detail.Id, page.Scale); })
          from id in Add(doc, dimension, Some(detail.Attributes.ViewportId))
          select id).Bracket();
@@ -69,7 +65,7 @@ public static class Annotations {
     private static Stage<T> Staged<T>(RhinoDoc doc, Guid id) where T : AnnotationBase =>
         new(
             Copy: live =>
-                from copy in Products.Copied(live)
+                from copy in use(Products.Copied(live))
                 from parent in DimensionStyles.Parent(doc, live)
                 from bound in IO.lift(() => { copy.ParentDimensionStyle = parent; })
                 select copy,
@@ -103,19 +99,17 @@ public static class Annotations {
          })
          select xform).Bracket();
 
-    public static IO<Seq<Seq<T>>> Outlines<T>(RhinoDoc doc, TextEntity text, OutlineOptions options, OutlineFactory<T> create) where T : GeometryBase =>
-        from copy in Products.Copied(text)
-        from transformed in options.Transform.Traverse(xform =>
-            from placing in DimensionStyles.Effective(doc, copy, None)
-            from moved in Products.Accepted(() => copy.Transform(xform, placing))
-            from released in release(placing)
-            select released).As()
-        from style in DimensionStyles.Effective(doc, copy, None)
-        from backward in IO.lift(() => { style.DrawForward = false; })
-        from created in create(copy, style, options.SmallCapsScale.IsSome, options.SmallCapsScale.IfNone(1d), options.Spacing)
-        from releasedStyle in release(style)
-        from releasedCopy in release(copy)
-        select created;
+    public static IO<Seq<Seq<T>>> Outlines<T>(RhinoDoc doc, TextEntity text, Option<double> smallCapsScale, double spacing, Option<Transform> placement, OutlineFactory<T> create) where T : GeometryBase =>
+        (from copy in use(Products.Copied(text))
+         from transformed in placement.Traverse(xform =>
+             from placing in DimensionStyles.Effective(doc, copy, None)
+             from moved in Products.Accepted(() => copy.Transform(xform, placing))
+             from released in release(placing)
+             select released).As()
+         from style in DimensionStyles.Effective(doc, copy, None)
+         from backward in IO.lift(() => { style.DrawForward = false; })
+         from created in create(copy, style, smallCapsScale.IsSome, smallCapsScale.IfNone(1d), spacing)
+         select created).Bracket();
 
     extension(AnnotationBase annotation) {
         public Option<double> Wrap => Conversions.Present(annotation.TextIsWrapped, annotation.FormatWidth);

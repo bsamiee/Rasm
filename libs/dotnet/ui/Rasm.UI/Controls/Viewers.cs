@@ -141,12 +141,7 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
                 key => Saved.Find(preset => preset.Key == key).Map(static preset => preset.Label).IfNone(key.Identifier),
                 edit => Navigation.Edited(Saved.Applied(edit))).Drawn(culture));
 
-    private Seq<View> Loading =>
-        Series.Choose(static series => series.Entities.Switch(
-            pending: static pending => Some(Progress.Ring(pending.Work)),
-            ready: static _ => Option<View>.None,
-            empty: static _ => Option<View>.None,
-            failed: static _ => Option<View>.None));
+    private Seq<View> Loading => Series.Choose(static series => Optional(series.Entities as Content<Seq<TEntity>>.Pending).Map(static pending => Progress.Ring(pending.Work)));
 
     private Option<View> Legended {
         get {

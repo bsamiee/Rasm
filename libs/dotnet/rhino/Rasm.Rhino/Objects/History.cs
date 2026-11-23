@@ -21,13 +21,12 @@ public sealed record HistoryDefinition<T>(int Version, HistoryKey<T> Inputs, Fun
     // --- [EXECUTION]
 
     public IO<Seq<Guid>> Run(RhinoDoc doc, Command command, T inputs, Option<ObjectAttributes> attributes) =>
-        from added in (from record in use(() => new HistoryRecord(command, Version) { CopyOnReplaceObject = CopyOnReplace })
-                       from built in Build(inputs)
-                       from written in Inputs.Write(doc, record, inputs)
-                       from placed in IO.lift(Products.Each(built, (geometry, index) =>
-                           Conversions.Required(Conversions.Present(doc.Objects.Add(geometry, attributes.ValueUnsafe(), record, reference: false)), index)))
-                       select placed).Bracket()
-        select added;
+        (from record in use(() => new HistoryRecord(command, Version) { CopyOnReplaceObject = CopyOnReplace })
+         from built in Build(inputs)
+         from written in Inputs.Write(doc, record, inputs)
+         from placed in IO.lift(Products.Each(built, (geometry, index) =>
+             Conversions.Required(Conversions.Present(doc.Objects.Add(geometry, attributes.ValueUnsafe(), record, reference: false)), index)))
+         select placed).Bracket();
 
     // --- [REPLAY]
 

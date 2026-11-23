@@ -19,9 +19,6 @@ public static class Pages {
             Identity = key,
             Caption = caption,
             Subject = new PageSubject.Objects { SupportedTypes = supported },
-            Children = [new ControlRows(scope => Selected<TObject>(scope).Map(rows), static _ => IO.pure(Seq<HostEvent<Unit>>()))],
+            Children = [new ControlRows(scope => scope.Mode.Map(mode => rows(Optional(mode as CommitMode.Targets).ToSeq().Bind(static targets => toSeq(targets.Page.GetSelectedObjects<TObject>())).Strict())), static _ => IO.pure(Seq<HostEvent<Unit>>()))],
         };
-
-    private static IO<Seq<TObject>> Selected<TObject>(RowScope scope) where TObject : RhinoObject =>
-        scope.Mode.Map(static mode => Optional(mode as CommitMode.Targets).ToSeq().Bind(static targets => toSeq(targets.Page.GetSelectedObjects<TObject>())).Strict());
 }

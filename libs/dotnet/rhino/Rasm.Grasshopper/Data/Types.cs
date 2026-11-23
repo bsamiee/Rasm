@@ -154,27 +154,19 @@ internal sealed class GeometricAssistant<TValue, TKey, TError>(ITypeAssistant<TK
 
     // --- [MEASURES]
 
-    public override bool Length(TValue instance, out double length) {
-        Option<double> measured = Measured(instance, static (assistant, shape) => assistant.Length(shape, out double value) ? Some(value) : None);
-        length = measured.IfNone(0d);
-        return measured.IsSome;
-    }
+    public override bool Length(TValue instance, out double length) => Measured(instance, static (assistant, shape) => (assistant.Length(shape, out double value), value), out length);
 
-    public override bool Area(TValue instance, out double area) {
-        Option<double> measured = Measured(instance, static (assistant, shape) => assistant.Area(shape, out double value) ? Some(value) : None);
-        area = measured.IfNone(0d);
-        return measured.IsSome;
-    }
+    public override bool Area(TValue instance, out double area) => Measured(instance, static (assistant, shape) => (assistant.Area(shape, out double value), value), out area);
 
-    public override bool Volume(TValue instance, out double volume) {
-        Option<double> measured = Measured(instance, static (assistant, shape) => assistant.Volume(shape, out double value) ? Some(value) : None);
-        volume = measured.IfNone(0d);
-        return measured.IsSome;
-    }
+    public override bool Volume(TValue instance, out double volume) => Measured(instance, static (assistant, shape) => (assistant.Volume(shape, out double value), value), out volume);
 
-    private static Option<double> Measured(TValue instance, Func<ITypeAssistant, GeometryBase, Option<double>> measure) =>
-        TValue.Geometry(instance).Choose(shape => Optional(TypeAssistantServer.FindByValue(shape)).Bind(assistant => measure(assistant, shape)))
+    private static bool Measured(TValue instance, Func<ITypeAssistant, GeometryBase, (bool Found, double Value)> measure, out double total) {
+        Option<double> measured = TValue.Geometry(instance)
+            .Choose(shape => Optional(TypeAssistantServer.FindByValue(shape)).Bind(assistant => measure(assistant, shape) switch { (true, var value) => Some(value), _ => None }))
             .Fold(Option<double>.None, static (sum, part) => Some(sum.IfNone(0d) + part));
+        total = measured.IfNone(0d);
+        return measured.IsSome;
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -317,8 +309,8 @@ public static class DataTypes {
         IO.lift(static () => ignore(GrasshopperIO.IO.RegisterRestorableType(typeof(ValueParameter<T>))));
 
     private static IO<Unit> Keyed<TValue, TKey>(Func<ITypeAssistant<TKey>, TypeAssistant<TValue>> assistant, IO<Unit> conversions) =>
-        from key in IO.lift(static () => Optional(TypeAssistantServer.Find<TKey>()).ToFin(new GrasshopperFault(typeof(TKey).ToString(), GrasshopperReason.Missing)))
-        from registered in IO.lift(GrasshopperFault.Unless(TypeAssistantServer.Register(assistant(key)), GrasshopperReason.Declined, typeof(TValue)))
+        from key in IO.lift(static () => Conversions.Required(TypeAssistantServer.Find<TKey>(), call: typeof(TKey).ToString()))
+        from registered in IO.lift(RhinoFault.Unless(TypeAssistantServer.Register(assistant(key)), RhinoReason.Declined, typeof(TValue)))
         from converted in conversions
         from restorable in Assistant<TValue>()
         select unit;
@@ -330,6 +322,6 @@ public static class DataTypes {
             (Optional(type.Assembly.GetCustomAttribute<GuidAttribute>()).Bind(static declared => parseGuid(declared.Value))
                 | Optional(Grasshopper2.Framework.PluginServer.FindPluginForObject(type)).Map(static plugin => plugin.Id)
                 | Session.BoundPlugIn.Map(static plugIn => plugIn.Id))
-            .IfNone(() => throw new GrasshopperFault(type, GrasshopperReason.Missing).ToException()),
+            .IfNone(() => throw new RhinoFault(type, RhinoReason.Missing).ToException()),
             type.ToString());
 }

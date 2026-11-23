@@ -133,34 +133,27 @@ public abstract partial record GradientShape {
 
     public sealed record Linear(float Angle) : GradientShape {
         internal override SKShader Shader(SKRect frame, SKColorF[] colors, float[] positions) {
-            using SKColorSpace space = SKColorSpace.CreateSrgb();
             (float sin, float cos) = MathF.SinCos(float.DegreesToRadians(Angle));
             float reach = (MathF.Abs(cos * frame.Width) + MathF.Abs(sin * frame.Height)) / 2f;
             SKPoint along = new(cos * reach, sin * reach);
-            return SKShader.CreateLinearGradient(new SKPoint(frame.MidX, frame.MidY) - along, new SKPoint(frame.MidX, frame.MidY) + along, colors, space, positions, SKShaderTileMode.Clamp);
+            return SKShader.CreateLinearGradient(new SKPoint(frame.MidX, frame.MidY) - along, new SKPoint(frame.MidX, frame.MidY) + along, colors, colorspace: null, positions, SKShaderTileMode.Clamp);
         }
     }
 
     public sealed record Radial(UnitPoint Center) : GradientShape {
-        internal override SKShader Shader(SKRect frame, SKColorF[] colors, float[] positions) {
-            using SKColorSpace space = SKColorSpace.CreateSrgb();
-            SKPoint center = Point(frame, Center);
-            return SKShader.CreateRadialGradient(center, Reach(frame, center), colors, space, positions, SKShaderTileMode.Clamp);
-        }
+        internal override SKShader Shader(SKRect frame, SKColorF[] colors, float[] positions) =>
+            Point(frame, Center) switch { var center => SKShader.CreateRadialGradient(center, Reach(frame, center), colors, colorspace: null, positions, SKShaderTileMode.Clamp) };
     }
 
     public sealed record Sweep(UnitPoint Center, float Start) : GradientShape {
-        internal override SKShader Shader(SKRect frame, SKColorF[] colors, float[] positions) {
-            using SKColorSpace space = SKColorSpace.CreateSrgb();
-            return SKShader.CreateSweepGradient(Point(frame, Center), colors, space, positions, SKShaderTileMode.Clamp, Start, Start + 360f);
-        }
+        internal override SKShader Shader(SKRect frame, SKColorF[] colors, float[] positions) =>
+            SKShader.CreateSweepGradient(Point(frame, Center), colors, colorspace: null, positions, SKShaderTileMode.Clamp, Start, Start + 360f);
     }
 
     public sealed record Conical(UnitPoint From, Fraction FromRadius, UnitPoint To, Fraction ToRadius) : GradientShape {
-        internal override SKShader Shader(SKRect frame, SKColorF[] colors, float[] positions) {
-            using SKColorSpace space = SKColorSpace.CreateSrgb();
-            (SKPoint start, SKPoint end) = (Point(frame, From), Point(frame, To));
-            return SKShader.CreateTwoPointConicalGradient(start, (float)FromRadius * Reach(frame, start), end, (float)ToRadius * Reach(frame, end), colors, space, positions, SKShaderTileMode.Clamp);
-        }
+        internal override SKShader Shader(SKRect frame, SKColorF[] colors, float[] positions) =>
+            (Point(frame, From), Point(frame, To)) switch {
+                var (start, end) => SKShader.CreateTwoPointConicalGradient(start, (float)FromRadius * Reach(frame, start), end, (float)ToRadius * Reach(frame, end), colors, colorspace: null, positions, SKShaderTileMode.Clamp),
+            };
     }
 }

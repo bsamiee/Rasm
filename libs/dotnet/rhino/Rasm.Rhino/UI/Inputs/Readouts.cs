@@ -61,7 +61,7 @@ public sealed record ProgressRow<TValue>(ReadoutSource<Loading<TValue>> Source) 
         from live in first.Source.Live(static _ => use(static () => new ProgressBar { MinValue = 0 }), Indicated, scope)
         select new RowCells(live, IO.pure(unit));
 
-    private static IO<Unit> Indicated(ProgressBar bar, Loading<TValue> work) =>
+    internal static IO<Unit> Indicated(ProgressBar bar, Loading<TValue> work) =>
         IO.lift(() => {
             (bar.Visible, bar.Indeterminate, bar.MaxValue, bar.Value) = work.Switch(
                 pending: static pending => pending.Work.Match(
@@ -118,10 +118,9 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
         content.Switch(
             shown,
             pending: static (_, pending) =>
-                from bar in use(() => new ProgressBar { Indeterminate = pending.Work.IsNone })
-                from ranged in IO.lift(() => pending.Work.Iter(progress => (bar.MaxValue, bar.Value) = progress.Positions))
+                from bar in use(static () => new ProgressBar())
+                from ranged in ProgressRow<TValue>.Indicated(bar, pending)
                 select (Control)bar,
             ready: static (held, ready) => held(ready.Value),
             failed: static (_, _) => use(static () => new Panel()).Map(static panel => (Control)panel));
-
 }

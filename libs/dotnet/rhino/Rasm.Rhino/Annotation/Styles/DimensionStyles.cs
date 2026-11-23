@@ -90,7 +90,7 @@ public static class DimensionStyles {
 
     public static IO<DimensionStyle> Effective(RhinoDoc doc, AnnotationBase annotation, Option<DimensionStyle> parent) =>
         from held in parent.Match(Some: static style => IO.pure(style), None: () => Parent(doc, annotation))
-        from effective in Products.Of(() => annotation.GetDimensionStyle(held))
+        from effective in use(Products.Of(() => annotation.GetDimensionStyle(held)))
         select effective;
 
     // --- [AUTHORING]
@@ -163,8 +163,7 @@ public static class DimensionStyles {
             (from parent in Parent(doc, annotation)
              from rooted in IO.lift(RhinoFault.Unless(!parent.IsChild, RhinoReason.Unsupported, (parent.Name, parent.ParentId)))
              from effective in Effective(doc, annotation, Some(parent))
-             from staged in Products.Of(() => effective.Duplicate(parent.Name, parent.Id, Guid.Empty))
-             from plain in IO.lift(staged.ClearAllFieldOverrides)
+             from staged in use(Products.Of(() => effective.Duplicate(parent.Name, parent.Id, Guid.Empty)))
              from saved in Products.Accepted(() => doc.DimStyles.Modify(staged, parent.Index, quiet: true))
              from cleared in Products.Accepted(annotation.ClearPropertyOverrides)
              select cleared).Bracket()).As());

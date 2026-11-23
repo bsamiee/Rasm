@@ -25,27 +25,9 @@ public static class Conversions {
 
     public static Vector3d Unset(Option<Vector3d> vector) => vector.IfNone(Vector3d.Unset);
 
-    public static float Unset(Option<float> scalar) => scalar.IfNone(RhinoMath.UnsetSingle);
-
-    public static Plane Unset(Option<Plane> plane) => plane.IfNone(Plane.Unset);
-
-    public static Line Unset(Option<Line> line) => line.IfNone(Line.Unset);
-
-    public static Arc Unset(Option<Arc> arc) => arc.IfNone(Arc.Unset);
-
-    public static BoundingBox Unset(Option<BoundingBox> box) => box.IfNone(BoundingBox.Empty);
-
-    public static Transform Unset(Option<Transform> xform) => xform.IfNone(Transform.Unset);
-
     public static ComponentIndex Unset(Option<ComponentIndex> index) => index.IfNone(ComponentIndex.Unset);
 
-    public static CurveOrientation Unset(Option<CurveOrientation> orientation) => orientation.IfNone(CurveOrientation.Undefined);
-
-    public static PointContainment Unset(Option<PointContainment> containment) => containment.IfNone(PointContainment.Unset);
-
     public static Color Unset(Option<Color> color) => color.IfNone(Color.Empty);
-
-    public static Rectangle Unset(Option<Rectangle> rectangle) => rectangle.IfNone(Rectangle.Empty);
 
     public static Option<Guid> Present(Guid id) => Some(id).Filter(static value => value != Guid.Empty);
 
@@ -61,27 +43,15 @@ public static class Conversions {
 
     public static Option<Vector3d> Present(Vector3d vector) => Some(vector).Filter(static value => value.IsValid);
 
-    public static Option<float> Present(float scalar) => Some(scalar).Filter(RhinoMath.IsValidSingle);
-
     public static Option<Plane> Present(Plane plane) => Some(plane).Filter(static value => value.IsValid);
 
     public static Option<Line> Present(Line line) => Some(line).Filter(static value => value.IsValid);
 
-    public static Option<Arc> Present(Arc arc) => Some(arc).Filter(static value => value.IsValid);
-
     public static Option<BoundingBox> Present(BoundingBox box) => Some(box).Filter(static value => value.IsValid);
-
-    public static Option<Transform> Present(Transform xform) => Some(xform).Filter(static value => value.IsValid);
 
     public static Option<ComponentIndex> Present(ComponentIndex index) => Some(index).Filter(static value => !value.IsUnset());
 
-    public static Option<CurveOrientation> Present(CurveOrientation orientation) => Some(orientation).Filter(static value => value is not CurveOrientation.Undefined);
-
-    public static Option<PointContainment> Present(PointContainment containment) => Some(containment).Filter(static value => value is not PointContainment.Unset);
-
     public static Option<Color> Present(Color color) => Some(color).Filter(static value => !value.IsEmpty);
-
-    public static Option<Rectangle> Present(Rectangle rectangle) => Some(rectangle).Filter(static value => !value.IsEmpty);
 
     public static Option<uint> Serial(RhinoDoc? document) => Optional(document).Map(static value => value.RuntimeSerialNumber);
 

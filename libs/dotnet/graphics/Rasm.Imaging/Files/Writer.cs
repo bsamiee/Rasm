@@ -101,8 +101,6 @@ public abstract partial record ImageFile {
             new(TiffTag.EXIF_FOCALLENGTH, 1, 1, TiffType.RATIONAL, FieldBit.Custom, okToChange: true, passCount: false, "FocalLength"),
         ];
 
-        public static Seq<string> FileExtensions { get; } = ["dng"];
-
         public Option<string> Make { get; init; }
         public Option<string> Model { get; init; }
 

@@ -15,16 +15,12 @@ public sealed partial class DrawingScale {
     public static Fin<DrawingScale> Validated(QuantityValue ratio) =>
         DraftingFault.Unless(QuantityValue.IsFinite(ratio) && ratio > QuantityValue.Zero, DraftingReason.ScaleRatio, ratio).Map(_ => new DrawingScale(ratio));
 
-    public static Fin<DrawingScale> Parse(string text) {
-        const int TermCount = 2;
-        Span<System.Range> tokens = stackalloc System.Range[TermCount + 1];
-        ReadOnlySpan<char> source = text;
-        return source.Split(tokens, ':') == TermCount
-            ? (Term(text, source[tokens[0]]), Term(text, source[tokens[1]])).Apply(static (paper, model) => QuantityValue.FromTerms(paper, model)).As().Bind(Validated)
+    public static Fin<DrawingScale> Parse(string text) =>
+        text.Split(':') is [var paper, var model]
+            ? (Term(text, paper), Term(text, model)).Apply(static (paper, model) => QuantityValue.FromTerms(paper, model)).As().Bind(Validated)
             : new DraftingFault(text, DraftingReason.ScaleRatio);
-    }
 
-    private static Fin<BigInteger> Term(string text, ReadOnlySpan<char> term) =>
+    private static Fin<BigInteger> Term(string text, string term) =>
         BigInteger.TryParse(term, NumberStyles.None, CultureInfo.InvariantCulture, out BigInteger value) && !value.IsZero ? value : new DraftingFault(text, DraftingReason.ScaleRatio);
 
     public override string ToString() => Terms switch { var (paper, model) => string.Create(CultureInfo.InvariantCulture, $"{paper}:{model}") };

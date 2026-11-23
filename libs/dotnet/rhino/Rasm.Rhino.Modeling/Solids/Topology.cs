@@ -42,12 +42,10 @@ public static class SolidTopology {
             picks: static (state, picks) => (
                 Accepted: Brep.ExtendBrepFacesToConnect(state.Face0, picks.Pick0, state.Face1, picks.Pick1, state.Tolerances.Absolute, state.Tolerances.Angle, out Brep extended0, out Brep extended1),
                 First: extended0, Second: extended1)))
-        from first in Products.Maybe(() => answered.First, nameof(Brep.ExtendBrepFacesToConnect))
-        from second in Products.Maybe(() => answered.Second, nameof(Brep.ExtendBrepFacesToConnect))
-        from connected in IO.lift(from accepted in RhinoFault.Unless(answered.Accepted, RhinoReason.Declined, answered.Accepted)
-                                  from pair in (Conversions.Required(first), Conversions.Required(second)).Apply(static (held, other) => (Face0: held, Face1: other)).As()
-                                  select pair)
-        select connected;
+        from accepted in Products.Accepted(() => answered.Accepted, nameof(Brep.ExtendBrepFacesToConnect))
+        from first in Products.Of(() => answered.First, nameof(Brep.ExtendBrepFacesToConnect))
+        from second in Products.Of(() => answered.Second, nameof(Brep.ExtendBrepFacesToConnect))
+        select (first, second);
 
     // --- [SPLITS]
 
@@ -59,16 +57,10 @@ public static class SolidTopology {
     public static IO<(Seq<Brep> Pieces, Option<bool> ToleranceWasRaised)> Split(Tolerances tolerances, Brep brep, BrepCut cut) =>
         cut.Switch(
             (Brep: brep, Tolerance: tolerances.Absolute),
-            byBrep: static (at, cutter) =>
-                from answered in IO.lift(() => (Pieces: at.Brep.Split(cutter.Cutter, at.Tolerance, out bool raised), Raised: raised))
-                from pieces in Products.Many(() => answered.Pieces, required: false, nameof(Brep.Split))
-                select (Pieces: pieces, ToleranceWasRaised: Some(answered.Raised)),
-            byBreps: static (at, cutters) => Products.Many(() => at.Brep.Split(cutters.Cutters, at.Tolerance), required: false)
-                .Map(static pieces => (Pieces: pieces, ToleranceWasRaised: Option<bool>.None)),
-            byCurves: static (at, cutters) => Products.Many(() => at.Brep.Split(cutters.Cutters, at.Tolerance), required: false)
-                .Map(static pieces => (Pieces: pieces, ToleranceWasRaised: Option<bool>.None)),
-            byProjection: static (at, cutters) => Products.Many(() => at.Brep.Split(cutters.Cutters, cutters.Normal, cutters.PlanView, at.Tolerance), required: false)
-                .Map(static pieces => (Pieces: pieces, ToleranceWasRaised: Option<bool>.None)));
+            byBrep: static (at, cutter) => Products.Many(() => (at.Brep.Split(cutter.Cutter, at.Tolerance, out bool raised), Some(raised)), required: false),
+            byBreps: static (at, cutters) => Products.Many(() => (at.Brep.Split(cutters.Cutters, at.Tolerance), Option<bool>.None), required: false),
+            byCurves: static (at, cutters) => Products.Many(() => (at.Brep.Split(cutters.Cutters, at.Tolerance), Option<bool>.None), required: false),
+            byProjection: static (at, cutters) => Products.Many(() => (at.Brep.Split(cutters.Cutters, cutters.Normal, cutters.PlanView, at.Tolerance), Option<bool>.None), required: false));
 
     public static IO<(Seq<Brep> Kept, Seq<Brep> CutAway)> WireCut(Tolerances tolerances, Brep brep, WireCutter cutter, Vector3d direction, bool splitKinkyFaces) =>
         from wired in IO.lift(() => cutter.Switch(

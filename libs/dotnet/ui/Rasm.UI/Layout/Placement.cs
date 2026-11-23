@@ -66,7 +66,7 @@ internal abstract partial record LayoutNode {
 
     internal bool HasBackground => View.Role.IsSome && View.Painting.AcceptsBackground && (!Style.Fills.IsEmpty || !Style.Strokes.IsEmpty);
 
-    internal Option<Text> TextNode => Switch(box: static _ => Option<Text>.None, text: static text => Some(text));
+    internal Option<Text> TextNode => Optional(this as Text);
 
     internal float Alpha(SKColorSpace target) => (Style.Dimmed && !Cascade.Enclosing.Dimmed ? Cascade.Theme.DisabledOpacity(target) : 1f) * (float)View.Opacity;
 

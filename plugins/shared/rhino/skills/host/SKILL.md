@@ -1,6 +1,6 @@
 ---
 name: host
-description: "Use when driving a Rhino document, .3dm file, or Grasshopper 2 canvas or debugging a plug-in in a running Rhino, covering background MCP sessions and attach routes"
+description: "Use when driving a Rhino document, .3dm file, or Grasshopper 2 canvas or debugging a plug-in or script in a running Rhino, covering background MCP sessions, debugger attaches, and script breakpoints"
 ---
 
 # [RHINO_HOST]
@@ -49,22 +49,68 @@ Members of RhinoCommon and Grasshopper 2 read from their assemblies:
 
 Rhino runs plug-ins on its bundled .NET under the hardened runtime, and each route takes the `pid` of a `watch-app` line:
 
-| [INDEX] | [READS]                          | [ROUTE]                                                              |
-| :-----: | :------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | Plug-in state                    | `run_csharp` reading its statics and RhinoCommon members             |
-|  [02]   | Stack of each managed thread     | `dnx --yes dotnet-stack report -p <pid>`                             |
-|  [03]   | Stack and values at a breakpoint | `netcoredbg --interpreter=cli --attach <pid> --command=<file>`       |
-|  [04]   | Runtime events                   | `dnx --yes dotnet-trace collect -p <pid> -o <file>`                  |
-|  [05]   | Heap, GC, and thread counts      | `dnx --yes dotnet-counters collect -p <pid> --format json -o <file>` |
-|  [06]   | Commands run and lines printed   | Command log below                                                    |
+| [INDEX] | [READS]                                | [ROUTE]                                                                             |
+| :-----: | :------------------------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | Plug-in state                          | `run_csharp` reading its statics and RhinoCommon members                            |
+|  [02]   | Stack of each managed thread           | `dotnet-stack report -p <pid>`                                                      |
+|  [03]   | Stops, locals, expressions in plug-ins | `debugger` server, attached before the plug-in loads                                |
+|  [04]   | Stops, locals, steps in scripts        | RhinoCode script debugger below                                                     |
+|  [05]   | Runtime events                         | `dotnet-trace collect -p <pid> --duration <dd:hh:mm:ss> -o <file>`                  |
+|  [06]   | Heap, GC, and thread counts            | `dotnet-counters collect -p <pid> --format json --duration <dd:hh:mm:ss> -o <file>` |
+|  [07]   | Commands run and lines printed         | Command log below                                                                   |
 
-- `lldb -p <pid>` and `dotnet-dump collect` are refused (`task_for_pid`), since Rhino holds no `get-task-allow` entitlement
+- Rhino holds no `get-task-allow`, so `lldb -p <pid>` and `dotnet-dump collect` fail `task_for_pid`, and netcoredbg attaches over debugger pipes
 - Rhino command `TestKeepDebuggable` sets `MRKeepDebuggableAfterUpdate`, and Rhino re-signs itself ad hoc with `get-task-allow` once per build
 - Ad hoc signatures drop Rhino's TCC grants, so `defaults delete com.mcneel.rhinoceros.9 MRKeepDebuggableAfterUpdate` follows the session
-- `netcoredbg` reads `interrupt`, `info threads`, `backtrace`, `break <file>:<line>`, `print <expression>`, `continue`, `detach`, and `quit`, one per line
-- `interrupt` stops every thread, so `continue` or `detach` precedes the next MCP call
-- Breakpoints in Rhino's own optimized assemblies stay pending, and `--duration <dd:hh:mm:ss>` bounds a `collect`
-- People debug in VS Code through the `coreclr` launch configuration `dotnet new rhino` writes
+
+`debugger` tools load through ToolSearch as `mcp__plugin_tool_debugger__<tool>`, and a plug-in session runs in order:
+1. `nx install <project> -c debug` installs an unoptimized build where Rhino loads it, before the launch
+2. `create_debug_session` takes `language` `dotnet`, then `attach_to_process` takes `processId` `<pid>` and `stopOnEntry` false
+3. `set_breakpoint` takes `file` as the repository path and `line`, and reads `verified` false until the module loads
+4. `run_csharp` loads the plug-in with `PlugIn.LoadPlugIn(<guid>)` and starts the code under test on a worker through `Task.Run`
+5. `wait_for_stop` returns frames and locals, and `get_stack_trace`, `get_local_variables`, and `evaluate_expression` read the stop
+6. `continue_execution`, `detach_from_process`, and `close_debug_session` leave Rhino running
+
+Plug-in sessions follow runtime rules:
+- Products put `<Name>.rhp` without symbols in Rhino's context and run `lib/<Name>.dll` beside `lib/<Name>.pdb` in their own load context
+- Other Rasm assemblies embed their PDB, and every PDB holds repository paths and sources, so breakpoints bind with no `sourceFileMap`
+- Breakpoints bind in the first loaded module holding their line, so library code each plug-in copies stops in the first plug-in alone
+- CI builds set `ContinuousIntegrationBuild`, which writes `/_/` in place of the repository root, and take a `sourceFileMap` from `/_/` to it
+- Debug builds stop at breakpoints with locals readable, loaded before the attach or after it, plug-ins Rhino loads at startup included
+- Release modules loading after attach run unoptimized and stop, while Release modules loaded before attach never stop, `verified` true included
+- `attach` ignores `justMyCode`, so Just My Code stays on and treats optimized code as foreign
+- Stops pause every thread, so Rhino's interface and `rhino-mcp-platform` calls wait until `continue_execution`
+- Work started on Rhino's main thread (a `run_command` trigger) holds its call until the stop continues
+- Rhino unloads no plug-in and its runtime configuration turns `MetadataUpdater` off, so a rebuilt plug-in takes a quit, a launch, and a new attach
+- `netcoredbg --interpreter=cli --attach <pid>` stops every thread at attach until `continue`, and reads `set just-my-code 0`, `break <file>:<line>`, `backtrace`, `print <expression>`, `detach`, and `quit` from stdin
+
+RhinoCode traces C# and Python 3 scripts itself and pauses on a `Select Action` command-line prompt, with one `run_csharp` call starting a debug run:
+
+```csharp
+using Rhino.Runtime.Code;
+using Rhino.Runtime.Code.Execution;
+using Rhino.Runtime.Code.Execution.Debugging;
+var code = RhinoCode.CreateCode(new Uri("file://<script>"));
+var platform = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "RhinoCodePlatform.Rhino3D").GetType("RhinoCodePlatform.Rhino3D.Rhino3DPlatform");
+var controls = (DebugControls)platform.GetMethod("CreateDebugControls").Invoke(platform.GetProperty("Instance").GetValue(null), null);
+controls.Breakpoints.Add(new CodeReferenceBreakpoint(code, <line>));
+controls.Paused += paused => {
+    var frame = ((DebugControlsData)paused.Results).CurrentThread.CurrentFrame;
+    var slots = frame.TryGetSlots(out var held) ? string.Join(", ", held.Select(slot => $"{slot.Expression}={slot.ValueString}")) : "none";
+    System.IO.File.AppendAllText("<log>", $"{frame.Reference} {slots}\n");
+};
+code.DebugControls = controls;
+System.Threading.Tasks.Task.Delay(1000).ContinueWith(_ => Rhino.RhinoApp.InvokeOnUiThread((Action)(() => code.Debug(new DebugContext("<name>", true, true)))));
+```
+
+Script debug runs follow RhinoCode rules:
+- `.py` scripts resolve their language once `run_command` with `-_ScriptEditor _Run "<file.py>"` started Python 3 in that Rhino
+- `InvokeOnUiThread` called inside `run_csharp` runs the debug run inside that call, holding it until the script ends
+- Paused runs answer `run_csharp`, while `run_command`, `rhinocode command`, and `DebugControls.StepOver()` leave the prompt waiting
+- `watch-app set <field id> -- <option>`, then `watch-app key <pid> 36`, answers `Continue`, `StepIn`, `StepOver`, `StepOut`, `RunToEnd`, or `Stop`
+- Field ids are the first `AXTextField` of `watch-app read <pid> --window <number>`, and each answer makes the last id stale
+- Prompts ask again on any input other than an option
+- `ExecFrame.GetSlots` lists names and values, and `ExecFrame.TryEval` fails for C# and Python alike
 
 One `run_csharp` call registers a command log until Rhino quits, each command appending its English name, its result, and its command window lines to the `host` timeline of `watch-app watch --record <folder>`:
 

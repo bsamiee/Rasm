@@ -17,6 +17,7 @@
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion> <!-- Compiled output follows its hashed inputs, a commit alone recompiles nothing -->
         <EnableSourceLink>false</EnableSourceLink>
         <EmbedAllSources>true</EmbedAllSources> <!-- Debuggers read sources from the PDB in place of commit-pinned SourceLink URLs -->
+        <DebugType>embedded</DebugType> <!-- Every assembly carries its PDB, so a host loading it from an install folder binds breakpoints with no symbol file beside it -->
     </PropertyGroup>
 
     <PropertyGroup Label="Package Licenses">
@@ -50,7 +51,7 @@
     </ItemGroup>
 
     <PropertyGroup Label="Configurations">
-        <Configurations>Release</Configurations>
+        <Configurations>Release;Debug</Configurations>
         <Configuration>Release</Configuration>
     </PropertyGroup>
 

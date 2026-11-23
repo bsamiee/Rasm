@@ -443,8 +443,6 @@ public sealed partial class MagicNoise {
         return Centered(turned);
     }
 
-    public static Fin<MagicNoise> Validated(int depth, float distortion) => TryCreate(depth, distortion, out MagicNoise? noise, out ImagingFault? fault) ? noise : fault;
-
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int depth, ref float distortion) =>
         validationError = depth >= 0 && depth <= Turbulence.Length && float.IsFinite(distortion) ? null : ImagingFault.Of(ImagingReason.Range, (depth, distortion));
 

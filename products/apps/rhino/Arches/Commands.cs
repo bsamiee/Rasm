@@ -64,7 +64,7 @@ internal static class ArchPrompts {
             starting: static (at, start) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Unit>>(start.BothSides ? "Middle of span" : "Start of span") {
                 Accept = at.Kit.Accept,
                 Options = Seq(
-                    OptionSpecs.Of(OptionType.List(toSeq(at.Family.Choices), static choice => choice.Option), start.Choice, choice => at.Kit.Replace(start with { Choice = choice }), caption: Type),
+                    OptionSpecs.Of(OptionType.List(toSeq(at.Family.Choices), static choice => choice.Face.Option), start.Choice, choice => at.Kit.Replace(start with { Choice = choice }), caption: Type),
                     Toggle(at.Kit, BothSides, LabelPair.NoYes, start.BothSides, both => start with { BothSides = both })),
             }, pick => Conversions.Required(pick.Pick.View).Match(
                 Succ: view => at.Kit.Advance(new ArchStage.Ending(start.Choice, start.BothSides, pick.Pick.Point, view.ConstructionPlane.Normal, Flip: false)),

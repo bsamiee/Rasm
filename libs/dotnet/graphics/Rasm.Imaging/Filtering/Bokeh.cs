@@ -111,9 +111,6 @@ public sealed partial class Iris {
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int blades, ref double rotation, ref double roundness, ref double obstruction, ref double squeeze) =>
         validationError = blades >= 3 && double.IsFinite(rotation) && roundness is >= 0d and <= 1d && obstruction is >= 0d and <= 1d && double.IsFinite(squeeze) && squeeze > 0d ? null
             : ImagingFault.Of(ImagingReason.Range, (blades, rotation, roundness, obstruction, squeeze));
-
-    public static Fin<Iris> Validated(int blades, double rotation, double roundness, double obstruction, double squeeze) =>
-        TryCreate(blades, rotation, roundness, obstruction, squeeze, out Iris? iris, out ImagingFault? fault) ? iris : fault;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

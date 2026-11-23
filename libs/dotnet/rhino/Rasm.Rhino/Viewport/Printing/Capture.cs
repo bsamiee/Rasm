@@ -71,9 +71,9 @@ public static class ViewCaptures {
          from pages in IO.lift(() => toSeq(rows.Choose(static row => Optional(row.View as RhinoPageView)).DistinctBy(static page => page.RuntimeSerialNumber))
              .Map(static page => (Page: page, Active: Conversions.Present(page.ActiveDetailId))).Strict())
          let restores = overlays.Map(static overlay => overlay.Restore)
-             + pages.Map(static held => held.Active.Match(Some: id => Products.Accepted(() => held.Page.SetActiveDetail(id)), None: () => IO.lift(held.Page.SetPageAsActive)))
+             + pages.Map(static held => Viewports.Activate(held.Page, held.Active))
              + Seq(ObjectTarget.Reselected(selected))
-         from value in Products.Each(overlays.Map(static overlay => overlay.Clear) + pages.Map(static held => IO.lift(held.Page.SetPageAsActive)) + Seq(IO.lift(() => ignore(doc.Objects.UnselectAll()))))
+         from value in Products.Each(overlays.Map(static overlay => overlay.Clear) + pages.Map(static held => Viewports.Activate(held.Page, None)) + Seq(IO.lift(() => ignore(doc.Objects.UnselectAll()))))
              .Bind(_ => body)
              .Finally(Products.Each(restores).Map(unit))
          select value).Bracket();

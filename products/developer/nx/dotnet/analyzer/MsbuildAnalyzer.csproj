@@ -5,7 +5,6 @@
         <RollForward>LatestMajor</RollForward>
         <ServerGarbageCollection>true</ServerGarbageCollection>
         <UseAppHost>false</UseAppHost>
-        <DebugType>embedded</DebugType>
         <IsPublishable>true</IsPublishable>
         <PublishDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'dist'))</PublishDir>
     </PropertyGroup>

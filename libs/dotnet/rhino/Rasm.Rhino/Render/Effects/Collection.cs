@@ -10,6 +10,7 @@ using Rhino;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI.Controls;
+using Rhino.UI.Controls.DataSource;
 
 namespace Rasm.Rhino.Render.Effects;
 
@@ -49,7 +50,7 @@ public static class EffectList {
 
     // --- [ENTRIES]
 
-    public const string StateKey = "state";
+    internal const string StateKey = "state";
 
     private const PostEffectType ToneMappingStage = PostEffectType.ToneMapping + 1;
 
@@ -87,7 +88,7 @@ public static class EffectList {
         source.Switch(
             (Effect: typeof(TEffect).GUID, Text: Encoded(state)),
             document: static (tuned, held) => RenderSettingsSources.Edit(held.Doc, scope => Edit(scope.Settings, [Tuned(tuned.Effect, tuned.Text)])),
-            section: static (tuned, held) => SectionModels.Write(held.Host, Provider.RdkRenderingPostEffects, _ =>
+            section: static (tuned, held) => SectionModels.Write(held.Host, new ProviderId<IDisposable>(ProviderIds.RdkRenderingPostEffects), _ =>
                 IO.lift(() => Listed(held.Host).Find(listed => listed.Id == tuned.Effect).ToFin(Missing(tuned.Effect)))
                     .Bind(listed => Products.Accepted(() => listed.SetParam(StateKey, tuned.Text)))));
 
