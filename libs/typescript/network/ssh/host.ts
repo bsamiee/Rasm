@@ -22,11 +22,10 @@ const endpoint = {
     trust: Schema.TaggedUnion({ HostKeys: { keys: Schema.NonEmptyArray(Line) }, Authority: { keys: Schema.NonEmptyArray(Line) } }),
     ...dial,
 };
-const Hop = Schema.Struct(endpoint);
 const Preferred = Schema.Struct({ ...dial, within: Seconds }).annotate({ description: 'Dial tried before host and port, on the host port when it states none, taken when a login there answers within its time' });
 class Host extends Schema.Class<Host, { readonly brand: unique symbol }>('Host')({
     ...endpoint,
-    path: Schema.TaggedUnion({ Direct: { preferred: Schema.Array(Preferred) }, Jump: { hops: Schema.NonEmptyArray(Hop) } }).annotate({
+    path: Schema.TaggedUnion({ Direct: { preferred: Schema.Array(Preferred) }, Jump: { hops: Schema.NonEmptyArray(Schema.Struct(endpoint)) } }).annotate({
         description: 'Direct connects to the first preferred dial a login answers, else to host and port, chosen by each connection that starts; Jump connects through its hops in order',
     }),
     persist: Seconds.annotate({ description: 'ControlPersist, the time an idle shared connection stays open for the next ssh process' }),

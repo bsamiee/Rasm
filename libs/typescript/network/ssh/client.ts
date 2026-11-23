@@ -1,7 +1,7 @@
 import { ExitError, run, spawn } from '@rasm/process';
 import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Path, pipe, Record, Schema, Stream } from 'effect';
 import { type ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { type Dynamic, Forward, type Local, type Remote } from '#/forward';
+import { Forward } from '#/forward';
 import { type Host, Line } from '#/host';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -79,14 +79,14 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
                 yield* Cache.get(shared, host);
                 return yield* captured(host.copy(path, root, source, target)).pipe(Effect.catchTag('ExitError', settled(host)), Effect.asVoid);
             }),
-            forward: Effect.fn('Ssh.forward')(function* (host: Host, wanted: Local | Remote | Dynamic) {
+            forward: Effect.fn('Ssh.forward')(function* (host: Host, wanted: Parameters<typeof Forward.argv>[0]) {
                 yield* Cache.get(placed, host);
                 const socket = path.join(yield* fs.makeTempDirectoryScoped(), 'control');
                 const holder = yield* started(yield* Effect.fromResult(host.command(path, root, ['sh', '-c', 'echo && exec cat'], [], Option.some(socket))), { stdin: 'pipe' });
                 const refused = Effect.flatMap(Stream.mkString(Stream.decodeText(holder.stderr)), (printed) => SshError.of({ _tag: 'Unreachable', stderr: printed }, host.name));
                 yield* Effect.flatMap(Stream.runHead(holder.stdout), Option.match({ onSome: () => Effect.void, onNone: () => refused }));
                 const { stdout } = yield* captured(host.request(socket, 'forward', ...Forward.argv(wanted))).pipe(Effect.catchTag('ExitError', ({ stderr }) => SshError.of({ _tag: 'Refused', stderr }, host.name)));
-                return yield* Forward.bound(wanted, stdout);
+                return yield* Forward.bound(stdout)(wanted);
             }),
         };
     }),
