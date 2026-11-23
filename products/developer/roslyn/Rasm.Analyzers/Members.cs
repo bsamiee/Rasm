@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Analyzer.Utilities;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.FlowAnalysis;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace Rasm.Analyzers;
@@ -285,6 +286,72 @@ public sealed class PlatformMemberAnalyzer : DiagnosticAnalyzer {
                 : Among(member, lanes) ? [Diagnostic.Create(Lanes, operation.Syntax.GetLocation(), operation.Syntax)]
                 : defects.FirstOrDefault(row => Same(row.Member, member)) is { Member: not null } row ? [Diagnostic.Create(Defect, operation.Syntax.GetLocation(), operation.Syntax, row.Fact, row.Remedy)]
                 : []);
+        });
+    }
+}
+
+[DiagnosticAnalyzer(LanguageNames.CSharp)]
+public sealed class EncodedHandoffAnalyzer : DiagnosticAnalyzer {
+
+    // --- [RULES]
+
+    private static readonly DiagnosticDescriptor Rule = new(
+        "RASM3115",
+        "Raster handed over through an encoded image, copy the pixels",
+        "`{0}` decodes pixels `{1}` encoded in the same code, copy the pixels between the rasters",
+        Categories.CSharp,
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        "Pixels pass between SkiaSharp, Eto, and System.Drawing rasters by pixel copy (`SKImage.FromPixelCopy`, `ReadPixels`, `Bitmap.Lock`), never through an image the same code encodes and decodes.",
+        Link("RASM3115"));
+
+    private static readonly ImmutableArray<(string Type, string Member)> Encoders = [
+        ("SkiaSharp.SKImage", "Encode"), ("SkiaSharp.SKBitmap", "Encode"), ("SkiaSharp.SKPixmap", "Encode"),
+        ("Eto.Drawing.Bitmap", "ToByteArray"), ("Eto.Drawing.Bitmap", "Save"), ("System.Drawing.Image", "Save"),
+    ];
+
+    private static readonly ImmutableArray<(string Type, string Member)> Decoders = [
+        ("SkiaSharp.SKImage", "FromEncodedData"), ("SkiaSharp.SKBitmap", "Decode"), ("SkiaSharp.SKCodec", "Create"), ("System.Drawing.Image", "FromStream"),
+        ("Eto.Drawing.Bitmap", WellKnownMemberNames.InstanceConstructorName), ("Eto.Drawing.Icon", WellKnownMemberNames.InstanceConstructorName),
+        ("System.Drawing.Bitmap", WellKnownMemberNames.InstanceConstructorName),
+    ];
+
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
+
+    public override void Initialize(AnalysisContext context) {
+        context.EnableConcurrentExecution();
+        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+        context.RegisterCompilationStartAction(static start => {
+            WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(start.Compilation);
+            INamedTypeSymbol? stream = types.GetOrCreateTypeByMetadataName("System.IO.Stream");
+            ImmutableArray<IMethodSymbol> encoders = [.. Encoders.SelectMany(row => Members(types.GetOrCreateTypeByMetadataName(row.Type), row.Member))];
+            ImmutableArray<IMethodSymbol> decoders = [.. Decoders.SelectMany(row => Members(types.GetOrCreateTypeByMetadataName(row.Type), row.Member))
+                .Where(method => method.MethodKind is not MethodKind.Constructor
+                    || method.Parameters.Any(parameter => Same(parameter.Type, stream) || parameter.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Byte }))];
+            if (encoders.IsEmpty || decoders.IsEmpty) return;
+            ControlFlow flow = ControlFlow.For(start.Compilation);
+            IInvocationOperation? Encoded(IOperation decode, CancellationToken token) {
+                Stack<ControlFlow.Value> pending = new(decode.ChildOperations.OfType<IArgumentOperation>().Select(static argument => ControlFlow.At(argument.Value)));
+                HashSet<ControlFlow.Value> seen = [];
+                HashSet<ISymbol> carriers = [with(SymbolEqualityComparer.Default)];
+                while (pending.Count is > 0) {
+                    token.ThrowIfCancellationRequested();
+                    ControlFlow.Value current = pending.Pop();
+                    if (!seen.Add(current)) continue;
+                    foreach (IOperation part in current.Operation.DescendantsAndSelf()) {
+                        if (part is IInvocationOperation call && Among(call.TargetMethod, encoders)) return call;
+                        if (part is not (ILocalReferenceOperation or IFlowCaptureReferenceOperation)) continue;
+                        if (Variable(part) is { } carrier) carriers.Add(carrier);
+                        foreach (Optional<ControlFlow.Value> definition in flow.Values(current.With(part), token).Where(static definition => definition.HasValue)) pending.Push(definition.Value);
+                    }
+                }
+                return Root(decode).DescendantsAndSelf().OfType<IInvocationOperation>()
+                    .FirstOrDefault(call => Among(call.TargetMethod, encoders) && call.Arguments.Any(argument => Variable(Stripped(argument.Value)) is { } held && carriers.Contains(held)));
+            }
+            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.ObjectCreation], (operation, analysis) =>
+                Target(operation) is IMethodSymbol decoder && Among(decoder, decoders) && Encoded(operation, analysis.CancellationToken) is { } encoder
+                    ? [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), Label(decoder), Label(encoder.TargetMethod))]
+                    : []);
         });
     }
 }

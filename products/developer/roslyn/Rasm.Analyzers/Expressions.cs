@@ -138,3 +138,72 @@ public sealed class TypeParameterTestAnalyzer : DiagnosticAnalyzer {
         });
     }
 }
+
+[DiagnosticAnalyzer(LanguageNames.CSharp)]
+public sealed class UnvisitedRecursionAnalyzer : DiagnosticAnalyzer {
+
+    // --- [RULES]
+
+    private static readonly DiagnosticDescriptor Rule = new(
+        "RASM3114",
+        "Recursion over a keyed relation without a visited set, mark visited nodes",
+        "`{0}` recurses into successors `{1}` looked up by `{2}` with no visited set, test a set of visited nodes or walk a graph traversal",
+        Categories.CSharp,
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        "Successors read from an indexer or function keyed by the current node form a graph that can cycle, so recursion over them tests a set of visited nodes or walks a graph traversal.",
+        Link("RASM3114"));
+
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
+
+    public override void Initialize(AnalysisContext context) {
+        context.EnableConcurrentExecution();
+        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+        context.RegisterCompilationStartAction(static start => Report<IOperation>(start, [OperationKind.Invocation, OperationKind.MethodReference], static (site, analysis) =>
+            Recursion(site) is ( { } target, var passed)
+            && (Ancestor<ILocalFunctionOperation>(site, function => Same(function.Symbol, target)) is { } local ? (local.Symbol, local) : (analysis.ContainingSymbol, Root(site))) is (IMethodSymbol owner, var body)
+            && Same(target, owner)
+            && passed.Select(pair => (pair.Source, pair.Parameter, Relation: Relation(pair.Source, pair.Parameter, owner))).FirstOrDefault(static pair => pair.Relation is not null) is { Relation: var (relation, key) } found
+            && !Visits(body, site, relation, found.Parameter.Type)
+                ? [Diagnostic.Create(Rule, site.Syntax.GetLocation(), owner.Name, Stripped(found.Source).Syntax, key.Name)]
+                : []));
+    }
+
+    // --- [ANALYSIS]
+
+    private static (IMethodSymbol Target, ImmutableArray<(IOperation Source, IParameterSymbol Parameter)> Passed)? Recursion(IOperation site) =>
+        site switch {
+            IInvocationOperation call => (call.TargetMethod, [.. call.Arguments.Where(static argument => argument.Parameter is not null)
+                .Select(argument => (Source: Successors(argument.Value, site), Parameter: argument.Parameter!)).Where(static pair => pair.Source is not null).Select(static pair => (pair.Source!, pair.Parameter))]),
+            IMethodReferenceOperation { Method.Parameters: { Length: 1 } parameters } group when Consumer(group) is IDelegateCreationOperation creation
+                && Consumer(creation) is IArgumentOperation { Parent: IInvocationOperation call } && Receiver(call) is { } receiver => (group.Method, [(receiver, parameters[0])]),
+            _ => null,
+        };
+
+    private static IOperation? Successors(IOperation value, IOperation site) =>
+        Stripped(value) switch {
+            ILocalReferenceOperation local => Ancestor<IForEachLoopOperation>(site, loop => loop.Locals.Contains(local.Local, SymbolEqualityComparer.Default))?.Collection,
+            IParameterReferenceOperation { Parameter.ContainingSymbol: IMethodSymbol { MethodKind: MethodKind.AnonymousFunction } lambda } =>
+                Ancestor<IAnonymousFunctionOperation>(site, function => Same(function.Symbol, lambda)) is { } function
+                && Ancestor<IArgumentOperation>(function, static _ => true) is { Parent: IInvocationOperation call } ? Receiver(call) : null,
+            _ => null,
+        };
+
+    private static (IOperation Relation, IParameterSymbol Key)? Relation(IOperation source, IParameterSymbol parameter, IMethodSymbol owner) =>
+        Stripped(source) switch {
+            IPropertyReferenceOperation { Property.IsIndexer: true, Instance: { } relation, Arguments: { Length: 1 } arguments } => (relation, arguments[0].Value),
+            IInvocationOperation { TargetMethod.MethodKind: MethodKind.DelegateInvoke, Instance: { } relation, Arguments: { Length: 1 } arguments } => (relation, arguments[0].Value),
+            _ => default((IOperation, IOperation)?),
+        } is var (held, key) && Stripped(key) is IParameterReferenceOperation { Parameter: var read } && Same(read.ContainingSymbol, owner) && read.Ordinal == parameter.Ordinal
+        && Stripped(source).Type is { } successors && Enumerated(successors) is { TypeArguments: { Length: 1 } elements } && SymbolEqualityComparer.Default.Equals(elements[0], parameter.Type)
+            ? (held, read)
+            : null;
+
+    private static bool Visits(IOperation body, IOperation site, IOperation relation, ITypeSymbol node) =>
+        body.DescendantsAndSelf().OfType<IInvocationOperation>().Any(call => call != site
+            && Receiver(call) is { } receiver && Stripped(receiver) is ILocalReferenceOperation or IParameterReferenceOperation or IFieldReferenceOperation or IPropertyReferenceOperation { Property.IsIndexer: false }
+            && !receiver.Syntax.IsEquivalentTo(relation.Syntax)
+            && receiver.Type is { } held && ((Enumerated(held) is { TypeArguments: { Length: 1 } elements } && SymbolEqualityComparer.Default.Equals(elements[0], node))
+                || Bases(held).SelectMany(static type => type.GetMembers()).OfType<IPropertySymbol>().Any(indexer => indexer is { IsIndexer: true, Parameters.Length: 1 } && SymbolEqualityComparer.Default.Equals(indexer.Parameters[0].Type, node)))
+            && call.Arguments.Any(argument => SymbolEqualityComparer.Default.Equals(Stripped(argument.Value).Type, node)));
+}

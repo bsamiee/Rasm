@@ -74,3 +74,5 @@ RASM3110 | CSharp | Error | TrySiblingAnalyzer
 RASM3111 | CSharp | Error | PlatformMemberAnalyzer
 RASM3112 | CSharp | Error | PlatformMemberAnalyzer
 RASM3113 | CSharp | Error | PlatformMemberAnalyzer
+RASM3114 | CSharp | Error | UnvisitedRecursionAnalyzer
+RASM3115 | CSharp | Error | EncodedHandoffAnalyzer

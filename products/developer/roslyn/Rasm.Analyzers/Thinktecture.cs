@@ -102,11 +102,11 @@ public sealed class ThrowingFactoryAnalyzer : DiagnosticAnalyzer {
     private static readonly DiagnosticDescriptor Rule = new(
         "RASM1104",
         "Throwing factory on caller data, return `Fin` through `Validate`",
-        "`{0}.Create` throws on `{1}` from the caller, return `Fin<{0}>` through `Validate`",
+        "`{0}` throws on {1}, {2}",
         Categories.Thinktecture,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "Generated `Create` on validating value objects and smart enums takes no caller data outside static initializers and `ValidateFactoryArguments`.",
+        "Generated `Create` on validating value objects and smart enums takes no caller data outside static initializers, and `ValidateFactoryArguments` holds no `throw`, exception throw helper, throwing `Create`, `Get`, or `Parse`, or explicit conversion from a key.",
         Link("RASM1104"));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
@@ -129,18 +129,35 @@ public sealed class ThrowingFactoryAnalyzer : DiagnosticAnalyzer {
                 method is { IsStatic: true, Name: "Create", ContainingType: { } owner } && Same(method.ReturnType, owner)
                 && owner.GetMembers(validator).OfType<IMethodSymbol>().Any(validate => validate is { IsStatic: true, Parameters: { IsEmpty: false } parameters } && parameters[parameters.Length - 1] is { RefKind: RefKind.Out } made && Same(made.Type, owner))
                 && Validating(owner);
+            INamedTypeSymbol? exception = types.GetOrCreateTypeByMetadataName("System.Exception");
+            INamedTypeSymbol? parsable = types.GetOrCreateTypeByMetadataName("System.IParsable`1");
+            bool Raising(IMethodSymbol method) =>
+                method.IsStatic && ((exception is not null && Derives(method.ContainingType, exception)) || Throwing(method)
+                    || (method is { Name: "Get" } && Same(method.ReturnType, method.ContainingType) && Marked(method.ContainingType, enums) is not null)
+                    || (method is { Name: "Parse" or "ParseExact" } && Faces(method.ContainingType, parsable).Any()));
             static string Passed(IMethodReferenceOperation group) =>
                 (Consumer(group) is IDelegateCreationOperation creation && Consumer(creation) is IArgumentOperation { Parent: IInvocationOperation call } && Receiver(call) is { } receiver
                     ? receiver.Syntax
                     : group.Syntax).ToString();
-            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.MethodReference], (operation, analysis) =>
-                analysis.ContainingSymbol.Name is Hook || Enclosing(analysis.ContainingSymbol) is IFieldSymbol { IsStatic: true } or IPropertySymbol { IsStatic: true } ? []
+            const string Hooked = $"caller data inside `{Hook}`";
+            const string Assigned = "assign `validationError` and return";
+            static string Returned(IMethodSymbol method) => $"return `Fin<{method.ContainingType.Name}>` through `Validate`";
+            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.MethodReference, OperationKind.Throw, OperationKind.Conversion], (operation, analysis) =>
+                analysis.ContainingSymbol is IMethodSymbol { Name: Hook, IsStatic: true, ContainingType: { } owner } && Marked(owner, validated) is not null
+                    ? operation switch {
+                        IThrowOperation => [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), "throw", Hooked, Assigned)],
+                        IInvocationOperation { TargetMethod: var method } when Raising(method) => [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), Label(method), Hooked, Assigned)],
+                        IConversionOperation { OperatorMethod: { Name: WellKnownMemberNames.ExplicitConversionName } method } when Same(method.ReturnType, method.ContainingType) && Marked(method.ContainingType, validated) is not null =>
+                            [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), $"({method.ContainingType.Name})", Hooked, Assigned)],
+                        _ => [],
+                    }
+                : Enclosing(analysis.ContainingSymbol) is IFieldSymbol { IsStatic: true } or IPropertySymbol { IsStatic: true } ? []
                 : operation switch {
                     IInvocationOperation invocation when Throwing(invocation.TargetMethod)
                         && invocation.Arguments.SelectMany(static argument => argument.Value.DescendantsAndSelf()).Select(Variable).FirstOrDefault(static held => held is not (null or ILocalSymbol { HasConstantValue: true })) is { } read =>
-                        [Diagnostic.Create(Rule, invocation.Syntax.GetLocation(), invocation.TargetMethod.ContainingType.Name, read.Name)],
+                        [Diagnostic.Create(Rule, invocation.Syntax.GetLocation(), Label(invocation.TargetMethod), $"`{read.Name}` from the caller", Returned(invocation.TargetMethod))],
                     IMethodReferenceOperation group when Throwing(group.Method) && !Inside<INameOfOperation>(group) =>
-                        [Diagnostic.Create(Rule, group.Syntax.GetLocation(), group.Method.ContainingType.Name, Passed(group))],
+                        [Diagnostic.Create(Rule, group.Syntax.GetLocation(), Label(group.Method), $"`{Passed(group)}` from the caller", Returned(group.Method))],
                     _ => [],
                 });
         });

@@ -492,7 +492,7 @@ public sealed class RestatedInstanceAnalyzer : DiagnosticAnalyzer {
         Categories.CSharp,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "Read same-type static members over immutable record or readonly value constructions and transparent factories restating their constant initializers, outside smart enum item initializers.",
+        "Read same-type static members over immutable record or readonly value constructions and transparent factories restating their constant initializers.",
         Link("RASM3011"),
         WellKnownDiagnosticTags.CompilationEnd);
 
@@ -521,8 +521,6 @@ public sealed class RestatedInstanceAnalyzer : DiagnosticAnalyzer {
         WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(context.Compilation);
         ImmutableArray<INamedTypeSymbol> smartEnums = [.. new[] { types.GetOrCreateTypeByMetadataName("Thinktecture.SmartEnumAttribute"), types.GetOrCreateTypeByMetadataName("Thinktecture.SmartEnumAttribute`1") }.OfType<INamedTypeSymbol>()];
         static bool ValueBased(INamedTypeSymbol type) => type.IsRecord || (type.IsValueType && type.IsReadOnly);
-        bool Item(ISymbol owner, INamedTypeSymbol type) =>
-            Same(owner.ContainingType, type) && initializers.ContainsKey(owner) && Marked(type, smartEnums) is not null;
         static INamedTypeSymbol? Made(IOperation operation) =>
             operation switch {
                 IObjectCreationOperation { Constructor: { } made, Initializer: null } => made.ContainingType,
@@ -643,7 +641,7 @@ public sealed class RestatedInstanceAnalyzer : DiagnosticAnalyzer {
                         case IInvocationOperation { TargetMethod: { IsStatic: true } method, Arguments: { IsEmpty: false } passed } when !seen.Contains(method) && factories.TryGetValue(method, out IOperation? body):
                             remaining.Push((body, arguments.SetItems(passed.Select(static item => new KeyValuePair<IParameterSymbol, IOperation>(item.Parameter!, item.Value))), seen.Add(method)));
                             break;
-                        case IMemberReferenceOperation { Member: { ContainingType: { } holder } member } when Item(member, holder):
+                        case IMemberReferenceOperation { Member: { ContainingType: { } holder } member } when initializers.ContainsKey(member) && Marked(holder, smartEnums) is not null:
                             shape.Add((member, null));
                             break;
                         case IMemberReferenceOperation reference when !seen.Contains(reference.Member) && initializers.TryGetValue(reference.Member, out IOperation? initializer):
@@ -661,7 +659,7 @@ public sealed class RestatedInstanceAnalyzer : DiagnosticAnalyzer {
                 .OrderBy(static held => held.Member.Locations[0].SourceTree?.FilePath, StringComparer.Ordinal).ThenBy(static held => held.Member.Locations[0].SourceSpan.Start)
                 .ToLookup(static held => held.Shape!.Value, static held => held.Member, new ShapeComparer());
             foreach ((IOperation site, INamedTypeSymbol type, ISymbol owner) in sites)
-                if (!Item(owner, type) && Shape(site) is { } shape && statics[shape].FirstOrDefault(member => Same(member.ContainingType, type) && !Same(member, owner)) is { } restated)
+                if (Shape(site) is { } shape && statics[shape].FirstOrDefault(member => Same(member.ContainingType, type) && !Same(member, owner)) is { } restated)
                     end.ReportDiagnostic(Diagnostic.Create(Rule, site.Syntax.GetLocation(), site.Syntax, $"{type.Name}.{restated.Name}"));
         });
     }

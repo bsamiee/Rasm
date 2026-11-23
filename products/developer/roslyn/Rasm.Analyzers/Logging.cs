@@ -73,7 +73,7 @@ public sealed class DoubleReportAnalyzer : DiagnosticAnalyzer {
             INamedTypeSymbol? logger = types.GetOrCreateTypeByMetadataName("Microsoft.Extensions.Logging.ILogger");
             INamedTypeSymbol? extensions = types.GetOrCreateTypeByMetadataName("Microsoft.Extensions.Logging.LoggerExtensions");
             INamedTypeSymbol? message = types.GetOrCreateTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessageAttribute");
-            ImmutableArray<IMethodSymbol> logs = Members(logger, "Log", "BeginScope");
+            ImmutableArray<IMethodSymbol> logs = Members(logger, "Log");
             INamedTypeSymbol? exception = types.GetOrCreateTypeByMetadataName("System.Exception");
             ImmutableArray<IMethodSymbol> callbacks = Members(io, "lift", "liftAsync", "liftVAsync", "pure");
             ControlFlow flow = ControlFlow.For(start.Compilation);

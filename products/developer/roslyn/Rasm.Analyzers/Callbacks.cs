@@ -24,7 +24,7 @@ public sealed class CapturedWriteAnalyzer : DiagnosticAnalyzer {
         Categories.CSharp,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "Return callback values in the call's result instead of assigning captured locals or mutating captured collections and reading them afterward.",
+        "Return callback values in the call's result instead of assigning captured locals or mutating captured collections and reading them afterward outside the callback that wrote them.",
         Link("RASM3104"));
 
     private static readonly ImmutableArray<string> Atoms = ["Atom", "AtomHashMap", "AtomSeq", "AtomQue", "Ref", "VersionHashMap"];
@@ -199,9 +199,7 @@ public sealed class CapturedWriteAnalyzer : DiagnosticAnalyzer {
                 ImmutableArray<(IOperation Source, IOperation Value, ImmutableArray<IInvocationOperation> Calls)> captured = [.. writes.Where(write => Captures(scope, write.Calls)
                     && flow.Precedes(value, Position(write.Source, write.Calls, scope), within, token)
                     && (Written(write.Value) ? Same(Symbol(write.Value), symbol) : values.Overlaps(Origins(write.Value, write.Calls))))];
-                ImmutableHashSet<IInvocationOperation> writers = [.. captured.SelectMany(write => write.Calls.Skip(scope.Length))];
-                bool escapes = captured.Any(static write => Written(write.Value)) || reads.Exists(read => !read.Calls.Any(writers.Contains)
-                    && !captured.Any(write => write.Value == read.Value) && values.Overlaps(Origins(read.Value, read.Calls))
+                bool escapes = captured.Any(static write => Written(write.Value)) || reads.Exists(read => !captured.Any(write => write.Value == read.Value) && values.Overlaps(Origins(read.Value, read.Calls))
                     && captured.Any(write => flow.Precedes(Position(write.Source, write.Calls, scope), Position(read.Value, read.Calls, scope), within, token)));
                 if (escapes && reported.Add(symbol)) block.ReportDiagnostic(Diagnostic.Create(Rule, symbol.Locations[0], symbol.Name));
             }
