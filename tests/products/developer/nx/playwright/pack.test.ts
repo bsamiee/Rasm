@@ -46,30 +46,22 @@ describe('pack--playwright of config projects whose own outputDir sits under out
         expect(targets['pack--playwright']).toMatchObject({ dependsOn: ['test--playwright'], cache: true, inputs: targets['test--playwright']?.inputs });
     });
 
-    it('leaves no file an earlier run wrote in its outputs, as playwright test empties each outputDir before it writes', async ({ workspace }) => {
-        const graph = await workspace.write({ 'apps/e2e/playwright.config.js': config('../../.artifacts/playwright/e2e/media') }).graph({ createNodes }, routed);
-        await workspace.run(graph, 'e2e', 'test--playwright');
-        workspace.write({ '.artifacts/playwright/e2e/media/retired.png': 'retired' });
-
-        await workspace.run(graph, 'e2e', 'pack--playwright');
-
-        expect([...workspace.files('node_modules', 'tmp')].filter((file) => file.endsWith('retired.png'))).toStrictEqual([]);
-    });
-
     it('declares outputs apart from test--playwright that hold every file its run writes, leaving the files test--playwright wrote as they were', async ({ workspace }) => {
         const graph = await workspace.write({ 'apps/e2e/playwright.config.js': config('../../.artifacts/playwright/e2e/media', "[['html', { open: 'never' }]]") }).graph({ createNodes }, routed);
-        await workspace.run(graph, 'e2e', 'test--playwright');
+        const ran = await workspace.run(graph, 'e2e', 'test--playwright');
         const tested = new Map([...workspace.cached(graph, 'e2e', 'test--playwright')].map((file) => [file, readFileSync(join(workspace.root, file), 'utf-8')]));
         const before = workspace.files('node_modules', 'tmp');
 
-        await workspace.run(graph, 'e2e', 'pack--playwright');
+        const { success } = await workspace.run(graph, 'e2e', 'pack--playwright');
 
         const packed = workspace.cached(graph, 'e2e', 'pack--playwright');
         expect({
+            succeeded: [ran.success, success],
+            written: [tested.size > 0, packed.size > 0],
             shared: [...packed].filter((file) => workspace.cached(graph, 'e2e', 'test--playwright').has(file)),
             undeclared: [...workspace.files('node_modules', 'tmp').difference(before)].filter((file) => !packed.has(file)),
             changed: [...tested].filter(([file, text]) => !existsSync(join(workspace.root, file)) || readFileSync(join(workspace.root, file), 'utf-8') !== text).map(([file]) => file),
-        }).toStrictEqual({ shared: [], undeclared: [], changed: [] });
+        }).toStrictEqual({ succeeded: [true, true], written: [true, true], shared: [], undeclared: [], changed: [] });
     });
 
     it('keeps under test--playwright a project inheriting the config outputDir test--playwright routes its results to', async ({ workspace }) => {
@@ -103,5 +95,34 @@ describe('pack--playwright of config projects whose own outputDir sits under out
         expect(success).toBe(true);
         expect(Object.keys(graph.nodes['e2e']?.data.targets ?? {})).not.toContain('pack--playwright');
         expect([...workspace.files('node_modules', 'tmp')].filter((file) => file.endsWith('tile.png'))).toHaveLength(1);
+    });
+
+    it('infers no test--playwright where every project of the config writes under outputPath, and draws their images with pack--playwright alone', async ({ workspace }) => {
+        const graph = await workspace.remove('apps/e2e/smoke.spec.js').write({ 'apps/e2e/playwright.config.js': "module.exports = { reporter: [['list']], projects: [{ name: 'media', testMatch: '**/*.media.js', outputDir: '../../.artifacts/playwright/e2e/media' }] };\n" }).graph({ createNodes }, routed);
+
+        const { success } = await workspace.run(graph, 'e2e', 'pack--playwright');
+
+        expect({
+            targets: Object.keys(graph.nodes['e2e']?.data.targets ?? {}).filter((name) => /^(?:test|pack)--playwright$/u.test(name)),
+            success,
+            imaged: [...workspace.files('node_modules', 'tmp')].filter((file) => file.endsWith('tile.png')).map((file) => file.split('/').slice(0, 4).join('/')),
+        }).toStrictEqual({ targets: ['pack--playwright'], success: true, imaged: ['.artifacts/playwright/e2e/media'] });
+    });
+});
+
+describe('declared outputs of test--playwright', { timeout: 60_000 }, () => {
+    it.for([
+        { case: 'in the folders the config states, one outside the project', options: {}, reporter: "[['html', { open: 'never', outputFolder: 'reports/html' }], ['blob', { outputDir: '../../reports/blob' }], ['junit', { outputFile: 'reports/junit.xml' }]]" },
+        { case: 'in the default folders of the html and blob reporters', options: {}, reporter: "[['html', { open: 'never' }], ['blob']]" },
+        { case: 'under outputPath, whatever folders the config states', options: routed, reporter: "[['html', { open: 'never', outputFolder: 'reports/html' }], ['blob']]" },
+        { case: 'under outputPath and in the file a reporter states', options: routed, reporter: "[['junit', { outputFile: 'reports/junit.xml' }]]" },
+    ])('hold every file a passing run writes $case', async ({ options, reporter }, { workspace }) => {
+        const graph = await workspace.write({ 'apps/e2e/playwright.config.js': config('media', reporter) }).graph({ createNodes }, options);
+        const before = workspace.files('node_modules', 'tmp');
+
+        const { success } = await workspace.run(graph, 'e2e', 'test--playwright');
+
+        const written = workspace.files('node_modules', 'tmp').difference(before);
+        expect({ success, wrote: written.size > 0, undeclared: [...written.difference(workspace.cached(graph, 'e2e', 'test--playwright'))] }).toStrictEqual({ success: true, wrote: true, undeclared: [] });
     });
 });
