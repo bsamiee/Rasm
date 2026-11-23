@@ -11,18 +11,7 @@ public sealed class ProjectFactsWorkspace() : Analyzed(
         ("graph/libs/Core/Core.csproj", TempWorkspace.Project()),
         ("graph/libs/Shared/Shared.csproj", TempWorkspace.Project()),
         ("locked/App/App.csproj", TempWorkspace.Project()),
-        ("locked/App/packages.lock.json", JsonElement.Parse("""
-            {
-              "version": 2,
-              "dependencies": {
-                "net10.0": {
-                  "Serilog.Sinks.File": { "type": "Direct", "requested": "[7.0.0, )", "resolved": "7.0.0", "contentHash": "sha512-file", "dependencies": { "Serilog": "4.3.0" } },
-                  "Serilog": { "type": "Transitive", "resolved": "4.3.0", "contentHash": "sha512-serilog" },
-                  "core": { "type": "Project" }
-                }
-              }
-            }
-            """).GetRawText()),
+        ("locked/App/packages.lock.json", Lock),
         ("locked/Custom/Custom.csproj", TempWorkspace.Project("<PropertyGroup><NuGetLockFilePath>locks/custom.json</NuGetLockFilePath></PropertyGroup>")),
         ("locked/Custom/locks/custom.json", JsonElement.Parse("""{ "version": 2, "dependencies": { "net10.0": {} } }""").GetRawText()),
         ("stated/Plugin/Plugin.csproj", """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks><EnableWindowsTargeting>true</EnableWindowsTargeting></PropertyGroup><ItemGroup><NxTag Include="host:rhino" /><NxImplicitDependency Include="Host" /></ItemGroup><ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'"><NxTag Include="os:windows" /></ItemGroup></Project>"""),
@@ -35,7 +24,24 @@ public sealed class ProjectFactsWorkspace() : Analyzed(
         ("release/Directory.Build.props", "<Project><PropertyGroup><Version>2.0.0</Version></PropertyGroup></Project>"),
         ("release/Own/Own.csproj", TempWorkspace.Project("<PropertyGroup><Version>1.0.0</Version><PackageId>fixture-own</PackageId></PropertyGroup>")),
         ("release/Inherited/Inherited.csproj", TempWorkspace.Project("<PropertyGroup><IsPackable>false</IsPackable><PackageId>fixture-inherited</PackageId></PropertyGroup>"))
-);
+) {
+    public static string Lock { get; } = JsonElement.Parse("""
+        {
+          "version": 2,
+          "dependencies": {
+            "net10.0": {
+              "Serilog.Sinks.File": { "type": "Direct", "requested": "[7.0.0, )", "resolved": "7.0.0", "contentHash": "sha512-file", "dependencies": { "Serilog": "4.3.0", "Serilog.Formatting": "1.0.0" } },
+              "Serilog": { "type": "Transitive", "resolved": "4.3.0", "contentHash": "sha512-serilog" },
+              "Serilog.Formatting": { "type": "Transitive", "resolved": "1.0.0", "contentHash": "sha512-formatting", "dependencies": { "Serilog": "4.3.0" } },
+              "core": { "type": "Project" }
+            },
+            "net10.0-windows": {
+              "Serilog": { "type": "Transitive", "resolved": "4.3.0", "contentHash": "sha512-serilog" }
+            }
+          }
+        }
+        """).GetRawText();
+}
 
 public sealed class ProjectFactsTests(ProjectFactsWorkspace analyzed) : IClassFixture<ProjectFactsWorkspace> {
 
@@ -44,15 +50,29 @@ public sealed class ProjectFactsTests(ProjectFactsWorkspace analyzed) : IClassFi
     [Fact]
     public void ReferencesNameTheFileDeclaringEach() =>
         Assert.Equal(
-            ["graph/libs/Core <- graph/apps/App/App.csproj", "graph/libs/Shared <- graph/Directory.Build.props"],
-            analyzed.Node("graph/apps/App/App.csproj").GetProperty("references").EnumerateArray().Select(static reference => $"{reference.GetProperty("root").GetString()} <- {reference.GetProperty("declared").GetString()}").Order(StringComparer.Ordinal),
-            StringComparer.Ordinal);
+            [("graph/libs/Core", "graph/apps/App/App.csproj"), ("graph/libs/Shared", "graph/Directory.Build.props")],
+            analyzed.Node("graph/apps/App/App.csproj").GetProperty("references").EnumerateArray()
+                .Select(static reference => (reference.GetProperty("root").GetString(), reference.GetProperty("declared").GetString()))
+                .Order());
 
     [Fact]
-    public void LockedPackagesAreThePackagesOfTheLockFileWithoutProjects() {
+    public void LockedPackagesAreTheLockFileGraphOnceEachWithoutProjects() {
         JsonElement node = analyzed.Node("locked/App/App.csproj");
 
-        Assert.Equal(["Serilog.Sinks.File 7.0.0 sha512-file direct [Serilog]", "Serilog 4.3.0 sha512-serilog transitive []"], node.GetProperty("packages").EnumerateArray().Select(static package => $"{package.GetProperty("id").GetString()} {package.GetProperty("version").GetString()} {package.GetProperty("hash").GetString()} {(package.GetProperty("direct").GetBoolean() ? "direct" : "transitive")} [{string.Join(',', package.Strings("dependencies"))}]"), StringComparer.Ordinal);
+        Assert.Equal(
+            [
+                ((string?)"Serilog", (string?)"4.3.0", (string?)"sha512-serilog", false, ""),
+                ("Serilog.Formatting", "1.0.0", "sha512-formatting", false, "Serilog"),
+                ("Serilog.Sinks.File", "7.0.0", "sha512-file", true, "Serilog,Serilog.Formatting"),
+            ],
+            node.GetProperty("packages").EnumerateArray()
+                .Select(static package => (
+                    Id: package.GetProperty("id").GetString(),
+                    Version: package.GetProperty("version").GetString(),
+                    Hash: package.GetProperty("hash").GetString(),
+                    Direct: package.GetProperty("direct").GetBoolean(),
+                    Dependencies: string.Join(',', package.Strings("dependencies").Order(StringComparer.Ordinal))))
+                .OrderBy(static package => package.Id, StringComparer.Ordinal));
         Assert.Equal(["locked/App/packages.lock.json"], node.Strings("locks"));
     }
 
@@ -63,7 +83,7 @@ public sealed class ProjectFactsTests(ProjectFactsWorkspace analyzed) : IClassFi
     // --- [STATED]
 
     [Fact]
-    public void TagsAndImplicitDependenciesAreTheNxItemsOfEveryEvaluation() {
+    public void TagsAndTargetPlatformsComeFromEveryFrameworkEvaluationAndImplicitDependenciesFromTheProject() {
         JsonElement node = analyzed.Node("stated/Plugin/Plugin.csproj");
 
         Assert.Equal(["host:rhino", "os:windows"], node.Strings("tags"));
@@ -77,7 +97,8 @@ public sealed class ProjectFactsTests(ProjectFactsWorkspace analyzed) : IClassFi
 
     [Fact]
     public void ReleaseNotesAreTheAnalyzerReleaseFilesOfTheProject() {
-        Assert.Equal("stated/Rules/AnalyzerReleases.Shipped.md", analyzed.Node("stated/Rules/Rules.csproj").GetProperty("releases").GetProperty("shipped").GetString());
+        JsonElement releases = analyzed.Node("stated/Rules/Rules.csproj").GetProperty("releases");
+        Assert.Equal(("stated/Rules/AnalyzerReleases.Shipped.md", "stated/Rules/AnalyzerReleases.Unshipped.md"), (releases.GetProperty("shipped").GetString(), releases.GetProperty("unshipped").GetString()));
         Assert.Equal(JsonValueKind.Null, analyzed.Node("stated/External/External.csproj").GetProperty("releases").ValueKind);
     }
 
