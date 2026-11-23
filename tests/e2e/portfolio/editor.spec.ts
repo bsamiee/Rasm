@@ -1,5 +1,6 @@
-import { expect, type Page } from '@playwright/test';
-import { it } from '#/fixtures';
+import { expect, mergeTests, type Page } from '@playwright/test';
+import { it as scanned } from '@rasm/testing/playwright';
+import { blank } from '#/fixtures';
 import { content } from '#/rendering';
 import { GUEST, OWNER, SAME_ORIGIN } from '#/served';
 
@@ -30,13 +31,15 @@ const offered = async (shown: Page) => [await shown.getByRole('link', { name: 'O
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+const it = mergeTests(scanned, blank);
+
 it('offers a visitor the owner sign-in, a signed-in guest sign-out alone, and the owner the editor', async ({ page, owner, browser, baseURL }) => {
-    const guest = await browser.newContext({ extraHTTPHeaders: GUEST, ...(baseURL !== undefined && { baseURL }) }).then((context) => context.newPage());
+    await using signed = await browser.newContext({ extraHTTPHeaders: GUEST, ...(baseURL !== undefined && { baseURL }) });
+    const guest = await signed.newPage();
     await page.goto('/');
     await guest.goto('/');
     await owner.goto('/');
     expect({ visitor: await offered(page), guest: await offered(guest), owner: await offered(owner) }).toStrictEqual({ visitor: [1, 0, 0], guest: [0, 1, 0], owner: [0, 0, 1] });
-    await guest.context().close();
 });
 
 it('opens the editor for the owner who follows the sign-in link a visitor is offered', async ({ page, owner }) => {
@@ -114,8 +117,19 @@ it('publishes a draft to the page of the owner at once and of a visitor on the n
     await expect(chapters(page)).toHaveText(['Harbour Library']);
 });
 
-it('removes an entry from the published page once its removal is published', async ({ page, owner, served }) => {
-    await served.publish(TWO);
+it('serves the published site with its landmarks and no WCAG A or AA violation', async ({ page, axe, site }) => {
+    await site.publish(content);
+    await page.goto('/');
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Projects and studies' })).toBeVisible();
+    await expect(page.getByRole('banner')).toBeVisible();
+    await expect(page.getByRole('contentinfo')).toBeVisible();
+    const { violations } = await axe.analyze();
+    expect(violations.map(({ id, nodes }) => ({ id, targets: nodes.map(({ target }) => target) }))).toEqual([]);
+});
+
+it('removes an entry from the published page once its removal is published', async ({ page, owner, site }) => {
+    await site.publish(TWO);
     await owner.goto(EDITING);
     await editing(owner).getByRole('row').filter({ hasText: 'Timber Joints' }).getByRole('button', { name: 'Remove entry' }).click();
     await owner.getByRole('alertdialog').getByRole('button', { name: 'Remove entry' }).click();
@@ -129,7 +143,7 @@ it('keeps edits when another tab saved a newer draft, and saves them over it on 
     await owner.goto(EDITING);
     await editing(owner).getByRole('button', { name: 'New project' }).click();
     await editing(owner).getByRole('textbox', { name: 'Title' }).fill('Harbour Library');
-    await request.put('/api/draft', { headers: { ...OWNER, ...SAME_ORIGIN, ...UNREVISED }, data: { name: 'Second tab' } });
+    expect(await request.put('/api/draft', { headers: { ...OWNER, ...SAME_ORIGIN, ...UNREVISED }, data: { name: 'Second tab' } }).then((response) => response.status())).toBe(204);
     await editing(owner).getByRole('button', { name: 'Save draft' }).click();
     await expect(editing(owner).getByRole('alert')).toContainText('Draft revision 1 saved in another tab');
     await expect(editing(owner).getByRole('textbox', { name: 'Title' })).toHaveValue('Harbour Library');
@@ -141,8 +155,8 @@ it('keeps edits when another tab saved a newer draft, and saves them over it on 
     expect(stored).not.toHaveProperty('portfolio.name');
 });
 
-it('deletes a library file no work places, and refuses to delete a file the published page places', async ({ served, request }) => {
-    await served.publish({ files: [...content.files, SPARE], portfolio: content.portfolio });
+it('deletes a library file no work places, and refuses to delete a file the published page places', async ({ site, request }) => {
+    await site.publish({ files: [...content.files, SPARE], portfolio: content.portfolio });
     const deleted = (id: string) => request.delete(`/api/assets/${id}`, { headers: OWNED }).then((response) => response.status());
     const read = (id: string) => request.get(`/api/assets/${id}`, { headers: OWNER }).then((response) => response.status());
     expect({ placed: await deleted(PLACED.asset.id), spare: await deleted(SPARE.asset.id), kept: await read(PLACED.asset.id), gone: await read(SPARE.asset.id) }).toStrictEqual({ placed: 409, spare: 204, kept: 200, gone: 404 });
@@ -151,8 +165,8 @@ it('deletes a library file no work places, and refuses to delete a file the publ
 it('lists an upload that never finished for recovery, and removes it once discarded', async ({ request }) => {
     const listed = (): Promise<unknown> => request.get('/api/assets/recovery', { headers: OWNER }).then((response) => response.json());
     const discarded = () => request.post(`/api/assets/${SPARE.asset.id}/discard`, { headers: OWNED }).then((response) => response.status());
-    await request.post('/api/assets', { headers: OWNED, data: SPARE.asset });
-    expect({ before: await listed(), discarded: await discarded(), after: await listed(), again: await discarded() }).toStrictEqual({
+    expect({ begun: await request.post('/api/assets', { headers: OWNED, data: SPARE.asset }).then((response) => response.status()), before: await listed(), discarded: await discarded(), after: await listed(), again: await discarded() }).toStrictEqual({
+        begun: 200,
         before: [{ id: SPARE.asset.id, name: 'spare-section.png', status: 'incomplete' }],
         discarded: 204,
         after: [],

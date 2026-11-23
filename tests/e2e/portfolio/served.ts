@@ -1,6 +1,7 @@
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import process from 'node:process';
+import { DatabaseSync } from 'node:sqlite';
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { layer } from '@effect/platform-node/NodeServices';
 import { App } from '@rasm/hosting';
@@ -25,12 +26,13 @@ const FORWARDED = { id: 'x-forwarded-user', email: 'x-forwarded-email' } as cons
 const OWNER = { [FORWARDED.id]: 'owner', [FORWARDED.email]: 'owner@portfolio.test' } as const;
 const GUEST = { [FORWARDED.id]: 'guest', [FORWARDED.email]: 'guest@portfolio.test' } as const;
 const SAME_ORIGIN = { 'sec-fetch-site': 'same-origin' } as const;
-const STORAGE = { bucket: 'portfolio', accessKeyId: 'portfolio', secretAccessKey: 'portfolio' } as const;
+const STORAGE = { binding: 'BUCKET', bucket: 'portfolio', accessKeyId: 'portfolio', secretAccessKey: 'portfolio' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Upload = Schema.Struct({ attempt: Schema.String, objects: Schema.Array(Schema.Struct({ key: Schema.String })) }).annotate({ description: 'The attempt and object keys POST /api/assets answers for a file the library lacks' });
 const Allowed = Schema.fromJsonString(Schema.Array(Schema.String)).annotate({ description: 'The JSON list of owner addresses the ALLOWED variable holds' });
+const Cleared = Schema.Struct({ script: Schema.String }).annotate({ description: 'The one statement list SQLite builds to delete every row of every table the product created' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -84,7 +86,7 @@ const served = Effect.gen(function* () {
                                 name: STORAGE.bucket,
                                 compatibilityDate: '2026-10-01',
                                 manifest: { mainModule: 'index.js', modules: { 'index.js': { type: 'esm', contents: 'export default { fetch: () => new Response(null, { status: 404 }) }' } } },
-                                env: { BUCKET: { type: 'r2', name: STORAGE.bucket, dev: { experimentalS3Credentials: { accessKeyId: STORAGE.accessKeyId, secretAccessKey: STORAGE.secretAccessKey } } } },
+                                env: { [STORAGE.binding]: { type: 'r2', name: STORAGE.bucket, dev: { experimentalS3Credentials: { accessKeyId: STORAGE.accessKeyId, secretAccessKey: STORAGE.secretAccessKey } } } },
                             },
                             dev: {},
                         },
@@ -95,11 +97,12 @@ const served = Effect.gen(function* () {
     );
     const [stored, port, access, allowed] = yield* Effect.all([Effect.promise(() => storage.ready), allocated, Schema.encodeEffect(Access.json)(Access.make({ source: { _tag: 'Forwarded', ...FORWARDED }, logout: '/' })), Schema.encodeEffect(Allowed)([OWNER[FORWARDED.email]])]);
     const origin = `http://127.0.0.1:${port}`;
+    const database = join(state, 'portfolio.sqlite');
     const server = yield* spawner.spawn(
         ChildProcess.make(process.execPath, [join(bundle, App.bundle.environment, `${App.bundle.entry}.js`)], {
             env: {
                 [App.bundle.portVariable]: `${port}`,
-                DB: join(state, 'portfolio.sqlite'),
+                DB: database,
                 BUCKET: STORAGE.bucket,
                 [App.bundle.signing.endpoint]: new URL(CorePaths.R2_S3, stored).href,
                 [App.bundle.signing.region]: 'auto',
@@ -117,7 +120,23 @@ const served = Effect.gen(function* () {
         Effect.retry(Effect.timeout(HttpClient.filterStatusOk(client).get(new URL(App.bundle.readiness, origin)), '1 second'), { schedule: Schedule.spaced('100 millis') }),
         Effect.flatMap(server.exitCode, (code) => Effect.fail(new Cause.UnknownError(code, `${product} exits ${code} before it answers ${App.bundle.readiness}`))),
     );
-    return { origin };
+    const reset = Effect.all(
+        [
+            Effect.acquireUseRelease(
+                Effect.sync(() => new DatabaseSync(database, { timeout: 5000 })),
+                (held) => Effect.map(Schema.decodeUnknownEffect(Cleared)(held.prepare(`SELECT group_concat(format('DELETE FROM "%w"', name), ';') AS script FROM sqlite_schema WHERE type = 'table' AND name NOT GLOB 'sqlite_*'`).get()), ({ script }) => held.exec(`BEGIN;${script};COMMIT`)),
+                (held) => Effect.sync(() => held.close()),
+            ),
+            Effect.gen(function* () {
+                const bucket = yield* Effect.promise(() => storage.getR2Bucket(STORAGE.binding));
+                const { objects } = yield* Effect.promise(() => bucket.list());
+                const keys = objects.map(({ key }) => key);
+                yield* Effect.promise(() => bucket.delete(keys));
+            }),
+        ],
+        { discard: true },
+    );
+    return { origin, reset };
 });
 
 const platform = Layer.merge(layerUndici, layer);
