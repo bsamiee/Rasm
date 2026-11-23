@@ -1,9 +1,10 @@
 {
     "name": "@rasm/test-object-storage",
     "private": true,
-    "description": "@rasm/object-storage suites over an R2 binding, covering ranges, preconditions, and presigned S3 requests",
+    "description": "@rasm/object-storage suites over an R2 binding and an S3 server, covering ranges, preconditions, and presigned S3 requests",
     "type": "module",
     "devDependencies": {
+        "@aws-sdk/client-s3": "catalog:",
         "@cloudflare/vitest-plugin": "catalog:",
         "@cloudflare/workers-types": "catalog:",
         "@effect/vitest": "catalog:",
@@ -11,6 +12,7 @@
         "@types/node": "catalog:",
         "cf": "catalog:",
         "effect": "catalog:",
+        "testcontainers": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
     }
