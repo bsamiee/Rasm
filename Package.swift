@@ -159,7 +159,10 @@ let tests: [Target] = [
     ),
     .testTarget(
         name: "ResultsTests",
-        dependencies: ["Results", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based")],
+        dependencies: [
+            "Results", .product(name: "Clocks", package: "swift-clocks"), .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "PropertyBased", package: "swift-property-based"),
+        ],
         path: "tests/libs/swift/data/Results",
     ),
     .testTarget(
@@ -170,20 +173,27 @@ let tests: [Target] = [
     .testTarget(name: "ProcessesTests", dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/runtime/Processes"),
     .testTarget(
         name: "AppleEventsTests",
-        dependencies: ["AppleEvents", "Encoding", "Results", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump")],
+        dependencies: [
+            "AppleEvents", "Encoding", "Results", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "PropertyBased", package: "swift-property-based"),
+        ],
         path: "tests/libs/swift/macos/AppleEvents",
     ),
     .testTarget(
         name: "ApplicationsTests",
         dependencies: [
-            "AppleEvents", "Applications", "Encoding", "Processes", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
-            .product(name: "CustomDump", package: "swift-custom-dump"),
+            "AppleEvents", "Applications", "Processes", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "tests/libs/swift/macos/Applications",
     ),
     .testTarget(
         name: "ApplicationServerTests",
-        dependencies: ["ApplicationServer", "Applications", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump")],
+        dependencies: [
+            "AppleEvents", "ApplicationServer", "Applications", "Encoding", "JSONRPC", "Results", .product(name: "CasePaths", package: "swift-case-paths"),
+            .product(name: "CustomDump", package: "swift-custom-dump"),
+        ],
         path: "tests/libs/swift/macos/ApplicationServer",
     ),
 ]
@@ -222,6 +232,7 @@ let package = Package(
 
         // --- [TESTING]
 
+        .package(url: "https://github.com/pointfreeco/swift-clocks", from: "1.1.1"),
         .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.7.3"),
         .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.2"),
         .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.0.1"),

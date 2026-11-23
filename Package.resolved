@@ -1,5 +1,5 @@
 {
-  "originHash" : "3e8fe62af47683154fca618f529cb4979c60cfc6b7d231c6215a273dec38c86c",
+  "originHash" : "303172c8079bbd5900e851ff63c96a7ecc98dd63654c3eba5a3b18980b1d07cd",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -83,12 +83,30 @@
       }
     },
     {
+      "identity" : "swift-clocks",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pointfreeco/swift-clocks",
+      "state" : {
+        "revision" : "82440fa0a8b1c381a6d1e8e0fc7bbba53ec63204",
+        "version" : "1.1.1"
+      }
+    },
+    {
       "identity" : "swift-collections",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections",
       "state" : {
         "revision" : "88754449ab766a739610b660e117762115fabc9c",
         "version" : "1.7.6"
+      }
+    },
+    {
+      "identity" : "swift-concurrency-extras",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pointfreeco/swift-concurrency-extras",
+      "state" : {
+        "revision" : "8a4260f7373493435bd21194585c95b72bfdd401",
+        "version" : "1.4.3"
       }
     },
     {
