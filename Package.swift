@@ -174,7 +174,10 @@ let tests: [Target] = [
     ),
     .testTarget(
         name: "ApplicationsTests",
-        dependencies: ["AppleEvents", "Applications", "Encoding", .product(name: "CustomDump", package: "swift-custom-dump")],
+        dependencies: [
+            "AppleEvents", "Applications", "Encoding", "Processes", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            .product(name: "CustomDump", package: "swift-custom-dump"),
+        ],
         path: "tests/libs/swift/macos/Applications",
     ),
     .testTarget(

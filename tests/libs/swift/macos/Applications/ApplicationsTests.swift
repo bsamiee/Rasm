@@ -1,7 +1,10 @@
+import AppKit
 import AppleEvents
+import AsyncAlgorithms
 import CustomDump
 import Encoding
 import Foundation
+import Processes
 import Testing
 
 @testable import Applications
@@ -73,5 +76,35 @@ struct ValueTests {
         let values: [JSONValue] = [.string("A4"), .number(12), .number(0.5), .number(0.123456789), .bool(true)]
         expectNoDifference(values.map(\.text), ["A4", "12", "0.5", "0.123456789", nil])
         expectNoDifference(values.map { value in value.text.flatMap { text in JSONValue.string(text).number } }, [nil, 12, 0.5, 0.123456789, nil])
+    }
+}
+
+@Suite
+struct LifetimeTests {
+    @Test(.timeLimit(.minutes(1)))
+    func endsEachLifetimeWithItsExit() async throws {
+        let lane = (0..<1000).async.map { (_: Int) async throws -> String? in
+            let child = Process()
+            child.executableURL = URL(filePath: "/bin/sleep")
+            child.arguments = ["60"]
+            try child.run()
+            let process = try ProcessInstance(of: child.processIdentifier)
+            let running = AsyncStream<InstanceState>(unfolding: {
+                do { try process.signal(SIGTERM) } catch { Issue.record(error) }
+                return nil
+            })
+            let states: [InstanceState] = await Instance(application: .current, process: process).lifetime(running, clock: ContinuousClock()).reduce(into: []) { states, state in states.append(state) }
+            return String(bytes: try JSONEncoder().encode(states), encoding: .utf8)
+        }
+        let lifetimes: [String?] = try await withThrowingTaskGroup(of: [String?].self) { group in
+            for _ in 0..<8 {
+                group.addTask { try await Array(lane) }
+            }
+            var lifetimes: [String?] = []
+            for try await ended in group { lifetimes += ended }
+            return lifetimes
+        }
+        let counts: [String?: Int] = lifetimes.reduce(into: [:]) { counts, ended in counts[ended, default: 0] += 1 }
+        expectNoDifference(counts, [#"[{"exited":{"signal":15}}]"#: 8000])
     }
 }

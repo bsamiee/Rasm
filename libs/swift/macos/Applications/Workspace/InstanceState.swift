@@ -266,13 +266,13 @@ extension Instance {
         )
     }
 
-    fileprivate func lifetime(
+    func lifetime(
         _ running: some AsyncSequence<InstanceState, Never> & Sendable,
         clock: some Clock<Duration> & Sendable,
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
-        chain([Result<ProcessExit, Errno>?.none].async, process.termination().map(Optional.some))
-            .flatMapLatest { exit in chain(running.prefix(exit == nil ? .max : 0), self.ended(exit, clock: clock)) }
-            .removeDuplicates()
+        let cut = process.termination().map { _ in InstanceState?.none }
+        let lived = merge(running.map(InstanceState?.some), cut).prefix { (state: InstanceState?) in state != nil }.compactMap(\.self)
+        return chain(lived, process.termination().flatMap { exit in self.ended(exit, clock: clock) }).removeDuplicates()
     }
 
     private func ended(_ exit: Result<ProcessExit, Errno>?, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
