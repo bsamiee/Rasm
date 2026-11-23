@@ -148,7 +148,7 @@
         {
             "name": "uxp",
             "source": "./plugins/shared/uxp",
-            "version": "0.5.2",
+            "version": "0.5.3",
             "description": "Code that runs in an Adobe UXP host, and the Atelier server that drives Adobe apps and proxies their own servers",
             "author": {
                 "name": "Bardia Samiee"

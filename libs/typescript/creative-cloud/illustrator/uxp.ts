@@ -33,35 +33,22 @@ const Options = Schema.Struct({ ExportType: Schema.Struct({ PNG24: Schema.String
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const type = (value: object): string => Option.match(Schema.decodeUnknownOption(Typed)(value), { onNone: () => value.constructor.name, onSome: Struct.get('typename') });
-const listed = (collection: unknown) => {
-    const length = read(collection, 'length');
-    return Array.makeBy(Predicate.isNumber(length) ? length : 0, (at) => read(collection, `${at}`));
-};
-const opened = (app: object) => (value: unknown) => {
-    const above = Array.unfold(value, (each) => (Predicate.isObject(each) ? Option.some([each, Schema.is(Document)(each) || read(each, 'parent') === each ? undefined : read(each, 'parent')] as const) : Option.none()));
-    return Option.filter(
-        Option.orElse(Array.findFirst(above, Schema.is(Document)), () => Array.findFirst(listed(read(app, 'documents')), (document) => Record.some(OWNED, ({ collection }) => listed(read(document, collection)).includes(value)))),
-        Schema.is(Document),
-    );
-};
+const opened = (value: unknown) => Array.findFirst([value, read(value, 'parentDocument')], Schema.is(Document));
 const hosted = Effect.flatMap(Uxp.required('illustrator'), Schema.decodeUnknownEffect(Module));
 const application = Effect.flatMap(Effect.all([hosted, Path.Path]), ([{ app }, path]) => path.toFileUrl(`${app.path}/${app.name}.app/`));
-const containment = Effect.map(hosted, ({ app }): Containment => {
-    const owner = (value: object): unknown => Option.getOrUndefined(opened(app)(value));
-    return {
-        root: app,
-        type,
-        kinds: { document: { collection: 'documents', keys: ['fullName'], is: Schema.is(Document) }, ...Record.map(OWNED, Struct.assign({ owner })) },
-    };
-});
+const containment = Effect.map(hosted, ({ app }): Containment => ({
+    root: app,
+    type,
+    kinds: { document: { collection: 'documents', keys: ['fullName'], is: Schema.is(Document) }, ...Record.map(OWNED, Struct.assign({ owner: (value: object): unknown => Option.getOrUndefined(opened(value)) })) },
+}));
 const session = Effect.flatMap(hosted, ({ app }) => Uxp.preserve(app, { userInteractionLevel: 'DONTDISPLAYALERTS' }));
 const execute = (code: string) => Effect.flatMap(containment, (held) => Uxp.executed(held, code, (call) => Effect.scoped(Effect.andThen(session, call))));
 const render = Effect.fnUntraced(function* ({ target }: Render, written: File) {
     const [held] = yield* Effect.all([containment, session]);
-    const [found, { ExportType, ExportOptionsPNG24 }] = yield* Effect.all([Uxp.located(held, target), Schema.decodeUnknownEffect(Options)(globalThis)]);
+    const [found, first, { ExportType, ExportOptionsPNG24 }] = yield* Effect.all([Uxp.located(held, target), Uxp.located(held, { steps: Array.take(target.steps, 1) }), Schema.decodeUnknownEffect(Options)(globalThis)]);
     const bounds = Option.orElse(Option.map(Schema.decodeUnknownOption(Artboard)(found), Struct.get('artboardRect')), () => Option.map(Schema.decodeUnknownOption(Bounded)(found), Struct.get('visibleBounds')));
     const unmatched = () => Unmatched.of({ subject: 'document, artboard, or page item', query: Option.some(target.path) });
-    const [document, rect] = yield* Effect.all([Effect.fromOption(opened(held.root)(found), unmatched), Effect.fromOption(bounds, unmatched)]);
+    const [document, rect] = yield* Effect.all([Effect.fromOption(opened(first), unmatched), Effect.fromOption(bounds, unmatched)]);
     const { artboards } = document;
     const active = yield* Effect.try({ try: (): unknown => artboards.getActiveArtboardIndex(), catch: HostError.refused('getActiveArtboardIndex') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.Int)));
     yield* Effect.acquireRelease(Effect.try({ try: (): unknown => artboards.add(rect), catch: HostError.refused(`artboards.add of ${rect.join(' ')}`) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Removable))), (added) =>
@@ -69,7 +56,7 @@ const render = Effect.fnUntraced(function* ({ target }: Render, written: File) {
     );
     const last = yield* Schema.decodeEffect(Schema.Int)(artboards.length);
     yield* Effect.try({
-        try: () => [artboards.setActiveArtboardIndex(last - 1), document.exportFile(written.nativePath, ExportType.PNG24, new ExportOptionsPNG24({ artBoardClipping: true }))],
+        try: () => [artboards.setActiveArtboardIndex(last - 1), document.exportFile(written, ExportType.PNG24, new ExportOptionsPNG24({ artBoardClipping: true }))],
         catch: HostError.refused(`exportFile ${ExportType.PNG24} to ${written.nativePath}`),
     });
 }, Effect.scoped);

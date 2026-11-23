@@ -37,6 +37,9 @@ Each host runs one newest runtime, and a dictionary command runs source with no 
 - Illustrator runs a third-party plugin's `main` on a UXP developer mode load alone, and refuses a manifest naming no `panel` or `command` entry point
 - Illustrator lists each command under Window > Extensions, one with `hostUIContext.hideFromMenu` included
 - Illustrator's `uxp.host` throws at its first read and holds no member after, and `app.path` names the folder holding the bundle `app.name` names
+- Illustrator returns a new object at each read of one document, layer, artboard, or page item, and code compares their keys, never the objects
+- Illustrator page items hold `parentDocument` and a `parent` layer, layers and artboards hold no `parent`, and `getPageItemFromUuid` finds an item by `uuid`
+- Illustrator `exportFile` takes a UXP storage `File` entry and refuses a path or URL string with error 1242 or 1220
 - Illustrator serves `illustrator-dom.js` to plugins: `require('illustrator')` returns `{ app }`, the specifier inferred from the string beside its registration
 - Illustrator enums and creatable classes sit on `globalThis`, every call is synchronous, and enum values are strings
 - After Effects module holds `app` and DOM classes, calls are synchronous, collections run 1 to `length`, `constructor.name` names an object's class
