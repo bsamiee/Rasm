@@ -1,41 +1,34 @@
 import { type } from 'node:os';
-import { basename, delimiter, dirname, join, posix, relative, resolve } from 'node:path';
+import { basename, delimiter, join, posix, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { normalizePath, readJsonFile } from '@nx/devkit';
-import { globWithWorkspaceContext, type PackageJson } from '@nx/devkit/internal';
-import { runner, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Config, Context, Effect, FileSystem, Function, Layer, Match, Option, pipe, Record, Result, Schema, SemVer } from 'effect';
+import type { PackageJson } from '@nx/devkit/internal';
+import { runner } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Context, Effect, FileSystem, Function, Layer, Match, Option, Order, pipe, Record, Result, Schema, SemVer } from 'effect';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Tree = Effect.Success<ReturnType<typeof resolved>>;
+type Workflow = Tree['workflows'][number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
+const EXPORTER = fileURLToPath(import.meta.resolve('#/coverage.cmake'));
 const MANIFEST = 'CMakeLists.txt';
 const PRESETS = 'CMakePresets.json';
 const PACKAGING = 'CPackConfig.cmake';
-const CLIENT = 'client-nx-cmake';
-const QUERY = 'query.json';
-const API = ['.cmake', 'api', 'v1'] as const;
-const CALL = /^[ \t]*project[ \t]*\(/imu;
+const REGISTRY = { manifest: 'vcpkg.json', configuration: 'vcpkg-configuration.json' } as const;
+const DEFINING = new Set(['add_library', 'add_executable', 'add_custom_target']);
 const TIDY = /^CMAKE_[A-Z]+_CLANG_TIDY$/u;
 const WORKING = '$env{PWD}';
 const MACRO = /\$(?<space>env|penv)?\{(?<name>\w+)\}/gu;
 const ENVIRONMENT = /\$env\{(?<name>\w+)\}/gu;
-const ARGUMENT = /#\[(?<comment>=*)\[[\s\S]*?\]\k<comment>\]|#[^\n]*|\[(?<bracket>=*)\[[\s\S]*?\]\k<bracket>\]|"(?:\\[\s\S]|[^"\\])*"|[^\s()#"]+|\)/gu;
+const TOKEN = /#\[(?<comment>=*)\[[\s\S]*?\]\k<comment>\]|#[^\n]*|\[(?<bracket>=*)\[[\s\S]*?\]\k<bracket>\]|"(?<quoted>(?:\\[\s\S]|[^"\\])*)"|(?<head>[A-Za-z_]\w*)[ \t]*\(|[^\s()#"]+|[()]/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Workflow extends Schema.Opaque<Workflow, unknown>()(
-    Schema.Struct({
-        name: Schema.String,
-        configure: Schema.String,
-        tree: Schema.String,
-        build: Schema.optionalKey(Schema.String),
-        test: Schema.optionalKey(Schema.String),
-        after: Schema.optionalKey(Schema.String),
-        tidy: Schema.Array(Schema.Struct({ variable: Schema.String, launcher: Schema.String })),
-    }),
-) {}
 const Packaging = Schema.Struct({ name: Schema.String, configurePreset: Schema.String });
 const Launcher = Schema.Union([Schema.String, Schema.Struct({ value: Schema.String })]);
 class Presets extends Schema.Opaque<Presets, unknown>()(
@@ -56,98 +49,45 @@ class Presets extends Schema.Opaque<Presets, unknown>()(
         }),
     ),
 ) {}
-const Reference = Schema.Struct({ jsonFile: Schema.String });
-const Index = Schema.fromJsonString(
-    Schema.Struct({
-        cmake: Schema.Struct({ paths: Schema.Struct({ ctest: Schema.String }) }),
-        reply: Schema.Struct({ [CLIENT]: Schema.Struct({ [QUERY]: Schema.Struct({ responses: Schema.Tuple([Reference, Reference]) }) }) }),
-    }),
-);
-const Codemodel = Schema.fromJsonString(
-    Schema.Struct({
-        configurations: Schema.NonEmptyArray(
-            Schema.Struct({
-                directories: Schema.Array(Schema.Struct({ source: Schema.String, build: Schema.String, projectIndex: Schema.Int, jsonFile: Schema.String })),
-                projects: Schema.Array(Schema.Struct({ name: Schema.String, directoryIndexes: Schema.NonEmptyArray(Schema.Int) })),
-                targets: Schema.Array(Schema.Struct({ projectIndex: Schema.Int, jsonFile: Schema.String })),
-            }),
-        ),
-    }),
-);
-const Directory = Schema.fromJsonString(Schema.Struct({ installers: Schema.Array(Schema.Unknown) }));
-const Links = Schema.Array(Schema.Struct({ id: Schema.optionalKey(Schema.String), backtrace: Schema.optionalKey(Schema.Int) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
-const Target = Schema.fromJsonString(
-    Schema.Struct({
-        id: Schema.String,
-        name: Schema.String,
-        nameOnDisk: Schema.optionalKey(Schema.String),
-        link: Schema.optionalKey(Schema.Unknown),
-        artifacts: Schema.Array(Schema.Struct({ path: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-        sources: Schema.Array(Schema.Struct({ path: Schema.String, isGenerated: Schema.optionalKey(Schema.Boolean) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-        compileGroups: Schema.Array(Schema.Struct({ includes: Schema.Array(Schema.Struct({ path: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-        backtraceGraph: Schema.Struct({ files: Schema.Array(Schema.String), nodes: Schema.Array(Schema.Struct({ file: Schema.Int, command: Schema.optionalKey(Schema.Int) })) }),
-        linkLibraries: Links,
-        interfaceLinkLibraries: Links,
-        dependencies: Links,
-    }),
-);
-const Inputs = Schema.fromJsonString(Schema.Struct({ inputs: Schema.Array(Schema.Struct({ path: Schema.String, isGenerated: Schema.optionalKey(Schema.Boolean) })) }));
-const Listing = Schema.fromJsonString(
-    Schema.Struct({
-        tests: Schema.Array(Schema.Struct({ backtrace: Schema.Int })),
-        backtraceGraph: Schema.Struct({ files: Schema.Array(Schema.String), nodes: Schema.Array(Schema.Struct({ file: Schema.Int, parent: Schema.optionalKey(Schema.Int) })) }),
-    }),
-);
-class Tree extends Schema.Opaque<Tree, unknown>()(
-    Schema.Struct({
-        root: Schema.String,
-        workflows: Schema.Array(Workflow),
-        packages: Schema.Array(Packaging),
-        members: Schema.Array(
-            Schema.Struct({
-                name: Schema.String,
-                root: Schema.String,
-                build: Schema.String,
-                installs: Schema.Boolean,
-                packaged: Schema.Boolean,
-                tested: Schema.Boolean,
-                folders: Schema.Array(Schema.String),
-                targets: Schema.Array(Schema.Struct({ name: Schema.String, artifacts: Schema.Array(Schema.Struct({ path: Schema.String })), binary: Schema.optionalKey(Schema.String) })),
-                links: Schema.Array(Schema.Struct({ root: Schema.String, file: Schema.String })),
-            }),
-        ),
-        inputs: Schema.Array(Schema.String),
-    }),
-) {}
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()(`${PLUGIN}/workspace/Linked`) {
-    static readonly layer = Layer.sync(Linked, () => new Map());
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const versioned = (text: string, at: string) => {
-    const stated = Option.flatMap(Option.fromNullOr(CALL.exec(text)), (call) => {
-        const start = call.index + call[0].length;
-        const tokens = Array.takeWhile(
-            [...text.slice(start).matchAll(ARGUMENT)].filter(([token]) => !token.startsWith('#')),
-            ([token]) => token !== ')',
-        );
-        return Option.map(
-            Option.flatMap(
-                Array.findFirstIndex(tokens, ([token]) => token === 'VERSION'),
-                (keyword) => Array.get(tokens, keyword + 1),
-            ),
-            ({ 0: token, index }) => {
-                const quote = token.startsWith('"') ? 1 : 0;
-                return { version: token.slice(quote, token.length - quote), start: start + index + quote, end: start + index + token.length - quote };
-            },
-        );
-    });
-    return Effect.mapError(Effect.fromOption(stated), (cause) => new Cause.UnknownError(cause, `${at} states no VERSION in a project() call, which nx release reads and writes`));
+const inside = (folder: string) => (file: string) => !posix.relative(folder, file).startsWith('..');
+
+const commands = (text: string) => {
+    const [, tokens] = Array.mapAccum(
+        [...text.matchAll(TOKEN)].filter(([token]) => !token.startsWith('#')),
+        { depth: 0, call: -1 },
+        ({ depth, call }, { 0: token, index, groups = {} }) => {
+            const opened = depth === 0 && groups['head'] !== undefined;
+            const next = { depth: Math.max(0, depth + Number(token.endsWith('(')) - Number(token === ')')), call: opened ? call + 1 : call };
+            const value = groups['head'] ?? groups['quoted'] ?? token;
+            const start = index + (groups['quoted'] === undefined ? 0 : 1);
+            return [next, { call: next.call, name: opened ? Option.some(value.toLowerCase()) : Option.none(), argument: depth > 0 && token !== '(' && token !== ')' ? Option.some({ value, start, end: start + value.length }) : Option.none() }] as const;
+        },
+    );
+    const argued = Array.groupBy(
+        tokens.flatMap(({ call, argument }) => Option.toArray(Option.map(argument, (held) => ({ call, ...held })))),
+        ({ call }) => String(call),
+    );
+    return tokens.flatMap(({ call, name }) => Option.toArray(Option.map(name, (named) => ({ name: named, args: argued[String(call)] ?? [] }))));
 };
+
+const versioned = (text: string, at: string) =>
+    Effect.mapError(
+        Effect.fromOption(
+            pipe(
+                Array.findFirst(commands(text), ({ name }) => name === 'project'),
+                Option.flatMap(({ args }) =>
+                    Option.flatMap(
+                        Array.findFirstIndex(args, ({ value }) => value === 'VERSION'),
+                        (keyword) => Array.get(args, keyword + 1),
+                    ),
+                ),
+            ),
+        ),
+        (cause) => new Cause.UnknownError(cause, `${at} states no VERSION in a project() call, which nx release reads and writes`),
+    );
 
 const restated = Effect.fnUntraced(function* (text: string, version: string, at: string) {
     yield* Effect.fromResult(SemVer.parse(version)).pipe(
@@ -167,97 +107,9 @@ const expanded = (named: Readonly<Record<string, string>>, environment: Readonly
         ),
     );
 
-const filled = Effect.fnUntraced(function* (folder: string) {
-    const names = Array.dedupe(folder.matchAll(ENVIRONMENT).map(([, name = '']) => name));
-    const values = yield* Effect.forEach(names, (name) => Config.withDefault(Config.String(name), ''));
-    return Array.zip(names, values).reduce((text, [name, value]) => text.replaceAll(`$env{${name}}`, value), folder);
-});
-
 const configured = (configure: string, defines: Readonly<Record<string, string>> = {}): Array.NonEmptyReadonlyArray<string> => ['cmake', '--preset', configure, '-S', '.', ...Record.collect(defines, (name, value) => `-D${name}=${value}`)];
 
-const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string, configure: string, located: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const inside = (at: string) => normalizePath(relative(workspaceRoot, resolve(workspaceRoot, root, at))) || '.';
-    const tree = join(workspaceRoot, located);
-    const [query, reply] = [join(tree, ...API, 'query', CLIENT), join(tree, ...API, 'reply')];
-    const read = <S extends Schema.Decoder<unknown>>(schema: S, file: string) => Effect.flatMap(fs.readFileString(join(reply, file)), Schema.decodeEffect(schema));
-    yield* fs.makeDirectory(query, { recursive: true });
-    yield* fs.writeFileString(join(query, QUERY), '{"requests":[{"kind":"codemodel","version":2},{"kind":"cmakeFiles","version":1}]}');
-    yield* spawned(configured(configure), { cwd: join(workspaceRoot, root) });
-    const newest = yield* Effect.flatMap(fs.readDirectory(reply), (names) => Effect.fromOption(Array.last(names.filter((name) => name.startsWith('index-')).toSorted())));
-    const index = yield* read(Index, newest);
-    const [modelled, filed] = index.reply[CLIENT][QUERY].responses;
-    const [codemodel, { inputs }, listing] = yield* Effect.all([read(Codemodel, modelled.jsonFile), read(Inputs, filed.jsonFile), Effect.flatMap(spawned([index.cmake.paths.ctest, '--test-dir', tree, '--show-only=json-v1'], { cwd: workspaceRoot }), Schema.decodeEffect(Listing))], {
-        concurrency: 'unbounded',
-    });
-    const { directories, projects, targets } = Array.headNonEmpty(codemodel.configurations);
-    const loaded = yield* Effect.forEach(targets, ({ projectIndex, jsonFile }) => Effect.map(read(Target, jsonFile), (target) => ({ projectIndex, ...target })), { concurrency: 'unbounded' });
-    const owners = new Map(loaded.map(({ projectIndex, id }) => [id, projectIndex] as const));
-    const directed = new Map(directories.map(({ source, projectIndex }) => [inside(source), projectIndex] as const));
-    const origin = (at: number): Option.Option<number> => Option.flatMap(Array.get(listing.backtraceGraph.nodes, at), ({ file, parent }) => (parent === undefined ? Option.some(file) : origin(parent)));
-    const tested = new Set(
-        Array.getSomes(
-            listing.tests.map(({ backtrace }) =>
-                pipe(
-                    origin(backtrace),
-                    Option.flatMap((file) => Array.get(listing.backtraceGraph.files, file)),
-                    Option.flatMap((file) => Option.fromUndefinedOr(directed.get(inside(dirname(file))))),
-                ),
-            ),
-        ),
-    );
-    const placed = yield* Effect.forEach(
-        projects,
-        Effect.fnUntraced(function* ({ name, directoryIndexes }, at) {
-            const { source, build, jsonFile } = yield* Effect.fromOption(Array.get(directories, Array.headNonEmpty(directoryIndexes)));
-            const [{ installers }, packaging] = yield* Effect.all([read(Directory, jsonFile), fs.exists(join(tree, build, PACKAGING))], { concurrency: 'unbounded' });
-            return { name, root: inside(source), build, installs: installers.length > 0, packaged: installers.length > 0 && packaging, tested: tested.has(at) };
-        }),
-    );
-    const stated = loaded.flatMap(({ projectIndex: from, backtraceGraph, linkLibraries, interfaceLinkLibraries, dependencies }) => [...linkLibraries, ...interfaceLinkLibraries, ...dependencies].map((link) => ({ from, ...backtraceGraph, ...link })));
-    const linked = Array.getSomes(
-        stated.map(({ from, files, nodes, id, backtrace }) =>
-            Option.all({
-                from: Option.some(from),
-                link: Option.all({
-                    root: pipe(
-                        Option.fromUndefinedOr(id),
-                        Option.flatMap((target) => Option.fromUndefinedOr(owners.get(target))),
-                        Option.filter((owner) => owner !== from),
-                        Option.flatMap((owner) => Array.get(placed, owner)),
-                        Option.map((owner) => owner.root),
-                    ),
-                    file: pipe(
-                        Option.fromUndefinedOr(backtrace),
-                        Option.flatMap((at) => Array.get(nodes, at)),
-                        Option.filter(({ command }) => command !== undefined),
-                        Option.flatMap(({ file }) => Array.get(files, file)),
-                        Option.map(inside),
-                    ),
-                }),
-            }),
-        ),
-    );
-    const listed = loaded.flatMap(({ projectIndex, sources }) => sources.filter(({ isGenerated }) => isGenerated !== true).map((source) => ({ projectIndex, folder: posix.dirname(inside(source.path)) })));
-    const included = loaded.flatMap(({ projectIndex, compileGroups }) => compileGroups.flatMap(({ includes }) => includes).map((include) => ({ projectIndex, folder: inside(include.path) })));
-    const searched = [...listed, ...included].filter(({ folder }) => posix.relative(located, folder).startsWith('..'));
-    const binaries = new Map(loaded.flatMap(({ id, link, nameOnDisk, artifacts }) => artifacts.filter(({ path: file }) => link !== undefined && basename(file) === nameOnDisk).map(({ path: file }) => [id, { binary: file }] as const)));
-    const members = placed.map((member, at) => ({
-        ...member,
-        folders: Array.dedupe(searched.filter(({ projectIndex, folder }) => projectIndex === at && !posix.relative(member.root, folder).startsWith('..')).map(({ folder }) => folder)),
-        targets: loaded.filter(({ projectIndex, artifacts }) => projectIndex === at && artifacts.length > 0).map(({ id, name, artifacts }) => ({ name, artifacts, ...binaries.get(id) })),
-        links: Array.dedupe(linked.filter(({ from }) => from === at).map(({ link }) => link)),
-    }));
-    const tracked = yield* Effect.promise(() =>
-        globWithWorkspaceContext(
-            workspaceRoot,
-            inputs.filter(({ isGenerated }) => isGenerated !== true).map(({ path: at }) => inside(at)),
-        ),
-    );
-    return { members, inputs: tracked };
-});
-
-const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: string, manifests: readonly string[]) {
+const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: string, matched: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
     const root = posix.dirname(presets);
     const source = join(workspaceRoot, root);
@@ -324,25 +176,69 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
             (variable, named) => ({ variable, launcher: macros(configure, WORKING)(typeof named === 'string' ? named : named.value) }),
         );
     const workflows = Array.getSomes(
-        workflowPresets.map(({ name, steps }) => Option.map(stepped(steps, 'configure'), (configure) => ({ ...Record.getSomes({ build: stepped(steps, 'build'), test: stepped(steps, 'test'), after: followed(steps) }), tree: rooted(configure), name, configure, tidy: launchers(configure) }))),
+        workflowPresets.map(({ name, steps }) =>
+            Option.map(stepped(steps, 'configure'), (configure) => ({
+                build: Option.getOrUndefined(stepped(steps, 'build')),
+                test: Option.getOrUndefined(stepped(steps, 'test')),
+                after: Option.getOrUndefined(followed(steps)),
+                tree: rooted(configure),
+                name,
+                configure,
+                tidy: launchers(configure),
+            })),
+        ),
     );
-    const declaring = yield* Effect.filter(
-        manifests.filter((file) => !posix.relative(root, file).startsWith('..')),
-        (file) => Effect.map(fs.readFileString(join(workspaceRoot, file)), (text) => CALL.test(text)),
+    const trees = matched.filter((file) => posix.basename(file) === PRESETS && file !== presets && inside(root)(file)).map(posix.dirname);
+    const inputs = matched.filter((file) => inside(root)(file) && !trees.some((nested) => inside(nested)(file)));
+    const parsed = yield* Effect.forEach(
+        inputs.filter((file) => posix.basename(file) === MANIFEST),
+        (file) => Effect.map(fs.readFileString(join(workspaceRoot, file)), (text) => ({ file, folder: posix.dirname(file), calls: commands(text) })),
         { concurrency: 'unbounded' },
     );
-    return yield* Option.match(
-        Option.filter(Array.head(workflows), () => declaring.length > 0),
-        {
-            onNone: () => Effect.succeed<Tree>({ root, workflows, packages, members: [], inputs: [] }),
-            onSome: (workflow) =>
-                Effect.map(
-                    Effect.flatMap(filled(workflow.tree), (located) => replied(workspaceRoot, root, workflow.configure, located)),
-                    (reply): Tree => ({ root, workflows, packages, ...reply }),
-                ),
-        },
+    const invoked = parsed.flatMap(({ file, folder, calls }) => calls.map((call) => ({ file, folder, ...call })));
+    const declared = Array.dedupeWith(
+        invoked.flatMap(({ name, folder, args }) => (name === 'project' ? Array.take(args, 1).map(({ value }) => ({ name: value, folder, args })) : [])),
+        (one, other) => one.folder === other.folder,
     );
+    const placed = declared.filter(({ folder }) => folder === root || !declared.some((outer) => outer.folder !== root && outer.folder !== folder && inside(outer.folder)(folder)));
+    const owner = (folder: string) =>
+        Array.min(
+            Array.prepend(
+                placed.map((held) => held.folder).filter((at) => inside(at)(folder)),
+                root,
+            ),
+            Order.mapInput(Order.Number, (at: string) => posix.relative(at, folder).length),
+        );
+    const defined = Record.fromEntries(invoked.filter(({ name }) => DEFINING.has(name)).flatMap(({ folder, args }) => Array.take(args, 1).map(({ value }) => [value, owner(folder)] as const)));
+    const linked = invoked
+        .map(({ file, folder, args }) => ({
+            file,
+            args,
+            from: pipe(
+                Array.head(args),
+                Option.flatMap(({ value }) => Record.get(defined, value)),
+                Option.getOrElse(() => owner(folder)),
+            ),
+        }))
+        .flatMap(({ file, args, from }) => Array.drop(args, 1).map(({ value }) => ({ file, from, to: Record.get(defined, value) })))
+        .flatMap(({ file, from, to }) => Option.toArray(Option.filter(to, (held) => held !== from)).map((target) => ({ from, root: target, file })));
+    const members = placed.map(({ name, folder, args }) => ({
+        name,
+        root: folder,
+        build: posix.relative(root, folder),
+        compiled: folder !== root && !args.some(({ value }) => value === 'NONE'),
+        packaged: args.some(({ value }) => value === 'VERSION'),
+        links: Array.dedupe(linked.filter(({ from }) => from === folder).map(({ root: to, file }) => ({ root: to, file }))),
+        registries: inputs.filter((file) => posix.basename(file) === REGISTRY.manifest && owner(posix.dirname(file)) === folder).map((manifest) => ({ folder: posix.dirname(manifest), inputs: Array.intersection([manifest, posix.join(posix.dirname(manifest), REGISTRY.configuration)], matched) })),
+    }));
+    return { root, workflows, packages, members, inputs, exporter: normalizePath(relative(source, EXPORTER)) };
 });
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()(`${PLUGIN}/workspace/Linked`) {
+    static readonly layer = Layer.sync(Linked, () => new Map());
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -350,4 +246,4 @@ const run = runner(Linked.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { configured, ENVIRONMENT, Linked, MANIFEST, PACKAGING, PLUGIN, PRESETS, resolved, restated, run, Tree, versioned, WORKING, type Workflow };
+export { configured, ENVIRONMENT, Linked, MANIFEST, PACKAGING, PLUGIN, PRESETS, REGISTRY, resolved, restated, run, type Tree, versioned, WORKING, type Workflow };

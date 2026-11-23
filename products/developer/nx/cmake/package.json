@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-cmake",
     "version": "0.1.0",
-    "description": "Nx plugin inferring CMake projects, targets, and dependencies from each workflow preset's file API reply, with clang-tidy, CTest, and CPack targets",
+    "description": "Nx plugin inferring CMake projects, targets, and dependencies from each presets tree's workflow presets and list files without configuring, with clang-tidy, CTest, and CPack targets",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -10,12 +10,14 @@
     },
     "files": [
         "dist/**/*.js",
-        "dist/**/*.d.ts"
+        "dist/**/*.d.ts",
+        "coverage.cmake"
     ],
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
-        "#/*.json": "./*.json"
+        "#/*.json": "./*.json",
+        "#/*.cmake": "./*.cmake"
     },
     "exports": {
         ".": "./plugin.ts",
@@ -25,7 +27,8 @@
     "publishConfig": {
         "imports": {
             "#/*": "./dist/*.js",
-            "#/*.json": "./*.json"
+            "#/*.json": "./*.json",
+            "#/*.cmake": "./*.cmake"
         },
         "exports": {
             ".": "./dist/plugin.js",

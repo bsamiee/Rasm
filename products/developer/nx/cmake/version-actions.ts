@@ -18,7 +18,7 @@ class CmakeVersionActions extends VersionActions {
         return run(
             Effect.map(
                 Effect.flatMap(read(tree, manifestPath), (text) => versioned(text, manifestPath)),
-                ({ version }) => ({ currentVersion: version, manifestPath }),
+                ({ value }) => ({ currentVersion: value, manifestPath }),
             ),
         );
     }
