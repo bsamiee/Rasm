@@ -8,22 +8,19 @@ requires-python = ">=3.15"
 dependencies = [
     # --- [CORE]
 
-    "msgspec",                                         # Decoding of each JSON line a handler writes
-    "pydantic",                                        # Error a refused settings value raises
-    "pytest",                                          # Fixtures, parameters, captured logs, and patched members
-    "rasm-telemetry[configuration,otlp-http,process]", # Library under test with every extra its process scope and collector import
-    "rasm-testing[hosting]",                           # OTLP collector a test hosts on a loopback port and the requests it received
+    "hypothesis",                            # Nested credential fields the redaction property draws
+    "msgspec",                               # Decoding of each JSON line a handler writes
+    "pytest",                                # Fixtures, parameters, captured logs, and patched members
+    "rasm-telemetry[configuration,process]", # Library under test with every extra its process scope imports
 
     # --- [LOGGING]
 
-    "portalocker",                                     # Lock a running process holds on its crash log
-    "structlog",                                       # Context-local fields, the process-wide configuration a scope sets, and processor types
+    "portalocker",                           # Lock a running process holds on its crash log
+    "structlog",                             # Context-local fields, the process-wide configuration a scope sets, and processor types
 
     # --- [OPENTELEMETRY]
 
-    "opentelemetry-api",                               # Span context of an exported span
-    "opentelemetry-exporter-otlp-common",              # Compression a collector posts under
-    "opentelemetry-proto",                             # Export request message a posted body decodes to
-    "opentelemetry-sdk",                               # Providers, processors, and in-memory span and log exporters
-    "opentelemetry-test-utils",                        # Resets of the provider globals
+    "opentelemetry-api",                     # Span context of an exported span
+    "opentelemetry-sdk",                     # Providers, processors, and in-memory span and log exporters
+    "opentelemetry-test-utils",              # Resets of the provider globals
 ]
