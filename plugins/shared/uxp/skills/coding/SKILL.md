@@ -372,7 +372,7 @@ xh -b 127.0.0.1:14001/__uxp_debugger__/hooks/watch manifestPath==<manifest>
 - `AXPress` on the `UXP Devtools` activity-bar tab toggles its side bar, and the tab reads `value` 1 while the panel shows
 - Menu item `Currently opened manifest.json` registers the active editor's file, which `watch-app launch <VS Code> --document <manifest>` opens
 - Panel title buttons `UXP: Stop UXP Devtools` and `UXP: Start UXP Devtools` close and open the broker's port
-- UXP Debugger stays the broker, as Photoshop stalls in launch while `@adobe-fixed-uxp/uxp-devtools-cli` `uxp service start` listens on the port
+- UXP Debugger stays the broker, as Photoshop and InDesign stall in launch while `@adobe-fixed-uxp/uxp-devtools-cli` `uxp service start` listens on the port, and its `plugin reload`, `unload`, and `debug` reach no host
 - `debugger` MCP attaches through `create_debug_session` with `language` `javascript`, then `attach_to_process` with `stopOnEntry` `false`
 - `attach_to_process` `adapterConfig` holds `websocketAddress` `ws://127.0.0.1:14001/socket/cdt/<session>`, `sourceMaps` `true`, and `cwd` of the build folder
 - `set_breakpoint` takes a TypeScript source path, as `@rasm/uxp/vite` writes `main.js.map` beside each bundle, and `detach_from_process` leaves its host running
