@@ -274,6 +274,14 @@ version          = "latest"
 version_list_url = "https://api.github.com/repos/blender/blender/tags"
 version_order    = "semver"
 
+[tools."http:claude-code-types"]
+os               = ["unix"]
+postinstall      = { run = 'mkdir -p "$MISE_CONFIG_ROOT/.cache" && ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/.cache/claude-code"', when = "always" }
+url              = "https://raw.githubusercontent.com/anthropics/claude-code/v{{ version }}/mods/types/claude-code.d.ts"
+version          = "latest"
+version_list_url = "https://api.github.com/repos/anthropics/claude-code/tags"
+version_order    = "semver"
+
 [tools."http:dataflow-errorprone"]
 bin              = "dataflow-errorprone.jar"
 format           = "raw"

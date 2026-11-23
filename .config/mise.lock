@@ -2904,6 +2904,23 @@ url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_c
 checksum = "sha256:f3b5445be87c5a8404309426e882f88b9486a5de94e1ab5fb94fd4b92bdb0699"
 url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_core/bl_pkg/cli/blender_ext.py"
 
+[[tools."http:claude-code-types"]]
+version = "2.1.330"
+backend = "http:claude-code-types"
+specifiers = ["latest"]
+
+[tools."http:claude-code-types"."platforms.linux-arm64"]
+checksum = "sha256:7afdda2e6a7a40e2e8d12e77ab98129df6e45f460545da9cfec1fda783d488f0"
+url = "https://raw.githubusercontent.com/anthropics/claude-code/v2.1.330/mods/types/claude-code.d.ts"
+
+[tools."http:claude-code-types"."platforms.linux-x64"]
+checksum = "sha256:7afdda2e6a7a40e2e8d12e77ab98129df6e45f460545da9cfec1fda783d488f0"
+url = "https://raw.githubusercontent.com/anthropics/claude-code/v2.1.330/mods/types/claude-code.d.ts"
+
+[tools."http:claude-code-types"."platforms.macos-arm64"]
+checksum = "blake3:7a38e275362319314e437b29e3355ed2208cd87bff6657fe23f47e837f1c2d83"
+url = "https://raw.githubusercontent.com/anthropics/claude-code/v2.1.330/mods/types/claude-code.d.ts"
+
 [[tools."http:dataflow-errorprone"]]
 version = "3.49.5-eisop1"
 backend = "http:dataflow-errorprone"

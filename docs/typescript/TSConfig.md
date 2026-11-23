@@ -82,6 +82,8 @@ Options for one case alone:
 - `stripInternal` drops `@internal` members from declarations
 - `composite: false` sits beside `noEmit` only for inferred types no declaration names (TS2883, TS4094) or imports outside `include` (TS6307)
 - `module: preserve` serves `export =` modules read by named import (`@adobe-uxp-types`) and extensionless `.d.ts` re-exports (`icu`, Workers types)
+- Claude Code hooks programs include `.cache/claude-code`, where mise row `http:claude-code-types` links the declarations of its release tag
+- Published `claude-code` declarations hold no tool table, and a plugin `types/index.d.ts` states the tool inputs its hooks read
 
 ## [04]-[PROJECT_REFERENCES]
 

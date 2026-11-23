@@ -2,9 +2,7 @@
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
         "noEmit": true,
-        "plugins": [],
-        "typeRoots": ["../.claude-plugin/types", "../node_modules/@types"],
-        "types": ["claude-code", "claude-code-tools", "claude-code-mcp"]
+        "plugins": []
     },
-    "include": [".", "../types"]
+    "include": [".", "../types", "../../../../.cache/claude-code"]
 }
