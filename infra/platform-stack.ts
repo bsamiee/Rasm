@@ -21,6 +21,7 @@ type Role = Data.TaggedEnum<{
     Cache: { readonly name: string; readonly kept: Duration.Duration };
     Runner: { readonly instances: Readonly<Record<string, Readonly<Record<string, string>>>> };
     Apps: { readonly owner: string };
+    History: { readonly name: string };
 }>;
 interface Row {
     readonly address: string;
@@ -34,7 +35,7 @@ const hosts = {
     'lucky.parametric-arsenal.cloud': {
         address: '31.97.131.41',
         tags: ['tag:server'],
-        roles: [],
+        roles: [{ _tag: 'History', name: 'atuin' }],
     },
     'derby.parametric-arsenal.cloud': {
         address: '45.90.223.193',
@@ -235,6 +236,27 @@ ENTRYPOINT ["/nx-cache-aws"]
     return { ...Record.map(ci, Struct.get('name')), dev, root };
 };
 
+const synced = (machine: Machine, { name }: Data.TaggedEnum.Value<Role, 'History'>, owner: string, project: string) => {
+    const [port, file, password] = [8888, '/run/password', new RandomPassword(`${machine.name}-ATUIN_PASSWORD`, { length: 32, special: false }).result];
+    const { address, named, labels } = machine.routed(name, port);
+    const serving = machine.contained(
+        name,
+        [],
+        {
+            image: machine.pulled('ghcr.io/atuinsh/atuin:18.25.1'),
+            entrypoints: ['/bin/sh', '-c'],
+            command: [`(atuin-server admin user create --email ${owner}@users.noreply.github.com ${owner} < ${file} || atuin-server admin user set-password ${owner} < ${file}) && exec atuin-server start`],
+            envs: ['ATUIN_HOST=0.0.0.0', 'ATUIN_DB_URI=sqlite:///config/atuin.db'],
+            uploads: [{ file, content: interpolate`${password}\n` }],
+            mounts: [{ type: 'volume', source: machine.kept(name), target: '/config' }],
+            labels,
+        },
+        { dependsOn: [proxied(machine), ...named] },
+    );
+    const held = { ATUIN_SYNC_ADDRESS: serving.id.apply(() => `https://${address}`), ATUIN_PASSWORD: password };
+    return Record.map(held, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value }).name);
+};
+
 const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>) => {
     const port = 9091;
     const [{ guard, forwarded }, wildcard] = [Machine, `*.${machine.zone}`];
@@ -284,6 +306,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
             Role.$match({
                 Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, project),
                 Apps: (settings) => hosted(machine, settings),
+                History: (settings) => synced(machine, settings, owner, project),
                 Runner: ({ instances }) => {
                     const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner' } as const;
                     const [, registered] = Array.mapAccum(Record.toEntries(instances), Option.none<remote.Command>(), (before, [label, limits]) => {

@@ -31,6 +31,7 @@ Machines, their reinstall, and images their stacks run:
 - `[bootstrap.remote]` loads `linux`, and a host row with a role names `linux` and its role file, as `mise bootstrap remote` sends no `.miserc.toml`
 - `mise bootstrap remote` sends folder `.config` and applies its parts as `root@<name>` over Tailscale SSH
 - Role `Cache` runs the Nx cache server with its proxy and object storage
+- Role `History` runs the Atuin sync server with its proxy
 - Role `Runner` runs a runner service per instance and pulls an Unreal image per engine release a tracked `.uproject` names
 - Role `Runner` builds and pushes `ghcr.io/<owner>/<repository>/playwright:<version>`, locked Playwright Chromium over the newest `node:slim`
 - Playwright images add `curl`, a C compiler, and ICU, as action `tools` downloads mise, builds cargo tools, and runs `dotnet` inside them
@@ -77,7 +78,19 @@ Nx cache server of role `Cache`:
 - Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a run once a cache write fails six times
 - Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop
 
-## [06]-[RUNNERS]
+## [06]-[HISTORY_SERVER]
+
+Atuin sync server of role `History`:
+- Atuin server `atuinsh/atuin` answers at HTTPS name `<name>.<zone>` of role field `name`, as clients off the tailnet sync through it
+- Servers hold records in SQLite on volume `<name>`, as one account with one writer needs no database server
+- Servers sync the encrypted record store whole (history, threads, kv, scripts, dotfiles), and Atuin Hub alone serves packfiles
+- Clients skip packfile records for a server advertising no packfile capability, as loose records cover them
+- Registration stays closed, and each container start creates or resets the repository owner's account from the stack's password
+- History stacks write `ATUIN_SYNC_ADDRESS` and `ATUIN_PASSWORD` to Doppler `dev`, the variables the Atuin client reads
+- Clients log in with `doppler run -- atuin login -u <owner> -k "$(atuin key)"`, keeping their encryption key
+- Clients hold every record of their account, and a server lost with its machine refills from the next client to log in and sync
+
+## [07]-[RUNNERS]
 
 GitHub Actions runners of role `Runner`:
 - Role `Runner` field `instances` names each runner service by label with systemd limits `systemctl set-property` sets once it starts
@@ -88,7 +101,7 @@ GitHub Actions runners of role `Runner`:
 - Runners keep tools, ignored files, and each Unreal image between runs
 - `needrestart` leaves `actions.runner.*` services running after a library update
 
-## [07]-[SECRETS]
+## [08]-[SECRETS]
 
 Doppler configs and their readers:
 - Config `ci` syncs to repository Actions secrets and `release` to GitHub environment `release`, each deleting names removed from Doppler
@@ -99,7 +112,7 @@ Doppler configs and their readers:
 - Row `DOPPLER_IAC_TOKEN` reaches stacks as `DOPPLER_TOKEN`, and row `GITHUB_TOKEN` authorizes GitHub's provider and deploy webhook
 - Pulumi state sits in Pulumi Cloud for `deploy` and in local backend `file://~` for `install`
 
-## [08]-[GOOGLE_CLOUD]
+## [09]-[GOOGLE_CLOUD]
 
 Google Cloud project `rasm-release`, its identities, and GitHub variables naming them:
 - Stack `rasm` declares project APIs, workload identity pool `github`, and provider `github` trusting OIDC tokens of the repository ID alone
@@ -111,7 +124,7 @@ Google Cloud project `rasm-release`, its identities, and GitHub variables naming
 - Chrome Web Store dashboard Settings list `chrome-web-store` under Service account, with access to every publisher item
 - Service accounts hold no key, and Chrome Web Store API answers 403 alike for an item its publisher lacks and a refused identity
 
-## [09]-[UPDATES]
+## [10]-[UPDATES]
 
 Package updates and reboots of each machine:
 - Machines install Ubuntu `*-updates` and Docker packages daily on a timer `.config/mise.linux.toml` sets
