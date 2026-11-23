@@ -25,8 +25,6 @@ interface Sent {
 const ENDPOINT = 'http://localhost/';
 const MANIFEST = { name: 'test', version: '1.2.3', description: 'Conformance fixture' } as const;
 const INSTRUCTIONS = ['Specifiers come from results'] as const;
-const ALLOWED = 'mcp.example';
-const BOUND = '192.0.2.10:7000';
 const CLIENT = { name: 'conformance-client', version: '1.0.0' } as const;
 const SESSION = 'Mcp-Session-Id';
 const VERSION = 'Mcp-Protocol-Version';
@@ -56,9 +54,9 @@ const Outcome = Schema.Struct({ error: Schema.optionalKey(Schema.Struct({ code: 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const hosted = Effect.fnUntraced(function* (bound: string = BOUND) {
+const hosted = Effect.fnUntraced(function* (bound: string) {
     const [probe, name, address] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name), Effect.fromResult(Host.hostPortFromString(bound))]);
-    return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { ...SETTINGS, address, hosts: [ALLOWED], instructions: INSTRUCTIONS }, app(probe)).pipe(Layer.provide([layerAead, layerSecureRandom])) };
+    return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { ...SETTINGS, address, hosts: ['mcp.example'], instructions: INSTRUCTIONS }, app(probe)).pipe(Layer.provide([layerAead, layerSecureRandom])) };
 });
 const messages = (response: Response) =>
     Effect.flatMap(
@@ -71,7 +69,7 @@ const messages = (response: Response) =>
     );
 
 const opened = Effect.fnUntraced(function* (protocol: (typeof PROTOCOLS)[number]) {
-    const { probe, layer } = yield* hosted();
+    const { probe, layer } = yield* hosted('192.0.2.10:7000');
     const { handler, dispose } = HttpRouter.toWebHandler(layer, { disableLogger: true });
     yield* Effect.addFinalizer(() => Effect.promise(dispose));
     yield* Effect.addFinalizer(() => probe.release.open);

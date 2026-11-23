@@ -54,7 +54,7 @@ which           = "8.0.6"                                                 # Exec
 windows         = "0.62.2"                                                # Win32 process creation flags process-wrap wrappers take
 stacksafe       = "1.0.3"                                                 # Stack growth for recursive operations over nested values
 velopack        = "1.2.161"                                               # Product installation and in-place updates
-wasmtime        = "51.0.0"                                           # In-process WebAssembly sandbox around untrusted guest code
+wasmtime        = "51.0.0"                                                # In-process WebAssembly sandbox around untrusted guest code
 windows-service = "0.8.1"                                                 # Windows service installation and control events
 
 # --- [ERRORS]
@@ -78,18 +78,18 @@ strum        = { version = "0.28.0", features = ["derive"] }                    
 
 # --- [COLLECTIONS]
 
-cardinality-estimator = { version = "1.0.3", features = ["with_serde"] }   # HyperLogLog distinct counts that merge across shards
-datasketches          = { version = "0.7.0", features = ["tdigest"] } # Mergeable t-digest quantile sketches that chunk reductions merge and query
-enum-map              = { version = "3.1.0", features = ["serde"] }        # Total maps holding one value per enum variant
-fastbloom             = "0.17.0"                                           # Bloom filters that precheck membership
-fst                   = { version = "0.4.7", features = ["levenshtein"] }  # Finite-state sets and maps with prefix, range, and fuzzy queries
-hashbrown             = "0.17.2"                                           # Hash maps with `entry_ref`, inserting an owned key only on a miss from a borrowed lookup
-imbl                  = { version = "7.0.2", features = ["serde"] }        # Persistent vectors and maps with structural sharing across tasks
-indexmap              = { version = "2.14.2", features = ["serde"] }       # Insertion-ordered maps and sets that keep iteration and output deterministic
-itertools             = "0.15.0"                                           # Partitioned results, grouping, windows, and merges over iterators
-roaring               = "0.12.0"                                           # Compressed integer sets with set algebra
-rust-lapper           = "2.0.1"                                            # Interval overlap and stabbing queries
-slotmap               = "1.1.1"                                            # Generational-index arenas holding graph and scene nodes
+cardinality-estimator = { version = "1.0.3", features = ["with_serde"] }  # HyperLogLog distinct counts that merge across shards
+datasketches          = { version = "0.7.0", features = ["tdigest"] }     # Mergeable t-digest quantile sketches that chunk reductions merge and query
+enum-map              = { version = "3.1.0", features = ["serde"] }       # Total maps holding one value per enum variant
+fastbloom             = "0.17.0"                                          # Bloom filters that precheck membership
+fst                   = { version = "0.4.7", features = ["levenshtein"] } # Finite-state sets and maps with prefix, range, and fuzzy queries
+hashbrown             = "0.17.2"                                          # Hash maps with `entry_ref`, inserting an owned key only on a miss from a borrowed lookup
+imbl                  = { version = "7.0.2", features = ["serde"] }       # Persistent vectors and maps with structural sharing across tasks
+indexmap              = { version = "2.14.2", features = ["serde"] }      # Insertion-ordered maps and sets that keep iteration and output deterministic
+itertools             = "0.15.0"                                          # Partitioned results, grouping, windows, and merges over iterators
+roaring               = "0.12.0"                                          # Compressed integer sets with set algebra
+rust-lapper           = "2.0.1"                                           # Interval overlap and stabbing queries
+slotmap               = "1.1.1"                                           # Generational-index arenas holding graph and scene nodes
 
 # --- [CRDT]
 
@@ -114,7 +114,7 @@ rasn                = "0.30.0"                                                  
 rasn-cms            = "0.30.0"                                                                               # CMS and timestamp protocol records over rasn
 rmp-serde           = "1.3.1"                                                                                # MessagePack codec
 serde               = { version = "1.0.229", features = ["derive"] }                                         # Derived encode and decode of records and tagged unions
-serde-saphyr        = "3.0.0-rc.1"                                                                                # YAML codec without unsafe libyaml
+serde-saphyr        = "3.0.0-rc.1"                                                                           # YAML codec without unsafe libyaml
 serde-content       = "0.1.2"                                                                                # Serialization values preserving integer widths, map entries, and native replay
 serde_json          = { version = "1.0.154", features = ["raw_value", "float_roundtrip", "preserve_order"] } # JSON codec with values, raw passthrough, and objects kept in insertion order
 serde_path_to_error = "0.1.20"                                                                               # Boundary decode errors that name failing field path
@@ -210,8 +210,8 @@ file-format           = { version = "0.29.0", features = ["reader-zip", "reader-
 fs-err                = "3.3.2"                                                                                                                                                                             # File calls with errors that name path
 globset               = "0.4.22"                                                                                                                                                                            # One path matched against many globs in one pass
 ignore                = "0.4.35"                                                                                                                                                                            # Gitignore-aware parallel directory walks
-notify                = { version = "9.0.0", features = ["tokio"] }                                                                                                                                    # File system change events
-notify-debouncer-full = { version = "0.8.0", features = ["tokio"] }                                                                                                                                    # Debounced, rename-aware change batches
+notify                = { version = "9.0.0", features = ["tokio"] }                                                                                                                                         # File system change events
+notify-debouncer-full = { version = "0.8.0", features = ["tokio"] }                                                                                                                                         # Debounced, rename-aware change batches
 tempfile              = "3.27.0"                                                                                                                                                                            # Temporary files and atomic writes that keep occupied destinations
 walkdir               = "2.5.1"                                                                                                                                                                             # Recursive directory iteration without following symlinks
 typed-path            = { version = "0.13.0", default-features = false }                                                                                                                                    # Archive entry names normalized by Unix path rules on every host
@@ -280,7 +280,7 @@ matchit            = "0.9.2"                                                    
 mime               = "0.3.18"                                                                                                                                                                                   # Media types parsed with their parameters
 octocrab           = { version = "0.54.9", default-features = false, features = ["default-client", "follow-redirect", "jwt-aws-lc-rs", "retry", "rustls", "rustls-aws-lc-rs", "stream", "timeout", "tracing"] } # GitHub REST client, default `rustls-ring` adds ring beside aws-lc-rs
 percent-encoding   = "2.3.2"                                                                                                                                                                                    # RFC 3986 percent-decoding of URI template variables
-progenitor         = "0.17.0"                                                                                                                                                                           # Typed clients generated from OpenAPI documents
+progenitor         = "0.17.0"                                                                                                                                                                                   # Typed clients generated from OpenAPI documents
 reqwest            = { version = "0.13.5", features = ["json", "stream", "gzip", "zstd", "brotli", "blocking"] }                                                                                                # HTTP client with pooling, streaming, and decompression, and a blocking client typst-kit's synchronous downloader reads
 reqwest-middleware = { version = "0.5.2", features = ["json", "rustls"] }                                                                                                                                       # Middleware chain around HTTP clients
 reqwest-tracing    = "0.7.1"                                                                                                                                                                                    # Client request spans with semantic-convention attributes

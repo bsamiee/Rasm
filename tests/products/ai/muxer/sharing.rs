@@ -93,7 +93,7 @@ async fn sessions_share_one_server_when_runtime_and_cache_folders_coincide() -> 
     scoped(async |isolated: &Isolated| {
         let relay = || {
             let mut command = isolated.relay(&[], &[]);
-            command.env("MCP_MUXER_RUNTIME_DIR", isolated.folder("cache"));
+            command.env("MCP_MUXER_RUNTIME_DIR", "cache");
             session(Agent::default(), command)
         };
         let first = assert_ok!(relay().await);

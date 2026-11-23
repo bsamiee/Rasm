@@ -190,7 +190,7 @@ git-lfs                                                                      = "
 "github:sparkle-project/Sparkle"                                             = { os = ["macos"], version = "latest" }
 "github:trailofbits/dylint"                                                  = { matching = "cargo-dylint-", os = ["unix"], version = "latest" }
 google-java-format                                                           = "latest"
-hk                                                                           = { postinstall = { run = '''{% if os() != "windows" %}sd 'download/v[^/]+/hk@[^#]+#' "download/v$MISE_TOOL_VERSION/hk@$MISE_TOOL_VERSION#" "$MISE_CONFIG_ROOT/.config/hk.pkl"{% endif %}''', when = "always" }, version = "latest" }
+hk                                                                           = { depends = ["sd"], postinstall = { run = '''{% if os() != "windows" %}sd 'download/v[^/]+/hk@[^#]+#' "download/v$MISE_TOOL_VERSION/hk@$MISE_TOOL_VERSION#" "$MISE_CONFIG_ROOT/.config/hk.pkl"{% endif %}''', when = "always" }, version = "latest" }
 hyperfine                                                                    = "latest"
 imagemagick                                                                  = "latest"
 jactionlint                                                                  = "latest"

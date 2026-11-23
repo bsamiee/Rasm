@@ -19,7 +19,13 @@ system = true
 [bootstrap.packages]
 "apt:build-essential" = "latest"
 "apt:fontconfig"      = "latest"
+"apt:libgl1"          = "latest"
+"apt:libice6"         = "latest"
+"apt:libsm6"          = "latest"
 "apt:libsqlite3-dev"  = "latest"
+"apt:libxfixes3"      = "latest"
+"apt:libxi6"          = "latest"
+"apt:libxrender1"     = "latest"
 "apt:pkg-config"      = "latest"
 "apt:sqlite3"         = "latest"
 "apt:unzip"           = "latest"

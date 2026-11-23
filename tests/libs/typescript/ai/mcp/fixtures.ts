@@ -10,7 +10,6 @@ const TEXT = 'This is a simple text response for testing.';
 const STATIC = 'This is the content of the static text resource.';
 const EMBEDDED = 'This is an embedded resource content.';
 const FAILURE = 'This tool intentionally returns an error for testing';
-const INTERNAL = 'connection string postgres://owner:secret@db.internal';
 const STEPS = Object.values({ started: 0, halfway: 50, finished: 100 });
 const IDS = ['beta', 'alpine', 'alpha'] as const;
 const STATE = 'asked once';
@@ -60,7 +59,7 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     );
     yield* Server.registerTool(Tool.make('test_structured', { description: 'Returns a structured result', success: Weather }).annotate(Tool.Readonly, true), () => called('test_structured', Effect.succeed({ temperature: 22.5, conditions: 'Partly cloudy' })));
     yield* Server.registerTool(Tool.make('test_error_handling', { description: 'Fails on every call', success: Schema.String }).annotate(Tool.Readonly, true), () => called('test_error_handling', Effect.fail(new Cause.IllegalArgumentError(FAILURE))));
-    yield* Server.registerTool(Tool.make('test_defect', { description: 'Dies on every call', success: Schema.String }).annotate(Tool.Readonly, true), () => called('test_defect', Effect.die(new Cause.UnknownError(undefined, INTERNAL))));
+    yield* Server.registerTool(Tool.make('test_defect', { description: 'Dies on every call', success: Schema.String }).annotate(Tool.Readonly, true), () => called('test_defect', Effect.die(new Cause.UnknownError(undefined, 'connection string postgres://owner:secret@db.internal'))));
     yield* Server.registerTool(Tool.make('test_hidden', { description: 'Hidden from every caller', success: Schema.String }).annotate(Tool.Readonly, true).annotate(Server.Visible, Effect.succeed(false)), () => called('test_hidden', Effect.succeed(TEXT)));
     yield* Server.registerTool(Tool.make('test_tool_with_progress', { description: 'Reports progress in three steps', success: Schema.String }).annotate(Tool.Readonly, true), () =>
         called(
