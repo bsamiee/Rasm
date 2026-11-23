@@ -32,5 +32,32 @@
     },
     "devDependencies": {
         "@types/node": "catalog:"
+    },
+    "nx": {
+        "namedInputs": {
+            "deployed": [
+                "{workspaceRoot}/package.json",
+                "{workspaceRoot}/Xcode.xcconfig",
+                "{workspaceRoot}/**/*.uproject",
+                "{workspaceRoot}/.github/ISSUE_TEMPLATE/*.yml",
+                "{workspaceRoot}/.config/mise.toml",
+                "{workspaceRoot}/.config/mise.linux.toml",
+                "{workspaceRoot}/.config/mise.runner.toml"
+            ]
+        },
+        "targets": {
+            "deploy--pulumi": {
+                "inputs": [
+                    "...",
+                    "deployed"
+                ]
+            },
+            "dry-run--pulumi": {
+                "inputs": [
+                    "...",
+                    "deployed"
+                ]
+            }
+        }
     }
 }
