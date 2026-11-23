@@ -208,7 +208,7 @@ mathematics = [
     "scikit-fem",                                                     # FEM assembly
     "scs",                                                            # SCS operator-splitting conic solver, a cvxpy backend
     "sectionproperties",                                              # Cross-section property solver
-    "sympy>=1.15.0rc2",                                               # Symbolic expressions beside python-flint and mpmath ground domains
+    "sympy>=1.15.0rc2",                                               # Symbolic expressions beside python-flint and mpmath ground domains, older releases omit the mpmath cap their `mpmath.libmp` imports need, and uv backtracks toward them from an mpmath prerelease the newest refuses
     "uncertainties",                                                  # First-order error propagation with correlated values
 ]
 statistics  = [
@@ -227,67 +227,67 @@ statistics  = [
 # --- [SPATIAL]
 
 geometry   = [
-    "compas",                                                                     # COMPAS geometry, data, and datastructure core
-    "compas_dr",                                                                  # COMPAS dynamic relaxation form finding
-    "compas_tna",                                                                 # COMPAS thrust network analysis
-    "manifold3d",                                                                 # Manifold mesh booleans and offsets
-    "meshio",                                                                     # Mesh file IO across FEM and CAD formats
-    "rtree",                                                                      # R-tree spatial index over libspatialindex
-    "small-gicp",                                                                 # Point-cloud registration
-    "trimesh",                                                                    # Triangle mesh loading, repair, and queries
+    "compas",                                                                         # COMPAS geometry, data, and datastructure core
+    "compas_dr",                                                                      # COMPAS dynamic relaxation form finding
+    "compas_tna",                                                                     # COMPAS thrust network analysis
+    "manifold3d",                                                                     # Manifold mesh booleans and offsets
+    "meshio",                                                                         # Mesh file IO across FEM and CAD formats
+    "rtree",                                                                          # R-tree spatial index over libspatialindex
+    "small-gicp",                                                                     # Point-cloud registration
+    "trimesh",                                                                        # Triangle mesh loading, repair, and queries
 ]
 geospatial = [
-    "geoarrow-pyarrow",                                                           # GeoArrow extension types for pyarrow and geopandas
-    "geoarrow-rust-compute",                                                      # GeoRust operations on GeoArrow memory
-    "geoarrow-rust-core",                                                         # GeoArrow geometry array memory model under GeoRust compute kernels
-    "geoarrow-rust-io; sys_platform != 'linux' or platform_machine != 'aarch64'", # GeoArrow vector IO without GDAL, no release publishes an sdist or a cp315 linux aarch64 wheel
-    "geopandas",                                                                  # Geospatial frames
-    "h3ronpy",                                                                    # Arrow-native H3 cell operations on polars frames
-    "laspy",                                                                      # LAS and LAZ point-cloud IO
-    "laszip",                                                                     # Second LAZ backend for laspy.copc
-    "lazrs",                                                                      # Compressed-COPC LAZ backend for laspy.copc
-    "odc-stac",                                                                   # Lazy dask cube from STAC items
-    "pdal",                                                                       # Point-cloud pipeline
-    "planetary-computer",                                                         # STAC URL signing for pystac-client and odc.stac
-    "polars-st",                                                                  # Spatially typed Polars frames for DGGS and spatial operations
-    "pyogrio",                                                                    # GDAL vector IO
-    "pyproj",                                                                     # PROJ coordinate transforms
-    "pystac",                                                                     # STAC item and collection object model
-    "pystac-client",                                                              # STAC API search and discovery client
-    "rasterio",                                                                   # Raster geospatial IO
-    "rioxarray",                                                                  # rasterio accessor for CF DataArray and COG raster writes
-    "shapely",                                                                    # Geometry values psycopg adapts to and from PostGIS columns
-    "stac-geoparquet",                                                            # STAC item GeoParquet table interchange
-    "xvec",                                                                       # Vector data cubes with geometry-indexed xarray dimensions
+    "geoarrow-pyarrow",                                                               # GeoArrow extension types for pyarrow and geopandas
+    "geoarrow-rust-compute",                                                          # GeoRust operations on GeoArrow memory
+    "geoarrow-rust-core",                                                             # GeoArrow geometry array memory model under GeoRust compute kernels
+    "geoarrow-rust-io<0.4; sys_platform != 'linux' or platform_machine != 'aarch64'", # GeoArrow vector IO without GDAL, no release publishes an sdist, and the cap holds the abi3 wheels lacking linux aarch64 until a newer release publishes cp315 wheels
+    "geopandas",                                                                      # Geospatial frames
+    "h3ronpy",                                                                        # Arrow-native H3 cell operations on polars frames
+    "laspy",                                                                          # LAS and LAZ point-cloud IO
+    "laszip",                                                                         # Second LAZ backend for laspy.copc
+    "lazrs",                                                                          # Compressed-COPC LAZ backend for laspy.copc
+    "odc-stac",                                                                       # Lazy dask cube from STAC items
+    "pdal",                                                                           # Point-cloud pipeline
+    "planetary-computer",                                                             # STAC URL signing for pystac-client and odc.stac
+    "polars-st",                                                                      # Spatially typed Polars frames for DGGS and spatial operations
+    "pyogrio",                                                                        # GDAL vector IO
+    "pyproj",                                                                         # PROJ coordinate transforms
+    "pystac",                                                                         # STAC item and collection object model
+    "pystac-client",                                                                  # STAC API search and discovery client
+    "rasterio",                                                                       # Raster geospatial IO
+    "rioxarray",                                                                      # rasterio accessor for CF DataArray and COG raster writes
+    "shapely",                                                                        # Geometry values psycopg adapts to and from PostGIS columns
+    "stac-geoparquet",                                                                # STAC item GeoParquet table interchange
+    "xvec",                                                                           # Vector data cubes with geometry-indexed xarray dimensions
 ]
 
 # --- [BUILDING_PERFORMANCE]
 
 energy-simulation     = [
-    "dragonfly-core",                                                 # Dragonfly district and urban model object graph
-    "dragonfly-energy",                                               # Dragonfly energy model aggregation and translation
-    "honeybee-core",                                                  # HBJSON base object model and validation companion
-    "honeybee-energy",                                                # Honeybee energy model construction and simulation exchange
-    "honeybee-energy-standards",                                      # ASHRAE 90.1 and DOE prototype standards by identifier
-    "honeybee-openstudio; sys_platform != 'win32'",                   # Honeybee to OpenStudio and EnergyPlus translation, exact openstudio pin publishes no win_amd64 cp315 wheel or sdist
-    "honeybee-standards",                                             # Baseline construction, program, and schedule sets for Honeybee
-    "ladybug-comfort",                                                # Comfort-model calculations
-    "ladybug-core",                                                   # Ladybug weather, units, analysis-period, and location primitives
-    "ladybug-geometry",                                               # Ladybug planar and solid geometry primitives
-    "lbt-recipes",                                                    # Ladybug Tools recipe wrappers and simulation workflows
-    "pollination-handlers",                                           # Pollination job handler and recipe execution adapters
-    "pvlib",                                                          # Solar position and irradiance calculations
-    "queenbee",                                                       # Recipe and workflow schema contract models
+    "dragonfly-core",                                                   # Dragonfly district and urban model object graph
+    "dragonfly-energy",                                                 # Dragonfly energy model aggregation and translation
+    "honeybee-core",                                                    # HBJSON base object model and validation companion
+    "honeybee-energy",                                                  # Honeybee energy model construction and simulation exchange
+    "honeybee-energy-standards",                                        # ASHRAE 90.1 and DOE prototype standards by identifier
+    "honeybee-openstudio; sys_platform != 'win32'",                     # Honeybee to OpenStudio and EnergyPlus translation, exact openstudio pin publishes no win_amd64 cp315 wheel or sdist
+    "honeybee-standards",                                               # Baseline construction, program, and schedule sets for Honeybee
+    "ladybug-comfort",                                                  # Comfort-model calculations
+    "ladybug-core",                                                     # Ladybug weather, units, analysis-period, and location primitives
+    "ladybug-geometry",                                                 # Ladybug planar and solid geometry primitives
+    "lbt-recipes",                                                      # Ladybug Tools recipe wrappers and simulation workflows
+    "pollination-handlers",                                             # Pollination job handler and recipe execution adapters
+    "pvlib",                                                            # Solar position and irradiance calculations
+    "queenbee",                                                         # Recipe and workflow schema contract models
 ]
 life-cycle-assessment = [
-    "bw-processing",                                                  # Brightway matrix data preparation
-    "bw2analyzer",                                                    # Brightway contribution and comparison analysis after calculation
-    "bw2calc",                                                        # Brightway LCA calculation engine
-    "bw2data",                                                        # Brightway project, database, and storage layer
-    "bw2io",                                                          # Brightway import, export, and database ingestion
-    "epdx; sys_platform != 'linux' or platform_machine != 'aarch64'", # EPD interchange, no release publishes a linux aarch64 wheel
-    "olca-ipc",                                                       # openLCA IPC client for foreground and background LCA interchange
-    "openepd",                                                        # OpenEPD declarations and PCR material-impact data
+    "bw-processing",                                                    # Brightway matrix data preparation
+    "bw2analyzer",                                                      # Brightway contribution and comparison analysis after calculation
+    "bw2calc",                                                          # Brightway LCA calculation engine
+    "bw2data",                                                          # Brightway project, database, and storage layer
+    "bw2io",                                                            # Brightway import, export, and database ingestion
+    "epdx<1; sys_platform != 'linux' or platform_machine != 'aarch64'", # EPD interchange, the cap holds the abi3 wheels lacking linux aarch64 until a newer release publishes wheels beyond linux x86_64
+    "olca-ipc",                                                         # openLCA IPC client for foreground and background LCA interchange
+    "openepd",                                                          # OpenEPD declarations and PCR material-impact data
 ]
 
 # --- [PUBLISHING]

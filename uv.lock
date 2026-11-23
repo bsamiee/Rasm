@@ -7978,7 +7978,7 @@ geospatial = [
     { name = "geoarrow-pyarrow" },
     { name = "geoarrow-rust-compute" },
     { name = "geoarrow-rust-core" },
-    { name = "geoarrow-rust-io", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "geoarrow-rust-io", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = "<0.4" },
     { name = "geopandas" },
     { name = "h3ronpy" },
     { name = "laspy" },
@@ -8013,7 +8013,7 @@ life-cycle-assessment = [
     { name = "bw2calc" },
     { name = "bw2data" },
     { name = "bw2io" },
-    { name = "epdx", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "epdx", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = "<1" },
     { name = "olca-ipc" },
     { name = "openepd" },
 ]
