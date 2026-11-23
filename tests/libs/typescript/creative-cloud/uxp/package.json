@@ -4,6 +4,7 @@
     "description": "UXP manifest and plug-in build suite: the icon size each species takes, the fill each host paints, and the icons a plug-in build writes from a mark and its panel glyphs",
     "type": "module",
     "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/uxp": "workspace:*",

@@ -67,15 +67,13 @@ const Written = Schema.Union([Schema.TemplateLiteralParser([Container, Separator
 );
 const Root = Schema.Literal('/').pipe(Schema.decodeTo(Schema.toEncoded(Step), { decode: SchemaGetter.succeed({ container: '', separator: '/', kind: '' }), encode: SchemaGetter.succeed('/') }));
 class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol }>('Specifier')({ ...Step.fields, end: Schema.OptionFromOptionalKey(Step) }) {
-    static readonly Path = Schema.Union([Schema.TemplateLiteralParser(['(', Written, ' to ', Written, ')']), Written, Root]).pipe(
-        Schema.decodeTo(
-            Specifier,
-            SchemaTransformation.transform({
-                decode: (written) => (Array.isArray<typeof written>(written) ? { ...written[1], end: written[3] } : written),
-                encode: ({ end, ...start }: typeof Specifier.Encoded) => (end === undefined ? start : (['(', start, ' to ', end, ')'] as const)),
-            }),
+    static readonly Path = Schema.Union([
+        Schema.TemplateLiteralParser(['(', Written, ' to ', Written, ')']).pipe(
+            Schema.decodeTo(Schema.toEncoded(Schema.Struct({ ...Step.fields, end: Step })), SchemaTransformation.transform({ decode: ([, start, , end]) => ({ ...start, end }), encode: ({ end, ...start }) => ['(', start, ' to ', end, ')'] as const })),
         ),
-    );
+        Written,
+        Root,
+    ]).pipe(Schema.decodeTo(this, SchemaTransformation.passthrough()));
 
     get root(): boolean {
         return this.kind === '';
@@ -217,7 +215,7 @@ class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Ex
             Effect.try({
                 try: () =>
                     Extent.make(
-                        Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(
+                        Struct.makeReducer({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(
                             Array.map(
                                 Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]): readonly (readonly [number, number])[] => each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES)),
                                 ([x, y]) => ({ top: y, left: x, bottom: y, right: x }),
@@ -436,6 +434,11 @@ InDesign runs `main` of every enabled plugin at launch, panel shown or hidden, a
 - Selection views listen to `afterSelectionChanged`, `afterSelectionAttributeChanged` (same objects), and `afterContextChanged` (another front document)
 - `addEventListener` returns the listener an equal type and handler pair holds, and fails 30625 with `captures` true
 - Removing another context's `app.addEventListener` listener reads its `id` and `eventType` alone
+- Unload calls panel handlers with the main thread held in `PluginRuntime::destroy`, where a DOM call, a scope release included, deadlocks InDesign
+- Debugger sessions close before those calls, so a breakpoint in a panel handler never pauses an unload
+- Listeners register as `<plugin id>:<event>`, each registration removing the listener `app.eventListeners.itemByName` finds valid, and hold no release
+- Listeners of an unloaded context stay in `app.eventListeners`, and events firing on them leave later loads and quit unaffected
+- Handlers of a hidden panel stay registered and run nothing, as a closed `FiberSet` runner starts no fiber
 - Menu actions read `id`, `name`, and `area` in bulk
 - `enabled` or `checked` of Character panel actions 26996 to 27015 crashes InDesign, a bulk read included
 - Once a user `ID.json` registry exists InDesign loads its rows alone, and an absolute row `path` loads nothing

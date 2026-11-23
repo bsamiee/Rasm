@@ -185,7 +185,7 @@ const listened = (target: EventTarget, type: string, fork: (work: Effect.Effect<
 };
 ```
 
-`listened` is an `Effect<void, never, Scope>`, and its handler forks `work` through `fork`, the runner a panel receives, and returns to its host at once. Closing the scope removes the handler, and closing the panel's scope interrupts every run. Host listener calls of every shape (`action.addNotificationListener`, `app.addEventListener`) take the same pair. Host rollback restores document state, and a scope restores every state a rollback leaves.
+`listened` is an `Effect<void, never, Scope>`, and its handler forks `work` through `fork`, the runner a panel receives, and returns to its host at once. Closing the scope removes the handler, and closing the panel's scope interrupts every run. Host listener calls of every shape (`action.addNotificationListener`, `theme.onUpdated.addListener`) take the same pair, and InDesign's `app.addEventListener` takes none, as its release deadlocks an unload. Host rollback restores document state, and a scope restores every state a rollback leaves.
 
 Preferences outside undo take one save and restore pair:
 
@@ -285,12 +285,12 @@ const serve = <E, F>({
                 ),
             ),
         ]).pipe(Scope.provide(runtime.scope));
-        yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() }, commands: handled, panels: shown } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
+        yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void) }, commands: handled, panels: shown } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
     }).pipe(Effect.tapCause(Effect.logError), Effect.provide(hosted), Effect.runFork);
 };
 ```
 
-`Uxp` is the service holding `uxp` and `fs`, `Uxp.layer` merges it with the host `Clock` layer, `Logger.LogToStderr` set `true`, and Effect's `Path.layer`: hosts record `console.error` at error level in their log file where Effect's default logger writes `console.log`, and an entry's top-level `runFork` or `runSyncExit` logs under the same reference by providing the layer outside its `tapCause`. `Plugin` holds the plugin id and host app `UxpManifest.identity` decodes from the plugin folder's manifest, the fields a running plugin reads, so a manifest key the model lacks never stops a load, and a failed read fails `PlatformError` as Effect's `FileSystem.readFileString` does. `link` takes the manifest `id` as its extension, and its launch forks inside the runtime's layer, where a failed or dropped link logs while commands and panels run. `Layer.provideMerge` keeps the host `Clock` in runtime context, where `runPromise` otherwise reads Effect's default clock. One `Effect.all` under `runtime.scope` allocates each command's `FiberHandle` and each panel's `ScopedRef`. Reruns interrupt the running command, and `cancel` clears it. `@adobe-uxp-types/uxp` declares `cancel` for future use. Panels receive `fork`, a `FiberSet.makeRuntime` runner in the shown scope for synchronous host callbacks that logs each run's failure once and ignores it. `show` replaces the shown scope and `hide` closes it, interrupting every fork, and `dispose` closes every scope the layers opened, where `Effect.forkDetach` fibers outlive it. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, its throw logs as a defect, and `runFork` calls it before `main` returns.
+`Uxp` is the service holding `uxp` and `fs`, `Uxp.layer` merges it with the host `Clock` layer, `Logger.LogToStderr` set `true`, and Effect's `Path.layer`: hosts record `console.error` at error level in their log file where Effect's default logger writes `console.log`, and an entry's top-level `runFork` or `runSyncExit` logs under the same reference by providing the layer outside its `tapCause`. `Plugin` holds the plugin id and host app `UxpManifest.identity` decodes from the plugin folder's manifest, the fields a running plugin reads, so a manifest key the model lacks never stops a load, and a failed read fails `PlatformError` as Effect's `FileSystem.readFileString` does. `link` takes the manifest `id` as its extension, and its launch forks inside the runtime's layer, where a failed or dropped link logs while commands and panels run. `Layer.provideMerge` keeps the host `Clock` in runtime context, where `runPromise` otherwise reads Effect's default clock. One `Effect.all` under `runtime.scope` allocates each command's `FiberHandle` and each panel's `ScopedRef`. Reruns interrupt the running command, and `cancel` clears it. `@adobe-uxp-types/uxp` declares `cancel` for future use. Panels receive `fork`, a `FiberSet.makeRuntime` runner in the shown scope for synchronous host callbacks that logs each run's failure once and ignores it. `show` replaces the shown scope and `hide` closes it, interrupting every fork. Plugin records declare no `destroy`, and the host ends every scope the layers opened with the plugin's context: InDesign calls panel handlers and plugin `destroy` during unload with its main thread waiting on them, where a handler or scope release reaching its DOM deadlocks it. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, its throw logs as a defect, and `runFork` calls it before `main` returns.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
@@ -337,14 +337,35 @@ One manifest serves one host, `host.app` naming `ID`, `PS`, `premierepro`, `ame`
 
 ## [10]-[DEBUGGING]
 
-CDP and UXP Debugger routes need UXP developer mode, `{"developer": true}` in `/Library/Application Support/Adobe/UXP/Developer/settings.json`, and a running host:
+Debugger routes need UXP developer mode, `{"developer": true}` in `/Library/Application Support/Adobe/UXP/Developer/settings.json`, and a running host:
 
-| [INDEX] | [HOST]                  | [DEBUG]                                            | [TEST]                                 |
-| :-----: | :---------------------- | :------------------------------------------------- | :------------------------------------- |
-|  [01]   | Photoshop               | `uxp-cli create-cdp-url`, Atelier `execute_script` | `@bubblydoo/vitest-pool-uxp` `uxpPool` |
-|  [02]   | InDesign                | Atelier `execute_script`, `diagnostics`            | Atelier `execute_script`               |
-|  [03]   | Premiere, Media Encoder | UXP Debugger, Atelier `diagnostics`                | None                                   |
-|  [04]   | After Effects           | Atelier `execute_script`, UXP Developer Tool       | Atelier `execute_script`               |
+| [INDEX] | [HOST]                  | [DEBUG]                                                | [TEST]                                 |
+| :-----: | :---------------------- | :----------------------------------------------------- | :------------------------------------- |
+|  [01]   | Photoshop               | UXP Debugger, `debugger` MCP, Atelier `execute_script` | `@bubblydoo/vitest-pool-uxp` `uxpPool` |
+|  [02]   | InDesign                | UXP Debugger, `debugger` MCP, Atelier `execute_script` | Atelier `execute_script`               |
+|  [03]   | Premiere, Media Encoder | UXP Debugger, Atelier `diagnostics`                    | None                                   |
+|  [04]   | After Effects           | UXP Debugger, Atelier `execute_script`                 | Atelier `execute_script`               |
+
+UXP Debugger (`jaroslavbereza.uxpdebugger`) serves UXP Developer Tool's broker from a VS Code window on `127.0.0.1:14001`, and a host launched while it listens connects to it. Hooks under `/__uxp_debugger__/hooks` act on a manifest registered in its panel, and built manifests sit at `.artifacts/vite/<project>/manifest.json`:
+
+```bash
+xh -b POST 127.0.0.1:14001/__uxp_debugger__/hooks/<load|refresh|reload|unload> manifestPath=<manifest>
+xh -b 127.0.0.1:14001/__uxp_debugger__/hooks/watch manifestPath==<manifest>
+```
+
+- `load`, `refresh`, and `reload` answer `sessions`, `refresh` keeps a session and its debugger, and each runs new build output with no host relaunch
+- `watch` answers 404 for an unregistered manifest, which registers once per machine through the panel's `Add plugin…` menu
+- `watch-app read <Code pid>` names web area `UXP Devtools`, `read --element <id>` lists its controls, and `perform <id> AXPress` presses one in the background
+- Menu item `Currently opened manifest.json` registers the active editor's file, which `watch-app launch <VS Code> --document <manifest>` opens
+- `debugger` MCP attaches through `create_debug_session` with `language` `javascript`, then `attach_to_process` with `stopOnEntry` `false`
+- `attach_to_process` `adapterConfig` holds `websocketAddress` `ws://127.0.0.1:14001/socket/cdt/<session>`, `sourceMaps` `true`, and `cwd` of the build folder
+- `set_breakpoint` takes a TypeScript source path, as `@rasm/uxp/vite` writes `main.js.map` beside each bundle, and `detach_from_process` leaves its host running
+- Hosts hold one debugger connection per session, and a second connection replaces the first, VS Code's own included
+- Paused plugins block their host's JavaScript thread, and an Atelier call reaching a breakpoint answers after `continue_execution`
+- Loads over an installed plugin of one id leave the installed instance running without its host module, so a host quits after a debugger session
+- InDesign unload calls panel handlers on the plugin thread (`PluginRuntime::forEachPanel`) with its main thread waiting in `PluginRuntime::destroy`, and a DOM call there deadlocks both, which `sample <pid> 1` shows
+- Plugin sessions answer CDP at `ws://127.0.0.1:14001/socket/cdt/<session>`: `Runtime.evaluate` takes the `contextId` of `Runtime.executionContextCreated`, and `Debugger.setBreakpointByUrl` a `main.js` line
+- VS Code logs each connected host's UXP console to `logs/<run>/window1/exthost/JaroslavBereza.uxpdebugger/UXP – <host> <version>.log`
 
 - Atelier `execute_script` reaches Photoshop and After Effects through linked Atelier plug-ins, and InDesign through `do script` with `language uxpscript`
 - Atelier `execute_script` reaches Illustrator through `do javascript`, and Premiere and Media Encoder declare no script command
@@ -353,5 +374,4 @@ CDP and UXP Debugger routes need UXP developer mode, `{"developer": true}` in `/
 - `uxp-cli create-cdp-url` loads the folder as a plug-in session and prints a `ws://` URL for any CDP client, `@bubblydoo/vitest-pool-cdp` included
 - `uxp-cli open-devtools` brings Chrome forward through `open -a`, and agents take `create-cdp-url`
 - `vitest-pool-uxp` runs with `maxWorkers: 1`, `isolate: false`, `fileParallelism: false`, the settings its README requires
-- UXP Debugger in VS Code loads and breaks in Photoshop, InDesign, Premiere, and Media Encoder, with tools VS Code alone calls
 - `nx install` writes the plug-in folder and its `PluginsInfo` row, and a running host loads the new code at its next launch

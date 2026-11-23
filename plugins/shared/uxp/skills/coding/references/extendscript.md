@@ -11,26 +11,25 @@ import { transformSync } from '@swc/wasm';
 
 const Reply = Schema.Union([
     Schema.TaggedStruct('Value', { value: Schema.optionalKey(Schema.Json) }),
-    Unmatched,
+    Unmatched.stated,
     Schema.TaggedStruct('IllegalArgument', { message: Schema.String }),
     Schema.TaggedStruct('Thrown', { message: Schema.String, number: Schema.OptionFromOptionalKey(Schema.Finite), line: Schema.OptionFromOptionalKey(Schema.Int) }),
 ]);
-type Replied<Tag extends (typeof Reply.Encoded)['_tag']> = Extract<typeof Reply.Encoded, { readonly _tag: Tag }>;
 
 const runtime = () => {
     const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'object' && value !== null;
     const finite = (value: unknown): number | undefined => (typeof value === 'number' && Math.abs(value) < Number.POSITIVE_INFINITY ? value : undefined);
-    const unmatched = (subject: string, query: string, candidates: readonly string[]): Replied<'Unmatched'> => ({ _tag: 'Unmatched', subject, query, candidates });
-    const illegal = (text: string): Replied<'IllegalArgument'> => ({ _tag: 'IllegalArgument', message: text });
+    const unmatched = (subject: string, query: string, candidates: readonly string[]) => ({ _tag: 'Unmatched', subject, query, candidates }) as const;
+    const illegal = (text: string) => ({ _tag: 'IllegalArgument', message: text }) as const;
     const reply = (answer: () => unknown, evaluated = (_thrown: unknown): boolean => true): string => {
         try {
-            return encoded({ _tag: 'Value' satisfies Replied<'Value'>['_tag'], value: answer() });
+            return encoded({ _tag: 'Value', value: answer() });
         } catch (thrown) {
             if (isRecord(thrown) && (thrown._tag === 'Unmatched' || thrown._tag === 'IllegalArgument')) {
                 return encoded(thrown);
             }
             const fields = isRecord(thrown) ? thrown : { message: thrown };
-            return encoded({ _tag: 'Thrown' satisfies Replied<'Thrown'>['_tag'], message: String(fields.message), number: finite(fields.number), line: evaluated(thrown) ? finite(fields.line ?? fields.lineNumber) : undefined });
+            return encoded({ _tag: 'Thrown', message: String(fields.message), number: finite(fields.number), line: evaluated(thrown) ? finite(fields.line ?? fields.lineNumber) : undefined });
         }
     };
     return { unmatched, illegal, reply };

@@ -3,10 +3,10 @@ import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import type { Application, CellStyle, CharacterStyle, Document, Event, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
 import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
+import type { FontSource } from '#/typesetting';
 import { Model } from '#/uxp/model';
 import { InDesignSettings } from '#/uxp/settings';
-import type { Value } from '#/value';
-import { Called, Inspection, type Issue, type MODES, Search, type Slice } from '#/views';
+import { type Call, Called, type Change, type FindChange, type Inspect, Inspection, type Issue, type Preflight, Search, type Slice } from '#/views';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -18,20 +18,19 @@ class Flat extends Schema.Opaque<Flat, { readonly brand: unique symbol }>()(Sche
 
 // --- [SEARCH]
 
-const preserved = Effect.fnUntraced(function* (member: ReturnType<typeof Search.members<(typeof MODES)[number]>>['preferences'][number]) {
-    const { app, NothingEnum } = yield* Model;
-    const saved = yield* Model.saved(app[member]);
-    const reset = Effect.try({ try: () => Object.assign(app, { [member]: NothingEnum.NOTHING })[member], catch: HostError.refused(`reset of ${member}`) });
-    return yield* Effect.acquireRelease(Effect.as(reset, saved), () => Effect.flatMap(Effect.orDie(reset), (cleared) => Uxp.restore(cleared, saved)));
-});
-const search = Effect.fnUntraced(function* (
-    { mode, find, change, options }: { readonly mode: (typeof MODES)[number]; readonly find: Option.Option<Record.ReadonlyRecord<string, Value>>; readonly change: Option.Option<Record.ReadonlyRecord<string, Value>>; readonly options: Option.Option<Record.ReadonlyRecord<string, Value>> },
-    located: unknown,
-) {
+const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pick<FindChange, 'mode' | 'find' | 'change' | 'options'>, located: unknown) {
     const members = Search.members(mode);
     const model = yield* Model;
     const { app, enumerator } = model;
-    yield* Effect.forEach(members.preferences, preserved, { discard: true });
+    yield* Effect.forEach(
+        members.preferences,
+        Effect.fnUntraced(function* (member) {
+            const saved = yield* Model.saved(app[member]);
+            const reset = Effect.try({ try: () => Object.assign(app, { [member]: model.NothingEnum.NOTHING })[member], catch: HostError.refused(`reset of ${member}`) });
+            return yield* Effect.acquireRelease(Effect.as(reset, saved), Function.constant(Effect.flatMap(Effect.orDie(reset), (cleared) => Uxp.restore(cleared, saved))));
+        }),
+        { discard: true },
+    );
     const counted = Match.type<number | readonly unknown[]>().pipe(Match.when(Predicate.isNumber, identity<number>), Match.orElse(Array.length));
     const spelled = (contents: unknown) =>
         Array.map(Array.ensure(contents), (each) =>
@@ -184,7 +183,7 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
                     const window = Option.liftThrowable(() => app.activeWindow.toSpecifier())();
                     const selection = yield* Effect.forEach(
                         Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }),
-                        Effect.fnUntraced(function* (item: (typeof app.selection)[number]) {
+                        Effect.fnUntraced(function* (item: Application['selection'][number]) {
                             const overridden = yield* Effect.transposeOption(Option.map(Option.liftPredicate(item, model.overridable), overrides));
                             return { ...Model.referenceUnsafe(item), contents: Option.map(Schema.decodeUnknownOption(Contents)(item), Struct.get('contents')), parentStory: Option.map(Option.liftPredicate(item, model.storied), Struct.get('parentStory')), overrides: overridden };
                         }),
@@ -323,7 +322,7 @@ const checked = Effect.fn('checked')(function* (document: Document, named: Optio
 });
 // --- [REQUESTS]
 
-const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: { readonly target: Specifier; readonly fields: Option.Option<readonly string[]>; readonly slice: Slice }) {
+const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: Inspect) {
     const [found, model] = yield* Effect.all([Model.resolve(target), Model]);
     if (!model.domObject(found)) {
         const items = yield* Effect.forEach(slice.of(found), (item) => Effect.zipWith(Model.reference(item), readings(item, Option.orElseSome(fields, Array.empty)).pipe(Effect.bindTo('fields')), Struct.assign));
@@ -343,8 +342,8 @@ const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: { rea
     );
     return Inspection.Object.make({ ...(yield* Model.reference(found)), view: shown, fields: yield* Model.read(Inspection.Readings, found.toSpecifier(), () => scalars), collections });
 });
-const change = ({ label, target, values }: { readonly label: string; readonly target: Specifier; readonly values: Record.ReadonlyRecord<string, Value> }) => Effect.flatMap(Model.located(target), (located) => Model.written(label, located, Model.write(located, values)));
-const call = Effect.fn('call')(function* (payload: { readonly label: string; readonly target: Specifier; readonly collection: Option.Option<string>; readonly method: string; readonly arguments: readonly Value[]; readonly properties: Option.Option<Record.ReadonlyRecord<string, Value>> }) {
+const change = ({ label, target, values }: Change) => Effect.flatMap(Model.located(target), (located) => Model.written(label, located, Model.write(located, values)));
+const call = Effect.fn('call')(function* (payload: Call) {
     const [model, found] = yield* Effect.all([Model, Model.located(payload.target)]);
     const before = yield* Model.reference(found);
     const { method } = payload;
@@ -371,12 +370,12 @@ const call = Effect.fn('call')(function* (payload: { readonly label: string; rea
         ),
     );
 });
-const findChange = (payload: Parameters<typeof search>[0] & { readonly label: string; readonly scope: Option.Option<Specifier>; readonly slice: Slice }) =>
+const findChange = (payload: FindChange) =>
     Option.match(payload.scope, { onSome: Model.resolve, onNone: () => Model.current }).pipe(
         Effect.flatMap((found: unknown) => (Option.isSome(payload.change) ? Model.commit(payload.label, search(payload, found)) : search(payload, found))),
         Effect.map(({ count, matches }) => ({ count, matches: payload.slice.of(matches) })),
     );
-const font = Effect.fn('font')(function* ({ name, text, file }: { readonly name: string; readonly text: string; readonly file: string }) {
+const font = Effect.fn('font')(function* ({ name, text, file }: FontSource) {
     const [face, model, { fs }] = yield* Effect.all([Effect.flatMap(Model.fonts, (lookup) => lookup(name)), Model, Uxp]);
     const subset = Effect.as(Effect.try({ try: () => face.createSubsetFont(text, file), catch: HostError.refused(`subset of ${face.name}`) }), Option.some({ file, postscriptName: Option.none<string>() }));
     const source = face.status.equals(model.FontStatus.INSTALLED)
@@ -390,7 +389,7 @@ const font = Effect.fn('font')(function* ({ name, text, file }: { readonly name:
         : Option.none();
     return { font: yield* fontView(face), source };
 });
-const preflight = Effect.fn('preflight')(function* ({ document, profile }: { readonly document: Option.Option<Specifier>; readonly profile: Option.Option<string> }) {
+const preflight = Effect.fn('preflight')(function* ({ document, profile }: Preflight) {
     const model = yield* Model;
     const open = model.app.documents.everyItem().getElements();
     const targets = yield* Option.match(document, {
@@ -431,27 +430,22 @@ const render = Effect.fn('render')(function* (target: Specifier, path: string) {
     yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: HostError.refused(`PNG export of ${target.path} to ${path}`) });
 }, Effect.scoped);
 const session = Effect.flatMap(Model, ({ app, MeasurementUnits, UserInteractionLevels }) => Uxp.preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
-const listened = Effect.fnUntraced(function* (events: readonly string[], name: string, handler: (event: Event) => void) {
-    const { app } = yield* Model;
-    const added = (event: string) => {
-        const named = `${name}:${event}`;
-        const stale = app.eventListeners.itemByName(named);
-        if (stale.isValid) {
-            stale.remove();
-        }
-        return Object.assign(app.addEventListener(event, handler), { name: named });
-    };
-    const removed = (listener: ReturnType<typeof added>) => Effect.sync(() => (listener.isValid ? listener.remove() : undefined));
-    yield* Effect.forEach(
-        events,
-        (event) =>
-            Effect.acquireRelease(
-                Effect.sync(() => added(event)),
-                removed,
-            ),
-        { discard: true },
+const listened = (events: readonly string[], name: string, handler: (event: Event) => void) =>
+    Model.use(({ app }) =>
+        Effect.forEach(
+            events,
+            (event) =>
+                Effect.sync(() => {
+                    const named = `${name}:${event}`;
+                    const stale = app.eventListeners.itemByName(named);
+                    if (stale.isValid) {
+                        stale.remove();
+                    }
+                    Object.assign(app.addEventListener(event, handler), { name: named });
+                }),
+            { discard: true },
+        ),
     );
-});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

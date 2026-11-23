@@ -35,7 +35,7 @@ import indesign, {
 } from 'adobe:indesign';
 import { Array, Cause, Context, Deferred, Effect, Equal, Equivalence, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaAST, Struct } from 'effect';
 import { Value } from '#/value';
-import { Extent, type MODES } from '#/views';
+import { Extent, type FindChange } from '#/views';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -65,7 +65,7 @@ type Owned = {
     readonly textStyleRanges: InDesignDOMObject<unknown> & Pick<Text, 'textStyleRanges'>;
     readonly postscriptName: Font;
     readonly aggregatedResults: PreflightProcess;
-} & Readonly<Record<`change${(typeof MODES)[number]}`, InDesignDOMObject<unknown> & Pick<Document, `${'find' | 'change'}${(typeof MODES)[number]}`>>>;
+} & Readonly<Record<`change${FindChange['mode']}`, InDesignDOMObject<unknown> & Pick<Document, `${'find' | 'change'}${FindChange['mode']}`>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -151,7 +151,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 ancestors,
                 owner: (object: unknown): Option.Option<Document> => Array.findFirst(ancestors(object), document),
                 declared,
-                declaration: (kind: string) => Option.getOrElse(Record.get(declared.classes, kind), () => ({ fields: Record.empty<string, (typeof declared.classes)[string]['fields'][string]>(), methods: Record.empty<string, readonly (readonly string[])[]>() })),
+                declaration: (kind: string) => Option.getOrElse(Record.get(declared.classes, kind), () => Declaration.Model.fields.classes.value.make({ fields: {}, methods: {} })),
                 enumeration,
                 enumerator,
                 nothing,
@@ -285,7 +285,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
     });
     static readonly located = (specifier: Specifier) =>
         Model.use(
-            Effect.fnUntraced(function* (model: Context.Service.Shape<typeof Model>) {
+            Effect.fnUntraced(function* (model: Model['Service']) {
                 const found = yield* Model.resolve(specifier);
                 return model.domObject(found) ? found : yield* Unmatched.of({ subject: 'object', query: Option.some(specifier.path) });
             }),

@@ -5,7 +5,7 @@ import { type Containment, encode, reference, walk } from '@rasm/object-model/ho
 import { Unmatched } from '@rasm/search';
 import { layer } from '@rasm/telemetry';
 import fs from 'adobe:fs';
-import uxp, { entrypoints } from 'adobe:uxp';
+import uxp, { entrypoints, type File } from 'adobe:uxp';
 import { formatHex8 } from 'culori/fn';
 import {
     Array,
@@ -54,11 +54,6 @@ import { UxpManifest } from '#/manifest';
 
 type Panel<F> = (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp | Plugin>) => void) => Effect.Effect<void, F, Scope.Scope | Uxp | Plugin>;
 
-interface ThemeEvents {
-    readonly getCurrent: () => unknown;
-    readonly onUpdated: { readonly addListener: (listener: (theme: unknown) => void) => void; readonly removeListener: (listener: (theme: unknown) => void) => void };
-}
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const EVALUATED = 'evaluated.js';
@@ -74,8 +69,7 @@ const Chunk = Schema.Union([Schema.String, Schema.Uint8Array.pipe(Schema.decodeT
 const Callable = Schema.declare((value): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
 const Scripting = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Callable }))) });
 const Entrypoints = Schema.Struct({ setup: Callable });
-const ThemeEvents = Schema.Struct({ getCurrent: Callable, onUpdated: Schema.Struct({ addListener: Callable, removeListener: Callable }) });
-const Themed = Schema.Struct({ theme: Schema.declare((value): value is ThemeEvents => Schema.is(ThemeEvents)(value)) });
+const Themed = Schema.Struct({ theme: Schema.declare(Schema.is(Schema.Struct({ getCurrent: Callable, onUpdated: Schema.Struct({ addListener: Callable, removeListener: Callable }) }))) });
 const Requiring = Schema.Struct({ require: Callable }).annotate({ description: 'Global require a UXP host resolves its own modules through by name' });
 const Hosted = Schema.Struct({ applicationPath: Schema.NonEmptyString.annotate({ description: 'Bundle path of the running installation' }) });
 const Requests = Script.merge(Rendering);
@@ -135,7 +129,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
     static readonly application = Effect.flatMap(Effect.all([Schema.decodeUnknownEffect(Hosted)(uxp.host), Path.Path]), ([{ applicationPath }, path]) => path.toFileUrl(`${applicationPath}/`));
     static readonly located = (held: Containment, specifier: Pick<Specifier, 'steps' | 'end'>): Effect.Effect<unknown, Unmatched> => {
         const found = walk(held, specifier);
-        return Option.match(Schema.decodeUnknownOption(Unmatched)(found), { onNone: () => Effect.succeed(found), onSome: Effect.fail });
+        return Option.match(Schema.decodeUnknownOption(Unmatched.stated)(found), { onNone: () => Effect.succeed(found), onSome: Effect.fail });
     };
     static readonly evaluate = (scope: Record.ReadonlyRecord<string, unknown>, code: string) =>
         Effect.try({
@@ -161,7 +155,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             ),
         );
     });
-    static readonly rendered = Effect.fnUntraced(function* <E, R>(write: (file: Awaited<ReturnType<Awaited<ReturnType<typeof uxp.storage.localFileSystem.getTemporaryFolder>>['createFile']>>) => Effect.Effect<void, E, R>, name: string) {
+    static readonly rendered = Effect.fnUntraced(function* <E, R>(write: (file: File) => Effect.Effect<void, E, R>, name: string) {
         const { uxp: host, fs: files } = yield* Uxp;
         const folder = yield* Effect.tryPromise({ try: () => host.storage.localFileSystem.getTemporaryFolder(), catch: HostError.refused('temporary folder') });
         const file = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => folder.createFile(name, { overwrite: true }), catch: HostError.refused(`${name} in ${folder.nativePath}`) }), (entry) =>
@@ -215,12 +209,22 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
     };
 }
 class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonly host: Pick<UxpManifest['host'], 'app'> }>()('@rasm/uxp/plugin') {
-    static readonly theme = Stream.callback<unknown, Schema.SchemaError>((queue) =>
-        Effect.flatMap(
+    static readonly theme = Stream.callback<unknown, Schema.SchemaError>((queue) => {
+        const listener = (current: unknown): void => {
+            Queue.offerUnsafe(queue, current);
+        };
+        return Effect.flatMap(
             Effect.suspend(() => Schema.decodeUnknownEffect(Themed)(document)),
-            ({ theme }) => followed(theme, queue),
-        ),
-    ).pipe(Stream.mapEffect((theme) => Schema.decodeUnknownEffect(UxpManifest.Theme)(theme)));
+            ({ theme }) =>
+                Effect.acquireRelease(
+                    Effect.sync(() => {
+                        theme.onUpdated.addListener(listener);
+                        listener(theme.getCurrent());
+                    }),
+                    Function.constant(Effect.sync(() => theme.onUpdated.removeListener(listener))),
+                ),
+        );
+    }).pipe(Stream.mapEffect((theme) => Schema.decodeUnknownEffect(UxpManifest.Theme)(theme)));
     static readonly serve = <E, F>({
         link,
         commands = {},
@@ -252,7 +256,7 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
                 ),
                 Effect.all(Record.map(panels, (each) => panel(runtime, each))),
             ]).pipe(Scope.provide(runtime.scope));
-            yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() }, commands: handled, panels: shown } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
+            yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void) }, commands: handled, panels: shown } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
         }).pipe(Effect.tapCause(Effect.logError), Effect.provide(hosted), Effect.runFork);
     };
     static readonly extension = <EA, EX extends Error, ER extends Error, EN = never>({
@@ -263,7 +267,7 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
     }: {
         readonly application: Effect.Effect<Link['application'], EA, Uxp | Path.Path | Scope.Scope>;
         readonly execute: (code: string, label: string) => Effect.Effect<Option.Option<Schema.Json>, EX, Uxp | Path.Path | Scope.Scope>;
-        readonly render: (request: Render, file: Parameters<Parameters<typeof Uxp.rendered>[0]>[0]) => Effect.Effect<void, ER, Uxp | Path.Path | Scope.Scope>;
+        readonly render: (request: Render, file: File) => Effect.Effect<void, ER, Uxp | Path.Path | Scope.Scope>;
         readonly notices?: Stream.Stream<Stream.Success<Upstream['notices']>, EN>;
     }): void => {
         const permit = Semaphore.makeUnsafe(1);
@@ -290,18 +294,6 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
-const followed = <E>(theme: ThemeEvents, queue: Queue.Queue<unknown, E>) => {
-    const listener = (current: unknown): void => {
-        Queue.offerUnsafe(queue, current);
-    };
-    return Effect.acquireRelease(
-        Effect.sync(() => {
-            theme.onUpdated.addListener(listener);
-            listener(theme.getCurrent());
-        }),
-        Function.constant(Effect.sync(() => theme.onUpdated.removeListener(listener))),
-    );
-};
 const themed = Effect.fnUntraced(function* (root: HTMLElement) {
     const { host } = yield* Plugin;
     yield* Stream.runForEach(Plugin.theme, (theme) =>

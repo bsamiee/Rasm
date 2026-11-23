@@ -7,6 +7,7 @@
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/extendscript": "workspace:*",
+        "@rasm/search": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
         "vite": "catalog:",

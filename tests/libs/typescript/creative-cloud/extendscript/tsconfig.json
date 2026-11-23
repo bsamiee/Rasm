@@ -6,6 +6,9 @@
     },
     "references": [
         {
+            "path": "../../../../../libs/typescript/data/search"
+        },
+        {
             "path": "../../../../../libs/typescript/creative-cloud/extendscript"
         }
     ]

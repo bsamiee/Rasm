@@ -6,7 +6,7 @@ import { Cause, Effect, Option, Schema } from 'effect';
 
 const Completions = Schema.Union([
     Schema.TaggedStruct('Value', { value: Schema.optionalKey(Schema.Json) }),
-    Unmatched,
+    Unmatched.stated,
     Schema.TaggedStruct('IllegalArgument', { message: Schema.String }),
     Schema.TaggedStruct('Thrown', { message: Schema.String, number: Schema.OptionFromOptionalKey(Schema.Finite), line: Schema.OptionFromOptionalKey(Schema.Int) }),
 ])

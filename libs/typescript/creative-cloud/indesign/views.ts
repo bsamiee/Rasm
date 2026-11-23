@@ -1,15 +1,7 @@
-import { Reference } from '@rasm/object-model';
+import { Reference, Specifier } from '@rasm/object-model';
 import { Settings } from '@rasm/typography';
-import { Effect, Option, type Record, Schema, SchemaTransformation, Struct } from 'effect';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-interface Issue {
-    readonly label: string;
-    readonly page?: string;
-    readonly details: Record.ReadonlyRecord<string, string>;
-    readonly rows: readonly Issue[];
-}
+import { Effect, Option, Record, Schema, SchemaTransformation, Struct } from 'effect';
+import { Value } from '#/value';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -49,9 +41,11 @@ const ParagraphAttributes = {
     numberingFormat: Schema.Json,
     settings: Settings,
 };
-const Issue: Schema.Codec<Issue> = Schema.Struct({ label: Schema.String, page: Schema.optionalKey(Schema.String.annotate({ description: 'Page name, PB on the pasteboard' })), details: Schema.Record(Schema.String, Schema.String), rows: Schema.Array(Schema.suspend((): Schema.Codec<Issue> => Issue)) }).annotate({
-    description: 'Category or rule with issue count, or issue object with problem and fix',
-});
+class Issue extends Schema.Opaque<Issue, unknown>()(
+    Schema.Struct({ label: Schema.String, page: Schema.optionalKey(Schema.String.annotate({ description: 'Page name, PB on the pasteboard' })), details: Schema.Record(Schema.String, Schema.String), rows: Schema.Array(Schema.suspend((): Schema.Codec<Issue> => Issue)) }).annotate({
+        description: 'Category or rule with issue count, or issue object with problem and fix',
+    }),
+) {}
 
 // --- [OBJECTS]
 
@@ -214,6 +208,55 @@ const Viewed = Schema.TaggedStruct('Object', Reference.fields).mapFields(Struct.
 const Items = Schema.TaggedStruct('Items', { specifier: Schema.String, total: Schema.Int, items: Schema.Array(Reference.mapFields(Struct.assign({ fields: Readings }))) });
 const Inspection = Object.assign(Schema.Union([Viewed, Items]), { Readings, View, Spread, Style, Swatch, Object: Viewed, Items, Collection, Issues: Schema.Array(Issue) });
 
+// --- [REQUESTS]
+
+class Inspect extends Schema.Class<Inspect, { readonly brand: unique symbol }>('Inspect')({
+    target: Specifier.Path.annotate({ description: 'Object or collection specifier, / for application' }),
+    fields: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.String).annotate({ description: 'Fields to read, collections of viewed objects or every field when absent' })),
+    slice: Slice.Every,
+}) {}
+class Change extends Schema.Class<Change, { readonly brand: unique symbol }>('Change')({ target: Specifier.Path, values: Value.Fields }) {
+    get label(): string {
+        return `Change ${Record.keys(this.values).join(', ')} of ${this.target.leaf}`;
+    }
+}
+class Call extends Schema.Class<Call, { readonly brand: unique symbol }>('Call')({
+    target: Specifier.Path.annotate({ description: 'Object, or owner of collection' }),
+    collection: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Collection field of target, its method called in place of the object method' })),
+    method: Schema.String.annotate({ description: 'Method name (add, remove, place, duplicate, move, save, close, exportFile)' }),
+    arguments: Schema.Array(Value)
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])))
+        .annotate({ description: 'Positional arguments' }),
+    properties: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Fields written onto returned object' })),
+}) {
+    get label(): string {
+        return `Call ${[...Option.toArray(this.collection), this.method].join(' ')} of ${this.target.leaf}`;
+    }
+}
+class FindChange extends Schema.Class<FindChange, { readonly brand: unique symbol }>('FindChange')({
+    mode: Search,
+    find: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Find preference fields (pattern, format criteria)' })),
+    change: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Change preference fields for every match, absent to find only' })),
+    options: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Find/change option fields' })),
+    scope: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Document, story, text, or page item to search, current document when absent' })),
+    slice: Slice.Every,
+}) {
+    static readonly Result = Schema.Struct({
+        count: Schema.Struct({ matches: Schema.Int, changes: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Absent without change' })) }),
+        matches: Schema.Array(Schema.Struct({ specifier: Schema.String, text: Schema.OptionFromOptionalKey(Schema.String), page: Schema.OptionFromOptionalKey(Schema.String) })).annotate({ description: 'Matches with text before changes, empty for Color' }),
+    });
+
+    get label(): string {
+        return `${Option.isSome(this.change) ? 'Change' : 'Find'} ${this.mode}`;
+    }
+}
+class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol }>('Preflight')({
+    document: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Open document, every document with live preflight when absent' })),
+    profile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Profile name in any case, panel profile when absent' })),
+}) {
+    static readonly Result = Schema.Array(Schema.Struct({ targetObject: Reference, appliedProfile: Reference, aggregatedResults: Inspection.Issues }));
+}
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, Called, Document, Extent, Font, Inspection, type Issue, Layer, Link, MODES, Page, PreflightProcess, Search, Slice, Story, Text };
+export { Application, Call, Called, Change, Document, Extent, FindChange, Font, Inspect, Inspection, type Issue, Layer, Link, Page, Preflight, PreflightProcess, Search, Slice, Story, Text };

@@ -10,10 +10,6 @@ import { applyEdits, modify } from 'jsonc-parser';
 import { defaultClientConditions, defaultServerConditions, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
 import { HOSTS, THEMES, UxpManifest } from '#/manifest';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Icon = NonNullable<UxpManifest['icons']>[number];
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const HOSTED = /^adobe:/u;
@@ -27,7 +23,7 @@ const Painted = Schema.NonEmptyArray(UxpManifest.Theme)
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const emitted = Effect.fnUntraced(function* (app: UxpManifest['host']['app'], drawing: string, { width, path, scale = [1], theme = [] }: Icon) {
+const emitted = Effect.fnUntraced(function* (app: UxpManifest['host']['app'], drawing: string, { width, path, scale = [1], theme = [] }: NonNullable<UxpManifest['icons']>[number]) {
     const [first] = yield* Effect.mapError(Schema.decodeUnknownEffect(Painted)(theme), HostError.refused(`Icon ${path}`));
     const files = path.endsWith('.png') ? Array.map(scale, (factor) => ({ fileName: path.replace(RASTER, `@${factor}x.png`), frame: { width: width * factor } })) : [{ fileName: path, frame: undefined }];
     return yield* Effect.forEach(files, ({ fileName, frame }) => Effect.map(paint([drawing], { color: UxpManifest.fills[app][first] }, frame), (source) => ({ fileName, source })), { concurrency: 'unbounded' });

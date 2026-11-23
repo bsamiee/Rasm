@@ -9,7 +9,7 @@ type Value<Leaf = Enumerated | Located> = Leaf | string | number | boolean | nul
 
 class Enumerated extends Schema.Opaque<Enumerated, unknown>()(Schema.Struct({ type: Schema.String, member: Schema.String })) {}
 class Located extends Schema.Opaque<Located, unknown>()(Schema.Struct({ specifier: Specifier.Path })) {}
-const Nested = Schema.suspend((): typeof Codec => Codec);
+const Nested = Schema.suspend(() => Codec);
 const Codec: Schema.Codec<Value, Value<Enumerated | { readonly specifier: string }>> = Schema.Union([Enumerated, Located, Schema.String, Schema.Finite, Schema.Boolean, Schema.Null, Schema.Array(Nested), Schema.Record(Schema.String, Nested)]).annotate({
     description: 'Enumerator or object name, {type, member} enumerator, {specifier} object, points or unit string measurement, record of nested preferences',
 });

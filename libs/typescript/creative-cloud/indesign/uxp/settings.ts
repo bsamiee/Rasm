@@ -1,8 +1,9 @@
 import type { HostError } from '@rasm/object-model';
 import { Digits, type Unmatched } from '@rasm/search';
-import { Settings, type SettingsPatch } from '@rasm/typography';
+import { Settings } from '@rasm/typography';
 import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
 import { Array, type Cause, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
+import type { Typeset } from '#/typesetting';
 import { Model, STYLISTIC_SETS } from '#/uxp/model';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -149,8 +150,7 @@ const kashida = Schema.Struct({ kashidas: Schema.Literals(['DEFAULT_KASHIDAS', '
 const marks = Schema.Struct(Struct.Record(['x', 'y'], thousandths)).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' }));
 const featureValues = Schema.Array(Schema.Tuple([Schema.String, Schema.Finite]));
 const heldFeatures = Schema.Struct({ capitalization: Schema.String, existing: featureValues });
-class FeatureMembers extends Schema.Opaque<FeatureMembers, unknown>()(Schema.Struct({ otfStylisticSets: Schema.Int, ...Record.map(FEATURE_FLAGS, () => Schema.Boolean), capitalization: Schema.Literals(Struct.keys(CAPITALIZATIONS)), opentypeFeatures: Schema.optionalKey(featureValues) })) {}
-const features = FeatureMembers.pipe(
+const features = Schema.Struct({ otfStylisticSets: Schema.Int, ...Record.map(FEATURE_FLAGS, () => Schema.Boolean), capitalization: Schema.Literals(Struct.keys(CAPITALIZATIONS)), opentypeFeatures: Schema.optionalKey(featureValues) }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.features), {
         decode: SchemaGetter.transform(({ otfStylisticSets, capitalization, opentypeFeatures = [], ...flags }) =>
             Record.fromEntries([...[...STYLISTIC_TAGS.filter((_, bit) => Math.floor(otfStylisticSets / 2 ** bit) % 2 === 1), ...CAPITALIZATIONS[capitalization]].map((tag) => [tag, 1] as const), ...Record.collect(FEATURE_FLAGS, (flag, tag) => [tag, flags[flag] ? 1 : 0] as const), ...opentypeFeatures]),
@@ -179,15 +179,32 @@ const spacing = Schema.Struct(Struct.Record(Array.flatMap(Object.values(SPACING)
 );
 class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: unique symbol }>('InDesignSettings')({ direction, numberingSystem, kashida, marks, features, spacing }) {
     static readonly read: (target: Placed) => Effect.Effect<Settings, HostError | Cause.IllegalArgumentError, Model> = (target) => Effect.flatMap(placement(target), (placed) => held(target, placed));
-    static readonly write: (target: Text | TextDefault, change: SettingsPatch) => Effect.Effect<readonly string[], Cause.IllegalArgumentError | HostError | Schema.SchemaError | Unmatched, Model> = Effect.fnUntraced(function* (target: Text | TextDefault, change: SettingsPatch) {
+    static readonly write: (target: Text | TextDefault, change: Option.Option.Value<Typeset['settings']>) => Effect.Effect<readonly string[], Cause.IllegalArgumentError | HostError | Schema.SchemaError | Unmatched, Model> = Effect.fnUntraced(function* (
+        target: Text | TextDefault,
+        change: Option.Option.Value<Typeset['settings']>,
+    ) {
         const placed = yield* placement(target);
         const merged = yield* Effect.flatMap(held(target, placed), (settings) => Settings.merge(settings, change));
         const { trips, schema } = sections({ ...placed, paragraphDirection: Option.getOrElse(merged.direction, () => placed.paragraphDirection) });
         const written = Struct.pick(merged, [...Struct.keys(change), ...('direction' in change ? (['alignment'] as const) : [])]);
         const encoded = yield* Schema.encodeEffect(schema.mapFields(Struct.map(Schema.optionalKey)))(written);
         const members: Record.ReadonlyRecord<string, unknown> = Object.fromEntries(Object.values(Struct.omit(encoded, ['features'])).flatMap(Object.entries));
-        const featured = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(encoded.features), (tags) => featureMembers(target, tags)));
-        return yield* Model.write(target, { ...retained(target, members, trips), ...Option.getOrElse(featured, Record.empty) });
+        const featured = yield* Effect.transposeOption(
+            Option.map(
+                Option.fromUndefinedOr(encoded.features),
+                Effect.fnUntraced(function* ({ capitalization, opentypeFeatures = [], ...flags }) {
+                    const { capitalization: current, existing } = yield* Model.read(heldFeatures, `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] }));
+                    const replaced = Record.toEntries({ ...Record.map(Record.fromEntries(existing), () => 0), ...Record.fromEntries(opentypeFeatures) });
+                    return { ...flags, ...(capitalization === 'NORMAL' && Option.exists(Record.get<string, readonly string[]>(CAPITALIZATIONS, current), Array.isReadonlyArrayEmpty) ? {} : { capitalization }), ...(Array.isReadonlyArrayEmpty(replaced) ? {} : { opentypeFeatures: replaced }) };
+                }),
+            ),
+        );
+        const retained = Record.map(members, (member, name) => {
+            const current = String(Reflect.get(target, name));
+            const decoded = Option.flatMap(Record.get(trips, name), Record.get(current));
+            return Predicate.isString(member) && Option.isSome(decoded) && Equal.equals(decoded, Option.flatMap(Record.get(trips, name), Record.get(member))) ? current : member;
+        });
+        return yield* Model.write(target, { ...retained, ...Option.getOrElse(featured, Record.empty) });
     });
 }
 
@@ -204,7 +221,11 @@ const sides = (paragraph: Placement['paragraphDirection'], spine: (typeof SPINES
 };
 const sections = ({ pointSize, paragraphDirection, side = 'SINGLE_SIDED' }: Placement) => {
     const sided = sides(paragraphDirection, SPINES[side]);
-    const trips = { ...ROUND_TRIPS, justification: Record.map(ALIGNMENTS, ({ _tag, edge }) => `${_tag} ${sided[edge]}`) };
+    const trips = Record.set(
+        ROUND_TRIPS,
+        'justification',
+        Record.map(ALIGNMENTS, ({ _tag, edge }) => `${_tag} ${sided[edge]}`),
+    );
     return { trips, schema: InDesignSettings.mapFields(Struct.assign({ alignment: alignment(sided), leading: leading(pointSize) })) };
 };
 const placement = Effect.fnUntraced(function* (target: Placed) {
@@ -218,20 +239,6 @@ const held = Effect.fnUntraced(function* (target: Placed, placed: Placement) {
     const pick = (row: Schema.Top) => picked(row, target);
     return Settings.make(yield* Model.read(schema, `settings of ${target.toSpecifier()}`, () => Record.map(schema.fields, pick)));
 });
-const retained = (target: Text | TextDefault, members: Record.ReadonlyRecord<string, unknown>, trips: typeof ROUND_TRIPS) =>
-    Record.map(members, (written, member) => {
-        const current = String(Reflect.get(target, member));
-        const decoded = Option.flatMap(Record.get(trips, member), Record.get(current));
-        return Predicate.isString(written) && Option.isSome(decoded) && Equal.equals(decoded, Option.flatMap(Record.get(trips, member), Record.get(written))) ? current : written;
-    });
-const featureMembers = (target: Text | TextDefault, { capitalization, opentypeFeatures = [], ...flags }: FeatureMembers) =>
-    Effect.map(
-        Model.read(heldFeatures, `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] })),
-        ({ capitalization: current, existing }) => {
-            const replaced = Record.toEntries({ ...Record.map(Record.fromEntries(existing), () => 0), ...Record.fromEntries(opentypeFeatures) });
-            return { ...flags, ...(capitalization === 'NORMAL' && Option.exists(Record.get<string, readonly string[]>(CAPITALIZATIONS, current), Array.isReadonlyArrayEmpty) ? {} : { capitalization }), ...(Array.isReadonlyArrayEmpty(replaced) ? {} : { opentypeFeatures: replaced }) };
-        },
-    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

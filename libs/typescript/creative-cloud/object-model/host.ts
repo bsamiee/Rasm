@@ -1,17 +1,9 @@
+import type { Unmatched } from '@rasm/search';
+import type { Schema } from 'effect';
+import type { Reference, Specifier } from '#/model';
+
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Selector = { readonly _tag: 'Index'; readonly index: number } | { readonly _tag: 'Key'; readonly key: string; readonly value: number | string };
-type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };
-
-interface Step {
-    readonly separator: '/' | '//';
-    readonly kind: string;
-    readonly selector?: Selector;
-}
-interface Path {
-    readonly steps: readonly Step[];
-    readonly end?: readonly Step[];
-}
 interface Contained {
     readonly collection?: string;
     readonly keys?: readonly string[];
@@ -25,22 +17,10 @@ interface Containment {
     readonly type: (value: object) => string;
     readonly kinds: Readonly<Record<string, Contained>>;
 }
-interface Unmatched {
-    readonly _tag: 'Unmatched';
-    readonly subject: string;
-    readonly query: string;
-    readonly candidates: readonly string[];
-}
-interface Referenced {
-    readonly type: string;
-    readonly specifier: string;
-    readonly name?: string;
-    readonly valid: boolean;
-}
 interface Encoder {
-    readonly reference: (value: object) => Referenced | undefined;
+    readonly reference: (value: object) => (Pick<Reference, 'type' | 'specifier' | 'valid'> & { readonly name?: string }) | undefined;
     readonly enumerator?: (value: object) => string | undefined;
-    readonly collection?: (value: object) => Json | undefined;
+    readonly collection?: (value: object) => Schema.Json | undefined;
     readonly replace?: (value: unknown) => unknown;
 }
 
@@ -64,14 +44,14 @@ const read = (value: unknown, key: string): unknown => {
 };
 const quoted = (text: string) => `"${text.replace(/["\\]/g, (character) => `\\${character}`)}"`;
 const unquoted = (text: string) => text.replace(/\\(?:u([\dA-Fa-f]{4})|([\s\S]))/g, (_, code?: string, character?: string) => (code === undefined ? String(character) : String.fromCharCode(parseInt(code, 16))));
-const written = (steps: readonly Step[]): string => {
+const written = (steps: Specifier['steps']): string => {
     let text = '';
     for (const { separator, kind, selector } of steps) {
         text += `${separator}${kind}${selector === undefined ? '' : selector._tag === 'Index' ? `[${selector.index}]` : `[@${selector.key}=${typeof selector.value === 'number' ? selector.value : quoted(selector.value)}]`}`;
     }
     return text === '' ? '/' : text;
 };
-const format = ({ steps, end }: Path): string => (end === undefined ? written(steps) : `(${written(steps)}${RANGE}${written(end)})`);
+const format = ({ steps, end }: Pick<Specifier, 'steps' | 'end'>): string => (end === undefined ? written(steps) : `(${written(steps)}${RANGE}${written(end)})`);
 const closing = (text: string, open: number): number => {
     let quoting = false;
     for (let at = open + 1; at < text.length; at += 1) {
@@ -84,17 +64,17 @@ const closing = (text: string, open: number): number => {
     }
     return -1;
 };
-const selector = (inside: string): Selector | undefined => {
+const selector = (inside: string): Specifier['steps'][number]['selector'] => {
     const [split, raw] = [inside.indexOf('='), inside.slice(inside.indexOf('=') + 1)];
     const quoting = raw.length > 1 && raw.charAt(0) === '"' && raw.charAt(raw.length - 1) === '"';
     return INTEGER.test(inside) ? { _tag: 'Index', index: Number(inside) } : inside.charAt(0) !== '@' || split < 2 ? undefined : INTEGER.test(raw) ? { _tag: 'Key', key: inside.slice(1, split), value: Number(raw) } : quoting ? { _tag: 'Key', key: inside.slice(1, split), value: unquoted(raw.slice(1, -1)) } : undefined;
 };
-const stepped = (text: string): Step[] | undefined => {
+const stepped = (text: string): Specifier['steps'][number][] | undefined => {
     const pattern = /(\/\/?)(@?[A-Za-z][\w-]*)/g;
-    const steps: Step[] = [];
+    const steps: Specifier['steps'][number][] = [];
     let at = 0;
     for (let found = pattern.exec(text); found?.index === at; found = pattern.exec(text)) {
-        const [separator, kind, open]: [Step['separator'], string, number] = [found[1] === '//' ? '//' : '/', String(found[2]), pattern.lastIndex];
+        const [separator, kind, open]: [Specifier['steps'][number]['separator'], string, number] = [found[1] === '//' ? '//' : '/', String(found[2]), pattern.lastIndex];
         const close = text.charAt(open) === '[' ? closing(text, open) : open - 1;
         const chosen = close > open ? selector(text.slice(open + 1, close)) : undefined;
         if (close < open - 1 || (close > open && chosen === undefined)) {
@@ -106,7 +86,7 @@ const stepped = (text: string): Step[] | undefined => {
     }
     return at === text.length ? steps : undefined;
 };
-const parse = (text: string): Path | undefined => {
+const parse = (text: string) => {
     const split = text.indexOf(RANGE);
     const ranged = text.charAt(0) === '(' && text.charAt(text.length - 1) === ')' && split > 0;
     const steps = ranged ? stepped(text.slice(1, split)) : text === '/' ? [] : stepped(text);
@@ -129,7 +109,7 @@ const keyed = (container: unknown, row: Contained, key: string, value: number | 
     }
     return undefined;
 };
-const walk = ({ root, kinds }: Containment, path: Path): unknown => {
+const walk = ({ root, kinds }: Containment, path: Pick<Specifier, 'steps' | 'end'>): unknown => {
     let at: unknown = root;
     for (const { kind, selector: chosen } of path.end === undefined ? path.steps : []) {
         const row = kinds[kind];
@@ -143,13 +123,13 @@ const walk = ({ root, kinds }: Containment, path: Path): unknown => {
             for (const item of chosen?._tag === 'Key' ? listed : []) {
                 candidates.push(String(read(item, String(read(chosen, 'key')))));
             }
-            return { _tag: 'Unmatched', subject: chosen?._tag === 'Index' && listed.length > 0 ? `${kind} among indexes 0 to ${listed.length - 1}` : kind, query: format(path), candidates } satisfies Unmatched;
+            return { _tag: 'Unmatched', subject: chosen?._tag === 'Index' && listed.length > 0 ? `${kind} among indexes 0 to ${listed.length - 1}` : kind, query: format(path), candidates } satisfies Pick<Unmatched, '_tag' | 'subject' | 'candidates'> & { readonly query: string };
         }
         at = found;
     }
-    return path.end === undefined ? at : ({ _tag: 'Unmatched', subject: 'range', query: format(path), candidates: [] } satisfies Unmatched);
+    return path.end === undefined ? at : ({ _tag: 'Unmatched', subject: 'range', query: format(path), candidates: [] } satisfies Pick<Unmatched, '_tag' | 'subject' | 'candidates'> & { readonly query: string });
 };
-const identified = (row: Contained, owner: unknown, value: object): Selector | undefined => {
+const identified = (row: Contained, owner: unknown, value: object): Specifier['steps'][number]['selector'] => {
     for (const key of row.keys ?? KEYS) {
         const held = read(value, key);
         if (typeof held === 'number' || (typeof held === 'string' && held !== '') || isRecord(held)) {
@@ -164,7 +144,7 @@ const identified = (row: Contained, owner: unknown, value: object): Selector | u
     }
     return undefined;
 };
-const specified = (containment: Containment, value: unknown): Step[] | undefined => {
+const specified = (containment: Containment, value: unknown): Specifier['steps'][number][] | undefined => {
     for (const kind in isRecord(value) && value !== containment.root ? containment.kinds : {}) {
         const row = containment.kinds[kind];
         const owner = isRecord(value) && row?.is(value) === true ? (row.owner === undefined ? containment.root : row.owner(value)) : undefined;
@@ -176,7 +156,7 @@ const specified = (containment: Containment, value: unknown): Step[] | undefined
     }
     return value === containment.root ? [] : undefined;
 };
-const reference = (containment: Containment, value: object): Referenced | undefined => {
+const reference = (containment: Containment, value: object) => {
     const [steps, name] = [specified(containment, value), read(value, 'name')];
     return steps === undefined ? undefined : typeof name === 'string' ? { type: containment.type(value), specifier: written(steps), name, valid: true } : { type: containment.type(value), specifier: written(steps), valid: true };
 };
@@ -202,4 +182,4 @@ const encode = (value: unknown, host: Encoder): unknown => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Containment, type Encoder, encode, format, isList, isPlain, isRecord, type Json, parse, type Path, read, reference, type Referenced, type Selector, type Step, type Unmatched, walk };
+export { type Containment, type Encoder, encode, format, isList, isPlain, isRecord, parse, read, reference, walk };

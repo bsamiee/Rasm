@@ -1,9 +1,9 @@
 import { Inspection, Kerns, Typeset, Typesetting } from '@rasm/indesign';
 import { Link, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
-import { Settings, SettingsPatch, type Source } from '@rasm/typography';
+import { Settings, type Source } from '@rasm/typography';
 import { drawsKashida, Kerning, Quran, Symbols, TATWEEL } from '@rasm/typography/arabic';
-import { expandToWords, Face, FaceInstance, Justification, ShapedText, Span, TextRun } from '@rasm/typography/shaping';
+import { expandToWords, Face, Justification, ShapedText, Span } from '@rasm/typography/shaping';
 import { Array, Cause, Context, Effect, Equivalence, FileSystem, Number, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
@@ -29,13 +29,13 @@ const QuranSource = Schema.TaggedUnion({
 const Tools = {
     font: Tool.make('font', {
         description: 'Returns application font with its face, and shapes text in it, justified to width when given',
-        parameters: FaceInstance.pipe(
+        parameters: Face.Instance.pipe(
             Schema.fieldsAssign({
-                ...TextRun.fields,
+                ...ShapedText.Run.fields,
                 name: FONT,
-                text: Schema.OptionFromOptionalKey(TextRun.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' })),
+                text: Schema.OptionFromOptionalKey(ShapedText.Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' })),
                 width: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Line width in em to justify text to, natural width when absent' })),
-                settings: SettingsPatch.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+                settings: Settings.Partial.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
             }),
         ),
         success: Inspection.View.cases.Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) })),
@@ -98,7 +98,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
         const { font, source } = yield* Effect.flatMap(client, (linked) => linked('font', { name, text: characters, file }));
         return { font, source: yield* Effect.transposeOption(Option.map(source, read)) };
     }, Effect.scoped);
-    const faced = Effect.fnUntraced(function* (name: string, characters: string, instance?: FaceInstance) {
+    const faced = Effect.fnUntraced(function* (name: string, characters: string, instance?: Parameters<typeof Face.open>[1]) {
         const { source } = yield* sourced(name, characters);
         return yield* Face.open(yield* Effect.fromOption(source, () => Unmatched.of({ subject: 'font file', query: Option.some(name) })), instance);
     });
@@ -106,7 +106,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
         Effect.forEach(
             grouped(runs, first, last),
             Effect.fnUntraced(function* ({ span, group }) {
-                const face = yield* faced(span.font, [...group.map(Struct.get('text')), extra].join(''), FaceInstance.make({ coordinates: span.axes }));
+                const face = yield* faced(span.font, [...group.map(Struct.get('text')), extra].join(''), Face.Instance.make({ coordinates: span.axes }));
                 return { font: span.font, face, group };
             }),
         );
@@ -159,7 +159,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
                 Mushaf: ({ file, render }) => Effect.flatMap(Effect.transposeOption(Option.map(file, files.readFileString)), (json) => Quran.mushaf(json, render)),
             });
             const [quran, face] = yield* Effect.all([text, faced(name, '')]);
-            return { text: yield* quran.text(selection, separator, face, Settings.make({ numberingSystem })) };
+            return { text: yield* Quran.text(quran, separator, face, Settings.make({ numberingSystem }))(selection) };
         }),
     );
     yield* Server.registerTool(

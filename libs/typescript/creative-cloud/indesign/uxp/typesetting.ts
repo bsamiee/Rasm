@@ -2,16 +2,9 @@ import { HostError, Specifier } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
 import type { InsertionPoint, Text, TextDefault, TextStyleRange } from 'adobe:indesign';
 import { Array, Effect, flow, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
-import type { Adjust, Typeset } from '#/typesetting';
+import type { Adjust, Kerns, Runs, Typeset } from '#/typesetting';
 import { Model } from '#/uxp/model';
 import { InDesignSettings, thousandths } from '#/uxp/settings';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-interface Run {
-    readonly index: number;
-    readonly length: number;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -43,7 +36,7 @@ const pointAfterBase = (text: Text) =>
         },
         catch: HostError.refused(`base letter before ${text.toSpecifier()}`),
     }).pipe(Effect.flatMap(Effect.fromOption(() => Unmatched.of({ subject: 'base letter', query: Option.some(text.toSpecifier()) }))));
-const adjust = Effect.fn('adjust')(function* ({ label, target: path, deltas }: Pick<Adjust, 'label' | 'target' | 'deltas'>) {
+const adjust = Effect.fn('adjust')(function* ({ label, target: path, deltas }: Adjust) {
     const { kerning = 0, tracking = 0, baselineShift = 0, marks = {} } = deltas;
     const [{ text }, target, manual, encoded] = yield* Effect.all([Model, textTarget(path), kerningMethod('Manual'), Effect.orDie(Schema.encodeEffect(Deltas)({ kerning, tracking, baselineShift, marks: { x: 0, y: 0, ...marks } }))]);
     const points: readonly InsertionPoint[] = kerning === 0 ? [] : [yield* Effect.flatMap(textRange(target), pointAfterBase)];
@@ -52,24 +45,21 @@ const adjust = Effect.fn('adjust')(function* ({ label, target: path, deltas }: P
     const kerned = yield* Effect.try({ try: () => Array.map(points, (point) => [point, { kerningValue: (point.kerningMethod === manual ? point.kerningValue : 0) + encoded.kerning }] as const), catch: HostError.refused(`kerning of ${target.toSpecifier()}`) });
     return yield* Model.written(label, target, Effect.forEach([...sums, ...kerned], ([run, values]) => Model.write(run, values)).pipe(Effect.map(flow(Array.flatten, Array.dedupe))));
 });
-const kerns = Effect.fn('kerns')(function* (payload: { readonly label: string; readonly target: string; readonly restore: Option.Option<Run>; readonly kerns: readonly (Run & { readonly kerning: number; readonly baselineShift: number })[] }) {
+const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
     const [text, manual, metrics, rows] = yield* Effect.all([Effect.flatMap(textTarget(payload.target), textRange), kerningMethod('Manual'), kerningMethod('Metrics'), Effect.orDie(Schema.encodeEffect(Kerned)(payload.kerns))]);
     const refused = HostError.refused(`insertion points of ${text.toSpecifier()}`);
     const count = yield* Effect.try({ try: () => text.insertionPoints.length, catch: refused });
     const outOfRange = [...Option.toArray(payload.restore), ...rows].filter(({ index, length }) => index + length >= count);
     yield* Array.isReadonlyArrayEmpty(outOfRange) ? Effect.void : Unmatched.of({ subject: `run in characters 0 to ${count - 2}`, query: Option.some(outOfRange.map(({ index, length }) => `${index} to ${index + length - 1}`).join(', ')) });
-    const characters = ({ index, length }: Run) => text.characters.itemByRange(index, index + length - 1);
+    const characters = ({ index, length }: Pick<Kerns['kerns'][number], 'index' | 'length'>) => text.characters.itemByRange(index, index + length - 1);
     const restored = Effect.transposeOption(Option.map(payload.restore, (run) => Effect.flatMap(Effect.try({ try: () => characters(run).getElements(), catch: refused }), Effect.forEach(Model.write({ kerningMethod: metrics }), { discard: true }))));
-    const shifted = (row: (typeof rows)[number]) =>
-        characters(row)
-            .getElements()
-            .map((character) => [character, { baselineShift: row.baselineShift * character.pointSize }] as const);
     const kerned = Effect.try({
         try: () => {
             const methods = text.insertionPoints.everyItem().kerningMethod;
             const kept = rows.filter(({ index }) => methods[index] !== manual || text.insertionPoints.item(index).kerningValue === 0);
             const points = kept.filter(({ kerning }) => kerning !== 0).map(({ index, kerning }) => [text.insertionPoints.item(index), { kerningValue: kerning }] as const);
-            return { kept: kept.length, members: [...points, ...kept.filter(({ baselineShift }) => baselineShift !== 0).flatMap(shifted)] };
+            const shifts = kept.filter(({ baselineShift }) => baselineShift !== 0).flatMap((row) => Array.map(characters(row).getElements(), (character) => [character, { baselineShift: row.baselineShift * character.pointSize }] as const));
+            return { kept: kept.length, members: [...points, ...shifts] };
         },
         catch: refused,
     }).pipe(
@@ -83,7 +73,7 @@ const kerns = Effect.fn('kerns')(function* (payload: { readonly label: string; r
     );
     return yield* Model.written(payload.label, text, Effect.andThen(restored, kerned));
 });
-const runs = Effect.fn('runs')(function* ({ target: path }: { readonly target: string }) {
+const runs = Effect.fn('runs')(function* ({ target: path }: Runs) {
     const [{ text, textContainer }, target] = yield* Effect.all([Model, textTarget(path)]);
     if (!text(target)) {
         return yield* Effect.try({ try: () => ({ ...Struct.pick(Model.referenceUnsafe(target), REFERENCED), start: 0, length: 0, runs: [{ text: '', font: target.appliedFont.name, axes: target.designAxes }] }), catch: HostError.refused(`applied font of ${target.toSpecifier()}`) });
@@ -96,7 +86,7 @@ const runs = Effect.fn('runs')(function* ({ target: path }: { readonly target: s
     });
     return { ...Struct.pick(yield* Model.reference(container), REFERENCED), start: target.index, length: target.length, runs: ranges };
 });
-const typeset = Effect.fn('typeset')(function* ({ label, target: path, settings }: Pick<Typeset, 'label' | 'target' | 'settings'>) {
+const typeset = Effect.fn('typeset')(function* ({ label, target: path, settings }: Typeset) {
     const target = yield* textTarget(path);
     yield* Effect.transposeOption(Option.map(settings, (change) => Model.commit(label, InDesignSettings.write(target, change))));
     return yield* InDesignSettings.read(target);

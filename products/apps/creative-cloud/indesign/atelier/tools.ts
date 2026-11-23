@@ -1,56 +1,6 @@
-import { Adjust, Called, Inspection, Search, Slice, Value } from '@rasm/indesign';
-import { Failure, Reference, Specifier, Written } from '@rasm/object-model';
-import { Effect, Option, Record, Schema } from 'effect';
+import { Adjust, Call, Called, Change, FindChange, Inspect, Inspection, Preflight } from '@rasm/indesign';
+import { Failure, Written } from '@rasm/object-model';
 import { Tool, Toolkit } from 'effect/ai';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-class Inspect extends Schema.Class<Inspect, { readonly brand: unique symbol }>('Inspect')({
-    target: Specifier.Path.annotate({ description: 'Object or collection specifier, / for application' }),
-    fields: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.String).annotate({ description: 'Fields to read, collections of viewed objects or every field when absent' })),
-    slice: Slice.Every,
-}) {}
-class Change extends Schema.Class<Change, { readonly brand: unique symbol }>('Change')({ target: Specifier.Path, values: Value.Fields }) {
-    get label(): string {
-        return `Change ${Record.keys(this.values).join(', ')} of ${this.target.leaf}`;
-    }
-}
-class Call extends Schema.Class<Call, { readonly brand: unique symbol }>('Call')({
-    target: Specifier.Path.annotate({ description: 'Object, or owner of collection' }),
-    collection: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Collection field of target, its method called in place of the object method' })),
-    method: Schema.String.annotate({ description: 'Method name (add, remove, place, duplicate, move, save, close, exportFile)' }),
-    arguments: Schema.Array(Value)
-        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])))
-        .annotate({ description: 'Positional arguments' }),
-    properties: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Fields written onto returned object' })),
-}) {
-    get label(): string {
-        return `Call ${[...Option.toArray(this.collection), this.method].join(' ')} of ${this.target.leaf}`;
-    }
-}
-class FindChange extends Schema.Class<FindChange, { readonly brand: unique symbol }>('FindChange')({
-    mode: Search,
-    find: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Find preference fields (pattern, format criteria)' })),
-    change: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Change preference fields for every match, absent to find only' })),
-    options: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Find/change option fields' })),
-    scope: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Document, story, text, or page item to search, current document when absent' })),
-    slice: Slice.Every,
-}) {
-    static readonly Result = Schema.Struct({
-        count: Schema.Struct({ matches: Schema.Int, changes: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Absent without change' })) }),
-        matches: Schema.Array(Schema.Struct({ specifier: Schema.String, text: Schema.OptionFromOptionalKey(Schema.String), page: Schema.OptionFromOptionalKey(Schema.String) })).annotate({ description: 'Matches with text before changes, empty for Color' }),
-    });
-
-    get label(): string {
-        return `${Option.isSome(this.change) ? 'Change' : 'Find'} ${this.mode}`;
-    }
-}
-class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol }>('Preflight')({
-    document: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Open document, every document with live preflight when absent' })),
-    profile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Profile name in any case, panel profile when absent' })),
-}) {
-    static readonly Result = Schema.Array(Schema.Struct({ targetObject: Reference, appliedProfile: Reference, aggregatedResults: Inspection.Issues }));
-}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
