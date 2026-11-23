@@ -7,6 +7,7 @@
     .react-aria-Popover {
         max-inline-size: min(30rem, 100vi - 2rem);
         overflow: auto;
+        overscroll-behavior: contain;
         background: var(--color-background);
         border: 1px solid var(--color-control-line);
     }
@@ -275,6 +276,7 @@
         max-inline-size: 62.5rem;
         block-size: var(--visual-viewport-height);
         overflow-block: auto;
+        overscroll-behavior: contain;
         outline: none;
         background: var(--color-background);
         box-shadow: -20px 0 70px oklch(from var(--color-foreground) l c h / 0.13);
@@ -634,6 +636,7 @@
                 max-block-size: 65dvb;
                 padding-inline-end: 1rem;
                 overflow-block: auto;
+                overscroll-behavior: contain;
             }
         }
 
@@ -976,6 +979,7 @@
         max-inline-size: 30rem;
         max-block-size: 100%;
         overflow: auto;
+        overscroll-behavior: contain;
         background: var(--color-background);
     }
 

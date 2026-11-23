@@ -1309,6 +1309,7 @@
         p {
             max-block-size: 25svb;
             overflow: auto;
+            overscroll-behavior: contain;
             white-space: pre-line;
         }
     }
@@ -1400,6 +1401,7 @@
         min-inline-size: 0;
         max-block-size: calc(var(--visual-viewport-height) * 0.25);
         overflow-block: auto;
+        overscroll-behavior: contain;
         font-size: 1.125rem;
         line-height: 1.25;
         overflow-wrap: anywhere;
@@ -1417,6 +1419,7 @@
         flex-shrink: 0;
         max-block-size: calc(var(--visual-viewport-height) * 0.15);
         overflow-block: auto;
+        overscroll-behavior: contain;
         font-size: 0.8125rem;
         color: var(--color-muted);
         overflow-wrap: anywhere;
@@ -1436,6 +1439,7 @@
         max-block-size: calc(var(--visual-viewport-height) * 0.4);
         padding-block: 0.5rem;
         overflow-block: auto;
+        overscroll-behavior: contain;
         border-block: 1px solid var(--color-line);
 
         :is(.react-aria-Toolbar, .react-aria-Group) {

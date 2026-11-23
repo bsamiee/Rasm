@@ -142,6 +142,7 @@ export default {
         'defensive-css/no-list-style-none': true,
         'defensive-css/no-unsafe-clamp-font-size': true,
         'defensive-css/no-unsafe-will-change': true,
+        'defensive-css/require-overscroll-behavior': true,
         'defensive-css/require-focus-visible': true,
         'defensive-css/require-forced-colors-focus': true,
         'liberty/use-logical-spec': 'always',
