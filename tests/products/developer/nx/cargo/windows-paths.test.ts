@@ -12,29 +12,36 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const cargo = { createNodes, createDependencies };
 const crates = {
-    'rust/Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n',
+    'rust/Cargo.toml': '[package]\nname = "root"\nversion = "0.1.0"\nedition = "2024"\n\n[workspace]\nresolver = "3"\nmembers = ["crates/*", "api-checker/core"]\n\n[dependencies]\ncore-kit = { path = "crates/core-kit", version = "0.1.0" }\n',
+    'rust/src/lib.rs': '',
     'rust/.config/nextest.toml': '[profile.default]\nfail-fast = false\n',
     'rust/crates/core-kit/Cargo.toml': '[package]\nname = "core-kit"\nversion = "0.1.0"\nedition = "2024"\nreadme = "../../docs/core-kit.md"\n',
     'rust/crates/core-kit/src/lib.rs': '',
     'rust/docs/core-kit.md': '# core-kit\n',
     'rust/crates/cli/Cargo.toml': '[package]\nname = "cli"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\ncore-kit = { path = "../core-kit", version = "0.1.0" }\n',
     'rust/crates/cli/src/main.rs': 'fn main() {}\n',
+    'rust/api-checker/core/Cargo.toml': '[package]\nname = "api-checker-core"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\ncore-kit = { path = "../../crates/core-kit", version = "0.1.0" }\n',
+    'rust/api-checker/core/src/lib.rs': '',
 };
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('Windows path separators', { timeout: 120_000 }, () => {
     it('states roots, inputs, outputs, working folders, and the lock as workspace-relative posix paths', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
 
-        expect(Object.keys(graph.nodes).toSorted()).toStrictEqual(['cli', 'core_kit']);
+        expect(Object.keys(graph.nodes).toSorted()).toStrictEqual(['api_checker_core', 'cli', 'core_kit', 'root']);
         expect(unportable(graph)).toStrictEqual([]);
         expect(graph.nodes['cli']?.data.release?.version?.versionActionsOptions).toStrictEqual({ lock: 'rust/Cargo.lock' });
     });
 
-    it('keeps the static edge of a path dependency', async ({ workspace }) => {
+    it('links each path dependency as a static edge from its manifest, the root crate and a parent-relative path included', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo);
 
-        expect(graph.dependencies['cli']).toStrictEqual([{ source: 'cli', target: 'core_kit', type: 'static' }]);
+        expect(['root', 'cli', 'api_checker_core'].flatMap((project) => graph.dependencies[project] ?? [])).toStrictEqual([
+            { source: 'root', target: 'core_kit', type: 'static' },
+            { source: 'cli', target: 'core_kit', type: 'static' },
+            { source: 'api_checker_core', target: 'core_kit', type: 'static' },
+        ]);
     });
 });

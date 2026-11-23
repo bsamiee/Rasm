@@ -1,7 +1,14 @@
+import { execFileSync } from 'node:child_process';
+import { dirname, join, relative } from 'node:path';
+import { env } from 'node:process';
+import type { ProjectGraph } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
-import { it, unaggregated, unportable } from '@rasm/testing/nx';
-import { Predicate, Record } from 'effect';
-import { describe, expect, vi } from 'vitest';
+import { refused } from '@rasm/testing/errors';
+import { it, outputs, pathed, taskGraph, unaggregated, unportable, type Workspace } from '@rasm/testing/nx';
+import { Effect, Schema } from 'effect';
+import { readNxJson } from 'nx/src/config/nx-json';
+import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
+import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
@@ -9,90 +16,106 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const cargo = { createNodes, createDependencies };
 const crates = {
-    'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n',
+    'Cargo.toml': '[package]\nname = "root-app"\nversion = "0.1.0"\nedition = "2024"\n\n[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n',
+    'src/main.rs': 'fn main() {}\n',
     'crates/core-kit/Cargo.toml': '[package]\nname = "core-kit"\nversion = "0.1.0"\nedition = "2024"\n',
     'crates/core-kit/src/lib.rs': 'pub fn one() -> u32 {\n    1\n}\n',
     'crates/cli/Cargo.toml': '[package]\nname = "cli"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\ncore-kit = { path = "../core-kit", version = "0.1.0" }\n',
     'crates/cli/src/main.rs': 'fn main() {\n    println!("{}", core_kit::one());\n}\n',
+    'crates/cli/notes/plan.md': '# plan\n',
 };
-const rich = {
-    ...crates,
-    'package.json': '{ "name": "repo", "private": true, "workspaces": ["crates/*"] }',
-    'project.json': '{ "name": "repo" }',
-    'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n\n[profile.release-abort]\ninherits = "release"\npanic = "abort"\n',
-    '.config/nextest.toml': '[profile.default]\nfail-fast = false\n',
-    'deny.toml': '[advisories]\nversion = 2\n\n[bans]\nmultiple-versions = "deny"\n',
-    'clippy.toml': 'too-many-arguments-threshold = 5\n',
-    'crates/cli/package.json': '{ "name": "cli", "nx": { "targets": { "check--clippy": { "inputs": ["default", "{projectRoot}/lints/**/*"] } } } }',
-};
+const Listed = Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Schema.Struct({ manifest_path: Schema.String })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const hashed = (workspace: Workspace, graph: ProjectGraph, task: string) => {
+    const [project = '', target = ''] = task.split(':');
+    const tasks = taskGraph(graph, [project], [target]);
+    const found = tasks.tasks[task];
+    assert(found !== undefined, `${task} is a task of the graph`);
+    return createTaskHasher(graph, readNxJson(workspace.root)).hashTask(found, tasks, env);
+};
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 describe('inferred projects', { timeout: 120_000 }, () => {
-    it('infers a project for each workspace member, named by its package in snake case and rooted at its manifest folder', async ({ workspace }) => {
+    it('infers one project per package cargo metadata lists, rooted at the folder of its manifest', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo);
 
-        expect(Record.map(graph.nodes, ({ data }) => data.root)).toStrictEqual({ core_kit: 'crates/core-kit', cli: 'crates/cli' });
+        const { packages } = await Effect.runPromise(Schema.decodeEffect(Listed)(execFileSync('cargo', ['metadata', '--no-deps', '--format-version', '1'], { cwd: workspace.root, encoding: 'utf-8' })));
+        expect(
+            Object.values(graph.nodes)
+                .map(({ data }) => data.root)
+                .toSorted(),
+        ).toStrictEqual(packages.map(({ manifest_path }) => relative(workspace.root, dirname(manifest_path)) || '.').toSorted());
     });
 
-    it.for([
-        { case: 'a package.json holding nx', files: { 'package.json': '{ "name": "repo", "nx": {} }' }, roots: { repo: '.', core: 'crates/core' } },
-        { case: 'a project.json', files: { 'project.json': '{ "name": "repo" }' }, roots: { repo: '.', core: 'crates/core' } },
-        { case: 'a package.json Nx reads no project from', files: { 'package.json': '{ "name": "repo" }' }, roots: { core: 'crates/core' } },
-    ])('infers the virtual workspace root as a project only where Nx anchors one there, as with $case', async ({ files, roots }, { workspace }) => {
-        const graph = await workspace.write({ ...files, 'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n', 'crates/core/Cargo.toml': '[package]\nname = "core"\nedition = "2024"\n', 'crates/core/src/lib.rs': '' }).graph(cargo);
+    it('refuses a member manifest cargo cannot parse, naming its file and line', async ({ workspace }) => {
+        const pending = workspace.write({ ...crates, 'crates/broken/Cargo.toml': '[package\nname = ' }).graph(cargo);
 
-        expect(Record.map(graph.nodes, ({ data }) => data.root)).toStrictEqual(roots);
+        await expect(pending).rejects.toSatisfy(refused(/crates\/broken\/Cargo\.toml:1:\d+/u));
     });
 
-    it('gives the workspace root project the upgrade and a clean of the whole workspace, and each member a clean of its own package', async ({ workspace }) => {
-        const graph = await workspace.write({ ...crates, 'project.json': '{ "name": "repo" }' }).graph(cargo);
-
-        const targets = Record.map(graph.nodes, ({ data }) => data.targets ?? {});
-        expect(Object.keys(graph.nodes).filter((name) => 'upgrade--cargo' in (targets[name] ?? {}))).toStrictEqual(['repo']);
-        expect(targets['repo']?.['clean--cargo']).toMatchObject({ options: { commands: [['cargo', 'clean']] } });
-        expect(targets['cli']?.['clean--cargo']).toMatchObject({
-            options: {
-                commands: [
-                    ['cargo', 'clean', '--package', 'cli', '--profile', 'dev', '--locked'],
-                    ['cargo', 'clean', '--package', 'cli', '--profile', 'release', '--locked'],
-                ],
-            },
-        });
-    });
-});
-
-describe('hashing', { timeout: 120_000 }, () => {
-    it('hashes the source folders of the crate targets, its manifest and readme, and the workspace lock, manifest, and cargo configuration', async ({ workspace }) => {
+    it('states each tool input in the verb running it, and every root, input, output, and folder as a workspace-relative posix path', async ({ workspace }) => {
         const graph = await workspace
             .write({
                 ...crates,
-                '.cargo/config.toml': '[build]\nincremental = true\n',
-                'crates/cli/README.md': '# cli\n',
-                'crates/cli/Cargo.toml': '[package]\nname = "cli"\nversion = "0.1.0"\nedition = "2024"\nreadme = "README.md"\n',
-                'crates/cli/tests/smoke.rs': '#[test]\nfn smoke() {}\n',
-                'crates/cli/notes/plan.md': '# plan\n',
+                'package.json': '{ "name": "repo", "private": true, "workspaces": ["crates/*"] }',
+                '.config/nextest.toml': '[profile.default]\nfail-fast = false\n',
+                'deny.toml': '[bans]\nmultiple-versions = "deny"\n',
+                'crates/cli/package.json': '{ "name": "cli", "nx": { "targets": { "check--clippy": { "inputs": ["default", "{projectRoot}/lints/**/*"] } } } }',
             })
-            .graph(cargo);
+            .graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
 
-        const hashed = graph.nodes['cli']?.data.namedInputs?.['default']?.filter(Predicate.isString) ?? [];
-        expect(hashed).toStrictEqual(expect.arrayContaining(['{projectRoot}/Cargo.toml', '{projectRoot}/README.md', '{projectRoot}/src/**/*', '{projectRoot}/tests/**/*', '{workspaceRoot}/Cargo.lock', '{workspaceRoot}/Cargo.toml', '{workspaceRoot}/.cargo/config.toml']));
-        expect(hashed.filter((input) => input.startsWith('{projectRoot}/notes') || input === '{projectRoot}/**/*')).toStrictEqual([]);
+        expect(graph.nodes['cli']?.data.targets?.['check--clippy']?.inputs).toContain('{projectRoot}/lints/**/*');
+        expect([unaggregated(graph), unportable(graph)]).toStrictEqual([[], []]);
     });
 });
 
-describe('graph laws', { timeout: 120_000 }, () => {
-    it('hashes every tool input in its verb and forwards the verb to each tool, package.json overrides included', async ({ workspace }) => {
-        const graph = await workspace.write(rich).graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
+describe('task hashes', { timeout: 120_000 }, () => {
+    it.for([
+        { case: 'the source of a crate it depends on', edited: { 'crates/core-kit/src/lib.rs': 'pub fn one() -> u32 {\n    2 - 1\n}\n' }, changes: true },
+        { case: 'a note in its folder rustc never reads', edited: { 'crates/cli/notes/plan.md': '# plan, revised\n' }, changes: false },
+    ])('changes the build hash of a crate ($changes) after an edit to $case', async ({ edited, changes }, { workspace }) => {
+        const before = await hashed(workspace, await workspace.write(crates).graph(cargo), 'cli:build--cargo');
 
-        expect(graph.nodes['cli']?.data.targets?.['check--clippy']?.inputs).toContain('{projectRoot}/lints/**/*');
-        expect(unaggregated(graph)).toStrictEqual([]);
+        const after = await hashed(workspace, await workspace.write(edited).graph(cargo), 'cli:build--cargo');
+
+        expect(before.value === after.value).toBe(!changes);
+    });
+});
+
+describe('stored readings', { timeout: 120_000 }, () => {
+    it('serves the stored reading while nothing cargo reads changes, with cargo gone from PATH', async ({ workspace }) => {
+        await workspace.write(crates).graph(cargo);
+        pathed(join(workspace.root, '.bin'), {});
+
+        const graph = await workspace.graph(cargo);
+
+        expect(graph.nodes['cli']?.data.targets).toHaveProperty('build--cargo');
     });
 
-    it('states every root, input, output, and working folder as a workspace-relative posix path', async ({ workspace }) => {
-        const graph = await workspace.write(rich).graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
+    it.for([
+        { case: 'a binary source joins its layout', edited: { 'crates/core-kit/src/bin/report.rs': 'fn main() {\n    println!("{}", core_kit::one());\n}\n' }, target: 'install--cargo', held: [false, true] },
+        { case: 'its manifest changes', edited: { 'crates/core-kit/Cargo.toml': '[package]\nname = "core-kit"\nversion = "0.1.0"\nedition = "2024"\npublish = false\n' }, target: 'nx-release-publish', held: [true, false] },
+    ])('reads the crate again once $case', async ({ edited, target, held }, { workspace }) => {
+        const before = await workspace.write(crates).graph(cargo);
+        workspace.write(edited);
 
-        expect(Object.keys(graph.nodes['repo']?.data.targets ?? {})).toStrictEqual(expect.arrayContaining(['upgrade--cargo', 'check--cargo-deny', 'check--cargo-deny-advisories']));
-        expect(unportable(graph)).toStrictEqual([]);
+        const after = await workspace.graph(cargo);
+
+        expect([before, after].map(({ nodes }) => [Object.hasOwn(nodes, 'core_kit'), target in (nodes['core_kit']?.data.targets ?? {})])).toStrictEqual(held.map((holds) => [true, holds]));
+    });
+
+    it('reads the workspace again once CARGO_TARGET_DIR names another target folder, no file changing', async ({ workspace, onTestFinished }) => {
+        await workspace.write(crates).graph(cargo);
+        vi.stubEnv('CARGO_TARGET_DIR', join(workspace.root, 'elsewhere'));
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+        });
+
+        const graph = await workspace.graph(cargo);
+
+        expect(outputs(graph, 'cli', 'build--cargo')).toStrictEqual(['elsewhere/debug/cli']);
     });
 });
