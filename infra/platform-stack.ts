@@ -2,18 +2,18 @@ import { isIPv4 } from 'node:net';
 import playwright from '@playwright/test/package.json' with { type: 'json' };
 import aws from '@pulumi/aws';
 import { DnsRecord, getZoneOutput } from '@pulumi/cloudflare';
-import command, { remote } from '@pulumi/command';
-import { Container, type ContainerArgs, getRegistryImageOutput, Network, Provider, type ProviderArgs, RemoteImage, Volume } from '@pulumi/docker';
+import { remote } from '@pulumi/command';
+import { Container, type ContainerArgs, getRegistryImageOutput, Network, Provider, type ProviderArgs, RemoteImage, Tag, Volume } from '@pulumi/docker';
 import dockerBuild from '@pulumi/docker-build';
 import minio from '@pulumi/minio';
-import { all, type CustomResourceOptions, getOrganization, getProject, type Input, interpolate, jsonStringify, type Output, output, StackReference } from '@pulumi/pulumi';
+import { all, type CustomResourceOptions, getProject, type Input, interpolate, jsonStringify, output, secret } from '@pulumi/pulumi';
 import { RandomPassword } from '@pulumi/random';
 import { getDeviceOutput } from '@pulumi/tailscale';
 import { Secret } from '@pulumiverse/doppler';
 import type { deploy } from '@rasm/hosting/deploy';
-import { Access, Identity } from '@rasm/hosting/identity';
-import { Array, Data, Duration, Effect, Function, Option, Record, Schema, Struct } from 'effect';
-import type { configs } from '#/repository-stack';
+import { Identity } from '@rasm/hosting/identity';
+import { Array, Data, Duration, Effect, Function, Option, Predicate, Record, String, Struct } from 'effect';
+import type { configs, identified } from '#/repository-stack';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -52,33 +52,30 @@ const local = { host: 'local.rasm.localhost', owner: 'owner@rasm.localhost' } as
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Role = Data.taggedEnum<Role>();
-class Stored extends Schema.Opaque<Stored, unknown>()(Schema.Struct(Struct.Record(['server', 'within', 'origin', 'region', 'user', 'key'], Schema.String))) {}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Machine extends Data.Class<{
     readonly name: string;
     readonly zone: string;
+    readonly roles: readonly Role[];
     readonly provider: Provider;
     readonly builder: dockerBuild.Provider;
-    readonly shared: Option.Option<Input<string>>;
-    readonly remote: Option.Option<{ readonly address: string; readonly zoneId: Output<string> }>;
+    readonly network: Input<string>;
+    readonly remote: Option.Option<{ readonly zoneId: Input<string>; readonly target: Input<string> }>;
 }> {
     // --- [CONSTRUCTION]
 
-    static readonly on = (host: string, network: Option.Option<Input<string>>, registries: Pick<ProviderArgs, 'registryAuth'> = {}) => {
-        const [name = host, ...labels] = host.split('.');
-        const zone = labels.join('.');
-        const reached = Option.map(Record.get<string, Row>(hosts, host), ({ address }) => ({ address, zoneId: getZoneOutput({ filter: { name: zone } }).zoneId }));
-        const dialed = Option.getOrUndefined(Option.map(reached, () => ({ host: `ssh://root@${name}` })));
-        const provider = new Provider(host, { ...dialed, ...registries });
-        const builder = new dockerBuild.Provider(host, { ...dialed });
-        return new Machine({ name, zone, provider, builder, shared: network, remote: reached });
-    };
-
-    static readonly joined = (host: string) => {
-        const reference = new StackReference(`${getOrganization()}/${getProject()}/${host}`);
-        return { machine: Machine.on(host, Option.some(reference.requireOutput('network'))), storage: reference.requireOutput('storage').apply(Schema.decodeUnknownPromise(Stored)) };
+    static readonly on = (host: string, shared: Option.Option<Input<string>>, registryAuth?: ProviderArgs['registryAuth']) => {
+        const [name, ...labels] = String.split(host, '.');
+        const [zone, row] = [labels.join('.'), Record.get<string, Row>(hosts, host)];
+        const roles = Option.match(row, { onNone: () => [Role.Apps({ owner: local.owner })], onSome: Struct.get('roles') });
+        const dialed = Option.getOrUndefined(Option.map(row, () => ({ host: `ssh://root@${name}` })));
+        const provider = new Provider(host, { ...dialed, registryAuth: roles.some(Role.$is('Runner')) ? registryAuth : undefined });
+        const located = Option.map(row, ({ address }) => [address, getZoneOutput({ filter: { name: zone } }).zoneId] as const).pipe(
+            Option.map(([address, zoneId]) => ({ zoneId, target: Option.isNone(shared) ? new DnsRecord(host, { zoneId, name: host, type: 'A', content: address, ttl: 1, proxied: false }).name : host })),
+        );
+        return new Machine({ name, zone, roles, provider, builder: new dockerBuild.Provider(host, { ...dialed }), network: Option.getOrElse(shared, () => new Network(host, { name: getProject() }, { provider }).name), remote: located });
     };
 
     // --- [ROUTING]
@@ -87,27 +84,14 @@ class Machine extends Data.Class<{
     static readonly guard = 'auth';
     static readonly forwarded = { id: 'Remote-User', email: 'Remote-Email' } as const;
 
-    get access() {
-        return Access.make({ source: { _tag: 'Forwarded', ...Machine.forwarded }, logout: `https://${Machine.guard}.${this.zone}/logout` });
-    }
-
-    named(name: string, type: 'A' | 'CNAME', content: string) {
-        return Option.toArray(Option.map(this.remote, ({ zoneId }) => new DnsRecord(name, { zoneId, name, type, content, ttl: 1, proxied: false })));
-    }
-
     routed(service: string, port: number, extra: Readonly<Record<string, string>> = {}) {
         const address = `${service}.${this.zone}`;
         const stated = { 'traefik.enable': 'true', [`traefik.http.routers.${service}.rule`]: `Host(\`${address}\`)`, [`traefik.http.routers.${service}.entrypoints`]: Machine.entrypoint, [`traefik.http.services.${service}.loadbalancer.server.port`]: `${port}`, ...extra };
-        return { address, named: this.named(address, 'CNAME', `${this.name}.${this.zone}`), labels: Record.collect(stated, (label, value) => ({ label, value })) };
+        const named = Option.toArray(Option.map(this.remote, ({ zoneId, target }) => new DnsRecord(address, { zoneId, name: address, type: 'CNAME', content: target, ttl: 1, proxied: false })));
+        return { address, named, labels: Record.collect(stated, (label, value) => ({ label, value })) };
     }
 
     // --- [CONTAINERS]
-
-    static readonly networked = Function.memoize((machine: Machine) => Option.getOrElse(machine.shared, () => new Network(`${machine.name}.${machine.zone}`, { name: getProject() }, { provider: machine.provider }).name));
-
-    get network() {
-        return Machine.networked(this);
-    }
 
     pulled(image: string, options: CustomResourceOptions = {}) {
         return new RemoteImage(`${this.name}-${image}`, { name: interpolate`${image}@${getRegistryImageOutput({ name: image }, { provider: this.provider }).sha256Digest}` }, { provider: this.provider, ...options }).repoDigest;
@@ -115,11 +99,11 @@ class Machine extends Data.Class<{
 
     imaged(image: string, inline: Input<string>, { cache, ...args }: Pick<dockerBuild.ImageArgs, 'context' | 'labels' | 'registries'> & { readonly cache?: string } = {}) {
         const stored = cache === undefined ? { load: true } : { exports: [{ registry: { annotations: args.labels } }], ...Struct.Record(['cacheFrom', 'cacheTo'], [{ registry: { ref: cache } }]) };
-        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], push: false, ...stored, buildArgs: { BUILDKIT_DOCKERFILE_CHECK: 'error=true' }, ...args }, { provider: this.builder }).digest;
+        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], push: false, buildOnPreview: false, ...stored, buildArgs: { BUILDKIT_DOCKERFILE_CHECK: 'error=true' }, ...args }, { provider: this.builder }).digest;
     }
 
-    kept(volume: string) {
-        return new Volume(`${this.name}-${volume}`, { name: volume }, { provider: this.provider }).name;
+    kept(volume: string, options: CustomResourceOptions = {}) {
+        return new Volume(`${this.name}-${volume}`, { name: volume }, { provider: this.provider, ...options }).name;
     }
 
     contained(service: string, tests: readonly string[], args: Omit<ContainerArgs, 'name' | 'networksAdvanced' | 'restart' | 'logDriver' | 'wait' | 'healthcheck'>, options: CustomResourceOptions = {}) {
@@ -132,6 +116,8 @@ class Machine extends Data.Class<{
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const tailnet = Function.memoize((machine: Machine) => getDeviceOutput({ hostname: machine.name }));
 
 const proxied = Function.memoize((machine: Machine) => {
     const secure = Machine.entrypoint.toUpperCase();
@@ -158,14 +144,17 @@ const proxied = Function.memoize((machine: Machine) => {
     });
 });
 
-const stored = (machine: Machine) => {
+const stored = Function.memoize((machine: Machine) => {
     const ports = { internal: 9000, external: 7412, health: '/health/ready' } as const;
     const { user, key } = Record.map({ user: 'storage-access', key: 'storage-secret' }, (name) => new RandomPassword(`${machine.name}-${name}`, { length: 32, special: false }).result);
     const published = Option.match(machine.remote, {
         onNone: () => ({ ips: output(['127.0.0.1']), address: '127.0.0.1' }),
-        onSome: () => ({ ips: getDeviceOutput({ hostname: machine.name }).addresses.apply(Array.filter(isIPv4)), address: machine.name }),
+        onSome: () => ({ ips: tailnet(machine).addresses.apply(Array.filter(isIPv4)), address: machine.name }),
     });
-    const { address, named, labels } = machine.routed('storage', ports.internal);
+    const route = Option.map(
+        Option.liftPredicate(machine, ({ roles }) => roles.some(Role.$is('Apps'))),
+        (exposed) => exposed.routed('storage', ports.internal),
+    );
     const serving = machine.contained(
         'storage',
         ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}${ports.health}`],
@@ -175,42 +164,45 @@ const stored = (machine: Machine) => {
             ports: published.ips.apply(Array.map((ip) => ({ internal: ports.internal, external: ports.external, ip }))),
             ulimits: [{ name: 'nofile', soft: 1_048_576, hard: 1_048_576 }],
             mounts: [{ type: 'volume', source: machine.kept('storage'), target: '/data' }],
-            labels,
+            labels: Option.match(route, { onNone: () => [{ label: 'traefik.enable', value: 'false' }], onSome: Struct.get('labels') }),
         },
-        { dependsOn: [proxied(machine), ...named] },
+        { dependsOn: Option.match(route, { onNone: Array.empty, onSome: ({ named }) => [proxied(machine), ...named] }) },
     );
-    return output({ server: serving.urn.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, origin: `https://${address}`, region: 'us-east-1', user, key });
-};
+    return output({ server: serving.urn.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, ...Option.getOrUndefined(Option.map(route, ({ address }) => ({ origin: `https://${address}` }))), region: 'us-east-1', user, key });
+});
 
-const bucketed = (name: string, storage: Output<Stored>, buckets: Effect.Success<ReturnType<typeof deploy.Machine>>['buckets']) => {
+const bucketed = (name: string, storage: ReturnType<typeof stored>, buckets: Effect.Success<ReturnType<typeof deploy.Machine>>['buckets']) => {
     const provider = new minio.Provider(name, { minioServer: storage.server, minioUser: storage.user, minioPassword: storage.key });
-    const s3 = new aws.Provider(name, {
-        region: storage.region,
-        accessKey: storage.user,
-        secretKey: storage.key,
-        endpoints: [{ s3: interpolate`http://${storage.server}` }],
-        s3UsePathStyle: true,
-        skipCredentialsValidation: true,
-        skipMetadataApiCheck: true,
-        skipRegionValidation: true,
-        skipRequestingAccountId: true,
-    });
-    const created = Record.collect(buckets, (bucket, { kept, abort, expire, cors }) => {
+    const allowed = Record.filter(
+        Record.map(buckets, ({ cors }) => cors.map(({ origins, methods, headers, exposed, age }) => ({ allowedOrigins: [...origins], allowedMethods: [...methods], allowedHeaders: [...headers], exposeHeaders: [...exposed], maxAgeSeconds: Duration.toSeconds(age) }))),
+        Array.isArrayNonEmpty,
+    );
+    const s3 = Option.map(
+        Option.liftPredicate(allowed, Predicate.not(Record.isEmptyRecord)),
+        () =>
+            new aws.Provider(name, {
+                region: storage.region,
+                accessKey: storage.user,
+                secretKey: storage.key,
+                endpoints: [{ s3: interpolate`http://${storage.server}` }],
+                s3UsePathStyle: true,
+                ...Struct.Record(['skipCredentialsValidation', 'skipMetadataApiCheck', 'skipRegionValidation', 'skipRequestingAccountId'], true),
+            }),
+    );
+    const created = Record.collect(buckets, (bucket, { kept, abort, expire }) => {
         const made = new minio.S3Bucket(bucket, { bucket, forceDestroy: !kept }, { provider, protect: kept });
         const rules = [{ id: 'abort', abortIncompleteMultipartUpload: { daysAfterInitiation: Math.ceil(Duration.toDays(abort)) } }, ...Record.collect(expire, (prefix, age) => ({ id: `expire ${prefix}*`, ...(prefix === '' ? {} : { filter: { prefix } }), expiration: { days: Math.ceil(Duration.toDays(age)) } }))];
-        const allowed = cors.map(({ origins, methods, headers, exposed, age }) => ({ allowedOrigins: [...origins], allowedMethods: [...methods], allowedHeaders: [...headers], exposeHeaders: [...exposed], maxAgeSeconds: Duration.toSeconds(age) }));
-        const configured = [new minio.S3BucketLifecycle(bucket, { bucket: made.bucket, rules }, { provider }), ...(Array.isArrayNonEmpty(allowed) ? [new aws.s3.BucketCorsConfiguration(bucket, { bucket: made.bucket, corsRules: allowed }, { provider: s3 })] : [])];
-        return { arn: made.arn, configured: configured.map(({ id }) => id) };
+        const cors = Option.toArray(Option.zipWith(s3, Record.get(allowed, bucket), (s3Provider, corsRules) => new aws.s3.BucketCorsConfiguration(bucket, { bucket: made.bucket, corsRules }, { provider: s3Provider })));
+        return { arn: made.arn, configured: [new minio.S3BucketLifecycle(bucket, { bucket: made.bucket, rules }, { provider }), ...cors].map(({ id }) => id) };
     });
-    const policy = jsonStringify({ Version: '2012-10-17', Statement: [{ Effect: 'Allow', Action: ['s3:*'], Resource: created.flatMap(({ arn }) => [arn, interpolate`${arn}/*`]) }] });
-    const account = new minio.IamServiceAccount(name, { targetUser: storage.user, policy }, { provider });
+    const account = new minio.IamServiceAccount(name, { targetUser: storage.user, policy: jsonStringify({ Version: '2012-10-17', Statement: [{ Effect: 'Allow', Action: ['s3:*'], Resource: created.flatMap(({ arn }) => [arn, interpolate`${arn}/*`]) }] }) }, { provider });
     return { AWS_ENDPOINT_URL_S3: storage.within, AWS_REGION: storage.region, AWS_ACCESS_KEY_ID: all([account.accessKey, ...created.flatMap(({ configured }) => configured)]).apply(([id]) => id), AWS_SECRET_ACCESS_KEY: account.secretKey };
 };
 
 const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, project: string) => {
     const { port, health } = { port: 3000, health: '/health' };
     const storage = stored(machine);
-    const [proxy, scoped] = [proxied(machine), bucketed(name, storage, { [name]: { kept: false, abort: kept, expire: { '': kept }, cors: [] } })];
+    const scoped = bucketed(name, storage, { [name]: { kept: false, abort: kept, expire: { '': kept }, cors: [] } });
     const tokens = Record.map({ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: 'READ_ONLY_ACCESS_TOKEN', NX_CACHE_WRITE_TOKEN: 'SERVICE_ACCESS_TOKEN' }, (variable, row) => ({ variable, value: new RandomPassword(`${machine.name}-${row}`, { length: 48, special: false }).result }));
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: health });
     const image = machine.imaged(
@@ -226,12 +218,10 @@ COPY --from=2 /nx-cache-aws /
 ENTRYPOINT ["/nx-cache-aws"]
 `,
     );
-    const variables = { S3_BUCKET_NAME: name, S3_ENDPOINT_URL: scoped.AWS_ENDPOINT_URL_S3, ...scoped, ...Record.mapEntries(tokens, ({ variable, value }) => [variable, value]) };
-    const envs = Record.collect(variables, (variable, value) => interpolate`${variable}=${value}`);
-    const serving = machine.contained(name, ['CMD', '/busybox/wget', '--quiet', '--spider', `http://127.0.0.1:${port}${health}`], { image, init: true, envs, labels }, { dependsOn: [proxy, ...named] });
-    const held = { ...Record.map(tokens, Struct.get('value')), NX_SELF_HOSTED_REMOTE_CACHE_SERVER: serving.id.apply(() => `https://${address}`) };
-    const ci = Record.map(held, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }));
-    const dev = Record.map(Struct.omit(ci, ['NX_CACHE_WRITE_TOKEN']), ({ config, name: secret }, row) => new Secret(`${machine.name}-dev-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value: interpolate`\${${config}.${secret}}` }).name);
+    const envs = Record.collect({ S3_BUCKET_NAME: name, S3_ENDPOINT_URL: scoped.AWS_ENDPOINT_URL_S3, ...scoped, ...Record.mapEntries(tokens, ({ variable, value }) => [variable, value]) }, (variable, value) => interpolate`${variable}=${value}`);
+    const serving = machine.contained(name, ['CMD', '/busybox/wget', '--quiet', '--spider', `http://127.0.0.1:${port}${health}`], { image, init: true, envs, labels }, { dependsOn: [proxied(machine), ...named] });
+    const ci = Record.map({ ...Record.map(tokens, Struct.get('value')), NX_SELF_HOSTED_REMOTE_CACHE_SERVER: `https://${address}` }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }, { dependsOn: serving }));
+    const dev = Record.map(Struct.omit(ci, ['NX_CACHE_WRITE_TOKEN']), ({ config, name: reference }, row) => new Secret(`${machine.name}-dev-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value: interpolate`\${${config}.${reference}}` }).name);
     const root = Record.map({ RUSTFS_ACCESS_KEY: storage.user, RUSTFS_SECRET_KEY: storage.key }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value }).name);
     return { ...Record.map(ci, Struct.get('name')), dev, root };
 };
@@ -245,22 +235,20 @@ const synced = (machine: Machine, { name }: Data.TaggedEnum.Value<Role, 'History
         {
             image: machine.pulled('ghcr.io/atuinsh/atuin:18.25.1'),
             entrypoints: ['/bin/sh', '-c'],
-            command: [`(atuin-server admin user create --email ${owner}@users.noreply.github.com ${owner} < ${file} || atuin-server admin user set-password ${owner} < ${file}) && exec atuin-server start`],
-            envs: ['ATUIN_HOST=0.0.0.0', 'ATUIN_DB_URI=sqlite:///config/atuin.db'],
+            command: [`(atuin-server admin user create --email "${owner}@users.noreply.github.com" "${owner}" < ${file} || atuin-server admin user set-password "${owner}" < ${file}) && exec atuin-server start`],
+            envs: ['ATUIN_HOST=0.0.0.0', `ATUIN_PORT=${port}`, 'ATUIN_DB_URI=sqlite:///config/atuin.db'],
             uploads: [{ file, content: interpolate`${password}\n` }],
-            mounts: [{ type: 'volume', source: machine.kept(name), target: '/config' }],
+            mounts: [{ type: 'volume', source: machine.kept('atuin', { protect: true }), target: '/config' }],
             labels,
         },
         { dependsOn: [proxied(machine), ...named] },
     );
-    const held = { ATUIN_SYNC_ADDRESS: serving.id.apply(() => `https://${address}`), ATUIN_PASSWORD: password };
-    return Record.map(held, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value }).name);
+    return Record.map({ ATUIN_SYNC_ADDRESS: `https://${address}`, ATUIN_PASSWORD: password }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value }, { dependsOn: serving }).name);
 };
 
 const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>) => {
-    const port = 9091;
-    const [{ guard, forwarded }, wildcard] = [Machine, `*.${machine.zone}`];
-    const [proxy, password] = [proxied(machine), new RandomPassword(`${machine.name}-owner`, { length: 32, special: false })];
+    const [port, { guard, forwarded }] = [9091, Machine];
+    const password = new RandomPassword(`${machine.name}-owner`, { length: 32, special: false });
     const { address, named, labels } = machine.routed(guard, port, {
         [`traefik.http.middlewares.${guard}-check.forwardauth.address`]: `http://${guard}:${port}/api/authz/forward-auth`,
         [`traefik.http.middlewares.${guard}-check.forwardauth.authResponseHeaders`]: Object.values(forwarded).join(','),
@@ -268,7 +256,7 @@ const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>)
         [`traefik.http.middlewares.${guard}.chain.middlewares`]: `${guard}-strip,${guard}-check`,
     });
     const configuration = {
-        access_control: { default_policy: 'bypass', rules: [{ domain: wildcard, resources: [`^${RegExp.escape(Identity.paths.signin)}([?].*)?$`], policy: 'one_factor' }] },
+        access_control: { default_policy: 'bypass', rules: [{ domain: `*.${machine.zone}`, resources: [`^${RegExp.escape(Identity.paths.signin)}([?].*)?$`], policy: 'one_factor' }] },
         authentication_backend: { file: { path: '/config/users.yml' }, password_reset: { disable: true } },
         notifier: { filesystem: { filename: '/var/lib/authelia/notification.txt' } },
         ntp: { disable_startup_check: true },
@@ -288,7 +276,7 @@ const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>)
             mounts: [{ type: 'volume', source: machine.kept(guard), target: '/var/lib/authelia' }],
             labels,
         },
-        { dependsOn: [proxy, ...named] },
+        { dependsOn: [proxied(machine), ...named] },
     );
     return { network: output(machine.network), owner: { name: 'owner', password: password.result }, storage: stored(machine) };
 };
@@ -297,12 +285,11 @@ const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>)
 
 const installed = Effect.sync(() => hosted(Machine.on(local.host, Option.none()), local));
 
-const provisioned = (host: keyof typeof hosts, { owner, repository, project, engines, registry }: { readonly owner: string; readonly repository: string; readonly project: string; readonly engines: readonly string[]; readonly registry: Input<string> }) =>
+const provisioned = (host: keyof typeof hosts, { owner, repository, project, engines }: Effect.Success<typeof identified>, { EPIC_GHCR_TOKEN: password, GITHUB_TOKEN: pat }: Readonly<Record<'EPIC_GHCR_TOKEN' | 'GITHUB_TOKEN', string>>) =>
     Effect.sync(() => {
-        const registries = [{ address: 'ghcr.io', username: owner, password: registry }];
-        const [{ address, roles }, machine]: readonly [Row, Machine] = [hosts[host], Machine.on(host, Option.none(), { registryAuth: registries })];
-        const located = machine.named(host, 'A', address).map(({ content }) => content);
-        const served = roles.map(
+        const registries = [{ address: 'ghcr.io', username: owner, password }];
+        const machine = Machine.on(host, Option.none(), registries);
+        const served = machine.roles.map(
             Role.$match({
                 Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, project),
                 Apps: (settings) => hosted(machine, settings),
@@ -313,35 +300,35 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                     const [, registered] = Array.mapAccum(Record.toEntries(instances), Option.none<remote.Command>(), (before, [label, limits]) => {
                         const folder = `/home/${runner.user}/actions-runner-${label}`;
                         const archive = `/tmp/actions-runner-${label}.tar.gz`;
-                        const removed = `if cd ${folder} 2>/dev/null; then systemctl revert "$(cat ${folder}/.service)"; ./svc.sh stop; ./svc.sh uninstall; fi; rm -rf ${folder}`;
+                        const removed = `token=$(cat); if cd "${folder}" 2>/dev/null; then systemctl revert "$(cat .service)"; ./svc.sh stop; ./svc.sh uninstall; sudo -u ${runner.user} ./config.sh remove --pat "$token"; fi; rm -rf "${folder}"`;
                         const installation = [
-                            'token=$(cat)',
                             removed,
                             'set -eu',
-                            `install -d -o ${runner.user} -g ${runner.user} ${folder} && cd ${folder}`,
-                            `curl -fsSL -o ${archive} https://github.com/actions/runner/releases/download/v${runner.version}/actions-runner-linux-x64-${runner.version}.tar.gz`,
-                            `echo '${runner.sha256}  ${archive}' | sha256sum --check --quiet`,
-                            `sudo -u ${runner.user} tar xzf ${archive} && rm ${archive}`,
+                            `install -d -o ${runner.user} -g ${runner.user} "${folder}" && cd "${folder}"`,
+                            `curl -fsSL -o "${archive}" https://github.com/actions/runner/releases/download/v${runner.version}/actions-runner-linux-x64-${runner.version}.tar.gz`,
+                            `echo "${runner.sha256}  ${archive}" | sha256sum --check --quiet`,
+                            `sudo -u ${runner.user} tar xzf "${archive}" && rm "${archive}"`,
                             './bin/installdependencies.sh',
-                            `sudo -u ${runner.user} ./config.sh --unattended --replace --url https://github.com/${owner}/${repository} --name ${machine.name}-${label} --labels ${label} --token "$token"`,
+                            `sudo -u ${runner.user} ./config.sh --unattended --replace --url "https://github.com/${owner}/${repository}" --name "${machine.name}-${label}" --labels "${label}" --pat "$token"`,
                             `./svc.sh install ${runner.user}`,
                             './svc.sh start',
                             ...Array.match(
-                                Record.collect(limits, (option, value) => `${option}=${value}`),
+                                Record.collect(limits, (option, value) => `"${option}=${value}"`),
                                 { onEmpty: Array.empty, onNonEmpty: (options) => [`systemctl set-property "$(cat .service)" ${options.join(' ')}`] },
                             ),
                         ].join('\n');
-                        const token = new command.local.Command(
-                            `${machine.name}-runner-${label}-token`,
-                            { create: `gh api --method POST repos/${owner}/${repository}/actions/runners/registration-token --jq .token`, triggers: [installation, getDeviceOutput({ hostname: machine.name }).nodeId], logging: 'none' },
-                            { additionalSecretOutputs: ['stdout'] },
+                        const instance = new remote.Command(
+                            `${machine.name}-runner-${label}`,
+                            { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: secret(pat), triggers: [tailnet(machine).nodeId] },
+                            { dependsOn: Option.toArray(before), deleteBeforeReplace: true },
                         );
-                        const instance = new remote.Command(`${machine.name}-runner-${label}`, { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: token.stdout }, { dependsOn: Option.toArray(before) });
                         return [Option.some(instance), [label, instance.id] as const];
                     });
                     return {
                         runners: Record.fromEntries(registered),
-                        engines: engines.map((version) => machine.pulled(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })),
+                        engines: Array.map(engines, (version) => `ghcr.io/epicgames/unreal-engine:dev-slim-${version}`).map(
+                            (image) => new Tag(`${machine.name}-${image}`, { sourceImage: machine.pulled(image, { customTimeouts: { create: '2h', update: '2h' } }), targetImage: image }, { provider: machine.provider }).targetImage,
+                        ),
                         browsers: machine.imaged(
                             `${browsers}:${playwright.version}`,
                             `FROM node:slim\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends build-essential ca-certificates curl git libicu-dev && rm -rf /var/lib/apt/lists/*\nRUN npx --yes playwright@${playwright.version} install --with-deps chromium && npx --yes playwright@${playwright.version} install-deps firefox && rm -rf /var/lib/apt/lists/* /root/.npm\nUSER node\n`,
@@ -351,7 +338,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                 },
             }),
         );
-        return { located, ...Record.fromEntries(served.flatMap(Record.toEntries)) };
+        return Record.fromEntries(served.flatMap(Record.toEntries));
     });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
