@@ -12,7 +12,7 @@
         {
             "name": "blender",
             "source": "./plugins/shared/blender",
-            "version": "0.3.0",
+            "version": "0.4.1",
             "description": "Blender sessions and Python inside Blender: bpy data, extensions, interface, node trees, and render output",
             "author": {
                 "name": "Bardia Samiee"
@@ -30,8 +30,8 @@
         {
             "name": "cpp",
             "source": "./plugins/shared/cpp",
-            "version": "0.4.0",
-            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and the Unreal Engine editor MCP server",
+            "version": "0.5.0",
+            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, Unreal Engine debugging, reloads, and logs on macOS, and the Unreal Engine editor MCP server",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -130,8 +130,8 @@
         {
             "name": "tool",
             "source": "./plugins/shared/tool",
-            "version": "0.8.2",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
+            "version": "0.8.4",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, breakpoint debugging of Python, .NET, C++, and JavaScript through mcp-debugger, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
             "author": {
                 "name": "Bardia Samiee"
             }

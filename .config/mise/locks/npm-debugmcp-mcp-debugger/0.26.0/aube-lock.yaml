@@ -1,0 +1,70 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@debugmcp/mcp-debugger':
+        specifier: 0.26.0
+        version: 0.26.0
+
+packages:
+
+  '@debugmcp/codelldb-darwin-arm64@1.11.8':
+    resolution: {integrity: sha512-IKt9PnPzR11VFe9CeOvzYyjJGCD7Ml3Tb72qxHUOm5GaEJvvEp/I//oRtJ7QYOqmw2WMQqTF1VifvhA9a0v5xw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@debugmcp/codelldb-darwin-x64@1.11.8':
+    resolution: {integrity: sha512-cUnzGqGjpn4cuei0UKQ1mbXIN2YgdG0TYbQL0PHBvoPhCcD+JjUhQscyZQeQR1ytDEC/KJ7U87TgH1G33fQXog==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@debugmcp/codelldb-linux-arm64@1.11.8':
+    resolution: {integrity: sha512-C2EuyRAACYNFfmlBZ6MuKN0VjaMb8gaxd/fNqh3qhHPj9WIMT1KhMbpXKL4G3Z6Hfm3/bephri1GUuzGbOqx8A==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@debugmcp/codelldb-linux-x64@1.11.8':
+    resolution: {integrity: sha512-b2HwRa+NzfA0xPut+QkFqevBuDlwTvtjKykE9WjrY3Je9zpRhKb935uFLyrfywh3rk8yC3Ur9BBzhiVg7QYwQQ==}
+    cpu: [x64]
+    os: [linux]
+
+  '@debugmcp/codelldb-win32-x64@1.11.8':
+    resolution: {integrity: sha512-dD92d4Hr1HiQSaSX6KrZ9xZE1gxFwitOJz/AYVj4xEMNmVk75pQptBZSMfIVyvoXMzZlQjj+Rhndx7STvJKW5A==}
+    cpu: [x64, arm64]
+    os: [win32]
+
+  '@debugmcp/mcp-debugger@0.26.0':
+    resolution: {integrity: sha512-Wx1AmdzxyRS900l4syNGcffeshdvvfH8+MdcW0ydMrrQUdDv2Q/h3evN4WY99HhK3vsKpqZCI9Va/e7E4dIeWg==}
+    engines: {node: '>=22.0.0'}
+    hasBin: true
+
+snapshots:
+
+  '@debugmcp/codelldb-darwin-arm64@1.11.8':
+    optional: true
+
+  '@debugmcp/codelldb-darwin-x64@1.11.8':
+    optional: true
+
+  '@debugmcp/codelldb-linux-arm64@1.11.8':
+    optional: true
+
+  '@debugmcp/codelldb-linux-x64@1.11.8':
+    optional: true
+
+  '@debugmcp/codelldb-win32-x64@1.11.8':
+    optional: true
+
+  '@debugmcp/mcp-debugger@0.26.0':
+    optionalDependencies:
+      '@debugmcp/codelldb-darwin-arm64': 1.11.8
+      '@debugmcp/codelldb-darwin-x64': 1.11.8
+      '@debugmcp/codelldb-linux-arm64': 1.11.8
+      '@debugmcp/codelldb-linux-x64': 1.11.8
+      '@debugmcp/codelldb-win32-x64': 1.11.8

@@ -1,0 +1,7 @@
+{
+  "name": "mise-npm-install",
+  "private": true,
+  "dependencies": {
+    "@debugmcp/mcp-debugger": "0.26.0"
+  }
+}

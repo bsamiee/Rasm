@@ -27,3 +27,11 @@ ready_cmd   = { run = ["docker", "version"], timeout = "5m" }
 retry       = 3
 run         = "exec colima start --foreground --activate=false --ssh-config=false --mount none --port-forwarder grpc --cpus {{ (num_cpus() | int / 2) | int }} --memory 8"
 stop_signal = { signal = "SIGTERM", timeout = "5m" }
+
+[daemons.lldb]
+auto         = ["start", "stop"]
+logs         = { time_retention = "7d" }
+pty          = true
+ready_output = "MCP server started"
+retry        = 3
+run          = "exec xcrun lldb --no-lldbinit --one-line-before-file 'protocol-server start MCP'"

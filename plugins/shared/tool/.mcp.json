@@ -1,5 +1,13 @@
 {
     "mcpServers": {
+        "debugger": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": ["--per", "session", "--env", "CODELLDB_PATH", "--env", "DEBUG_MCP_NO_REDACT=1", "--", "mcp-debugger", "stdio"],
+            "timeout": 600000,
+            "default_tools_approval_mode": "approve",
+            "tool_timeout_sec": 600
+        },
         "parallels": {
             "type": "stdio",
             "command": "pdfm-mcp",

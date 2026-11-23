@@ -67,8 +67,8 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.4.0",
-            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and the Unreal Engine editor MCP server",
+            "version": "0.5.0",
+            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, Unreal Engine debugging, reloads, and logs on macOS, and the Unreal Engine editor MCP server",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -76,7 +76,7 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "C++",
-                "shortDescription": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and the Unreal Engine editor MCP server",
+                "shortDescription": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, Unreal Engine debugging, reloads, and logs on macOS, and the Unreal Engine editor MCP server",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"
@@ -350,8 +350,8 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.8.2",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
+            "version": "0.8.4",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, breakpoint debugging of Python, .NET, C++, and JavaScript through mcp-debugger, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -359,7 +359,7 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Tool",
-                "shortDescription": "Ghidra analysis, desktop app inspection and monitoring, Raycast, Parallels VMs, Superhuman Mail and Docs, and Google Workspace",
+                "shortDescription": "Ghidra analysis, desktop app inspection and monitoring, breakpoint debugging, Raycast, Parallels VMs, Superhuman Mail and Docs, and Google Workspace",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"

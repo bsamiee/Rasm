@@ -2825,6 +2825,34 @@ checksum = "sha256:a85d12f7c9b3ff943cbb76012a0510711fce0a3847332cee5885c957139cb
 url = "https://github.com/trailofbits/dylint/releases/download/v6.4.0/cargo-dylint-aarch64-apple-darwin-v6.4.0.tar.gz"
 url_api = "https://api.github.com/repos/trailofbits/dylint/releases/assets/731624257"
 
+[[tools."github:vadimcn/codelldb"]]
+version = "1.12.3"
+backend = "github:vadimcn/codelldb"
+specifiers = ["latest"]
+
+[tools."github:vadimcn/codelldb"."platforms.linux-arm64"]
+checksum = "sha256:0887f67d440554617894266f80706b700907c36b95e6e49d23b95a0e05318101"
+checksum_source = "mise-versions"
+url = "https://github.com/vadimcn/codelldb/releases/download/v1.12.3/codelldb-linux-arm64.vsix"
+url_api = "https://api.github.com/repos/vadimcn/codelldb/releases/assets/526730277"
+
+[tools."github:vadimcn/codelldb"."platforms.linux-x64"]
+checksum = "sha256:1cd7f386598022b51a5b93b9ffa23e812b23f519cfe1833384ec4bef4bfd1be1"
+checksum_source = "mise-versions"
+url = "https://github.com/vadimcn/codelldb/releases/download/v1.12.3/codelldb-linux-x64.vsix"
+url_api = "https://api.github.com/repos/vadimcn/codelldb/releases/assets/526730273"
+
+[tools."github:vadimcn/codelldb"."platforms.macos-arm64"]
+checksum = "sha256:2f114a990e1b368dd1dbd33c80c0e719767af2d228391ec0df0571c957f9ac91"
+url = "https://github.com/vadimcn/codelldb/releases/download/v1.12.3/codelldb-darwin-arm64.vsix"
+url_api = "https://api.github.com/repos/vadimcn/codelldb/releases/assets/526730278"
+
+[tools."github:vadimcn/codelldb"."platforms.windows-x64"]
+checksum = "sha256:a916e509308dac817732f63ca604a8b93ed29cd16f38a2fa9f0b64ed58e8f51a"
+checksum_source = "mise-versions"
+url = "https://github.com/vadimcn/codelldb/releases/download/v1.12.3/codelldb-win32-x64.vsix"
+url_api = "https://api.github.com/repos/vadimcn/codelldb/releases/assets/526730272"
+
 [[tools.google-java-format]]
 version = "2.0.0"
 backend = "aqua:google/google-java-format"
@@ -3791,6 +3819,12 @@ specifiers = ["latest"]
 [tools."npm:@bubblydoo/uxp-cli".options]
 allow_builds = '["@adobe-fixed-uxp/uxp-devtools-helper"]'
 allow_low_downloads = "true"
+
+[[tools."npm:@debugmcp/mcp-debugger"]]
+version = "0.26.0"
+aube = { path = "mise/locks/npm-debugmcp-mcp-debugger/0.26.0", digest = "sha256:e7496387ec9feb4dfbaa51f663955d0b25a6ec51b0592a770847487e47801dbe" }
+backend = "npm:@debugmcp/mcp-debugger"
+specifiers = ["latest"]
 
 [[tools."npm:@modelcontextprotocol/conformance"]]
 version = "0.2.0-alpha.12"

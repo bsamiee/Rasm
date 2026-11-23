@@ -34,6 +34,7 @@ CACHE_DIR                                = "{{config_root}}/.cache"
 CARGO_LLVM_COV_DENY_WARNINGS             = "1"
 CF_QUIET                                 = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH             = "{{ env.CACHE_DIR }}/cloudflare/registry"
+CODELLDB_PATH                            = { tools = true, value = '''{% set codelldb = tools["github:vadimcn/codelldb"]?.path %}{% if codelldb %}{{ codelldb }}/extension/adapter/codelldb{% if os() == "windows" %}.exe{% endif %}{% endif %}''' }
 CTX7_TELEMETRY_DISABLED                  = "1"
 DOPPLER_CONFIG                           = "dev"
 DOPPLER_PROJECT                          = "rasm"
@@ -170,7 +171,7 @@ dotnet                                                                       = "
 "dotnet:dotnet-dump"                                                         = "latest"
 "dotnet:dotnet-stack"                                                        = "latest"
 "dotnet:dotnet-trace"                                                        = "latest"
-"dotnet:ilspycmd"                                                            = "latest"
+"dotnet:ilspycmd"                                                            = { postinstall = '''{% if os() == "windows" %}{% set at = "%MISE_TOOL_INSTALL_PATH%" %}{% set version = "%MISE_TOOL_VERSION%" %}{% else %}{% set at = "$MISE_TOOL_INSTALL_PATH" %}{% set version = "$MISE_TOOL_VERSION" %}{% endif %}dotnet tool uninstall ilspycmd --tool-path "{{ at }}/bin" && dotnet tool install ilspycmd --tool-path "{{ at }}/bin" --version {{ version }} --allow-roll-forward''', version = "latest" }
 "dotnet:Microsoft.AITools.BinlogMcp"                                         = "latest"
 "dotnet:NuGet.Mcp.Server"                                                    = "latest"
 "dotnet:RoslynCodeLens.Mcp"                                                  = "latest"
@@ -203,6 +204,7 @@ ninja                                                                        = "
 node                                                                         = { postinstall = '''node -e "require('node:fs').rmSync(process.env.NODE_COMPILE_CACHE, { recursive: true, force: true })"''', version = "latest" }
 "npm:@aredotna/cli"                                                          = "latest"
 "npm:@bubblydoo/uxp-cli"                                                     = { allow_builds = ["@adobe-fixed-uxp/uxp-devtools-helper"], allow_low_downloads = true, os = ["macos", "windows"], version = "latest" }
+"npm:@debugmcp/mcp-debugger"                                                 = { os = ["macos"], version = "latest" }
 "npm:@modelcontextprotocol/conformance"                                      = "latest"
 "npm:@tavily/cli"                                                            = { allow_low_downloads = true, os = ["macos"], version = "latest" }
 "npm:ctx7"                                                                   = "latest"
@@ -268,6 +270,12 @@ version_prefix   = "Ghidra_"
 version        = "latest"
 version_prefix = "pmd_releases/"
 version_regex  = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$'
+
+[tools."github:vadimcn/codelldb"]
+bin_path = "extension/adapter"
+format   = "zip"
+os       = ["macos"]
+version  = "latest"
 
 [tools."http:blender-ext"]
 url              = "https://raw.githubusercontent.com/blender/blender/v{{ version }}/scripts/addons_core/bl_pkg/cli/blender_ext.py"
