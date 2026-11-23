@@ -7,12 +7,6 @@
             "default_tools_approval_mode": "approve",
             "disabled_tools": ["load_solution", "unload_solution", "set_active_solution"],
             "disabledTools": ["load_solution", "unload_solution", "set_active_solution"]
-        },
-        "nuget": {
-            "type": "stdio",
-            "command": "mcp-muxer",
-            "args": ["--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "nuget-mcp-server"],
-            "default_tools_approval_mode": "approve"
         }
     }
 }

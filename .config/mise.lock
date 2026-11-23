@@ -2239,11 +2239,6 @@ version = "3.0.5"
 backend = "dotnet:Microsoft.AITools.BinlogMcp"
 specifiers = ["latest"]
 
-[[tools."dotnet:NuGet.Mcp.Server"]]
-version = "1.4.23"
-backend = "dotnet:NuGet.Mcp.Server"
-specifiers = ["latest"]
-
 [[tools."dotnet:RoslynCodeLens.Mcp"]]
 version = "2.19.1"
 backend = "dotnet:RoslynCodeLens.Mcp"

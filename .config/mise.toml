@@ -267,7 +267,6 @@ pulumi                                      = "latest"
 # --- [AGENTS]
 
 "dotnet:Microsoft.AITools.BinlogMcp"                                         = "latest"
-"dotnet:NuGet.Mcp.Server"                                                    = "latest"
 "dotnet:RoslynCodeLens.Mcp"                                                  = "latest"
 "http:claude-code-types"                                                     = { os = ["unix"], postinstall = { run = 'ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/plugins/claude/function-hooks/types/claude-code"', when = "always" }, url = "https://raw.githubusercontent.com/anthropics/claude-code/v{{ version }}/mods/types/claude-code.d.ts", version = "latest", version_list_url = "https://api.github.com/repos/anthropics/claude-code/tags", version_order = "semver" }
 "npm:@aredotna/cli"                                                          = "latest"

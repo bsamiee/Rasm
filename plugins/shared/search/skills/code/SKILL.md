@@ -280,10 +280,11 @@ rg -n '^#{2,3} ' .artifacts/search/<repo>@<installed>-<target>.<n>.md
 mq -A 'import "section" | section::section(self, "<section title>", 2) | map(section::all_nodes) | flatten' .artifacts/search/<repo>@<installed>-<target>.<n>.md
 ```
 
-.NET newest NuGet version with its publish date:
+.NET newest NuGet version, prereleases included, with its publish date, `<id>` lowercase:
 
-```text
-get_latest_package_version {"solutionDirectory": "<main>", "packageName": "<id>", "includePrerelease": true}
+```bash
+version=$(xh -b https://api.nuget.org/v3-flatcontainer/<id>/index.json | jq -r '.versions[-1]')
+xh -b "https://api.nuget.org/v3/registration5-gz-semver2/<id>/$version.json" | jq -c --arg version "$version" '{version: $version, published: .published[:10]}'
 ```
 
 GitHub advisories on pinned versions with each patched version, one call across ecosystems, owner and repo name the current repository:

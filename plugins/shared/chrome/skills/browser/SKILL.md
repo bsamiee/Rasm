@@ -1,28 +1,34 @@
 ---
 name: browser
-description: "Use when work reads or drives the owner's signed-in Chrome, web pages and chrome:// pages alike, covering chrome-devtools MCP connection, page tools, and settings, flags, theme, and extension changes through Chrome's own pages"
+description: "Use when work reads or drives the owner's signed-in Chrome, web pages and chrome:// pages alike, covering the chrome-devtools CLI daemon, page commands, and settings, flags, theme, and extension changes through Chrome's own pages"
 ---
 
 # [CHROME_BROWSER]
 
-Covers the owner's signed-in Chrome, driven through MCP server `chrome-devtools`.
+Covers the owner's signed-in Chrome, driven through CLI `chrome-devtools`.
 
 ## [01]-[CONNECTION]
 
-`chrome-devtools` attaches to running Chrome with `--autoConnect`, and pages keep the owner's sign-ins, extensions, and settings:
-- `mcp-muxer --per user` shares one server connection across every Claude Code and Codex session
+One `chrome-devtools` daemon per user attaches to running Chrome, and every Claude Code and Codex session shares it through `/tmp/chrome-devtools-mcp-<uid>/server.sock`:
+
+```bash
+chrome-devtools status | rg -q -- --autoConnect || chrome-devtools start --autoConnect --categoryExtensions --experimentalIncludeAllPages \
+    --experimentalDevtools --workspace=/ --no-usage-statistics --no-performance-crux
+```
+
+- A command with no daemon running starts one with default flags on a scratch headless Chrome, so the line above runs before a session's first command
+- Pages keep the owner's sign-ins, extensions, and settings, and `--output-format json` prints each result as JSON
 - Chrome serves CDP once the owner enables remote debugging at `chrome://inspect/#remote-debugging`
-- Chrome asks the owner to Allow each new CDP connection and remembers no answer
-- Connections last until their server exits, Chrome quits, or `restartBrowser()` runs, and the next call waits on a new Allow dialog
+- Chrome asks the owner to Allow each new CDP connection and remembers no answer, so `start` runs only when `status` lacks `--autoConnect`
+- Connections last until the daemon stops, Chrome quits, or `restartBrowser()` runs, and the next command waits on a new Allow dialog
 - `Could not connect to Chrome` -> ask the owner to open Chrome and enable remote debugging
-- CLI `chrome-devtools` starts a daemon with its own connection and its own Allow dialog, and sessions call the MCP tools alone
 
 ## [02]-[PAGES]
 
-Page tools take `pageId` from `list_pages`, and every session sharing the server sees every page:
-- `new_page` with `background: true` opens a tab behind the owner's work, and `close_page` closes each tab a session opened before its final message
-- `take_snapshot` prints element `uid`s that `click`, `fill`, `hover`, and `evaluate_script` `args` take
-- `evaluate_script` takes `async () => ...` source and returns JSON values
+Page commands take `pageId` from `list_pages`, and every session sharing the daemon sees every page:
+- `new_page <url> --background` opens a tab behind the owner's work, and `close_page <pageId>` closes each tab a session opened before its final message
+- `take_snapshot <pageId>` prints element `uid`s that `click <pageId> <uid>`, `fill`, `hover`, and `evaluate_script --args` take
+- `evaluate_script '<source>' --pageId <pageId>` takes `async () => ...` source and returns JSON values
 - `navigate_page` and `new_page` refuse `chrome:` URLs other than `chrome://newtab` and `chrome://inspect`
 - Chrome Web Store pages take `click` on Add to Chrome, and the owner answers Chrome's Add extension dialog
 - `install_extension` loads an unpacked build folder and prints its id, and `list_extensions` lists unpacked extensions alone
@@ -32,8 +38,8 @@ Page tools take `pageId` from `list_pages`, and every session sharing the server
 ## [03]-[CHROME_PAGES]
 
 Extensions, Claude in Chrome included, cannot reach `chrome://` pages in Google Chrome, and a DevTools window inspecting a tab navigates and evaluates there with no URL check:
-1. `new_page` `about:blank#<task>` with `background: true` opens the tab to drive
-2. `new_page` `chrome://inspect/#other` with `background: true` opens the target list
+1. `new_page 'about:blank#<task>' --background` opens the tab to drive
+2. `new_page 'chrome://inspect/#other' --background` opens the target list
 3. `evaluate_script` on `chrome://inspect` presses action `inspect` of the row naming `about:blank#<task>`, which opens a DevTools window
 4. `list_pages` prints each DevTools window as a `devtools://` page, where `evaluate_script` drives the tab
 5. `close_page` closes DevTools page, inspect tab, and driven tab once work ends

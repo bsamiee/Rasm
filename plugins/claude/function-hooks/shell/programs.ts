@@ -46,7 +46,6 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
     time: { flags: ['-o='], wraps: [[]] },
     xargs: { flags: ['-a='], reads: true, readsUnless: ['-a'], wraps: [[]] },
     lockf: { flags: ['-t='], leading: 1, wraps: [[]] },
-    flock: { flags: ['-w, --wait=', '--timeout=', '-E, --conflict-exit-code='], leading: 1, wraps: [[]] },
     npm: { wraps: [['exec'], ['x']] },
     pnpm: { wraps: [[], ['exec'], ['dlx']] },
     'effect-tsgo': { flags: ['--completions=', '--log-level='], wraps: [[]] },
