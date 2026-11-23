@@ -3,9 +3,8 @@ import { runExecutor } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, Stream, String, Struct } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
-import { run, Words } from '#/executor';
 import { ANALYSIS, engine, FOLDERS, Linked, zipped } from '#/host-packages';
-import { executor, spawned } from '#/inference';
+import { executor, spawned, Words } from '#/inference';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -46,7 +45,7 @@ const Listed = Schema.fromJsonString(Schema.Struct({ FabURL: Schema.optionalKey(
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Unreal, run, function* ({ outputPath, descriptor, hosts, dependencies, packages, users, operation, __unparsed__: words = [] }, context) {
+const execute = executor(Unreal, function* ({ outputPath, descriptor, hosts, dependencies, packages, users, operation, __unparsed__: words = [] }, context) {
     const workspaceRoot = context.root;
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const absolute = (at: string) => path.resolve(workspaceRoot, at);

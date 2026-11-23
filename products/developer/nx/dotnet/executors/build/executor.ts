@@ -1,9 +1,9 @@
 import type { TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, ran, spawned } from '@rasm/nx-distribution/inference';
+import { batched, executor, ran, spawned, Words } from '@rasm/nx-distribution/inference';
 import { Array, Console, Effect, Equal, FileSystem, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { ANALYZER, environment, launched, run } from '#/targets';
+import { ANALYZER, environment, launched } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ class Build extends Schema.Opaque<Build, unknown>()(
         solution: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({
             description: 'Configuration|Platform of each project file the build reaches, passed as CurrentSolutionConfigurationContents, which the plugin infers where a reached project lacks the configuration',
         }),
-        __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+        __unparsed__: Words,
     }).annotate({
         title: 'Build',
         description: "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb or the -t a run passes, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result from the run's binary log",
@@ -106,7 +106,7 @@ const ordered = (graph: TaskGraph, root: string, planned: readonly Planned[]) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Build, run, function* (build, context) {
+const execute = executor(Build, function* (build, context) {
     const [{ result }] = yield* built(context.root, [[context.root, build]]);
     yield* Console.log(result.terminalOutput);
     return { success: result.success };

@@ -1,7 +1,7 @@
 import { formatFiles, getProjects, readJson, type Tree, writeJson } from '@nx/devkit';
 import { loadTsFile, resolveImplementation, type SyncGeneratorResult } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equal, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema, Struct } from 'effect';
-import { run } from '#/executor';
+import { run } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

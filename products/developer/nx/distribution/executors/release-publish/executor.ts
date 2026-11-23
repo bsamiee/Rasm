@@ -1,8 +1,8 @@
 import { Array, Cause, Effect, Option, Schema, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
-import { credentialed, Dry, dried, forwarded, released, run, Words } from '#/executor';
+import { credentialed, Dry, forwarded, released } from '#/executor';
 import { located } from '#/host-packages';
-import { executor } from '#/inference';
+import { dried, executor, Words } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,7 +14,7 @@ const Publish = Dry.mapFields(Struct.assign({ credential: Schema.String.annotate
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Publish, run, function* ({ credential, dryRun, __unparsed__: words = [] }, context) {
+const execute = executor(Publish, function* ({ credential, dryRun, __unparsed__: words = [] }, context) {
     const [dry, token, { project, target, outputs, packages }] = yield* Effect.all([dried(dryRun), credentialed(credential), located(context)]);
     const stored = packages.flatMap((found) => Array.fromNullishOr(found.host.publish).map((store) => ({ found, ...store })));
     const pushed = Effect.fnUntraced(function* ({ found, store, command, held: listed, push }: (typeof stored)[number]) {

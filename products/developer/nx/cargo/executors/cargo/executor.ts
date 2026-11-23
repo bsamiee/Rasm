@@ -2,10 +2,10 @@ import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext, Task } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor } from '@rasm/nx-distribution/inference';
+import { batched, executor, Words } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { Crate, run } from '#/workspace';
+import { Crate } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -27,7 +27,7 @@ class Cargo extends Schema.Opaque<Cargo, unknown>()(
         cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
         commands: Schema.NonEmptyArray(Command).annotate({ description: 'Cargo invocations in order, a task stopping at its first failure' }),
         package: Schema.optionalKey(Schema.String).annotate({ description: 'Package the task selects, passed to cargo as a package ID spec' }),
-        __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+        __unparsed__: Words,
         outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Paths the commands write, which the target's outputs name through {options.outputs.<n>}, each parent folder created before the run" }),
     }).annotate({
         title: 'Cargo',
@@ -133,7 +133,7 @@ const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Re
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const decides = (judged: Judged) => ({
-    execute: executor(Cargo, run, function* (cargo, context) {
+    execute: executor(Cargo, function* (cargo, context) {
         const [project, target] = yield* Effect.all([Effect.fromNullishOr(context.projectName), Effect.fromNullishOr(context.targetName)]);
         const id = `${project}:${target}`;
         const results = yield* Stream.runCollect(scheduled(judged, context, { [id]: cargo }, [{ id, target: { project, target } }]));

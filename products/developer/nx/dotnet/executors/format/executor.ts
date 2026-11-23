@@ -1,9 +1,8 @@
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, ran } from '@rasm/nx-distribution/inference';
+import { batched, executor, ran, Words } from '@rasm/nx-distribution/inference';
 import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { grouped } from '#/executors/build/executor';
-import { run } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -19,7 +18,7 @@ class Format extends Schema.Opaque<Format, unknown>()(
     Schema.Struct({
         commands: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'dotnet format subcommands and their switches, run in order, which the plugin infers' }),
         project: Schema.String.annotate({ description: 'Project file the commands run on' }),
-        __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+        __unparsed__: Words,
     }).annotate({ title: 'Format', description: 'Runs dotnet format commands in order on one project, or once each over a solution of every batched project' }),
 ) {}
 const Report = Schema.fromJsonString(Schema.Array(Schema.Struct({ FilePath: Schema.String }))).annotate({ description: 'The file dotnet format --report writes, one entry per document it changed or would change' });
@@ -75,7 +74,7 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Format, run, function* (format, context) {
+const execute = executor(Format, function* (format, context) {
     const [{ result }] = yield* formatted(context.root, [[context.root, format]]);
     yield* Console.log(result.terminalOutput);
     return { success: result.success };

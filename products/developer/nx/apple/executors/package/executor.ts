@@ -1,7 +1,7 @@
-import { executor, spawned } from '@rasm/nx-distribution/inference';
+import { executor, spawned, Words } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Option, Path, Redacted, Schema, Stream, Struct } from 'effect';
 import { commands } from '#/executors/run/executor';
-import { NOTARY, run, SIGNED, SWIFTPM } from '#/targets';
+import { NOTARY, SIGNED, SWIFTPM } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ const Package = Schema.Struct({
             entitlements: Schema.optionalKey(Schema.String).annotate({ description: 'Entitlements file <module>.entitlements among the sources of the module the product builds, signed into the product where present' }),
         }),
     ).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+    __unparsed__: Words,
 }).annotate({
     title: 'Package',
     description: `Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, signing each product under the ${SIGNED.development} identity with the hardened runtime, then zips each under its bundle or product name with ditto; where ${NOTARY.key}, ${NOTARY.keyId}, and ${NOTARY.issuer} are set, exports each archive under the ${SIGNED.distribution} identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket, and signs each product under that identity with a secure timestamp and notarizes its zip`,
@@ -25,7 +25,7 @@ const Application = Schema.fromJsonString(Schema.Struct({ ApplicationPath: Schem
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Package, run, function* ({ exports, products, __unparsed__: words = [] }, context) {
+const execute = executor(Package, function* ({ exports, products, __unparsed__: words = [] }, context) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     yield* Effect.filterOrFail(commands({ runs: exports.map((exported) => exported.run) }, context.root), Struct.get('success'), () => new Cause.UnknownError(exports, 'xcodebuild archive does not exit 0'));
     const applications = yield* Effect.forEach(exports, ({ archive }) => Effect.flatMap(spawned(['plutil', '-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')], { cwd: context.root }), Schema.decodeEffect(Application)));

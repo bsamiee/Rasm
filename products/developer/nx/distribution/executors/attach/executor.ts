@@ -1,7 +1,7 @@
 import { Effect, Option, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { Dry, dried, forwarded, packaged, released, run, Words } from '#/executor';
-import { executor, spawned } from '#/inference';
+import { Dry, forwarded, packaged, released } from '#/executor';
+import { dried, executor, spawned, Words } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -13,7 +13,7 @@ const Attach = Dry.mapFields(Struct.assign({ __unparsed__: Words })).annotate({
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Attach, run, function* ({ dryRun, __unparsed__: words = [] }, context) {
+const execute = executor(Attach, function* ({ dryRun, __unparsed__: words = [] }, context) {
     const [dry, { project, files }, tag] = yield* Effect.all([dried(dryRun), packaged(context), released(context)]);
     const upload = (at: string) => ['gh', 'release', 'upload', at, ...files, '--clobber', ...forwarded(words)] as const;
     const pending = `<tag nx release makes for ${project}>`;

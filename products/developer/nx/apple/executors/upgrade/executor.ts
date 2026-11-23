@@ -1,8 +1,7 @@
-import { executor, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Config, DateTime, Effect, FileSystem, Option, Order, Path, Result, Schema, SemVer, Struct } from 'effect';
+import { dried, executor, spawned } from '@rasm/nx-distribution/inference';
+import { Array, Cause, DateTime, Effect, FileSystem, Option, Order, Path, Result, Schema, SemVer, Struct } from 'effect';
 import { commands } from '#/executors/run/executor';
 import { MANIFEST } from '#/swift-package';
-import { run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -60,9 +59,8 @@ const newest = Effect.fnUntraced(function* (url: string, lowerBound: SemVer.SemV
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Upgrade, run, function* ({ package: root, dryRun }, context) {
-    const [fs, path, stated] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.withDefault(Config.Boolean('NX_DRY_RUN'), false)]);
-    const dry = dryRun === true || stated;
+const execute = executor(Upgrade, function* ({ package: root, dryRun }, context) {
+    const [fs, path, dry] = yield* Effect.all([FileSystem.FileSystem, Path.Path, dried(dryRun)]);
     const file = path.join(context.root, root, MANIFEST);
     const { dependencies } = yield* Effect.flatMap(spawned(['swift', 'package', '--package-path', root, 'dump-package'], { cwd: context.root }), Schema.decodeEffect(Dumped));
     const requirements = dependencies

@@ -3,10 +3,10 @@ import { basename, dirname, join, resolve, sep } from 'node:path';
 import { env } from 'node:process';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, spawned } from '@rasm/nx-distribution/inference';
+import { batched, executor, spawned, Words } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Function, HashSet, Option, Predicate, Record, Schema, Stream } from 'effect';
 import { CommandLine } from 'effect/process';
-import { ran, run } from '#/targets';
+import { ran } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -27,7 +27,7 @@ class Run extends Schema.Opaque<Run, unknown>()(
         applications: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Bundle names of the applications the invocations install, a running executable inside one named in the last line as needing a relaunch' }),
         report: Schema.optionalKey(Report),
         dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each invocation and runs none' }),
-        __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+        __unparsed__: Words,
         outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
     }).annotate({ title: 'Run', description: "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed and git status.branch off after the caller's GIT_CONFIG_<n> entries, stopping at the first failure, then writes the lcov report a coverage configuration states" }),
 ) {}
@@ -102,7 +102,7 @@ const ordered = (graph: TaskGraph, inputs: Readonly<Record<string, Run>>, { root
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Run, run, function* (stated, context) {
+const execute = executor(Run, function* (stated, context) {
     return yield* commands(stated, context.root);
 });
 

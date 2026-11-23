@@ -3,8 +3,7 @@ import { getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Function, Glob, Path, Record, Result, Schema } from 'effect';
 import { getFilesForOutputsBatch } from 'nx/src/native';
-import { run, Words } from '#/executor';
-import { executor, spawned } from '#/inference';
+import { executor, spawned, Words } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -33,7 +32,7 @@ const cleared = Effect.fnUntraced(function* (root: string, output: string, negat
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Clean, run, function* ({ targets, commands, cwd, __unparsed__: words = [] }, context) {
+const execute = executor(Clean, function* ({ targets, commands, cwd, __unparsed__: words = [] }, context) {
     const [path, project] = yield* Effect.all([Path.Path, Effect.fromNullishOr(context.projectName)]);
     const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
     const selections = targets.flatMap((target) => [{ target }, ...Record.keys(node.data.targets?.[target]?.configurations ?? {}).map((configuration) => ({ target, configuration }))]);

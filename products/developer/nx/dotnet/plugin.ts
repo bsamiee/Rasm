@@ -2,7 +2,7 @@ import { basename, dirname, extname, join, posix, relative } from 'node:path';
 import { platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, normalizePath, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, fingerprinted, manifested, spawned } from '@rasm/nx-distribution/inference';
+import { aggregated, fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
@@ -167,17 +167,12 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
 
 const createNodes: CreateNodes = [
     FILES,
-    (matched, options, context) =>
-        run(
-            Array.match(matched, {
-                onEmpty: () =>
-                    Effect.as(
-                        Effect.flatMap(Edges, (edges) => Ref.set(edges, [])),
-                        [],
-                    ),
-                onNonEmpty: (files) => Effect.flatMap(Schema.decodeEffect(Options)(options ?? {}), (settings) => inferred(files, settings, context)),
-            }),
-        ),
+    inferring(Options, run, function* (matched, settings, context) {
+        return yield* Array.match(matched, {
+            onEmpty: () => Edges.use((edges) => Ref.set(edges, [])).pipe(Effect.as([])),
+            onNonEmpty: (files) => inferred(files, settings, context),
+        });
+    }),
 ];
 
 const createDependencies: CreateDependencies = (_, { projects, externalNodes = {} }) =>

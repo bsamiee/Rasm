@@ -1,9 +1,9 @@
 import { fileURLToPath } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
-import { executor, spawned } from '@rasm/nx-distribution/inference';
+import { dried, executor, spawned, Words } from '@rasm/nx-distribution/inference';
 import cf from 'cf/package.json' with { type: 'json' };
 import { Array, Cause, Config, Effect, FileSystem, Function, Option, Path, Record, Result, Schema, SemVer, Stream } from 'effect';
-import { APPCAST, NOTARY, run } from '#/targets';
+import { APPCAST, NOTARY } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ const Publish = Schema.Struct({
         }),
     ).annotate({ description: 'Archived apps whose disk image gets a Sparkle feed' }),
     dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each change and makes none, as NX_DRY_RUN=true does' }),
-    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+    __unparsed__: Words,
 }).annotate({
     title: 'Release publish',
     description: `Signs a Sparkle feed for each disk image an export folder holds with generate_appcast under the key ${APPCAST.key} holds, pointing at the image's asset on the GitHub release of the project's tag at the checked-out commit, the tag nx release made from release.releaseTag.pattern, and uploads it to the R2 bucket ${APPCAST.bucket} names at the path of the app's SUFeedURL with cf r2 objects put, and where a folder holds no disk image, either variable is unset, or nx release released no version of the project at that commit names what is missing and publishes nothing; runs through nx release publish, a dry run previewing every project`,
@@ -66,9 +66,8 @@ const fed = Effect.fnUntraced(function* (root: string, archive: string, folder: 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Publish, run, function* ({ exports, dryRun = false, __unparsed__: words = [] }, context) {
-    const [stated, tag] = yield* Effect.all([Config.withDefault(Config.Boolean('NX_DRY_RUN'), false), released(context)]);
-    const dry = dryRun || stated;
+const execute = executor(Publish, function* ({ exports, dryRun, __unparsed__: words = [] }, context) {
+    const [dry, tag] = yield* Effect.all([dried(dryRun), released(context)]);
     yield* Option.match(dry ? Option.some(Option.getOrElse(tag, () => `<tag nx release makes for ${context.projectName}>`)) : tag, {
         onNone: () => Effect.logInfo(`Skipped the Sparkle feeds of ${context.projectName}: HEAD holds no tag of ${context.projectName}, so nx release released no version of it at this commit`),
         onSome: (at) => Effect.forEach(exports, ({ archive, folder }) => fed(context.root, archive, folder, at, dry, words), { discard: true }),

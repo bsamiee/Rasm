@@ -1,7 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { batched, executor } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Console, Effect, FileSystem, Path, Record, Schema, Stream, Struct } from 'effect';
-import { run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -33,7 +32,7 @@ const findings = Effect.fnUntraced(function* (root: string, reports: readonly st
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Check, run, function* ({ reports }, context) {
+const execute = executor(Check, function* ({ reports }, context) {
     const lines = yield* findings(context.root, reports);
     yield* Effect.forEach(lines, (line) => Console.log(line));
     return { success: lines.length === 0 };

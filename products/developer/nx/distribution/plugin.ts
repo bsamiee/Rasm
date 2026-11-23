@@ -6,9 +6,8 @@ import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellA
 import { Array, Config, ConfigProvider, Duration, Effect, FileSystem, Formatter, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import which from 'which';
-import { run } from '#/executor';
 import { type Fields, FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
-import { aggregated, anchored, Folder, manifested, namedInput, type Stated, tagged, type Verbs } from '#/inference';
+import { aggregated, anchored, Folder, inferring, manifested, namedInput, run, type Stated, tagged, type Verbs } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -288,23 +287,19 @@ const workflows = (files: readonly string[], workspaceRoot: string) =>
 
 const createNodes: CreateNodes = [
     FILES,
-    (files, options, context) =>
-        run(
-            Effect.gen(function* () {
-                const settings = yield* Schema.decodeEffect(Options)(options ?? {});
-                const [{ declared, failures }, actions] = yield* Effect.all([read(files, context), workflows(files, context.workspaceRoot)]);
-                const results = [
-                    ...projects(
-                        declared.filter(({ fields }) => fields.installed !== true),
-                        settings,
-                        getPackageManagerCommand(detectPackageManager(context.workspaceRoot)).exec,
-                        tagged(context.nxJsonConfiguration),
-                    ),
-                    ...actions,
-                ];
-                return yield* Array.match(failures, { onEmpty: () => Effect.succeed(results), onNonEmpty: (refused) => Effect.fail(new AggregateCreateNodesError(refused, results)) });
-            }),
-        ),
+    inferring(Options, run, function* (files, settings, context) {
+        const [{ declared, failures }, actions] = yield* Effect.all([read(files, context), workflows(files, context.workspaceRoot)]);
+        const results = [
+            ...projects(
+                declared.filter(({ fields }) => fields.installed !== true),
+                settings,
+                getPackageManagerCommand(detectPackageManager(context.workspaceRoot)).exec,
+                tagged(context.nxJsonConfiguration),
+            ),
+            ...actions,
+        ];
+        return yield* Array.match(failures, { onEmpty: () => Effect.succeed(results), onNonEmpty: (refused) => Effect.fail(new AggregateCreateNodesError(refused, results)) });
+    }),
 ];
 
 const preTasksExecution: PreTasksExecution = (options, context) =>

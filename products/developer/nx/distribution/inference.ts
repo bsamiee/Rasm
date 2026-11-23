@@ -6,7 +6,7 @@ import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodesContext, type ExecutorContext, hashArray, normalizePath, type NxJsonConfiguration, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, type PluginCache } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Cause, Effect, Equal, FileSystem, Formatter, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
+import { Array, Cause, Config, Effect, Equal, FileSystem, Formatter, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -31,6 +31,7 @@ const Overrides = Schema.fromJsonString(Schema.Struct({ targets: Schema.optional
     description: 'The nx.targets of a package.json and the targets of a project.json, which Nx merges over the inferred targets in that order',
 });
 const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json' });
+const Words = Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -59,9 +60,11 @@ const runner = <R>(services: Layer.Layer<R>): Run<R> => {
 
 const run = runner(Layer.empty);
 
-const executor = <S extends Schema.Decoder<unknown>, A, R>(options: S, entered: <B, E>(effect: Effect.Effect<B, E, R>) => Promise<B>, body: (stated: S['Type'], context: ExecutorContext) => Effect.fn.Return<A, Error, NoInfer<R>>) => {
+const dried = (dryRun = false) => Effect.map(Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false)), (stated) => dryRun || stated);
+
+const executor = <S extends Schema.Decoder<unknown>, A>(options: S, body: (stated: S['Type'], context: ExecutorContext) => Effect.fn.Return<A, Error, NodeServices | Scope.Scope>) => {
     const stated = Effect.fnUntraced(body);
-    return (raw: unknown, context: ExecutorContext) => entered(Effect.flatMap(Schema.decodeUnknownEffect(options)(raw), (decoded) => stated(decoded, context)));
+    return (raw: unknown, context: ExecutorContext) => run(Effect.flatMap(Schema.decodeUnknownEffect(options)(raw), (decoded) => stated(decoded, context)));
 };
 
 const inferring = <S extends Schema.Decoder<unknown>, A, R>(options: S, entered: <B, E>(effect: Effect.Effect<B, E, R>) => Promise<B>, body: (files: readonly string[], settings: S['Type'], context: CreateNodesContext) => Effect.fn.Return<A, Error, NoInfer<R>>) => {
@@ -191,4 +194,4 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, anchored, batched, executor, extended, fingerprinted, Folder, Input, inferring, manifested, namedInput, packaged, parsed, PLATFORM, ran, recalled, type Run, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, within };
+export { above, aggregated, anchored, batched, dried, executor, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, PLATFORM, ran, recalled, type Run, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, Words, within };

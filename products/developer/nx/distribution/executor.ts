@@ -1,8 +1,6 @@
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { createTaskId } from '@nx/devkit/internal';
-import { Array, Cause, Config, Effect, Option, Record, Schema, type Scope, String, Struct } from 'effect';
-import type { ChildProcessSpawner } from 'effect/process';
+import { Array, Cause, Config, Effect, Option, Record, Schema, String, Struct } from 'effect';
 import { minimatch } from 'minimatch';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { getLatestGitTagForPattern, sanitizeProjectNameForGitTag } from 'nx/src/command-line/release/utils/git';
@@ -15,11 +13,8 @@ import { spawned } from '#/inference';
 
 const Dry = Schema.Struct({ dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each change and makes none, as NX_DRY_RUN=true does' }) });
 const Upstream = Schema.Struct({ dependentTasksOutputFiles: Schema.String, transitive: Schema.optionalKey(Schema.Boolean) }).annotate({ description: 'A dependentTasksOutputFiles input of a target, matching the output files of its dependency tasks, transitive ones included where transitive is true' });
-const Words = Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const dried = (dryRun = false) => Effect.map(Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false)), (stated) => dryRun || stated);
 
 const forwarded = (words: readonly string[]) => {
     const owned = new RegExp(
@@ -70,10 +65,6 @@ const released = Effect.fnUntraced(function* ({ root, projectName, projectGraph,
     );
 });
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | ChildProcessSpawner.ChildProcessSpawner | Scope.Scope>) => effect.pipe(Effect.scoped, Effect.provide(layer), Effect.runPromise);
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { credentialed, Dry, dried, forwarded, packaged, released, run, Words };
+export { credentialed, Dry, forwarded, packaged, released };

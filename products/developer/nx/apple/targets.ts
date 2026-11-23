@@ -1,11 +1,10 @@
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
 import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, Schema, type Scope } from 'effect';
+import { Array, Cause, Effect, Schema } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import type { Run } from '#/executors/run/executor';
 
@@ -67,10 +66,6 @@ const sequenced = (runs: Run['runs'], metadata: NonNullable<TargetConfiguration[
     ...extra,
 });
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => effect.pipe(Effect.scoped, Effect.provide(layer), Effect.runPromise);
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPCAST, ATTACH, analyzer, INPUTS, NOTARY, Options, type Part, PLUGIN, ran, run, SIGNED, SWIFTPM, sequenced, tokened };
+export { APPCAST, ATTACH, analyzer, INPUTS, NOTARY, Options, type Part, PLUGIN, ran, SIGNED, SWIFTPM, sequenced, tokened };

@@ -1,7 +1,6 @@
 import { Array, Cause, Effect, FileSystem, Option, Path, Schema } from 'effect';
-import { run, Words } from '#/executor';
 import { located } from '#/host-packages';
-import { executor } from '#/inference';
+import { executor, Words } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,7 +14,7 @@ const Package = Schema.Struct({
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Package, run, function* ({ outputPath, __unparsed__: words = [] }, context) {
+const execute = executor(Package, function* ({ outputPath, __unparsed__: words = [] }, context) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { project, folders } = yield* located(context);
     const packed = Array.getSomes(folders.map((found) => Option.map(Option.all({ pack: Option.fromUndefinedOr(found.host.build?.pack), archive: Option.fromUndefinedOr(found.host.archive) }), ({ pack, archive }) => ({ found, pack, file: path.join(context.root, outputPath, `${found.name}${archive}`) }))));

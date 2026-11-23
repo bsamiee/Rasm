@@ -1,8 +1,8 @@
 import { parse } from '@decimalturn/toml-patch';
-import { executor, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Config, DateTime, Effect, FileSystem, Option, Order, Path, Record, Result, Schema, SchemaGetter, SemVer, String } from 'effect';
+import { dried, executor, spawned } from '@rasm/nx-distribution/inference';
+import { Array, Cause, DateTime, Effect, FileSystem, Option, Order, Path, Record, Result, Schema, SchemaGetter, SemVer, String } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
-import { MANIFEST, run } from '#/workspace';
+import { MANIFEST } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -66,9 +66,9 @@ const indexed = Effect.fnUntraced(function* (name: string) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Upgrade, run, function* ({ cwd: root, dryRun }, context) {
-    const [path, fs, stated] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Config.withDefault(Config.Boolean('NX_DRY_RUN'), false)]);
-    const words = dryRun === true || stated ? ['--dry-run'] : [];
+const execute = executor(Upgrade, function* ({ cwd: root, dryRun }, context) {
+    const [path, fs, dry] = yield* Effect.all([Path.Path, FileSystem.FileSystem, dried(dryRun)]);
+    const words = dry ? ['--dry-run'] : [];
     const cwd = path.resolve(context.root, root);
     const manifest = path.join(cwd, MANIFEST);
     const shell = { cwd, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' } as const;

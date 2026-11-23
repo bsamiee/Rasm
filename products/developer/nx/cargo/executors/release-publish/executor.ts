@@ -1,8 +1,8 @@
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
-import { executor, spawned } from '@rasm/nx-distribution/inference';
+import { dried, executor, spawned, Words } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, Option, Path, Result, Schema, SemVer, String, Struct } from 'effect';
-import { Crate, run } from '#/workspace';
+import { Crate } from '#/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -12,7 +12,7 @@ const Publish = Schema.Struct({
     package: Schema.String.annotate({ description: 'Crate to publish' }),
     packages: Schema.optionalKey(Schema.Array(Crate)).annotate({ description: 'Workspace crates the crate reaches through path dependencies, published beside it under a dry run' }),
     registry: Schema.optionalKey(Schema.String).annotate({ description: 'Registry the crate names in its publish list, passed as --registry' }),
-    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+    __unparsed__: Words,
 }).annotate({
     title: 'Release publish',
     description:
@@ -36,9 +36,8 @@ const released = Effect.fnUntraced(function* ({ root, projectName, nxJsonConfigu
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Publish, run, function* ({ dryRun, cwd: root, package: named, packages = [], registry, __unparsed__: words = [] }, context) {
-    const [path, stated, node] = yield* Effect.all([Path.Path, Config.withDefault(Config.Boolean('NX_DRY_RUN'), false), Effect.flatMap(Effect.fromNullishOr(context.projectName), (project) => Effect.fromNullishOr(context.projectGraph.nodes[project]))]);
-    const dry = dryRun === true || stated;
+const execute = executor(Publish, function* ({ dryRun, cwd: root, package: named, packages = [], registry, __unparsed__: words = [] }, context) {
+    const [path, dry, node] = yield* Effect.all([Path.Path, dried(dryRun), Effect.flatMap(Effect.fromNullishOr(context.projectName), (project) => Effect.fromNullishOr(context.projectGraph.nodes[project]))]);
     const cwd = path.resolve(context.root, root);
     const members = [{ root: node.data.root, name: named }, ...(dry ? packages : [])];
     const selected = members.flatMap((member) => ['--package', `path+${pathToFileURL(path.resolve(context.root, member.root)).href}#${member.name}`]);

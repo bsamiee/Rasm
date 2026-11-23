@@ -5,9 +5,8 @@ import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import { Toml } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
-import { run, Words } from '#/executor';
 import { BUILDER, EXTENSION } from '#/host-packages';
-import { executor, spawned } from '#/inference';
+import { executor, spawned, Words } from '#/inference';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -124,7 +123,7 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Build, run, function* ({ outputPath: folder, operation, __unparsed__: words = [] }, context) {
+const execute = executor(Build, function* ({ outputPath: folder, operation, __unparsed__: words = [] }, context) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const { root } = (yield* Effect.flatMap(Effect.fromNullishOr(context.projectName), (project) => Effect.fromNullishOr(context.projectGraph.nodes[project]))).data;
     yield* {

@@ -1,7 +1,7 @@
 import { Array, Effect, Option, Schema, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { credentialed, Dry, dried, forwarded, packaged, released, run, Words } from '#/executor';
-import { executor, spawned } from '#/inference';
+import { credentialed, Dry, forwarded, packaged, released } from '#/executor';
+import { dried, executor, spawned, Words } from '#/inference';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -27,7 +27,7 @@ const Publish = Dry.mapFields(
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Publish, run, function* ({ publish, preview, credential, flag, dryRun, __unparsed__: words = [] }, context) {
+const execute = executor(Publish, function* ({ publish, preview, credential, flag, dryRun, __unparsed__: words = [] }, context) {
     const [dry, { project, files }, held] = yield* Effect.all([dried(dryRun), packaged(context), credentialed(credential)]);
     const command = Array.appendAll(Array.appendAll(publish, files), forwarded(words));
     const keyed = Option.getOrElse(Option.all([Option.fromUndefinedOr(flag), held]), Array.empty<string>);

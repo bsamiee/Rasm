@@ -3,7 +3,7 @@ import { dirname, relative, resolve } from 'node:path';
 import { chdir, cwd } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, run } from '@rasm/nx-distribution/inference';
+import { batched, executor } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Equal, Exit, Formatter, Function, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
 import { testMode } from '#/plugin';
@@ -139,7 +139,7 @@ const grouped = (planned: readonly Planned[]) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Test, run, function* (options, context) {
+const execute = executor(Test, function* (options, context) {
     const task = yield* Effect.fromNullishOr(context.projectName);
     const [{ result }] = yield* settled(context.root, [{ task, options, home: context.projectGraph.nodes[task]?.data.root ?? '.' }]);
     return { success: result.success };

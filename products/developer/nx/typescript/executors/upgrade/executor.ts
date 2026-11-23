@@ -1,8 +1,8 @@
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { detectPackageManager, type PackageManager } from '@nx/devkit';
-import { executor, run, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Boolean, Cause, Config, DateTime, Effect, FileSystem, Match, Option, Order, Predicate, Record, Result, Schema, SemVer } from 'effect';
+import { dried, executor, spawned } from '@rasm/nx-distribution/inference';
+import { Array, Boolean, Cause, DateTime, Effect, FileSystem, Match, Option, Order, Predicate, Record, Result, Schema, SemVer } from 'effect';
 import { CommandLine } from 'effect/process';
 import npa from 'npm-package-arg';
 import { packageRegistryView, parseRegistryViewJson } from 'nx/src/utils/package-manager';
@@ -139,10 +139,10 @@ const opened = Effect.fnUntraced(function* (root: string, file: string) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Upgrade, run, function* ({ catalogs, supported, dryRun }, context) {
-    const [fs, stated, bounds] = yield* Effect.all([
+const execute = executor(Upgrade, function* ({ catalogs, supported, dryRun }, context) {
+    const [fs, dry, bounds] = yield* Effect.all([
         FileSystem.FileSystem,
-        Config.withDefault(Config.Boolean('NX_DRY_RUN'), false),
+        dried(dryRun),
         Effect.all(
             Record.map(supported, ({ package: owner, file, path }) => listed(context.root, owner, file, path)),
             { concurrency: 'unbounded' },
@@ -161,7 +161,7 @@ const execute = executor(Upgrade, run, function* ({ catalogs, supported, dryRun 
     const manager = detectPackageManager(context.root);
     const prune = [manager, ...MANAGERS[manager].prune] as const;
     const shell = { cwd: context.root, stdout: 'inherit', stderr: 'inherit' } as const;
-    yield* dryRun === true || stated
+    yield* dry
         ? Effect.logInfo(`Would run ${CommandLine.display(prune)}`)
         : Effect.andThen(
               moves.length === 0

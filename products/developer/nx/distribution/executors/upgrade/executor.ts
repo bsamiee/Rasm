@@ -1,8 +1,8 @@
 import { Array, Effect, Option, Path, Record, Schema, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import { readPath, resolveTokens, type TokenScope } from 'nx/src/tasks-runner/tokens';
-import { Dry, dried, run } from '#/executor';
-import { executor, spawned } from '#/inference';
+import { Dry } from '#/executor';
+import { dried, executor, spawned } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ const Upgrade = Dry.mapFields(
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Upgrade, run, function* ({ commands, cwd, dryRun }, context) {
+const execute = executor(Upgrade, function* ({ commands, cwd, dryRun }, context) {
     const [dry, path] = yield* Effect.all([dried(dryRun), Path.Path]);
     const scope: TokenScope = { isToken: (name) => Object.hasOwn(context, name), read: (name, at) => readPath(context, [name, ...Array.fromNullishOr(at)].join('.')), noValue: (token) => token };
     yield* Effect.forEach(
