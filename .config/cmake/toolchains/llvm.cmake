@@ -6,6 +6,9 @@ set(CMAKE_OBJCXX_COMPILER "${CMAKE_CXX_COMPILER}")
 
 # --- [STANDARD_LIBRARY] -----------------------------------------------------------------
 
+if(CMAKE_HOST_WIN32)
+    return()
+endif()
 if(CMAKE_HOST_APPLE)
     set(loaded "-Wl,-load_hidden,")
 else()

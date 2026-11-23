@@ -1,7 +1,7 @@
 # --- [LANGUAGES] ------------------------------------------------------------------------
 
 if(CMAKE_OBJCXX_COMPILER_LOADED)
-    string(APPEND CMAKE_OBJCXX_FLAGS " ${flags} -fobjc-arc")
+    string(APPEND CMAKE_OBJCXX_FLAGS " ${RASM_FLAGS} -fobjc-arc")
 endif()
 
 # --- [CPACK] ----------------------------------------------------------------------------

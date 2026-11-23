@@ -4,10 +4,15 @@ project(rasm LANGUAGES CXX)
 
 # --- [POLICY] ---------------------------------------------------------------------------
 
-set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_LINK_LIBRARIES_ONLY_TARGETS ON)
-set(flags
+
+# --- [FLAGS] ----------------------------------------------------------------------------
+
+# --- [CHECKS]
+
+set(RASM_FLAGS
     -Wall
     -Wextra
     -Wpedantic
@@ -25,22 +30,22 @@ set(flags
     -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE
 )
 
-# --- [INSTRUMENTATION] ------------------------------------------------------------------
+# --- [INSTRUMENTATION]
 
 set(RASM_SANITIZERS "" CACHE STRING "Sanitizers every target compiles and links with")
 option(RASM_COVERAGE "Whether every target records source-based coverage to the profile LLVM_PROFILE_FILE names" OFF)
 if(RASM_SANITIZERS)
     list(JOIN RASM_SANITIZERS "," sanitizers)
-    list(APPEND flags -fsanitize=${sanitizers} -fno-sanitize-recover=all -fno-omit-frame-pointer)
+    list(APPEND RASM_FLAGS -fsanitize=${sanitizers} -fno-sanitize-recover=all -fno-omit-frame-pointer)
 endif()
 if(RASM_COVERAGE)
-    list(APPEND flags -fprofile-instr-generate -fcoverage-mapping)
+    list(APPEND RASM_FLAGS -fprofile-instr-generate -fcoverage-mapping)
 endif()
 
-# --- [LANGUAGES] ------------------------------------------------------------------------
+# --- [LANGUAGES]
 
-list(JOIN flags " " flags)
-string(APPEND CMAKE_CXX_FLAGS " ${flags}")
+list(JOIN RASM_FLAGS " " RASM_FLAGS)
+string(APPEND CMAKE_CXX_FLAGS " ${RASM_FLAGS}")
 
 # --- [PACKAGING] ------------------------------------------------------------------------
 

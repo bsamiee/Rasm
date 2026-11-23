@@ -1,33 +1,50 @@
 # --- [BASE] -----------------------------------------------------------------------------
 
+# --- [STYLE]
+
 BasedOnStyle: LLVM
 ColumnLimit: 200
 IndentWidth: 4
 InsertNewlineAtEOF: true
 LineEnding: LF
+
+# --- [SPACING]
+
 AccessModifierOffset: -4
+EmptyLineBeforeAccessModifier: Always
+IndentExportBlock: false
+PointerAlignment: Left
+WrapNamespaceBodyWithEmptyLines: Always
+
+# --- [WRAPPING]
+
 AllowShortEnumsOnASingleLine: false
 BreakBeforeBinaryOperators: NonAssignment
 BreakTemplateDeclarations: Yes
-EmptyLineBeforeAccessModifier: Always
-EnumTrailingComma: Insert
-FixNamespaceComments: false
+PackArguments: { BinPack: OnePerLine }
+PackConstructorInitializers: NextLineOnly
+PackParameters: { BinPack: OnePerLine }
+
+# --- [INCLUDES]
+
 IncludeBlocks: Regroup
 IncludeCategories:
     - { Regex: '\.generated\.h"$', Priority: 4 }
     - { Regex: '^<.*\.h(pp)?>$', Priority: 1 }
     - { Regex: '^<.*>$', Priority: 2 }
     - { Regex: '.*', Priority: 3 }
-IndentExportBlock: false
+
+# --- [REWRITES]
+
+EnumTrailingComma: Insert
+FixNamespaceComments: false
 InsertBraces: true
-PackArguments: { BinPack: OnePerLine }
-PackConstructorInitializers: NextLineOnly
-PackParameters: { BinPack: OnePerLine }
-PointerAlignment: Left
 QualifierAlignment: Custom
 QualifierOrder: [friend, static, inline, constexpr, const, volatile, type]
+
+# --- [MACROS]
+
 StatementMacros: [GENERATED_BODY, UCLASS, UENUM, UFUNCTION, UINTERFACE, UPROPERTY, USTRUCT]
-WrapNamespaceBodyWithEmptyLines: Always
 ---
 # --- [OBJC] -----------------------------------------------------------------------------
 
