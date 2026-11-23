@@ -4,8 +4,6 @@ import type { ShapedText } from '#/shaping/shaped-text';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Edge = ReadonlyMap<number, number>;
-type Segment = readonly [Point, Point];
 interface Point {
     readonly x: number;
     readonly y: number;
@@ -19,11 +17,11 @@ const BY_FIT = Order.Struct({ gap: Order.Number, shift: Order.flip(Order.mapInpu
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Profile extends Data.Class<{
-    readonly left: Edge;
-    readonly right: Edge;
+    readonly left: ReadonlyMap<number, number>;
+    readonly right: ReadonlyMap<number, number>;
     readonly advance: number;
 }> {
-    static readonly outline = (commands: readonly SvgPathCommand[]): readonly (readonly Segment[])[] => {
+    static readonly outline = (commands: readonly SvgPathCommand[]) => {
         const [, drawn] = Array.mapAccum(commands, { cursor: ORIGIN, start: ORIGIN, contour: 0 }, ({ cursor, start, contour }, { type, values }) => {
             const points = Array.chunksOf(values, 2).map(([x, y = 0]) => ({ x, y }));
             const end = Option.getOrElse(Array.last(points), () => start);
@@ -83,11 +81,13 @@ class Profile extends Data.Class<{
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const moved = ([from, to]: Segment, by: Point, scale: number): Segment => [
-    { x: from.x * scale + by.x, y: from.y + by.y },
-    { x: to.x * scale + by.x, y: to.y + by.y },
-];
-const minClearance = (right: Iterable<readonly [number, number]>, left: Edge) => pipe(Array.getSomes(Array.map(Array.fromIterable(right), ([height, x]) => Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x))), Option.liftPredicate(Array.isArrayNonEmpty), Option.map(Array.min(Order.Number)));
+const moved = ([from, to]: readonly [Point, Point], by: Point, scale: number) =>
+    [
+        { x: from.x * scale + by.x, y: from.y + by.y },
+        { x: to.x * scale + by.x, y: to.y + by.y },
+    ] as const;
+const minClearance = (right: Iterable<readonly [number, number]>, left: Profile['left']) =>
+    pipe(Array.getSomes(Array.map(Array.fromIterable(right), ([height, x]) => Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x))), Option.liftPredicate(Array.isArrayNonEmpty), Option.map(Array.min(Order.Number)));
 const deviation = (curve: readonly Point[]) => {
     const wangDivisor = 8;
     const bendPoints = 3;
@@ -103,7 +103,7 @@ const flattened = (curve: readonly Point[]): readonly Point[] => {
     return deviation(curve) <= tolerance ? Array.takeRight(curve, 1) : halves(curve).flatMap((half) => flattened(half));
 };
 const crossing = (band: number, entry: number, exit: number) => ({ band, left: Math.min(entry, exit), right: Math.max(entry, exit) });
-const crossings = ([from, to]: Segment) => {
+const crossings = ([from, to]: readonly [Point, Point]) => {
     const [low, high] = [Math.min(from.y, to.y), Math.max(from.y, to.y)];
     const at = (y: number) => from.x + ((to.x - from.x) * (y - from.y)) / (to.y - from.y);
     return low === high ? [crossing(Math.floor(low), from.x, to.x)] : Array.range(Math.floor(low), Math.ceil(high) - 1).map((band) => crossing(band, at(Math.max(low, band)), at(Math.min(high, band + 1))));

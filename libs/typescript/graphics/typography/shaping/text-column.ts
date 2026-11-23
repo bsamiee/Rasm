@@ -2,20 +2,13 @@ import { Array, Option, Schema, Struct } from 'effect';
 import type { Settings } from '#/settings';
 import type { ShapedText } from '#/shaping/shaped-text';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-interface Paragraph {
-    readonly lines: readonly Pick<ShapedText, 'extents'>[];
-    readonly settings: Pick<Settings, 'leading' | 'lineHeight'>;
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 class TextColumn extends Schema.Class<TextColumn, { readonly brand: unique symbol }>('TextColumn')({
     baselines: Schema.Array(Schema.Array(Schema.Finite)).annotate({ description: 'Baseline depth in em below the column top per paragraph line, the first at its glyph extents top and each next one line height and paragraph space below' }),
     height: Schema.Finite.annotate({ description: 'Depth in em of the last line glyph extents bottom, paragraph space dropped at both column edges' }),
 }) {
-    static readonly of = (paragraphs: readonly Paragraph[]) => {
+    static readonly of = (paragraphs: readonly { readonly lines: readonly Pick<ShapedText, 'extents'>[]; readonly settings: Pick<Settings, 'leading' | 'lineHeight'> }[]) => {
         const [bottom, baselines] = Array.mapAccum(paragraphs, Option.none<{ readonly baseline: number; readonly descent: number; readonly space: number }>(), (above, { lines, settings }) => {
             const [last, placed] = Array.mapAccum(
                 lines,

@@ -17,17 +17,6 @@ import type { Source } from '#/source';
 
 const Outlines = Schema.Literals(['glyf', 'CFF ', 'CFF2']);
 const MemberFvars = Schema.Array(Tables.mapFields(Struct.pick(['fvar'])));
-class FaceInstance extends Schema.Opaque<FaceInstance, unknown>()(
-    Schema.Struct({
-        coordinates: Schema.Array(Schema.Finite)
-            .annotate({ description: 'Axis values in fvar order, under variations by tag' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
-        variations: Schema.Record(Tag, Schema.Finite)
-            .annotate({ description: 'Axis values by tag over selected instance, clamped to axis range, absent axes ignored' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.succeed({}))),
-        size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-    }),
-) {}
 class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')(
     {
         ...Record.map(Struct.omit(Names.ids, ['prefix']), (ids) => Schema.OptionFromOptionalKey(Schema.String.annotate({ description: `Name ID ${Object.values(ids).join(' else ')}, preferring English` }))),
@@ -59,7 +48,16 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
     },
     { description: 'Face at one instance, names from named instance matching coordinates, else Adobe Technical Note 5902 postscriptName' },
 ) {
-    static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: Source, { coordinates, variations, size }: FaceInstance = FaceInstance.make({})) {
+    static readonly Instance = Schema.Struct({
+        coordinates: Schema.Array(Schema.Finite)
+            .annotate({ description: 'Axis values in fvar order, under variations by tag' })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
+        variations: Schema.Record(Tag, Schema.Finite)
+            .annotate({ description: 'Axis values by tag over selected instance, clamped to axis range, absent axes ignored' })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.succeed({}))),
+        size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+    });
+    static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: Source, { coordinates, variations, size }: typeof Face.Instance.Type = Face.Instance.make({})) {
         const container = yield* Effect.try({ try: () => create(Buffer.from(data.buffer, data.byteOffset, data.byteLength)), catch: TypographyError.unreadable(Option.getOrElse(selection, () => 'default face')) });
         const fonts = yield* Match.value(container).pipe(
             Match.whenOr({ type: 'WOFF' }, { type: 'WOFF2' }, ({ type }) => Effect.fail(TypographyError.unsupported(`${type} container`))),
@@ -160,4 +158,4 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Face, FaceInstance };
+export { Face };

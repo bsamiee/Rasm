@@ -14,7 +14,7 @@ class Span extends Schema.Class<Span, { readonly brand: unique symbol }>('Span')
 }) {
     static readonly styled = <R extends { readonly text: string; readonly font: string; readonly axes: readonly number[] }>(runs: readonly R[], first: number, last: number): readonly (R & { readonly start: number; readonly end: number })[] => {
         const [, placed] = Array.mapAccum(runs, 0, (at, run): readonly [number, R & { readonly start: number; readonly end: number }] => [at + run.text.length, { ...run, start: at, end: at + run.text.length }]);
-        return Array.match(placed, { onEmpty: Array.empty<Array.NonEmptyReadonlyArray<(typeof placed)[number]>>, onNonEmpty: Array.groupWith((left, right) => left.font === right.font && Equal.equals(left.axes, right.axes)) })
+        return Array.match(placed, { onEmpty: Array.empty, onNonEmpty: Array.groupWith((left, right) => left.font === right.font && Equal.equals(left.axes, right.axes)) })
             .map((group) => ({ ...Array.headNonEmpty(group), end: Array.lastNonEmpty(group).end, text: group.map(Struct.get('text')).join('') }))
             .filter((span) => (span.start < last && span.end > first) || (span.start === first && span.end === last))
             .map((span) => ({ ...span, start: Math.max(span.start, first), end: Math.min(span.end, last), text: span.text.slice(Math.max(span.start, first) - span.start, Math.min(span.end, last) - span.start) }));

@@ -1,7 +1,6 @@
 import { Array, Effect, Function, Option, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { type Face, Feature, type FeatureNameIds } from 'harfbuzzjs';
 import { TypographyError } from '#/error';
-import type { SettingsPatch } from '#/settings';
 import type { Member } from '#/shaping/internal/member';
 import type { Names } from '#/shaping/internal/names';
 import { Lookup, type Tables } from '#/shaping/internal/tables';
@@ -45,7 +44,7 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
         const subtables = new Map(Array.zip(indexes, decoded.map(Struct.get('subTables'))));
         const substitutions = new Map(Record.collect(Array.groupBy(substituting, Struct.get('tag')), (tag, rows) => [tag, substitutionOf(rows.flatMap(Struct.get('lookups')), subtables)] as const));
         const unlabeled = { ...Record.map(LABELS, () => Option.none<string>()), parameters: Array.empty<string>(), characters: Array.empty<string>() };
-        const grouped = Array.groupBy([...records, ...sfnt.availableFeatures.map((tag) => ({ tag, labels: Option.none<typeof unlabeled>() }))], Struct.get('tag'));
+        const grouped = Array.groupBy([...records, ...sfnt.availableFeatures.map((tag) => ({ tag, labels: Option.none() }))], Struct.get('tag'));
         return Layout.make({
             features: Record.collect(grouped, (tag, rows) => ({
                 tag,
@@ -67,7 +66,7 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
     variants(tag: string, glyph: number): readonly number[] {
         return this.substitutions.get(tag)?.alternates.get(glyph) ?? [];
     }
-    exclusive(features: NonNullable<SettingsPatch['features']>) {
+    exclusive(features: Record.ReadonlyRecord<string, number | null>) {
         const rivals = Record.fromIterableWith(this.features, ({ tag, rivals: unset }) => [tag, unset] as const);
         return Record.fromEntries(Record.toEntries(features).flatMap(([tag, value]) => [...(value !== null && value > 0 ? Option.getOrElse(Record.get(rivals, tag), Array.empty<string>).map((rival) => [rival, null] as const) : []), [tag, value] as const]));
     }

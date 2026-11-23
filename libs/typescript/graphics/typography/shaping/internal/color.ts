@@ -1,6 +1,6 @@
 import { Record, Schema, Struct } from 'effect';
-import { ColorPaletteFlags, type Face } from 'harfbuzzjs';
-import type { Names } from '#/shaping/internal/names';
+import { ColorPaletteFlags } from 'harfbuzzjs';
+import type { Member } from '#/shaping/internal/member';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ class Color extends Schema.Class<Color, { readonly brand: unique symbol }>('Colo
     },
     { description: 'CPAL palettes, COLRv0 layers, COLRv1 paint, CBDT or sbix PNG images' },
 ) {
-    static readonly of = ({ handle, names }: { readonly handle: Face; readonly names: Names }) =>
+    static readonly of = ({ handle, names }: Pick<Member, 'handle' | 'names'>) =>
         Color.make({
             palettes: handle.getColorPalettes().map((palette) => ({
                 name: names.findById(palette.nameId),

@@ -7,12 +7,8 @@ import type { Settings } from '#/settings';
 import type { Face } from '#/shaping/face';
 import { Profile } from '#/shaping/internal/profile';
 import type { Measured } from '#/shaping/justification';
-import type { ShapedText, TextRun } from '#/shaping/shaped-text';
+import type { ShapedText } from '#/shaping/shaped-text';
 import { Span, words } from '#/shaping/word';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Elongating = Exclude<Settings['kashida'], { readonly _tag: 'None' }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -39,9 +35,9 @@ const drawsKashida = (face: Face) => Option.isSome(tatweelAdvance(face)) || face
 
 // --- [PLACES]
 
-const candidates = (text: string, join: Span, rows: Elongating['places']) => {
-    const within = (groups: Elongating['places'][number]['before']) => (group: JoiningGroup) => Option.match(groups, { onNone: Function.constTrue, onSome: ({ groups: listed, except }) => listed.includes(group.value) !== except });
-    const follows = (next: Elongating['places'][number]['next'], letter: Option.Option<JoiningGroup>) => Option.match(next, { onNone: Function.constTrue, onSome: Match.valueTags({ End: () => Option.isNone(letter), Letter: ({ groups }) => Option.exists(letter, within(groups)) }) });
+const candidates = (text: string, join: Span, rows: Exclude<Settings['kashida'], { readonly _tag: 'None' }>['places']) => {
+    const within = (groups: (typeof rows)[number]['before']) => (group: JoiningGroup) => Option.match(groups, { onNone: Function.constTrue, onSome: ({ groups: listed, except }) => listed.includes(group.value) !== except });
+    const follows = (next: (typeof rows)[number]['next'], letter: Option.Option<JoiningGroup>) => Option.match(next, { onNone: Function.constTrue, onSome: Match.valueTags({ End: () => Option.isNone(letter), Letter: ({ groups }) => Option.exists(letter, within(groups)) }) });
     const letters = joiningGroups(join.slice(text));
     return Array.getSomes(
         Array.window(letters, 2).map(([before, after], at) => {
@@ -51,7 +47,7 @@ const candidates = (text: string, join: Span, rows: Elongating['places']) => {
         }),
     );
 };
-const kashidaPlaces = (text: string, rows: Elongating['places'], allowed: (cluster: number) => boolean = Function.constTrue) =>
+const kashidaPlaces = (text: string, rows: Parameters<typeof candidates>[2], allowed: (cluster: number) => boolean = Function.constTrue) =>
     Array.sort(
         Array.getSomes(
             words(text).map((word) =>
@@ -69,16 +65,20 @@ const kashidaPlaces = (text: string, rows: Elongating['places'], allowed: (clust
 // --- [ELONGATION]
 
 const elongationOf = (settings: Pick<Settings, 'kashida'>) => Option.liftPredicate(settings.kashida, Elongation.isAnyOf(['Tatweel', 'Stretched']));
-const eligible = (measured: Measured, elongation: Elongating, stretched: boolean, stage: Elongating['places'][number]['stage']) => {
+const eligible = (measured: Measured, rows: Parameters<typeof kashidaPlaces>[1], stretched: boolean, stage: (typeof rows)[number]['stage']) => {
     const flagged = (glyph: ShapedText['glyphs'][number]) => glyph.flags.includes('SAFE_TO_INSERT_TATWEEL') || (stretched && measured.face.layout.covers(JUSTIFICATION_ALTERNATES, glyph.glyph));
     const clusters = new Set(measured.shaped.glyphs.filter(flagged).map(Struct.get('cluster')));
     return kashidaPlaces(
         measured.shaped.text,
-        elongation.places.filter((row) => row.stage === stage),
+        rows.filter((row) => row.stage === stage),
         (cluster) => clusters.has(cluster),
     );
 };
-const solved = ({ lower, upper, limit }: Elongating, count: number, room: Option.Option<number>) => {
+const reached = (measured: Measured, rows: Parameters<typeof eligible>[1], stretched: boolean, rank: number) =>
+    eligible(measured, rows, stretched, 'line')
+        .filter((place) => place.rank === rank)
+        .map(Struct.get('cluster'));
+const solved = ({ lower, upper, limit }: Exclude<Settings['kashida'], { readonly _tag: 'None' }>, count: number, room: Option.Option<number>) => {
     const most = Math.min(
         count,
         Option.getOrElse(limit, () => count),
@@ -101,7 +101,7 @@ const inserted = (measured: Measured, chosen: readonly number[], tatweels: numbe
     const elongated = measured.reshaped({ ...run, text, item: Option.map(run.item, ({ start, end }) => Span.make({ start: shifted(start, Number.isLessThanOrEqualTo), end: shifted(end, Number.isLessThan) })), features }, new Map(scales));
     return elongated.gained('kashida', elongated.shaped.advance - measured.shaped.advance);
 };
-const tatweeled = (measured: Measured, elongation: Elongating, clusters: readonly number[], room: Option.Option<number>) =>
+const tatweeled = (measured: Measured, elongation: Parameters<typeof solved>[0], clusters: readonly number[], room: Option.Option<number>) =>
     Option.getOrElse(
         Option.gen(function* () {
             const [dot, extender] = yield* Option.all([nuqtaWidth(measured.face), tatweelAdvance(measured.face)]);
@@ -124,37 +124,34 @@ const probed = (current: Measured, cluster: number, left: number) => {
     const probes = Array.getSomes(values.map((_, index) => Option.map(current.featured(new Feature(JUSTIFICATION_ALTERNATES, index + 1, cluster, cluster + 1), left), ({ next, gain }) => next.gained('kashida', gain))));
     return Option.getOrElse(Option.map(Option.liftPredicate(probes, Array.isArrayNonEmpty), Array.max(Order.mapInput(Order.Number, ({ kashida }: Measured) => kashida))), () => current);
 };
-const reached = (measured: Measured, elongation: Elongating, stretched: boolean, rank: number) =>
-    eligible(measured, elongation, stretched, 'line')
-        .filter((place) => place.rank === rank)
-        .map(Struct.get('cluster'));
-const elongated = (current: Measured, elongation: Elongating, rank: number, amount: number) => {
-    const stretched = Predicate.isTagged(elongation, 'Stretched');
-    const jalted = stretched ? reached(current, elongation, true, rank).reduce((probing, cluster) => probed(probing, cluster, amount - (probing.kashida - current.kashida)), current) : current;
-    return tatweeled(jalted, elongation, reached(jalted, elongation, false, rank), Option.some(amount - (jalted.kashida - current.kashida)));
-};
 
 // --- [JUSTIFICATION]
 
-const kashidaFlagged = (run: TextRun, settings: Pick<Settings, 'kashida'>): TextRun => Option.match(elongationOf(settings), { onNone: () => run, onSome: () => ({ ...run, flags: Array.union(run.flags, ['PRODUCE_SAFE_TO_INSERT_TATWEEL' as const]) }) });
+const kashidaFlagged = (run: Measured['run'], settings: Pick<Settings, 'kashida'>): Measured['run'] => Option.match(elongationOf(settings), { onNone: () => run, onSome: () => ({ ...run, flags: Array.union(run.flags, ['PRODUCE_SAFE_TO_INSERT_TATWEEL' as const]) }) });
 const kashidaPrepared = (measured: Measured) =>
     Option.match(elongationOf(measured.settings), {
         onNone: () => measured,
-        onSome: (elongation) => tatweeled(measured, elongation, eligible(measured, elongation, false, 'text').map(Struct.get('cluster')), Option.none()),
+        onSome: (elongation) => tatweeled(measured, elongation, eligible(measured, elongation.places, false, 'text').map(Struct.get('cluster')), Option.none()),
     });
 const kashidaRanks = (settings: Pick<Settings, 'kashida'>) => Option.match(elongationOf(settings), { onNone: Array.empty<number>, onSome: ({ places }) => places.map(Struct.get('rank')) });
 const kashidaMechanisms = (measured: Measured, rank: number) =>
     Option.match(Option.all([elongationOf(measured.settings), nuqtaWidth(measured.face)]), {
         onNone: () => [],
-        onSome: ([elongation, nuqta]) => [
-            {
-                capacity: Option.match(solved(elongation, reached(measured, elongation, Predicate.isTagged(elongation, 'Stretched'), rank).length, Option.some(globalThis.Number.POSITIVE_INFINITY)), {
-                    onNone: () => 0,
-                    onSome: ({ count, length }) => count * length * nuqta,
-                }),
-                take: (current: Measured, amount: number) => elongated(current, elongation, rank, amount),
-            },
-        ],
+        onSome: ([elongation, nuqta]) => {
+            const stretched = Predicate.isTagged(elongation, 'Stretched');
+            return [
+                {
+                    capacity: Option.match(solved(elongation, reached(measured, elongation.places, stretched, rank).length, Option.some(globalThis.Number.POSITIVE_INFINITY)), {
+                        onNone: () => 0,
+                        onSome: ({ count, length }) => count * length * nuqta,
+                    }),
+                    take: (current: Measured, amount: number) => {
+                        const jalted = stretched ? reached(current, elongation.places, true, rank).reduce((probing, cluster) => probed(probing, cluster, amount - (probing.kashida - current.kashida)), current) : current;
+                        return tatweeled(jalted, elongation, reached(jalted, elongation.places, false, rank), Option.some(amount - (jalted.kashida - current.kashida)));
+                    },
+                },
+            ];
+        },
     });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

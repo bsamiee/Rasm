@@ -3,7 +3,7 @@ import { JoiningGroupName, joiningGroups, joins } from '#/arabic/joining';
 import { Settings } from '#/settings';
 import type { Face } from '#/shaping/face';
 import { Profile } from '#/shaping/internal/profile';
-import { ShapedText, TextRun } from '#/shaping/shaped-text';
+import { ShapedText } from '#/shaping/shaped-text';
 import { baseDirection, Span, words } from '#/shaping/word';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -41,25 +41,28 @@ class Kerning extends Schema.Class<Kerning, { readonly brand: unique symbol }>('
         const [outlines, profiles] = [new Map<number, ReturnType<typeof Profile.outline>>(), new Map<string, Profile>()];
         const outline = (glyph: number) => outlines.getOrInsertComputed(glyph, () => Profile.outline(face.font.glyphToJson(glyph)));
         const direction = Option.getOrElse(settings.direction, () => baseDirection(text));
-        const profile = (span: string) => profiles.getOrInsertComputed(span, () => Profile.of(ShapedText.of(face, TextRun.make({ text: span, direction: LONE_PUNCTUATION.test(span) ? Option.some(direction) : Option.none() }), settings), unitsPerEm, outline));
+        const profile = (span: string) => profiles.getOrInsertComputed(span, () => Profile.of(ShapedText.of(face, ShapedText.Run.make({ text: span, direction: LONE_PUNCTUATION.test(span) ? Option.some(direction) : Option.none() }), settings), unitsPerEm, outline));
         const spans = words(text).flatMap((word) =>
             Array.window([word.start, ...joins(text, word).flatMap((join) => [join.start, join.end]), word.end], 2)
                 .map(([from, to]) => ({ span: Span.make({ start: from, end: to }), rest: Span.make({ start: from, end: word.end }) }))
                 .filter(({ span }, at) => at % 2 === 1 || LONE_PUNCTUATION.test(span.slice(text))),
         );
-        const gap = (before: Span, after: (typeof spans)[number]) => {
-            const letters = { following: Array.take(joiningGroups(after.rest.slice(text)), 2), preceding: Array.takeRight(joiningGroups(before.slice(text)), 1) };
-            const { boundary, correction } = Array.findFirst(this.rows, ({ side, groups }) => letters[side].some(({ group }) => groups.includes(group))).pipe(Option.getOrElse(() => this.fallback));
-            const preceding = profile(before.slice(text));
-            const bounded = preceding.bounded({ slant: boundary.slant * unitsPerEm, top: Option.getOrElse(boundary.top, () => ascender) * unitsPerEm, foot: Option.getOrElse(boundary.foot, () => descender) * unitsPerEm });
-            return Option.match(Profile.gap(profile(after.span.slice(text)), bounded, Math.round(this.rise * unitsPerEm), preceding.advance), {
-                onNone: () => ({ kerning: 0, baselineShift: 0 }),
-                onSome: ({ gap: clearance, shift }) => ({ kerning: -Math.max(clearance / unitsPerEm + correction, 0), baselineShift: shift / unitsPerEm }),
-            });
-        };
         return Array.window(spans, 2)
             .filter(([before, after]) => !LONE_PUNCTUATION.test(after.span.slice(text)) && SEPARATOR.test(text.slice(before.span.end, after.span.start)))
-            .map(([before, after]) => ({ index: after.span.start, length: after.span.length, ...gap(before.span, after) }))
+            .map(([{ span: before }, after]) => {
+                const letters = { following: Array.take(joiningGroups(after.rest.slice(text)), 2), preceding: Array.takeRight(joiningGroups(before.slice(text)), 1) };
+                const { boundary, correction } = Array.findFirst(this.rows, ({ side, groups }) => letters[side].some(({ group }) => groups.includes(group))).pipe(Option.getOrElse(() => this.fallback));
+                const preceding = profile(before.slice(text));
+                const bounded = preceding.bounded({ slant: boundary.slant * unitsPerEm, top: Option.getOrElse(boundary.top, () => ascender) * unitsPerEm, foot: Option.getOrElse(boundary.foot, () => descender) * unitsPerEm });
+                return {
+                    index: after.span.start,
+                    length: after.span.length,
+                    ...Option.match(Profile.gap(profile(after.span.slice(text)), bounded, Math.round(this.rise * unitsPerEm), preceding.advance), {
+                        onNone: () => ({ kerning: 0, baselineShift: 0 }),
+                        onSome: ({ gap, shift }) => ({ kerning: -Math.max(gap / unitsPerEm + correction, 0), baselineShift: shift / unitsPerEm }),
+                    }),
+                };
+            })
             .filter(({ kerning, baselineShift }) => kerning !== 0 || baselineShift !== 0);
     }
 }

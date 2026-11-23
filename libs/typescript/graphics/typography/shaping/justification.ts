@@ -5,21 +5,15 @@ import { joins } from '#/arabic/joining';
 import { kashidaFlagged, kashidaMechanisms, kashidaPrepared, kashidaRanks } from '#/arabic/kashida';
 import { Direction, Settings } from '#/settings';
 import type { Face } from '#/shaping/face';
-import { ShapedText, type TextRun } from '#/shaping/shaped-text';
+import { ShapedText } from '#/shaping/shaped-text';
 import { baseDirection, letters, words } from '#/shaping/word';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Line = Array.NonEmptyReadonlyArray<Measured>;
 interface Styled {
     readonly face: Face;
-    readonly run: TextRun;
+    readonly run: typeof ShapedText.Run.Type;
     readonly settings: Settings;
-}
-interface Amounts {
-    readonly words: Record.ReadonlyRecord<string, number>;
-    readonly letter: number;
-    readonly glyph: number;
 }
 interface Mechanism {
     readonly index: number;
@@ -45,15 +39,15 @@ class Measured extends Data.Class<
         readonly scales: ReadonlyMap<number, number>;
         readonly kashida: number;
         readonly alternates: number;
-        readonly amounts: Amounts;
+        readonly amounts: { readonly words: Record.ReadonlyRecord<string, number>; readonly letter: number; readonly glyph: number };
     }
 > {
-    static readonly of = (styled: Styled, run: TextRun) => {
+    static readonly of = (styled: Styled, run: Styled['run']) => {
         const shaped = ShapedText.of(styled.face, run, styled.settings);
         return new Measured({ ...styled, run, shaped, base: bases(styled.face, shaped), scales: new Map(), kashida: 0, alternates: 0, amounts: { words: {}, letter: 0, glyph: 0 } });
     };
 
-    reshaped(run: TextRun, scales: ReadonlyMap<number, number> = this.scales, font: Font = this.face.font): Measured {
+    reshaped(run: Styled['run'], scales: ReadonlyMap<number, number> = this.scales, font: Font = this.face.font): Measured {
         const { text, glyphs, missing } = ShapedText.of({ font, em: this.face.em }, run, this.settings);
         const shaped = ShapedText.make({ text, glyphs: glyphs.map((glyph) => UndefinedOr.match(scales.get(glyph.cluster), { onUndefined: () => glyph, onDefined: (scale) => ({ ...rescaled(glyph, scale), xAdvance: glyph.xAdvance * scale }) })), missing });
         return new Measured({ ...this, run, scales, shaped, base: bases(this.face, shaped) });
@@ -85,7 +79,7 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         const alignment = first.settings.lineAlignment({ last, single: words(text).length <= 1 });
         const aligned = { start: 0, center: 0.5, end: 1, justified: 0 }[alignment];
         const direction = Option.getOrElse(first.settings.direction, () => baseDirection(text));
-        const unjustified: Line = Array.map(runs, prepared);
+        const unjustified: Array.NonEmptyReadonlyArray<Measured> = Array.map(runs, prepared);
         const justifying = alignment === 'justified' || width < lineWidth(unjustified);
         const ranks = Array.dedupe(
             Array.sort(
@@ -159,7 +153,7 @@ const widths = ({ base, settings: { spacing }, amounts }: Measured) => ({
     letter: base.slots.size * base.space * spacing.letter.desired + amounts.letter,
     glyph: base.glyph * spacing.glyph.desired + amounts.glyph,
 });
-const lineWidth = (line: Line) =>
+const lineWidth = (line: Array.NonEmptyReadonlyArray<Measured>) =>
     Math.sumPrecise(
         line.map((measured) => {
             const { words: spaces, letter, glyph } = widths(measured);
@@ -194,7 +188,7 @@ const spacings = (measured: Measured, rank: number, stretching: boolean): readon
         settings: { spacing, justification: ranked },
     } = measured;
     const sign = stretching ? 1 : -1;
-    const continuous = (at: number, { min, desired, max }: Settings['spacing']['word'], width: number, update: (amounts: Amounts, amount: number) => Amounts): readonly Omit<Mechanism, 'index'>[] =>
+    const continuous = (at: number, { min, desired, max }: Settings['spacing']['word'], width: number, update: (amounts: Measured['amounts'], amount: number) => Measured['amounts']): readonly Omit<Mechanism, 'index'>[] =>
         at === rank ? [{ capacity: width * (stretching ? max - desired : desired - min), continuous: true, take: (current, amount) => new Measured({ ...current, amounts: update(current.amounts, sign * amount) }) }] : [];
     return [
         ...Record.collect(base.words, (script, total) =>
@@ -211,10 +205,10 @@ const spacings = (measured: Measured, rank: number, stretching: boolean): readon
         ...Record.collect({ letter: base.slots.size * base.space, glyph: base.glyph }, (key, width) => continuous(ranked[key], spacing[key], width, (amounts, amount) => ({ ...amounts, [key]: amounts[key] + amount }))),
     ].flat();
 };
-const mechanisms = (line: Line, rank: number, stretching: boolean): readonly Mechanism[] =>
+const mechanisms = (line: Array.NonEmptyReadonlyArray<Measured>, rank: number, stretching: boolean): readonly Mechanism[] =>
     line.flatMap((measured, index) => [...spacings(measured, rank, stretching), ...(stretching ? [...alternates(measured, rank), ...kashidaMechanisms(measured, rank).map((kashida) => ({ ...kashida, continuous: false }))] : [])].map((mechanism) => ({ ...mechanism, index })));
-const applied = (line: Line, { index, take }: Mechanism, amount: number): Line => Array.map(line, (measured, at) => (at === index ? take(measured, amount) : measured));
-const distribute = (line: Line, rank: number, width: number): Line => {
+const applied = (line: Array.NonEmptyReadonlyArray<Measured>, { index, take }: Mechanism, amount: number) => Array.map(line, (measured, at) => (at === index ? take(measured, amount) : measured));
+const distribute = (line: Array.NonEmptyReadonlyArray<Measured>, rank: number, width: number) => {
     const slack = width - lineWidth(line);
     const group = mechanisms(line, rank, slack >= 0).filter((mechanism) => mechanism.capacity > 0);
     const total = Math.sumPrecise(group.map(Struct.get('capacity')));

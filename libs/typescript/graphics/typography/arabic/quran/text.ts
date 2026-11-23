@@ -1,6 +1,6 @@
 import { AYAH_MARK, ayahMark, type MarkKind, Mushaf } from '@quran.ws/text';
 import { Digits, Unmatched } from '@rasm/search';
-import { Array, Effect, Equivalence, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Effect, Equivalence, flow, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Csv } from 'effect/encoding';
 import { ayahsInPart, formatSurahAyah, generatePartBlocks, getListsOfRiwaya, isValidSurah, isValidSurahAyah, partNames, type RiwayaData, type RiwayaName, type RiwayasNames, type SurahAyah, type SurahNames, surahNamesAr, surahNamesEn } from 'quran-meta';
 import { TypographyError } from '#/error';
@@ -15,8 +15,8 @@ const NAMES: readonly SurahNames[] = [surahNamesAr, surahNamesEn];
 // --- [MODELS] --------------------------------------------------------------------------
 
 const headers = <F extends Schema.Struct.Fields>(row: Schema.Struct<F>) => Schema.Struct(Struct.Record(Struct.keys(row.fields), Schema.String.annotate({ description: 'Header name' })));
-class AyahRow extends Schema.Opaque<AyahRow, unknown>()(Schema.Struct({ surah: Digits.Numeral, number: Digits.Numeral, text: Schema.String })) {}
-class SurahRow extends Schema.Opaque<SurahRow, unknown>()(Schema.Struct({ number: Digits.Numeral, name: Schema.String })) {}
+const AyahRow = Schema.Struct({ surah: Digits.Numeral, number: Digits.Numeral, text: Schema.String });
+const SurahRow = Schema.Struct({ number: Digits.Numeral, name: Schema.String });
 const Ordinal = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
 const Riwayah = Schema.Literals(['Bazzi', 'Douri', 'Hafs', 'Qalun', 'Qunbul', 'Shuba', 'Sousi', 'Warsh'] as const satisfies Readonly<RiwayasNames>).annotate({ description: 'Riwayah counting surah and ayah numbers and divisions' });
 class Bounds extends Schema.Opaque<Bounds, unknown>()(
@@ -25,8 +25,6 @@ class Bounds extends Schema.Opaque<Bounds, unknown>()(
         to: Schema.OptionFromOptionalKey(Ordinal.annotate({ description: 'Last ayah counted within the division, its end when absent' })),
     }),
 ) {}
-class SurahSelection extends Schema.Opaque<SurahSelection, { readonly brand: unique symbol }>()(Schema.TaggedStruct('Surah', { surah: Schema.String.annotate({ description: 'Surah name or number' }), ...Bounds.fields })) {}
-class PartSelection extends Schema.Opaque<PartSelection, { readonly brand: unique symbol }>()(Schema.TaggedStruct('Part', { part: Schema.Literals(PARTS).annotate({ description: 'Division the riwayah counts' }), number: Ordinal, ...Bounds.fields })) {}
 class Ayah extends Schema.Class<Ayah, { readonly brand: unique symbol }>('Ayah')({
     number: Schema.Int,
     text: Schema.String,
@@ -68,11 +66,14 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
     ),
 ) {
     static readonly Columns = Schema.Struct({ ayahs: headers(AyahRow), surahs: headers(SurahRow) });
-    static readonly Selection = Schema.Union([SurahSelection, PartSelection]).annotate({ description: 'Ayahs of a surah or numbered division, within ayah bounds' }).pipe(Schema.toTaggedUnion('_tag'));
+    static readonly Selection = Schema.TaggedUnion({
+        Surah: { surah: Schema.String.annotate({ description: 'Surah name or number' }), ...Bounds.fields },
+        Part: { part: Schema.Literals(PARTS).annotate({ description: 'Division the riwayah counts' }), number: Ordinal, ...Bounds.fields },
+    }).annotate({ description: 'Ayahs of a surah or numbered division, within ayah bounds' });
     static readonly #rows = <F extends Schema.Struct.Fields>(row: Schema.Struct<F>, text: string, headed: { readonly [K in keyof F]: string }) => Stream.make(text).pipe(Stream.pipeThroughChannel(Csv.decodeSchemaString(row.pipe(Schema.encodeKeys(headed)))({ headers: true, ignoreEmptyLines: true })), Stream.runCollect);
     static readonly decode = Effect.fn('Quran.decode')(function* (
         csv: { readonly ayahs: string; readonly surahs: string },
-        columns: { readonly ayahs: Record.ReadonlyRecord<keyof AyahRow, string>; readonly surahs: Record.ReadonlyRecord<keyof SurahRow, string> },
+        columns: { readonly ayahs: Record.ReadonlyRecord<keyof typeof AyahRow.fields, string>; readonly surahs: Record.ReadonlyRecord<keyof typeof SurahRow.fields, string> },
         riwayah: Quran['riwayah'] = Option.none(),
         tables: readonly SurahNames[] = NAMES,
     ) {
@@ -107,6 +108,12 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         };
         return yield* Schema.decodeEffect(Quran)({ riwayah, surahs: mushaf.surahs.map(encoded) });
     });
+    static readonly select = (quran: Quran) =>
+        Quran.Selection.match({
+            Surah: ({ surah, from, to }) => Effect.flatMap(quran.surah(surah), (chapter) => (Option.isNone(quran.riwayah) ? within(chapter, { from, to }) : counted(quran, 'surah', chapter.number, { from, to }))),
+            Part: ({ part, number, from, to }) => counted(quran, part, number, { from, to }),
+        });
+    static readonly text = (quran: Quran, separator: string, face: Pick<Face, 'draws'>, settings: Pick<Settings, 'digits'>) => flow(Quran.select(quran), Effect.flatMap(Effect.forEach((ayah) => ayah.marked(separator, face, settings))), Effect.map(Array.join('')));
 
     surah(query: string) {
         return Unmatched.single(this.surahs, 'surah', Option.some(query), ({ names, number }) => Array.append(names, String(number)));
@@ -120,15 +127,6 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
             ),
             () => Unmatched.of({ subject: 'ayah text', query: Option.some(formatSurahAyah(reference)) }),
         );
-    }
-    select(selection: SurahSelection | PartSelection): Effect.Effect<readonly Ayah[], Unmatched> {
-        return Quran.Selection.match(selection, {
-            Surah: ({ surah, from, to }) => Effect.flatMap(this.surah(surah), (chapter) => (Option.isNone(this.riwayah) ? within(chapter, { from, to }) : counted(this, PartSelection.make({ part: 'surah', number: chapter.number, from, to })))),
-            Part: (part) => counted(this, part),
-        });
-    }
-    text(selection: Parameters<Quran['select']>[0], separator: string, face: Pick<Face, 'draws'>, settings: Pick<Settings, 'digits'>) {
-        return this.select(selection).pipe(Effect.flatMap(Effect.forEach((ayah) => ayah.marked(separator, face, settings))), Effect.map(Array.join('')));
     }
 }
 
@@ -152,14 +150,14 @@ const spanned = (subject: string, { from, to }: Bounds, numbers: readonly number
     return range.maximum <= end && numbers.some(Number.between(range)) ? Effect.succeed(range) : Unmatched.of({ subject, query: Option.some(`${range.minimum}-${range.maximum}`), candidates: numbers.map(String) });
 };
 const within = (surah: Surah, bounds: Bounds) => Effect.map(spanned(`ayah in surah ${surah.number}`, bounds, surah.ayahs.map(Struct.get('number'))), (range) => surah.ayahs.filter(({ number }) => Number.between(number, range)));
-const counted = Effect.fnUntraced(function* (quran: Quran, { part, number, from, to }: PartSelection) {
+const counted = Effect.fnUntraced(function* (quran: Quran, part: (typeof PARTS)[number], number: number, bounds: Bounds) {
     const data = getListsOfRiwaya(yield* Effect.fromOption(quran.riwayah, () => Unmatched.of({ subject: `riwayah counting ${part}`, candidates: Riwayah.literals })));
     const quarters = data.meta.numRubAlHizbs / data.meta.numHizbs;
     const references = yield* Effect.try({
         try: () => (part === 'hizb' ? Array.range((number - 1) * quarters + 1, number * quarters).flatMap((quarter) => Array.fromIterable(ayahsInPart('rubAlHizb', quarter, data))) : Array.fromIterable(ayahsInPart(part, number, data))),
         catch: () => Unmatched.of({ subject: `${part} in ${data.meta.riwayaName}`, query: Option.some(String(number)), candidates: (part === 'hizb' ? Array.range(1, data.meta.numHizbs) : (generatePartBlocks(part, data) ?? []).map((_, index) => index + 1)).map(String) }),
     });
-    const { minimum, maximum } = yield* spanned(`ayah in ${part} ${number}`, { from, to }, Array.range(1, references.length));
+    const { minimum, maximum } = yield* spanned(`ayah in ${part} ${number}`, bounds, Array.range(1, references.length));
     return yield* Effect.validate(references.slice(minimum - 1, maximum), (reference) => quran.ayah(reference)).pipe(Effect.mapError((missing) => Unmatched.of({ subject: 'ayah text', query: Option.some(Array.getSomes(missing.map(Struct.get('query'))).join(', ')) })));
 });
 
