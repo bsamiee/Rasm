@@ -135,12 +135,17 @@ Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)`
 - No suite reads a developer's local state
 - Suites sign in through an `ACCESS` source `Forwarded`, as the headers of a request state its user
 
-## [09]-[SAFARI]
+## [09]-[WEBDRIVER]
 
-Safari suites drive the installed Safari, as Playwright WebKit and Vitest browser providers launch builds that differ from it in the CSS they support:
-- Suites are Vitest `node` projects whose manifest states `os: darwin`, and `selenium-webdriver` starts `safaridriver` and one session per file
-- Cases a Chromium suite and a Safari suite share are rows of a width, an in-page read, and its expected value, exported by the Chromium suite
-- Each case sets the window width, loads the page, and polls its read until it equals the expected value
+WebDriver suites drive the installed Safari and Firefox, as Playwright and Vitest browser providers launch WebKit and Firefox builds that differ from them in the CSS they support:
+- Suites are Vitest `node` projects tagged `host:browser` and `os:all` in their manifest, and `selenium-webdriver` starts one session per browser per file
+- Firefox runs headless on every OS, and Safari on macOS alone through `safaridriver`
+- Selenium Manager finds an installed Firefox and `geckodriver`, and downloads the stable release of each where a machine holds none
+- Cases a Chromium and a WebDriver suite share are rows of viewer, width, in-page read, and expected value, exported by the Chromium suite
+- Each case sets a viewport of its width by 900, loads the page as a new document, and polls its read until it equals the expected value
+- Cases first assert a visible page, as Safari draws no frame while its window is covered, minimized, or on another desktop
+- Firefox takes a viewport through WebDriver BiDi `browsingContext.setViewport`, as its window stops at 500px, and Safari through its window size
+- Owner cases load through a proxy stating the owner's `Forwarded` headers, as WebDriver sets no request header
 - Safari comes to the front once as its session opens, and the suite then activates the app that was in front
 - Suites end their session, and quit Safari through its own quit where it was not running before
 - `safaridriver --enable` and Safari's remote automation setting are one-time machine state, which GitHub-hosted macOS images hold

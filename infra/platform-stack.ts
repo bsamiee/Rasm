@@ -320,7 +320,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                         engines: engines.map((version) => machine.pulled(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })),
                         browsers: machine.imaged(
                             `ghcr.io/${owner}/${repository}/playwright:${playwright.version}`.toLowerCase(),
-                            interpolate`FROM node:slim@${getRegistryImageOutput({ name: 'node:slim' }, { provider: machine.provider }).sha256Digest}\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends build-essential ca-certificates curl git libicu-dev && npx --yes playwright@${playwright.version} install --with-deps chromium && rm -rf /var/lib/apt/lists/* /root/.npm\nUSER node\n`,
+                            interpolate`FROM node:slim@${getRegistryImageOutput({ name: 'node:slim' }, { provider: machine.provider }).sha256Digest}\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends build-essential ca-certificates curl git libicu-dev && npx --yes playwright@${playwright.version} install --with-deps chromium && npx --yes playwright@${playwright.version} install-deps firefox && rm -rf /var/lib/apt/lists/* /root/.npm\nUSER node\n`,
                             { registries, labels: { 'org.opencontainers.image.source': `https://github.com/${owner}/${repository}` } },
                         ),
                     };

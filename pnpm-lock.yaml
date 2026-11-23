@@ -2340,11 +2340,17 @@ importers:
         specifier: 'catalog:'
         version: 5.20261119.0-beta(@types/node@26.6.6)
 
-  tests/e2e/portfolio-safari:
+  tests/e2e/portfolio-webdriver:
     devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/runtime/process
       '@rasm/test-portfolio':
         specifier: workspace:*
         version: link:../portfolio

@@ -1,13 +1,12 @@
 {
-    "name": "@rasm/test-portfolio-safari",
+    "name": "@rasm/test-portfolio-webdriver",
     "private": true,
-    "description": "Portfolio suite in the installed Safari, driven through safaridriver against the built Node bundle with its own database and object storage: the page a visitor sees at desktop and phone width and its hydration, by the cases the Chromium suite runs",
-    "os": [
-        "darwin"
-    ],
+    "description": "Portfolio suite in the installed Firefox and, on macOS, Safari, each driven over WebDriver against the built Node bundle with its own database and object storage: the page a visitor sees and the editor its owner sees at each width, by the cases the Chromium suite runs",
     "type": "module",
     "devDependencies": {
+        "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
+        "@rasm/process": "workspace:*",
         "@rasm/test-portfolio": "workspace:*",
         "@types/node": "catalog:",
         "@types/selenium-webdriver": "catalog:",
@@ -17,6 +16,10 @@
         "vitest": "catalog:"
     },
     "nx": {
+        "tags": [
+            "host:browser",
+            "os:all"
+        ],
         "implicitDependencies": [
             "@rasm/portfolio"
         ],

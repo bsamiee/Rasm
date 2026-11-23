@@ -8,6 +8,9 @@
     "references": [
         {
             "path": "../portfolio"
+        },
+        {
+            "path": "../../../libs/typescript/runtime/process"
         }
     ]
 }

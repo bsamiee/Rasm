@@ -12,7 +12,8 @@ Workflow `CI` and its jobs:
 - `nx-set-shas` falls back to the first commit where no successful run is in reach, and every task runs, as default `HEAD~1` checks one commit
 - Job `linux` runs affected projects tagged `os:linux`, `os:all`, or no `os:` on instance `host`, except `host:rhino`, `host:browser`, `host:unreal`
 - Configuration `ci` of job `linux` adds GitHub annotations to `check--knip` findings
-- Job `browser` runs `host:browser` projects on instance `container` with Chromium of its Playwright image and installs no browser
+- Job `browser` runs `host:browser` projects on instance `container` with Chromium of its Playwright image
+- Selenium Manager downloads stable Firefox and `geckodriver` for WebDriver suites, and the image holds the libraries Firefox loads
 - `pack--playwright` renders in job `browser`, extension UI in its image's Linux `system-ui`, and `Release` reads its images from remote cache
 - Runs at a Playwright version with no published image fail to pull it until Deploy on `main` publishes its tag
 - Job `browser` runs Chromium in a job container, as on the host each network Docker adds fails queued requests with `net::ERR_NETWORK_CHANGED`

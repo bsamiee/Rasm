@@ -59,6 +59,7 @@ PYTHONPYCACHEPREFIX                      = "{{ env.CACHE_DIR }}/python"
 RUFF_CACHE_DIR                           = "{{ env.CACHE_DIR }}/ruff"
 RUSTUP_AUTO_INSTALL                      = "0"
 RUSTUP_TOOLCHAIN                         = false
+SE_CACHE_PATH                            = "{{ env.CACHE_DIR }}/selenium"
 SHELLCHECK_OPTS                          = "--rcfile={{config_root}}/.config/shellcheckrc"
 SWIFT_BACKTRACE                          = "enable=yes,interactive=no,warnings=suppressed"
 TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE    = "/var/run/docker.sock"
