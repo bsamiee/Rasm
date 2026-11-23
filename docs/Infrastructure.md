@@ -25,6 +25,8 @@ Machines, their reinstall, and images their stacks run:
 - Reinstalls follow `tscli delete device`, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote` follows
 - Reinstalls of a storage machine follow `node stacks.ts deploy --operation=destroy --stack=<name>`, as its provider cannot refresh a lost store
 - `[bootstrap]` lengthens the Hostinger image's `99lock-timeout`, as a reinstalled machine's runner install meets its first unattended upgrade
+- `[bootstrap]` writes the Hostinger image's `/etc/fstab` whole, as a file entry edits no line of a file mise does not own
+- Root filesystems mount with `nodiscard` and `fstrim.timer` trims weekly, as online discard after mass deletes held the disk busy for hours
 - Reach machines off the tailnet through their provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
 - `[bootstrap.remote]` loads `linux`, and a host row with a role names `linux` and its role file, as `mise bootstrap remote` sends no `.miserc.toml`
 - `mise bootstrap remote` sends folder `.config` and applies its parts as `root@<name>` over Tailscale SSH
@@ -72,12 +74,14 @@ Nx cache server of role `Cache`:
 - Cache stacks write server URL and both tokens to Doppler `ci`
 - Cache stacks write object storage root keys and references to URL and read token to Doppler `dev`
 - Cache objects expire role field `kept` after their write, and a read refreshes none
+- Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a run once a cache write fails six times
 - Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop
 
 ## [06]-[RUNNERS]
 
 GitHub Actions runners of role `Runner`:
 - Role `Runner` field `instances` names each runner service by label with systemd limits `systemctl set-property` sets once it starts
+- Systemd limits of instance `container` reach no job, as its jobs run in containers under Docker's cgroups
 - Runner `<machine>-<label>` holds folder `actions-runner-<label>`, its own work folder, and label `<label>` beside default labels
 - Instance `host` runs jobs on its machine and `container` in a container, one job of each at once
 - Changes to runner version, label, limits, repository, or tailnet node reinstall a runner with a `gh api` token after `systemctl revert`
@@ -112,4 +116,4 @@ Google Cloud project `rasm-release`, its identities, and GitHub variables naming
 Package updates and reboots of each machine:
 - Machines install Ubuntu `*-updates` and Docker packages daily on a timer `.config/mise.linux.toml` sets
 - Machines reboot when an update requires it, and each reboot stops jobs there and CI runs reading its cache
-- Docker Engine's default garbage collection bounds the build cache CI builds fill
+- Docker Engine's builder garbage collection keeps the build cache CI builds fill under `defaultMaxUsedSpace`

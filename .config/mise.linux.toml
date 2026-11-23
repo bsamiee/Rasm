@@ -34,9 +34,17 @@ DPkg::Lock::Timeout "600";
 
 [bootstrap.files."/etc/docker/daemon.json"]
 content = """
-{"live-restore":true,"log-driver":"local"}
+{"builder":{"gc":{"defaultMaxUsedSpace":"20GB"}},"live-restore":true,"log-driver":"local"}
 """
 notify  = ["docker"]
+
+[bootstrap.files."/etc/fstab"]
+content = """
+LABEL=cloudimg-rootfs / ext4 nodiscard,commit=30,errors=remount-ro 0 1
+LABEL=BOOT /boot ext4 defaults,nofail,x-systemd.device-timeout=10 0 2
+LABEL=UEFI /boot/efi vfat umask=0077,X-fstrim.notrim 0 1
+"""
+notify  = ["systemd-remount-fs"]
 
 [bootstrap.files."/etc/sysctl.d/90-platform.conf"]
 content = """
@@ -71,7 +79,9 @@ notify  = ["apt-daily-upgrade.timer"]
 [bootstrap.services]
 "apt-daily-upgrade.timer" = {}
 docker                    = { on_change = "restart" }
+"fstrim.timer"            = {}
 ssh                       = { enabled = false, masked = true, state = "stopped" }
 "ssh.socket"              = { enabled = false, masked = true, state = "stopped" }
 systemd-journald          = { enabled = false }
+systemd-remount-fs        = {}
 systemd-sysctl            = { enabled = false }
