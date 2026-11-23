@@ -1,8 +1,9 @@
-"""Traversal for the trees Rasm checks walk: an explicit worklist over operation trees in native preorder, and the template and type-form nodes refurb's traverser has no overload for."""
+"""Traversal for the trees Rasm checks walk: an explicit worklist over operation trees in native preorder, and the template, type-form, and absent nodes refurb's traverser has no overload for, the absent key of a `{**row for row in rows}` comprehension among them."""
 
+from types import NoneType
 from typing import override
 
-from mypy.nodes import DictionaryComprehension, Expression, OpExpr, TemplateStrExpr, TypeFormExpr
+from mypy.nodes import Expression, OpExpr, TemplateStrExpr, TypeFormExpr
 from refurb.visitor import TraverserVisitor
 from refurb.visitor.traverser import accept
 
@@ -21,17 +22,6 @@ class Traverser(TraverserVisitor):
                     pending.extend((*(() if analyzed is None else (analyzed,)), right, left))
                 case expression:
                     self.accept(expression)
-
-    @override
-    def visit_dictionary_comprehension(self, o: DictionaryComprehension) -> None:
-        for index, sequence, conditions in zip(o.indices, o.sequences, o.condlists):
-            self.accept(sequence)
-            self.accept(index)
-            for condition in conditions:
-                self.accept(condition)
-        if o.key is not None:
-            self.accept(o.key)
-        self.accept(o.value)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -52,6 +42,11 @@ def _template(node: TemplateStrExpr, visitor: TraverserVisitor) -> None:
 
 @accept.register
 def _type_form(node: TypeFormExpr, visitor: TraverserVisitor) -> None:
+    pass
+
+
+@accept.register(NoneType)
+def _absent(node: None, visitor: TraverserVisitor) -> None:
     pass
 
 
