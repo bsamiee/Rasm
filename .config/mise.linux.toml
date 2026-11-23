@@ -34,7 +34,7 @@ DPkg::Lock::Timeout "600";
 
 [bootstrap.files."/etc/docker/daemon.json"]
 content = """
-{"builder":{"gc":{"defaultMaxUsedSpace":"20GB"}},"live-restore":true,"log-driver":"local"}
+{"builder":{"gc":{"defaultMaxUsedSpace":"20GB"}},"live-restore":true,"log-driver":"local","userland-proxy":false}
 """
 notify  = ["docker"]
 
