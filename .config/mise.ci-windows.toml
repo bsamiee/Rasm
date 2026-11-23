@@ -1,0 +1,17 @@
+# --- [SETTINGS] -------------------------------------------------------------------------
+
+[settings]
+enable_tools = [
+    "cmake",
+    "dotnet",
+    "github:llvm/llvm-project",
+    "github:microsoft/vcpkg-tool",
+    "jscpd",
+    "ninja",
+    "node",
+    "pnpm",
+    "rust",
+    "tree-sitter",
+    "uv",
+    "yq",
+]

@@ -1,0 +1,23 @@
+# --- [SETTINGS] -------------------------------------------------------------------------
+
+[settings]
+enable_tools = [
+    "cmake",
+    "conda:openssh",
+    "doppler",
+    "dotnet",
+    "gh",
+    "github:docker/buildx",
+    "github:llvm/llvm-project",
+    "github:microsoft/vcpkg-tool",
+    "http:docker-cli",
+    "jq",
+    "jscpd",
+    "ninja",
+    "node",
+    "pnpm",
+    "pulumi",
+    "rust",
+    "tree-sitter",
+    "uv",
+]

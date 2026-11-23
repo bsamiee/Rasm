@@ -1,5 +1,5 @@
 name: Tools
-description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose post-tools hook installs project dependencies, pnpm packages alone under mise profile ci on GitHub-hosted runners and in job containers, and exports mise env
+description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose post-tools hook installs project dependencies, on GitHub-hosted runners and in job containers under mise profiles ci, pnpm packages alone, and ci-<job id>, the tools that job runs where its file exists, and exports mise env
 
 runs:
     using: composite
@@ -8,9 +8,6 @@ runs:
           run: |-
               git clean -ffd
               printf "%s\n" "TMPDIR=${RUNNER_TEMP}" >> "${GITHUB_ENV}"
-        - if: ${{ runner.environment == 'github-hosted' || job.container.id != '' }}
-          shell: bash
-          run: printf "%s\n" "MISE_ENV=ci" >> "${GITHUB_ENV}"
         - if: ${{ job.container.id != '' }}
           shell: bash
           run: |-
@@ -19,6 +16,8 @@ runs:
         - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
           with:
               mise_dir: ${{ runner.os == 'Windows' && 'C:\mise' || '' }}
+              mise_env: ${{ (runner.environment == 'github-hosted' || job.container.id != '') && format('ci,ci-{0}', github.job) || '' }}
               bootstrap: true
               bootstrap_args: --only tools
               cache: ${{ runner.environment == 'github-hosted' }}
+              cache_key: "{{cache_key_prefix}}-{{platform}}-{{mise_env}}-{{bootstrap_hash}}-p{{cache_period}}-${{ hashFiles('.config/mise.toml', '.config/mise.lock', '.config/mise.ci.toml', format('.config/mise.ci-{0}.toml', github.job)) }}"

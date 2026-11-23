@@ -93,5 +93,5 @@ Workflow `Release` credentials and jobs:
 Workflow `Maintenance` jobs per runner instance:
 - Workflow `Maintenance` runs weekly before the machine update hour
 - Job `container` checks out clean and removes every ignored file of its work folder, package store included
-- Job `host` keeps ignored files and prunes package stores, the cargo build folder, unused mise tool versions, Docker objects no container uses, and build cache past a week
+- Job `host` keeps ignored files and prunes package stores, the cargo build folder, unused mise tools and Docker objects, and week-old build cache
 - Jobs `container` and `host` each take their instance's queue, and a reset or prune never overlaps a job there as a machine timer can
