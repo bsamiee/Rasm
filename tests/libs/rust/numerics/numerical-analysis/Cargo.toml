@@ -18,7 +18,9 @@ claims                  = { workspace = true }
 nalgebra                = { workspace = true }
 nonempty-collections    = { workspace = true }
 rasm-numerical-analysis = { workspace = true }
+proptest                = { workspace = true }
 rasm-stats              = { workspace = true }
+rstest                  = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 
