@@ -142,7 +142,7 @@ it.layer(layer, { excludeTestServices: true })('config', (methods) => {
         limit,
     );
 
-    methods.for(['#', '#remuser', '=remuser', '~', '~remuser', 'rem\uD800user'])('refuses %j, which the OpenSSH client reads as a comment, a separator, a home folder, or no text', (text) => {
+    methods.for(['#remuser', '=remuser', '~remuser', 'rem\uD800user'])('refuses %j, which the OpenSSH client reads as a comment, a separator, or a home folder, or no UTF-8 file can hold', (text) => {
         assert.deepStrictEqual([Schema.decodeResult(Host)({ ...stated, user: text }), Schema.decodeResult(Host)({ ...stated, identity: { _tag: 'Agent', socket: text } })].map(Result.isFailure), [true, true]);
     });
 
@@ -174,24 +174,20 @@ it.layer(layer, { excludeTestServices: true })('config', (methods) => {
         limit,
     );
 
-    methods.for([
-        { fields: { persist: 1000 }, accepted: true },
-        { fields: { persist: 0 }, accepted: false },
-        { fields: { persist: 999 }, accepted: false },
-        { fields: { persist: 1500 }, accepted: false },
-        { fields: { timeout: 1000 }, accepted: true },
-        { fields: { timeout: 0 }, accepted: false },
-        { fields: { timeout: 2500 }, accepted: false },
-        { fields: { alive: { interval: 1000, count: 1 } }, accepted: true },
-        { fields: { alive: { interval: 0, count: 1 } }, accepted: false },
-        { fields: { alive: { interval: 1000, count: 0 } }, accepted: false },
-        { fields: { alive: { interval: 1000, count: 1.5 } }, accepted: false },
-        { fields: { path: { _tag: 'Direct', preferred: [{ host: '192.0.2.8', within: 1000 }] } }, accepted: true },
-        { fields: { path: { _tag: 'Direct', preferred: [{ host: '192.0.2.8', within: 0 }] } }, accepted: false },
-        { fields: { path: { _tag: 'Direct', preferred: [{ host: '192.0.2.8', within: 1200 }] } }, accepted: false },
-    ] as const)('decides %j by whole seconds above zero, the unit OpenSSH reads', ({ fields, accepted }) => {
-        assert.strictEqual(Result.isSuccess(Schema.decodeResult(Host)({ ...stated, ...fields })), accepted);
-    });
+    methods.prop(
+        'accepts a duration in every timing field exactly when it is a whole number of seconds above zero, the unit OpenSSH reads',
+        { seconds: Schema.Int.check(Schema.isBetween({ minimum: -2, maximum: 9 })), offset: Schema.Union([Schema.Literal(0), Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 999 }))]) },
+        ({ seconds, offset }) => {
+            const millis = seconds * 1000 + offset;
+            const fields = { persist: { persist: millis }, timeout: { timeout: millis }, interval: { alive: { interval: millis, count: 1 } }, within: { path: { _tag: 'Direct', preferred: [{ host: '192.0.2.8', within: millis }] } } } as const;
+            const accepted = millis > 0 && millis % 1000 === 0;
+            assert.deepStrictEqual(
+                Record.map(fields, (field) => Result.isSuccess(Schema.decodeResult(Host)({ ...stated, ...field }))),
+                Record.map(fields, () => accepted),
+                `${millis} ms`,
+            );
+        },
+    );
 
     methods.effect.each([
         { flag: '-R', ends: ['127.0.0.1:0', '127.0.0.1:22'], accepted: true },

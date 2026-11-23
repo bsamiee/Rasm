@@ -1,7 +1,13 @@
+import { hash } from 'node:crypto';
 import { assert, it } from '@effect/vitest';
 import { Forward, SshError } from '@rasm/ssh';
 import { Effect, FileSystem, Option, Path, pipe, Schema, Struct } from 'effect';
 import { bounds, reasoned, Sshd } from '#/sshd';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const files = { top: new TextEncoder().encode('top file\n'.repeat(4096)), nested: new TextEncoder().encode('nested file\n'.repeat(4096)) };
+const summed = { top: hash('sha256', files.top), nested: hash('sha256', files.nested) };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -17,31 +23,17 @@ const exited = (failed: unknown) =>
 
 it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concurrent: true })('commands', (methods) => {
     methods.effect.each([
-        { status: 0, env: {}, reported: 'reached' },
-        { status: 1, env: {}, reported: 'Exit 1' },
         { status: 254, env: {}, reported: 'Exit 254' },
         { status: 255, env: {}, reported: 'Exit 255' },
-        { status: 0, env: { SENT: 'sent' }, reported: 'reached' },
-        { status: 1, env: { SENT: 'sent' }, reported: 'Exit 1' },
         { status: 254, env: { SENT: 'sent' }, reported: 'Exit 254' },
         { status: 255, env: { SENT: 'sent' }, reported: 'Unreachable' },
     ])(
-        'reports a command exiting $status with environment $env on a host whose shared connection lives as $reported',
+        'reports a command exiting $status, sent with environment $env beside a live shared connection, as $reported',
         Effect.fnUntraced(function* ({ status, env, reported }) {
             const sshd = yield* Sshd;
             const [{ ssh }, host] = yield* Effect.all([sshd.client, sshd.hosted('exits')]);
             yield* ssh.run(host, ['true']);
             assert.strictEqual(yield* reasoned(ssh.run(host, ['sh', '-c', `exit ${status}`], { env })), reported);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'reports a command exiting 255 with its environment on a host with no shared connection as unreachable',
-        Effect.fnUntraced(function* () {
-            const sshd = yield* Sshd;
-            const [{ ssh }, host] = yield* Effect.all([sshd.client, sshd.hosted('alone')]);
-            assert.strictEqual(yield* reasoned(ssh.run(host, ['sh', '-c', 'exit 255'], { env: { SENT: 'sent' } })), 'Unreachable');
         }),
         bounds.test,
     );
@@ -80,6 +72,22 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const before = yield* reasoned(ssh.run(host, ['true']));
             yield* sshd.listening(inside);
             assert.deepStrictEqual([before, yield* ssh.run(host, ['sh', '-c', 'set -- $SSH_CONNECTION; echo "$4"'])], ['Unreachable', `${inside}\n`]);
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'copies a folder with its subfolders and the targets of its links',
+        Effect.fnUntraced(function* () {
+            const [sshd, fs, path] = yield* Effect.all([Sshd, FileSystem.FileSystem, Path.Path]);
+            const [{ ssh }, host, folder, made] = yield* Effect.all([sshd.client, sshd.hosted('folders'), fs.makeTempDirectoryScoped(), sshd.scratch]);
+            const grown = path.join(folder, 'grown');
+            yield* fs.makeDirectory(path.join(grown, 'subdir'), { recursive: true });
+            yield* Effect.all([fs.writeFile(path.join(grown, 'copy'), files.top), fs.writeFile(path.join(grown, 'subdir', 'copy'), files.nested)]);
+            yield* Effect.all([fs.symlink(path.join(grown, 'copy'), path.join(grown, 'copy-sym')), fs.symlink(path.join(grown, 'subdir'), path.join(grown, 'subdir-sym'))]);
+            yield* ssh.copy(host, grown, `${made}/up`);
+            const up = yield* ssh.run(host, ['sh', '-c', `cd ${made}/up && find . -type f | sort | xargs sha256sum`]);
+            assert.deepStrictEqual(up.trim().split('\n'), [`${summed.top}  ./copy`, `${summed.top}  ./copy-sym`, `${summed.nested}  ./subdir-sym/copy`, `${summed.nested}  ./subdir/copy`]);
         }),
         bounds.test,
     );

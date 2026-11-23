@@ -2,7 +2,7 @@ import { connect, type NetConnectOpts } from 'node:net';
 import { layer } from '@effect/platform-node/NodeServices';
 import { fromReadable } from '@effect/platform-node/NodeStream';
 import { Host, Ssh, SshError } from '@rasm/ssh';
-import { Array, Cause, Context, Deferred, Effect, Fiber, FileSystem, Formatter, Layer, Path, pipe, Queue, Record, Schema, Stream } from 'effect';
+import { Array, Cause, Context, Deferred, Effect, Fiber, FileSystem, Formatter, Layer, Option, Path, pipe, Queue, Record, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { GenericContainer, Wait } from 'testcontainers';
 
@@ -12,12 +12,19 @@ const served = 22;
 const spare = Array.range(2201, 2216);
 const bounds = { started: '3 minutes', test: 60_000 } as const;
 const principal = 'certified';
-const policy = ['-f', '/dev/null', '-h', '/keys/server', '-o', 'Subsystem=sftp internal-sftp', '-o', 'HostCertificate=/keys/server-cert.pub', '-o', 'TrustedUserCAKeys=/keys/authority.pub', '-o', 'StrictModes=no', '-o', 'AcceptEnv=*', '-o', 'MaxStartups=100', '-o', 'PerSourcePenalties=no', '-o', 'PidFile=none'];
+const policy = [
+    '-f',
+    '/dev/null',
+    ...Record.collect(
+        { HostKey: '/keys/server', HostCertificate: '/keys/server-cert.pub', TrustedUserCAKeys: '/keys/authority.pub', AuthorizedKeysFile: '/keys/authorized', Subsystem: 'sftp internal-sftp', StrictModes: 'no', AcceptEnv: '*', MaxStartups: '100', PerSourcePenalties: 'no', PidFile: 'none' },
+        (option, value) => ['-o', `${option}=${value}`],
+    ).flat(),
+];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const held = Effect.fnUntraced(function* (options: NetConnectOpts, sent: Uint8Array = new Uint8Array()) {
-    const first = yield* Deferred.make<string>();
+    const first = yield* Deferred.make<Option.Option<string>>();
     const answers = fromReadable({
         evaluate: () => {
             const socket = connect(options, () => {
@@ -26,7 +33,8 @@ const held = Effect.fnUntraced(function* (options: NetConnectOpts, sent: Uint8Ar
             return socket;
         },
     });
-    const closed = yield* Effect.forkScoped(Effect.ensuring(Effect.ignore(Stream.runForEach(answers, (chunk) => Deferred.succeed(first, new TextDecoder('latin1').decode(chunk)))), Deferred.succeed(first, '')));
+    const read = Stream.runForEach(answers, (chunk) => Deferred.succeed(first, Option.some(new TextDecoder('latin1').decode(chunk))));
+    const closed = yield* Effect.forkScoped(Effect.matchEffect(read, { onSuccess: () => Deferred.succeed(first, Option.some('')), onFailure: () => Deferred.succeed(first, Option.none()) }));
     return { first: yield* Deferred.await(first), closed: Fiber.join(closed) };
 });
 const heard = (options: NetConnectOpts, sent?: Uint8Array) => Effect.scoped(Effect.map(held(options, sent), ({ first }) => first));
@@ -71,8 +79,8 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd', {
                 { source: `${files.server}-cert.pub`, target: '/keys/server-cert.pub' },
                 { source: `${files.authority}.pub`, target: '/keys/authority.pub' },
             ])
-            .withCopyContentToContainer([{ content: `${authorized}\n`, target: `/keys/authorized.${served}` }])
-            .withCommand(['/usr/sbin/sshd', '-D', '-e', '-p', `${served}`, ...policy, '-o', `AuthorizedKeysFile=/keys/authorized.${served}`])
+            .withCopyContentToContainer([{ content: `${authorized}\n`, target: '/keys/authorized' }])
+            .withCommand(['/usr/sbin/sshd', '-D', '-e', '-p', `${served}`, ...policy])
             .withWaitStrategy(Wait.forLogMessage(`Server listening on 0.0.0.0 port ${served}.`));
         const container = yield* Effect.acquireDisposable(Effect.tryPromise({ try: () => defined.start(), catch: (cause) => new Cause.UnknownError(cause, 'sshd container failed to start') }));
         const executed = (...words: readonly string[]) =>
@@ -91,15 +99,7 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd', {
             mapped,
         );
         const ended = (...words: readonly string[]) => Effect.promise(() => container.exec([...words]));
-        const listening = Effect.fnUntraced(function* (inside: number, options: readonly string[] = [], keyOptions: readonly string[] = []) {
-            const line = Array.match(keyOptions, { onEmpty: () => authorized, onNonEmpty: (given) => `${given.join(',')} ${authorized}` });
-            yield* Effect.tryPromise({
-                try: () => container.copyContentToContainer([{ content: `${line}\n`, target: `/keys/authorized.${inside}` }]),
-                catch: (cause) => new Cause.UnknownError(cause, `the container refused the authorized keys of port ${inside}`),
-            });
-            const started = executed('/usr/sbin/sshd', '-p', `${inside}`, ...policy, '-o', `AuthorizedKeysFile=/keys/authorized.${inside}`, ...options.flatMap((option) => ['-o', option]));
-            return yield* Effect.acquireRelease(started, () => ended('pkill', '-KILL', '-f', `^sshd: /usr/sbin/sshd -p ${inside} `));
-        });
+        const listening = (inside: number) => Effect.acquireRelease(executed('/usr/sbin/sshd', '-p', `${inside}`, ...policy), () => ended('pkill', '-KILL', '-f', `^sshd: /usr/sbin/sshd -p ${inside} `));
         const scratch = Effect.acquireRelease(
             Effect.map(executed('mktemp', '-d'), (made) => made.trim()),
             (made) => ended('rm', '-rf', made),
