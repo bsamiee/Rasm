@@ -4,7 +4,8 @@
 name              = "rasm-testing"
 version           = "0.1.0"
 description       = "pytest plugins, one per extra: a private SQLite database and HTTP servers a test hosts on a loopback port"
-classifiers       = ["Framework :: Pytest", "Private :: Do Not Upload"]
+license           = "MIT"
+classifiers       = ["Framework :: Pytest", "Intended Audience :: Developers", "Operating System :: OS Independent", "Private :: Do Not Upload", "Topic :: Software Development :: Testing"]
 requires-python   = ">=3.13"
 import-names      = ["rasm.testing"]
 import-namespaces = ["rasm"]
@@ -25,6 +26,11 @@ hosting = [
 sqlite  = [
     "sqlite-vec", # `vec0` extension loaded into each SQLite database
 ]
+
+[project.urls]
+Homepage = "https://github.com/bsamiee/Rasm/tree/main/tests/support/python"
+Source   = "https://github.com/bsamiee/Rasm"
+Issues   = "https://github.com/bsamiee/Rasm/issues"
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
 
