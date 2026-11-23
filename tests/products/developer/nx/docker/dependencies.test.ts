@@ -19,6 +19,7 @@ describe('build context dependencies', () => {
         { context: 'the output folder', at: '../libs/site/dist', site: SITE, edge: true },
         { context: 'a folder inside the output', at: '../libs/site/dist/public', site: SITE, edge: true },
         { context: 'the output folder of a configuration', at: '../libs/site/dist', site: { name: 'site', targets: { 'build--vite': { command: 'true', outputs: ['{options.outputPath}'], options: { outputPath: 'libs/site/out' }, configurations: { production: { outputPath: 'libs/site/dist' } } } } }, edge: true },
+        { context: 'a folder holding the output', at: '../libs/site', site: SITE, edge: true },
         { context: 'a source folder no output covers', at: '../libs/site/public', site: SITE, edge: false },
     ])('makes the Compose project depend on the project building $context: $edge', async ({ at, site, edge }, { workspace }) => {
         const graph = await workspace.write({ ...CONTEXT(at), 'libs/site/project.json': JSON.stringify(site), 'libs/site/public/index.html': '<p>site</p>\n' }).graph({ createNodes, createDependencies });

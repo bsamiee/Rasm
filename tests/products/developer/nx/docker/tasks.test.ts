@@ -1,6 +1,10 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { platform } from 'node:process';
 import { createDependencies, createNodes } from '@rasm/nx-docker';
-import { it, unaggregated, taskGraph } from '@rasm/testing/nx';
-import { describe, expect, vi } from 'vitest';
+import { it, shimmed, taskGraph, unaggregated } from '@rasm/testing/nx';
+import { describe, expect, onTestFinished, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
@@ -76,5 +80,21 @@ describe('profiles', () => {
         const graph = await workspace.write({ 'proj/project.json': '{"name":"proj"}', 'proj/Dockerfile': 'FROM scratch\n', 'proj/compose.yaml': 'services:\n    app:\n        build: .\n' }).graph({ createNodes, createDependencies });
 
         expect([graph.nodes['proj']?.data.targets?.['build--compose']?.configurations, graph.nodes['proj']?.data.targets?.['install--compose']?.configurations]).toStrictEqual([{}, {}]);
+    });
+});
+
+describe.runIf(platform !== 'linux')('engine', () => {
+    it.for([
+        { projects: 'a Compose project building images', files: SERVED, first: [{ id: 'infra:clean--compose' }, { id: 'workspace:install--colima' }] },
+        { projects: 'Compose projects of pulled images alone', files: { 'infra/project.json': '{"name":"infra"}', 'infra/compose.yaml': 'services:\n    db:\n        image: postgres:18\n' }, first: [{ id: 'workspace:install--colima' }] },
+    ])('reclaims the VM disk with the VM started, after the image removal of $projects', async ({ files, first }, { workspace }) => {
+        const folder = mkdtempSync(join(tmpdir(), 'docker-colima-'));
+        onTestFinished(() => rmSync(folder, { recursive: true }));
+        shimmed(folder, { colima: 'exit 0' });
+        const graph = await workspace.write({ ...files, 'project.json': '{"name":"workspace"}', '.config/mise.toml': '[tools]\n' }).graph({ createNodes, createDependencies });
+
+        const { dependencies } = taskGraph(graph, ['workspace'], ['clean--colima']);
+
+        expect(dependencies['workspace:clean--colima']?.toSorted((left, right) => left.id.localeCompare(right.id))).toStrictEqual(first);
     });
 });
