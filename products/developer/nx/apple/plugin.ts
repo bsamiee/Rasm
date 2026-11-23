@@ -1,10 +1,11 @@
-import { basename, dirname, extname, join, matchesGlob, relative, resolve } from 'node:path';
+import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, fingerprinted, inferring, manifested, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
+import { aggregated, fingerprinted, inferring, manifested, produced, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Context, Effect, FileSystem, flow, Layer, Option, Record, Result, Schema, Stream } from 'effect';
+import which from 'which';
 import { Described, ENTITLEMENTS, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, RESOLVED, Shipped, sources } from '#/swift-package';
 import { analyzer, Options, type Part, PLUGIN, tokened } from '#/targets';
 import { Analyzed, xcodeParts } from '#/xcode-project';
@@ -162,8 +163,11 @@ const createNodes: CreateNodes = [
         const [hashed, developer, swift, compiled] = yield* Effect.all(
             [
                 own,
-                Effect.option(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot })),
-                Effect.option(spawned(['which', 'swift'], { cwd: workspaceRoot })),
+                Effect.option(Effect.firstSuccessOf([Config.String('DEVELOPER_DIR'), fs.readLink('/var/db/xcode_select_link'), Effect.map(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot }), (at) => at.trim())])),
+                Effect.map(
+                    Effect.promise(() => which('swift', { nothrow: true })),
+                    Option.fromNullOr,
+                ),
                 Effect.option(
                     Effect.gen(function* () {
                         const at = yield* analyzer;
@@ -177,8 +181,8 @@ const createNodes: CreateNodes = [
         const slot = join(workspaceDataDirectory, 'apple.hash');
         const stamps = [
             ...Option.toArray(developer),
-            ...Option.toArray(Option.flatMap(developer, (path) => Option.fromNullishOr(hashFile(join(path.trim(), '..', 'version.plist'))))),
-            ...[...Option.toArray(swift), ...Option.toArray(compiled)].flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file.trim()))]),
+            ...Option.toArray(Option.flatMap(developer, (path) => Option.fromNullishOr(hashFile(join(path, '..', 'version.plist'))))),
+            ...[...Option.toArray(swift), ...Option.toArray(compiled)].flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file))]),
             ...Option.toArray(yield* Config.option(Config.String('TOOLCHAINS'))),
             ...files.filter((file) => basename(file) === MANIFEST).flatMap((file) => Array.fromNullishOr(hashFile(join(workspaceRoot, dirname(file), PACKAGED)))),
         ];
@@ -193,7 +197,7 @@ const createNodes: CreateNodes = [
                             info: Effect.option(spawned(['swift', '-print-target-info'], { cwd: workspaceRoot })),
                             xcodebuild: Effect.option(
                                 Effect.tap(
-                                    Effect.map(Effect.fromOption(developer), (path) => join(path.trim(), 'usr', 'bin', 'xcodebuild')),
+                                    Effect.map(Effect.fromOption(developer), (path) => join(path, 'usr', 'bin', 'xcodebuild')),
                                     (at) => fs.stat(at),
                                 ),
                             ),
@@ -225,23 +229,13 @@ const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) 
         Effect.map(Graphs, (graphs) => {
             const { edges = [], buildFiles = {} } = graphs.get(workspaceRoot) ?? {};
             const names = createProjectRootMappingsFromProjectConfigurations(projects);
-            const built = Record.collect(buildFiles, (root, files) => files.map((at) => ({ root, at }))).flat();
-            const declared = Record.collect(Array.isReadonlyArrayNonEmpty(built) ? projects : {}, (name, data) =>
-                Record.collect(
-                    Record.filter(data.targets ?? {}, ({ outputs }) => outputs !== undefined),
-                    (target, { configurations = {} }) => ({ name, data, target, configurations }),
-                ),
-            ).flat();
-            const produced = declared.flatMap(({ name, data, target, configurations }) =>
-                [{}, ...Record.keys(configurations).map((configuration) => ({ configuration }))]
-                    .flatMap((selected) => getOutputsForTargetAndConfiguration({ project: name, target, ...selected }, {}, { name, type: 'lib', data }))
-                    .filter((output) => !output.startsWith('!'))
-                    .map((output) => ({ root: data.root, output })),
+            const built = Array.getSomes(Record.collect(buildFiles, (root, files) => Option.map(Option.fromUndefinedOr(names.get(root)), (source) => ({ source, files })))).flatMap(({ source, files }) => files.map((at) => ({ source, at })));
+            const made: Readonly<Record<string, readonly string[]>> = Array.match(
+                built.map(({ at }) => at),
+                { onEmpty: () => ({}), onNonEmpty: (files) => produced(projects, files) },
             );
-            const implied = Array.cartesian(built, produced)
-                .filter(([{ at }, { output }]) => matchesGlob(at, output) || matchesGlob(at, join(output, '**')) || !relative(at, output).startsWith('..'))
-                .map(([{ root }, { root: producer }]): RawProjectGraphDependency => ({ source: root, target: producer, type: DependencyType.implicit }));
-            return Array.getSomes([...edges, ...implied].map((edge) => Option.map(Option.all({ source: Option.fromUndefinedOr(names.get(edge.source)), target: Option.fromUndefinedOr(names.get(edge.target)) }), (named) => ({ ...edge, ...named }))));
+            const implied = built.flatMap(({ source, at }) => (made[at] ?? []).map((target): RawProjectGraphDependency => ({ source, target, type: DependencyType.implicit })));
+            return [...Array.getSomes(edges.map((edge) => Option.map(Option.all({ source: Option.fromUndefinedOr(names.get(edge.source)), target: Option.fromUndefinedOr(names.get(edge.target)) }), (named) => ({ ...edge, ...named })))), ...implied];
         }),
     );
 
