@@ -1,7 +1,6 @@
 """Requirements measured over compiled binaries, each catching one defect a probe draws: tails under the next part, kasras over the baseline, stencil strokes at a join, seams at the pixel, and lost dots."""
 
 import functools
-import math
 
 import msgspec
 import pytest
@@ -50,11 +49,11 @@ def test_mark_clearance_reads_a_stencil_stroke_at_a_join_as_body(font: functools
     assert tuple(subject for subject, _, _ in measured) == found
 
 
-@pytest.mark.parametrize("reach,found", [(math.ceil(Seam().overlap * 1000), ()), (11, ("ab at 12 ppem",))])
-def test_seam_holds_a_join_centred_in_a_pixel_at_the_overlap_joins_derive(font: functools.partial[bytes], corpus: Corpus, reach: int, found: tuple[str, ...]) -> None:
-    """Two glyphs overlapping by twice the reach about the middle of a 12 ppem pixel composite at the band's floor or above, the former 11 units each under it."""
+@pytest.mark.parametrize("reach,found", [pytest.param(12, (), id="overlap-at-floor"), pytest.param(11, ("ab at 12 ppem",), id="overlap-under-floor")])
+def test_a_join_overlapping_by_the_least_reach_composites_at_or_above_the_band_floor(font: functools.partial[bytes], corpus: Corpus, reach: int, found: tuple[str, ...]) -> None:
+    """Two glyphs overlapping by twice the reach about the middle of a 12 ppem pixel composite at the 0.87 band floor from 12 units each, the overlap `(1 - 2 * sqrt(1 - 0.87)) / 24` em rounded up, and under it from 11."""
     glyphs = {"a": (542, ((0, 0, 542 + reach, 833),)), "b": (500, ((-reach, 0, 500, 833),))}
-    findings = Seam().measured(Binary(data=font(glyphs, {0x0061: "a", 0x0062: "b"})), corpus=msgspec.structs.replace(corpus, seam=("ab",)))
+    findings = Seam(band=(0.87, 1.58), sizes=(12,)).measured(Binary(data=font(glyphs, {0x0061: "a", 0x0062: "b"})), corpus=msgspec.structs.replace(corpus, seam=("ab",)))
     assert tuple(subject for subject, _, _ in findings) == found
 
 

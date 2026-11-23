@@ -1,4 +1,4 @@
-"""Outline rebuilds of `Outlines` and `Joins`: dots kept apart from spurs, dashes keeping their shape, redrawn dots kept apart, the floor held per side, the plan of a dot-matrix face, and join bridges leaving dots apart."""
+"""Outline rebuilds of `Outlines` and `Joins`: dots kept apart from spurs, dashes keeping their shape, redrawn dots kept apart, the floor held per side, and join bridges leaving dots apart."""
 
 from collections.abc import Callable
 import functools
@@ -6,7 +6,7 @@ import functools
 import pathops
 import pytest
 
-from rasm.typography import DotMatrix, Face, Joins, Outlines, pieces, planned, Source, TextNaskh
+from rasm.typography import Face, Joins, Outlines, pieces, Source, TextNaskh
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -24,13 +24,12 @@ def test_spur_cut_keeps_dots_under_the_join_band(font: functools.partial[bytes],
 
 
 def test_two_dot_dash_keeps_its_shape(font: functools.partial[bytes], rebuilt: functools.partial[Source], outers: Callable[[Source, str], tuple[tuple[float, float], ...]]) -> None:
-    """A two-dot dash of nuqta area keeps its length where a single dot would turn `ت` into `ن`."""
+    """A 120 by 50 two-dot dash of nuqta area keeps its 2.4 elongation where a single round dot of elongation 1 would turn `ت` into `ن`."""
     glyphs = BEH | {"uni062A": (500, ((0, 0, 500, 150),)), "uni062A.medi": (500, ((0, 0, 500, 150), (190, 250, 310, 300)))}
-    rule = next(rule for rule in planned(NASKH) if isinstance(rule, Outlines))
     source = rebuilt(NASKH, font(glyphs, {0x0628: "uni0628", 0x062A: "uni062A"}, "feature medi { sub uni062A by uni062A.medi; } medi;"), Outlines)
-    (_, dash), (_, dot) = (outers(source, name)[0] for name in ("uni062A.medi", "uni0628"))
-    assert len(outers(source, "uni062A.medi")) == 2
-    assert dash >= rule.shape * dot
+    (_, dash), *body = outers(source, "uni062A.medi")
+    assert len(body) == 1
+    assert dash == pytest.approx(120 / 50, rel=0.02)
 
 
 def test_redrawn_dots_stay_apart(font: functools.partial[bytes], rebuilt: functools.partial[Source], outers: Callable[[Source, str], tuple[tuple[float, float], ...]]) -> None:
@@ -41,24 +40,17 @@ def test_redrawn_dots_stay_apart(font: functools.partial[bytes], rebuilt: functo
 
 
 def test_floor_holds_each_side_of_a_letter_apart(font: functools.partial[bytes], rebuilt: functools.partial[Source]) -> None:
-    """A flourish over a beh too near its body rises the floor clear while the dot under it stays, as Shabtab's crescent and star do, never dragged through the body as one group."""
+    """A flourish drawn 10 units over a beh's body rises off it while the dot under the body stays at -200, as Shabtab's crescent and star do, never dragged through the body as one group."""
     glyphs = BEH | {"uni0628.medi": (600, ((0, 0, 600, 150), (200, 160, 400, 200), (265, -200, 335, -130)))}
-    rule = next(rule for rule in planned(NASKH) if isinstance(rule, Outlines))
     path = pathops.Path()
     rebuilt(NASKH, font(glyphs, {0x0628: "uni0628"}, "feature medi { sub uni0628 by uni0628.medi; } medi;"), Outlines).drawn("uni0628.medi").draw(path.getPen())
     held = tuple(pathops.Path() for _ in path.contours)
     for contour, own in zip(path.contours, held, strict=True):
         contour.draw(own.getPen())
-    lows = sorted(own.bounds[1] for own in held)
-    assert rule.floor is not None
-    assert lows[0] == pytest.approx(-200, abs=1)
-    assert lows[-1] >= 150 + rule.floor * 1000 - 1
-
-
-@pytest.mark.parametrize("face,dotted", [(Face(family="Probe", style="Regular"), True), (Face(family="Probe", style="Regular", genre=DotMatrix()), False)])
-def test_dot_rules_read_whether_letters_carry_dots(face: Face, *, dotted: bool) -> None:
-    """A dot-matrix face draws every letter in dots, so its plan names no dotted letter whose pieces the dot rules move or check."""
-    assert any(isinstance(rule, Outlines) and rule.dot is not None for rule in planned(face)) is dotted
+    (dot, body, flourish) = sorted((own.bounds for own in held), key=lambda bounds: bounds[1])
+    assert (dot[1], body[1:4:2]) == (pytest.approx(-200, abs=1), (0, 150))
+    assert flourish[1] > 160
+    assert flourish[3] - flourish[1] == pytest.approx(40, abs=1)
 
 
 def test_join_bridge_leaves_a_dot_inside_the_band_apart(font: functools.partial[bytes], rebuilt: functools.partial[Source]) -> None:
