@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { basename, delimiter, dirname, join, relative } from 'node:path';
 import { chdir, cwd, env } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { type CreateDependencies, type CreateNodes, type ExecutorContext, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, readJsonFile, readProjectsConfigurationFromProjectGraph } from '@nx/devkit';
+import { type ExecutorContext, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, readJsonFile, readProjectsConfigurationFromProjectGraph } from '@nx/devkit';
 import { Array, Cause, type Duration, Effect, Function, Match, Option, Predicate, Record, Schema } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, resolveNxTokensInOptions, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
@@ -29,11 +29,6 @@ import { onTestFinished, test, vi } from 'vitest';
 interface Asked {
     readonly authorized: boolean;
     readonly held: Buffer | undefined;
-}
-
-interface Plugin<T> {
-    readonly createNodes?: CreateNodes<T>;
-    readonly createDependencies?: CreateDependencies<T>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -95,7 +90,7 @@ const answered = Match.type<Asked>().pipe(
     Match.orElse(() => constants.HTTP_STATUS_OK),
 );
 
-const served = (token: string, answer: (asked: Asked) => Option.Option<number>) => {
+const remote = Effect.fnUntraced(function* (token: string, answer: (asked: Asked) => Option.Option<number>) {
     const [held, requests] = [new Map<string, Buffer>(), Array.empty<string>()];
     const server = createServer((request, response) => {
         const chunks: Buffer[] = [];
@@ -111,28 +106,22 @@ const served = (token: string, answer: (asked: Asked) => Option.Option<number>) 
             });
         });
     });
-    return { server, requests };
-};
-
-const remote = Effect.fnUntraced(function* (token: string, answer: (asked: Asked) => Option.Option<number>) {
-    const { server, requests } = yield* Effect.acquireRelease(
-        Effect.callback<ReturnType<typeof served>>((resume) => {
-            const listening = served(token, answer);
-            listening.server.listen(0, '127.0.0.1', () => resume(Effect.succeed(listening)));
+    yield* Effect.acquireRelease(
+        Effect.callback((resume) => {
+            server.listen(0, '127.0.0.1', () => resume(Effect.void));
         }),
-        ({ server: listening }) =>
+        () =>
             Effect.promise(() => {
-                listening.closeAllConnections();
-                return listening[Symbol.asyncDispose]();
+                server.closeAllConnections();
+                return server[Symbol.asyncDispose]();
             }),
     );
     const { port } = yield* Schema.decodeUnknownEffect(Listening)(server.address());
     return { address: `http://127.0.0.1:${port}`, requests };
 }, Effect.orDie);
 
-const graphed = Effect.fnUntraced(function* <T>(root: string, plugin: Plugin<T>, options: T | undefined) {
+const graphed = Effect.fnUntraced(function* <T>(root: string, { createNodes, createDependencies }: Pick<NxPlugin<T>, 'createNodes' | 'createDependencies'>, options: T | undefined) {
     resetWorkspaceContext();
-    const { createNodes, createDependencies } = plugin;
     const bound: NxPlugin = {
         name: 'plugin-under-test',
         ...(createNodes === undefined ? {} : { createNodes: [createNodes[0], (files, _, context) => createNodes[1](files, options, context)] }),
@@ -266,7 +255,7 @@ class Workspace {
 
     // --- [GRAPH]
 
-    graph<T>(plugin: Plugin<T>, options?: T): Promise<ProjectGraph> {
+    graph<T>(plugin: Pick<NxPlugin<T>, 'createNodes' | 'createDependencies'>, options?: T): Promise<ProjectGraph> {
         return Effect.runPromise(graphed(this.root, plugin, options));
     }
     cached(graph: ProjectGraph, project: string, target: string, configuration?: string) {

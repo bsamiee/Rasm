@@ -8,7 +8,7 @@ const transport = <E>(app: Effect.Effect<HttpServerResponse.HttpServerResponse, 
         Layer.provide(
             Layer.effect(
                 FetchHttpClient.Fetch,
-                Effect.map(Effect.context<never>(), (context): typeof globalThis.fetch => {
+                Effect.map(Effect.context<never>(), (context) => {
                     const served = HttpEffect.toWebHandlerWith<never, HttpServerRequest.HttpServerRequest | Scope.Scope>(context)(app);
                     return (input, init) => served(new Request(input, init));
                 }),
