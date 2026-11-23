@@ -50,6 +50,16 @@ describe('task hashes', () => {
         { task: 'com.example.panel:build--uxp', edited: { 'panel/main.spec.js': 'main();\n' }, changes: false },
         { task: 'com.example.panel:build--uxp', base: { 'nx.json': '{ "namedInputs": { "default": ["{projectRoot}/**/*"] } }' }, edited: { 'panel/main.spec.js': 'main();\n' }, changes: true },
         { task: 'marker_tools:build--blender', edited: { 'uv.lock': 'version = 2\n' }, changes: true },
+        {
+            task: 'marker:build',
+            base: {
+                'package.json': '{ "name": "repo", "private": true, "workspaces": ["rhino"] }',
+                'rhino/manifest.yml': 'name: marker\nversion: 1.2.3\nauthors: [Suite]\ndescription: Marks points\n',
+                'rhino/package.json': '{ "name": "marker", "nx": { "targets": { "build--yak": { "inputs": ["default", "{workspaceRoot}/docs/notes.md"] } } } }',
+            },
+            edited: { 'docs/notes.md': 'Other notes\n' },
+            changes: true,
+        },
         { task: 'repo:upgrade--jactionlint', edited: { '.github/workflows/ci.yml': 'on: [push, pull_request]\n' }, changes: true },
         { task: 'repo:upgrade--jactionlint', edited: { '.github/actions/setup/action.yml': 'runs:\n    using: composite\n    steps: [{ run: echo }]\n' }, changes: true },
         { task: 'repo:upgrade--jactionlint', edited: { 'docs/notes.md': 'More notes\n' }, changes: false },

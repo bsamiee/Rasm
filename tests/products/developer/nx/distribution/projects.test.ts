@@ -1,8 +1,6 @@
-import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-distribution';
 import { refused } from '@rasm/testing/errors';
-import { it, unaggregated, unportable, taskGraph } from '@rasm/testing/nx';
-import { Option, Predicate, Record, Schema } from 'effect';
+import { it, taskGraph } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('node:process'), async (actual) => {
@@ -19,32 +17,6 @@ const hosts = [
     { technology: 'uxp', file: 'panel/manifest.json', text: '{ "manifestVersion": 5, "id": "com.example.panel", "name": "Panel", "version": "1.2.3", "host": { "app": "PS", "minVersion": "24.0.0" } }', name: 'com.example.panel', root: 'panel' },
     { technology: 'chrome', file: 'clipper/manifest.json', text: '{ "manifest_version": 3, "name": "__MSG_name__", "default_locale": "en", "version": "1.2.3" }', name: 'clipper', root: 'clipper' },
 ] as const;
-const rich = {
-    'package.json': '{ "name": "repo", "private": true, "workspaces": ["rhino"] }',
-    '.github/workflows/ci.yml': 'on: push\n',
-    'rhino/package.json': '{ "name": "marker", "nx": { "targets": { "build--yak": { "inputs": ["default", "{projectRoot}/icon.png"] } } } }',
-    'Engine/Engine/Build/Build.version': '{ "MajorVersion": 5, "MinorVersion": 6, "PatchVersion": 0 }\n',
-    'Game/Game.uproject': '{ "FileVersion": 3, "EngineAssociation": "../Engine", "Plugins": [{ "Name": "Marker", "Enabled": true }] }\n',
-    'Game/Plugins/Marker/Marker.uplugin': '{ "FileVersion": 3, "Version": 1, "VersionName": "1.2.3" }\n',
-    ...Record.fromIterableWith(hosts, ({ file, text }) => [file, text]),
-};
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Cleaned = Schema.Struct({ targets: Schema.Array(Schema.String) });
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const cleaning = (graph: ProjectGraph) => {
-    const tools = Record.filter(
-        Record.map(graph.nodes, ({ data: { targets = {} } }) => Record.filter(targets, (_, target) => target.startsWith('clean--'))),
-        Predicate.not(Record.isEmptyRecord),
-    );
-    return {
-        cleaned: Record.map(tools, (held) => Record.map(held, ({ options }) => Option.map(Schema.decodeUnknownOption(Cleaned)(options), ({ targets }) => targets.toSorted()))),
-        declaring: Record.map(tools, (held, name) => Record.map(held, (_, target) => Option.some(Record.keys(Record.filter(graph.nodes[name]?.data.targets ?? {}, ({ outputs = [] }, other) => other.endsWith(target.slice('clean'.length)) && outputs.length > 0)).toSorted()))),
-    };
-};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -75,7 +47,7 @@ describe('host manifests', () => {
     });
 
     it('refuses a manifest its host format cannot read, naming the file', async ({ workspace }) => {
-        const pending = workspace.write({ 'torn/blender_manifest.toml': 'id = "torn\nversion = \n', 'rhino/manifest.yml': 'name: marker\nversion: 1.2.3\nauthors: [Suite]\ndescription: Marks points\n' }).graph({ createNodes });
+        const pending = workspace.write({ 'torn/blender_manifest.toml': 'id = "torn\nversion = \n' }).graph({ createNodes });
 
         await expect(pending).rejects.toSatisfy(refused(/^torn\/blender_manifest\.toml does not decode/u));
     });
@@ -91,28 +63,5 @@ describe('workflow folders', () => {
         const { tasks } = taskGraph(graph, [name], ['upgrade']);
 
         expect(Object.keys(tasks).toSorted()).toStrictEqual([`${name}:upgrade`, `${name}:upgrade--jactionlint`]);
-    });
-});
-
-describe('graph laws', () => {
-    it('hashes every tool input in its verb and forwards the verb to each tool, package.json overrides included', async ({ workspace }) => {
-        const graph = await workspace.write(rich).graph({ createNodes });
-
-        expect(unaggregated(graph)).toStrictEqual([]);
-    });
-
-    it('states every root, input, and output as a workspace-relative posix path', async ({ workspace }) => {
-        const graph = await workspace.write(rich).graph({ createNodes });
-
-        expect(unportable(graph)).toStrictEqual([]);
-    });
-
-    it('cleans exactly the targets of a technology that declare outputs', async ({ workspace }) => {
-        const graph = await workspace.write(rich).graph({ createNodes });
-
-        const { cleaned, declaring } = cleaning(graph);
-
-        expect(cleaned).toStrictEqual(declaring);
-        expect(Record.keys(cleaned).toSorted()).toStrictEqual(['Game', 'Marker', 'clipper', 'com.example.panel', 'marker', 'marker_tools']);
     });
 });

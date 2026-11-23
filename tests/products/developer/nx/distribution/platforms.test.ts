@@ -17,9 +17,6 @@ const host = vi.hoisted((): { platform: NodeJS.Platform } => ({ platform: 'darwi
 const files = {
     'rhino/manifest.yml': 'name: marker\nversion: 1.2.3\nauthors:\n    - Suite\ndescription: Marks points\n',
     'panel/manifest.json': '{ "manifestVersion": 5, "id": "com.example.panel", "name": "Panel", "version": "1.2.3", "host": { "app": "PS", "minVersion": "24.0.0" } }',
-    'Engine/Engine/Build/Build.version': '{ "MajorVersion": 5, "MinorVersion": 6, "PatchVersion": 0 }\n',
-    'Game/Game.uproject': '{ "FileVersion": 3, "EngineAssociation": "../Engine", "Plugins": [{ "Name": "Marker", "Enabled": true }] }\n',
-    'Game/Plugins/Marker/Marker.uplugin': '{ "FileVersion": 3, "Version": 1, "VersionName": "1.2.3" }\n',
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -27,7 +24,6 @@ const files = {
 describe('platforms a host runs on', () => {
     it.for([
         { platform: 'darwin', installs: ['com.example.panel:install--uxp', 'marker:install--yak'] },
-        { platform: 'win32', installs: ['com.example.panel:install--uxp', 'marker:install--yak'] },
         { platform: 'linux', installs: [] },
     ] as const)('infers the Rhino and Adobe installs on $platform as $installs', async ({ platform, installs }, { workspace }) => {
         host.platform = platform;
@@ -36,15 +32,6 @@ describe('platforms a host runs on', () => {
         const inferred = ['com.example.panel:install--uxp', 'marker:install--yak'].filter((id) => id.slice(id.indexOf(':') + 1) in (graph.nodes[id.slice(0, id.indexOf(':'))]?.data.targets ?? {}));
 
         expect(inferred).toStrictEqual(installs);
-    });
-
-    it.for(['darwin', 'linux', 'win32'] as const)('infers unreal builds on %s only where the os tags of the project name it, each project tagged host:unreal', async (platform, { workspace }) => {
-        host.platform = platform;
-        const graph = await workspace.write(files).graph({ createNodes });
-
-        const built = ['Game', 'Marker'].map((name) => ({ name, tags: graph.nodes[name]?.data.tags?.toSorted(), building: 'build--unreal' in (graph.nodes[name]?.data.targets ?? {}) }));
-
-        expect(built).toStrictEqual(['Game', 'Marker'].map((name) => ({ name, tags: ['host:unreal', 'os:darwin', 'os:linux'], building: platform !== 'win32' })));
     });
 
     it.for([

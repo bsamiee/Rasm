@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { createNodes } from '@rasm/nx-distribution';
 import { it } from '@rasm/testing/nx';
-import { Option, Record, Schema } from 'effect';
+import { Array, Effect, Option, Record, Schema, Struct } from 'effect';
+import { Yaml } from 'effect/encoding';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createProjectFileMapUsingProjectGraph } from 'nx/src/project-graph/file-map-utils';
@@ -29,6 +31,7 @@ const hosts = {
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Published = Schema.Struct({ credential: Schema.String });
+const Workflow = Schema.Struct({ jobs: Schema.Record(Schema.String, Schema.Struct({ steps: Schema.Array(Schema.Struct({ run: Schema.optionalKey(Schema.String), env: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)) })) })) });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -45,12 +48,19 @@ describe('nx release', () => {
         ).toStrictEqual(['Marker', 'clipper', 'com.example.panel', 'marker', 'marker_tools']);
     });
 
-    it('publishes to each store taking uploads under the variable release.yml sets, and to none for Adobe', async ({ workspace }) => {
+    it('reads each store credential from a variable the release workflow sets on its nx release publish step', async ({ workspace }) => {
+        const { jobs } = await Effect.runPromise(Schema.decodeUnknownEffect(Workflow)(Yaml.parse(readFileSync(new URL('../../../../../.github/workflows/release.yml', import.meta.url), 'utf-8'))));
+        const variables = new Set(
+            Object.values(jobs)
+                .flatMap(({ steps }) => steps)
+                .filter(({ run }) => run?.trim() === 'nx release publish')
+                .flatMap(({ env = {} }) => Object.keys(env)),
+        );
         const graph = await workspace.write(hosts).graph({ createNodes });
 
-        const credentials = Record.getSomes(Record.map(graph.nodes, ({ data: { targets = {} } }) => Schema.decodeUnknownOption(Published)(targets['nx-release-publish']?.options)));
+        const credentials = Record.getSomes(Record.map(graph.nodes, ({ data: { targets = {} } }) => Option.map(Schema.decodeUnknownOption(Published)(targets['nx-release-publish']?.options), Struct.get('credential'))));
 
-        expect(credentials).toStrictEqual({ clipper: { credential: 'CHROME_WEB_STORE_TOKEN' }, marker: { credential: 'YAK_TOKEN' }, marker_tools: { credential: 'BLENDER_EXTENSIONS_TOKEN' } });
+        expect([credentials, Record.values(credentials).filter((variable) => !variables.has(variable))]).toStrictEqual([{ clipper: 'CHROME_WEB_STORE_TOKEN', marker: 'YAK_TOKEN', marker_tools: 'BLENDER_EXTENSIONS_TOKEN' }, Array.empty()]);
     });
 
     it('reads the credential of a store from the variable storeCredentials names for its technology', async ({ workspace }) => {

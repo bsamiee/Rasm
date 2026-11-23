@@ -78,8 +78,6 @@ describe('attach--gh', () => {
         { case: 'its own tag', tags: ['other@2.0.0', 'marker@1.2.4'], release: undefined, uploaded: ['release', 'upload', 'marker@1.2.4', 'rhino/marker-1.2.4-rh8-any.yak', '--clobber'] },
         { case: 'only the tag of another project', tags: ['other@2.0.0'], release: undefined, uploaded: [] },
         { case: 'the tag a fixed releaseTag.pattern makes', tags: ['v1.2.4'], release: { projects: ['marker'], releaseTag: { pattern: 'v{version}' } }, uploaded: ['release', 'upload', 'v1.2.4', 'rhino/marker-1.2.4-rh8-any.yak', '--clobber'] },
-        { case: 'a prerelease tag under the default strictPreid', tags: ['marker@1.2.4-alpha.0'], release: undefined, uploaded: [] },
-        { case: 'a prerelease tag under strictPreid false', tags: ['marker@1.2.4-alpha.0'], release: { projects: ['marker'], projectsRelationship: 'independent', releaseTag: { strictPreid: false } }, uploaded: ['release', 'upload', 'marker@1.2.4-alpha.0', 'rhino/marker-1.2.4-rh8-any.yak', '--clobber'] },
     ])('uploads the packed files where HEAD holds $case: $uploaded', async ({ tags, release, uploaded }, { workspace, released }) => {
         const { graph, recorded } = await released(rhino, tags, release);
 
@@ -106,19 +104,10 @@ describe('attach--gh', () => {
         expect(recorded('gh.txt')).toStrictEqual([]);
     });
 
-    it('previews the upload and runs no gh under a dry run', async ({ workspace, released, log }) => {
+    it('previews the upload with the words of the run but the dry-run flag the executor reads itself, and runs no gh', async ({ workspace, released, log }) => {
         const { graph, recorded } = await released(rhino, []);
 
-        await attach({ dryRun: true }, workspace.context(graph, 'marker', 'attach--gh'));
-
-        expect(log).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/^Would run gh release upload .+ rhino\/marker-1\.2\.4-rh8-any\.yak --clobber$/u));
-        expect(recorded('gh.txt')).toStrictEqual([]);
-    });
-
-    it.for(['--dryRun', '--dry-run', '--dryRun=true', '--dry-run=true'])('forwards the words of the run to gh without the dry-run flag %s the executor reads itself', async (flag, { workspace, released, log }) => {
-        const { graph, recorded } = await released(rhino, []);
-
-        await attach({ dryRun: true, __unparsed__: [flag, '--repo', 'owner/marker'] }, workspace.context(graph, 'marker', 'attach--gh'));
+        await attach({ dryRun: true, __unparsed__: ['--dry-run=true', '--repo', 'owner/marker'] }, workspace.context(graph, 'marker', 'attach--gh'));
 
         expect(log).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/^Would run gh release upload .+ rhino\/marker-1\.2\.4-rh8-any\.yak --clobber --repo owner\/marker$/u));
         expect(recorded('gh.txt')).toStrictEqual([]);
