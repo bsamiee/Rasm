@@ -175,7 +175,7 @@
         {
             "name": "writing",
             "source": "./plugins/shared/writing",
-            "version": "0.1.0",
+            "version": "0.1.1",
             "description": "Project prose and names: wording rules, a word map, and automatic checks",
             "author": {
                 "name": "Bardia Samiee"

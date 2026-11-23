@@ -562,8 +562,7 @@ _LANGUAGES: frozendict[str, _Language[SyntaxTreeNode] | _Language[_Line]] = froz
     ".sh": replace(_CODE, lexer="bash"),
     ".nix": replace(_CODE, lexer="nix"),
     ".toml": replace(_CONFIG, lexer="toml", formatter_gaps=(partial(_neighbor_matches, r"^\[.*\]$|\[$", divider_below=True),)),
-    ".yml": replace(_CONFIG, lexer="yaml", formatter_gaps=(_keep_chomping,)),
-    ".yaml": replace(_CONFIG, lexer="yaml", formatter_gaps=(_keep_chomping,)),
+    **dict.fromkeys((".yml", ".yaml"), replace(_CONFIG, lexer="yaml", formatter_gaps=(_keep_chomping, partial(_neighbor_matches, r":$", divider_below=True, token_type=Punctuation)))),
     ".cs": replace(
         _C_STYLE,
         lexer="csharp",
