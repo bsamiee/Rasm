@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-testing"
 edition.workspace = true
-description       = "Test fixtures kept after a failed test: folders and SQLite files"
+description       = "Test fixtures kept after a failed test: folders"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -14,31 +14,22 @@ doctest = false
 bench   = false
 
 [[test]]
-name              = "testing"
-path              = "main.rs"
-required-features = ["sqlite"]
-
-# --- [FEATURES] -------------------------------------------------------------------------
-
-[features]
-sqlite = ["dep:sqlx", "dep:libsqlite3-sys", "dep:sqlite-vec"]
+name = "testing"
+path = "main.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-futures        = { workspace = true }
-derive-where   = { workspace = true }
-derive_more    = { workspace = true }
-sqlx           = { workspace = true, optional = true, features = ["sqlite-bundled", "sqlite-load-extension"] }
-libsqlite3-sys = { workspace = true, optional = true }
-sqlite-vec     = { workspace = true, optional = true }
-assert_fs      = { workspace = true }
+futures      = { workspace = true }
+derive-where = { workspace = true }
+derive_more  = { workspace = true }
+assert_fs    = { workspace = true }
 
 [dev-dependencies]
-rasm-testing = { workspace = true, features = ["sqlite"] } # Own `sqlite` feature for the suite, which `required-features` gates
-tokio        = { workspace = true }
-claims       = { workspace = true }
-fs-err       = { workspace = true, features = ["tokio"] }
+tokio  = { workspace = true }
+claims = { workspace = true }
+fs-err = { workspace = true, features = ["tokio"] }
+rstest = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

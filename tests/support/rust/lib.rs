@@ -1,10 +1,6 @@
-#[cfg(feature = "sqlite")]
-use core::ffi::{c_char, c_int};
 use core::fmt::Debug;
 use core::future::ready;
 use core::panic::AssertUnwindSafe;
-#[cfg(feature = "sqlite")]
-use core::{mem, ptr};
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Termination};
 
@@ -13,14 +9,6 @@ use assert_fs::fixture::FixtureError;
 use derive_more::Deref;
 use derive_where::derive_where;
 use futures::FutureExt as _;
-#[cfg(feature = "sqlite")]
-use futures::TryFutureExt as _;
-#[cfg(feature = "sqlite")]
-use libsqlite3_sys::{SQLITE_OK, sqlite3, sqlite3_api_routines, sqlite3_free};
-#[cfg(feature = "sqlite")]
-use sqlx::SqlitePool;
-#[cfg(feature = "sqlite")]
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -64,49 +52,6 @@ impl Fixture for Folder {
     fn dropped(self) -> impl Future<Output = Result<(), FixtureError>> { ready(self.0.close()) }
 
     fn kept(self) -> impl Future<Output = Result<PathBuf, FixtureError>> { ready(Ok(self.0.into_persistent().to_path_buf())) }
-}
-
-#[cfg(feature = "sqlite")]
-#[derive(Debug, Deref)]
-pub struct Sqlite {
-    #[deref]
-    pool: SqlitePool,
-    folder: Folder,
-}
-
-#[cfg(feature = "sqlite")]
-impl Fixture for Sqlite {
-    type Within = (PathBuf, SqliteConnectOptions);
-    type Kept = PathBuf;
-    type Error = FixtureError;
-
-    async fn created((parent, options): &(PathBuf, SqliteConnectOptions)) -> Result<Self, FixtureError> {
-        let folder = Folder::created(parent).await?;
-        let file = options.clone().filename(folder.path().join("store.sqlite")).create_if_missing(true);
-        let vectored = SqlitePoolOptions::new().after_connect(|connection, _| {
-            type Entry = unsafe extern "C" fn(*mut sqlite3, *mut *mut c_char, *const sqlite3_api_routines) -> c_int;
-            Box::pin(
-                connection
-                    .lock_handle()
-                    .map_ok(|mut locked| unsafe {
-                        let mut text = ptr::null_mut::<c_char>();
-                        let code = mem::transmute::<unsafe extern "C" fn(), Entry>(sqlite_vec::sqlite3_vec_init)(locked.as_raw_handle().as_ptr(), &raw mut text, ptr::null());
-                        sqlite3_free(text.cast());
-                        code
-                    })
-                    .and_then(|code| ready((code == SQLITE_OK).ok_or_else(|| sqlx::Error::Configuration(Box::new(libsqlite3_sys::Error::new(code)))))),
-            )
-        });
-        Ok(Self { pool: vectored.connect_lazy_with(file), folder })
-    }
-
-    async fn dropped(self) -> Result<(), FixtureError> {
-        let Self { pool, folder } = self;
-        pool.close().await;
-        folder.dropped().await
-    }
-
-    async fn kept(self) -> Result<PathBuf, FixtureError> { self.folder.kept().await }
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
