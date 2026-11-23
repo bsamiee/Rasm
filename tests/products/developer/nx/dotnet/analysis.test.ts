@@ -108,7 +108,7 @@ describe('files outside the workspace', { timeout: 240_000 }, () => {
 describe('analyzer process', () => {
     it('infers every project of another ecosystem and no MSBuild project where no folder of PATH holds dotnet, warning once', async ({ workspace }) => {
         pathed(scratch('dotnet-absent-'), {});
-        const logged = vi.spyOn(console, 'log').mockReturnValue(undefined);
+        const logged = vi.spyOn(console, 'warn').mockReturnValue(undefined);
         onTestFinished(() => logged.mockRestore());
 
         const graph = await workspace.write({ 'package.json': JSON.stringify({ name: '@fixture/root', workspaces: ['tools/*'] }), 'tools/web/package.json': JSON.stringify({ name: '@fixture/web' }), 'apps/App/App.csproj': LIBRARY, 'libs/Core/Core.csproj': LIBRARY }).graph({ createNodes, createDependencies });

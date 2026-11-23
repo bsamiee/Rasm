@@ -33,7 +33,7 @@ const shasum = (...flags: readonly string[]) => spawnSync(SHASUM, ['-a', '256', 
 
 const reporting = () => {
     const folder = mkdtempSync(join(tmpdir(), 'dotnet-reporting-'));
-    const logged = vi.spyOn(console, 'log').mockReturnValue(undefined);
+    const logged = vi.spyOn(console, 'warn').mockReturnValue(undefined);
     onTestFinished(() => {
         logged.mockRestore();
         rmSync(folder, { recursive: true });
@@ -43,7 +43,7 @@ const reporting = () => {
     return { logged, launches: () => (existsSync(join(folder, 'launches.log')) ? readFileSync(join(folder, 'launches.log'), 'utf-8').trim().split('\n').length : 0) };
 };
 
-const warnings = (logged: MockInstance<typeof console.log>) => logged.mock.calls.map((call) => call.join(' ')).filter((line) => line.includes('MsbuildAnalyzer'));
+const warnings = (logged: MockInstance<typeof console.warn>) => logged.mock.calls.map((call) => call.join(' ')).filter((line) => line.includes('MsbuildAnalyzer'));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
