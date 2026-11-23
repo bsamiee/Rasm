@@ -13,11 +13,17 @@
         "dist/**/*.d.ts"
     ],
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
         ".": "./plugin.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
         "exports": {
             ".": "./dist/plugin.js",
             "./package.json": "./package.json"
