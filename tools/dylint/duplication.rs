@@ -3,8 +3,9 @@ use core::iter;
 use core::ops::ControlFlow;
 use std::rc::Rc;
 
-use clippy_utils::SpanlessEq;
+use clippy_utils::source::{SourceText, SpanExt as _};
 use clippy_utils::visitors::for_each_expr_without_closures;
+use clippy_utils::{SpanlessEq, tokenize_with_text};
 use itertools::Itertools as _;
 use rustc_data_structures::fingerprint::Fingerprint;
 use rustc_data_structures::fx::{FxBuildHasher, FxHashMap};
@@ -14,6 +15,7 @@ use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::intravisit::{self, Visitor as _};
 use rustc_hir::{AnonConst, BodyId, Expr, ExprKind, HirId, ItemId};
 use rustc_infer::infer::TyCtxtInferExt as _;
+use rustc_lexer::TokenKind;
 use rustc_lint::LateContext;
 use rustc_middle::ty::{
     self, Binder, BottomUpFolder, Clauses, FnSig, GenericArgKind, GenericArgs, PolyFnSig, Ty, TyCtxt, TypeFoldable, TypeFolder, TypeSuperFoldable as _, TypeVisitableExt as _, TypeckResults,
@@ -227,9 +229,25 @@ impl<'tcx> Bodies<'tcx> {
         });
         let mut inter = spanless.inter_expr(SyntaxContext::root());
         let mut compare = |left_body: BodyId, right_body: BodyId| parameters_match(cx.tcx, &mut inter.locals, left_body, right_body) && inter.eq_body(left_body, right_body);
+        let written = |function: LocalDefId| {
+            let body = cx.tcx.hir_body_owned_by(function);
+            body.params
+                .iter()
+                .map(|param| param.pat.span)
+                .chain([body.value.span])
+                .map(|span| Some(span).filter(|span| !span.from_expansion()).and_then(|span| span.get_text(cx)))
+                .collect::<Option<Vec<SourceText>>>()
+        };
+        let code: fn(&str) -> Vec<&str> = |piece| {
+            tokenize_with_text(piece).filter(|&(kind, ..)| !matches!(kind, TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. })).map(|(_, token, _)| token).collect()
+        };
         (compare(cx.tcx.hir_body_owned_by(left_function).id(), cx.tcx.hir_body_owned_by(right_function).id())
             && iter::from_fn(|| closures.borrow_mut().pop()).all(|(left_body, right_body)| compare(left_body, right_body)))
         .then(|| differences.take())
+        .or_else(|| {
+            let (left_pieces, right_pieces) = written(left_function).zip(written(right_function))?;
+            (left_pieces.len() == right_pieces.len() && iter::zip(&left_pieces, &right_pieces).all(|(left_piece, right_piece)| code(left_piece) == code(right_piece))).then(Vec::new)
+        })
     }
 }
 

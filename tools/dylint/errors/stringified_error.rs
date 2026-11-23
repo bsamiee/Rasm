@@ -185,11 +185,13 @@ impl<'tcx> Visitor<'tcx> for Uses<'tcx> {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn sink<'tcx>(cx: &LateContext<'tcx>, pass: &mut Pass<'tcx>, text: &'tcx Expr<'tcx>, source: Option<Ty<'tcx>>) -> Option<Sink> {
+    fn operands(pass: &Pass<'_>, expr: &Expr<'_>) -> bool { matches!(expr.kind, ExprKind::Tup(_)) && macro_backtrace(expr.span).any(|call| pass.assertions.contains(&call.def_id)) }
+
     fn asserted(cx: &LateContext<'_>, pass: &Pass<'_>, comparison: &Expr<'_>) -> bool {
         if !pass.test_target && !in_test(cx.tcx, comparison.hir_id) {
             return false;
         }
-        if first_node_macro_backtrace(cx, comparison).any(|call| pass.assertions.contains(&call.def_id)) {
+        if operands(pass, comparison) || first_node_macro_backtrace(cx, comparison).any(|call| pass.assertions.contains(&call.def_id)) {
             return true;
         }
         if matches!(comparison.kind, ExprKind::Let(_))
@@ -365,6 +367,7 @@ fn sink<'tcx>(cx: &LateContext<'tcx>, pass: &mut Pass<'tcx>, text: &'tcx Expr<'t
                     None => Some(ControlFlow::Break(Sink::Stored)),
                 },
             (Node::Expr(parent), _) if compares(cx, parent, site.child_id) => Some(ControlFlow::Break(Sink::Compared)),
+            (Node::Expr(parent), _) if operands(pass, parent) => Some(ControlFlow::Break(Sink::Compared)),
             (Node::Expr(parent), _) if matches!(parent.kind, ExprKind::Array(_) | ExprKind::Tup(_)) => Some(ControlFlow::Break(Sink::Stored)),
             (Node::Expr(parent), ExprUseNode::Callee) => {
                 let called = match (rendering, cx.typeck_results().expr_ty(rendered).peel_refs().kind()) {
