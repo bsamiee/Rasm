@@ -2046,6 +2046,16 @@ version = "0.13.14"
 backend = "cargo:cargo-edit"
 specifiers = ["latest"]
 
+[[tools."cargo:resvg"]]
+version = "0.50.0"
+backend = "cargo:resvg"
+specifiers = ["latest"]
+
+[[tools."cargo:usvg"]]
+version = "0.50.0"
+backend = "cargo:usvg"
+specifiers = ["latest"]
+
 [[tools.cmake]]
 version = "4.5.0"
 backend = "aqua:Kitware/CMake"
@@ -3976,34 +3986,6 @@ url = "https://github.com/astral-sh/python-build-standalone/releases/download/20
 checksum = "sha256:ecd90d78accb906e3d47f6cdb409a610da10475f94d15ebdd8cb2e0561b71df6"
 url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.15.2+20261110-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 
-[[tools.resvg]]
-version = "0.50.0"
-backend = "github:linebender/resvg"
-specifiers = ["latest"]
-
-[tools.resvg."platforms.linux-arm64"]
-checksum = "sha256:b197bf704c9da5d572ae565c799727da3067dffacaf32a2476c8143af90e2f9c"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/resvg-linux-aarch64.tar.gz"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736378859"
-
-[tools.resvg."platforms.linux-x64"]
-checksum = "sha256:5d1c9ffd43c82fb802d92cef8100055c612cd3e248d5a787c20079293a456e21"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/resvg-linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736379481"
-
-[tools.resvg."platforms.macos-arm64"]
-checksum = "sha256:8155b569f2b93723ba3645b53536eead3b591c8faf62bdaafd3033ba37838837"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/resvg-macos-aarch64.zip"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736385482"
-
-[tools.resvg."platforms.windows-x64"]
-checksum = "sha256:e4817e40ac63d3eb5c9e5762526cf6cc91f0cc108de38cd09dd60be765184efd"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/resvg-win-x86_64.zip"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736382706"
-
 [[tools.ripgrep]]
 version = "15.2.0"
 backend = "aqua:BurntSushi/ripgrep"
@@ -4220,38 +4202,6 @@ url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/
 checksum = "sha256:230779ee4a729e3044d4a8ed57490b776ea1bac0671d12afbd6f5b4d1878f1d0"
 url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-windows-x64.gz"
 url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450892"
-
-[[tools.usvg]]
-version = "0.50.0"
-backend = "github:linebender/resvg"
-specifiers = ["latest"]
-
-[tools.usvg.options]
-matching = "usvg"
-
-[tools.usvg."platforms.linux-arm64"]
-checksum = "sha256:a445d16764c4268ab267b8d45dfea67e6012dcea92f876bc0183843211b40a99"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-linux-aarch64.tar.gz"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736378862"
-
-[tools.usvg."platforms.linux-x64"]
-checksum = "sha256:17d76b4fbe2bbe945f675714f448ae73e90cdae8c177d640696f54728bb5264b"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736379486"
-
-[tools.usvg."platforms.macos-arm64"]
-checksum = "sha256:88b35b7d0ae41b8fd0581cd2d9cdab180a0742e311aa09ade45ef083fc5e2f2c"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-macos-aarch64.zip"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736385483"
-
-[tools.usvg."platforms.windows-x64"]
-checksum = "sha256:f0caa55fe05fc21e1b9c81d3520173e66ebb1609c06fc6a3537729d2ba9bfa8f"
-checksum_source = "mise-versions"
-url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-win-x86_64.zip"
-url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736382707"
 
 [[tools.uv]]
 version = "0.13.9"

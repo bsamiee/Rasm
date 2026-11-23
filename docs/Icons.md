@@ -18,7 +18,7 @@ Packages keep image sources as SVG masters in `icons/` at their package root:
 ## [02]-[BUILDS]
 
 Builds derive every host form from masters into build output, and no painted or raster form is tracked:
-- `resvg` rasterizes and `usvg` writes themed SVG, both CLIs mise installs from `linebender/resvg`
+- `resvg` rasterizes and `usvg` writes themed SVG, both CLIs mise builds from their crates, as release binaries require their build runner's glibc
 - Build theming writes each host tone over `currentColor` and part classes as a stylesheet both CLIs read, for all hosts but Grasshopper 2
 - `@rasm/mark` paints a `Tone` into a wrapper SVG placing a canvas at a whole pixel scale or artwork inside a padding for `resvg`
 - Tones come from a host library (`HOSTS` of `@rasm/uxp`, `Rasm.Rhino.props`), a web app's theme, or a product's own value (Chrome `config.brand`)
