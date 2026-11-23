@@ -82,15 +82,17 @@ utils:
               all:
                   - has: { nthChild: &first { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: operand }
                   - has: { kind: literal_type, has: { kind: string } }
-    class-binding:
+    member-owner:
         kind: identifier
         pattern: $OWNER
-        inside:
-            kind: program
-            stopBy: end
-            any:
-                - has: { stopBy: { not: { kind: 'export_statement, ambient_declaration' } }, kind: 'class_declaration, abstract_class_declaration', has: { field: name, pattern: $OWNER } }
-                - has: { kind: import_statement, has: { stopBy: end, pattern: $OWNER, matches: typescript-import-binding, not: { inside: { kind: namespace_import } } } }
+        any:
+            - matches: { typescript-constant-value: { value: { kind: call_expression, has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^assign$' } }, { has: { field: object, regex: '(^|\.)Object$', matches: typescript-global-member } }] } } } }
+            - inside:
+                  kind: program
+                  stopBy: end
+                  any:
+                      - has: { stopBy: { not: { kind: 'export_statement, ambient_declaration' } }, kind: 'class_declaration, abstract_class_declaration', has: { field: name, pattern: $OWNER } }
+                      - has: { kind: import_statement, has: { stopBy: end, pattern: $OWNER, matches: typescript-import-binding, not: { inside: { kind: namespace_import } } } }
     static-member:
         kind: type_query
         has:
@@ -102,7 +104,7 @@ utils:
                       kind: member_expression
                       all:
                           - has: { kind: property_identifier, not: { regex: '^(fields|cases|members|elements|rest|parts|records|schema|key|value|from|to|success|failure|error|defect|node|edge)$' } }
-                          - has: { field: object, matches: class-binding, not: { matches: effect-namespace } }
+                          - has: { field: object, matches: member-owner, not: { matches: effect-namespace } }
     query:
         any:
             - kind: type_query

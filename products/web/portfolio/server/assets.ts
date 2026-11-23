@@ -182,7 +182,7 @@ const sign = HttpApiBuilder.handler(
             const unknown = () => UploadRefused.make({ reason: { _tag: 'Unknown', key: payload.key } });
             const object = yield* Effect.flatMap(declared({ key: payload.key, attempt: null }), (found) => Effect.fromOption(Array.head(found), unknown));
             yield* 'uploadId' in payload && Option.isNone(object.uploadId) ? Effect.catchTag(attachUpload(object.assetId, payload.key, payload.uploadId), 'Conflict', unknown) : Effect.void;
-            return yield* ObjectStorage.use((storage) => storage.sign(payload, { size: ByteSize.bytes(object.size), mime: object.mime }));
+            return yield* ObjectStorage.use((storage) => storage.sign({ size: ByteSize.bytes(object.size), mime: object.mime })(payload));
         },
         Effect.catchTag(['SqlError', 'SchemaError', 'ObjectStorageError'], unavailable),
     ),

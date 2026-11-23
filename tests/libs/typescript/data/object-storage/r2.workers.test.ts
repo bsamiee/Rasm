@@ -1,9 +1,10 @@
 import { assert, layer } from '@effect/vitest';
-import { ObjectStorage, ObjectStorageError } from '@rasm/object-storage';
+import { ObjectStorage, ObjectStorageError, Presignable } from '@rasm/object-storage';
 import { r2Storage } from '@rasm/object-storage/r2';
 import { env } from 'cloudflare:workers';
-import { Array, ByteSize, Bytes, ConfigProvider, Duration, Effect, Layer, Option, Record } from 'effect';
+import { Array, ByteSize, Bytes, ConfigProvider, Duration, Effect, Layer, Option, Record, Schema } from 'effect';
 import { FetchHttpClient, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { vi } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -69,27 +70,52 @@ layer(r2Storage({ bucket: env.BUCKET, name: 'objects' }).pipe(Layer.provide(Conf
         }),
     );
     it.effect.each([
-        { operation: 'PutObject', request: { method: 'PUT', key: 'media/a.mp4' }, query: [], headers: { 'Content-Type': media.mime, 'If-None-Match': '*' }, signed: 'content-length;content-type;host;if-none-match' },
+        {
+            operation: 'PutObject',
+            request: { method: 'PUT', key: 'media/a.mp4' },
+            url: 'http://127.0.0.1/objects/media/a.mp4?X-Amz-Date=20260101T000000Z&X-Amz-Expires=86400&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=unsigned%2F20260101%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=content-length%3Bcontent-type%3Bhost%3Bif-none-match&X-Amz-Signature=a9fdc108451a9c1c3eb0cc0c02182099a5194ad83366fa146dbe830119f608c0',
+            headers: { 'Content-Type': 'video/mp4', 'If-None-Match': '*' },
+        },
         {
             operation: 'UploadPart',
             request: { method: 'PUT', key: 'media/a.mp4', uploadId: 'u1', partNumber: 3 },
-            query: [
-                ['partNumber', '3'],
-                ['uploadId', 'u1'],
-            ],
+            url: 'http://127.0.0.1/objects/media/a.mp4?partNumber=3&uploadId=u1&X-Amz-Date=20260101T000000Z&X-Amz-Expires=86400&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=unsigned%2F20260101%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=47740312001362447a326084321a59eaea735ae2c7a01c55b78e9089debc30dd',
             headers: {},
-            signed: 'host',
         },
-        { operation: 'CreateMultipartUpload', request: { method: 'POST', key: 'media/a.mp4' }, query: [['uploads', '']], headers: { 'Content-Type': media.mime }, signed: 'content-type;host' },
-        { operation: 'CompleteMultipartUpload', request: { method: 'POST', key: 'media/a.mp4', uploadId: 'u1' }, query: [['uploadId', 'u1']], headers: { 'If-None-Match': '*' }, signed: 'host;if-none-match' },
-        { operation: 'ListParts', request: { method: 'GET', key: 'media/a.mp4', uploadId: 'u1' }, query: [['uploadId', 'u1']], headers: {}, signed: 'host' },
-        { operation: 'AbortMultipartUpload', request: { method: 'DELETE', key: 'media/a.mp4', uploadId: 'u1' }, query: [['uploadId', 'u1']], headers: {}, signed: 'host' },
+        {
+            operation: 'CreateMultipartUpload',
+            request: { method: 'POST', key: 'media/a.mp4' },
+            url: 'http://127.0.0.1/objects/media/a.mp4?uploads=&X-Amz-Date=20260101T000000Z&X-Amz-Expires=86400&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=unsigned%2F20260101%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=content-type%3Bhost&X-Amz-Signature=fa35a1d63fc0e98a1532399364e0ae7d65138dcac2f20e8f575a59f03551e630',
+            headers: { 'Content-Type': 'video/mp4' },
+        },
+        {
+            operation: 'CompleteMultipartUpload',
+            request: { method: 'POST', key: 'media/a.mp4', uploadId: 'u1' },
+            url: 'http://127.0.0.1/objects/media/a.mp4?uploadId=u1&X-Amz-Date=20260101T000000Z&X-Amz-Expires=86400&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=unsigned%2F20260101%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host%3Bif-none-match&X-Amz-Signature=e0a6165b1e9b4a633c288ca4be8e7cf41883a8e6428274ad15127b06628cef22',
+            headers: { 'If-None-Match': '*' },
+        },
+        {
+            operation: 'ListParts',
+            request: { method: 'GET', key: 'media/a.mp4', uploadId: 'u1' },
+            url: 'http://127.0.0.1/objects/media/a.mp4?uploadId=u1&X-Amz-Date=20260101T000000Z&X-Amz-Expires=86400&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=unsigned%2F20260101%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=7552d0514df7b627e646b2554509bf908a26b72901d6a0493ebe83279618df58',
+            headers: {},
+        },
+        {
+            operation: 'AbortMultipartUpload',
+            request: { method: 'DELETE', key: 'media/a.mp4', uploadId: 'u1' },
+            url: 'http://127.0.0.1/objects/media/a.mp4?uploadId=u1&X-Amz-Date=20260101T000000Z&X-Amz-Expires=86400&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=unsigned%2F20260101%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=4434659e3b078fb1501f5a58b8bed55e450e95ced349e4606ca763e732ebd3b5',
+            headers: {},
+        },
     ] as const)(
-        'presigns $operation as $request.method with its S3 query, signed headers, and caller headers',
-        Effect.fnUntraced(function* ({ request, query, headers, signed }) {
-            const presigned = yield* ObjectStorage.use(({ sign }) => sign(request, { size: ByteSize.bytes(21), mime: media.mime }));
-            const url = new URL(presigned.url);
-            assert.deepStrictEqual([url.origin, url.pathname, [...url.searchParams].filter(([name]) => !name.startsWith('X-Amz-')), url.searchParams.get('X-Amz-SignedHeaders'), presigned.headers], ['http://127.0.0.1', '/objects/media/a.mp4', query, signed, headers]);
-        }),
+        'presigns $operation as $request.method to one signed S3 URL with its caller headers, and encodes the request as received',
+        Effect.fnUntraced(
+            function* ({ request, url, headers }) {
+                yield* Effect.sync(() => vi.setSystemTime('2026-01-01T00:00:00Z'));
+                const decoded = yield* Schema.decodeEffect(Presignable)(request);
+                const presigned = yield* ObjectStorage.use(({ sign }) => sign({ size: ByteSize.bytes(21), mime: 'video/mp4' })(decoded));
+                assert.deepStrictEqual([presigned, yield* Schema.encodeEffect(Presignable)(decoded)], [{ url, headers }, request]);
+            },
+            Effect.ensuring(Effect.sync(() => vi.useRealTimers())),
+        ),
     );
 });

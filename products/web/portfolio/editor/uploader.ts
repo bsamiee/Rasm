@@ -72,7 +72,7 @@ const prepare = Effect.fnUntraced(
         yield* Effect.forEach(
             Array.zip(objects, renditions),
             Effect.fnUntraced(function* ([{ key }, rendition]) {
-                const { url, headers } = yield* api.assets.sign({ payload: { method: 'PUT', key } });
+                const { url, headers } = yield* api.assets.sign({ payload: Presignable.cases.PutObject.make({ key }) });
                 const body = yield* Effect.tryPromise({ try: () => rendition.bytes(), catch: MediaError.of('Unreadable', `${name} rendition ${rendition.name}`) });
                 yield* Effect.flatMap(http.execute(HttpClientRequest.put(url, { headers }).pipe(HttpClientRequest.bodyUint8Array(body, rendition.type))), HttpClientResponse.filterStatusOk).pipe(Effect.provideService(HttpClient.TracerPropagationEnabled, false));
             }),

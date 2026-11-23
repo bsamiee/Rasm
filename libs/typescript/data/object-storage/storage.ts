@@ -1,5 +1,5 @@
 import { AwsClient } from 'aws4fetch';
-import { ByteSize, Cause, Config, Context, Effect, Formatter, Match, Option, Redacted, Schema } from 'effect';
+import { ByteSize, Cause, Config, Context, Effect, Formatter, flow, Option, Redacted, Schema } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import type { ObjectStore } from 'partial-content';
 import { type ServeContext, type ServeObjectOptions, serveObject } from 'partial-content/web';
@@ -17,13 +17,13 @@ const access = Config.all({
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Presignable = Schema.Union([
-    Schema.Struct({ method: Schema.Literal('PUT'), key: Schema.String, uploadId: Schema.String, partNumber: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10_000 })) }),
-    Schema.Struct({ method: Schema.Literal('PUT'), key: Schema.String }),
-    Schema.Struct({ method: Schema.Literal('POST'), key: Schema.String, uploadId: Schema.String }),
-    Schema.Struct({ method: Schema.Literal('POST'), key: Schema.String }),
-    Schema.Struct({ method: Schema.Literal('GET'), key: Schema.String, uploadId: Schema.String }),
-    Schema.Struct({ method: Schema.Literal('DELETE'), key: Schema.String, uploadId: Schema.String }),
-]);
+    Schema.Struct({ _tag: Schema.tagDefaultOmit('UploadPart'), method: Schema.tag('PUT'), key: Schema.String, uploadId: Schema.String, partNumber: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10_000 })) }),
+    Schema.Struct({ _tag: Schema.tagDefaultOmit('PutObject'), method: Schema.tag('PUT'), key: Schema.String }),
+    Schema.Struct({ _tag: Schema.tagDefaultOmit('CompleteMultipartUpload'), method: Schema.tag('POST'), key: Schema.String, uploadId: Schema.String }),
+    Schema.Struct({ _tag: Schema.tagDefaultOmit('CreateMultipartUpload'), method: Schema.tag('POST'), key: Schema.String }),
+    Schema.Struct({ _tag: Schema.tagDefaultOmit('ListParts'), method: Schema.tag('GET'), key: Schema.String, uploadId: Schema.String }),
+    Schema.Struct({ _tag: Schema.tagDefaultOmit('AbortMultipartUpload'), method: Schema.tag('DELETE'), key: Schema.String, uploadId: Schema.String }),
+]).pipe(Schema.toTaggedUnion('_tag'));
 class Presigned extends Schema.Opaque<Presigned, unknown>()(Schema.Struct({ url: Schema.String, headers: Schema.Record(Schema.String, Schema.String) })) {}
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -40,17 +40,15 @@ class ObjectStorageError extends Schema.TaggedError<ObjectStorageError, { readon
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class ObjectStorage extends Context.Service<
-    ObjectStorage,
-    {
-        readonly objects: ObjectStore;
-        readonly endpoint: Effect.Effect<URL, ObjectStorageError>;
-        readonly sign: (request: typeof Presignable.Type, stated: { readonly size: ByteSize.ByteSize; readonly mime: string }) => Effect.Effect<Presigned, ObjectStorageError>;
-        readonly stat: (key: string) => Effect.Effect<Option.Option<{ readonly size: ByteSize.ByteSize; readonly mime: string }>, ObjectStorageError>;
-        readonly remove: (key: string, uploadId: Option.Option<string>) => Effect.Effect<void, ObjectStorageError>;
-    }
->()('@rasm/object-storage/storage/ObjectStorage') {
-    static readonly make = Effect.fnUntraced(function* (bucket: string, held: Pick<ObjectStorage['Service'], 'objects' | 'stat' | 'remove'>) {
+class ObjectStorage extends Context.Service<ObjectStorage>()('@rasm/object-storage/storage/ObjectStorage', {
+    make: Effect.fnUntraced(function* (
+        bucket: string,
+        held: {
+            readonly objects: ObjectStore;
+            readonly stat: (key: string) => Effect.Effect<Option.Option<{ readonly size: ByteSize.ByteSize; readonly mime: string }>, ObjectStorageError>;
+            readonly remove: (key: string, uploadId: Option.Option<string>) => Effect.Effect<void, ObjectStorageError>;
+        },
+    ) {
         const { endpoint, published, region, accessKeyId, secretAccessKey } = yield* access;
         const signer = new AwsClient({ accessKeyId: Redacted.value(accessKeyId), secretAccessKey: Redacted.value(secretAccessKey), service: 's3', region });
         const stated = Option.getOrElse(published, () => endpoint);
@@ -58,23 +56,28 @@ class ObjectStorage extends Context.Service<
         return {
             ...held,
             endpoint: resolved,
-            sign: (request, { size, mime }) => {
+            sign: ({ size, mime }: { readonly size: ByteSize.ByteSize; readonly mime: string }) => {
                 const created = { 'If-None-Match': '*' };
-                const { query, headers, signed } = Match.value(request).pipe(
-                    Match.when({ method: 'PUT', uploadId: Schema.is(Schema.String) }, ({ uploadId, partNumber }) => ({ query: { partNumber: `${partNumber}`, uploadId }, headers: {}, signed: {} })),
-                    Match.when({ method: 'PUT' }, () => ({ query: {}, headers: { 'Content-Type': mime, ...created }, signed: { 'Content-Length': `${ByteSize.toNumberUnsafe(size)}` } })),
-                    Match.when({ method: 'POST', uploadId: Schema.is(Schema.String) }, ({ uploadId }) => ({ query: { uploadId }, headers: created, signed: {} })),
-                    Match.when({ method: 'POST' }, () => ({ query: { uploads: '' }, headers: { 'Content-Type': mime }, signed: {} })),
-                    Match.when({ method: 'GET' }, ({ uploadId }) => ({ query: { uploadId }, headers: {}, signed: {} })),
-                    Match.when({ method: 'DELETE' }, ({ uploadId }) => ({ query: { uploadId }, headers: {}, signed: {} })),
-                    Match.exhaustive,
+                return flow(
+                    Presignable.matchOrElse(
+                        {
+                            UploadPart: ({ uploadId, partNumber, ...target }) => ({ ...target, query: { partNumber: `${partNumber}`, uploadId }, headers: {}, signed: {} }),
+                            PutObject: (target) => ({ ...target, query: {}, headers: { 'Content-Type': mime, ...created }, signed: { 'Content-Length': `${ByteSize.toNumberUnsafe(size)}` } }),
+                            CompleteMultipartUpload: ({ uploadId, ...target }) => ({ ...target, query: { uploadId }, headers: created, signed: {} }),
+                            CreateMultipartUpload: (target) => ({ ...target, query: { uploads: '' }, headers: { 'Content-Type': mime }, signed: {} }),
+                        },
+                        ({ uploadId, ...target }) => ({ ...target, query: { uploadId }, headers: {}, signed: {} }),
+                    ),
+                    Effect.fnUntraced(function* ({ method, key, query, headers, signed }) {
+                        const at = yield* resolved;
+                        const { url } = yield* sent(key, () => signer.sign(Object.assign(new URL(`${bucket}/${key}`, at.href.replace(/\/?$/u, '/')), { search: new URLSearchParams(query).toString() }), { method, headers: { ...headers, ...signed }, aws: { signQuery: true, allHeaders: true } }));
+                        return { url, headers };
+                    }),
                 );
-                return Effect.flatMap(resolved, (at) =>
-                    sent(request.key, () => signer.sign(Object.assign(new URL(`${bucket}/${request.key}`, at.href.replace(/\/?$/u, '/')), { search: new URLSearchParams(query).toString() }), { method: request.method, headers: { ...headers, ...signed }, aws: { signQuery: true, allHeaders: true } })),
-                ).pipe(Effect.map(({ url }) => ({ url, headers })));
             },
-        } satisfies ObjectStorage['Service'];
-    });
+        };
+    }),
+}) {
     static readonly remove = (key: string, uploadId: Option.Option<string>) => ObjectStorage.use((storage) => storage.remove(key, uploadId));
     static readonly serve = Effect.fn('ObjectStorage.serve')(function* (object: ServeContext, options: Omit<ServeObjectOptions, 'onError'> = {}) {
         const [{ objects }, request, context] = yield* Effect.all([ObjectStorage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb).pipe(Effect.orDie), Effect.context<never>()]);
