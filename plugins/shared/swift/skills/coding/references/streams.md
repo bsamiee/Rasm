@@ -70,6 +70,8 @@ func overdrafts(
 
 `flatMapLatest` cancels the running inner sequence on each outer element, and the consumer receives results of the latest query alone.
 
+`flatMapLatest` of swift-async-algorithms 1.1.7 traps at a state precondition when an outer element races its inner sequence's end. A sequence ending on an event merges its elements with the event as `nil`, takes `prefix(while:)` until it, and `chain` appends what follows the event.
+
 ## [04]-[OBSERVATION]
 
 `Observations` turns reads of `@Observable` properties into an async sequence, and `untilFinished` ends it on a state its closure reads. `Cart` is a `@MainActor` `@Observable` class holding `prices` and `isSubmitted`:

@@ -269,6 +269,7 @@ Delivery shape selects source and operator:
 |  [08]   | Consumers sharing one source          | `share(bufferingPolicy:)`                            |
 |  [09]   | Lines of a child process              | `strings(separatedBy:bufferingPolicy:)`              |
 |  [10]   | State with no event                   | `AsyncTimerSequence(interval:clock:).first(where:)`  |
+|  [11]   | Elements until an event               | `merge` with the event as `nil`, `prefix(while:)`    |
 
 Request-response work and one-shot waits stay an `async throws(E)` function. One-shot waits whose typed failure has no cancelled case (`Errno`) are a one-element stream, and a cancelled consumer ends it with no element.
 

@@ -275,16 +275,15 @@ extension Instance {
         return chain(lived, process.termination().flatMap { exit in self.ended(exit, clock: clock) }).removeDuplicates()
     }
 
-    private func ended(_ exit: Result<ProcessExit, Errno>?, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
+    private func ended(_ exit: Result<ProcessExit, Errno>, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
         [false, true].async.compactMap { reported -> InstanceState? in
             switch (exit, reported) {
-                case (.none, _): nil
-                case (.some(let exit), false): .exited(InstanceState.Ended(exit: exit, report: nil))
-                case (.some(.success(let ended)), true) where ended.reports:
+                case (_, false): .exited(InstanceState.Ended(exit: exit, report: nil))
+                case (.success(let ended), true) where ended.reports:
                     .exited(
-                        InstanceState.Ended(exit: .success(ended), report: await DiagnosticReport.written(by: self.process, since: self.application.launchDate ?? .distantPast, clock: clock))
+                        InstanceState.Ended(exit: exit, report: await DiagnosticReport.written(by: self.process, since: self.application.launchDate ?? .distantPast, clock: clock))
                     )
-                case (.some, true): nil
+                case (_, true): nil
             }
         }
     }

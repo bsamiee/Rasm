@@ -63,14 +63,7 @@ export default Effect.fnUntraced(
                     Effect.forEach((asset) => Effect.sync(() => this.emitFile({ type: 'asset', ...asset })), { discard: true }),
                 ).pipe(Effect.runPromiseWith(context));
             },
-            writeBundle: ({ dir = directory }) =>
-                Effect.runPromiseWith(context)(
-                    Effect.gen(function* () {
-                        const root = yield* compiler;
-                        yield* Effect.all([fs.copyFile(join(root, 'tsc.original'), join(dir, 'tsc')), fs.makeDirectory(join(dir, 'Helpers'))], { discard: true });
-                        yield* fs.symlink(join('..', 'Resources', 'lib.d.ts'), join(dir, 'Helpers', 'lib.d.ts'));
-                    }),
-                ),
+            writeBundle: ({ dir = directory }) => Effect.runPromiseWith(context)(Effect.flatMap(compiler, (root) => fs.copyFile(join(root, 'tsc.original'), join(dir, 'tsc')))),
         } satisfies Plugin;
         return {
             build: { rolldownOptions: { experimental: { lazyBarrel: true }, output: { codeSplitting: false } } },

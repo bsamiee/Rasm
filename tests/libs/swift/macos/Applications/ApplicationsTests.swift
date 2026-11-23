@@ -96,15 +96,10 @@ struct LifetimeTests {
             let states: [InstanceState] = await Instance(application: .current, process: process).lifetime(running, clock: ContinuousClock()).reduce(into: []) { states, state in states.append(state) }
             return String(bytes: try JSONEncoder().encode(states), encoding: .utf8)
         }
-        let lifetimes: [String?] = try await withThrowingTaskGroup(of: [String?].self) { group in
-            for _ in 0..<8 {
-                group.addTask { try await Array(lane) }
-            }
-            var lifetimes: [String?] = []
-            for try await ended in group { lifetimes += ended }
-            return lifetimes
+        let counts: [String?: Int] = try await withThrowingTaskGroup(of: [String?].self) { group in
+            for _ in 0..<8 { group.addTask { try await Array(lane) } }
+            return try await group.reduce(into: [:]) { counts, ended in for lifetime in ended { counts[lifetime, default: 0] += 1 } }
         }
-        let counts: [String?: Int] = lifetimes.reduce(into: [:]) { counts, ended in counts[ended, default: 0] += 1 }
         expectNoDifference(counts, [#"[{"exited":{"signal":15}}]"#: 8000])
     }
 }
