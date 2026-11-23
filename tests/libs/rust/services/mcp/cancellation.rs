@@ -52,7 +52,7 @@ async fn cancelled_request_receives_no_response() {
     assert_ok!(assert_ok!(time::timeout(Duration::from_secs(5), app.cancelled.acquire()).await, "a receiver stops processing the request it was told to cancel")).forget();
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn abandoned_tool_call_is_cancelled() {
     let (shared, app) = assert_ok!(everything().await);
     let (recorder, _events) = Recorder::new(ProtocolVersion::V_2025_11_25);
@@ -65,7 +65,7 @@ async fn abandoned_tool_call_is_cancelled() {
 
 // --- [EXECUTIONS]
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn cancelled_destructive_call_appears_in_its_handle_results_until_its_outcome_is_delivered() {
     let (shared, app) = assert_ok!(everything().await);
     let (recorder, _events) = Recorder::new(ProtocolVersion::V_2025_11_25);

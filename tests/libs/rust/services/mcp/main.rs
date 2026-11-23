@@ -13,10 +13,7 @@ async fn seen(events: &mut mpsc::UnboundedReceiver<Seen>) -> Seen { assert_some!
 
 mod cancellation;
 mod conformance;
-mod logging;
 mod progress;
 mod proxy;
-mod resources;
 mod subscriptions;
 mod tools;
-mod wire;

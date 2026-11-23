@@ -66,7 +66,7 @@ async fn disable_enable_sends_tool_list_changed() {
     assert_eq!(listed().await, all, "an enabled tool returns to the list");
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn storing_an_identical_tool_router_sends_no_tool_list_changed() {
     let (shared, app) = assert_ok!(everything().await);
     let (recorder, mut events) = Recorder::new(ProtocolVersion::V_2025_11_25);
@@ -76,7 +76,7 @@ async fn storing_an_identical_tool_router_sends_no_tool_list_changed() {
     assert_eq!(assert_ok!(running.peer().list_tools(None).await).tools, before, "an identical tool router lists the same tools");
     app.routers.disable("greet");
     assert!(matches!(seen(&mut events).await, Seen::ToolsChanged), "the disable after the store is told");
-    assert_err!(time::timeout(Duration::from_millis(200), events.recv()).await, "an identical tool router changes no listing, so the disable is told alone");
+    assert_err!(time::timeout(Duration::from_secs(1), events.recv()).await, "an identical tool router changes no listing, so the disable is told alone once every task is idle");
 }
 
 // --- [HANDLES]

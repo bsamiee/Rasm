@@ -193,11 +193,13 @@ async fn roots_request_outside_any_call_is_answered_with_no_root_once_every_aske
     let mut server = assert_some!(starts.recv().await).linked().await;
     let (mut leaving, _) = declared(&proxy, &INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{"roots":{}}"#)).await;
     let _bare = joined(&proxy).await;
+    let asked = Instant::now();
     server.wire.send(r#"{"jsonrpc":"2.0","id":"r1","method":"roots/list"}"#).await;
     assert_eq!(leaving.next().await.method.as_deref(), Some("roots/list"));
     drop(leaving);
     let merged = server.wire.next().await;
     assert_eq!((merged.id, merged.result.roots, merged.error.message), (Some(Id::Text("r1".to_owned())), Some(Vec::new()), None), "the server is answered with an empty root list");
+    assert!(asked.elapsed() < GRACE, "the last asked session leaving answers before the deadline: {:?}", asked.elapsed());
 }
 
 #[tokio::test(start_paused = true)]
@@ -221,26 +223,16 @@ async fn roots_request_outside_any_call_is_answered_at_its_deadline_with_the_roo
 }
 
 #[tokio::test(start_paused = true)]
-async fn roots_request_outside_any_call_is_answered_at_its_deadline_with_no_root_when_no_session_listed_any() {
-    let (proxy, mut starts, _actor) = proxy(16, LINE);
-    let mut server = assert_some!(starts.recv().await).linked().await;
-    let (mut silent, _) = declared(&proxy, &INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{"roots":{}}"#)).await;
-    let asked = Instant::now();
-    server.wire.send(r#"{"jsonrpc":"2.0","id":"r1","method":"roots/list"}"#).await;
-    assert_eq!(silent.next().await.method.as_deref(), Some("roots/list"));
-    let merged = server.wire.next().await;
-    let answered = (merged.id, merged.result.roots, merged.error.message, asked.elapsed());
-    assert_eq!(answered, (Some(Id::Text("r1".to_owned())), Some(Vec::new()), None, GRACE), "the server is answered with an empty root list once the handshake time passed");
-}
-
-#[tokio::test(start_paused = true)]
 async fn roots_listed_after_the_deadline_of_their_request_never_reach_the_server() {
     let (proxy, mut starts, _actor) = proxy(16, LINE);
     let mut server = assert_some!(starts.recv().await).linked().await;
     let (mut late, _) = declared(&proxy, &INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{"roots":{}}"#)).await;
+    let asked = Instant::now();
     server.wire.send(r#"{"jsonrpc":"2.0","id":"r1","method":"roots/list"}"#).await;
     assert_eq!(late.next().await.method.as_deref(), Some("roots/list"));
-    assert_eq!(server.wire.next().await.result.roots, Some(Vec::new()), "the deadline passed before the session listed a root");
+    let merged = server.wire.next().await;
+    let answered = (merged.id, merged.result.roots, merged.error.message, asked.elapsed());
+    assert_eq!(answered, (Some(Id::Text("r1".to_owned())), Some(Vec::new()), None, GRACE), "the server is answered with an empty root list once the handshake time passed");
     late.send(r#"{"jsonrpc":"2.0","id":"r1","result":{"roots":[{"uri":"file:///work/late"}]}}"#).await;
     server.wire.silent(Duration::from_secs(1)).await;
 }
@@ -264,19 +256,14 @@ async fn roots_request_during_one_call_reaches_the_calling_session_alone() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn server_ping_is_answered_under_its_own_id() {
+async fn server_ping_is_answered_by_the_proxy_under_its_own_id() {
     let (proxy, mut starts, _actor) = proxy(16, LINE);
     let mut server = assert_some!(starts.recv().await).linked().await;
     let mut client = joined(&proxy).await;
     server.wire.send(r#"{"jsonrpc":"2.0","id":7,"method":"ping"}"#).await;
-    let pong = tokio::select! {
-        pong = server.wire.next() => pong,
-        relayed = client.next() => {
-            client.send(&relayed.answered("{}")).await;
-            server.wire.next().await
-        }
-    };
-    assert_eq!((pong.id, pong.method, pong.error.message), (Some(Id::Number(7)), None, None), "pong must carry the original id");
+    let pong = server.wire.next().await;
+    assert_eq!((pong.id, pong.method, pong.error.message), (Some(Id::Number(7)), None, None), "the proxy answers the ping itself under its own id");
+    client.silent(Duration::from_millis(100)).await;
 }
 
 // --- [CLIENT_REQUESTS]

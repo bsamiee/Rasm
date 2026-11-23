@@ -2,7 +2,9 @@ use core::time::Duration;
 
 use claims::{assert_err, assert_ok, assert_some};
 use rasm_mcp_tests::{Recorder, Seen, WATCHED, everything, paired};
-use rmcp::model::{GetMeta as _, ProtocolVersion, ServerNotification, SubscribeRequestParams, SubscriptionFilter, UnsubscribeRequestParams};
+use rmcp::model::{
+    CallToolRequestParams, GetMeta as _, LoggingLevel, ProtocolVersion, ServerNotification, SetLevelRequestParams, SubscribeRequestParams, SubscriptionFilter, UnsubscribeRequestParams,
+};
 use rmcp::service::ClientLifecycleMode;
 use tokio::time;
 
@@ -10,7 +12,7 @@ use crate::seen;
 
 // --- [RESOURCES]
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn resource_updates_reach_subscribers_of_that_uri_alone() {
     let (shared, app) = assert_ok!(everything().await);
     let (recorder, mut events) = Recorder::new(ProtocolVersion::V_2025_11_25);
@@ -21,10 +23,10 @@ async fn resource_updates_reach_subscribers_of_that_uri_alone() {
     assert_ok!(running.peer().subscribe(SubscribeRequestParams::new(WATCHED)).await);
     app.watched.send_modify(|version| *version += 1);
     assert!(matches!(seen(&mut events).await, Seen::Updated(uri) if uri == WATCHED), "a subscriber is told its resource changed");
-    assert_err!(time::timeout(Duration::from_millis(200), unrelated.recv()).await, "a subscriber of another URI is told nothing");
+    assert_err!(time::timeout(Duration::from_secs(1), unrelated.recv()).await, "a subscriber of another URI is told nothing once every task is idle");
     assert_ok!(running.peer().unsubscribe(UnsubscribeRequestParams::new(WATCHED)).await);
     app.watched.send_modify(|version| *version += 1);
-    assert_err!(time::timeout(Duration::from_millis(200), events.recv()).await, "an unsubscribed client is told nothing");
+    assert_err!(time::timeout(Duration::from_secs(1), events.recv()).await, "an unsubscribed client is told nothing once every task is idle");
 }
 
 // --- [LISTEN]
@@ -40,4 +42,21 @@ async fn listen_exposes_acknowledged_filter_and_tags_notifications() {
     let notification = assert_some!(assert_ok!(assert_ok!(time::timeout(Duration::from_secs(5), subscription.next()).await)), "tool notification");
     assert!(matches!(notification, ServerNotification::ToolListChangedNotification(_)), "{notification:?}");
     assert_eq!(notification.get_meta().subscription_id(), Some(subscription.id().clone()));
+}
+
+// --- [LEVEL]
+
+#[tokio::test(start_paused = true)]
+async fn log_messages_follow_the_level_the_client_set() {
+    let (shared, _app) = assert_ok!(everything().await);
+    let (recorder, mut events) = Recorder::new(ProtocolVersion::V_2025_11_25);
+    let (running, _serving) = assert_ok!(paired(shared.connection(), recorder, ClientLifecycleMode::Initialize).await);
+    assert_ok!(running.peer().set_level(SetLevelRequestParams::new(LoggingLevel::Error)).await);
+    assert_ok!(running.peer().call_tool(CallToolRequestParams::new("test_tool_with_logging")).await);
+    assert_err!(time::timeout(Duration::from_secs(1), events.recv()).await, "messages below the level the client set are not sent");
+    assert_ok!(running.peer().set_level(SetLevelRequestParams::new(LoggingLevel::Info)).await);
+    assert_ok!(running.peer().call_tool(CallToolRequestParams::new("test_tool_with_logging")).await);
+    for _ in 0..3 {
+        assert!(matches!(seen(&mut events).await, Seen::Logged(logged) if logged.level == LoggingLevel::Info), "messages at the level the client set reach it");
+    }
 }

@@ -13,7 +13,7 @@ use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{
     ArgumentInfo, CallToolResult, CancelledNotificationParam, ClientCapabilities, ClientConfig, CompletionContext, ContentBlock, CreateMessageRequestParams, CreateMessageResult, ElicitRequestParams,
     ElicitResult, ElicitationAction, Implementation, LoggingLevel, LoggingMessageNotificationParam, ProgressNotificationParam, PromptMessage, ProtocolVersion, Resource, ResourceContents,
-    ResourceTemplate, ResourceUpdatedNotificationParam, Role, SamplingMessage, ServerNotification, Tool,
+    ResourceTemplate, ResourceUpdatedNotificationParam, Role, SamplingMessage, ServerNotification,
 };
 use rmcp::service::{ClientLifecycleMode, ClientServiceExt as _, NotificationContext, RequestContext, RunningService, ServiceExt as _};
 use rmcp::transport::StreamableHttpServerConfig;
@@ -21,7 +21,7 @@ use rmcp::transport::streamable_http_server::session::local::LocalSessionManager
 use rmcp::{ClientHandler, ErrorData, RoleClient, RoleServer, ServerHandler, Service, prompt, prompt_router, tool, tool_router};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Number, Value};
+use serde_json::{Number, Value};
 use tokio::io::{AsyncBufReadExt as _, AsyncRead, AsyncWrite, AsyncWriteExt as _, BufReader, DuplexStream, Lines, ReadHalf, WriteHalf};
 use tokio::net::TcpListener;
 use tokio::process::Command;
@@ -29,56 +29,6 @@ use tokio::sync::{Semaphore, broadcast, mpsc, watch};
 use tokio::time;
 use tokio_stream::wrappers::WatchStream;
 use tokio_util::task::AbortOnDropHandle;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Reply {
-    Result,
-    Error,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Transcript {
-    Lifecycle,
-    BadRequests,
-    Tools,
-    Resources,
-    Prompts,
-    VersionLatest,
-    VersionOlder,
-    Discover,
-}
-
-impl Transcript {
-    #[must_use]
-    pub const fn sent(self) -> &'static str {
-        match self {
-            Self::Lifecycle => include_str!("transcripts/lifecycle.jsonl"),
-            Self::BadRequests => include_str!("transcripts/bad_requests.jsonl"),
-            Self::Tools => include_str!("transcripts/tools.jsonl"),
-            Self::Resources => include_str!("transcripts/resources.jsonl"),
-            Self::Prompts => include_str!("transcripts/prompts.jsonl"),
-            Self::VersionLatest => include_str!("transcripts/version-latest.jsonl"),
-            Self::VersionOlder => include_str!("transcripts/version-older.jsonl"),
-            Self::Discover => include_str!("transcripts/discover.jsonl"),
-        }
-    }
-
-    #[must_use]
-    pub fn replies(self) -> Vec<(Option<Id>, Reply)> {
-        let outline: &[(u64, Reply)] = match self {
-            Self::Lifecycle => &[(2, Reply::Error), (1, Reply::Result), (1, Reply::Result), (2, Reply::Result), (3, Reply::Result)],
-            Self::BadRequests => &[(1, Reply::Error), (2, Reply::Result), (3, Reply::Error), (4, Reply::Error), (5, Reply::Error), (4, Reply::Error)],
-            Self::Tools =>
-                &[(1, Reply::Result), (2, Reply::Result), (3, Reply::Result), (4, Reply::Result), (5, Reply::Error), (6, Reply::Result), (7, Reply::Result), (8, Reply::Result), (10, Reply::Result)],
-            Self::Resources => &[(1, Reply::Result), (2, Reply::Result), (3, Reply::Result), (4, Reply::Error), (5, Reply::Error)],
-            Self::Prompts => &[(1, Reply::Result), (2, Reply::Result), (4, Reply::Result), (5, Reply::Error)],
-            Self::VersionLatest | Self::VersionOlder | Self::Discover => &[(1, Reply::Result)],
-        };
-        Vec::from_iter(outline.iter().map(|(id, reply)| (Some(Id::Number(*id)), *reply)))
-    }
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -176,42 +126,16 @@ pub struct Block {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
-pub struct Structured {
-    #[serde(rename = "Out")]
-    pub output: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default)]
 pub struct Reported {
     pub progress: Option<Number>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct Answered {
-    pub protocol_version: Option<String>,
-    pub supported_versions: Option<Vec<String>>,
-    pub capabilities: Option<Map<String, Value>>,
-    pub tools: Option<Vec<Tool>>,
-    pub content: Option<Vec<Block>>,
-    pub contents: Option<Vec<Block>>,
-    pub structured_content: Option<Structured>,
-    pub is_error: Option<bool>,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Message {
     #[serde(default)]
     pub id: Option<Id>,
     #[serde(default)]
-    pub method: Option<String>,
-    #[serde(default)]
     pub params: Option<Reported>,
-    #[serde(default)]
-    pub result: Option<Answered>,
-    #[serde(default)]
-    pub error: Option<Fault>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -264,32 +188,6 @@ where
     pub async fn next(&mut self) -> io::Result<Option<Message>> {
         let line = self.lines.next_line().await?;
         line.map(|line| decode(line.as_bytes()).map_err(io::Error::other)).transpose()
-    }
-
-    pub async fn replayed(&mut self, transcript: &str) -> io::Result<Vec<Message>> {
-        const QUIET: Duration = Duration::from_millis(300);
-        let mut seen = Vec::new();
-        for line in transcript.lines() {
-            let sent = decode::<Message>(line.as_bytes()).map_err(io::Error::other)?;
-            match self.send(line).await {
-                Ok(()) => (),
-                Err(closed) if closed.kind() == io::ErrorKind::BrokenPipe => break,
-                Err(unsent) => return Err(unsent),
-            }
-            let mut awaited = sent.id.filter(|_| sent.method.is_some());
-            while let Some(id) = awaited.take()
-                && let Some(message) = self.next().await?
-            {
-                awaited = Some(id).filter(|id| message.method.is_some() || message.id.as_ref() != Some(id));
-                seen.push(message);
-            }
-        }
-        while let Ok(late) = time::timeout(QUIET, self.next()).await
-            && let Some(message) = late?
-        {
-            seen.push(message);
-        }
-        Ok(seen)
     }
 }
 
@@ -591,12 +489,6 @@ pub async fn everything() -> Result<(Arc<Shared<Router<Everything>>>, Everything
     });
     let shared = shared.await?;
     built.map(|app| (shared, app)).ok_or(McpError::Stopping)
-}
-
-#[must_use]
-pub fn replies(seen: &[Message]) -> Vec<(Option<Id>, Reply)> {
-    let answered = seen.iter().filter(|message| message.method.is_none());
-    answered.map(|message| (message.id.clone(), if message.error.is_some() { Reply::Error } else { Reply::Result })).collect()
 }
 
 pub fn accepted<S>(service: S) -> (DuplexStream, AbortOnDropHandle<io::Result<()>>)

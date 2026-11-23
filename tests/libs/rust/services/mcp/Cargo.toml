@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-mcp-tests"
 edition.workspace = true
-description       = "MCP suite: an everything server with the official conformance fixtures, a recording client, raw line peers, scripted transcripts, and the official conformance runner"
+description       = "MCP suite: an everything server with the official conformance fixtures, a recording client, raw line peers, and the official conformance runner"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
