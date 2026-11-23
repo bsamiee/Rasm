@@ -217,4 +217,4 @@ const run = runner(Edges.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, targets };
+export { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, targets };

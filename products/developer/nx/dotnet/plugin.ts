@@ -6,7 +6,8 @@ import { aggregated, fingerprinted, inferring, manifested, spawned } from '@rasm
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, targets } from '#/targets';
+import which from 'which';
+import { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, targets } from '#/targets';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -37,10 +38,16 @@ const external = ({ id, version }: Node['packages'][number]) => `nuget:${id}@${v
 const own = fingerprinted(import.meta.dirname);
 
 const stamped = Effect.fnUntraced(function* (workspaceRoot: string, { evaluated, nodes }: Report) {
+    const fs = yield* FileSystem.FileSystem;
     const read = Array.match([...evaluated, ...nodes.flatMap(({ locks }) => locks)], { onEmpty: () => Effect.succeed(hashArray([])), onNonEmpty: (globs) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, globs)) });
-    const [tracked, sdk] = yield* Effect.all([read, spawned(SDK, { cwd: workspaceRoot })], { concurrency: 'unbounded' });
+    const installed = Effect.promise(() => which('dotnet', { nothrow: true })).pipe(
+        Effect.flatMap(Effect.fromNullishOr),
+        Effect.flatMap(fs.realPath),
+        Effect.flatMap((host) => Effect.map(fs.readDirectory(join(dirname(host), 'sdk')), (versions) => [host, ...versions.toSorted()])),
+    );
+    const [tracked, sdks] = yield* Effect.all([read, Effect.option(installed)], { concurrency: 'unbounded' });
     const files = Array.dedupe([ANALYZER, ...nodes.flatMap(({ restored }) => restored.map((at) => join(workspaceRoot, at))), ...nodes.flatMap(({ external: held }) => held)]);
-    return hashArray([tracked, sdk, ...files.flatMap((file) => [relative(workspaceRoot, file), ...Array.fromNullishOr(hashFile(file))])]);
+    return hashArray([tracked, ...Option.getOrElse(sdks, Array.empty<string>), ...files.flatMap((file) => [relative(workspaceRoot, file), ...Array.fromNullishOr(hashFile(file))])]);
 });
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
