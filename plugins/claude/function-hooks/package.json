@@ -7,6 +7,12 @@
         "#/*": "./*.ts",
         "#/*.json": "./*.json"
     },
+    "exports": {
+        "./claude/server": "./claude/server.ts",
+        "./rules/decide": "./rules/decide.ts",
+        "./rules/decision": "./rules/decision.ts",
+        "./package.json": "./package.json"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",

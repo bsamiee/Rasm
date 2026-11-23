@@ -52,14 +52,12 @@ const FORMS: Record.ReadonlyRecord<string, readonly Form[]> = {
     awk: [
         [/^\s*NR\s*(?:==\s*(?<line>\d+)|>=\s*(?<first>\d+)\s*&&\s*NR\s*<=\s*(?<last>\d+))\s*(?:\{\s*print(?:\s+\$0)?\s*;?\s*\})?\s*$/u, ({ line, first, last }, invocation) => Option.some(OVER_INPUTS(`sed -n '${line ?? `${first},${last}`}p'`, invocation))],
         [/^\s*(?:1|\{\s*print(?:\s+\$0)?\s*;?\s*\})\s*$/u, (_found, invocation) => Option.some(OVER_INPUTS('cat', invocation))],
-        [/^\s*length(?:\(\s*(?:\$0)?\s*\))?\s*(?<operator>>=?)\s*(?<count>\d+)\s*$/u, ({ operator, count }, invocation) => Option.some(OVER_INPUTS(`rg -n ${quote(`^.{${Number(count) + (operator === '>' ? 1 : 0)},}$`)}`, invocation))],
-        [/^\s*\/(?<from>[^/\\]*)\/\s*,\s*\/(?<to>[^/\\]*)\/\s*$/u, ({ from, to }, invocation) => Option.some(OVER_INPUTS(`sed -En ${quote(`/${from}/,/${to}/p`)}`, invocation))],
         [
-            /^\s*\{\s*print\s+\$(?<first>[1-9]\d*)(?:\s*,\s*\$(?<second>[1-9]\d*))?\s*;?\s*\}\s*$/u,
-            ({ first = '', second }, invocation) =>
+            /^\s*\{\s*print\s+\$1\s*;?\s*\}\s*$/u,
+            (_found, invocation) =>
                 Option.map(
-                    Option.filter(Array.head(invocation.values('-F')), (separator) => SINGLE_SEPARATOR.test(separator) && (second === undefined || Number(second) > Number(first))),
-                    (separator) => OVER_INPUTS(`cut -d${quote(separator)} -f${[first, ...(second === undefined ? [] : [second])].join(',')}`, invocation),
+                    Option.filter(Array.head(invocation.values('-F')), (separator) => SINGLE_SEPARATOR.test(separator)),
+                    (separator) => OVER_INPUTS(`cut -d${quote(separator)} -f1`, invocation),
                 ),
         ],
     ],
@@ -406,7 +404,7 @@ const findAsFd: Rule = (invocation) => {
     return whole(invocation, ['fd --hidden --no-ignore', ...(invocation.has('-path') ? ['-E node_modules'] : []), ...options, ...(invocation.has('-name', '-iname') ? [] : ["-g '*'"]), ...roots].join(' '), 'find');
 };
 
-const grepAsRg: Rule = (invocation) => edited(invocation, invocation.head, invocation.has('--exclude-dir') ? 'rg' : 'rg --no-ignore', invocation.head.raw);
+const grepAsRg: Rule = (invocation) => edited(invocation, invocation.head, invocation.has('--exclude-dir') ? 'rg --hidden' : 'rg --no-ignore --hidden', invocation.head.raw);
 
 const misreadSuffix = (suffix: string): boolean => suffix.startsWith('-') || SUBSTITUTION.test(suffix);
 
@@ -485,9 +483,9 @@ const systemTemp = ({ analysis }: Call): readonly Verdict[] => {
         ),
     );
     const targets = [...commands.flatMap(({ redirects }) => Array.getSomes(redirects.filter(({ op }) => WRITES.has(op)).map(({ target }) => target))), ...outputs];
-    const written = new Set(targets.filter(({ known, raw }) => known && relocated(raw) !== raw).map(({ raw }) => raw));
+    const written = new Set(targets.filter(({ known, raw }) => known && relocated(raw) !== raw).map(({ text }) => text));
     const words = [...commands.flatMap(({ words: held, redirects }) => [...held, ...Array.getSomes(redirects.map(({ target }) => target))]), ...outputs.filter(({ prefix }) => prefix !== undefined)];
-    return words.filter(({ raw, field }) => written.has(raw) && field === undefined).map(({ start, end, raw, prefix }) => Verdict.Edit({ start, end, text: Option.some([prefix, relocated(raw)].join('')), subject: Option.some(raw) }));
+    return words.filter(({ text, known, field }) => known && written.has(text) && field === undefined).map(({ start, end, raw, prefix }) => Verdict.Edit({ start, end, text: Option.some([prefix, relocated(raw)].join('')), subject: Option.some(raw) }));
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
