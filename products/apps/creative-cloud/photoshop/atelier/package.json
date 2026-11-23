@@ -1,7 +1,7 @@
 {
     "name": "@rasm/atelier-photoshop-plugin",
     "private": true,
-    "description": "Atelier Photoshop",
+    "description": "UXP plugin linking Photoshop to Atelier's MCP server",
     "type": "module",
     "dependencies": {
         "@rasm/photoshop": "workspace:*",

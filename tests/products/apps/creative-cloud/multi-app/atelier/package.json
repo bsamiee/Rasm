@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-atelier",
     "private": true,
-    "description": "Atelier suite over the built server in a stand-in app bundle, driven over MCP against a fake application server and the Acrobat installer receipts it reads: the script command execute_script sends to an application outside the UXP hosts, and its refusal where the dictionary declares none",
+    "description": "@rasm/atelier suites over its built server, driven over MCP against a fake application server",
     "os": [
         "darwin"
     ],

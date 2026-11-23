@@ -1,7 +1,7 @@
 {
     "name": "@rasm/atelier-indesign-plugin",
     "private": true,
-    "description": "Atelier InDesign",
+    "description": "UXP plugin linking InDesign to Atelier's MCP server, adding read, change, call, find-change, adjust, and preflight tools",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"

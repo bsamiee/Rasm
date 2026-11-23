@@ -1,7 +1,7 @@
 {
     "name": "@rasm/atelier-aftereffects-plugin",
     "private": true,
-    "description": "Atelier After Effects",
+    "description": "UXP plugin linking After Effects to Atelier's MCP server",
     "type": "module",
     "dependencies": {
         "@rasm/aftereffects": "workspace:*",

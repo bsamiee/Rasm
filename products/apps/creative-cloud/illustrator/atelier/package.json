@@ -1,7 +1,7 @@
 {
     "name": "@rasm/atelier-illustrator-plugin",
     "private": true,
-    "description": "Atelier Illustrator",
+    "description": "UXP plugin linking Illustrator to Atelier's MCP server",
     "type": "module",
     "dependencies": {
         "@rasm/illustrator": "workspace:*",
