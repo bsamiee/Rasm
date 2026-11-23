@@ -3,5 +3,10 @@
     "compilerOptions": {
         "lib": ["esnext", "dom"],
         "types": ["chrome", "node"]
-    }
+    },
+    "references": [
+        {
+            "path": "../../../libs/typescript/web/vite"
+        }
+    ]
 }

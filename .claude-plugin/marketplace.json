@@ -21,7 +21,7 @@
         {
             "name": "chrome",
             "source": "./plugins/shared/chrome",
-            "version": "0.2.0",
+            "version": "0.2.1",
             "description": "Chrome extensions from manifest and permissions through execution contexts, UI elements in Chrome's own look, suites, and Web Store release, and the signed-in Chrome's pages, settings, flags, and unpacked builds through chrome-devtools-mcp",
             "author": {
                 "name": "Bardia Samiee"

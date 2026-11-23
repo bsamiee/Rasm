@@ -4,6 +4,7 @@
     "description": "Mezrab Chrome extension: one shortcut copies the current tab's link and confirms it with a toast matching Chrome's own Link copied toast",
     "type": "module",
     "imports": {
+        "#/*": "./*.ts",
         "#/*.css": "./*.css",
         "#/*.json": "./*.json"
     },
@@ -12,14 +13,10 @@
         "effect": "catalog:"
     },
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
-        "@rasm/mark": "workspace:*",
         "@rasm/vite": "workspace:*",
         "@types/chrome": "catalog:",
-        "@types/culori": "catalog:",
         "@types/node": "catalog:",
         "@types/web": "catalog:",
-        "culori": "catalog:",
         "vite": "catalog:"
     },
     "config": {

@@ -106,6 +106,6 @@ Each host form, its build owner, and files it writes:
 |  [02]   | Grasshopper 2 | `Rasm.Grasshopper.targets`                                          | Embedded `<TypeName>.ghicon` and `mark.ghicon`    |
 |  [03]   | Blender       | `rasm.extension.ui` at load and draw                                | Previews tinted per place, turned variants        |
 |  [04]   | Adobe UXP     | `@rasm/uxp/vite`                                                    | Plug-in and panel PNGs per theme and scale        |
-|  [05]   | Chrome        | Product `vite.config.ts`                                            | Manifest PNG sizes                                |
+|  [05]   | Chrome        | `@rasm/vite/chrome`                                                 | Manifest PNG sizes                                |
 |  [06]   | Web           | `@rasm/hosting/head`                                                | ICO, touch and PWA icons, painted SVG, head links |
 |  [07]   | Apple         | `actool`                                                            | `Assets.car`, `.icns`, `ImageResource` members    |

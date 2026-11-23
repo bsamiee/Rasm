@@ -44,6 +44,7 @@
         "@axe-core/playwright": "catalog:",
         "@effect/platform-node": "catalog:",
         "@fontsource-variable/google-sans-flex": "catalog:",
+        "@rasm/vite": "workspace:*",
         "@typescript/native": "catalog:"
     },
     "devDependencies": {

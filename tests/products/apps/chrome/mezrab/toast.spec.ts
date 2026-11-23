@@ -78,13 +78,31 @@ it("keeps Chrome's 4px from each side of a 120px viewport too narrow for the pil
     expect(drawn).toEqual({ start: 4, end: 4, cut: 0 });
 });
 
+it("draws the share button as Chrome's 28px circle, 4px after the toast text and 10px from the pill's end", async ({ page, open, armed, extension, toast, button }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open('/button', '<p>Button</p>');
+    await armed(STUB.offered);
+
+    await extension.act(page);
+
+    await expect(button).toBeVisible();
+    const drawn = await toast.evaluate((element) => {
+        const [pill, text, action] = [element.getBoundingClientRect(), element.querySelector('span')?.getBoundingClientRect(), element.querySelector('button')];
+        const circle = action === null ? undefined : getComputedStyle(action, '::before');
+        const [side, inset] = [Number.parseFloat(circle?.inlineSize ?? 'NaN'), Number.parseFloat(circle?.insetInlineEnd ?? 'NaN')];
+        const end = pill.right - (action?.getBoundingClientRect().right ?? Number.NaN) + inset;
+        return { side: [circle?.inlineSize, circle?.blockSize], end, gap: pill.right - end - side - (text?.right ?? Number.NaN) };
+    });
+    expect(drawn).toEqual({ side: ['28px', '28px'], end: 10, gap: 4 });
+});
+
 (
     [
-        { scheme: 'light', background: '#303030', color: '#f2f2f2' },
-        { scheme: 'dark', background: '#e3e3e3', color: '#1f1f1f' },
+        { scheme: 'light', background: '#062e6f', color: '#f2f2f2' },
+        { scheme: 'dark', background: '#ecf3fe', color: '#1f1f1f' },
     ] as const
 ).forEach(({ scheme, background, color }) =>
-    it(`paints Chrome's neutral ${background} under text ${color} in the ${scheme} colour scheme`, async ({ page, open, extension, toast }) => {
+    it(`paints the ${background} fill of Chrome's toast at its default theme under text ${color} in the ${scheme} colour scheme`, async ({ page, open, extension, toast }) => {
         await page.emulateMedia({ colorScheme: scheme });
         await open(`/${scheme}`, '<p>Scheme</p>');
 

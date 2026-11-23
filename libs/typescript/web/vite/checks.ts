@@ -11,6 +11,13 @@ const checks = (): Plugin => ({
     onLog(level, log) {
         return level === 'warn' && REFUSED.has(log.code ?? '') ? this.error(log) : undefined;
     },
+    resolveId: {
+        order: 'pre',
+        handler(source, importer, options) {
+            const query = source.indexOf('?');
+            return source.startsWith('#') && query > 0 ? this.resolve(source.slice(0, query), importer, options).then((resolved) => resolved && { ...resolved, id: `${resolved.id}${source.slice(query)}` }) : undefined;
+        },
+    },
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

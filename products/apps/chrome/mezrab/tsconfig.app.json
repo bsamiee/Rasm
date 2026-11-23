@@ -8,7 +8,7 @@
     "exclude": ["vite.config.ts"],
     "nx": {
         "sync": {
-            "ignoredDependencies": ["@rasm/mark", "@rasm/vite"]
+            "ignoredDependencies": ["@rasm/vite"]
         }
     }
 }

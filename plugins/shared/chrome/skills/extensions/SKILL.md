@@ -21,34 +21,23 @@ Use `typescript:coding` for code design, `web:css` for CSS, and `chrome:browser`
 Extensions are products at `products/apps/chrome/<name>/`, a private `@rasm/<name>` package with no `project.json`, beside a suite at `tests/products/apps/chrome/<name>/`:
 - `manifest.json` holds every value Chrome and the Web Store read, and build, service worker, and suite import it
 - `_locales/<locale>/messages.json` holds every string a user reads
-- `service-worker.ts` holds listeners and each function it injects into a page
+- `service-worker.ts` holds listeners, and `<function>.ts` with `<function>.css` holds each function it injects into a page
 - `<page>.html` with `<page>.ts` and `<page>.css` holds one extension page (popup, side panel, options)
 - `icons/mark.svg` and `icons/mark-16.svg` hold the drawing, and `package.json` `config.brand` its color
 - `README.md` holds name, one line per behavior a test proves, and Web Store dashboard answers
-- `tsconfig.app.json` takes `types: ["chrome", "vite/client", "web"]`, and `tsconfig.node.json` holds `vite.config.ts` and `manifest.json`
+- `tsconfig.app.json` takes `types: ["chrome", "vite/client", "web"]`, and `tsconfig.node.json` holds `vite.config.ts`
 - Use `docs/typescript/Workspace.md` for `imports` rows, `docs/typescript/Testing.md` for suite targets, and `docs/Icons.md` for marks
 
 Code calls `browser.<api>`, the same objects `chrome.<api>` names, and type names keep `chrome.` (`chrome.runtime.PlatformInfo`).
 
-`vite.config.ts` reads each entry and target from the imported manifest:
-
-```ts
-export default defineConfig({
-    build: {
-        target: `chrome${manifest.minimum_chrome_version}`,
-        modulePreload: { polyfill: false },
-        rolldownOptions: { input: ['service-worker.ts', manifest.action.default_popup, manifest.side_panel.default_path], output: { entryFileNames: '[name].js' } },
-    },
-    plugins: [checks(), emitted],
-});
-```
-
-`emitted` is one plugin writing `manifest.json` unchanged, each locale file, and each `icons` PNG `paint` of `@rasm/mark` rasterizes:
-- HTML entries build their script and stylesheet, and chunks shared with `service-worker.js` load through static `import`
-- `modulePreload.polyfill: false` leaves out a polyfill no Chrome release needs
-- `entryFileNames: '[name].js'` writes each entry at build root under the name `manifest.json` holds for it
-- `assetsInlineLimit: () => true` inlines each imported asset as a data URL, as injected code reaches no package file
-- `checks()` of `@rasm/vite` fails a build on Rolldown warnings of output that runs wrong
+`vite.config.ts` exports `chrome(import.meta.dirname)` of `@rasm/vite/chrome`, which builds an extension from its `manifest.json`:
+- Entries are the service worker `background.service_worker` names and each page `action.default_popup`, `side_panel.default_path`, and `options_ui.page` name
+- `build.target` is `chrome<minimum_chrome_version>`, and each entry writes at build root under the name its manifest key holds
+- `manifest.json` and each `_locales` file emit unchanged
+- `icons` PNGs paint from `icons/mark.svg` and each `icons/mark-<grid>.svg` in `config.brand`, 128px padding 16px around its drawing
+- Imported assets inline as data URLs, as injected code reaches no package file
+- Chunks shared with the service worker load through static `import`
+- `checks()` of `@rasm/vite` fails a build on Rolldown warnings of output that runs wrong and resolves `#/` imports carrying a Vite query
 
 Each change builds, loads, and tests in order:
 1. `nx build @rasm/<name>` writes the unpacked extension to `.artifacts/vite/@rasm/<name>`

@@ -164,7 +164,7 @@ Entry points across packages and specifiers inside one:
 - Entries callers import alike on every runtime take one key with a condition per runtime resolver (`workerd`), `default` serving Node
 - `"./package.json"` stays exported, as `exports` hides every path it omits from tools reading the manifest
 - Files inside a package import `#/<path>`, a TypeScript module by path alone and any other file with its extension and any query (`#/toast`, `#/panel.tsx`, `#/manifest.json`, `#/toast.css?inline`)
-- Packages importing a file with a Vite query declare no `#/*` row, as that row takes a specifier with its query and appends `.ts`
+- Plugin `checks` of `@rasm/vite` resolves a `#/` specifier carrying a Vite query by its path, as row `#/*` otherwise takes the query and appends `.ts`
 - Rule `import/extensions` of oxlint refuses a `.ts` or `.js` extension on a specifier, and `no-restricted-imports` refuses every relative one
 - Rows take fixed forms: `#/*` to `./*.ts` for TypeScript modules, or `./*.js` in a JavaScript package, and `#/*.<extension>` to `./*.<extension>` for each other kind (`.tsx`, `.json`, `.css`)
 - TSX modules keep their extension, as one row appends one extension, Node runs no `.tsx` file, and Node and Vite refuse a row whose target is a list

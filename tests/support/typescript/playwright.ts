@@ -6,6 +6,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { getOutputsForTargetAndConfiguration, getPackageManagerCommand, getReadyUrl, readCachedProjectGraph, readJsonFile, workspaceRoot } from '@nx/devkit';
 import { interpolate, isCI, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { type BrowserContext, chromium, defineConfig, expect, type Page, test, type TestInfo, type Worker } from '@playwright/test';
+import { Brand } from '@rasm/vite/chrome';
 import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -46,7 +47,6 @@ const Unpacked = Schema.fromJsonString(Schema.declare((input: unknown): input is
     description: 'The manifest.json at the root of an unpacked Manifest V3 extension, the folder Chrome loads through --load-extension',
 });
 const Messages = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Struct({ message: Schema.String }))).annotate({ description: 'The _locales/<locale>/messages.json an extension names its __MSG_<key>__ strings from' });
-const Branded = Schema.fromJsonString(Schema.Struct({ config: Schema.Struct({ brand: Schema.String }) })).annotate({ description: 'The package.json config.brand color an extension paints its icons and promo tiles in' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -135,7 +135,7 @@ const branded = Effect.fnUntraced(function* ({ folder, root }: { readonly folder
         onDefined: (locale) => Effect.flatMap(fs.readFileString(join(folder, '_locales', locale, 'messages.json')), Schema.decodeUnknownEffect(Messages)),
     });
     const named = Option.flatMap(Option.fromNullishOr(/^__MSG_(?<key>\w+)__$/u.exec(manifest.name)?.groups?.['key']), (key) => Record.get(messages, key));
-    const { config } = yield* Effect.flatMap(fs.readFileString(join(root, 'package.json')), Schema.decodeUnknownEffect(Branded));
+    const { config } = yield* Effect.flatMap(fs.readFileString(join(root, 'package.json')), Schema.decodeUnknownEffect(Brand));
     return { name: Option.match(named, { onNone: () => manifest.name, onSome: ({ message }) => message }), mark: hosted(pathToFileURL(join(root, 'icons', 'mark.svg')).href), color: config.brand };
 });
 

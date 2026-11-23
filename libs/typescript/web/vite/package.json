@@ -2,7 +2,7 @@
     "name": "@rasm/vite",
     "version": "0.1.0",
     "private": true,
-    "description": "Vite plugins every Rasm build includes: Rolldown warnings whose output runs wrong (an import that is always undefined, a called namespace, an emptied import.meta, a lost or conflicting export or file name) fail the build, and every other warning stays a warning",
+    "description": "Vite plugins and configs of Rasm builds: Rolldown warnings whose output runs wrong fail a build, a package import carrying a Vite query resolves by its path, and a Chrome extension builds its service worker, pages, manifest, locales, and painted icons from its manifest.json",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -15,23 +15,48 @@
     ],
     "type": "module",
     "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
         ".": "./checks.ts",
+        "./chrome": "./chrome.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
         "exports": {
             ".": "./dist/checks.js",
+            "./chrome": "./dist/chrome.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@rasm/mark": "workspace:*"
+    },
     "devDependencies": {
+        "@types/culori": "catalog:",
         "@types/node": "catalog:",
+        "culori": "catalog:",
+        "effect": "catalog:",
         "vite": "catalog:"
     },
     "peerDependencies": {
+        "culori": "catalog:peers",
+        "effect": "catalog:peers",
         "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "culori": {
+            "optional": true
+        },
+        "effect": {
+            "optional": true
+        }
     },
     "engines": {
         "node": ">=27"

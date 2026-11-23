@@ -15,7 +15,7 @@ Mezrab's toolbar button and keyboard shortcut run one action:
 - Toasts draw Chrome's centered 48px pill, with text 40px from the pill's start and 16px from its end, at any page zoom
 - Toasts keep Chrome's 4px from each side of a viewport too narrow for their pill, with the whole Share link button inside
 - Toasts set their type from Chrome's font size setting, 13px/24px at its default 16px, whatever font size the page sets
-- Toasts paint neutral tones inverse to the color scheme: dark under light text in a light scheme, light under dark text in a dark scheme
+- Toasts paint the fill of Chrome's toast at its default theme: `#062E6F` under `#F2F2F2` text in a light scheme, `#ECF3FE` under `#1F1F1F` text in a dark one
 - Toasts paint a `CanvasText` background under `Canvas` text when `prefers-contrast: more` matches
 - Toasts draw a solid border under forced colors and none without them
 - Toasts enter over 300ms and leave over 150ms on Chrome's toast curves
@@ -31,6 +31,7 @@ Mezrab's toolbar button and keyboard shortcut run one action:
 - Toasts stay open with their hold paused while a share they started is pending, and close once the share settles
 - Toasts on `http:` and `https:` pages end in a Share link button when `navigator.canShare` accepts the tab's URL and title
 - Toasts show no Share link button where `navigator.share` or `navigator.canShare` is missing, as on Linux
+- Share link buttons draw Chrome's 28px circle, 4px after the toast text and 10px from the pill's end
 - Share link buttons draw `ios_share` on macOS, `share_windows` on Windows, and `share` elsewhere
 - Each click or Enter on a Share link button shares the tab's URL once through a system share sheet, with a page title where one is set
 - Escape closes a toast while focus rests inside it, and reaches the page while focus rests outside it
