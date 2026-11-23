@@ -7,7 +7,7 @@ import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, type C
 import { calculateHashesForCreateNodes, getLockFileName, getReadyCheckReadyWhen, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
-import { aggregated, anchored, extended, fingerprinted, Folder, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, flow, MutableRef, Option, Predicate, Record, Schema } from 'effect';
 
@@ -153,8 +153,7 @@ const inferred = Effect.fnUntraced(function* (
     return { projects: { [root]: project } } satisfies CreateNodesResult;
 });
 
-const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
-    const settings = yield* Schema.decodeEffect(Options)(options ?? {});
+const nodes = inferring(Options, run, function* (files, settings, context) {
     const project = anchored(context.workspaceRoot);
     const [mains, roots] = Array.unzip(files.map((file) => [file, dirname(dirname(file))] as const).filter(([, root]) => project(root)));
     const chains = roots.map((root) => extended(context.workspaceRoot, root));
@@ -174,7 +173,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     const rows = new Map(Iterator.zip([mains, chains, hashes]).map(([file, chain, hash]) => [file, { file, chain, digest: hashArray([hash, own]) }] as const));
     const each = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(rows.get(file)), (row) => inferred(cache, stored, context, Option.fromUndefinedOr(settings.outputPath), exec, row)));
     return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles(each, mains, options, context)),
+        Effect.promise(() => createNodesFromFiles(each, mains, settings, context)),
         Effect.when(
             Effect.sync(() => cache.writeToDisk()),
             Effect.sync(() => MutableRef.get(stored)),
@@ -184,7 +183,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = ['**/.storybook/main.{js,ts,jsx,tsx,mjs,mts,cjs,cts}', (files, options, context) => run(nodes(files, options, context))];
+const createNodes: CreateNodes = ['**/.storybook/main.{js,ts,jsx,tsx,mjs,mts,cjs,cts}', nodes];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

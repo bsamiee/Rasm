@@ -2,9 +2,8 @@ import { createRequire } from 'node:module';
 import { dirname, relative, resolve } from 'node:path';
 import { chdir, cwd } from 'node:process';
 import { pathToFileURL } from 'node:url';
-import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { run } from '@rasm/nx-distribution/inference';
+import { batched, executor, run } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Equal, Exit, Formatter, Function, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
 import { testMode } from '#/plugin';
@@ -13,7 +12,7 @@ import { testMode } from '#/plugin';
 
 interface Planned {
     readonly task: string;
-    readonly options: typeof Test.Type;
+    readonly options: Test;
     readonly home: string;
 }
 interface Settled {
@@ -23,18 +22,20 @@ interface Settled {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Test = Schema.Struct({
-    config: Schema.String.annotate({ description: 'Vitest configuration file the run loads, relative to the workspace root, whose folder the run starts from' }),
-    projects: Schema.Array(Schema.String).annotate({ description: 'Vitest projects the task runs, passed as --project, every project the configuration resolves where empty' }),
-    attachmentsDir: Schema.optionalKey(Schema.String).annotate({ description: "Folder the task's projects write attachments to, relative to the workspace root, the run's attachmentsDir where the task runs alone" }),
-    coverage: Schema.optionalKey(Schema.Struct({ enabled: Schema.Boolean, reporter: Schema.String, reportsDirectory: Schema.optionalKey(Schema.String) })).annotate({
-        description: 'Coverage options of the run, reportsDirectory relative to the workspace root, which the coverage configuration of the target sets',
+class Test extends Schema.Opaque<Test, unknown>()(
+    Schema.Struct({
+        config: Schema.String.annotate({ description: 'Vitest configuration file the run loads, relative to the workspace root, whose folder the run starts from' }),
+        projects: Schema.Array(Schema.String).annotate({ description: 'Vitest projects the task runs, passed as --project, every project the configuration resolves where empty' }),
+        attachmentsDir: Schema.optionalKey(Schema.String).annotate({ description: "Folder the task's projects write attachments to, relative to the workspace root, the run's attachmentsDir where the task runs alone" }),
+        coverage: Schema.optionalKey(Schema.Struct({ enabled: Schema.Boolean, reporter: Schema.String, reportsDirectory: Schema.optionalKey(Schema.String) })).annotate({
+            description: 'Coverage options of the run, reportsDirectory relative to the workspace root, which the coverage configuration of the target sets',
+        }),
+        __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, parsed as vitest run arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+    }).annotate({
+        title: 'Test',
+        description: "Runs vitest run once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, and decides each task from the test modules of its own projects",
     }),
-    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, parsed as vitest run arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
-}).annotate({
-    title: 'Test',
-    description: "Runs vitest run once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, and decides each task from the test modules of its own projects",
-});
+) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -138,14 +139,15 @@ const grouped = (planned: readonly Planned[]) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* (options: typeof Test.Type, context: ExecutorContext) {
+const execute = executor(Test, run, function* (options, context) {
     const task = yield* Effect.fromNullishOr(context.projectName);
     const [{ result }] = yield* settled(context.root, [{ task, options, home: context.projectGraph.nodes[task]?.data.root ?? '.' }]);
     return { success: result.success };
-}, run);
+});
 
-const batch = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Test.Type>>, _: unknown, context: ExecutorContext) =>
-    Stream.toReadableStream(Stream.flatMap(Stream.fromIterable(grouped(Record.collect(inputs, (task, options): Planned => ({ task, options, home: context.projectGraph.nodes[graph.tasks[task]?.target.project ?? '']?.data.root ?? '.' })))), (group) => Stream.fromIterableEffect(settled(context.root, group)))).values();
+const batch = batched(Test, (graph, inputs, context) =>
+    Stream.flatMap(Stream.fromIterable(grouped(Record.collect(inputs, (task, options): Planned => ({ task, options, home: context.projectGraph.nodes[graph.tasks[task]?.target.project ?? '']?.data.root ?? '.' })))), (group) => Stream.fromIterableEffect(settled(context.root, group))),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

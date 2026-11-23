@@ -1,13 +1,13 @@
-import type { ExecutorContext, TaskGraph } from '@nx/devkit';
+import type { TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { ran, spawned } from '@rasm/nx-distribution/inference';
+import { batched, executor, ran, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Console, Effect, Equal, FileSystem, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { ANALYZER, environment, launched, run, streamed } from '#/targets';
+import { ANALYZER, environment, launched, run } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Planned = readonly [string, typeof Build.Type];
+type Planned = readonly [string, Build];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,18 +16,20 @@ const ENTRY_TARGETS = ['Build', 'Rebuild', 'Clean', 'Publish', 'Pack'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Build = Schema.Struct({
-    project: Schema.String.annotate({ description: 'Project file to build' }),
-    command: Schema.NonEmptyArray(Schema.String).annotate({ description: 'dotnet verb and its switches for the configuration, which the plugin infers' }),
-    outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Folders and files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
-    solution: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({
-        description: 'Configuration|Platform of each project file the build reaches, passed as CurrentSolutionConfigurationContents, which the plugin infers where a reached project lacks the configuration',
+class Build extends Schema.Opaque<Build, unknown>()(
+    Schema.Struct({
+        project: Schema.String.annotate({ description: 'Project file to build' }),
+        command: Schema.NonEmptyArray(Schema.String).annotate({ description: 'dotnet verb and its switches for the configuration, which the plugin infers' }),
+        outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Folders and files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
+        solution: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({
+            description: 'Configuration|Platform of each project file the build reaches, passed as CurrentSolutionConfigurationContents, which the plugin infers where a reached project lacks the configuration',
+        }),
+        __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+    }).annotate({
+        title: 'Build',
+        description: "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb or the -t a run passes, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result from the run's binary log",
     }),
-    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
-}).annotate({
-    title: 'Build',
-    description: "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb or the -t a run passes, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result from the run's binary log",
-});
+) {}
 const Outcomes = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Struct({ succeeded: Schema.Boolean, lines: Schema.Array(Schema.String) }))).annotate({
     description: 'Success and diagnostics per project file the binary log of a run records, which MsbuildAnalyzer results prints',
 });
@@ -104,13 +106,13 @@ const ordered = (graph: TaskGraph, root: string, planned: readonly Planned[]) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* (build: typeof Build.Type, context: ExecutorContext) {
+const execute = executor(Build, run, function* (build, context) {
     const [{ result }] = yield* built(context.root, [[context.root, build]]);
     yield* Console.log(result.terminalOutput);
     return { success: result.success };
-}, run);
+});
 
-const batch = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Build.Type>>, _: unknown, context: ExecutorContext) => streamed(ordered(graph, context.root, Record.toEntries(inputs)));
+const batch = batched(Build, (graph, inputs, context) => ordered(graph, context.root, Record.toEntries(inputs)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

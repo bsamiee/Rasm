@@ -60,22 +60,24 @@ const Node = Schema.Struct({
     dependencies: Schema.Array(Schema.Struct({ id: Schema.String }).pipe(Schema.decodeTo(Schema.String, SchemaTransformation.transform({ decode: ({ id }) => id, encode: (id) => ({ id }) })))),
     dependency_groups: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, id: Schema.String })))),
 });
-const Metadata = Schema.fromJsonString(
-    Schema.Struct({
-        schema: Schema.Struct({ version: Schema.Literal(SCHEMA) }),
-        workspace: Schema.Struct({ path: Schema.String, id: Schema.String }),
-        members: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.String, id: Schema.String })),
-        resolution: Schema.Record(Schema.String, Node),
-    }),
-);
+class Metadata extends Schema.Opaque<Metadata, unknown>()(
+    Schema.fromJsonString(
+        Schema.Struct({
+            schema: Schema.Struct({ version: Schema.Literal(SCHEMA) }),
+            workspace: Schema.Struct({ path: Schema.String, id: Schema.String }),
+            members: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.String, id: Schema.String })),
+            resolution: Schema.Record(Schema.String, Node),
+        }),
+    ),
+) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const normalized = (name: string) => name.toLowerCase().replaceAll(SEPARATORS, '-');
 
-const sited = (workspaceRoot: string) => (node: typeof Node.Type) =>
+const sited = (workspaceRoot: string) => (source: Readonly<Record<string, unknown>>) =>
     Option.map(
-        Record.findFirst(node.source, (at, key): at is string => Schema.is(Local)(key) && Predicate.isString(at)),
+        Record.findFirst(source, (at, key): at is string => Schema.is(Local)(key) && Predicate.isString(at)),
         ([, at]) => normalizePath(relative(workspaceRoot, normalize(at))) || '.',
     );
 
@@ -92,18 +94,18 @@ const packed = (stated: unknown): readonly string[] =>
         },
     });
 
-const folders = (workspaceRoot: string, { workspace, resolution }: typeof Metadata.Type) => Array.dedupe([normalizePath(relative(workspaceRoot, workspace.path)) || '.', ...Array.getSomes(Object.values(resolution).map(sited(workspaceRoot)))]);
+const folders = (workspaceRoot: string, { workspace, resolution }: Metadata) => Array.dedupe([normalizePath(relative(workspaceRoot, workspace.path)) || '.', ...Array.getSomes(Object.values(resolution).map(({ source }) => sited(workspaceRoot)(source)))]);
 
-const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.Type, documented: ReadonlyMap<string, unknown>) => {
+const report = (workspaceRoot: string, lock: string, metadata: Metadata, documented: ReadonlyMap<string, unknown>) => {
     const { resolution } = metadata;
     const local = sited(workspaceRoot);
     const workspace = normalizePath(relative(workspaceRoot, metadata.workspace.path)) || '.';
-    const located = (id: string) => Option.flatMap(Option.fromUndefinedOr(resolution[id]), (node) => Option.all({ root: local(node), name: Option.fromUndefinedOr(node.name) }));
+    const located = (id: string) => Option.flatMap(Option.fromUndefinedOr(resolution[id]), (node) => Option.all({ root: local(node.source), name: Option.fromUndefinedOr(node.name) }));
     const reach = (ids: ReadonlySet<string>): ReadonlySet<string> => {
         const next = ids.union(new Set(ids.values().flatMap((id) => resolution[id]?.dependencies ?? [])));
         return next.size === ids.size ? ids : reach(next);
     };
-    const distributed = (name: string) => (id: string) => Option.exists(Option.fromUndefinedOr(resolution[id]), (node) => node.name === name && Option.isNone(local(node)));
+    const distributed = (name: string) => (id: string) => Option.exists(Option.fromUndefinedOr(resolution[id]), (node) => node.name === name && Option.isNone(local(node.source)));
     const stated = (root: string) => documented.get(posix.join(root, MANIFEST));
     const manifest = (root: string) => Option.map(Schema.decodeUnknownOption(Declared)(stated(root)), ({ project }) => project);
     const members = metadata.members.map((member) => ({ ...member, root: normalizePath(relative(workspaceRoot, member.path)) || '.' }));
@@ -167,7 +169,7 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
         }),
         edges: members.flatMap((member) => {
             const sourceFile = posix.join(member.root, MANIFEST);
-            const own = Record.keys(Record.filter(resolution, (node) => node.name === member.name && Option.contains(local(node), member.root)));
+            const own = Record.keys(Record.filter(resolution, (node) => node.name === member.name && Option.contains(local(node.source), member.root)));
             const targeted = own.flatMap((id) => Array.getSomes((resolution[id]?.dependencies ?? []).map(located))).map(({ root }) => root);
             return targeted.map((target): RawProjectGraphDependency => ({ source: member.root, target, type: DependencyType.static, sourceFile }));
         }),

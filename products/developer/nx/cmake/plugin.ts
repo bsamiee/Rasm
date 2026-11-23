@@ -1,10 +1,10 @@
 import { join, posix, relative } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { fingerprinted, manifested } from '@rasm/nx-distribution/inference';
+import { fingerprinted, inferring, manifested } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Equal, Option, Order, Record, Schema } from 'effect';
 import { memberInputs, memberTargets } from '#/targets';
-import { Linked, MANIFEST, PLUGIN, PRESETS, resolved, run, type Tree } from '#/workspace';
+import { Linked, MANIFEST, PLUGIN, PRESETS, resolved, run, Tree } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -13,18 +13,21 @@ const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
-    description:
-        "outputPath: workspace folder each member writes its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes archives under packages in the member build folder. coveragePath: workspace folder the coverage configuration of a member's test target writes the lcov.info report of the member's linked binaries to, its raw and merged profiles staying in the member build folder, {projectName} naming the member, absent leaves each test its default.profraw and writes no report",
-});
+class Options extends Schema.Opaque<Options, unknown>()(
+    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
+        description:
+            "outputPath: workspace folder each member writes its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes archives under packages in the member build folder. coveragePath: workspace folder the coverage configuration of a member's test target writes the lcov.info report of the member's linked binaries to, its raw and merged profiles staying in the member build folder, {projectName} naming the member, absent leaves each test its default.profraw and writes no report",
+    }),
+) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree: Tree; readonly stamp: string; readonly digest: string }>, context: CreateNodesContext, settings: typeof Options.Type, matched: readonly string[], file: string) {
+const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree: unknown; readonly stamp: string; readonly digest: string }>, context: CreateNodesContext, settings: Options, matched: readonly string[], file: string) {
     const near = matched.filter((other) => !posix.relative(posix.dirname(file), other).startsWith('..'));
     const stamped = ({ inputs }: Tree) => Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...inputs]));
     const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, near)), yield* OWN]);
-    const held = yield* Effect.findFirst(Option.toArray(Option.filter(Option.fromUndefinedOr(cache.get(file)), (stored) => stored.digest === digest)), (stored) => Effect.map(stamped(stored.tree), Equal.equals(stored.stamp)));
+    const fresh = Option.filter(Option.fromUndefinedOr(cache.get(file)), (entry) => entry.digest === digest);
+    const held = yield* Effect.findFirst(Option.toArray(Option.flatMap(fresh, (entry) => Option.map(Schema.decodeUnknownOption(Tree)(entry.tree), (tree) => ({ ...entry, tree })))), (entry) => Effect.map(stamped(entry.tree), Equal.equals(entry.stamp)));
     const tree = yield* Option.match(held, {
         onSome: (stored) => Effect.succeed(stored.tree),
         onNone: () =>
@@ -71,18 +74,13 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = [
+const createNodes: CreateNodes = [
     combineGlobPatterns([PRESETS, MANIFEST, REGISTRY.manifest, REGISTRY.configuration].map((file) => `**/${file}`)),
-    (matched, options, context) => {
-        const cache = new PluginCache<{ readonly tree: Tree; readonly stamp: string; readonly digest: string }>(join(workspaceDataDirectory, 'cmake.hash'));
+    inferring(Options, run, function* (matched, settings, context) {
+        const cache = new PluginCache<{ readonly tree: unknown; readonly stamp: string; readonly digest: string }>(join(workspaceDataDirectory, 'cmake.hash'));
         const presets = matched.filter((file) => posix.basename(file) === PRESETS && matched.includes(posix.join(posix.dirname(file), MANIFEST)));
-        return run(
-            Effect.gen(function* () {
-                const settings = yield* Schema.decodeEffect(Options)(options ?? {});
-                return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(cache, context, settings, matched, file)), presets, options, context));
-            }),
-        );
-    },
+        return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(cache, context, settings, matched, file)), presets, settings, context));
+    }),
 ];
 
 const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) =>

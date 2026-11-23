@@ -25,33 +25,37 @@ const ARGUMENT = /#\[(?<comment>=*)\[[\s\S]*?\]\k<comment>\]|#[^\n]*|\[(?<bracke
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Workflow = Schema.Struct({
-    name: Schema.String,
-    configure: Schema.String,
-    tree: Schema.String,
-    build: Schema.optionalKey(Schema.String),
-    test: Schema.optionalKey(Schema.String),
-    after: Schema.optionalKey(Schema.String),
-    tidy: Schema.Array(Schema.Struct({ variable: Schema.String, launcher: Schema.String })),
-});
+class Workflow extends Schema.Opaque<Workflow, unknown>()(
+    Schema.Struct({
+        name: Schema.String,
+        configure: Schema.String,
+        tree: Schema.String,
+        build: Schema.optionalKey(Schema.String),
+        test: Schema.optionalKey(Schema.String),
+        after: Schema.optionalKey(Schema.String),
+        tidy: Schema.Array(Schema.Struct({ variable: Schema.String, launcher: Schema.String })),
+    }),
+) {}
 const Packaging = Schema.Struct({ name: Schema.String, configurePreset: Schema.String });
 const Launcher = Schema.Union([Schema.String, Schema.Struct({ value: Schema.String })]);
-const Presets = Schema.fromJsonString(
-    Schema.Struct({
-        configurePresets: Schema.Array(
-            Schema.Struct({
-                name: Schema.String,
-                inherits: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
-                generator: Schema.optionalKey(Schema.String),
-                binaryDir: Schema.optionalKey(Schema.String),
-                cacheVariables: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
-                environment: Schema.optionalKey(Schema.Record(Schema.String, Schema.NullOr(Schema.String))),
-            }),
-        ).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-        packagePresets: Schema.Array(Packaging).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-        workflowPresets: Schema.Array(Schema.Struct({ name: Schema.String, steps: Schema.Array(Schema.Struct({ type: Schema.String, name: Schema.String })) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-    }),
-);
+class Presets extends Schema.Opaque<Presets, unknown>()(
+    Schema.fromJsonString(
+        Schema.Struct({
+            configurePresets: Schema.Array(
+                Schema.Struct({
+                    name: Schema.String,
+                    inherits: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
+                    generator: Schema.optionalKey(Schema.String),
+                    binaryDir: Schema.optionalKey(Schema.String),
+                    cacheVariables: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
+                    environment: Schema.optionalKey(Schema.Record(Schema.String, Schema.NullOr(Schema.String))),
+                }),
+            ).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+            packagePresets: Schema.Array(Packaging).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+            workflowPresets: Schema.Array(Schema.Struct({ name: Schema.String, steps: Schema.Array(Schema.Struct({ type: Schema.String, name: Schema.String })) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+        }),
+    ),
+) {}
 const Reference = Schema.Struct({ jsonFile: Schema.String });
 const Index = Schema.fromJsonString(
     Schema.Struct({
@@ -94,27 +98,27 @@ const Listing = Schema.fromJsonString(
         backtraceGraph: Schema.Struct({ files: Schema.Array(Schema.String), nodes: Schema.Array(Schema.Struct({ file: Schema.Int, parent: Schema.optionalKey(Schema.Int) })) }),
     }),
 );
-const Tree = Schema.Struct({
-    root: Schema.String,
-    workflows: Schema.Array(Workflow),
-    packages: Schema.Array(Packaging),
-    members: Schema.Array(
-        Schema.Struct({
-            name: Schema.String,
-            root: Schema.String,
-            build: Schema.String,
-            installs: Schema.Boolean,
-            packaged: Schema.Boolean,
-            tested: Schema.Boolean,
-            folders: Schema.Array(Schema.String),
-            targets: Schema.Array(Schema.Struct({ name: Schema.String, artifacts: Schema.Array(Schema.Struct({ path: Schema.String })), binary: Schema.optionalKey(Schema.String) })),
-            links: Schema.Array(Schema.Struct({ root: Schema.String, file: Schema.String })),
-        }),
-    ),
-    inputs: Schema.Array(Schema.String),
-});
-
-type Tree = typeof Tree.Type;
+class Tree extends Schema.Opaque<Tree, unknown>()(
+    Schema.Struct({
+        root: Schema.String,
+        workflows: Schema.Array(Workflow),
+        packages: Schema.Array(Packaging),
+        members: Schema.Array(
+            Schema.Struct({
+                name: Schema.String,
+                root: Schema.String,
+                build: Schema.String,
+                installs: Schema.Boolean,
+                packaged: Schema.Boolean,
+                tested: Schema.Boolean,
+                folders: Schema.Array(Schema.String),
+                targets: Schema.Array(Schema.Struct({ name: Schema.String, artifacts: Schema.Array(Schema.Struct({ path: Schema.String })), binary: Schema.optionalKey(Schema.String) })),
+                links: Schema.Array(Schema.Struct({ root: Schema.String, file: Schema.String })),
+            }),
+        ),
+        inputs: Schema.Array(Schema.String),
+    }),
+) {}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -171,7 +175,7 @@ const filled = Effect.fnUntraced(function* (folder: string) {
 
 const configured = (configure: string, defines: Readonly<Record<string, string>> = {}): Array.NonEmptyReadonlyArray<string> => ['cmake', '--preset', configure, '-S', '.', ...Record.collect(defines, (name, value) => `-D${name}=${value}`)];
 
-const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string, workflow: typeof Workflow.Type, located: string) {
+const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string, configure: string, located: string) {
     const fs = yield* FileSystem.FileSystem;
     const inside = (at: string) => normalizePath(relative(workspaceRoot, resolve(workspaceRoot, root, at))) || '.';
     const tree = join(workspaceRoot, located);
@@ -179,7 +183,7 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
     const read = <S extends Schema.Decoder<unknown>>(schema: S, file: string) => Effect.flatMap(fs.readFileString(join(reply, file)), Schema.decodeEffect(schema));
     yield* fs.makeDirectory(query, { recursive: true });
     yield* fs.writeFileString(join(query, QUERY), '{"requests":[{"kind":"codemodel","version":2},{"kind":"cmakeFiles","version":1}]}');
-    yield* spawned(configured(workflow.configure), { cwd: join(workspaceRoot, root) });
+    yield* spawned(configured(configure), { cwd: join(workspaceRoot, root) });
     const newest = yield* Effect.flatMap(fs.readDirectory(reply), (names) => Effect.fromOption(Array.last(names.filter((name) => name.startsWith('index-')).toSorted())));
     const index = yield* read(Index, newest);
     const [modelled, filed] = index.reply[CLIENT][QUERY].responses;
@@ -258,8 +262,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
     const root = posix.dirname(presets);
     const source = join(workspaceRoot, root);
     const { configurePresets, packagePresets: packages, workflowPresets } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
-    type Steps = (typeof workflowPresets)[number]['steps'];
-    const chain = (name: string): readonly (typeof configurePresets)[number][] => configurePresets.flatMap((preset) => (preset.name === name ? [preset, ...Array.ensure(preset.inherits ?? []).flatMap(chain)] : []));
+    const chain = (name: string): readonly Presets['configurePresets'][number][] => configurePresets.flatMap((preset) => (preset.name === name ? [preset, ...Array.ensure(preset.inherits ?? []).flatMap(chain)] : []));
     const macros = (configure: string, at: string) =>
         expanded(
             {
@@ -285,12 +288,12 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
                 ),
             ),
         );
-    const stepped = (listed: Steps, kind: string) =>
+    const stepped = (listed: Presets['workflowPresets'][number]['steps'], kind: string) =>
         Option.map(
             Array.findFirst(listed, (each) => each.type === kind),
             (each) => each.name,
         );
-    const followed = (listed: Steps) =>
+    const followed = (listed: Presets['workflowPresets'][number]['steps']) =>
         Option.flatMap(
             Array.findFirstIndex(listed, (each) => each.type === 'test'),
             (at) => stepped(listed.slice(at + 1), 'build'),
@@ -321,7 +324,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
             (variable, named) => ({ variable, launcher: macros(configure, WORKING)(typeof named === 'string' ? named : named.value) }),
         );
     const workflows = Array.getSomes(
-        workflowPresets.map(({ name, steps }) => Option.map(stepped(steps, 'configure'), (configure): typeof Workflow.Type => ({ ...Record.getSomes({ build: stepped(steps, 'build'), test: stepped(steps, 'test'), after: followed(steps) }), tree: rooted(configure), name, configure, tidy: launchers(configure) }))),
+        workflowPresets.map(({ name, steps }) => Option.map(stepped(steps, 'configure'), (configure) => ({ ...Record.getSomes({ build: stepped(steps, 'build'), test: stepped(steps, 'test'), after: followed(steps) }), tree: rooted(configure), name, configure, tidy: launchers(configure) }))),
     );
     const declaring = yield* Effect.filter(
         manifests.filter((file) => !posix.relative(root, file).startsWith('..')),
@@ -334,7 +337,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
             onNone: () => Effect.succeed<Tree>({ root, workflows, packages, members: [], inputs: [] }),
             onSome: (workflow) =>
                 Effect.map(
-                    Effect.flatMap(filled(workflow.tree), (located) => replied(workspaceRoot, root, workflow, located)),
+                    Effect.flatMap(filled(workflow.tree), (located) => replied(workspaceRoot, root, workflow.configure, located)),
                     (reply): Tree => ({ root, workflows, packages, ...reply }),
                 ),
         },
@@ -347,4 +350,4 @@ const run = runner(Linked.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { configured, ENVIRONMENT, Linked, MANIFEST, PACKAGING, PLUGIN, PRESETS, resolved, restated, run, type Tree, versioned, WORKING };
+export { configured, ENVIRONMENT, Linked, MANIFEST, PACKAGING, PLUGIN, PRESETS, resolved, restated, run, Tree, versioned, WORKING, type Workflow };

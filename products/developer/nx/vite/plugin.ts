@@ -6,7 +6,7 @@ import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, type C
 import { calculateHashesForCreateNodes, getLockFileName, getReadyCheckReadyWhen, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
-import { aggregated, anchored, extended, fingerprinted, Folder, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, FileSystem, MutableRef, Option, Record, Schema, Struct } from 'effect';
 import type { InlineConfig, parseSync, Plugin, resolveConfig } from 'vite';
@@ -182,8 +182,7 @@ const inferred = Effect.fnUntraced(function* (
     return { projects: { [root]: project } } satisfies CreateNodesResult;
 });
 
-const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
-    const settings = yield* Schema.decodeEffect(Options)(options ?? {});
+const nodes = inferring(Options, run, function* (files, settings, context) {
     const project = anchored(context.workspaceRoot);
     const configs = files.filter((file) => project(posix.dirname(file)));
     const chains = configs.map((file) => extended(context.workspaceRoot, posix.dirname(file)));
@@ -203,7 +202,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     const rows = new Map(Iterator.zip([configs, chains, hashes]).map(([file, chain, hash]) => [file, { file, chain, digest: hashArray([hash, own]) }] as const));
     const each = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(rows.get(file)), (row) => inferred(cache, stored, context, Option.fromUndefinedOr(settings.outputPath), exec, row)));
     return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles(each, configs, options, context)),
+        Effect.promise(() => createNodesFromFiles(each, configs, settings, context)),
         Effect.when(
             Effect.sync(() => cache.writeToDisk()),
             Effect.sync(() => MutableRef.get(stored)),
@@ -213,7 +212,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = ['**/vite.config.{js,mjs,ts,cjs,mts,cts}', (files, options, context) => run(nodes(files, options, context))];
+const createNodes: CreateNodes = ['**/vite.config.{js,mjs,ts,cjs,mts,cts}', nodes];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

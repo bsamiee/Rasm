@@ -1,14 +1,13 @@
-import type { ExecutorContext } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { ran } from '@rasm/nx-distribution/inference';
+import { batched, executor, ran } from '@rasm/nx-distribution/inference';
 import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { grouped } from '#/executors/build/executor';
-import { run, streamed } from '#/targets';
+import { run } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Planned = readonly [string, typeof Format.Type];
+type Planned = readonly [string, Format];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,11 +15,13 @@ const UNFORMATTED = 2;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Format = Schema.Struct({
-    commands: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'dotnet format subcommands and their switches, run in order, which the plugin infers' }),
-    project: Schema.String.annotate({ description: 'Project file the commands run on' }),
-    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
-}).annotate({ title: 'Format', description: 'Runs dotnet format commands in order on one project, or once each over a solution of every batched project' });
+class Format extends Schema.Opaque<Format, unknown>()(
+    Schema.Struct({
+        commands: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'dotnet format subcommands and their switches, run in order, which the plugin infers' }),
+        project: Schema.String.annotate({ description: 'Project file the commands run on' }),
+        __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+    }).annotate({ title: 'Format', description: 'Runs dotnet format commands in order on one project, or once each over a solution of every batched project' }),
+) {}
 const Report = Schema.fromJsonString(Schema.Array(Schema.Struct({ FilePath: Schema.String }))).annotate({ description: 'The file dotnet format --report writes, one entry per document it changed or would change' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -43,7 +44,7 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
         members,
         Order.mapInput(Order.flip(Order.Number), (member: (typeof members)[number]) => member.folder.length),
     );
-    const owner = ({ FilePath }: (typeof Report.Type)[number]) => Array.findFirst(nested, (member) => FilePath.startsWith(member.folder));
+    const owner = ({ FilePath }: { readonly FilePath: string }) => Array.findFirst(nested, (member) => FilePath.startsWith(member.folder));
     const folder = yield* fs.makeTempDirectoryScoped();
     const target = rest.length === 0 ? Array.headNonEmpty(members).project : path.join(folder, 'batch.slnx');
     yield* rest.length === 0 ? Effect.void : Effect.flatMap(solution(members.map(({ project }) => project)), (text) => fs.writeFileString(target, text));
@@ -74,13 +75,13 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* (format: typeof Format.Type, context: ExecutorContext) {
+const execute = executor(Format, run, function* (format, context) {
     const [{ result }] = yield* formatted(context.root, [[context.root, format]]);
     yield* Console.log(result.terminalOutput);
     return { success: result.success };
-}, run);
+});
 
-const batch = (_: unknown, inputs: Readonly<Record<string, typeof Format.Type>>, __: unknown, context: ExecutorContext) => streamed(Stream.flattenIterable(Stream.mapEffect(Stream.fromIterable(grouped(Record.toEntries(inputs))), (group) => Effect.scoped(formatted(context.root, group)))));
+const batch = batched(Format, (_, inputs, context) => Stream.flattenIterable(Stream.mapEffect(Stream.fromIterable(grouped(Record.toEntries(inputs))), (group) => Effect.scoped(formatted(context.root, group)))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

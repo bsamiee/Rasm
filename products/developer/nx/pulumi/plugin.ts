@@ -12,22 +12,24 @@ const VERBS = { install: { args: ['install'], ordered: true }, deploy: { args: [
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Dependencies = Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
-const Manifest = Schema.fromJsonString(
-    Schema.Struct({
-        name: Schema.optionalKey(Schema.String),
-        bin: Schema.optionalKey(Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.String)])),
-        dependencies: Dependencies,
-        devDependencies: Dependencies,
-        nx: Schema.optionalKey(Schema.Struct({ implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)), targets: Schema.optionalKey(Targets) })),
+class Manifest extends Schema.Opaque<Manifest, unknown>()(
+    Schema.fromJsonString(
+        Schema.Struct({
+            name: Schema.optionalKey(Schema.String),
+            bin: Schema.optionalKey(Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.String)])),
+            dependencies: Dependencies,
+            devDependencies: Dependencies,
+            nx: Schema.optionalKey(Schema.Struct({ implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)), targets: Schema.optionalKey(Targets) })),
+        }),
+    ).annotate({
+        description:
+            'The name, bin, dependencies, and nx rows of a package.json: a package depending on @pulumi/pulumi with one bin is a Pulumi Automation API program, a package depending on that program or naming it in nx.implicitDependencies runs it for itself, and Nx merges nx.targets inputs over the inferred targets after every plugin',
     }),
-).annotate({
-    description:
-        'The name, bin, dependencies, and nx rows of a package.json: a package depending on @pulumi/pulumi with one bin is a Pulumi Automation API program, a package depending on that program or naming it in nx.implicitDependencies runs it for itself, and Nx merges nx.targets inputs over the inferred targets after every plugin',
-});
+) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const programmed = ({ name, bin, dependencies, devDependencies }: typeof Manifest.Type, file: string) =>
+const programmed = ({ name, bin, dependencies, devDependencies }: Manifest, file: string) =>
     Option.flatMap(
         Option.filter(Option.all({ name: Option.fromUndefinedOr(name), bin: Option.fromUndefinedOr(bin) }), () => PULUMI in { ...dependencies, ...devDependencies }),
         ({ name: program, bin: stated }) =>
@@ -59,7 +61,7 @@ const targets = (root: string, entry: string, hosted: boolean, built: boolean, c
     });
 };
 
-const inferred = (programs: ReadonlyMap<string, string>, tracked: ReadonlySet<string>, { name, dependencies, nx }: typeof Manifest.Type, file: string, context: CreateNodesContext): Option.Option<readonly [string, CreateNodesResult]> => {
+const inferred = (programs: ReadonlyMap<string, string>, tracked: ReadonlySet<string>, { name, dependencies, nx }: Manifest, file: string, context: CreateNodesContext): Option.Option<readonly [string, CreateNodesResult]> => {
     const root = posix.dirname(file);
     const own = Option.flatMap(Option.fromUndefinedOr(name), (held) => Option.fromUndefinedOr(programs.get(held)));
     const hosting = Array.getSomes([...Record.keys(dependencies), ...(nx?.implicitDependencies ?? [])].toSorted().map((dependency) => Option.fromUndefinedOr(programs.get(dependency))));

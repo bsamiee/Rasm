@@ -4,12 +4,7 @@ import { quoteShellArg } from '@nx/devkit/internal';
 import { aggregated, PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Predicate, Record, UndefinedOr } from 'effect';
-import { configured, ENVIRONMENT, PACKAGING, PRESETS, type Tree, WORKING } from '#/workspace';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Member = Tree['members'][number];
-type Workflow = Tree['workflows'][number];
+import { configured, ENVIRONMENT, PACKAGING, PRESETS, type Tree, WORKING, type Workflow } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -30,7 +25,7 @@ const shelled = (word: string) =>
 
 const line = (argv: readonly string[]) => argv.map(shelled).join(' ');
 
-const memberInputs = (tree: Tree, member: Member, stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => [
+const memberInputs = (tree: Tree, member: Tree['members'][number], stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => [
     ...(stated ?? (member.folders.includes(member.root) ? ['{projectRoot}/**/*'] : member.folders.map((folder) => tokened(posix.join(folder, '**/*'))))),
     ...tree.inputs.filter((file) => !tree.members.some(({ root }) => root !== tree.root && root !== member.root && !posix.relative(root, file).startsWith('..'))).map((file) => tokened(file)),
     ...(member.root === tree.root ? [] : [tokened(posix.join(tree.root, PRESETS))]),
@@ -39,9 +34,17 @@ const memberInputs = (tree: Tree, member: Member, stated: TargetConfiguration['i
 
 const preset = (name: string | undefined) => Array.fromNullishOr(name).flatMap((stated) => ['--preset', stated]);
 
+const flagged = (workflow: Workflow, flag: string) =>
+    workflow.tidy.map(({ launcher }) =>
+        Option.map(
+            Array.findFirst(launcher.split(';'), (word) => word.startsWith(flag)),
+            (word) => word.slice(flag.length),
+        ),
+    );
+
 const memberTargets = (
     tree: Tree,
-    member: Member,
+    member: Tree['members'][number],
     { outputPath, coveragePath }: { readonly outputPath?: string; readonly coveragePath?: string },
     registries: readonly { readonly folder: string; readonly inputs: readonly string[] }[],
     head: Workflow,
@@ -64,13 +67,6 @@ const memberTargets = (
         ),
     );
     const sources = ['default', '^default', { externalDependencies: [] }];
-    const flagged = (workflow: Workflow, flag: string) =>
-        workflow.tidy.map(({ launcher }) =>
-            Option.map(
-                Array.findFirst(launcher.split(';'), (word) => word.startsWith(flag)),
-                (word) => word.slice(flag.length),
-            ),
-        );
     const looked = [
         ...Array.unfold(
             Option.some(posix.dirname(member.root)),

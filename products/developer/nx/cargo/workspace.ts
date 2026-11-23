@@ -11,7 +11,6 @@ import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, Option, 
 type Reading = Effect.Success<ReturnType<typeof read>>;
 type Workspace = ReturnType<typeof resolved>;
 type Member = Workspace['members'][number];
-type Target = typeof Target.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -34,7 +33,11 @@ const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Target = Schema.Struct({ kind: Schema.Array(Schema.String), crate_types: Schema.Array(Schema.String), name: Schema.String, src_path: Schema.String, test: Schema.Boolean, doctest: Schema.Boolean });
+class Target extends Schema.Opaque<Target, unknown>()(Schema.Struct({ kind: Schema.Array(Schema.String), crate_types: Schema.Array(Schema.String), name: Schema.String, src_path: Schema.String, test: Schema.Boolean, doctest: Schema.Boolean })) {
+    static readonly own = ({ kind, crate_types }: Target) => Array.makeEquivalence(Equivalence.String)(kind, crate_types);
+    static readonly binary = ({ kind }: Target) => kind.includes('bin');
+    static readonly library = (candidate: Target) => Target.own(candidate) && !Target.binary(candidate);
+}
 const Package = Schema.Struct({
     name: Schema.String,
     version: Schema.String,
@@ -69,12 +72,6 @@ class Links extends Context.Service<Links, Map<string, Member>>()(`${PLUGIN}/wor
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const own = ({ kind, crate_types }: Target) => Array.makeEquivalence(Equivalence.String)(kind, crate_types);
-
-const binary = ({ kind }: Target) => kind.includes('bin');
-
-const library = (candidate: Target) => own(candidate) && !binary(candidate);
 
 const tokened = (file: string) => posix.join('{workspaceRoot}', file);
 
@@ -166,7 +163,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
         libraries: Array.getSomes((metadata.metadata?.dylint?.libraries ?? []).map(({ path: at }) => Option.map(Option.fromUndefinedOr(at), (folder) => posix.join(root, folder)))).flatMap((folder) => {
             const [sources, others] = Array.partition(
                 crates.filter((member) => member.root === folder).flatMap(({ crate }) => crate.targets.map((target) => [target, posix.join(folder, normalizePath(relative(dirname(crate.manifest_path), dirname(target.src_path))))] as const)),
-                ([target, at]) => (library(target) ? Result.succeed(at) : Result.fail(at)),
+                ([target, at]) => (Target.library(target) ? Result.succeed(at) : Result.fail(at)),
             );
             const found = Array.dedupe(sources);
             const included = Array.isReadonlyArrayNonEmpty(found) ? found : [folder];
@@ -210,4 +207,4 @@ const run = runner(Links.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { binary, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, library, MANIFEST, type Member, NEXTEST, own, PLUGIN, placed, type Reading, resolved, run, tokened, type Workspace, workspaces };
+export { CLIPPY, CONFIG, Crate, DENY, Links, LOCK, MANIFEST, type Member, NEXTEST, PLUGIN, placed, type Reading, resolved, run, Target, tokened, type Workspace, workspaces };

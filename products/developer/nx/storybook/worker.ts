@@ -13,7 +13,7 @@ const Task = Schema.Tuple([Schema.String, Schema.String]).annotate({ description
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = Effect.fnUntraced(function* ([main, workingDir]: typeof Task.Type) {
+const read = Effect.fnUntraced(function* (main: string, workingDir: string) {
     const loaded: (readonly [url: string, specifier: string, parent: string])[] = [];
     yield* Effect.acquireRelease(
         Effect.sync(() =>
@@ -34,4 +34,4 @@ const read = Effect.fnUntraced(function* ([main, workingDir]: typeof Task.Type) 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-parentPort?.postMessage(await Effect.runPromise(Effect.scoped(Effect.flatMap(Schema.decodeUnknownEffect(Task)(workerData), read))));
+parentPort?.postMessage(await Effect.runPromise(Effect.scoped(Effect.flatMap(Schema.decodeUnknownEffect(Task)(workerData), ([main, workingDir]) => read(main, workingDir)))));

@@ -4,9 +4,7 @@ import { aggregated, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record, Schema } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
-import { binary, library, LOCK, MANIFEST, type Member, own, PLUGIN, tokened, type Workspace } from '#/workspace';
-
-// --- [TYPES] ---------------------------------------------------------------------------
+import { LOCK, MANIFEST, type Member, PLUGIN, Target, tokened, type Workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -22,9 +20,11 @@ const SOURCES: NonNullable<TargetConfiguration['inputs']> = ['default', '^defaul
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ coveragePath: Schema.optionalKey(Schema.String) }).annotate({
-    description: 'coveragePath: workspace folder the coverage configuration of a crate writes its lcov.info report to through cargo llvm-cov --output-path, {projectName} naming the project, absent leaves the report on stdout',
-});
+class Options extends Schema.Opaque<Options, unknown>()(
+    Schema.Struct({ coveragePath: Schema.optionalKey(Schema.String) }).annotate({
+        description: 'coveragePath: workspace folder the coverage configuration of a crate writes its lcov.info report to through cargo llvm-cov --output-path, {projectName} naming the project, absent leaves the report on stdout',
+    }),
+) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ const version = (tool: string) => ({ runtime: `cargo ${tool} --version` });
 
 const suites = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [LOCKED, ...SUITES.args]), env: SUITES.env });
 
-const cargoTarget = (help: string, description: string, options: typeof Cargo.Type, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
+const cargoTarget = (help: string, description: string, options: Cargo, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
     executor: `${PLUGIN}:cargo`,
     options,
     inputs: SOURCES,
@@ -57,11 +57,11 @@ const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: Targ
 
 const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { crate, root, packages, linted }: Member): Verbs => {
     const selected = { cwd: workspace.root, package: crate.name };
-    const kinds = [...(crate.targets.some(library) ? ['--lib'] : []), '--bins', '--tests', '--benches', '--all-features'];
+    const kinds = [...(crate.targets.some(Target.library) ? ['--lib'] : []), '--bins', '--tests', '--benches', '--all-features'];
     const plain = Option.isNone(workspace.nextest);
     const tested = crate.targets.some(({ test }) => test);
     const documented = crate.targets.some(({ doctest }) => doctest);
-    const products = crate.targets.filter(own).flatMap(workspace.uplifted);
+    const products = crate.targets.filter(Target.own).flatMap(workspace.uplifted);
     const outputs = (folder: string) =>
         Option.match(workspace.placed, {
             onNone: () => [],
@@ -105,7 +105,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
             : {};
     return joined(linting, {
         build: {
-            ...(crate.targets.some(own) && {
+            ...(crate.targets.some(Target.own) && {
                 cargo: cargoTarget(
                     'build',
                     `Builds ${crate.name} with cargo build, bringing Cargo.lock in line with the manifests`,
@@ -152,7 +152,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
             clippy: cargoTarget('clippy --fix', `Applies the clippy suggestions for ${crate.name} with cargo clippy --fix`, { ...selected, commands: [{ args: ['clippy', '--fix', '--allow-dirty', ...kinds, '--keep-going', ...MESSAGES] }] }, {}),
         },
         install: {
-            ...(crate.targets.some(binary) && {
+            ...(crate.targets.some(Target.binary) && {
                 cargo: cargoTarget(
                     'install',
                     `Installs the binaries of ${crate.name} into Cargo's install root with cargo install --path, building in the workspace target folder, in release unless a configuration names a profile`,

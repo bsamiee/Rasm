@@ -1,8 +1,8 @@
 import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
-import { layer } from '@effect/platform-node/NodeServices';
-import type { ExecutorContext, Task, TaskGraph } from '@nx/devkit';
+import type { ExecutorContext, Task } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
+import { batched, executor } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { Crate, run } from '#/workspace';
@@ -14,27 +14,29 @@ type Judged = (run: { readonly messages: readonly unknown[]; readonly compiled: 
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Command = Schema.Struct({
-    args: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Subcommand and its arguments, a JSON message format among them where each task is decided from the messages of its own package' }),
-    trailing: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments after --' }),
-    env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Environment variables the command runs with, over the caller's" }),
-    packages: Schema.optionalKey(Schema.Array(Crate)).annotate({ description: 'Further packages the command selects' }),
-});
-const Cargo = Schema.Struct({
-    cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
-    commands: Schema.NonEmptyArray(Command).annotate({ description: 'Cargo invocations in order, a task stopping at its first failure' }),
-    package: Schema.optionalKey(Schema.String).annotate({ description: 'Package the task selects, passed to cargo as a package ID spec' }),
-    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
-    outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Paths the commands write, which the target's outputs name through {options.outputs.<n>}, each parent folder created before the run" }),
-}).annotate({
-    title: 'Cargo',
-    description: 'Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by the compiler messages of its own package, or by the exit status where the command prints none',
-});
+class Command extends Schema.Opaque<Command, unknown>()(
+    Schema.Struct({
+        args: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Subcommand and its arguments, a JSON message format among them where each task is decided from the messages of its own package' }),
+        trailing: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments after --' }),
+        env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Environment variables the command runs with, over the caller's" }),
+        packages: Schema.optionalKey(Schema.Array(Crate)).annotate({ description: 'Further packages the command selects' }),
+    }),
+) {}
+class Cargo extends Schema.Opaque<Cargo, unknown>()(
+    Schema.Struct({
+        cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
+        commands: Schema.NonEmptyArray(Command).annotate({ description: 'Cargo invocations in order, a task stopping at its first failure' }),
+        package: Schema.optionalKey(Schema.String).annotate({ description: 'Package the task selects, passed to cargo as a package ID spec' }),
+        __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+        outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Paths the commands write, which the target's outputs name through {options.outputs.<n>}, each parent folder created before the run" }),
+    }).annotate({
+        title: 'Cargo',
+        description: 'Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by the compiler messages of its own package, or by the exit status where the command prints none',
+    }),
+) {}
 const Diagnostic = Schema.Struct({ reason: Schema.Literal('compiler-message'), manifest_path: Schema.String, message: Schema.Struct({ level: Schema.String, rendered: Schema.OptionFromNullOr(Schema.String) }) });
 const Artifact = Schema.Struct({ reason: Schema.Literal('compiler-artifact'), manifest_path: Schema.String, target: Schema.Struct({ kind: Schema.Array(Schema.String) }) });
 const Message = Schema.fromJsonString(Schema.Union([Diagnostic, Artifact, Schema.Record(Schema.String, Schema.Unknown)]));
-
-type Command = typeof Command.Type;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -65,10 +67,10 @@ const ran = Effect.fnUntraced(
         return { passed: code === 0, log: Array.getSomes(lines.map(({ text }) => text)).join(''), messages: Array.getSomes(lines.map(({ message }) => message)) };
     },
     Effect.scoped,
-    Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ passed: false, log: 'cargo is not on PATH, so no Cargo task can run\n', messages: Array.empty<typeof Message.Type>() })),
+    Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ passed: false, log: 'cargo is not on PATH, so no Cargo task can run\n', messages: [] })),
 );
 
-const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, command: Command, _index: number, tasks: Array.NonEmptyReadonlyArray<Planned>) {
+const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, Cargo>>, command: Command, _index: number, tasks: Array.NonEmptyReadonlyArray<Planned>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { nodes, dependencies } = context.projectGraph;
     const root = (project: string) => path.resolve(context.root, nodes[project]?.data.root ?? '.');
@@ -92,11 +94,10 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
         ],
         command.env,
     );
-    const diagnostics = completed.messages.filter(Schema.is(Diagnostic)).map((diagnostic) => ({ ...diagnostic, root: path.dirname(diagnostic.manifest_path) }));
+    const diagnostics = Array.filter(completed.messages, Schema.is(Diagnostic)).map((diagnostic) => ({ ...diagnostic, root: path.dirname(diagnostic.manifest_path) }));
     const errored = new Set(diagnostics.filter(({ message: { level } }) => level.startsWith('error')).map(({ root: at }) => at));
     const built = new Set(
-        completed.messages
-            .filter(Schema.is(Artifact))
+        Array.filter(completed.messages, Schema.is(Artifact))
             .filter(({ target: { kind } }) => !kind.includes('custom-build'))
             .map(({ manifest_path }) => path.dirname(manifest_path)),
     );
@@ -113,7 +114,7 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
     return Record.fromIterableWith(results, ({ id, own, passed, terminalOutput }): readonly [string, TaskResult] => [id, own || passed ? { success: !own, terminalOutput } : unproven]);
 }, Effect.scoped);
 
-const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, tasks: readonly Planned[]) => {
+const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, Cargo>>, tasks: readonly Planned[]) => {
     const keyed = ({ id }: Pick<Task, 'id'>) => [inputs[id]?.cwd, inputs[id]?.commands ?? [], inputs[id]?.__unparsed__] as const;
     const steps = Array.dedupe(tasks.map(keyed)).flatMap((key) => key[1].map((command, index) => ({ group: tasks.filter((task) => Equal.equals(keyed(task), key)), command, index, last: index === key[1].length - 1 })));
     return Stream.fromIterable(steps).pipe(
@@ -132,13 +133,13 @@ const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Re
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const decides = (judged: Judged) => ({
-    execute: Effect.fnUntraced(function* (cargo: typeof Cargo.Type, context: ExecutorContext) {
+    execute: executor(Cargo, run, function* (cargo, context) {
         const [project, target] = yield* Effect.all([Effect.fromNullishOr(context.projectName), Effect.fromNullishOr(context.targetName)]);
         const id = `${project}:${target}`;
         const results = yield* Stream.runCollect(scheduled(judged, context, { [id]: cargo }, [{ id, target: { project, target } }]));
         return { success: results.every(({ result }) => result.success) };
-    }, run),
-    batch: (taskGraph: TaskGraph, inputs: Readonly<Record<string, typeof Cargo.Type>>, _: unknown, context: ExecutorContext) => Stream.toReadableStream(Stream.provide(scheduled(judged, context, inputs, Object.values(taskGraph.tasks)), layer)).values(),
+    }),
+    batch: batched(Cargo, (taskGraph, inputs, context) => scheduled(judged, context, inputs, Object.values(taskGraph.tasks))),
 });
 
 const { execute, batch } = decides(({ compiled }) => ({ failed: false, proven: compiled, said: '' }));

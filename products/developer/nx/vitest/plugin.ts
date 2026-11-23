@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, calculateHashesForCreateNodes, getLockFileName, type PackageJson, PluginCache, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
-import { above, aggregated, extended, fingerprinted, Folder, type Input, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { above, aggregated, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, FileSystem, Option, Predicate, Record, Schema } from 'effect';
 import type { configDefaults } from 'vitest/config';
@@ -27,10 +27,12 @@ const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Folder, coveragePath: Folder }).annotate({
-    description:
-        'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder. coveragePath: workspace folder the coverage configuration writes lcov.info to, {projectName} naming the project, absent leaves Vitest its coverage.reportsDirectory',
-});
+class Options extends Schema.Opaque<Options, unknown>()(
+    Schema.Struct({ outputPath: Folder, coveragePath: Folder }).annotate({
+        description:
+            'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder. coveragePath: workspace folder the coverage configuration writes lcov.info to, {projectName} naming the project, absent leaves Vitest its coverage.reportsDirectory',
+    }),
+) {}
 const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), outputDir: Schema.optionalKey(Schema.String) }).annotate({
     description: 'The file and folder options of a resolved [reporter, options] Vitest entry',
 });
@@ -156,11 +158,11 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, f
     return { ...report, sources, stamp: yield* stamped(workspaceRoot)(sources) };
 });
 
-const targets = (file: string, { loaded: configs, packages, linked, triggers, shared, suites }: Resolved, { root, projects, setup, coverage, written }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: typeof Options.Type, exec: string): Verbs => {
+const targets = (file: string, { loaded: configs, packages, linked, triggers, shared, suites }: Resolved, { root, projects, setup, coverage, written }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: Options, exec: string): Verbs => {
     const [home, held] = [dirname(file), Array.fromNullishOr(outputPath)];
     const rooted = getRootTsConfigFileName();
     const outside = Record.filter(
-        Record.fromEntries([...chain.map((at): readonly [string, typeof Input.Type] => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...[...configs, ...setup].map((at): readonly [string, typeof Input.Type] => [at, posix.join('{workspaceRoot}', at)])]),
+        { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) },
         (_input, at) => root !== '.' && !at.startsWith(`${root}/`) && at !== rooted,
     );
     const test = {
@@ -203,7 +205,7 @@ const targets = (file: string, { loaded: configs, packages, linked, triggers, sh
     };
 };
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { readonly digest: string }>, context: CreateNodesContext, settings: typeof Options.Type, hash: string, file: string) {
+const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { readonly digest: string }>, context: CreateNodesContext, settings: Options, hash: string, file: string) {
     const digest = hashArray([hash, yield* OWN]);
     const manager = detectPackageManager(context.workspaceRoot);
     const flags = Array.fromNullishOr(settings.outputPath).flatMap((at) => directed(posix.relative(dirname(file), at)));
@@ -228,8 +230,8 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { re
     return { projects: Record.fromEntries(projects) };
 });
 
-const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
-    const settings = yield* Schema.decodeEffect(Options)(options ?? {});
+const nodes = inferring(Options, run, function* (files, settings, context) {
+    yield* testMode;
     const configs = files.filter((file) => matchesGlob(basename(file), SUITE) || !files.some((other) => dirname(other) === dirname(file) && matchesGlob(basename(other), SUITE)));
     const lock = getLockFileName(detectPackageManager(context.workspaceRoot));
     const cache = new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'vitest.hash'));
@@ -242,14 +244,14 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
         ),
     );
     return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles((file, _options, _context, index) => run(inferred(cache, context, settings, `${hashes[index]}`, file)), configs, options, context)),
+        Effect.promise(() => createNodesFromFiles((file, _options, _context, index) => run(inferred(cache, context, settings, `${hashes[index]}`, file)), configs, settings, context)),
         Effect.sync(() => cache.writeToDisk()),
     );
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = [`**/{vite,vitest}.config.${EXTENSIONS}`, (files, options, context) => run(Effect.andThen(testMode, nodes(files, options, context)))];
+const createNodes: CreateNodes = [`**/{vite,vitest}.config.${EXTENSIONS}`, nodes];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

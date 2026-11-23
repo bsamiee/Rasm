@@ -1,8 +1,8 @@
 import { dirname, join, posix, relative } from 'node:path';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, normalizePath, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { anchored, fingerprinted, manifested } from '@rasm/nx-distribution/inference';
-import { Array, Effect, Option, Record, Result, Schema, String } from 'effect';
+import { anchored, fingerprinted, inferring, manifested } from '@rasm/nx-distribution/inference';
+import { Array, Effect, Option, Record, Result, String } from 'effect';
 import { crateInputs, Options, projectTargets, released } from '#/targets';
 import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, type Reading, resolved, run, workspaces } from '#/workspace';
 
@@ -14,10 +14,10 @@ const OWN = fingerprinted(import.meta.dirname);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files: ReadonlySet<string>, settings: typeof Options.Type, listed: (root: string) => boolean, reading: Reading) {
+const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files: ReadonlySet<string>, { coveragePath }: Options, listed: (root: string) => boolean, reading: Reading) {
     const links = yield* Links;
     const workspace = resolved(context.workspaceRoot, reading, files);
-    const coverage = Option.map(Option.fromUndefinedOr(settings.coveragePath), (at) => posix.join(at, 'lcov.info'));
+    const coverage = Option.map(Option.fromUndefinedOr(coveragePath), (at) => posix.join(at, 'lcov.info'));
     workspace.members.forEach((member) => {
         links.set(dirname(member.crate.manifest_path), member);
     });
@@ -46,39 +46,35 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = [
+const createNodes: CreateNodes = [
     FILES,
-    (matched, options, context) =>
-        run(
-            Effect.gen(function* () {
-                const { workspaceRoot } = context;
-                const settings = yield* Schema.decodeEffect(Options)(options ?? {});
-                const files = new Set(matched);
-                const listed = anchored(workspaceRoot);
-                const manifests = matched.filter((file) => posix.basename(file) === MANIFEST);
-                const cache = new PluginCache<{ readonly digest: string; readonly readings: readonly Reading[] }>(join(workspaceDataDirectory, 'cargo.hash'));
-                const { stored, loaded } = placed(workspaceRoot);
-                const [content, laid] = yield* Effect.promise(() => Promise.all([hashWithWorkspaceContext(workspaceRoot, [FILES]), globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(posix.dirname), LAYOUT, posix.join))]));
-                const digest = hashArray([content, ...laid, yield* OWN]);
-                const hit = Option.filter(Option.fromNullishOr(cache.get(FILES)), (held) => held.digest === digest);
-                const read = yield* Option.match(hit, {
-                    onNone: () => workspaces(workspaceRoot, manifests, files),
-                    onSome: ({ readings }) => Effect.succeed(readings.map(loaded).map((reading) => [posix.join(normalizePath(relative(workspaceRoot, reading.metadata.workspace_root)), MANIFEST), Result.succeed(reading)] as const)),
-                });
-                const failures = Array.filterMap(read, ([file, reading]) => Result.map(Result.flip(reading), (error): [string, Error] => [file, error]));
-                yield* failures.length > 0 || Option.isSome(hit)
-                    ? Effect.void
-                    : Effect.sync(() => {
-                          cache.set(FILES, { digest, readings: Array.getSuccesses(read.map(([, reading]) => reading)).map(stored) });
-                          cache.writeToDisk();
-                      });
-                const results = yield* Effect.forEach(
-                    Array.filterMap(read, ([file, reading]) => Result.map(reading, (held) => [file, held] as const)),
-                    ([file, held]) => Effect.map(inferred(context, files, settings, listed, held), (result) => [file, result] as const),
-                );
-                return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
-            }),
-        ),
+    inferring(Options, run, function* (matched, settings, context) {
+        const { workspaceRoot } = context;
+        const files = new Set(matched);
+        const listed = anchored(workspaceRoot);
+        const manifests = matched.filter((file) => posix.basename(file) === MANIFEST);
+        const cache = new PluginCache<{ readonly digest: string; readonly readings: readonly Reading[] }>(join(workspaceDataDirectory, 'cargo.hash'));
+        const { stored, loaded } = placed(workspaceRoot);
+        const [content, laid] = yield* Effect.promise(() => Promise.all([hashWithWorkspaceContext(workspaceRoot, [FILES]), globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(posix.dirname), LAYOUT, posix.join))]));
+        const digest = hashArray([content, ...laid, yield* OWN]);
+        const hit = Option.filter(Option.fromNullishOr(cache.get(FILES)), (held) => held.digest === digest);
+        const read = yield* Option.match(hit, {
+            onNone: () => workspaces(workspaceRoot, manifests, files),
+            onSome: ({ readings }) => Effect.succeed(readings.map(loaded).map((reading) => [posix.join(normalizePath(relative(workspaceRoot, reading.metadata.workspace_root)), MANIFEST), Result.succeed(reading)] as const)),
+        });
+        const failures = Array.filterMap(read, ([file, reading]) => Result.map(Result.flip(reading), (error): [string, Error] => [file, error]));
+        yield* failures.length > 0 || Option.isSome(hit)
+            ? Effect.void
+            : Effect.sync(() => {
+                  cache.set(FILES, { digest, readings: Array.getSuccesses(read.map(([, reading]) => reading)).map(stored) });
+                  cache.writeToDisk();
+              });
+        const results = yield* Effect.forEach(
+            Array.filterMap(read, ([file, reading]) => Result.map(reading, (held) => [file, held] as const)),
+            ([file, held]) => Effect.map(inferred(context, files, settings, listed, held), (result) => [file, result] as const),
+        );
+        return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
+    }),
 ];
 
 const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) =>

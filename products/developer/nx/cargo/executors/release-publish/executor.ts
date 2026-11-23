@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
-import { spawned } from '@rasm/nx-distribution/inference';
+import { executor, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, Option, Path, Result, Schema, SemVer, String, Struct } from 'effect';
 import { Crate, run } from '#/workspace';
 
@@ -36,7 +36,7 @@ const released = Effect.fnUntraced(function* ({ root, projectName, nxJsonConfigu
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ dryRun, cwd: root, package: named, packages = [], registry, __unparsed__: words = [] }: typeof Publish.Type, context: ExecutorContext) {
+const execute = executor(Publish, run, function* ({ dryRun, cwd: root, package: named, packages = [], registry, __unparsed__: words = [] }, context) {
     const [path, stated, node] = yield* Effect.all([Path.Path, Config.withDefault(Config.Boolean('NX_DRY_RUN'), false), Effect.flatMap(Effect.fromNullishOr(context.projectName), (project) => Effect.fromNullishOr(context.projectGraph.nodes[project]))]);
     const dry = dryRun === true || stated;
     const cwd = path.resolve(context.root, root);
@@ -56,7 +56,7 @@ const execute = Effect.fnUntraced(function* ({ dryRun, cwd: root, package: named
         onNonEmpty: (reasons) => Effect.logWarning(`Skipped cargo publish of ${named}: ${reasons.join(', ')}`),
     });
     return { success: true };
-}, run);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

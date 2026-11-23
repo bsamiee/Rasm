@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { applyDaemonEnvFromClient, calculateHashesForCreateNodes, emitPluginWorkerLog, getAppliedDaemonClientEnv, getDaemonClientEnvGeneration, getLockFileName, hashDaemonClientEnv, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
-import { aggregated, anchored, extended, fingerprinted, Folder, type Input, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Clock, Effect, Function, Option, Predicate, Record, Result, Schema, Semaphore } from 'effect';
 
@@ -142,7 +142,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         ),
     );
     const reports = resolvedConfig.reporter.flatMap(([name, options]) => {
-        const { outputFile, outputDir, outputFolder } = Option.getOrElse(Schema.decodeUnknownOption(Reported)(options), (): typeof Reported.Type => ({}));
+        const { outputFile, outputDir, outputFolder } = Option.getOrElse(Schema.decodeUnknownOption(Reported)(options), () => Reported.make({}));
         const stated = Option.map(Option.fromUndefinedOr(outputDir ?? outputFolder), (at) => resolve(configDir, at));
         const fallback = Option.map(Record.get(REPORTS, name), (at) => resolveReporterOutputPath(at, configDir, undefined));
         const folder = Option.filter(
@@ -178,7 +178,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
 
 const templated = (folder: string) => new RegExp(`^${folder.split('{projectName}').map(RegExp.escape).join('.+')}(?:/|$)`, 'u');
 
-const targets = (home: string, { loaded: configs, packages, linked, servers, reported, reporters, suites }: Resolved, chain: readonly string[], upstream: readonly string[], { outputPath }: typeof Options.Type, exec: string): Verbs => {
+const targets = (home: string, { loaded: configs, packages, linked, servers, reported, reporters, suites }: Resolved, chain: readonly string[], upstream: readonly string[], outputPath: string | undefined, exec: string): Verbs => {
     const rooted = getRootTsConfigFileName();
     const routed = outputPath === undefined ? { flags: [], env: {}, folders: [] } : directed(posix.relative(home, outputPath), reporters);
     const held = routed.folders.map((at) => posix.join(home, at));
@@ -187,7 +187,7 @@ const targets = (home: string, { loaded: configs, packages, linked, servers, rep
     const [packed, tested] = Array.partition(suites, (suite) => Result.liftPredicate(suite, ({ outputDir, found }) => found && unheld(outputDir) && Option.exists(under, (folder) => folder.test(outputDir)), Function.identity));
     const selected = (chosen: readonly (typeof suites)[number][]) => chosen.map(({ name }) => `--project=${name}`);
     const outside = Record.filter(
-        Record.fromEntries([...chain.map((at): readonly [string, typeof Input.Type] => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions', 'extends'] }]), ...configs.map((at): readonly [string, typeof Input.Type] => [at, posix.join('{workspaceRoot}', at)])]),
+        { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions', 'extends'] }]), ...Record.fromIterableWith(configs, (at) => [at, posix.join('{workspaceRoot}', at)]) },
         (_input, at) => home !== '.' && !at.startsWith(`${home}/`) && at !== rooted,
     );
     const test = {
@@ -255,25 +255,24 @@ const targets = (home: string, { loaded: configs, packages, linked, servers, rep
     };
 };
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { readonly digest: string }>, context: CreateNodesContext, settings: typeof Options.Type, hash: string, file: string) {
+const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { readonly digest: string }>, context: CreateNodesContext, outputPath: string | undefined, hash: string, file: string) {
     const home = dirname(file);
     const digest = hashArray([hash, yield* OWN]);
     const manager = detectPackageManager(context.workspaceRoot);
     const held = Option.filter(yield* recalled(cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
-    const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => read(context.workspaceRoot, file, Option.fromUndefinedOr(settings.outputPath), getLockFileName(manager)) });
+    const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => read(context.workspaceRoot, file, Option.fromUndefinedOr(outputPath), getLockFileName(manager)) });
     cache.set(file, { ...resolved, digest });
     const stated = yield* manifested(context.workspaceRoot, home);
     const project: ProjectConfiguration = {
         root: home,
         tags: ['host:browser'],
         metadata: { technologies: ['playwright'] },
-        targets: aggregated(targets(home, resolved, extended(context.workspaceRoot, home), namedInput(home, context) === 'production' ? ['^production', '^{projectRoot}/tsconfig*.json'] : ['^default'], settings, getPackageManagerCommand(manager).exec), stated, 'playwright'),
+        targets: aggregated(targets(home, resolved, extended(context.workspaceRoot, home), namedInput(home, context) === 'production' ? ['^production', '^{projectRoot}/tsconfig*.json'] : ['^default'], outputPath, getPackageManagerCommand(manager).exec), stated, 'playwright'),
     };
     return { projects: { [home]: project } };
 });
 
-const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
-    const settings = yield* Schema.decodeEffect(Options)(options ?? {});
+const nodes = inferring(Options, run, function* (files, settings, context) {
     const project = anchored(context.workspaceRoot);
     const configs = files.filter((file) => project(dirname(file)));
     const lock = getLockFileName(detectPackageManager(context.workspaceRoot));
@@ -288,14 +287,14 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
         ),
     );
     return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles((file, _options, _context, index) => run(inferred(cache, context, settings, `${hashes[index]}`, file)), configs, options, context)),
+        Effect.promise(() => createNodesFromFiles((file, _options, _context, index) => run(inferred(cache, context, settings.outputPath, `${hashes[index]}`, file)), configs, settings, context)),
         Effect.sync(() => getDaemonClientEnvGeneration() === generation && hashDaemonClientEnv() === ambient && cache.writeToDisk()),
     );
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = ['**/playwright.config.{js,mjs,ts,cjs,mts,cts}', (files, options, context) => run(nodes(files, options, context))];
+const createNodes: CreateNodes = ['**/playwright.config.{js,mjs,ts,cjs,mts,cts}', nodes];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

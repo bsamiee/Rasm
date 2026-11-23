@@ -8,7 +8,7 @@ import { run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ manifest: Schema.String, releases: Schema.Array(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })) });
+class Options extends Schema.Opaque<Options, unknown>()(Schema.Struct({ manifest: Schema.String, releases: Schema.Array(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })) })) {}
 const Found = Schema.fromJsonString(Schema.Struct({ searchResult: Schema.Array(Schema.Struct({ packages: Schema.Array(Schema.Struct({ version: Schema.String })) })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -30,7 +30,7 @@ const versioned = Effect.fnUntraced(function* (tree: Tree, at: string) {
     return { text, ...(yield* Effect.fromOption(stated, () => new Cause.NoSuchElementError(`${at} states no Version property, which nx release reads and writes in the project file`))) };
 });
 
-const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files: (typeof Options.Type)['releases'][number]) {
+const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files: Options['releases'][number]) {
     const [recorded, pending, release] = yield* Effect.all([read(tree, files.shipped), read(tree, files.unshipped), Effect.mapError(Effect.fromResult(SemVer.parse(version)), (cause) => new Cause.UnknownError(cause, `${version} is no semantic version`))]);
     const [rows, comments] = Array.partition(
         pending.split('\n'),

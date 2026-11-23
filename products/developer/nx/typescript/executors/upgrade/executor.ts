@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { detectPackageManager, type ExecutorContext, type PackageManager } from '@nx/devkit';
-import { run, spawned } from '@rasm/nx-distribution/inference';
+import { detectPackageManager, type PackageManager } from '@nx/devkit';
+import { executor, run, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Boolean, Cause, Config, DateTime, Effect, FileSystem, Match, Option, Order, Predicate, Record, Result, Schema, SemVer } from 'effect';
 import { CommandLine } from 'effect/process';
 import npa from 'npm-package-arg';
@@ -68,7 +68,7 @@ const sections = (node: unknown, pattern: readonly string[]): readonly YAMLMap[]
           })
         : [];
 
-const eligible = (current: SemVer.SemVer, time: (typeof Packument.Type)['time'], heads: readonly (readonly [string, string])[]) => {
+const eligible = (current: SemVer.SemVer, time: Readonly<Record<string, DateTime.Utc>>, heads: readonly (readonly [string, string])[]) => {
     const since = Record.get(time, SemVer.format(current));
     const pin = { version: current, at: Option.getOrElse(since, () => DateTime.makeUnsafe(0)) };
     return Array.getSomes(heads.map(([tag, version]) => Option.map(Option.all({ version: Result.getSuccess(SemVer.parse(version)), at: Record.get(time, version) }), (head) => ({ tag, ...head })))).filter(
@@ -81,7 +81,7 @@ const viewed = <S extends Schema.Top>(registry: string, version: string, fields:
         Schema.decodeUnknownEffect(schema)(parseRegistryViewJson(raw)),
     );
 
-const listed = Effect.fnUntraced(function* (root: string, { package: owner, file, path }: (typeof Upgrade.Type)['supported'][string]) {
+const listed = Effect.fnUntraced(function* (root: string, owner: string, file: string, path: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
     const manifest = yield* Effect.try({ try: () => createRequire(join(root, 'package.json')).resolve(`${owner}/package.json`), catch: (cause) => new Cause.UnknownError(cause, `${root} resolves no ${owner}/package.json`) });
     const { optionalDependencies = {} } = yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeUnknownEffect(Lister));
@@ -139,12 +139,12 @@ const opened = Effect.fnUntraced(function* (root: string, file: string) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ catalogs, supported, dryRun }: typeof Upgrade.Type, context: ExecutorContext) {
+const execute = executor(Upgrade, run, function* ({ catalogs, supported, dryRun }, context) {
     const [fs, stated, bounds] = yield* Effect.all([
         FileSystem.FileSystem,
         Config.withDefault(Config.Boolean('NX_DRY_RUN'), false),
         Effect.all(
-            Record.map(supported, (bound) => listed(context.root, bound)),
+            Record.map(supported, ({ package: owner, file, path }) => listed(context.root, owner, file, path)),
             { concurrency: 'unbounded' },
         ),
     ]);
@@ -177,7 +177,7 @@ const execute = Effect.fnUntraced(function* ({ catalogs, supported, dryRun }: ty
               spawned(prune, shell),
           );
     return { success: failures.length === 0 };
-}, run);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

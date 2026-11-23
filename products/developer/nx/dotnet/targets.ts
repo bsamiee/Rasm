@@ -1,15 +1,10 @@
 import { basename, dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
 import { PLATFORM, runner, tokened, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Context, Layer, Option, Record, Ref, Schema, Stream } from 'effect';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Node = typeof Node.Type;
+import { Array, Context, Layer, Option, Record, Ref, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -21,32 +16,34 @@ const ANALYZER = fileURLToPath(import.meta.resolve('#/analyzer/dist/MsbuildAnaly
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Mode = Schema.Struct({ configuration: Schema.String, outputs: Schema.Array(Schema.String), published: Schema.Array(Schema.String), reports: Schema.Array(Schema.String), documents: Schema.Array(Schema.String), packed: Schema.String });
-const Node = Schema.Struct({
-    file: Schema.String,
-    name: Schema.String,
-    language: Schema.String,
-    platform: Schema.String,
-    test: Schema.Boolean,
-    packable: Schema.Boolean,
-    publishable: Schema.Boolean,
-    pushed: Schema.Boolean,
-    versioned: Schema.Boolean,
-    evaluated: Mode,
-    declared: Schema.Array(Mode),
-    references: Schema.Array(Schema.Struct({ root: Schema.String, declared: Schema.String })),
-    inputs: Schema.Array(Schema.String),
-    bases: Schema.Array(Schema.String),
-    packages: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String, hash: Schema.String, direct: Schema.Boolean, dependencies: Schema.Array(Schema.String) })),
-    referenced: Schema.Array(Schema.String),
-    locks: Schema.Array(Schema.String),
-    restored: Schema.Array(Schema.String),
-    results: Schema.Array(Schema.String),
-    platforms: Schema.Array(Schema.String),
-    implicit: Schema.Array(Schema.String),
-    tags: Schema.Array(Schema.String),
-    external: Schema.Array(Schema.String),
-    releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
-});
+class Node extends Schema.Opaque<Node, unknown>()(
+    Schema.Struct({
+        file: Schema.String,
+        name: Schema.String,
+        language: Schema.String,
+        platform: Schema.String,
+        test: Schema.Boolean,
+        packable: Schema.Boolean,
+        publishable: Schema.Boolean,
+        pushed: Schema.Boolean,
+        versioned: Schema.Boolean,
+        evaluated: Mode,
+        declared: Schema.Array(Mode),
+        references: Schema.Array(Schema.Struct({ root: Schema.String, declared: Schema.String })),
+        inputs: Schema.Array(Schema.String),
+        bases: Schema.Array(Schema.String),
+        packages: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String, hash: Schema.String, direct: Schema.Boolean, dependencies: Schema.Array(Schema.String) })),
+        referenced: Schema.Array(Schema.String),
+        locks: Schema.Array(Schema.String),
+        restored: Schema.Array(Schema.String),
+        results: Schema.Array(Schema.String),
+        platforms: Schema.Array(Schema.String),
+        implicit: Schema.Array(Schema.String),
+        tags: Schema.Array(Schema.String),
+        external: Schema.Array(Schema.String),
+        releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
+    }),
+) {}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -220,8 +217,6 @@ const publishing = (node: Node): Readonly<Record<string, TargetConfiguration>> =
 
 const run = runner(Edges.layer);
 
-const streamed = <A, E>(results: Stream.Stream<A, E, NodeServices>) => Stream.toReadableStream(Stream.provide(results, layer)).values();
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, streamed, targets };
+export { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, targets };

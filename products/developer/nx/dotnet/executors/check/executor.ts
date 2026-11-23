@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
-import type { ExecutorContext } from '@nx/devkit';
+import { batched, executor } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Console, Effect, FileSystem, Path, Record, Schema, Stream, Struct } from 'effect';
-import { run, streamed } from '#/targets';
+import { run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -21,38 +21,35 @@ const Report = Schema.fromJsonString(Schema.Struct({ runs: Schema.Array(Schema.S
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const rendered = ({ ruleId, level, message, locations }: typeof Result.Type) => [...Array.take(locations ?? [], 1).map(({ physicalLocation: { artifactLocation, region } }) => `${fileURLToPath(artifactLocation.uri)}(${region.startLine},${region.startColumn})`), `${level} ${ruleId}`, message.text].join(': ');
-
-const findings = Effect.fnUntraced(function* (root: string, { reports }: typeof Check.Type) {
+const findings = Effect.fnUntraced(function* (root: string, reports: readonly string[]) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const read = yield* Effect.forEach(reports, (report) => Effect.flatMap(fs.readFileString(path.resolve(root, report)), Schema.decodeEffect(Report)), { concurrency: 'unbounded' });
     return read
         .flatMap(Struct.get('runs'))
         .flatMap(Struct.get('results'))
         .filter((result) => result.suppressions === undefined && Schema.is(Failing)(result.level))
-        .map(rendered);
+        .map(({ ruleId, level, message, locations }) => [...Array.take(locations ?? [], 1).map(({ physicalLocation: { artifactLocation, region } }) => `${fileURLToPath(artifactLocation.uri)}(${region.startLine},${region.startColumn})`), `${level} ${ruleId}`, message.text].join(': '));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* (check: typeof Check.Type, context: ExecutorContext) {
-    const lines = yield* findings(context.root, check);
+const execute = executor(Check, run, function* ({ reports }, context) {
+    const lines = yield* findings(context.root, reports);
     yield* Effect.forEach(lines, (line) => Console.log(line));
     return { success: lines.length === 0 };
-}, run);
+});
 
-const batch = (_: unknown, inputs: Readonly<Record<string, typeof Check.Type>>, __: unknown, context: ExecutorContext) =>
-    streamed(
-        Stream.mapEffect(
-            Stream.fromIterable(Record.toEntries(inputs)),
-            ([task, check]) =>
-                Effect.matchCause(findings(context.root, check), {
-                    onSuccess: (lines) => ({ task, result: { success: lines.length === 0, terminalOutput: lines.join('\n') } }),
-                    onFailure: (cause) => ({ task, result: { success: false, terminalOutput: Cause.pretty(cause) } }),
-                }),
-            { concurrency: 'unbounded' },
-        ),
-    );
+const batch = batched(Check, (_, inputs, context) =>
+    Stream.mapEffect(
+        Stream.fromIterable(Record.toEntries(inputs)),
+        ([task, { reports }]) =>
+            Effect.matchCause(findings(context.root, reports), {
+                onSuccess: (lines) => ({ task, result: { success: lines.length === 0, terminalOutput: lines.join('\n') } }),
+                onFailure: (cause) => ({ task, result: { success: false, terminalOutput: Cause.pretty(cause) } }),
+            }),
+        { concurrency: 'unbounded' },
+    ),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

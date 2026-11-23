@@ -1,7 +1,7 @@
 import { join, posix } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { fingerprinted, manifested, spawned } from '@rasm/nx-distribution/inference';
+import { fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Option, Record, Schema } from 'effect';
 import { ancestors, CONFIGS, documents, Linked, Options, PLUGIN, run, targets } from '#/targets';
 import { folders, LOCK, located, MANIFEST, Metadata, report, SCHEMA } from '#/workspace';
@@ -22,7 +22,7 @@ const Quoted = Schema.fromJsonString(Schema.String);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: CreateNodesContext, settings: typeof Options.Type, lock: string) {
+const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: CreateNodesContext, settings: Options, lock: string) {
     const token = '{workspaceRoot}';
     const placed = (yield* Schema.encodeEffect(Quoted)(workspaceRoot)).slice(1, -1);
     const read = Array.cartesianWith([posix.join(posix.dirname(lock), '**'), ...ancestors(posix.dirname(posix.dirname(lock)))], READ, posix.join);
@@ -62,19 +62,14 @@ const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: Cr
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = [
+const createNodes: CreateNodes = [
     FILES,
-    (matched, options, context) => {
+    inferring(Options, run, function* (matched, settings, context) {
         const cache: Read = new PluginCache(join(workspaceDataDirectory, 'uv.hash'));
         const locks = matched.filter((file) => posix.basename(file) === LOCK);
-        return run(
-            Effect.gen(function* () {
-                const settings = yield* Schema.decodeEffect(Options)(options ?? {});
-                (yield* Linked).delete(context.workspaceRoot);
-                return yield* Effect.promise(() => createNodesFromFiles((lock) => run(inferred(cache, context, settings, lock)), locks, options, context));
-            }),
-        );
-    },
+        (yield* Linked).delete(context.workspaceRoot);
+        return yield* Effect.promise(() => createNodesFromFiles((lock) => run(inferred(cache, context, settings, lock)), locks, settings, context));
+    }),
 ];
 
 const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) =>

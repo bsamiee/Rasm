@@ -110,10 +110,12 @@ const SEPARATOR = /\s+/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
-    description:
-        "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the member, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its lcov.info report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the member, absent writes both to the folder pytest runs from",
-});
+class Options extends Schema.Opaque<Options, unknown>()(
+    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
+        description:
+            "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the member, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its lcov.info report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the member, absent writes both to the folder pytest runs from",
+    }),
+) {}
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Patterns = Schema.Struct({
     python_files: Schema.optionalKey(
@@ -174,7 +176,7 @@ const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
 const joined = (held: Readonly<Record<string, TargetConfiguration>>, added: Readonly<Record<string, TargetConfiguration>>) => ({ ...held, ...added });
 
-const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Type, manifest: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
+const targets = (member: Member, { outputPath, coveragePath }: Options, manifest: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
     const named = (template: string) => template.replaceAll('{projectName}', member.name);
     const root = member.root === member.workspace;
     const distributions = Option.map(Option.fromUndefinedOr(outputPath), named);

@@ -8,10 +8,6 @@ import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem,
 import { CommandLine } from 'effect/process';
 import { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, targets } from '#/targets';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Report = typeof Report.Type;
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PROJECTS = ['.csproj', '.fsproj', '.vbproj'];
@@ -22,14 +18,16 @@ const TAGS = { release: 'release', platform: 'os:' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Report = Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String) });
+class Report extends Schema.Opaque<Report, unknown>()(Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String) })) {}
 const Reported = Schema.fromJsonString(Report);
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
-const Options = Schema.Struct({
-    coveragePath: Schema.optionalKey(Schema.String),
-}).annotate({
-    description: 'coveragePath: workspace folder the coverage configuration of test--dotnet passes to dotnet test as --results-directory, where coverlet.MTP writes its lcov report coverage.<timestamp>.info, {projectName} naming the project, absent leaves the report in the test results folder of the project',
-});
+class Options extends Schema.Opaque<Options, unknown>()(
+    Schema.Struct({
+        coveragePath: Schema.optionalKey(Schema.String),
+    }).annotate({
+        description: 'coveragePath: workspace folder the coverage configuration of test--dotnet passes to dotnet test as --results-directory, where coverlet.MTP writes its lcov report coverage.<timestamp>.info, {projectName} naming the project, absent leaves the report in the test results folder of the project',
+    }),
+) {}
 const Timeout = Config.schema(Schema.Finite.check(Schema.isGreaterThan(0)), 'NX_DOTNET_PROJECT_GRAPH_TIMEOUT').pipe(Config.withDefault(isCI() === false ? 120 : 600));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -74,7 +72,7 @@ const releasable = (node: Node) => node.versioned && (node.packable || node.publ
 
 const listing = (node: Node) => join(workspaceDataDirectory, 'dotnet-external', `${hashArray([node.file])}.txt`);
 
-const projected = (nodes: readonly Node[], settings: typeof Options.Type, manifests: readonly Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>[], listed: (node: Node) => Option.Option<string>) => {
+const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests: readonly Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>[], listed: (node: Node) => Option.Option<string>) => {
     const folders = Record.fromIterableWith(nodes, (node) => [dirname(node.file), node] as const);
     const closure = (node: Node): readonly Node[] => [node, ...Array.getSomes(node.references.map(({ root }) => Record.get(folders, root))).flatMap(closure)];
     const solution = (node: Node) => (configuration: string) => {
@@ -98,7 +96,7 @@ const projected = (nodes: readonly Node[], settings: typeof Options.Type, manife
             name: node.name,
             metadata: { technologies: ['dotnet', node.language] },
             targets: {
-                ...aggregated(targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test }, Option.fromUndefinedOr(settings.coveragePath), solution(node), listed(node)), manifest, 'dotnet'),
+                ...aggregated(targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test }, Option.fromUndefinedOr(coveragePath), solution(node), listed(node)), manifest, 'dotnet'),
                 ...publishing(node),
             },
             ...(releasable(node) && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } } } }),
@@ -110,8 +108,8 @@ const projected = (nodes: readonly Node[], settings: typeof Options.Type, manife
     });
 };
 
-const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArray<string>, options: typeof Options.Encoded | undefined, { workspaceRoot }: CreateNodesContext) {
-    const [fs, edges, settings, hashed] = yield* Effect.all([FileSystem.FileSystem, Edges, Schema.decodeEffect(Options)(options ?? {}), own]);
+const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArray<string>, settings: Options, { workspaceRoot }: CreateNodesContext) {
+    const [fs, edges, hashed] = yield* Effect.all([FileSystem.FileSystem, Edges, own]);
     const slot = join(workspaceDataDirectory, 'dotnet.hash');
     const key = hashArray([hashObject(settings), hashed, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched]))]);
     const cached = yield* Effect.findFirst(Array.fromNullishOr(new PluginCache<{ readonly report: Report; readonly stamp: string }>(slot).get(key)), (stored) => Effect.map(stamped(workspaceRoot, stored.report), Equal.equals(stored.stamp)));
@@ -167,7 +165,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = [
+const createNodes: CreateNodes = [
     FILES,
     (matched, options, context) =>
         run(
@@ -177,7 +175,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                         Effect.flatMap(Edges, (edges) => Ref.set(edges, [])),
                         [],
                     ),
-                onNonEmpty: (files) => inferred(files, options, context),
+                onNonEmpty: (files) => Effect.flatMap(Schema.decodeEffect(Options)(options ?? {}), (settings) => inferred(files, settings, context)),
             }),
         ),
 ];
