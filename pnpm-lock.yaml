@@ -585,23 +585,21 @@ catalogs:
       version: 1.66.0-alpha-2026-11-22
 
 overrides:
-  '@pulumi/pulumi': 3.278.0-alpha.x8c16455
-  vite>yaml: 3.0.0-2
-  '@vitejs/plugin-react>oxc-transform-react': 0.158.0
-  '@types/ssh2>@types/node': 26.6.6
-  '@pulumi/hostinger>typescript': npm:@typescript/typescript6@6.0.2
-  '@pulumi/minio>typescript': npm:@typescript/typescript6@6.0.2
   '@effect/opentelemetry>@opentelemetry/resources': 3.1.1
   '@effect/opentelemetry>@opentelemetry/sdk-logs': 3.1.1
   '@effect/opentelemetry>@opentelemetry/sdk-metrics': 3.1.1
   '@opentelemetry/api': 1.10.0
-  '@axe-core/playwright>playwright-core': '>=1.0.0'
+  '@pulumi/hostinger>typescript': npm:@typescript/typescript6@6.0.2
+  '@pulumi/minio>typescript': npm:@typescript/typescript6@6.0.2
+  '@pulumi/pulumi': 3.278.0-alpha.x8c16455
+  '@types/ssh2>@types/node': 26.6.6
+  '@vitejs/plugin-react>oxc-transform-react': 0.158.0
   tree-sitter: '-'
   tree-sitter-cli: '-'
+  vite>yaml: 3.0.0-2
 
 patchedDependencies:
   '@leeoniya/ufuzzy@1.0.19': 0e3049ebb3beddbcb20a9da53f2ba459dbe663c8b9ca905f3a562d9d36d1a4c0
-  '@types/chrome@0.3.7': e067e934503dbfbe23353a85190f0e3557ca6815be4266cb09850552231305ac
   effect@4.1.5: e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2
 
 importers:
@@ -1613,7 +1611,7 @@ importers:
         version: link:../../../../libs/typescript/web/vite
       '@types/chrome':
         specifier: 'catalog:'
-        version: 0.3.7(patch_hash=e067e934503dbfbe23353a85190f0e3557ca6815be4266cb09850552231305ac)
+        version: 0.3.7
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -2827,7 +2825,7 @@ importers:
         version: link:../../../../support/typescript
       '@types/chrome':
         specifier: 'catalog:'
-        version: 0.3.7(patch_hash=e067e934503dbfbe23353a85190f0e3557ca6815be4266cb09850552231305ac)
+        version: 0.3.7
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -3290,7 +3288,7 @@ importers:
         version: 11.0.0-beta.3(storybook@11.0.0-beta.3(@types/react@19.3.0)(react@19.3.1))
       '@types/chrome':
         specifier: 'catalog:'
-        version: 0.3.7(patch_hash=e067e934503dbfbe23353a85190f0e3557ca6815be4266cb09850552231305ac)
+        version: 0.3.7
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -13042,7 +13040,7 @@ snapshots:
       '@types/deep-eql': 4.0.2
       assertion-error: 2.0.1
 
-  '@types/chrome@0.3.7(patch_hash=e067e934503dbfbe23353a85190f0e3557ca6815be4266cb09850552231305ac)':
+  '@types/chrome@0.3.7':
     dependencies:
       '@types/har-format': 1.2.16
 
