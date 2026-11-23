@@ -24,7 +24,8 @@ utils:
               all:
                   - has: { field: function, kind: member_access_expression, all: [{ has: { field: name, regex: '^(ToArray|AsMemory|AsSpan|ToImmutableArray|ToList|ToSeq|ToArr|ToLst|Strict)$' } }, { has: { field: expression, any: [{ matches: held-read }, { matches: copy }] } }] }
             - kind: collection_expression
-              has: { kind: spread_element, has: { matches: held-read } }
+              has: { kind: collection_element, has: { kind: spread_element, has: { matches: held-read } } }
+              not: { has: { kind: collection_element, nthChild: { position: 2, ofRule: { kind: collection_element } } } }
             - kind: 'object_creation_expression, implicit_object_creation_expression'
               all:
                   - any:
