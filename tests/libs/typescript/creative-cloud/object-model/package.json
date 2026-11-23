@@ -1,9 +1,11 @@
 {
     "name": "@rasm/test-object-model",
     "private": true,
-    "description": "@rasm/object-model suites over omv dictionaries read into classes",
+    "description": "@rasm/object-model suites over object specifiers, host value encoding, and declaration readers",
     "type": "module",
     "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
         "@rasm/object-model": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",

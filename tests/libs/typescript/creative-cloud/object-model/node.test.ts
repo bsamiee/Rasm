@@ -1,21 +1,11 @@
-import { omv } from '@rasm/object-model/node';
-import { Effect, Option } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { layer } from '@effect/platform-node/NodeServices';
+import { assert, describe, it } from '@effect/vitest';
+import { declared, documents, manifest, omv } from '@rasm/object-model/node';
+import { Array, Effect, FileSystem, Option, Path, Schema, Stream, Struct } from 'effect';
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-const read = (name: string, texts: readonly [string, ...string[]]) =>
-    Effect.runPromise(
-        Effect.map(
-            Effect.flatMap(omv(texts), ({ page }) => page(name)),
-            (page) => ('fields' in page ? { constructible: page.constructible, fields: page.fields.map(({ name: field }) => field), methods: page.methods.map(({ name: method, parameters }) => [method, ...parameters.map(({ type }) => Option.getOrUndefined(type))]) } : page),
-        ),
-    );
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-describe(omv, () => {
-    const core = `<dictionary><package>
+const CORE = `<dictionary><package>
 <classdef name="File" dynamic="true">
     <elements type="constructor"><method name="File"><parameters><parameter name="path" optional="true"><datatype><type>String</type></datatype></parameter></parameters></method></elements>
     <elements type="instance">
@@ -26,29 +16,103 @@ describe(omv, () => {
 <classdef name="Math" dynamic="true"><elements type="class"><property name="PI" rwaccess="readonly"><datatype><type>Number</type></datatype></property></elements></classdef>
 <classdef name="Point" dynamic="true"><elements type="instance"><property name="left"><datatype><type>Number</type></datatype></property></elements></classdef>
 </package></dictionary>`;
-    const host = `<dictionary><package>
+const HOST = `<dictionary><package>
 <classdef name="Point" dynamic="true"><elements type="class"><property name="anchor"><datatype><type>Number</type><array/></datatype></property></elements></classdef>
 <classdef name="Layer" dynamic="true"><elements type="instance"><property name="name"><datatype><type>String</type></datatype></property></elements></classdef>
+<classdef name="BlendMode" enumeration="true"><elements type="class"><property name="MULTIPLY"><datatype><type>number</type><value>2</value></datatype></property></elements></classdef>
 </package></dictionary>`;
+const PRESS = `export declare enum SaveOptions { YES = 1, NO = 2 }
+export declare class Document {
+    readonly name: string;
+    close(saving: SaveOptions): void;
+}
+export declare const app: { readonly activeDocument: Document };
+`;
+const DOCUMENTED = [
+    '{"name":"Layer","description":"A layer","properties":[{"Name":"opacity","Type":"number","Access":"RW","Min Version":"25.0","Description":"Opacité de la couche ✓"}],"methods":[]}',
+    '{"name":"Overview","description":null,"properties":[],"methods":[]}',
+    '{"name":"Comp","description":null,"properties":[],"methods":[{"name":"duplicate","returns":"Comp","since":null,"description":null,"parameters":[]}]}',
+].join('\n');
+const SCRIPTED = '[{"name":"EncoderManager","properties":null,"methods":[{"propKind":"constructor"},{"name":"encode","dataType":"boolean","propKind":"instance","async":"false","params":[{"name":"preset","dataType":"","optional":"true"},{"dataType":"string","optional":"false"}]}]}]';
 
-    it('reads a class with a constructor group as constructible, lists no constructor among its methods, and joins the datatypes a parameter states', async () => {
-        await expect(read('File', [core])).resolves.toStrictEqual({ constructible: true, fields: ['length'], methods: [['write', 'String | Number[]']] });
-    });
+// --- [MODELS] --------------------------------------------------------------------------
 
-    it('reads a class without a constructor group as not constructible in a file that states constructors', async () => {
-        await expect(read('Math', [core])).resolves.toStrictEqual({ constructible: false, fields: ['PI'], methods: [] });
-    });
+const Json = Schema.fromJsonString(Schema.Unknown);
 
-    it.each([
-        ['Point', true],
-        ['Layer', false],
-    ] as const)('reads %s as constructible %s by its instance group in a file that states no constructor', async (name, constructible) => {
-        await expect(read(name, [host])).resolves.toMatchObject({ constructible });
-    });
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-    it('takes a class two files declare from the later file and index the classes of both', async () => {
-        const index = await Effect.runPromise(Effect.map(omv([core, host]), (catalog) => catalog.index.classes));
-        await expect(read('Point', [core, host])).resolves.toStrictEqual({ constructible: true, fields: ['anchor'], methods: [] });
-        expect(index).toStrictEqual(['File', 'Layer', 'Math', 'Point']);
-    });
+const pieces = (text: string, size: number) => Stream.fromIterable(Array.map(Array.chunksOf(Array.fromIterable(new TextEncoder().encode(text)), size), (chunk) => Uint8Array.from(chunk)));
+const read = (texts: Array.NonEmptyReadonlyArray<string>, name: string) =>
+    Effect.map(
+        Effect.flatMap(omv(texts), ({ page }) => page(name)),
+        (page) =>
+            page._tag === 'Class'
+                ? { constructible: page.constructible, fields: Array.map(page.fields, Struct.get('name')), methods: Array.map(page.methods, ({ name: method, parameters }) => [method, ...Array.map(parameters, ({ type }) => Option.getOrUndefined(type))]) }
+                : { members: Array.map(page.members, ({ name: member, value }) => [member, Option.getOrUndefined(value)]) },
+    );
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+describe(omv, () => {
+    it.effect.each([
+        { behavior: 'reads a class with a constructor group as constructible, keeps its constructor out of its methods, and joins the datatypes a parameter states', texts: [CORE], name: 'File', page: { constructible: true, fields: ['length'], methods: [['write', 'String | Number[]']] } },
+        { behavior: 'reads a class without a constructor group as not constructible in a file stating constructors', texts: [CORE], name: 'Math', page: { constructible: false, fields: ['PI'], methods: [] } },
+        { behavior: 'reads a class with an instance group as not constructible in a file stating no constructor', texts: [HOST], name: 'Layer', page: { constructible: false, fields: ['name'], methods: [] } },
+        { behavior: 'takes a class two dictionaries declare from the later one, constructible there for lacking an instance group', texts: [CORE, HOST], name: 'Point', page: { constructible: true, fields: ['anchor'], methods: [] } },
+        { behavior: 'reads an enumeration with each member and its value', texts: [HOST], name: 'BlendMode', page: { members: [['MULTIPLY', '2']] } },
+    ] as const)('$behavior', ({ texts, name, page }) => Effect.map(read(texts, name), (found) => assert.deepStrictEqual<unknown>(found, page)));
+});
+
+it.layer(layer)('declared', (methods) => {
+    methods.effect(
+        'refuses a member its declarations lack and names the class declaring the object read',
+        Effect.fnUntraced(function* () {
+            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            const modules = yield* fs.makeTempDirectoryScoped();
+            yield* fs.makeDirectory(path.join(modules, 'press'));
+            yield* fs.writeFileString(path.join(modules, 'press', 'package.json'), yield* Schema.encodeEffect(Json)({ name: 'press', types: 'index.d.ts' }));
+            yield* fs.writeFileString(path.join(modules, 'press', 'index.d.ts'), PRESS);
+            const open = yield* declared(Option.none(), modules);
+            const { check, catalog } = yield* open({ root: 'press', types: [], lib: ['es2024'], preamble: "declare function require(id: 'press'): typeof import('press');", enumeration: Option.none() });
+            const [refused, accepted, { index }] = yield* Effect.all([check("const held = require('press').app.activeDocument;\nheld.margin;"), check("require('press').app.activeDocument.close(1);"), catalog]);
+            assert.deepStrictEqual([Array.map(refused, Struct.pick(['code', 'line', 'declared'])), accepted, index.classes, index.enumerations], [[{ code: 2339, line: Option.some(2), declared: Option.some('Document') }], [], ['Document'], ['SaveOptions']]);
+        }, Effect.scoped),
+        { timeout: 60_000 },
+    );
+});
+
+describe(documents, () => {
+    it.effect.prop(
+        'reads each NDJSON page with members as a class whatever byte boundaries split its rows and characters, and indexes no page without members',
+        { size: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 64 })) },
+        Effect.fnUntraced(function* ({ size }) {
+            const { index, page } = yield* documents(pieces(DOCUMENTED, size));
+            const [layered, composed] = yield* Effect.all([page('Layer'), page('Comp')]);
+            assert.deepStrictEqual(
+                [index.classes, Array.map(layered.fields, Struct.pick(['name', 'readonly', 'version', 'description'])), Array.map(composed.methods, Struct.get('name'))],
+                [['Comp', 'Layer'], [{ name: 'opacity', readonly: false, version: Option.some('25.0'), description: Option.some('Opacité de la couche ✓') }], ['duplicate']],
+            );
+        }),
+    );
+});
+
+describe(manifest, () => {
+    it.effect(
+        'reads a class with a constructor entry as constructible and names an unnamed parameter by its position',
+        Effect.fnUntraced(function* () {
+            const { page } = yield* manifest(SCRIPTED);
+            const { constructible, methods } = yield* page('EncoderManager');
+            assert.deepStrictEqual(
+                [constructible, Array.map(methods, Struct.get('name')), Array.map(methods[0]?.parameters ?? [], Struct.pick(['name', 'type', 'optional']))],
+                [
+                    true,
+                    ['encode'],
+                    [
+                        { name: 'preset', type: Option.none(), optional: true },
+                        { name: 'arguments[1]', type: Option.some('string'), optional: false },
+                    ],
+                ],
+            );
+        }),
+    );
 });
