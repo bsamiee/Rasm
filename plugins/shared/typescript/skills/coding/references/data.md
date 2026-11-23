@@ -17,25 +17,16 @@ const adjusted = (peer: Peer, delta: number) => HashMap.modifyAt(peer, flow(Opti
 
 ## [02]-[STATE_MACHINES]
 
-State machines are a `Data.TaggedEnum` with cases holding the data valid in each state, and `Data.taggedEnum` derives constructors and fold. Transitions read the one fact they need from the state they leave and build the next through one constructor:
+State machines are one `Data.taggedEnum` stating its cases in its type argument, each case holding the data valid in that state, and its constructors and fold type every transition. Transitions read the one fact they need from the state they leave and build the next through one constructor:
 
 ```ts
-type Link = Data.TaggedEnum<{
-    Up: { readonly since: DateTime.Utc };
-    Down: { readonly attempt: number; readonly retry: DateTime.Utc };
-}>;
+const Link = Data.taggedEnum<Data.TaggedEnum<{ Up: { readonly since: DateTime.Utc }; Down: { readonly attempt: number; readonly retry: DateTime.Utc } }>>();
 
-const Link = Data.taggedEnum<Link>();
-
-const dropped =
-    (base: Duration.Duration, factor: number, now: DateTime.Utc) =>
-    (link: Link) => {
-        const drops = Link.$match(link, { Up: () => 0, Down: ({ attempt }) => attempt });
-        return Link.Down({ attempt: drops + 1, retry: DateTime.addDuration(now, Duration.times(base, factor ** drops)) });
-    };
+const dropped = (base: Duration.Duration, factor: number, now: DateTime.Utc) =>
+    flow(Link.$match({ Up: () => 0, Down: ({ attempt }) => attempt }), (drops) => Link.Down({ attempt: drops + 1, retry: DateTime.addDuration(now, Duration.times(base, factor ** drops)) }));
 ```
 
-`dropped` builds the next `Down` from the attempt count the case it leaves holds:
+`dropped` builds the next `Down` from the attempt count the case it leaves holds, its state parameter typed by `$match`:
 - Steps deciding a value beside the next state return `[value, next]` to `Ref.modify`, `Effect.flatten` running an effect value after the update
 - Loading states are `AsyncResult` from `effect/reactivity`, with a `waiting` flag on every case
 - Tagged enums one class field holds declare cases in its type, `static readonly X = Data.taggedEnum<C['field'][number]>()` deriving constructors and `$match`

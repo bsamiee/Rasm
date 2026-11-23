@@ -51,7 +51,7 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 Signatures state every value a function accepts and every outcome its caller handles. Parameters and fields are `readonly`, arrays `readonly A[]`, or `Array.NonEmptyReadonlyArray<A>` where the rule needs an element, and `Effect.forEach` over a non-empty input (`Array.range`, `Array.makeBy`) returns one.
 
 Total functions return a declared output for each accepted input, narrowing the input to a decoded type or widening the output to `Option`, `Result`, or `Effect`:
-- Parameters take the decoded type (`Quantity`, an `OrderId` brand)
+- Parameters take the decoded type (`Line`, `Line['quantity']`)
 - `Schema.decodeUnknownOption(Schema.NumberFromString)` states every outcome of a parse
 
 Pure functions depend on their arguments alone and cause no side effect. Clock, randomness, environment, logging, and I/O are effects.
@@ -267,7 +267,7 @@ Classes hold their data with operations reading one instance as methods and gett
 - Packages hold their capability and the host facts it detects, app values (names, paths, timeouts, prose) enter as composition root arguments
 - Exported names read correctly beside other packages' names: nouns for owners, verb-noun for functions
 - Union schemas, components, and primary functions hold their variants as members `Object.assign` or an expando sets
-- Schemas a signature names are classes under their own name, a static member schema holding no type name
+- Schemas declare where a boundary decodes or encodes through them, a record signatures name as a class and a member schema reached through its owner
 - Libraries never call `NodeRuntime.runMain` or provide a platform layer
 - Package types pass whole, and consumers read returned host handles and the context a host passes its callback, a re-read from source restating them
 - Host process-global defaults (`GlobalWorkerOptions.workerSrc`) stay unset, each instance taking the value through its constructor option

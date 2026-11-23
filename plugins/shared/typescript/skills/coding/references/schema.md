@@ -2,7 +2,7 @@
 
 ## [01]-[CLASSES]
 
-Schemas a signature names are classes, one declaration holding the codec and its decoded type, and how a record's values come to exist selects the form:
+Schemas are declared where a boundary decodes or encodes through them. Records signatures name are classes, one declaration holding the codec and its decoded type, and how a record's values come to exist selects the form:
 
 | [INDEX] | [FORM]                                                          | [VALUES]                                        |
 | :-----: | :-------------------------------------------------------------- | :---------------------------------------------- |
@@ -32,12 +32,16 @@ const highs = (readings: readonly Reading[], sensor: Reading['sensor']) => readi
 - Records holding a branded `Opaque` encode to its unbranded shape, their `Schema.suspend` annotation stating `Schema.Codec<X, Encoded>`
 - Exported values inferring a mapped type of a branded class (`Struct.evolve`, a rest pattern) fail to emit (TS2527), `X.make` naming the result
 - Unions, brands, and literal sets take no class (TS2509): a record holds each as a field, named `X['<field>']`
-- Unions a signature names join case classes through `Schema.Union([...]).pipe(Schema.toTaggedUnion('_tag'))`, each signature naming its cases
-- Unions only folds read stay one `Schema.TaggedUnion`, `match` typing each handler
-- Static member schemas hold no type name, a member a signature names becoming a class of its own
-- Classes another package's declarations expand join their package entry (TS2883), a record no entry exports staying a `const` named through its holder
-- Schemas no signature names stay a `const`, and a schema no codec reads goes with its type
-- `Schema.toEncoded(X)` under its own class names a wire shape a signature takes, `encodeEffect` and `decodeEffect` typing every other use
+- Unions type their operations through their own fold: `U.match({...})` is a function of the union, and `flow(U.match({...}), next)` an operation over it
+- Signatures naming a bare union take the record holding it, the case they read, or `Parameters<typeof <operation>>[n]` of the operation its fold types
+- Case classes stand where each case is a record with readers of its own, a class per case declared to name a union restating it
+- Static member schemas take their type from the owner member they type (`X['<field>']`, `Parameters<typeof X.<operation>>[n]`), a sibling class restating them
+- Encoded sides flow through `encodeEffect`, `decodeEffect`, and `S['Encoded']` on a schema parameter
+- Wire shapes take a class where code loading no Effect writes them, imported there by type alone
+- Classes are exported from their module where TypeScript names them in a declaration (TS4023), and package entries list public API alone
+- TS2883 on a class no entry exports marks an exported value whose signature leaks it, rebuilt to return what its callers read
+- Schemas one module reads stay a `const`, and a schema no codec reads goes with its type
+- Classes, structs, and schemas added to make a type nameable restate that type, and a change adding one rebuilds the signature in its place
 
 ## [02]-[MODELS]
 
@@ -107,10 +111,10 @@ class Activity extends Schema.Class<Activity, { readonly brand: unique symbol }>
 - Unions keyed by each case's one property (`{ running: {...} }`) decode each case through `decodeTo(TaggedStruct)`, closed by `toTaggedUnion('_tag')`
 - Encoded cases with no tag declare `_tag: Schema.tagDefaultOmit('<Case>')` beside their `encodeKeys`, decoded cases folding through `Match.valueTags`
 - Record cases beside tagged ones declare `_tag: Schema.optionalKey(Schema.Never)` in a `StructWithRest`, a malformed tagged value failing at its case
-- Cases differing in tag alone share one fields record, a check spanning them sits on the union, and a shared-field reader takes `Extract<U, { field }>`
+- Cases differing in tag alone share one fields record, a check spanning them sits on the union, and a shared-field reader takes `Extract<X['<field>'], { <shared> }>`
 - Recursive records are classes reading themselves through `Schema.suspend((): Schema.Codec<X> => X)`, a hand interface restating their fields
-- Recursive unions are one hand alias over their case classes, each slot reading one `Schema.suspend` const
-- Recursive union consts annotate `Schema.Codec<T, E>` against that alias, and a case the alias lacks fails to compile
+- Recursive unions sit inline in the field of the record class they recurse through, named `X['<field>']`
+- Unions recursing through no record are the one hand type the compiler requires, their const annotated `Schema.Codec<T, E>` against it
 
 ## [04]-[TRANSFORMATIONS]
 

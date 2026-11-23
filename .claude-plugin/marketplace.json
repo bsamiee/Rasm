@@ -139,7 +139,7 @@
         {
             "name": "typescript",
             "source": "./plugins/shared/typescript",
-            "version": "0.3.0",
+            "version": "0.4.0",
             "description": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
             "author": {
                 "name": "Bardia Samiee"
@@ -148,7 +148,7 @@
         {
             "name": "uxp",
             "source": "./plugins/shared/uxp",
-            "version": "0.5.0",
+            "version": "0.5.1",
             "description": "Code that runs in an Adobe UXP host, and the Atelier server that drives Adobe apps and proxies their own servers",
             "author": {
                 "name": "Bardia Samiee"

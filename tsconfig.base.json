@@ -56,7 +56,6 @@
                     "newSchemaClass": "error",
                     "preferBarrelImport": "error",
                     "preferSchemaTaggedError": "error",
-                    "preferSchemaTypeProperty": "error",
                     "provideMergeAllToArray": "error",
                     "schemaUnionOfLiterals": "error",
                     "serviceNotAsClass": "error",
