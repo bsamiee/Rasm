@@ -20,6 +20,7 @@ Workflow `CI` and its jobs:
 - Jobs `linux` and `browser` remove each report path before their run, as their kept checkout holds earlier runs' reports
 - Job `macos` runs affected `os:darwin` and `os:all` projects except `host:rhino`, as no Linux graph holds an Apple project
 - Job `files` runs `hk check` over changes from base to head on macOS, as `swiftlint`, `swift format`, `plutil`, and `xcprojformatter` run there alone
+- Job `files` runs every `codegen` target first, as type-aware lint reads the sources those targets write
 - Job `windows` runs `test -c headless` over affected `os:win32` and `host:rhino` projects with core-hour token `RHINO_TOKEN`
 - Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine a tracked `.uproject` names
 - Unreal projects hold no target on a runner outside their engine image
