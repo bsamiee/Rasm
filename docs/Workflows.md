@@ -11,7 +11,7 @@ Workflow `CI` and its jobs:
 - Job `affected` runs `nrwl/nx-set-shas` once for every job but `unreal`, as a CI run finishing between jobs moves the base `nx-set-shas` finds
 - `nx-set-shas` falls back to the first commit where no successful run is in reach, and every task runs, as default `HEAD~1` checks one commit
 - Job `linux` runs affected projects tagged `os:linux`, `os:all`, or no `os:` on instance `host`, except `host:rhino`, `host:browser`, `host:unreal`
-- Configuration `ci` of job `linux` adds GitHub annotations to `check--knip` findings
+- Jobs `linux` and `macos` run configuration `ci`, which adds GitHub annotations to `check--knip` findings
 - Job `browser` runs `host:browser` projects on instance `container` with Chromium of its Playwright image and installs no browser
 - `pack--playwright` renders in job `browser`, extension UI in its image's Linux `system-ui`, and `Release` reads its images from remote cache
 - Runs at a Playwright version with no published image fail to pull it until Deploy on `main` publishes its tag
