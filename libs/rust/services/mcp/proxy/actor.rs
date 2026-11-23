@@ -32,12 +32,13 @@ use super::{IdleTimeout, Key, Lifecycle, Link, Liveness, Phase, Policy, Profile,
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Timer {
     Grace,
     Quiet,
     Probation,
     Settle,
+    Asked(Bytes),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -429,6 +430,10 @@ where
                 self.replay();
             }
             Timer::Settle => self.drained(true),
+            Timer::Asked(id) =>
+                for session in self.calls.asked.get(&id).map_or_default(|(waiting, _)| waiting.clone()) {
+                    self.answered(session, &id, None);
+                },
             Timer::Quiet => {
                 self.clock.quiet = None;
                 match (self.clock.activity, self.calls.waiting(), self.policy.liveness) {
@@ -719,14 +724,15 @@ where
     fn answered(&mut self, session: u64, id: &[u8], answer: Option<(&Bytes, Option<&RawValue>)>) {
         let Some((waiting, listed)) = self.calls.asked.get_mut(id).filter(|(waiting, _)| waiting.contains(&session)) else { return };
         waiting.remove(&session);
-        if let Some(listed) = listed {
+        if let Some((listed, _)) = listed {
             listed.extend(answer.and_then(|(_, result)| result).map(RawValue::to_owned));
         }
         if !waiting.is_empty() {
             return;
         }
-        match (self.calls.asked.remove(id).and_then(|(_, results)| results), answer) {
-            (Some(results), _) => {
+        match (self.calls.asked.remove(id).and_then(|(_, gathered)| gathered), answer) {
+            (Some((results, deadline)), _) => {
+                self.clock.timers.try_remove(&deadline);
                 let roots = results.iter().filter_map(|result| read::<rmcp::model::ListRootsResult>(Some(result))).flat_map(|result| result.roots).unique_by(|root| root.uri.clone());
                 let merged = rmcp::model::ListRootsResult::new(roots.collect());
                 let reply = |request| encoded(&Message::<&RawValue, (), _> { jsonrpc: JsonRpcVersion2_0, id: Some(request), method: None, params: None, result: Some(merged), error: None });
@@ -833,7 +839,8 @@ where
                 for session in &rooted {
                     self.sessions.deliver(*session, [line.clone()]);
                 }
-                self.calls.asked.insert(asked, (rooted, Some(Vec::new())));
+                let deadline = self.clock.timers.insert(Timer::Asked(asked.clone()), self.policy.handshake);
+                self.calls.asked.insert(asked, (rooted, Some((Vec::new(), deadline))));
             }
             (None, _, None) => self.decline(&asked, "no client session has a call in flight"),
             (Some(caller), 1, _) => self.ask(caller, asked, line.clone(), &method),
@@ -857,7 +864,11 @@ where
             Method::Cancelled =>
                 if let Some(id) = params.and_then(|params| params.request_id) {
                     self.calls.held.retain(|held| *held.id != *id.get().as_bytes());
-                    for session in self.calls.asked.remove(id.get().as_bytes()).into_iter().flat_map(|(waiting, _)| waiting) {
+                    let (waiting, gathered) = self.calls.asked.remove(id.get().as_bytes()).unzip();
+                    if let Some((_, deadline)) = gathered.flatten() {
+                        self.clock.timers.try_remove(&deadline);
+                    }
+                    for session in waiting.into_iter().flatten() {
                         self.sessions.deliver(session, [line.clone()]);
                     }
                 },

@@ -5,7 +5,7 @@ use rasm_mcp_tests::Id;
 use serde_json::{Value, json};
 use tokio::time::{self, Instant};
 
-use super::{INITIALIZE, LINE, SERVED, declared, joined, proxy};
+use super::{GRACE, INITIALIZE, LINE, SERVED, declared, joined, proxy};
 
 // --- [SUBSCRIPTIONS]
 
@@ -198,6 +198,51 @@ async fn roots_request_outside_any_call_is_answered_with_no_root_once_every_aske
     drop(leaving);
     let merged = server.wire.next().await;
     assert_eq!((merged.id, merged.result.roots, merged.error.message), (Some(Id::Text("r1".to_owned())), Some(Vec::new()), None), "the server is answered with an empty root list");
+}
+
+#[tokio::test(start_paused = true)]
+async fn roots_request_outside_any_call_is_answered_at_its_deadline_with_the_roots_listed_by_then() {
+    let (proxy, mut starts, _actor) = proxy(16, LINE);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let rooted = INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{"roots":{}}"#);
+    let (mut first, mut second, mut silent) = (declared(&proxy, &rooted).await.0, declared(&proxy, &rooted).await.0, declared(&proxy, &rooted).await.0);
+    let asked = Instant::now();
+    server.wire.send(r#"{"jsonrpc":"2.0","id":"r1","method":"roots/list"}"#).await;
+    for session in [&mut first, &mut second, &mut silent] {
+        assert_eq!(session.next().await.method.as_deref(), Some("roots/list"), "each session that declares roots is asked");
+    }
+    first.send(r#"{"jsonrpc":"2.0","id":"r1","result":{"roots":[{"uri":"file:///work/a","name":"a"}]}}"#).await;
+    second.send(r#"{"jsonrpc":"2.0","id":"r1","result":{"roots":[{"uri":"file:///work/b","name":"b"}]}}"#).await;
+    let merged = server.wire.next().await;
+    let mut listed = assert_some!(merged.result.roots, "the server is answered with a root list: {merged:?}");
+    listed.sort_unstable_by_key(Value::to_string);
+    let expected = vec![json!({"uri": "file:///work/a", "name": "a"}), json!({"uri": "file:///work/b", "name": "b"})];
+    assert_eq!((merged.id, listed, asked.elapsed()), (Some(Id::Text("r1".to_owned())), expected, GRACE), "a session that stays silent holds the answer no longer than the handshake time");
+}
+
+#[tokio::test(start_paused = true)]
+async fn roots_request_outside_any_call_is_answered_at_its_deadline_with_no_root_when_no_session_listed_any() {
+    let (proxy, mut starts, _actor) = proxy(16, LINE);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let (mut silent, _) = declared(&proxy, &INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{"roots":{}}"#)).await;
+    let asked = Instant::now();
+    server.wire.send(r#"{"jsonrpc":"2.0","id":"r1","method":"roots/list"}"#).await;
+    assert_eq!(silent.next().await.method.as_deref(), Some("roots/list"));
+    let merged = server.wire.next().await;
+    let answered = (merged.id, merged.result.roots, merged.error.message, asked.elapsed());
+    assert_eq!(answered, (Some(Id::Text("r1".to_owned())), Some(Vec::new()), None, GRACE), "the server is answered with an empty root list once the handshake time passed");
+}
+
+#[tokio::test(start_paused = true)]
+async fn roots_listed_after_the_deadline_of_their_request_never_reach_the_server() {
+    let (proxy, mut starts, _actor) = proxy(16, LINE);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let (mut late, _) = declared(&proxy, &INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{"roots":{}}"#)).await;
+    server.wire.send(r#"{"jsonrpc":"2.0","id":"r1","method":"roots/list"}"#).await;
+    assert_eq!(late.next().await.method.as_deref(), Some("roots/list"));
+    assert_eq!(server.wire.next().await.result.roots, Some(Vec::new()), "the deadline passed before the session listed a root");
+    late.send(r#"{"jsonrpc":"2.0","id":"r1","result":{"roots":[{"uri":"file:///work/late"}]}}"#).await;
+    server.wire.silent(Duration::from_secs(1)).await;
 }
 
 #[tokio::test(start_paused = true)]

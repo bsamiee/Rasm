@@ -126,7 +126,7 @@ pub(super) struct Calls {
     named: BTreeMap<(u64, Bytes), u64>,
     next: u64,
     in_flight: Arc<AtomicUsize>,
-    pub(super) asked: BTreeMap<Bytes, (BTreeSet<u64>, Option<Vec<Box<RawValue>>>)>,
+    pub(super) asked: BTreeMap<Bytes, (BTreeSet<u64>, Option<(Vec<Box<RawValue>>, delay_queue::Key)>)>,
     pub(super) held: Vec<Held>,
     pub(super) writer: Option<(u64, delay_queue::Key)>,
     pub(super) backlog: VecDeque<(u64, Bytes)>,
