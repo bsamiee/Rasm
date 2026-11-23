@@ -1,4 +1,4 @@
-"""RASM105: type tests against RNA collection structs, which no `bpy_prop_collection` value matches."""
+"""RASM105: type tests against RNA collection structs, which no `bpy_prop_collection` value matches, typed as Blender's Python 3.13 runs them."""
 
 from collections.abc import Callable
 from sys import getrecursionlimit
@@ -12,66 +12,39 @@ from rasm.refurb.bpy_collections import check, ErrorCollectionTypeTestError
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+RULES = (ErrorCollectionTypeTestError,)
 CASES = frozendict(
-    collection_instance=dedent("""\
-        import bpy
-
-        def moved(stack: object, before: int, index: int) -> None:
-            if isinstance(stack, bpy.types.ObjectModifiers):
-                stack.move(before, index)
-    """),
-    owner_instance=dedent("""\
-        import bpy
-
-        def moved(item: object, before: int, index: int) -> None:
-            if isinstance(item, bpy.types.Object):
-                item.modifiers.move(before, index)
-    """),
-    nested_tuple_and_union=dedent("""\
-        import bpy
-
-        def tested(item: object) -> bool:
-            return isinstance(item, (bpy.types.Object, (bpy.types.ObjectModifiers, bpy.types.ObjectModifiers | bpy.types.Object)))
-    """),
-    collection_subclass=dedent("""\
-        import bpy
-
-        def tested(item: object) -> bool:
-            return issubclass(type(item), bpy.types.ObjectModifiers)
-    """),
-    class_pattern=dedent("""\
-        import bpy
-
-        def matched(item: object) -> bool:
-            match item:
-                case bpy.types.ObjectModifiers():
-                    return True
-                case _:
-                    return False
-    """),
-    aliases=dedent("""\
+    tested=dedent("""\
         import bpy
 
         Stack = bpy.types.ObjectModifiers
         Kinds = Stack | object
 
-        def tested(item: object) -> tuple[bool, bool]:
-            return isinstance(item, Stack), isinstance(item, Kinds)
-    """),
+        def tested(item: object) -> tuple[bool, ...]:
+            return (
+                isinstance(item, bpy.types.ObjectModifiers),  # expect: RASM105 `bpy.types.ObjectModifiers`
+                issubclass(type(item), bpy.types.ObjectModifiers),  # expect: RASM105 `bpy.types.ObjectModifiers`
+                isinstance(item, (bpy.types.Object, (bpy.types.ObjectModifiers, bpy.types.bpy_prop_collection | bpy.types.ObjectModifiers))),  # expect: RASM105 `bpy.types.ObjectModifiers`; RASM105 `bpy.types.ObjectModifiers`
+                isinstance(item, Stack),  # expect: RASM105 `bpy.types.ObjectModifiers`
+                isinstance(item, Kinds),  # expect: RASM105 `bpy.types.ObjectModifiers`
+            )
+
+        def matched(item: object) -> bool:
+            match item:
+                case bpy.types.ObjectModifiers():  # expect: RASM105 `bpy.types.ObjectModifiers`
+                    return True
+                case _:
+                    return False
+    """)
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("rule", [ErrorCollectionTypeTestError], scope="module")
-@pytest.mark.parametrize("findings", ["3.13"], indirect=True)
-@pytest.mark.parametrize(
-    "case, lines", [("collection_instance", [4]), ("owner_instance", []), ("nested_tuple_and_union", [4, 4]), ("collection_subclass", [4]), ("class_pattern", [5]), ("aliases", [7, 7])]
-)
-def test_a_type_test_naming_a_collection_struct_reports(findings: frozendict[str, tuple[Error, ...]], case: str, lines: list[int]) -> None:
-    """`isinstance`, `issubclass`, and class patterns naming the struct report through tuples, unions, and aliases, and a test of the owner passes."""
-    assert [error.line for error in findings[case]] == lines
-    assert all(error.msg.startswith("`bpy.types.ObjectModifiers` ") for error in findings[case])
+@pytest.mark.parametrize("version", ["3.13"], scope="module")
+def test_a_type_test_naming_a_collection_struct_reports_where_its_owner_or_the_collection_base_passes(unmatched: frozendict[str, tuple[tuple[str, ...], tuple[str, ...]]]) -> None:
+    """`isinstance`, `issubclass`, and a class pattern naming the collection struct report once per reference, inside nested tuples and `|` unions and through a class alias and a union alias, and the owning `Object` or the `bpy_prop_collection` base every collection value matches passes."""
+    assert unmatched["tested"] == ((), ())
 
 
 @pytest.mark.parametrize(

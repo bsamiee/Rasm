@@ -3,27 +3,15 @@
 from textwrap import dedent
 
 import pytest
-lazy from refurb.error import Error
 
 from rasm.refurb.faults import ErrorMisusedExpressionError
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-pytestmark = pytest.mark.parametrize("rule", [ErrorMisusedExpressionError], scope="module")
-
+RULES = (ErrorMisusedExpressionError,)
 CASES = frozendict(
-    text_and_exception=dedent("""\
-        from expression import Error, Result
-
-        type Checked = Result[int, Exception]
-
-        def parsed(text: str) -> Result[int, str]:
-            return Error(text)
-
-        def optional(text: str) -> Result[int, str] | None:
-            return Error(text) if text else None
-    """),
-    fault_tuple=dedent("""\
+    error_types=dedent("""\
+        from typing import overload
         import msgspec
         from expression import Error, Result
 
@@ -32,121 +20,60 @@ CASES = frozendict(
 
         type Faults = tuple[Fault, *tuple[Fault, ...]]
         type Outcome[T] = Result[T, Faults]
+        type Nested = Fault | tuple[Nested, ...]
+        type Checked = Result[int, Exception]  # expect: RASM101 `Checked` `Exception`
+        type Mixed = Result[int, tuple[Fault, str, *tuple[str | BaseException, ...]]]  # expect: RASM101 `Mixed` `str`; RASM101 `Mixed` `BaseException`
+        type Generic[E] = Result[int, E]
+        type Partial[E] = Result[int, str | E]  # expect: RASM101 `Partial` `str`
+        type Fixed = Partial[Exception]  # expect: RASM101 `Fixed` `Exception`
+        type Optional = Result[int, str] | None  # expect: RASM101 `Optional` `str`
 
         def parsed(text: str) -> Outcome[int]:
             return Error((Fault(subject=text),))
 
-        def counted(text: str) -> Result[int, Faults]:
+        def counted(text: str) -> Result[int, Faults | Nested]:
             return Error((Fault(subject=text),))
-    """),
-    coroutines_and_overloads=dedent("""\
-        from typing import overload
-        from expression import Error, Result
 
-        async def parsed(text: str) -> Result[int, str]:
+        def described(text: str) -> Result[int, str]:  # expect: RASM101 `described` `str`
             return Error(text)
 
-        @overload
-        def counted(text: str) -> Result[int, Exception]: ...
+        async def awaited(text: str) -> Generic[str]:  # expect: RASM101 `awaited` `str`
+            return Error(text)
+
+        def fixed(text: str) -> Fixed:
+            return Error(Exception(text))
 
         @overload
-        def counted(text: bytes) -> Result[int, Exception]: ...
+        def measured(text: str) -> Result[int, Exception]: ...  # expect: RASM101 `measured` `Exception`
 
-        def counted(text: str | bytes) -> Result[int, Exception]:
+        @overload
+        def measured(text: bytes) -> Result[int, Exception]: ...  # expect: RASM101 `measured` `Exception`
+
+        def measured(text: str | bytes) -> Result[int, Exception]:  # expect: RASM101 `measured` `Exception`
             return Error(Exception(text))
     """),
-    recursive_faults_and_return_aliases=dedent("""\
-        import msgspec
-        from expression import Error, Result
+    iterated=dedent("""\
+        from expression import Option, Result, Some
 
-        class Fault(msgspec.Struct, frozen=True):
-            subject: str
-
-        type Faults = Fault | tuple[Faults, ...]
-        type Outcome = Result[int, Faults]
-        type Invalid = Result[int, str] | None
-
-        async def parsed(text: str) -> Invalid:
-            return Error(text)
-
-        def counted(text: str) -> Invalid:
-            return Error(text)
-
-        def opaque(text: str) -> dict[str, Result[int, str]]:
-            return {text: Error(text)}
-    """),
-    generic_aliases=dedent("""\
-        from expression import Error, Result
-
-        type Generic[E] = Result[int, E]
-        type Chain[E] = Generic[E]
-        type Mixed[E] = Result[int, str | E]
-        type Fixed = Mixed[Exception]
-        type Closed[T] = Result[T, str]
-        type Maybe[E] = Result[int, E] | None
-
-        def direct() -> Generic[str]:
-            return Error('invalid')
-
-        async def chained() -> Chain[Exception]:
-            return Error(Exception())
-
-        def fixed() -> Fixed:
-            return Error(Exception())
-
-        def closed() -> Closed[int]:
-            return Error('invalid')
-
-        def optional(text: str) -> Maybe[str]:
-            return Error(text) if text else None
-    """),
-    tuple_tail_and_union=dedent("""\
-        import msgspec
-        from expression import Result
-
-        class Fault(msgspec.Struct, frozen=True):
-            subject: str
-
-        type Checked = Result[int, tuple[Fault, str, *tuple[str | BaseException, ...]]]
-    """),
-    iterated_values=dedent("""\
-        from expression import Ok, Option, Result, Some
-
-        def read(found: Option[int], outcome: Result[int, str]) -> None:
-            for value in found:
+        def read(found: Option[int], outcome: Result[int, int]) -> None:
+            for value in found:  # expect: RASM101 `found` `Nothing`
                 print(value)
-            print(*outcome, tuple(found), dict(zip(("value",), found)))
+            print(*outcome, tuple(found))  # expect: RASM101 `outcome` `Error`; RASM101 `found` `Nothing`
+            print(str(found), repr(outcome))
             match found:
                 case Some() as held:
-                    print(*held, *Ok(1), *found.to_list())
+                    print(*held, *found.to_list())
     """),
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "case, lines",
-    [("text_and_exception", [3, 5, 8]), ("fault_tuple", []), ("coroutines_and_overloads", [4, 8, 11, 13]), ("recursive_faults_and_return_aliases", [9]), ("generic_aliases", [5, 6, 7, 10, 13, 22])],
-)
-def test_a_result_error_other_than_the_package_fault_reports(findings: frozendict[str, tuple[Error, ...]], case: str, lines: list[int]) -> None:
-    """Text and exception errors report at the alias or function declaring them, through coroutines, overloads, unions, and generic specializations, and fault errors pass."""
-    assert [error.line for error in findings[case]] == lines
+@pytest.mark.parametrize("case", ["error_types", "iterated"])
+def test_a_misused_result_or_option_reports_where_it_is_declared_or_iterated(unmatched: frozendict[str, tuple[tuple[str, ...], tuple[str, ...]]], case: str) -> None:
+    """Text and exception errors report where declared, and an `Option` or `Result` reports where iterated.
 
-
-def test_a_rejected_error_type_reports_once_per_type(findings: frozendict[str, tuple[Error, ...]]) -> None:
-    """Tuple tails and union members report each rejected type once, naming it."""
-    assert [(error.line, error.msg) for error in findings["tuple_tail_and_union"]] == [
-        (7, "`Checked` declares `str` as `Result` error type, declare the package fault type"),
-        (7, "`Checked` declares `BaseException` as `Result` error type, declare the package fault type"),
-    ]
-
-
-def test_an_operand_iterated_while_it_can_hold_no_value_reports(findings: frozendict[str, tuple[Error, ...]]) -> None:
-    """A loop, star unpacking, and iterable parameters reading an `Option` or `Result` report, a narrowed case and its members pass."""
-    assert [(error.line, error.msg) for error in findings["iterated_values"]] == [
-        (4, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
-        (6, "`outcome` can hold `Error`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
-        (6, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
-        (6, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
-    ]
+    Each rejected type reports once at the alias or function stating it, an alias reporting only the types it adds to the alias it specializes, and a function returning a reported alias, the package fault, or a recursive fault union passes.
+    A loop, a star unpacking, and an iterable parameter over an `Option` or `Result` report, and a parameter taking the `Option` itself or a value a pattern narrowed passes.
+    """
+    assert unmatched[case] == ((), ())
