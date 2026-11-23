@@ -31,7 +31,22 @@ describe('rolldown warnings the checks refuse', { timeout: 30_000 }, () => {
     it.for<{ readonly code: string; readonly options: Parameters<typeof built>[1]; readonly modules: Readonly<Record<string, string>> }>([
         { code: 'CANNOT_CALL_NAMESPACE', options: { output: { format: 'es' } }, modules: { entry: "import * as ns from 'a';\nconsole.log(ns());\n", a: 'export const b = 1;\n' } },
         { code: 'COMMONJS_VARIABLE_IN_ESM', options: { output: { format: 'es' } }, modules: { entry: 'export const a = 1;\nmodule.exports.b = 2;\n' } },
+        { code: 'DUPLICATE_SHEBANG', options: { output: { format: 'es', postBanner: '#!/usr/bin/env node' } }, modules: { entry: '#!/usr/bin/env node\nconsole.log(process.argv);\n' } },
         { code: 'EMPTY_IMPORT_META', options: { output: { format: 'cjs' } }, modules: { entry: 'console.log(import.meta.url);\n' } },
+        {
+            code: 'FILE_NAME_CONFLICT',
+            options: {
+                plugins: {
+                    name: 'sheets',
+                    buildStart() {
+                        this.emitFile({ type: 'asset', fileName: 'sheet.txt', source: 'Section A-A' });
+                        this.emitFile({ type: 'asset', fileName: 'Sheet.txt', source: 'Section B-B' });
+                    },
+                },
+                output: { format: 'es' },
+            },
+            modules: { entry: 'console.log(1);\n' },
+        },
         { code: 'IMPORT_IS_UNDEFINED', options: { output: { format: 'es' } }, modules: { entry: "import * as ns from 'a';\nconsole.log(ns.c);\n", a: 'export const b = 1;\n' } },
         { code: 'MISSING_GLOBAL_NAME', options: { external: ['outside'], preserveEntrySignatures: 'strict', output: { format: 'iife', name: 'bundle' } }, modules: { entry: "import value from 'outside';\nexport const shown = value;\n" } },
         { code: 'MISSING_NAME_OPTION_FOR_IIFE_EXPORT', options: { preserveEntrySignatures: 'strict', output: { format: 'iife' } }, modules: { entry: 'export const a = 1;\n' } },
