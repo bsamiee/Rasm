@@ -3,7 +3,7 @@ import { Catalog, Relation, Rows, Tokenizer } from '@rasm/database';
 import { Array, BigDecimal, DateTime, Effect, Equal, Option, Order, Predicate, Schema, String, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { SqlClient } from 'effect/sql';
-import { accounts, blobs, children, type Client, declared, events, isolated, notes, parents, refused, values, words } from '#/fixtures';
+import { accounts, blobs, children, declared, events, isolated, notes, parents, refused, values, words } from '#/fixtures';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,7 +14,7 @@ const fragments = Relation.make('fragments', notes.schema.fields, { search: { ..
 
 const uuid = SecureRandom.SecureRandom.use(({ uuidV7 }) => uuidV7());
 const account = (id: string, email: string, deleted: boolean) => ({ id, email, deletedAt: deleted ? DateTime.makeUnsafe('2026-10-17T00:00:00.000Z') : null, profile: { plan: 'pro' } });
-const rows = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>) => {
+const rows = <R, F>(it: Vitest.MethodsNonLive<R>, client: Parameters<typeof isolated<F, NoInfer<R>>>[0]) => {
     const run = isolated(client);
     it.effect(
         'maps camelCase fields to snake_case columns in every statement form',

@@ -7,8 +7,8 @@ import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
 import type { Catalog } from '#/catalog';
 import type { Kind } from '#/column';
 import { type Dialect, Engine, Rows } from '#/engine';
-import { catalogDdl, constant, diff, type Identity, identifier, literal, mergeTreeRefusals, methods, type referentialActions, Stamp, unsupported } from '#/reconcile';
-import { Tokenizer } from '#/relation';
+import { catalogDdl, constant, diff, type Identity, identifier, literal, mergeTreeRefusals, methods, Stamp, unsupported } from '#/reconcile';
+import { type Relation, Tokenizer } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,7 +31,7 @@ interface Planning {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const trigram = { extension: 'pg_trgm', classes: { gin: 'gin_trgm_ops', gist: 'gist_trgm_ops' } } as const;
-const confdeltype = { 'NO ACTION': 'a', RESTRICT: 'r', CASCADE: 'c', 'SET NULL': 'n', 'SET DEFAULT': 'd' } as const satisfies Readonly<Record<(typeof referentialActions)[number], string>>;
+const confdeltype = { 'NO ACTION': 'a', RESTRICT: 'r', CASCADE: 'c', 'SET NULL': 'n', 'SET DEFAULT': 'd' } as const satisfies Readonly<Record<Relation['references'][number]['onDelete'], string>>;
 const privileges = { runtime: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'], reader: ['SELECT'] } as const;
 const stored = (type: string): Storage => ({ type, extract: '#>>', element: (sql, text) => sql`(${text})::${sql.literal(type)}`, domain: () => [], constant });
 const bounded: Storage['domain'] = (sql, subject) => [sql`${subject} NOT IN ('NaN', 'Infinity', '-Infinity')`];
@@ -47,7 +47,7 @@ const kinds = {
     blob: { ...stored('bytea'), element: (sql, text) => sql`decode(${text}, 'hex')` },
 } as const satisfies Readonly<Record<Kind, Storage>>;
 const ordinary = Record.map(kinds, () => Option.none<{ readonly name: string; readonly extensions: readonly string[] }>());
-const opclasses: Readonly<Record<(typeof methods)[number], { readonly [K in Kind]?: (typeof ordinary)[K] }>> = {
+const opclasses: Readonly<Record<Relation['indexes'][number]['method'], { readonly [K in Kind]?: (typeof ordinary)[K] }>> = {
     btree: ordinary,
     gin: { text: Option.some({ name: trigram.classes.gin, extensions: [trigram.extension] }), json: Option.some({ name: 'jsonb_path_ops', extensions: [] }) },
     gist: { text: Option.some({ name: trigram.classes.gist, extensions: [trigram.extension] }) },
@@ -450,7 +450,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const altered = Array.getSomes(resolved.matched.map((entry) => Option.map(Record.get(scratch, entry.declared.name), (desired) => Pg.#altered(planning, entry, desired))));
         const concurrent = altered.flatMap(({ concurrent: statements }) => statements);
         const unsecured = { grants: {}, rls: false, force: false, policies: [] };
-        const mapping = ({ tokens, dictionaries }: (typeof configurations)[number]['drift'][number]) => Option.match(dictionaries, { onNone: () => ['DROP MAPPING IF EXISTS FOR', tokens.join(', ')], onSome: (chain) => ['ALTER MAPPING FOR', tokens.join(', '), 'WITH', chain.join(', ')] });
+        const mapping = ({ tokens, dictionaries }: Configurations['configurations'][number]['drift'][number]) => Option.match(dictionaries, { onNone: () => ['DROP MAPPING IF EXISTS FOR', tokens.join(', ')], onSome: (chain) => ['ALTER MAPPING FOR', tokens.join(', '), 'WITH', chain.join(', ')] });
         return resolved.plan({
             ...parts,
             findings: [],

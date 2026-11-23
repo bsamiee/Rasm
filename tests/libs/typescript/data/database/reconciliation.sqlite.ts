@@ -2,7 +2,7 @@ import { assert, type Vitest } from '@effect/vitest';
 import { Catalog, Column, Relation, Rows } from '@rasm/database';
 import { Effect, Exit, Fiber, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
-import { accounts, blobs, children, type Client, declared, events, isolated, notes, parents, refused, values, words } from '#/fixtures';
+import { accounts, blobs, children, declared, events, isolated, notes, parents, refused, values, words } from '#/fixtures';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ const seeded = SqlClient.SqlClient.use((sql) =>
         ]),
     ),
 );
-const reconciliation = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>) => {
+const reconciliation = <R, F>(it: Vitest.MethodsNonLive<R>, client: Parameters<typeof isolated<F, NoInfer<R>>>[0]) => {
     const run = isolated(client);
     it.effect(
         'creates declared tables with enforced references and decoded rows',

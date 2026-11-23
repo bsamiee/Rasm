@@ -15,18 +15,16 @@ const keywords: ReadonlySet<string> = new Set(['CHECK', 'COLLATE', 'UNIQUE', 'RE
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class SqliteTable extends Schema.Opaque<SqliteTable, unknown>()(
-    Schema.Struct({
-        name: Schema.String,
-        strict: Schema.BooleanFromBit,
-        withoutRowid: Schema.BooleanFromBit,
-        sql: Schema.String,
-        columns: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.OptionFromNullOr(Schema.String), required: Schema.BooleanFromBit, default: Schema.OptionFromNullOr(Schema.String), hidden: Schema.Int })),
-        references: Schema.Array(Schema.Struct({ target: Schema.String, onDelete: Schema.Literals(referentialActions), onUpdate: Schema.Literals(referentialActions), columns: Schema.NonEmptyArray(Schema.String), to: Schema.Array(Schema.String) })),
-        indexes: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String, unique: Schema.BooleanFromBit, partial: Schema.BooleanFromBit, keys: Schema.Array(Schema.Struct({ name: Schema.NullOr(Schema.String), collation: Schema.String, descending: Schema.BooleanFromBit })) })),
-        triggers: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
-    }),
-) {}
+const SqliteTable = Schema.Struct({
+    name: Schema.String,
+    strict: Schema.BooleanFromBit,
+    withoutRowid: Schema.BooleanFromBit,
+    sql: Schema.String,
+    columns: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.OptionFromNullOr(Schema.String), required: Schema.BooleanFromBit, default: Schema.OptionFromNullOr(Schema.String), hidden: Schema.Int })),
+    references: Schema.Array(Schema.Struct({ target: Schema.String, onDelete: Schema.Literals(referentialActions), onUpdate: Schema.Literals(referentialActions), columns: Schema.NonEmptyArray(Schema.String), to: Schema.Array(Schema.String) })),
+    indexes: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String, unique: Schema.BooleanFromBit, partial: Schema.BooleanFromBit, keys: Schema.Array(Schema.Struct({ name: Schema.NullOr(Schema.String), collation: Schema.String, descending: Schema.BooleanFromBit })) })),
+    triggers: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
+});
 class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sqlite')({
     tables: Schema.Array(SqliteTable),
     virtual: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
@@ -127,7 +125,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             Option.filter(token, (text) => text.startsWith('/*')),
             (text) => Schema.decodeOption(Stamp)(text.slice(2, -2).trim()),
         );
-    static readonly identities = ({ columns, ...table }: SqliteTable) => {
+    static readonly identities = ({ columns, ...table }: Sqlite['tables'][number]) => {
         const tokens: readonly string[] = table.sql.match(lexemes) ?? [];
         const quotes: Readonly<Record<string, string>> = { '"': '"', '`': '`', '[': ']' };
         const opening = tokens.indexOf('(');
@@ -185,7 +183,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         });
     #reconcile(sql: SqlClient.SqlClient, resolved: ReturnType<typeof diff<ReturnType<typeof Sqlite.identities>>>, populated: readonly string[]) {
         const quoted = (name: string) => sql`${sql(name)}`;
-        const analyze = (entry: (typeof resolved.matched)[number]) => {
+        const tables = resolved.matched.map((entry) => {
             const dropping = new Set(entry.dropping.map(Struct.get('name')));
             const present = new Set([...entry.fields.map(({ definition }) => definition.name), ...entry.retained.map(Struct.get('name'))]);
             const linked = entry.live.references.map((reference) => {
@@ -204,7 +202,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                 wanted.flatMap((index) => Array.dedupe([index.name, index.prior]).map((name) => ({ name, index }))),
                 Struct.get('name'),
             );
-            const fits = (row: (typeof entry.live.indexes)[number], index: (typeof wanted)[number]) =>
+            const fits = (row: Sqlite['tables'][number]['indexes'][number], index: (typeof wanted)[number]) =>
                 Option.exists(
                     index.declared,
                     ({ keys, unique, include, where }) =>
@@ -216,8 +214,9 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                         ) &&
                         (!row.partial || row.sql === index.created.compile(true)[0]),
                 );
-            const stale = (row: (typeof entry.live.indexes)[number]) => (indexesByName.get(row.name) ?? []).some(({ index }) => (index.name === row.name && !fits(row, index)) || (index.prior === row.name && index.prior !== index.name));
-            const dropped = entry.live.indexes.filter((row) => entry.retiredIndexes.includes(row.name) || !new Set(row.keys.map(Struct.get('name'))).isDisjointFrom(dropping) || stale(row));
+            const dropped = entry.live.indexes.filter(
+                (row) => entry.retiredIndexes.includes(row.name) || !new Set(row.keys.map(Struct.get('name'))).isDisjointFrom(dropping) || (indexesByName.get(row.name) ?? []).some(({ index }) => (index.name === row.name && !fits(row, index)) || (index.prior === row.name && index.prior !== index.name)),
+            );
             const droppedIndexes = new Set(dropped);
             const retainedIndexes = new Set(Array.difference(entry.live.indexes, dropped).map(Struct.get('name')));
             return {
@@ -242,8 +241,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                 missing: wanted.filter(({ name }) => !retainedIndexes.has(name)).map(Struct.get('created')),
                 undeclared: entry.live.indexes.filter((row) => !(droppedIndexes.has(row) || wantedNames.has(row.name))),
             };
-        };
-        const tables = resolved.matched.map(analyze);
+        });
         const positions = new Map(tables.map(({ declared }, index) => [declared.name, index]));
         const graph = Graph.fromSnapshot({
             type: 'directed',
@@ -281,7 +279,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                     };
                 },
             });
-        const rebuilt = (entry: (typeof tables)[number]) => {
+        const rebuilding = rebuilds.map((entry) => {
             const kept = entry.retained.filter(({ hidden }) => hidden === 0);
             const copied = sql.csv([...(entry.live.withoutRowid || entry.declared.withoutRowid ? [] : [quoted('rowid')]), ...[...entry.fields.filter(({ definition, found }) => Option.isNone(definition.projection) && Option.isSome(found)).map(({ definition }) => definition), ...kept].map(({ name }) => quoted(name))]);
             const observed = sql.csv([...(entry.live.withoutRowid ? [] : [quoted('rowid')]), ...entry.live.columns.map(({ name }) => quoted(entry.renamed(name)))]);
@@ -299,9 +297,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                 create: entry.ddl.create({ target: Function.flow(temporary, quoted), elements, autoincrement: entry.live.autoincrement, claimed: Option.some(entry) }),
                 copy: sql`WITH live(${observed}) AS (SELECT ${sql.literal(entry.live.withoutRowid ? '*' : '"rowid", *')} FROM ${entry.ddl.relation}) INSERT INTO ${quoted(temporary(entry.declared.name))} (${copied}) SELECT ${copied} FROM live`,
             };
-        };
+        });
         const altered = Array.difference(tables, rebuilds).map((entry) => ({ ...entry, search: searched(entry, false) }));
-        const rebuilding = rebuilds.map(rebuilt);
         const sequences = rebuilding.filter(({ live }) => live.autoincrement).map(({ declared: { name } }) => [name, temporary(name)] as const);
         return resolved.plan({
             findings: rebuilds.flatMap((entry) => [...unsupported(entry.declared.name, 'generated', entry.retained, ({ hidden }) => hidden !== 0), ...unsupported(entry.declared.name, 'retained', entry.retained, ({ hidden, constrained }) => hidden === 0 && constrained)]),

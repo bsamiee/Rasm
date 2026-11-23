@@ -4,13 +4,11 @@ import type { RelationOptions } from '#/relation';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Fields = Schema.Struct.Fields & Readonly<Record<PropertyKey, Schema.ConstraintCodec<unknown, string | number | Uint8Array | readonly number[] | null>>>;
-type FieldName<F> = keyof F & string;
-type Constants<S extends Fields[string]> = Array.NonEmptyReadonlyArray<Extract<S['Encoded'], string | number>>;
-type Where<F extends Fields> = { readonly [K in FieldName<F>]?: null | Constants<F[K]> | { readonly not: null | Constants<F[K]> } };
+type Where<F extends Fields> = { readonly [K in keyof F & string]?: null | Array.NonEmptyReadonlyArray<Extract<F[K]['Encoded'], string | number>> | { readonly not: null | Array.NonEmptyReadonlyArray<Extract<F[K]['Encoded'], string | number>> } };
 type Kind = 'text' | 'uuid' | 'json' | 'instant' | 'integer' | 'decimal' | 'real' | 'boolean' | 'blob';
 type Projection = Data.TaggedEnum<{
     Path: { readonly from: string; readonly path: Array.NonEmptyReadonlyArray<string>; readonly jsonPath: string };
-    Where: { readonly where: readonly { readonly column: string; readonly negated: boolean; readonly values: Option.Option<Constants<Fields[string]>> }[] };
+    Where: { readonly where: readonly { readonly column: string; readonly negated: boolean; readonly values: Option.Option<Array.NonEmptyReadonlyArray<string | number>> }[] };
 }>;
 type Collection = Data.TaggedEnum<{
     Scalar: { readonly kind: Kind };
@@ -69,7 +67,7 @@ class Column extends Data.Class<{
             Match.tag('Enum', ({ enums }) => enums.map(([, member]) => member)),
             Match.option,
         );
-    static readonly make = <F extends Fields>(field: FieldName<F>, schema: F[FieldName<F>], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[], rename: (name: string) => string) => {
+    static readonly make = <F extends Fields>(field: keyof F & string, schema: F[keyof F & string], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[], rename: (name: string) => string) => {
         const flat = (node: SchemaRepresentation.Representation): readonly SchemaRepresentation.Representation[] =>
             Match.value(node).pipe(
                 Match.tag('Union', ({ types }) => types.flatMap(flat)),
@@ -192,4 +190,4 @@ class Column extends Data.Class<{
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Collection, Column, type FieldName, type Fields, type Kind, type Projection, type Where };
+export { type Collection, Column, type Fields, type Kind, type Projection, type Where };

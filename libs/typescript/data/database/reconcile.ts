@@ -4,7 +4,7 @@ import { type SqlClient, type SqlError, SqlSchema, type Statement } from 'effect
 import type { Catalog } from '#/catalog';
 import { Column } from '#/column';
 import type { Engine } from '#/engine';
-import { type Finding, ReconcileError } from '#/error';
+import { ReconcileError } from '#/error';
 import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -57,8 +57,9 @@ const identifier = (parts: readonly string[]) => {
 
 // --- [REFUSALS]
 
-const findings = (table: string, columns: readonly string[], reason: Finding['reason']): readonly Finding[] => Array.match(columns, { onEmpty: () => [], onNonEmpty: (named) => [{ table, columns: named, reason }] });
-const unsupported = <C extends { readonly name: string }>(table: string, refusal: Extract<Finding['reason'], { readonly _tag: 'Unsupported' }>['refusal'], rows: readonly C[], refuses: (row: C) => boolean) => findings(table, rows.filter(refuses).map(Struct.get('name')), { _tag: 'Unsupported', refusal });
+const findings = (table: string, columns: readonly string[], reason: ReconcileError['findings'][number]['reason']) => Array.match(columns, { onEmpty: () => [], onNonEmpty: (named) => [{ table, columns: named, reason }] });
+const unsupported = <C extends { readonly name: string }>(table: string, refusal: Extract<ReconcileError['findings'][number]['reason'], { readonly _tag: 'Unsupported' }>['refusal'], rows: readonly C[], refuses: (row: C) => boolean) =>
+    findings(table, rows.filter(refuses).map(Struct.get('name')), { _tag: 'Unsupported', refusal });
 const mergeTreeRefusals = ({ name: owner, mergeTree: { expires, version, codecs } }: Relation) => findings(owner, Array.dedupe([...Option.toArray(expires).map(Struct.get('column')), ...Option.toArray(version), ...Object.keys(codecs)]), { _tag: 'Unsupported', refusal: 'mergeTree' });
 const refusals = ({ name: owner, key, references, columns, indexes }: Relation) => {
     const [all, linked] = [Object.values(columns), [...key, ...references.flatMap((reference) => reference.columns)]];
@@ -132,7 +133,7 @@ const tableDdl = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: 
             const parts = [type, ...Option.toArray(projection(entry)).map((expression) => engine.generated(sql, expression)), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(defaulted).map((value) => `DEFAULT ${value}`)];
             const identity = { origin: Option.getOrElse(entry.renamedFrom, () => entry.name), generation: entry.generation };
             const hashed = yield* digest(sql`${spaced([...parts, ...Option.toArray(rule(sql.literal('subject'))).map(Struct.get('text'))])}`.compile(true)[0]);
-            const [stamp, written] = [{ ...identity, digest: hashed }, (held: typeof identity) => spaced([sql`${name}${engine.comment(sql, entry.name, { ...held, digest: hashed }).inline}`, ...parts, ...Option.toArray(check).map(({ text }) => engine.constraint(sql, checkName.name, text))])];
+            const [stamp, written] = [{ ...identity, digest: hashed }, (held: Identity) => spaced([sql`${name}${engine.comment(sql, entry.name, { ...held, digest: hashed }).inline}`, ...parts, ...Option.toArray(check).map(({ text }) => engine.constraint(sql, checkName.name, text))])];
             return { ...entry, type, check: Option.map(check, Struct.assign(checkName)), default: defaulted, identity, stamp, digest: hashed, comment: engine.comment(sql, entry.name, stamp), written, text: written(identity) };
         }),
     );
@@ -181,7 +182,7 @@ const tableDdl = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: 
             readonly elements?: readonly Statement.Fragment[];
             readonly autoincrement?: boolean;
             readonly inline?: (link: { readonly name: string }) => boolean;
-            readonly claimed?: Option.Option<{ readonly identity: typeof identity; readonly fields: readonly { readonly definition: { readonly name: string }; readonly identity: typeof identity }[] }>;
+            readonly claimed?: Option.Option<{ readonly identity: Identity; readonly fields: readonly { readonly definition: { readonly name: string }; readonly identity: Identity }[] }>;
         } = {}) => {
             const stamps = Record.fromIterableWith(Option.match(claimed, { onNone: () => [], onSome: Struct.get('fields') }), (field) => [field.definition.name, field.identity]);
             const stamp = Option.match(claimed, { onNone: () => identity, onSome: Struct.get('identity') });
@@ -204,8 +205,7 @@ const claim = <R extends Live, D extends { readonly name: string; readonly renam
         const { origin, generation } = Option.getOrElse(row.identity, () => ({ origin: row.name, generation: 0 }));
         return generation < (generations.get(row.name)?.length ?? 0) ? Result.fail(row) : Result.succeed({ row, origin, generation, recorded: row.identity });
     });
-    type Candidate = (typeof standing)[number];
-    const take = (claimed: HashSet.HashSet<string>, matches: (candidate: Candidate) => boolean) => {
+    const take = (claimed: HashSet.HashSet<string>, matches: (candidate: (typeof standing)[number]) => boolean) => {
         const pick = Array.findFirst(standing, (candidate) => !HashSet.has(claimed, candidate.row.name) && matches(candidate));
         return [Option.match(pick, { onNone: () => claimed, onSome: (candidate) => HashSet.add(claimed, candidate.row.name) }), pick] as const;
     };
@@ -306,7 +306,7 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
         plan: (
             parts: Record<'preamble' | 'opening' | 'statements' | 'concurrent', readonly Statement.Statement<object>[]> & {
                 readonly concurrently: Effect.Effect<void, SqlError.SqlError>;
-                readonly findings: readonly Finding[];
+                readonly findings: readonly ReconcileError['findings'][number][];
                 readonly replaced: readonly string[];
                 readonly populated: readonly string[];
                 readonly undeclared: { readonly indexes: readonly string[]; readonly references: readonly { readonly table: string; readonly columns: readonly string[]; readonly target: string }[] };

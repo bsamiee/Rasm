@@ -27,18 +27,16 @@ const quoted = flow(literal, String.replaceAll('\\', '$&$&'));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Part extends Schema.Opaque<Part, unknown>()(Schema.Struct({ kind: Schema.Literals(Struct.keys(kinds)), name: Schema.String, digest: Schema.String, columns: Schema.Array(Schema.String) })) {}
+const Part = Schema.Struct({ kind: Schema.Literals(Struct.keys(kinds)), name: Schema.String, digest: Schema.String, columns: Schema.Array(Schema.String) });
 const MergeTree = Schema.Struct({ key: Schema.Array(Schema.String), version: Schema.optionalKey(Schema.String), partition: Schema.optionalKey(Schema.String) });
 class TableStamp extends Schema.Opaque<TableStamp, unknown>()(Identity.mapFields(Struct.assign({ mergeTree: MergeTree, expires: Schema.optionalKey(Schema.Int), codecs: Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String)), parts: Schema.Array(Part) }))) {}
 const recorded = <S extends Schema.Codec<unknown, string>>(stamp: S) => Schema.String.pipe(Schema.decodeTo(Schema.Option(Schema.toType(stamp)), { decode: SchemaGetter.transform(Schema.decodeOption(stamp)), encode: SchemaGetter.forbiddenEncoding }));
-class Table extends Schema.Opaque<Table, { readonly brand: unique symbol }>()(
-    Schema.Struct({
-        name: Schema.String,
-        identity: recorded(Schema.fromJsonString(TableStamp)),
-        columns: Schema.Array(Schema.Struct({ name: Schema.String, identity: recorded(Stamp), comment: Schema.String, definition: Schema.String, codec: Schema.String, copied: Schema.BooleanFromBit })),
-        parts: Schema.Array(Schema.Struct({ kind: Part.fields.kind, name: Schema.String, definition: Schema.String })),
-    }),
-) {}
+const Table = Schema.Struct({
+    name: Schema.String,
+    identity: recorded(Schema.fromJsonString(TableStamp)),
+    columns: Schema.Array(Schema.Struct({ name: Schema.String, identity: recorded(Stamp), comment: Schema.String, definition: Schema.String, codec: Schema.String, copied: Schema.BooleanFromBit })),
+    parts: Schema.Array(Schema.Struct({ kind: Part.fields.kind, name: Schema.String, definition: Schema.String })),
+});
 class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbol }>('Clickhouse')({ tables: Schema.Array(Table), scratch: Schema.Array(Schema.String) }) {
     // --- [DDL]
 
@@ -225,8 +223,8 @@ const built = (sql: SqlClient.SqlClient, target: Statement.Fragment, { declared,
         ...stamps.map(({ name, stamp: identity }) => commented(sql, name, identity)),
         sql`MODIFY COMMENT ${sql.literal(quoted(Formatter.formatJson(stamp)))}`,
     ])}`;
-const keyed = ({ kind, name }: Pick<Part, 'kind' | 'name'>) => ({ kind, name });
-const aligned = (entry: ReturnType<typeof diff<Table & { readonly references: never[] }>>['matched'][number], wanted: Effect.Success<ReturnType<typeof parts>>) => {
+const keyed = ({ kind, name }: Pick<TableStamp['parts'][number], 'kind' | 'name'>) => ({ kind, name });
+const aligned = (entry: ReturnType<typeof diff<Clickhouse['tables'][number] & { readonly references: never[] }>>['matched'][number], wanted: Effect.Success<ReturnType<typeof parts>>) => {
     const [stamp, present, declared] = [tableStamp(entry.declared, entry.identity, wanted), HashSet.fromIterable(entry.live.parts.map(keyed)), HashSet.fromIterable(wanted.map(keyed))];
     const managed = Option.filter(entry.live.identity, () => entry.owned);
     const moved = new Set([...entry.dropping.map(Struct.get('name')), ...entry.renames.map(Struct.get('from'))]);

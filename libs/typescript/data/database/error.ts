@@ -25,7 +25,6 @@ const refusals = {
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Reason = Schema.TaggedUnion({ Unsupported: { refusal: Schema.Literals(Record.keys(refusals)) }, Required: {}, Retype: {}, RetainedReference: { target: Schema.String } });
-class Finding extends Schema.Opaque<Finding, unknown>()(Schema.Struct({ table: Schema.String, columns: Schema.NonEmptyArray(Schema.String), reason: Reason })) {}
 const described = Reason.match({
     Unsupported: ({ refusal }) => refusals[refusal],
     Required: () => 'required, add default for existing rows',
@@ -35,10 +34,10 @@ const described = Reason.match({
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand: unique symbol }>()('ReconcileError', { findings: Schema.NonEmptyArray(Finding), message: Schema.String }) {
-    static readonly raise = (findings: readonly Finding[]) => (Array.isReadonlyArrayNonEmpty(findings) ? ReconcileError.make({ findings, message: findings.map(({ table, columns, reason }) => `${table} (${columns.join(', ')}) ${described(reason)}`).join('\n') }) : Effect.void);
+class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand: unique symbol }>()('ReconcileError', { findings: Schema.NonEmptyArray(Schema.Struct({ table: Schema.String, columns: Schema.NonEmptyArray(Schema.String), reason: Reason })), message: Schema.String }) {
+    static readonly raise = (findings: readonly ReconcileError['findings'][number][]) => (Array.isReadonlyArrayNonEmpty(findings) ? ReconcileError.make({ findings, message: findings.map(({ table, columns, reason }) => `${table} (${columns.join(', ')}) ${described(reason)}`).join('\n') }) : Effect.void);
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Finding, ReconcileError };
+export { ReconcileError };

@@ -5,10 +5,6 @@ import { Effect, type Layer, Option, Schema, type Scope } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { SqlClient, SqlError } from 'effect/sql';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Client<F, Q> = Parameters<typeof Catalog.layer<Rows, F, Q>>[1];
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 const parents = Relation.make('parents', { id: Schema.String, label: Schema.String, state: Schema.Literals(['open', 'closed']) });
@@ -48,12 +44,12 @@ const declared = (relations: Catalog['tables'], retired: readonly string[] = [])
 const refused = <A, E, Q>(effect: Effect.Effect<A, E, Q>, reason: SqlError.SqlErrorReason['_tag']) =>
     Effect.all([Effect.flip(effect), Effect.serviceOption(D1Client.D1Client)]).pipe(Effect.map(([error, d1]) => assert.strictEqual(SqlError.isSqlError(error) ? error.reason._tag : error, Option.match(d1, { onNone: () => reason, onSome: () => 'UnknownError' }))));
 const isolated =
-    <F, R>(client: Client<F, R>) =>
-    <Eff extends Effect.Effect<unknown, unknown, Layer.Success<Client<F, R>> | SecureRandom.SecureRandom | Scope.Scope | R>, A>(body: (sql: SqlClient.SqlClient) => Generator<Eff, A, never>) => {
+    <F, R>(client: Parameters<typeof Catalog.layer<Rows, F, R>>[1]) =>
+    <Eff extends Effect.Effect<unknown, unknown, Layer.Success<typeof client> | SecureRandom.SecureRandom | Scope.Scope | R>, A>(body: (sql: SqlClient.SqlClient) => Generator<Eff, A, never>) => {
         const execute = Effect.fnUntraced(body);
         return () => SqlClient.SqlClient.use(execute).pipe(Effect.provide([client, SecureRandom.layerWebCrypto]));
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { accounts, blobs, children, type Client, declared, events, isolated, notes, parents, refused, values, words };
+export { accounts, blobs, children, declared, events, isolated, notes, parents, refused, values, words };
