@@ -1,5 +1,6 @@
 import { once } from 'node:events';
 import { createServer } from 'node:net';
+import { DatabaseSync } from 'node:sqlite';
 import { pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
@@ -9,7 +10,7 @@ import { assert, layer } from '@effect/vitest';
 import { Automation, RunningInstance, TermKind, Terms } from '@rasm/applications';
 import { routed } from '@rasm/testing/playwright';
 import { parse } from 'acorn';
-import { Array, Cause, Config, Context, Effect, FileSystem, Layer, MutableRef, Option, Path, Record, Result, Schedule, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Config, Context, Effect, FileSystem, Layer, MutableRef, Option, Order, Path, Record, Result, Schedule, Schema, Stream, Struct } from 'effect';
 import { McpClient, McpProtocol } from 'effect/ai';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
@@ -39,6 +40,14 @@ const INSTALLED = [
     { receipt: 'com.adobe.acrobat.DC.scamini.app.pkg.MUI', name: 'Adobe Acrobat', identifier: 'com.adobe.Acrobat.Pro', version: '26.003.22110', dictionary: { command: [SCRIPT], script: SCRIPT } },
     { receipt: 'com.adobe.acrobat.DC.scafull.app.pkg.MUI', name: 'Acrobat Distiller', identifier: 'com.adobe.distiller', version: '26.003.22110', dictionary: { command: [DISTILL] } },
 ] as const;
+const REGISTERED = [
+    { code: 'IDSN', version: '21.0', name: 'Adobe InDesign 2027', identifier: 'com.adobe.InDesign', shortVersion: '21.0.1', build: '21.0.1.52', visible: 'true' },
+    { code: 'KBRG', version: '16.0', name: 'Adobe Bridge 2027', identifier: 'com.adobe.bridge16', shortVersion: '16.0.2', build: '16.0.2.11', visible: 'false' },
+] as const;
+const REGISTRY = [
+    'CREATE TABLE product_installation_info ( SAPCode varchar(36), ProductVersion varchar(36), ProcessorFamily varchar(36), Status INT, constraint pk PRIMARY KEY (SAPCode, ProductVersion, ProcessorFamily) );',
+    'CREATE TABLE product_installation_meta_info ( SAPCode varchar(36), ProductVersion varchar(36), ProcessorFamily varchar(36), Key TEXT, Value TEXT, constraint pk PRIMARY KEY (SAPCode, ProductVersion, ProcessorFamily, Key) );',
+].join('\n');
 const MARK = 'marked';
 const ES3 = { ecmaVersion: 3, allowReserved: 'never' } as const;
 
@@ -49,6 +58,7 @@ const Instances = Schema.Array(Schema.toCodecJson(RunningInstance));
 const Opened = Schema.Struct({ handle: Schema.String, result: Schema.Struct({ instance: Schema.String }) });
 const Text = Schema.Struct({ text: Schema.String });
 const Answered = Schema.Struct({ result: Schema.Struct({ result: Schema.Finite }) });
+const Listing = Schema.Struct({ result: Schema.Struct({ installed: Schema.Array(Schema.Struct({ name: Schema.String, product: Schema.String, channel: Schema.String, version: Schema.String, build: Schema.optionalKey(Schema.String) })) }) });
 const Reply = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Unknown)));
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -66,6 +76,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
         });
         const location = 'Applications/Adobe Acrobat DC';
         const [contents, receipts, bin, socket] = [path.join(root, 'Atelier.app', 'Contents'), path.join(root, 'receipts'), path.join(root, 'bin'), path.join(root, 'server.sock')];
+        const [registry, installs] = [path.join(root, 'hdpim.db'), path.join(root, 'Applications')];
         const bundle = (name: string) => path.join(root, location, `${name}.app`);
         const located = (name: string) => pathToFileURL(`${bundle(name)}/`).href;
         const empty = Struct.Record(TermKind.literals, []);
@@ -84,7 +95,22 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
                     [path.join(bundle(name), 'Contents', 'Info.plist'), build({ CFBundleIdentifier: identifier, CFBundleShortVersionString: version })],
                 ]),
             ),
+            ...Record.fromEntries(REGISTERED.map(({ name, identifier, shortVersion }) => [path.join(installs, name, `${name}.app`, 'Contents', 'Info.plist'), build({ CFBundleIdentifier: identifier, CFBundleShortVersionString: shortVersion })])),
         };
+        const products = REGISTERED.map(({ code, version }) => [code, version, 'arm64', 1] as const);
+        const facts = REGISTERED.flatMap(({ code, version, name, build: registered, visible }) =>
+            Record.toEntries({ InstallDir: path.join(installs, name), AppLaunch: `[InstallDir]/${name}.app/Contents/MacOS/${name}`, BuildVersion: registered, isVisibleProduct: visible }).map(([key, value]) => [code, version, 'arm64', key, value] as const),
+        );
+        const database = yield* Effect.acquireRelease(
+            Effect.sync(() => new DatabaseSync(registry)),
+            (opened) => Effect.sync(() => opened.close()),
+        );
+        const [product, fact] = yield* Effect.sync(() => {
+            database.exec(REGISTRY);
+            return [database.prepare('INSERT INTO product_installation_info VALUES (?, ?, ?, ?)'), database.prepare('INSERT INTO product_installation_meta_info VALUES (?, ?, ?, ?, ?)')] as const;
+        });
+        yield* Effect.forEach(products, (row) => Effect.sync(() => product.run(...row)), { discard: true });
+        yield* Effect.forEach(facts, (row) => Effect.sync(() => fact.run(...row)), { discard: true });
         yield* Effect.forEach(Record.toEntries(files), ([file, text]) => Effect.andThen(fs.makeDirectory(path.dirname(file), { recursive: true }), fs.writeFileString(file, text)), { discard: true });
         yield* Effect.forEach([path.join(contents, 'MacOS', 'Atelier'), path.join(bin, 'pkgutil'), path.join(bin, 'osascript')], (file) => fs.chmod(file, 0o755), { discard: true });
         yield* Effect.forEach(['Helpers', 'Resources'], (folder) => fs.makeDirectory(path.join(contents, folder)), { discard: true });
@@ -114,7 +140,9 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
                 Layer.provide([sockets({ path: socket }), RpcSerialization.layerNdJsonRpc()]),
             ),
         );
-        const server = yield* spawner.spawn(ChildProcess.make(path.join(contents, 'Helpers', 'server'), ['--listen', `127.0.0.1:${port}`, '--output', path.join(root, 'output')], { env: { HOME: path.join(root, 'home'), PATH: `${bin}:${searched}` }, extendEnv: true, stdout: 'ignore', stderr: 'inherit' }));
+        const server = yield* spawner.spawn(
+            ChildProcess.make(path.join(contents, 'Helpers', 'server'), ['--listen', `127.0.0.1:${port}`, '--output', path.join(root, 'output'), '--registry', registry], { env: { HOME: path.join(root, 'home'), PATH: `${bin}:${searched}` }, extendEnv: true, stdout: 'ignore', stderr: 'inherit' }),
+        );
         const connected = McpClient.make({ name: 'atelier-suite', version: '1.0.0' }).pipe(Effect.provideServiceEffect(McpClient.Transport, McpClient.http({ url: `http://127.0.0.1:${port}/`, protocol: McpProtocol.v2025_11_25 })));
         const client = yield* Effect.raceFirst(
             connected.pipe(Effect.retry({ schedule: Schedule.spaced('100 millis') }), Effect.timeout('20 seconds')),
@@ -158,7 +186,22 @@ const ran = Effect.fnUntraced(function* (name: string, code: string) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici])), { timeout: '1 minute', excludeTestServices: true })('script route', (it) => {
+layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici])), { timeout: '1 minute', excludeTestServices: true })('built server', (it) => {
+    it.effect(
+        'lists exactly the applications its registry shows and its installer receipts name, leaving out a registered product hidden from view',
+        Effect.fnUntraced(function* () {
+            const suite = yield* Suite;
+            const {
+                result: { installed },
+            } = yield* Effect.flatMap(suite.call('applications', {}), ({ structuredContent }) => Schema.decodeUnknownEffect(Listing)(structuredContent));
+            assert.deepStrictEqual(Array.sort(installed, Order.Struct({ name: Order.String })), [
+                { name: 'Acrobat Distiller', product: 'com.adobe.distiller', channel: 'release', version: '26.003.22110' },
+                { name: 'Adobe Acrobat', product: 'com.adobe.Acrobat.Pro', channel: 'release', version: '26.003.22110' },
+                { name: 'Adobe InDesign 2027', product: 'IDSN', channel: 'release', version: '21.0.1', build: '21.0.1.52' },
+            ]);
+        }),
+    );
+
     it.effect(
         'runs a body through the do script of an application no UXP host lists, sending to its instance one strict ES3 script as the direct parameter alone, and answers what that script returns',
         Effect.fnUntraced(function* () {
