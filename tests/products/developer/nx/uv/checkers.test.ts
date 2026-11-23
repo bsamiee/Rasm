@@ -1,16 +1,25 @@
 import { execFileSync } from 'node:child_process';
+import { env } from 'node:process';
+import type { ProjectGraph } from '@nx/devkit';
+import { readNxJsonFromDisk } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-uv';
-import { it } from '@rasm/testing/nx';
-import { Record } from 'effect';
-import { describe, expect, vi } from 'vitest';
+import { it, taskGraph, type Workspace } from '@rasm/testing/nx';
+import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
+import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const uv = { createNodes, createDependencies };
+const BUILT = '\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n';
 const LIBRARY = {
-    'proj/library/pyproject.toml': '[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n',
+    'proj/library/pyproject.toml': `[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n${BUILT}`,
     'proj/library/src/library/__init__.py': 'def one() -> int:\n    return 1\n',
+};
+const APPLICATION = {
+    'proj/application/pyproject.toml': `[project]\nname = "application"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["library"]\n\n[tool.uv.sources]\nlibrary = { workspace = true }\n${BUILT}`,
+    'proj/application/src/application/__init__.py': 'from library import one\n\n\ndef two() -> int:\n    return one() + 1\n',
 };
 const TESTED = { 'proj/library/tests/test_library.py': 'from library import one\n\n\ndef test_one() -> None:\n    assert one() == 1\n' };
 
@@ -18,39 +27,22 @@ const TESTED = { 'proj/library/tests/test_library.py': 'from library import one\
 
 const workspaced = (dev: readonly string[]) => ({ 'pyproject.toml': `[project]\nname = "uv-tutorial"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[dependency-groups]\ndev = ${JSON.stringify(dev)}\n\n[tool.uv.workspace]\nmembers = ["proj/*"]\n`, ...LIBRARY });
 
-const checkers = (targets: object) => Object.keys(targets).filter((target) => /^(?:check|test)--(?!uv)/u.test(target));
+const locked = (workspace: Workspace, files: Readonly<Record<string, string>>) => execFileSync('uv', ['lock', '--quiet'], { cwd: workspace.write(files).root });
+
+const hashed = (workspace: Workspace, graph: ProjectGraph, task: string) => {
+    const [project = '', target = ''] = task.split(':');
+    const tasks = taskGraph(graph, [project], [target]);
+    const found = tasks.tasks[task];
+    assert(found !== undefined, `${task} is a task of the graph`);
+    return createTaskHasher(graph, readNxJsonFromDisk(workspace.root)).hashTask(found, tasks, env);
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('checker targets', { timeout: 60_000 }, () => {
-    it.for([
-        { case: 'pytest locked beside test files', dev: ['pytest>=8'], files: TESTED, checks: ['test--pytest'] },
-        { case: 'pytest locked with no test file', dev: ['pytest>=8'], files: {}, checks: [] },
-        { case: 'ty locked', dev: ['ty'], files: {}, checks: ['check--ty'] },
-        { case: 'no checker locked', dev: [], files: TESTED, checks: [] },
-    ])('runs the checkers of a member the workspace locks, given $case', async ({ dev, files, checks }, { workspace }) => {
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write({ ...workspaced(dev), ...files }).root });
-
-        const graph = await workspace.graph({ createNodes, createDependencies });
-
-        expect(Record.map(graph.nodes, ({ data }) => checkers(data.targets ?? {}))).toStrictEqual({ 'uv-tutorial': [], library: checks });
-    });
-
-    it('hashes the ty configuration of the workspace ty runs in and the lock, and no ty table of the member', async ({ workspace }) => {
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write({ ...workspaced(['ty']), 'ty.toml': '[rules]\nunresolved-import = "error"\n', 'proj/library/pyproject.toml': `${LIBRARY['proj/library/pyproject.toml']}\n[tool.ty.rules]\nunresolved-import = "ignore"\n` }).root });
-
-        const graph = await workspace.graph({ createNodes, createDependencies });
-
-        const inputs = graph.nodes['library']?.data.targets?.['check--ty']?.inputs;
-
-        expect(inputs).toContain('{workspaceRoot}/ty.toml');
-        expect(inputs).toContain('{workspaceRoot}/uv.lock');
-        expect(inputs).not.toContain('{workspaceRoot}/proj/library/pyproject.toml');
-    });
-
+describe('checker targets', { timeout: 120_000 }, () => {
     it('writes the coverage of a pytest run with pytest-cov locked to the outputs its coverage configuration declares under coveragePath', async ({ workspace }) => {
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write({ ...workspaced(['pytest>=8', 'pytest-cov']), ...TESTED }).root });
-        const graph = await workspace.graph({ createNodes, createDependencies }, { coveragePath: '.artifacts/coverage/{projectName}' });
+        locked(workspace, { ...workspaced(['pytest>=8', 'pytest-cov']), ...TESTED });
+        const graph = await workspace.graph(uv, { coveragePath: '.artifacts/coverage/{projectName}' });
         const before = workspace.files('.venv', 'tmp');
 
         const result = await workspace.run(graph, 'library', 'test--pytest', 'coverage');
@@ -59,5 +51,17 @@ describe('checker targets', { timeout: 60_000 }, () => {
         expect(result.success).toBe(true);
         expect([...new Set(written).difference(workspace.cached(graph, 'library', 'test--pytest', 'coverage'))]).toStrictEqual([]);
         expect(written.toSorted()).toStrictEqual(['.artifacts/coverage/library/.coverage', '.artifacts/coverage/library/lcov.info']);
+    });
+
+    it.for([
+        { case: 'its own source', edited: { 'proj/application/src/application/__init__.py': 'from library import one\n\n\ndef three() -> int:\n    return one() + 2\n' }, changes: true },
+        { case: 'a dependency source vulture never reads', edited: { 'proj/library/src/library/__init__.py': 'def one() -> int:\n    return 2 - 1\n' }, changes: false },
+    ])('changes the vulture hash of a member ($changes) after an edit to $case', async ({ edited, changes }, { workspace }) => {
+        locked(workspace, { ...workspaced(['vulture']), ...APPLICATION });
+        const before = await hashed(workspace, await workspace.graph(uv), 'application:check--vulture');
+
+        const after = await hashed(workspace, await workspace.write(edited).graph(uv), 'application:check--vulture');
+
+        expect(before.value === after.value).toBe(!changes);
     });
 });

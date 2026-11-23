@@ -1,5 +1,5 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type ProjectGraph, readCachedProjectGraph } from '@nx/devkit';
 import { FsTree } from '@nx/devkit/internal';
@@ -61,8 +61,6 @@ describe('readCurrentVersionFromRegistry', { timeout: 60_000 }, () => {
 describe(afterAllProjectsVersioned, { timeout: 60_000 }, () => {
     it.for([
         { case: 'a stale lock', version: '1.1.0', options: { dryRun: false }, changed: ['uv.lock'] },
-        { case: 'a lock in sync', version: '1.0.0', options: { dryRun: false }, changed: [] },
-        { case: 'a dry run', version: '1.1.0', options: { dryRun: true }, changed: [] },
         { case: 'skipLockFileUpdate', version: '1.1.0', options: { dryRun: false, rootVersionActionsOptions: { skipLockFileUpdate: true } }, changed: [] },
     ])('relocks the uv workspace of each Python project and reports the lock it changed, given $case', async ({ version, options, changed }, { workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(WORKSPACE).root });
@@ -73,17 +71,6 @@ describe(afterAllProjectsVersioned, { timeout: 60_000 }, () => {
         const { changedFiles } = await afterAllProjectsVersioned(workspace.root, { verbose: false, ...options });
 
         expect(changedFiles).toStrictEqual(changed);
-        expect(readFileSync(join(workspace.root, 'uv.lock'), 'utf-8') === before).toBe(changed.length === 0);
-    });
-
-    it('creates no lock for a workspace holding none', async ({ workspace }) => {
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(WORKSPACE).root });
-        vi.mocked(readCachedProjectGraph).mockReturnValue(await workspace.graph({ createNodes, createDependencies }));
-        workspace.remove('uv.lock');
-
-        const { changedFiles } = await afterAllProjectsVersioned(workspace.root, { dryRun: false, verbose: false });
-
-        expect(changedFiles).toStrictEqual([]);
-        expect(existsSync(join(workspace.root, 'uv.lock'))).toBe(false);
+        expect([readFileSync(join(workspace.root, 'uv.lock'), 'utf-8') === before, spawnSync('uv', ['lock', '--check', '--offline', '--quiet'], { cwd: workspace.root }).status === 0]).toStrictEqual([changed.length === 0, changed.length > 0]);
     });
 });

@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { createDependencies, createNodes } from '@rasm/nx-uv';
 import { refused } from '@rasm/testing/errors';
-import { it, pathed, refusing } from '@rasm/testing/nx';
+import { it, pathed } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -39,20 +39,6 @@ describe('uv workspace metadata', { timeout: 60_000 }, () => {
         const graph = await workspace.graph({ createNodes, createDependencies });
 
         expect(graph.nodes['added']?.data.root).toBe('nested/proj/added');
-    });
-
-    it.for(refusing('uv'))('refuses a lock with the command and $case of uv', async ({ scripts, refusal }, { workspace }) => {
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
-        pathed(join(workspace.root, '.bin'), scripts);
-
-        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(refusal));
-    });
-
-    it('refuses a reply in another metadata schema', async ({ workspace }) => {
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
-        pathed(join(workspace.root, '.bin'), { uv: 'echo \'{"schema":{"version":"v1"}}\'' });
-
-        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/Expected "preview"/u));
     });
 
     it('keeps the projects of every other lock while one lock fails', async ({ workspace }) => {

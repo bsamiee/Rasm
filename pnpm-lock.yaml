@@ -3145,6 +3145,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+      fast-check:
+        specifier: 'catalog:'
+        version: 4.11.0
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.2

@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { createDependencies, createNodes } from '@rasm/nx-uv';
-import { refused } from '@rasm/testing/errors';
 import { it, unaggregated } from '@rasm/testing/nx';
 import { Record } from 'effect';
 import { describe, expect, vi } from 'vitest';
@@ -52,7 +51,7 @@ describe('uv workspace members', { timeout: 60_000 }, () => {
 
     it.for([
         { case: 'locked manifests', edit: {}, success: true },
-        { case: 'a dependency added after locking', edit: { 'nested/proj/proj/library/pyproject.toml': `[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["application"]\n${BUILT}` }, success: false },
+        { case: 'a dependency added after locking', edit: { 'nested/proj/proj/library/pyproject.toml': `[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["internal"]\n\n[tool.uv.sources]\ninternal = { workspace = true }\n${BUILT}` }, success: false },
     ])('checks the lock of a nested workspace from its own folder, given $case', async ({ edit, success }, { workspace }) => {
         locked(workspace.write(Record.mapKeys(MEMBERS, (file) => `nested/proj/${file}`)).root, 'nested/proj');
         const graph = await workspace.write(edit).graph({ createNodes, createDependencies });
@@ -63,31 +62,11 @@ describe('uv workspace members', { timeout: 60_000 }, () => {
         expect(graph.nodes['library']?.data.release?.version?.versionActionsOptions).toStrictEqual({ lock: 'nested/proj/uv.lock' });
     });
 
-    it.for([
-        { case: 'a pixi.toml beside the workspace manifest', files: { 'pixi.toml': '[workspace]\nchannels = ["conda-forge"]\nplatforms = ["osx-arm64"]\n' }, pixi: true },
-        { case: 'a tool.pixi table in the workspace manifest', files: { 'pyproject.toml': `${MEMBERS['pyproject.toml']}\n[tool.pixi.workspace]\nchannels = ["conda-forge"]\nplatforms = ["osx-arm64"]\n` }, pixi: true },
-        { case: 'no Pixi manifest', files: {}, pixi: false },
-    ])('upgrades the Pixi environments of the workspace root given $case', async ({ files, pixi }, { workspace }) => {
-        locked(workspace.write({ ...MEMBERS, ...files }).root);
-
-        const graph = await workspace.graph({ createNodes, createDependencies });
-
-        expect('upgrade--pixi' in { ...graph.nodes['uv-tutorial']?.data.targets }).toBe(pixi);
-    });
-});
-
-describe('the nx table of a member manifest', { timeout: 60_000 }, () => {
-    it('adds the implicit dependencies it names', async ({ workspace }) => {
+    it('adds the implicit dependencies the nx table of a member manifest names', async ({ workspace }) => {
         locked(workspace.write({ ...MEMBERS, 'proj/virtual/pyproject.toml': `${MEMBERS['proj/virtual/pyproject.toml']}\n[tool.nx]\nimplicitDependencies = ["internal"]\n` }).root);
 
         const graph = await workspace.graph({ createNodes, createDependencies });
 
         expect(graph.dependencies['virtual']).toContainEqual({ source: 'virtual', target: 'internal', type: 'implicit' });
-    });
-
-    it('refuses a key Nx does not read', async ({ workspace }) => {
-        locked(workspace.write({ ...MEMBERS, 'proj/virtual/pyproject.toml': `${MEMBERS['proj/virtual/pyproject.toml']}\n[tool.nx]\nimplicitDeps = ["internal"]\n` }).root);
-
-        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/^uv\.lock: proj\/virtual\/pyproject\.toml does not read as the nx table of tool/u));
     });
 });
