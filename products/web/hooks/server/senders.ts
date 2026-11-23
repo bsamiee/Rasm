@@ -12,7 +12,7 @@ const senders = {
     tailscale: Effect.fnUntraced(function* (name: string, secret: Redacted.Redacted) {
         const webhook = yield* TailscaleEvent.webhook([secret]);
         const logged = TailscaleEvent.matchOrElse({ KeyExpiry: () => Effect.logWarning, Policy: () => Effect.logWarning }, () => Effect.logInfo);
-        const record = Effect.fnUntraced(function* (id: string, occurred: typeof TailscaleEvent.Type) {
+        const record = Effect.fnUntraced(function* (id: string, occurred: Parameters<typeof logged>[0]) {
             const { data, ...fields } = yield* Effect.orDie(Schema.encodeEffect(TailscaleEvent)(occurred));
             const labels = Record.mapKeys<string, unknown, string>({ ...fields, ...data }, (field) => `${name}.${field}`);
             yield* Effect.annotateLogs(logged(occurred)('Webhook event'), { 'webhook.sender': name, 'webhook.id': id, ...labels });

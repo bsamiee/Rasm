@@ -22,6 +22,7 @@ Return types infer from the body, and every type a consumer names derives at its
 - Schema types take their name from a class: the class itself, or an indexed access on the class holding the schema as a field
 - Schemas no class holds flow by inference: a decoder's return, a `match` handler, a callback written at its call, a generic over the schema
 - `typeof X.Type` queries and `type X = typeof X.Type` aliases restate a class name, and a helper type wrapping either restates both
+- Static member schemas are the one query that stands (`typeof X.<Member>.Type`), their owner naming them where no class can
 - Unions, brands, literal sets, and encoded sides alone in a signature have no form free of both, a record holds each or its operation derives it
 - Classes declared to name a type alone restate an alias, as does a sibling class standing for a static member schema
 - Aliases and interfaces stand where no schema, table, or function states the shape (a host contract, a recursive union)
