@@ -211,7 +211,7 @@ let tests: [Target] = [
 let package = Package(
     name: "Rasm",
     platforms: [.macOS(.v27)],
-    products: (modules + applications).map { module in .library(name: module.name, targets: [module.name]) },
+    products: applications.map { module in .library(name: module.name, targets: [module.name]) },
     dependencies: [
 
         // --- [LANGUAGE]

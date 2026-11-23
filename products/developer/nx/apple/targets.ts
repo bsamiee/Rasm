@@ -27,7 +27,7 @@ const CORE = `${PLUGIN}-${platform}-${arch}`;
 const NOTARY = { key: 'ASC_API_KEY_P8', keyId: 'ASC_API_KEY_ID', issuer: 'ASC_API_ISSUER_ID' } as const;
 const SIGNED = { development: 'Apple Development', distribution: 'Developer ID Application' } as const;
 const APPCAST = { key: 'SPARKLE_ED_PRIVATE_KEY', bucket: 'SPARKLE_FEED_BUCKET' } as const;
-const SWIFTPM = ['--force-resolved-versions'] as const;
+const SWIFTPM = ['--force-resolved-versions', '--disable-index-store'] as const;
 const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'swift --version' }, { externalDependencies: [] }];
 const ATTACH: TargetConfiguration = {
     executor: `${distribution.name}:attach`,

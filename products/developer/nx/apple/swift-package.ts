@@ -37,7 +37,7 @@ class Described extends Schema.Opaque<Described, unknown>()(
             name: Schema.String,
             platforms: Schema.Array(Schema.Struct({ name: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
             dependencies: Schema.Array(Schema.Struct({ path: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-            targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, product_memberships: Listed, target_dependencies: Listed, product_dependencies: Listed, resources: Schema.Array(Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })),
+            targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, target_dependencies: Listed, product_dependencies: Listed, resources: Schema.Array(Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })),
             products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String), type: Schema.Record(Schema.String, Schema.Unknown) })),
         }),
     ),
@@ -59,8 +59,8 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
 const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>, stamp: Option.Option<Readonly<Record<'root' | 'name' | 'hash', string>>>): readonly Part[] => {
     const { file, root, plists, entitled, manifest, bins, whole, shipped } = local;
     const stamped = Option.filter(stamp, (held) => held.root === root);
-    const modules = manifest.targets.filter((module) => module.product_memberships.length > 0 && module.name !== manifest.name);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
+    const modules = manifest.targets.filter(({ name, type }) => !Schema.is(Tests)(type) && name !== manifest.name);
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
     const inputs = [...sources(local, described), ...INPUTS];
     const build = ['swift', 'build', '--package-path', root, ...SWIFTPM] as const;
@@ -191,7 +191,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
 };
 
 const packageEdges = ({ file, manifest }: Package, described: ReadonlyMap<string, Package>): readonly RawProjectGraphDependency[] => {
-    const modules = new Set(manifest.targets.filter((module) => module.product_memberships.length > 0).map((module) => module.name));
+    const modules = new Set(manifest.targets.filter(({ type }) => !Schema.is(Tests)(type)).map(({ name }) => name));
     const project = (module: string) => (modules.has(module) ? module : manifest.name);
     const linked = locals(manifest, described).map((local) => local.manifest);
     const products = (product: string) => linked.flatMap((local) => local.products.filter((owned) => owned.name === product).flatMap((owned) => owned.targets));
