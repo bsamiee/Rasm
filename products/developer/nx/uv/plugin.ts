@@ -1,14 +1,10 @@
 import { join, posix } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Effect, Option, Record, Schema } from 'effect';
-import { ancestors, CONFIGS, documents, Linked, Options, PLUGIN, run, targets } from '#/targets';
-import { folders, LOCK, located, MANIFEST, Metadata, report, SCHEMA } from '#/workspace';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Read = PluginCache<{ readonly digest: string; readonly reply: string }>;
+import { above, fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Effect, MutableRef, Option, Record, Schema } from 'effect';
+import { CONFIGS, Linked, Options, PLUGIN, run, targets } from '#/targets';
+import { LOCK, located, MANIFEST, Metadata, SCHEMA } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -22,42 +18,44 @@ const Quoted = Schema.fromJsonString(Schema.String);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: CreateNodesContext, settings: Options, lock: string) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<{ readonly digest: string; readonly reply: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly files: ReadonlySet<string> }, { workspaceRoot }: CreateNodesContext, settings: Options, lock: string) {
     const token = '{workspaceRoot}';
+    const folder = posix.dirname(lock);
+    const parents = new Set(above(posix.dirname(folder)));
     const placed = (yield* Schema.encodeEffect(Quoted)(workspaceRoot)).slice(1, -1);
-    const read = Array.cartesianWith([posix.join(posix.dirname(lock), '**'), ...ancestors(posix.dirname(posix.dirname(lock)))], READ, posix.join);
+    const read = [...pass.files].filter((file) => READ.includes(posix.basename(file)) && (folder === '.' || file.startsWith(`${folder}/`) || parents.has(posix.dirname(file))));
     const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, read)), yield* OWN]);
     const metadata = yield* Option.match(
-        Option.filter(Option.fromNullishOr(cache.get(lock)), (held) => held.digest === digest),
+        Option.filter(Option.fromNullishOr(pass.cache.get(lock)), (held) => held.digest === digest),
         {
             onSome: (held) => Schema.decodeEffect(Metadata)(held.reply.replaceAll(token, placed)),
             onNone: Effect.fnUntraced(function* () {
-                const decoded = yield* Effect.flatMap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'], { cwd: join(workspaceRoot, posix.dirname(lock)) }), Schema.decodeEffect(Metadata));
+                const decoded = yield* Effect.flatMap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'], { cwd: join(workspaceRoot, folder) }), Schema.decodeEffect(Metadata));
                 const reply = yield* Schema.encodeEffect(Metadata)(decoded);
-                cache.set(lock, { digest, reply: reply.replaceAll(placed, token) });
-                cache.writeToDisk();
+                pass.cache.set(lock, { digest, reply: reply.replaceAll(placed, token) });
+                MutableRef.set(pass.stored, true);
                 return decoded;
             }),
         },
     );
-    const { documented, unparsed } = yield* documents(workspaceRoot, folders(workspaceRoot, metadata));
-    const { members, edges, failures } = yield* located(workspaceRoot, report(workspaceRoot, lock, metadata, documented));
-    yield* Array.match([...unparsed, ...failures], { onEmpty: () => Effect.void, onNonEmpty: (errors) => Effect.fail(new Cause.UnknownError(errors, `${lock}: ${errors.map(({ message }) => message).join('; ')}`)) });
+    const { members, failures } = yield* located(workspaceRoot, pass.files, lock, metadata);
+    yield* Array.match(failures, { onEmpty: () => Effect.void, onNonEmpty: (errors) => Effect.fail(new Cause.UnknownError(errors, `${lock}: ${errors.map(({ message }) => message).join('; ')}`)) });
     const links = yield* Linked;
-    links.set(workspaceRoot, [...(links.get(workspaceRoot) ?? []), ...edges]);
-    const manifests = yield* Effect.forEach(members, (member) => manifested(workspaceRoot, member.root));
-    const projects = Record.fromIterableWith(Array.zip(members, manifests), ([member, stated]): [string, ProjectConfiguration] => [
-        member.root,
-        {
-            root: member.root,
-            name: member.name,
-            metadata: { technologies: ['python'] },
-            ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock } } } }),
-            ...(member.implicit !== undefined && { implicitDependencies: [...member.implicit] }),
-            targets: targets(member, settings, stated),
-        },
-    ]);
-    return { projects };
+    links.set(workspaceRoot, [...(links.get(workspaceRoot) ?? []), ...members.flatMap(({ edges }) => edges)]);
+    const projects = yield* Effect.forEach(members, (member) =>
+        Effect.map(manifested(workspaceRoot, member.root), (stated): [string, ProjectConfiguration] => [
+            member.root,
+            {
+                root: member.root,
+                name: member.name,
+                metadata: { technologies: ['python'] },
+                ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock } } } }),
+                ...(member.implicit !== undefined && { implicitDependencies: [...member.implicit] }),
+                targets: targets(member, settings, stated),
+            },
+        ]),
+    );
+    return { projects: Record.fromEntries(projects) };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -65,10 +63,16 @@ const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: Cr
 const createNodes: CreateNodes = [
     FILES,
     inferring(Options, run, function* (matched, settings, context) {
-        const cache: Read = new PluginCache(join(workspaceDataDirectory, 'uv.hash'));
+        const pass = { cache: new PluginCache<{ readonly digest: string; readonly reply: string }>(join(workspaceDataDirectory, 'uv.hash')), stored: MutableRef.make(false), files: new Set(matched) };
         const locks = matched.filter((file) => posix.basename(file) === LOCK);
         (yield* Linked).delete(context.workspaceRoot);
-        return yield* Effect.promise(() => createNodesFromFiles((lock) => run(inferred(cache, context, settings, lock)), locks, settings, context));
+        return yield* Effect.ensuring(
+            Effect.promise(() => createNodesFromFiles((lock) => run(inferred(pass, context, settings, lock)), locks, settings, context)),
+            Effect.when(
+                Effect.sync(() => pass.cache.writeToDisk()),
+                Effect.sync(() => MutableRef.get(pass.stored)),
+            ),
+        );
     }),
 ];
 

@@ -1,8 +1,10 @@
-import { normalize, posix, relative } from 'node:path';
+import { join, posix, relative } from 'node:path';
 import { DependencyType, normalizePath, type RawProjectGraphDependency } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Equivalence, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
-import { CHECKERS, declared, PIXI } from '#/targets';
+import { above } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Effect, Equivalence, FileSystem, Glob, Graph, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
+import { Ini, Toml } from 'effect/encoding';
+import { CHECKERS, CONFIGS, declared, PIXI } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -13,16 +15,11 @@ type Member = Effect.Success<ReturnType<typeof located>>['members'][number];
 const LOCK = 'uv.lock';
 const SCHEMA = 'preview';
 const MANIFEST = 'pyproject.toml';
-const PRIVATE = 'Private ::';
-const SEPARATORS = /[-_.]+/gu;
-const UNDERSCORED = /-(?!stubs$)/gu;
-const DASHED = /-/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Declared = Schema.Struct({
     project: Schema.Struct({
-        name: Schema.optionalKey(Schema.String),
         'requires-python': Schema.optionalKey(Schema.String),
         classifiers: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         dynamic: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
@@ -73,20 +70,14 @@ class Metadata extends Schema.Opaque<Metadata, unknown>()(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const normalized = (name: string) => name.toLowerCase().replaceAll(SEPARATORS, '-');
-
-const sited = (workspaceRoot: string) => (source: Readonly<Record<string, unknown>>) =>
-    Option.map(
-        Record.findFirst(source, (at, key): at is string => Schema.is(Local)(key) && Predicate.isString(at)),
-        ([, at]) => normalizePath(relative(workspaceRoot, normalize(at))) || '.',
-    );
+const normalized = (name: string) => name.toLowerCase().replaceAll(/[-_.]+/gu, '-');
 
 const packed = (stated: unknown): readonly string[] =>
     Option.match(Schema.decodeUnknownOption(Backend)(stated), {
         onNone: () => [posix.join('{projectRoot}', '**', '*')],
         onSome: ({ project, tool }) => {
             const backend = tool.uv['build-backend'];
-            const modules = Array.ensure(backend['module-name'] ?? normalized(project.name).replace(backend.namespace ? DASHED : UNDERSCORED, '_')).map((name) => posix.join(backend['module-root'], ...name.split('.'), '**'));
+            const modules = Array.ensure(backend['module-name'] ?? normalized(project.name).replace(backend.namespace ? /-/gu : /-(?!stubs$)/gu, '_')).map((name) => posix.join(backend['module-root'], ...name.split('.'), '**'));
             const files = [...(Predicate.isString(project.readme) ? [project.readme] : []), ...Array.getSomes([project.readme, project.license].map((held) => Schema.decodeUnknownOption(Filed)(held))).map(({ file }) => file)];
             const data = Object.values(backend.data).map((folder) => posix.join(folder, '**'));
             const excluded = [...(backend['default-excludes'] ? ['__pycache__', '*.pyc', '*.pyo'] : []), ...backend['source-exclude']].map((pattern) => (pattern.startsWith('/') ? pattern.slice(1) : posix.join('**', pattern)));
@@ -94,98 +85,113 @@ const packed = (stated: unknown): readonly string[] =>
         },
     });
 
-const folders = (workspaceRoot: string, { workspace, resolution }: Metadata) => Array.dedupe([normalizePath(relative(workspaceRoot, workspace.path)) || '.', ...Array.getSomes(Object.values(resolution).map(({ source }) => sited(workspaceRoot)(source)))]);
-
-const report = (workspaceRoot: string, lock: string, metadata: Metadata, documented: ReadonlyMap<string, unknown>) => {
+const located = Effect.fnUntraced(function* (workspaceRoot: string, files: ReadonlySet<string>, lock: string, metadata: Metadata) {
+    const fs = yield* FileSystem.FileSystem;
     const { resolution } = metadata;
-    const local = sited(workspaceRoot);
-    const workspace = normalizePath(relative(workspaceRoot, metadata.workspace.path)) || '.';
-    const located = (id: string) => Option.flatMap(Option.fromUndefinedOr(resolution[id]), (node) => Option.all({ root: local(node.source), name: Option.fromUndefinedOr(node.name) }));
-    const reach = (ids: ReadonlySet<string>): ReadonlySet<string> => {
-        const next = ids.union(new Set(ids.values().flatMap((id) => resolution[id]?.dependencies ?? [])));
-        return next.size === ids.size ? ids : reach(next);
-    };
-    const distributed = (name: string) => (id: string) => Option.exists(Option.fromUndefinedOr(resolution[id]), (node) => node.name === name && Option.isNone(local(node.source)));
+    const rooted = (at: string) => normalizePath(relative(workspaceRoot, at)) || '.';
+    const sited = Record.getSomes(
+        Record.map(resolution, ({ source }) =>
+            Option.map(
+                Record.findFirst(source, (at, key): at is string => Schema.is(Local)(key) && Predicate.isString(at)),
+                ([, at]) => rooted(at),
+            ),
+        ),
+    );
+    const owned = Array.groupBy(Record.toEntries(sited), ([, root]) => root);
+    const workspace = rooted(metadata.workspace.path);
+    const present = Array.cartesianWith(Array.dedupe([workspace, ...Record.values(sited)].flatMap(above)), CONFIGS, posix.join).filter((at) => files.has(at));
+    const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [at, posix.extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
+    const documented = new Map(read.map(([at, parsed]) => [at, Result.getOrElse(parsed, Record.empty)] as const));
     const stated = (root: string) => documented.get(posix.join(root, MANIFEST));
-    const manifest = (root: string) => Option.map(Schema.decodeUnknownOption(Declared)(stated(root)), ({ project }) => project);
-    const members = metadata.members.map((member) => ({ ...member, root: normalizePath(relative(workspaceRoot, member.path)) || '.' }));
-    const workspaceGroups =
+    const entries = Record.toEntries(resolution);
+    const indexed = new Map(entries.map(([id], index) => [id, index] as const));
+    const indices = (ids: Iterable<string>) => Array.getSomes(Array.fromIterable(ids).map((id) => Option.fromUndefinedOr(indexed.get(id))));
+    const graph = Graph.fromSnapshot({ type: 'directed', nodes: entries.map(([data], index) => ({ index, data })), edges: entries.flatMap(([, { dependencies }], source) => indices(dependencies).map((target) => ({ source, target, data: undefined }))).map((edge, index) => ({ ...edge, index })) });
+    const reach = (ids: Iterable<string>): ReadonlySet<string> => new Set(Graph.values(Graph.dfs(graph, { start: indices(ids) })));
+    const resolved = (id: string) => Option.all({ root: Record.get(sited, id), name: Option.fromUndefinedOr(resolution[id]?.name) });
+    const named = (ids: readonly string[]) => Array.dedupe(Array.getSomes(ids.map(resolved)).map(({ name }) => name)).toSorted();
+    const distributed = (name: string) => (id: string) => resolution[id]?.name === name && !Record.has(sited, id);
+    const offering =
+        (name: string) =>
+        ({ id }: { readonly id: string }) =>
+            (resolution[id]?.dependencies ?? []).some(distributed(name));
+    const members = metadata.members.map((member) => ({ ...member, root: rooted(member.path) }));
+    const shared =
         resolution[
-            Option.match(
-                Array.findFirst(members, (member) => member.root === workspace),
-                { onNone: () => metadata.workspace.id, onSome: ({ id }) => id },
+            Array.findFirst(members, ({ root }) => root === workspace).pipe(
+                Option.map(({ id }) => id),
+                Option.getOrElse(() => metadata.workspace.id),
             )
         ]?.dependency_groups ?? [];
-    const tables = members.map((member) => {
-        const file = posix.join(member.root, MANIFEST);
-        return [file, Result.flatMap(Schema.decodeUnknownResult(Tooled)(documented.get(file)), ({ tool }) => Schema.decodeUnknownResult(Nx, { onExcessProperty: 'error' })(tool.nx))] as const;
-    });
-    const index = Option.flatMap(Schema.decodeUnknownOption(Indexed)(stated(workspace)), ({ tool }) => Array.findFirst(tool.uv.index, (row) => row['publish-url'] !== undefined));
+    const index = Option.getOrUndefined(Option.flatMap(Schema.decodeUnknownOption(Indexed)(stated(workspace)), ({ tool }) => Array.findFirst(tool.uv.index, (row) => row['publish-url'] !== undefined)))?.name;
+    const pixi = documented.has(posix.join(workspace, PIXI)) || Schema.is(Pixi)(stated(workspace));
     const manifests = documented
         .keys()
         .filter((file) => posix.basename(file) === MANIFEST)
+        .map((file) => posix.join('{workspaceRoot}', file))
         .toArray();
-    return {
-        failures: Array.filterMap(tables, ([file, table]) => Result.map(Result.flip(table), (cause) => new Cause.UnknownError(cause, `${file} does not read as the nx table of tool`))),
-        members: Array.zipWith(members, tables, (member, [, table]) => {
-            const groups = Array.unionWith(resolution[member.id]?.dependency_groups ?? [], workspaceGroups, Equivalence.Struct({ name: Equivalence.String }));
-            const packaged = 'editable' in (resolution[member.id]?.source ?? {});
-            return {
-                name: member.name,
-                distribution: `${member.name.toLowerCase().replaceAll(SEPARATORS, '_')}-${resolution[member.id]?.version ?? '*'}`,
-                root: member.root,
-                workspace,
-                packaged,
-                manifests,
-                sources: [...packed(stated(member.root)), posix.join('{workspaceRoot}', workspace, MANIFEST)],
-                index: Option.getOrUndefined(Option.flatMap(index, ({ name }) => Option.fromUndefinedOr(name))),
-                pixi: documented.has(posix.join(workspace, PIXI)) || Schema.is(Pixi)(stated(workspace)),
-                scripted: packaged && Option.exists(manifest(member.root), ({ scripts }) => !Record.isEmptyRecord(scripts)),
-                locals: Array.dedupe(
-                    Array.getSomes(
-                        reach(new Set([member.id]))
-                            .values()
-                            .map(located),
-                    ).map(({ name }) => name),
-                ).toSorted(),
-                python: Option.getOrUndefined(Option.flatMap(manifest(member.root), (project) => Option.fromUndefinedOr(project['requires-python']))),
-                implicit: Result.getOrUndefined(table)?.implicitDependencies,
-                published: packaged && Option.exists(manifest(member.root), ({ classifiers, dynamic }) => !(dynamic.includes('classifiers') || classifiers.some((classifier) => classifier.startsWith(PRIVATE)))),
-                lock,
-                nested: members.some((other) => other.root !== member.root && (member.root === '.' || other.root.startsWith(`${member.root}/`))),
-                checks: Record.map(CHECKERS, (row, key) => {
-                    const group = Array.findFirst(groups, ({ id }) => (resolution[id]?.dependencies ?? []).some(distributed(key)));
-                    const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
-                    const installed = reach(new Set([member.id, ...from]));
-                    return {
-                        ...declared(documented, row.origin(workspace, member.root), member.root, key),
-                        group: Option.getOrUndefined(group)?.name,
-                        projects: Array.dedupe(Array.getSomes(from.map(located)).map(({ name }) => name)).toSorted(),
-                        locked: installed.values().some(distributed(key)),
-                        covered: row.coverage !== undefined && installed.values().some(distributed(row.coverage)),
-                    };
-                }),
-            };
+    const shaped = members.map((member) => {
+        const groups = Array.unionWith(resolution[member.id]?.dependency_groups ?? [], shared, Equivalence.Struct({ name: Equivalence.String }));
+        const packaged = 'editable' in (resolution[member.id]?.source ?? {});
+        const project = Option.getOrUndefined(Schema.decodeUnknownOption(Declared)(stated(member.root)))?.project;
+        const nested = members.some((other) => other.root !== member.root && (member.root === '.' || other.root.startsWith(`${member.root}/`)));
+        return {
+            name: member.name,
+            distribution: `${normalized(member.name).replaceAll('-', '_')}-${resolution[member.id]?.version ?? '*'}`,
+            root: member.root,
+            workspace,
+            lock,
+            packaged,
+            manifests,
+            sources: [...packed(stated(member.root)), posix.join('{workspaceRoot}', workspace, MANIFEST)],
+            index,
+            pixi,
+            scripted: packaged && project !== undefined && !Record.isEmptyRecord(project.scripts),
+            locals: named([...reach([member.id])]),
+            python: project?.['requires-python'],
+            published: packaged && project !== undefined && !(project.dynamic.includes('classifiers') || project.classifiers.some((classifier) => classifier.startsWith('Private ::'))),
+            table: Result.flatMap(Schema.decodeUnknownResult(Tooled)(stated(member.root)), ({ tool }) => Schema.decodeUnknownResult(Nx, { onExcessProperty: 'error' })(tool.nx)),
+            edges: (owned[member.root] ?? [])
+                .filter(([id]) => resolution[id]?.name === member.name)
+                .flatMap(([id]) => Array.getSomes((resolution[id]?.dependencies ?? []).map(resolved)))
+                .map(({ root: target }): RawProjectGraphDependency => ({ source: member.root, target, type: DependencyType.static, sourceFile: posix.join(member.root, MANIFEST) })),
+            checks: Array.filterMap(nested ? [] : Record.toEntries(CHECKERS), ([key, row]) => {
+                const group = Array.findFirst(groups, offering(key));
+                const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
+                const installed = reach([member.id, ...from]);
+                return installed.values().some(distributed(key))
+                    ? Result.succeed({ key, ...declared(documented, row.origin(workspace, member.root), member.root, key), group: Option.getOrUndefined(group)?.name, projects: named(from), covered: row.coverage !== undefined && installed.values().some(distributed(row.coverage)) })
+                    : Result.failVoid;
+            }),
+        };
+    });
+    const patterns = Array.dedupe(shaped.flatMap(({ checks }) => checks.flatMap((check) => check.patterns)));
+    const listed = new Set(
+        yield* Array.match(patterns, {
+            onEmpty: () => Effect.succeed([]),
+            onNonEmpty: (globs) => Effect.promise(() => globWithWorkspaceContext(workspaceRoot, globs)),
         }),
-        edges: members.flatMap((member) => {
-            const sourceFile = posix.join(member.root, MANIFEST);
-            const own = Record.keys(Record.filter(resolution, (node) => node.name === member.name && Option.contains(local(node.source), member.root)));
-            const targeted = own.flatMap((id) => Array.getSomes((resolution[id]?.dependencies ?? []).map(located))).map(({ root }) => root);
-            return targeted.map((target): RawProjectGraphDependency => ({ source: member.root, target, type: DependencyType.static, sourceFile }));
-        }),
-    };
-};
-
-const located = Effect.fnUntraced(function* (workspaceRoot: string, { members, ...workspace }: ReturnType<typeof report>) {
-    const checked = members.flatMap(({ root, checks }) => Record.collect(checks, (key, check) => ({ root, key, check })));
-    const matched = yield* Effect.forEach(checked, ({ check }) => Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [...check.patterns])), { concurrency: 'unbounded' });
-    const based = Array.groupBy(
-        Array.zipWith(checked, matched, ({ root, key, check }, files) => ({ root, key, check: { ...check, ...(Array.isReadonlyArrayNonEmpty(files) && { base: files.includes(posix.join(root, '__init__.py')) ? posix.dirname(root) : root }) } })),
-        ({ root }) => root,
     );
-    return { ...workspace, members: members.map((member) => ({ ...member, checks: Record.fromIterableWith(based[member.root] ?? [], ({ key, check }) => [key, check] as const) })) };
+    const matched = new Set(
+        patterns.filter((pattern) => {
+            const glob = Glob.make(pattern, { dot: true });
+            return listed.values().some((file) => Glob.match(glob, file));
+        }),
+    );
+    return {
+        failures: [
+            ...Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML or INI`))),
+            ...Array.filterMap(shaped, ({ root, table }) => Result.map(Result.flip(table), (cause) => new Cause.UnknownError(cause, `${posix.join(root, MANIFEST)} does not read as the nx table of tool`))),
+        ],
+        members: shaped.map(({ table, checks, ...member }) => ({
+            ...member,
+            implicit: Result.getOrUndefined(table)?.implicitDependencies,
+            base: listed.has(posix.join(member.root, '__init__.py')) ? posix.dirname(member.root) : member.root,
+            checks: checks.filter((check) => !matched.isDisjointFrom(new Set(check.patterns))),
+        })),
+    };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { folders, LOCK, located, MANIFEST, type Member, Metadata, normalized, report, SCHEMA };
+export { LOCK, located, MANIFEST, type Member, Metadata, normalized, SCHEMA };

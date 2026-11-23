@@ -1,20 +1,15 @@
-import { dirname, join, posix } from 'node:path';
+import { dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { joinPathFragments, type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
-import { spawned } from '@rasm/nx-distribution/inference';
+import { run, spawned } from '@rasm/nx-distribution/inference';
 import { clean, explain, RANGE_PATTERN, satisfies } from '@renovatebot/pep440';
 import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Schema, SemVer, Stream, String, Struct } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { ancestors, run } from '#/targets';
-import { LOCK, MANIFEST, normalized } from '#/workspace';
+import { MANIFEST, normalized } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PRERELEASES = { a: 'alpha', b: 'beta', rc: 'rc' } as const;
-const REQUIREMENT = /^\s*(?<name>[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)\s*(?:\[[^\]]*\])?(?<specifier>[^;]*)/iu;
-const RANGE = new RegExp(RANGE_PATTERN, 'giu');
-const RAISED = new Set(['==', '===', '~=', '>=']);
-const PINNED = /^(?<name>\S+)==(?<version>\S+)$/gmu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -51,7 +46,8 @@ const semver = (version: string) =>
 
 const pep440 = (version: string) => Effect.fromOption(Option.filter(Option.fromNullishOr(clean(version)), Function.flow(explain, Schema.is(WithoutPost))), () => new Cause.UnknownError(version, `${version}: has no PEP 440 form; use a prerelease id of alpha, beta, or rc`));
 
-const required = (requirement: string) => Option.flatMap(Option.fromNullishOr(REQUIREMENT.exec(requirement)?.groups), ({ name, specifier = '' }) => Option.map(Option.fromNullishOr(name), (stated) => ({ name: normalized(stated), specifier: specifier.trim() })));
+const required = (requirement: string) =>
+    Option.flatMap(Option.fromNullishOr(/^\s*(?<name>[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)\s*(?:\[[^\]]*\])?(?<specifier>[^;]*)/iu.exec(requirement)?.groups), ({ name, specifier = '' }) => Option.map(Option.fromNullishOr(name), (stated) => ({ name: normalized(stated), specifier: specifier.trim() })));
 
 const raised = (floors: ReadonlyMap<string, string>, row: string) =>
     Option.match(
@@ -60,11 +56,11 @@ const raised = (floors: ReadonlyMap<string, string>, row: string) =>
             onNone: () => Effect.succeed(row),
             onSome: (version) => {
                 const marked = row.indexOf(';');
-                const written = [...row.matchAll(RANGE)].reduceRight((text, clause) => {
+                const written = [...row.matchAll(new RegExp(RANGE_PATTERN, 'giu'))].reduceRight((text, clause) => {
                     const { operator, version: stated } = clause.groups ?? {};
                     const [held, next] = [explain(stated)?.release ?? [], explain(version)?.release ?? []];
                     const moved = held.length < next.length ? next.slice(0, held.length).join('.') : version;
-                    return stated !== undefined && operator !== undefined && RAISED.has(operator) && (marked === -1 || clause.index < marked) ? `${text.slice(0, clause.index)}${clause[0].replace(stated, moved)}${text.slice(clause.index + clause[0].length)}` : text;
+                    return stated !== undefined && operator !== undefined && ['==', '===', '~=', '>='].includes(operator) && (marked === -1 || clause.index < marked) ? `${text.slice(0, clause.index)}${clause[0].replace(stated, moved)}${text.slice(clause.index + clause[0].length)}` : text;
                 }, row);
                 return Option.exists(required(written), ({ specifier }) => satisfies(version, specifier)) ? Effect.succeed(written) : Effect.fail(new Cause.UnknownError(row, `${row}: excludes the released ${version} once each lower bound moves to it`));
             },
@@ -80,9 +76,9 @@ const project = Effect.fnUntraced(function* (tree: Tree, at: string) {
 
 const released = Effect.fnUntraced(function* (tree: Tree, manifest: string, options: unknown) {
     const [{ lock }, { project: stated }] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), project(tree, manifest)]);
-    const compile = ['uv', 'pip', 'compile', '-', '--no-deps', '--no-header', '--no-annotate', '--color', 'never', '--quiet'] as const;
+    const compile = ['uv', 'pip', 'compile', '-', '--no-deps', '--quiet'] as const;
     const stdout = yield* spawned(compile, { cwd: join(tree.root, dirname(lock)), stdin: Stream.encodeText(Stream.make(stated.name)) });
-    const found = Array.findFirst(stdout.matchAll(PINNED), ({ groups }) => Option.flatMap(Option.fromNullishOr(groups), ({ name, version }) => (name !== undefined && normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none())));
+    const found = Array.findFirst(stdout.matchAll(/^(?<name>\S+)==(?<version>\S+)$/gmu), ({ groups }) => Option.flatMap(Option.fromNullishOr(groups), ({ name, version }) => (name !== undefined && normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none())));
     const latest = yield* Effect.fromOption(found, () => new Cause.NoSuchElementError(`${compile.join(' ')} prints no row for ${stated.name}`));
     return { currentVersion: yield* semver(latest), logText: compile.join(' ') };
 }, run);
@@ -174,12 +170,7 @@ const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun, roo
         Effect.gen(function* () {
             const [fs, { skipLockFileUpdate }] = yield* Effect.all([FileSystem.FileSystem, Schema.decodeEffect(Unlocked)(rootVersionActionsOptions ?? {})]);
             const nodes = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.sync(readCachedProjectGraph)).nodes);
-            const folders = Array.dedupe(nodes.filter((node) => node.data.metadata?.technologies?.includes('python') === true).flatMap((node) => ancestors(node.data.root)));
-            const locks = yield* Effect.filter(
-                folders.map((folder) => posix.join(folder, LOCK)),
-                (lock) => fs.exists(join(cwd, lock)),
-                { concurrency: 'unbounded' },
-            );
+            const locks = Array.dedupe(Array.getSomes(nodes.filter((node) => node.data.metadata?.technologies?.includes('python') === true).map((node) => Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions))).map(({ lock }) => lock));
             const changedFiles = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(join(cwd, lock)), Effect.andThen(spawned(['uv', 'lock', '--no-locked'], { cwd: join(cwd, dirname(lock)) }), fs.readFileString(join(cwd, lock))), (before, after) => before !== after));
             return { changedFiles, deletedFiles: [] };
         }),
