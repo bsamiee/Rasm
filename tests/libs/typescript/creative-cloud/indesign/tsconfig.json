@@ -10,6 +10,9 @@
         },
         {
             "path": "../../../../../libs/typescript/creative-cloud/indesign"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/extendscript"
         }
     ]
 }

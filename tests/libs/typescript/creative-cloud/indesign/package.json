@@ -1,12 +1,15 @@
 {
     "name": "@rasm/test-indesign",
     "private": true,
-    "description": "@rasm/indesign suites over a host double, covering undo steps, labels, and interaction levels of do script bodies",
+    "description": "@rasm/indesign suites over do script bodies run through the built host runtime against a host double, covering undo steps, labels, interaction levels, and answers",
     "type": "module",
     "devDependencies": {
+        "@effect/vitest": "catalog:",
+        "@rasm/extendscript": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "@types/node": "catalog:",
+        "effect": "catalog:",
         "vitest": "catalog:"
     }
 }
