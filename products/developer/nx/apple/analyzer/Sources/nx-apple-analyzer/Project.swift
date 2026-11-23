@@ -135,7 +135,7 @@ func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(Analyze
         buildFiles: Set(tree.built.map(\.string)).sorted(),
         buildSettings: Dictionary(evaluated.map { held in (held.name, held.settings) }) { first, _ in first },
         built: Built(configuration: decoded.defaultConfigurationName.rawValue, products: Dictionary(evaluated.map { held in (held.id, held.installed) }) { first, _ in first }),
-        references: project.values.flatMap(\.self).map(\.reference) + evaluated.flatMap(\.references),
+        references: project.values.joined().map(\.reference) + evaluated.flatMap(\.references),
     )
 }
 

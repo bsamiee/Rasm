@@ -128,7 +128,8 @@ func included(_ file: FilePath?, owner: String, setting: String, seen: Set<FileP
                 throw AnalyzerError(subject: held.string, reason: .undecodable(CocoaError(.fileReadInapplicableStringEncoding)))
             }
             let lines = text.split(whereSeparator: \.isNewline).map { (line: Substring) -> Substring in line.firstRange(of: "//").map { comment in line[..<comment.lowerBound] } ?? line }
-            let includes = try lines.compactMap { line in line.wholeMatch(of: #/\s*#include(?<optional>\?)?\s*"(?<path>[^"]+)"\s*/#) }.map { match in
+            let directives = lines.compactMap { line in line.wholeMatch(of: #/\s*#include(?<optional>\?)?\s*"(?<path>[^"]+)"\s*/#) }
+            let includes = try directives.map { match in
                 (optional: match.output.optional != nil, at: joined(held.removingLastComponent(), String(match.output.path)))
             }
             .filter { include in !include.optional || exists(include.at) }

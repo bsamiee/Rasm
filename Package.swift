@@ -47,14 +47,6 @@ let modules: [Target] = [
         path: "libs/swift/runtime/Files",
     ),
     .target(
-        name: "Telemetry",
-        dependencies: [
-            "Encoding", "Files", .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"),
-            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "Tracing", package: "swift-distributed-tracing"),
-        ],
-        path: "libs/swift/runtime/Telemetry",
-    ),
-    .target(
         name: "Processes",
         dependencies: [
             "Encoding", "Files", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
@@ -64,13 +56,12 @@ let modules: [Target] = [
         path: "libs/swift/runtime/Processes",
     ),
     .target(
-        name: "CurrentProcess",
+        name: "Telemetry",
         dependencies: [
-            "Applications", "Files", "Processes", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
-            .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
-            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "SystemMetrics", package: "swift-system-metrics"),
+            "Encoding", "Files", .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"),
+            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "Tracing", package: "swift-distributed-tracing"),
         ],
-        path: "libs/swift/runtime/CurrentProcess",
+        path: "libs/swift/runtime/Telemetry",
     ),
 
     // --- [GRAPHICS]
@@ -99,6 +90,15 @@ let modules: [Target] = [
             .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "libs/swift/macos/Applications",
+    ),
+    .target(
+        name: "CurrentProcess",
+        dependencies: [
+            "Applications", "Files", "Processes", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
+            .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
+            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "SystemMetrics", package: "swift-system-metrics"),
+        ],
+        path: "libs/swift/macos/CurrentProcess",
     ),
     .target(name: "ScreenCapture", dependencies: ["Applications", "Processes", "Results"], path: "libs/swift/macos/ScreenCapture"),
     .target(
@@ -167,6 +167,7 @@ let tests: [Target] = [
         dependencies: ["Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
         path: "tests/libs/swift/rpc/JSONRPC",
     ),
+    .testTarget(name: "ProcessesTests", dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/runtime/Processes"),
     .testTarget(
         name: "AppleEventsTests",
         dependencies: ["AppleEvents", "Encoding", "Results", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump")],
@@ -185,7 +186,6 @@ let tests: [Target] = [
         dependencies: ["ApplicationServer", "Applications", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump")],
         path: "tests/libs/swift/macos/ApplicationServer",
     ),
-    .testTarget(name: "ProcessesTests", dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/runtime/Processes"),
 ]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

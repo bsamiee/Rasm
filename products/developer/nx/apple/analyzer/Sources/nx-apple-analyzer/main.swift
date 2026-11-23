@@ -48,7 +48,7 @@ struct Analyze: ParsableCommand {
     static let configuration: CommandConfiguration = .init(abstract: "Reports the containers whose files stdin lists as a JSON array")
 
     func run() throws {
-        FileHandle.standardOutput.write(try encoded(report(try JSONDecoder().decode([String].self, from: input()).map { file in FilePath(file).removingLastComponent() })))
+        try FileHandle.standardOutput.write(contentsOf: encoded(report(JSONDecoder().decode([String].self, from: input()).map { file in FilePath(file).removingLastComponent() })))
     }
 }
 
@@ -63,7 +63,7 @@ struct Version: ParsableCommand {
     func run() throws {
         let next = try versioned(input(), to: marketingVersion)
         guard let project = String(validating: try next.jsonRepresentation(), as: UTF8.self) else { throw CocoaError(.fileWriteInapplicableStringEncoding) }
-        FileHandle.standardOutput.write(try encoded(Versioned(version: next.buildSettings[marketingSetting]?.text, project: project)))
+        try FileHandle.standardOutput.write(contentsOf: encoded(Versioned(version: next.buildSettings[marketingSetting]?.text, project: project)))
     }
 }
 

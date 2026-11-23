@@ -1,11 +1,11 @@
 {
-    "lineLength": 200,
-    "indentation": { "spaces": 4 },
     "indentSwitchCaseLabels": true,
+    "indentation": { "spaces": 4 },
     "lineBreakBeforeEachArgument": true,
     "lineBreakBeforeEachGenericRequirement": true,
-    "prioritizeKeepingFunctionOutputTogether": true,
+    "lineLength": 200,
     "multilineTrailingCommaBehavior": "alwaysUsed",
+    "prioritizeKeepingFunctionOutputTogether": true,
     "rules": {
         "AlwaysUseLiteralForEmptyCollectionInit": true,
         "AlwaysUseLowerCamelCase": true,
@@ -19,6 +19,8 @@
         "IdentifiersMustBeASCII": true,
         "NoAccessLevelOnExtensionDeclaration": true,
         "NoAssignmentInExpressions": true,
+        "NoBlockComments": true,
+        "NoCasesWithOnlyFallthrough": true,
         "NoEmptyLinesOpeningClosingBraces": true,
         "NoEmptyTrailingClosureParentheses": true,
         "NoLabelsInCasePatterns": true,
@@ -35,9 +37,11 @@
         "ReturnVoidInsteadOfEmptyTuple": true,
         "TypeNamesShouldBeCapitalized": true,
         "UseEarlyExits": true,
+        "UseExplicitNilCheckInConditions": true,
         "UseLetInEveryBoundCaseVariable": true,
         "UseShorthandTypeNames": true,
         "UseSingleLinePropertyGetter": true,
-        "UseSynthesizedInitializer": true
+        "UseSynthesizedInitializer": true,
+        "UseTripleSlashForDocumentationComments": true
     }
 }
