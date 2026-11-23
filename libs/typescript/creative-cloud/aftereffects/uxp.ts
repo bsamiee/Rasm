@@ -1,8 +1,9 @@
 import { HostError, type Render } from '@rasm/object-model';
 import { type Containment, read } from '@rasm/object-model/host';
+import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import type { File } from 'adobe:uxp';
-import { Cause, Effect, Predicate, Schema } from 'effect';
+import { Effect, Option, Predicate, Schema } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -48,7 +49,7 @@ const execute = (code: string, label: string) => Effect.flatMap(containment, (he
 const render = Effect.fnUntraced(function* ({ target, label }: Render, written: File) {
     const [held, { CompItem }] = yield* Effect.all([containment, hosted, session, undo(label)]);
     const found = yield* Uxp.located(held, target);
-    const composition = yield* Effect.mapError(Schema.decodeUnknownEffect(Frame)(found instanceof CompItem ? found : undefined), () => new Cause.IllegalArgumentError(`${Predicate.isObject(found) ? held.type(found) : typeof found} is no ${CompItem.name}, render takes a ${CompItem.name}`));
+    const composition = yield* Effect.mapError(Schema.decodeUnknownEffect(Frame)(found instanceof CompItem ? found : undefined), () => Unmatched.of({ subject: CompItem.name, query: Option.some(target.path) }));
     yield* Uxp.preserve(composition, { resolutionFactor: [1, 1] });
     const deferred = yield* Effect.try({ try: (): unknown => composition.saveFrameToPng(composition.time, written.nativePath), catch: HostError.refused(`saveFrameToPng to ${written.nativePath}`) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Deferred)));
     yield* Effect.try({ try: () => deferred.wait(), catch: HostError.refused(`wait of saveFrameToPng to ${written.nativePath}`) });

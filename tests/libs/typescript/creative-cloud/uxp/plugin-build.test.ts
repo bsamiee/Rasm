@@ -8,11 +8,21 @@ import { build, mergeConfig } from 'vite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const STATED = { manifestVersion: 5, id: 'app.rasm.test', name: 'Test', version: '0.1.0' } as const;
 const PANEL = { id: 'typesetting', label: 'Typesetting', type: 'panel' } as const;
+const LINKED = { network: { domains: ['ws://localhost:7490'] } };
+const PLUGIN_ICONS = [
+    { width: 24, height: 24, path: 'icons/plugin-light.png', scale: [1, 2], theme: ['lightest', 'light'], species: ['pluginList'] },
+    { width: 24, height: 24, path: 'icons/plugin-dark.png', scale: [1, 2], theme: ['medium', 'dark', 'darkest'], species: ['pluginList'] },
+];
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Written = Schema.fromJsonString(Schema.Unknown);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const manifest = (app: string, icons: readonly object[], entrypoints: readonly object[] = []) => JSON.stringify({ manifestVersion: 5, id: 'app.rasm.test', name: 'Test', version: '0.1.0', main: 'main.js', host: { app }, icons, entrypoints, requiredPermissions: {} });
+const manifest = (app: string, fields: object = {}) => JSON.stringify({ ...STATED, host: { app }, entrypoints: [], requiredPermissions: {}, ...fields });
 const built = Effect.fnUntraced(function* (source: string, glyphs: readonly string[], mark?: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const folder = yield* fs.makeTempDirectoryScoped();
@@ -29,15 +39,20 @@ const built = Effect.fnUntraced(function* (source: string, glyphs: readonly stri
         },
     );
     const out = path.join(folder, 'out');
-    const config = yield* Effect.tryPromise({ try: () => uxp(folder, mark === undefined ? {} : { mark: path.join(folder, 'mark.svg') })({ command: 'build', mode: 'production' }), catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)) });
-    yield* Effect.tryPromise({ try: () => build(mergeConfig(config, { configFile: false, root: folder, logLevel: 'silent', build: { outDir: out } })), catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)) });
-    return (file: string) =>
-        Effect.map(Effect.tryPromise({ try: () => sharp(path.join(out, file)).ensureAlpha().raw().toBuffer({ resolveWithObject: true }), catch: (cause) => new Cause.UnknownError(cause, `sharp decodes no image at ${file}`) }), ({ data, info: { width, height } }) => {
-            const lit = [...data.keys()].filter((index) => index % 4 === 3 && (data[index] ?? 0) > 0).map((index) => (index - 3) / 4);
-            const [across, down] = [Array.map(lit, (index) => index % width), Array.map(lit, (index) => Math.floor(index / width))];
-            const strongest = lit.reduce((best, index) => ((data[index * 4 + 3] ?? 0) > (data[best * 4 + 3] ?? 0) ? index : best), lit[0] ?? 0);
-            return { size: [width, height], bounds: [Math.min(...across), Math.min(...down), Math.max(...across), Math.max(...down)], strongest: [...data.subarray(strongest * 4, strongest * 4 + 4)] };
-        });
+    yield* Effect.tryPromise({
+        try: () => build(mergeConfig(uxp(mark === undefined ? {} : { mark: path.join(folder, 'mark.svg') }), { configFile: false, root: folder, logLevel: 'silent', build: { outDir: out } })),
+        catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)),
+    });
+    return {
+        written: Effect.flatMap(fs.readFileString(path.join(out, 'manifest.json')), Schema.decodeEffect(Written)),
+        image: (file: string) =>
+            Effect.map(Effect.tryPromise({ try: () => sharp(path.join(out, file)).ensureAlpha().raw().toBuffer({ resolveWithObject: true }), catch: (cause) => new Cause.UnknownError(cause, `sharp decodes no image at ${file}`) }), ({ data, info: { width, height } }) => {
+                const lit = [...data.keys()].filter((index) => index % 4 === 3 && (data[index] ?? 0) > 0).map((index) => (index - 3) / 4);
+                const [across, down] = [Array.map(lit, (index) => index % width), Array.map(lit, (index) => Math.floor(index / width))];
+                const strongest = lit.reduce((best, index) => ((data[index * 4 + 3] ?? 0) > (data[best * 4 + 3] ?? 0) ? index : best), lit[0] ?? 0);
+                return { size: [width, height], bounds: [Math.min(...across), Math.min(...down), Math.max(...across), Math.max(...down)], strongest: [...data.subarray(strongest * 4, strongest * 4 + 4)] };
+            }),
+    };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -52,7 +67,7 @@ it.layer(layer, { excludeTestServices: true })('UxpManifest', (methods) => {
         { species: ['toolbar', 'pluginList'], side: 23, refusal: 'pluginList takes 24 x 24' },
     ] as const)('decodes a $species icon at $side px with refusal $refusal', ({ species, side, refusal }) =>
         Effect.sync(() => {
-            const decoded = Schema.decodeResult(UxpManifest.json)(manifest('PS', [{ width: side, height: side, path: 'icons/plugin.png', species }]));
+            const decoded = Schema.decodeResult(UxpManifest.json)(manifest('PS', { icons: [{ width: side, height: side, path: 'icons/plugin.png', species }] }));
             assert.deepStrictEqual(Result.match(decoded, { onSuccess: () => undefined, onFailure: ({ message }) => (refusal !== undefined && message.includes(refusal) ? refusal : message) }), refusal);
         }),
     );
@@ -60,10 +75,46 @@ it.layer(layer, { excludeTestServices: true })('UxpManifest', (methods) => {
 
 it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
     methods.effect(
+        'writes the entry file, both plug-in list icon rows, the first host version, the link origin, and the rejection flag into a manifest stating none',
+        Effect.fnUntraced(function* () {
+            const { written } = yield* built(manifest('PS'), []);
+            assert.deepStrictEqual(yield* written, { ...STATED, host: { app: 'PS', minVersion: '27.11.0' }, entrypoints: [], requiredPermissions: LINKED, main: 'main.js', icons: PLUGIN_ICONS, featureFlags: { unhandledRejection: true } });
+        }, Effect.scoped),
+        { timeout: 60_000 },
+    );
+
+    methods.effect(
+        'writes both toolbar icon rows of a panel, keeps a stated domain beside the link origin, and leaves a command without icons',
+        Effect.fnUntraced(function* () {
+            const command = { id: 'reset', label: 'Reset', type: 'command' };
+            const { written } = yield* built(manifest('ID', { entrypoints: [command, PANEL], requiredPermissions: { network: { domains: ['https://example.com'] } } }), ['typesetting']);
+            assert.deepStrictEqual(yield* written, {
+                ...STATED,
+                host: { app: 'ID', minVersion: '20.0.0' },
+                entrypoints: [
+                    command,
+                    {
+                        ...PANEL,
+                        icons: [
+                            { width: 23, height: 23, path: 'icons/typesetting-light.png', scale: [1, 2], theme: ['lightest', 'light'], species: ['toolbar'] },
+                            { width: 23, height: 23, path: 'icons/typesetting-dark.png', scale: [1, 2], theme: ['medium', 'dark', 'darkest'], species: ['toolbar'] },
+                        ],
+                    },
+                ],
+                requiredPermissions: { network: { domains: ['https://example.com', 'ws://localhost:7490'] } },
+                main: 'main.js',
+                icons: PLUGIN_ICONS,
+                featureFlags: { unhandledRejection: true },
+            });
+        }, Effect.scoped),
+        { timeout: 60_000 },
+    );
+
+    methods.effect(
         'writes the plug-in list icon from the library mark at 24 and 48 px, its strokes on the 16 px live area, white at Photoshop glyph opacity',
         Effect.fnUntraced(function* () {
-            const read = yield* built(manifest('PS', [{ width: 24, height: 24, path: 'icons/plugin-dark.png', scale: [1, 2], theme: ['dark', 'darkest'], species: ['pluginList'] }]), []);
-            const [single, double] = yield* Effect.all([read('icons/plugin-dark@1x.png'), read('icons/plugin-dark@2x.png')]);
+            const { image } = yield* built(manifest('PS'), []);
+            const [single, double] = yield* Effect.all([image('icons/plugin-dark@1x.png'), image('icons/plugin-dark@2x.png')]);
             assert.deepStrictEqual(
                 [single.size, single.bounds, single.strongest, double.size, double.bounds],
                 [
@@ -81,8 +132,8 @@ it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
     methods.effect(
         'writes the plug-in list icon from an app mark in place of the library mark, its 20-unit canvas centred at 1 and 2 px per unit',
         Effect.fnUntraced(function* () {
-            const read = yield* built(manifest('ID', [{ width: 24, height: 24, path: 'icons/plugin-light.png', scale: [1, 2], theme: ['light'], species: ['pluginList'] }]), [], '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><rect x="1" y="3" width="18" height="14"/></svg>');
-            const [single, double] = yield* Effect.all([read('icons/plugin-light@1x.png'), read('icons/plugin-light@2x.png')]);
+            const { image } = yield* built(manifest('ID'), [], '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><rect x="1" y="3" width="18" height="14"/></svg>');
+            const [single, double] = yield* Effect.all([image('icons/plugin-light@1x.png'), image('icons/plugin-light@2x.png')]);
             assert.deepStrictEqual(
                 [single.bounds, double.bounds],
                 [
@@ -97,8 +148,8 @@ it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
     methods.effect(
         'writes the panel icon from its glyph at 23 and 46 px, black at InDesign glyph opacity',
         Effect.fnUntraced(function* () {
-            const read = yield* built(manifest('ID', [], [{ ...PANEL, icons: [{ width: 23, height: 23, path: 'icons/typesetting-light.png', scale: [1, 2], theme: ['lightest', 'light'], species: ['toolbar'] }] }]), ['typesetting']);
-            const [single, double] = yield* Effect.all([read('icons/typesetting-light@1x.png'), read('icons/typesetting-light@2x.png')]);
+            const { image } = yield* built(manifest('ID', { entrypoints: [PANEL] }), ['typesetting']);
+            const [single, double] = yield* Effect.all([image('icons/typesetting-light@1x.png'), image('icons/typesetting-light@2x.png')]);
             assert.deepStrictEqual(
                 [single.size, single.strongest, double.size],
                 [
@@ -111,15 +162,11 @@ it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
         { timeout: 60_000 },
     );
 
-    methods.effect.each([
-        { name: 'a panel without its glyph', source: manifest('ID', [], [{ ...PANEL, icons: [{ width: 23, height: 23, path: 'icons/typesetting-dark.png', scale: [1], theme: ['dark'], species: ['toolbar'] }] }]), refusal: 'icons/typesetting.svg' },
-        { name: 'an icon row across tones', source: manifest('PS', [{ width: 24, height: 24, path: 'icons/plugin.png', scale: [1], theme: ['light', 'dark'], species: ['pluginList'] }]), refusal: 'themes of one tone' },
-        { name: 'an icon row with no theme', source: manifest('PS', [{ width: 24, height: 24, path: 'icons/plugin.png', scale: [1], species: ['pluginList'] }]), refusal: 'icons/plugin.png' },
-    ])(
-        'refuses $name',
-        Effect.fnUntraced(function* ({ source, refusal }) {
-            const { message } = yield* Effect.flip(built(source, []));
-            assert.include(message, refusal);
+    methods.effect(
+        'refuses a panel without its glyph',
+        Effect.fnUntraced(function* () {
+            const { message } = yield* Effect.flip(built(manifest('ID', { entrypoints: [PANEL] }), []));
+            assert.include(message, 'icons/typesetting.svg');
         }, Effect.scoped),
         { timeout: 60_000 },
     );

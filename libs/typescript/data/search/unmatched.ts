@@ -1,5 +1,5 @@
 import UFuzzy from '@leeoniya/ufuzzy';
-import { Array, Effect, Equivalence, Function, flow, Option, Predicate, pipe, Schema, SchemaGetter, Struct } from 'effect';
+import { Array, Effect, Equivalence, ErrorReporter, Function, flow, type LogLevel, Option, Predicate, pipe, Schema, SchemaGetter, Struct } from 'effect';
 import { Digits } from '#/digits';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -47,6 +47,7 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
     static readonly stated = Schema.Struct(Struct.omit(Unmatched.fields, ['message']))
         .pipe(Schema.decodeTo(Schema.toType(Unmatched), { decode: SchemaGetter.transform(Unmatched.of), encode: SchemaGetter.passthroughSubtype() }))
         .annotate({ description: 'Failed lookup as a host with no Effect states it, decoding to the error with its message derived' });
+    override readonly [ErrorReporter.severity]: LogLevel.Severity = 'Info';
     static readonly #candidateNames = <A>(candidates: readonly A[], names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): readonly string[] => Array.dedupe(Array.map(candidates, flow(names, Array.headNonEmpty)));
     static readonly matching: {
         <A>(subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): (candidates: Iterable<A>) => Effect.Effect<readonly A[], Unmatched>;

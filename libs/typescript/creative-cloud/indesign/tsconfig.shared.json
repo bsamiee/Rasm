@@ -1,0 +1,9 @@
+{
+    "extends": "../uxp/tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["es2023"],
+        "types": []
+    },
+    "exclude": ["dist", "uxp"],
+    "references": [{ "path": "../object-model/tsconfig.lib.json" }, { "path": "../../graphics/typography" }]
+}

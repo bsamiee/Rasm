@@ -4,7 +4,7 @@
     "treatConfigHintsAsErrors": true,
     "ignoreBinaries": ["uv"],
     "ignoreExportsUsedInFile": true,
-    "ignoreDependencies": ["@effect/language-service", "@rasm/search", "adobe", "claude-code", "indesign-uxp-types"],
+    "ignoreDependencies": ["@effect/language-service", "adobe", "claude-code", "indesign-uxp-types"],
     "ignoreIssues": {
         "package.json": ["dependencies", "devDependencies", "optionalPeerDependencies"],
         "products/developer/nx/apple/targets.ts": ["unresolved"]

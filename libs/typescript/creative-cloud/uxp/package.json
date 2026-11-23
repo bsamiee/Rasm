@@ -12,7 +12,8 @@
     "files": [
         "dist/**/*.js",
         "dist/**/*.d.ts",
-        "icons/*.svg"
+        "icons/*.svg",
+        "tsconfig.base.json"
     ],
     "type": "module",
     "sideEffects": [
@@ -27,6 +28,7 @@
         "./plugin": "./plugin.ts",
         "./spectrum": "./spectrum.ts",
         "./vite": "./vite.ts",
+        "./tsconfig.base.json": "./tsconfig.base.json",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -39,6 +41,7 @@
             "./plugin": "./dist/plugin.js",
             "./spectrum": "./dist/spectrum.js",
             "./vite": "./dist/vite.js",
+            "./tsconfig.base.json": "./tsconfig.base.json",
             "./package.json": "./package.json"
         },
         "access": "public"

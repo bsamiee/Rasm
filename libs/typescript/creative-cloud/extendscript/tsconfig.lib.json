@@ -1,24 +1,20 @@
 {
-    "extends": "./tsconfig.json",
+    "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
-        "lib": ["es2022"]
+        "lib": ["es2023"]
     },
-    "include": ["**/*"],
-    "exclude": ["dist", "node.ts", "vite.ts"],
+    "exclude": ["dist", "host.ts", "node.ts", "vite.ts"],
     "references": [
-        {
-            "path": "../../web/vite"
-        },
         {
             "path": "../../data/search"
         },
         {
-            "path": "../object-model"
+            "path": "../object-model/tsconfig.lib.json"
         }
     ],
     "nx": {
         "sync": {
-            "ignoredDependencies": ["@rasm/process"]
+            "ignoredDependencies": ["@rasm/process", "@rasm/vite"]
         }
     }
 }

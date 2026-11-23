@@ -204,7 +204,7 @@ class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: 
             const decoded = Option.flatMap(Record.get(trips, name), Record.get(current));
             return Predicate.isString(member) && Option.isSome(decoded) && Equal.equals(decoded, Option.flatMap(Record.get(trips, name), Record.get(member))) ? current : member;
         });
-        return yield* Model.write(target, { ...retained, ...Option.getOrElse(featured, Record.empty) });
+        return yield* yield* Model.write(target, { ...retained, ...Option.getOrElse(featured, Record.empty) });
     });
 }
 

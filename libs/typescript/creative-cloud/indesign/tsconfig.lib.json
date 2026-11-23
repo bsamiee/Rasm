@@ -1,0 +1,21 @@
+{
+    "extends": "../uxp/tsconfig.base.json",
+    "include": ["uxp/**/*"],
+    "references": [
+        {
+            "path": "../uxp/tsconfig.lib.json"
+        },
+        {
+            "path": "../../graphics/typography"
+        },
+        {
+            "path": "../../data/search"
+        },
+        {
+            "path": "../object-model/tsconfig.lib.json"
+        },
+        {
+            "path": "./tsconfig.shared.json"
+        }
+    ]
+}

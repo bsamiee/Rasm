@@ -1,9 +1,13 @@
 import type { Unmatched } from '@rasm/search';
 import type { Schema } from 'effect';
-import type { Reference, Specifier } from '#/model';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+type Step = NonNullable<ReturnType<typeof stepped>>[number];
+interface Path {
+    readonly steps: readonly Step[];
+    readonly end?: readonly Step[];
+}
 interface Contained {
     readonly collection?: string;
     readonly keys?: readonly string[];
@@ -18,7 +22,7 @@ interface Containment {
     readonly kinds: Readonly<Record<string, Contained>>;
 }
 interface Encoder {
-    readonly reference: (value: object) => (Pick<Reference, 'type' | 'specifier' | 'valid'> & { readonly name?: string }) | undefined;
+    readonly reference: (value: object) => { readonly type: string; readonly specifier: string; readonly valid: boolean; readonly name?: string } | undefined;
     readonly enumerator?: (value: object) => string | undefined;
     readonly collection?: (value: object) => Schema.Json | undefined;
     readonly replace?: (value: unknown) => unknown;
@@ -44,14 +48,14 @@ const read = (value: unknown, key: string): unknown => {
 };
 const quoted = (text: string) => `"${text.replace(/["\\]/g, (character) => `\\${character}`)}"`;
 const unquoted = (text: string) => text.replace(/\\(?:u([\dA-Fa-f]{4})|([\s\S]))/g, (_, code?: string, character?: string) => (code === undefined ? String(character) : String.fromCharCode(parseInt(code, 16))));
-const written = (steps: Specifier['steps']): string => {
+const written = (steps: Path['steps']): string => {
     let text = '';
     for (const { separator, kind, selector } of steps) {
         text += `${separator}${kind}${selector === undefined ? '' : selector._tag === 'Index' ? `[${selector.index}]` : `[@${selector.key}=${typeof selector.value === 'number' ? selector.value : quoted(selector.value)}]`}`;
     }
     return text === '' ? '/' : text;
 };
-const format = ({ steps, end }: Pick<Specifier, 'steps' | 'end'>): string => (end === undefined ? written(steps) : `(${written(steps)}${RANGE}${written(end)})`);
+const format = ({ steps, end }: Path): string => (end === undefined ? written(steps) : `(${written(steps)}${RANGE}${written(end)})`);
 const closing = (text: string, open: number): number => {
     let quoting = false;
     for (let at = open + 1; at < text.length; at += 1) {
@@ -64,21 +68,22 @@ const closing = (text: string, open: number): number => {
     }
     return -1;
 };
-const selector = (inside: string): Specifier['steps'][number]['selector'] => {
+const selector = (inside: string) => {
     const [split, raw] = [inside.indexOf('='), inside.slice(inside.indexOf('=') + 1)];
-    const quoting = raw.length > 1 && raw.charAt(0) === '"' && raw.charAt(raw.length - 1) === '"';
-    return INTEGER.test(inside) ? { _tag: 'Index', index: Number(inside) } : inside.charAt(0) !== '@' || split < 2 ? undefined : INTEGER.test(raw) ? { _tag: 'Key', key: inside.slice(1, split), value: Number(raw) } : quoting ? { _tag: 'Key', key: inside.slice(1, split), value: unquoted(raw.slice(1, -1)) } : undefined;
+    const [counted, quoting] = [INTEGER.test(raw), raw.length > 1 && raw.charAt(0) === '"' && raw.charAt(raw.length - 1) === '"'];
+    return INTEGER.test(inside) ? ({ _tag: 'Index', index: Number(inside) } as const) : inside.charAt(0) === '@' && split > 1 && (counted || quoting) ? ({ _tag: 'Key', key: inside.slice(1, split), value: counted ? Number(raw) : unquoted(raw.slice(1, -1)) } as const) : undefined;
 };
-const stepped = (text: string): Specifier['steps'][number][] | undefined => {
+const stepped = (text: string) => {
     const pattern = /(\/\/?)(@?[A-Za-z][\w-]*)/g;
-    const steps: Specifier['steps'][number][] = [];
+    const steps: { readonly separator: '/' | '//'; readonly kind: string; readonly selector?: NonNullable<ReturnType<typeof selector>> }[] = [];
     let at = 0;
     for (let found = pattern.exec(text); found?.index === at; found = pattern.exec(text)) {
-        const [separator, kind, open]: [Specifier['steps'][number]['separator'], string, number] = [found[1] === '//' ? '//' : '/', String(found[2]), pattern.lastIndex];
+        const [separator, kind, open] = [found[1] === '//' ? ('//' as const) : ('/' as const), String(found[2]), pattern.lastIndex];
         const close = text.charAt(open) === '[' ? closing(text, open) : open - 1;
         const chosen = close > open ? selector(text.slice(open + 1, close)) : undefined;
         if (close < open - 1 || (close > open && chosen === undefined)) {
-            return undefined;
+            at = -1;
+            break;
         }
         steps.push(chosen === undefined ? { separator, kind } : { separator, kind, selector: chosen });
         at = close + 1;
@@ -109,27 +114,37 @@ const keyed = (container: unknown, row: Contained, key: string, value: number | 
     }
     return undefined;
 };
-const walk = ({ root, kinds }: Containment, path: Pick<Specifier, 'steps' | 'end'>): unknown => {
+const walk = ({ root, kinds }: Containment, path: Path): unknown => {
     let at: unknown = root;
     for (const { kind, selector: chosen } of path.end === undefined ? path.steps : []) {
         const row = kinds[kind];
-        const listed = row === undefined || chosen === undefined ? [] : items(at, row);
-        const found = chosen === undefined ? read(at, kind.replace(/^@/, '')) : row === undefined ? undefined : chosen._tag === 'Key' ? keyed(at, row, chosen.key, chosen.value) : listed[chosen.index < 0 ? listed.length + chosen.index : chosen.index];
+        const collection = row === undefined ? undefined : read(at, String(row.collection));
+        const length = chosen?._tag === 'Index' ? Number(read(collection, 'length')) : 0;
+        const found =
+            chosen === undefined
+                ? read(at, kind.replace(/^@/, ''))
+                : row === undefined
+                  ? undefined
+                  : chosen._tag === 'Key'
+                    ? keyed(at, row, chosen.key, chosen.value)
+                    : chosen.index >= -length && chosen.index < length
+                      ? read(collection, String((chosen.index < 0 ? length + chosen.index : chosen.index) + (row.base ?? 0)))
+                      : undefined;
         if (!isRecord(found)) {
             const candidates: string[] = [];
             for (const name in row === undefined ? kinds : {}) {
                 candidates.push(name);
             }
-            for (const item of chosen?._tag === 'Key' ? listed : []) {
+            for (const item of row !== undefined && chosen?._tag === 'Key' ? items(at, row) : []) {
                 candidates.push(String(read(item, String(read(chosen, 'key')))));
             }
-            return { _tag: 'Unmatched', subject: chosen?._tag === 'Index' && listed.length > 0 ? `${kind} among indexes 0 to ${listed.length - 1}` : kind, query: format(path), candidates } satisfies Pick<Unmatched, '_tag' | 'subject' | 'candidates'> & { readonly query: string };
+            return { _tag: 'Unmatched', subject: length > 0 ? `${kind} among indexes 0 to ${length - 1}` : kind, query: format(path), candidates } satisfies Pick<Unmatched, '_tag' | 'subject' | 'candidates'> & { readonly query: string };
         }
         at = found;
     }
     return path.end === undefined ? at : ({ _tag: 'Unmatched', subject: 'range', query: format(path), candidates: [] } satisfies Pick<Unmatched, '_tag' | 'subject' | 'candidates'> & { readonly query: string });
 };
-const identified = (row: Contained, owner: unknown, value: object): Specifier['steps'][number]['selector'] => {
+const identified = (row: Contained, owner: unknown, value: object): Step['selector'] => {
     for (const key of row.keys ?? KEYS) {
         const held = read(value, key);
         if (typeof held === 'number' || (typeof held === 'string' && held !== '') || isRecord(held)) {
@@ -144,7 +159,7 @@ const identified = (row: Contained, owner: unknown, value: object): Specifier['s
     }
     return undefined;
 };
-const specified = (containment: Containment, value: unknown): Specifier['steps'][number][] | undefined => {
+const specified = (containment: Containment, value: unknown): Step[] | undefined => {
     for (const kind in isRecord(value) && value !== containment.root ? containment.kinds : {}) {
         const row = containment.kinds[kind];
         const owner = isRecord(value) && row?.is(value) === true ? (row.owner === undefined ? containment.root : row.owner(value)) : undefined;

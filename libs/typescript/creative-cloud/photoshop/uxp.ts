@@ -1,10 +1,11 @@
 import type { Upstream } from '@rasm/mcp';
 import { HostError, type Render } from '@rasm/object-model';
 import { type Containment, format, read } from '@rasm/object-model/host';
+import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
-import * as photoshop from 'adobe:photoshop';
+import { action, app, core } from 'adobe:photoshop';
 import { type File, host } from 'adobe:uxp';
-import { Array, Cause, Effect, Exit, Match, Option, Predicate, Queue, Record, Schema, Stream, String, Struct } from 'effect';
+import { Array, Effect, Exit, Match, Option, Predicate, Queue, Record, Schema, Stream, String, Struct } from 'effect';
 import type { ExecutionContext } from 'photoshop/dom/CoreModules';
 import type { Document } from 'photoshop/dom/Document';
 
@@ -23,17 +24,17 @@ const COLLECTIONS = {
     historyState: 'historyStates',
     layerComp: 'layerComps',
     pathItem: 'pathItems',
-} as const satisfies Record<string, keyof typeof photoshop.app | keyof Document>;
+} as const satisfies Record<string, keyof typeof app | keyof Document>;
 const Typed = Schema.Struct({ typename: Schema.String });
 const containment: Containment = {
-    root: photoshop.app,
+    root: app,
     type: (value) => Option.match(Schema.decodeUnknownOption(Typed)(value), { onNone: () => value.constructor.name, onSome: Struct.get('typename') }),
     kinds: Record.map(COLLECTIONS, (collection: string, kind) => ({
         collection,
         nested: kind === 'layer',
         ...(kind === 'textFont' ? { keys: ['postScriptName'] } : {}),
         is: (value: object) => Option.exists(Schema.decodeUnknownOption(Typed)(value), ({ typename }) => String.uncapitalize(typename) === kind),
-        ...(collection in photoshop.app
+        ...(collection in app
             ? {}
             : {
                   owner: (value: object) => {
@@ -71,24 +72,24 @@ const cancelled = (context: ExecutionContext) =>
 const modal = Effect.fnUntraced(function* <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>) {
     const services = yield* Effect.context<R>();
     const settled = yield* Effect.tryPromise({
-        try: (signal): Promise<unknown> => photoshop.core.executeAsModal((context) => Effect.runPromiseExitWith(services)(Effect.raceFirst(body(context), cancelled(context)), { signal }), { commandName }),
+        try: (signal): Promise<unknown> => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(Effect.raceFirst(body(context), cancelled(context)), { signal }), { commandName }),
         catch: (cause) => Option.match(Schema.decodeUnknownOption(Rejected)(cause), { onNone: () => HostError.refused(commandName)(cause), onSome: ({ number: _tag }) => HostError.of({ _tag }, commandName)(cause) }),
     });
     return yield* yield* Effect.orDie(Schema.decodeUnknownEffect(Schema.declare((value: unknown): value is Exit.Exit<A, E> => Exit.isExit(value)))(settled));
 });
 const history = <A, E, R>(label: string, { hostControl }: ExecutionContext, body: Effect.Effect<A, E, R>) =>
-    photoshop.app.documents.reduce<Effect.Effect<A, E | HostError, R>>(
+    app.documents.reduce<Effect.Effect<A, E | HostError, R>>(
         (inner, { id }) =>
             Effect.acquireUseRelease(
                 Effect.tryPromise({ try: () => hostControl.suspendHistory({ documentID: id, name: label }), catch: HostError.refused(`suspendHistory of document ${id}`) }),
                 () => inner,
-                (suspension, exit) => (photoshop.app.documents.some(({ id: openId }) => openId === id) ? Effect.tryPromise({ try: () => hostControl.resumeHistory(suspension, Exit.isSuccess(exit)), catch: HostError.refused(`resumeHistory of document ${id}`) }) : Effect.void),
+                (suspension, exit) => (app.documents.some(({ id: openId }) => openId === id) ? Effect.tryPromise({ try: () => hostControl.resumeHistory(suspension, Exit.isSuccess(exit)), catch: HostError.refused(`resumeHistory of document ${id}`) }) : Effect.void),
             ),
         body,
     );
 const execute = (code: string, label: string) => modal(label, (context) => history(label, context, Uxp.executed(containment, code)));
 const render = Effect.fnUntraced(function* ({ target, label }: Render, written: File) {
-    const [found, stored] = yield* Effect.all([Uxp.located(containment, target).pipe(Effect.filterOrFail(Schema.is(Exportable), () => new Cause.IllegalArgumentError(`${target.path} names no document, layer, or artboard`))), Effect.orDie(Schema.decodeUnknownEffect(Stored)(written))]);
+    const [found, stored] = yield* Effect.all([Uxp.located(containment, target).pipe(Effect.filterOrFail(Schema.is(Exportable), () => Unmatched.of({ subject: 'document, layer, or artboard', query: Option.some(target.path) }))), Effect.orDie(Schema.decodeUnknownEffect(Stored)(written))]);
     return yield* modal(
         label,
         Effect.fnUntraced(function* ({ hostControl }) {
@@ -108,12 +109,12 @@ const notices = Stream.callback<Stream.Success<Upstream['notices']>, HostError>(
         const target = Option.map(Schema.decodeUnknownOption(Notified)(descriptor), ({ documentID }) => format({ steps: [{ separator: '/', kind: 'document', selector: { _tag: 'Key', key: 'id', value: documentID } }] }));
         Queue.offerUnsafe(queue, { name, target, detail: Option.none() });
     };
-    return Effect.acquireRelease(Effect.tryPromise({ try: () => Promise.resolve(photoshop.action.addNotificationListener(events, listener)), catch: HostError.refused(`addNotificationListener of ${events.join(', ')}`) }), () =>
-        Effect.orDie(Effect.tryPromise({ try: () => Promise.resolve(photoshop.action.removeNotificationListener(events, listener)), catch: HostError.refused(`removeNotificationListener of ${events.join(', ')}`) })),
+    return Effect.acquireRelease(Effect.tryPromise({ try: () => Promise.resolve(action.addNotificationListener(events, listener)), catch: HostError.refused(`addNotificationListener of ${events.join(', ')}`) }), () =>
+        Effect.orDie(Effect.tryPromise({ try: () => Promise.resolve(action.removeNotificationListener(events, listener)), catch: HostError.refused(`removeNotificationListener of ${events.join(', ')}`) })),
     );
 });
 const application = Effect.tryPromise({
-    try: () => photoshop.action.batchPlay([{ _obj: 'get', _target: [{ _property: 'hostName' }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }], {}),
+    try: () => action.batchPlay([{ _obj: 'get', _target: [{ _property: 'hostName' }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }], {}),
     catch: HostError.refused(`Photoshop ${host.version} host name`),
 }).pipe(
     Effect.flatMap(Schema.decodeUnknownEffect(Hosted)),

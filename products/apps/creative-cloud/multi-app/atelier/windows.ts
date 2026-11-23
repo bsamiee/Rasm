@@ -5,7 +5,7 @@ import { Content, Link, Server } from '@rasm/mcp';
 import { Output, setting } from '@rasm/mcp/node';
 import { Rendering, Specifier } from '@rasm/object-model';
 import type { Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Effect, FileSystem, Match, Option, Path, Record, Result, Schema, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, Match, Option, Path, Predicate, Record, Result, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { SecureRandom } from 'effect/crypto';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
@@ -120,7 +120,7 @@ const windows = Effect.fnUntraced(function* (links: { readonly call: (holds: (pe
     });
     const object = Effect.fnUntraced(function* (id: string) {
         const [{ row }, target] = yield* Effect.all([current, Schema.decodeEffect(Specifier.Path)(id)]);
-        const client = yield* links.call((peer) => Link.hosted(row)(peer) && Link.serves(Rendering.requests.keys())(peer), `linked extension of ${row.name} rendering objects`);
+        const client = yield* links.call(Predicate.and(Link.hosted(row), Link.serves(Rendering.requests.keys())), `linked extension of ${row.name} rendering objects`);
         const [{ image }, name] = yield* Effect.all([client('render', { target }), random.uuidV7()]);
         const written = path.join(folder(row.name, 'captures'), `${name}.png`);
         yield* Effect.andThen(files.makeDirectory(path.dirname(written), { recursive: true }), files.writeFile(written, image));

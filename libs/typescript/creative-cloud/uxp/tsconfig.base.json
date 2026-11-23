@@ -1,0 +1,12 @@
+{
+    "extends": "../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["es2023", "es2024.arraybuffer", "es2024.collection", "es2024.object", "es2024.regexp", "es2024.sharedmemory", "es2024.string", "dom"],
+        "module": "preserve",
+        "types": ["node", "@adobe-uxp-types/uxp/with-protocol"],
+        "paths": {
+            "adobe:indesign": ["${configDir}/node_modules/indesign-uxp-types/flat/module.d.ts"],
+            "adobe:photoshop": ["${configDir}/node_modules/@types/photoshop/index.d.ts"]
+        }
+    }
+}

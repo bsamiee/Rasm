@@ -4,5 +4,5 @@
         "types": ["node"]
     },
     "include": ["vite.ts"],
-    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "../../graphics/mark" }, { "path": "../object-model" }]
+    "references": [{ "path": "./tsconfig.shared.json" }, { "path": "../../graphics/mark" }, { "path": "../../web/vite" }]
 }

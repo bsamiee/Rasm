@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Deferred, Duration, Effect, Exit, Function, flow, Latch, Layer, Number, Option, type Predicate, Ref, Schedule, type Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Deferred, Duration, Effect, Exit, Function, Latch, Layer, Number, Option, type Predicate, Ref, Result, Schedule, type Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse, Url, type UrlParams } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import type { ChildProcessSpawner } from 'effect/process';
@@ -18,11 +18,13 @@ interface Listening<Rpcs extends Rpc.Any, Peer, RD> {
 interface Linked<Rpcs extends Rpc.Any, Peer> {
     readonly peer: Peer;
     readonly client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError>;
+    readonly superseded: Effect.Effect<void>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const UNRETRIED = { pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) };
+const SUPERSEDED = new Socket.CloseEvent(4000, 'Superseded by a newer peer of its key');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -35,6 +37,17 @@ const child = ({ stdin, stdout }: Pick<ChildProcessSpawner.ChildProcessHandle, '
             return yield* RpcClient.makeProtocolSocket(UNRETRIED).pipe(Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerNdJsonRpc()));
         }),
     );
+const linked = Effect.fnUntraced(
+    function* <A, X, Y>(href: string, handler: (socket: Socket.Socket) => Effect.Effect<A, X, Y>) {
+        const { reader, writer } = yield* Socket.makeWebSocket(href);
+        const [opened, superseded] = yield* Effect.all([reader, Ref.make(false)]);
+        const pull = Effect.tapError(opened.pull, ({ reason }) => Ref.set(superseded, reason._tag === 'SocketCloseError' && reason.code === SUPERSEDED.code));
+        yield* handler(Socket.make({ reader: Effect.succeed({ ...opened, pull }), writer }));
+        return yield* Ref.get(superseded);
+    },
+    Effect.scoped,
+    Effect.exit,
+);
 const dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, { url, redial, peer }: { readonly url: URL; readonly redial: Duration.Duration; readonly peer: Effect.Effect<UrlParams.Input, E, R> }) =>
     RpcServer.layer(group, { concurrency: 1 }).pipe(
         Layer.provide([handlers, RpcServer.layerProtocolSocketServer]),
@@ -44,39 +57,37 @@ const dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rp
                     address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Loopback, globalThis.Number(url.port)),
                     run: <A, X, Y>(handler: (socket: Socket.Socket) => Effect.Effect<A, X, Y>) =>
                         Stream.fromEffectSchedule(
-                            Effect.gen(function* () {
-                                const { reader, writer } = yield* Socket.makeWebSocket(Url.setUrlParams(url, yield* peer).href);
-                                const opened = yield* reader;
-                                return yield* handler(Socket.make({ reader: Effect.succeed(opened), writer }));
-                            }).pipe(
-                                Effect.scoped,
-                                Effect.exit,
-                                Effect.provideContext(services),
-                                Effect.map((exit) => (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? Option.some(Cause.pretty(exit.cause)) : Option.none())),
-                            ),
+                            Effect.flatMap(peer, (identity) => linked(Url.setUrlParams(url, identity).href, handler)),
                             Schedule.spaced(redial),
-                        ).pipe(Stream.changes, Stream.runForEach(Option.match({ onNone: () => Effect.void, onSome: (failure) => Effect.logError(`Link to ${url.href} failed, redialing every ${Duration.format(redial)}`, failure) })), Effect.forever),
+                        ).pipe(
+                            Stream.takeUntil((exit) => Exit.isSuccess(exit) && exit.value),
+                            Stream.map((exit) => (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? Option.some(Cause.pretty(exit.cause)) : Option.none())),
+                            Stream.changes,
+                            Stream.runForEach(Option.match({ onNone: () => Effect.void, onSome: (failure) => Effect.logError(`Link to ${url.href} failed, redialing every ${Duration.format(redial)}`, failure) })),
+                            Effect.andThen(Effect.logInfo(`Link to ${url.href} ended, a newer peer of its key replaced it`)),
+                            Effect.catchCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.interrupt : Effect.logError(`Link to ${url.href} ended, its peer identity failed`, cause))),
+                            Effect.andThen(Effect.never),
+                            Effect.provideContext(services),
+                        ),
                 })),
             ),
             RpcSerialization.layerJson,
         ]),
-        Layer.provide(Socket.layerWebSocketConstructorGlobal),
     );
 const accept = Effect.fnUntraced(function* <Rpcs extends Rpc.Any, Peer, RD>(group: RpcGroup.RpcGroup<Rpcs>, { peer: codec, key, middleware }: Listening<Rpcs, Peer, RD>, links: SubscriptionRef.SubscriptionRef<readonly Linked<Rpcs, Peer>[]>, request: HttpServerRequest.HttpServerRequest, connection: number) {
     const [peer, identity, socket, made, ended] = yield* Effect.all([HttpServerRequest.schemaSearchParams(codec), HttpServerRequest.ParsedSearchParams, request.upgrade, Deferred.make<Linked<Rpcs, Peer>>(), Latch.make()]);
+    const [writer, same] = [yield* socket.writer, Result.liftPredicate((entry: Linked<Rpcs, Peer>) => key(entry.peer) === key(peer), Function.identity)];
     const report = (message: string) => Effect.annotateLogs(Effect.logInfo(message), { ...identity, connection });
     const protocol = yield* RpcClient.makeProtocolSocket(UNRETRIED).pipe(
         Effect.provideService(RpcClient.ConnectionHooks, {
             onConnect: Deferred.await(made).pipe(
                 Effect.flatMap((entry) =>
-                    SubscriptionRef.update(
-                        links,
-                        flow(
-                            Array.filter<Linked<Rpcs, Peer>>((linked) => key(linked.peer) !== key(peer)),
-                            Array.prepend(entry),
-                        ),
-                    ),
+                    SubscriptionRef.modify(links, (held) => {
+                        const [stale, kept] = Array.partition(held, same);
+                        return [stale, Array.prepend(kept, entry)];
+                    }),
                 ),
+                Effect.flatMap(Effect.forEach(Struct.get('superseded'), { discard: true })),
                 Effect.andThen(report('Peer linked')),
             ),
             onDisconnect: Deferred.await(made).pipe(
@@ -90,7 +101,7 @@ const accept = Effect.fnUntraced(function* <Rpcs extends Rpc.Any, Peer, RD>(grou
     );
     const clients = yield* Layer.build(Layer.provideMerge(middleware, Layer.succeed(RpcClient.Protocol, protocol)));
     const client = yield* RpcClient.make(group, { flatten: true }).pipe(Effect.provideContext(clients));
-    yield* Deferred.succeed(made, { peer, client });
+    yield* Deferred.succeed(made, { peer, client, superseded: Effect.ignore(writer.write(SUPERSEDED)) });
     return yield* Effect.as(ended.await, HttpServerResponse.empty());
 });
 const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, RD>(group: RpcGroup.RpcGroup<Rpcs>, options: Listening<Rpcs, Peer, RD>) {

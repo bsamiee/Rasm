@@ -104,6 +104,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 - Text specifiers are character spans that name another range after an edit before them, and `parentPage` reads `null` on the pasteboard
 - Parents discriminate on `constructorName` (`Character` for an anchored item, `Spread` or `MasterSpread` for a top-level one)
 - ExtendScript run through `doScript` keeps its own `scriptPreferences`, and reads and writes go through the object `Model.resolve` returns
+- `app.selection` throws with no document window open, windowless documents included, where `app.windows.length` reads 0
 
 ## [03]-[FIELDS]
 
@@ -151,6 +152,8 @@ const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effe
 - Nested `doScript` calls are savepoints inside their outer step, where `document.undo()` throws
 - `document.undoHistory` lists step names newest first
 - Synchronous `doScript` calls after awaited work group the edits after them
+- Writes decode every field before their step opens, and a failed decode opens no step
+- Throws rolling back a plugin step log `Uncaught JS Exception` at error in the UXP log, and a script step logs none
 - Rollback restores documents and app-wide find, change, and export preferences, and leaves `app.scriptPreferences` and files on disk
 - `app.modalState` reads true under the Preferences dialog, where a plugin `doScript` drops its field writes with no error
 - `app.modalState` reads true under an ExtendScript dialog open through `do script`, where writes take effect, and reads return under either
@@ -281,6 +284,7 @@ const rendered = Effect.fn('rendered')(function* (found: Page | Spread | PageIte
 
 - `exportResolution` holds its declared range, a longest side above it clamps to the maximum, and one under it is refused with the side the minimum allows
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
+- `exportResolution` persists across launches, and a render with no caller size holds it at 72, one pixel per point
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
 - Export composes on its own and leaves out hidden, non-printing, and invisible items
 - Native writes take any absolute path except a file directly in `/tmp` or `/private/tmp`, which fails with "Cannot find the folder"
@@ -410,6 +414,7 @@ const script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcSer
 
 `layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExitWith` runs the launch inside the script, a launch that suspends exits with an `AsyncFiberError` defect naming its fiber, and the script interrupts that fiber. Runs that set no result and servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Missing or misshapen `uxp.script` leaves no `setResult` to answer through, and its decode failure logs through `Effect.logError`, where the interrupt ending each completed run logs nothing. Typings omit `script` from `uxp`. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
 
+- Script bodies run as one `ENTIRE_SCRIPT` function step named by the label its caller passes, where a throw rolls back and an outer variable keeps its thrown record
 - Script roots pass the `adobe:indesign` module to a one-call server layer (`script({ uxp, fs }, server(indesign))`)
 - Clients find each install through Launch Services as an application that opens an `.idjs` URL, and send each request as a `do script` event in `uxpscript`
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
@@ -438,7 +443,7 @@ InDesign runs `main` of every enabled plugin at launch, panel shown or hidden, a
 - Debugger sessions close before those calls, so a breakpoint in a panel handler never pauses an unload
 - Listeners register as `<plugin id>:<event>`, each registration removing the listener `app.eventListeners.itemByName` finds valid, and hold no release
 - Listeners of an unloaded context stay in `app.eventListeners`, and events firing on them leave later loads and quit unaffected
-- Handlers of a hidden panel stay registered and run nothing, as a closed `FiberSet` runner starts no fiber
+- Panel menu toggles call neither `show` nor `hide`, and listeners of a hidden panel keep running their work
 - Menu actions read `id`, `name`, and `area` in bulk
 - `enabled` or `checked` of Character panel actions 26996 to 27015 crashes InDesign, a bulk read included
 - Once a user `ID.json` registry exists InDesign loads its rows alone, and an absolute row `path` loads nothing

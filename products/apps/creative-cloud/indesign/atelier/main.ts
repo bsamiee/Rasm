@@ -30,6 +30,7 @@ const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: Steps)
     yield* adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
     return Option.none();
 });
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const [model, permit] = Effect.runSync(Effect.all([Model.make(declared), Semaphore.make(1)]));
@@ -51,7 +52,7 @@ const linked = (extension: string, root: Effect.Effect<URL, HostError, Path.Path
             Rendering.toLayer({ render: ({ target }) => scripted(Uxp.rendered((file) => render(target, file.nativePath), 'rendered.png')) }),
             Typesetting.toLayer({ runs: flow(runs, scripted), kerns: flow(kerns, scripted), typeset: flow(typeset, scripted), font: flow(font, scripted) }),
         ),
-        UxpManifest.link,
+        new URL(UxpManifest.link),
         Effect.all([Effect.tryPromise({ try: () => model.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Application))), root]).pipe(Effect.map(([{ url }, folder]) => Link.make({ application: url, extension, root: Option.some(folder) }))),
     );
 const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {

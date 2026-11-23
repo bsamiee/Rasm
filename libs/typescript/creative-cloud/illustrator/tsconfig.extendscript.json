@@ -1,0 +1,8 @@
+{
+    "extends": "../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["es5"]
+    },
+    "include": ["script.ts"],
+    "references": [{ "path": "../extendscript/tsconfig.extendscript.json" }]
+}

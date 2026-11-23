@@ -1,16 +1,7 @@
 {
-    "extends": "./tsconfig.json",
-    "compilerOptions": {
-        "lib": ["es2023", "dom"],
-        "module": "preserve",
-        "types": ["node", "@adobe-uxp-types/uxp/with-protocol"]
-    },
-    "include": ["**/*"],
-    "exclude": ["dist", "vite.ts"],
+    "extends": "./tsconfig.base.json",
+    "exclude": ["dist", "index.ts", "manifest.ts", "vite.ts"],
     "references": [
-        {
-            "path": "../../web/vite"
-        },
         {
             "path": "../../runtime/telemetry"
         },
@@ -18,15 +9,18 @@
             "path": "../../data/search"
         },
         {
-            "path": "../object-model"
+            "path": "../object-model/tsconfig.lib.json"
         },
         {
             "path": "../../ai/mcp"
+        },
+        {
+            "path": "./tsconfig.shared.json"
         }
     ],
     "nx": {
         "sync": {
-            "ignoredDependencies": ["@rasm/mark"]
+            "ignoredDependencies": ["@rasm/mark", "@rasm/vite"]
         }
     }
 }

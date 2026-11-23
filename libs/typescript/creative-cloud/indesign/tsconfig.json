@@ -1,22 +1,5 @@
 {
     "extends": "../../../../tsconfig.base.json",
-    "compilerOptions": {
-        "lib": ["es2023", "dom"],
-        "types": ["node", "@adobe-uxp-types/uxp/with-protocol"],
-        "paths": { "adobe:indesign": ["${configDir}/node_modules/indesign-uxp-types/flat/module.d.ts"] }
-    },
-    "references": [
-        {
-            "path": "../uxp"
-        },
-        {
-            "path": "../../graphics/typography"
-        },
-        {
-            "path": "../../data/search"
-        },
-        {
-            "path": "../object-model"
-        }
-    ]
+    "files": [],
+    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.shared.json" }]
 }

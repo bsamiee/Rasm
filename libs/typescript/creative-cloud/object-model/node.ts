@@ -13,6 +13,7 @@ import { Declaration } from '#/model';
 interface Source {
     readonly root: string;
     readonly types: readonly string[];
+    readonly lib: readonly string[];
     readonly preamble: string;
     readonly enumeration: Option.Option<string>;
 }
@@ -21,7 +22,7 @@ interface Source {
 
 const SCRIPT = '/script.ts';
 const VERSIONS = ['minVersion', 'since'] as const;
-const OPTIONS = ['--target', 'es2022', '--module', 'esnext', '--moduleResolution', 'bundler', '--lib', 'es2022', '--strict', 'false', '--skipLibCheck', '--noEmit'] as const;
+const OPTIONS = ['--module', 'esnext', '--moduleResolution', 'bundler', '--strict', 'false', '--skipLibCheck', '--noEmit'] as const;
 const RANGE = /\(Range: [^)]*\)/u;
 const LISTED = new Set(['classdef', 'elements', 'property', 'method', 'parameter', 'datatype']);
 const PARSER = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '', textNodeName: 'text', parseTagValue: false, parseAttributeValue: false, isArray: (name) => LISTED.has(name) });
@@ -273,7 +274,7 @@ const declared = Effect.fnUntraced(function* (compiler: Option.Option<{ readonly
     const libraries = Option.match(compiler, { onNone: () => ({ symlinks: mounted }), onSome: ({ executable, library }) => ({ defaultLibraryPath: dirname(executable), symlinks: { ...mounted, [dirname(executable)]: { target: library, host: true } } }) });
     return Effect.fnUntraced(function* (source: Source) {
         const owned = join(modules, source.root);
-        const { options } = api.parseCommandLine([...OPTIONS, ...Array.flatMap(source.types, (type) => ['--types', type])]);
+        const { options } = api.parseCommandLine([...OPTIONS, '--lib', source.lib.join(','), ...Array.flatMap(source.types, (type) => ['--types', type])]);
         const base = api.createSnapshot({
             fileSystem: createFileSystemWithLib([[SCRIPT, scripted(source.preamble, '')]], libraries),
             createPrograms: [{ rootFiles: [SCRIPT], compilerOptions: options }],

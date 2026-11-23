@@ -8,12 +8,11 @@ import { Model } from '#/uxp/model';
 import { InDesignSettings } from '#/uxp/settings';
 import { type Call, Called, type Change, type FindChange, type Inspect, Inspection, type Issue, type Preflight, Search, type Slice } from '#/views';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Contents = Schema.Struct({ contents: Schema.Json });
 class Flat extends Schema.Opaque<Flat, { readonly brand: unique symbol }>()(Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))])) {}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [SEARCH]
@@ -51,7 +50,7 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pic
     yield* pipe(
         Array.zip(members.preferences, [find, options, change]),
         Array.filterMap(([target, fields]) => Result.fromOption(Option.all([Option.some(app[target]), fields] as const), Function.constVoid)),
-        Effect.forEach(([target, values]) => Model.write(target, values), { discard: true }),
+        Effect.forEach(([target, values]) => Effect.flatten(Model.write(target, values)), { discard: true }),
     );
     const describe = (hit: Text | PageItem) => {
         const placed = model.text(hit) ? Option.filter(Array.head(hit.parentTextFrames), model.item) : Option.liftPredicate(hit, model.item);
@@ -320,6 +319,7 @@ const checked = Effect.fn('checked')(function* (document: Document, named: Optio
     );
     return yield* Effect.all({ targetObject: Model.reference(document), appliedProfile: Model.reference(chosen), aggregatedResults: Option.match(finished, { onSome: Effect.succeed, onNone: () => waited }) });
 });
+
 // --- [REQUESTS]
 
 const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: Inspect) {
@@ -342,7 +342,10 @@ const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: Inspe
     );
     return Inspection.Object.make({ ...(yield* Model.reference(found)), view: shown, fields: yield* Model.read(Inspection.Readings, found.toSpecifier(), () => scalars), collections });
 });
-const change = ({ label, target, values }: Change) => Effect.flatMap(Model.located(target), (located) => Model.written(label, located, Model.write(located, values)));
+const change = Effect.fn('change')(function* ({ label, target, values }: Change) {
+    const located = yield* Model.located(target);
+    return yield* Model.written(label, located, yield* Model.write(located, values));
+});
 const call = Effect.fn('call')(function* (payload: Call) {
     const [model, found] = yield* Effect.all([Model, Model.located(payload.target)]);
     const before = yield* Model.reference(found);
@@ -361,7 +364,7 @@ const call = Effect.fn('call')(function* (payload: Call) {
     const invoked = yield* Effect.try({ try: (): unknown => Reflect.get(receiver, method), catch: refused }).pipe(Effect.filterOrFail(Predicate.isFunction, () => Unmatched.of({ subject: `method of ${kind}`, query: Option.some(method), candidates: Record.keys(methods) })));
     const parameters = Option.getOrElse(Record.get(methods, method), Array.empty<readonly string[]>);
     const positioned = yield* Effect.forEach(payload.arguments, (value, index) => Model.decode(found, Option.getOrElse(Array.get(parameters, index), Array.empty<string>))(value));
-    const properties = Option.map(payload.properties, (supplied) => flow(Array.ensure<unknown>, Array.findFirst(model.domObject), Effect.fromOption(Function.constant(new Cause.IllegalArgumentError(`${kind} ${method} returned no object for properties`))), Effect.flatMap(Model.write(supplied))));
+    const properties = Option.map(payload.properties, (supplied) => flow(Array.ensure<unknown>, Array.findFirst(model.domObject), Effect.fromOption(Function.constant(new Cause.IllegalArgumentError(`${kind} ${method} returned no object for properties`))), Effect.flatMap(flow(Model.write(supplied), Effect.flatten))));
     return yield* Model.commit(
         payload.label,
         Effect.try({ try: (): unknown => Reflect.apply(invoked, receiver, positioned), catch: refused }).pipe(
@@ -415,6 +418,7 @@ const render = Effect.fn('render')(function* (target: Specifier, path: string) {
         Match.when(model.spread, (each) => ({ source: each.parent, range: { pageString: `+${each.pages.firstItem().documentOffset + 1}`, exportingSpread: true } })),
         Match.orElse((each) => ({ source: each, range: {} })),
     );
+    const pointsPerInch = 72;
     const defaults = {
         pngColorSpace: PNGColorSpaceEnum.RGB,
         pngQuality: PNGQualityEnum.MAXIMUM,
@@ -424,6 +428,7 @@ const render = Effect.fn('render')(function* (target: Specifier, path: string) {
         pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
         pngSuffix: '',
         exportingHiddenSpread: true,
+        exportResolution: pointsPerInch,
         ...range,
     };
     yield* Uxp.preserve(app.pngExportPreferences, defaults);

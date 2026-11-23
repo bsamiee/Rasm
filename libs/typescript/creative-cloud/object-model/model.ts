@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Effect, Formatter, Match, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
+import { Array, Effect, ErrorReporter, Formatter, type LogLevel, Match, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
 import { format, parse } from '#/host';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -136,6 +136,7 @@ class HostError extends Schema.TaggedError<HostError, { readonly brand: unique s
         });
     static readonly refused = (subject: string) => HostError.of({ _tag: 'Refused' }, subject);
     static readonly thrown = (subject: string, line: Option.Option<number>) => HostError.of({ _tag: 'Thrown', line }, subject);
+    override readonly [ErrorReporter.severity]: LogLevel.Severity = this.reason._tag === 'Unavailable' ? 'Warn' : 'Info';
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

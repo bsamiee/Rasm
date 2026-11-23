@@ -34,7 +34,7 @@ Effect.gen(function* () {
     return yield* serve(
         { name: manifest.name, description: manifest.description, version, domain: identifier },
         {
-            listen: Option.some(Host.hostPortFromStringUnsafe(UxpManifest.link.host)),
+            listen: Option.some(Host.hostPortFromStringUnsafe(new URL(UxpManifest.link).host)),
             instructions: [
                 'Atelier drives the Adobe applications installed on this Mac (InDesign, Photoshop, Illustrator, After Effects, Premiere Pro, Media Encoder, Acrobat): their documents, windows, dialogs, scripts, and typography. Search for its tools for any task in one of those applications. Start with applications, which lists what is installed and running, and whose open makes one application the target. Every result returns a handle: pass it on each later call, since it holds your target and your place in the events.',
                 'Each result lists the events since your last call: a dialog asking for an answer, a window opening or closing, an application exiting, crashing, or turning unresponsive, memory or thermal pressure, and host events a linked extension reports. Answer a dialog before other work in its application.',

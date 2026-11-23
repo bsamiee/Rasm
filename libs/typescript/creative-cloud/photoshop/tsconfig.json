@@ -1,11 +1,5 @@
 {
-    "extends": "../../../../tsconfig.base.json",
-    "compilerOptions": {
-        "lib": ["es2023", "dom"],
-        "module": "preserve",
-        "types": ["@adobe-uxp-types/uxp/with-protocol"],
-        "paths": { "adobe:photoshop": ["${configDir}/node_modules/@types/photoshop/index.d.ts"] }
-    },
+    "extends": "../uxp/tsconfig.base.json",
     "references": [
         {
             "path": "../uxp"

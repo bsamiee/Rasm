@@ -1,0 +1,20 @@
+{
+    "extends": "../uxp/tsconfig.base.json",
+    "exclude": ["dist", "script.ts"],
+    "references": [
+        {
+            "path": "../uxp/tsconfig.lib.json"
+        },
+        {
+            "path": "../../data/search"
+        },
+        {
+            "path": "../object-model/tsconfig.lib.json"
+        }
+    ],
+    "nx": {
+        "sync": {
+            "ignoredDependencies": ["@rasm/extendscript"]
+        }
+    }
+}

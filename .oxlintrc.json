@@ -65,7 +65,7 @@
         "import/max-dependencies": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
         "import/no-named-export": "off", // With `import/no-default-export` no export remains
         "import/no-nodejs-modules": "off", // Scoped to browser code, `no-restricted-globals` requires `node:` imports
-        "import/no-namespace": ["error", { "ignore": ["adobe:*"] }],
+        "import/no-namespace": "error",
         "import/no-unassigned-import": ["error", { "allow": ["**/*.css", "pdfjs-dist", "core-js/modules/*"] }],
         "import/prefer-default-export": "off", // Contradicts `import/no-default-export`
         "jsx-a11y/media-has-caption": "off", // Demands a `<track>`, where open captions burned into the frames, which WCAG 1.2.2 accepts, carry none

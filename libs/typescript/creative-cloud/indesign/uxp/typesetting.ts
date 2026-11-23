@@ -43,7 +43,7 @@ const adjust = Effect.fn('adjust')(function* ({ label, target: path, deltas }: A
     const summed = (run: TextStyleRange | TextDefault) => Record.filterMap({ tracking: encoded.tracking, baselineShift: encoded.baselineShift * run.pointSize, ...encoded.marks }, (amount, member) => (amount === 0 ? Result.failVoid : Result.succeed(run[member] + amount)));
     const sums = yield* Effect.try({ try: () => Array.map(text(target) ? target.textStyleRanges.everyItem().getElements() : [target], (run) => [run, summed(run)] as const), catch: HostError.refused(`style runs of ${target.toSpecifier()}`) });
     const kerned = yield* Effect.try({ try: () => Array.map(points, (point) => [point, { kerningValue: (point.kerningMethod === manual ? point.kerningValue : 0) + encoded.kerning }] as const), catch: HostError.refused(`kerning of ${target.toSpecifier()}`) });
-    return yield* Model.written(label, target, Effect.forEach([...sums, ...kerned], ([run, values]) => Model.write(run, values)).pipe(Effect.map(flow(Array.flatten, Array.dedupe))));
+    return yield* Model.written(label, target, Effect.forEach([...sums, ...kerned], ([run, values]) => Effect.flatten(Model.write(run, values))).pipe(Effect.map(flow(Array.flatten, Array.dedupe))));
 });
 const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
     const [text, manual, metrics, rows] = yield* Effect.all([Effect.flatMap(textTarget(payload.target), textRange), kerningMethod('Manual'), kerningMethod('Metrics'), Effect.orDie(Schema.encodeEffect(Kerned)(payload.kerns))]);
@@ -52,7 +52,7 @@ const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
     const outOfRange = [...Option.toArray(payload.restore), ...rows].filter(({ index, length }) => index + length >= count);
     yield* Array.isReadonlyArrayEmpty(outOfRange) ? Effect.void : Unmatched.of({ subject: `run in characters 0 to ${count - 2}`, query: Option.some(outOfRange.map(({ index, length }) => `${index} to ${index + length - 1}`).join(', ')) });
     const characters = ({ index, length }: Pick<Kerns['kerns'][number], 'index' | 'length'>) => text.characters.itemByRange(index, index + length - 1);
-    const restored = Effect.transposeOption(Option.map(payload.restore, (run) => Effect.flatMap(Effect.try({ try: () => characters(run).getElements(), catch: refused }), Effect.forEach(Model.write({ kerningMethod: metrics }), { discard: true }))));
+    const restored = Effect.transposeOption(Option.map(payload.restore, (run) => Effect.flatMap(Effect.try({ try: () => characters(run).getElements(), catch: refused }), Effect.forEach(flow(Model.write({ kerningMethod: metrics }), Effect.flatten), { discard: true }))));
     const kerned = Effect.try({
         try: () => {
             const methods = text.insertionPoints.everyItem().kerningMethod;
@@ -66,7 +66,7 @@ const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
         Effect.tap(
             flow(
                 Struct.get('members'),
-                Effect.forEach(([target, values]) => Model.write(target, values), { discard: true }),
+                Effect.forEach(([target, values]) => Effect.flatten(Model.write(target, values)), { discard: true }),
             ),
         ),
         Effect.map(Struct.get('kept')),

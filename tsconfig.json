@@ -253,6 +253,12 @@
         },
         {
             "path": "./tests/e2e/portfolio-webdriver"
+        },
+        {
+            "path": "./tests/libs/typescript/creative-cloud/indesign"
+        },
+        {
+            "path": "./tests/libs/typescript/network/rpc"
         }
     ]
 }

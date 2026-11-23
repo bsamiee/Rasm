@@ -1,12 +1,5 @@
 {
     "extends": "../../../../tsconfig.base.json",
-    "compilerOptions": {
-        "lib": ["es2022"],
-        "types": ["node"]
-    },
-    "references": [
-        {
-            "path": "../../data/search"
-        }
-    ]
+    "files": [],
+    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.extendscript.json" }, { "path": "./tsconfig.node.json" }]
 }

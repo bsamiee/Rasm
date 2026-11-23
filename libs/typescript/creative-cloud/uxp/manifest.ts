@@ -95,26 +95,27 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     static readonly json = Schema.fromJsonString(UxpManifest);
     static readonly identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String, host: Schema.Struct({ app: App }) })).annotate({ description: 'Plugin id and host app, the manifest fields a running plugin reads' });
     static readonly file = 'manifest.json';
-    static readonly target = 'es2022';
+    static readonly engine = { chrome: '118' } as const;
     static readonly scriptLanguage = 'USLg';
     static readonly script = Object.assign(
-        (body: string, { runtime, host }: { readonly runtime: string; readonly host: { readonly module: string; readonly around: string } }) =>
+        (body: string, { runtime, host, label }: { readonly runtime: string; readonly host: { readonly module: string; readonly around: string }; readonly label: string }) =>
             [
                 `(() => { const { script } = require('uxp'); const answer = (reply) => script.setResult(encodeURIComponent(reply)); try {`,
                 `const around = ${host.around}; const hosted = require(${JSON.stringify(host.module)}); const prepare = Error.prepareStackTrace; const lines = [];`,
                 runtime,
-                `Error.prepareStackTrace = (error, frames) => { lines.push(...frames.filter((frame) => frame.getScriptNameOrSourceURL() === 'body.js').map((frame) => frame.getLineNumber())); return String(error); };`,
-                `try { answer(runtime.reply(() => around(hosted, () => { let value; try { value = new Function(${JSON.stringify(`return ${body}\n//# sourceURL=body.js`)})()(); } catch (error) { void error?.stack; throw { message: String(error?.message ?? error), line: lines[0] }; }`,
-                `if (typeof value?.then === 'function') { value.then(undefined, () => undefined); throw { _tag: 'IllegalArgument', message: 'body returned a promise, a do script body runs synchronously' }; } return { result: value }; })));`,
+                `Error.prepareStackTrace = (error, frames) => { lines.push(...frames.filter((frame) => frame.getScriptNameOrSourceURL() === ${JSON.stringify(UxpManifest.body)}).map((frame) => frame.getLineNumber())); return String(error); };`,
+                `try { answer(runtime.reply(() => around(hosted, () => { let value; try { value = new Function(${JSON.stringify(`return ${body}\n//# sourceURL=${UxpManifest.body}`)})()(); } catch (error) { void error?.stack; throw { message: String(error?.message ?? error), line: lines[0] }; }`,
+                `if (typeof value?.then === 'function') { value.then(undefined, () => undefined); throw { _tag: 'IllegalArgument', message: 'body returned a promise, a do script body runs synchronously' }; } return { result: value }; }, ${JSON.stringify(label)})));`,
                 `} finally { Error.prepareStackTrace = prepare; } } catch (error) { answer(JSON.stringify({ _tag: 'Thrown', message: String(error?.message ?? error) })); } })();`,
             ].join('\n'),
         { offset: 2 },
     );
+    static readonly body = 'body.js';
     static readonly origin = 'file://';
-    static readonly link = new URL('ws://localhost:7490');
+    static readonly link = 'ws://localhost:7490';
     static readonly logs = (folder: string) => ({ folder: `Library/Logs/Adobe/${folder}`, glob: 'UXPLogs_*.log' });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { HOSTS, MANIFEST_VERSIONS, THEMES, UxpManifest };
+export { HOSTS, MANIFEST_VERSIONS, SIDES, THEMES, UxpManifest };

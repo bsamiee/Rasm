@@ -8,7 +8,6 @@ import fs from 'adobe:fs';
 import uxp, { entrypoints, type File } from 'adobe:uxp';
 import { formatHex8 } from 'culori/fn';
 import {
-    Array,
     Cause,
     Clock,
     Console,
@@ -47,6 +46,7 @@ import {
 import { Toolkit } from 'effect/ai';
 import { FetchHttpClient, Url } from 'effect/http';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
+import { Socket } from 'effect/socket';
 import { imageSize } from 'image-size';
 import { UxpManifest } from '#/manifest';
 
@@ -56,7 +56,6 @@ type Panel<F> = (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp |
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const EVALUATED = 'evaluated.js';
 const IDENTIFIER = /^(?!(?:await|break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|false|finally|for|function|if|import|in|instanceof|let|new|null|return|static|super|switch|this|throw|true|try|typeof|var|void|while|with|yield)$)[$_\p{ID_Start}](?:[$\p{ID_Continue}]|‌|‍)*$/u;
 const MANIFEST = `plugin:/${UxpManifest.file}`;
 const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
@@ -107,38 +106,50 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             Layer.succeed(Uxp)(modules),
             Layer.succeed(Logger.LogToStderr)(true),
             Path.layer,
+            Socket.layerWebSocketConstructorGlobal,
         );
-    static readonly thrown = (cause: unknown): HostError => {
-        const prepare: unknown = Reflect.get(Error, 'prepareStackTrace');
-        const lines: number[] = [];
-        Error.prepareStackTrace = (error, frames) => {
-            lines.push(...frames.filter((frame) => frame.getScriptNameOrSourceURL() === EVALUATED).flatMap((frame) => frame.getLineNumber() ?? []));
-            return Schema.is(Callable)(prepare) ? prepare(error, frames) : [String(error), ...frames.map((frame) => `    at ${frame.getFunctionName() ?? '<anonymous>'} (${frame.getScriptNameOrSourceURL()}:${frame.getLineNumber()}:${frame.getColumnNumber()})`)].join('\n');
-        };
-        try {
-            const line = Predicate.hasProperty(cause, 'stack') && Predicate.isString(cause.stack) ? Array.head(lines) : Option.none();
-            return HostError.thrown(Inspectable.toStringUnknown(Option.match(Schema.decodeUnknownOption(Thrown)(cause), { onNone: () => cause, onSome: Struct.get('message') }), 0), line)(cause);
-        } finally {
-            Reflect.set(Error, 'prepareStackTrace', prepare);
-        }
-    };
+    static readonly thrown = Effect.map(
+        Effect.acquireRelease(
+            Effect.sync(() => {
+                const prepare: unknown = Reflect.get(Error, 'prepareStackTrace');
+                const lines = new WeakMap<object, number>();
+                Error.prepareStackTrace = (error, frames) => {
+                    const [line] = frames.filter((frame) => frame.getScriptNameOrSourceURL() === UxpManifest.body).flatMap((frame) => frame.getLineNumber() ?? []);
+                    if (line !== undefined) {
+                        lines.set(error, line);
+                    }
+                    return Schema.is(Callable)(prepare) ? prepare(error, frames) : [String(error), ...frames.map((frame) => `    at ${frame.getFunctionName() ?? '<anonymous>'} (${frame.getScriptNameOrSourceURL()}:${frame.getLineNumber()}:${frame.getColumnNumber()})`)].join('\n');
+                };
+                return { prepare, lines };
+            }),
+            ({ prepare }) => Effect.sync(() => Reflect.set(Error, 'prepareStackTrace', prepare)),
+        ),
+        ({ lines }) =>
+            (cause: unknown): HostError => {
+                const line = Predicate.hasProperty(cause, 'stack') && Predicate.isString(cause.stack) ? Option.fromUndefinedOr(lines.get(cause)) : Option.none();
+                return HostError.thrown(Inspectable.toStringUnknown(Option.match(Schema.decodeUnknownOption(Thrown)(cause), { onNone: () => cause, onSome: Struct.get('message') }), 0), line)(cause);
+            },
+    );
     static readonly required = (module: string) => {
         const refused = HostError.refused(`require('${module}')`);
         return Effect.flatMap(Effect.mapError(Schema.decodeUnknownEffect(Requiring)(globalThis), refused), ({ require: resolved }) => Effect.try({ try: (): unknown => resolved(module), catch: refused }));
     };
-    static readonly application = Effect.flatMap(Effect.all([Schema.decodeUnknownEffect(Hosted)(uxp.host), Path.Path]), ([{ applicationPath }, path]) => path.toFileUrl(`${applicationPath}/`));
+    static readonly application = Effect.flatMap(Effect.all([Uxp.use(({ uxp: modules }) => Schema.decodeUnknownEffect(Hosted)(modules.host)), Path.Path]), ([{ applicationPath }, path]) => path.toFileUrl(`${applicationPath}/`));
     static readonly located = (held: Containment, specifier: Pick<Specifier, 'steps' | 'end'>): Effect.Effect<unknown, Unmatched> => {
         const found = walk(held, specifier);
         return Option.match(Schema.decodeUnknownOption(Unmatched.stated)(found), { onNone: () => Effect.succeed(found), onSome: Effect.fail });
     };
-    static readonly evaluate = (scope: Record.ReadonlyRecord<string, unknown>, code: string) =>
-        Effect.try({
-            try: (): unknown => new globalThis.Function(`{ ${Record.keys(Record.filter(scope, (_, key) => IDENTIFIER.test(key))).join(', ')} }`, 'return eval(arguments[1])')(scope, `${code}\n//# sourceURL=${EVALUATED}`),
-            catch: Uxp.thrown,
-        }).pipe(
-            Effect.filterOrFail(Schema.is(Callable), (value) => new Cause.IllegalArgumentError(`code evaluates to ${typeof value}, not a body function`)),
-            Effect.map((body) => Effect.try({ try: (): unknown => body(), catch: Uxp.thrown })),
-        );
+    static readonly evaluate = Effect.fnUntraced(function* (scope: Record.ReadonlyRecord<string, unknown>, code: string) {
+        const thrown = yield* Uxp.thrown;
+        const body = yield* Effect.try({
+            try: (): unknown => new globalThis.Function(`{ ${Record.keys(Record.filter(scope, (_, key) => IDENTIFIER.test(key))).join(', ')} }`, 'return eval(arguments[1])')(scope, `${code}\n//# sourceURL=${UxpManifest.body}`),
+            catch: thrown,
+        }).pipe(Effect.filterOrFail(Schema.is(Callable), (value) => new Cause.IllegalArgumentError(`code evaluates to ${typeof value}, not a body function`)));
+        return {
+            ran: Effect.try({ try: (): unknown => body(), catch: thrown }),
+            settled: (value: unknown) => Effect.tryPromise({ try: (): Promise<unknown> => Promise.resolve(value), catch: thrown }),
+        };
+    });
     static readonly executed = Effect.fnUntraced(function* <E = never, R = never>(held: Containment, code: string, stepped: (call: Effect.Effect<unknown, HostError>) => Effect.Effect<unknown, HostError | E, R> = Function.identity) {
         const services = yield* Effect.context<never>();
         const resolve = flow(
@@ -146,15 +157,15 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             Effect.flatMap((specifier) => Uxp.located(held, specifier)),
             Effect.runSyncWith(services),
         );
-        const value = yield* stepped(yield* Uxp.evaluate({ resolve }, code));
-        const result = yield* Effect.tryPromise({ try: (): Promise<unknown> => Promise.resolve(value), catch: Uxp.thrown });
+        const { ran, settled } = yield* Uxp.evaluate({ resolve }, code);
+        const result = yield* settled(yield* stepped(ran));
         return yield* Effect.transposeOption(
             Option.map(
                 Option.fromUndefinedOr(result),
                 flow((each: unknown) => encode(each, { reference: (object) => reference(held, object) }), Schema.decodeUnknownEffect(Schema.Json)),
             ),
         );
-    });
+    }, Effect.scoped);
     static readonly rendered = Effect.fnUntraced(function* <E, R>(write: (file: File) => Effect.Effect<void, E, R>, name: string) {
         const { uxp: host, fs: files } = yield* Uxp;
         const folder = yield* Effect.tryPromise({ try: () => host.storage.localFileSystem.getTemporaryFolder(), catch: HostError.refused('temporary folder') });
@@ -230,7 +241,7 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
         commands = {},
         panels = {},
     }: {
-        readonly link?: (extension: string, root: Effect.Effect<URL, HostError, Path.Path>) => Layer.Layer<never, E, Uxp | Plugin | Path.Path>;
+        readonly link?: (extension: string, root: Effect.Effect<URL, HostError, Path.Path>) => Layer.Layer<never, E, Uxp | Plugin | Path.Path | Socket.WebSocketConstructor>;
         readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
         readonly panels?: Record.ReadonlyRecord<string, Panel<F>>;
     }): void => {
@@ -256,19 +267,28 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
                 ),
                 Effect.all(Record.map(panels, (each) => panel(runtime, each))),
             ]).pipe(Scope.provide(runtime.scope));
+            const rejected = ({ reason }: PromiseRejectionEvent): void => {
+                runtime.runFork(Effect.logError('Unhandled rejection', Cause.die(reason)));
+            };
+            yield* Effect.acquireRelease(
+                Effect.sync(() => globalThis.addEventListener('unhandledrejection', rejected)),
+                () => Effect.sync(() => globalThis.removeEventListener('unhandledrejection', rejected)),
+            ).pipe(Scope.provide(runtime.scope));
             yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void) }, commands: handled, panels: shown } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
         }).pipe(Effect.tapCause(Effect.logError), Effect.provide(hosted), Effect.runFork);
     };
-    static readonly extension = <EA, EX extends Error, ER extends Error, EN = never>({
+    static readonly extension = <EA, EX extends Error, ER extends Error, EN = never, F = never>({
         application,
         execute,
         render,
         notices = Stream.empty,
+        commands = {},
     }: {
         readonly application: Effect.Effect<Link['application'], EA, Uxp | Path.Path | Scope.Scope>;
         readonly execute: (code: string, label: string) => Effect.Effect<Option.Option<Schema.Json>, EX, Uxp | Path.Path | Scope.Scope>;
         readonly render: (request: Render, file: File) => Effect.Effect<void, ER, Uxp | Path.Path | Scope.Scope>;
         readonly notices?: Stream.Stream<Stream.Success<Upstream['notices']>, EN>;
+        readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
     }): void => {
         const permit = Semaphore.makeUnsafe(1);
         const hosting = Effect.map(
@@ -285,8 +305,14 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
         );
         const reporting = Stream.catchCause(notices, (cause) => Stream.drain(Stream.fromEffect(Effect.logError('Host notices ended', cause))));
         Plugin.serve({
+            commands,
             link: (extension, root) =>
-                Link.dial(Requests, Layer.merge(Link.serve(Toolkit.empty, { notices: reporting }), requests), UxpManifest.link, Effect.flatMap(hosting, (hosted) => Effect.all([hosted(application), root])).pipe(Effect.map(([named, folder]) => Link.make({ application: named, extension, root: Option.some(folder) })))),
+                Link.dial(
+                    Requests,
+                    Layer.merge(Link.serve(Toolkit.empty, { notices: reporting }), requests),
+                    new URL(UxpManifest.link),
+                    Effect.flatMap(hosting, (hosted) => Effect.all([hosted(application), root])).pipe(Effect.map(([named, folder]) => Link.make({ application: named, extension, root: Option.some(folder) }))),
+                ),
         });
     };
 }

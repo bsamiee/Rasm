@@ -33,3 +33,13 @@ describe('Uxp.located', () => {
         }),
     );
 });
+
+describe('Uxp.executed', () => {
+    it.effect(
+        'names the body line an error was built on when its stack was read before the throw was caught',
+        Effect.fnUntraced(function* () {
+            const failed = yield* Effect.flip(Uxp.executed(HELD, "(function body() {\n    const first = 1;\n    const error = new Error('early ' + first);\n    void error.stack;\n    throw error;\n})"));
+            assert.strictEqual(failed.message, 'line 3: early 1');
+        }),
+    );
+});

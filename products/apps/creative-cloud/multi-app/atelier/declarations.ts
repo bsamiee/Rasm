@@ -7,6 +7,7 @@ import { registerTemplate, Server } from '@rasm/mcp';
 import { Output } from '@rasm/mcp/node';
 import { Declaration } from '@rasm/object-model';
 import { declared, documents, manifest, omv } from '@rasm/object-model/node';
+import base from '@rasm/uxp/tsconfig.base.json' with { type: 'json' };
 import { Array, Cause, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Order, Path, Record, Schema, Scope, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema } from 'effect/ai';
 import { Inventory } from '#/applications';
@@ -17,11 +18,11 @@ type Finding = Effect.Success<ReturnType<Effect.Success<ReturnType<Effect.Succes
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const UXP = ['@adobe/cc-ext-uxp-types/uxp'];
+const UXP = { types: ['@adobe/cc-ext-uxp-types/uxp'], lib: base.compilerOptions.lib.filter((name) => name !== 'dom') };
 const CHECKED = {
-    photoshop: { product: 'PHSP', root: '@types/photoshop', types: UXP, preamble: "declare function require(id: 'photoshop'): typeof import('photoshop');\ndeclare function resolve(specifier: string): unknown;", enumeration: Option.none<string>() },
-    premierepro: { product: 'PPRO', root: '@adobe/premierepro', types: UXP, preamble: "declare function require(id: 'premierepro'): import('@adobe/premierepro').premierepro;", enumeration: Option.none<string>() },
-    indesign: { product: 'IDSN', root: 'indesign-uxp-types/flat', types: [...UXP, 'indesign-uxp-types'], preamble: "declare function require(id: 'indesign'): typeof import('indesign');", enumeration: Option.some('Enumeration') },
+    photoshop: { product: 'PHSP', root: '@types/photoshop', ...UXP, preamble: "declare function require(id: 'photoshop'): typeof import('photoshop');\ndeclare function resolve(specifier: string): unknown;", enumeration: Option.none<string>() },
+    premierepro: { product: 'PPRO', root: '@adobe/premierepro', ...UXP, preamble: "declare function require(id: 'premierepro'): import('@adobe/premierepro').premierepro;", enumeration: Option.none<string>() },
+    indesign: { product: 'IDSN', root: 'indesign-uxp-types/flat', ...UXP, types: [...UXP.types, 'indesign-uxp-types'], preamble: "declare function require(id: 'indesign'): typeof import('indesign');", enumeration: Option.some('Enumeration') },
 } as const;
 const PAGED = { illustrator: 'ILST', aftereffects: 'AEFT', mediaencoder: 'AME' } as const;
 const PRODUCTS = Record.fromIterableWith(Record.toEntries(CHECKED), ([host, { product }]) => [product, host] as const);

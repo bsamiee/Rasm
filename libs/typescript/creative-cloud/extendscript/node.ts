@@ -1,10 +1,10 @@
 import { SourceMap } from 'node:module';
 import { HostError } from '@rasm/object-model';
 import { run } from '@rasm/process';
-import { type JscTarget, transformSync } from '@swc/wasm';
+import { type EnvConfig, transformSync } from '@swc/wasm';
 import { parse } from 'acorn';
 import { simple } from 'acorn-walk';
-import { Array, Cause, Effect, FileSystem, Option, Order, Path, Record, Schema, Stream } from 'effect';
+import { Array, Cause, Effect, FileSystem, Function, Option, Order, Path, Record, Schema, Stream } from 'effect';
 import { Digest } from 'effect/crypto';
 import { Zip } from 'effect/encoding';
 import { HttpClient, HttpClientResponse } from 'effect/http';
@@ -19,9 +19,7 @@ const CORE = {
         scriptui: { path: 'Assets2/xplat/CommonOMV/scriptui.xml', sha256: '468e4dbbf9a5ef84ea0695d607d8771ea3706a64f1d9d42b46f25102cd0f85ec' },
     },
 } as const;
-const TARGET = 'es3' satisfies JscTarget;
 const ASSUMED = { assumptions: { iterableIsArray: true } };
-const ES3 = { targets: { ie: '6' }, exclude: ['transform-typeof-symbol'] };
 const RESERVED =
     /^(?:abstract|boolean|break|byte|case|catch|char|class|const|continue|debugger|default|delete|do|double|else|enum|export|extends|false|final|finally|float|for|function|goto|if|implements|import|in|instanceof|int|interface|long|native|new|null|package|private|protected|public|return|short|static|super|switch|synchronized|this|throw|throws|transient|true|try|typeof|var|void|volatile|while|with)$/u;
 
@@ -78,19 +76,19 @@ const grouped = (code: string): string => {
     ).reduce((text, [start, end, mark]) => `${text.slice(0, start)}${mark}${text.slice(end)}`, code);
 };
 const lower = Object.assign(
-    (code: string, target: JscTarget, syntax: 'typescript' | 'ecmascript' = 'ecmascript') =>
+    (code: string, { emitted = Function.identity, ...env }: EnvConfig & { readonly emitted?: (code: string) => string }, syntax: 'typescript' | 'ecmascript' = 'ecmascript') =>
         Effect.try({
             try: () => {
-                const lowered = transformSync(code, { isModule: false, ...(target === TARGET ? { env: ES3, jsc: { parser: { syntax }, ...ASSUMED } } : { jsc: { target, parser: { syntax }, ...ASSUMED } }), sourceMaps: true });
-                return target === TARGET ? { ...lowered, code: grouped(lowered.code) } : lowered;
+                const lowered = transformSync(code, { isModule: false, env, jsc: { parser: { syntax }, ...ASSUMED }, sourceMaps: true });
+                return { ...lowered, code: emitted(lowered.code) };
             },
             catch: (cause) =>
                 Option.match(Schema.decodeUnknownOption(Diagnostic)(cause), {
-                    onNone: () => HostError.refused(`${syntax} transform to ${target}`)(cause),
+                    onNone: () => HostError.refused(`${syntax} transform`)(cause),
                     onSome: ([, text, , line]) => HostError.thrown(text, Option.some(line))(cause),
                 }),
         }),
-    { extendscript: TARGET } as const,
+    { extendscript: { targets: { ie: '6' }, exclude: ['transform-typeof-symbol'], emitted: grouped } },
 );
 const traced = (map: string | undefined) =>
     Effect.map(Effect.orDie(Schema.decodeUnknownEffect(Mapping)(map)), (mapping) => {

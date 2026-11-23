@@ -9,14 +9,13 @@ const BODY = 'function body() {';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Evaluation extends Schema.Class<Evaluation, { readonly brand: unique symbol }>('Evaluation')({ code: Schema.String.annotate({ description: 'Function expression the host evaluates and calls, awaiting what it returns' }) }) {
+class Evaluation extends Schema.Class<Evaluation, { readonly brand: unique symbol }>('Evaluation')({
+    code: Schema.String.annotate({ description: 'Function expression the host evaluates and calls, awaiting what it returns' }),
+    label: Schema.String.annotate({ description: 'Name of the undo step the evaluation runs in' }),
+}) {
     static readonly Result = Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) });
     static readonly expression = (body: string, awaits: boolean) => (awaits ? `(async ${BODY}\n${body}\n})` : `(${BODY}\n${body}\n})`);
-
-    get label(): string {
-        const [, ...body] = this.code.split(BODY);
-        return `Run ${Option.getOrElse(Array.findFirst(Array.map(body.join(BODY).split('\n'), String.trim), String.isNonEmpty), () => 'script')}`;
-    }
+    static readonly labelled = (body: string) => `Run ${Option.getOrElse(Array.findFirst(Array.map(body.split('\n'), String.trim), String.isNonEmpty), () => 'script')}`;
 }
 class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Render')({
     target: Specifier.Path.annotate({ description: 'Document, page, spread, artboard, layer, composition, or sequence specifier' }),

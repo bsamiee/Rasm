@@ -1,0 +1,15 @@
+{
+    "extends": "../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["es2023"]
+    },
+    "exclude": ["dist", "host.ts", "node.ts"],
+    "references": [
+        {
+            "path": "../../data/search"
+        },
+        {
+            "path": "./tsconfig.extendscript.json"
+        }
+    ]
+}

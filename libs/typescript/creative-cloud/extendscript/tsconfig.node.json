@@ -4,12 +4,5 @@
         "types": ["node"]
     },
     "include": ["node.ts", "vite.ts"],
-    "references": [
-        {
-            "path": "../object-model"
-        },
-        {
-            "path": "../../runtime/process"
-        }
-    ]
+    "references": [{ "path": "../object-model/tsconfig.lib.json" }, { "path": "../../runtime/process" }, { "path": "../../web/vite" }]
 }

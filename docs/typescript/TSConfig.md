@@ -8,7 +8,9 @@ Rules every tsconfig file follows:
 - One tsconfig file defines one program, with one `types` list, one `lib`, one root folder, and one emit decision
 - Second files exist only where file sets differ in `types`, `lib`, root folder, or emit
 - Shared options sit in one base with no files of its own, and every package config extends it
+- Options every program of one runtime shares sit in a runtime base inside that runtime's library, and those programs extend it
 - `${configDir}` in base path options resolves against each extending file, and one base serves every package
+- `types` entries of a base resolve from each extending file's folder, and every extending project installs the packages they name
 - TypeScript finds only `tsconfig.json` on its own and reaches every other name through `-p`, `extends`, or `references`
 - Nx core reads `paths` and `customConditions` from root `tsconfig.base.json`, then root `tsconfig.json`, and no other path
 - Type checking runs as its own task, as Vite, Vitest, and bundlers strip types unchecked
@@ -73,8 +75,12 @@ Options that stay unwritten:
 |  [08]   | `declarationMap`                   | Tarball `files` omit maps, and editors open referenced source           |
 
 Options for one case alone:
-- UXP programs take `lib` `["es2023", "dom"]`, as V8 11.8 of every UXP host lacks `Promise.withResolvers` of ES2024
-- `UxpManifest.target` stays `es2022`, the newest year swc `JscTarget` names, as ES2023 adds hashbang syntax alone
+- UXP programs take `lib` `es2023`, `dom`, and every `es2024` library except `es2024.promise`, as V8 11.8 of every UXP host lacks `Promise.withResolvers`
+- UXP programs take `types` `["node", "@adobe-uxp-types/uxp/with-protocol"]`, as `with-protocol` declares each `adobe:` module by re-exporting a Node one
+- ExtendScript programs take `lib` `["es5"]`, as their hosts run ES3 with `es5-shim` and `es5-sham` loaded first
+- `UxpManifest.engine` names the Chrome release of the V8 every UXP host embeds, Vite `build.target` and swc `env.targets` both derive from it
+- Files Node and UXP both run take `tsconfig.shared.json`, the UXP base with `lib` `["es2023"]` and no `types`
+- Script bodies check under the UXP base `lib` without `dom`, read from `@rasm/uxp/tsconfig.base.json`
 - `rewriteRelativeImportExtensions` rewrites relative `.ts` specifiers alone and refuses `#/` ones (TS2877), and their rows append the extension
 - `allowImportingTsExtensions` permits `.ts` specifiers in programs emitting no JavaScript, and `rewriteRelativeImportExtensions` implies it
 - `isolatedDeclarations` lets Oxc write `.d.ts` per file with no checker, and requires explicit types on every export

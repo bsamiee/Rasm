@@ -1,11 +1,8 @@
 {
-    "extends": "./tsconfig.json",
+    "extends": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.base.json",
     "compilerOptions": {
-        "lib": ["es2023", "dom"],
-        "module": "preserve",
-        "types": ["node", "@adobe-uxp-types/uxp/with-protocol"]
+        "noEmit": true
     },
-    "include": ["**/*"],
     "exclude": ["vite.config.ts"],
     "references": [
         {

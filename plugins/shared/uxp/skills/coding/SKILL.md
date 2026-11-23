@@ -34,6 +34,9 @@ Each host runs one newest runtime, and a dictionary command runs source with no 
 - Illustrator checks `EnableThirdPartyUXP` of `AIFeatures.cfg` beside its app (`enabled="1"`, `configurableInRelease="1"`) for plugins UXP developer mode loads
 - Illustrator reads `UXPExtensionPath.json` beside its app, each string value naming a folder it scans as `<folder>/<plugin>/manifest.json`
 - Illustrator parses a plugin that marker finds and runs no `main` of it at launch, and reads no `PluginsInfo` registry
+- Illustrator runs a third-party plugin's `main` on a UXP developer mode load alone, and refuses a manifest naming no `panel` or `command` entry point
+- Illustrator lists each command under Window > Extensions, one with `hostUIContext.hideFromMenu` included
+- Illustrator's `uxp.host` throws at its first read and holds no member after, and `app.path` names the folder holding the bundle `app.name` names
 - Illustrator serves `illustrator-dom.js` to plugins: `require('illustrator')` returns `{ app }`, the specifier inferred from the string beside its registration
 - Illustrator enums and creatable classes sit on `globalThis`, every call is synchronous, and enum values are strings
 - After Effects module holds `app` and DOM classes, calls are synchronous, collections run 1 to `length`, `constructor.name` names an object's class
@@ -67,6 +70,7 @@ Differences from a browser or Node hold in InDesign, Photoshop, and Premiere Pro
 
 Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.bigint` returns a number. Host `Clock` layer reads monotonic nanoseconds from `performance.now()`, wall nanoseconds from each `currentTimeMillis` read, and keeps native sleep. Offsets computed once skip the skew correction Effect's wall clock performs. Host callbacks running effects receive caller services through `run*With`.
 
+- Hosts embed the V8 of Chrome 118, which holds `Object.groupBy` and regex flag `v` and lacks `Promise.withResolvers`, `Set` methods, `Array.fromAsync`, and `using`
 - `structuredClone`, `Buffer`, `MessageChannel`, and `Worker` are absent in every host, and `require` of `util`, `buffer`, or a `node:` name throws
 - `fs` holds synchronous reads, writes, and `lstatSync`, and no `existsSync`, `appendFileSync`, `mkdirSync`, or `statSync`
 - `writeFileSync` reads its receiver, and code calls it on the module's default import
@@ -169,7 +173,9 @@ const written = (target: object, values: Record.ReadonlyRecord<string, unknown>)
 - `catch` names the refused step from arguments of the failed call
 - Lookups fail with their candidates, and independent writes accumulate every refusal in one cause
 - Writes layer caller options first and derived fields last, and no caller option contradicts a derived value
-- Evaluated source ends `//# sourceURL=<name>`, and an `Error.prepareStackTrace` restored in `finally` reads lines from frames naming `<name>` and leaves `.stack` text
+- Evaluated source ends `//# sourceURL=<name>`, one name in plugins and scripts, and an `Error.prepareStackTrace` held in a scope reads lines from frames naming `<name>` and leaves `.stack` text
+- Line formatters install before a body runs, as a host reads the stack of a rejection its body throws before any `catch` sees it
+- `HostError` and `Unmatched` state their `ErrorReporter.severity`, and a request failure answered to its caller logs at info, `Unavailable` at warn
 - Host calls are typed source the compiler checks, with arguments passed as data
 - Hosts evaluating text receive a typed function as `String(fn)` swc lowers to their target, and a schema's `Encoded` types the reply
 - Caller bodies lower through swc with `sourceMaps: true`, `node:module` `SourceMap.findEntry` maps a `Thrown` line to its body line, and a transform diagnostic fails `Thrown` at its own line
@@ -216,7 +222,8 @@ Each host groups changes into one undo step through one call, and every state ch
 
 - One call holds one user-visible change, named in the undo menu
 - Bodies hold host calls alone, and network, file, and decode work finishes before a body starts and enters as values
-- Evaluated source is `Effect<Effect<A, HostError>, HostError | IllegalArgumentError>`, compiled before a step and run inside by `yield* yield*`
+- Evaluated source compiles before a step into `ran`, run inside it, and `settled`, which awaits its value after it, under one scope
+- After Effects declares no undo or rollback member, and a failed body leaves its undo group as one step
 - Compiles pass the scope as one parameter `new Function('{ <keys> }', 'return eval(arguments[1])')` destructures, binding no name source shadows
 - Scope keys outside identifiers stay out, and a compiled value other than a function fails `IllegalArgumentError` naming its `typeof`
 - Values and typed failures leave a body as data
@@ -247,7 +254,7 @@ const serve = <E, F>({
     commands = {},
     panels = {},
 }: {
-    readonly link?: (extension: string) => Layer.Layer<never, E, Uxp | Plugin | Path.Path>;
+    readonly link?: (extension: string) => Layer.Layer<never, E, Uxp | Plugin | Path.Path | Socket.WebSocketConstructor>;
     readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
     readonly panels?: Record.ReadonlyRecord<string, (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp | Plugin>) => void) => Effect.Effect<void, F, Scope.Scope | Uxp | Plugin>>;
 }): void => {
@@ -290,9 +297,11 @@ const serve = <E, F>({
 };
 ```
 
-`Uxp` is the service holding `uxp` and `fs`, `Uxp.layer` merges it with the host `Clock` layer, `Logger.LogToStderr` set `true`, and Effect's `Path.layer`: hosts record `console.error` at error level in their log file where Effect's default logger writes `console.log`, and an entry's top-level `runFork` or `runSyncExit` logs under the same reference by providing the layer outside its `tapCause`. `Plugin` holds the plugin id and host app `UxpManifest.identity` decodes from the plugin folder's manifest, the fields a running plugin reads, so a manifest key the model lacks never stops a load, and a failed read fails `PlatformError` as Effect's `FileSystem.readFileString` does. `link` takes the manifest `id` as its extension, and its launch forks inside the runtime's layer, where a failed or dropped link logs while commands and panels run. `Layer.provideMerge` keeps the host `Clock` in runtime context, where `runPromise` otherwise reads Effect's default clock. One `Effect.all` under `runtime.scope` allocates each command's `FiberHandle` and each panel's `ScopedRef`. Reruns interrupt the running command, and `cancel` clears it. `@adobe-uxp-types/uxp` declares `cancel` for future use. Panels receive `fork`, a `FiberSet.makeRuntime` runner in the shown scope for synchronous host callbacks that logs each run's failure once and ignores it. `show` replaces the shown scope and `hide` closes it, interrupting every fork. Plugin records declare no `destroy`, and the host ends every scope the layers opened with the plugin's context: InDesign calls panel handlers and plugin `destroy` during unload with its main thread waiting on them, where a handler or scope release reaching its DOM deadlocks it. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, its throw logs as a defect, and `runFork` calls it before `main` returns.
+`Uxp` is the service holding `uxp` and `fs`, `Uxp.layer` merges it with the host `Clock` layer, `Logger.LogToStderr` set `true`, Effect's `Path.layer`, and `Socket.layerWebSocketConstructorGlobal`, the constructor a link dials through: hosts record `console.error` at error level in their log file where Effect's default logger writes `console.log`, and an entry's top-level `runFork` or `runSyncExit` logs under the same reference by providing the layer outside its `tapCause`. `Plugin` holds the plugin id and host app `UxpManifest.identity` decodes from the plugin folder's manifest, the fields a running plugin reads, so a manifest key the model lacks never stops a load, and a failed read fails `PlatformError` as Effect's `FileSystem.readFileString` does. `link` takes the manifest `id` as its extension, and its launch forks inside the runtime's layer, where a failed or dropped link logs while commands and panels run. `Layer.provideMerge` keeps the host `Clock` in runtime context, where `runPromise` otherwise reads Effect's default clock. One `Effect.all` under `runtime.scope` allocates each command's `FiberHandle` and each panel's `ScopedRef`. Reruns interrupt the running command, and `cancel` clears it. `@adobe-uxp-types/uxp` declares `cancel` for future use. Panels receive `fork`, a `FiberSet.makeRuntime` runner in the shown scope for synchronous host callbacks that logs each run's failure once and ignores it. `show` replaces the shown scope and `hide` closes it, interrupting every fork. Plugin records declare no `destroy`, and the host ends every scope the layers opened with the plugin's context: InDesign calls panel handlers and plugin `destroy` during unload with its main thread waiting on them, where a handler or scope release reaching its DOM deadlocks it. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, its throw logs as a defect, and `runFork` calls it before `main` returns.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
+- `serve` logs each `unhandledrejection` event at error, as `@rasm/uxp/vite` writes `featureFlags.unhandledRejection` into every built manifest
+- Hosts log an exception leaving a callback at error under any flag, and `featureFlags.uncaughtException` delivers each as an `error` event too
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
 - Hosts can run `main` at launch with no panel shown, and `main` builds every state a panel reads
 - `show` renders from state `main` built, and panel visibility reaches `document` as a `uxpcommand` event
@@ -343,8 +352,9 @@ Debugger routes need UXP developer mode, `{"developer": true}` in `/Library/Appl
 | :-----: | :---------------------- | :----------------------------------------------------- | :------------------------------------- |
 |  [01]   | Photoshop               | UXP Debugger, `debugger` MCP, Atelier `execute_script` | `@bubblydoo/vitest-pool-uxp` `uxpPool` |
 |  [02]   | InDesign                | UXP Debugger, `debugger` MCP, Atelier `execute_script` | Atelier `execute_script`               |
-|  [03]   | Premiere, Media Encoder | UXP Debugger, Atelier `diagnostics`                    | None                                   |
-|  [04]   | After Effects           | UXP Debugger, Atelier `execute_script`                 | Atelier `execute_script`               |
+|  [03]   | Premiere, Media Encoder | UXP Debugger, `debugger` MCP, Atelier `diagnostics`    | None                                   |
+|  [04]   | After Effects           | UXP Debugger, `debugger` MCP, Atelier `execute_script` | Atelier `execute_script`               |
+|  [05]   | Illustrator             | UXP Debugger, `debugger` MCP, Atelier `execute_script` | Atelier `execute_script`               |
 
 UXP Debugger (`jaroslavbereza.uxpdebugger`) serves UXP Developer Tool's broker from a VS Code window on `127.0.0.1:14001`, and a host launched while it listens connects to it. Hooks under `/__uxp_debugger__/hooks` act on a manifest registered in its panel, and built manifests sit at `.artifacts/vite/<project>/manifest.json`:
 
@@ -356,19 +366,30 @@ xh -b 127.0.0.1:14001/__uxp_debugger__/hooks/watch manifestPath==<manifest>
 - `load`, `refresh`, and `reload` answer `sessions`, `refresh` keeps a session and its debugger, and each runs new build output with no host relaunch
 - `watch` answers 404 for an unregistered manifest, which registers once per machine through the panel's `Add plugin…` menu
 - `watch-app read <Code pid>` names web area `UXP Devtools`, `read --element <id>` lists its controls, and `perform <id> AXPress` presses one in the background
+- `AXPress` on the `UXP Devtools` activity-bar tab toggles its side bar, and the tab reads `value` 1 while the panel shows
 - Menu item `Currently opened manifest.json` registers the active editor's file, which `watch-app launch <VS Code> --document <manifest>` opens
+- Panel title buttons `UXP: Stop UXP Devtools` and `UXP: Start UXP Devtools` close and open the broker's port
+- UXP Debugger stays the broker, as Photoshop stalls in launch while `@adobe-fixed-uxp/uxp-devtools-cli` `uxp service start` listens on the port
 - `debugger` MCP attaches through `create_debug_session` with `language` `javascript`, then `attach_to_process` with `stopOnEntry` `false`
 - `attach_to_process` `adapterConfig` holds `websocketAddress` `ws://127.0.0.1:14001/socket/cdt/<session>`, `sourceMaps` `true`, and `cwd` of the build folder
 - `set_breakpoint` takes a TypeScript source path, as `@rasm/uxp/vite` writes `main.js.map` beside each bundle, and `detach_from_process` leaves its host running
 - Hosts hold one debugger connection per session, and a second connection replaces the first, VS Code's own included
 - Paused plugins block their host's JavaScript thread, and an Atelier call reaching a breakpoint answers after `continue_execution`
-- Loads over an installed plugin of one id leave the installed instance running without its host module, so a host quits after a debugger session
+- Attach, a TypeScript breakpoint, a read of its locals, and detach hold in Photoshop, InDesign, After Effects, Premiere Pro, and Media Encoder
+- Loads over an installed plugin of one id leave the installed instance running without its host module, its link open, and no `destroy` call before quit
+- Debugger launches empty `plugins` of `PluginsInfo/v1/<host>.json` while their host is quit and restore the file after its quit
+- Hosts with no `PluginsInfo/v1/<host>.json` scan `Plugins/External` and log every other host's folder at error
+- Illustrator answers `Plugin/load` for a manifest with an entry point and leaves one with none unanswered past the broker's 5000 ms bound
+- Attach, a `main.js` breakpoint in a command's `run`, a read of its locals, and detach hold in Illustrator, which has no row in UXP Debugger's host list
+- Illustrator breakpoints in `do javascript` source belong to ExtendScript Debugger (`adobe.extendscript-debug`) under preference `AllowVSCodeDebuggerConnections`
+- CDP `Debugger.setPauseOnExceptions` `uncaught` with `Runtime.exceptionThrown` and `Runtime.consoleAPICalled` lists a session's throws and console errors
 - InDesign unload calls panel handlers on the plugin thread (`PluginRuntime::forEachPanel`) with its main thread waiting in `PluginRuntime::destroy`, and a DOM call there deadlocks both, which `sample <pid> 1` shows
 - Plugin sessions answer CDP at `ws://127.0.0.1:14001/socket/cdt/<session>`: `Runtime.evaluate` takes the `contextId` of `Runtime.executionContextCreated`, and `Debugger.setBreakpointByUrl` a `main.js` line
 - VS Code logs each connected host's UXP console to `logs/<run>/window1/exthost/JaroslavBereza.uxpdebugger/UXP – <host> <version>.log`
 
 - Atelier `execute_script` reaches Photoshop and After Effects through linked Atelier plug-ins, and InDesign through `do script` with `language uxpscript`
-- Atelier `execute_script` reaches Illustrator through `do javascript`, and Premiere and Media Encoder declare no script command
+- Atelier `execute_script` reaches Illustrator through its Atelier plug-in while one is loaded and linked, else through `do javascript`
+- Premiere and Media Encoder declare no script command
 - Atelier `diagnostics` reads a host's reports and UXP logs whether the host runs or not
 - `uxp-cli` and `vitest-pool-uxp` find Photoshop alone and throw `Photoshop is not open` without it
 - `uxp-cli create-cdp-url` loads the folder as a plug-in session and prints a `ws://` URL for any CDP client, `@bubblydoo/vitest-pool-cdp` included

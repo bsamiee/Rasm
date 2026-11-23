@@ -1,0 +1,14 @@
+{
+    "name": "@rasm/test-rpc",
+    "private": true,
+    "description": "RPC transport suite over @rasm/rpc: a peer dialing a listening server over real WebSockets, redial after a dropped socket, the link a newer peer of one key supersedes, and a peer whose identity fails",
+    "type": "module",
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/rpc": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vitest": "catalog:"
+    }
+}
