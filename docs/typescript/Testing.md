@@ -128,7 +128,7 @@ Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)`
 - `test--playwright` runs after `build--*` of its suite's dependencies and each reused `webServer` task, and a suite naming a product loads its build
 - `loaded` launches one persistent Chromium context per worker and loads its suite's extension into it for each test over CDP
 - `loaded` takes the one unpacked Manifest V3 extension among build outputs of its suite's dependencies
-- `loaded` hands a test its extension once the service worker is `activated`, as Chrome drops an action pressed before the worker registers its listeners
+- `loaded` hands a test its extension once the service worker is `activated`, as Chrome drops an action pressed before the worker registers its listeners, and fails a test whose worker turns `redundant`
 - `attach--gh` of a host package depends on `pack--*` of each workspace package depending on it and uploads the visible files they write
 - Fixture `axe` of `it` scans the page through `AxeBuilder` at WCAG A and AA tags through 2.2
 - Suites of a served product start its built Node bundle on an allocated port in a fixture, each test with its own database file and object storage

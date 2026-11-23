@@ -70,7 +70,13 @@ const attached = Effect.fnUntraced(function* (context: BrowserContext) {
             const { promise, resolve, reject } = Promise.withResolvers<void>();
             if ('serviceWorker' in scope && scope.serviceWorker instanceof ServiceWorker) {
                 const held = scope.serviceWorker;
-                const settle = () => (held.state === 'activated' ? resolve() : undefined);
+                const settle = () => {
+                    if (held.state === 'activated') {
+                        resolve();
+                    } else if (held.state === 'redundant') {
+                        reject(new TypeError('The service worker is redundant and never activates'));
+                    }
+                };
                 held.addEventListener('statechange', settle);
                 settle();
             } else {
