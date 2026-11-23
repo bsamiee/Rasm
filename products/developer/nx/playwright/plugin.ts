@@ -7,7 +7,7 @@ import { applyDaemonEnvFromClient, calculateHashesForCreateNodes, emitPluginWork
 import { getRootTsConfigFileName } from '@nx/js';
 import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Clock, Effect, Function, Option, Predicate, Record, Result, Schema, Semaphore } from 'effect';
+import { Array, Cause, Clock, Effect, Function, MutableRef, Option, Predicate, Record, Result, Schema, Semaphore } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -197,7 +197,7 @@ const targets = (home: string, { loaded: configs, packages, linked, servers, rep
             dependsOn: [
                 'codegen--*',
                 '^codegen--*',
-                '^build--*',
+                '^build--vite',
                 ...Record.collect(
                     Array.groupBy(servers, ({ target }) => target),
                     (target, rows) => ({ projects: rows.map(({ project }) => project), target, waitFor: 'ready' as const }),
@@ -218,7 +218,7 @@ const targets = (home: string, { loaded: configs, packages, linked, servers, rep
             ],
             outputs: Array.dedupe([...held, ...[...(outputPath === undefined ? tested.map(({ outputDir }) => outputDir) : []), ...reported].filter(unheld)]).map(tokened(home)),
             metadata: {
-                description: 'Runs every Playwright project of the config whose own outputDir sits outside outputPath with playwright test after the build targets of each project the suite depends on and once the Nx task each reused webServer row runs is ready',
+                description: 'Runs every Playwright project of the config whose own outputDir sits outside outputPath with playwright test after the Vite build of each project the suite depends on and once the Nx task each reused webServer row runs is ready',
                 help: { command: `${exec} playwright test --help`, example: { args: ['--project', '<name>'] } },
             },
         },
@@ -255,19 +255,26 @@ const targets = (home: string, { loaded: configs, packages, linked, servers, rep
     };
 };
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { readonly digest: string }>, context: CreateNodesContext, outputPath: string | undefined, hash: string, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly digest: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly lock: string; readonly exec: string }, context: CreateNodesContext, outputPath: string | undefined, hash: string, file: string) {
     const home = dirname(file);
     const digest = hashArray([hash, yield* OWN]);
-    const manager = detectPackageManager(context.workspaceRoot);
-    const held = Option.filter(yield* recalled(cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
-    const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => read(context.workspaceRoot, file, Option.fromUndefinedOr(outputPath), getLockFileName(manager)) });
-    cache.set(file, { ...resolved, digest });
+    const held = Option.filter(yield* recalled(pass.cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
+    const resolved = yield* Option.match(held, {
+        onSome: Effect.succeed,
+        onNone: () =>
+            Effect.tap(read(context.workspaceRoot, file, Option.fromUndefinedOr(outputPath), pass.lock), (fresh) =>
+                Effect.sync(() => {
+                    pass.cache.set(file, { ...fresh, digest });
+                    MutableRef.set(pass.stored, true);
+                }),
+            ),
+    });
     const stated = yield* manifested(context.workspaceRoot, home);
     const project: ProjectConfiguration = {
         root: home,
         tags: ['host:browser'],
         metadata: { technologies: ['playwright'] },
-        targets: aggregated(targets(home, resolved, extended(context.workspaceRoot, home), namedInput(home, context) === 'production' ? ['^production', '^{projectRoot}/tsconfig*.json'] : ['^default'], outputPath, getPackageManagerCommand(manager).exec), stated, 'playwright'),
+        targets: aggregated(targets(home, resolved, extended(context.workspaceRoot, home), namedInput(home, context) === 'production' ? ['^production', '^{projectRoot}/tsconfig*.json'] : ['^default'], outputPath, pass.exec), stated, 'playwright'),
     };
     return { projects: { [home]: project } };
 });
@@ -275,20 +282,20 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { re
 const nodes = inferring(Options, run, function* (files, settings, context) {
     const project = anchored(context.workspaceRoot);
     const configs = files.filter((file) => project(dirname(file)));
-    const lock = getLockFileName(detectPackageManager(context.workspaceRoot));
-    const cache = new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'playwright.hash'));
+    const manager = detectPackageManager(context.workspaceRoot);
+    const pass = { cache: new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'playwright.hash')), stored: MutableRef.make(false), lock: getLockFileName(manager), exec: getPackageManagerCommand(manager).exec };
     const [ambient, generation] = [hashDaemonClientEnv(), getDaemonClientEnvGeneration()];
     const hashes = yield* Effect.promise(() =>
         calculateHashesForCreateNodes(
             configs.map(dirname),
             { ...settings, ambient },
             context,
-            configs.map(() => [lock]),
+            configs.map(() => [pass.lock]),
         ),
     );
     return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles((file, _options, _context, index) => run(inferred(cache, context, settings.outputPath, `${hashes[index]}`, file)), configs, settings, context)),
-        Effect.sync(() => getDaemonClientEnvGeneration() === generation && hashDaemonClientEnv() === ambient && cache.writeToDisk()),
+        Effect.promise(() => createNodesFromFiles((file, _options, _context, index) => run(inferred(pass, context, settings.outputPath, `${hashes[index]}`, file)), configs, settings, context)),
+        Effect.sync(() => MutableRef.get(pass.stored) && getDaemonClientEnvGeneration() === generation && hashDaemonClientEnv() === ambient && pass.cache.writeToDisk()),
     );
 });
 

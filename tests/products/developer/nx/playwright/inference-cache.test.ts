@@ -1,3 +1,5 @@
+import { statSync } from 'node:fs';
+import { join } from 'node:path';
 import { createNodes } from '@rasm/nx-playwright';
 import { it as nx } from '@rasm/testing/nx';
 import { Predicate } from 'effect';
@@ -46,5 +48,14 @@ describe('inferred Playwright targets across graph passes', { timeout: 60_000 },
         await workspace.graph({ createNodes });
 
         expect(Reflect.get(globalThis, 'loads')).toBe(1);
+    });
+
+    it('leaves the plugin cache file unwritten while every config is reused', async ({ workspace }) => {
+        await workspace.write({ 'apps/e2e/playwright.config.js': 'module.exports = {};\n' }).graph({ createNodes });
+        const written = statSync(join(workspace.root, 'tmp/project-graph-cache/playwright.hash'), { bigint: true }).mtimeNs;
+
+        await workspace.graph({ createNodes });
+
+        expect(statSync(join(workspace.root, 'tmp/project-graph-cache/playwright.hash'), { bigint: true }).mtimeNs).toBe(written);
     });
 });

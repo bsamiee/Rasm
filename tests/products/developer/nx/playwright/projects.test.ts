@@ -78,13 +78,14 @@ describe('projects test--playwright joins', { timeout: 60_000 }, () => {
         );
     });
 
-    it('runs test--playwright after the build targets of each project the suite depends on, and of none it does not', async ({ workspace }) => {
+    it('runs test--playwright after the Vite build of each project the suite depends on, and after no other build', async ({ workspace }) => {
         const graph = await workspace
             .write({
                 'package.json': '{"name":"repo","workspaces":["apps/*"]}',
-                'apps/e2e/package.json': '{"name":"e2e","nx":{"implicitDependencies":["extension"]}}',
+                'apps/e2e/package.json': '{"name":"e2e","nx":{"implicitDependencies":["extension","lib"]}}',
                 'apps/e2e/playwright.config.js': 'module.exports = {};\n',
-                'apps/extension/project.json': '{"name":"extension","targets":{"build--vite":{"executor":"nx:noop"}}}',
+                'apps/extension/project.json': '{"name":"extension","targets":{"build--vite":{"executor":"nx:noop"},"build--storybook":{"executor":"nx:noop"}}}',
+                'apps/lib/project.json': '{"name":"lib","targets":{"build--tsc":{"executor":"nx:noop"}}}',
                 'apps/site/project.json': '{"name":"site","targets":{"build--vite":{"executor":"nx:noop"}}}',
             })
             .graph({ createNodes });
