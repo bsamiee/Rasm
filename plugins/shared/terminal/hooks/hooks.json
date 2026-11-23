@@ -5,7 +5,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "[ -n \"$CLAUDE_ENV_FILE\" ] && { grep -qsF 'mise hook-env' \"$CLAUDE_ENV_FILE\" || printf '%s\\n' 'eval \"$(mise hook-env -s bash)\"' \"export TMPDIR=/private/tmp/claude-$(id -u)/\" >> \"$CLAUDE_ENV_FILE\"; }; true"
+                        "command": "[ -n \"$CLAUDE_ENV_FILE\" ] && command -v mise >/dev/null && { grep -qsF 'mise hook-env' \"$CLAUDE_ENV_FILE\" || printf '%s\\n' 'eval \"$(mise hook-env -s bash)\"' >> \"$CLAUDE_ENV_FILE\"; }; true"
                     }
                 ]
             },
