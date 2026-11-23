@@ -10,7 +10,7 @@ import {
     type CreateNodesContext,
     createNodesFromFiles,
     DependencyType,
-    getOutputsForTargetAndConfiguration,
+    detectPackageManager,
     hashArray,
     normalizePath,
     type ProjectConfiguration,
@@ -19,15 +19,18 @@ import {
     type TargetConfiguration,
     type TargetDependencyConfig,
 } from '@nx/devkit';
-import { combineGlobPatterns, getReadyCheckReadyWhen, hashWithWorkspaceContext, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, anchored, fingerprinted, manifested, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
+import { combineGlobPatterns, getLockFileName, getReadyCheckReadyWhen, hashWithWorkspaceContext, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { aggregated, anchored, fingerprinted, manifested, produced, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Context, Effect, Equal, FileSystem, Function, Layer, MutableRef, Option, Order, Predicate, Record, Result, Schema } from 'effect';
 import { Yaml } from 'effect/encoding';
+import which from 'which';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Composed = Effect.Success<ReturnType<typeof analyzed>>;
+type Driver = Option.Option.Value<Effect.Success<ReturnType<typeof driven>>>;
+type Held = { readonly digest: string } & ({ readonly project: Composed; readonly stamp: string } | { readonly drivers: readonly Driver[] });
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -173,18 +176,18 @@ const targets = (root: string, project: Composed, engines: readonly TargetDepend
     };
 };
 
-const inferred = Effect.fnUntraced(function* (
-    cache: PluginCache<{ readonly project: Composed; readonly stamp: string; readonly digest: string }>,
-    stored: MutableRef.MutableRef<boolean>,
-    context: CreateNodesContext,
-    rooted: (folder: string) => boolean,
-    engines: readonly TargetDependencyConfig[],
-    root: string,
-    matched: Array.NonEmptyReadonlyArray<string>,
-) {
+const inferred = Effect.fnUntraced(function* (cache: PluginCache<Held>, stored: MutableRef.MutableRef<boolean>, context: CreateNodesContext, rooted: (folder: string) => boolean, engines: readonly TargetDependencyConfig[], root: string, matched: Array.NonEmptyReadonlyArray<string>) {
     const stamped = ({ read }: Composed) => Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...read]));
     const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...matched])), yield* OWN]);
-    const held = yield* Effect.findFirst(Option.toArray(Option.filter(Option.fromUndefinedOr(cache.get(root)), (entry) => entry.digest === digest)), (entry) => Effect.map(stamped(entry.project), Equal.equals(entry.stamp)));
+    const held = yield* Effect.findFirst(
+        Option.toArray(
+            Option.filter(
+                Option.filter(Option.fromUndefinedOr(cache.get(root)), (entry) => entry.digest === digest),
+                (entry) => 'project' in entry,
+            ),
+        ),
+        (entry) => Effect.map(stamped(entry.project), Equal.equals(entry.stamp)),
+    );
     const missed = Effect.fnUntraced(function* () {
         const made = yield* analyzed(context.workspaceRoot, root, matched);
         cache.set(root, { project: made, stamp: yield* stamped(made), digest });
@@ -210,26 +213,38 @@ const inferred = Effect.fnUntraced(function* (
     return { projects: Record.fromEntries(projects) };
 });
 
-const engine = (files: readonly string[], workspaceRoot: string) =>
-    Effect.map(
-        Effect.forEach(
-            files.filter((file) => file === MISE && process.platform !== 'linux'),
-            (file) =>
-                Effect.map(Effect.all([Effect.option(spawned(['which', 'colima'], { cwd: workspaceRoot })), manifested(workspaceRoot, ROOT)]), ([found, stated]) => {
-                    const started = ['colima', 'start', '--activate=false', '--ssh-config=false', '--mount', 'none', '--port-forwarder', 'grpc', '--cpus', `${Math.floor(availableParallelism() / 2)}`, '--memory', '8'];
-                    const colima: TargetConfiguration = {
-                        command: started.map(quoteShellArg).join(' '),
-                        inputs: [{ externalDependencies: [] }],
-                        metadata: {
-                            description: 'Starts the Colima VM holding the container engine DOCKER_HOST names on half the cores of this machine, returning once the engine answers and leaving the VM up after the run, with colima start',
-                            help: { command: 'colima start --help', example: { args: ['--verbose'] } },
-                        },
-                    };
-                    return Option.as(found, [file, { projects: { [ROOT]: { root: ROOT, targets: aggregated({ install: { colima } }, stated, 'colima') } } }] as const);
-                }),
-        ),
-        Array.getSomes,
-    );
+const engine = (workspaceRoot: string, file: string, cleaned: boolean) =>
+    Effect.map(manifested(workspaceRoot, ROOT), (stated) => {
+        const started = ['colima', 'start', '--activate=false', '--ssh-config=false', '--mount', 'none', '--port-forwarder', 'grpc', '--cpus', `${Math.floor(availableParallelism() / 2)}`, '--memory', '8', '--disk', '20'];
+        const install: TargetConfiguration = {
+            command: `mkdir -p "\${COLIMA_HOME:-$HOME/.colima}" && ${started.map(quoteShellArg).join(' ')}`,
+            inputs: [{ externalDependencies: [] }],
+            metadata: {
+                description:
+                    'Starts the Colima VM holding the container engine DOCKER_HOST names on half the cores of this machine with a data disk capped at 20 GiB, in the COLIMA_HOME folder it creates first as Colima reads that variable only once the folder exists, returning once the engine answers and leaving the VM up after the run, with colima start',
+                help: { command: 'colima start --help', example: { args: ['--verbose'] } },
+            },
+        };
+        const clean: TargetConfiguration = {
+            executor: `${distribution.name}:clean`,
+            dependsOn: ['install--colima', ...(cleaned ? [{ projects: '*', target: 'clean--compose', params: 'forward' } satisfies TargetDependencyConfig] : [])],
+            options: {
+                commands: [
+                    ['docker', 'image', 'prune', '--force'],
+                    ['docker', 'builder', 'prune', '--force'],
+                    ['colima', 'ssh', '--', 'sudo', 'fstrim', '--all', '--verbose'],
+                ],
+            },
+            configurations: { cache: { commands: [['colima', 'delete', '--data', '--force']] } },
+            inputs: [{ externalDependencies: [] }],
+            metadata: {
+                description:
+                    'After every Compose project removed its images, removes dangling images and build cache with docker image prune and docker builder prune, then discards the freed blocks of the VM disks with fstrim so their files shrink on this machine, and under configuration cache deletes the VM with its data with colima delete --data',
+                help: { command: 'colima delete --help', example: { args: [] } },
+            },
+        };
+        return [file, { projects: { [ROOT]: { root: ROOT, targets: aggregated({ install: { colima: install }, clean: { colima: clean } }, stated, 'colima') } } }] as const;
+    });
 
 const driven = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
     const fs = yield* FileSystem.FileSystem;
@@ -247,16 +262,36 @@ const driven = Effect.fnUntraced(function* (workspaceRoot: string, file: string)
     );
 });
 
+const required = Effect.fnUntraced(function* (cache: PluginCache<Held>, stored: MutableRef.MutableRef<boolean>, workspaceRoot: string, manifests: readonly string[]) {
+    const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...manifests, getLockFileName(detectPackageManager(workspaceRoot))])), yield* OWN]);
+    const held = Option.filter(
+        Option.filter(Option.fromUndefinedOr(cache.get(MANIFEST)), (entry) => entry.digest === digest),
+        (entry) => 'drivers' in entry,
+    );
+    const drivers = yield* Option.match(held, {
+        onSome: (entry) => Effect.succeed(entry.drivers),
+        onNone: () =>
+            Effect.map(
+                Effect.forEach(manifests, (file) => driven(workspaceRoot, file), { concurrency: 'unbounded' }),
+                Array.getSomes,
+            ),
+    });
+    yield* Option.isNone(held)
+        ? Effect.sync(() => {
+              cache.set(MANIFEST, { digest, drivers });
+              MutableRef.set(stored, true);
+          })
+        : Effect.void;
+    return drivers;
+});
+
 const edges = (analyses: ReadonlyMap<string, Composed>, { projects, workspaceRoot }: CreateDependenciesContext) => {
     const built = Record.collect(projects, (name, { root }) => Array.fromNullishOr(analyses.get(join(workspaceRoot, root))).flatMap(({ file, contexts }) => contexts.map((at) => ({ name, file, at })))).flat();
-    const selections = Record.collect(Array.isReadonlyArrayNonEmpty(built) ? projects : {}, (name, data) =>
-        Record.collect(
-            Record.filter(data.targets ?? {}, (stated) => stated.outputs !== undefined),
-            (target, { configurations = {} }) => [{}, ...Record.keys(configurations).map((configuration) => ({ configuration }))].map((selected) => ({ name, data, target, selected })),
-        ).flat(),
-    ).flat();
-    const outputs = selections.flatMap(({ name, data, target, selected }) => getOutputsForTargetAndConfiguration({ project: name, target, ...selected }, {}, { name, type: 'lib', data }).map((output) => ({ name, output })));
-    return built.flatMap(({ name, file, at }) => outputs.filter(({ output }) => !output.startsWith('!') && (posix.matchesGlob(at, output) || posix.matchesGlob(at, `${output}/**`))).map((made): RawProjectGraphDependency => ({ source: name, target: made.name, type: DependencyType.static, sourceFile: file })));
+    const made: Readonly<Record<string, readonly string[]>> = Array.match(
+        built.map(({ at }) => at),
+        { onEmpty: () => ({}), onNonEmpty: (contexts) => produced(projects, contexts) },
+    );
+    return built.flatMap(({ name, file, at }) => (made[at] ?? []).map((target): RawProjectGraphDependency => ({ source: name, target, type: DependencyType.static, sourceFile: file })));
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -280,21 +315,25 @@ const createNodes: CreateNodes = [
                 (root, matched) => [Array.min(matched, Order.String), { root, matched }] as const,
             ),
         );
-        const cache = new PluginCache<{ readonly project: Composed; readonly stamp: string; readonly digest: string }>(join(workspaceDataDirectory, 'docker.hash'));
+        const cache = new PluginCache<Held>(join(workspaceDataDirectory, 'docker.hash'));
         const stored = MutableRef.make(false);
         return run(
             Effect.ensuring(
                 Effect.gen(function* () {
-                    const started = yield* engine(files, context.workspaceRoot);
-                    const engines = Array.match(started, { onEmpty: () => [], onNonEmpty: () => [ENGINE] as const });
+                    const hosting = yield* Effect.filter(
+                        files.filter((file) => file === MISE && process.platform !== 'linux'),
+                        () =>
+                            Effect.map(
+                                Effect.promise(() => which('colima', { nothrow: true })),
+                                Predicate.isNotNull,
+                            ),
+                    );
+                    const engines = Array.match(hosting, { onEmpty: () => [], onNonEmpty: () => [ENGINE] as const });
                     const read = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(folders.get(file)), ({ root, matched }) => inferred(cache, stored, context, rooted, engines, root, matched)));
-                    const [composed, drivers] = yield* Effect.all([
-                        Effect.promise(() => createNodesFromFiles(read, folders.keys().toArray(), options, context)),
-                        Effect.map(
-                            Effect.forEach(Array.isReadonlyArrayNonEmpty(engines) ? manifests : [], (file) => driven(context.workspaceRoot, file), { concurrency: 'unbounded' }),
-                            Array.getSomes,
-                        ),
-                    ]);
+                    const [composed, drivers] = yield* Effect.all([Effect.promise(() => createNodesFromFiles(read, folders.keys().toArray(), options, context)), Array.isReadonlyArrayNonEmpty(engines) ? required(cache, stored, context.workspaceRoot, manifests) : Effect.succeed(Array.empty<Driver>())]);
+                    const analyses = yield* Analyses;
+                    const cleaned = folders.values().some(({ root }) => analyses.get(join(context.workspaceRoot, root))?.built === true);
+                    const started = yield* Effect.forEach(hosting, (file) => engine(context.workspaceRoot, file, cleaned));
                     return [...composed, ...started, ...drivers];
                 }),
                 Effect.when(

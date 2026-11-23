@@ -233,3 +233,4 @@ Products deliver through the same targets in every ecosystem, development builds
 - App `hosting.config.ts` targets name Cloudflare or a machine with role `Apps`, and `nx install @rasm/infra` runs role `Apps` under `rasm.localhost`
 - Container engines run under systemd on machines and, on the owner's Mac, in a Colima VM `DOCKER_HOST` names
 - Tasks reading the engine depend on the root's `install--*` targets, and `install--colima` starts the Mac's VM and leaves it up
+- Colima keeps its VM in `.cache/colima`, `clean--colima` prunes images and trims its disk, and `nx clean -c cache` deletes it
