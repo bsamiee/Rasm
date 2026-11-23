@@ -1,12 +1,11 @@
 {
     "name": "@rasm/test-portfolio-webdriver",
     "private": true,
-    "description": "@rasm/portfolio suites in Firefox and Safari over WebDriver against its built Node bundle",
+    "description": "@rasm/portfolio suites in Firefox over WebDriver against its built Node bundle",
     "type": "module",
     "devDependencies": {
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
-        "@rasm/process": "workspace:*",
         "@rasm/test-portfolio": "workspace:*",
         "@types/node": "catalog:",
         "@types/selenium-webdriver": "catalog:",
@@ -17,8 +16,7 @@
     },
     "nx": {
         "tags": [
-            "host:browser",
-            "os:all"
+            "host:browser"
         ],
         "implicitDependencies": [
             "@rasm/portfolio"

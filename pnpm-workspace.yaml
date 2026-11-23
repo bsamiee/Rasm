@@ -610,7 +610,7 @@ catalog:
     axe-core: 4.14.1
     fast-check: 4.11.0
     playwright: 1.66.0-alpha-2026-11-22
-    selenium-webdriver: 4.53.0 # W3C WebDriver client that starts `safaridriver` and drives the installed Safari, which no Playwright or Vitest provider reaches
+    selenium-webdriver: 4.53.0 # W3C WebDriver client that drives a stable Firefox through `geckodriver`, which no Playwright or Vitest provider reaches
     storybook: 11.0.0-beta.3
     stripe: 23.3.0-alpha.1 # Stripe reference test header and event construction a webhook suite exchanges signatures with
     svix: 2.11.0 # Svix reference signer and verifier a webhook suite exchanges signatures with
