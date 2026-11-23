@@ -4,6 +4,7 @@
     "description": "Hosting suites: the server-rendered page streams before suspended content settles, with head tags of the built template, metadata in its head, request data, and a per-response script nonce",
     "type": "module",
     "devDependencies": {
+        "@effect/vitest": "catalog:",
         "@rasm/hosting": "workspace:*",
         "@types/node": "catalog:",
         "@types/react": "catalog:",

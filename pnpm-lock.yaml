@@ -2633,6 +2633,9 @@ importers:
 
   tests/libs/typescript/web/hosting:
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/web/hosting
