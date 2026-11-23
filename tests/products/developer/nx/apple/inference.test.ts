@@ -22,9 +22,10 @@ const PLIST = '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dic
 const VERSIONED = '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict><key>CFBundleShortVersionString</key><string>1.0.0</string></dict></plist>\n';
 const REFERENCE = '<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A10000000000000000000002" BuildableName="Viewer.app" BlueprintName="Viewer" ReferencedContainer="container:Viewer.xcodeproj"/>';
 const PACKAGES = {
-    'Package.swift': `${TOOLS}let package = Package(\n    name: "Fixture",\n    platforms: [.macOS(.v27)],\n    targets: [\n        .target(name: "Core", path: "libs/Core"),\n        .target(name: "Middle", dependencies: ["Core"], path: "libs/Middle"),\n        .executableTarget(name: "Tool", dependencies: ["Middle"], path: "apps/Tool"),\n        .testTarget(name: "CoreTests", dependencies: ["Core"], path: "libs/tests/CoreTests"),\n    ]\n)\n`,
+    'Package.swift': `${TOOLS}let package = Package(\n    name: "Fixture",\n    platforms: [.macOS(.v27)],\n    targets: [\n        .target(name: "Core", path: "libs/Core"),\n        .target(name: "Middle", dependencies: ["Core"], path: "libs/Middle"),\n        .target(name: "Loose", path: "libs/Loose"),\n        .executableTarget(name: "Tool", dependencies: ["Middle"], path: "apps/Tool"),\n        .testTarget(name: "CoreTests", dependencies: ["Core"], path: "libs/tests/CoreTests"),\n    ]\n)\n`,
     'libs/Core/Core.swift': 'public func one() -> Int { 1 }\n',
     'libs/Middle/Middle.swift': 'import Core\n\npublic func two() -> Int { one() + 1 }\n',
+    'libs/Loose/Loose.swift': 'public let loose = 0\n',
     'apps/Tool/main.swift': 'import Middle\n\nprint(two())\n',
     'libs/tests/CoreTests/CoreTests.swift': 'import Core\nimport Testing\n\n@Test func oneIsOne() { #expect(one() == 1) }\n',
     'packages/kit/Package.swift': `${TOOLS}let package = Package(name: "KitPackage", products: [.executable(name: "Kit", targets: ["Kit"])], targets: [.executableTarget(name: "Kit")])\n`,
@@ -102,13 +103,14 @@ describe('SwiftPM packages as swift package describe reports them', { timeout: 2
         expect({ inferred: 'Remote' in graph.nodes, fetched }).toStrictEqual({ inferred: true, fetched: [] });
     });
 
-    it('infers one project per package and per module a product holds, at the module folder', ({ fixture: { graph } }) => {
+    it('infers one project per package and per module other than a test, held by a product or not, at the module folder', ({ fixture: { graph } }) => {
         expect(Record.collect(graph.nodes, (name, { data: { root } }) => `${name}@${root}`).toSorted()).toStrictEqual([
             'Consumer@packages/consumer',
             'Core@libs/Core',
             'Fixture@.',
             'Kit@packages/kit/Sources/Kit',
             'KitPackage@packages/kit',
+            'Loose@libs/Loose',
             'Middle@libs/Middle',
             'Probe@apps/Viewer/Probe',
             'Quoted@x; touch pwned/Sources/Quoted',
