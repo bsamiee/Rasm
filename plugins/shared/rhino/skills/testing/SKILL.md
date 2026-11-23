@@ -204,7 +204,8 @@ Template project holds every setting below:
 - Rhino.Inside resolves from `System`, `System\netcore`, and `Plug-ins\Grasshopper` alone, and Grasshopper 2 sits in `Plug-ins\Grasshopper2\net8.0`
 - `Main` resolves the rest from each .NET folder under `Plug-ins` (`net*.*`, never `net48`), as xUnit discovery loads exported types before boot
 - `Main` starts the test framework on a worker, and on the boot request constructs `RhinoCore` on the main thread (`NoWindow` by default, `Hidden` for mode `Interface`)
-- Main threads then pump Rhino with `RhinoCore.DoEvents()` until tests finish and end with `TerminateProcess`, as native teardown calls into a stopped runtime
+- Main threads then pump Rhino with `RhinoCore.DoEvents()` and Eto with `Application.Instance.RunIteration()` until tests finish, and end with `TerminateProcess`, as native teardown calls into a stopped runtime
+- `DoEvents` dispatches messages only while a Rhino window is active, none under `NoWindow`, so Eto `InvokeAsync` and `SwitchToMainThreadAsync` wait forever without `RunIteration`
 - Tests run on the system .NET host, its folder read from `InstallLocation` under `HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\<arch>` (32-bit view) for the OS architecture
 - Windows Server licenses Rhino through `RHINO_TOKEN` alone, and Windows desktops through the signed-in account
 

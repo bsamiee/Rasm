@@ -44,8 +44,10 @@ public static partial class RhinoProcess {
             return;
         }
         booted.SetResult();
-        while (!((IAsyncResult)tests).AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(10)))
+        while (!((IAsyncResult)tests).AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(10))) {
             core.DoEvents();
+            Eto.Forms.Application.Instance.RunIteration();
+        }
     }
 
     private static partial Task RequestedAsync() {

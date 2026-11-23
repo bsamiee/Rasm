@@ -32,8 +32,10 @@ public static partial class RhinoProcess {
         Started.Value.Iter(booted => Try.lift(Cored).Run().Match(
             Succ: core => {
                 booted.SetResult();
-                while (!((IAsyncResult)tests).AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(10)))
+                while (!((IAsyncResult)tests).AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(10))) {
                     core.DoEvents();
+                    Eto.Forms.Application.Instance.RunIteration();
+                }
             },
             Fail: error => booted.SetException(error.ToException())));
         ((IAsyncResult)tests).AsyncWaitHandle.WaitOne();
