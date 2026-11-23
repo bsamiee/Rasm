@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { Function } from 'effect';
 import { frozen, held, it, STUB, settled, sought } from '#/fixtures';
 
@@ -6,6 +6,10 @@ import { frozen, held, it, STUB, settled, sought } from '#/fixtures';
 
 const REFUSED = { 'permissions-policy': 'web-share=()' } as const;
 const RATE = 20;
+const TONES = [
+    { scheme: 'light', background: '#062e6f', color: '#f2f2f2', hovered: '#244780', pressed: '#486594', ring: '#a8c7fa' },
+    { scheme: 'dark', background: '#ecf3fe', color: '#1f1f1f', hovered: '#d2d8e1', pressed: '#b2b8bf', ring: '#0b57d0' },
+] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -16,6 +20,34 @@ const painted = (element: Element) =>
         context?.fillRect(0, 0, 1, 1);
         return `#${new Uint8Array(context?.getImageData(0, 0, 1, 1).data.buffer ?? new ArrayBuffer(3), 0, 3).toHex()}`;
     });
+
+const circled = (button: Locator) =>
+    button.evaluate((element) => {
+        const [target, circle] = [element.getBoundingClientRect(), getComputedStyle(element, '::before')];
+        return { start: Math.round(target.right - Number.parseFloat(circle.insetInlineEnd) - Number.parseFloat(circle.inlineSize)), row: Math.floor(target.top + target.height / 2) };
+    });
+
+const moving = (element: Element) => element.getAnimations({ subtree: true }).length;
+
+const themed = () => {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(document.body.textContent);
+    return ['--color-toast-background-prominent', '--color-toast-foreground'].map((token) => [...sheet.cssRules].flatMap((rule) => (rule instanceof CSSStyleRule ? [rule.style.getPropertyValue(token)] : [])).find((tone) => tone !== ''));
+};
+
+const decoded = (png: string) =>
+    createImageBitmap(new Blob([Uint8Array.fromBase64(png)], { type: 'image/png' })).then((bitmap) => {
+        const context = new OffscreenCanvas(1, 1).getContext('2d');
+        context?.drawImage(bitmap, 0, 0);
+        return `#${new Uint8Array(context?.getImageData(0, 0, 1, 1).data.buffer ?? new ArrayBuffer(3), 0, 3).toHex()}`;
+    });
+
+const sampled = (page: Page, x: number, y: number) => page.screenshot({ clip: { x, y, width: 1, height: 1 } }).then((shot) => page.evaluate(decoded, shot.toString('base64')));
+
+const near = (drawn: string, tone: string, layers: number) => {
+    const [screen, source] = [drawn, tone].map((hex) => Uint8Array.fromHex(hex.slice(1)));
+    expect(Math.max(...Array.from(screen ?? [], (level, channel) => Math.abs(level - (source?.[channel] ?? Number.NaN)))), `screen draws ${drawn}, within one level per translucent layer (${layers}) of ${tone} in each channel`).toBeLessThanOrEqual(layers);
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -42,13 +74,8 @@ const painted = (element: Element) =>
     }),
 );
 
-(
-    [
-        { setting: 16, size: 13, leading: 24 },
-        { setting: 20, size: 16.25, leading: 30 },
-    ] as const
-).forEach(({ setting, size, leading }) =>
-    it(`sets its type ${size}px/${leading}px at a Chrome font size setting of ${setting}px on a page whose CSS sets every font size to 5px`, async ({ page, context, open, extension, toast }) => {
+[20, 40].forEach((setting) =>
+    it(`keeps Chrome's 13px type on a 24px line at a Chrome font size setting of ${setting}px on a page whose CSS sets every font size to 5px`, async ({ page, context, open, extension, toast }) => {
         await open(`/type-${setting}`, '<style>:root, * { font-size: 5px !important }</style><p>Type</p>', REFUSED);
         const session = await context.newCDPSession(page);
         await session.send('Page.setFontSizes', { fontSizes: { standard: setting } });
@@ -56,11 +83,37 @@ const painted = (element: Element) =>
         await extension.act(page);
 
         await expect(toast).toBeVisible();
-        const type = await toast.evaluate((element) => ({ size: Number.parseFloat(getComputedStyle(element).fontSize), leading: Number.parseFloat(getComputedStyle(element).lineHeight) }));
-        expect(type.size).toBeCloseTo(size, 2);
-        expect(type.leading).toBeCloseTo(leading, 2);
+        expect(await toast.evaluate((element) => [getComputedStyle(element).fontSize, getComputedStyle(element).lineHeight])).toEqual(['13px', '24px']);
     }),
 );
+
+[18, 24].forEach((minimum) =>
+    it(`raises its type to ${minimum}px on the same 24px line inside the 48px pill at a Chrome minimum font size of ${minimum}px`, async ({ page, open, extension, toast, setting }) => {
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await setting('webkit.webprefs.minimum_font_size', minimum);
+        await open(`/minimum-${minimum}`, '<p>Minimum</p>', REFUSED);
+
+        await extension.act(page);
+
+        await expect(toast).toBeVisible();
+        expect(await toast.evaluate((element) => [getComputedStyle(element).fontSize, getComputedStyle(element).lineHeight, element.getBoundingClientRect().height])).toEqual([`${minimum}px`, '24px', 48]);
+    }),
+);
+
+it('keeps its 48px pill when page zoom changes from 100% to 200% while it shows', async ({ page, open, extension, toast }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open('/rezoomed', '<p>Rezoomed</p>', REFUSED);
+    const [tab] = await extension.worker.evaluate(() => browser.tabs.query({ active: true, lastFocusedWindow: true }));
+    await extension.worker.evaluate((id) => browser.tabs.setZoomSettings(id, { scope: 'per-tab' }), tab?.id ?? -1);
+    await extension.act(page);
+    await expect(toast).toBeVisible();
+    await frozen(toast);
+
+    await extension.worker.evaluate((id) => browser.tabs.setZoom(id, 2), tab?.id ?? -1);
+
+    await expect.poll(() => page.evaluate('devicePixelRatio')).toBe(2);
+    await expect.poll(() => toast.evaluate((element) => Math.round(element.getBoundingClientRect().height * devicePixelRatio))).toBe(48);
+});
 
 it("keeps Chrome's 4px from each side of a 120px viewport too narrow for the pill, with the whole share button inside it", async ({ page, open, armed, extension, toast, button }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -78,7 +131,7 @@ it("keeps Chrome's 4px from each side of a 120px viewport too narrow for the pil
     expect(drawn).toEqual({ start: 4, end: 4, cut: 0 });
 });
 
-it("draws the share button as Chrome's 28px circle, 4px after the toast text and 10px from the pill's end", async ({ page, open, armed, extension, toast, button }) => {
+it("draws the share button as the 28px circle of Chrome's toast menu button, 12px after the toast text and 10px from the pill's end, in a 50px by 48px target", async ({ page, open, armed, extension, toast, button }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await open('/button', '<p>Button</p>');
     await armed(STUB.offered);
@@ -90,18 +143,13 @@ it("draws the share button as Chrome's 28px circle, 4px after the toast text and
         const [pill, text, action] = [element.getBoundingClientRect(), element.querySelector('span')?.getBoundingClientRect(), element.querySelector('button')];
         const circle = action === null ? undefined : getComputedStyle(action, '::before');
         const [side, inset] = [Number.parseFloat(circle?.inlineSize ?? 'NaN'), Number.parseFloat(circle?.insetInlineEnd ?? 'NaN')];
-        const end = pill.right - (action?.getBoundingClientRect().right ?? Number.NaN) + inset;
-        return { side: [circle?.inlineSize, circle?.blockSize], end, gap: pill.right - end - side - (text?.right ?? Number.NaN) };
+        const [end, target] = [pill.right - (action?.getBoundingClientRect().right ?? Number.NaN) + inset, action?.getBoundingClientRect()];
+        return { side: [circle?.inlineSize, circle?.blockSize], end, gap: pill.right - end - side - (text?.right ?? Number.NaN), target: [target?.width, target?.height] };
     });
-    expect(drawn).toEqual({ side: ['28px', '28px'], end: 10, gap: 4 });
+    expect(drawn).toEqual({ side: ['28px', '28px'], end: 10, gap: 12, target: [50, 48] });
 });
 
-(
-    [
-        { scheme: 'light', background: '#062e6f', color: '#f2f2f2' },
-        { scheme: 'dark', background: '#ecf3fe', color: '#1f1f1f' },
-    ] as const
-).forEach(({ scheme, background, color }) =>
+TONES.forEach(({ scheme, background, color, hovered, pressed, ring }) => {
     it(`paints the ${background} fill of Chrome's toast at its default theme under text ${color} in the ${scheme} colour scheme`, async ({ page, open, extension, toast }) => {
         await page.emulateMedia({ colorScheme: scheme });
         await open(`/${scheme}`, '<p>Scheme</p>');
@@ -111,8 +159,98 @@ it("draws the share button as Chrome's 28px circle, 4px after the toast text and
         await expect(toast).toBeVisible();
         await settled(toast);
         expect(await toast.evaluate(painted)).toEqual([background, color]);
-    }),
-);
+    });
+
+    it(`lays ${color} at 12.8% over the share button's circle under a hovering pointer, ${hovered} on screen, fading over 250ms in the ${scheme} colour scheme`, async ({ page, context, open, armed, extension, toast, button }) => {
+        await page.emulateMedia({ colorScheme: scheme });
+        await open(`/hovered-${scheme}`, '<p>Hovered</p>');
+        await armed(STUB.offered);
+        const session = await context.newCDPSession(page);
+        const faded: string[] = [];
+        session.on('Animation.animationStarted', ({ animation: { type, name, source } }) => {
+            faded.push(...(type === 'CSSTransition' && name === 'background-color' ? [`${source?.duration} ${source?.easing}`] : []));
+        });
+        await session.send('Animation.enable');
+        await extension.act(page);
+        await expect(button).toBeVisible();
+        await settled(toast);
+        const { start, row } = await circled(button);
+
+        await button.hover();
+
+        await expect.poll(() => faded.length).toBe(1);
+        await expect.poll(() => button.evaluate(moving)).toBe(0);
+        near(await sampled(page, start + 2, row), hovered, 1);
+        expect(faded).toEqual(['250 ease-in-out']);
+    });
+
+    it(`adds ${color} at 17.5% over the hover layer of the share button's circle while pressed, ${pressed} on screen in the ${scheme} colour scheme`, async ({ page, open, armed, extension, toast, button }) => {
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
+        await open(`/pressed-${scheme}`, '<p>Pressed</p>');
+        await armed(STUB.offered);
+        await extension.act(page);
+        await expect(button).toBeVisible();
+        await settled(toast);
+        const { start, row } = await circled(button);
+        await button.hover();
+
+        await page.mouse.down();
+
+        near(await sampled(page, start + 2, row), pressed, 2);
+        await page.mouse.move(0, 400);
+        await page.mouse.up();
+    });
+
+    it(`draws a 2px ${ring} ring around the unfilled circle of the share button under keyboard focus in the ${scheme} colour scheme`, async ({ page, open, armed, extension, toast, button }) => {
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
+        await open(`/ringed-${scheme}`, '<input aria-label="Draft">');
+        await armed(STUB.offered);
+        await extension.act(page);
+        await expect(button).toBeVisible();
+        await settled(toast);
+        const { start, row } = await circled(button);
+        await page.getByRole('textbox', { name: 'Draft' }).focus();
+
+        await page.keyboard.press('Tab');
+
+        await expect(button).toBeFocused();
+        expect([await sampled(page, start - 3, row), await sampled(page, start - 2, row), await sampled(page, start - 1, row), await sampled(page, start + 2, row)]).toEqual([background, ring, ring, background]);
+    });
+});
+
+it("paints the dark fill #ecf3fe under text #1f1f1f of Chrome's toast in an Incognito window under a light colour scheme", async ({ context, built, extension }) => {
+    const devtools = await context.browser()?.newBrowserCDPSession();
+    const [reloaded, opened] = [context.waitForEvent('serviceworker'), context.waitForEvent('page')];
+    await devtools?.send('Extensions.loadUnpacked', { path: built.folder, enableInIncognito: true });
+    const worker = await reloaded;
+    await context.route('https://page.test/private', (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Private</title><p>Private</p>' }));
+    await worker.evaluate(() => browser.windows.create({ incognito: true, url: 'about:blank' }));
+    const page = await opened;
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('https://page.test/private');
+
+    await extension.act(page);
+
+    await expect(page.getByRole('status')).toBeVisible();
+    await settled(page.getByRole('status'));
+    expect(await page.getByRole('status').evaluate(painted)).toEqual(['#ecf3fe', '#1f1f1f']);
+});
+
+it("paints the toast background and foreground of chrome://theme in the browser's own colour scheme", async ({ page, context, open, extension, toast }) => {
+    await page.emulateMedia({ colorScheme: null, contrast: 'no-preference' });
+    const theme = await context.newPage();
+    await theme.goto('chrome://theme/colors.css?sets=ui');
+    const tokens = await theme.evaluate(themed);
+    await theme.close();
+    await open('/themed', '<p>Themed</p>');
+
+    await extension.act(page);
+
+    await expect(toast).toBeVisible();
+    await settled(toast);
+    const drawn = await toast.evaluate(painted);
+    expect(drawn.map((tone) => `${tone}ff`)).toEqual(tokens);
+});
 
 it('paints the CanvasText system colour under Canvas text under prefers-contrast more', async ({ page, open, extension, toast }) => {
     await page.emulateMedia({ contrast: 'more' });
@@ -133,6 +271,18 @@ it('draws a solid border under forced colours and none without them', async ({ p
     await page.emulateMedia({ forcedColors: 'active' });
 
     await expect(toast).toHaveCSS('border-block-start-style', 'solid');
+});
+
+it('draws its link icon in CanvasText and its share glyph in ButtonText under forced colours', async ({ page, open, armed, extension, toast, button }) => {
+    await open('/icons', '<p style="color: CanvasText">Link</p><p style="color: ButtonText">Share</p>');
+    await armed(STUB.offered);
+    await page.emulateMedia({ forcedColors: 'active' });
+    const system = await page.locator('p').evaluateAll((marks) => marks.map((mark) => getComputedStyle(mark).color));
+
+    await extension.act(page);
+
+    await expect(button).toBeVisible();
+    expect([await toast.evaluate((element) => getComputedStyle(element, '::before').backgroundColor), await button.evaluate((element) => getComputedStyle(element, '::after').backgroundColor)]).toEqual(system);
 });
 
 it("enters over 300ms and leaves over 150ms on Chrome's toast curves", async ({ page, context, open, extension }) => {

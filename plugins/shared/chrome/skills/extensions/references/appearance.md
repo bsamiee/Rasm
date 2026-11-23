@@ -173,16 +173,21 @@ Chrome's toast, shown for "Link copied" and each confirmation of its own, holds 
 |  [03]   | Icon        | 20px, 6px before its text                                                                       |
 |  [04]   | Type        | 13px on a 24px line at weight 400, one line                                                     |
 |  [05]   | Fill        | Inverse surface primary under inverse on surface text                                           |
-|  [06]   | Icon button | 28px circle around a 20px icon, 4px after text, 10px before its end                             |
-|  [07]   | Text button | 36px tall in inverse primary, 16px after text, 6px before its end                               |
-|  [08]   | Lifetime    | 4s, 8s with a text button or menu                                                               |
-|  [09]   | Placement   | Top center, straddling content's top edge, 6px below it in fullscreen                           |
-|  [10]   | Shadow      | `0 2px` shadows at 20% and at 10% of shadow base on Windows and Linux, window shadow on macOS   |
-|  [11]   | Entry       | 50px slide down and 50% vertical scale on emphasized entry                                      |
-|  [12]   | Exit        | Same path back on emphasized exit                                                               |
-|  [13]   | Fades       | Container over 50ms then content over 150ms on entry, content 100ms then container 50ms on exit |
+|  [06]   | Icon button | 28px circle around a 20px icon, 10px before its end, 4px after text as close and 12px as menu   |
+|  [07]   | Icon states | Text color at 12.8% on hover over 250ms, 17.5% more while pressed, 2px focus ring with no fill  |
+|  [08]   | Text button | 36px tall in inverse primary, 16px after text, 6px before its end                               |
+|  [09]   | Lifetime    | 4s, 8s with a text button or menu                                                               |
+|  [10]   | Placement   | Top center, straddling content's top edge, 6px below it in fullscreen                           |
+|  [11]   | Shadow      | `0 2px` shadows at 20% and at 10% of shadow base on Windows and Linux, window shadow on macOS   |
+|  [12]   | Entry       | 50px slide down and 50% vertical scale on emphasized entry                                      |
+|  [13]   | Exit        | Same path back on emphasized exit                                                               |
+|  [14]   | Fades       | Container over 50ms then content over 150ms on entry, content 100ms then container 50ms on exit |
 
-Toasts render no motion under reduced motion and announce as an alert.
+Toasts render no motion under reduced motion and announce as an alert, where an injected toast announces through `ariaNotify` and takes no `alert` role.
+
+Toast type follows the OS UI font size on Windows and Linux, where macOS holds 13px.
+
+Incognito windows draw toasts in their dark values under either color scheme, and `browser.extension.inIncognitoContext` tells injected UI its tab is one.
 
 Toasts inside Chrome's own pages differ: bottom start, 8px corners, at least 52px tall and 288px wide, 300ms slide, and inverse surface fill under inverse on surface text and inverse primary buttons.
 

@@ -58,7 +58,8 @@ const toast = ({ css, text, lang, dir, zoom, share }: { readonly css: string; re
     }
     output.replaceChildren(label, ...(offer === undefined ? [] : [button]));
     Object.assign(output, { popover: 'manual', ariaLive: 'off', lang, dir, ontoggle: removed });
-    output.style.zoom = `${1 / zoom}`;
+    output.toggleAttribute('data-incognito', browser.extension.inIncognitoContext);
+    output.style.setProperty('--tab-zoom', `${zoom}`);
     dismissing(null);
     output
         .getAnimations()
@@ -70,6 +71,8 @@ const toast = ({ css, text, lang, dir, zoom, share }: { readonly css: string; re
     output.ariaNotify(text);
     return output.matches(':popover-open');
 };
+
+toast.zoomed = (zoom: number) => document.querySelector('mezrab-toast')?.shadowRoot?.querySelector('output')?.style.setProperty('--tab-zoom', `${zoom}`);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

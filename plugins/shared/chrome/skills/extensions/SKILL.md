@@ -297,10 +297,10 @@ Injected UI shares a document with a page's styles and scripts:
 - One host element named `<name>-<role>` under `document.documentElement` holds an open shadow root and one adopted `CSSStyleSheet`
 - `:host { all: initial !important }` keeps page rules off its host, and the root element inside declares `color-scheme` again
 - `popover="manual"` draws injected UI in the top layer, above page stacking, transforms, and `overflow`
-- Sizes take `em` from the initial font size, as `rem` reads a page's root
+- Sizes take `px`, as Chrome draws its own UI at fixed sizes and `rem` reads a page's root
 - `@property` rules register nothing inside a shadow root
 - `pointer-events: none` on UI with no control passes clicks to its page, and a control inside sets `auto`
-- `style.zoom = 1 / zoom` from `browser.tabs.getZoom(tabId)` holds a fixed size under page zoom, as Chrome's own UI ignores page zoom
+- `zoom: calc(1 / var(--<name>))` holds a fixed size under page zoom, its property set from `tabs.getZoom(tabId)` at injection and by `tabs.onZoomChange` after
 - `element.ariaNotify(text)` announces a change, where a live region inserted with its text announces unreliably
 - Open shadow roots are readable by a page's own scripts, and secrets and typed input go in an extension page
 - SVG and XML documents refuse injected HTML elements

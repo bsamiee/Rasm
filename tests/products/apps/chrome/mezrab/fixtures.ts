@@ -51,6 +51,7 @@ const it = loaded.extend<{
     readonly armed: (stub: string) => Promise<void>;
     readonly shares: () => Promise<unknown>;
     readonly settle: (outcome: string) => Promise<unknown>;
+    readonly setting: (key: string, value: number) => Promise<unknown>;
 }>({
     open: ({ context, page }, use) =>
         use((path, body, headers = {}) => {
@@ -80,6 +81,16 @@ const it = loaded.extend<{
                 .toBe(1)
                 .then(() => extension.evaluate(page, outcome)),
         ),
+    setting: ({ context, page }, use) => {
+        const before = new Map<string, unknown>();
+        const settings = context.newPage().then((tab) => tab.goto('chrome://settings').then(() => tab));
+        const write = (key: string, value: unknown) => settings.then((tab) => tab.evaluate(`new Promise((resolve) => chrome.settingsPrivate.getPref(${JSON.stringify(key)}, (earlier) => chrome.settingsPrivate.setPref(${JSON.stringify(key)}, ${JSON.stringify(value)}, '', () => resolve(earlier.value))))`));
+        return use((key, value) =>
+            write(key, value)
+                .then((earlier) => before.getOrInsert(key, earlier))
+                .then(() => page.bringToFront()),
+        ).then(() => Effect.runPromise(Effect.forEach(before, ([key, earlier]) => Effect.promise(() => write(key, earlier)), { discard: true })));
+    },
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

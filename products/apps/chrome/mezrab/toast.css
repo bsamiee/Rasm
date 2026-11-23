@@ -6,6 +6,9 @@
     --shade: light-dark(oklch(36.88% 0.0074 240.02deg), oklch(0% 0 0deg));
     --shadow-key: oklch(from var(--shade) l c h / 0.2);
     --shadow-ambient: oklch(from var(--shade) l c h / 0.1);
+    --fill: light-dark(oklch(32.06% 0.121 260.2deg), oklch(96.21% 0.017 259.4deg));
+    --ink: light-dark(oklch(96.12% 0 0deg), oklch(23.93% 0 0deg));
+    --ring: light-dark(oklch(82.48% 0.08 260.3deg), oklch(49.49% 0.199 260.6deg));
 
     inset-block: 6px auto;
     box-sizing: border-box;
@@ -13,13 +16,14 @@
     block-size: 48px;
     padding-inline: 14px 16px;
     overflow: hidden;
-    font: 400 0.8125em / calc(24 / 13) system-ui;
+    font: 400 13px / 24px system-ui;
     color: transparent;
     white-space: nowrap;
     pointer-events: none;
+    zoom: calc(1 / var(--tab-zoom, 1));
     user-select: none;
     color-scheme: light dark;
-    background: if(media(prefers-contrast: more): canvastext; else: light-dark(oklch(32.06% 0.121 260.2deg), oklch(96.21% 0.017 259.4deg)));
+    background: if(media(prefers-contrast: more): canvastext; else: var(--fill));
     border: 0;
     border-radius: 48px;
     box-shadow:
@@ -35,6 +39,10 @@
         opacity 50ms linear 100ms,
         display 150ms allow-discrete,
         overlay 150ms allow-discrete;
+
+    &[data-incognito] {
+        color-scheme: dark;
+    }
 
     &::before {
         flex: none;
@@ -59,7 +67,7 @@
         all: unset;
         position: relative;
         flex: none;
-        inline-size: 42px;
+        inline-size: 50px;
         block-size: 48px;
         pointer-events: auto;
         cursor: default;
@@ -76,7 +84,7 @@
 
         &::before {
             border-radius: 14px;
-            transition: background-color 50ms linear;
+            transition: background-color 250ms ease-in-out;
         }
 
         &::after {
@@ -85,18 +93,16 @@
         }
 
         &:focus-visible::before {
-            outline: 2px solid currentcolor;
-            outline-offset: -1px;
-            background: color-mix(in srgb, currentcolor 10%, transparent);
+            outline: 2px solid var(--ring);
         }
 
         &:active::before {
-            background: color-mix(in srgb, currentcolor 10%, transparent);
+            background-image: linear-gradient(color-mix(in oklab, currentcolor 17.5%, transparent) 0 0);
         }
 
         @media (hover: hover) {
             &:hover::before {
-                background: color-mix(in srgb, currentcolor 8%, transparent);
+                background-color: color-mix(in oklab, currentcolor 12.8%, transparent);
             }
         }
     }
@@ -104,7 +110,7 @@
     &:popover-open {
         display: flex;
         align-items: center;
-        color: if(media(prefers-contrast: more): canvas; else: light-dark(oklch(96.12% 0 0deg), oklch(23.93% 0 0deg)));
+        color: if(media(prefers-contrast: more): canvas; else: var(--ink));
         opacity: 1;
         scale: none;
         translate: none;
@@ -150,14 +156,24 @@
     @media (forced-colors: active) {
         border: 1px solid CanvasText;
 
-        button:focus-visible::before {
-            outline: 2px solid ButtonText;
+        &::before {
+            forced-color-adjust: none;
+            background: CanvasText;
         }
-    }
 
-    @media (forced-colors: active) and (hover: hover) {
-        button:hover::before {
-            outline: 2px solid ButtonText;
+        button::after {
+            forced-color-adjust: none;
+            background: ButtonText;
+        }
+
+        button:focus-visible::before {
+            outline-color: ButtonText;
+        }
+
+        @media (hover: hover) {
+            button:hover::before {
+                outline: 2px solid ButtonText;
+            }
         }
     }
 }

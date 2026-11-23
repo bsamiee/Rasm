@@ -8,7 +8,6 @@ import stylesheet from '#/toast.css?inline';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MARKED = Duration.seconds(4);
 const BADGES = { unreadable: '✕', uncopied: '✕', unconfirmed: '✓' } as const satisfies Partial<Record<keyof typeof messages, string>>;
 const GLYPHS: Partial<Record<chrome.runtime.PlatformInfo['os'], string>> = { [browser.runtime.PlatformOs.MAC]: iosShare, [browser.runtime.PlatformOs.WIN]: shareWindows };
 
@@ -18,7 +17,7 @@ class CopyError extends Schema.TaggedError<CopyError, { readonly brand: unique s
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const marked = ({ reason, tabId }: CopyError) => Effect.promise(() => Promise.all([browser.action.setBadgeText({ tabId, text: BADGES[reason] }), browser.action.setTitle({ tabId, title: browser.i18n.getMessage(reason) }), browser.alarms.create(`${tabId}`, { delayInMinutes: Duration.toMinutes(MARKED) })]));
+const marked = ({ reason, tabId }: CopyError) => Effect.promise(() => Promise.all([browser.action.setBadgeText({ tabId, text: BADGES[reason] }), browser.action.setTitle({ tabId, title: browser.i18n.getMessage(reason) }), browser.alarms.create(`${tabId}`, { delayInMinutes: Duration.toMinutes(Duration.seconds(4)) })]));
 
 const confirmed = (injected: readonly { readonly result?: unknown }[]) => injected.every(({ result }) => result === true);
 
@@ -30,6 +29,10 @@ browser.alarms.onAlarm.addListener(({ name }) => {
         const title = yield* Effect.promise(() => browser.action.getTitle({}));
         yield* Effect.tryPromise({ try: () => Promise.all([browser.action.setBadgeText({ tabId, text: '' }), browser.action.setTitle({ tabId, title })]), catch: (cause) => new Cause.UnknownError(cause, `Tab ${tabId} closed before its badge cleared`) });
     }).pipe(Effect.ignore, Effect.runFork);
+});
+
+browser.tabs.onZoomChange.addListener(({ tabId, newZoomFactor }) => {
+    Effect.tryPromise({ try: () => browser.scripting.executeScript({ target: { tabId }, func: toast.zoomed, args: [newZoomFactor], injectImmediately: true }), catch: (cause) => new Cause.UnknownError(cause, `Tab ${tabId} grants no script access, so it shows no toast to rescale`) }).pipe(Effect.ignore, Effect.runFork);
 });
 
 browser.action.onClicked.addListener(({ id: tabId = browser.tabs.TAB_ID_NONE, url }) => {

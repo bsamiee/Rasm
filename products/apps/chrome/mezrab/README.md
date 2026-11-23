@@ -13,17 +13,22 @@ Mezrab's toolbar button and keyboard shortcut run one action:
 - Copied links keep their query, fragment, and non-ASCII characters as the URL standard serializes them
 - Each first action after Chrome stops Mezrab's service worker copies the tab's link
 - Toasts draw Chrome's centered 48px pill, with text 40px from the pill's start and 16px from its end, at any page zoom
+- Toasts keep that size when page zoom changes while they show
 - Toasts keep Chrome's 4px from each side of a viewport too narrow for their pill, with the whole Share link button inside
-- Toasts set their type from Chrome's font size setting, 13px/24px at its default 16px, whatever font size the page sets
+- Toasts set Chrome's 13px type on a 24px line, whatever font size Chrome's setting or the page sets
+- Chrome's minimum font size setting raises that type to its own size on the same 24px line, inside the 48px pill
 - Toasts paint the fill of Chrome's toast at its default theme: `#062E6F` under `#F2F2F2` text in a light scheme, `#ECF3FE` under `#1F1F1F` text in a dark one
+- Toasts in an Incognito window paint that dark pair in a light scheme too, as Chrome's toasts do there
 - Toasts paint a `CanvasText` background under `Canvas` text when `prefers-contrast: more` matches
 - Toasts draw a solid border under forced colors and none without them
+- Toasts draw their link icon in `CanvasText` and their Share link glyph in `ButtonText` under forced colors
 - Toasts enter over 300ms and leave over 150ms on Chrome's toast curves
 - Toasts run no transition under `prefers-reduced-motion` and leave the page when their hold ends
 - Toasts announce Link copied to screen readers on each action
 - Toasts stay visible in their own case under page CSS that unsets every element and hides and uppercases the root element
 - Toasts pass clicks on their pill to the page beneath
 - Toasts show on a page that painted and still parses behind a script yet to load
+- Toasts show whatever Chrome's Copied to clipboard confirmations setting holds, as no extension API reads it
 - Toasts hold for 4s, or for 8s with a Share link button as Chrome's action toasts do, then leave the page
 - Actions that find a toast showing keep one toast and restart its hold
 - Holds pause while a hovering pointer or keyboard focus rests on the Share link button, and run again after it leaves
@@ -31,7 +36,11 @@ Mezrab's toolbar button and keyboard shortcut run one action:
 - Toasts stay open with their hold paused while a share they started is pending, and close once the share settles
 - Toasts on `http:` and `https:` pages end in a Share link button when `navigator.canShare` accepts the tab's URL and title
 - Toasts show no Share link button where `navigator.share` or `navigator.canShare` is missing, as on Linux
-- Share link buttons draw Chrome's 28px circle, 4px after the toast text and 10px from the pill's end
+- Share link buttons draw the 28px circle of Chrome's toast menu button, 12px after the text and 10px from the pill's end, in a 50px by 48px target
+- Share link buttons lay toast text color at 12.8% over their circle under a hovering pointer, fading over 250ms
+- Share link buttons add a 17.5% layer of toast text color over that hover layer while pressed
+- Keyboard focus draws a 2px ring around the unfilled circle in Chrome's inverse focus ring color, `#A8C7FA` in a light scheme and `#0B57D0` in a dark one
+- Tab after a page's last field reaches the Share link button while its toast holds
 - Share link buttons draw `ios_share` on macOS, `share_windows` on Windows, and `share` elsewhere
 - Each click or Enter on a Share link button shares the tab's URL once through a system share sheet, with a page title where one is set
 - Escape closes a toast while focus rests inside it, and reaches the page while focus rests outside it
