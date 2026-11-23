@@ -74,7 +74,8 @@ const BUFFER: usize = 256 << 10;
 #[command(override_usage = "mcp-muxer [OPTIONS] -- <COMMAND> [ARGUMENTS]...\n       mcp-muxer [OPTIONS]")]
 #[command(after_help = "With a COMMAND, serves that stdio MCP server to this session through the shared daemon. With none, prints the daemon state as JSON.\n\
 A session whose server cannot be found or reached gets the cause as the error of each request it sends.\n\
-Environment: a server starts with the variables an interactive login shell of the user's account yields in the server's directory, under each --env value, and with no other variable of a session.\n\
+Environment: a server starts with the variables a login of the user's account yields, under each --env value, and with no other variable of a session.\n\
+An interactive login shell run in the server's directory yields them on Unix, and the environment of a new logon on Windows.\n\
 The daemon exports telemetry under the OTEL_ variables of the session that started it.\n\
 Requests to a server opened with initialize carry their session's client capabilities and identity in _meta.\n\
 Calls of a method and target not yet seen to finish without asking run one at a time, so a server request reaches the calling session or is refused when that session lacks its capability.")]

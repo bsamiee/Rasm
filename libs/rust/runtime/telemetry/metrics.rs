@@ -21,9 +21,10 @@ use opentelemetry::metrics::MeterProvider;
 #[cfg(unix)]
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use opentelemetry_semantic_conventions::attribute::{CPU_MODE, DISK_IO_DIRECTION, PROCESS_CONTEXT_SWITCH_TYPE, PROCESS_PID, SYSTEM_PAGING_FAULT_TYPE};
+#[cfg(unix)]
+use opentelemetry_semantic_conventions::metric::PROCESS_UNIX_FILE_DESCRIPTOR_COUNT;
 use opentelemetry_semantic_conventions::metric::{
-    PROCESS_CONTEXT_SWITCHES, PROCESS_CPU_TIME, PROCESS_DISK_IO, PROCESS_MEMORY_USAGE, PROCESS_MEMORY_VIRTUAL, PROCESS_PAGING_FAULTS, PROCESS_THREAD_COUNT, PROCESS_UNIX_FILE_DESCRIPTOR_COUNT,
-    PROCESS_UPTIME,
+    PROCESS_CONTEXT_SWITCHES, PROCESS_CPU_TIME, PROCESS_DISK_IO, PROCESS_MEMORY_USAGE, PROCESS_MEMORY_VIRTUAL, PROCESS_PAGING_FAULTS, PROCESS_THREAD_COUNT, PROCESS_UPTIME,
 };
 use sysinfo::{MINIMUM_CPU_UPDATE_INTERVAL, Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System};
 use tokio::time::Instant;

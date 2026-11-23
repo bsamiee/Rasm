@@ -51,7 +51,7 @@ rustix          = { version = "1.1.6", features = ["fs", "process"] }     # Type
 sd-notify       = "0.5.0"                                                 # Readiness and watchdog signals to systemd
 socket2         = "0.6.5"                                                 # Socket options tokio sockets lack, IPv6-only binding
 which           = "8.0.6"                                                 # Executables resolved against a given PATH and working directory
-windows         = "0.62.2"                                                # Win32 process creation flags process-wrap wrappers take
+windows         = "0.62.2"                                                # Win32 process creation flags process-wrap wrappers take, and the environment block of a logon
 stacksafe       = "1.0.3"                                                 # Stack growth for recursive operations over nested values
 velopack        = "1.2.161"                                               # Product installation and in-place updates
 wasmtime        = "51.0.0"                                                # In-process WebAssembly sandbox around untrusted guest code

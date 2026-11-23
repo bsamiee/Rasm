@@ -26,6 +26,7 @@ max-git-db-age = "1 month"
 [profile.dev.package] # Cargo refuses a member `[lints]` override beside `workspace = true`, and tombi's Cargo.toml schema refuses profile `rustflags`
 rasm-site             = { rustflags = ["-Aunsafe_code"] }                # PROJ `proj_factors`, which the `proj` crate wraps none of, runs through `proj-sys` FFI
 rasm-testing          = { rustflags = ["-Aunsafe_code"] }                # sqlite-vec registers `vec0` through its C entry point on each locked sqlx connection
+rasm-process          = { rustflags = ["-Aunsafe_code"] }                # Windows `CreateEnvironmentBlock`, which no crate wraps, runs through `windows` FFI
 rasm-mcp              = { rustflags = ["-Adeprecated"] }                 # Initialize-era MCP revisions keep logging and resources/subscribe, and the GenAI names moved to a repository publishing no crate
 rasm-mcp-tests        = { rustflags = ["-Adeprecated"] }                 # Scenarios exercise the initialize-era revisions their server keeps
 rasm-lints-tests      = { rustflags = ["-Aclippy::disallowed_methods"] } # insta `glob!` canonicalizes its base folder inside its own expansion, which clippy lints as local code
@@ -34,6 +35,7 @@ rasm-dependency-graph = { rustflags = ["-Aclippy::expect_used"] }        # petgr
 [profile.release.package] # Root profiles inherit nothing, so release repeats each dev row for itself, bench, and dist, which `check` also lints under
 rasm-site             = { rustflags = ["-Aunsafe_code"] }
 rasm-testing          = { rustflags = ["-Aunsafe_code"] }
+rasm-process          = { rustflags = ["-Aunsafe_code"] }
 rasm-mcp              = { rustflags = ["-Adeprecated"] }
 rasm-mcp-tests        = { rustflags = ["-Adeprecated"] }
 rasm-lints-tests      = { rustflags = ["-Aclippy::disallowed_methods"] }

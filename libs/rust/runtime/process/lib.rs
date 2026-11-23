@@ -8,11 +8,11 @@ use core::num::NonZero;
 use core::pin::{Pin, pin};
 use core::time::Duration;
 use core::{fmt, iter};
+#[cfg(windows)]
+use core::{ptr, slice};
 use std::collections::VecDeque;
 use std::error::Report;
-#[cfg(unix)]
-use std::ffi::OsStr;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 #[cfg(unix)]
 use std::hash::RandomState;
 use std::io;
@@ -24,6 +24,8 @@ use std::os::unix::ffi::OsStrExt as _;
 use std::os::unix::fs::FileTypeExt as _;
 #[cfg(unix)]
 use std::os::unix::net::UnixStream as Socket;
+#[cfg(windows)]
+use std::os::windows::ffi::OsStringExt as _;
 use std::path::Path;
 use std::process::{ExitStatus, Stdio};
 
@@ -48,12 +50,22 @@ use tokio::net::UnixStream;
 #[cfg(unix)]
 use tokio::net::unix::pipe;
 use tokio::process::ChildStderr;
+#[cfg(windows)]
+use tokio::task;
 use tokio::time::{Instant, sleep_until, timeout};
 #[cfg(unix)]
 use tokio_util::either::Either;
 use tokio_util::sync::CancellationToken;
 #[cfg(windows)]
-use windows::Win32::System::Threading::{CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS};
+use windows::Win32::Foundation::HANDLE;
+#[cfg(windows)]
+use windows::Win32::Security::{TOKEN_DUPLICATE, TOKEN_QUERY};
+#[cfg(windows)]
+use windows::Win32::System::Environment::{CreateEnvironmentBlock, DestroyEnvironmentBlock};
+#[cfg(windows)]
+use windows::Win32::System::Threading::{CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS, GetCurrentProcess, OpenProcessToken};
+#[cfg(windows)]
+use windows::core::{Owned, PCWSTR};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -67,7 +79,6 @@ pub enum ProcessOperation {
     Attach,
     #[display("release the process group or job")]
     Release,
-    #[cfg(unix)]
     #[display("read the login environment")]
     Login,
 }
@@ -345,25 +356,47 @@ pub async fn run(
     }
 }
 
-#[cfg(unix)]
 pub async fn login(directory: &Path, deadline: Option<Instant>, grace: Duration, stopping: &CancellationToken) -> Result<Vec<(OsString, OsString)>, ProcessError> {
     let refused = |program: &OsStr, source| ProcessError { program: program.to_owned(), process: None, failures: NEVec::new(Failure::Io { operation: ProcessOperation::Login, source }) };
-    let user = Uid::effective();
-    let read = User::from_uid(user).map_err(io::Error::from).and_then(|account| account.ok_or_else(|| io::ErrorKind::NotFound.into()));
-    let account = read.map_err(|source| refused(OsStr::new(&format!("user {user}")), source))?;
-    let marker = format!("{}-{:016x}", env!("CARGO_PKG_NAME"), RandomState::new().hash_one(std::process::id()));
-    let mut shell = tokio::process::Command::new(&account.shell);
-    shell.args(["-i", "-l", "-c", &format!("printf '%s\\0' {marker}; exec /usr/bin/env -0")]).current_dir(directory).env_clear();
-    shell.envs([("HOME", account.dir.as_os_str()), ("USER", OsStr::new(&account.name)), ("LOGNAME", OsStr::new(&account.name)), ("SHELL", account.shell.as_os_str())]);
-    shell.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
-    let mut printed = Vec::new();
-    let attach = async |streams: Streams| match streams.stdout {
-        Some(mut stdout) => stdout.read_to_end(&mut printed).await.map(drop),
-        None => Err(io::ErrorKind::BrokenPipe.into()),
-    };
-    let status = run(shell, None, deadline, grace, stopping, attach).await?;
-    let mut entries = printed.split(|byte| *byte == 0).skip_while(|entry| !entry.ends_with(marker.as_bytes()));
-    let found = status.exit_ok().map_err(io::Error::other).and_then(|()| entries.next().map(drop).ok_or_else(|| io::ErrorKind::InvalidData.into()));
-    found.map_err(|source| refused(account.shell.as_os_str(), source))?;
-    Ok(entries.filter_map(|entry| entry.split_once(|byte| *byte == b'=')).map(|(name, value)| (OsStr::from_bytes(name).to_owned(), OsStr::from_bytes(value).to_owned())).collect())
+    cfg_select! {
+        unix => {{
+            let user = Uid::effective();
+            let read = User::from_uid(user).map_err(io::Error::from).and_then(|account| account.ok_or_else(|| io::ErrorKind::NotFound.into()));
+            let account = read.map_err(|source| refused(OsStr::new(&format!("user {user}")), source))?;
+            let marker = format!("{}-{:016x}", env!("CARGO_PKG_NAME"), RandomState::new().hash_one(std::process::id()));
+            let mut shell = tokio::process::Command::new(&account.shell);
+            shell.args(["-i", "-l", "-c", &format!("printf '%s\\0' {marker}; exec /usr/bin/env -0")]).current_dir(directory).env_clear();
+            shell.envs([("HOME", account.dir.as_os_str()), ("USER", OsStr::new(&account.name)), ("LOGNAME", OsStr::new(&account.name)), ("SHELL", account.shell.as_os_str())]);
+            shell.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
+            let mut printed = Vec::new();
+            let attach = async |streams: Streams| match streams.stdout {
+                Some(mut stdout) => stdout.read_to_end(&mut printed).await.map(drop),
+                None => Err(io::ErrorKind::BrokenPipe.into()),
+            };
+            let status = run(shell, None, deadline, grace, stopping, attach).await?;
+            let mut entries = printed.split(|byte| *byte == 0).skip_while(|entry| !entry.ends_with(marker.as_bytes()));
+            let found = status.exit_ok().map_err(io::Error::other).and_then(|()| entries.next().map(drop).ok_or_else(|| io::ErrorKind::InvalidData.into()));
+            found.map_err(|source| refused(account.shell.as_os_str(), source))?;
+            Ok(entries.filter_map(|entry| entry.split_once(|byte| *byte == b'=')).map(|(name, value)| (OsStr::from_bytes(name).to_owned(), OsStr::from_bytes(value).to_owned())).collect())
+        }}
+        windows => {{
+            let _: (&Path, Option<Instant>, Duration, &CancellationToken) = (directory, deadline, grace, stopping);
+            let read = task::spawn_blocking(|| {
+                let (mut token, mut block) = (HANDLE::default(), ptr::null_mut());
+                unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &raw mut token) }?;
+                let token = unsafe { Owned::new(token) };
+                unsafe { CreateEnvironmentBlock(&raw mut block, Some(*token), false) }?;
+                let mut next = block.cast_const().cast::<u16>();
+                let entries = iter::from_fn(|| {
+                    let entry = unsafe { slice::from_raw_parts(next, PCWSTR(next).len()) };
+                    next = unsafe { entry.as_ptr_range().end.add(1) };
+                    (!entry.is_empty()).then_some(entry)
+                });
+                let variables = entries.filter_map(|entry| entry.split_once(|unit| *unit == u16::from(b'='))).map(|(name, value)| (OsString::from_wide(name), OsString::from_wide(value))).collect();
+                unsafe { DestroyEnvironmentBlock(block) }?;
+                Ok::<_, io::Error>(variables)
+            });
+            read.await.map_err(io::Error::from).flatten().map_err(|source| refused(OsStr::new("user"), source))
+        }}
+    }
 }

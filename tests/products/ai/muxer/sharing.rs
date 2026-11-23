@@ -1,15 +1,21 @@
+#[cfg(unix)]
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-use claims::{assert_err, assert_ok, assert_some};
+use claims::assert_ok;
+#[cfg(unix)]
+use claims::{assert_err, assert_some};
 use futures::{StreamExt as _, future, stream};
 use mcp_muxer_tests::{Agent, Ask, Isolated, Slow, call, modern, reached, session, spawned, text};
+#[cfg(unix)]
 use nix::unistd::{Uid, User};
 use rasm_testing::{Failure, Folder};
 use rmcp::model::{CallToolRequest, ClientRequest};
 use rmcp::service::{ClientLifecycleMode, PeerRequestOptions};
 
-use crate::{HOME, echoed, refusal, scoped, servers, settled, whoami};
+#[cfg(unix)]
+use crate::refusal;
+use crate::{HOME, echoed, scoped, servers, settled, whoami};
 
 // --- [KEYS]
 
@@ -47,6 +53,7 @@ async fn racing_first_sessions_all_share() -> Result<(), Failure<Folder>> {
 
 // --- [ENVIRONMENT]
 
+#[cfg(unix)]
 #[tokio::test(flavor = "multi_thread")]
 async fn server_starts_with_the_account_login_environment_under_declared_values_and_no_other_session_variable() -> Result<(), Failure<Folder>> {
     const SESSION: [(&str, &str); 4] = [("FIXTURE_TAG", "held"), ("TRACEPARENT", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"), ("SHELL", "/fixture/shell"), ("LOGNAME", "fixture")];
@@ -74,6 +81,7 @@ async fn server_starts_with_the_account_login_environment_under_declared_values_
     .await
 }
 
+#[cfg(unix)]
 #[tokio::test(flavor = "multi_thread")]
 async fn server_whose_login_shell_cannot_start_in_its_directory_is_refused_with_the_shell_and_cause() -> Result<(), Failure<Folder>> {
     scoped(async |isolated: &Isolated| {
