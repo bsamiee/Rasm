@@ -13,6 +13,7 @@
         position: absolute;
         inset: 0;
         overflow: auto;
+        overscroll-behavior: contain;
 
         .page {
             margin-block-end: 0;
@@ -25,10 +26,6 @@
             .textLayer {
                 pointer-events: none;
             }
-        }
-
-        @supports (overscroll-behavior: contain) {
-            overscroll-behavior: contain;
         }
     }
 }

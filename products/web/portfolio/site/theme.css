@@ -82,6 +82,7 @@
         --font-mono: ui-monospace, sfmono-regular, consolas, monospace;
         --index-gap: clamp(2rem, 4vi, 3.5rem);
         --index-width: clamp(11rem, 12vi, 18rem);
+        --overlay-inset: 1rem;
         --page-gutter: 2.375rem;
 
         @media (width < 850px) {
@@ -167,17 +168,19 @@
         outline: none;
     }
 
-    @supports selector(::selection) {
-        ::selection {
-            color: var(--color-background);
-            background: var(--color-accent-text);
-        }
+    summary {
+        align-content: center;
+        min-block-size: 2.75rem;
+        cursor: pointer;
     }
 
-    @supports (resize: block) {
-        textarea {
-            resize: block;
-        }
+    ::selection {
+        color: var(--color-background);
+        background: var(--color-accent-text);
+    }
+
+    textarea {
+        resize: block;
     }
 }
 
@@ -334,20 +337,22 @@
 
 @layer components {
     .react-aria-ModalOverlay {
+        --scrim: 0.55;
+
         position: fixed;
         inset: 0;
         z-index: 50;
         display: grid;
         place-items: center;
-        padding: 1rem;
-        background: oklch(from var(--color-foreground) l c h / 0.55);
+        padding: var(--overlay-inset);
+        background: oklch(from var(--color-foreground) l c h / var(--scrim));
 
         &:has(.overview) {
-            background: oklch(from var(--color-foreground) l c h / 0.35);
+            --scrim: 0.35;
         }
 
         &:has(.viewer-dialog) {
-            background: oklch(from var(--color-foreground) l c h / 0.7);
+            --scrim: 0.7;
 
             @media (prefers-reduced-motion: no-preference) {
                 &[data-entering] {
@@ -477,7 +482,6 @@
 
     .preview-bar {
         display: flex;
-        flex-wrap: nowrap;
         gap: 0.9375rem;
         align-items: center;
         padding-block: 0.5rem;
@@ -538,12 +542,9 @@
         padding-inline: 0.25rem;
         margin-inline: -0.25rem;
         overflow: auto;
+        overscroll-behavior: contain;
         counter-reset: ordinal;
         scrollbar-width: thin;
-
-        @supports (overscroll-behavior: contain) {
-            overscroll-behavior: contain;
-        }
     }
 
     .index-link {
@@ -638,7 +639,7 @@
 
     .site-title {
         margin-block-end: 2rem;
-        font-size: clamp(4rem, calc(2rem + 12cqi), 11.5rem);
+        font-size: clamp(4rem, 2rem + 12cqi, 10rem);
         font-weight: 500;
         line-height: 0.91;
         letter-spacing: -0.055em;
@@ -733,7 +734,7 @@
         }
 
         [data-populated='false'] & {
-            font-size: clamp(1.875rem, calc(1rem + 3cqi), 4rem);
+            font-size: clamp(1.875rem, 1rem + 3cqi, 4rem);
             line-height: 1.05;
             letter-spacing: -0.045em;
         }
@@ -760,7 +761,6 @@
 
     .site-footer {
         display: flex;
-        flex-wrap: nowrap;
         gap: 1.5rem;
         align-items: center;
         justify-content: space-between;
@@ -854,7 +854,7 @@
     .chapter-title {
         grid-area: 2 / 1;
         min-inline-size: 0;
-        font-size: clamp(2.25rem, calc(1.25rem + 3.6cqi), 4.5rem);
+        font-size: clamp(2.25rem, 1.25rem + 3.6cqi, 4.5rem);
         line-height: 1.05;
         letter-spacing: -0.035em;
         text-wrap: balance;
@@ -892,7 +892,6 @@
         grid-template-columns: minmax(0, 1fr) auto auto;
         gap: 0.5rem 0.75rem;
         align-items: center;
-        container-type: inline-size;
         touch-action: pan-y pinch-zoom;
 
         > .react-aria-Toolbar {
@@ -964,7 +963,6 @@
 
     .chapter-details {
         display: flex;
-        flex-wrap: nowrap;
         gap: 3rem;
         margin-block-start: 2.5rem;
         font-size: 0.875rem;
@@ -998,7 +996,7 @@
         flex-direction: column;
         inline-size: 100%;
         max-inline-size: 64rem;
-        max-block-size: calc(var(--visual-viewport-height) - 2rem);
+        max-block-size: calc(var(--visual-viewport-height) - var(--overlay-inset) * 2);
         padding: 1.25rem;
         background: var(--color-background);
         border: 1px solid var(--color-line);
@@ -1030,29 +1028,32 @@
                 line-height: 1.25;
                 overflow-wrap: anywhere;
             }
+
+            .react-aria-Button {
+                display: grid;
+                flex-shrink: 0;
+                place-items: center;
+                inline-size: 2.75rem;
+                block-size: 2.75rem;
+
+                @media (hover: hover) {
+                    &:hover {
+                        color: var(--color-accent-text);
+                    }
+                }
+            }
         }
 
         .eyebrow {
             color: var(--color-muted);
         }
 
-        header .react-aria-Button {
-            display: grid;
-            flex-shrink: 0;
-            place-items: center;
-            inline-size: 2.75rem;
-            block-size: 2.75rem;
-        }
-
         .react-aria-GridList {
             min-block-size: 0;
             max-block-size: min(36rem, 65dvb);
             overflow: auto;
+            overscroll-behavior: contain;
             outline: none;
-
-            @supports (overscroll-behavior: contain) {
-                overscroll-behavior: contain;
-            }
         }
 
         .react-aria-GridListItem {
@@ -1064,20 +1065,16 @@
             &[data-selected] {
                 border-color: var(--color-accent-text);
             }
+
+            @media (hover: hover) {
+                &:hover {
+                    background: var(--color-background-muted);
+                }
+            }
         }
 
         @media (width < 600px) {
             padding: 0.75rem;
-        }
-
-        @media (hover: hover) {
-            header .react-aria-Button:hover {
-                color: var(--color-accent-text);
-            }
-
-            .react-aria-GridListItem:hover {
-                background: var(--color-background-muted);
-            }
         }
     }
 
@@ -1150,7 +1147,8 @@
     .composition-items {
         --scale: 1;
         --composition-gap: clamp(20px, 3cqi, 30px);
-        --media-height: calc(64svb * var(--scale));
+        --media-base: 64svb;
+        --media-height: calc(var(--media-base) * var(--scale));
         --gaps: 0;
 
         display: grid;
@@ -1172,7 +1170,7 @@
         }
 
         [data-presentation='preview'] > & {
-            --media-height: calc(280px * var(--scale));
+            --media-base: 280px;
         }
 
         [data-presentation='thumbnail'] > & {
@@ -1187,7 +1185,7 @@
         }
 
         @container (inline-size < 600px) {
-            --media-height: calc(58svb * var(--scale));
+            --media-base: 58svb;
 
             [data-scale='medium'] > & {
                 --scale: 0.9;
@@ -1198,7 +1196,7 @@
             }
 
             [data-presentation='preview'] > & {
-                --media-height: calc(210px * var(--scale));
+                --media-base: 210px;
             }
         }
 
@@ -1240,12 +1238,12 @@
                 inline-size: 2.75rem;
                 block-size: 2.75rem;
                 color: var(--color-foreground);
-            }
-        }
 
-        @media (hover: hover) {
-            figcaption .react-aria-Button:hover {
-                color: var(--color-accent-text);
+                @media (hover: hover) {
+                    &:hover {
+                        color: var(--color-accent-text);
+                    }
+                }
             }
         }
     }
@@ -1302,21 +1300,16 @@
     }
 
     .media-description {
+        grid-area: description;
+
         summary {
             display: list-item;
-            align-content: center;
-            min-block-size: 2.75rem;
-            cursor: pointer;
         }
 
         p {
             max-block-size: 25svb;
             overflow: auto;
             white-space: pre-line;
-        }
-
-        @media (height <= 500px) and (orientation: landscape) {
-            grid-area: 4 / 1 / auto / -1;
         }
     }
 
@@ -1348,34 +1341,34 @@
 @layer components {
     .viewer-dialog {
         position: fixed;
-        inset-block: 1rem auto;
-        inset-inline: 1rem;
-        z-index: 51;
+        inset-block: var(--overlay-inset) auto;
+        inset-inline: var(--overlay-inset);
         display: flex;
         flex-direction: column;
         gap: 0.375rem;
-        block-size: calc(var(--visual-viewport-height) - 2rem);
+        block-size: calc(var(--visual-viewport-height) - var(--overlay-inset) * 2);
         padding-block: 1.25rem;
         padding-inline: 1.5rem;
         outline: none;
         background: var(--color-background);
 
+        @media (width < 600px), (height <= 500px) and (orientation: landscape) {
+            --overlay-inset: 0px;
+        }
+
         @media (width < 600px) {
-            inset-block: 0 auto;
-            inset-inline: 0;
-            block-size: var(--visual-viewport-height);
             padding-block: max(0.625rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-bottom));
             padding-inline: 0.875rem;
         }
 
         @media (height <= 500px) and (orientation: landscape) {
-            inset-block: 0 auto;
-            inset-inline: 0;
             display: grid;
-            grid-template-rows: auto auto minmax(0, 1fr) auto;
-            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template:
+                'heading close' auto
+                'controls controls' auto
+                'stage stage' minmax(0, 1fr)
+                'description description' auto / minmax(0, 1fr) auto;
             gap: 0 1rem;
-            block-size: var(--visual-viewport-height);
             padding-block: 0.5rem;
             padding-inline: 1rem;
         }
@@ -1391,6 +1384,7 @@
         .react-aria-Button {
             display: grid;
             flex-shrink: 0;
+            grid-area: close;
             place-items: center;
             min-inline-size: 2.75rem;
             min-block-size: 2.75rem;
@@ -1398,14 +1392,11 @@
 
         @media (height <= 500px) and (orientation: landscape) {
             display: contents;
-
-            .react-aria-Button {
-                grid-area: 1 / 2;
-            }
         }
     }
 
     .viewer-heading {
+        grid-area: heading;
         min-inline-size: 0;
         max-block-size: calc(var(--visual-viewport-height) * 0.25);
         overflow-block: auto;
@@ -1418,7 +1409,6 @@
         }
 
         @media (height <= 500px) and (orientation: landscape) {
-            grid-area: 1 / 1;
             font-size: 0.9375rem;
         }
     }
@@ -1440,6 +1430,7 @@
         display: flex;
         flex-shrink: 0;
         flex-wrap: wrap;
+        grid-area: controls;
         gap: 0.25rem 0.5rem;
         align-items: center;
         max-block-size: calc(var(--visual-viewport-height) * 0.4);
@@ -1517,7 +1508,7 @@
         details {
             min-inline-size: 0;
 
-            &[open] {
+            &:open {
                 flex-basis: 100%;
             }
 
@@ -1549,11 +1540,8 @@
         }
 
         summary {
-            align-content: center;
-            min-block-size: 2.75rem;
             font-size: 0.875rem;
             line-height: 1.25rem;
-            cursor: pointer;
         }
 
         .react-aria-SearchField {
@@ -1574,14 +1562,14 @@
         }
 
         @media (height <= 500px) and (orientation: landscape) {
-            grid-area: 2 / 1 / auto / -1;
             padding-block: 0.25rem;
         }
     }
 
-    .viewer-dialog .viewer-stage {
+    .viewer-stage {
         position: relative;
         flex: 1;
+        grid-area: stage;
         inline-size: 100%;
         min-block-size: 0;
         overflow: hidden;
@@ -1598,10 +1586,6 @@
 
         img {
             max-inline-size: none;
-        }
-
-        @media (height <= 500px) and (orientation: landscape) {
-            grid-area: 3 / 1 / auto / -1;
         }
     }
 }

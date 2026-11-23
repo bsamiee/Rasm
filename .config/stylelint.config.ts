@@ -118,7 +118,7 @@ export default {
         // --- [SELECTORS]
 
         'relative-selector-nesting-notation': 'implicit',
-        'selector-attribute-name-disallowed-list': ['/^(class|id|style)$/i'],
+        'selector-attribute-name-disallowed-list': ['/^(class|id|open|style)$/i'],
         'selector-combinator-allowed-list': [' ', '>', '+', '~'],
         'selector-max-attribute': 2,
         'selector-max-combinators': 2,
