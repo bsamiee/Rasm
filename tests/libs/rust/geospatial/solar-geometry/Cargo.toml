@@ -17,8 +17,11 @@ approx              = { workspace = true }
 claims              = { workspace = true }
 jiff                = { workspace = true }
 nalgebra            = { workspace = true }
+parry3d-f64         = { workspace = true }
+proptest            = { workspace = true }
+rasm-proximity      = { workspace = true }
 rasm-site           = { workspace = true }
-rasm-solar-geometry = { workspace = true }
+rasm-solar-geometry = { workspace = true, features = ["proximity"] }
 rstest              = { workspace = true }
 solar-positioning   = { workspace = true }
 uom                 = { workspace = true }
