@@ -164,7 +164,7 @@ Class docstrings open with what an instance represents (`"""The address of a sho
 
 ### [05.1]-[FIELDS]
 
-Field classes (`msgspec.Struct`, attrs classes, Pydantic models, TypedDicts) document fields by name and type alone with no `Attributes:` entry, ast-grep rule `no-attribute-docstring` reports a string after an assignment or type alias:
+Field classes (`msgspec.Struct`, attrs classes, Pydantic models, TypedDicts) document fields by name and type alone with no `Attributes:` entry:
 
 ```python
 class SearchResult(msgspec.Struct, frozen=True):

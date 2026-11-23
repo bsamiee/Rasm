@@ -7,12 +7,11 @@ Scan cost adds process startup, rule compilation, file discovery, parsing, injec
 Commands pay a fixed load before they walk:
 - `scan` compiles every configured util and rule before active rule ids select, selection cuts matching alone, injections compile for every command
 - Batch independent rules over shared files in one scan to share discovery and parsing
-- Custom-language registration loads every configured library, thirteen libraries cost less than one catalog
 
-Parsing dominates matching over a large file, and a relation at a frequent kind is the one rule form that competes with it:
-- Rare `kind` with `regex` adds under 1% of a parse, a frequent kind deciding on a field `has` and `regex` about 1%, a frequent leaf with `regex` about 4%
-- Frequent leaf with `inside` adds a fifth to a third of a parse whatever its stop, a `regex` clause ahead of the `inside` returns it to about 4%
-- Owner kind with `has` to `end` adds about an eighth of a parse, a rule stop on that `has` a twentieth
+Parsing dominates matching over a large file, and a relation at a frequent kind is the one rule form that competes with it, over 291 KB of TypeScript:
+- Rare `kind` with `regex` adds under 1% of a parse, a frequent kind deciding on a field `has` and `regex` about 1%, a frequent leaf with `regex` about 2%
+- Frequent leaf with `inside` adds about half a parse whatever its stop, a `regex` clause ahead of the `inside` returns it to about 2%
+- Owner kind with `has` to `end` or to a rule stop at nested owners adds about a sixth of a parse
 
 ## [02]-[COMPILE]
 
@@ -20,23 +19,20 @@ YAML node count and per-document regex compiles set load cost, bytes, formatting
 - Unknown keys pay full deserialization per node
 - `any:` over kinds costs a multiple of a comma list of those kinds
 - `kind` selector scalars (`a > b`) load below the nested `inside` chain they state
-- Presence tests on a field `node-types.json` gives one kind take `kind` in place of `pattern: $_`
+- Presence tests on a field the grammar's `node-types.json` gives one kind take `kind` in place of `pattern: $_`
 
-Pattern sites cost what parsing their snippet costs, a bare `$X` or literal `L` that triggers parse recovery loads above `{context: <valid code>, selector: <kind>}` and above the 0.41 M of `regex: '^L$'`, per site on an empty file, with the capture and literal form each language takes:
+Pattern sites cost what parsing their snippet costs, a bare `$X` or literal `L` that triggers parse recovery loads above `{context: <valid code>, selector: <kind>}` and above the 0.20 M of `regex: '^L$'`, per site on an empty file, with the capture and literal form each language takes:
 
 | [INDEX] | [LANGUAGE] | [BARE_M] | [LITERAL_M] | [SELECTOR_M] | [FORMS]           |
 | :-----: | :--------- | -------: | ----------: | -----------: | :---------------- |
-|  [01]   | C#         |     0.96 |        0.94 |         0.12 | Selector, `regex` |
-|  [02]   | Java       |     0.29 |        0.28 |         0.08 | Selector, `regex` |
-|  [03]   | SQL        |     0.07 |        0.05 |         0.08 | Bare, `pattern`   |
-|  [04]   | Postgres   |     0.06 |        0.05 |         0.09 | Bare, `pattern`   |
-|  [05]   | Python     |     0.04 |        0.03 |         0.08 | Bare, `pattern`   |
-|  [06]   | TypeScript |     0.04 |        0.02 |         0.08 | Bare, `pattern`   |
-|  [07]   | TOML       |     0.04 |        0.02 |         0.07 | Bare, `pattern`   |
-|  [08]   | XML        |     0.04 |        0.02 |         0.07 | Bare, `pattern`   |
-|  [09]   | Bash       |     0.04 |        0.02 |         0.07 | Bare, `pattern`   |
-|  [10]   | Swift      |     0.04 |        0.02 |         0.08 | Bare, `pattern`   |
-|  [11]   | Rust       |     0.03 |        0.02 |         0.05 | Bare, `pattern`   |
+|  [01]   | C#         |     0.84 |        0.87 |         0.14 | Selector, `regex` |
+|  [02]   | Java       |     0.30 |        0.30 |         0.11 | Selector, `regex` |
+|  [03]   | Rust       |     0.24 |        0.24 |         0.09 | Selector, `regex` |
+|  [04]   | YAML       |     0.05 |        0.05 |         0.08 | Bare, `pattern`   |
+|  [05]   | Python     |     0.05 |        0.05 |         0.07 | Bare, `pattern`   |
+|  [06]   | TSX        |     0.05 |        0.05 |         0.07 | Bare, `pattern`   |
+|  [07]   | Bash       |     0.05 |        0.04 |         0.07 | Bare, `pattern`   |
+|  [08]   | Swift      |     0.04 |        0.04 |         0.07 | Bare, `pattern`   |
 
 - Selector forms fit a kind a lone metavariable parses as and stay where a `kind` beside a bare capture costs more walk than its load saving
 - Composite and multi-kind sites stay bare unless an `any:` of selectors loads cheaper
@@ -44,7 +40,7 @@ Pattern sites cost what parsing their snippet costs, a bare `$X` or literal `L` 
 - Literal patterns match about 500 fewer instructions per node, anonymous tokens keep `regex` since a pattern compares their kind alone
 - Alternations (`^(?:a|b|c)$`) keep `regex`, an `any:` of patterns loads cheaper and matches dearer per node from a third member on
 - Capture sites repeated across arms bind once in a `utils` entry the arms read, the site compiling once per document
-- Each language and grammar change measures its own sites, a `kind` alone against each form on one empty file
+- Each language and ast-grep release measures its own sites, a `kind` alone against each form on one empty file
 
 Regexes compile eagerly per document with no sharing across documents or rules, `replace` included. Compile cost follows the engine a pattern selects and not its length, rising in order: unanchored literal or literal alternation, `$`, ASCII class and literal prefix (`^foo`), `\b` under either mode, Unicode `\d` at twice `[0-9]`, Unicode `\s` at six times an ASCII class, Unicode `\w` at ten times `[0-9A-Za-z_]`, `\p{XID_Start}\p{XID_Continue}*`:
 - Only an ASCII class saves over `\s`, an explicit `\p{White_Space}` class costs the same
@@ -107,43 +103,42 @@ Relations reuse parsed trees, ancestor searches do not parse source again:
 
 ## [05]-[OUTLINE]
 
-Each process pays for every loaded catalog before it reads its input, one 15.7 KB TypeScript file under thirteen custom languages spends 1,488 M instructions and 95 ms:
+Each process pays for every loaded catalog before it reads its input, one 15.4 KB TypeScript file under the repository config spends 525 M instructions and 33 ms:
 
-| [INDEX] | [COST]                                       | [M_INSTRUCTIONS] | [SKIPPED_BY]                   |
-| :-----: | :------------------------------------------- | :--------------- | :----------------------------- |
-|  [01]   | Repository catalogs, 691 of it deserializing | 834              | Config holding fewer catalogs  |
-|  [02]   | Walk filter over every catalog's language    | 238              | `-l`, `--stdin`                |
-|  [03]   | Bundled catalog                              | 150              | `--no-default-outline-rules`   |
-|  [04]   | Parse and extract                            | 116              | Nothing                        |
-|  [05]   | `languageInjections`                         | 103              | Config holding fewer rows      |
-|  [06]   | Thirteen libraries                           | 31               | Config holding fewer libraries |
-|  [07]   | Process start                                | 24               | Nothing                        |
+| [INDEX] | [COST]                                          | [M_INSTRUCTIONS] | [SKIPPED_BY]                  |
+| :-----: | :---------------------------------------------- | :--------------- | :---------------------------- |
+|  [01]   | Java and YAML catalogs, 112 of it deserializing | 227              | Config holding fewer catalogs |
+|  [02]   | Bundled catalog                                 | 156              | `--no-default-outline-rules`  |
+|  [03]   | Walk filter over every catalog's language       | 70               | `-l`, `--stdin`               |
+|  [04]   | `languageInjections`                            | 29               | Config holding fewer rows     |
+|  [05]   | Process start                                   | 26               | Nothing                       |
+|  [06]   | Parse and extract                               | 17               | Nothing                       |
 
 Nothing selects catalogs by input, these forms move the cost:
 - One process over every known path pays load once at flat peak memory, a process per file pays it per file
-- Narrowed configs cut a one-file run to under half and `--no-default-outline-rules` to a quarter, rows unchanged
-- Cheaper documents stop short, a whole config with empty repository catalogs still loads above a narrowed one
+- Java catalog adds about 140 M instructions (8 ms) per process and about 2 M per further Java file
+- Narrowed configs cut a one-file TypeScript run to about half, rows unchanged
+- `--no-default-outline-rules` drops every row of a language with no project catalog
 
 Narrowed configs serve a reader that cannot batch, one process per blob or per edit:
-- Each holds its host's `customLanguages` row, one row per language the host injects, and the `languageInjections` rows of that host
-- Injection rows naming an unregistered host fail config load, an unregistered injected language skips
-- Paths outside the config lose their catalog silently, a `.rs` file under a TypeScript config prints bundled `Rust` rows
+- Each holds the `outlineRules` entries of its host and of each language the host injects, and the `languageInjections` rows of that host
+- Languages outside the config lose their catalog silently, a `.java` file under a TypeScript config prints bundled `Java` rows alone
 - Trees and agent commands hold no such reader, one command answers any language and a tree pays load once
 
-Load falls in order to YAML deserialization, a per-language walk filter, item compile, and member compile, a one-file outline pays it whole and a tree barely sees it:
+Load splits into YAML deserialization, a per-language walk filter, item compile, and member compile, a one-file outline pays it whole and a tree barely sees it:
 - Walk filters build a type set per document group, `-l` and `--stdin` compile the same documents and skip most of it
 - `--type` matching no document compiles nothing, `--stdin -l <lang> --view names --type null` isolates deserialization
-- `--no-default-outline-rules -l <lang> <tree>` isolates read, parse, and injection-rule cost
+- `--stdin -l <lang>` over the file against an empty input isolates parse and extract
 - `/usr/bin/time -l` counts its direct process alone, a shell wrapper hides the child
 
 Extraction adds over parse:
 - Plain items add nothing, field captures a little, a regex cut more, a rewrite of a whole declaration an order of magnitude more
 - Member documents that never match still cost their item's full subtree walk
-- Members matching a name token walk the owner's body, a declaration kind adds under 1% of a parse, a rare header child a quarter, `identifier` a whole parse
+- Members matching a name token walk the owner's body, cost rising with how often the member kind occurs there, a declaration kind least and `identifier` most
 - Each member row pays its captures, transforms, owner climb, and qualifier rewrite, extraction cost grows with rows and not nodes
 - Items a filter drops pay member walk, name and signature render, and flag evaluation before removal
 - Injected parse cost per site scales with host bytes, each site clones the host source
-- Views decide output volume and little CPU, `expanded` costs near a tenth more instructions than `names` for a multiple of its bytes
+- `names` and `signatures` skip member documents, `expanded` costs about a third more instructions than `names` for over twice its bytes
 
 ## [06]-[INJECTIONS]
 

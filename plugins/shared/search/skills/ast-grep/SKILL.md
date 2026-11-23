@@ -11,9 +11,8 @@ Search rules stay inline, durable rules sit under `ruleDirs`. Rules take no test
 - [01]-[RULE_BUILDING](references/rule-building.md): Rule diagnostics and rewrites
 - [02]-[RULE_HARDENING](references/rule-hardening.md): Existing rule's coverage, shared shapes, and recursion
 - [03]-[OUTLINE](references/outline.md): Reading outlines and writing the extractor catalogs behind them
-- [04]-[CONFIG](references/config.md): Project discovery, custom languages, trust, globs, stdin, exit codes, and injections
+- [04]-[CONFIG](references/config.md): Project discovery, language mapping, globs, stdin, exit codes, and injections
 - [05]-[PERFORMANCE](references/performance.md): Scan and outline cost
-- [06]-[GRAMMARS](references/grammars.md): Choosing, extending, and building the parsers custom languages load
 
 [TEMPLATES]:
 - [01]-[RULE](templates/rule.yml): Clause order of a durable rule
@@ -27,6 +26,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - Adjacent `$$$A, $$$B` loses a node on `f(a, b, c)`, `A` binds empty and `B` starts at the separator
 - `$$$A` holds separators, comments, and a trailing comma as nodes, transforms read its full source span
 - `"$A"` binds string content, the metavariable test reads any node's whole text, a string holding an escape has more children and misses
+- Metavariable names are uppercase, `$x`, `$0`, and `$@` match as literal text (Bash expansions included)
 
 Compilation peels single-child wrappers, the pattern's root decides the match range:
 - `a` selects the identifier, `a;` the `expression_statement`, `pass` the anonymous token inside `pass_statement`
@@ -56,9 +56,9 @@ Patterns debug through `--debug-query`, `pattern` prints the compiled pattern wi
 
 `regex` is a Rust regex with Unicode `\w`, `\s`, `\d`, `\b`, no look-around or back-reference, and `(?i)` flags inline, a class over source characters restates a grammar token a `kind` test states:
 - Identifier classes come from the grammar's `word` rule, else the rule `name` fields hold most often (Swift `simple_identifier`)
-- Whitespace classes come from the language's lexical whitespace, `extras` where it states that set (Swift `[\t-\r ]` under `\s+`, XML `_S` under none)
+- Whitespace classes come from the language's lexical whitespace, `extras` where it states that set (Swift `[\t-\r ]` under `\s+`)
 - Unicode Perl classes state no grammar fact, `(?-u:\s)` reads ASCII
-- ASCII tokens take `[0-9A-Za-z_]`, `[\t\n\v\f\r ]`, `[0-9]`, and `(?-u:\b)`, an ASCII class over a Unicode identifier token (SQL, Java) misses names
+- ASCII tokens take `[0-9A-Za-z_]`, `[\t\n\v\f\r ]`, `[0-9]`, and `(?-u:\b)`, an ASCII class over a Unicode identifier token (Java) misses names
 - Negated ASCII classes (`[^\t\n\v\f\r ]`) match every non-ASCII character
 - `(?x)` in a `|-` block scalar holds one alternative per line with `\ ` for a space inside a phrase, `(?-x:...)` keeps a phrase verbatim
 
@@ -95,6 +95,8 @@ Rule maps conjoin `pattern`, `kind`, `regex`, `nthChild`, `range`, `all`, `any`,
 - Selectors add secondary labels as written relations do
 - Supertype kinds (`expression`, `statement`) load and match nothing, a rule lists their `subtypes`
 - `kind: ERROR` matches, parse failures otherwise silence a rule at exit 0 and read as conforming code
+- Built-in parsers read the newest syntax (Python PEP 696 defaults and `lazy import`, C# 14 extension blocks) as `ERROR`
+- Rules skip those `ERROR` regions, and a `kind: ERROR` rule flags valid code there
 - `kind: MISSING` fails the load, an inserted token keeps its kind as a zero-width leaf `regex: '^$'` matches, beside an exemption for kinds zero-width when valid
 
 Positions:

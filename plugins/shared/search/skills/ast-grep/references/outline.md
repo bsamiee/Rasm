@@ -72,26 +72,29 @@ Config is found from the working directory, never from a target path:
 
 Rows compare by key, a broken file still yields partial rows and a diff reads them as false removals:
 - Consumers key rows by `(symbolType, owner, name)`, a key holds a bag because overloads and owners local to them repeat
-- `ERROR` and `MISSING` nodes print a `symbolType` `null` row named `ERROR`, any one marking its file unknown, its other rows neither removed nor unchanged
+- Catalogs holding parse failure documents (Java, YAML) print a `symbolType` `null` row named `ERROR` for `ERROR` and `MISSING` nodes
+- Error rows mark their file unknown, its other rows neither removed nor unchanged
 - Error rows print under `--items all` and `structure`, `digest` and `expanded` list one as a private member of an item whose walked body failed
+- Bundled extractors print no error row, rows inside an `ERROR` region of newest syntax go missing and the file reads as complete
 
 ## [03]-[LOADING]
 
 Every command loads and compiles before it walks:
-- Bundled catalog, each `customLanguages.<lang>.outlineRules` file, then each `--outline-rules` file deserialize in full
+- Bundled catalog, each top-level `outlineRules` file, then each `--outline-rules` file deserialize in full
 - Documents group by `language` and every group compiles less the documents a flag skips, input paths and `-l` narrow the walk alone
-- `outlineRules` names one file relative to the config directory, a directory fails with `Is a directory`
-- Config entries load in `HashMap` order, a language split across files changes precedence between runs, one file holds a language's documents
-- Bundled documents load first and match a node before project documents under the same built-in language name
-- Custom language names or `--no-default-outline-rules` replace bundled extractors, the flag drops every bundled language at once
+- Top-level `outlineRules` maps one built-in language name or alias (`yml`) to one file relative to the config directory, read with no CLI flag
+- Other names and list values fail config load with `Cannot parse configuration` at exit 8, a directory fails with `Is a directory`
+- Bundled documents load first and claim a node before project documents under the same built-in language name
+- Project catalogs add rows only for constructs the bundled catalog leaves unclaimed
+- `--no-default-outline-rules` drops every bundled language at once, project documents then claim every node they match
 - Project member documents attach to bundled item ids, a member naming `rust-function` extends a bundled extractor with no replacement
 - Repeated paths compile their documents again and add no rows
-- `outlineRules` files load and skip with their custom-language library
-- Missing `outlineRules` files fail every outline command at exit 1, empty documents are skipped
+- Missing `outlineRules` files fail every outline command at exit 1, `run` and `scan` never read them, empty documents are skipped
 
 Load errors follow what each command compiles:
 - YAML and parent errors stop every outline command in every language at exit 1
-- Compile errors fail only commands compiling that document, a broken member passes under `names` and `signatures`, a literal-flag item passes under modes that skip it
+- Compile errors fail every command compiling that document whatever its input language, a broken member passes under `names` and `signatures`
+- Literal-flag items with a compile error pass under modes that skip them
 - `--items all --view expanded` compiles a whole catalog
 - Parse errors name the file, compile errors (`Invalid Kind`, a rule without a kind set) name neither file nor id
 - Parent errors name the member id and the missing or member parent id
@@ -322,7 +325,7 @@ Template behavior:
 - Quoted names keep delimiters when unquoting changes their spelling
 - Slicing at captured positions comes from `joinBy` extraction or field captures
 
-Values elide through kinded rewriters, on the value's own kind where the grammar gives one (XML `AttText`), else on the node holding it, keeping unmatched text:
+Values elide through kinded rewriters, on the value's own kind where the grammar gives one, else on the node holding it, keeping unmatched text:
 
 ```yaml
 id: py-fn
@@ -352,10 +355,10 @@ Over `def fn(alpha, beta=1, *rest, gamma: int = 2):` and `def none(): pass`, `--
 
 ## [07]-[CATALOGS]
 
-Each outlined language holds one catalog file, registered as its `outlineRules`:
-- Catalogs build from `tools/ast-grep/outline/<lang>.yml` into the `.artifacts/cmake/grammars/outline/<lang>.yml` its `outlineRules` names, built with the library of `<lang>` by `nx build grammars`, hk step `grammars`, and any Nx run missing a library
-- Sources open with an idless document of shared utils, rewriters, transforms, and variants, each document receiving what it calls and its `language`
-- Kinds and fields come from the grammar's `node-types.json`, never from what current sources hold
+Java and YAML hold catalogs, `tools/ast-grep/outline/<lang>.yml` loaded as checked in, every other language outlines through bundled extractors alone:
+- Java catalog adds nested types, record components, and enum members to bundled Java rows
+- YAML has no bundled extractors, its whole outline comes from its catalog
+- Kinds and fields come from `node-types.json` of the grammar crate the ast-grep release pins, never from what current sources hold
 - Every declaration kind a body accepts, supertypes expanded through `subtypes`, holds a document, expression, statement, and text kinds hold none
 - Every catalog covers items, members, nested owners, visibility, signatures, and parse failures, a failed parse never reading as absence
 - Parse failure documents match an `ERROR` holding at no depth a node their rows need, by kind or by the field or owner test making it a row (Bash `command` by `name`)
@@ -365,7 +368,7 @@ Each outlined language holds one catalog file, registered as its `outlineRules`:
 - Opening leaves are first named children that are no row kind, `ERROR`, or statement wrapping a row, a later row-free sibling opens nothing
 - Opening leaves test a kind-only climb to the nearest `ERROR`, statement list, or root first, so clean files pay one climb per walked leaf
 - Leaf row documents end their ordered `all:` with `not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}` so the walk reaches the failure, a kinded test misses anonymous `MISSING`
-- Failures whose named children are all rows print one, the `ERROR` itself (Swift `if #foo`) or its first row child (XML second root) giving up its rows
+- Failures whose named children are all rows print one, the `ERROR` itself or its first row child giving up its rows
 - `MISSING` tokens closing a row or row container match one regex-first arm, `{regex: '^$', any: [<named kinds>, {pattern: <token>}]}`, less kinds zero-width when valid
 - Recovery inserts any terminal, keywords included, a token the regex-first arm misses under a deletion fuzz marks through the node it closes, `{kind: <nonterminals less row kinds and row containers>, all: [{has: {regex: '^$'}}, {not: {has: {stopBy: end, matches: <row util>}}}]}`
 - Parse failure documents precede their role's row documents, claiming a zero-width token a row arm matches, and take `name: ERROR`, `signature: ''`, and literal false flags
@@ -374,7 +377,7 @@ Each outlined language holds one catalog file, registered as its `outlineRules`:
 - Catalogs serving native files as well cannot mark injected rows, those rows enter host exports
 - Literal `isExported: false` saves document compile and no injected parse, a language holding any group parses every site with all documents skipped
 - Sites injected under more than one entry emit one row per entry over one range, repeated entries for one language repeat the row
-- Sites holding a host hole (`def ${name}(): pass`) yield no row under a holeless grammar
+- Sites holding a host hole (`def ${name}(): pass`) yield no row
 - Scan rules over catalog root keys (`{field: key, regex: '^["'']?<key>["'']?$'}` under a root `block_mapping` or `flow_mapping`) report keys the loader skips
 
 Kinds a body list accepts, less the kinds a catalog names, print each accepted kind with no document, every one of them holding no declaration, the catalog listing reads each word of a `kind` selector or `selector` value:
@@ -385,8 +388,10 @@ yq -N '.. | select(key == "kind" or key == "selector") | select(tag == "!!str") 
 comm -23 <accepted> <named>
 ```
 
-Drafts load through `--outline-rules`, and a draft of a registered language runs under `-c <config>`, `<config>` a copy whose entry drops `outlineRules`, since registered documents match first:
+Drafts load through `--outline-rules`, a draft of a registered language runs under `-c <config>`, a copy without its `outlineRules` entry, since registered documents match first:
 
 ```bash
-ast-grep outline -c <config> --custom-languages allow --no-default-outline-rules --outline-rules <catalog> --items all --view expanded --json=stream <path>
+ast-grep outline -c <config> --outline-rules <catalog> --items all --view expanded --json=stream <path>
 ```
+
+- `--no-default-outline-rules` prints every row the draft claims, without it bundled extractors claim first as in a registered run

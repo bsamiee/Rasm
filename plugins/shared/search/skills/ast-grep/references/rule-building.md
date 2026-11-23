@@ -6,7 +6,7 @@ Each rule derives from one correction and the contracts deciding where the corre
 
 Read original code and its consumers before selecting a matcher:
 1. Before and after forms with the original diff, or conforming and violating forms of a stated policy
-2. Language semantics, configured grammar, resolved package declarations, and implementation deciding the correction
+2. Language semantics, built-in parser, resolved package declarations, and implementation deciding the correction
 3. Configured checkers, a rule leaves out forms a linter or type-aware checker reports and keeps an arm for a defect that checker's fix writes
 
 ## [02]-[APPLICABILITY]
@@ -18,7 +18,7 @@ Syntax and its contract establish a diagnostic, ast-grep reads no type, flow, or
 - Policy rules name the restriction without claiming the supported API or syntax is defective
 - Coverage follows the grammar's accepted forms and the API contract, a form absent from current code keeps its arm, counts decide nothing
 - Lists a declaration states stay in that declaration, a rule requires consumers to read the owner
-- Code the cause holds (an import, a callee, a declaration) scopes a rule, `files:` names a file kind (`**/*.sql`, `**/lib.rs`) or a path its tool fixes, never a project folder
+- Code the cause holds (an import, a callee, a declaration) scopes a rule, `files:` names a file kind (`**/__init__.py`, `**/lib.rs`) or a path its tool fixes, never a project folder
 
 ## [03]-[CONSTRUCTION]
 

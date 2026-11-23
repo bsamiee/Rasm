@@ -11,22 +11,21 @@
 - Missing `ruleDirs` or `utilDirs` folders exit 6 on `scan`, `run` reads neither
 - `ruleDirs` and `utilDirs` walkers skip hidden paths and honor `.ignore`, `noIgnore` never reaches them, a hidden folder named as the root loads
 - `noIgnore` governs source walks of `scan`, `run`, and `outline`, `noIgnore: [hidden]` includes dot directories, nonempty CLI `--no-ignore` lists replace it
-- Unknown keys load silently at the top level, in a language row, and on an injection entry, inside `rule:` they exit 8
+- Unknown keys load silently at the top level and on an injection entry, inside `rule:` they exit 8
+- Subcommands precede options, default-run detection can read a later subcommand as a path
 
 Load runs in a fixed order, the first failure names its exit:
 
-| [INDEX] | [STEP]                              | [FAILURE]                                      | [EXIT]  |
-| :-----: | :---------------------------------- | :--------------------------------------------- | :------ |
-|  [01]   | YAML parse of `sgconfig.yml`        | Syntax, alias budget, duplicate key            | `8`     |
-|  [02]   | Custom library load                 | Missing file, platform map without host triple | `79`    |
-|  [03]   | `languageGlobs`                     | Unknown language `33`, invalid glob `8`        | `33`, 8 |
-|  [04]   | `languageInjections` in entry order | Unknown `hostLanguage` `1`, rule error `8`     | `1`, 8  |
-|  [05]   | CLI argument parse                  | Unknown language or flag                       | `2`     |
-|  [06]   | `utilDirs`                          | Parse or compile error, second `---`           | `1`     |
-|  [07]   | `ruleDirs`, `-r`, `--inline-rules`  | Parse or compile error                         | `8`     |
+| [INDEX] | [STEP]                              | [FAILURE]                                  | [EXIT]  |
+| :-----: | :---------------------------------- | :----------------------------------------- | :------ |
+|  [01]   | YAML parse of `sgconfig.yml`        | Syntax, alias budget, duplicate key        | `8`     |
+|  [02]   | `languageGlobs`                     | Unknown language `33`, invalid glob `8`    | `33`, 8 |
+|  [03]   | `languageInjections` in entry order | Unknown `hostLanguage` `1`, rule error `8` | `1`, 8  |
+|  [04]   | CLI argument parse                  | Unknown language or flag                   | `2`     |
+|  [05]   | `utilDirs`                          | Parse or compile error, second `---`       | `1`     |
+|  [06]   | `ruleDirs`, `-r`, `--inline-rules`  | Parse or compile error                     | `8`     |
 
 - `--version`, `--help`, and subcommand `--help` exit 0 over any config failure, `completions` exits with it
-- Non-TTY `--custom-languages trust --version` exits 0 and writes no store, with `run` it exits 7
 
 Exit codes of a completed command:
 
@@ -35,43 +34,23 @@ Exit codes of a completed command:
 |  [01]   | `0`    | `scan` without an `error` match, `[]` under `--json`, missing path printing `ERROR: <path>: …` |
 |  [02]   | `1`    | `scan` with an `error` match, `run` without a match or with a missing path, `outline` load     |
 |  [03]   | `3`    | `--filter` matching no rule id, a filter matching only `severity: off` rules exits 0           |
-|  [04]   | `101`  | Non-alphanumeric custom name or empty `extensions` once `-l` or a rule names that language     |
 
 - Exit 1 marks load failures (unknown `hostLanguage`, a util parse error) beside findings, a script separates them on stderr or `--json`
 - `--filter` is an unanchored regex over ids, an invalid regex exits 2, `--error=<unknown id>` is ignored
 
-## [02]-[TRUST]
-
-Custom-language libraries load under `--custom-languages allow` for one call or through trust in a canonical config path:
-- Default `ignore` skips only the library, a name it would supply fails, `-l` at exit 2, a rule at 8, `languageGlobs` at 33, `hostLanguage` and a util at 1
-- `injected` names of a skipped library drop silently
-- Explicit `ignore` beats a trust entry, a corrupt store reads as untrusted with the same warning
-- `ast-grep --custom-languages trust --version` records trust from an interactive terminal, `AST_GREP_TRUST_DIR` relocates the store
-- `revoke` forgets trust and works without a TTY
-- `--config` naming another file loads untrusted, a symlink shares its target's canonical trust key
-- Subcommands precede options, default-run detection can read a later subcommand as a path
-
-## [03]-[LANGUAGES]
+## [02]-[LANGUAGES]
 
 File-to-language resolution:
 - `languageGlobs` reads the basename alone (`src/*.foo` matches nothing, `*.baz` and `exact.name` match at any depth) and beats extension detection
-- Overlaps change winner per process, `customLanguages` and `languageGlobs` load from `HashMap`s, one extension or glob owns one language
+- `languageGlobs` loads from a `HashMap`, overlapping globs change winner per process, one glob owns one language
 - `-l` never forces a parser in path mode, it selects files already resolved to that language, `languageGlobs` or `--stdin` changes the parser
-- `-l` takes configured names, a built-in name misses files mapped to a custom replacement
-- Custom languages replacing a built-in take their own name, under the built-in's name rules resolve to the built-in and report `appliedRuleCount=0`
 - Rule languages widen the walk to every host injecting them, through `languageGlobs` hosts as well
 
-`customLanguages` rows:
-- Names are alphanumeric and case-sensitive, names resolve built-in languages first and extensions custom languages first, built-in aliases fold case
-- Extensions take no dots, `a.b` and `.dot` walk and resolve to no language, `languageGlobs: ["*.a.b"]` holds them, injection-only languages keep a placeholder extension
-- `libraryPath` takes one path or a map per target triple, `languageSymbol` defaults to `tree_sitter_<name>`
-- `metaVarChar` works and sits outside the schema, fixes and transform sources take it in place of `$`, `expandoChar` defaults to it and holds one character
-- Patterns rewrite each sigil to `expandoChar`, literal text of that character before a capital reads as a capture (`Q`: `{"QA": 1}` matches `{"b": 1}`)
-- Parser-valid `expandoChar` values are grammar facts, an ASCII identifier class forces an ASCII choice
-- Literal `$0` and lowercase dollar names survive preprocessing
-- `outlineRules` reads under load alone, only `outline` fails on a missing file
+`languageGlobs` maps `*.ts`, `*.mts`, `*.cts`, `*.js`, `*.mjs`, `*.cjs`, and `*.jsx` to the built-in `tsx` parser, one `tsx` rule set covering both languages:
+- `-l tsx` reaches those files, `-l ts` and `-l js` miss them
+- `tsx` reads an angle-bracket assertion (`<T>x`) in a `.ts` file as JSX, an `ERROR` that can swallow the lines after it (generated SDKs under `infra/sdks`)
 
-## [04]-[YAML]
+## [03]-[YAML]
 
 `sgconfig.yml`, rule files, and catalogs share one `serde-saphyr` budget, catalogs at 250,000 nodes, 1,000,000 events, and 64 nesting levels:
 - Past 100 aliases across a file `aliases <= anchors × 10` holds, else exit 8 with `AliasAnchorRatio`
@@ -84,7 +63,7 @@ File-to-language resolution:
 - Whole-map aliases compile their unread utils at each use
 - Flow and block forms load equally, a leading backtick in a plain value and `"\d"` exit 8
 
-## [05]-[SELECTION]
+## [04]-[SELECTION]
 
 Rule scope:
 - `files:` and `ignores:` drop a rule per path after the file parses, `ignores:` reads first, CLI `--globs` alone skips parsing
@@ -119,19 +98,19 @@ Suppression and severity:
 - `no-suppress-all` reports an idless comment and is disabled, `--error=<id>` raises either built-in rule
 - `--error`, `--warning`, `--info`, `--hint`, and `--off` set one run's severity per rule id, `--format github` and `--format sarif` print findings for CI
 
-## [06]-[INJECTIONS]
+## [05]-[INJECTIONS]
 
-Entries capture embedded source as `$CONTENT` and name its parser in `injected`, a built-in language, `customLanguages` key, or list:
+Entries capture embedded source as `$CONTENT` and name its parser in `injected`, a built-in language or a list:
 - `injected` lists set the walk and inferred-`run` matchers alone, `$LANG` takes the parser and beats a static value, off-list names parse
 - List entries without a `$LANG` capture inject nothing
 - `$LANG` resolves raw node text, built-in aliases fold case, a quoted `"css"` or unknown name drops silently, the capture takes `string_fragment` over `string`
 - `transform` cannot supply `LANG` or `CONTENT`, only single-node captures read, `$$$CONTENT` injects nothing
 - Captures reach through relations and local utils, one entry binds them per `any` arm
 - Missing `$CONTENT`, `$$$CONTENT`, and an unknown `injected` load at exit 0 and inject nothing, `id`, `fix`, and unknown keys are ignored
-- `constraints` filter entries, `utils` qualify them, entries load no `utilDirs` and rules read no entry `utils`, a generator copies those a rule shares
+- `constraints` filter entries, `utils` qualify them, entries load no `utilDirs` and rules read no entry `utils`
 
 Host resolution:
-- `hostLanguage` compares a file's resolved language, `ts` skips `.tsx`, `json` never fires once `.json` maps to a custom language
+- `hostLanguage` compares a file's resolved language, `ts` skips `.tsx` and every file `languageGlobs` maps to `tsx`
 - `ts` and `TypeScript` entries merge on one host
 - Hosts with a string content child capture it (JSON `string_content`), a hidden content token takes an alias first, else `$CONTENT` holds delimiters
 - `hostLanguage: HTML` adds to native extraction, a `style` entry beside `<style>` gives a second CSS document
@@ -139,8 +118,7 @@ Host resolution:
 
 Documents:
 - Each `$CONTENT` match is one document over the full host source with one included range, nothing merges across matches
-- Hole-bearing regions reach the parser as source, grammar-level hole tokens parse them with a word glued after (`${t}_log`), one glued before (`idx_${t}`) fails
-- Entries leave out templates whose holes splice a fragment into a word no slot reads (`CREATE ${u}INDEX`), testing each substitution's sibling fragments
+- Hole-bearing regions reach the parser as source, entries leave out regions holding a host hole (`${{ }}` in a workflow `run:`)
 - Injected coordinates are host coordinates, nothing maps back
 - Root-kind rules report the first token, a region's bounds come from the `$CONTENT` kind
 - Injections parse raw captured source without decoding strings, removing block-scalar headers, or deindenting

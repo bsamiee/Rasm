@@ -19,7 +19,7 @@ Before editing, compare the forms a rule reports with the correction its `note` 
 |  [09]   | Kind chain standing for a role in a depth or count rule         | `inside` with the parent kind, `has` on its field, near misses valid   |
 |  [10]   | Form that silences the rule and keeps its cause                 | Arm per spelling, relaying declaration, restated type, rename, wrapper |
 |  [11]   | Name regex requiring its module qualifier (`^Swift\.Result`)    | One regex with the qualifier optional, `^(<module>(\.\|::))?<name>`    |
-|  [12]   | Name or kind the pinned package or configured grammar lacks     | Package source at its pinned release, `node-types.json` per rebuild    |
+|  [12]   | Name or kind the pinned package or built-in parser lacks        | Package source at its pinned release, `node-types.json` ast-grep pins  |
 
 ## [02]-[WIDENING]
 
