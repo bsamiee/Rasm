@@ -3,7 +3,7 @@
 [project]
 name              = "rasm-testing"
 version           = "0.1.0"
-description       = "pytest plugins, one per extra: a private SQLite database and HTTP servers a test hosts on a loopback port"
+description       = "Outcomes a test step settles and a pytest plugin of HTTP servers a test hosts on a loopback port"
 license           = "MIT"
 classifiers       = ["Framework :: Pytest", "Intended Audience :: Developers", "Operating System :: OS Independent", "Private :: Do Not Upload", "Topic :: Software Development :: Testing"]
 requires-python   = ">=3.13"
@@ -12,19 +12,16 @@ import-namespaces = ["rasm"]
 
 dependencies = [
     "expression",    # Outcome a test step settles
-    "pytest",        # Fixtures, report hooks, stash keys, and report sections
+    "pytest",        # Fixtures, collection hook, markers, and test failure
     "pytest-socket", # `enable_socket` marker a plugin adds to each test reaching a server
     "rasm-records",  # Fault results and their report text
 ]
 
 [project.optional-dependencies]
 hosting = [
-    "anyio",      # Event loop thread a test hosts servers on, and its clock on each received request
-    "hypercorn",  # HTTP/1.1 and h2c server answering from a function of the test on a loopback port
-    "msgspec",    # Request and answer records of a hosted server
-]
-sqlite  = [
-    "sqlite-vec", # `vec0` extension loaded into each SQLite database
+    "anyio",     # Event loop thread a test hosts servers on, and its clock on each received request
+    "hypercorn", # HTTP/1.1 and h2c server answering from a function of the test on a loopback port
+    "msgspec",   # Request and answer records of a hosted server
 ]
 
 [project.urls]

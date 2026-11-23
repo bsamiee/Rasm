@@ -1,4 +1,4 @@
-"""Fixtures for pytest, each a plugin module behind the extra of its name: `sqlite` a private SQLite database, `hosting` HTTP servers a test hosts on a loopback port, over the outcomes `rasm.testing.plugin` records."""
+"""Outcomes a test step settles, and the pytest plugin behind the `hosting` extra: HTTP servers a test hosts on a loopback port."""
 
 from rasm.testing._outcomes import raised, settled
 

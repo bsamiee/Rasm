@@ -1,13 +1,9 @@
-"""Values the plugins of the package share: the stash key of a test's outcome and the outcome a test step settles."""
+"""Outcomes a test step settles, each value returned or the test failed with its faults."""
 
 from expression import Error, Ok
 import pytest
 
 from rasm.records import Fault, Outcome
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-FAILED = pytest.StashKey[bool]()
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -40,4 +36,4 @@ def raised[T](outcome: Outcome[T], /) -> T:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FAILED", "raised", "settled"]
+__all__ = ["raised", "settled"]

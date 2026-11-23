@@ -1,53 +1,12 @@
-"""SQLite fixture and the TCP rule, each through the plugin rows a suite loads."""
-
-from contextlib import closing
-import sqlite3
+"""TCP rule of the `hosting` plugin a suite loads."""
 
 import pytest
-import sqlite_vec
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("mark", ["first", "second"])
-def test_sqlite_is_private_to_its_test(sqlite: sqlite3.Connection, mark: str) -> None:
-    """Each case creates the same table in an empty database and reads its own row alone."""
-    sqlite.execute("create table marks (mark text)")
-    sqlite.execute("insert into marks (mark) values (?)", (mark,))
-    assert sqlite.execute("select mark from marks").fetchall() == [(mark,)]
-
-
-def test_sqlite_ranks_vectors_through_vec0(sqlite: sqlite3.Connection) -> None:
-    """A `vec0` table answers a nearest-neighbour query in distance order."""
-    sqlite.execute("create virtual table points using vec0(position float[2])")
-    sqlite.executemany(
-        "insert into points (rowid, position) values (?, ?)", ((row, sqlite_vec.serialize_float32(list(position))) for row, position in enumerate(((0.0, 0.0), (3.0, 4.0), (9.0, 9.0)), start=1))
-    )
-    nearest = sqlite.execute("select rowid, distance from points where position match ? order by distance limit 2", (sqlite_vec.serialize_float32([3.0, 4.5]),)).fetchall()
-    assert [row for row, _ in nearest] == [2, 1]
-    assert nearest[0][1] == pytest.approx(0.5)
-
-
-def test_a_failed_test_keeps_its_sqlite_file(pytester: pytest.Pytester) -> None:
-    """The database file of a failing test outlives it at the path its teardown report names, holding the rows the test wrote."""
-    pytester.makepyfile("""
-        import pytest
-
-
-        def test_fails(sqlite):
-            sqlite.execute("create table marks (mark text)")
-            sqlite.execute("insert into marks (mark) values ('held')")
-            sqlite.commit()
-            pytest.fail("refused")
-    """)
-    (torn,) = (report for report in pytester.inline_run("-p", "rasm.testing.sqlite").getreports("pytest_runtest_logreport") if report.when == "teardown")
-    (kept,) = (text for name, text in torn.sections if "kept sqlite" in name)
-    with closing(sqlite3.connect(kept)) as reader:
-        assert reader.execute("select mark from marks").fetchall() == [("held",)]
-
-
-def test_tcp_opens_for_a_test_requesting_a_server_and_stays_refused_for_others(pytester: pytest.Pytester) -> None:
-    """Under `--disable-socket` with warnings as errors, a test requesting `portal` creates a socket and a test requesting `sqlite` is refused one."""
+def test_tcp_opens_for_a_test_requesting_the_event_loop_and_stays_refused_for_others(pytester: pytest.Pytester) -> None:
+    """Under `--disable-socket` with warnings as errors, a test requesting `portal` creates a socket and a test requesting no fixture of the plugin is refused one."""
     pytester.makepyfile("""
         import socket
 
@@ -58,8 +17,8 @@ def test_tcp_opens_for_a_test_requesting_a_server_and_stays_refused_for_others(p
             socket.socket().close()
 
 
-        def test_refused(sqlite):
+        def test_refused():
             with pytest.raises(UserWarning, match="tried to use socket"):
                 socket.socket()
     """)
-    pytester.runpytest_subprocess("-p", "rasm.testing.hosting", "-p", "rasm.testing.sqlite", "--disable-socket", "-W", "error").assert_outcomes(passed=2)
+    pytester.runpytest_subprocess("-p", "rasm.testing.hosting", "--disable-socket", "-W", "error").assert_outcomes(passed=2)

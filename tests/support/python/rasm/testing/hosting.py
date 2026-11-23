@@ -83,8 +83,6 @@ def _hosting(stack: ExitStack, portal: BlockingPortal, answering: Callable[[Rece
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-pytest_plugins = ("rasm.testing.plugin",)
-
 
 @pytest.fixture
 def portal() -> Iterator[BlockingPortal]:
