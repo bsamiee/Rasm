@@ -258,6 +258,7 @@ steps {
   ["stylelint"] = (Builtins.stylelint) {
     local stylelint =
       List("stylelint", "--config", ".config/stylelint.config.ts", "--max-warnings", "0")
+    env { ["NODE_OPTIONS"] = "--throw-deprecation" }
     check { command { argv = stylelint + List("{{files}}") } }
     fix { command { argv = stylelint + List("--fix", "{{files}}") } }
   }

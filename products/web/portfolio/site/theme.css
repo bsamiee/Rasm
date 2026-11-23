@@ -31,7 +31,7 @@
     }
 
     ul {
-        list-style: none;
+        list-style-type: '';
     }
 
     img,
@@ -393,14 +393,14 @@
 @layer components {
     .skip-link {
         position: fixed;
-        inset-block-start: -6.25rem;
+        inset-block-start: 0.625rem;
         inset-inline-start: 1.25rem;
         z-index: 100;
         padding: 0.9375rem;
         background: var(--color-background);
 
-        &:focus {
-            inset-block-start: 0.625rem;
+        &:not(:focus) {
+            translate: 0 -200%;
         }
     }
 

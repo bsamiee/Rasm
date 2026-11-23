@@ -543,6 +543,7 @@ catalog:
     '@projectwallace/stylelint-plugin': 1.1.0
     css-tree: 3.2.1
     '@types/css-tree': 3.2.0
+    '@csstools/css-syntax-patches-for-csstree': 1.1.17 # Grammar Stylelint reads over css-tree, read by the Stylelint config for the same value lists
     eslint: 10.15.0 # Runs the JSON rules oxlint lacks
     jsonc-eslint-parser: 3.3.0
     publint: 0.3.25 # Published package layout checked over the tarball its package manager packs

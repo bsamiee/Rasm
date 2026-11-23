@@ -77,7 +77,7 @@ Stylesheets divide by section and by load:
 - Sections open with a divider comment of 85 characters between `/*` and `*/` (`--- [<LABEL>] ---`) and reopen their layer by name
 - Subsections open with `/* --- [<LABEL>] */`, and every other comment fails Stylelint, disable comments included
 - Lazily loaded stylesheets state no layer order, import third-party styles into `vendor`, and reopen `components` or their own layer
-- Stylesheets reading tokens, keyframes, or container names of another file list it in `referenceFiles` of a Stylelint override
+- Stylesheets reading tokens, keyframes, layers, or container names of another file list it in `referenceFiles` of a Stylelint override
 
 ## [02]-[TOKENS]
 
@@ -384,7 +384,7 @@ Support follows the engines each product targets:
 - Features a target engine lacks sit inside `@supports` testing them, where the page reads correctly without them
 - `@supports (<property>: <value>)` tests a declaration and `@supports selector(<selector>)` a selector, and `and` joins one test per feature
 - Stylelint reads no engine support, and `if()`, `sibling-index()`, `contrast-color()`, `random()`, and typed `attr()` pass it unchecked
-- `if()` appears in stylesheets targeting current Chrome alone, and its branches name tokens, as color rules skip a value holding `if()`
+- `if()` appears in stylesheets targeting current Chrome alone, and its branches name tokens, as Stylelint misreads a value before a branch's `;`
 - Stylesheets targeting more engines state each branch in a nested `@media` or `@container` block
 - Selects take `appearance: base-select` on themselves and `::picker(select)` inside `@supports (appearance: base-select)`
 
@@ -392,16 +392,24 @@ Support follows the engines each product targets:
 
 Stylelint reports each form below, and stylesheets take the form beside it:
 
-| [INDEX] | [REPORTED]                                                                | [FORM]                                                   |
-| :-----: | :------------------------------------------------------------------------ | :------------------------------------------------------- |
-|  [01]   | Block holding only a comment                                              | Block holding a declaration or rule                      |
-|  [02]   | `display: inline-flex` and other `inline-*` values                        | Outer and inner keywords (`inline flex`, `inline grid`)  |
-|  [03]   | Duration under 50ms                                                       | 50ms or longer, delays excepted                          |
-|  [04]   | Hex, named colors, `rgb()`, `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()` | `oklch()` in a token                                     |
-|  [05]   | Alpha as a percentage                                                     | Number (`/ 0.55`)                                        |
-|  [06]   | `grid-template-areas`, `-rows`, and `-columns` together                   | `grid-template`                                          |
-|  [07]   | `url()` with an `http` or `https` scheme                                  | Relative path or `data:` URL                             |
-|  [08]   | `@counter-style`, `@function`, `@namespace`, `@font-palette-values`       | Built-in counter styles, `calc()` over custom properties |
-|  [09]   | Vendor-prefixed property, value, selector, or media feature               | Unprefixed form                                          |
-|  [10]   | ID selector, `[class]`, `[id]`, `[style]`                                 | Class, element, or state selector                        |
-|  [11]   | Zero length with a unit outside `calc()` (`0px`)                          | `0`                                                      |
+| [INDEX] | [REPORTED]                                                           | [FORM]                                                   |
+| :-----: | :------------------------------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | Block holding only a comment                                         | Block holding a declaration or rule                      |
+|  [02]   | `display: inline-flex` and other legacy `inline-*` values            | Outer and inner keywords (`inline flex`, `inline grid`)  |
+|  [03]   | Duration under 50ms                                                  | 50ms or longer, delays excepted                          |
+|  [04]   | Hex, named colors, and color functions other than `oklch()`          | `oklch()` in a token                                     |
+|  [05]   | Alpha as a percentage                                                | Number (`/ 0.55`)                                        |
+|  [06]   | `grid-template-areas`, `-rows`, and `-columns` together              | `grid-template`                                          |
+|  [07]   | `url()` with an `http` or `https` scheme                             | Relative path or `data:` URL                             |
+|  [08]   | `@counter-style`, `@function`, `@namespace`, `@font-palette-values`  | Built-in counter styles, `calc()` over custom properties |
+|  [09]   | Vendor-prefixed property, value, selector, or media feature          | Unprefixed form                                          |
+|  [10]   | ID selector, `[class]`, `[id]`, `[style]`                            | Class, element, or state selector                        |
+|  [11]   | Zero length with a unit outside `calc()` (`0px`)                     | `0`                                                      |
+|  [12]   | `color-mix()` in a space other than `oklab`                          | `color-mix(in oklab, <color> <percentage>, <color>)`     |
+|  [13]   | `cubic-bezier()`, `linear()`, or `steps()` outside a custom property | Custom property, keyword easings in their declaration    |
+|  [14]   | Non-standard value (`overflow: overlay`, `inline-size: intrinsic`)   | Standard value                                           |
+|  [15]   | `list-style: none` outside `nav`                                     | `list-style-type: ''`                                    |
+|  [16]   | `:focus`                                                             | `:focus-visible`, `:focus-within`, or `:not(:focus)`     |
+|  [17]   | Custom property no `var()` reads, layer no stylesheet fills          | Declaration with a reader                                |
+|  [18]   | Property, value, or at-rule hack for one browser (`*zoom`, `\9`)     | Standard declaration                                     |
+|  [19]   | One `data:` URL in 2 declarations                                    | Custom property holding its `url()`                      |

@@ -14,6 +14,7 @@
     },
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
+        "@csstools/css-syntax-patches-for-csstree": "catalog:",
         "@effect/tsgo": "catalog:",
         "@nx/conformance": "catalog:",
         "@nx/devkit": "catalog:",

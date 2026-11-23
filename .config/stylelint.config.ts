@@ -1,12 +1,37 @@
-import { lexer } from 'css-tree';
+import patches from '@csstools/css-syntax-patches-for-csstree' with { type: 'json' };
+import { type DSNode, definitionSyntax, fork, type SyntaxDescriptor } from 'css-tree';
 import stylelint, { type Config, type Rule } from 'stylelint';
 import recess from 'stylelint-config-recess-order/groups';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const systemSyntax = lexer.getType('system-color')?.syntax;
-const systemColors = systemSyntax?.type === 'Group' ? systemSyntax.terms.flatMap((term) => (term.type === 'Keyword' ? [term.name] : [])) : [];
 const vendorPrefix = '/^-(?!-)/';
+
+// --- [GRAMMAR] -------------------------------------------------------------------------
+
+const { lexer } = fork(patches.next);
+
+const named = (type: string, kind: 'Keyword' | 'Type') => [lexer.getType(type)?.syntax].flatMap((syntax) => (syntax?.type === 'Group' ? syntax.terms : [])).flatMap((term) => (term.type === kind ? [term.name] : []));
+
+const systemColors = named('system-color', 'Keyword').join('|');
+const namedColors = named('named-color', 'Keyword').join('|');
+const easings = named('easing-function', 'Type')
+    .flatMap((type) => named(type, 'Keyword'))
+    .join('|');
+const colorFunctions = named('color-function', 'Type')
+    .map((name) => name.replace('()', ''))
+    .filter((name) => name !== 'oklch')
+    .join('|');
+
+const standard = (node: DSNode): DSNode => (node.type === 'Group' ? { ...node, terms: node.terms.filter((term) => !(term.type === 'Type' && /^(?:-(?:non-standard|legacy)-|display-legacy$)/u.test(term.name))).map(standard) } : node);
+
+const grammar = (described: readonly (SyntaxDescriptor | null)[]) =>
+    Object.fromEntries(
+        described
+            .flatMap((entry) => (entry?.syntax === null || entry?.syntax === undefined ? [] : [{ name: entry.name, stated: definitionSyntax.generate(entry.syntax), kept: definitionSyntax.generate(standard(entry.syntax)) }]))
+            .filter(({ stated, kept }) => stated !== kept)
+            .map(({ name, kept }) => [name, kept]),
+    );
 
 // --- [PLUGINS] -------------------------------------------------------------------------
 
@@ -31,11 +56,12 @@ export default {
     extends: ['stylelint-config-standard', '@projectwallace/stylelint-plugin/configs/correctness'],
     plugins: ['stylelint-use-nesting', 'stylelint-use-logical-spec', 'stylelint-order', 'stylelint-declaration-block-no-ignored-properties', 'stylelint-plugin-defensive-css', stylelint.createPlugin(documentUnits, documentRule)],
     ignoreDisables: true,
+    languageOptions: { syntax: { properties: grammar(Object.keys(patches.next.properties).map((name) => lexer.getProperty(name))), types: grammar(Object.keys(patches.next.types).map((name) => lexer.getType(name))) } },
     overrides: [
         {
             name: 'portfolio',
             files: ['../products/web/portfolio/**/*.css'],
-            referenceFiles: ['../products/web/portfolio/site/theme.css'],
+            referenceFiles: ['../products/web/portfolio/**/*.css'],
             rules: {
                 'rule-nesting-at-rule-required-list': ['layer'],
                 'selector-class-pattern': '^(?:[a-z][a-z0-9]*(?:-[a-z0-9]+)*|react-aria-[A-Z][A-Za-z]*|uppy-[A-Z][A-Za-z]*(?:-[a-z]+)*|textLayer)$',
@@ -55,7 +81,7 @@ export default {
         'alpha-value-notation': 'number',
         'color-named': 'never',
         'color-no-hex': true,
-        'value-type-custom-property-required-list': ['color', { ignoreValues: ['transparent', 'currentcolor', `/^(?:${systemColors.join('|')})$/i`] }],
+        'value-type-custom-property-required-list': [['color', 'easing-function'], { ignoreValues: ['transparent', 'currentcolor', `/^(?:${systemColors}|${easings})$/i`] }],
 
         // --- [COMMENTS]
 
@@ -64,20 +90,26 @@ export default {
         // --- [DECLARATIONS]
 
         'declaration-block-no-duplicate-properties': true,
-        'declaration-property-value-disallowed-list': { display: [String.raw`/(?<![\w-])inline-/`], '/^transition/': [String.raw`/(?<![\w-])all(?![\w-])/`], '/^(?!--)/': [String.raw`/(?:^|[\s(,])-(?!-)[a-z]+-/i`] },
+        'declaration-property-value-disallowed-list': {
+            '/^/': [String.raw`/color-mix\((?!\s*in\s+oklab\s*,)/i`],
+            '/^transition/': [String.raw`/(?<![\w-])all(?![\w-])/`],
+            '/^(?!--)/': [String.raw`/(?:^|[\s(,])-(?!-)[a-z]+-/i`, String.raw`/oklch\((?!\s*from\s)/i`, String.raw`/(?:#[\da-f]+|(?<![\w-])(?:${namedColors}))\s*;/i`],
+        },
         'font-weight-notation': ['numeric', { ignore: ['relative'] }],
         'import-notation': 'string',
         'max-nesting-depth': [3, { ignore: ['blockless-at-rules'], ignoreAtRules: ['starting-style'] }],
+        // Flags a nested part after a more specific part of another component, each class rule nests its own parts
         'no-descending-specificity': null,
         'no-unknown-animations': true,
         'no-unknown-custom-media': true,
         'property-disallowed-list': [vendorPrefix],
         'string-no-newline': true,
         'time-min-milliseconds': [50, { ignore: ['delay'] }],
+        'value-keyword-case': ['lower', { ignoreKeywords: [`/^(?:${systemColors});$/i`] }],
 
         // --- [FUNCTIONS]
 
-        'function-disallowed-list': ['rgb', 'rgba', 'hsl', 'hsla', 'hwb', 'lab', 'lch', 'oklab'],
+        'function-disallowed-list': [`/^(?:${colorFunctions}|device-cmyk)$/i`],
         'function-linear-gradient-no-nonstandard-direction': true,
         'function-no-unknown': true,
         'function-url-no-scheme-relative': true,
@@ -107,15 +139,21 @@ export default {
 
         'csstools/use-nesting': 'always',
         'defensive-css/no-accidental-hover': true,
-        'defensive-css/no-unsafe-clamp-font-size': [true, { reportUnresolvable: false }],
+        'defensive-css/no-list-style-none': true,
+        'defensive-css/no-unsafe-clamp-font-size': true,
         'defensive-css/no-unsafe-will-change': true,
+        'defensive-css/require-focus-visible': true,
+        'defensive-css/require-forced-colors-focus': true,
         'liberty/use-logical-spec': 'always',
         'order/order': ['custom-properties', 'declarations', 'rules', 'at-rules'],
         'order/properties-order': [recess, { unspecified: 'bottomAlphabetical' }],
         'plugin/declaration-block-no-ignored-properties': true,
         'projectwallace/no-anonymous-layers': true,
+        'projectwallace/no-atrule-browserhacks': true,
+        // Flags a variant, state, or query reassigning a custom property, `declaration-block-no-duplicate-custom-properties` owns one block
         'projectwallace/no-duplicate-custom-properties': null,
-        'projectwallace/no-unused-custom-properties': null,
-        'projectwallace/no-unused-layers': null,
+        'projectwallace/no-duplicate-data-urls': true,
+        'projectwallace/no-property-browserhacks': true,
+        'projectwallace/no-value-browserhacks': true,
     },
 } satisfies Config;

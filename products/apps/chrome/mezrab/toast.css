@@ -9,6 +9,8 @@
     --fill: light-dark(oklch(32.06% 0.121 260.2deg), oklch(96.21% 0.017 259.4deg));
     --ink: light-dark(oklch(96.12% 0 0deg), oklch(23.93% 0 0deg));
     --ring: light-dark(oklch(82.48% 0.08 260.3deg), oklch(49.49% 0.199 260.6deg));
+    --ease-entry: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);
 
     inset-block: 6px auto;
     box-sizing: border-box;
@@ -23,7 +25,7 @@
     zoom: calc(1 / var(--tab-zoom, 1));
     user-select: none;
     color-scheme: light dark;
-    background: if(media(prefers-contrast: more): canvastext; else: var(--fill));
+    background: if(media(prefers-contrast: more): CanvasText; else: var(--fill));
     border: 0;
     border-radius: 48px;
     box-shadow:
@@ -33,8 +35,8 @@
     scale: 1 0.5;
     translate: 0 -50px;
     transition:
-        translate 150ms cubic-bezier(0.3, 0, 0.8, 0.15),
-        scale 150ms cubic-bezier(0.3, 0, 0.8, 0.15),
+        translate 150ms var(--ease-exit),
+        scale 150ms var(--ease-exit),
         color 100ms linear,
         opacity 50ms linear 100ms,
         display 150ms allow-discrete,
@@ -110,13 +112,13 @@
     &:popover-open {
         display: flex;
         align-items: center;
-        color: if(media(prefers-contrast: more): canvas; else: var(--ink));
+        color: if(media(prefers-contrast: more): Canvas; else: var(--ink));
         opacity: 1;
         scale: none;
         translate: none;
         transition:
-            translate 300ms cubic-bezier(0.05, 0.7, 0.1, 1),
-            scale 300ms cubic-bezier(0.05, 0.7, 0.1, 1),
+            translate 300ms var(--ease-entry),
+            scale 300ms var(--ease-entry),
             color 150ms linear 50ms,
             opacity 50ms linear,
             display 300ms allow-discrete,
@@ -180,6 +182,6 @@
 
 @keyframes hold {
     100% {
-        --hold: 1;
+        visibility: visible;
     }
 }
