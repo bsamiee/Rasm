@@ -248,14 +248,14 @@ const driven = Effect.fnUntraced(function* (workspaceRoot: string, file: string)
 });
 
 const edges = (analyses: ReadonlyMap<string, Composed>, { projects, workspaceRoot }: CreateDependenciesContext) => {
-    const selections = Record.collect(projects, (name, data) =>
+    const built = Record.collect(projects, (name, { root }) => Array.fromNullishOr(analyses.get(join(workspaceRoot, root))).flatMap(({ file, contexts }) => contexts.map((at) => ({ name, file, at })))).flat();
+    const selections = Record.collect(Array.isReadonlyArrayNonEmpty(built) ? projects : {}, (name, data) =>
         Record.collect(
             Record.filter(data.targets ?? {}, (stated) => stated.outputs !== undefined),
             (target, { configurations = {} }) => [{}, ...Record.keys(configurations).map((configuration) => ({ configuration }))].map((selected) => ({ name, data, target, selected })),
         ).flat(),
     ).flat();
     const outputs = selections.flatMap(({ name, data, target, selected }) => getOutputsForTargetAndConfiguration({ project: name, target, ...selected }, {}, { name, type: 'lib', data }).map((output) => ({ name, output })));
-    const built = Record.collect(projects, (name, { root }) => Array.fromNullishOr(analyses.get(join(workspaceRoot, root))).flatMap(({ file, contexts }) => contexts.map((at) => ({ name, file, at })))).flat();
     return built.flatMap(({ name, file, at }) => outputs.filter(({ output }) => !output.startsWith('!') && (posix.matchesGlob(at, output) || posix.matchesGlob(at, `${output}/**`))).map((made): RawProjectGraphDependency => ({ source: name, target: made.name, type: DependencyType.static, sourceFile: file })));
 };
 
