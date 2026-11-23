@@ -64,6 +64,21 @@ const titled = (tabId: number) => browser.action.getTitle({ tabId });
 
 const attached = Effect.fnUntraced(function* (context: BrowserContext) {
     const worker = yield* Option.match(Array.head(context.serviceWorkers()), { onSome: Effect.succeed, onNone: () => Effect.promise(() => context.waitForEvent('serviceworker')) });
+    yield* Effect.promise(() =>
+        worker.evaluate(() => {
+            const scope: object = globalThis;
+            const { promise, resolve, reject } = Promise.withResolvers<void>();
+            if ('serviceWorker' in scope && scope.serviceWorker instanceof ServiceWorker) {
+                const held = scope.serviceWorker;
+                const settle = () => (held.state === 'activated' ? resolve() : undefined);
+                held.addEventListener('statechange', settle);
+                settle();
+            } else {
+                reject(new TypeError('No service worker runs this script'));
+            }
+            return promise;
+        }),
+    );
     const id = new URL(worker.url()).host;
     const browser = yield* Effect.flatMap(Effect.fromNullishOr(context.browser()), (held) => Effect.promise(() => held.newBrowserCDPSession()));
     const targets = (type: 'tab' | 'service_worker') =>
