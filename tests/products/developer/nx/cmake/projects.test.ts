@@ -1,5 +1,6 @@
+import { join } from 'node:path';
 import { createDependencies, createNodes } from '@rasm/nx-cmake';
-import { it, unaggregated, unportable } from '@rasm/testing/nx';
+import { it, pathed, unaggregated, unportable } from '@rasm/testing/nx';
 import { Predicate, Record } from 'effect';
 import { describe, expect, vi } from 'vitest';
 
@@ -55,7 +56,7 @@ const rich = {
     }),
     'CMakeLists.txt': 'cmake_minimum_required(VERSION 4.5)\nproject(Fixture LANGUAGES CXX)\nenable_testing()\nadd_subdirectory(libs/core)\nadd_subdirectory(apps/tool)\nadd_subdirectory(docs)\n',
     'libs/core/CMakeLists.txt': 'project(fixture_core LANGUAGES CXX)\nadd_library(fixture_core STATIC core.cpp)\nadd_executable(fixture_core_test core.cpp)\nadd_test(NAME fixture_core_test COMMAND fixture_core_test)\n',
-    'apps/tool/CMakeLists.txt': `project(fixture_tool LANGUAGES CXX)\nadd_executable(fixture_tool main.cpp)\ntarget_link_libraries(fixture_tool PRIVATE fixture_core)\ninstall(TARGETS fixture_tool)\nset(CPACK_OUTPUT_CONFIG_FILE "\${PROJECT_BINARY_DIR}/CPackConfig.cmake")\nset(CPACK_SOURCE_OUTPUT_CONFIG_FILE "\${PROJECT_BINARY_DIR}/CPackSourceConfig.cmake")\ninclude(CPack)\n`,
+    'apps/tool/CMakeLists.txt': `project(fixture_tool VERSION 0.1.0 LANGUAGES CXX)\nadd_executable(fixture_tool main.cpp)\ntarget_link_libraries(fixture_tool PRIVATE fixture_core)\ninstall(TARGETS fixture_tool)\nset(CPACK_OUTPUT_CONFIG_FILE "\${PROJECT_BINARY_DIR}/CPackConfig.cmake")\nset(CPACK_SOURCE_OUTPUT_CONFIG_FILE "\${PROJECT_BINARY_DIR}/CPackSourceConfig.cmake")\ninclude(CPack)\n`,
     'apps/tool/vcpkg.json': '{ "name": "fixture-tool", "dependencies": [] }\n',
     'package.json': '{ "name": "repo", "private": true, "workspaces": ["libs/*"] }',
     'libs/core/package.json': '{ "name": "fixture_core", "nx": { "targets": { "build--cmake": { "inputs": ["default", "{projectRoot}/data/**/*"] } } } }',
@@ -82,6 +83,29 @@ describe('inferred projects', { timeout: 120_000 }, () => {
         expect(graph.nodes['fixture_tool']?.data.targets?.['upgrade--vcpkg']).toMatchObject({
             options: { cwd: 'apps/tool', commands: [{ apply: ['vcpkg', 'x-update-baseline', '--x-manifest-root=third_party', '--x-install-root=../../build/default/vcpkg_installed'] }] },
         });
+    });
+
+    it('gives the top-level project() no build target, as it aggregates the members of its tree', async ({ workspace }) => {
+        const graph = await workspace.write({ ...tree, 'CMakeLists.txt': 'cmake_minimum_required(VERSION 4.5)\nproject(Fixture LANGUAGES CXX)\nadd_library(fixture STATIC libs/core/core.cpp)\nadd_subdirectory(libs/core)\n' }).graph(cmake);
+
+        expect(Object.keys(graph.nodes).toSorted()).toStrictEqual(['fixture_core', 'fixture_tool']);
+    });
+
+    it('folds a project() call inside a member folder into that member, as a consumer tree the member tests', async ({ workspace }) => {
+        const graph = await workspace.write({ ...tree, 'apps/tool/consumer/CMakeLists.txt': 'cmake_minimum_required(VERSION 4.5)\nproject(consumer LANGUAGES CXX)\nadd_executable(consumer main.cpp)\n' }).graph(cmake);
+
+        expect(Record.map(graph.nodes, ({ data }) => data.root)).toStrictEqual({ fixture_core: 'libs/core', fixture_tool: 'apps/tool' });
+    });
+
+    it('infers the same projects, targets, and dependencies with no cmake, ninja, or compiler on PATH', async ({ workspace }) => {
+        pathed(join(workspace.root, '.bin'), {});
+        const bare = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
+        vi.unstubAllEnvs();
+
+        const tooled = await workspace.graph(cmake, { outputPath: '.artifacts/cmake/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
+
+        expect(Object.keys(bare.nodes).toSorted()).toStrictEqual(['fixture_core', 'fixture_tool']);
+        expect({ nodes: bare.nodes, dependencies: bare.dependencies }).toStrictEqual({ nodes: tooled.nodes, dependencies: tooled.dependencies });
     });
 
     it('infers nothing from a CMakePresets.json with no CMakeLists.txt beside it', async ({ workspace }) => {

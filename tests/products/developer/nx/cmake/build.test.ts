@@ -35,15 +35,15 @@ const tree = {
 
 describe('build--cmake', { timeout: 120_000 }, () => {
     it.for([
-        { configuration: undefined, folder: 'nested/proj/build/default', executable: 'nested/proj/build/default/apps/tool/fixture_tool' },
-        { configuration: 'release', folder: 'nested/proj/build/release', executable: 'nested/proj/build/release/apps/tool/fixture_tool' },
-    ])('writes the executable it declares under configuration $configuration, and nothing outside the build tree of that workflow', async ({ configuration, folder, executable }, { workspace }) => {
+        { configuration: undefined, folder: 'nested/proj/build/default', member: 'nested/proj/build/default/apps/tool', executable: 'nested/proj/build/default/apps/tool/fixture_tool' },
+        { configuration: 'release', folder: 'nested/proj/build/release', member: 'nested/proj/build/release/apps/tool', executable: 'nested/proj/build/release/apps/tool/fixture_tool' },
+    ])('writes the executable inside the member build folder it declares under configuration $configuration, and nothing outside the build tree of that workflow', async ({ configuration, folder, member, executable }, { workspace }) => {
         const graph = await workspace.write(tree).graph(cmake);
         const before = workspace.files();
 
         const { success } = await workspace.run(graph, 'fixture_tool', 'build--cmake', configuration);
 
-        expect([success, outputs(graph, 'fixture_tool', 'build--cmake', configuration), existsSync(join(workspace.root, executable)), [...workspace.files().difference(before)].filter((file) => !file.startsWith(folder))]).toStrictEqual([true, [executable], true, []]);
+        expect([success, outputs(graph, 'fixture_tool', 'build--cmake', configuration), existsSync(join(workspace.root, executable)), [...workspace.files().difference(before)].filter((file) => !file.startsWith(folder))]).toStrictEqual([true, [member], true, []]);
     });
 
     it('hands cmake a preset name holding shell syntax as one word', async ({ workspace }) => {
@@ -57,10 +57,12 @@ describe('build--cmake', { timeout: 120_000 }, () => {
 });
 
 describe('install--cmake', { timeout: 120_000 }, () => {
-    it('exists only for a member whose folder states install rules', async ({ workspace }) => {
+    it('installs nothing for a member whose folder states no install rules', async ({ workspace }) => {
         const graph = await workspace.write(tree).graph(cmake);
 
-        expect(['fixture_core', 'fixture_tool'].filter((name) => 'install--cmake' in (graph.nodes[name]?.data.targets ?? {}))).toStrictEqual(['fixture_tool']);
+        const { success } = await workspace.run(graph, 'fixture_core', 'install--cmake');
+
+        expect([success, existsSync(join(workspace.root, 'nested/proj/stage'))]).toStrictEqual([true, false]);
     });
 
     it('builds the member and installs its executable under bin of the prefix its configure preset states', async ({ workspace }) => {

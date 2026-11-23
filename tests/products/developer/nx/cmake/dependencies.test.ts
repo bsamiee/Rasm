@@ -34,6 +34,22 @@ describe('link edges', { timeout: 120_000 }, () => {
         expect(graph.dependencies['core']).toStrictEqual([{ source: 'core', target: 'clients', type: 'static' }]);
     });
 
+    it('makes a link to an alias another member adds, or through a function call naming its target, a static edge from the member list file', async ({ workspace }) => {
+        const graph = await workspace
+            .write({
+                ...members,
+                'CMakeLists.txt': 'cmake_minimum_required(VERSION 4.5)\nproject(Fixture LANGUAGES CXX)\ninclude(cmake/fuzz.cmake)\nadd_subdirectory(clients)\nadd_subdirectory(core)\nadd_subdirectory(fuzz)\n',
+                'cmake/fuzz.cmake': `function(add_fuzz name)\n    cmake_parse_arguments(PARSE_ARGV 1 fuzz "" "" "SOURCES;LIBRARIES")\n    add_library(\${name} OBJECT \${fuzz_SOURCES})\n    target_link_libraries(\${name} PRIVATE \${fuzz_LIBRARIES})\nendfunction()\n`,
+                'clients/CMakeLists.txt': 'project(clients LANGUAGES CXX)\nadd_library(clients STATIC clients.cpp)\nadd_library(fixture::clients ALIAS clients)\n',
+                'core/CMakeLists.txt': 'project(core LANGUAGES CXX)\nadd_library(core STATIC core.cpp)\ntarget_link_libraries(core PRIVATE "fixture::clients")\n',
+                'fuzz/CMakeLists.txt': 'project(fuzz LANGUAGES CXX)\nadd_fuzz(fuzz_core SOURCES fuzz.cpp LIBRARIES core)\n',
+                'fuzz/fuzz.cpp': 'int two();\n\nint three() { return two() + 1; }\n',
+            })
+            .graph(cmake);
+
+        expect([graph.dependencies['core'], graph.dependencies['fuzz']]).toStrictEqual([[{ source: 'core', target: 'clients', type: 'static' }], [{ source: 'fuzz', target: 'core', type: 'static' }]]);
+    });
+
     it('makes a link an ancestor list file states an implicit edge, as its file lies outside the source project', async ({ workspace }) => {
         const graph = await workspace
             .write({

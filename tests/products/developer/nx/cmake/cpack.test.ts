@@ -21,7 +21,7 @@ const presets = {
 const tree = {
     'CMakePresets.json': JSON.stringify(presets),
     'CMakeLists.txt': 'cmake_minimum_required(VERSION 4.5)\nproject(Fixture LANGUAGES CXX)\nadd_subdirectory(libs/core)\nadd_subdirectory(apps/tool)\n',
-    'libs/core/CMakeLists.txt': 'project(fixture_core VERSION 0.1.0 LANGUAGES CXX)\nadd_library(fixture_core STATIC core.cpp)\ninstall(TARGETS fixture_core)\n',
+    'libs/core/CMakeLists.txt': 'project(fixture_core LANGUAGES CXX)\nadd_library(fixture_core STATIC core.cpp)\ninstall(TARGETS fixture_core)\n',
     'libs/core/core.cpp': 'int one() { return 1; }\n',
     'apps/tool/CMakeLists.txt': [
         'project(fixture_tool VERSION 0.1.0 LANGUAGES CXX)',
@@ -42,7 +42,7 @@ const tree = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 describe('release of a packaged member', { timeout: 120_000 }, () => {
-    it('releases an installing member cpack is configured for, attaching after it packs, and leaves an installing member cpack ignores', async ({ workspace }) => {
+    it('releases a member whose project() states VERSION, attaching after it packs, and leaves an installing member stating none', async ({ workspace }) => {
         const graph = await workspace.write(tree).graph(cmake);
 
         const { tasks } = taskGraph(graph, ['fixture_tool'], ['attach']);

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createDependencies, createNodes } from '@rasm/nx-cmake';
 import { it, outputs, taskGraph } from '@rasm/testing/nx';
@@ -56,7 +56,7 @@ const tree = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 describe('test--ctest', { timeout: 120_000 }, () => {
-    it('runs for a member whose folder adds tests, after that member builds, and for no other member', async ({ workspace }) => {
+    it('runs for each member after that member builds, running the build of no other member', async ({ workspace }) => {
         const graph = await workspace.write(tree).graph(cmake);
 
         const { tasks } = taskGraph(graph, ['passing'], ['test']);
@@ -66,7 +66,19 @@ describe('test--ctest', { timeout: 120_000 }, () => {
             Object.keys(graph.nodes)
                 .filter((name) => 'test--ctest' in (graph.nodes[name]?.data.targets ?? {}))
                 .toSorted(),
-        ).toStrictEqual(['failing', 'passing']);
+        ).toStrictEqual(['failing', 'passing', 'untested']);
+    });
+
+    it.for([
+        { case: 'without configuration', configuration: undefined },
+        { case: 'under configuration coverage, writing no report', configuration: 'coverage' },
+    ])('passes for a member that adds no tests $case', async ({ configuration }, { workspace }) => {
+        const graph = await workspace.write(tree).graph(cmake, { coveragePath: '.artifacts/coverage/{projectName}' });
+        await workspace.run(graph, 'untested', 'build--cmake', configuration);
+
+        const { success } = await workspace.run(graph, 'untested', 'test--ctest', configuration);
+
+        expect([success, existsSync(join(workspace.root, '.artifacts/coverage/untested/lcov.info'))]).toStrictEqual([true, false]);
     });
 
     it('passes for a member whose tests pass, running no test of another member', async ({ workspace }) => {
@@ -87,11 +99,11 @@ describe('test--ctest', { timeout: 120_000 }, () => {
         expect(success).toBe(false);
     });
 
-    it('fails where the test preset selects none of the member tests, which ctest alone reports as success', async ({ workspace }) => {
+    it('fails where the test preset selects none of the member tests and states no tests an error', async ({ workspace }) => {
         const filtered = {
             ...presets,
             testPresets: [
-                { name: 'default', configurePreset: 'default', filter: { include: { name: 'absent' } } },
+                { name: 'default', configurePreset: 'default', filter: { include: { name: 'absent' } }, execution: { noTestsAction: 'error' } },
                 { name: 'coverage', configurePreset: 'coverage' },
             ],
         };
