@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application } from '#/application';
+export { Application, Registry } from '#/application';

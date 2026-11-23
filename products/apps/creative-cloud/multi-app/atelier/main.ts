@@ -3,13 +3,14 @@ import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { ApplicationServer } from '@rasm/applications/node';
+import { Registry } from '@rasm/creative-cloud-desktop';
 import { Typesetting } from '@rasm/indesign';
 import { Link, Upstream } from '@rasm/mcp';
-import { serve } from '@rasm/mcp/node';
+import { serve, setting } from '@rasm/mcp/node';
 import { Rendering, Script } from '@rasm/object-model';
 import { teardown } from '@rasm/telemetry/node';
 import { UxpManifest } from '@rasm/uxp';
-import { Cause, Deferred, Effect, Layer, Option } from 'effect';
+import { Cause, Deferred, Effect, Layer, Option, Schema } from 'effect';
 import { Host } from 'effect/net';
 import { applications, Inventory } from '#/applications';
 import { Declarations, declarations } from '#/declarations';
@@ -19,6 +20,10 @@ import manifest from '#/package.json' with { type: 'json' };
 import { scripts } from '#/scripts';
 import { typography } from '#/typography';
 import { Preview, windows } from '#/windows';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Registered = setting('registry', 'registry', Schema.String, '/Library/Application Support/Adobe/caps/hdpim.db', 'Creative Cloud registry database listing the Adobe applications it installed');
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -45,9 +50,9 @@ Effect.gen(function* () {
                 "Opening an application launches it in the background or targets its running instance, never a second one; closing it reports each unsaved document's save dialog as an event, and an application comes forward by itself to show one, so save or close its documents through a script first.",
                 "An Adobe extension linked from a running application adds tools of its own and renders its documents for view of object while that application runs, and a running application's own MCP server adds its tools under the prefix illustrator_, aftereffects_, premiere_, or mediaencoder_.",
             ],
-            settings: [Preview],
+            settings: [Preview, Registered],
         },
-        Layer.effectDiscard(tools).pipe(Layer.provide(Layer.provideMerge(Declarations.layer, Inventory.layer)), Layer.provide([layerUndici, layerDigest]), Layer.provideMerge(helper)),
+        Layer.effectDiscard(tools).pipe(Layer.provide(Layer.provideMerge(Declarations.layer, Inventory.layer)), Layer.provide([layerUndici, layerDigest, Layer.effect(Registry, Registered)]), Layer.provideMerge(helper)),
         Deferred.await(started).pipe(
             Effect.flatMap(({ exited }) => exited),
             Effect.flatMap((code) => Effect.fail(new Cause.UnknownError(code, `Atelier helper exited ${code}`))),

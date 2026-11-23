@@ -1,7 +1,7 @@
 import { layer } from '@effect/sql-sqlite-node/SqliteClient';
 import { parse } from '@plist/parse';
 import { ExitError, run } from '@rasm/process';
-import { Array, Effect, FileSystem, Option, Order, Path, Schema, String, Struct } from 'effect';
+import { Array, Context, Effect, FileSystem, Option, Order, Path, Schema, String, Struct } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/sql';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -41,8 +41,7 @@ class Application extends Schema.Class<Application, { readonly brand: unique sym
 }) {
     static readonly Order: Order.Order<Application> = (left, right) => Released(right, left);
     static readonly installed = Effect.gen(function* () {
-        const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const registry = '/Library/Application Support/Adobe/caps/hdpim.db';
+        const [files, path, registry] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Registry]);
         const candidates = yield* Effect.all(
             [
                 products(undefined).pipe(Effect.provide(layer({ filename: registry, readonly: true })), Effect.when(files.exists(registry)), Effect.map(Option.match({ onNone: Array.empty, onSome: Array.flatMap(registered(path)) }))),
@@ -94,6 +93,10 @@ class Application extends Schema.Class<Application, { readonly brand: unique sym
     });
 }
 
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Registry extends Context.Service<Registry, string>()('@rasm/creative-cloud-desktop/application/Registry') {}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const products = SqlSchema.findAll({
@@ -137,4 +140,4 @@ const receipted = (path: Path.Path) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application };
+export { Application, Registry };
