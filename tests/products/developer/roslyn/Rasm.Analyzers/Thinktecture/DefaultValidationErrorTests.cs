@@ -8,7 +8,7 @@ namespace Rasm.Analyzers.Tests.Thinktecture;
 
 public sealed class DefaultValidationErrorTests : CSharpCodeFixVerifier<DefaultValidationErrorAnalyzer, EmptyCodeFixProvider> {
     [Fact]
-    public Task IgnoresValidateConstrainedToCustomErrorType() => VerifyAnalyzerAsync(
+    public Task ValidationRaisingTheDefaultErrorIsReportedWhileADomainErrorHooksAndSmartEnumLookupsAreSilent() => VerifyAnalyzerAsync(
         """
         using Thinktecture;
 
@@ -16,48 +16,44 @@ public sealed class DefaultValidationErrorTests : CSharpCodeFixVerifier<DefaultV
             public static Fault Create(string message) => new();
         }
 
-        internal static class ConstrainedError {
-            internal static bool Valid<TCount>(int value) where TCount : IObjectFactory<TCount, int, Fault> => TCount.Validate(value, null, out _) is null;
-        }
-        """);
-
-    [Fact]
-    public Task ReportsValidateReturningDefaultValidationErrorOutsideHook() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Thinktecture;
-
-        internal sealed class Count : IObjectFactory<Count, int, ValidationError> {
-            public static ValidationError? Validate(int value, IFormatProvider? provider, out Count? item) {
-                item = value > 0 ? new Count() : null;
-                return item is null ? new ValidationError("count is not positive") : null;
-            }
+        [ValueObject<int>]
+        internal sealed partial class Count {
+            static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
+                validationError = value > 0 ? null : new ValidationError("count is not positive");
         }
 
-        internal static class ValidateOutsideFactory {
-            internal static bool Valid(int value) => {|#0:Count.Validate(value, null, out _)|} is null;
+        [ValueObject<int>]
+        [ValidationError<Fault>]
+        internal sealed partial class Width {
+            static partial void ValidateFactoryArguments(ref Fault? validationError, ref int value) =>
+                validationError = value > 0 ? null : new Fault();
+        }
+
+        [SmartEnum<string>]
+        internal sealed partial class Kind {
+            public static readonly Kind Plain = new("plain");
+            public static readonly Kind Bold = new("bold");
+        }
+
+        internal static class Reads {
+            internal static bool Counted(int value) => {|#0:Count.TryCreate(value, out _)|};
+
+            internal static bool Validated(int value) => {|#2:Count.Validate(value, null, out _)|} is null;
 
             internal static bool Defaulted<TCount>(int value) where TCount : IObjectFactory<TCount, int, ValidationError> => {|#1:TCount.Validate(value, null, out _)|} is null;
+
+            internal static bool Widened(int value) => Width.TryCreate(value, out _);
+
+            internal static bool Constrained<TWidth>(int value) where TWidth : IObjectFactory<TWidth, int, Fault> => TWidth.Validate(value, null, out _) is null;
+
+            internal static ValidationError? Hook(int value) => Count.Validate(value, null, out _);
+
+            internal static void Nested(ref ValidationError? error, int value) => error = Count.Validate(value, null, out _);
+
+            internal static bool Known(string key) => Kind.TryGet(key, out _);
         }
         """,
-        Diagnostic().WithLocation(0).WithArguments("Count.Validate(value, null, out _)", "Count"),
-        Diagnostic().WithLocation(1).WithArguments("TCount.Validate(value, null, out _)", "TCount"));
-
-    [Fact]
-    public Task IgnoresValidateInsideMethodReturningValidationError() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Thinktecture;
-
-        internal sealed class Count : IObjectFactory<Count, int, ValidationError> {
-            public static ValidationError? Validate(int value, IFormatProvider? provider, out Count? item) {
-                item = value > 0 ? new Count() : null;
-                return item is null ? new ValidationError("count is not positive") : null;
-            }
-        }
-
-        internal static class ValidationHook {
-            internal static ValidationError? Hook(int value) => Count.Validate(value, null, out _);
-        }
-        """);
+        Diagnostic().WithLocation(0).WithArguments("Count.TryCreate(value, out _)", "Count"),
+        Diagnostic().WithLocation(1).WithArguments("TCount.Validate(value, null, out _)", "TCount"),
+        Diagnostic().WithLocation(2).WithArguments("Count.Validate(value, null, out _)", "Count"));
 }

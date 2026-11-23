@@ -8,168 +8,137 @@ namespace Rasm.Analyzers.Tests.Construction;
 
 public sealed class TypeNameTextTests : CSharpCodeFixVerifier<TypeNameTextAnalyzer, EmptyCodeFixProvider> {
 
-    // --- [RASM3101]
+    // --- [STORAGE]
 
     [Fact]
-    public Task ReportsTypeNameReachingRecordMemberDirectlyOrThroughLocalsAndCalls() => new CSharpCodeFixTest<TypeNameTextAnalyzer, EmptyCodeFixProvider> {
-        TestCode = """
-            using System;
-            using System.Reflection;
-            using LanguageExt.Common;
-            using Alias = System.Type;
+    public Task ReportsTypeNameStoredAsDataButNotTextRenderedForAPerson() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using System.Reflection;
+        using LanguageExt.Common;
 
-            internal sealed record Label(string? Text);
+        internal sealed record Label(string? Text);
 
-            internal readonly record struct DisplayText(string Text) {
-                public static implicit operator DisplayText(string text) => new("display");
+        internal readonly record struct DisplayText(string Text) {
+            public static implicit operator DisplayText(string text) => new("display");
+        }
+
+        internal sealed record DisplayedLabel(DisplayText Text);
+
+        internal sealed class Caption(string text) {
+            internal string Text { get; } = text;
+
+            public static implicit operator Caption(string text) => new(text);
+        }
+
+        internal sealed class Tag(string text) {
+            internal string Text { get; } = text;
+        }
+
+        internal static class Labels {
+            internal static Label Direct(Type type) => new({|#0:type.Name|});
+            internal static Label Generic<T>() => new({|#1:nameof(T)|});
+            internal static Label Named() => new(nameof(Labels));
+            internal static Label Interpolated(Type type) => new($"name: {{|#2:type.FullName|}}");
+            internal static Tag Tagged(Type type) => new({|#3:type.Name|});
+            internal static Label Overridden(RenderedType type) => new({|#4:type.ToString()|});
+            internal static Label Hidden(DisplayType type) => new(type.ToString());
+            internal static Label MethodName(MethodInfo method) => new(method.Name);
+            internal static Label Counted(Type type) => new(type.Name.Length.ToString());
+            internal static Exception Thrown(Type type) => new InvalidOperationException(type.Name);
+            internal static Error Failure(Type type) => new Expected(type.Name, 0, default);
+            internal static Caption Captioned(Type type) => new(type.Name);
+            internal static DisplayedLabel Converted(Type type) => new(type.Name);
+        }
+
+        internal sealed class DisplayType(Type type) : TypeDelegator(type) {
+            public new string ToString() => "display";
+        }
+
+        internal sealed class RenderedType(Type type) : TypeDelegator(type) {
+            public override string ToString() => base.ToString();
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("type.Name", "Label"),
+        Diagnostic().WithLocation(1).WithArguments("nameof(T)", "Label"),
+        Diagnostic().WithLocation(2).WithArguments("type.FullName", "Label"),
+        Diagnostic().WithLocation(3).WithArguments("type.Name", "Tag"),
+        Diagnostic().WithLocation(4).WithArguments("type.ToString()", "Label"));
+
+    // --- [FLOW]
+
+    [Fact]
+    public Task ReportsTypeNameWhoseValueReachesStorageButNotOneOverwrittenFirst() => VerifyAnalyzerAsync(
+        """
+        using System;
+
+        internal sealed record Label(string Text);
+
+        internal static class Flows {
+            internal static Label Kept(Type type) {
+                string name = {|#0:type.Name|};
+                return new(name.Length > 0 ? name : "display");
             }
-
-            internal sealed record DisplayedLabel(DisplayText Text);
-
-            internal static class Labels {
-                internal static Label Direct(Alias type) => new({|#0:type.Name|});
-                internal static Label Qualified(Alias type) => new({|#1:type.AssemblyQualifiedName|});
-                internal static Label Transformed(Alias type) => new({|#2:type.FullName|}?.Trim());
-                internal static Label Generic<T>() => new({|#3:nameof(T)|});
-                internal static Label Interpolated(Alias type) => new($"name: {{|#4:type.Name|}}");
-                internal static Label Replaced(Label label, Alias type) => label with { Text = {|#5:type.Name|} };
-                internal static Label Initialized(Alias type) => new(null) { Text = {|#6:type.Name|} };
-                internal static Label Relayed(Alias type) => Build(1, 2, 3, 4, 5, 6, 7, 8, {|#7:type.Name|});
-                internal static Label Named(Alias type) => Build(text: {|#8:type.Name|}, first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8);
-                internal static Label Extension(Alias type) => {|#9:type.Name|}.Label();
-                internal static Label Changed(Alias type) => Build({|#10:type.Name|});
-                internal static Label Display(Alias type) => new(type.Name.Length.ToString());
-                internal static string Render(Alias type) => type.Name.Trim();
-                internal static Label MethodName(MethodInfo method) => new(method.Name);
-                internal static Exception Thrown(Alias type) => new InvalidOperationException(type.Name);
-                internal static Error Failure(Alias type) => new Expected(type.Name, 0, default);
-                internal static Caption DisplayName(Alias type) => new(type.Name);
-                internal static Tag Tagged(Alias type) => new({|#17:type.Name|});
-                internal static Label Unstored(Alias type) => Ignore(type.Name);
-                internal static Label Cyclic(Alias type) => Cycle(type.Name);
-                internal static Label AliasValue(Alias type) {
-                    string name = {|#11:type.Name|};
-                    return new(name.Length > 0 ? name : "display");
-                }
-                internal static Label Reassigned(Alias type) {
-                    string name = type.Name;
+            internal static Label Reassigned(Type type) {
+                string name = type.Name;
+                name = "display";
+                return new(name);
+            }
+            internal static Label StoredBefore(Type type) {
+                string name = {|#1:type.Name|};
+                Label held = new(name);
+                name = "display";
+                return held;
+            }
+            internal static Label Disjoint(Type type, bool replaced) {
+                string name = {|#2:type.Name|};
+                if (replaced) {
                     name = "display";
-                    return new(name.Length > 0 ? name : "display");
-                }
-                internal static Label StoredBefore(Alias type) {
-                    string name = {|#12:type.Name|};
-                    Label held = new(name);
-                    name = "display";
-                    return held;
-                }
-                internal static Label Disjoint(Alias type, bool replaced) {
-                    string name = {|#13:type.Name|};
-                    if (replaced) {
-                        name = "display";
-                        return new(name);
-                    }
                     return new(name);
                 }
-                internal static Label SourceFactory(Alias type) => LanguageExt.SourceFactory.Fail({|#14:type.Name|});
-                internal static Label Hidden(DisplayType type) => new(type.ToString());
-                internal static Label Overridden(RenderedType type) => new({|#15:type.ToString()|});
-                internal static DisplayedLabel Converted(Alias type) => new(type.Name);
-                internal static Label Finalized(Alias type, bool returned) {
-                    string held = "display";
-                    string selected;
-                    try {
-                        if (returned) {
-                            held = type.Name;
-                            return new("display");
-                        }
-                    }
-                    finally {
-                        selected = held;
-                    }
-                    return new(selected);
+                return new(name);
+            }
+            internal static void OverwrittenFinally<T>(bool stop) {
+                string name = typeof(T).Name;
+                string next = "display";
+                try {
+                    if (stop) return;
+                    name = "display";
                 }
-                internal static void OverwrittenFinally<T>(bool stop) {
-                    string name = typeof(T).Name;
-                    string next = "display";
-                    try {
-                        if (stop) return;
-                        name = "display";
-                    }
-                    finally {
-                        string alias = name;
-                        next = alias;
-                    }
-                    _ = new Label(next);
+                finally {
+                    string alias = name;
+                    next = alias;
                 }
-                internal static Label StoredFinally<T>() {
-                    string name = {|#16:typeof(T).Name|};
-                    string next;
-                    try { }
-                    finally {
-                        string alias = name;
-                        next = alias;
-                    }
-                    return new(next);
+                _ = new Label(next);
+            }
+            internal static Label StoredFinally<T>() {
+                string name = {|#3:typeof(T).Name|};
+                string next;
+                try { }
+                finally {
+                    string alias = name;
+                    next = alias;
                 }
-                private static Label Build(int first, int second, int third, int fourth, int fifth, int sixth, int seventh, int eighth, string text) => new(text);
-                private static Label Build(string text) => Build(1, 2, 3, 4, 5, 6, 7, 8, text);
-                private static Label Ignore(string text) => new("display");
-                private static Label Cycle(string text) => Cycle(text);
-                internal static Label Label(this string text) => new(text);
+                return new(next);
             }
-
-            internal sealed class DisplayType(Alias type) : TypeDelegator(type) {
-                public new string ToString() => "display";
-            }
-
-            internal sealed class RenderedType(Alias type) : TypeDelegator(type) {
-                public override string ToString() => base.ToString();
-            }
-
-            namespace LanguageExt {
-                internal static class SourceFactory {
-                    internal static Label Fail(string text) => new(text);
-                }
-            }
-
-            internal sealed class Caption(string text) {
-                internal string Text { get; } = text;
-
-                public static implicit operator Caption(string text) => new(text);
-            }
-
-            internal sealed class Tag(string text) {
-                internal string Text { get; } = text;
-
-                public static implicit operator string(Tag tag) => tag.Text;
-            }
-            """,
-        ExpectedDiagnostics = {
-            Diagnostic().WithLocation(0).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(1).WithArguments("type.AssemblyQualifiedName", "Label"),
-            Diagnostic().WithLocation(2).WithArguments("type.FullName", "Label"),
-            Diagnostic().WithLocation(3).WithArguments("nameof(T)", "Label"),
-            Diagnostic().WithLocation(4).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(5).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(6).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(7).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(8).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(9).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(10).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(11).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(12).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(13).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(14).WithArguments("type.Name", "Label"),
-            Diagnostic().WithLocation(15).WithArguments("type.ToString()", "Label"),
-            Diagnostic().WithLocation(16).WithArguments("typeof(T).Name", "Label"),
-            Diagnostic().WithLocation(17).WithArguments("type.Name", "Tag"),
-        },
-    }.RunAsync(TestContext.Current.CancellationToken);
+            internal static Label Relayed(Type type) => Build({|#4:type.Name|});
+            internal static Label Ignored(Type type) => Ignore(type.Name);
+            internal static Label Cyclic(Type type) => Cycle(type.Name);
+            private static Label Build(string text) => new(text);
+            private static Label Ignore(string text) => new("display");
+            private static Label Cycle(string text) => Cycle(text);
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("type.Name", "Label"),
+        Diagnostic().WithLocation(1).WithArguments("type.Name", "Label"),
+        Diagnostic().WithLocation(2).WithArguments("type.Name", "Label"),
+        Diagnostic().WithLocation(3).WithArguments("typeof(T).Name", "Label"),
+        Diagnostic().WithLocation(4).WithArguments("type.Name", "Label"));
 
     // --- [FILES]
 
     [Fact]
-    public Task ReportsTypeNamePassedToRecordDeclaredAcrossPartialFiles() => new CSharpCodeFixTest<TypeNameTextAnalyzer, EmptyCodeFixProvider> {
+    public Task ReportsTypeNamePassedToARecordBuiltInAnotherFile() => new CSharpCodeFixTest<TypeNameTextAnalyzer, EmptyCodeFixProvider> {
         TestState = { Sources = {
             ("/Models.cs", """
             using System;
@@ -183,15 +152,11 @@ public sealed class TypeNameTextTests : CSharpCodeFixVerifier<TypeNameTextAnalyz
             ("/Calls.cs", """
             using System;
 
-            internal sealed partial record Entry {
-                internal bool Missing => Key == Guid.Empty;
-            }
-
             internal static partial class Flow {
-                internal static Entry Typed(Type type, Guid key) => Build(key: key, text: {|RASM3101:type.Name|});
-                internal static Entry Empty() => new Entry(default, "display");
+                internal static Entry Typed(Type type, Guid key) => Build(key: key, text: {|#0:type.Name|});
             }
             """),
         }, },
+        ExpectedDiagnostics = { Diagnostic().WithLocation(0).WithArguments("type.Name", "Entry") },
     }.RunAsync(TestContext.Current.CancellationToken);
 }

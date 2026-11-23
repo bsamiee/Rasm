@@ -8,70 +8,70 @@ namespace Rasm.Analyzers.Tests.Logging;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class StaticSinkTests : CSharpCodeFixVerifier<StaticSinkAnalyzer, EmptyCodeFixProvider> {
-    [Fact]
-    public Task ReportsDebugTraceTraceSourceAndDebuggerLogWrites() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using System.Diagnostics;
-        using Output = System.Diagnostics.Debug;
 
-        internal static class ProcessWideSinks {
-            internal static void Debugged(string message) => {|#0:Debug.WriteLine(message)|};
-
-            internal static void Traced(string message) => {|#1:Trace.TraceInformation(message)|};
-
-            internal static TraceSource Sourced() => {|#2:new TraceSource("sample")|};
-
-            internal static void Evented(TraceSource source) => {|#3:source.TraceEvent(TraceEventType.Information, 1)|};
-
-            internal static void Attached(string message) => {|#4:Debugger.Log(0, null, message)|};
-
-            internal static void Aliased(string message) => {|#5:Output.WriteLine(message)|};
-
-            internal static Action<int, string?, string?> Grouped => {|#6:Debugger.Log|};
-        }
-        """,
-        Diagnostic("RASM1204").WithLocation(0).WithArguments("Debug.WriteLine(message)", "Debug"),
-        Diagnostic("RASM1204").WithLocation(1).WithArguments("Trace.TraceInformation(message)", "Trace"),
-        Diagnostic("RASM1204").WithLocation(2).WithArguments("""new TraceSource("sample")""", "TraceSource"),
-        Diagnostic("RASM1204").WithLocation(3).WithArguments("source.TraceEvent(TraceEventType.Information, 1)", "TraceSource"),
-        Diagnostic("RASM1204").WithLocation(4).WithArguments("Debugger.Log(0, null, message)", "Debugger"),
-        Diagnostic("RASM1204").WithLocation(5).WithArguments("Output.WriteLine(message)", "Debug"),
-        Diagnostic("RASM1204").WithLocation(6).WithArguments("Debugger.Log", "Debugger"));
+    // --- [OWNERSHIP]
 
     [Fact]
-    public Task ReportsProcessWideSinkInExecutable() => new CSharpCodeFixTest<StaticSinkAnalyzer, EmptyCodeFixProvider> {
-        TestState = { OutputKind = OutputKind.ConsoleApplication },
-        TestCode = """
-            using System.Diagnostics;
-
-            {|#0:Trace.WriteLine("started")|};
-            """,
-        ExpectedDiagnostics = { Diagnostic("RASM1204").WithLocation(0).WithArguments("""Trace.WriteLine("started")""", "Trace") },
+    public Task ReportsConsoleAndProcessWideSinksInLibrary() => new CSharpCodeFixTest<StaticSinkAnalyzer, EmptyCodeFixProvider> {
+        TestState = { OutputKind = OutputKind.DynamicallyLinkedLibrary },
+        TestCode = Output,
+        ExpectedDiagnostics = {
+            Diagnostic("RASM1206").WithLocation(0).WithArguments("""Console.WriteLine("started")"""),
+            Diagnostic("RASM1206").WithLocation(1).WithArguments("Console.Error"),
+            Diagnostic("RASM1206").WithLocation(2).WithArguments("Console.Write"),
+            Diagnostic("RASM1204").WithLocation(3).WithArguments("Output.WriteLine(message)", "Debug"),
+            Diagnostic("RASM1204").WithLocation(4).WithArguments("""new TraceSource("sample")""", "TraceSource"),
+            Diagnostic("RASM1204").WithLocation(5).WithArguments("Debugger.Log(0, null, message)", "Debugger"),
+        },
     }.RunAsync(TestContext.Current.CancellationToken);
 
     [Fact]
-    public Task IgnoresDebuggerStateILoggerAndSameNamedType() => VerifyAnalyzerAsync(
-        """
+    public Task ReportsProcessWideSinksAloneInExecutable() => new CSharpCodeFixTest<StaticSinkAnalyzer, EmptyCodeFixProvider> {
+        TestState = { OutputKind = OutputKind.ConsoleApplication },
+        TestCode = Output,
+        ExpectedDiagnostics = {
+            Diagnostic("RASM1204").WithLocation(3).WithArguments("Output.WriteLine(message)", "Debug"),
+            Diagnostic("RASM1204").WithLocation(4).WithArguments("""new TraceSource("sample")""", "TraceSource"),
+            Diagnostic("RASM1204").WithLocation(5).WithArguments("Debugger.Log(0, null, message)", "Debugger"),
+        },
+    }.RunAsync(TestContext.Current.CancellationToken);
+
+    // --- [SOURCES]
+
+    private const string Output = """
+        using System;
         using System.Diagnostics;
-        using Microsoft.Extensions.Logging;
+        using System.IO;
+        using Output = System.Diagnostics.Debug;
 
-        internal static class CallerConfiguredOutput {
-            internal static bool Attached => Debugger.IsAttached;
+        internal static class Program {
+            private static void Main() => {|#0:Console.WriteLine("started")|};
 
-            internal static void Paused() => Debugger.Break();
+            internal static TextWriter Failure => {|#1:Console.Error|};
 
-            internal static string Named => nameof(Debug.WriteLine);
+            internal static Action<string> Grouped => {|#2:Console.Write|};
 
-            internal static bool Enabled(ILogger logger) => logger.IsEnabled(LogLevel.Information);
+            internal static void Debugged(string message) => {|#3:Output.WriteLine(message)|};
 
-            internal static void Local(string message) => Sinks.Debug.WriteLine(message);
+            internal static TraceSource Sourced() => {|#4:new TraceSource("sample")|};
+
+            internal static void Attached(string message) => {|#5:Debugger.Log(0, null, message)|};
+
+            internal static void Written(TextWriter output, string message) => output.WriteLine(message);
+
+            internal static string? Line() => Console.ReadLine();
+
+            internal static bool Debugging => Debugger.IsAttached;
+
+            internal static string Named => nameof(Console.Error);
+
+            internal static void Local(string message) => Terminal.Console.WriteLine(message);
         }
 
-        namespace Sinks {
-            internal static class Debug {
+        namespace Terminal {
+            internal static class Console {
                 internal static void WriteLine(string message) => _ = message;
             }
         }
-        """);
+        """;
 }

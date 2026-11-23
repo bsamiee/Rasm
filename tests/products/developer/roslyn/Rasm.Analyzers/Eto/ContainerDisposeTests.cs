@@ -7,11 +7,62 @@ namespace Rasm.Analyzers.Tests.Eto;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class ContainerDisposeTests : CSharpCodeFixVerifier<ContainerDisposeAnalyzer, EmptyCodeFixProvider> {
+
+    // --- [TIMELINE]
+
     [Fact]
-    public Task ReportsContainerWithChildrenAcquiredByPlainDispose() => VerifyAnalyzerAsync(
+    public Task ReportsContainerAcquiredAfterItsChildAndIgnoresChildRealizedAfterTheContainer() => VerifyAnalyzerAsync(
         """
         using System;
-        using System.Collections.Generic;
+        using Eto.Forms;
+        using LanguageExt;
+        using static LanguageExt.Prelude;
+
+        internal static class Timeline {
+            internal static IO<Control> ChildFirst(Func<IO<Control>> realize) =>
+                from body in realize()
+                from split in {|#0:use(static () => new Splitter())|}
+                from set in IO.lift(() => { split.Panel1 = body; })
+                select (Control)split;
+
+            internal static IO<Control> ChildAfter(Func<IO<Control>> realize) =>
+                from split in use(static () => new Splitter())
+                from body in realize()
+                from set in IO.lift(() => { split.Panel1 = body; })
+                select (Control)split;
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("Prelude.use", "Splitter"));
+
+    [Fact]
+    public Task ReportsStackLayoutWithChildrenWhateverTheirOrderAndIgnoresChildlessStackLayout() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using Eto.Forms;
+        using LanguageExt;
+        using static LanguageExt.Prelude;
+
+        internal static class Stacked {
+            internal static IO<Control> ChildAfter(Func<IO<Control>> realize) =>
+                from stack in {|#0:use(static () => new StackLayout())|}
+                from body in realize()
+                from set in IO.lift(() => { stack.Items.Add(new StackLayoutItem(body, true)); })
+                select (Control)stack;
+
+            internal static IO<Control> Childless() =>
+                from stack in use(static () => new StackLayout())
+                from set in IO.lift(() => { stack.Spacing = 4; })
+                select (Control)stack;
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("Prelude.use", "StackLayout"));
+
+    // --- [ACQUIRES]
+
+    [Fact]
+    public Task ReportsEveryPlainAcquireHoldingAnEarlierChildAndIgnoresDetachingReleaseAndChildlessContainer() => VerifyAnalyzerAsync(
+        """
+        using System;
         using Eto.Forms;
         using LanguageExt;
         using Rasm.Rhino;
@@ -23,81 +74,38 @@ public sealed class ContainerDisposeTests : CSharpCodeFixVerifier<ContainerDispo
             }
         }
 
-        namespace Rasm.Rhino.UI {
-            public static class Containers {
-                public static IO<T> Frame<T>(Func<T> create) where T : Container =>
-                    use(create, static frame => IO.lift(() => { frame.RemoveAll(); frame.Dispose(); }));
-            }
-        }
+        internal static class Acquires {
+            internal static IO<int> Transferred(Control body) =>
+                {|#0:Products.Transfer(static () => new Panel(), panel => IO.lift(() => { panel.Content = body; return panel.Width; }))|};
 
-        internal static class PlainContainer {
-            internal static IO<Control> Stacked(Seq<(Control Body, bool Fill)> parts) =>
-                from stack in {|#0:use(static () => new StackLayout())|}
-                from configured in IO.lift(() => {
-                    stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-                    _ = parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body, part.Fill)));
-                })
-                select (Control)stack;
-
-            internal static IO<Control> Split(Control first, Control second) =>
-                from splitter in {|#1:use(static () => new Splitter())|}
-                from configured in IO.lift(() => { (splitter.Panel1, splitter.Panel2, splitter.RelativePosition) = (first, second, 0.5); })
-                select (Control)splitter;
-
-            internal static IO<Control> Tabs(Seq<Control> bodies) =>
-                from control in use(static () => new TabControl())
-                from pages in bodies.TraverseM(body =>
-                    from tab in {|#2:use(static () => new TabPage())|}
-                    from added in IO.lift(() => { tab.Content = body; control.Pages.Add(tab); })
-                    select unit).As()
-                select (Control)control;
-
-            internal static IO<int> Scoped(Control body) => {|#3:Products.Transfer(static () => new Panel(), panel => IO.lift(() => { panel.Content = body; return panel.Width; }))|};
-
-            internal static Control Scrolled(Action<IDisposable> retain, Control body) {
+            internal static Control Retained(Action<IDisposable> retain, Control body) {
                 Scrollable scroll = new() { Content = body };
-                {|#4:retain(scroll)|};
+                {|#1:retain(scroll)|};
                 return scroll;
             }
 
-            internal static IO<int> Held(Control body) {
-                Panel panel = new() { Content = body };
-                return {|#5:Products.Transfer(() => panel, static held => IO.pure(held.Width))|};
-            }
+            internal static IO<int> Detached(Control body) =>
+                use(static () => new Panel(), static panel => IO.lift(() => { panel.Content = null; panel.Dispose(); }))
+                    .Map(panel => { panel.Content = body; return panel.Width; });
 
-            internal static IO<Control> Bound(Control body) =>
-                {|#6:use(static () => new Scrollable())|}.Bind(scroll => IO.lift(() => { scroll.Content = body; return (Control)scroll; }));
-
-            internal static IO<Control> Nested(Control body) =>
-                from frame in {|#7:use(static () => new NestedFrame())|}
-                from added in IO.lift(() => { frame.Rows.Add(new Slot<Slot<Control>> { Items = { new Slot<Control> { Items = { body } } } }); })
-                select (Control)frame;
-
-            internal static IO<Control> Expanding(Node<int> row) =>
-                from frame in use(static () => new ExpandingFrame())
-                from added in IO.lift(() => { frame.Rows.Add(row); })
-                select (Control)frame;
-
-            internal static IO<Control> Inherited(Control body) =>
-                from frame in {|#8:use(static () => new InheritedFrame())|}
-                from added in IO.lift(() => { frame.Rows.Add(new InheritedSlot<Control> { Items = { new Slot<Control> { Items = { body } } } }); })
-                select (Control)frame;
+            internal static void Childless(Action<IDisposable> retain) => retain(new Panel { Width = 10 });
         }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("Products.Transfer", "Panel"),
+        Diagnostic().WithLocation(1).WithArguments("retain", "Scrollable"));
+
+    // --- [HOLDINGS]
+
+    [Fact]
+    public Task ReportsChildHeldThroughGenericCollectionsAndIgnoresRecursiveTypeHoldingNoControl() => VerifyAnalyzerAsync(
+        """
+        using System.Collections.Generic;
+        using Eto.Forms;
+        using LanguageExt;
+        using static LanguageExt.Prelude;
 
         internal sealed class Slot<T> {
             internal List<T> Items { get; } = [];
-        }
-
-        internal sealed class NestedFrame : Panel {
-            internal List<Slot<Slot<Control>>> Rows { get; } = [];
-        }
-
-        internal sealed class Node<T> {
-            internal List<Node<List<T>>> Next { get; } = [];
-        }
-
-        internal sealed class ExpandingFrame : Panel {
-            internal List<Node<int>> Rows { get; } = [];
         }
 
         internal abstract class BaseSlot<T> {
@@ -106,100 +114,29 @@ public sealed class ContainerDisposeTests : CSharpCodeFixVerifier<ContainerDispo
 
         internal sealed class InheritedSlot<T> : BaseSlot<Slot<T>>;
 
+        internal sealed class Node<T> {
+            internal List<Node<List<T>>> Next { get; } = [];
+        }
+
         internal sealed class InheritedFrame : Panel {
             internal List<InheritedSlot<Control>> Rows { get; } = [];
         }
+
+        internal sealed class ExpandingFrame : Panel {
+            internal List<Node<int>> Rows { get; } = [];
+        }
+
+        internal static class Holdings {
+            internal static IO<Control> Inherited(Control body) =>
+                from frame in {|#0:use(static () => new InheritedFrame())|}
+                from added in IO.lift(() => { frame.Rows.Add(new InheritedSlot<Control> { Items = { new Slot<Control> { Items = { body } } } }); })
+                select (Control)frame;
+
+            internal static IO<Control> Expanding(Node<int> row) =>
+                from frame in use(static () => new ExpandingFrame())
+                from added in IO.lift(() => { frame.Rows.Add(row); })
+                select (Control)frame;
+        }
         """,
-        Diagnostic().WithLocation(0).WithArguments("Prelude.use", "StackLayout"),
-        Diagnostic().WithLocation(1).WithArguments("Prelude.use", "Splitter"),
-        Diagnostic().WithLocation(2).WithArguments("Prelude.use", "TabPage"),
-        Diagnostic().WithLocation(3).WithArguments("Products.Transfer", "Panel"),
-        Diagnostic().WithLocation(4).WithArguments("retain", "Scrollable"),
-        Diagnostic().WithLocation(5).WithArguments("Products.Transfer", "Panel"),
-        Diagnostic().WithLocation(6).WithArguments("Prelude.use", "Scrollable"),
-        Diagnostic().WithLocation(7).WithArguments("Prelude.use", "NestedFrame"),
-        Diagnostic().WithLocation(8).WithArguments("Prelude.use", "InheritedFrame"));
-
-    [Fact]
-    public Task IgnoresContainerAcquiredBeforeItsChildren() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Eto.Forms;
-        using LanguageExt;
-        using static LanguageExt.Prelude;
-
-        namespace Rasm.Rhino {
-            public static class Products {
-                public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to) where T : class, IDisposable => IO.lift(() => make()!).Bind(to);
-            }
-        }
-
-        namespace Rasm.Rhino.UI {
-            public static class Containers {
-                public static IO<T> Frame<T>(Func<T> create) where T : Container =>
-                    use(create, static frame => IO.lift(() => { frame.RemoveAll(); frame.Dispose(); }));
-            }
-        }
-
-        internal static class OrderedContainer {
-            internal static IO<Control> Split(Func<IO<Control>> realize) =>
-                from splitter in use(static () => new Splitter())
-                from first in realize()
-                from second in realize()
-                from configured in IO.lift(() => { (splitter.Panel1, splitter.Panel2, splitter.RelativePosition) = (first, second, 0.5); })
-                select (Control)splitter;
-
-            internal static IO<Control> Tabs(Seq<string> captions, Func<IO<Control>> realize) =>
-                from control in use(static () => new TabControl())
-                from pages in captions.TraverseM(caption =>
-                    from tab in use(static () => new TabPage())
-                    from body in realize()
-                    from added in IO.lift(() => { tab.Text = caption; tab.Content = body; control.Pages.Add(tab); })
-                    select unit).As()
-                select (Control)control;
-        }
-        """);
-
-    [Fact]
-    public Task IgnoresFramedEmptiedAndChildlessControls() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Eto.Forms;
-        using LanguageExt;
-        using Rasm.Rhino.UI;
-        using static LanguageExt.Prelude;
-
-        namespace Rasm.Rhino {
-            public static class Products {
-                public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to) where T : class, IDisposable => IO.lift(() => make()!).Bind(to);
-            }
-        }
-
-        namespace Rasm.Rhino.UI {
-            public static class Containers {
-                public static IO<T> Frame<T>(Func<T> create) where T : Container =>
-                    use(create, static frame => IO.lift(() => { frame.RemoveAll(); frame.Dispose(); }));
-            }
-        }
-
-        internal static class FramedContainer {
-            internal static IO<Control> Split(Control first, Control second) =>
-                from splitter in Containers.Frame(static () => new Splitter())
-                from configured in IO.lift(() => { (splitter.Panel1, splitter.Panel2) = (first, second); })
-                select (Control)splitter;
-
-            internal static IO<Drawable> Drawn() =>
-                from drawn in use(static () => new Drawable())
-                from sized in IO.lift(() => { drawn.Width = 10; })
-                select drawn;
-
-            internal static IO<Button> Leaf() => use(static () => new Button());
-
-            internal static IO<int> Emptied(Control body) =>
-                use(static () => new Panel(), static panel => IO.lift(() => { panel.Content = null; panel.Dispose(); }))
-                    .Map(panel => { panel.Content = body; return panel.Width; });
-
-            internal static void Childless(Action<IDisposable> retain) => retain(new Panel { Width = 10 });
-        }
-        """);
+        Diagnostic().WithLocation(0).WithArguments("Prelude.use", "InheritedFrame"));
 }

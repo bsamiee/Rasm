@@ -8,10 +8,35 @@ namespace Rasm.Analyzers.Tests.Expressions;
 
 public sealed class TypeParameterTestTests : CSharpCodeFixVerifier<TypeParameterTestAnalyzer, EmptyCodeFixProvider> {
 
-    // --- [RASM3007]
+    // --- [PATTERNS]
 
     [Fact]
-    public Task ReportsIsAsPatternAndTypeofTestsOfTypeParameter() => VerifyAnalyzerAsync(
+    public Task ReportsConcreteTestOfTypeParameterAndIgnoresSameTestOfDeclaredTypeOrAbstractTarget() => VerifyAnalyzerAsync(
+        """
+        internal abstract record Stage;
+
+        internal sealed record Dither(int Levels) : Stage;
+
+        internal static class Tests {
+            internal static bool Is<TState>(TState state) where TState : Stage => {|#0:state is Dither|};
+
+            internal static int Matched<TState>(TState state) where TState : Stage => state switch { {|#1:Dither dither|} => dither.Levels, _ => 0 };
+
+            internal static Dither? Cast<TState>(TState state) where TState : Stage => {|#2:state as Dither|};
+
+            internal static bool Declared(Stage stage) => stage is Dither;
+
+            internal static bool Abstract<TState>(TState state) => state is Stage;
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("state is Dither", "TState", "Dither"),
+        Diagnostic().WithLocation(1).WithArguments("Dither dither", "TState", "Dither"),
+        Diagnostic().WithLocation(2).WithArguments("state as Dither", "TState", "Dither"));
+
+    // --- [TYPEOF]
+
+    [Fact]
+    public Task ReportsTypeEqualityReachingTypeParameterAndIgnoresReassignedOrRuntimeType() => VerifyAnalyzerAsync(
         """
         using System;
 
@@ -19,59 +44,13 @@ public sealed class TypeParameterTestTests : CSharpCodeFixVerifier<TypeParameter
 
         internal sealed record Dither(int Levels) : Stage;
 
-        internal sealed record Exposure(double Stops) : Stage;
-
-        internal sealed record Recorded<TState>(TState Record) where TState : Stage;
-
-        internal static class ConcreteTests {
-            internal static bool Dithered<TState>(Recorded<TState> value) where TState : Stage => {|#0:value.Record is Dither|};
-
-            internal static int Levels<TState>(TState state) where TState : Stage => state switch { {|#1:Dither dither|} => dither.Levels, _ => 0 };
-
-            internal static Exposure? Exposed<TState>(TState state) where TState : Stage => {|#2:state as Exposure|};
-
-            internal static bool Kind<TState>() where TState : Stage => {|#3:typeof(TState) == typeof(Dither)|};
-
-            internal static bool Reversed<TState>() where TState : Stage => {|#4:typeof(Dither) != typeof(TState)|};
+        internal static class Kinds {
+            internal static bool Direct<TState>() where TState : Stage => {|#0:typeof(Dither) != typeof(TState)|};
 
             internal static bool Aliased<TState>() where TState : Stage {
                 Type kind = typeof(TState);
-                return {|#5:kind == typeof(Dither)|};
+                return {|#1:kind == typeof(Dither)|};
             }
-        }
-        """,
-        Diagnostic().WithLocation(0).WithArguments("value.Record is Dither", "TState", "Dither"),
-        Diagnostic().WithLocation(1).WithArguments("Dither dither", "TState", "Dither"),
-        Diagnostic().WithLocation(2).WithArguments("state as Exposure", "TState", "Exposure"),
-        Diagnostic().WithLocation(3).WithArguments("typeof(TState) == typeof(Dither)", "TState", "Dither"),
-        Diagnostic().WithLocation(4).WithArguments("typeof(Dither) != typeof(TState)", "TState", "Dither"),
-        Diagnostic().WithLocation(5).WithArguments("kind == typeof(Dither)", "TState", "Dither"));
-
-    [Fact]
-    public Task IgnoresStaticVirtualCallAndTestsNotNarrowingTypeParameter() => VerifyAnalyzerAsync(
-        """
-        using System;
-
-        internal abstract record Stage;
-
-        internal sealed record Dither(int Levels) : Stage;
-
-        internal interface IReplayed {
-            static abstract bool Replayed { get; }
-        }
-
-        internal sealed record Recorded<TState>(TState Record) where TState : Stage;
-
-        internal static class StatedBehavior {
-            internal static bool Replayed<TState>() where TState : IReplayed => TState.Replayed;
-
-            internal static bool Staged(Stage stage) => stage is Dither;
-
-            internal static bool Abstract<TState>(TState state) => state is Stage;
-
-            internal static bool Runtime(Type state) => state != typeof(Dither);
-
-            internal static bool Closed() => typeof(Stage) == typeof(Dither);
 
             internal static bool Reassigned<TState>() where TState : Stage {
                 Type kind = typeof(TState);
@@ -79,28 +58,17 @@ public sealed class TypeParameterTestTests : CSharpCodeFixVerifier<TypeParameter
                 return kind == typeof(Dither);
             }
 
-            internal static int Held<TState>(Recorded<TState> value) where TState : Stage => value switch { var held => held.GetHashCode() };
+            internal static bool Runtime(Type state) => state == typeof(Dither);
+
+            internal static bool Dispatched<TState>(TState state) where TState : Stage => {|#2:state.GetType() == typeof(Dither)|};
         }
-        """);
+        """,
+        Diagnostic().WithLocation(0).WithArguments("typeof(Dither) != typeof(TState)", "TState", "Dither"),
+        Diagnostic().WithLocation(1).WithArguments("kind == typeof(Dither)", "TState", "Dither"),
+        Diagnostic().WithLocation(2).WithArguments("state.GetType() == typeof(Dither)", "TState", "Dither"));
 
     [Fact]
-    public Task IgnoresTypeTestsOfThisInGenericRecord() => VerifyAnalyzerAsync(
-        """
-        internal abstract record Branch<T> {
-            internal sealed record Label(T Value) : Branch<T>;
-
-            internal sealed record Check(bool Value) : Branch<T>;
-
-            internal bool Labeled => this is Label;
-
-            internal Label? AsLabel() => this as Label;
-
-            internal string Kind() => this switch { Label => nameof(Label), Check => nameof(Check), _ => nameof(Branch<T>) };
-        }
-        """);
-
-    [Fact]
-    public Task IgnoresTypeofEqualityInExternalOverride() => VerifyAnalyzerAsync(
+    public Task IgnoresTypeofEqualityInsideExternalOverrideAndReportsItInOverrideOfProjectMember() => VerifyAnalyzerAsync(
         """
         using System;
         using System.Text.Json;
@@ -110,42 +78,61 @@ public sealed class TypeParameterTestTests : CSharpCodeFixVerifier<TypeParameter
 
         internal sealed record Dither(int Levels) : Stage;
 
-        internal sealed class StageConverter : JsonConverter<Stage> {
-            public override bool CanConvert(Type typeToConvert) => typeToConvert == typeof(Dither);
+        internal sealed class StageConverter<TState> : JsonConverter<TState> where TState : Stage {
+            public override bool CanConvert(Type typeToConvert) => typeof(TState) == typeof(Dither);
 
-            public override Stage? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => null;
+            public override TState? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => null;
 
-            public override void Write(Utf8JsonWriter writer, Stage value, JsonSerializerOptions options) { }
+            public override void Write(Utf8JsonWriter writer, TState value, JsonSerializerOptions options) { }
         }
-        """);
+
+        internal abstract class Accepting<TState> where TState : Stage {
+            internal abstract bool Accepts();
+        }
+
+        internal sealed class Owned<TState> : Accepting<TState> where TState : Stage {
+            internal override bool Accepts() => {|#0:typeof(TState) == typeof(Dither)|};
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("typeof(TState) == typeof(Dither)", "TState", "Dither"));
 
     // --- [REFERENCES]
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task ReportsReferencedTypeOnlyWhenListedInProjectReferenceAssemblies(bool listed) {
+    [Fact]
+    public async Task ReportsTypeOfListedProjectReferenceAndIgnoresTypeOfUnlistedReference() {
         CancellationToken token = TestContext.Current.CancellationToken;
         CSharpCodeFixTest<TypeParameterTestAnalyzer, EmptyCodeFixProvider> test = new() {
             TestCode = """
                 using Models;
+                using Vendor;
 
                 namespace Consumer;
 
                 internal static class Usage {
-                    internal static bool Is<TState>(TState value) where TState : Stage => {|#0:value is Dither|};
+                    internal static bool Listed<TState>(TState value) where TState : Stage => {|#0:value is Dither|};
+
+                    internal static bool Unlisted<TPart>(TPart value) where TPart : Part => value is Bolt;
                 }
                 """,
+            TestState = { AnalyzerConfigFiles = { ("/.globalconfig", "is_global = true\nbuild_property.ProjectReferenceAssemblies = Catalog\n") } },
+            ExpectedDiagnostics = { Diagnostic().WithLocation(0).WithArguments("value is Dither", "TState", "Dither") },
         };
-        test.TestState.AdditionalReferences.Add(AdditionalMetadataReferences.Emitted(await AdditionalMetadataReferences.CompiledAsync("Catalog", """
-            namespace Models;
+        test.TestState.AdditionalReferences.AddRange([
+            AdditionalMetadataReferences.Emitted(await AdditionalMetadataReferences.CompiledAsync("Catalog", """
+                namespace Models;
 
-            public abstract record Stage;
+                public abstract record Stage;
 
-            public sealed record Dither(int Value) : Stage;
-            """, token), token));
-        test.TestState.AnalyzerConfigFiles.Add(("/.globalconfig", $"is_global = true\n{(listed ? "build_property.ProjectReferenceAssemblies = Catalog\n" : "")}"));
-        test.ExpectedDiagnostics.AddRange(listed ? [Diagnostic().WithLocation(0).WithArguments("value is Dither", "TState", "Dither")] : []);
+                public sealed record Dither(int Value) : Stage;
+                """, token), token),
+            AdditionalMetadataReferences.Emitted(await AdditionalMetadataReferences.CompiledAsync("Foreign", """
+                namespace Vendor;
+
+                public abstract record Part;
+
+                public sealed record Bolt(int Value) : Part;
+                """, token), token),
+        ]);
         await test.RunAsync(token);
     }
 }

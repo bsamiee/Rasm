@@ -7,8 +7,11 @@ namespace Rasm.Analyzers.Tests.Names;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class ImportedTypeClashTests : CSharpCodeFixVerifier<NamespaceOwnerAnalyzer, EmptyCodeFixProvider> {
+
+    // --- [CLASHES]
+
     [Fact]
-    public Task ReportsGenericTypeClashingWithImportedTypeOfEqualArity() => VerifyAnalyzerAsync(
+    public Task ReportsATypeClashingWithAnImportedTypeOfEqualArityAndIgnoresOneOfAnotherArity() => VerifyAnalyzerAsync(
         """
         using System;
         using System.Collections;
@@ -20,6 +23,8 @@ public sealed class ImportedTypeClashTests : CSharpCodeFixVerifier<NamespaceOwne
         using Calendar = System.DateTime;
 
         namespace UserDefined {
+            public sealed class Lazy;
+
             public sealed class {|#0:Lazy|}<T>(T value) {
                 public T Value { get; } = value;
             }
@@ -100,46 +105,75 @@ public sealed class ImportedTypeClashTests : CSharpCodeFixVerifier<NamespaceOwne
         },
     }.RunAsync(TestContext.Current.CancellationToken);
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task ReportsClashWithProjectReferenceTypeOnlyWhenListed(bool listed) {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        CSharpCodeFixTest<NamespaceOwnerAnalyzer, EmptyCodeFixProvider> test = new() {
-            TestCode = """
-                namespace Consumer;
-
-                internal sealed class {|#0:Entry|};
-                """,
-        };
-        test.TestState.AdditionalReferences.Add(AdditionalMetadataReferences.Emitted(await AdditionalMetadataReferences.CompiledAsync("Catalog", """
-            namespace Models;
-
-            public sealed class Entry;
-            """, token), token));
-        test.TestState.AnalyzerConfigFiles.Add(("/.globalconfig", $"is_global = true\n{(listed ? "build_property.ProjectReferenceAssemblies = Catalog\n" : "")}"));
-        test.ExpectedDiagnostics.AddRange(listed ? [Diagnostic("RASM3006").WithLocation(0).WithArguments("Entry", "Models.Entry")] : []);
-        await test.RunAsync(token);
-    }
-
     [Fact]
-    public async Task ReportsClashWithTypeImportedFromReferencedAssembly() {
+    public async Task ReportsAClashWithAPublicTypeOfAListedProjectReferenceAndIgnoresUnlistedReferencesAndInternalTypes() {
         CancellationToken token = TestContext.Current.CancellationToken;
         CSharpCodeFixTest<NamespaceOwnerAnalyzer, EmptyCodeFixProvider> test = new() {
             TestCode = """
-                using Models;
-
                 namespace Consumer;
 
                 internal sealed class {|#0:Entry|};
+
+                internal sealed class Shelf;
+
+                internal sealed class Ledger;
                 """,
+            TestState = { AnalyzerConfigFiles = { ("/.globalconfig", "is_global = true\nbuild_property.ProjectReferenceAssemblies = Catalog\n") }, },
             ExpectedDiagnostics = { Diagnostic("RASM3006").WithLocation(0).WithArguments("Entry", "Models.Entry") },
         };
-        test.TestState.AdditionalReferences.Add(AdditionalMetadataReferences.Emitted(await AdditionalMetadataReferences.CompiledAsync($"{test.TestState.Name}.Catalog", """
-            namespace Models;
+        test.TestState.AdditionalReferences.AddRange([
+            AdditionalMetadataReferences.Emitted(await AdditionalMetadataReferences.CompiledAsync("Catalog", """
+                namespace Models;
 
-            public sealed class Entry;
-            """, token), token));
+                public sealed class Entry;
+
+                internal sealed class Shelf;
+                """, token), token),
+            AdditionalMetadataReferences.Emitted(await AdditionalMetadataReferences.CompiledAsync("Ledgers", """
+                namespace Books;
+
+                public sealed class Ledger;
+                """, token), token),
+        ]);
         await test.RunAsync(token);
     }
+
+    // --- [QUALIFIED_NAMES]
+
+    [Fact]
+    public Task ReportsAQualifiedNameWhoseImportClashesWithNothingAndIgnoresOneWhoseImportWouldClash() => new CSharpCodeFixTest<QualifiedNameAnalyzer, EmptyCodeFixProvider> {
+        TestCode = """
+            using System.Timers;
+
+            internal sealed record Color(int Value);
+
+            internal static class Qualified {
+                internal static {|#0:System.Collections.Immutable.ImmutableArray<int>|} Empty => [];
+                internal static System.Drawing.Bitmap Blank => new(1, 1);
+                internal static Timer Ticker => new();
+                internal static System.Threading.Thread Current => System.Threading.Thread.CurrentThread;
+            }
+            """,
+        ExpectedDiagnostics = {
+            CSharpCodeFixVerifier<QualifiedNameAnalyzer, EmptyCodeFixProvider>.Diagnostic("RASM3010").WithLocation(0)
+                .WithArguments("System.Collections.Immutable.ImmutableArray<int>", "System.Collections.Immutable", "ImmutableArray<int>"),
+        },
+    }.RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public Task ReportsAQualifiedNameAroundAShadowingParameterAndIgnoresOneAroundAMethodOfTheSameName() => new CSharpCodeFixTest<QualifiedNameAnalyzer, EmptyCodeFixProvider> {
+        TestCode = """
+            using LanguageExt;
+            using static LanguageExt.Prelude;
+
+            internal static class Painter {
+                internal static int Bitmap(int size) => size;
+                internal static System.Drawing.Bitmap Made(int size) => new(size, size);
+                internal static Unit Run(int unit) => {|#0:Prelude.unit|};
+            }
+            """,
+        ExpectedDiagnostics = {
+            CSharpCodeFixVerifier<QualifiedNameAnalyzer, EmptyCodeFixProvider>.Diagnostic("RASM3009").WithLocation(0).WithArguments("Prelude.unit", "int unit", "LanguageExt.Prelude"),
+        },
+    }.RunAsync(TestContext.Current.CancellationToken);
 }

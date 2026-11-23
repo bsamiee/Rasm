@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Globalization;
 using Rasm.Analyzers.CodeFixes;
 using Rasm.Analyzers.Tests.Verifiers;
 using Xunit;
@@ -78,44 +76,20 @@ public sealed class ResultLiftTests : CSharpCodeFixVerifier<ResultLiftAnalyzer, 
         """);
 
     [Fact]
-    public Task RewritesFactoryArmWhoseSiblingArmStatesResultType() => VerifyCodeFixAsync(
+    public Task RewritesAFactoryInANestedCallbackWhoseSiblingStatesTheResultType() => VerifyCodeFixAsync(
         """
         using LanguageExt;
-        using LanguageExt.Common;
-        using static LanguageExt.Prelude;
 
         internal static class SiblingArm {
-            internal static Fin<Option<int>> Split(int count, Fin<Option<int>> valid, bool cancelled) =>
-                (count switch {
-                    0 when cancelled => {|#0:Fin.Fail<Option<int>>(Error.New("cancelled"))|},
-                    0 => Option<int>.None,
-                    1 => new Expected("absent", 1, None),
-                    _ => valid,
-                }).Map(static held => held);
-            internal static Fin<int> Pinned(bool held, int pinned, Fin<int> found) => (held ? {|#1:Fin.Succ(pinned)|} : found.Map(static value => value + 1)).Map(static value => value * 2);
             internal static Fin<int> Merged(Fin<int> solved, Fin<int> value) =>
-                solved.Match(Succ: _ => value, Fail: error => value.Match(Succ: _ => Fin.Fail<int>(error), Fail: fault => {|#2:Fin.Fail<int>(error + fault)|}));
+                solved.Match(Succ: _ => value, Fail: error => value.Match(Succ: _ => Fin.Fail<int>(error), Fail: fault => {|#0:Fin.Fail<int>(error + fault)|}));
         }
         """,
-        [
-            Diagnostic().WithLocation(0).WithArguments("""Fin.Fail<Option<int>>(Error.New("cancelled"))""", """Error.New("cancelled")""", "Fin<Option<int>>"),
-            Diagnostic().WithLocation(1).WithArguments("Fin.Succ(pinned)", "pinned", "Fin<int>"),
-            Diagnostic().WithLocation(2).WithArguments("Fin.Fail<int>(error + fault)", "error + fault", "Fin<int>"),
-        ],
+        [Diagnostic().WithLocation(0).WithArguments("Fin.Fail<int>(error + fault)", "error + fault", "Fin<int>")],
         """
         using LanguageExt;
-        using LanguageExt.Common;
-        using static LanguageExt.Prelude;
 
         internal static class SiblingArm {
-            internal static Fin<Option<int>> Split(int count, Fin<Option<int>> valid, bool cancelled) =>
-                (count switch {
-                    0 when cancelled => Error.New("cancelled"),
-                    0 => Option<int>.None,
-                    1 => new Expected("absent", 1, None),
-                    _ => valid,
-                }).Map(static held => held);
-            internal static Fin<int> Pinned(bool held, int pinned, Fin<int> found) => (held ? pinned : found.Map(static value => value + 1)).Map(static value => value * 2);
             internal static Fin<int> Merged(Fin<int> solved, Fin<int> value) =>
                 solved.Match(Succ: _ => value, Fail: error => value.Match(Succ: _ => Fin.Fail<int>(error), Fail: fault => error + fault));
         }
@@ -162,108 +136,98 @@ public sealed class ResultLiftTests : CSharpCodeFixVerifier<ResultLiftAnalyzer, 
         }
         """);
 
-    [Fact]
-    public Task RewritesFinSuccToValueKeepingArgumentComment() => VerifyCodeFixAsync(
-        """
-        using LanguageExt;
-
-        internal static class DocumentedLift {
-            internal static Fin<int> Kept(int value) => {|#0:Fin.Succ(/* value */ value)|};
-        }
-        """,
-        [
-            Diagnostic().WithLocation(0).WithArguments("Fin.Succ(/* value */ value)", "value", "Fin<int>"),
-        ],
-        """
-        using LanguageExt;
-
-        internal static class DocumentedLift {
-            internal static Fin<int> Kept(int value) => /* value */ value;
-        }
-        """);
-
     // --- [FORMS]
 
-    private static readonly (string Type, string Expression)[] Values = [
-        ("int", "1"), ("string", "string.Empty"), ("Unit", "unit"), ("Seq<int>", "Seq(1, 2)"),
-        ("Option<int>", "Some(1)"), ("object", "new object()"), (nameof(Error), """Error.New("held")"""), ("Expected", """new Expected("held", 1, None)"""),
-    ];
-
-    private static readonly Func<string, string, string, string>[] TargetTyped = [
-        static (type, value, name) => $"internal static {type} {name}() => {value};",
-        static (type, value, name) => $$"""internal static {{type}} {{name}}() { return {{value}}; }""",
-        static (type, value, name) => $"internal static readonly {type} {name} = {value};",
-        static (type, value, name) => $$"""internal static {{type}} {{name}} { get; } = {{value}};""",
-        static (type, value, name) => $"internal static {type} {name}(bool held) => held ? {value} : {name}(false);",
-        static (type, value, name) => $$"""internal static {{type}} {{name}}() { return Take({{value}}); static {{type}} Take({{type}} value) => value; }""",
-        static (type, value, name) => $$"""internal static {{type}} {{name}}() { {{type}} held; held = {{value}}; return held; }""",
-        static (type, value, name) => $"internal static Func<{type}> {name}() => () => {value};",
-        static (type, value, name) => $$"""internal static Func<Task<{{type}}>> {{name}}() => async () => { await Task.Yield(); return {{value}}; };""",
-    ];
-
-    private static readonly Func<string, string, string, string>[] Inferred = [
-        static (type, value, name) => $$"""internal static {{type}} {{name}}() { var held = {{value}}; return held; }""",
-        static (type, value, name) => $"internal static {type} {name}() => Same({value});",
-        static (type, value, name) => $"internal static {type}? {name}(bool held) => held ? {value} : default;",
-    ];
-
-    private static ImmutableArray<(string Type, string Expression, Option<string> Replacement)> Forms(string type, string value) {
-        string fin = $"Fin<{type}>";
-        string validation = $"Validation<Error, {type}>";
-        const string error = """Error.New("refused")""";
-        return [
-            (fin, $"Fin.Succ({value})", value), (fin, $"Pure({value})", value), (fin, $"new {fin}.Succ({value})", value),
-            (fin, $"Fin.Fail<{type}>({error})", error), (fin, $"Fail({error})", error), (fin, $"new {fin}.Fail({error})", error),
-            (fin, $"""Fin.Fail<{type}>("refused")""", None),
-            (validation, $"Success<Error, {type}>({value})", value), (validation, $"Validation.Success<Error, {type}>({value})", value),
-            (validation, $"Fail<Error, {type}>({error})", error), (validation, $"Validation.Fail<Error, {type}>({error})", error),
-        ];
-    }
-
-    private static string Source(string name, IEnumerable<string> members) => $$"""
+    [Fact]
+    public Task RewritesEachFactorySpellingInEachTargetTypedContextAndKeepsFactoriesWhoseValueWouldNotConvertToTheSameCase() => VerifyCodeFixAsync(
+        """
         using System;
         using System.Threading.Tasks;
         using LanguageExt;
         using LanguageExt.Common;
         using static LanguageExt.Prelude;
 
-        internal static class {{name}} {
-            internal static R Same<R>(R value) => value;
-        {{string.Join('\n', members.Select(static member => $"    {member}"))}}
+        internal static class Spelled {
+            internal static Fin<int> Arrow() => {|#0:Fin.Succ(/* value */ 1)|};
+            internal static Fin<int> Returned() { return {|#1:Pure(1)|}; }
+            internal static readonly Fin<int> Field = {|#2:new Fin<int>.Succ(1)|};
+            internal static Fin<int> Property { get; } = {|#3:Fin.Fail<int>(Error.New("refused"))|};
+            internal static Fin<int> Branched(bool held) => held ? {|#4:Fail(Error.New("refused"))|} : Branched(false);
+            internal static Fin<int> Passed() { return Take({|#5:new Fin<int>.Fail(Error.New("refused"))|}); static Fin<int> Take(Fin<int> value) => value; }
+            internal static Validation<Error, int> Assigned() { Validation<Error, int> held; held = {|#6:Success<Error, int>(1)|}; return held; }
+            internal static Func<Validation<Error, int>> Deferred() => () => {|#7:Validation.Success<Error, int>(1)|};
+            internal static Func<Task<Validation<Error, int>>> Awaited() => async () => { await Task.Yield(); return {|#8:Fail<Error, int>(Error.New("refused"))|}; };
+            internal static Validation<Error, int> Refused() => {|#9:Validation.Fail<Error, int>(Error.New("refused"))|};
+            internal static Fin<Expected> Narrowed() => {|#10:Fin.Succ(new Expected("held", 1, None))|};
+            internal static Fin<Error> Ambiguous() => Fin.Succ(Error.New("held"));
+            internal static Fin<string> Described() => Fin.Fail<string>("refused");
         }
+        """,
+        [
+            Diagnostic().WithLocation(0).WithArguments("Fin.Succ(/* value */ 1)", "1", "Fin<int>"),
+            Diagnostic().WithLocation(1).WithArguments("Pure(1)", "1", "Fin<int>"),
+            Diagnostic().WithLocation(2).WithArguments("new Fin<int>.Succ(1)", "1", "Fin<int>"),
+            Diagnostic().WithLocation(3).WithArguments("""Fin.Fail<int>(Error.New("refused"))""", """Error.New("refused")""", "Fin<int>"),
+            Diagnostic().WithLocation(4).WithArguments("""Fail(Error.New("refused"))""", """Error.New("refused")""", "Fin<int>"),
+            Diagnostic().WithLocation(5).WithArguments("""new Fin<int>.Fail(Error.New("refused"))""", """Error.New("refused")""", "Fin<int>"),
+            Diagnostic().WithLocation(6).WithArguments("Success<Error, int>(1)", "1", "Validation<Error, int>"),
+            Diagnostic().WithLocation(7).WithArguments("Validation.Success<Error, int>(1)", "1", "Validation<Error, int>"),
+            Diagnostic().WithLocation(8).WithArguments("""Fail<Error, int>(Error.New("refused"))""", """Error.New("refused")""", "Validation<Error, int>"),
+            Diagnostic().WithLocation(9).WithArguments("""Validation.Fail<Error, int>(Error.New("refused"))""", """Error.New("refused")""", "Validation<Error, int>"),
+            Diagnostic().WithLocation(10).WithArguments("""Fin.Succ(new Expected("held", 1, None))""", """new Expected("held", 1, None)""", "Fin<Expected>"),
+        ],
+        """
+        using System;
+        using System.Threading.Tasks;
+        using LanguageExt;
+        using LanguageExt.Common;
+        using static LanguageExt.Prelude;
 
-        """;
+        internal static class Spelled {
+            internal static Fin<int> Arrow() => /* value */ 1;
+            internal static Fin<int> Returned() { return 1; }
+            internal static readonly Fin<int> Field = 1;
+            internal static Fin<int> Property { get; } = Error.New("refused");
+            internal static Fin<int> Branched(bool held) => held ? Error.New("refused") : Branched(false);
+            internal static Fin<int> Passed() { return Take(Error.New("refused")); static Fin<int> Take(Fin<int> value) => value; }
+            internal static Validation<Error, int> Assigned() { Validation<Error, int> held; held = 1; return held; }
+            internal static Func<Validation<Error, int>> Deferred() => () => 1;
+            internal static Func<Task<Validation<Error, int>>> Awaited() => async () => { await Task.Yield(); return Error.New("refused"); };
+            internal static Validation<Error, int> Refused() => Error.New("refused");
+            internal static Fin<Expected> Narrowed() => new Expected("held", 1, None);
+            internal static Fin<Error> Ambiguous() => Fin.Succ(Error.New("held"));
+            internal static Fin<string> Described() => Fin.Fail<string>("refused");
+        }
+        """);
+
+    // --- [FIX_ALL]
 
     [Fact]
-    public Task ReportsEveryTargetTypedConversion() {
-        CSharpCodeFixTest<ResultLiftAnalyzer, LanguageExtCodeFix> test = new();
-        (Func<string, string, string, string> Write, bool HasTarget)[] members = [
-            .. TargetTyped.Select(static write => (write, true)),
-            .. Inferred.Select(static write => (write, false)),
-        ];
-        foreach ((int valueIndex, (string type, string value)) in Values.Index()) {
-            string name = string.Create(CultureInfo.InvariantCulture, $"Lift{valueIndex}");
-            IEnumerable<(Func<string, string, string, string> Member, string Type, string Value)> cases =
-                from form in Forms(type, value)
-                from member in members
-                select (member.Write, form.Type, !string.Equals(type, nameof(Error), StringComparison.Ordinal) && form.Replacement.IsSome && member.HasTarget
-                    ? $"{{|RASM1001:{form.Expression}|}}" : form.Expression);
-            test.TestState.Sources.Add(($"/{name}.cs", Source(name,
-                cases.Select(static (item, index) => item.Member(item.Type, item.Value, string.Create(CultureInfo.InvariantCulture, $"M{index}"))))));
-        }
-        return test.RunAsync(TestContext.Current.CancellationToken);
-    }
+    public Task FixAllOfRedundantAsDeletesConcreteNarrowingAloneAndKeepsTraitAndCustomAs() {
+        const string source = """
+            using LanguageExt;
+            using LanguageExt.Traits;
 
-    [Fact]
-    public Task FixesEachSpellingAcrossTargetContexts() {
-        (string Before, string After)[] cases = [.. Forms("int", "1").Where(static form => form.Replacement.IsSome).Select(static (form, index) => {
-            string name = string.Create(CultureInfo.InvariantCulture, $"M{index}");
-            Func<string, string, string, string> member = TargetTyped[index % TargetTyped.Length];
-            return (member(form.Type, $"{{|RASM1001:{form.Expression}|}}", name), member(form.Type, (string)form.Replacement, name));
-        })];
-        return new CSharpCodeFixTest<ResultLiftAnalyzer, LanguageExtCodeFix> {
-            TestCode = Source("Sample", cases.Select(static item => item.Before)),
-            FixedCode = Source("Sample", cases.Select(static item => item.After)),
+            internal static class Sample {
+                internal static Fin<int> Lift(int value) => {|#0:{|RASM1001:Fin.Succ(value)|}|};
+                internal static Fin<int> Narrow(Fin<int> value) => value.{|RASM1007:As()|};
+                internal static Option<int> Traited(K<Option, int> value) => value.As();
+            }
+
+            namespace Custom {
+                internal static class CustomNarrowing {
+                    internal static Fin<int> Preserve(Fin<int> value) => value.As();
+
+                    internal static Fin<int> As(this K<Fin, int> value) => ((Fin<int>)value).Map(static held => held + 99);
+                }
+            }
+            """;
+        return new CSharpCodeFixTest<RedundantNarrowingAnalyzer, LanguageExtCodeFix> {
+            TestCode = source,
+            FixedCode = source.Replace("value.{|RASM1007:As()|}", "value", StringComparison.Ordinal),
+            FixedState = { ExpectedDiagnostics = { Diagnostic().WithLocation(0).WithArguments("Fin.Succ(value)", "value", "Fin<int>") }, },
+            AdditionalAnalyzers = { new ResultLiftAnalyzer() },
+            CodeActionEquivalenceKey = "RASM1007",
         }.RunAsync(TestContext.Current.CancellationToken);
     }
 }

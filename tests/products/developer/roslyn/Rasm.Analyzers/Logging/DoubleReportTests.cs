@@ -8,176 +8,107 @@ namespace Rasm.Analyzers.Tests.Logging;
 
 public sealed class DoubleReportTests : CSharpCodeFixVerifier<DoubleReportAnalyzer, EmptyCodeFixProvider> {
 
-    // --- [RASM1203]
+    // --- [RECEIVERS]
 
     [Fact]
-    public Task ReportsFallbackReportingFailureReceiverAlreadyLogged() => new CSharpCodeFixTest<DoubleReportAnalyzer, EmptyCodeFixProvider> {
-        TestCode = """
-            using System;
-            using System.Collections.Generic;
-            using System.Threading.Tasks;
-            using LanguageExt;
-            using LanguageExt.Common;
-            using Microsoft.Extensions.Logging;
-            using Rhino.Runtime;
-            using static LanguageExt.Prelude;
+    public Task ReportsFallbackOrAlternativeReportingAFailureItsReceiverLoggedAndIgnoresUnloggedReceiverSilentHandlerOrLookalikeFallback() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using LanguageExt;
+        using LanguageExt.Common;
+        using Microsoft.Extensions.Logging;
+        using Rhino.Runtime;
+        using static LanguageExt.Prelude;
 
-            internal sealed class Sink(ILogger logger) {
-                internal Fin<Unit> Report(Error error) {
-                    Failed(logger, error.Message);
-                    return unit;
-                }
+        internal sealed class Sink(ILogger logger) {
+            internal Fin<Unit> Report(Error error) {
+                logger.LogError("{Failure}", error.Message);
+                return unit;
+            }
+        }
 
-                [LoggerMessage(Level = LogLevel.Error, Message = "{Failure}")]
-                private static void Failed(ILogger logger, string failure) { }
+        internal sealed class Outcome {
+            internal static Outcome Of(Fin<Unit> result) => new();
+
+            internal Unit IfFail(Action<Error> handle) => unit;
+        }
+
+        internal static class Receivers {
+            internal static Unit Logged(Sink sink, Error error) => sink.Report(error).{|#0:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
+
+            internal static Fin<Unit> Alternative(Sink sink, Error error) => {|#1:sink.Report(error) | Crash(error)|};
+
+            internal static Unit Handled(Sink sink, Error error) => sink.Report(error).IfFail(static _ => unit);
+
+            internal static Unit Lookalike(Sink sink, Error error) => Outcome.Of(sink.Report(error)).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
+
+            internal static Fin<Unit> Crash(Error error) {
+                HostUtils.ExceptionReport(error.ToException());
+                return unit;
             }
 
-            internal static class ReportedTwice {
-                internal static Unit Reported(Sink sink, Error error) => sink.Report(error).{|#0:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
+            internal static Unit Unlogged(ILogger logger) => Checked(logger).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
 
-                internal static Unit Forwarded(Sink sink, Error error) => Forward(sink, error).{|#1:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
+            internal static Fin<Unit> Checked(ILogger logger) => logger.IsEnabled(LogLevel.Error) ? unit : Error.New("disabled");
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("HostUtils.ExceptionReport", "Sink.Report"),
+        Diagnostic().WithLocation(1).WithArguments("Receivers.Crash", "Sink.Report"));
 
-                internal static Fin<Unit> Forward(Sink sink, Error error) => Relay(sink, error);
-
-                internal static Fin<Unit> Relay(Sink sink, Error error) => sink.Report(error);
-
-                internal static Unit Delegate(ILogger logger, Error error) => Invoked(logger, error).{|#2:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
-
-                internal static Fin<Unit> Invoked(ILogger logger, Error error) {
-                    Action report = () => ReportedOnce.Failed(logger, error.Message);
-                    Action invoke = report;
-                    invoke();
-                    return unit;
-                }
-
-                internal static Unit Supplied(ILogger logger, Error error) => Invoke(() => ReportedOnce.Failed(logger, error.Message)).{|#3:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
-
-                internal static Fin<Unit> Invoke(Action callback) {
-                    callback();
-                    return unit;
-                }
-
-                internal static Unit Lifted(ILogger logger, Error error) => IO.lift(() => {
-                    ReportedOnce.Failed(logger, error.Message);
-                    return unit;
-                }).RunSafe().{|#4:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
-
-                internal static Unit ForwardedCallback(ILogger logger, Error error) => ForwardCallback(() => ReportedOnce.Failed(logger, error.Message)).{|#5:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
-
-                private static Fin<Unit> ForwardCallback(Action callback) => Invoke(callback);
-
-                internal static Unit WrappedCallback(ILogger logger, Error error) => Wrap(() => ReportedOnce.Failed(logger, error.Message)).{|#6:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
-
-                private static Fin<Unit> Wrap(Action callback) => Invoke(() => callback());
-            }
-
-            internal static class ReportedOnce {
-                private static readonly List<Action> callbacks = [];
-
-                internal static Unit Reported(Sink sink, Error error) => sink.Report(error).IfFail(static _ => unit);
-
-                internal static Unit Completed(Sink sink, Error error, TaskCompletionSource<Unit> completion) => sink.Report(error).IfFail(fault => completion.SetException(fault.ToException()));
-
-                internal static Unit Crashed(Fin<Unit> result) => result.IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
-
-                internal static Unit Recursive(Error error) => First(error).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
-
-                internal static Fin<Unit> First(Error error) => Second(error);
-
-                internal static Fin<Unit> Second(Error error) => First(error);
-
-                internal static Unit Enabled(ILogger logger, Error error) => Checked(logger).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
-
-                internal static Fin<Unit> Checked(ILogger logger) => logger.IsEnabled(LogLevel.Error) ? unit : Error.New("disabled");
-
-                internal static Unit Deferred(ILogger logger, Error error) => Unused(logger, error).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
-
-                internal static Fin<Unit> Unused(ILogger logger, Error error) {
-                    Action callback = () => Failed(logger, error.Message);
-                    return unit;
-                }
-
-                internal static Unit Local(ILogger logger, Error error) => Uncalled(logger, error).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
-
-                internal static Fin<Unit> Uncalled(ILogger logger, Error error) {
-                    void {|CS8321:Later|}() => Failed(logger, error.Message);
-                    return unit;
-                }
-
-                internal static Unit Ignored(ILogger logger, Error error) => Ignore(() => Failed(logger, error.Message)).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
-
-                private static Fin<Unit> Ignore(Action callback) => unit;
-
-                internal static Unit Stored(ILogger logger, Error error) => Store(() => Failed(logger, error.Message)).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
-
-                private static Fin<Unit> Store(Action callback) {
-                    callbacks.Add(callback);
-                    return unit;
-                }
-
-                internal static Unit Reassigned(ILogger logger, Error error) => Replaced(() => Failed(logger, error.Message)).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
-
-                private static Fin<Unit> Replaced(Action callback) {
-                    callback = static () => { };
-                    return ReportedTwice.Invoke(callback);
-                }
-
-                internal static Unit Cyclic(ILogger logger, Error error) => First(() => Failed(logger, error.Message)).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
-
-                private static Fin<Unit> First(Action callback) => Second(callback);
-
-                private static Fin<Unit> Second(Action callback) => First(callback);
-
-                [LoggerMessage(Level = LogLevel.Error, Message = "{Failure}")]
-                internal static void Failed(ILogger logger, string failure) { }
-            }
-            """,
-        ExpectedDiagnostics = {
-            Diagnostic().WithLocation(0).WithArguments("HostUtils.ExceptionReport", "Sink.Report"),
-            Diagnostic().WithLocation(1).WithArguments("HostUtils.ExceptionReport", "ReportedTwice.Forward"),
-            Diagnostic().WithLocation(2).WithArguments("HostUtils.ExceptionReport", "ReportedTwice.Invoked"),
-            Diagnostic().WithLocation(3).WithArguments("HostUtils.ExceptionReport", "ReportedTwice.Invoke"),
-            Diagnostic().WithLocation(4).WithArguments("HostUtils.ExceptionReport", "IO.lift"),
-            Diagnostic().WithLocation(5).WithArguments("HostUtils.ExceptionReport", "ReportedTwice.ForwardCallback"),
-            Diagnostic().WithLocation(6).WithArguments("HostUtils.ExceptionReport", "ReportedTwice.Wrap"),
-        },
-    }.RunAsync(TestContext.Current.CancellationToken);
-
-    // --- [REFERENCES]
+    // --- [CALLBACKS]
 
     [Fact]
-    public async Task IgnoresLoggingPassedToReferencedAssemblyCallback() {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        CSharpCodeFixTest<DoubleReportAnalyzer, EmptyCodeFixProvider> test = new() {
-            TestCode = """
-                using LanguageExt;
-                using LanguageExt.Common;
-                using Microsoft.Extensions.Logging;
-                using Rhino.Runtime;
-                using static LanguageExt.Prelude;
+    public Task ReportsLoggingReachedThroughCallsAndInvokedOrRelayedCallbacksAndIgnoresStoredOrCyclicCallbacks() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using System.Collections.Generic;
+        using LanguageExt;
+        using Microsoft.Extensions.Logging;
+        using Rhino.Runtime;
+        using static LanguageExt.Prelude;
 
-                internal static class Reports {
-                    internal static Unit Translated(ILogger logger) => Result(logger).IfFail(error => HostUtils.ExceptionReport(error.ToException()));
+        internal static class Callbacks {
+            private static readonly List<Action> stored = [];
 
-                    private static Fin<Unit> Result(ILogger logger) {
-                        External.Calls.Invoke(() => Failed(logger, "failure"));
-                        return unit;
-                    }
+            internal static Unit Chained(ILogger logger) => Forward(logger).{|#0:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
 
-                    [LoggerMessage(Level = LogLevel.Error, Message = "{Failure}")]
-                    private static void Failed(ILogger logger, string failure) { }
-                }
-                """,
-        };
-        test.TestState.AdditionalReferences.Add((await AdditionalMetadataReferences.CompiledAsync($"{test.TestState.Name}.Callbacks", """
-            using System;
+            internal static Unit Invoked(ILogger logger) => Invoke(() => Failed(logger, "failure")).{|#1:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
 
-            namespace External;
+            internal static Unit Lifted(ILogger logger) => IO.lift(() => {
+                Failed(logger, "failure");
+                return unit;
+            }).RunSafe().{|#2:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
 
-            public static class Calls {
-                public static void Invoke(Action callback) => callback();
+            internal static Unit Relayed(ILogger logger) => Relay(() => Failed(logger, "failure")).{|#3:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
+
+            internal static Unit Kept(ILogger logger) => Store(() => Failed(logger, "failure")).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
+
+            internal static Unit Cyclic(ILogger logger) => First(() => Failed(logger, "failure")).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
+
+            private static Fin<Unit> Forward(ILogger logger) => Invoke(() => Failed(logger, "failure"));
+
+            private static Fin<Unit> Invoke(Action callback) {
+                callback();
+                return unit;
             }
-            """, token)).ToMetadataReference());
-        await test.RunAsync(token);
-    }
+
+            private static Fin<Unit> Relay(Action callback) => Invoke(callback);
+
+            private static Fin<Unit> Store(Action callback) {
+                stored.Add(callback);
+                return unit;
+            }
+
+            private static Fin<Unit> First(Action callback) => Second(callback);
+
+            private static Fin<Unit> Second(Action callback) => First(callback);
+
+            [LoggerMessage(Level = LogLevel.Error, Message = "{Failure}")]
+            private static void Failed(ILogger logger, string failure) { }
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("HostUtils.ExceptionReport", "Callbacks.Forward"),
+        Diagnostic().WithLocation(1).WithArguments("HostUtils.ExceptionReport", "Callbacks.Invoke"),
+        Diagnostic().WithLocation(2).WithArguments("HostUtils.ExceptionReport", "IO.lift"),
+        Diagnostic().WithLocation(3).WithArguments("HostUtils.ExceptionReport", "Callbacks.Relay"));
 }

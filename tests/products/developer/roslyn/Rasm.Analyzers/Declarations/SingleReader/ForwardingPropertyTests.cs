@@ -1,4 +1,4 @@
-using Rasm.Analyzers.CodeFixes;
+using Microsoft.CodeAnalysis.Testing;
 using Rasm.Analyzers.Tests.Verifiers;
 using Xunit;
 
@@ -6,155 +6,59 @@ namespace Rasm.Analyzers.Tests.Declarations.SingleReader;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public sealed class ForwardingPropertyTests : CSharpCodeFixVerifier<SingleReaderAnalyzer, SingleReaderCodeFix> {
-    [Fact]
-    public Task ReportsPropertyForwardingStaticFieldButNotConstructedValue() => VerifyAnalyzerAsync(
-        """
-        using Rhino.Geometry;
+public sealed class ForwardingPropertyTests : CSharpCodeFixVerifier<SingleReaderAnalyzer, EmptyCodeFixProvider> {
 
-        internal static class Palette {
-            internal static System.Collections.Immutable.ImmutableArray<int> Empty => [];
-
-            internal static System.Drawing.Bitmap Blank => new(1, 1);
-
-            internal static System.Drawing.Point Origin => default;
-
-            internal static Point Placed => new(Point3d.Origin);
-
-            internal static Plane {|#0:Base|} => Plane.WorldXY;
-
-            internal static System.Numerics.Vector2 Offset => default;
-        }
-        """,
-        Diagnostic("RASM3012").WithLocation(0).WithArguments("Base", "Plane.WorldXY"));
+    // --- [VISIBILITY]
 
     [Fact]
-    public Task IgnoresPropertiesReadingPrimaryConstructorParameter() => VerifyAnalyzerAsync(
-        """
-        using System.ComponentModel;
-        using System.IO;
-        using System.Runtime.CompilerServices;
-
-        internal sealed class FileReads(FileInfo file, FileInfo? optional) {
-            internal string Name => file.Name;
-
-            internal long Length {
-                get { return file.Length; }
-            }
-
-            internal string? Optional => optional?.Name;
-
-            internal string Upper => file.Name.ToUpperInvariant();
-
-            internal double Converted => file.Length;
-
-            [DisplayName("File name")]
-            internal string Displayed => file.Name;
-
-            internal long Measured {
-                [MethodImpl(MethodImplOptions.NoInlining)]
-                get => file.Length;
-            }
-        }
-        """);
-
-    [Fact]
-    public Task ReportsPropertiesForwardingPublicPropertyMembers() => VerifyAnalyzerAsync(
+    public Task ReportsForwardOfAMemberEveryReaderCanBindButNotOneAReaderCannotReach() => VerifyAnalyzerAsync(
         """
         using System.IO;
 
-        internal sealed class PublicFileReads(FileInfo file, FileInfo? optional) {
+        public static class GenericReads<T> {
+            public static int Count => typeof(T).GetFields().Length;
+        }
+
+        internal sealed class HiddenType;
+
+        internal class Reads(FileInfo file) {
+            private readonly FileInfo guarded = file;
+
             public FileInfo File { get; } = file;
 
-            public FileInfo? OptionalFile { get; } = optional;
+            internal FileInfo Shared { get; } = file;
+
+            protected FileInfo Protected { get; } = file;
+
+            public FileInfo Written { private get; set; } = file;
 
             internal string {|#0:Name|} => File.Name;
 
-            internal long {|#1:Length|} {
-                get { return File.Length; }
-            }
+            internal string {|#1:SharedName|} => Shared.Name;
 
-            internal string? {|#2:Optional|} => OptionalFile?.Name;
+            internal string GuardedName => guarded.Name;
+
+            internal string ProtectedName => Protected.Name;
+
+            internal string WrittenName => Written.Name;
+
+            internal static int {|#2:Fields|} => GenericReads<string>.Count;
+
+            internal static int HiddenFields => GenericReads<HiddenType>.Count;
+        }
+
+        internal static class Reader {
+            internal static string Read(Reads reads) => reads.SharedName + reads.GuardedName + reads.ProtectedName;
         }
         """,
         Diagnostic("RASM3012").WithLocation(0).WithArguments("Name", "File.Name"),
-        Diagnostic("RASM3012").WithLocation(1).WithArguments("Length", "File.Length"),
-        Diagnostic("RASM3012").WithLocation(2).WithArguments("Optional", "OptionalFile?.Name"));
+        Diagnostic("RASM3012").WithLocation(1).WithArguments("SharedName", "Shared.Name"),
+        Diagnostic("RASM3012").WithLocation(2).WithArguments("Fields", "GenericReads<string>.Count"));
+
+    // --- [BINDING]
 
     [Fact]
-    public Task ReportsForwardOfPublicPropertyButNotPrivateField() => VerifyAnalyzerAsync(
-        """
-        using System.IO;
-
-        internal sealed class OwnedReads(FileInfo file) {
-            private readonly FileInfo Source = file;
-
-            public FileInfo File { get; } = file;
-
-            internal string {|#0:Owned|} => File.Name;
-
-            internal string Uppercase => Source.Name;
-
-            internal string Explicit => this.Source.Name;
-        }
-        """,
-        Diagnostic("RASM3012").WithLocation(0).WithArguments("Owned", "File.Name"));
-
-    [Fact]
-    public Task ReportsPropertiesForwardingStaticMembers() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Calendar = System.DateTime;
-
-        internal static class StaticReads {
-            internal static DateTime {|#0:Utc|} => Calendar.UtcNow;
-
-            internal static int {|#1:Maximum|} => int.MaxValue;
-        }
-        """,
-        Diagnostic("RASM3012").WithLocation(0).WithArguments("Utc", "Calendar.UtcNow"),
-        Diagnostic("RASM3012").WithLocation(1).WithArguments("Maximum", "int.MaxValue"));
-
-    [Fact]
-    public Task IgnoresOverrideOfAbstractProperty() => VerifyAnalyzerAsync(
-        """
-        using System.IO;
-
-        internal abstract class LengthContract {
-            internal abstract long Length { get; }
-        }
-
-        internal sealed class OverriddenRead(FileInfo file) : LengthContract {
-            internal override long Length => file.Length;
-        }
-        """);
-
-    [Fact]
-    public Task IgnoresVirtualProperty() => VerifyAnalyzerAsync(
-        """
-        using System.Collections.Generic;
-
-        internal class ExtensibleRead(List<int> values) {
-            internal virtual int Count => values.Count;
-        }
-        """);
-
-    [Fact]
-    public Task IgnoresPropertyHidingBaseMember() => VerifyAnalyzerAsync(
-        """
-        using System.Collections.Generic;
-
-        internal class CountContract {
-            internal int Count => 1;
-        }
-
-        internal sealed class HiddenRead(List<int> values) : CountContract {
-            internal new int Count => values.Count;
-        }
-        """);
-
-    [Fact]
-    public Task ReportsPrivateAliasButNotWhenShadowedOrReadInNameof() => VerifyAnalyzerAsync(
+    public Task ReportsPrivateAliasButNotWhereAParameterShadowsItsTargetOrNameofNamesIt() => VerifyAnalyzerAsync(
         """
         using System.IO;
 
@@ -163,71 +67,133 @@ public sealed class ForwardingPropertyTests : CSharpCodeFixVerifier<SingleReader
 
             private string {|#0:Name|} => Source.Name;
 
-            private long {|#1:Length|} => this.Source.Length;
-
             private string ShadowedName => Source.Name;
 
             private string NamedName => Source.Name;
 
             internal string ReadName() => Name;
 
-            internal long ReadLength() => Length;
-
             internal string ReadShadowed(FileInfo Source) => ShadowedName + Source.Name;
 
             internal string ReadNamed() => NamedName + nameof(NamedName);
         }
         """,
-        Diagnostic("RASM3012").WithLocation(0).WithArguments("Name", "Source.Name"),
-        Diagnostic("RASM3012").WithLocation(1).WithArguments("Length", "this.Source.Length"));
+        Diagnostic("RASM3012").WithLocation(0).WithArguments("Name", "Source.Name"));
+
+    // --- [CONTRACTS]
 
     [Fact]
-    public Task IgnoresForwardOfInternalProtectedOrPrivateGetterMember() => VerifyAnalyzerAsync(
+    public Task ReportsUnchangedReturnOfAnotherMemberButNotATransformOrContract() => VerifyAnalyzerAsync(
         """
+        using System;
+        using System.Collections;
+        using System.Collections.Generic;
         using System.IO;
 
-        internal class RestrictedReads(FileInfo file) {
-            internal FileInfo Shared { get; } = file;
+        internal sealed class Transforms(FileInfo file, List<int> values) {
+            public FileInfo File { get; } = file;
 
-            protected FileInfo Protected { get; } = file;
+            public List<int> Values { get; } = values;
 
-            public FileInfo Written { private get; set; } = file;
+            public Lazy<List<int>> Delayed { get; } = new(() => values);
 
-            internal string SharedName => Shared.Name;
+            public UserDefined.Lazy<List<int>> Held { get; } = new(values);
 
-            internal string ProtectedName => Protected.Name;
+            internal static DateTime {|#0:Utc|} => DateTime.UtcNow;
 
-            internal string WrittenName => Written.Name;
+            internal static Version Placed => new(1, 0);
+
+            internal string Upper => File.Name.ToUpperInvariant();
+
+            internal int DelayedCount => Delayed.Value.Count;
+
+            internal int {|#1:HeldCount|} => Held.Value.Count;
+
+            internal Action {|#2:Clear|} => Values.Clear;
         }
-        """);
 
-    [Fact]
-    public Task ReportsForwardOfGenericMemberButNotOverInternalTypeArgument() => VerifyAnalyzerAsync(
-        """
-        public static class GenericReads<T> {
-            public static int Count => typeof(T).GetFields().Length;
+        internal abstract class LengthContract {
+            internal abstract long Length { get; }
         }
 
-        internal sealed class HiddenType;
+        internal sealed class Overridden(FileInfo file) : LengthContract {
+            public FileInfo File { get; } = file;
 
-        internal static class ConstructedReads {
-            internal static int {|#0:Public|} => GenericReads<string>.Count;
+            internal override long Length => File.Length;
+        }
 
-            internal static int Hidden => GenericReads<HiddenType>.Count;
+        internal class Extensible(List<int> values) {
+            public List<int> Values { get; } = values;
+
+            internal virtual int Count => Values.Count;
+
+            internal int Capacity => 1;
+        }
+
+        internal sealed class Hiding(List<int> values) : Extensible(values) {
+            internal new int Capacity => Values.Capacity;
+        }
+
+        internal sealed class CollectionView(List<int> values) : IReadOnlyCollection<int> {
+            public List<int> Values { get; } = values;
+
+            public int Count => Values.Count;
+
+            public IEnumerator<int> GetEnumerator() => Values.GetEnumerator();
+
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        namespace UserDefined {
+            public sealed class Lazy<T>(T value) {
+                public T Value { get; } = value;
+            }
         }
         """,
-        Diagnostic("RASM3012").WithLocation(0).WithArguments("Public", "GenericReads<string>.Count"));
+        Diagnostic("RASM3012").WithLocation(0).WithArguments("Utc", "DateTime.UtcNow"),
+        Diagnostic("RASM3012").WithLocation(1).WithArguments("HeldCount", "Held.Value.Count"),
+        Diagnostic("RASM3012").WithLocation(2).WithArguments("Clear", "Values.Clear"));
+
+    // --- [INDEXERS]
 
     [Fact]
-    public Task ReportsPrivatePropertyForwardingStaticMemberOfAnotherType() => VerifyAnalyzerAsync(
+    public Task ReportsIndexerPassingItsParametersInOrderButNotPermutedShiftedOrWritable() => VerifyAnalyzerAsync(
         """
-        using Rhino;
+        using System.Collections.Generic;
 
-        internal static class Entries {
-            private static double {|#0:MissingNumber|} => RhinoMath.UnsetValue;
+        internal sealed class Listed(List<int> values) {
+            public List<int> Values { get; } = values;
 
-            internal static double Number() => MissingNumber;
+            internal int {|#0:this|}[int index] => Values[index];
+        }
+
+        internal sealed class Matrix(int[,] grid) {
+            public int[,] Grid { get; } = grid;
+
+            internal int {|#1:this|}[int row, int column] => Grid[row, column];
+        }
+
+        internal sealed class Transposed(int[,] grid) {
+            public int[,] Grid { get; } = grid;
+
+            internal int this[int row, int column] => Grid[column, row];
+        }
+
+        internal sealed class Shifted(List<int> values) {
+            public List<int> Values { get; } = values;
+
+            internal int this[int index] => Values[index + 1];
+        }
+
+        internal sealed class Writable(List<int> values) {
+            public List<int> Values { get; } = values;
+
+            internal int this[int index] {
+                get => Values[index];
+                set => Values[index] = value;
+            }
         }
         """,
-        Diagnostic("RASM3012").WithLocation(0).WithArguments("MissingNumber", "RhinoMath.UnsetValue"));
+        Diagnostic("RASM3012").WithLocation(0).WithArguments("this[]", "Values[index]"),
+        Diagnostic("RASM3012").WithLocation(1).WithArguments("this[]", "Grid[row, column]"));
 }

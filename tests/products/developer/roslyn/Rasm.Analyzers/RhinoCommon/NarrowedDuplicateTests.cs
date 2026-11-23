@@ -8,137 +8,105 @@ namespace Rasm.Analyzers.Tests.RhinoCommon;
 
 public sealed class NarrowedDuplicateTests : CSharpCodeFixVerifier<NarrowedDuplicateAnalyzer, EmptyCodeFixProvider> {
 
-    // --- [RASM2103]
+    // --- [SOURCES]
 
-    [Fact]
-    public Task ReportsCastTypeTestOrSwitchOnDuplicate() => VerifyAnalyzerAsync(
-        """
-        using System;
+    private const string Products = """
+        using System.Runtime.CompilerServices;
+        using LanguageExt;
         using Rhino.Geometry;
 
         namespace Rasm.Rhino {
             public static class Products {
-                public static T Copied<T>(Func<T> call) where T : class => call();
+                public static IO<T> Copied<T>(T source, [CallerArgumentExpression(nameof(source))] string member = "") where T : GeometryBase => IO.pure(source);
             }
         }
+        """;
 
-        internal static class CastDuplicate {
-            internal static Curve Copied(Curve curve) => {|#0:(Curve)curve.Duplicate()|};
-            internal static bool Tested(Curve curve) => {|#1:curve.Duplicate() is Curve|};
-
-            internal static int Switched(Curve curve) {
-                {|#2:switch (curve.Duplicate()) {
-                    case Curve:
-                        return 1;
-                    default:
-                        return 0;
-                }|}
-            }
-
-            internal static bool Combined(Curve curve) => {|#3:curve.Duplicate() is Curve or Surface|};
-        }
-        """,
-        Diagnostic().WithLocation(0).WithArguments("Copied", "curve.Duplicate()", "Curve").WithOptions(DiagnosticOptions.IgnoreAdditionalLocations),
-        Diagnostic().WithLocation(1).WithArguments("Tested", "curve.Duplicate()", "Curve").WithOptions(DiagnosticOptions.IgnoreAdditionalLocations),
-        Diagnostic().WithLocation(2).WithArguments("Switched", "curve.Duplicate()", "Curve").WithOptions(DiagnosticOptions.IgnoreAdditionalLocations),
-        Diagnostic().WithLocation(3).WithArguments("Combined", "curve.Duplicate()", "Curve").WithOptions(DiagnosticOptions.IgnoreAdditionalLocations));
+    // --- [NARROWING]
 
     [Fact]
-    public Task ReportsDuplicatePassedToMethodThatNarrowsIt() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Rhino.Geometry;
+    public Task DuplicateNarrowedToADerivedTypeIsReportedInEachSpellingWhileAnIdentityOrTypeParameterCastIsSilent() => new CSharpCodeFixTest<NarrowedDuplicateAnalyzer, EmptyCodeFixProvider> {
+        TestState = {
+            Sources = {
+                Products,
+                """
+                using Rhino.Geometry;
 
-        namespace Rasm.Rhino {
-            public static class Products {
-                public static T Copied<T>(Func<T> call) where T : class => call();
-            }
-        }
+                internal static class Narrowed {
+                    internal static Curve Cast(Curve curve) => {|#0:(Curve)curve.Duplicate()|};
 
-        internal static class RelayedDuplicate {
-            internal static Curve Copied(Curve curve) => Narrowed({|#0:curve.Duplicate()|});
-            internal static int Dispatched(Curve curve) => Kind({|#1:curve.Duplicate()|});
-            internal static bool Tested(Curve curve) => Typed({|#2:curve.DuplicateShallow()|});
-            internal static Curve Generic(Curve curve) => Narrowed({|#3:curve.Duplicate()|}, 0);
-            internal static Curve Plain(GeometryBase geometry) => Narrowed(geometry);
-            private static Curve Narrowed(GeometryBase copy) => (Curve)copy;
-            private static int Kind(GeometryBase copy) => copy switch { Curve => 1, _ => 0 };
-            private static bool Typed(GeometryBase copy) => copy is Curve;
-            private static Curve Narrowed<T>(GeometryBase copy, T unused) => (Curve)copy;
-        }
-        """,
-        Diagnostic().WithLocation(0).WithArguments("Narrowed", "curve.Duplicate()", "Curve").WithOptions(DiagnosticOptions.IgnoreAdditionalLocations),
-        Diagnostic().WithLocation(1).WithArguments("Kind", "curve.Duplicate()", "Curve").WithOptions(DiagnosticOptions.IgnoreAdditionalLocations),
-        Diagnostic().WithLocation(2).WithArguments("Typed", "curve.DuplicateShallow()", "Curve").WithOptions(DiagnosticOptions.IgnoreAdditionalLocations),
-        Diagnostic().WithLocation(3).WithArguments("Narrowed", "curve.Duplicate()", "Curve").WithOptions(DiagnosticOptions.IgnoreAdditionalLocations));
+                    internal static bool Tested(Curve curve) => {|#1:curve.DuplicateShallow() is Curve|};
 
-    [Fact]
-    public Task ReportsCastOfLocalHoldingDuplicateButNotReassignedLocal() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Rhino.Geometry;
+                    internal static bool Patterned(Curve curve) => {|#2:curve.Duplicate() is Curve or Surface|};
 
-        namespace Rasm.Rhino {
-            public static class Products {
-                public static T Copied<T>(Func<T> call) where T : class => call();
-            }
-        }
+                    internal static int Switched(Curve curve) => {|#3:curve.Duplicate() switch { Curve => 1, _ => 0 }|};
 
-        internal static class HeldDuplicate {
-            internal static Curve Held(Curve curve) {
-                GeometryBase copy = curve.Duplicate();
-                return {|#0:(Curve)copy|};
-            }
+                    internal static int Stated(Curve curve) {
+                        {|#4:switch (curve.Duplicate()) {
+                            case Curve:
+                                return 1;
+                            default:
+                                return 0;
+                        }|}
+                    }
 
-            internal static Curve Reassigned(Curve curve, GeometryBase other) {
-                GeometryBase copy = curve.Duplicate();
-                copy = other;
-                return (Curve)copy;
-            }
-        }
-        """,
-        Diagnostic().WithLocation(0).WithArguments("Held", "curve.Duplicate()", "Curve").WithOptions(DiagnosticOptions.IgnoreAdditionalLocations));
+                    internal static GeometryBase Identity(Curve curve) => (GeometryBase)curve.Duplicate();
+
+                    internal static T Generic<T>(T source) where T : GeometryBase => (T)source.Duplicate();
+                }
+                """,
+            },
+            ExpectedDiagnostics = {
+                Diagnostic().WithLocation(0).WithArguments("Cast", "curve.Duplicate()", "Curve"),
+                Diagnostic().WithLocation(1).WithArguments("Tested", "curve.DuplicateShallow()", "Curve"),
+                Diagnostic().WithLocation(2).WithArguments("Patterned", "curve.Duplicate()", "Curve"),
+                Diagnostic().WithLocation(3).WithArguments("Switched", "curve.Duplicate()", "Curve"),
+                Diagnostic().WithLocation(4).WithArguments("Stated", "curve.Duplicate()", "Curve"),
+            },
+        },
+    }.RunAsync(TestContext.Current.CancellationToken);
+
+    // --- [RELAYS]
 
     [Fact]
-    public Task IgnoresUnnarrowedDuplicateAndCastToTypeParameter() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Rhino.Geometry;
+    public Task DuplicateNarrowedThroughALocalOrParameterIsReportedWhileAReassignedLocalIsSilent() => new CSharpCodeFixTest<NarrowedDuplicateAnalyzer, EmptyCodeFixProvider> {
+        TestState = {
+            Sources = {
+                Products,
+                """
+                using Rhino.Geometry;
 
-        namespace Rasm.Rhino {
-            public static class Products {
-                public static T Copied<T>(Func<T> call) where T : class => call();
-            }
-        }
+                internal static class Relayed {
+                    internal static Curve Held(Curve curve) {
+                        GeometryBase copy = curve.Duplicate();
+                        return {|#0:(Curve)copy|};
+                    }
 
-        internal static class UncastDuplicate {
-            internal static GeometryBase Kept(Curve curve) => curve.Duplicate();
-            internal static GeometryBase Passed(Curve curve) => Held(curve.Duplicate());
-            internal static Curve Unrelayed(GeometryBase geometry) => (Curve)geometry;
-            internal static T Generic<T>(T source) where T : GeometryBase => (T)source.Duplicate();
-            private static GeometryBase Held(GeometryBase copy) => copy;
-        }
-        """);
+                    internal static Curve Reassigned(Curve curve, GeometryBase other) {
+                        GeometryBase copy = curve.Duplicate();
+                        copy = other;
+                        return (Curve)copy;
+                    }
 
-    // --- [LOCATIONS]
+                    internal static Curve Passed(Curve curve) => Cast({|#1:curve.Duplicate()|});
 
-    [Fact]
-    public Task ReportsDuplicateCallWithNarrowingCastAsAdditionalLocation() => VerifyAnalyzerAsync(
-        """
-        using System;
-        using Rhino.Geometry;
+                    internal static Curve Typed(Curve curve) => Cast({|#3:curve.Duplicate()|}, 0);
 
-        namespace Rasm.Rhino {
-            public static class Products {
-                public static T Copied<T>(Func<T> call) where T : class => call();
-            }
-        }
+                    internal static GeometryBase Kept(Curve curve) => Keep(curve.Duplicate());
 
-        internal static class Sample {
-            internal static Curve Narrow(Curve curve) => Cast({|#0:curve.Duplicate()|});
+                    private static Curve Cast(GeometryBase copy) => {|#2:(Curve)copy|};
 
-            internal static Curve Cast(GeometryBase copy) => {|#1:(Curve)copy|};
-        }
-        """,
-        Diagnostic().WithLocation(0).WithLocation(1).WithArguments("Cast", "curve.Duplicate()", "Curve"));
+                    private static Curve Cast<T>(GeometryBase copy, T unused) => {|#4:(Curve)copy|};
+
+                    private static GeometryBase Keep(GeometryBase copy) => copy;
+                }
+                """,
+            },
+            ExpectedDiagnostics = {
+                Diagnostic().WithLocation(0).WithArguments("Held", "curve.Duplicate()", "Curve"),
+                Diagnostic().WithLocation(1).WithLocation(2).WithArguments("Cast", "curve.Duplicate()", "Curve"),
+                Diagnostic().WithLocation(3).WithLocation(4).WithArguments("Cast", "curve.Duplicate()", "Curve"),
+            },
+        },
+    }.RunAsync(TestContext.Current.CancellationToken);
 }

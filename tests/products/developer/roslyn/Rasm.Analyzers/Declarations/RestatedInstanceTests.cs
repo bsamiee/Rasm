@@ -7,8 +7,11 @@ namespace Rasm.Analyzers.Tests.Declarations;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class RestatedInstanceTests : CSharpCodeFixVerifier<RestatedInstanceAnalyzer, EmptyCodeFixProvider> {
+
+    // --- [VALUES]
+
     [Fact]
-    public Task ReportsConstructionOrTransparentFactoryRestatingStaticInstance() => VerifyAnalyzerAsync(
+    public Task ReportsConstructionEqualToAStaticInstanceButNotOneDifferingInValueTypeOrOverload() => VerifyAnalyzerAsync(
         """
         internal sealed record Factor(float Value) {
             public static Factor Unit { get; } = new(1f);
@@ -22,61 +25,18 @@ public sealed class RestatedInstanceTests : CSharpCodeFixVerifier<RestatedInstan
             public static readonly Grow Fill = new(Factor.Unit);
         }
 
-        internal static class Sizes {
-            internal static Grow Whole => {|#0:new Grow({|#1:Factor.Create(1f)|})|};
-
-            internal static Factor One => {|#2:Factor.Create(1f)|};
-
-            internal static Factor Half => Factor.Create(0.5f);
-
-            internal static Grow Held => Grow.Fill;
-
-            internal static Factor Increased => Factor.Increased(1f);
-
-            internal static Factor Converted => {|#3:new Factor(1)|};
-        }
-
-        namespace Left {
-            internal sealed record Item(int Value) {
-                internal static Item Zero { get; } = new(0);
-            }
-        }
-
-        namespace Right {
-            internal sealed record Item(int Value);
-        }
-        """,
-        Diagnostic().WithLocation(0).WithArguments("new Grow(Factor.Create(1f))", "Grow.Fill"),
-        Diagnostic().WithLocation(1).WithArguments("Factor.Create(1f)", "Factor.Unit"),
-        Diagnostic().WithLocation(2).WithArguments("Factor.Create(1f)", "Factor.Unit"),
-        Diagnostic().WithLocation(3).WithArguments("new Factor(1)", "Factor.Unit"));
-
-    [Fact]
-    public Task ReportsConstructionRestatingInstanceWithReorderedNamedArguments() => VerifyAnalyzerAsync(
-        """
         internal sealed record Dimensions(int Width, int Height) {
             internal static Dimensions Unit { get; } = new(1, 2);
         }
 
-        internal static class Reordered {
-            internal static Dimensions Unit => {|#0:new Dimensions(Height: 2, Width: 1)|};
+        internal sealed record FloatFactor(float Value) {
+            internal static FloatFactor Zero { get; } = new(0f);
         }
 
-        namespace Left {
-            internal sealed record Item(int Value) {
-                internal static Item Zero { get; } = new(0);
-            }
+        internal sealed record DecimalFactor(decimal Value) {
+            internal static DecimalFactor One { get; } = new(1m);
         }
 
-        namespace Right {
-            internal sealed record Item(int Value);
-        }
-        """,
-        Diagnostic().WithLocation(0).WithArguments("new Dimensions(Height: 2, Width: 1)", "Dimensions.Unit"));
-
-    [Fact]
-    public Task StaysSilentWhenConstructionSelectsAnotherConstructorOverload() => VerifyAnalyzerAsync(
-        """
         internal sealed record Overloaded {
             internal Overloaded(int value) => Value = value;
 
@@ -85,37 +45,45 @@ public sealed class RestatedInstanceTests : CSharpCodeFixVerifier<RestatedInstan
             internal object Value { get; }
 
             internal static Overloaded One { get; } = new(1);
-
-            internal static Overloaded Create(int value) => new((object)value);
         }
 
-        internal static class DistinctOverloads {
+        internal sealed record Pair(object First, object Second) {
+            internal static Pair Held { get; } = new(Left.Item.Zero, Left.Item.Zero);
+        }
+
+        internal sealed record TextPair(string First, string Second) {
+            internal static TextPair Held { get; } = new("a,string=b", "c");
+        }
+
+        internal sealed record Cycled(int Value) {
+            internal static Cycled First { get; } = {|CS8601:Second|};
+
+            internal static Cycled Second { get; } = {|CS8601:First|};
+        }
+
+        internal static class Sites {
+            internal static Factor One => {|#0:Factor.Create(1f)|};
+
+            internal static Factor Converted => {|#1:new Factor(1)|};
+
+            internal static Grow Whole => {|#2:new Grow({|#3:Factor.Create(1f)|})|};
+
+            internal static Dimensions Reordered => {|#4:new Dimensions(Height: 2, Width: 1)|};
+
+            internal static Factor Half => Factor.Create(0.5f);
+
+            internal static Factor Increased => Factor.Increased(1f);
+
+            internal static FloatFactor NegativeZero => new(-0f);
+
+            internal static DecimalFactor ScaledOne => new(1.0m);
+
             internal static Overloaded Boxed => new((object)1);
 
-            internal static Overloaded Created => Overloaded.Create(1);
-        }
+            internal static Pair Changed => new(Left.Item.Zero, new Right.Item(0));
 
-        namespace Left {
-            internal sealed record Item(int Value) {
-                internal static Item Zero { get; } = new(0);
-            }
-        }
+            internal static TextPair Delimited => new("a", "b,string=c");
 
-        namespace Right {
-            internal sealed record Item(int Value);
-        }
-        """);
-
-    [Fact]
-    public Task StaysSilentWhenStaticMembersFormCycleWithoutInitializer() => VerifyAnalyzerAsync(
-        """
-        internal sealed record Cycled(int Value) {
-            internal static Cycled First => Second;
-
-            internal static Cycled Second => First;
-        }
-
-        internal static class UnnamedCycle {
             internal static Cycled Zero => new(0);
         }
 
@@ -128,121 +96,28 @@ public sealed class RestatedInstanceTests : CSharpCodeFixVerifier<RestatedInstan
         namespace Right {
             internal sealed record Item(int Value);
         }
-        """);
+        """,
+        Diagnostic().WithLocation(0).WithArguments("Factor.Create(1f)", "Factor.Unit"),
+        Diagnostic().WithLocation(1).WithArguments("new Factor(1)", "Factor.Unit"),
+        Diagnostic().WithLocation(2).WithArguments("new Grow(Factor.Create(1f))", "Grow.Fill"),
+        Diagnostic().WithLocation(3).WithArguments("Factor.Create(1f)", "Factor.Unit"),
+        Diagnostic().WithLocation(4).WithArguments("new Dimensions(Height: 2, Width: 1)", "Dimensions.Unit"));
+
+    // --- [EFFECTS]
 
     [Fact]
-    public Task StaysSilentWhenArgumentConstructsADifferentTypeWithEqualValue() => VerifyAnalyzerAsync(
+    public Task ReportsReadonlyConstructionButNotOneWhoseConstructionHasAnEffect() => VerifyAnalyzerAsync(
         """
-        namespace Left {
-            internal sealed record Item(int Value) {
-                internal static Item Zero { get; } = new(0);
-            }
+        internal sealed class PlainFactor(int value) {
+            internal static readonly PlainFactor Unit = new(1);
+
+            public int Value { get; } = value;
         }
 
-        namespace Right {
-            internal sealed record Item(int Value);
-        }
-
-        internal sealed record Pair(object First, object Second) {
-            internal static Pair Held { get; } = new(Left.Item.Zero, Left.Item.Zero);
-        }
-
-        internal static class DistinctTypes {
-            internal static Pair Changed => new(Left.Item.Zero, new Right.Item(0));
-        }
-        """);
-
-    [Fact]
-    public Task StaysSilentWhenStringArgumentsContainingDelimitersDiffer() => VerifyAnalyzerAsync(
-        """
-        namespace Left {
-            internal sealed record Item(int Value) {
-                internal static Item Zero { get; } = new(0);
-            }
-        }
-
-        namespace Right {
-            internal sealed record Item(int Value);
-        }
-
-        internal sealed record TextPair(string First, string Second) {
-            internal static TextPair Held { get; } = new("a,string=b", "c");
-        }
-
-        internal static class DelimitedText {
-            internal static TextPair Changed => new("a", "b,string=c");
-        }
-        """);
-
-    [Fact]
-    public Task StaysSilentWhenNumbersCompareEqualButDifferInSignOrScale() => VerifyAnalyzerAsync(
-        """
-        namespace Left {
-            internal sealed record Item(int Value) {
-                internal static Item Zero { get; } = new(0);
-            }
-        }
-
-        namespace Right {
-            internal sealed record Item(int Value);
-        }
-
-        internal sealed record FloatFactor(float Value) {
-            internal static FloatFactor Zero { get; } = new(0f);
-        }
-
-        internal sealed record DecimalFactor(decimal Value) {
-            internal static DecimalFactor One { get; } = new(1m);
-        }
-
-        internal static class DistinctNumbers {
-            internal static FloatFactor NegativeZero => new(-0f);
-
-            internal static DecimalFactor ScaledOne => new(1.0m);
-        }
-        """);
-
-    [Fact]
-    public Task StaysSilentInsideSmartEnumItemInitializers() => VerifyAnalyzerAsync(
-        """
-        using Thinktecture;
-
-        namespace Left {
-            internal sealed record Item(int Value) {
-                internal static Item Zero { get; } = new(0);
-            }
-        }
-
-        namespace Right {
-            internal sealed record Item(int Value);
-        }
-
-        [SmartEnum]
-        internal sealed partial class Rank {
-            public static readonly Rank Current = new(shown: true);
-            public static readonly Rank Visible = new(shown: true);
-
-            public bool Shown { get; }
-        }
-        """);
-
-    [Fact]
-    public Task ReportsReadonlyStructRestatementButNotConstructionWithSideEffects() => VerifyAnalyzerAsync(
-        """
-        namespace Left {
-            internal sealed record Item(int Value) {
-                internal static Item Zero { get; } = new(0);
-            }
-        }
-
-        namespace Right {
-            internal sealed record Item(int Value);
-        }
-
-        internal sealed class MutableFactor(int value) {
+        internal sealed record MutableFactor(int Value) {
             internal static readonly MutableFactor Unit = new(1);
 
-            public int Value { get; set; } = value;
+            public int Value { get; set; } = Value;
         }
 
         internal sealed record CountedFactor {
@@ -268,16 +143,6 @@ public sealed class RestatedInstanceTests : CSharpCodeFixVerifier<RestatedInstan
             internal static int Next() => ++count;
         }
 
-        internal readonly struct ReadonlyFactor {
-            internal static readonly ReadonlyFactor Unit = new(1);
-
-            internal ReadonlyFactor(int value) => Value = value;
-
-            internal int Value { get; }
-
-            internal static ReadonlyFactor Create(int value) => new(value);
-        }
-
         internal record BaseFactor(int Value);
 
         internal sealed record DerivedFactor(int Input) : BaseFactor(Count(Input)) {
@@ -291,7 +156,17 @@ public sealed class RestatedInstanceTests : CSharpCodeFixVerifier<RestatedInstan
             }
         }
 
+        internal readonly struct ReadonlyFactor {
+            internal static readonly ReadonlyFactor Unit = new(1);
+
+            internal ReadonlyFactor(int value) => Value = value;
+
+            internal int Value { get; }
+        }
+
         internal static class ConstructionEffects {
+            internal static PlainFactor Plain => new(1);
+
             internal static MutableFactor Mutable => new(1);
 
             internal static CountedFactor Counted => new(1);
@@ -301,10 +176,7 @@ public sealed class RestatedInstanceTests : CSharpCodeFixVerifier<RestatedInstan
             internal static DerivedFactor Derived => new(1);
 
             internal static ReadonlyFactor Readonly => {|#0:new(1)|};
-
-            internal static ReadonlyFactor Factory => {|#1:ReadonlyFactor.Create(1)|};
         }
         """,
-        Diagnostic().WithLocation(0).WithArguments("new(1)", "ReadonlyFactor.Unit"),
-        Diagnostic().WithLocation(1).WithArguments("ReadonlyFactor.Create(1)", "ReadonlyFactor.Unit"));
+        Diagnostic().WithLocation(0).WithArguments("new(1)", "ReadonlyFactor.Unit"));
 }
