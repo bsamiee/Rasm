@@ -21,13 +21,20 @@ const paint = Effect.fnUntraced(function* (drawings: Array.NonEmptyReadonlyArray
     const folder = yield* fs.makeTempDirectoryScoped();
     const [stylesheet, painted] = [path.join(folder, 'tone.css'), path.join(folder, 'painted.png')];
     const sized = yield* Effect.forEach(drawings, (drawing) => Effect.map(fs.readFile(drawing), (source) => ({ drawing, canvas: imageSize(source) })), { concurrency: 'unbounded' });
-    const byWidth = Order.mapInput(Order.Number, ({ canvas }: (typeof sized)[number]) => canvas.width);
+    const byWidth = Order.Struct({ canvas: Order.Struct({ width: Order.Number }) });
     const { drawing, canvas } = UndefinedOr.match(frame, {
         onUndefined: () => Array.max(sized, byWidth),
         onDefined: ({ width, padding = 0 }) => {
             const held = sized.filter(({ canvas: { width: side } }) => side <= width - 2 * padding);
-            const leftover = Order.mapInput(Order.Number, ({ canvas: { width: side } }: (typeof sized)[number]) => (width - 2 * padding) % side);
-            return Array.isReadonlyArrayNonEmpty(held) ? Array.min(held, Order.combine(leftover, Order.flip(byWidth))) : Array.min(sized, byWidth);
+            return Array.isReadonlyArrayNonEmpty(held)
+                ? Array.min(
+                      held,
+                      Order.combine(
+                          Order.mapInput(Order.Number, ({ canvas: { width: side } }) => (width - 2 * padding) % side),
+                          Order.flip(byWidth),
+                      ),
+                  )
+                : Array.min(sized, byWidth);
         },
     });
     yield* fs.writeFileString(stylesheet, [`svg { color: ${formatHex(color)}; opacity: ${String(color.alpha ?? 1)} }`, ...Record.collect(parts, (part, paints) => `.${part} { ${Record.collect(paints, (property, shade) => `${property}: ${formatRgb(shade)}`).join('; ')} }`)].join('\n'));
