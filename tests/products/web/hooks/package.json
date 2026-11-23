@@ -1,10 +1,11 @@
 {
     "name": "@rasm/test-hooks",
     "private": true,
-    "description": "@rasm/hooks suites over its built Node bundle against a Postgres container, covering signed, refused, and repeated deliveries",
+    "description": "@rasm/hooks suites over its built Node bundle against a Postgres container, covering accepted, refused, and repeated deliveries and the queue rows they leave",
     "type": "module",
     "devDependencies": {
         "@effect/platform-node": "catalog:",
+        "@effect/sql-pg": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/hosting": "workspace:*",
         "@rasm/testing": "workspace:*",

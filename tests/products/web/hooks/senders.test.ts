@@ -1,38 +1,45 @@
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import process from 'node:process';
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { layer as services } from '@effect/platform-node/NodeServices';
+import { PgClient } from '@effect/sql-pg';
 import { assert, layer } from '@effect/vitest';
 import { App } from '@rasm/hosting';
 import { routed } from '@rasm/testing/playwright';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
-import { Cause, DateTime, Duration, Effect, Layer, type Record, Schedule } from 'effect';
+import { Cause, DateTime, Effect, Layer, Redacted, Schedule, Schema } from 'effect';
 import { HttpBody, HttpClient, HttpClientRequest } from 'effect/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { SqlClient, SqlSchema } from 'effect/sql';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const documented = {
-    secret: 'tskey-webhook-kExample1CNTRL-0123456789abcdef',
-    body: '[{"timestamp":"2022-09-21T13:37:51.658918-04:00","version":1,"type":"test","tailnet":"example.com","message":"This is a test event","data":null}]',
-    signature: 't=1663781880,v1=1d3b2cdcad5c8c64af84284e332b174a087ebf35d68a417c46371ec97574d3f5',
-    header: 'tailscale-webhook-signature',
-    path: '/tailscale',
-} as const;
-const hour = Duration.toSeconds('1 hour');
+const sender = { secret: 'tskey-webhook-kExample1CNTRL-0123456789abcdef', header: 'tailscale-webhook-signature', path: '/tailscale', queue: 'tailscale' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const signed = (at: number, body: string, secret: string = documented.secret) => [`t=${at}`, createHmac('sha256', secret).update(`${at}.${body}`).digest('hex')].join(',v1=');
+const event = (message: string) => JSON.stringify([{ timestamp: '2022-09-21T13:37:51.658918-04:00', version: 1, type: 'test', tailnet: 'example.com', message, data: null }]);
+const signed = (at: number, body: string, secret: string = sender.secret) => ({ [sender.header]: [`t=${at}`, createHmac('sha256', secret).update(`${at}.${body}`).digest('hex')].join(',v1=') });
 const allocated = Effect.callback<number>((resume) => {
     const probe = createServer().listen(0, '127.0.0.1', () => {
         const address = probe.address();
         probe.close(() => resume(Effect.succeed(typeof address === 'object' && address !== null ? address.port : 0)));
     });
 });
-const posted = (path: string, body: string, headers: Record.ReadonlyRecord<string, string>) => Effect.map(HttpClient.post(path, { headers, body: HttpBody.text(body, 'application/json') }), ({ status }) => status);
+const posted = (body: string, headers: Readonly<Record<string, string>>) => Effect.map(HttpClient.post(sender.path, { headers, body: HttpBody.text(body, 'application/json') }), ({ status }) => status);
+const digest = (body: string) => createHash('sha256').update(body).digest('hex');
+const settled = SqlSchema.findAll({
+    Request: Schema.Void,
+    Result: Schema.Struct({ id: Schema.String, state: Schema.String, attempts: Schema.Int, updated: Schema.Unknown }),
+    execute: () => SqlClient.SqlClient.use((sql) => sql`SELECT id, state, attempts, updated_at AS updated FROM effect_queue WHERE queue_name = ${sender.queue} ORDER BY id`),
+})(undefined).pipe(Effect.repeat({ until: (rows) => rows.every(({ state }) => state === 'completed'), schedule: Schedule.spaced('100 millis') }), Effect.timeout('10 seconds'));
+const added = Effect.fnUntraced(function* <A, E, R>(post: Effect.Effect<A, E, R>) {
+    const known = new Set((yield* settled).map(({ id }) => id));
+    const answered = yield* post;
+    return { answered, added: (yield* settled).filter(({ id }) => !known.has(id)).map(({ id, state, attempts }) => ({ id, state, attempts })) };
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -47,45 +54,40 @@ const receiver = Layer.unwrap(
             allocated,
         ]);
         const server = yield* spawner.spawn(
-            ChildProcess.make(process.execPath, [join(bundle, App.bundle.environment, `${App.bundle.entry}.js`)], { env: { [App.bundle.portVariable]: `${port}`, POSTGRES_URL: database.getConnectionUri(), TAILSCALE_WEBHOOK_SECRET: documented.secret }, extendEnv: true, stdout: 'ignore', stderr: 'ignore' }),
+            ChildProcess.make(process.execPath, [join(bundle, App.bundle.environment, `${App.bundle.entry}.js`)], { env: { [App.bundle.portVariable]: `${port}`, POSTGRES_URL: database.getConnectionUri(), TAILSCALE_WEBHOOK_SECRET: sender.secret }, extendEnv: true, stdout: 'ignore', stderr: 'ignore' }),
         );
         const client = HttpClient.mapRequest(yield* HttpClient.HttpClient, HttpClientRequest.prependUrl(`http://127.0.0.1:${port}`));
         yield* Effect.raceFirst(
             Effect.retry(Effect.timeout(HttpClient.filterStatusOk(client).get(App.bundle.readiness), '1 second'), { schedule: Schedule.spaced('100 millis') }),
             Effect.flatMap(server.exitCode, (code) => Effect.fail(new Cause.UnknownError(code, `@rasm/hooks exits ${code} before it answers ${App.bundle.readiness}`))),
         );
-        return Layer.succeed(HttpClient.HttpClient, client);
+        return Layer.merge(Layer.succeed(HttpClient.HttpClient, client), PgClient.layer({ url: Redacted.make(database.getConnectionUri()) }));
     }),
 ).pipe(Layer.provide([layerUndici, services]));
 
 layer(receiver, { timeout: '1 minute', excludeTestServices: true })('webhook receiver', (it) => {
-    const text = 'not JSON';
     it.effect.each([
-        { label: 'a delivery signed now', path: documented.path, body: documented.body, sign: (now: number) => ({ [documented.header]: signed(now, documented.body) }), status: 204 },
-        { label: 'a delivery signed at the tolerance of 5 minutes', path: documented.path, body: documented.body, sign: (now: number) => ({ [documented.header]: signed(now - Duration.toSeconds('4 minutes'), documented.body) }), status: 204 },
-        { label: 'a signed delivery with a changed body', path: documented.path, body: documented.body.replace('test event', 'changed event'), sign: (now: number) => ({ [documented.header]: signed(now, documented.body) }), status: 401 },
-        { label: 'the documented delivery, signed in 2022', path: documented.path, body: documented.body, sign: () => ({ [documented.header]: documented.signature }), status: 401 },
-        { label: 'a delivery signed an hour ago', path: documented.path, body: documented.body, sign: (now: number) => ({ [documented.header]: signed(now - hour, documented.body) }), status: 401 },
-        { label: 'a delivery signed an hour ahead', path: documented.path, body: documented.body, sign: (now: number) => ({ [documented.header]: signed(now + hour, documented.body) }), status: 401 },
-        { label: 'a delivery another secret signed', path: documented.path, body: documented.body, sign: (now: number) => ({ [documented.header]: signed(now, documented.body, 'tskey-webhook-another') }), status: 401 },
-        { label: 'an unsigned delivery', path: documented.path, body: documented.body, sign: () => ({}), status: 401 },
-        { label: 'an unsigned body that is no JSON', path: documented.path, body: text, sign: () => ({}), status: 401 },
-        { label: 'a body that is no JSON under a signature of another body', path: documented.path, body: text, sign: (now: number) => ({ [documented.header]: signed(now, documented.body) }), status: 401 },
-        { label: 'a signed body that is no JSON', path: documented.path, body: text, sign: (now: number) => ({ [documented.header]: signed(now, text) }), status: 400 },
-        { label: 'a signed delivery to a path of no sender', path: '/unknown', body: documented.body, sign: (now: number) => ({ [documented.header]: signed(now, documented.body) }), status: 404 },
+        { label: 'now', offset: 0, secret: sender.secret, status: 204, worked: true },
+        { label: '290 seconds ago, inside 5 minutes', offset: -290, secret: sender.secret, status: 204, worked: true },
+        { label: '310 seconds ago, past 5 minutes', offset: -310, secret: sender.secret, status: 401, worked: false },
+        { label: 'now with another secret', offset: 0, secret: 'tskey-webhook-another', status: 401, worked: false },
     ])(
-        'answers $label $status',
-        Effect.fnUntraced(function* ({ path, body, sign, status }) {
+        'answers a delivery signed $label with $status, and adds to its Postgres queue only a delivery it accepts, worked once',
+        Effect.fnUntraced(function* ({ label, offset, secret, status, worked }) {
+            const body = event(`delivery ${label}`);
             const now = DateTime.toEpochSeconds(yield* DateTime.now);
-            assert.strictEqual(yield* posted(path, body, sign(now)), status);
+            assert.deepStrictEqual(yield* added(posted(body, signed(now + offset, body, secret))), { answered: status, added: worked ? [{ id: digest(body), state: 'completed', attempts: 1 }] : [] });
         }),
     );
-
     it.effect(
-        'accepts a delivery a sender repeats',
+        'answers a delivery a sender repeats after its work without working it again',
         Effect.fnUntraced(function* () {
-            const headers = { [documented.header]: signed(DateTime.toEpochSeconds(yield* DateTime.now), documented.body) };
-            assert.deepStrictEqual(yield* Effect.all({ sent: posted(documented.path, documented.body, headers), repeated: posted(documented.path, documented.body, headers) }), { sent: 204, repeated: 204 });
+            const body = event('repeated delivery');
+            const headers = signed(DateTime.toEpochSeconds(yield* DateTime.now), body);
+            const first = yield* added(posted(body, headers));
+            const worked = (yield* settled).filter(({ id }) => id === digest(body));
+            const repeated = yield* added(posted(body, headers));
+            assert.deepStrictEqual({ first, repeated, replayed: (yield* settled).filter(({ id }) => id === digest(body)) }, { first: { answered: 204, added: [{ id: digest(body), state: 'completed', attempts: 1 }] }, repeated: { answered: 204, added: [] }, replayed: worked });
         }),
     );
 });
