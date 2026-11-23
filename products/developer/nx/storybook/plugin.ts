@@ -1,15 +1,15 @@
 import { once } from 'node:events';
 import { findPackageJSON } from 'node:module';
 import { dirname, join, posix, relative } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, type CreateNodesResult, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
-import { calculateHashesForCreateNodes, getLockFileName, getReadyCheckReadyWhen, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, normalizePath } from '@nx/devkit';
+import { getLockFileName, getReadyCheckReadyWhen, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
 import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, flow, MutableRef, Option, Predicate, Record, Schema } from 'effect';
+import { Array, Cause, Effect, flow, MutableRef, Option, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,17 +24,18 @@ const OWN = fingerprinted(import.meta.dirname);
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ outputPath: Folder }).annotate({ description: 'outputPath: workspace folder storybook build writes to, {projectName} naming the project, absent writes storybook-static in the project' });
-const Entry = Schema.Union([Schema.String, Schema.Struct({ name: Schema.String })]);
-const Main = Schema.Struct({ framework: Schema.optionalKey(Entry), addons: Schema.optionalKey(Schema.Array(Entry)), stories: Schema.Array(Schema.Struct({ directory: Schema.String, files: Schema.String })) }).annotate({
-    description: 'The framework and addons of a Storybook main config, each a package specifier or path, alone or as the name of an object holding its options, and each stories folder relative to the workspace root with its file glob',
-});
-const Loaded = Schema.Struct({ main: Schema.fromJsonString(Main), loaded: Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])) }).annotate({
-    description: 'The framework, addons, and stories the worker read from a Storybook main config, and the resolved URL, specifier, and importing module URL of every import its load resolved',
+const Loaded = Schema.Struct({ named: Schema.Array(Schema.String), stories: Schema.Array(Schema.Struct({ directory: Schema.String, files: Schema.String })), loaded: Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])) }).annotate({
+    description: 'The framework and addon package names Storybook read from a main config, each stories folder relative to the workspace root with its file glob, and the resolved URL, specifier, and importing module URL of every import its load resolved',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
+const braced = (glob: string): string => {
+    const flat = glob.replaceAll(/@\((?<choices>[^()]*)\)/gu, (_group, choices: string) => `{${choices.replaceAll('|', ',')}}`);
+    return flat === glob ? glob : braced(flat);
+};
+
+const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, lock: string) {
     const [root, main] = [dirname(dirname(file)), join(workspaceRoot, file)];
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Storybook main config`);
     const listened = Effect.acquireUseRelease(
@@ -42,26 +43,30 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
         (worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail))),
         (worker) => Effect.promise(() => worker.terminate()),
     );
-    const {
-        main: { framework, addons = [], stories },
-        loaded,
-    } = yield* Effect.flatMap(listened, ([message]) => Schema.decodeUnknownEffect(Loaded)(message));
+    const { named, stories, loaded } = yield* Effect.flatMap(listened, ([message]) => Schema.decodeUnknownEffect(Loaded)(message));
     const local = (url: string) => (url.startsWith('file:') ? Option.some(normalizePath(relative(workspaceRoot, fileURLToPath(url)))) : Option.none());
-    const sources = Array.dedupe(Array.getSomes(loaded.map(([url]) => local(url)))).filter((at) => within(at) && !at.startsWith(`${root}/`));
-    const specifiers = [...Array.fromNullishOr(framework), ...addons].map((entry): readonly [string, string] => [Predicate.isString(entry) ? entry : entry.name, main]);
+    const modules = Array.dedupe(Array.getSomes(loaded.map(([url]) => local(url)))).filter(within);
     const imported = Array.getSomes(loaded.map(([, specifier, parent]) => Option.as(Option.filter(local(parent), within), [specifier, parent] as const)));
-    const { packages, linked } = yield* packaged([...specifiers, ...imported]);
-    const globs = Array.dedupe(stories.map(({ directory, files }) => normalizePath(join(directory, files)))).filter((at) => !at.startsWith('..'));
-    return { packages, linked, sources, globs, runner: Option.isSome(Option.flatMap(Option.liftThrowable(findPackageJSON)(RUNNER, pathToFileURL(main)), Option.fromUndefinedOr)), stamp: yield* stamped(workspaceRoot)(sources) };
+    const { packages, linked } = yield* packaged([...named.map((name) => [name, main] as const), ...imported]);
+    const globs = Array.dedupe(stories.map(({ directory, files }) => posix.join(directory, braced(files)))).filter((at) => !at.startsWith('..'));
+    const sources = [lock, ...modules];
+    return {
+        packages,
+        linked,
+        loaded: modules.filter((at) => !at.startsWith(`${root}/`)),
+        globs,
+        runner: Option.isSome(Option.liftThrowable(findPackageJSON)(RUNNER, main)),
+        sources,
+        stamp: yield* stamped(workspaceRoot)(sources),
+    };
 });
 
-const targets = (root: string, { packages, linked, sources, globs, runner }: Resolved, chain: readonly string[], production: boolean, output: Option.Option<string>, exec: string): Verbs => {
-    const rooted = getRootTsConfigFileName();
+const targets = (root: string, { packages, linked, loaded, globs, runner }: Resolved, chain: readonly string[], production: boolean, output: Option.Option<string>, exec: string): Verbs => {
     const inputs = [
         ...(production ? ['production', '{workspaceRoot}/{projectRoot}/.storybook/**/*', '^production'] : ['default', '^default']),
         ...globs.map((at) => posix.join('{workspaceRoot}', at)),
-        ...chain.filter((at) => at !== rooted).map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
-        ...sources.map((at) => posix.join('{workspaceRoot}', at)),
+        ...chain.map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
+        ...loaded.map((at) => posix.join('{workspaceRoot}', at)),
         ...Array.match(linked, {
             onEmpty: () => [],
             onNonEmpty: (owners) => [
@@ -73,26 +78,25 @@ const targets = (root: string, { packages, linked, sources, globs, runner }: Res
     ];
     const written = Option.getOrElse(output, () => posix.join(root, 'storybook-static'));
     const needs = { options: { cwd: root }, dependsOn: ['codegen--*', '^codegen--*'], inputs };
-    const build = {
-        storybook: {
-            command: ['storybook', 'build', ...Option.match(output, { onNone: () => [], onSome: (at) => ['--output-dir', posix.relative(root, at)] })].map(quoteShellArg).join(' '),
-            ...needs,
-            cache: true,
-            outputs: [...Option.match(output, { onNone: () => ['{projectRoot}/storybook-static'], onSome: (at) => [tokened(root)(at)] }), ...['output-dir', 'outputDir', 'o'].map((option) => `{projectRoot}/{options.${option}}`)],
-            metadata: { description: 'Builds the static Storybook of the project stories with storybook build', help: { command: `${exec} storybook build --help`, example: { args: ['--test'] } } },
-        },
-    } satisfies Record<string, TargetConfiguration>;
-    const removed = Record.collect(build, (tool) => `build--${tool}`);
+    const built = ['build--storybook'];
     return {
-        build,
+        build: {
+            storybook: {
+                command: ['storybook', 'build', ...Option.match(output, { onNone: () => [], onSome: (at) => ['--output-dir', posix.relative(root, at)] })].map(quoteShellArg).join(' '),
+                ...needs,
+                cache: true,
+                outputs: [tokened(root)(written), ...['output-dir', 'outputDir', 'o'].map((option) => `{projectRoot}/{options.${option}}`)],
+                metadata: { description: 'Builds the static Storybook of the project stories with storybook build', help: { command: `${exec} storybook build --help`, example: { args: ['--test'] } } },
+            },
+        },
         preview: {
             storybook: {
                 executor: `${web.name}:file-server`,
-                dependsOn: removed,
+                dependsOn: built,
                 continuous: true,
                 readyWhen: { signal: true },
                 inputs,
-                options: { buildTarget: 'build--storybook', staticFilePath: written },
+                options: { staticFilePath: written },
                 metadata: { description: `Serves the static Storybook build--storybook writes with ${web.name}:file-server`, help: { command: `${exec} nx run --help`, example: { options: { port: 4400 } } } },
             },
         },
@@ -119,71 +123,55 @@ const targets = (root: string, { packages, linked, sources, globs, runner }: Res
         clean: {
             storybook: {
                 executor: `${distribution.name}:clean`,
-                options: { targets: removed },
+                options: { targets: built },
                 inputs: ['default', '^default', { externalDependencies: [] }],
-                metadata: { description: `Removes the outputs ${removed.join(', ')} declare`, help: { command: `${exec} nx run --help`, example: { options: { targets: removed } } } },
+                metadata: { description: `Removes the outputs ${built.join(', ')} declare`, help: { command: `${exec} nx run --help`, example: { options: { targets: built } } } },
             },
         },
     };
 };
 
-const inferred = Effect.fnUntraced(function* (
-    cache: PluginCache<Resolved & { readonly digest: string }>,
-    stored: MutableRef.MutableRef<boolean>,
-    context: CreateNodesContext,
-    output: Option.Option<string>,
-    exec: string,
-    { file, chain, digest }: { readonly file: string; readonly chain: readonly string[]; readonly digest: string },
-) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly digest: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly digest: string; readonly lock: string; readonly exec: string }, context: CreateNodesContext, output: Option.Option<string>, file: string) {
     const root = dirname(dirname(file));
-    const held = Option.filter(yield* recalled(cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
+    const held = Option.filter(yield* recalled(pass.cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === pass.digest);
     const resolved = yield* Option.match(held, {
         onSome: Effect.succeed,
         onNone: () =>
-            Effect.tap(read(context.workspaceRoot, file), (fresh) =>
+            Effect.tap(read(context.workspaceRoot, file, pass.lock), (fresh) =>
                 Effect.sync(() => {
-                    cache.set(file, { ...fresh, digest });
-                    MutableRef.set(stored, true);
+                    pass.cache.set(file, { ...fresh, digest: pass.digest });
+                    MutableRef.set(pass.stored, true);
                 }),
             ),
     });
     const stated = yield* manifested(context.workspaceRoot, root);
-    const outside = chain.filter((config) => !config.startsWith(`${root}/`));
-    const project: ProjectConfiguration = { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, outside, namedInput(root, context) === 'production', output, exec), stated, 'storybook') };
-    return { projects: { [root]: project } } satisfies CreateNodesResult;
+    const chain = extended(context.workspaceRoot, root).filter((config) => !config.startsWith(`${root}/`) && config !== getRootTsConfigFileName());
+    return { projects: { [root]: { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, chain, namedInput(root, context) === 'production', output, pass.exec), stated, 'storybook') } } };
 });
 
 const nodes = inferring(Options, run, function* (files, settings, context) {
     const project = anchored(context.workspaceRoot);
-    const [mains, roots] = Array.unzip(files.map((file) => [file, dirname(dirname(file))] as const).filter(([, root]) => project(root)));
-    const chains = roots.map((root) => extended(context.workspaceRoot, root));
+    const mains = files.filter((file) => project(dirname(dirname(file))));
     const manager = detectPackageManager(context.workspaceRoot);
-    const { exec } = getPackageManagerCommand(manager);
-    const own = yield* OWN;
-    const hashes = yield* Effect.promise(() =>
-        calculateHashesForCreateNodes(
-            roots,
-            settings,
-            context,
-            chains.map((chain) => [getLockFileName(manager), ...chain]),
-        ),
-    );
-    const cache = new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'storybook.hash'));
-    const stored = MutableRef.make(false);
-    const rows = new Map(Iterator.zip([mains, chains, hashes]).map(([file, chain, hash]) => [file, { file, chain, digest: hashArray([hash, own]) }] as const));
-    const each = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(rows.get(file)), (row) => inferred(cache, stored, context, Option.fromUndefinedOr(settings.outputPath), exec, row)));
+    const pass = {
+        cache: new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'storybook.hash')),
+        stored: MutableRef.make(false),
+        digest: yield* OWN,
+        lock: getLockFileName(manager),
+        exec: getPackageManagerCommand(manager).exec,
+    };
     return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles(each, mains, settings, context)),
+        Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, Option.fromUndefinedOr(settings.outputPath), file)), mains, settings, context)),
         Effect.when(
-            Effect.sync(() => cache.writeToDisk()),
-            Effect.sync(() => MutableRef.get(stored)),
+            Effect.sync(() => pass.cache.writeToDisk()),
+            Effect.sync(() => MutableRef.get(pass.stored)),
         ),
     );
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes = ['**/.storybook/main.{js,ts,jsx,tsx,mjs,mts,cjs,cts}', nodes];
+const createNodes: CreateNodes = ['**/.storybook/main.{js,ts,jsx,tsx,mjs,mts,mtsx,cjs,cts,ctsx}', nodes];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
