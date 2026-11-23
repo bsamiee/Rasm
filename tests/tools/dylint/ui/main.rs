@@ -192,7 +192,7 @@ fn every_annotation_meets_one_diagnostic_and_every_diagnostic_one_annotation() -
     });
     problems.extend(declared.iter().filter(|lint| !met.contains(*lint)).map(|lint| Problem::Unfired { lint: lint.clone() }));
     problems.extend(fixtures.iter().flat_map(|(path, text)| {
-        let subject = path.strip_prefix(manifest).ok().and_then(|relative| relative.iter().nth(1)).map(|name| Path::new(name).file_stem().unwrap_or(name).to_string_lossy().into_owned());
+        let subject = path.strip_prefix(manifest).ok().and_then(|relative| relative.iter().nth(1)).and_then(|name| Path::new(name).file_stem().unwrap_or(name).to_str().map(str::to_owned));
         text.lines()
             .filter_map(|line| line.split_once("dylint_lib = \"rasm_lints\", allow(").map(|(_, allowed)| allowed.split([',', ')']).map(str::trim).map(str::to_owned).collect::<Vec<_>>()))
             .flatten()
