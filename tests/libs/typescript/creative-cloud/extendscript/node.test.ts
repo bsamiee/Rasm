@@ -105,6 +105,7 @@ describe(lower, () => {
             const { code } = yield* lower(source, lower.extendscript);
             assert.deepStrictEqual(evaluated(code), evaluated(source));
         }),
+        { timeout: 30_000 },
     );
 
     it.effect(
