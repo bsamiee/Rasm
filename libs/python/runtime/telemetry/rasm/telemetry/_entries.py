@@ -1,7 +1,7 @@
 """Log entries: the settings of one program's log, the structlog chain handing each entry to stdlib handlers, handlers writing one JSON record per line to a rotated file or a stream, child process output relayed as records, and unhandled exceptions as entries."""
 
 from collections import UserDict
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
 from datetime import timedelta
 from functools import partial
@@ -151,8 +151,20 @@ def _recorded(_logger: WrappedLogger, _method: str, event_dict: EventDict, /) ->
 
 
 def _redacted(_logger: WrappedLogger, _method: str, event_dict: EventDict, /) -> EventDict:
-    """Replaces the value of each field named like a credential."""
-    return {key: "[redacted]" if _SENSITIVE.search(key) else value for key, value in event_dict.items()}
+    """Replaces the value of each field named like a credential, at the top of the entry or inside any mapping, list, or tuple its fields hold."""
+
+    def masked(value: object, /) -> object:
+        match value:
+            case Mapping():
+                return {key: "[redacted]" if _SENSITIVE.search(str(key)) else masked(held) for key, held in value.items()}
+            case list():
+                return [*map(masked, value)]
+            case tuple():
+                return tuple(map(masked, value))
+            case _:
+                return value
+
+    return {key: "[redacted]" if _SENSITIVE.search(key) else masked(value) for key, value in event_dict.items()}
 
 
 def _failure(exc_info: ExcInfo) -> dict[str, str]:
