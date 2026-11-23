@@ -27,6 +27,31 @@ describe('tsc inference across graph runs', () => {
         expect(cached.nodes['lib']?.data.targets).toStrictEqual(fresh.nodes['lib']?.data.targets);
     });
 
+    it('infers the targets it read before once the compiler stops resolving, while every config and source is unchanged', async ({ workspace }) => {
+        workspace.install(typescript).write({ ...ROOT, 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/tsconfig.json': '{"include":["src"],"compilerOptions":{"noEmit":true}}', 'libs/lib/src/index.ts': 'export {};' });
+        const fresh = await workspace.graph({ createNodes });
+
+        const cached = await workspace.remove('node_modules/typescript').graph({ createNodes });
+
+        expect(cached.nodes['lib']?.data.targets).toStrictEqual(fresh.nodes['lib']?.data.targets);
+    });
+
+    it('reads the references again after a tsconfig appears beside the tsconfig another folder holds', async ({ workspace }) => {
+        workspace.install(typescript).write({
+            ...ROOT,
+            'apps/app/package.json': '{"name":"app"}',
+            'apps/app/tsconfig.json': '{"files":["main.ts"],"references":[{"path":"../../libs/shared"}],"compilerOptions":{"noEmit":true}}',
+            'apps/app/main.ts': 'export {};',
+            'libs/shared/tsconfig.json': '{"files":[],"references":[{"path":"./tsconfig.one.json"}]}',
+            'libs/shared/index.ts': 'export {};',
+        });
+        await workspace.graph({ createNodes });
+
+        const graph = await workspace.write({ 'libs/shared/tsconfig.one.json': '{"files":["index.ts"]}' }).graph({ createNodes });
+
+        expect(graph.nodes['app']?.data.targets?.['check--tsc']?.inputs?.filter((input) => typeof input === 'string' && input.startsWith('{workspaceRoot}/libs/shared/'))).toStrictEqual(['{workspaceRoot}/libs/shared/tsconfig.json', '{workspaceRoot}/libs/shared/tsconfig.one.json']);
+    });
+
     it('reads the references again after an edit to the tsconfig another folder holds', async ({ workspace }) => {
         workspace.install(typescript).write({
             ...ROOT,

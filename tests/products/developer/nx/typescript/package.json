@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-typescript",
     "private": true,
-    "description": "@rasm/nx-typescript suites over project and task graphs in temporary workspaces, and tsc, eslint, stylelint, and pnpm runs of inferred targets",
+    "description": "@rasm/nx-typescript suites over project and task graphs in temporary workspaces, and tsc, eslint, and pnpm runs of inferred targets",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",
@@ -12,7 +12,6 @@
         "cf": "catalog:",
         "eslint": "catalog:",
         "nx": "catalog:",
-        "stylelint": "catalog:",
         "vitest": "catalog:"
     }
 }

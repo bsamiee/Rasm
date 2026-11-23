@@ -84,6 +84,15 @@ describe('eslint check inference', () => {
         expect(graph.nodes['app']?.data.targets?.['check--eslint']?.inputs).toContainEqual({ externalDependencies: ['eslint', 'typescript'] });
     });
 
+    it('infers the target it read before once the compiler stops resolving, while the config, the modules it imports, and the project files are unchanged', async ({ workspace }) => {
+        workspace.install(typescript, import.meta.resolve('eslint/package.json')).write({ ...ROOT, 'eslint.config.mjs': "export default [{ files: ['**/*.ts'] }];\n", 'apps/app/project.json': '{"name":"app"}', 'apps/app/index.ts': 'export {};' });
+        const fresh = await workspace.graph({ createNodes });
+
+        const cached = await workspace.remove('node_modules/typescript').graph({ createNodes });
+
+        expect(cached.nodes['app']?.data.targets?.['check--eslint']).toStrictEqual(fresh.nodes['app']?.data.targets?.['check--eslint']);
+    });
+
     it('hashes the files the project tsconfig extends outside the project, except the root tsconfig and installed presets', async ({ workspace }) => {
         const graph = await workspace
             .install(typescript, import.meta.resolve('eslint/package.json'))

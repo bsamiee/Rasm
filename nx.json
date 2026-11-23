@@ -54,8 +54,7 @@
             "options": {
                 "outputPath": ".artifacts/pnpm/{projectName}",
                 "compilerPackages": ["@typescript/native", "@effect/tsgo"],
-                "knipConfig": ".config/knip.json",
-                "stylelintConfig": ".config/stylelint.config.ts"
+                "knipConfig": ".config/knip.json"
             }
         },
         {

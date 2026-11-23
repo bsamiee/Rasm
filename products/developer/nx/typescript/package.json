@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-typescript",
     "version": "0.1.0",
-    "description": "Nx plugin inferring TypeScript checks and builds per tsconfig.json, package checks and tarballs, and workspace jscpd, knip, stylelint, and upgrade targets",
+    "description": "Nx plugin inferring TypeScript checks and builds per tsconfig.json, package checks and tarballs, and workspace jscpd, knip, and upgrade targets",
     "license": "MIT",
     "repository": {
         "type": "git",

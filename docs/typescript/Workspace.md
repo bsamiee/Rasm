@@ -16,7 +16,7 @@ Root `package.json` and the settings beside it:
 - Root `devDependencies` hold the tools, workspace Nx plugins, and `types` packages root configuration files load
 - Root manifest states no `packageManager`, `workspaces`, or `pnpm` field, as mise pins pnpm and `pnpm-workspace.yaml` holds members and settings
 - Root `package.json` holding an `nx` key becomes an Nx project, and `"includedScripts": []` there keeps `prepare` from becoming a target
-- Root targets `check--jscpd`, `check--knip`, and `check--stylelint` read every workspace file their tool selects
+- Root targets `check--jscpd` and `check--knip` read the workspace files their tool selects
 - `nx.json` sets `useDaemonProcess: false` while the Nx daemon forces debug logs into an unrotated `daemon.log` and restarts graphs edits interrupt
 - `.npmrc` holds only the auth, registry, TLS, proxy, and `local-address` settings pnpm reads from it
 - `virtualStoreType` stays `project`, as `effect-tsgo patch` rewrites files under `node_modules` and a global virtual store refuses the writes
