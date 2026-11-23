@@ -1,6 +1,7 @@
 amends "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Config.pkl"
 
 import "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Builtins.pkl"
+import "pkl:platform"
 
 // --- [SETTINGS] -------------------------------------------------------------------------
 
@@ -28,7 +29,8 @@ steps {
   }
   ["check-symlinks"] = Builtins.check_symlinks
   ["clang-format"] = (Builtins.clang_format) {
-    glob = "**/*.{cpp,cppm,ixx,cc,cxx,mm,hpp,hh,hxx,h,ipp,inl,tpp}"
+    depends = "ast-grep"
+    glob = "**/*.{c,cpp,cppm,ixx,cc,cxx,m,mm,hpp,hh,hxx,h,ipp,inl,tpp}"
     local style = "--style=file:.config/.clang-format"
     batch = true
     check { command { argv = List("clang-format", style, "--dry-run", "-Werror", "{{files}}") } }
@@ -36,6 +38,7 @@ steps {
   }
   ["dotnet-format"] {
     glob = "**/*.cs"
+    depends = "ast-grep"
     check = new CommandSpec {
       command = new Command {
         argv =
@@ -60,11 +63,10 @@ steps {
   }
   ["editorconfig-checker"] = (Builtins.editorconfig_checker) {
     glob = "**/*.{csproj,fsproj,vbproj,props,targets,slnx,pkl,plist,entitlements}"
-    check {
-      command {
-        argv = List("editorconfig-checker", "-format", "gcc", "-no-color", "{{files}}")
-      }
-    }
+    local checker = List("editorconfig-checker", "-format", "gcc", "-no-color")
+    depends = "ast-grep"
+    check { command { argv = checker + List("{{files}}") } }
+    fix { command { argv = checker + List("-fix", "{{files}}") } }
     diagnostic_format = "gcc"
   }
   ["file-names"] {
@@ -87,6 +89,7 @@ steps {
         "--cache-dir",
         ".cache/gersemi",
       )
+    depends = "ast-grep"
     check_diff = new CommandSpec {
       command = new Command { argv = gersemi + List("--check", "--diff", "{{files}}") }
       effect = "read"
@@ -97,6 +100,7 @@ steps {
     }
   }
   ["google-java-format"] = (Builtins.google_java_format) {
+    depends = "ast-grep"
     check {
       command {
         argv =
@@ -137,9 +141,18 @@ steps {
     }
   }
   ["jactionlint"] = (Builtins.jactionlint) {
-    check {
-      command { argv = List("jactionlint", "--strict-exit", "--format", "gcc", "{{files}}") }
+    local jactionlint = List("jactionlint", "--strict-exit")
+    depends = "ast-grep"
+    check { command { argv = jactionlint + List("--format", "gcc", "{{files}}") } }
+    check_diff {
+      command {
+        argv =
+          List("hk", "util", "sarif-diff", "--")
+            + jactionlint
+            + List("--format", "sarif", "{{files}}")
+      }
     }
+    fix { command { argv = jactionlint + List("--fix", "{{files}}") } }
   }
   ["javac"] {
     glob = "**/*.java"
@@ -157,7 +170,7 @@ steps {
     local lint = "-path" // Ghidra jar manifests name `Class-Path` jars its release omits
     check = new CommandSpec {
       command =
-        "javac -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -XDcompilePolicy=simple --should-stop=ifError=FLOW -processorpath \"${JAVAC_PLUGINS:?error prone is not installed}\" \"-Xplugin:ErrorProne -XepAllDisabledChecksAsWarnings -XepAllSuggestionsAsWarnings \(off.map((check) -> "-Xep:\(check):OFF").join(" ")) -XepOpt:NullAway:AnnotatedPackages=rasm\" -Xlint:all,\(lint) -Werror -d .cache/javac -cp \"${GHIDRA_CLASSPATH:?ghidra is not installed}\" -sourcepath plugins/shared/tool/skills/ghidra/scripts {{files}}"
+        "javac -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -XDcompilePolicy=simple --should-stop=ifError=FLOW -processorpath \"${JAVAC_PLUGINS:?error prone is not installed}\" \"-Xplugin:ErrorProne -XepAllDisabledChecksAsWarnings -XepAllSuggestionsAsWarnings \(off.map((check) -> "-Xep:\(check):OFF").join(" ")) -XepOpt:NullAway:AnnotatedPackages=[^.]+$,headless\" -Xlint:all,\(lint) -Werror -d .cache/javac -cp \"${GHIDRA_CLASSPATH:?ghidra is not installed}\" -sourcepath plugins/shared/tool/skills/ghidra/scripts {{files}}"
       effect = "write"
     }
     diagnostic_format = "gcc"
@@ -173,23 +186,18 @@ steps {
     diagnostic_format = "gcc"
   }
   ["oxlint"] = (Builtins.ox_lint) {
-    check {
-      command { argv = List("oxlint", "--deny-warnings", "--format", "sarif", "{{files}}") }
-    }
+    local oxlint = List("oxlint", "--deny-warnings", "--format", "sarif")
+    depends = "ast-grep"
+    check { command { argv = oxlint + List("{{files}}") } }
+    fix { command { argv = oxlint + List("--fix", "{{files}}") } }
     diagnostic_format = "sarif"
   }
-  ["oxfmt"] = (Builtins.oxfmt) { depends = List("oxlint", "stylelint") }
-  ["pkl-format"] = Builtins.pkl_format
-  ["plutil"] {
-    glob = "**/*.{plist,entitlements}"
-    check = new CommandSpec {
-      command = new Command { argv = List("plutil", "-lint", "-s", "{{files}}") }
-      effect = "read"
-    }
-  }
-  ["ruff"] = Builtins.ruff
+  ["oxfmt"] = (Builtins.oxfmt) { depends = List("oxlint", "ryl", "stylelint") }
+  ["pkl-format"] = (Builtins.pkl_format) { depends = "editorconfig-checker" }
+  ["ruff"] = (Builtins.ruff) { depends = "ast-grep" }
   ["ruff-format"] = (Builtins.ruff_format) { depends = "ruff" }
   ["rustfmt"] = (Builtins.rustfmt) {
+    depends = "ast-grep"
     local rustfmt =
       List("rustfmt", "--config-path", ".config/rustfmt.toml", "--config", "skip_children=true")
     batch = true
@@ -200,52 +208,69 @@ steps {
     fix { command { argv = rustfmt + List("{{files}}") } }
   }
   ["ryl"] = (Builtins.ryl) {
-    check { command { argv = List("ryl", "check", "--output-format", "standard", "{{files}}") } }
+    local ryl = List("ryl", "check", "--output-format", "standard")
+    depends = "jactionlint"
+    check { command { argv = ryl + List("{{files}}") } }
+    fix { command { argv = ryl + List("--fix", "{{files}}") } }
     diagnostic_format = "stylish"
   }
-  ["shellcheck"] = Builtins.shellcheck
-  ["shfmt"] = Builtins.shfmt
+  ["shellcheck"] = (Builtins.shellcheck) { depends = "ast-grep" }
+  ["shfmt"] = (Builtins.shfmt) { depends = "shellcheck" }
   ["stylelint"] = (Builtins.stylelint) {
+    depends = "ast-grep"
     local stylelint =
       List("stylelint", "--config", ".config/stylelint.config.ts", "--max-warnings", "0")
     env { ["NODE_OPTIONS"] = "--throw-deprecation" }
     check { command { argv = stylelint + List("{{files}}") } }
     fix { command { argv = stylelint + List("--fix", "{{files}}") } }
   }
-  ["swiftlint"] = (Builtins.swiftlint) {
-    local swiftlint = List("swiftlint", "lint", "--quiet", "--config", ".config/swiftlint.yml")
-    check { command { argv = swiftlint + List("{{files}}") } }
-    fix { command { argv = swiftlint + List("--fix", "{{files}}") } }
-    diagnostic_format = "gcc-paren"
-  }
-  ["swift-format"] {
-    glob = "**/*.swift"
-    local configured =
-      List("--configuration", ".config/swift-format.json", "--parallel", "{{files}}")
-    depends = "swiftlint"
-    check = new CommandSpec {
-      command = new Command { argv = List("swift", "format", "lint", "--strict") + configured }
-      effect = "read"
-    }
-    fix = new CommandSpec {
-      command = new Command { argv = List("swift", "format", "format", "--in-place") + configured }
-      effect = "write"
-    }
-    diagnostic_format = "gcc"
-  }
   ["tombi"] = (Builtins.tombi) {
     check {
       command { argv = List("tombi", "lint", "--quiet", "--error-on-warnings", "{{files}}") }
     }
   }
-  ["tombi-format"] = Builtins.tombi_format
-  ["xcprojformatter"] {
-    glob = "**/project.xcproj"
-    check_diff = new CommandSpec {
-      command = new Command {
-        argv = List("hk", "util", "format-diff", "{{files}}", "--", "xcrun", "xcprojformatter")
+  ["tombi-format"] = (Builtins.tombi_format) { depends = "ast-grep" }
+  when (platform.current.operatingSystem.name == "macOS") {
+    ["plutil"] {
+      glob = "**/*.{plist,entitlements}"
+      check = new CommandSpec {
+        command = new Command { argv = List("plutil", "-lint", "-s", "{{files}}") }
+        effect = "read"
       }
-      effect = "read"
+    }
+    ["swiftlint"] = (Builtins.swiftlint) {
+      depends = "ast-grep"
+      local swiftlint = List("swiftlint", "lint", "--quiet", "--config", ".config/swiftlint.yml")
+      check { command { argv = swiftlint + List("{{files}}") } }
+      fix { command { argv = swiftlint + List("--fix", "{{files}}") } }
+      diagnostic_format = "gcc-paren"
+    }
+    ["swift-format"] {
+      glob = "**/*.swift"
+      local configured =
+        List("--configuration", ".config/swift-format.json", "--parallel", "{{files}}")
+      depends = "swiftlint"
+      check = new CommandSpec {
+        command = new Command { argv = List("swift", "format", "lint", "--strict") + configured }
+        effect = "read"
+      }
+      fix = new CommandSpec {
+        command = new Command {
+          argv = List("swift", "format", "format", "--in-place") + configured
+        }
+        effect = "write"
+      }
+      diagnostic_format = "gcc"
+    }
+    ["xcprojformatter"] {
+      glob = "**/project.xcproj"
+      depends = "ast-grep"
+      check_diff = new CommandSpec {
+        command = new Command {
+          argv = List("hk", "util", "format-diff", "{{files}}", "--", "xcrun", "xcprojformatter")
+        }
+        effect = "read"
+      }
     }
   }
 }

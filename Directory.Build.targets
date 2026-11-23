@@ -17,10 +17,6 @@
         <_FetchedStore>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.cache', 'dotnet', 'fetched'))</_FetchedStore>
     </PropertyGroup>
 
-    <PropertyGroup Label="Documentation Files" Condition="'$(IsPackable)' != 'true'">
-        <CopyDocumentationFileToOutputDirectory>false</CopyDocumentationFileToOutputDirectory>
-    </PropertyGroup>
-
     <PropertyGroup Label="Rhino Platform References" Condition="'$(RhinoHost)' != ''">
         <_RhinoReferenceFramework>net$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)', 2))</_RhinoReferenceFramework>
     </PropertyGroup>

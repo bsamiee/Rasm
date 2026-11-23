@@ -10,6 +10,10 @@
         <RhinoVersion>9.0.26300.9401</RhinoVersion>
     </PropertyGroup>
 
+    <PropertyGroup Label="Runtime Lines">
+        <DotNetRuntimeLine>[10.0.15, 11)</DotNetRuntimeLine>
+    </PropertyGroup>
+
     <!-- [PACKAGES] ────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Analyzers">
@@ -51,7 +55,7 @@
         <PackageVersion Include="Krafs.Publicizer"                                        Version="2.3.2" />                               <!-- Compile access to internal and private members of a referenced assembly -->
         <PackageVersion Include="Microsoft.macOS.Ref.net10.0_26.0"                        Version="26.0.11017" />                          <!-- Microsoft.macOS at the assembly version Rhino for Mac loads, compiled against alone -->
         <PackageVersion Include="Microsoft.Win32.SystemEvents"                            Version="11.0.0" />                              <!-- Display, power, and session change notifications System.Drawing.Common subscribes to -->
-        <PackageVersion Include="Microsoft.WindowsDesktop.App.Ref"                        Version="[10.0.15, 11)" />                       <!-- WPF reference assemblies under ref/net10.0, which later release lines omit -->
+        <PackageVersion Include="Microsoft.WindowsDesktop.App.Ref"                        Version="$(DotNetRuntimeLine)" />                <!-- WPF reference assemblies under ref/net10.0, which later release lines omit -->
         <PackageVersion Include="Rhino.Inside"                                            Version="9.0.26322.17400-beta" />                <!-- Resolver loading RhinoCommon and RhinoCore from the Rhino for Windows install a test process boots in-process -->
         <PackageVersion Include="Rhino3dm"                                                Version="9.2.0-beta.1" />                        <!-- openNURBS geometry access for reading and writing 3dm files -->
         <PackageVersion Include="RhinoCommon"                                             Version="$(RhinoVersion)" />                     <!-- Rhino SDK assemblies RhinoCommon, Rhino.UI, and Eto with Windows Forms targeting on every platform -->
@@ -968,29 +972,29 @@
     <!-- [RUNTIME_LINES] ───────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Roslyn Host" Condition="'$(IsRoslynComponent)' == 'true'">
-        <PackageVersion Update="System.Collections.Immutable"                             Version="[10.0.15, 11)" />                       <!-- Assembly version 10.0.0.0, which the .NET 10 editor runtime loads -->
+        <PackageVersion Update="System.Collections.Immutable"                             Version="$(DotNetRuntimeLine)" />                <!-- Assembly version 10.0.0.0, which the .NET 10 editor runtime loads -->
     </ItemGroup>
 
     <ItemGroup Label="Target Framework" Condition="'$(RhinoHost)' != '' or '$(IsPackable)' == 'true'">
-        <PackageVersion Update="Microsoft.Extensions.Configuration"                       Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Configuration.Abstractions"          Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Configuration.Binder"                Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Configuration.EnvironmentVariables"  Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Configuration.Json"                  Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.DependencyInjection"                 Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.DependencyInjection.Abstractions"    Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Diagnostics"                         Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Diagnostics.Abstractions"            Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Hosting.Abstractions"                Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Http"                                Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Logging"                             Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Logging.Abstractions"                Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Logging.Configuration"               Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Logging.Console"                     Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.ObjectPool"                          Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Options"                             Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Options.ConfigurationExtensions"     Version="[10.0.15, 11)" />
-        <PackageVersion Update="Microsoft.Extensions.Primitives"                          Version="[10.0.15, 11)" />
+        <PackageVersion Update="Microsoft.Extensions.Configuration"                       Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Configuration.Abstractions"          Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Configuration.Binder"                Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Configuration.EnvironmentVariables"  Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Configuration.Json"                  Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.DependencyInjection"                 Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.DependencyInjection.Abstractions"    Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Diagnostics"                         Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Diagnostics.Abstractions"            Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Hosting.Abstractions"                Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Http"                                Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Logging"                             Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Logging.Abstractions"                Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Logging.Configuration"               Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Logging.Console"                     Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.ObjectPool"                          Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Options"                             Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Options.ConfigurationExtensions"     Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="Microsoft.Extensions.Primitives"                          Version="$(DotNetRuntimeLine)" />
         <PackageVersion Update="OpenTelemetry"                                            Version="[1.20.1, 1.21)" />
         <PackageVersion Update="OpenTelemetry.Api"                                        Version="[1.20.1, 1.21)" />
         <PackageVersion Update="OpenTelemetry.Api.ProviderBuilderExtensions"              Version="[1.20.1, 1.21)" />
@@ -1002,11 +1006,11 @@
         <PackageVersion Update="OpenTelemetry.Resources.OperatingSystem"                  Version="[1.20.1-beta.1, 1.21)" />
         <PackageVersion Update="OpenTelemetry.Resources.Process"                          Version="[1.20.1-rc.1, 1.21)" />
         <PackageVersion Update="OpenTelemetry.Resources.ProcessRuntime"                   Version="[1.20.1-beta.1, 1.21)" />
-        <PackageVersion Update="System.Diagnostics.DiagnosticSource"                      Version="[10.0.15, 11)" />
+        <PackageVersion Update="System.Diagnostics.DiagnosticSource"                      Version="$(DotNetRuntimeLine)" />
     </ItemGroup>
 
     <ItemGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
-        <PackageVersion Update="Microsoft.Win32.SystemEvents"                             Version="[10.0.15, 11)" />
-        <PackageVersion Update="System.Drawing.Common"                                    Version="[10.0.15, 11)" />
+        <PackageVersion Update="Microsoft.Win32.SystemEvents"                             Version="$(DotNetRuntimeLine)" />
+        <PackageVersion Update="System.Drawing.Common"                                    Version="$(DotNetRuntimeLine)" />
     </ItemGroup>
 </Project>

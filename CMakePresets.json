@@ -40,6 +40,7 @@
         {
             "name": "unreal",
             "inherits": "tree",
+            "condition": { "type": "inList", "string": "${hostSystemName}", "list": ["Darwin", "Linux"] },
             "binaryDir": "${sourceDir}/.artifacts/cmake/${presetName}$env{UNREAL_ENGINE_ROOT}",
             "installDir": "${sourceDir}/.artifacts/cmake/${presetName}$env{UNREAL_ENGINE_ROOT}/prefix",
             "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMAKE_CXX_SCAN_FOR_MODULES": false, "BUILD_TESTING": false, "VCPKG_TARGET_TRIPLET": "unreal", "VCPKG_HOST_TRIPLET": "unreal", "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/.config/cmake/toolchains/unreal.cmake" }

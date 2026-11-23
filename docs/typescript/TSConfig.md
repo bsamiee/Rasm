@@ -29,7 +29,7 @@ tsconfig files and what each holds:
 
 Programs and their emit:
 - Programs write into their own `dist` for `pnpm pack`, and `noEmit` is the one emit decision every `tsc` mode, editor, and Nx target reads
-- Root `tsconfig.json` and `tsconfig.node.json` emit nothing, and their `.tsbuildinfo` go to `.cache/tsc` and `.artifacts/tsc`, as a target writes the second
+- Root `tsconfig.json` holds no files and writes nothing, and `tsconfig.node.json` writes its `.tsbuildinfo` to `.artifacts/tsc`, as a target builds it
 - Test suite programs `references` reach each package they import, else TS6307 refuses the files outside their `include`
 - Applications another project imports pair a composite `tsconfig.json` holding `"files": []` with a `noEmit` `tsconfig.app.json`
 - `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program and `build--tsc` for an emitting one, where `check--tsc` runs the build

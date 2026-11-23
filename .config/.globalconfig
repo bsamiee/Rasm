@@ -1,7 +1,6 @@
 # --- [DIAGNOSTIC_SEVERITY] --------------------------------------------------------------
 
 dotnet_analyzer_diagnostic.severity = error
-dotnet_diagnostic.CS1591.severity = none # Demands XML doc comments, CLAUDE.md forbids comments
 dotnet_diagnostic.CS8524.severity = none # Fix adds a catch-all arm, `RASM3002` and `RASM3004` refuse it
 dotnet_diagnostic.CS9236.severity = error
 

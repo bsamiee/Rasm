@@ -20,7 +20,6 @@
         "NoAccessLevelOnExtensionDeclaration": true,
         "NoAssignmentInExpressions": true,
         "NoBlockComments": true,
-        "NoCasesWithOnlyFallthrough": true,
         "NoEmptyLinesOpeningClosingBraces": true,
         "NoEmptyTrailingClosureParentheses": true,
         "NoLabelsInCasePatterns": true,
