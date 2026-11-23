@@ -41,7 +41,7 @@ const Inspect = Tool.make('inspect', {
 }).annotate(Tool.Readonly, true);
 const Acting = Tool.make('act', {
     description:
-        'Runs Accessibility actions on element ids of the target application in order, without focus: press, set a value, choose a menu item, or post a key with modifiers, then returns each outcome and the settled state, after each call that returned early finishes or its application asks again or stops responding',
+        'Runs Accessibility actions on element ids of the target application in order, without focus: press, set a value, choose a menu item, or post a key with modifiers, or click a screen point, which presses the element under it in the background or else raises its window for a system click, then returns each outcome and the settled state, after each call that returned early finishes or its application asks again or stops responding',
     parameters: Act,
     success: Acted,
 }).annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.OpenWorld, false)));

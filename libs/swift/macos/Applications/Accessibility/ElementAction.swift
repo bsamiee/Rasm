@@ -5,12 +5,14 @@ import Carbon.HIToolbox
 import CasePathsCore
 public import CoreGraphics
 public import Encoding
+import Logging
 import Processes
 import Results
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let choosingRoles: Set<String> = [kAXMenuRole, kAXListRole]
+private let logger = Logger(label: String(reflecting: ElementAction.self))
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -234,8 +236,15 @@ extension ElementAction {
         let (application, subject) = (AXUIElement.application(process), "\(location.x),\(location.y) of process \(process)")
         var hit: AXUIElement?
         let found = unsafe AXUIElementCopyElementAtPosition(application, Float(location.x), Float(location.y), &hit)
-        if found == .success, let hit, try hit.actionNames().contains(kAXPressAction) {
+        let read = try hit.map { hit throws(ApplicationFailure) in
+            let values = try hit.values([kAXRoleAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXTitleUIElementAttribute])
+            return (role: values.values[kAXRoleAttribute] as? String, label: try hit.label(values), actions: try hit.actionNames())
+        }
+        let element = read.map { read in "\(read.role ?? "no role") \(String(reflecting: read.label ?? "")) actions \(read.actions)" } ?? "none, AXError \(found.rawValue)"
+        logger.info("Click hit", metadata: ["point": "\(subject)", "element": "\(element)"])
+        if let hit, read?.actions.contains(kAXPressAction) == true {
             let pressed = AXUIElementPerformAction(hit, kAXPressAction as CFString)
+            logger.info("Click pressed element", metadata: ["point": "\(subject)", "result": "\(pressed.rawValue)"])
             guard pressed == .success else { throw ApplicationFailure(subject: subject, reason: .refused(pressed)) }
             return hit.window
         }
@@ -252,11 +261,17 @@ extension ElementAction {
         let deadline = clock.now.advanced(by: messagingTimeout)
         let ordered = await AsyncTimerSequence(interval: .milliseconds(10), clock: clock).prefix { instant in instant < deadline }.first { _ in topmost() == target.number }
         guard ordered != nil else { throw ApplicationFailure(subject: "\(subject), window \(target.number) stayed under another window", reason: .noWindow) }
-        let pointer = CGEvent(source: nil)?.location
-        for type in [CGEventType.leftMouseDown, .leftMouseUp] {
-            CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: location, mouseButton: .left)?.post(tap: .cghidEventTap)
-        }
+        let (pointer, source) = (CGEvent(source: nil)?.location, CGEventSource(stateID: .hidSystemState))
+        let post = { (type: CGEventType) -> Void in CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: location, mouseButton: .left)?.post(tap: .cghidEventTap) }
+        post(.mouseMoved)
+        let arrived = await AsyncTimerSequence(interval: .milliseconds(5), clock: clock).prefix { instant in instant < deadline }.first { _ in CGEvent(source: nil)?.location == location }
+        let ready = arrived != nil && topmost() == target.number
+        if ready { [CGEventType.leftMouseDown, .leftMouseUp].forEach(post) }
         if let pointer { CGWarpMouseCursorPosition(pointer) }
+        logger.info("Click posted", metadata: ["point": "\(subject)", "window": "\(target.number)", "arrived": "\(arrived != nil)", "clicked": "\(ready)"])
+        guard ready else {
+            throw ApplicationFailure(subject: "\(subject), \(arrived == nil ? "the pointer never reached the point" : "window \(target.number) left the top"), nothing pressed", reason: .refused(nil))
+        }
         return target.number
     }
 

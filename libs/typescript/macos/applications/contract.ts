@@ -217,6 +217,11 @@ const Act = Schema.Struct({
                     modifiers: defaulted(Schema.Array(Modifier), []).annotate({ description: 'Held while the key posts' }),
                 }).annotate({ description: 'Posted to the instance process with no activation, the focused window settling it' }),
             }),
+            Schema.Struct({
+                click: Schema.Struct({ point: Schema.Tuple([Schema.Finite, Schema.Finite]).annotate({ description: 'Screen point, as a window frame origin reads' }) }).annotate({
+                    description: 'An element with a press action under the point pressed in the background, else its window raised, the app brought to the front, and a system click posted once the window is topmost there',
+                }),
+            }),
         ]),
     ).annotate({ description: 'Run in order until one fails, then the instance settles once' }),
 });

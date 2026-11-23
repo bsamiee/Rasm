@@ -87,7 +87,7 @@ let modules: [Target] = [
         dependencies: [
             "AppleEvents", "Encoding", "Files", "Processes", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections"),
-            .product(name: "Subprocess", package: "swift-subprocess"),
+            .product(name: "Logging", package: "swift-log"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "libs/swift/macos/Applications",
     ),
