@@ -58,6 +58,7 @@ const accounts = Relation.make(
 const searched = (tokenizer: Tokenizer) => ({ search: { columns: ['title', 'body'], tokenizer } }) as const;
 const notes = Relation.make('notes', { id: Schema.Int, title: Schema.String, body: Schema.String }, searched(Tokenizer.Words({ configuration: 'simple', filters: ['unaccent'], tokenize: 'unicode61 remove_diacritics 2' })));
 const fragments = Relation.make('fragments', notes.schema.fields, searched(Tokenizer.Trigram()));
+const featured = Array.make(parents, children, accounts, events, notes, fragments, values);
 const written = Array.make({ id: 1, title: 'Concrete shell', body: 'Thin vaults' }, { id: 2, title: 'Timber frame', body: 'Glulam beams' }, { id: 3, title: 'Café crème', body: 'Voûte mince' });
 const searches: readonly { readonly relation: typeof notes; readonly text: string; readonly titles: readonly string[] }[] = [
     { relation: notes, text: 'vaults', titles: ['Concrete shell'] },
@@ -127,7 +128,7 @@ const rows = (it: Vitest.MethodsNonLive<Engine | Rows | SqlClient.SqlClient>, st
     it.effect(
         'plans nothing after reconciling references, partial, covering, and case-insensitive indexes, computed columns, and text search',
         Effect.fnUntraced(function* () {
-            const catalog = declared([parents, children, accounts, events, notes, fragments, values]);
+            const catalog = declared(featured);
             yield* Catalog.reconcile(catalog);
             assert.deepStrictEqual({ pending: yield* pending(catalog), undeclared: yield* Catalog.reconcile(catalog) }, { pending: { statements: [], concurrent: [] }, undeclared: { tables: [], columns: [], indexes: [], references: [] } });
         }),
@@ -310,4 +311,4 @@ const rows = (it: Vitest.MethodsNonLive<Engine | Rows | SqlClient.SqlClient>, st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Relational, rows, values };
+export { featured, type Relational, rows, values };

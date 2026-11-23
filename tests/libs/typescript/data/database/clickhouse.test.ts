@@ -55,9 +55,11 @@ const measured = { id: '01900000-0000-7000-8000-000000000000', label: 'a', count
 const reading = { id: Schema.String, at: Schema.DateTimeUtcFromString, version: Schema.Int, value: Schema.Finite };
 const readings = Relation.make('readings', reading, { mergeTree: { expires: { column: 'at', after: '30 days' }, version: 'version', codecs: { value: ['Gorilla', 'ZSTD(3)'] } } });
 const relaxed = Relation.make('readings', reading, { mergeTree: { expires: { column: 'at', after: '7 days' }, version: 'version' } });
-const visit = { id: Schema.String, tenant: Schema.Int, at: Schema.DateTimeUtcFromString, email: Schema.String };
-const visits = Relation.make('visits', visit);
+const visit = { id: Schema.String, tenant: Schema.Int, at: Schema.DateTimeUtcFromString, email: Schema.String, version: Schema.Int };
+const versioned = { version: 'version' } as const;
+const visits = Relation.make('visits', visit, { mergeTree: versioned });
 const sought = Relation.make('visits', visit, {
+    mergeTree: versioned,
     indexes: [
         { columns: ['tenant', 'at'], include: ['email'] },
         { columns: ['at'], method: 'brin' },
@@ -65,6 +67,7 @@ const sought = Relation.make('visits', visit, {
     ],
 });
 const unsought = Relation.make('visits', visit, {
+    mergeTree: versioned,
     indexes: [{ columns: ['tenant', 'at'], include: ['email'] }],
     retiredIndexes: [
         ['at', 'brin'],
@@ -122,11 +125,18 @@ class Server extends Context.Service<Server, { readonly container: StartedClickH
 const described = (table: string) =>
     SqlClient.SqlClient.use((sql) =>
         Effect.all({
-            table: sql`SELECT engine, engine_full AS definition, partition_key AS partition, primary_key AS key, sorting_key AS sorting FROM system.tables WHERE database = currentDatabase() AND name = ${table}`,
+            table: sql`SELECT engine, partition_key AS partition, primary_key AS key, sorting_key AS sorting FROM system.tables WHERE database = currentDatabase() AND name = ${table}`,
             codecs: sql`SELECT name, compression_codec AS codec FROM system.columns WHERE database = currentDatabase() AND table = ${table} AND compression_codec != '' ORDER BY position`,
             skipping: sql`SELECT type_full AS type, expr AS expression FROM system.data_skipping_indices WHERE database = currentDatabase() AND table = ${table} ORDER BY expr`,
             projections: sql`SELECT query FROM system.projections WHERE database = currentDatabase() AND table = ${table} ORDER BY name`,
         }),
+    );
+const surviving = (ages: readonly number[]) =>
+    SqlClient.SqlClient.use((sql) =>
+        Effect.forEach(ages, (age) => store.command(sql`INSERT INTO readings SELECT ${`${age} days`} AS id, now64(3) - toIntervalDay(${sql.literal(`${age}`)}) AS at, 1 AS version, 1.5 AS value`), { discard: true }).pipe(
+            Effect.andThen(store.command(sql`OPTIMIZE TABLE readings FINAL`)),
+            Effect.andThen(Effect.map(sql`SELECT DISTINCT id FROM readings ORDER BY id`, Array.map(Struct.get('id')))),
+        ),
     );
 
 const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Server.database> | Server>) => {
@@ -186,27 +196,20 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Server.database> |
         Effect.fnUntraced(function* () {
             const sql = yield* SqlClient.SqlClient;
             yield* Catalog.reconcile(declared([people, readings]));
-            yield* store.command(
-                sql`INSERT INTO readings ${sql.insert([
-                    { id: 'a', at: '2099-01-01 00:00:00.000', version: 1, value: 1.5 },
+            yield* Effect.forEach(
+                [
                     { id: 'a', at: '2099-01-01 00:00:00.000', version: 2, value: 2.5 },
-                ])}`,
+                    { id: 'a', at: '2099-01-01 00:00:00.000', version: 1, value: 1.5 },
+                ],
+                (inserted) => store.command(sql`INSERT INTO readings ${sql.insert(inserted)}`),
+                { discard: true },
             );
-            assert.deepStrictEqual(yield* Effect.all({ people: Effect.map(described('people'), Struct.pick(['table', 'codecs'])), readings: Effect.map(described('readings'), Struct.pick(['table', 'codecs'])), newest: sql`SELECT value FROM readings FINAL` }), {
-                people: { table: [{ engine: 'MergeTree', definition: 'MergeTree PRIMARY KEY (id) ORDER BY (id) SETTINGS index_granularity = 8192', partition: '', key: '(id)', sorting: '(id)' }], codecs: [] },
-                readings: {
-                    table: [
-                        {
-                            engine: 'ReplacingMergeTree',
-                            definition: "ReplacingMergeTree(version) PARTITION BY toDate(at) PRIMARY KEY (id) ORDER BY (id) TTL toDateTime(at) + toIntervalSecond(2592000) SETTINGS deduplicate_merge_projection_mode = 'rebuild', ttl_only_drop_parts = 1, index_granularity = 8192",
-                            partition: 'toDate(at)',
-                            key: '(id)',
-                            sorting: '(id)',
-                        },
-                    ],
-                    codecs: [{ name: 'value', codec: 'CODEC(Gorilla(8), ZSTD(3))' }],
-                },
+            const newest = yield* sql`SELECT value FROM readings FINAL`;
+            assert.deepStrictEqual(yield* Effect.all({ people: Effect.map(described('people'), Struct.pick(['table', 'codecs'])), readings: Effect.map(described('readings'), Struct.pick(['table', 'codecs'])), newest: Effect.succeed(newest), surviving: surviving([29, 31]) }), {
+                people: { table: [{ engine: 'MergeTree', partition: '', key: '(id)', sorting: '(id)' }], codecs: [] },
+                readings: { table: [{ engine: 'ReplacingMergeTree', partition: 'toDate(at)', key: '(id)', sorting: '(id)' }], codecs: [{ name: 'value', codec: 'CODEC(Gorilla(8), ZSTD(3))' }] },
                 newest: [{ value: 2.5 }],
+                surviving: ['29 days', 'a'],
             });
         }),
     );
@@ -217,16 +220,12 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Server.database> |
             const row = { id: 'a', at: '2099-01-01 00:00:00.000', version: 1, value: 1.5 };
             yield* Catalog.reconcile(declared([readings]));
             yield* store.command(sql`INSERT INTO readings ${sql.insert(row)}`);
+            const before = yield* surviving([10]);
             yield* Catalog.reconcile(declared([relaxed]));
             const changed = yield* described('readings');
             assert.deepStrictEqual(
-                { definition: changed.table.map(Struct.get('definition')), codecs: changed.codecs, stored: yield* stored('readings'), pending: yield* pending(declared([relaxed])) },
-                {
-                    definition: ["ReplacingMergeTree(version) PARTITION BY toDate(at) PRIMARY KEY (id) ORDER BY (id) TTL toDateTime(at) + toIntervalSecond(604800) SETTINGS deduplicate_merge_projection_mode = 'rebuild', ttl_only_drop_parts = 1, index_granularity = 8192"],
-                    codecs: [],
-                    stored: [row],
-                    pending: { statements: [], concurrent: [] },
-                },
+                { before, codecs: changed.codecs, after: yield* surviving([5]), stored: yield* sql`SELECT * FROM readings WHERE id = 'a'`, pending: yield* pending(declared([relaxed])) },
+                { before: ['10 days', 'a'], codecs: [], after: ['5 days', 'a'], stored: [row], pending: { statements: [], concurrent: [] } },
             );
         }),
     );
@@ -234,7 +233,7 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Server.database> |
         'adds an ordered projection and range and membership skip indexes to a stored table, and drops retired ones',
         Effect.fnUntraced(function* () {
             const sql = yield* SqlClient.SqlClient;
-            const row = { id: 'a', tenant: 1, at: '2026-01-01 00:00:00.000', email: 'a@example.com' };
+            const row = { id: 'a', tenant: 1, at: '2026-01-01 00:00:00.000', email: 'a@example.com', version: 1 };
             yield* Catalog.reconcile(declared([visits]));
             yield* store.command(sql`INSERT INTO visits ${sql.insert(row)}`);
             yield* Catalog.reconcile(declared([sought]));
@@ -265,19 +264,16 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Server.database> |
         }),
     );
     it.effect(
-        'keeps a table and its rows when a rebuild fails, and drops the leftover copy on the next reconcile',
+        'keeps a table and its rows when a rebuild fails, and holds the declared table alone after the next reconcile',
         Effect.fnUntraced(function* () {
             const sql = yield* SqlClient.SqlClient;
             const row = { id: 'p', label: 'Parent', rank: 1 };
             yield* Catalog.reconcile(declared([people]));
             yield* store.command(sql`INSERT INTO people ${sql.insert(row)}`);
             const failed = yield* Effect.flip(Catalog.reconcile(declared([numbered])));
-            const left = yield* Effect.all({ tables: store.tables, stored: stored('people') });
+            const left = yield* stored('people');
             yield* Catalog.reconcile(declared([people]));
-            assert.deepStrictEqual(
-                { failed: failed._tag === 'SqlError' ? store.fault(failed) : failed, left, settled: yield* Effect.all({ tables: store.tables, stored: stored('people') }) },
-                { failed: '6', left: { tables: ['people', 'people__rebuild'], stored: [row] }, settled: { tables: ['people'], stored: [row] } },
-            );
+            assert.deepStrictEqual({ failed: failed._tag === 'SqlError' ? store.fault(failed) : failed, left, settled: yield* Effect.all({ tables: store.tables, stored: stored('people') }) }, { failed: '6', left: [row], settled: { tables: ['people'], stored: [row] } });
         }),
     );
 };
