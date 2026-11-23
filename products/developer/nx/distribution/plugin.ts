@@ -96,6 +96,7 @@ const Requirements = Schema.Record(Schema.String, Schema.String).pipe(Schema.wit
 const Member = Schema.fromJsonString(Schema.Struct({ name: Schema.String, dependencies: Requirements, devDependencies: Requirements, optionalDependencies: Requirements, peerDependencies: Requirements })).annotate({
     description: 'The name of a workspace package.json and the packages each of its dependency fields requires',
 });
+const Line = Schema.fromJsonString(Schema.Unknown);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -346,7 +347,7 @@ const recorded = Effect.fnUntraced(function* ({ id, argv, startTime, endTime }: 
         Array.groupBy(rows, ({ task }) => task.target.target),
         (held) => ({ hits: Array.countBy(held, ({ kind }) => kind !== 'missed'), misses: Array.countBy(held, ({ kind }) => kind === 'missed') }),
     );
-    const line = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ id, at: DateTime.formatIso(DateTime.makeUnsafe(endTime)), command: argv.slice(2).join(' '), seconds: (endTime - startTime) / 1000, local: local.length, remote: remote.length, missed: missed.length, rate, targets, slowest });
+    const line = yield* Schema.encodeEffect(Line)({ id, at: DateTime.formatIso(DateTime.makeUnsafe(endTime)), command: argv.slice(2).join(' '), seconds: (endTime - startTime) / 1000, local: local.length, remote: remote.length, missed: missed.length, rate, targets, slowest });
     const at = join(workspaceDataDirectory, RECORD.file);
     yield* fs.makeDirectory(workspaceDataDirectory, { recursive: true });
     const size = yield* fs.stat(at).pipe(
