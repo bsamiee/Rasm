@@ -3,7 +3,7 @@
 [project]
 name              = "rasm-refurb"
 version           = "0.1.0"
-description       = "Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin"
+description       = "Refurb plugin: checks over mypy types that Ruff lacks"
 readme            = "README.md"
 license           = "MIT"
 license-files     = ["LICENSE"]

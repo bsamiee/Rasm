@@ -3,7 +3,7 @@
 [project]
 name              = "rasm-cli"
 version           = "0.1.0"
-description       = "Process entry of a command-line tool over cyclopts: settings, output, and per-user folders from flags and the tool's variables, each command line inside the process telemetry scope, results as JSON lines, and fault exit statuses"
+description       = "Process entry of a command-line tool over cyclopts: settings from flags and variables, per-user folders, a telemetry scope per command line, JSON-line results, and fault exit statuses"
 readme            = "README.md"
 license           = "MIT"
 license-files     = ["LICENSE"]

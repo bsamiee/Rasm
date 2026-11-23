@@ -39,6 +39,8 @@ license-files     = ["LICENSE"]
 authors           = [{ name = "<author>", email = "<email>" }]
 classifiers       = ["Private :: Do Not Upload"]
 requires-python   = ">=<python>"
+import-names      = ["rasm.<name>"]
+import-namespaces = ["rasm"]
 dependencies      = ["<dependency>"]
 
 [project.urls]
@@ -51,27 +53,29 @@ requires      = ["uv_build>=<version>,<<next minor>"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
+module-name = "rasm.<name>"
 module-root = ""
 ```
 
-Fields the manifest states or leaves out:
+Fields every built package states:
 
-| [INDEX] | [FIELD]        | [VALUE]                         | [REASON]                                          |
-| :-----: | :------------- | :------------------------------ | :------------------------------------------------ |
-|  [01]   | `module-root`  | `""`                            | Module folder sits in project folder, no `src/`   |
-|  [02]   | `module-name`  | Product import name             | Products alone, their name differing from default |
-|  [03]   | `import-names` | Product import name             | Products alone, PEP 794 row naming differing name |
-|  [04]   | `requires`     | `uv_build` bounded to its minor | Unbounded row warns on sdist builds               |
+| [INDEX] | [FIELD]             | [VALUE]                         | [REASON]                                             |
+| :-----: | :------------------ | :------------------------------ | :--------------------------------------------------- |
+|  [01]   | `module-root`       | `""`                            | `rasm/` folder sits in project folder, no `src/`     |
+|  [02]   | `module-name`       | `rasm.<name>`                   | `uv_build` derives `rasm_<name>` from the name       |
+|  [03]   | `import-names`      | `rasm.<name>`                   | PEP 794 row naming the module `module-name` builds   |
+|  [04]   | `import-namespaces` | `["rasm"]`                      | PEP 794 row naming the namespace every package joins |
+|  [05]   | `requires`          | `uv_build` bounded to its minor | Unbounded row warns on sdist builds                  |
 
 ## [04]-[IMPORT_NAMES]
 
-Distribution and import names per package kind:
-- Libraries take distribution `rasm-<name>` and import `rasm_<name>`, as `uv_build` and PEP 794 derive import names from the distribution name
-- Products import under a name skill `writing:names` chooses, never a generic word or prefix `rasm_`
-- Packages hold no PEP 420 namespace, as an earlier top-level module of the same name on `sys.path` replaces every portion
+Distribution and import names of every package:
+- Packages take distribution `rasm-<name>` and import `rasm.<name>`, libraries, products, test support, and tool plugins alike
+- `rasm/` holds no `__init__.py`, and every package adds its portion to one PEP 420 namespace `rasm`
+- Plain import names collide in Blender's shared extension site-packages and on PyPI, and namespace `rasm` keeps every name unique
 - Library import names never reach Blender's shared site-packages
 - PEP 561 stub distributions take `<package>-stubs`
-- Plugins a tool loads by entry point take the library form (`rasm_refurb`), as each tool holds its own top-level name
+- Plugins a tool loads by entry point name their `rasm.<name>` module (`rasm = "rasm.refurb"`)
 - `uv_build` refuses a module root outside its project ("Module root must be inside the project"), and no project folder is itself an import package
 - Entry `__init__.py` files forward public names and close on `__all__`, private modules and internal subpackages take `_`
 

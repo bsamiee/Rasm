@@ -9,15 +9,17 @@ dependencies    = []
 # --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
 
 [dependency-groups]
-dev                   = [
+# --- [TOOLING]
+
+dev  = [
     # --- [CHECKERS]
 
-    "mypy",                                                                       # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
-    "pydantic",                                                                   # mypy plugin typing each pydantic model, whose replace signature holds explicit `Any` without it
-    "rasm-refurb",                                                                # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
-    "refurb",                                                                     # FURB checks Ruff lacks, over a mypy build
-    "ty",                                                                         # Type checker of every project
-    "vulture",                                                                    # Private functions, classes, methods, and attributes nothing reads
+    "mypy",                         # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
+    "pydantic",                     # mypy plugin typing each pydantic model, whose replace signature holds explicit `Any` without it
+    "rasm-refurb",                  # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
+    "refurb",                       # FURB checks Ruff lacks, over a mypy build
+    "ty",                           # Type checker of every project
+    "vulture",                      # Private functions, classes, methods, and attributes nothing reads
 
     # --- [STUBS]
 
@@ -34,185 +36,207 @@ dev                   = [
     "types-reportlab",
     "types-shapely",
 ]
-test                  = [
-    "hypothesis",                                                                 # Property-based tests
-    "pytest",                                                                     # Test collection, assertions, and fixtures
-    "pytest-cov",                                                                 # Coverage collection
-    "pytest-randomly",                                                            # Random test order and seeds
-    "pytest-socket",                                                              # Block unrequested network connections
-    "pytest-timeout",                                                             # Per-test deadline
-    "rasm-testing[hosting,sqlite]",                                               # SQLite and hosted server fixtures, each loaded by pytest as a plugin
+test = [
+    "hypothesis",                   # Property-based tests
+    "pytest",                       # Test collection, assertions, and fixtures
+    "pytest-cov",                   # Coverage collection
+    "pytest-randomly",              # Random test order and seeds
+    "pytest-socket",                # Block unrequested network connections
+    "pytest-timeout",               # Per-test deadline
+    "rasm-testing[hosting,sqlite]", # SQLite and hosted server fixtures, each loaded by pytest as a plugin
 ]
-core                  = [
-    "beartype",                                                                   # Runtime type checks over annotations
-    "pydantic-settings",                                                          # Settings models read from environment and files
-    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",                           # AppKit, Foundation, and CoreFoundation for apps and main run loop
-    "xxhash",                                                                     # Content identity hashes matching C# System.IO.Hashing
+
+# --- [RUNTIME]
+
+core          = [
+    "beartype",                                         # Runtime type checks over annotations
+    "pydantic-settings",                                # Settings models read from environment and files
+    "pyobjc-framework-Cocoa; sys_platform == 'darwin'", # AppKit, Foundation, and CoreFoundation for apps and main run loop
+    "xxhash",                                           # Content identity hashes matching C# System.IO.Hashing
 ]
-security              = [
-    "azure-identity",                                                             # DefaultAzureCredential chain for Azure Key Vault secrets
-    "azure-keyvault-secrets",                                                     # Azure Key Vault secret store
-    "cryptography",                                                               # AES-GCM envelopes and key wrap for per-subject crypto-shredding
-    "google-cloud-secret-manager",                                                # Google Cloud Secret Manager secret store
-    "google-crc32c",                                                              # CRC32C integrity check for Google Cloud secret payloads
-    "hvac",                                                                       # HashiCorp Vault secret store
-    "keyring",                                                                    # OS keychain credential store
+execution     = [
+    "apscheduler",                                      # Cron, interval, and date triggers
+    "cloudpickle",                                      # Kernel and closure transfer to processes and subinterpreters
+    "loky",                                             # Reusable process pool with worker restart
+    "pebble",                                           # Worker kill at a terminal deadline and per-worker task recycling
+    "tblib",                                            # Picklable tracebacks for worker exceptions across processes
+    "wasmtime",                                         # In-process WASM guest sandbox for workers
+    "watchfiles",                                       # File-change watching over Rust notify backend
 ]
-observability         = [
-    "opentelemetry-api",                                                          # Trace, metric, and context API
-    "opentelemetry-exporter-otlp-proto-grpc",                                     # OTLP gRPC exporter beside proto-http default
-    "opentelemetry-exporter-otlp-proto-http",                                     # OTLP HTTP exporter, default transport
-    "opentelemetry-instrumentation-asgi",                                         # ASGI server spans and W3C context extraction per Connect request
-    "opentelemetry-instrumentation-asyncio",                                      # Trace context across coroutines, `to_thread` calls, and futures
-    "opentelemetry-instrumentation-botocore",                                     # botocore request spans for S3 calls through boto3
-    "opentelemetry-instrumentation-confluent-kafka",                              # confluent-kafka producer and consumer spans with trace context in message headers
-    "opentelemetry-instrumentation-dbapi",                                        # PEP 249 spans for uninstrumented drivers (duckdb, ADBC DBAPI)
-    "opentelemetry-instrumentation-httpx",                                        # `HTTPX2ClientInstrumentor` client spans with W3C trace context
-    "opentelemetry-instrumentation-jinja2",                                       # Jinja template-render spans
-    "opentelemetry-instrumentation-psycopg",                                      # psycopg 3 DBAPI spans
-    "opentelemetry-instrumentation-redis",                                        # redis-py command spans against Valkey
-    "opentelemetry-instrumentation-sqlite3",                                      # sqlite3 DBAPI spans
-    "opentelemetry-instrumentation-system-metrics",                               # Host and process gauges over psutil
-    "opentelemetry-instrumentation-threading",                                    # Cross-thread trace-context propagation
-    "opentelemetry-instrumentation-urllib3",                                      # urllib3 request spans under clickhouse-connect queries
-    "opentelemetry-processor-baggage",                                            # Baggage entries copied to span attributes for tenant dimension
-    "opentelemetry-resource-detector-containerid",                                # container.id resource detector
-    "opentelemetry-sdk",                                                          # Tracer provider, span processors, and in-memory span exporter
-    "opentelemetry-semantic-conventions",                                         # Schema URL for telemetry
-    "pyroscope-io",                                                               # Profiling agent feeding pyroscope-otel span-link exporter
-    "pyroscope-otel",                                                             # Continuous-profiling span links beside OTLP exporters
+observability = [
+    "opentelemetry-api",                                # Trace, metric, and context API
+    "opentelemetry-exporter-otlp-proto-grpc",           # OTLP gRPC exporter beside proto-http default
+    "opentelemetry-exporter-otlp-proto-http",           # OTLP HTTP exporter, default transport
+    "opentelemetry-instrumentation-asgi",               # ASGI server spans and W3C context extraction per Connect request
+    "opentelemetry-instrumentation-asyncio",            # Trace context across coroutines, `to_thread` calls, and futures
+    "opentelemetry-instrumentation-botocore",           # botocore request spans for S3 calls through boto3
+    "opentelemetry-instrumentation-confluent-kafka",    # confluent-kafka producer and consumer spans with trace context in message headers
+    "opentelemetry-instrumentation-dbapi",              # PEP 249 spans for uninstrumented drivers (duckdb, ADBC DBAPI)
+    "opentelemetry-instrumentation-httpx",              # `HTTPX2ClientInstrumentor` client spans with W3C trace context
+    "opentelemetry-instrumentation-jinja2",             # Jinja template-render spans
+    "opentelemetry-instrumentation-psycopg",            # psycopg 3 DBAPI spans
+    "opentelemetry-instrumentation-redis",              # redis-py command spans against Valkey
+    "opentelemetry-instrumentation-sqlite3",            # sqlite3 DBAPI spans
+    "opentelemetry-instrumentation-system-metrics",     # Host and process gauges over psutil
+    "opentelemetry-instrumentation-threading",          # Cross-thread trace-context propagation
+    "opentelemetry-instrumentation-urllib3",            # urllib3 request spans under clickhouse-connect queries
+    "opentelemetry-processor-baggage",                  # Baggage entries copied to span attributes for tenant dimension
+    "opentelemetry-resource-detector-containerid",      # container.id resource detector
+    "opentelemetry-sdk",                                # Tracer provider, span processors, and in-memory span exporter
+    "opentelemetry-semantic-conventions",               # Schema URL for telemetry
+    "pyroscope-io",                                     # Profiling agent feeding pyroscope-otel span-link exporter
+    "pyroscope-otel",                                   # Continuous-profiling span links beside OTLP exporters
 ]
-execution             = [
-    "apscheduler",                                                                # Cron, interval, and date triggers
-    "cloudpickle",                                                                # Kernel and closure transfer to processes and subinterpreters
-    "loky",                                                                       # Reusable process pool with worker restart
-    "pebble",                                                                     # Worker kill at a terminal deadline and per-worker task recycling
-    "tblib",                                                                      # Picklable tracebacks for worker exceptions across processes
-    "wasmtime",                                                                   # In-process WASM guest sandbox for workers
-    "watchfiles",                                                                 # File-change watching over Rust notify backend
+parsing       = [
+    "jinja2",                                           # Report templating for visual and document outputs
+    "lark",                                             # Parser generator for CESQL filter, IDS, and selector grammars
+    "lxml",                                             # XML processing
+    "ruamel-yaml",                                      # Round-trip YAML with comments and layout kept
 ]
-parsing               = [
-    "jinja2",                                                                     # Report templating for visual and document outputs
-    "lark",                                                                       # Parser generator for CESQL filter, IDS, and selector grammars
-    "lxml",                                                                       # XML processing
-    "ruamel-yaml",                                                                # Round-trip YAML with comments and layout kept
+security      = [
+    "azure-identity",                                   # DefaultAzureCredential chain for Azure Key Vault secrets
+    "azure-keyvault-secrets",                           # Azure Key Vault secret store
+    "cryptography",                                     # AES-GCM envelopes and key wrap for per-subject crypto-shredding
+    "google-cloud-secret-manager",                      # Google Cloud Secret Manager secret store
+    "google-crc32c",                                    # CRC32C integrity check for Google Cloud secret payloads
+    "hvac",                                             # HashiCorp Vault secret store
+    "keyring",                                          # OS keychain credential store
 ]
-data-exchange         = [
-    "asyncssh",                                                                   # SSH and SFTP client for remote workers
-    "boto3",                                                                      # AWS SDK S3 client, the one Python S3 client an OpenTelemetry instrumentation patches
-    "brotli",                                                                     # Brotli compression
-    "cloudevents",                                                                # CloudEvents attribute validation and protocol bindings
-    "confluent-kafka[avro,json,protobuf,schemaregistry]<4",                       # Kafka client over librdkafka with Schema Registry serdes, the Rust-core 4.x prerelease under the same name omits serializers, an sdist, and Windows wheels
-    "connectrpc",                                                                 # Connect, gRPC, and gRPC-Web ASGI services and typed clients
-    "detools",                                                                    # Binary-delta engine
-    "fastavro",                                                                   # Avro codec and .avsc validation
-    "fsspec",                                                                     # Filesystem resolution shared with UPath and blocking-read offload
-    "hishel[httpx2]",                                                             # RFC 9111 cache over httpx2 transports with a SQLite store
-    "hypercorn",                                                                  # HTTP/2 and h2c ASGI server for gRPC streams on TCP and UNIX binds
-    "jsonschema",                                                                 # Document validation against fetched JSON Schemas
-    "lz4",                                                                        # LZ4 compression
-    "obspec-utils",                                                               # Multi-store ObjectStoreRegistry companion to obstore
-    "obstore",                                                                    # Object-store backend
-    "paho-mqtt",                                                                  # MQTT client for telemetry and edge-device transport
-    "protobuf",                                                                   # google-protobuf runtime under Substrait and ONNX IR
-    "protobuf-py",                                                                # Buf runtime for generated `_pb.py` codecs and descriptors
-    "protovalidate",                                                              # Descriptor rules checked at transport and document producers
-    "py7zr",                                                                      # 7z archive read and write
-    "python-dateutil",                                                            # RFC 3339 isoparse for CloudEvents bindings and format readers
-    "pyzmq",                                                                      # ZeroMQ sockets over the bundled libzmq
-    "standardwebhooks",                                                           # Standard Webhooks signing and signature verification
-    "stream-unzip",                                                               # Bounded-memory streaming unzip inverse for stream-zip
-    "stream-zip",                                                                 # Bounded-memory streaming zip with ZIP64 and AES-256
-    "universal-pathlib",                                                          # UPath storage_options and protocol resolution over fsspec registry
-    "zlib-ng",                                                                    # Accelerated zlib and gzip compression
-    "zstandard",                                                                  # Zstandard compression
+
+# --- [DATA]
+
+analytics     = [
+    "cubed",                                                # Bounded-memory distributed arrays
+    "daft!=0.8.0rc1",                                       # Distributed query engine, 0.8.0rc1 requires Python below 3.15
+    "dask",                                                 # Out-of-core arrays and dataframes
+    "dataframely",                                          # Declarative Polars column rules that partition failures
+    "datafusion",                                           # Federation and streaming engine with Substrait plan interchange
+    "duckdb",                                               # Analytical SQL engine
+    "fastexcel",                                            # Rust Arrow Excel reader over calamine
+    "ibis-framework",                                       # Backend-agnostic SQL-expression IR
+    "narwhals",                                             # Dataframe-agnostic API
+    "pandas",                                               # Tabular dataframes
+    "pandera",                                              # Schema and quality-rule contracts
+    "pointblank",                                           # Graded data-quality reports above pass/fail checks
+    "polars",                                               # Dataframe engine
+    "sqlglot",                                              # SQL parser, transpiler, optimizer, and lineage engine
+    "substrait[extensions]",                                # Typed Substrait plan IR with extension registry and validator
 ]
-mathematics           = [
-    "array-api-compat",                                                           # Array API standard namespaces over each array library
-    "array-api-extra",                                                            # Supplemental array API functions
-    "clarabel",                                                                   # Clarabel conic solver, a cvxpy backend
-    "cvxpy",                                                                      # Disciplined convex optimization
-    "diffrax",                                                                    # JAX differential-equation solvers
-    "equinox",                                                                    # JAX PyTree modules
-    "findiff",                                                                    # Finite-difference operators for solvers and sensitivity
-    "gmsh; sys_platform != 'linux' or platform_machine != 'aarch64'",             # Unstructured meshes with physical groups for scikit-fem and meshio, no linux aarch64 wheel or sdist
-    "highspy",                                                                    # HiGHS LP, MIP, and QP solver, a cvxpy backend
-    "jax",                                                                        # Autodiff and XLA-compiled array programs
-    "jaxtyping",                                                                  # Array and PyTree shape and dtype contracts that import no jax
-    "lineax",                                                                     # JAX linear solvers
-    "mpmath",                                                                     # Arbitrary-precision real and complex math
-    "optax",                                                                      # First-order JAX optimizers for optimistix
-    "optimistix",                                                                 # JAX nonlinear solvers and adjoint VJP
-    "pint",                                                                       # Unit registry and quantity arithmetic
-    "python-flint",                                                               # Arb interval numerics
-    "pywavelets",                                                                 # Discrete and continuous wavelet transforms
-    "quadax",                                                                     # JAX adaptive quadrature
-    "scikit-fem",                                                                 # FEM assembly
-    "scs",                                                                        # SCS operator-splitting conic solver, a cvxpy backend
-    "sectionproperties",                                                          # Cross-section property solver
-    "sympy>=1.15.0rc2",                                                           # Symbolic expressions beside python-flint and mpmath ground domains
-    "uncertainties",                                                              # First-order error propagation with correlated values
+arrays        = [
+    "awkward",                                              # Ragged arrays
+    "flox",                                                 # Vectorized and parallel grouped reductions for xarray
+    "h5netcdf",                                             # Pure-h5py netCDF-4 engine
+    "h5py",                                                 # HDF5 arrays
+    "icechunk",                                             # Versioned tensor store
+    "netcdf4",                                              # netCDF-4 field IO
+    "numcodecs",                                            # zarr v3 filter and compressor codec registry
+    "virtualizarr",                                         # Virtual Zarr aggregation over archival references
+    "xarray",                                               # Labeled field datasets and DataTree arrays
+    "zarr",                                                 # Chunked n-D arrays
 ]
-statistics            = [
-    "arviz",                                                                      # Bayesian diagnostics
-    "blackjax",                                                                   # JAX NUTS/HMC samplers
-    "numpyro",                                                                    # JAX NUTS sampler
-    "nutpie",                                                                     # Rust NUTS sampler for PyMC
-    "onnx",                                                                       # Model graph IR
-    "pyDOE3",                                                                     # Classical design-of-experiments matrices
-    "pymc>=6.4.0",                                                                # Probabilistic programming
-    "salib",                                                                      # Global sensitivity analysis
-    "scikit-learn",                                                               # Classical ML and ONNX export
-    "skl2onnx",                                                                   # sklearn-to-ONNX converter
+data-exchange = [
+    "asyncssh",                                             # SSH and SFTP client for remote workers
+    "boto3",                                                # AWS SDK S3 client, the one Python S3 client an OpenTelemetry instrumentation patches
+    "brotli",                                               # Brotli compression
+    "cloudevents",                                          # CloudEvents attribute validation and protocol bindings
+    "confluent-kafka[avro,json,protobuf,schemaregistry]<4", # Kafka client over librdkafka with Schema Registry serdes, the Rust-core 4.x prerelease under the same name omits serializers, an sdist, and Windows wheels
+    "connectrpc",                                           # Connect, gRPC, and gRPC-Web ASGI services and typed clients
+    "detools",                                              # Binary-delta engine
+    "fastavro",                                             # Avro codec and .avsc validation
+    "fsspec",                                               # Filesystem resolution shared with UPath and blocking-read offload
+    "hishel[httpx2]",                                       # RFC 9111 cache over httpx2 transports with a SQLite store
+    "hypercorn",                                            # HTTP/2 and h2c ASGI server for gRPC streams on TCP and UNIX binds
+    "jsonschema",                                           # Document validation against fetched JSON Schemas
+    "lz4",                                                  # LZ4 compression
+    "obspec-utils",                                         # Multi-store ObjectStoreRegistry companion to obstore
+    "obstore",                                              # Object-store backend
+    "paho-mqtt",                                            # MQTT client for telemetry and edge-device transport
+    "protobuf",                                             # google-protobuf runtime under Substrait and ONNX IR
+    "protobuf-py",                                          # Buf runtime for generated `_pb.py` codecs and descriptors
+    "protovalidate",                                        # Descriptor rules checked at transport and document producers
+    "py7zr",                                                # 7z archive read and write
+    "python-dateutil",                                      # RFC 3339 isoparse for CloudEvents bindings and format readers
+    "pyzmq",                                                # ZeroMQ sockets over the bundled libzmq
+    "standardwebhooks",                                     # Standard Webhooks signing and signature verification
+    "stream-unzip",                                         # Bounded-memory streaming unzip inverse for stream-zip
+    "stream-zip",                                           # Bounded-memory streaming zip with ZIP64 and AES-256
+    "universal-pathlib",                                    # UPath storage_options and protocol resolution over fsspec registry
+    "zlib-ng",                                              # Accelerated zlib and gzip compression
+    "zstandard",                                            # Zstandard compression
 ]
-analytics             = [
-    "cubed",                                                                      # Bounded-memory distributed arrays
-    "daft!=0.8.0rc1",                                                             # Distributed query engine, 0.8.0rc1 requires Python below 3.15
-    "dask",                                                                       # Out-of-core arrays and dataframes
-    "dataframely",                                                                # Declarative Polars column rules that partition failures
-    "datafusion",                                                                 # Federation and streaming engine with Substrait plan interchange
-    "duckdb",                                                                     # Analytical SQL engine
-    "fastexcel",                                                                  # Rust Arrow Excel reader over calamine
-    "ibis-framework",                                                             # Backend-agnostic SQL-expression IR
-    "narwhals",                                                                   # Dataframe-agnostic API
-    "pandas",                                                                     # Tabular dataframes
-    "pandera",                                                                    # Schema and quality-rule contracts
-    "pointblank",                                                                 # Graded data-quality reports above pass/fail checks
-    "polars",                                                                     # Dataframe engine
-    "sqlglot",                                                                    # SQL parser, transpiler, optimizer, and lineage engine
-    "substrait[extensions]",                                                      # Typed Substrait plan IR with extension registry and validator
+data-storage  = [
+    "adbc-driver-flightsql",                                # Arrow Flight SQL remote driver
+    "adbc-driver-manager",                                  # ADBC driver manager for Arrow Flight SQL and DuckDB
+    "adbc-driver-postgresql",                               # PostgreSQL driver for COPY ingest and partitioned Arrow reads
+    "adbc-driver-sqlite",                                   # SQLite driver for local-file federation and Arrow ingest
+    "arro3-compute",                                        # Arrow compute kernels without pyarrow
+    "arro3-core",                                           # Arrow core bridge
+    "arro3-io",                                             # Arrow IPC, Parquet, CSV, JSON, and NDJSON IO without pyarrow
+    "clickhouse-connect",                                   # ClickHouse HTTP client with compressed native-format inserts and streamed queries
+    "deltalake",                                            # Lakehouse tables
+    "nanoarrow",                                            # Arrow C Data Interface interop
+    "pgvector",                                             # pgvector, halfvec, and sparsevec adapters for psycopg and NumPy arrays
+    "psycopg[binary,pool]",                                 # PostgreSQL driver with sync and async APIs, pipeline mode, COPY, and connection pools
+    "pyarrow",                                              # Arrow C++ bridge
+    "pyiceberg",                                            # Apache Iceberg tables
+    "redis[hiredis]",                                       # Valkey client with commands, pub/sub, streams, and cluster over the hiredis reply parser
+    "sqlite-vec",                                           # Loadable SQLite extension for `vec0` vector tables in standard `sqlite3`
 ]
-data-storage          = [
-    "adbc-driver-flightsql",                                                      # Arrow Flight SQL remote driver
-    "adbc-driver-manager",                                                        # ADBC driver manager for Arrow Flight SQL and DuckDB
-    "adbc-driver-postgresql",                                                     # PostgreSQL driver for COPY ingest and partitioned Arrow reads
-    "adbc-driver-sqlite",                                                         # SQLite driver for local-file federation and Arrow ingest
-    "arro3-compute",                                                              # Arrow compute kernels without pyarrow
-    "arro3-core",                                                                 # Arrow core bridge
-    "arro3-io",                                                                   # Arrow IPC, Parquet, CSV, JSON, and NDJSON IO without pyarrow
-    "clickhouse-connect",                                                         # ClickHouse HTTP client with compressed native-format inserts and streamed queries
-    "deltalake",                                                                  # Lakehouse tables
-    "nanoarrow",                                                                  # Arrow C Data Interface interop
-    "pgvector",                                                                   # pgvector, halfvec, and sparsevec adapters for psycopg and NumPy arrays
-    "psycopg[binary,pool]",                                                       # PostgreSQL driver with sync and async APIs, pipeline mode, COPY, and connection pools
-    "pyarrow",                                                                    # Arrow C++ bridge
-    "pyiceberg",                                                                  # Apache Iceberg tables
-    "redis[hiredis]",                                                             # Valkey client with commands, pub/sub, streams, and cluster over the hiredis reply parser
-    "sqlite-vec",                                                                 # Loadable SQLite extension for `vec0` vector tables in standard `sqlite3`
+
+# --- [SCIENCE]
+
+mathematics = [
+    "array-api-compat",                                               # Array API standard namespaces over each array library
+    "array-api-extra",                                                # Supplemental array API functions
+    "clarabel",                                                       # Clarabel conic solver, a cvxpy backend
+    "cvxpy",                                                          # Disciplined convex optimization
+    "diffrax",                                                        # JAX differential-equation solvers
+    "equinox",                                                        # JAX PyTree modules
+    "findiff",                                                        # Finite-difference operators for solvers and sensitivity
+    "gmsh; sys_platform != 'linux' or platform_machine != 'aarch64'", # Unstructured meshes with physical groups for scikit-fem and meshio, no linux aarch64 wheel or sdist
+    "highspy",                                                        # HiGHS LP, MIP, and QP solver, a cvxpy backend
+    "jax",                                                            # Autodiff and XLA-compiled array programs
+    "jaxtyping",                                                      # Array and PyTree shape and dtype contracts that import no jax
+    "lineax",                                                         # JAX linear solvers
+    "mpmath",                                                         # Arbitrary-precision real and complex math
+    "optax",                                                          # First-order JAX optimizers for optimistix
+    "optimistix",                                                     # JAX nonlinear solvers and adjoint VJP
+    "pint",                                                           # Unit registry and quantity arithmetic
+    "python-flint",                                                   # Arb interval numerics
+    "pywavelets",                                                     # Discrete and continuous wavelet transforms
+    "quadax",                                                         # JAX adaptive quadrature
+    "scikit-fem",                                                     # FEM assembly
+    "scs",                                                            # SCS operator-splitting conic solver, a cvxpy backend
+    "sectionproperties",                                              # Cross-section property solver
+    "sympy>=1.15.0rc2",                                               # Symbolic expressions beside python-flint and mpmath ground domains
+    "uncertainties",                                                  # First-order error propagation with correlated values
 ]
-arrays                = [
-    "awkward",                                                                    # Ragged arrays
-    "flox",                                                                       # Vectorized and parallel grouped reductions for xarray
-    "h5netcdf",                                                                   # Pure-h5py netCDF-4 engine
-    "h5py",                                                                       # HDF5 arrays
-    "icechunk",                                                                   # Versioned tensor store
-    "netcdf4",                                                                    # netCDF-4 field IO
-    "numcodecs",                                                                  # zarr v3 filter and compressor codec registry
-    "virtualizarr",                                                               # Virtual Zarr aggregation over archival references
-    "xarray",                                                                     # Labeled field datasets and DataTree arrays
-    "zarr",                                                                       # Chunked n-D arrays
+statistics  = [
+    "arviz",                                                          # Bayesian diagnostics
+    "blackjax",                                                       # JAX NUTS/HMC samplers
+    "numpyro",                                                        # JAX NUTS sampler
+    "nutpie",                                                         # Rust NUTS sampler for PyMC
+    "onnx",                                                           # Model graph IR
+    "pyDOE3",                                                         # Classical design-of-experiments matrices
+    "pymc>=6.4.0",                                                    # Probabilistic programming
+    "salib",                                                          # Global sensitivity analysis
+    "scikit-learn",                                                   # Classical ML and ONNX export
+    "skl2onnx",                                                       # sklearn-to-ONNX converter
 ]
-geospatial            = [
+
+# --- [SPATIAL]
+
+geometry   = [
+    "compas",                                                                     # COMPAS geometry, data, and datastructure core
+    "compas_dr",                                                                  # COMPAS dynamic relaxation form finding
+    "compas_tna",                                                                 # COMPAS thrust network analysis
+    "manifold3d",                                                                 # Manifold mesh booleans and offsets
+    "meshio",                                                                     # Mesh file IO across FEM and CAD formats
+    "rtree",                                                                      # R-tree spatial index over libspatialindex
+    "small-gicp",                                                                 # Point-cloud registration
+    "trimesh",                                                                    # Triangle mesh loading, repair, and queries
+]
+geospatial = [
     "geoarrow-pyarrow",                                                           # GeoArrow extension types for pyarrow and geopandas
     "geoarrow-rust-compute",                                                      # GeoRust operations on GeoArrow memory
     "geoarrow-rust-core",                                                         # GeoArrow geometry array memory model under GeoRust compute kernels
@@ -236,155 +260,159 @@ geospatial            = [
     "stac-geoparquet",                                                            # STAC item GeoParquet table interchange
     "xvec",                                                                       # Vector data cubes with geometry-indexed xarray dimensions
 ]
-geometry              = [
-    "compas",                                                                     # COMPAS geometry, data, and datastructure core
-    "compas_dr",                                                                  # COMPAS dynamic relaxation form finding
-    "compas_tna",                                                                 # COMPAS thrust network analysis
-    "manifold3d",                                                                 # Manifold mesh booleans and offsets
-    "meshio",                                                                     # Mesh file IO across FEM and CAD formats
-    "rtree",                                                                      # R-tree spatial index over libspatialindex
-    "small-gicp",                                                                 # Point-cloud registration
-    "trimesh",                                                                    # Triangle mesh loading, repair, and queries
-]
+
+# --- [BUILDING_PERFORMANCE]
+
 energy-simulation     = [
-    "dragonfly-core",                                                             # Dragonfly district and urban model object graph
-    "dragonfly-energy",                                                           # Dragonfly energy model aggregation and translation
-    "honeybee-core",                                                              # HBJSON base object model and validation companion
-    "honeybee-energy",                                                            # Honeybee energy model construction and simulation exchange
-    "honeybee-energy-standards",                                                  # ASHRAE 90.1 and DOE prototype standards by identifier
-    "honeybee-openstudio; sys_platform != 'win32'",                               # Honeybee to OpenStudio and EnergyPlus translation, exact openstudio pin publishes no win_amd64 cp315 wheel or sdist
-    "honeybee-standards",                                                         # Baseline construction, program, and schedule sets for Honeybee
-    "ladybug-comfort",                                                            # Comfort-model calculations
-    "ladybug-core",                                                               # Ladybug weather, units, analysis-period, and location primitives
-    "ladybug-geometry",                                                           # Ladybug planar and solid geometry primitives
-    "lbt-recipes",                                                                # Ladybug Tools recipe wrappers and simulation workflows
-    "pollination-handlers",                                                       # Pollination job handler and recipe execution adapters
-    "pvlib",                                                                      # Solar position and irradiance calculations
-    "queenbee",                                                                   # Recipe and workflow schema contract models
+    "dragonfly-core",                                                 # Dragonfly district and urban model object graph
+    "dragonfly-energy",                                               # Dragonfly energy model aggregation and translation
+    "honeybee-core",                                                  # HBJSON base object model and validation companion
+    "honeybee-energy",                                                # Honeybee energy model construction and simulation exchange
+    "honeybee-energy-standards",                                      # ASHRAE 90.1 and DOE prototype standards by identifier
+    "honeybee-openstudio; sys_platform != 'win32'",                   # Honeybee to OpenStudio and EnergyPlus translation, exact openstudio pin publishes no win_amd64 cp315 wheel or sdist
+    "honeybee-standards",                                             # Baseline construction, program, and schedule sets for Honeybee
+    "ladybug-comfort",                                                # Comfort-model calculations
+    "ladybug-core",                                                   # Ladybug weather, units, analysis-period, and location primitives
+    "ladybug-geometry",                                               # Ladybug planar and solid geometry primitives
+    "lbt-recipes",                                                    # Ladybug Tools recipe wrappers and simulation workflows
+    "pollination-handlers",                                           # Pollination job handler and recipe execution adapters
+    "pvlib",                                                          # Solar position and irradiance calculations
+    "queenbee",                                                       # Recipe and workflow schema contract models
 ]
 life-cycle-assessment = [
-    "bw-processing",                                                              # Brightway matrix data preparation
-    "bw2analyzer",                                                                # Brightway contribution and comparison analysis after calculation
-    "bw2calc",                                                                    # Brightway LCA calculation engine
-    "bw2data",                                                                    # Brightway project, database, and storage layer
-    "bw2io",                                                                      # Brightway import, export, and database ingestion
-    "epdx; sys_platform != 'linux' or platform_machine != 'aarch64'",             # EPD interchange, no release publishes a linux aarch64 wheel
-    "olca-ipc",                                                                   # openLCA IPC client for foreground and background LCA interchange
-    "openepd",                                                                    # OpenEPD declarations and PCR material-impact data
+    "bw-processing",                                                  # Brightway matrix data preparation
+    "bw2analyzer",                                                    # Brightway contribution and comparison analysis after calculation
+    "bw2calc",                                                        # Brightway LCA calculation engine
+    "bw2data",                                                        # Brightway project, database, and storage layer
+    "bw2io",                                                          # Brightway import, export, and database ingestion
+    "epdx; sys_platform != 'linux' or platform_machine != 'aarch64'", # EPD interchange, no release publishes a linux aarch64 wheel
+    "olca-ipc",                                                       # openLCA IPC client for foreground and background LCA interchange
+    "openepd",                                                        # OpenEPD declarations and PCR material-impact data
 ]
-visualization         = [
-    "altair",                                                                     # Declarative Vega-Lite charts
-    "great-tables",                                                               # Display tables for documents
-    "vegafusion",                                                                 # Server-side Vega transform and pre-transform export
-    "vl-convert-python",                                                          # Vega and Vega-Lite rendering to SVG, PNG, and PDF
+
+# --- [PUBLISHING]
+
+diagrams       = [
+    "drawpyo",                  # draw.io export
+    "drawsvg",                  # Hierarchical named-layer SVG authoring
+    "ezdxf",                    # DXF read, write, and render
+    "fast-sugiyama",            # Sugiyama layered placement
+    "grandalf",                 # Sugiyama and routed diagram layout until fast-sugiyama covers both
+    "igraph",                   # Leiden, Louvain, and Infomap community detection
+    "kiwisolver",               # Cassowary constraint layout
+    "latex2mathml",             # LaTeX-to-MathML front end for ziamath
+    "networkx",                 # Graph structures and algorithms
+    "pyelk",                    # ELK layered and orthogonal diagram layout with ports and nesting
+    "resvg-py",                 # In-process SVG-to-PNG rasterization over resvg
+    "rustworkx",                # Graph algorithms
+    "schemdraw",                # SVG schematic diagrams
+    "svgelements",              # SVG geometry, transform, and parse helpers
+    "ziafont",                  # Text to SVG glyph paths
+    "ziamath",                  # Math-to-SVG rendering
 ]
-documents             = [
-    "docxtpl",                                                                    # Template-driven docx authoring
-    "jupytext",                                                                   # Notebook round-trip text source
-    "msoffcrypto-tool",                                                           # ECMA-376 Office decrypt and encrypt
-    "nbclient",                                                                   # Headless notebook execution client
-    "nbconvert",                                                                  # Executed-notebook export to HTML and Markdown
-    "ocrmypdf",                                                                   # OCR to PDF/A with sidecar text
-    "odfpy",                                                                      # OpenDocument text, spreadsheet, and presentation writes
-    "openpyxl",                                                                   # xlsx read and write with styles
-    "papermill",                                                                  # Parameterized notebook runs
-    "pdf-oxide",                                                                  # Rust PDF extract, render, create, and forms (abi3)
-    "pdfimpose",                                                                  # Press signatures, creep, cuts, and folds
-    "pdfplumber",                                                                 # Ruled-table extraction over pdfminer.six
-    "pikepdf",                                                                    # PDF structure edits over qpdf
-    "pyhanko",                                                                    # PDF digital signing and PAdES
-    "pymupdf",                                                                    # PDF render, text extraction, and edits over MuPDF
-    "pypdf",                                                                      # Pure-Python PDF read, merge, and split
-    "pypdfium2",                                                                  # PDF rasterization over PDFium
-    "python-calamine",                                                            # xlsx, xlsb, xls, and ods reader
-    "python-docx",                                                                # docx read and write
-    "python-pptx",                                                                # pptx read and write
-    "reportlab",                                                                  # Programmatic PDF drawing and layout
-    "typst",                                                                      # Typst PDF typesetting
-    "weasyprint",                                                                 # HTML and CSS to PDF
-    "xlsxwriter",                                                                 # Streaming write-only xlsx
+documents      = [
+    "docxtpl",                  # Template-driven docx authoring
+    "jupytext",                 # Notebook round-trip text source
+    "msoffcrypto-tool",         # ECMA-376 Office decrypt and encrypt
+    "nbclient",                 # Headless notebook execution client
+    "nbconvert",                # Executed-notebook export to HTML and Markdown
+    "ocrmypdf",                 # OCR to PDF/A with sidecar text
+    "odfpy",                    # OpenDocument text, spreadsheet, and presentation writes
+    "openpyxl",                 # xlsx read and write with styles
+    "papermill",                # Parameterized notebook runs
+    "pdf-oxide",                # Rust PDF extract, render, create, and forms (abi3)
+    "pdfimpose",                # Press signatures, creep, cuts, and folds
+    "pdfplumber",               # Ruled-table extraction over pdfminer.six
+    "pikepdf",                  # PDF structure edits over qpdf
+    "pyhanko",                  # PDF digital signing and PAdES
+    "pymupdf",                  # PDF render, text extraction, and edits over MuPDF
+    "pypdf",                    # Pure-Python PDF read, merge, and split
+    "pypdfium2",                # PDF rasterization over PDFium
+    "python-calamine",          # xlsx, xlsb, xls, and ods reader
+    "python-docx",              # docx read and write
+    "python-pptx",              # pptx read and write
+    "reportlab",                # Programmatic PDF drawing and layout
+    "typst",                    # Typst PDF typesetting
+    "weasyprint",               # HTML and CSS to PDF
+    "xlsxwriter",               # Streaming write-only xlsx
 ]
-media                 = [
-    "av",                                                                         # PyAV video and audio mux and encode
-    "colour-cxf",                                                                 # CxF3 spot and spectral color exchange
-    "openexr",                                                                    # Named-channel, multipart, and tiled EXR read and write
-    "pillow",                                                                     # Image IO and WebP decoding
-    "pillow-heif",                                                                # HEVC HEIF read and write
-    "psd-tools",                                                                  # PSD read and pixel authoring
-    "pysubs2",                                                                    # Subtitle parse, convert, retime, and restyle
-    "pyvips[binary]",                                                             # Fused decode, downscale, ICC, and smartcrop over libvips
-    "rawpy",                                                                      # Camera RAW decode over LibRaw
-    "simpleidml",                                                                 # IDML package mutation and composition
+identification = [
+    "c2pa-python",              # Cross-format C2PA content credentials
+    "puremagic",                # Pure-Python format sniffer, default detection beside libmagic
+    "pyexiftool",               # Descriptive metadata read and write over exiftool binary
+    "python-barcode",           # Linear barcode generation beside Segno
+    "python-magic",             # libmagic fallback for signatures puremagic lacks
+    "segno",                    # QR and Micro-QR vector codes
+    "zxing-cpp",                # 2D matrix code encode and decode
 ]
-typography            = [
-    "blackrenderer",                                                              # COLRv1 color-glyph SVG rasterization
-    "fontbakery",                                                                 # Font QA profiles over built binaries
-    "opentype-feature-freezer",                                                   # Freeze OpenType features into default glyph set
-    "PyICU",                                                                      # ICU line breaking, bidi, and collation, built on Pixi's ICU
-    "pyphen",                                                                     # Language-aware hyphenation dictionaries
-    "python-bidi",                                                                # UAX 9 bidi reorder pass before HarfBuzz shaping
-    "uniseg",                                                                     # Unicode line, word, and grapheme segmentation
-    "vharfbuzz",                                                                  # HarfBuzz shaping QA and buffer-diff
+media          = [
+    "av",                       # PyAV video and audio mux and encode
+    "colour-cxf",               # CxF3 spot and spectral color exchange
+    "openexr",                  # Named-channel, multipart, and tiled EXR read and write
+    "pillow",                   # Image IO and WebP decoding
+    "pillow-heif",              # HEVC HEIF read and write
+    "psd-tools",                # PSD read and pixel authoring
+    "pysubs2",                  # Subtitle parse, convert, retime, and restyle
+    "pyvips[binary]",           # Fused decode, downscale, ICC, and smartcrop over libvips
+    "rawpy",                    # Camera RAW decode over LibRaw
+    "simpleidml",               # IDML package mutation and composition
 ]
-diagrams              = [
-    "drawpyo",                                                                    # draw.io export
-    "drawsvg",                                                                    # Hierarchical named-layer SVG authoring
-    "ezdxf",                                                                      # DXF read, write, and render
-    "fast-sugiyama",                                                              # Sugiyama layered placement
-    "grandalf",                                                                   # Sugiyama and routed diagram layout until fast-sugiyama covers both
-    "igraph",                                                                     # Leiden, Louvain, and Infomap community detection
-    "kiwisolver",                                                                 # Cassowary constraint layout
-    "latex2mathml",                                                               # LaTeX-to-MathML front end for ziamath
-    "networkx",                                                                   # Graph structures and algorithms
-    "pyelk",                                                                      # ELK layered and orthogonal diagram layout with ports and nesting
-    "resvg-py",                                                                   # In-process SVG-to-PNG rasterization over resvg
-    "rustworkx",                                                                  # Graph algorithms
-    "schemdraw",                                                                  # SVG schematic diagrams
-    "svgelements",                                                                # SVG geometry, transform, and parse helpers
-    "ziafont",                                                                    # Text to SVG glyph paths
-    "ziamath",                                                                    # Math-to-SVG rendering
+typography     = [
+    "blackrenderer",            # COLRv1 color-glyph SVG rasterization
+    "fontbakery",               # Font QA profiles over built binaries
+    "opentype-feature-freezer", # Freeze OpenType features into default glyph set
+    "PyICU",                    # ICU line breaking, bidi, and collation, built on Pixi's ICU
+    "pyphen",                   # Language-aware hyphenation dictionaries
+    "python-bidi",              # UAX 9 bidi reorder pass before HarfBuzz shaping
+    "uniseg",                   # Unicode line, word, and grapheme segmentation
+    "vharfbuzz",                # HarfBuzz shaping QA and buffer-diff
 ]
-identification        = [
-    "c2pa-python",                                                                # Cross-format C2PA content credentials
-    "puremagic",                                                                  # Pure-Python format sniffer, default detection beside libmagic
-    "pyexiftool",                                                                 # Descriptive metadata read and write over exiftool binary
-    "python-barcode",                                                             # Linear barcode generation beside Segno
-    "python-magic",                                                               # libmagic fallback for signatures puremagic lacks
-    "segno",                                                                      # QR and Micro-QR vector codes
-    "zxing-cpp",                                                                  # 2D matrix code encode and decode
+visualization  = [
+    "altair",                   # Declarative Vega-Lite charts
+    "great-tables",             # Display tables for documents
+    "vegafusion",               # Server-side Vega transform and pre-transform export
+    "vl-convert-python",        # Vega and Vega-Lite rendering to SVG, PNG, and PDF
 ]
 
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-default-groups           = "all"
-environments             = [
+# --- [BEHAVIOR]
+
+default-groups   = "all"
+preview-features = ["lockfile-format-check"]
+
+# --- [RESOLUTION]
+
+environments          = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'linux' and platform_machine == 'aarch64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
-required-environments    = [
+prerelease            = "allow"
+required-environments = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'linux' and platform_machine == 'aarch64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]                                                                # Each needs a wheel or source distribution of every package its markers select, else `uv lock` fails
-prerelease               = "allow"
-preview-features         = ["lockfile-format-check"]
-no-build-package         = ["epdx"]                              # `epdx` sdist lacks `project.version`
-extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
+
+# --- [BUILDS]
+
+extra-build-dependencies = { pyroscope-io = ["cmake"] } # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
+no-build-package         = ["epdx"]                     # `epdx` sdist lacks `project.version`
 
 [tool.uv.workspace]
 members = [
-    "products/cli/foundry",
     "libs/python/data/records",
     "libs/python/graphics/typography",
     "libs/python/runtime/cli",
     "libs/python/runtime/telemetry",
-    "tests/products/cli/foundry",
+    "products/cli/foundry",
     "tests/libs/python/graphics/typography",
     "tests/libs/python/runtime/telemetry",
+    "tests/products/cli/foundry",
     "tests/support/python",
     "tests/tools/refurb",
     "tools/refurb",
@@ -399,12 +427,6 @@ rasm-telemetry  = { workspace = true }
 rasm-testing    = { workspace = true }
 rasm-typography = { workspace = true }
 
-[tool.uv.config-settings-package.cachebox]
-build-args = "--features=pyo3/abi3-py39"
-
-[tool.uv.config-settings-package.manifold3d]
-"cmake.define.MANIFOLD_USE_BUILTIN_TBB" = "ON"
-
 [tool.uv.config-settings-package.pyarrow]
 "cmake.define.PYARROW_GANDIVA" = "OFF" # PyPI wheels omit Gandiva, which Arrow's conda configuration enables
 
@@ -418,15 +440,8 @@ platforms = [{ platform = "osx-arm64", macos = "27.0" }, "linux-64", "linux-aarc
 no-default-feature = true
 
 [tool.pixi.environments.default.dependencies]
-hdf5               = "2.2.*"
-icu                = "78.*"   # 79 fails the solve: every libxml2 build libpdal-core 2.10 requires links ICU below 79
-libpdal-core       = "2.10.*"
-llvm-openmp        = "*"
-libmagic           = "*"
-libpango           = "*"
-libharfbuzz        = "*"
-fontconfig         = "*"
-libglib            = "*"
+# --- [ARROW]
+
 libarrow           = "25.*"
 libarrow-acero     = "25.*"
 libarrow-compute   = "25.*"
@@ -435,86 +450,264 @@ libarrow-flight    = "25.*"
 libarrow-substrait = "25.*"
 libparquet         = "25.*"
 
+# --- [TEXT]
+
+fontconfig  = "*"
+icu         = "78.*" # Every conda-forge libxml2 build links ICU below 79 or refuses ICU, so 79 fails the solve
+libglib     = "*"
+libharfbuzz = "*"
+libpango    = "*"
+
+# --- [FORMATS]
+
+hdf5         = "2.2.*"
+libmagic     = "*"
+libpdal-core = "2.10.*"
+
+# --- [OPENMP]
+
+llvm-openmp = "*"
+
+# --- [ACTIVATION]
+
 [tool.pixi.environments.default.target.unix.activation.env]
 CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
-HDF5_DIR          = "$CONDA_PREFIX"
 CPATH             = "$CONDA_PREFIX/include"
+HDF5_DIR          = "$CONDA_PREFIX"
 LDFLAGS           = "-L$CONDA_PREFIX/lib -Wl,-rpath,$CONDA_PREFIX/lib"
 
-[tool.pixi.environments.default.target.osx.tasks]
-python = { cmd = "python", env = { DYLD_FALLBACK_LIBRARY_PATH = "$CONDA_PREFIX/lib:$HOME/lib:/usr/local/lib:/lib:/usr/lib" } } # `pixi run` loses activation `DYLD_*` rows through the SIP-protected `/usr/bin/env` that captures them, and a set variable replaces dyld's default fallback list, restated after the Pixi folder
-
-[tool.pixi.environments.default.target.linux.tasks]
-python = { cmd = "python", env = { LD_LIBRARY_PATH = "$CONDA_PREFIX/lib" } } # An activation row reaches every `pixi run` child ahead of system libraries, sdist builds included
-
 [tool.pixi.environments.default.target.win.activation.env]
-ICU_VERSION                = "78"
 CMAKE_PREFIX_PATH          = "%CONDA_PREFIX%\\Library"
 HDF5_DIR                   = "%CONDA_PREFIX%\\Library"
+ICU_VERSION                = "78"
 INCLUDE                    = "%CONDA_PREFIX%\\Library\\include;%INCLUDE%"
 LIB                        = "%CONDA_PREFIX%\\Library\\lib;%LIB%"
 WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 
+# --- [TASKS]
+
+[tool.pixi.environments.default.target.linux.tasks]
+python = { cmd = "python", env = { LD_LIBRARY_PATH = "$CONDA_PREFIX/lib" } } # An activation row reaches every `pixi run` child ahead of system libraries, sdist builds included
+
+[tool.pixi.environments.default.target.osx.tasks]
+python = { cmd = "python", env = { DYLD_FALLBACK_LIBRARY_PATH = "$CONDA_PREFIX/lib:$HOME/lib:/usr/local/lib:/lib:/usr/lib" } } # `pixi run` loses activation `DYLD_*` rows through the SIP-protected `/usr/bin/env` that captures them, and a set variable replaces dyld's default fallback list, restated after the Pixi folder
+
+# --- [MYPY] -----------------------------------------------------------------------------
+
+[tool.mypy]
+# --- [DISCOVERY]
+
+cache_dir              = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
+exclude_gitignore      = true
+explicit_package_bases = true                                # Each run names modules from its working folder, the member root holding the `rasm` namespace folder
+plugins                = ["pydantic.mypy"]                   # Typed `__init__` and `model_construct` of each pydantic model, frozen models under a settings base, and no explicit `Any` in a synthesized signature
+
+# --- [STRICTNESS]
+
+disallow_any_explicit    = true
+disallow_any_unimported  = true
+strict                   = true
+strict_equality_for_none = true
+warn_unreachable         = true
+
+# --- [ERROR_CODES]
+
+disable_error_code = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type", "var-annotated"] # ty owns each defect these codes report except `var-annotated`, which mypy raises on comprehension variables of each lambda a generic call infers, ruff PGH003 owns suppressions without a code
+enable_error_code  = ["exhaustive-match", "redundant-self", "truthy-bool"]                                                                                                                                                                                                                                                        # ty owns `deprecated`, `missing-override-decorator`, `truthiness-test-of-iterable`, and `unused-awaitable`
+
+# --- [MODULES]
+
+overrides             = [{ module = ["fontTools.*", "ots.*", "pathops.*", "pvlib.*", "sqlite_vec", "sysexits", "ttfautohint.*", "ufo2ft.*", "uharfbuzz.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }]
+untyped_calls_exclude = ["_skimage2.transform._geometric.ProjectiveTransform", "fontTools", "OpenImageIO.ColorConfig", "opentelemetry.distro", "opentelemetry.exporter.otlp.proto.http.trace_exporter", "opentelemetry.instrumentation.structlog", "opentelemetry.sdk._configuration", "opentelemetry.sdk._logs._internal.export.in_memory_log_exporter", "opentelemetry.test.mock_test_classes", "ots", "pvlib", "ufo2ft"] # Definitions these packages ship unannotated, OpenImageIO types `ColorConfig.get_cicp` only in releases newer than the one Blender bundles
+
+[tool.pydantic-mypy]
+init_forbid_extra             = true
+init_typed                    = true
+warn_required_dynamic_aliases = true
+
+# --- [REFURB] ---------------------------------------------------------------------------
+
+[tool.refurb]
+disable    = [
+    # --- [RUFF_CODES]
+
+    "FURB101",    # Ruff runs FURB101
+    "FURB103",    # Ruff runs FURB103
+    "FURB105",    # Ruff runs FURB105
+    "FURB110",    # Ruff runs FURB110
+    "FURB116",    # Ruff runs FURB116
+    "FURB136",    # Ruff runs FURB136
+    "FURB140",    # Starmap suggestion ignores comprehension `if` filters, Ruff's FURB140 checks them
+    "FURB152",    # Ruff runs FURB152
+    "FURB154",    # Ruff runs FURB154
+    "FURB156",    # Ruff runs FURB156
+    "FURB157",    # Ruff runs FURB157
+    "FURB161",    # Ruff runs FURB161
+    "FURB162",    # Ruff runs FURB162
+    "FURB163",    # Ruff runs FURB163
+    "FURB164",    # Ruff runs FURB164
+    "FURB166",    # Ruff runs FURB166
+    "FURB167",    # Ruff runs FURB167
+    "FURB168",    # Ruff runs FURB168
+    "FURB169",    # Ruff runs FURB169
+    "FURB171",    # Ruff runs FURB171
+    "FURB177",    # Ruff runs FURB177
+    "FURB180",    # Ruff runs FURB180
+    "FURB188",    # Ruff runs FURB188
+    "FURB189",    # Ruff runs FURB189
+    "FURB192",    # Ruff runs FURB192
+
+    # --- [RUFF_EQUIVALENTS]
+
+    "FURB104",    # Ruff PTH109 reports the form
+    "FURB108",    # Ruff PLR1714 reports the form
+    "FURB111",    # Ruff PLW0108 reports the form
+    "FURB112",    # Ruff C408 reports the form
+    "FURB114",    # Ruff SIM208 reports the form
+    "FURB117",    # Ruff PTH123 reports the form
+    "FURB119",    # Ruff RUF010 reports the form
+    "FURB121",    # Ruff SIM101 reports the form
+    "FURB125",    # Ruff PLR1711 reports the form
+    "FURB128",    # Ruff PLR1712 reports the form
+    "FURB130",    # Ruff SIM118 reports the form
+    "FURB134",    # Ruff UP033 reports the form
+    "FURB135",    # Ruff PERF102 reports the form
+    "FURB137",    # Ruff C400, C401, C409, and C419 report the form
+    "FURB138",    # Ruff PERF401 reports the form
+    "FURB141",    # Ruff PTH110 reports the form
+    "FURB144",    # Ruff PTH107 and PTH108 report the form
+    "FURB146",    # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
+    "FURB147",    # Ruff PTH118 reports the form, FURB147 rejects `posixpath.join` on archive and URL paths
+    "FURB150",    # Ruff PTH102 and PTH103 report the form
+    "FURB153",    # Ruff PTH201 reports the form
+    "FURB155",    # Ruff PTH116 and PTH202 through PTH205 report the form
+    "FURB160",    # Ruff PLW0127 reports the form
+    "FURB176",    # Ruff DTZ003 and DTZ004 report the form
+
+    # --- [REJECTED_REWRITES]
+
+    "FURB107",    # Rewrites to `contextlib.suppress` `banned-api` rejects, Ruff SIM105 and S110 report swallowed exceptions
+    "FURB109",    # Rewrites to a tuple membership Ruff PLR6201 rejects
+    "FURB118",    # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
+    "FURB124",    # Chained `x is y is z` compares outer operands mypy comparison-overlap rejects when types differ
+    "FURB126",    # Dropping a trailing `case _` arm fails mypy exhaustive-match
+    "FURB173",    # Merged literal `{...} | d` infers its own value type, mypy rejects it at target parameter type
+
+    # --- [CHANGED_RESULTS]
+
+    "FURB100",    # Arbitrary slices of `str(path)` need not remove its suffix, `Path.with_suffix` changes the result
+    "FURB106",    # `expandtabs` differs from its replacement unless tabs lead the string
+    "FURB151",    # `Path.touch` keeps an existing file's content, the replaced `open` truncates it
+    "FURB172",    # `Path.suffix` differs from `endswith` for multi-part extensions and dotfiles
+    "FURB183",    # `str(value)` calls `__str__`, formatting calls `__format__`
+    "FURB184",    # Matches names with no type or binding check, chaining drops annotations and reused bindings
+    "FURB186",    # In-place sorting changes list identity and aliases, functional code retains `sorted`
+    "FURB187",    # In-place reversal changes list identity and aliases, Ruff's reverse-copy rule preserves a copied result
+    "FURB190",    # Unbound `str` methods lose receiver overrides and reject bytes accepted by an untyped lambda
+
+    # --- [RECEIVER_TYPES]
+
+    "FURB113",    # Named receiver types do not prove exact builtin list mutation
+    "FURB132",    # Named receiver types do not prove exact builtin mutation, hashing, or equality
+    "FURB142",    # Named receiver types do not prove exact builtin set mutation
+
+    # --- [RASM_CHECKS]
+
+    "FURB120",    # Crashes on argument lists the mypy cache drops (`'FuncItem' arguments undefined`), RASM102 reports same-module restated defaults
+    "FURB179",    # Reports `reduce(add, ...)` over arithmetic values as list concatenation, RASM107 owns `chain` flattening per Python version
+]
+enable_all = true
+quiet      = true
+
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
-preview            = true
-line-length        = 200
-src                = ["products/cli/*", "libs/python/*/*", "tests/support/python", "tools/refurb"]
-namespace-packages = ["products/cli/*/rasm", "libs/python/*/*/rasm", "tools/refurb/rasm", "tests/support/python/rasm"] # PEP 420 `rasm` folders, read as packages so each module resolves under `rasm.<name>`
 format             = { exclude = ["*.md"], docstring-code-format = true, skip-magic-trailing-comma = true }
+line-length        = 200
+namespace-packages = ["products/cli/*/rasm", "libs/python/*/*/rasm", "tools/refurb/rasm", "tests/support/python/rasm"] # PEP 420 `rasm` folders, read as packages so each module resolves under `rasm.<name>`
+preview            = true
+src                = ["products/cli/*", "libs/python/*/*", "tests/support/python", "tools/refurb"]
 
 [tool.ruff.lint]
 select                    = ["ALL"]
 ignore                    = [
+    # --- [FORMATTER]
+
     "missing-trailing-comma",                                                                                                                                                                    # `skip-magic-trailing-comma` removes commas COM812 adds
-    "too-many-public-methods",                                                                                                                                                                   # Member counts push one-caller helper extraction
+
+    # --- [COUNTS]
+
+    "complex-structure",                                                                                                                                                                         # Complexity scores push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
     "too-many-arguments",                                                                                                                                                                        # Argument counts push one-caller parameter records and wrappers
-    "too-many-positional-arguments",                                                                                                                                                             # Positional counts do not establish a domain record or keyword contract
-    "too-many-return-statements",                                                                                                                                                                # Return counts push one-caller helper extraction, `match` arms return per case
     "too-many-branches",                                                                                                                                                                         # Branch counts push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
     "too-many-locals",                                                                                                                                                                           # Local counts push one-caller helper extraction
+    "too-many-positional-arguments",                                                                                                                                                             # Positional counts do not establish a domain record or keyword contract
+    "too-many-public-methods",                                                                                                                                                                   # Member counts push one-caller helper extraction
+    "too-many-return-statements",                                                                                                                                                                # Return counts push one-caller helper extraction, `match` arms return per case
     "too-many-statements",                                                                                                                                                                       # Statement counts push one-caller helper extraction
     "too-many-statements-in-try-clause",                                                                                                                                                         # Statement counts do not establish exception scope for native effects and typed refusals
-    "complex-structure",                                                                                                                                                                         # Complexity scores push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
-    "raw-string-in-exception",                                                                                                                                                                   # Moves message into a local only the raise reads
+
+    # --- [EXTRACTION]
+
     "f-string-in-exception",                                                                                                                                                                     # Moves message into a local only the raise reads
-    "raise-vanilla-args",                                                                                                                                                                        # Pushes an exception class per message, raises stay for defects
-    "typing-only-first-party-import",                                                                                                                                                            # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
-    "typing-only-third-party-import",                                                                                                                                                            # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
-    "typing-only-standard-library-import",                                                                                                                                                       # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
-    "suspicious-subprocess-import",                                                                                                                                                              # Reports every `subprocess` import, process boundaries call it
-    "missing-copyright-notice",                                                                                                                                                                  # Files hold no license header
-    "float-equality-comparison",                                                                                                                                                                 # Authored controls compare against exact identity values (`0.0`, `1.0`)
-    "zip-without-explicit-strict",                                                                                                                                                               # `strict=True` asserts lengths the code constructs
-    "batched-without-explicit-strict",                                                                                                                                                           # `strict=True` asserts lengths the code constructs
-    "subprocess-without-shell-equals-true",                                                                                                                                                      # Reports every argument-vector `subprocess` call
-    "start-process-with-partial-path",                                                                                                                                                           # Commands name tools mise places on `PATH`
-    "os-path-abspath",                                                                                                                                                                           # `os.path.abspath` drops `..` without following symlinks, a combination no `pathlib` member has
-    "function-uses-loop-variable",                                                                                                                                                               # Reports closures `Result` and `Option` combinators call before the loop advances
-    "reimplemented-operator",                                                                                                                                                                    # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
     "lambda-assignment",                                                                                                                                                                         # Pushes a `def` statement for a callback each `match` arm binds
-    "compare-with-tuple",                                                                                                                                                                        # PLR1714 reports the form as a set membership PLR6201 accepts
-    "blocking-http-call-in-async-function",                                                                                                                                                      # `banned-api` rejects every client it names
+    "magic-value-comparison",                                                                                                                                                                    # Moves a compared literal into a constant only that comparison reads
+    "raise-vanilla-args",                                                                                                                                                                        # Pushes an exception class per message, raises stay for defects
+    "raw-string-in-exception",                                                                                                                                                                   # Moves message into a local only the raise reads
+
+    # --- [IMPORTS]
+
+    "typing-only-first-party-import",                                                                                                                                                            # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+    "typing-only-standard-library-import",                                                                                                                                                       # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+    "typing-only-third-party-import",                                                                                                                                                            # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+
+    # --- [PROCESSES]
+
+    "start-process-with-partial-path",                                                                                                                                                           # Commands name tools mise places on `PATH`
+    "subprocess-without-shell-equals-true",                                                                                                                                                      # Reports every argument-vector `subprocess` call
+    "suspicious-subprocess-import",                                                                                                                                                              # Reports every `subprocess` import, process boundaries call it
+
+    # --- [BANNED_API]
+
     "blocking-http-call-httpx-in-async-function",                                                                                                                                                # `banned-api` rejects `httpx`
+    "blocking-http-call-in-async-function",                                                                                                                                                      # `banned-api` rejects every client it names
     "blocking-sleep-in-async-function",                                                                                                                                                          # `banned-api` rejects `time.sleep`
-    "request-without-timeout",                                                                                                                                                                   # `banned-api` rejects every client it names
     "no-explicit-stacklevel",                                                                                                                                                                    # `banned-api` rejects `warnings.warn`
-    "multiple-starts-ends-with",                                                                                                                                                                 # refurb FURB102 owns the form
-    "repeated-append",                                                                                                                                                                           # Nominal receiver types do not prove exact builtin list mutation
-    "len-test",                                                                                                                                                                                  # refurb FURB115 owns the form
-    "for-loop-writes",                                                                                                                                                                           # refurb FURB122 owns the form
-    "readlines-in-for",                                                                                                                                                                          # refurb FURB129 owns the form
+    "reimplemented-operator",                                                                                                                                                                    # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
+    "request-without-timeout",                                                                                                                                                                   # `banned-api` rejects every client it names
+
+    # --- [REFURB]
+
     "delete-full-slice",                                                                                                                                                                         # refurb FURB131 covers attribute receivers
+    "for-loop-writes",                                                                                                                                                                           # refurb FURB122 owns the form
+    "hashlib-digest-hex",                                                                                                                                                                        # refurb FURB181 covers attribute receivers
+    "len-test",                                                                                                                                                                                  # refurb FURB115 owns the form
+    "multiple-starts-ends-with",                                                                                                                                                                 # refurb FURB102 owns the form
+    "readlines-in-for",                                                                                                                                                                          # refurb FURB129 owns the form
+    "slice-copy",                                                                                                                                                                                # refurb FURB145 owns the form
+    "true-false-comparison",                                                                                                                                                                     # refurb FURB149 reports `is` and `==` on bool-typed operands alone
+    "unnecessary-enumerate",                                                                                                                                                                     # refurb FURB148 owns the form, comprehensions included
+
+    # --- [RECEIVER_TYPES]
+
     "check-and-remove-from-set",                                                                                                                                                                 # Nominal receiver types do not prove exact builtin mutation, hashing, or equality
     "for-loop-set-mutations",                                                                                                                                                                    # Nominal receiver types do not prove exact builtin set mutation
-    "slice-copy",                                                                                                                                                                                # refurb FURB145 owns the form
-    "unnecessary-enumerate",                                                                                                                                                                     # refurb FURB148 owns the form, comprehensions included
-    "true-false-comparison",                                                                                                                                                                     # refurb FURB149 reports `is` and `==` on bool-typed operands alone
-    "hashlib-digest-hex",                                                                                                                                                                        # refurb FURB181 covers attribute receivers
-    "undefined-name",                                                                                                                                                                            # ty `unresolved-reference` owns undefined names
+    "repeated-append",                                                                                                                                                                           # Nominal receiver types do not prove exact builtin list mutation
+
+    # --- [TYPE_CHECKERS]
+
     "any-type",                                                                                                                                                                                  # mypy `disallow_any_explicit` owns explicit `Any` in every position
-    "magic-value-comparison",                                                                                                                                                                    # Moves a compared literal into a constant only that comparison reads
+    "undefined-name",                                                                                                                                                                            # ty `unresolved-reference` owns undefined names
+
+    # --- [FORMS]
+
+    "batched-without-explicit-strict",                                                                                                                                                           # `strict=True` asserts lengths the code constructs
+    "compare-with-tuple",                                                                                                                                                                        # PLR1714 reports the form as a set membership PLR6201 accepts
+    "float-equality-comparison",                                                                                                                                                                 # Authored controls compare against exact identity values (`0.0`, `1.0`)
+    "function-uses-loop-variable",                                                                                                                                                               # Reports closures `Result` and `Option` combinators call before the loop advances
+    "missing-copyright-notice",                                                                                                                                                                  # Files hold no license header
+    "os-path-abspath",                                                                                                                                                                           # `os.path.abspath` drops `..` without following symlinks, a combination no `pathlib` member has
+    "zip-without-explicit-strict",                                                                                                                                                               # `strict=True` asserts lengths the code constructs
 ]
 flake8-bandit             = { check-typed-exception = true }
 flake8-boolean-trap       = { extend-allowed-calls = ["expression.Ok", "expression.Some", "iter"] }
@@ -523,21 +716,26 @@ flake8-pytest-style       = { parametrize-names-type = "csv", raises-extend-requ
 flake8-type-checking      = { runtime-evaluated-base-classes = ["msgspec.Struct"] }
 isort                     = { combine-as-imports = true, force-sort-within-sections = true, order-by-type = false, split-on-trailing-comma = false }
 pycodestyle               = { max-line-length = 300 }
-pydocstyle                = { convention = "google" }
 pydoclint                 = { ignore-one-line-docstrings = true }
-task-tags                 = ["---", "TODO", "FIXME", "XXX"]                                                                                                                                      # `# --- [<LABEL>]` dividers open with `---`, commented-out-code skips comments opening with a task tag
+pydocstyle                = { convention = "google" }
 pylint                    = { allow-dunder-method-names = ["__name__", "__version__"] }                                                                                                          # Protocol properties type module attributes, which ty matches to a property alone
+task-tags                 = ["---", "TODO", "FIXME", "XXX"]                                                                                                                                      # `# --- [<LABEL>]` dividers open with `---`, commented-out-code skips comments opening with a task tag
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**"                                                             = ["assert", "implicit-namespace-package"]                       # pytest imports each test file by rootdir path, a test root holds no package
-"tests/libs/python/runtime/telemetry/conftest.py"                         = ["banned-api", "pytest-fixture-autouse"]                       # Every case runs over the root logger and structlog configuration it restores, `structlog.reset_defaults` among them, so no case leaks process logging state
-"tests/libs/python/runtime/telemetry/test_logger.py"                      = ["banned-api"]                                                 # Cases configure structlog process-wide and empty the root logger, the state `telemetry.logger` stands apart from
-"tests/libs/python/runtime/telemetry/test_process.py"                     = ["banned-api", "import-private-name"]                          # Cases log through third-party stdlib loggers and read the logger class the scope restores, and opentelemetry-sdk holds its log exporters in private `_logs` alone
+# --- [TESTS]
+
+"**/tests/**"                                         = ["assert", "implicit-namespace-package"] # pytest imports each test file by rootdir path, a test root holds no package
+"tests/libs/python/runtime/telemetry/conftest.py"     = ["banned-api", "pytest-fixture-autouse"] # Every case runs over the root logger and structlog configuration it restores, `structlog.reset_defaults` among them, so no case leaks process logging state
+"tests/libs/python/runtime/telemetry/test_logger.py"  = ["banned-api"]                           # Cases configure structlog process-wide and empty the root logger, the state `telemetry.logger` stands apart from
+"tests/libs/python/runtime/telemetry/test_process.py" = ["banned-api", "import-private-name"]    # Cases log through third-party stdlib loggers and read the logger class the scope restores, and opentelemetry-sdk holds its log exporters in private `_logs` alone
+
+# --- [LIBRARIES]
+
+"libs/python/blender/extension/rasm/extension/data/_lifecycle/reports.py" = ["import-private-name"]                                        # opentelemetry-semantic-conventions holds `process.exit.code` in `_incubating` alone
+"libs/python/blender/rendering/rasm/rendering/_batch/supervision.py"      = ["import-private-name"]                                        # opentelemetry-api holds `EnvironmentSetter` in private `_envcarrier` alone
 "libs/python/runtime/telemetry/rasm/telemetry/_entries.py"                = ["banned-api"]                                                 # Holds the stdlib logger under each bound logger, the `logging.getLogger` call every other module leaves to it
 "libs/python/runtime/telemetry/rasm/telemetry/export.py"                  = ["import-private-name"]                                        # opentelemetry-api holds the entry point lookup the SDK caches in private `_importlib_metadata` alone
 "libs/python/runtime/telemetry/rasm/telemetry/process.py"                 = ["banned-api", "import-private-name", "private-member-access"] # Composition root the `logging` rows name, opentelemetry-api holds environment carriers and its cached entry point lookup, the SDK its exporter name resolution, and system-metrics its default table in private members alone
-"libs/python/blender/extension/rasm/extension/data/_lifecycle/reports.py" = ["import-private-name"]                                        # opentelemetry-semantic-conventions holds `process.exit.code` in `_incubating` alone
-"libs/python/blender/rendering/rasm/rendering/_batch/supervision.py"      = ["import-private-name"]                                        # opentelemetry-api holds `EnvironmentSetter` in private `_envcarrier` alone
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-lazy             = ["abc", "os", "sys"] # Interpreter startup loads them before any module runs
@@ -564,24 +762,53 @@ require-lazy         = [
 ]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"__future__".msg                         = "Delete the import"
-"asyncio".msg                            = "Use anyio"
+# --- [BLENDER]
+
 "bpy.utils.register_classes_factory".msg = "Call bpy.utils.register_class per class on the release stack"
-"collections.namedtuple".msg             = "Use frozen msgspec.Struct"
-"concurrent.futures".msg                 = "Use anyio.to_thread.run_sync or anyio.to_process.run_sync"
-"concurrent.interpreters".msg            = "Use anyio.to_interpreter.run_sync"
-"contextlib.suppress".msg                = "Return expression.Result"
-"dataclasses.make_dataclass".msg         = "Use frozen msgspec.Struct"
-"http.client".msg                        = "Use httpx2.Client or httpx2.AsyncClient"
-"httpx".msg                              = "Use httpx2.Client or httpx2.AsyncClient"
-"json.JSONDecoder".msg                   = "Use msgspec.json.decode with type="
-"json.JSONEncoder".msg                   = "Use msgspec.json.encode"
-"json.decoder.JSONDecoder".msg           = "Use msgspec.json.decode with type="
-"json.dump".msg                          = "Use msgspec.json.encode"
-"json.dumps".msg                         = "Use msgspec.json.encode"
-"json.encoder.JSONEncoder".msg           = "Use msgspec.json.encode"
-"json.load".msg                          = "Use msgspec.json.decode with type="
-"json.loads".msg                         = "Use msgspec.json.decode with type="
+
+# --- [CONCURRENCY]
+
+"asyncio".msg                 = "Use anyio"
+"concurrent.futures".msg      = "Use anyio.to_thread.run_sync or anyio.to_process.run_sync"
+"concurrent.interpreters".msg = "Use anyio.to_interpreter.run_sync"
+"time.sleep".msg              = "Use await anyio.sleep"
+
+# --- [DEPRECATIONS]
+
+"typing_extensions.deprecated".msg = "Delete replaced API"
+"warnings.deprecated".msg          = "Delete replaced API"
+
+# --- [ENVIRONMENT]
+
+"nt.environ".msg           = "Validate os.environ once at boundary into frozen settings"
+"ntpath.expandvars".msg    = "Read validated settings field"
+"os.getenv".msg            = "Read validated settings field"
+"os.getenvb".msg           = "Read validated settings field"
+"os.path.expandvars".msg   = "Read validated settings field"
+"posix.environ".msg        = "Validate os.environ once at boundary into frozen settings"
+"posixpath.expandvars".msg = "Read validated settings field"
+
+# --- [HTTP]
+
+"http.client".msg    = "Use httpx2.Client or httpx2.AsyncClient"
+"httpx".msg          = "Use httpx2.Client or httpx2.AsyncClient"
+"requests".msg       = "Use httpx2.Client or httpx2.AsyncClient"
+"urllib.request".msg = "Use httpx2.Client or httpx2.AsyncClient"
+"urllib3".msg        = "Use httpx2.Client or httpx2.AsyncClient"
+
+# --- [JSON]
+
+"json.JSONDecoder".msg         = "Use msgspec.json.decode with type="
+"json.JSONEncoder".msg         = "Use msgspec.json.encode"
+"json.decoder.JSONDecoder".msg = "Use msgspec.json.decode with type="
+"json.dump".msg                = "Use msgspec.json.encode"
+"json.dumps".msg               = "Use msgspec.json.encode"
+"json.encoder.JSONEncoder".msg = "Use msgspec.json.encode"
+"json.load".msg                = "Use msgspec.json.decode with type="
+"json.loads".msg               = "Use msgspec.json.decode with type="
+
+# --- [LOGGING]
+
 "logging.Logger".msg                     = "Use structlog.typing.FilteringBoundLogger"
 "logging.LoggerAdapter".msg              = "Use structlog.get_logger(__name__).bind"
 "logging.RootLogger".msg                 = "Use structlog.typing.FilteringBoundLogger"
@@ -608,162 +835,68 @@ require-lazy         = [
 "logging.shutdown".msg                   = "Delete call, atexit runs it"
 "logging.warn".msg                       = "Use structlog.get_logger(__name__)"
 "logging.warning".msg                    = "Use structlog.get_logger(__name__)"
-"nt.environ".msg                         = "Validate os.environ once at boundary into frozen settings"
-"ntpath.expandvars".msg                  = "Read validated settings field"
-"operator.attrgetter".msg                = "Use lambda, typeshed types result as Any"
-"operator.itemgetter".msg                = "Use lambda, typeshed types result as Any"
-"operator.methodcaller".msg              = "Use lambda, typeshed types result as Any"
-"os.getenv".msg                          = "Read validated settings field"
-"os.getenvb".msg                         = "Read validated settings field"
-"os.path.expandvars".msg                 = "Read validated settings field"
-"posix.environ".msg                      = "Validate os.environ once at boundary into frozen settings"
-"posixpath.expandvars".msg               = "Read validated settings field"
-"requests".msg                           = "Use httpx2.Client or httpx2.AsyncClient"
 "structlog.configure".msg                = "Configure structlog once in the program entry module"
 "structlog.configure_once".msg           = "Configure structlog once in the program entry module"
 "structlog.reset_defaults".msg           = "Configure structlog once in the program entry module"
 "structlog.stdlib.recreate_defaults".msg = "Configure structlog once in the program entry module"
-"sys.__excepthook__".msg                 = "Log exception with exc_info="
-"threading.__excepthook__".msg           = "Log exception with exc_info="
-"time.sleep".msg                         = "Use await anyio.sleep"
-"traceback.print_exc".msg                = "Call logger.exception() in handler"
-"traceback.print_exception".msg          = "Log exception with exc_info="
-"traceback.print_last".msg               = "Log exception with exc_info="
-"traceback.print_list".msg               = "Log captured exception with exc_info="
-"traceback.print_stack".msg              = "Log with stack_info=True"
-"traceback.print_tb".msg                 = "Log exception with exc_info="
-"typing.NamedTuple".msg                  = "Use frozen msgspec.Struct"
-"typing.cast".msg                        = "Type value at source or narrow with TypeIs"
-"typing_extensions.NamedTuple".msg       = "Use frozen msgspec.Struct"
-"typing_extensions.cast".msg             = "Type value at source or narrow with TypeIs"
-"typing_extensions.deprecated".msg       = "Delete replaced API"
-"urllib.request".msg                     = "Use httpx2.Client or httpx2.AsyncClient"
-"urllib3".msg                            = "Use httpx2.Client or httpx2.AsyncClient"
-"warnings.deprecated".msg                = "Delete replaced API"
-"warnings.warn".msg                      = "Return expression.Result"
-"warnings.warn_explicit".msg             = "Return expression.Result"
+
+# --- [RECORDS]
+
+"collections.namedtuple".msg       = "Use frozen msgspec.Struct"
+"dataclasses.make_dataclass".msg   = "Use frozen msgspec.Struct"
+"typing.NamedTuple".msg            = "Use frozen msgspec.Struct"
+"typing_extensions.NamedTuple".msg = "Use frozen msgspec.Struct"
+
+# --- [RESULTS]
+
+"contextlib.suppress".msg    = "Return expression.Result"
+"warnings.warn".msg          = "Return expression.Result"
+"warnings.warn_explicit".msg = "Return expression.Result"
+
+# --- [TRACEBACKS]
+
+"sys.__excepthook__".msg        = "Log exception with exc_info="
+"threading.__excepthook__".msg  = "Log exception with exc_info="
+"traceback.print_exc".msg       = "Call logger.exception() in handler"
+"traceback.print_exception".msg = "Log exception with exc_info="
+"traceback.print_last".msg      = "Log exception with exc_info="
+"traceback.print_list".msg      = "Log captured exception with exc_info="
+"traceback.print_stack".msg     = "Log with stack_info=True"
+"traceback.print_tb".msg        = "Log exception with exc_info="
+
+# --- [TYPING]
+
+"__future__".msg             = "Delete the import"
+"operator.attrgetter".msg    = "Use lambda, typeshed types result as Any"
+"operator.itemgetter".msg    = "Use lambda, typeshed types result as Any"
+"operator.methodcaller".msg  = "Use lambda, typeshed types result as Any"
+"typing.cast".msg            = "Type value at source or narrow with TypeIs"
+"typing_extensions.cast".msg = "Type value at source or narrow with TypeIs"
 
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
-environment = { python-platform = "all" }
-src         = { exclude = ["libs/python/blender", "products/apps/blender", "tests/libs/python/blender"] } # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
 analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }                                           # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
+environment = { python-platform = "all" }
 rules       = { all = "error", unsound-return = "ignore", unused-type-ignore-comment = "ignore" }         # mypy `no-any-return` owns `Any` returned through a typed boundary, `unused-ignore` unused `type: ignore` comments
-
-# --- [MYPY] -----------------------------------------------------------------------------
-
-[tool.mypy]
-cache_dir                = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
-strict                   = true
-warn_unreachable         = true
-exclude_gitignore        = true
-disallow_any_explicit    = true
-disallow_any_unimported  = true
-strict_equality_for_none = true
-explicit_package_bases   = true                                                                                                                                                                                                                                                                                                                                                                                                # Each run names modules from its working folder, the member root holding the `rasm` namespace folder
-plugins                  = ["pydantic.mypy"]                                                                                                                                                                                                                                                                                                                                                                                   # Typed `__init__` and `model_construct` of each pydantic model, frozen models under a settings base, and no explicit `Any` in a synthesized signature
-untyped_calls_exclude    = ["_skimage2.transform._geometric.ProjectiveTransform", "fontTools", "OpenImageIO.ColorConfig", "opentelemetry.distro", "opentelemetry.exporter.otlp.proto.http.trace_exporter", "opentelemetry.instrumentation.structlog", "opentelemetry.sdk._configuration", "opentelemetry.sdk._logs._internal.export.in_memory_log_exporter", "opentelemetry.test.mock_test_classes", "ots", "pvlib", "ufo2ft"] # Definitions these packages ship unannotated, OpenImageIO types `ColorConfig` methods from 3.2.2, after the release Blender bundles
-enable_error_code        = ["exhaustive-match", "redundant-self", "truthy-bool"]                                                                                                                                                                                                                                                                                                                                               # ty owns `deprecated`, `missing-override-decorator`, `truthiness-test-of-iterable`, and `unused-awaitable`
-disable_error_code       = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type", "var-annotated"]                                                                                        # ty owns each defect these codes report except `var-annotated`, which mypy raises on comprehension variables of each lambda a generic call infers, ruff PGH003 owns suppressions without a code
-overrides                = [{ module = ["fontTools.*", "mocket.*", "ots.*", "pathops.*", "pvlib.*", "sqlite_vec", "sysexits", "ttfautohint.*", "ufo2ft.*", "uharfbuzz.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }]
-
-[tool.pydantic-mypy]
-init_typed                    = true
-init_forbid_extra             = true
-warn_required_dynamic_aliases = true
-
-# --- [REFURB] ---------------------------------------------------------------------------
-
-[tool.refurb]
-enable_all = true
-quiet      = true
-disable    = [
-    "FURB100",    # Arbitrary slices of `str(path)` need not remove its suffix, `Path.with_suffix` changes the result
-    "FURB101",    # Ruff runs FURB101
-    "FURB103",    # Ruff runs FURB103
-    "FURB104",    # Ruff PTH109 reports the form
-    "FURB105",    # Ruff runs FURB105
-    "FURB106",    # `expandtabs` differs from its replacement unless tabs lead the string
-    "FURB107",    # Rewrites to `contextlib.suppress` `banned-api` rejects, Ruff SIM105 and S110 report swallowed exceptions
-    "FURB108",    # Ruff PLR1714 reports the form
-    "FURB109",    # Rewrites to a tuple membership Ruff PLR6201 rejects
-    "FURB110",    # Ruff runs FURB110
-    "FURB111",    # Ruff PLW0108 reports the form
-    "FURB112",    # Ruff C408 reports the form
-    "FURB113",    # Named receiver types do not prove exact builtin list mutation
-    "FURB114",    # Ruff SIM208 reports the form
-    "FURB116",    # Ruff runs FURB116
-    "FURB117",    # Ruff PTH123 reports the form
-    "FURB118",    # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
-    "FURB119",    # Ruff RUF010 reports the form
-    "FURB120",    # Crashes on argument lists the mypy cache drops (`'FuncItem' arguments undefined`), RASM102 reports same-module restated defaults
-    "FURB121",    # Ruff SIM101 reports the form
-    "FURB124",    # Chained `x is y is z` compares outer operands mypy comparison-overlap rejects when types differ
-    "FURB125",    # Ruff PLR1711 reports the form
-    "FURB126",    # Dropping a trailing `case _` arm fails mypy exhaustive-match
-    "FURB128",    # Ruff PLR1712 reports the form
-    "FURB130",    # Ruff SIM118 reports the form
-    "FURB132",    # Named receiver types do not prove exact builtin mutation, hashing, or equality
-    "FURB134",    # Ruff UP033 reports the form
-    "FURB135",    # Ruff PERF102 reports the form
-    "FURB136",    # Ruff runs FURB136
-    "FURB137",    # Ruff C400, C401, C409, and C419 report the form
-    "FURB138",    # Ruff PERF401 reports the form
-    "FURB140",    # Starmap suggestion ignores comprehension `if` filters, Ruff's FURB140 checks them
-    "FURB141",    # Ruff PTH110 reports the form
-    "FURB142",    # Named receiver types do not prove exact builtin set mutation
-    "FURB144",    # Ruff PTH107 and PTH108 report the form
-    "FURB146",    # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
-    "FURB147",    # Ruff PTH118 reports the form, FURB147 rejects `posixpath.join` on archive and URL paths
-    "FURB150",    # Ruff PTH102 and PTH103 report the form
-    "FURB151",    # `Path.touch` keeps an existing file's content, the replaced `open` truncates it
-    "FURB152",    # Ruff runs FURB152
-    "FURB153",    # Ruff PTH201 reports the form
-    "FURB154",    # Ruff runs FURB154
-    "FURB155",    # Ruff PTH116 and PTH202 through PTH205 report the form
-    "FURB156",    # Ruff runs FURB156
-    "FURB157",    # Ruff runs FURB157
-    "FURB160",    # Ruff PLW0127 reports the form
-    "FURB161",    # Ruff runs FURB161
-    "FURB162",    # Ruff runs FURB162
-    "FURB163",    # Ruff runs FURB163
-    "FURB164",    # Ruff runs FURB164
-    "FURB166",    # Ruff runs FURB166
-    "FURB167",    # Ruff runs FURB167
-    "FURB168",    # Ruff runs FURB168
-    "FURB169",    # Ruff runs FURB169
-    "FURB171",    # Ruff runs FURB171
-    "FURB172",    # `Path.suffix` differs from `endswith` for multi-part extensions and dotfiles
-    "FURB173",    # Merged literal `{...} | d` infers its own value type, mypy rejects it at target parameter type
-    "FURB176",    # Ruff DTZ003 and DTZ004 report the form
-    "FURB177",    # Ruff runs FURB177
-    "FURB179",    # Reports `reduce(add, ...)` over arithmetic values as list concatenation, RASM107 owns `chain` flattening per Python version
-    "FURB180",    # Ruff runs FURB180
-    "FURB183",    # `str(value)` calls `__str__`, formatting calls `__format__`
-    "FURB184",    # Matches names with no type or binding check, chaining drops annotations and reused bindings
-    "FURB186",    # In-place sorting changes list identity and aliases, functional code retains `sorted`
-    "FURB187",    # In-place reversal changes list identity and aliases, Ruff's reverse-copy rule preserves a copied result
-    "FURB188",    # Ruff runs FURB188
-    "FURB189",    # Ruff runs FURB189
-    "FURB190",    # Unbound `str` methods lose receiver overrides and reject bytes accepted by an untyped lambda
-    "FURB192",    # Ruff runs FURB192
-]
+src         = { exclude = ["libs/python/blender", "products/apps/blender", "tests/libs/python/blender"] } # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
 
 # --- [VULTURE] --------------------------------------------------------------------------
 
 [tool.vulture]
-ignore_names      = ["[!_]*", "_*_"] # Public names are API, `_x_` and `__x__` names are hooks the runtime calls
-ignore_decorators = ["@*.register"]  # `functools.singledispatch` calls registered handlers through its dispatcher
 exclude           = [".venv/"]       # Third-party packages of a virtual environment a member folder holds
+ignore_decorators = ["@*.register"]  # `functools.singledispatch` calls registered handlers through its dispatcher
+ignore_names      = ["[!_]*", "_*_"] # Public names are API, `_x_` and `__x__` names are hooks the runtime calls
+
+# --- [COVERAGE] -------------------------------------------------------------------------
+
+[tool.coverage]
+report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\("] }
+run    = { branch = true, parallel = true, relative_files = true, data_file = ".artifacts/coverage/.coverage" }
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 
 [tool.pytest]
-strict                    = true
-cache_dir                 = "$PYTEST_CACHE_DIR"
-collect_imported_tests    = false
-empty_parameter_set_mark  = "fail_at_collect"
 addopts                   = [
     "--disable-plugin-autoload",                # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
     "-p",
@@ -787,15 +920,13 @@ addopts                   = [
     "--disable-socket",
     "--allow-unix-socket",
 ]
+cache_dir                 = "$PYTEST_CACHE_DIR"
+collect_imported_tests    = false
+empty_parameter_set_mark  = "fail_at_collect"
 filterwarnings            = ["error"]
+strict                    = true
 timeout                   = "30"
 tmp_path_retention_policy = "failed"            # Keeps the folders of failed tests alone, as the SQLite fixture keeps the file of a failed test
-
-# --- [COVERAGE] -------------------------------------------------------------------------
-
-[tool.coverage]
-run    = { branch = true, parallel = true, relative_files = true, data_file = ".artifacts/coverage/.coverage" }
-report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\("] }
 
 # --- [TOMBI] ----------------------------------------------------------------------------
 

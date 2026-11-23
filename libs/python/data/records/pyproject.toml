@@ -3,7 +3,7 @@
 [project]
 name              = "rasm-records"
 version           = "0.1.0"
-description       = "Fault records and results, record field domains, record files and stores, and keyed record trees"
+description       = "Record model every Rasm Python package builds on: fault results, field domains, record files and stores, and keyed record trees"
 readme            = "README.md"
 license           = "MIT"
 license-files     = ["LICENSE"]
