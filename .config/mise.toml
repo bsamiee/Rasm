@@ -211,7 +211,7 @@ pkl                                                                          = "
 pnpm                                                                         = "latest"
 pulumi                                                                       = "latest"
 "pypi:check-jsonschema"                                                      = { python = "3.15", version = "latest" }
-"pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = "v1"
+"pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = { os = ["macos"], version = "v1" }
 "pypi:mcp-for-blender"                                                       = { os = ["macos"], version = "latest" }
 resvg                                                                        = "latest"
 ripgrep                                                                      = "latest"
