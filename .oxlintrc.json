@@ -227,7 +227,7 @@
                 "no-empty-pattern": ["error", { "allowObjectPatternsAsParameters": true }],
                 "vitest/consistent-test-it": ["error", { "fn": "it" }],
                 "vitest/no-importing-vitest-globals": "off", // Contradicts `prefer-importing-vitest-globals`
-                "vitest/no-standalone-expect": ["error", { "additionalTestBlockFunctions": ["it", "it.each", "it.for"] }],
+                "vitest/no-standalone-expect": ["error", { "additionalTestBlockFunctions": ["it", "it.each", "it.for", "it.effect", "it.effect.each", "it.live", "it.live.each"] }],
                 "vitest/prefer-called-times": "off", // Contradicts `vitest/prefer-called-once`
                 "vitest/prefer-expect-assertions": ["error", { "onlyFunctionsWithExpectInLoop": true, "onlyFunctionsWithExpectInCallback": true }], // Tests asserting in a loop or callback alone, where a skipped callback leaves the test vacuous
                 "vitest/prefer-lowercase-title": ["error", { "ignore": ["describe"] }],
