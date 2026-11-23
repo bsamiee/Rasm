@@ -12,6 +12,15 @@ public enum Source: Codable, Hashable, Sendable {
     case element(id: Element.ID)
 }
 
+public struct LongestSide: RawRepresentable, Decodable, Sendable {
+    public let rawValue: Int
+
+    public init?(rawValue: Int) {
+        guard rawValue > 0 else { return nil }
+        self.rawValue = rawValue
+    }
+}
+
 public struct Shot: Encodable, Sendable {
     public let file: URL
     public let width: Int
@@ -37,8 +46,8 @@ private func transparent(_ image: CGImage) -> Bool {
 }
 
 extension CGImage {
-    public func preview(longestSide: Int, in context: CIContext) throws(ApplicationFailure) -> Data {
-        let factor = min(1, CGFloat(longestSide) / CGFloat(max(width, height)))
+    public func preview(longestSide: LongestSide, in context: CIContext) throws(ApplicationFailure) -> Data {
+        let factor = min(1, CGFloat(longestSide.rawValue) / CGFloat(max(width, height)))
         guard let space = colorSpace,
             let encoded = context.pngRepresentation(
                 of: CIImage(cgImage: self).transformed(by: CGAffineTransform(scaleX: factor, y: factor), highQualityDownsample: true),
@@ -96,7 +105,7 @@ extension Instance {
         _ source: Source?,
         to folder: URL,
         longestSide: Int? = nil,
-        preview: Int? = nil,
+        preview: LongestSide? = nil,
     ) async throws(ApplicationFailure) -> [CGWindowID: Result<Shot, ApplicationFailure>] {
         do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) } catch {
             throw ApplicationFailure(subject: folder.path(percentEncoded: false), reason: .host(error as NSError))

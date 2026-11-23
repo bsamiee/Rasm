@@ -72,6 +72,15 @@ struct PreviewTests {
         let answer = try JSONDecoder().decode(Previewed.self, from: try JSONEncoder().encode(value))
         expectNoDifference([CGSize(width: answer.width, height: answer.height), try #require(CIImage(data: answer.preview)).extent.size], [size, previewed])
     }
+
+    @Test(arguments: [0, -60])
+    func refusesALongestSideBelowOnePixel(longestSide: Int) throws {
+        let refusal = #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(Request.self, from: Data(#"{"preview":{"file":"file:///tmp/preview.png","longestSide":\#(longestSide)}}"#.utf8))
+        }
+        let path: [String]? = if case .dataCorrupted(let context)? = refusal { context.codingPath.map(\.stringValue) } else { nil }
+        expectNoDifference(path, ["preview", "longestSide"])
+    }
 }
 
 @Suite
