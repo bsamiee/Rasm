@@ -9,10 +9,6 @@ import { Document, type Node, Pair, parseAllDocuments, Scalar, visit, YAMLMap, Y
 
 type Kind = keyof typeof KINDS;
 type Table = Readonly<Record<Kind, ReadonlyMap<string, Pair>>>;
-interface Shared {
-    readonly table: Table;
-    readonly variants: Record.ReadonlyRecord<string, Table>;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -84,10 +80,6 @@ const unanchored = (doc: Document) => {
     visit(flat, { Scalar: plain, Collection: plain });
     return flat.value;
 };
-const shared = (header: unknown): Shared => {
-    const variants: unknown = header instanceof YAMLMap ? header.get(SELECTOR) : undefined;
-    return { table: table(header), variants: Record.fromEntries(Array.getSomes((variants instanceof YAMLMap ? [...variants.pairs()] : []).map((pair) => Option.map(named(pair.key), (key) => [key, table(pair.value)] as const)))) };
-};
 
 // --- [RESOLUTION]
 
@@ -149,14 +141,14 @@ const gathered = (kind: Kind, schema: YAMLMap['schema'], items: readonly Pair[])
                     : new YAMLMap(schema, [...gatheredPairs]),
             ),
     });
-const written = Effect.fnUntraced(function* (catalog: Shared, language: string, source: string, doc: Document, index: number) {
+const written = Effect.fnUntraced(function* (base: Table, catalog: Record.ReadonlyRecord<string, Table>, language: string, source: string, doc: Document, index: number) {
     const map = yield* Effect.fromOption(
         Option.liftPredicate(doc.value, (value) => value instanceof YAMLMap),
         () => new Cause.IllegalArgumentError(`${source} document ${index + 1} holds no mapping`),
     );
     const selector = map.get(SELECTOR);
-    const variants = yield* Effect.forEach(selector instanceof YAMLSeq ? Array.getSomes([...selector].map(named)) : [], (name) => Effect.fromOption(Record.get(catalog.variants, name), () => new Cause.IllegalArgumentError(`${source} ${SELECTOR} holds no ${name}`)));
-    const definitions = variants.reduce(merged, catalog.table);
+    const variants = yield* Effect.forEach(selector instanceof YAMLSeq ? Array.getSomes([...selector].map(named)) : [], (name) => Effect.fromOption(Record.get(catalog, name), () => new Cause.IllegalArgumentError(`${source} ${SELECTOR} holds no ${name}`)));
+    const definitions = variants.reduce(merged, base);
     const local = table(map);
     const pairs = [...map.pairs()].filter((pair) => !Option.contains(named(pair.key), SELECTOR));
     const kept = closure(definitions, local, pairs, new Set());
@@ -184,8 +176,10 @@ const build = Effect.gen(function* () {
     const failures = docs.flatMap(Struct.get('errors')).map(({ message }) => `${source}: ${message}`);
     yield* Array.match(failures, { onEmpty: () => Effect.void, onNonEmpty: (messages) => new Cause.IllegalArgumentError(messages.join('\n')) });
     const header = Option.filter(Array.head(docs), ({ value }) => !(value instanceof YAMLMap && value.has('id')));
-    const common = shared(Option.getOrUndefined(Option.map(header, unanchored)));
-    const texts = yield* Effect.forEach(Option.isSome(header) ? docs.slice(1) : docs, (doc, index) => written(common, language, source, doc, index + Number(Option.isSome(header))));
+    const common = Option.getOrUndefined(Option.map(header, unanchored));
+    const selectable: unknown = common instanceof YAMLMap ? common.get(SELECTOR) : undefined;
+    const [base, catalog] = [table(common), Record.fromEntries(Array.getSomes((selectable instanceof YAMLMap ? [...selectable.pairs()] : []).map((pair) => Option.map(named(pair.key), (key) => [key, table(pair.value)] as const))))];
+    const texts = yield* Effect.forEach(Option.isSome(header) ? docs.slice(1) : docs, (doc, index) => written(base, catalog, language, source, doc, index + Number(Option.isSome(header))));
     yield* fs.writeFileString(output, texts.join('---\n'));
 });
 runMain(Effect.provide(build, layer));
