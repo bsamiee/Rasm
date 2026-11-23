@@ -427,15 +427,15 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
-            "description": "Web styling and components: modern CSS, CSS architecture, browser support facts, and React Aria Components",
+            "version": "0.2.0",
+            "description": "Web styling and components: CSS, browser support facts, and React Aria Components",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
             "interface": {
                 "displayName": "Web",
-                "shortDescription": "Web styling and components: modern CSS, CSS architecture, browser support facts, and React Aria Components",
+                "shortDescription": "Web styling and components: CSS, browser support facts, and React Aria Components",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"
