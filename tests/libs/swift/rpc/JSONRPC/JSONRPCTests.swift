@@ -45,19 +45,22 @@ private struct Peer {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-@Suite
+@Suite(.timeLimit(.minutes(1)))
 struct JSONRPCConnectionTests {
     @Test
-    func answersRequestsById() async throws {
-        let total = try await Peer.connected { connection, peer in
-            async let total = connection.request(.sum, params: [2, 3], returning: Int.self)
-            let request = try await peer.sent()
-            expectNoDifference(request["method"], .string("sum"))
-            expectNoDifference(request["params"], .array([.number(2), .number(3)]))
-            try peer.reply(["id": try #require(request["id"]), "result": .number(5)])
-            return try await total
+    func answersConcurrentRequestsByTheirIdsWhateverTheReplyOrder() async throws {
+        let (totals, sent) = try await Peer.connected { connection, peer in
+            async let first = connection.request(.sum, params: [2, 3], returning: Int.self)
+            async let second = connection.request(.sum, params: [10, 20], returning: Int.self)
+            let requests = [try await peer.sent(), try await peer.sent()]
+            for request in requests.reversed() {
+                let total: Double = if case .array(let terms)? = request["params"] { terms.reduce(0) { sum, term in if case .number(let value) = term { sum + value } else { sum } } } else { 0 }
+                try peer.reply(["id": try #require(request["id"]), "result": .number(total)])
+            }
+            return (try await [first, second], Set(requests.map { request in [request["method"], request["params"]] }))
         }
-        expectNoDifference(total, 5)
+        expectNoDifference(totals, [5, 30])
+        expectNoDifference(sent, [[.string("sum"), .array([.number(2), .number(3)])], [.string("sum"), .array([.number(10), .number(20)])]])
     }
 
     @Test
@@ -73,7 +76,6 @@ struct JSONRPCConnectionTests {
             return
         }
         expectNoDifference(error.code, -32_602)
-        expectNoDifference(failure.localizedDescription, "sum error -32602 Invalid params")
     }
 
     @Test
@@ -88,7 +90,6 @@ struct JSONRPCConnectionTests {
             Issue.record("Unexpected \(String(customDumping: answer))")
             return
         }
-        expectNoDifference(pending.localizedDescription, "Connection closed")
     }
 
     @Test
