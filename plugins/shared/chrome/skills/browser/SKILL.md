@@ -12,14 +12,14 @@ Covers the owner's signed-in Chrome, driven through CLI `chrome-devtools`.
 One `chrome-devtools` daemon per user attaches to running Chrome, and every Claude Code and Codex session shares it through `/tmp/chrome-devtools-mcp-<uid>/server.sock`:
 
 ```bash
-chrome-devtools status | rg -q -- --autoConnect || chrome-devtools start --autoConnect --categoryExtensions --experimentalIncludeAllPages \
+chrome-devtools status | rg -q -- --auto-connect || chrome-devtools start --autoConnect --categoryExtensions --experimentalIncludeAllPages \
     --experimentalDevtools --workspace=/ --no-usage-statistics --no-performance-crux
 ```
 
 - A command with no daemon running starts one with default flags on a scratch headless Chrome, so the line above runs before a session's first command
 - Pages keep the owner's sign-ins, extensions, and settings, and `--output-format json` prints each result as JSON
 - Chrome serves CDP once the owner enables remote debugging at `chrome://inspect/#remote-debugging`
-- Chrome asks the owner to Allow each new CDP connection and remembers no answer, so `start` runs only when `status` lacks `--autoConnect`
+- Chrome asks the owner to Allow each new CDP connection and remembers no answer, so `start` runs only when `status` lacks `--auto-connect`, the spelling `status` prints
 - Connections last until the daemon stops, Chrome quits, or `restartBrowser()` runs, and the next command waits on a new Allow dialog
 - `Could not connect to Chrome` -> ask the owner to open Chrome and enable remote debugging
 
