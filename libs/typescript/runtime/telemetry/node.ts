@@ -10,7 +10,7 @@ import type { Instrumentation } from '@opentelemetry/instrumentation';
 import { EnvironmentGetter, EnvironmentSetter } from '@opentelemetry/propagator-env-carrier';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { ATTR_PROCESS_PID } from '@opentelemetry/semantic-conventions/incubating';
-import { Array, Cause, Config, Context, Effect, ErrorReporter, Exit, Formatter, Function, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaTransformation, String, Struct, Tracer, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, ErrorReporter, Exit, Formatter, type Function, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaTransformation, String, Struct, Tracer, UndefinedOr } from 'effect';
 import envPaths from 'env-paths';
 import { createStream, type FileSize, type Interval, type OptionsWithoutRotate } from 'rotating-file-stream';
 import { errorReporter, exporters, formatLogRecord, layerMinimumLogLevels, layerWithoutDefaultLogger } from '#/otlp';
@@ -43,7 +43,6 @@ const Rotation = Schema.Struct({
     ]),
     maxFiles: Schema.Int.check(Schema.isGreaterThan(0)),
 }) satisfies Schema.Schema<{ readonly size: FileSize; readonly interval: Interval; readonly maxFiles: number }>;
-const ROTATION = Rotation.make({ size: '8M', interval: '1d', maxFiles: 7 });
 
 const Level = Schema.String.pipe(Schema.decode(SchemaTransformation.toLowerCase()), Schema.decode(SchemaTransformation.capitalize()), Schema.decodeTo(Schema.Literals(LogLevel.values)));
 const Target = Schema.Literals(['file', 'stderr']);
@@ -61,7 +60,7 @@ class TelemetryError extends Schema.TaggedError<TelemetryError, { readonly brand
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const Baggage = Context.Reference<ReturnType<typeof propagation.getBaggage>>('@rasm/telemetry/node/Baggage', { defaultValue: Function.constUndefined });
+const Baggage = Context.Reference('@rasm/telemetry/node/Baggage', { defaultValue: () => propagation.getBaggage(ROOT_CONTEXT) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -84,7 +83,7 @@ const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger
     const stream = yield* Effect.acquireRelease(
         Effect.try({
             try: () =>
-                createStream(filename, { ...ROTATION, ...options })
+                createStream(filename, { size: '8M', interval: '1d', maxFiles: 7, ...options })
                     .on('open', (path) => {
                         MutableRef.set(opened, Option.some(path));
                     })
@@ -161,7 +160,7 @@ const layerFromEnvironment = Layer.unwrap(
         return Layer.merge(UndefinedOr.match(trace.getSpanContext(context), { onUndefined: () => Layer.empty, onDefined: flow(makeExternalSpan, Layer.parentSpan) }), Layer.succeed(Baggage, propagation.getBaggage(context)));
     }),
 );
-const layerNodeSdk = Effect.fnUntraced(function* (resource: Parameters<typeof started>[1], instrumentations?: Parameters<typeof started>[2]) {
+const layerNodeSdk = Effect.fnUntraced(function* (resource: Parameters<typeof started>[1], instrumentations?: Function.LazyArg<Instrumentation[]>) {
     const named = yield* exporters;
     return Object.values(named).every(Array.isReadonlyArrayEmpty)
         ? Layer.empty
@@ -195,7 +194,7 @@ const layerErrorReported = Layer.effectDiscard(
             : Effect.void,
     ),
 );
-const layerNode = ({ resource, file, instrumentations }: { readonly resource: Parameters<typeof layerNodeSdk>[0]; readonly file?: readonly [filename: string, options: Parameters<typeof toRotatingFile>[2]]; readonly instrumentations?: Parameters<typeof layerNodeSdk>[1] }) => {
+const layerNode = ({ resource, file, instrumentations }: { readonly resource: Parameters<typeof layerNodeSdk>[0]; readonly file?: readonly [filename: string, options: OptionsWithoutRotate<Interval, FileSize, FileSize>]; readonly instrumentations?: Function.LazyArg<Instrumentation[]> }) => {
     const json = Logger.map(formatLogRecord({ [ATTR_SERVICE_NAME]: resource.serviceName, [ATTR_SERVICE_VERSION]: resource.serviceVersion, [ATTR_PROCESS_PID]: process.pid }), Formatter.formatJson);
     return Layer.merge(layerUncaughtExceptionMonitor, layerErrorReported).pipe(
         Layer.provideMerge(layerNodeSdk(resource, instrumentations)),
