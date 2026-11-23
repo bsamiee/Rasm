@@ -157,7 +157,7 @@ extension AppleEventValue {
     public init(_ descriptor: NSAppleEventDescriptor, in dictionary: ScriptingDictionary) {
         let opaque: () -> Self = { .opaque(type: descriptor.descriptorType, data: descriptor.data, value: descriptor.stringValue) }
         func exact<Value: FixedWidthInteger & ConvertibleFromBytes>(_: Value.Type) -> Self {
-            Double(exactly: descriptor.data.bytes.load(fromByteOffset: 0, as: Value.self)).map(Self.number) ?? opaque()
+            (descriptor.data.count == MemoryLayout<Value>.size ? Double(exactly: descriptor.data.bytes.load(fromByteOffset: 0, as: Value.self)) : nil).map(Self.number) ?? opaque()
         }
         func specifier() -> Self? {
             guard let want = descriptor.forKeyword(AEKeyword(keyAEDesiredClass)),
