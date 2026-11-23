@@ -56,17 +56,19 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
         .filter((input) => !input.endsWith(RESOLVED)),
 ];
 
-const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
+const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>, stamp: Option.Option<Readonly<Record<'root' | 'name' | 'hash', string>>>): readonly Part[] => {
     const { file, root, plists, entitled, manifest, bins, whole, shipped } = local;
+    const stamped = Option.filter(stamp, (held) => held.root === root);
     const modules = manifest.targets.filter((module) => module.product_memberships.length > 0 && module.name !== manifest.name);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
-    const inputs = [...sources(local, described), join('{workspaceRoot}', '.swift-version'), ...INPUTS];
+    const inputs = [...sources(local, described), ...INPUTS];
     const build = ['swift', 'build', '--package-path', root, ...SWIFTPM] as const;
     const test = ['swift', 'test', '--package-path', root, ...SWIFTPM] as const;
     const lcov = Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info'));
     const covered = [bins.codecov, ...Option.toArray(lcov)];
     const written = (folder: string) => (whole ? manifest.products.map(({ name }) => join('{workspaceRoot}', folder, name)) : []);
+    const released = [...written(bins.release), ...Option.toArray(Option.map(stamped, ({ name }) => join('{workspaceRoot}', bins.release, name)))];
     const report = Option.map(lcov, (at) => ({ report: { profiles: [join(dirname(bins.codecov), 'default.profdata')], objects: Array.map(suites, ({ name }) => join(bins.debug, `${name}.xctest`, 'Contents', 'MacOS', name)), file: at } }));
     const coverage = { runs: [[...test, '--enable-code-coverage']], outputs: covered.map((at) => join('{workspaceRoot}', at)), ...Option.getOrUndefined(report) };
     const testing = { cache: true, dependsOn: ['build--swift-build'], inputs, outputs: covered.map((_, index) => `{options.outputs.${index}}`), configurations: { coverage } };
@@ -83,8 +85,8 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
                     cache: true,
                     inputs,
                     options: { outputs: written(bins.debug) },
-                    outputs: written(bins.debug).map((_, index) => `{options.outputs.${index}}`),
-                    configurations: { release: { runs: [[...build, '--configuration', 'release']], outputs: written(bins.release) } },
+                    outputs: released.map((_, index) => `{options.outputs.${index}}`),
+                    configurations: { release: { runs: [[...build, '--configuration', 'release'], ...Option.toArray(Option.map(stamped, ({ name, hash }) => ['sh', '-c', 'printf %s "$0" > "$1"', hash, join(bins.release, name)] as const))], outputs: released } },
                     ...(manifest.products.some(({ name }) => shipped.some((entry) => matchesGlob(relative(root, join(bins.release, name)), entry))) && { defaultConfiguration: 'release' }),
                 },
             ),

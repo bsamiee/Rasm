@@ -6,3 +6,12 @@ COLIMA_HOME        = "{{ config_root }}/.cache/colima"
 DOCKER_HOST        = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
 GHIDRA_PROJECT_DIR = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
 SDKROOT            = '{{ exec(command="xcrun --show-sdk-path 2>/dev/null || true", cache_duration="1h") }}'
+
+# --- [DEPS] -----------------------------------------------------------------------------
+
+[deps.nx-apple]
+depends = ["pnpm"]
+dir     = "products/developer/nx/apple/analyzer"
+outputs = [".build/out/Products/Release/nx-apple-analyzer", ".build/out/Products/Release/nx-apple-analyzer.hash"]
+run     = "nx build @rasm/nx-apple-darwin-arm64"
+sources = ["Package.resolved", "Package.swift", "Sources/**/*.swift"]

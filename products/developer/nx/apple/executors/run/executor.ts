@@ -5,8 +5,7 @@ import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { batched, executor, spawned, Words } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Function, HashSet, Option, Predicate, Record, Schema, Stream } from 'effect';
-import { CommandLine } from 'effect/process';
-import { ran } from '#/targets';
+import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -53,8 +52,7 @@ const lcov = Effect.fnUntraced(function* ({ profiles, objects, results }: NonNul
 }, Effect.scoped);
 
 const commands = Effect.fnUntraced(function* ({ runs, applications = [], report, dryRun: dry = false, __unparsed__: words = [] }: Run, root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const stated = yield* configured;
+    const [fs, spawner, stated] = yield* Effect.all([FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner, configured]);
     const reported = Option.filter(Option.fromUndefinedOr(report), () => !dry);
     const cleared = Record.map(
         Record.filter(env, (_, name) => name.startsWith('NX_') || name === 'LERNA_PACKAGE_NAME'),
@@ -65,7 +63,10 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], report,
     const success = yield* Effect.reduce(
         runs,
         (): boolean => true,
-        (passed, invocation) => (passed && !dry ? Effect.map(ran(Array.appendAll(invocation, words), { cwd: root, env: { ...cleared, ...stated } }), (code) => code === 0) : Effect.as(dry ? Effect.logInfo(`Would run ${CommandLine.display(invocation)}`) : Effect.void, passed)),
+        (passed, invocation) =>
+            passed && !dry
+                ? Effect.map(spawner.exitCode(ChildProcess.make(Array.headNonEmpty(invocation), Array.appendAll(Array.tailNonEmpty(invocation), words), { cwd: root, env: { ...cleared, ...stated }, extendEnv: true, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })), (code) => code === 0)
+                : Effect.as(dry ? Effect.logInfo(`Would run ${CommandLine.display(invocation)}`) : Effect.void, passed),
     );
     yield* Effect.transposeOption(
         Option.map(

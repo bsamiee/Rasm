@@ -3,16 +3,9 @@ import type { TargetConfiguration } from '@nx/devkit';
 import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record, Schema } from 'effect';
+import type { Run } from '#/executors/run/executor';
 import { RESOLVED } from '#/swift-package';
 import { APPCAST, ATTACH, INPUTS, NOTARY, type Options, type Part, PLUGIN, sequenced, tokened } from '#/targets';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Runs = readonly (readonly [string, ...string[]])[];
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const DERIVED = { profiles: 'Build/ProfileData/*/Coverage.profdata', results: 'Logs/Test/*.xcresult' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -40,7 +33,7 @@ class Analyzed extends Schema.Opaque<Analyzed, unknown>()(Schema.fromJsonString(
 const xcodeParts = (options: Options, file: string, container: Analyzed['containers'][number], inputs: readonly string[], built: string, destinations: (roots: readonly string[]) => readonly string[], packaged: (at: string) => Option.Option<string>, data: string): Part => {
     const workspace = extname(built) === '.xcworkspace';
     const lock = join(built, workspace ? 'xcshareddata/swiftpm/Package.resolved' : 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved');
-    const flags = [workspace ? '-workspace' : '-project', built, ...(options.trustPackages === true ? ['-skipMacroValidation', '-skipPackagePluginValidation'] : [])];
+    const flags = [workspace ? '-workspace' : '-project', built, '-skipMacroValidation', '-skipPackagePluginValidation'];
     const name = basename(container.path, extname(container.path));
     const cloned = join(data, 'xcode-packages', container.path);
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
@@ -48,9 +41,10 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const locals = Array.dedupe(Array.getSomes(container.projects.map(packaged)));
     const seed = Array.head(Array.getSomes(container.projects.map((at) => Option.as(packaged(at), join(at, RESOLVED)))));
     const archives = Array.getSomes(schemes.map(({ name: scheme, archive }) => Option.map(Option.fromUndefinedOr(archive), (held) => ({ scheme, ...held }))));
-    const output = (scheme: string) => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, scheme));
     const archived = Array.getSomes(
-        archives.map(({ scheme, configuration }) => Option.map(output(scheme), (folder) => ({ configuration, folder, archive: join(folder, `${scheme}.xcarchive`), run: [...invoke('archive', scheme, ['-archivePath', join(folder, `${scheme}.xcarchive`)]), '-configuration', configuration] }))),
+        archives.map(({ scheme, configuration }) =>
+            Option.map(Option.fromUndefinedOr(options.outputPath), (at) => ({ folder: join(at, scheme), archive: join(at, scheme, `${scheme}.xcarchive`), run: invoke('archive', scheme, ['-archivePath', join(at, scheme, `${scheme}.xcarchive`), '-configuration', configuration]) })),
+        ),
     );
     const referenced = container.buildFiles
         .filter((at) => relative(dirname(container.path), at).startsWith('..'))
@@ -58,28 +52,20 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
         .flatMap((input) => [input, join(input, '**/*')]);
     const read = Array.dedupe([join('{projectRoot}', '**/*'), ...inputs, ...referenced, ...tokened(lock), ...INPUTS]);
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
-    const runs = schemes
-        .filter(({ tests, packages }) => tests && !packages)
-        .flatMap((scheme) =>
-            (scheme.plans.length === 0 ? [Option.none<string>()] : scheme.plans.map(Option.some)).map((plan) =>
-                invoke(
-                    'test',
-                    scheme.name,
-                    Option.toArray(plan).flatMap((testPlan) => ['-testPlan', testPlan]),
-                ),
-            ),
-        );
+    const runs = schemes.filter(({ tests, packages }) => tests && !packages).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
     const derived = Option.orElse(Option.fromUndefinedOr(options.derivedDataPath), () => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, 'DerivedData')));
-    const report = Option.all({ file: Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info')), folder: derived }).pipe(Option.map(({ file: at, folder }) => ({ profiles: [join(folder, DERIVED.profiles)], results: [join(folder, DERIVED.results)], file: at })));
+    const report = Option.all({ file: Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info')), folder: derived }).pipe(
+        Option.map(({ file: at, folder }) => ({ profiles: [join(folder, 'Build/ProfileData/*/Coverage.profdata')], results: [join(folder, 'Logs/Test/*.xcresult')], file: at })),
+    );
     const covered = Option.toArray(Option.map(report, ({ file: at }) => at));
-    const builds = (): Runs => Array.flatMap(schemes, (scheme) => (scheme.packages ? destinations(scheme.containers).map((platform) => ['-destination', `generic/platform=${platform}`]) : [[]]).map((destination) => invoke('build', scheme.name, destination)));
+    const builds: Run['runs'] = schemes.flatMap((scheme) => (scheme.packages ? destinations(scheme.containers).map((platform) => ['-destination', `generic/platform=${platform}`]) : [[]]).map((destination) => invoke('build', scheme.name, destination)));
     const installs = archives.map(({ scheme, configuration }) => invoke('install', scheme, ['-configuration', configuration, 'DSTROOT=$(LOCAL_APPS_DIR)', 'INSTALL_PATH=/']));
     const launches = Array.dedupe(Array.getSomes(schemes.map(({ launch }) => Option.fromUndefinedOr(launch))));
-    const modes = (planned: (configuration: Option.Option<string>) => Runs): Partial<TargetConfiguration> => ({
-        configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned(Option.some(configuration)).map((run) => [...run, '-configuration', configuration]) }]),
+    const modes = (planned: Run['runs']): Partial<TargetConfiguration> => ({
+        configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned.map((run) => [...run, '-configuration', configuration]) }]),
         ...(launches.length === 1 ? Record.fromIterableWith(launches, (launch) => ['defaultConfiguration', launch.toLowerCase()] as const) : {}),
     });
-    const testing = modes(() => runs);
+    const testing = modes(runs);
     const profiled = {
         runs: runs.map((run) => [...run, '-enableCodeCoverage', 'YES', ...Option.toArray(derived).flatMap((folder) => ['-derivedDataPath', folder])]),
         outputs: covered.map((at) => join('{workspaceRoot}', at)),
@@ -89,7 +75,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
         ...(schemes.length > 0 && {
             build: {
                 xcodebuild: sequenced(
-                    builds(),
+                    builds,
                     { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild build, pack--ditto archiving the schemes with installed products', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
                     { cache: true, dependsOn: ['^build--*'], inputs: read, ...modes(builds) },
                 ),
@@ -98,10 +84,8 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
             upgrade: {
                 xcodebuild: sequenced(
                     [
-                        ...Option.match(seed, {
-                            onNone: () => [['rm', '-rf', join(cloned, 'workspace-state.json'), join(cloned, 'checkouts'), lock] as const],
-                            onSome: (from) => [['rm', '-rf', join(cloned, 'workspace-state.json'), join(cloned, 'checkouts')] as const, ['cp', from, lock] as const],
-                        }),
+                        ['rm', '-rf', join(cloned, 'workspace-state.json'), join(cloned, 'checkouts'), ...(Option.isNone(seed) ? [lock] : [])],
+                        ...Option.toArray(Option.map(seed, (from) => ['cp', from, lock] as const)),
                         ...schemes.slice(0, 1).map((scheme) => ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', cloned, '-scheme', scheme.name] as const),
                     ],
                     {

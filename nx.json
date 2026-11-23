@@ -17,8 +17,7 @@
             "plugin": "@rasm/nx-apple",
             "options": {
                 "outputPath": ".artifacts/apple/{projectName}",
-                "coveragePath": ".artifacts/coverage/{projectName}",
-                "trustPackages": true
+                "coveragePath": ".artifacts/coverage/{projectName}"
             }
         },
         {
