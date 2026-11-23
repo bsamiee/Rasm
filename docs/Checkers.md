@@ -16,7 +16,10 @@ Owners of language checker settings:
 ## [02]-[RULE_SELECTION]
 
 Checker behavior that decides a switch or a rule row:
-- PMD, `check-jsonschema`, Squawk, and Stylelint exit nonzero on any finding with no switch
+- PMD, `check-jsonschema`, and Squawk exit nonzero on any finding with no switch
+- Stylelint exits 0 on findings a rule reports at `warning` severity, and `--max-warnings 0` fails them
+- Stylelint exits 0 on a deprecated rule it reports as a Node `DeprecationWarning`, and `NODE_OPTIONS=--throw-deprecation` fails every Node deprecation of a run
+- Stylelint caches each style file without its reference files, and `--no-cache` overrides a config turning `cache` on
 - Clippy documents its `restriction` group as unfit to enable whole, and its lints join by name
 - `@rasm/nx-cargo` runs each `cargo deny` check with a table in `.config/deny.toml`
 - `cargo doc` applies `[workspace.lints.rustdoc]`, and `cargo clippy` skips it

@@ -61,8 +61,10 @@ const Scanned = Schema.fromJsonString(Schema.Struct({ pattern: Schema.NullOr(Sch
 const Lookups = Schema.Struct({
     extends: Schema.optionalKey(Schema.Unknown),
     plugins: Schema.optionalKey(Schema.Unknown),
-    referenceFiles: Schema.ArrayEnsure(Schema.Union([Schema.String, Schema.Struct({ files: Schema.ArrayEnsure(Schema.String) })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-}).annotate({ description: 'The extends, plugins, and referenceFiles rows of a Stylelint config or of one overrides entry, each one entry or many: a string of extends or plugins names a module, any other value an inline config or plugin, and a referenceFiles entry is a glob or a files row of globs' });
+    processors: Schema.optionalKey(Schema.Unknown),
+    customSyntax: Schema.optionalKey(Schema.Unknown),
+    referenceFiles: Schema.ArrayEnsure(Schema.Union([Schema.String, Schema.Struct({ files: Schema.ArrayEnsure(Schema.String), customSyntax: Schema.optionalKey(Schema.Unknown), loader: Schema.optionalKey(Schema.Unknown) })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+}).annotate({ description: 'The rows of a Stylelint config or of one overrides entry naming modules and reference files, each one entry or many: a string names a module, any other value an inline one, and a referenceFiles entry is a glob or a files row of globs with its customSyntax and loader' });
 const Styled = Schema.fromJsonString(Schema.Struct({ default: Schema.Struct({ ...Lookups.fields, overrides: Schema.Array(Lookups).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }) })).annotate({
     description: 'The default export of a Stylelint config module as JSON, the rows naming modules and reference files at its top and in each overrides entry',
 });
@@ -357,17 +359,14 @@ const merged = (prior: Option.Option<ProjectConfiguration>, next: ProjectConfigu
 
 const looked = <A, E>(table: ReadonlyMap<string, Result.Result<A, E>>, at: string) => Effect.flatMap(Effect.fromNullishOr(table.get(at)), Effect.fromResult);
 
-const specifiers = (file: string, texts: readonly string[]) => ({ locals: texts.filter((text) => text.startsWith('.')).map((text) => posix.join(dirname(file), text)), packages: Array.getSomes(texts.map((text) => Option.fromNullishOr(PACKAGE.exec(text)?.groups?.['name']))) });
-
 const imported = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, configs: Array.NonEmptyReadonlyArray<readonly [config: string, named: readonly string[]]>) {
     const api = yield* connected(workspaceRoot, compiler, Array.headNonEmpty(configs)[0]);
+    const named = new Map(configs);
     const specified = (file: string) =>
-        Effect.map(Effect.acquireDisposable(Effect.try({ try: () => api.createSourceFileFromFile(file), catch: (cause) => new Cause.UnknownError(cause, `${compiler}/sync parses no ${file}`) })), ({ sourceFile }) =>
-            specifiers(
-                file,
-                Array.getSomes(sourceFile.imports.map((node) => Schema.decodeUnknownOption(Literal)(node))).map(({ text }) => text),
-            ),
-        );
+        Effect.map(Effect.acquireDisposable(Effect.try({ try: () => api.createSourceFileFromFile(file), catch: (cause) => new Cause.UnknownError(cause, `${compiler}/sync parses no ${file}`) })), ({ sourceFile }) => {
+            const texts = [...(named.get(file) ?? []), ...Array.getSomes(sourceFile.imports.map((node) => Schema.decodeUnknownOption(Literal)(node))).map(({ text }) => text)];
+            return { locals: texts.filter((text) => text.startsWith('.')).map((text) => posix.join(dirname(file), text)), packages: Array.getSomes(texts.map((text) => Option.fromNullishOr(PACKAGE.exec(text)?.groups?.['name']))) };
+        });
     const reached = (pending: readonly string[], files: ReadonlySet<string>, packages: ReadonlySet<string>): Effect.Effect<{ readonly files: readonly string[]; readonly packages: readonly string[] }, Cause.UnknownError, Scope.Scope> =>
         Array.match(
             pending.filter((at) => !files.has(at)),
@@ -383,12 +382,7 @@ const imported = Effect.fnUntraced(function* (workspaceRoot: string, compiler: s
                     ),
             },
         );
-    return new Map(
-        yield* Effect.forEach(configs, ([config, named]) => {
-            const { locals, packages } = specifiers(config, named);
-            return Effect.map(reached([config, ...locals], new Set(), new Set(packages)), (held) => [config, held] as const);
-        }),
-    );
+    return new Map(yield* Effect.forEach(configs, ([config]) => Effect.map(reached([config], new Set(), new Set()), (held) => [config, held] as const)));
 }, Effect.scoped);
 
 const inspected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, exec: string, rows: Array.NonEmptyReadonlyArray<{ readonly root: string; readonly scope: string; readonly owned: readonly string[] }>) {
@@ -489,40 +483,34 @@ const linted = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
 });
 
 const styled = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, exec: string, row: string, config: string) {
-    const cache = new PluginCache<{ readonly sources: readonly string[]; readonly references: readonly string[]; readonly packages: readonly string[]; readonly stamp: string; readonly digest: string }>(join(workspaceDataDirectory, 'typescript-stylelint.hash'));
-    const stamp = stamped(workspaceRoot);
-    const listed = (yield* spawned(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ':(glob)**/*.css'], { cwd: workspaceRoot })).split('\0').filter(String.isNonEmpty);
-    const { sources, references, packages } = yield* Option.match(
-        Option.filter(yield* recalled(cache, config, stamp), ({ digest }) => digest === row),
-        {
+    const cache = new PluginCache<{ readonly sources: readonly string[]; readonly references: readonly string[]; readonly packages: readonly string[]; readonly stamp: string }>(join(workspaceDataDirectory, 'typescript-stylelint.hash'));
+    const lock = getLockFileName(detectPackageManager(workspaceRoot));
+    const stamp = (sources: readonly string[]) => Effect.map(stamped(workspaceRoot)([lock, ...sources]), (hash) => hashArray([row, hash]));
+    const listed = Option.liftPredicate((yield* spawned(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ':(glob)**/*.css'], { cwd: workspaceRoot })).split('\0').filter(String.isNonEmpty).toSorted(), Array.isReadonlyArrayNonEmpty);
+    const read = Effect.flatMap(
+        recalled(cache, config, stamp),
+        Option.match({
             onSome: Effect.succeed,
             onNone: Effect.fnUntraced(function* () {
                 const loaded = spawned([execPath, '--input-type=module', '--eval', 'console.log(JSON.stringify(await import(process.argv[1])))', pathToFileURL(join(workspaceRoot, config)).href], { cwd: workspaceRoot });
                 const { default: stated } = yield* Effect.flatMap(loaded, Schema.decodeEffect(Styled));
                 const layers = [stated, ...stated.overrides];
-                const named = layers.flatMap(({ extends: bases, plugins }) => [bases, plugins].flatMap(Array.ensure).filter(Predicate.isString));
+                const entries = layers.flatMap(({ referenceFiles }) => referenceFiles);
+                const named = [...layers.flatMap(({ extends: bases, plugins, processors, customSyntax }) => [bases, plugins, processors, customSyntax]), ...entries.flatMap((entry) => (Predicate.isString(entry) ? [] : [entry.customSyntax, entry.loader]))].flatMap(Array.ensure).filter(Predicate.isString);
                 const walked = yield* Effect.flatMap(imported(workspaceRoot, compiler, [[config, ['stylelint', ...named]]]), (configs) => Effect.fromNullishOr(configs.get(config)));
-                const held = {
-                    sources: walked.files,
-                    references: layers
-                        .flatMap(({ referenceFiles }) => referenceFiles)
-                        .flatMap((entry) => (Predicate.isString(entry) ? [entry] : entry.files))
-                        .map((pattern) => posix.join(dirname(config), pattern)),
-                    packages: walked.packages,
-                    stamp: yield* stamp(walked.files),
-                    digest: row,
-                };
+                const references = entries.flatMap((entry) => (Predicate.isString(entry) ? [entry] : entry.files)).map((pattern) => posix.join(dirname(config), pattern));
+                const held = { sources: walked.files, references, packages: walked.packages, stamp: yield* stamp(walked.files) };
                 yield* Effect.sync(() => {
                     cache.set(config, held);
                     cache.writeToDisk();
                 });
                 return held;
             }),
-        },
+        }),
     );
-    return Option.map(Option.liftPredicate(listed, Array.isReadonlyArrayNonEmpty), (styles): TargetConfiguration => ({
-        command: ['stylelint', '--config', config, '--allow-empty-input', ...styles].map(quoteShellArg).join(' '),
-        options: { cwd: '.' },
+    return Option.zipWith(listed, yield* Effect.transposeOption(Option.as(listed, read)), (styles, { sources, references, packages }): TargetConfiguration => ({
+        command: ['stylelint', '--config', config, '--allow-empty-input', '--no-cache', '--max-warnings', '0', ...styles].map(quoteShellArg).join(' '),
+        options: { cwd: '.', env: { NODE_OPTIONS: '--throw-deprecation' } },
         cache: true,
         inputs: [
             ...Array.dedupe([...styles, ...sources, ...references])

@@ -256,7 +256,8 @@ steps {
     diagnostic_format = "gcc"
   }
   ["stylelint"] = (Builtins.stylelint) {
-    local stylelint = List("stylelint", "--config", ".config/stylelint.config.ts")
+    local stylelint =
+      List("stylelint", "--config", ".config/stylelint.config.ts", "--max-warnings", "0")
     check { command { argv = stylelint + List("{{files}}") } }
     fix { command { argv = stylelint + List("--fix", "{{files}}") } }
   }
