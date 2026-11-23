@@ -23,14 +23,16 @@ from mypy.nodes import (
     MypyFile,
     Node,
     OverloadedFuncDef,
+    RefExpr,
     StarExpr,
     TupleExpr,
     TypeAlias,
     TypeInfo,
+    Var,
 )
 from mypy.subtypes import is_subtype
 from mypy.typeops import type_object_type
-from mypy.types import AnyType, CallableType, flatten_nested_unions, get_proper_type, Instance, Overloaded, TupleType, Type, TypeAliasType, TypeOfAny, UnionType, UnpackType
+from mypy.types import AnyType, CallableType, flatten_nested_unions, get_proper_type, Instance, Overloaded, ProperType, TupleType, Type, TypeAliasType, TypeOfAny, UnionType, UnpackType
 from refurb.checks.common import get_mypy_type, stringify
 from refurb.error import Error
 from refurb.settings import Settings
@@ -132,6 +134,19 @@ def _element(found: Type | None, /) -> Type | None:
             return None
 
 
+def _called(callee: Expression, /) -> ProperType | None:
+    """Signature a callee resolves to: a class's constructor, or a function refurb's `get_mypy_type` resolves, an overload set and a decorated function included."""
+    match callee, get_mypy_type(callee):
+        case _, TypeInfo() as info:
+            return get_proper_type(type_object_type(info))
+        case _, Type() as found:
+            return get_proper_type(found)
+        case RefExpr(node=OverloadedFuncDef(type=Type() as found) | Decorator(var=Var(type=Type() as found))), _:
+            return get_proper_type(found)
+        case _:
+            return None
+
+
 def _unpacked(target: Expression, source: Expression | Type | None, /) -> tuple[tuple[Expression, Type | None], ...]:
     found = _typed(source) if isinstance(source, Expression) else source
     match target:
@@ -181,8 +196,7 @@ class _Walk(RefurbVisitor, Traverser):
                 self.operands.update((right, _typed(right)) for operator, right in zip(operators, rights) if operator in {"in", "not in"})
             case CallExpr(args=arguments, arg_kinds=kinds, arg_names=names, callee=callee):
                 actuals = tuple(AnyType(TypeOfAny.special_form) if (found := _typed(argument)) is None else found for argument in arguments)
-                resolved = get_mypy_type(callee) if any(map(_held, actuals)) else None
-                called = type_object_type(resolved) if isinstance(resolved, TypeInfo) else get_proper_type(resolved) if isinstance(resolved, Type) else None
+                called = _called(callee) if any(map(_held, actuals)) else None
                 selected = next(
                     (
                         formals
