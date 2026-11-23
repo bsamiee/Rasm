@@ -258,7 +258,7 @@ hooks {
       ["conventional-commit"] {
         check = new CommandSpec {
           command =
-            #"hk util check-conventional-commit --allowed-scopes="$(nx show projects --json | jq -r 'join(",")')" "{{commit_msg_file}}""#
+            #"hk util check-conventional-commit --allowed-scopes="$(jq -r '.nodes | keys | join(",")' "$NX_WORKSPACE_DATA_DIRECTORY/project-graph.json")" "{{commit_msg_file}}""#
           effect = "read"
         }
       }
