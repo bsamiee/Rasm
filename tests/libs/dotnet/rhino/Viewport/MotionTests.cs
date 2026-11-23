@@ -45,7 +45,7 @@ public sealed class MotionTests(Fixtures fixtures) {
 
     // --- [DRIVING]
 
-    [Theory(Skip = "configuration Headless runs Rhino without views", SkipType = typeof(RhinoProcessTests), SkipUnless = nameof(RhinoProcessTests.Interfaced))]
+    [Theory(Skip = "configuration Headless runs Rhino without views", SkipType = typeof(RhinoHost), SkipUnless = nameof(RhinoHost.Interfaced))]
     [InlineData(4, new[] { 0, 1, 2, 6 }, new[] { 0d, 0.25, 0.5, 1d })]
     [InlineData(4, new[] { 0, 4 }, new[] { 0d, 1d })]
     [InlineData(0, new[] { 3 }, new[] { 1d })]

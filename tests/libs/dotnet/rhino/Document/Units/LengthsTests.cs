@@ -43,71 +43,43 @@ public sealed class LengthsTests {
             Assert.Equal(point, placed);
         });
 
-    // --- [TOLERANCES]
+    // --- [LIMITS]
 
     [Fact]
-    public void TolerancesOutsideRhinoRangesFailAsOutside() =>
-        Gen.OneOf(
-                Gen.Double[-1d, 0d].Select(static absolute => (absolute, 0.01, 0.01)),
-                Gen.OneOf(Gen.Double[-1d, 0d], Gen.Double[1d, 10d]).Select(static relative => (0.001, relative, 0.01)),
-                Gen.OneOf(Gen.Double[-1d, 0d], Gen.Double[Math.PI + 1e-9, 10d]).Select(static angle => (0.001, 0.01, angle)))
-            .Sample(static (absolute, relative, angle) =>
-                Assert.Equal(RhinoReason.Outside, Expect<RhinoFault>.Failed(Tolerances.Validated(absolute, relative, angle)).Reason));
-
-    [Theory]
-    [InlineData(double.Epsilon, 0.01, 0.01)]
-    [InlineData(1e300, 0.01, 0.01)]
-    [InlineData(0.001, double.Epsilon, 0.01)]
-    [InlineData(0.001, 0.99999999999999989, 0.01)]
-    [InlineData(0.001, 0.01, double.Epsilon)]
-    [InlineData(0.001, 0.01, Math.PI)]
-    public void TolerancesAtTheirLimitsAreAccepted(double absolute, double relative, double angle) =>
-        Assert.Equal((absolute, relative, angle), Tolerances.Validated(absolute, relative, angle).Map(static held => (held.Absolute, held.Relative, held.Angle)).ThrowIfFail());
-
-    [Theory]
-    [InlineData(0d, 0.01, 0.01)]
-    [InlineData(double.PositiveInfinity, 0.01, 0.01)]
-    [InlineData(double.NaN, 0.01, 0.01)]
-    [InlineData(0.001, 0d, 0.01)]
-    [InlineData(0.001, 1d, 0.01)]
-    [InlineData(0.001, double.NaN, 0.01)]
-    [InlineData(0.001, 0.01, 0d)]
-    [InlineData(0.001, 0.01, 3.1415926535897936)]
-    [InlineData(0.001, 0.01, double.PositiveInfinity)]
-    [InlineData(0.001, 0.01, double.NaN)]
-    public void TolerancesPastTheirLimitsFailAsOutside(double absolute, double relative, double angle) =>
-        Assert.Equal(RhinoReason.Outside, Expect<RhinoFault>.Failed(Tolerances.Validated(absolute, relative, angle)).Reason);
-
-    // --- [PRECISION]
+    public void TolerancesAreAcceptedExactlyInsideRhinoRangesAndOtherwiseFailAsOutside() =>
+        Gen.OneOf(Absolute.Select(Inside.Relative, Inside.Angle), Inside.Absolute.Select(Relative, Inside.Angle), Inside.Absolute.Select(Inside.Relative, Angle)).Sample(static (absolute, relative, angle) => {
+            Fin<Tolerances> validated = Tolerances.Validated(absolute, relative, angle);
+            Assert.Equal(
+                double.IsFinite(absolute) && absolute > 0d && relative > 0d && relative < 1d && angle > 0d && angle <= Math.PI
+                    ? Right<RhinoReason, (double, double, double)>((absolute, relative, angle))
+                    : Left<RhinoReason, (double, double, double)>(RhinoReason.Outside),
+                validated.Match(
+                    Succ: static held => Right<RhinoReason, (double, double, double)>((held.Absolute, held.Relative, held.Angle)),
+                    Fail: _ => Left<RhinoReason, (double, double, double)>(Expect<RhinoFault>.Failed(validated).Reason)));
+        }, iter: 10_000);
 
     [Fact]
-    public void DisplayPrecisionOutsideZeroToEightFailsAsOutside() =>
-        Gen.OneOf(Gen.Int[-100, -1], Gen.Int[9, 100]).Sample(static precision =>
-            Assert.Equal(RhinoReason.Outside, Expect<RhinoFault>.Failed(
-                UnitsAndTolerances.Validated(LengthUnit.Millimeters, ModelGrid.Model, DistanceDisplayMode.Decimal, precision)).Reason));
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(8)]
-    public void DisplayPrecisionAtItsLimitsIsAccepted(int precision) =>
-        Assert.Equal(precision, UnitsAndTolerances.Validated(LengthUnit.Millimeters, ModelGrid.Model, DistanceDisplayMode.Decimal, precision).ThrowIfFail().Precision);
-
-    [Theory]
-    [InlineData(-1)]
-    [InlineData(9)]
-    public void DisplayPrecisionPastItsLimitsFailsAsOutside(int precision) =>
-        Assert.Equal(RhinoReason.Outside, Expect<RhinoFault>.Failed(
-            UnitsAndTolerances.Validated(LengthUnit.Millimeters, ModelGrid.Model, DistanceDisplayMode.Decimal, precision)).Reason);
+    public void DisplayIsAcceptedForADefinedModeAndAPrecisionFromZeroToEightAndOtherwiseFailsAsOutside() =>
+        Gen.OneOf(Gen.Enum<DistanceDisplayMode>(), Gen.Const((DistanceDisplayMode)99)).Select(Gen.OneOf(Gen.Int[-100, 100], Gen.OneOf(-1, 0, 8, 9))).Sample(static (display, precision) => {
+            Fin<UnitsAndTolerances> validated = UnitsAndTolerances.Validated(LengthUnit.Millimeters, ModelGrid.Model, display, precision);
+            Assert.Equal(
+                Enum.IsDefined(display) && precision is >= 0 and <= 8
+                    ? Right<RhinoReason, (DistanceDisplayMode, int)>((display, precision))
+                    : Left<RhinoReason, (DistanceDisplayMode, int)>(RhinoReason.Outside),
+                validated.Match(
+                    Succ: static held => Right<RhinoReason, (DistanceDisplayMode, int)>((held.Display, held.Precision)),
+                    Fail: _ => Left<RhinoReason, (DistanceDisplayMode, int)>(Expect<RhinoFault>.Failed(validated).Reason)));
+        }, iter: 10_000);
 
     // --- [QUANTITIES]
 
     [Fact]
     public void LengthConvertsBetweenUnitsByRhinoUnitScale() =>
-        Units.Select(Units, Gen.Int[-1_000_000, 1_000_000]).Sample(static (origin, target, steps) =>
-            Assert.Equal(
-                steps * ModelGrid.Model.Absolute * RhinoMath.UnitScale(origin.System, target.System),
-                Quantities.As(Quantities.From(steps * ModelGrid.Model.Absolute, origin.Unit), target.Unit),
-                RhinoMath.SqrtEpsilon * Math.Max(1d, Math.Abs(steps * ModelGrid.Model.Absolute * RhinoMath.UnitScale(origin.System, target.System)))));
+        Units.Select(Units, Gen.Int[-1_000_000, 1_000_000]).Sample(static (origin, target, steps) => {
+            double value = steps * ModelGrid.Model.Absolute;
+            double converted = value * RhinoMath.UnitScale(origin.System, target.System);
+            Assert.Equal(converted, Quantities.As(Quantities.From(value, origin.Unit), target.Unit), RhinoMath.SqrtEpsilon * Math.Max(1d, Math.Abs(converted)));
+        });
 
     // --- [GENERATORS]
 
@@ -117,6 +89,16 @@ public sealed class LengthsTests {
     private static readonly Gen<Space> Spaces = Gen.OneOf(Space.Model, Space.Page);
 
     private static readonly Gen<UnitsAndTolerances> Settings =
-        Units.Select(Gen.Int[1, 1000], Gen.Int[1, 9999], Gen.Int[1, 1800], Gen.Int[0, 8], static (units, absolute, relative, angle, precision) =>
-            UnitsAndTolerances.Create(units.Unit, Tolerances.Create(absolute * 1e-4, relative * 1e-4, angle * RhinoMath.DefaultAngleTolerance / 10d), DistanceDisplayMode.Decimal, precision));
+        Units.Select(Gen.Int[1, 1000], Gen.Int[1, 9999], Gen.Int[1, 1800], Gen.OneOf(DistanceDisplayMode.Decimal, DistanceDisplayMode.Fractional), Gen.Int[0, 8], static (units, absolute, relative, angle, display, precision) =>
+            UnitsAndTolerances.Create(units.Unit, Tolerances.Create(absolute * 1e-4, relative * 1e-4, angle * RhinoMath.DefaultAngleTolerance / 10d), display, precision));
+
+    private static readonly Gen<double> Hostile = Gen.OneOf(0d, -0d, double.Epsilon, -double.Epsilon, double.NaN, double.PositiveInfinity, double.NegativeInfinity, double.MaxValue);
+
+    private static readonly Gen<double> Absolute = Gen.OneOf(Gen.Double[-1d, 1d], Gen.Double, Hostile);
+
+    private static readonly Gen<double> Relative = Gen.OneOf(Gen.Double[-0.5d, 1.5d], Hostile, Gen.OneOf(1d, Math.BitDecrement(1d), Math.BitIncrement(1d)));
+
+    private static readonly Gen<double> Angle = Gen.OneOf(Gen.Double[-1d, 4d], Hostile, Gen.OneOf(Math.PI, Math.BitDecrement(Math.PI), Math.BitIncrement(Math.PI)));
+
+    private static readonly (Gen<double> Absolute, Gen<double> Relative, Gen<double> Angle) Inside = (Gen.Double[1e-6, 10d], Gen.Double[1e-3, 0.999], Gen.Double[1e-3, 3.14]);
 }

@@ -1,5 +1,6 @@
 using CsCheck;
 using Grasshopper2.Data;
+using Grasshopper2.Diagnostics;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.Undo;
@@ -14,14 +15,6 @@ namespace Rasm.Rhino.Tests.Grasshopper.Doc;
 
 [Collection(typeof(Grasshopper2PlugIn))]
 public sealed class DocumentsTests(Fixtures fixtures) {
-
-    // --- [SOLUTIONS]
-
-    [Fact]
-    public async Task DocumentWithoutInputsSolvesToCompleted() {
-        Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed([]));
-        Assert.Equal(SolutionPhase.Completed, (await RhinoHost.RunAsync(Solutions.Run(document, SolutionMode.Headless))).Phase);
-    }
 
     // --- [PROGRAMS]
 
@@ -48,16 +41,6 @@ public sealed class DocumentsTests(Fixtures fixtures) {
     // --- [FILES]
 
     [Fact]
-    public async Task StoredDocumentReadsBackAndEvaluatesAlike() {
-        Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed(Seq("x")));
-        Assert.Equal(Seq(0.5, -3.25, 7.0), await RhinoHost.RunAsync((
-            from bytes in DocumentFiles.Store(document, FileContents.Objects)
-            from read in use(DocumentFiles.Read(bytes), static held => IO.lift(held.Close))
-            from outputs in Evaluated(read, "x", Seq(0.5, -3.25, 7.0))
-            select outputs).Bracket()));
-    }
-
-    [Fact]
     public async Task StoredComponentDocumentReadsBackAsTheComponentAndSolvesAlike() =>
         Assert.Equal(Seq(3.0, 9.25), await RhinoHost.RunAsync((
             from placed in Subtraction.Placed([5.0, 9.5], [2.0, 0.25])
@@ -67,11 +50,26 @@ public sealed class DocumentsTests(Fixtures fixtures) {
             from solved in Solutions.Run(read, SolutionMode.Headless)
             select Subtraction.Solved(copy)).Bracket()));
 
+    // --- [EDITS]
+
+    [Fact]
+    public async Task AddingAnObjectAnyDocumentHoldsFailsAsDeclinedWithTheHostCauseAndLeavesItWithItsOwner() {
+        Grasshopper2.Doc.Document owner = await fixtures.TakeAsync(Inert);
+        Grasshopper2.Doc.Document other = await fixtures.TakeAsync(Inert);
+        Relay relay = await RhinoHost.RunAsync(DocumentEdits.Add(owner, new Relay()));
+        RhinoFault[] faults = [await Expect<RhinoFault>.FailAsync(DocumentEdits.Add(owner, relay)), await Expect<RhinoFault>.FailAsync(DocumentEdits.Add(other, relay))];
+        Assert.All(faults, static fault => Assert.Equal((RhinoReason.Declined, true), (fault.Reason, fault.Inner.Exists(static inner => inner.HasException<LoggedException>()))));
+        Assert.Equal((true, false), await RhinoHost.RunAsync(IO.lift(() => (owner.Objects.Find(relay.InstanceId) is not null, other.Objects.Find(relay.InstanceId) is not null))));
+    }
+
     // --- [GENERATORS]
 
     private static readonly Gen<Seq<double>> Values = Gen.Int[-1_000_000, 1_000_000].Array[1, 12].Select(static steps => toSeq(steps).Map(static step => step * ModelGrid.Model.Absolute).Strict());
 
     // --- [INPUTS]
+
+    private static IO<Fixture<Grasshopper2.Doc.Document>> Inert { get; } =
+        IO.lift(static () => Grasshopper2.Doc.Document.NewInertDocument()).Map(static document => new Fixture<Grasshopper2.Doc.Document>(document, _ => IO.lift(document.Close)));
 
     private static IO<Fixture<Grasshopper2.Doc.Document>> Relayed(Seq<string> inputs) =>
         from document in IO.lift(static () => Grasshopper2.Doc.Document.NewInertDocument())

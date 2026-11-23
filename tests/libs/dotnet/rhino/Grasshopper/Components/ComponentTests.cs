@@ -87,7 +87,7 @@ public sealed class ComponentTests {
     // --- [IDENTITY]
 
     [Fact]
-    public async Task ComponentIdentityIsTheNameBasedUuidOfItsTypeInItsAssembly() =>
+    public async Task ComponentIdentityIsTheVersionFiveUuidOfItsTypeNameUnderItsAssemblyGuid() =>
         Assert.Equal(new Guid(0x4a6a9ba9, 0x89bd, 0x55fc, 0xb7, 0x88, 0x2e, 0xea, 0x98, 0x40, 0x5c, 0x06), await RhinoHost.RunAsync(IO.lift(static () => new Subtraction().CustomIoId).OnUiThread()));
 
     [Fact]

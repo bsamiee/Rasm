@@ -64,6 +64,8 @@ public sealed class RhinoHost : IAsyncLifetime, INotifyTestLifecycleAsync {
 
     // --- [EFFECTS]
 
+    public static bool Interfaced => RhinoProcess.Mode is RhinoMode.Interface;
+
     public static Task<Fin<T>> RunSafeAsync<T>(IO<T> effect) => Session.RunSafeAsync(effect, TestContext.Current.CancellationToken);
 
     public static async Task<T> RunAsync<T>(IO<T> effect) => (await RunSafeAsync(effect).ConfigureAwait(false)).ThrowIfFail();
