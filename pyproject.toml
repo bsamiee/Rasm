@@ -468,6 +468,11 @@ libpdal-core = "2.10.*"
 
 llvm-openmp = "*"
 
+# --- [BLAS]
+
+[tool.pixi.environments.default.target.linux.dependencies]
+openblas = "*" # `sparsediffpy` builds from its sdist against a BLAS CMake finds, Accelerate on macOS
+
 # --- [ACTIVATION]
 
 [tool.pixi.environments.default.target.unix.activation.env]
