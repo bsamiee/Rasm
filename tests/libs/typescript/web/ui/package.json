@@ -10,7 +10,6 @@
         "@types/react-dom": "catalog:",
         "effect": "catalog:",
         "react": "catalog:",
-        "react-aria-components": "catalog:",
         "react-dom": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:",

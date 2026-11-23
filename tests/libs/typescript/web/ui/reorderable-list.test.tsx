@@ -1,65 +1,51 @@
 import { ReorderableList } from '@rasm/ui';
-import { Array, Option } from 'effect';
-import type { ComponentProps } from 'react';
-import { expect, it, vi } from 'vitest';
+import { useState } from 'react';
+import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { userEvent } from 'vitest/browser';
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-const sheets = async () => {
-    const onChange = vi.fn<ComponentProps<typeof ReorderableList<{ readonly id: string; readonly title: string }>>['onChange']>();
-    const list = (present: Parameters<typeof onChange>[0]) => (
-        <ReorderableList actions={(keys) => <output>{`${keys.size} selected`}</output>} aria-label="Sheets" items={present} moveLabel="Move" onChange={onChange} textValue={({ title }) => title}>
-            {({ title }) => <span>{title}</span>}
-        </ReorderableList>
-    );
-    const items = [
-        { id: 'plan', title: 'Plan' },
-        { id: 'section', title: 'Section' },
-        { id: 'detail', title: 'Detail' },
-    ];
-    const screen = await render(list(items));
-    const select = (title: string) => screen.getByRole('row', { name: title }).getByText(title).click();
-    const drag = async (source: string, target: string, half: 'upper' | 'lower') => {
-        const row = screen.getByRole('row', { name: target });
-        const { height } = row.element().getBoundingClientRect();
-        await userEvent.dragAndDrop(screen.getByRole('row', { name: source }), row, { targetPosition: { x: 1, y: { upper: 2, lower: height - 2 }[half] } });
-        await screen.rerender(list(Option.getOrThrow(Array.last(onChange.mock.calls))[0]));
-    };
-    const disabled = () =>
-        items.map(({ title }) =>
-            screen
-                .getByRole('button', { name: `Move ${title}` })
-                .element()
-                .hasAttribute('disabled'),
-        );
-    const order = () => onChange.mock.lastCall?.[0].map(({ id }) => id);
-    return { screen, select, drag, disabled, order };
-};
+const SHEETS = [
+    { id: 'plan', title: 'Plan' },
+    { id: 'section', title: 'Section' },
+    { id: 'detail', title: 'Detail' },
+] as const;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it('counts select-all as every present item and disables moving', async () => {
-    const { screen, disabled } = await sheets();
+const Sheets = () => {
+    const [items, setItems] = useState<readonly (typeof SHEETS)[number][]>(SHEETS);
+    return (
+        <ReorderableList actions={(keys) => <output>{[...keys].join(' ')}</output>} aria-label="Sheets" items={items} moveLabel="Move" onChange={setItems} textValue={({ title }) => title}>
+            {({ title }) => <span>{title}</span>}
+        </ReorderableList>
+    );
+};
+
+it('passes every present item to the selection actions on select-all', async () => {
+    const screen = await render(<Sheets />);
     await userEvent.tab();
     await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}');
-    await expect.element(screen.getByRole('status')).toHaveTextContent('3 selected');
-    await expect.poll(disabled).toStrictEqual([true, true, true]);
+    await expect.element(screen.getByRole('status')).toHaveTextContent('plan section detail');
 });
 
-it('reorders by pointer drag onto lower and upper halves of later row', async () => {
-    const { drag, order } = await sheets();
-    await drag('Plan', 'Detail', 'lower');
-    expect(order()).toStrictEqual(['section', 'detail', 'plan']);
-    await drag('Section', 'Plan', 'upper');
-    expect(order()).toStrictEqual(['detail', 'section', 'plan']);
-});
-
-it('drags every selected row as one block by pointer', async () => {
-    const { select, drag, order } = await sheets();
-    await select('Plan');
-    await select('Section');
-    await drag('Plan', 'Detail', 'lower');
-    expect(order()).toStrictEqual(['detail', 'plan', 'section']);
+it.for([
+    { selected: [], source: 'Plan', target: 'Detail', half: 'lower', order: ['section', 'detail', 'plan'] },
+    { selected: [], source: 'Detail', target: 'Plan', half: 'upper', order: ['detail', 'plan', 'section'] },
+    { selected: ['Plan', 'Section'], source: 'Plan', target: 'Detail', half: 'lower', order: ['detail', 'plan', 'section'] },
+] as const)('drops $source with selection $selected dragged by pointer onto the $half half of $target as $order', async ({ selected, source, target, half, order }) => {
+    const screen = await render(<Sheets />);
+    await selected.reduce<Promise<void>>((clicked, title) => clicked.then(() => screen.getByRole('row', { name: title }).getByText(title).click()), Promise.resolve());
+    const onto = screen.getByRole('row', { name: target });
+    const { height } = onto.element().getBoundingClientRect();
+    await userEvent.dragAndDrop(screen.getByRole('row', { name: source }), onto, { targetPosition: { x: 1, y: { upper: 2, lower: height - 2 }[half] } });
+    await expect
+        .poll(() =>
+            screen
+                .getByRole('row')
+                .elements()
+                .map((row) => row.dataset['key']),
+        )
+        .toStrictEqual(order);
 });

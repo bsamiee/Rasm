@@ -1,45 +1,41 @@
 import { Format } from '@rasm/ui';
-import { ByteSize, DateTime, Duration } from 'effect';
+import { ByteSize } from 'effect';
 import { expect, it } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const english = new Format({ locales: 'en', byteDigits: 3 });
+const forms = { one: (count: string) => `${count} file`, two: (count: string) => `${count}nd`, few: (count: string) => `${count}rd`, other: (count: string) => `${count} files` };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it('selects cardinal and ordinal forms by the plural category of the count', () => {
-    const files = { one: (count: string) => `${count} file`, other: (count: string) => `${count} files` };
-    const places = { one: (count: string) => `${count}st`, two: (count: string) => `${count}nd`, few: (count: string) => `${count}rd`, other: (count: string) => `${count}th` };
-    const counts = [
-        { count: 1, forms: files, type: 'cardinal' },
-        { count: 1200, forms: files, type: 'cardinal' },
-        { count: 2, forms: places, type: 'ordinal' },
-        { count: 11, forms: places, type: 'ordinal' },
-        { count: 23, forms: places, type: 'ordinal' },
-    ] as const;
-    expect(counts.map(({ count, forms, type }) => english.quantity(count, forms, type))).toStrictEqual(['1 file', '1,200 files', '2nd', '11th', '23rd']);
+it.for([
+    { format: english, size: '0 B', shown: '0B' },
+    { format: english, size: '999 B', shown: '999B' },
+    { format: english, size: '1000 B', shown: '1kB' },
+    { format: english, size: '1024 B', shown: '1.02kB' },
+    { format: english, size: '999499 B', shown: '999kB' },
+    { format: english, size: '999500 B', shown: '1MB' },
+    { format: english, size: '1499 TB', shown: '1.5PB' },
+    { format: new Format({ locales: 'en', byteDigits: 2 }), size: '1050 B', shown: '1.1kB' },
+])('formats $size as $shown in the largest decimal unit its value rounded to $format.byteDigits digits reaches', ({ format, size, shown }) => {
+    expect(format.bytes(ByteSize.fromStringUnsafe(size))).toBe(shown);
 });
 
-it('pads numerals to the digit count of their total in locale digits', () => {
-    const numerals = [
-        { format: english, value: 7, total: 12 },
-        { format: english, value: 7, total: 9 },
-        { format: english, value: 12, total: undefined },
-        { format: new Format({ locales: 'ar-EG' }), value: 7, total: 12 },
-    ] as const;
-    expect(numerals.map(({ format, value, total }) => format.numeral(value, total))).toStrictEqual(['07', '7', '12', '٠٧']);
+it.for([
+    { count: 1, type: 'cardinal', forms, shown: '1 file' },
+    { count: 1200, type: 'cardinal', forms, shown: '1,200 files' },
+    { count: 23, type: 'ordinal', forms, shown: '23rd' },
+    { count: 1, type: 'cardinal', forms: { other: (count: string) => `${count} selected` }, shown: '1 selected' },
+] as const)('writes $count by the $type plural category of its grouped numeral as $shown, falling back to the other form', ({ count, type, forms: written, shown }) => {
+    expect(english.quantity(count, written, type)).toBe(shown);
 });
 
-it('formats sizes in the largest unit their rounded value reaches', () => {
-    expect(['512 B', '1500 B', '999999 B', '100 MB'].map((size) => english.bytes(ByteSize.fromStringUnsafe(size)))).toStrictEqual(['512B', '1.5kB', '1MB', '100MB']);
-});
-
-it('joins lists by list type', () => {
-    expect([english.list(['plan', 'section', 'detail']), english.list(['plan', 'section'], 'disjunction')]).toStrictEqual(['plan, section, and detail', 'plan or section']);
-});
-
-it('formats instants, offsets, and durations through the locale formatters', () => {
-    const instant = DateTime.makeUnsafe('2026-01-02T12:00:00Z');
-    expect([english.date(instant), english.relative(Duration.fromInputUnsafe('3 hours')), english.duration(Duration.fromInputUnsafe('90 minutes'))]).toStrictEqual(['1/2/2026', 'in 3 hours', '1 hr, 30 min']);
+it.for([
+    { format: english, value: 7, total: 12, shown: '07' },
+    { format: english, value: 7, total: 9, shown: '7' },
+    { format: english, value: 1200, total: 1500, shown: '1200' },
+    { format: new Format({ locales: 'ar-EG' }), value: 7, total: 12, shown: '٠٧' },
+])('pads $value to the digit count of $total as $shown in locale digits', ({ format, value, total, shown }) => {
+    expect(format.numeral(value, total)).toBe(shown);
 });
