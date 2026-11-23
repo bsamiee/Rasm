@@ -113,8 +113,8 @@ class Machine extends Data.Class<{
     }
 
     imaged(image: string, inline: Input<string>, args: Pick<dockerBuild.ImageArgs, 'context' | 'labels' | 'registries'> = {}) {
-        const push = args.registries !== undefined;
-        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], load: !push, push, buildArgs: { BUILDKIT_DOCKERFILE_CHECK: 'error=true' }, ...args }, { provider: this.builder }).digest;
+        const stored = args.registries === undefined ? { load: true } : { exports: [{ registry: { annotations: args.labels } }] };
+        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], push: false, ...stored, buildArgs: { BUILDKIT_DOCKERFILE_CHECK: 'error=true' }, ...args }, { provider: this.builder }).digest;
     }
 
     kept(volume: string) {
