@@ -11,7 +11,7 @@ Tests are detectors: each answers whether one behavior is correct, turns red whe
 - [01]-[GENERATED](references/generated.md): Tests with generated inputs (properties, models, fuzz targets)
 - [02]-[BOUNDARIES](references/boundaries.md): Tests of code that calls a database, service, or third-party package, and every test double
 - [03]-[OUTPUTS](references/outputs.md): Snapshots, characterization of code with no specification, and end-to-end journeys
-- [04]-[GRADING](references/grading.md): Fault injection, mutation commands, and critique of existing tests
+- [04]-[GRADING](references/grading.md): Fault injection and critique of existing tests
 - [05]-[EVALS](references/evals.md): Evals of components with a model inside
 
 ## [01]-[DETECTOR]
@@ -163,7 +163,7 @@ Code and test written from one mental model share its mistakes. Each test needs 
 |  [01]   | Source of truth | Cases and expected values fixed at steps 1 to 6                |
 |  [02]   | Time            | Test red before its implementation exists                      |
 |  [03]   | Mechanism       | Generated inputs under a property, relation, or reference      |
-|  [04]   | Mechanism       | Applied break or mutation tool as proof a test can fail        |
+|  [04]   | Mechanism       | Applied break as proof a test can fail                         |
 |  [05]   | Mechanism       | Comparison with a trusted implementation or a previous version |
 |  [06]   | Author          | Contract below                                                 |
 

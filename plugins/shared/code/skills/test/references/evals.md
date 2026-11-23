@@ -14,8 +14,7 @@ Components with a model inside (prompt, skill, agent instruction, tool descripti
 | :-----: | :------------ | :------------------------------------------------------------------------- |
 |  [01]   | Deterministic | Pattern in output, file present, tool called, result file of a run command |
 |  [02]   | Hidden tests  | Suite or seeded fault a run never saw                                      |
-|  [03]   | Mutation      | Catch rate of tests a run produced, on correct code                        |
-|  [04]   | Judge         | Model verdict on criteria, blind to which arm produced an output           |
+|  [03]   | Judge         | Model verdict on criteria, blind to which arm produced an output           |
 
 [METHOD]:
 - Write cases from realistic requests before component text grows

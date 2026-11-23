@@ -8,6 +8,7 @@
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project unless requested
 - Settings differing by project, platform, or build mode use the tool's own switch (profile, condition, glob, per-OS file), never a script or flag
+- Tasks and sessions delete scratch files written to reach a result (downloads, extractions, captures, conversions) once the result is recorded
 
 ## [01]-[TOOLING]
 
@@ -26,24 +27,25 @@
 - Use `search:code` skill for any fact regarding an external dependency
 - Use `terminal:history` skill before rerunning, re-deriving, or asking what earlier work ran, printed, found, or settled
 - Use `tool:google` skill for any Google account or service, every account holding every scope
+- Use `delegate:antigravity` skill for video, audio, and bulk image or scanned-page reading
 - Use `writing:prose` skill for when writing, editing, or reviewing prose of any kind
 - Use `dotnet:codelens` skill to read, trace, or change any file in a .NET solution
 - Use `nx build`/`nx test` for Xcode builds and tests, `xcrun simctl`, `devicectl`, and `xcresulttool` for simulators, devices, and results, `lldb` MCP for a debug session
 
 [CLI_TOOLING]:
 
-| [INDEX] | [TOOL]      | [GUIDANCE]                                                                                                              |
-| :-----: | :---------- | :---------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `outline`   | `ast-grep outline <paths> --view expanded` lists signatures and members, `--items exports` the public API               |
-|  [02]   | `fd`        | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it                      |
-|  [03]   | `rg`        | `rg <pattern> <paths>` for literals, comments, and prose, code structure goes to `ast-grep`                             |
-|  [04]   | `jq`/`yq`   | `yq '.expr' f`, `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays               |
-|  [05]   | `sd`        | `sd '<regex>' '<replacement>' <files>` by line, `-A` for a find across lines, `-F` fixed, `--` before a `-`             |
-|  [06]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times runs, `-S` runs each in `sh`, `--metrics time_wall_clock,instructions` counts   |
-|  [07]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output                           |
-|  [08]   | `xh`        | `xh <url>` prints body, exits 4 or 5 on 4xx or 5xx, `Name:value` header, `k==v` query, `k=v` JSON by POST               |
-|  [09]   | `gh`        | `gh run watch <id> --exit-status` waits for a workflow run and exits with its result, hooks refuse a `gh run view` loop |
-|  [10]   | `mq`        | `mq '.h2' <file.md>` reads Markdown nodes by selector, `.code("<lang>")` code blocks, `-F json` with positions          |
+| [INDEX] | [TOOL]      | [GUIDANCE]                                                                                                            |
+| :-----: | :---------- | :-------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `outline`   | `ast-grep outline <paths> --view expanded` lists signatures and members, `--items exports` the public API             |
+|  [02]   | `fd`        | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it                    |
+|  [03]   | `rg`        | `rg <pattern> <paths>` for literals, comments, and prose, code structure goes to `ast-grep`                           |
+|  [04]   | `jq`/`yq`   | `yq '.expr' f`, `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays             |
+|  [05]   | `sd`        | `sd '<regex>' '<replacement>' <files>` by line, `-A` for a find across lines, `-F` fixed, `--` before a `-`           |
+|  [06]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times runs, `-S` runs each in `sh`, `--metrics time_wall_clock,instructions` counts |
+|  [07]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output                         |
+|  [08]   | `xh`        | `xh <url>` prints body, exits 4 or 5 on 4xx or 5xx, `Name:value` header, `k==v` query, `k=v` JSON by POST             |
+|  [09]   | `gh`        | `gh run watch <id> --exit-status` waits for a workflow run and exits with its result                                  |
+|  [10]   | `mq`        | `mq '.h2' <file.md>` reads Markdown nodes by selector, `.code("<lang>")` code blocks, `-F json` with positions        |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

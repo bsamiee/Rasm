@@ -30,7 +30,7 @@
         {
             "name": "code",
             "source": "./plugins/shared/code",
-            "version": "0.1.0",
+            "version": "0.1.1",
             "description": "Refactoring and testing rules for code in any language",
             "author": {
                 "name": "Bardia Samiee"
@@ -112,7 +112,7 @@
         {
             "name": "search",
             "source": "./plugins/shared/search",
-            "version": "0.9.0",
+            "version": "0.9.1",
             "description": "Dependency source, web, Are.na, and Gemini Notebook research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
@@ -130,7 +130,7 @@
         {
             "name": "terminal",
             "source": "./plugins/shared/terminal",
-            "version": "0.4.2",
+            "version": "0.4.3",
             "description": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks",
             "author": {
                 "name": "Bardia Samiee"
@@ -139,7 +139,7 @@
         {
             "name": "tool",
             "source": "./plugins/shared/tool",
-            "version": "0.8.4",
+            "version": "0.8.5",
             "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, breakpoint debugging of Python, .NET, C++, and JavaScript through mcp-debugger, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
             "author": {
                 "name": "Bardia Samiee"

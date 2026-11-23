@@ -11,44 +11,25 @@ Grades rest on one mechanical fact per test: a named break in production code tu
 
 [KINDS]:
 
-| [INDEX] | [KIND]        | [BREAK]                                     |
-| :-----: | :------------ | :------------------------------------------ |
-|  [01]   | Named break   | One realistic edit to production code       |
-|  [02]   | Reverted fix  | Bug fix reverted with its tests kept        |
-|  [03]   | Mutation tool | Generated edits over named production files |
-|  [04]   | Linter        | No break, test smells a parser finds        |
+| [INDEX] | [KIND]       | [BREAK]                               |
+| :-----: | :----------- | :------------------------------------ |
+|  [01]   | Named break  | One realistic edit to production code |
+|  [02]   | Reverted fix | Bug fix reverted with its tests kept  |
+|  [03]   | Linter       | No break, test smells a parser finds  |
 
 [METHOD]:
 1. Run a test linter for assertion-free tests, conditional assertions, self-comparisons, skipped or focused tests, and fixed waits
 2. Name a break before running anything: wrong limit (`>` for `>=`), wrong branch, dropped effect, swapped arguments, removed guard
 3. Apply it to production code and run tests claiming that behavior, each must turn red for that reason; an imagined break proves nothing
 4. Restore code and see green
-5. Run a mutation tool over changed production files where a row below exists
-6. Answer each surviving mutant with a test or a written exclusion
-
-Mutation commands, other ecosystems take steps 2 to 4:
-
-| [INDEX] | [ECOSYSTEM]            | [COMMAND]                                                                                 |
-| :-----: | :--------------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | Rust                   | `cargo mutants --file '<glob>'`, `cargo mutants --in-diff <diff>`                         |
-|  [02]   | JavaScript, TypeScript | `npx stryker run --mutate '<glob>'`                                                       |
-|  [03]   | C#                     | `dotnet stryker --mutate '<glob>'`, `dotnet stryker --since:<committish>`                 |
-|  [04]   | JVM                    | `mvn test-compile org.pitest:pitest-maven:mutationCoverage -DtargetClasses='<package>.*'` |
-|  [05]   | Python                 | `mutmut run '<module>*'`                                                                  |
 
 [FORMS]:
 
-| [INDEX] | [FORM]                                                               | [SIGN_OF_FAILURE]                                |
-| :-----: | :------------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | Red comes from an assertion on behavior                              | Red from a setup or compile error                |
-|  [02]   | After a test-only change, mutation runs over named production files  | Diff-scoped run that reports no mutants          |
-|  [03]   | Survivor answered by a limit asserted from each side at an interface | Test asserting a mutated line's internals        |
-|  [04]   | Equivalent mutant excluded with its reason                           | Exclusion pattern with no comment                |
-|  [05]   | Test helper files stay outside mutation                              | Survivors reported inside assertion helpers      |
-|  [06]   | Diffs gate a change, whole repositories run on a schedule            | Score threshold copied from another project      |
-|  [07]   | Expected values checked against their source apart from kills        | High kill count on tests copied from faulty code |
-
-Row 04 reasons: same value for every input, endless loop or timeout, speed or capacity effect alone, formatting, code no platform compiles.
+| [INDEX] | [FORM]                                                                     | [SIGN_OF_FAILURE]                              |
+| :-----: | :------------------------------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | Red comes from an assertion on behavior                                    | Red from a setup or compile error              |
+|  [02]   | Uncaught break answered by a limit asserted from each side at an interface | Test asserting a broken line's internals       |
+|  [03]   | Expected values checked against their source apart from caught breaks      | Breaks caught by tests copied from faulty code |
 
 ## [02]-[CRITIQUE]
 

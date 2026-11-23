@@ -62,13 +62,13 @@ ilspycmd -t '<Namespace.Type`N>' <dll> | rg -n '^\s*public '
 ilspycmd -t '<Namespace.Type`N>' <dll> | rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*'
 ```
 
-.NET decompiled files under `<main>/.artifacts/ilspy`, `<main>` the repository root:
-1. Assembly name and version as `<Name>/<Version>`, an existing `<main>/.artifacts/ilspy/<Name>/<Version>` skips step 2
+.NET decompiled files under `<main>/.cache/ilspy`, `<main>` the repository root:
+1. Assembly name and version as `<Name>/<Version>`, an existing `<main>/.cache/ilspy/<Name>/<Version>` skips step 2
 2. Project with one file per type, without `-p` the whole assembly as one `<Name>.decompiled.cs`
 
 ```bash
 ilspycmd --dump-table Assembly --json <dll> | jq -r '.rows[0] | "\(.Name)/\(.Version)"'
-ilspycmd -p -o <main>/.artifacts/ilspy/<Name>/<Version> <dll>
+ilspycmd -p -o <main>/.cache/ilspy/<Name>/<Version> <dll>
 ```
 
 TypeScript package under `<project>/node_modules/<pkg>` of a project declaring it, `package.json` `exports` naming each entry file:
