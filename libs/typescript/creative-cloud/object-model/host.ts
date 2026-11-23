@@ -6,7 +6,7 @@ import type { Schema } from 'effect';
 type Step = NonNullable<ReturnType<typeof stepped>>[number];
 interface Path {
     readonly steps: readonly Step[];
-    readonly end?: readonly Step[];
+    readonly end?: readonly [Step, ...Step[]];
 }
 interface Contained {
     readonly collection?: string;
@@ -91,12 +91,13 @@ const stepped = (text: string) => {
     }
     return at === text.length ? steps : undefined;
 };
-const parse = (text: string) => {
+const filled = (steps: readonly Step[] | undefined): steps is readonly [Step, ...Step[]] => steps !== undefined && steps.length > 0;
+const parse = (text: string): Path | undefined => {
     const split = outside(text, 0, RANGE);
     const ranged = text.charAt(0) === '(' && text.charAt(text.length - 1) === ')' && split > 0;
     const steps = ranged ? stepped(text.slice(1, split)) : text === '/' ? [] : stepped(text);
     const end = ranged ? stepped(text.slice(split + RANGE.length, -1)) : undefined;
-    return steps === undefined || (ranged && end === undefined) ? undefined : end === undefined ? { steps } : { steps, end };
+    return ranged ? (filled(steps) && filled(end) ? { steps, end } : undefined) : steps === undefined ? undefined : { steps };
 };
 const items = (container: unknown, row: Contained): unknown[] => {
     const [collection, base, listed] = [read(container, String(row.collection)), row.base ?? 0, [] as unknown[]];
@@ -186,7 +187,7 @@ const encode = (value: unknown, host: Encoder): unknown => {
     for (const key in described === undefined && replaced === value && isPlain(value) ? value : {}) {
         const field = Object.prototype.hasOwnProperty.call(value, key) ? encode(read(value, key), host) : undefined;
         if (field !== undefined) {
-            record[key] = field;
+            Object.defineProperty(record, key, { value: field, enumerable: true, writable: true, configurable: true });
         }
     }
     if (typeof value === 'number' || !isRecord(value)) {

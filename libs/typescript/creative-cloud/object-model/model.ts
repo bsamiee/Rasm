@@ -75,7 +75,7 @@ const Selector = Schema.TaggedUnion({
 const Step = Schema.Struct({ separator: Schema.Literals(['/', '//']), kind: Schema.String, selector: Schema.optionalKey(Selector) });
 const Steps = Schema.Array(Step);
 
-class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol }>('Specifier')({ steps: Steps, end: Schema.optionalKey(Steps.annotate({ description: 'Range end' })) }) {
+class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol }>('Specifier')({ steps: Steps, end: Schema.optionalKey(Schema.NonEmptyArray(Step).annotate({ description: 'Range end' })) }) {
     static readonly Path: Schema.Codec<Specifier, string> = Schema.String.annotate({ description: 'Object specifier, / for the application' }).pipe(
         Schema.decodeTo(Specifier, {
             decode: SchemaGetter.transformEffect((text: string, options) => Effect.fromNullishOr(parse(text)).pipe(Effect.mapError(() => new SchemaIssue.InvalidValue({ message: `No object specifier ${text}` }, text, options)))),

@@ -31,10 +31,7 @@ const Step = Schema.Struct({
 });
 const Path = Schema.Union([Schema.Struct({ steps: Schema.Array(Step) }), Schema.Struct({ steps: Schema.NonEmptyArray(Step), end: Schema.NonEmptyArray(Step) })]);
 const Refusal = Schema.TaggedStruct('Unmatched', { query: Schema.String, candidates: Schema.Array(Schema.String) });
-const Plain = Arbitrary.schema(Schema.Json).pipe(
-    Arbitrary.map(structuredClone),
-    Arbitrary.filter((tree) => !JSON.stringify(tree).includes('"__proto__"')),
-);
+const Plain = Arbitrary.schema(Schema.Json).pipe(Arbitrary.map(structuredClone));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -62,6 +59,14 @@ describe('object specifier', () => {
                 { separator: '/', kind: 'page', selector: { _tag: 'Index', index: -1 } },
             ],
         });
+    });
+
+    it.each([
+        { side: 'an empty end', specifier: '(/document[0]/page[0] to )' },
+        { side: 'an empty start', specifier: '( to /document[0]/page[-1])' },
+        { side: 'two empty ends', specifier: '( to )' },
+    ])('refuses $specifier, a range with $side', ({ specifier }) => {
+        assert.isUndefined(parse(specifier));
     });
 
     it.each([
@@ -99,10 +104,17 @@ describe('object specifier', () => {
 });
 
 describe(encode, () => {
-    it.prop('writes every finite number, string, list, and record whose keys hold no __proto__ as the JSON value JSON.stringify writes for it', { tree: Plain }, ({ tree }) => {
+    it.prop('writes every finite number, string, list, and record as the JSON value JSON.stringify writes for it', { tree: Plain }, ({ tree }) => {
         const encoded = encode(tree, { reference: () => undefined });
         assert.isTrue(Schema.is(Schema.Json)(encoded));
         assert.strictEqual(JSON.stringify(encoded), JSON.stringify(tree));
+    });
+
+    it.each([
+        { held: 'a record', text: '{"__proto__":{"tint":40},"name":"Swatch"}' },
+        { held: 'a number', text: '{"__proto__":7,"name":"Swatch"}' },
+    ])('writes an own __proto__ key holding $held as a key of the record', ({ text }) => {
+        assert.strictEqual(JSON.stringify(encode(JSON.parse(text), { reference: () => undefined })), text);
     });
 
     it('writes a record holding a constructor key as that record', () => {
