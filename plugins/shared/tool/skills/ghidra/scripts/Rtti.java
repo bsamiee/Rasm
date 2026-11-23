@@ -150,7 +150,8 @@ public class Rtti extends GhidraScript {
                             .formatted(
                                     address,
                                     kind.name().toLowerCase(Locale.ROOT),
-                                    exception.getMessage()));
+                                    Optional.ofNullable(exception.getMessage())
+                                            .orElseGet(exception::toString)));
         }
     }
 
@@ -266,7 +267,10 @@ public class Rtti extends GhidraScript {
                     } catch (IOException exception) {
                         return new Report.Failure<>(
                                 "%s slot reads unmapped memory: %s"
-                                        .formatted(at, exception.getMessage()));
+                                        .formatted(
+                                                at,
+                                                Optional.ofNullable(exception.getMessage())
+                                                        .orElseGet(exception::toString)));
                     }
                 };
         List<Report.Result<Vtable>> read =
@@ -283,7 +287,13 @@ public class Rtti extends GhidraScript {
                                         new Report.Failure<>(
                                                 "%s vtable reads unmapped memory: %s"
                                                         .formatted(
-                                                                vtable, exception.getMessage())));
+                                                                vtable,
+                                                                Optional.ofNullable(
+                                                                                exception
+                                                                                        .getMessage())
+                                                                        .orElseGet(
+                                                                                exception
+                                                                                        ::toString))));
                             }
                             if (offset > 0) {
                                 return Stream.empty();

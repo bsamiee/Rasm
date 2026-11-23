@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -81,7 +82,9 @@ public class Stubs extends GhidraScript {
             stub.setName(name, SourceType.ANALYSIS);
             return new Renamed(stub, previous);
         } catch (DuplicateNameException | InvalidInputException exception) {
-            return new Rejected(stub, exception.getMessage());
+            return new Rejected(
+                    stub,
+                    Optional.ofNullable(exception.getMessage()).orElseGet(exception::toString));
         }
     }
 

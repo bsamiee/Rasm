@@ -259,7 +259,12 @@ public class Apply extends GhidraScript {
         } catch (InvalidInputException
                 | DuplicateNameException
                 | CircularDependencyException exception) {
-            return new Outcome(step, row.address(), new Report.Failure<>(exception.getMessage()));
+            return new Outcome(
+                    step,
+                    row.address(),
+                    new Report.Failure<>(
+                            Optional.ofNullable(exception.getMessage())
+                                    .orElseGet(exception::toString)));
         }
     }
 
@@ -293,15 +298,20 @@ public class Apply extends GhidraScript {
     }
 
     private Outcome rename(
-            Address address, String local, Rename target, Map<String, HighSymbol> symbols) {
+            Address address,
+            String local,
+            Rename target,
+            Report.Result<Map<String, HighSymbol>> symbols) {
         DataTypeManager types = currentProgram.getDataTypeManager();
         DataTypeParser parser = new DataTypeParser(types, types, null, AllowedDataTypes.ALL);
         Report.Result<HighSymbol> symbol =
-                Optional.ofNullable(symbols.get(local))
-                        .<Report.Result<HighSymbol>>map(Report.Success::new)
-                        .orElseGet(() ->
-                                new Report.Failure<>(
-                                        "Local `%s` matches no decompiled local".formatted(local)));
+                symbols.flatMap(found ->
+                        Optional.ofNullable(found.get(local))
+                                .<Report.Result<HighSymbol>>map(Report.Success::new)
+                                .orElseGet(() ->
+                                        new Report.Failure<>(
+                                                "Local `%s` matches no decompiled local"
+                                                        .formatted(local))));
         Report.Result<Optional<DataType>> type =
                 target.type()
                         .map(text -> {
@@ -309,7 +319,8 @@ public class Apply extends GhidraScript {
                                 return new Report.Success<>(Optional.of(parser.parse(text)));
                             } catch (InvalidDataTypeException | CancelledException exception) {
                                 return new Report.Failure<Optional<DataType>>(
-                                        exception.getMessage());
+                                        Optional.ofNullable(exception.getMessage())
+                                                .orElseGet(exception::toString));
                             }
                         })
                         .orElseGet(() -> new Report.Success<>(Optional.empty()));
@@ -327,15 +338,16 @@ public class Apply extends GhidraScript {
                                 return new Report.Success<>(
                                         "%s -> %s".formatted(local, target.text()));
                             } catch (InvalidInputException | DuplicateNameException exception) {
-                                return new Report.Failure<>(exception.getMessage());
+                                return new Report.Failure<>(
+                                        Optional.ofNullable(exception.getMessage())
+                                                .orElseGet(exception::toString));
                             }
                         }));
     }
 
     private Stream<Outcome> rename(Row row, Report.Result<DecompileResults> result) {
-        return switch (result) {
-            case Report.Success<DecompileResults>(DecompileResults decompiled) -> {
-                Map<String, HighSymbol> symbols =
+        Report.Result<Map<String, HighSymbol>> symbols =
+                result.map(decompiled ->
                         CollectionUtils.asStream(
                                         decompiled
                                                 .getHighFunction()
@@ -345,21 +357,12 @@ public class Apply extends GhidraScript {
                                         Collectors.toMap(
                                                 HighSymbol::getName,
                                                 symbol -> symbol,
-                                                (first, _) -> first));
-                yield row.locals().stream()
-                        .flatMap(local ->
-                                local.rename().stream()
-                                        .map(target ->
-                                                rename(
-                                                        row.address(),
-                                                        local.name(),
-                                                        target,
-                                                        symbols)));
-            }
-            case Report.Failure<DecompileResults>(String cause) ->
-                    Stream.of(
-                            new Outcome(Step.RENAMED, row.address(), new Report.Failure<>(cause)));
-        };
+                                                (first, _) -> first)));
+        return row.locals().stream()
+                .flatMap(local ->
+                        local.rename().stream()
+                                .map(target ->
+                                        rename(row.address(), local.name(), target, symbols)));
     }
 
     // --- [EXECUTION]
@@ -462,9 +465,11 @@ public class Apply extends GhidraScript {
                                                         Step.TYPED,
                                                         address,
                                                         new Report.Failure<>(
-                                                                exception
-                                                                        .getMessage()
-                                                                        .lines()
+                                                                Optional.ofNullable(
+                                                                                exception
+                                                                                        .getMessage())
+                                                                        .stream()
+                                                                        .flatMap(String::lines)
                                                                         .findFirst()
                                                                         .map(line ->
                                                                                 "`%s` did not parse (%s)"
@@ -482,21 +487,23 @@ public class Apply extends GhidraScript {
                 functions.stream()
                         .flatMap(entry -> remove(entry.getKey(), entry.getValue()))
                         .toList();
-        List<Map.Entry<Row, Function>> renaming =
-                functions.stream()
-                        .filter(entry ->
-                                entry.getKey().locals().stream()
-                                        .anyMatch(Predicate.not(Local::removes)))
-                        .toList();
         SequencedMap<Function, Report.Result<DecompileResults>> decompiled =
                 Functions.decompile(
                         currentProgram,
-                        renaming.stream().map(Map.Entry::getValue).distinct().toList(),
+                        functions.stream()
+                                .filter(entry ->
+                                        entry.getKey().locals().stream()
+                                                .anyMatch(Predicate.not(Local::removes)))
+                                .map(Map.Entry::getValue)
+                                .distinct()
+                                .toList(),
                         Arguments.Setting.defaults(),
                         monitor);
         List<Outcome> renamed =
-                renaming.stream()
-                        .flatMap(entry -> rename(entry.getKey(), decompiled.get(entry.getValue())))
+                functions.stream()
+                        .flatMap(entry ->
+                                Stream.ofNullable(decompiled.get(entry.getValue()))
+                                        .flatMap(result -> rename(entry.getKey(), result)))
                         .toList();
         List<Outcome> outcomes =
                 Stream.of(named, typed, removed, renamed).flatMap(List::stream).toList();

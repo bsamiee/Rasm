@@ -315,7 +315,9 @@ public class Emu extends GhidraScript {
                         Stop.FAULTED,
                         step,
                         thread.getCounter(),
-                        Optional.of(String.valueOf(exception.getMessage())));
+                        Optional.of(
+                                Optional.ofNullable(exception.getMessage())
+                                        .orElseGet(exception::toString)));
             }
             return new Outcome(
                     thread.getCounter().equals(sentinel) ? Stop.RETURNED : Stop.EXHAUSTED,
@@ -447,7 +449,7 @@ public class Emu extends GhidraScript {
         Report.Result<String> id =
                 run.id() == null || run.id().isBlank()
                         ? new Report.Failure<>("Id is absent")
-                        : ids.get(run.id()) > 1
+                        : ids.getOrDefault(run.id(), 0L) > 1
                                 ? new Report.Failure<>(
                                         "Id `%s` repeats in another run".formatted(run.id()))
                                 : new Report.Success<>(run.id());
@@ -608,9 +610,7 @@ public class Emu extends GhidraScript {
                                                         return new Report.Failure<>(
                                                                 "Plan `%s` is unreadable, %s"
                                                                         .formatted(
-                                                                                file,
-                                                                                exception
-                                                                                        .getMessage()));
+                                                                                file, exception));
                                                     }
                                                 })))
                         .getFirst();

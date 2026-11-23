@@ -117,7 +117,11 @@ public class Headers extends GhidraScript {
             } catch (ParseException
                     | ghidra.app.util.cparser.CPP.ParseException
                     | TokenMgrError exception) {
-                return new Report.Failure<>(file + "\n" + exception.getMessage());
+                return new Report.Failure<>(
+                        file
+                                + "\n"
+                                + Optional.ofNullable(exception.getMessage())
+                                        .orElseGet(exception::toString));
             }
         }
     }

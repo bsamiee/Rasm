@@ -124,7 +124,9 @@ public class Serve extends GhidraScript {
                                 monitor);
                         return new Report.Success<>(Optional.of(program.getDomainFile()));
                     } catch (Exception exception) {
-                        return new Report.Failure<>(String.valueOf(exception.getMessage()));
+                        return new Report.Failure<>(
+                                Optional.ofNullable(exception.getMessage())
+                                        .orElseGet(exception::toString));
                     }
                 };
         Report.Result<Optional<DomainFile>> outcome =

@@ -272,12 +272,11 @@ public class Decompile extends GhidraScript {
         List<Block> blocks =
                 selection.entrySet().stream()
                         .map(entry ->
-                                isDecompilable(entry.getKey())
-                                        ? Block.of(
-                                                entry.getKey(),
-                                                entry.getValue(),
-                                                results.get(entry.getKey()))
-                                        : new Stub(entry.getKey()))
+                                switch (results.get(entry.getKey())) {
+                                    case null -> new Stub(entry.getKey());
+                                    case Report.Result<DecompileResults> result ->
+                                            Block.of(entry.getKey(), entry.getValue(), result);
+                                })
                         .toList();
         Set<Function> members =
                 blocks.stream()
