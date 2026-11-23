@@ -48,6 +48,7 @@ steps {
     }
     diagnostic_format = "gcc"
   }
+  ["check-symlinks"] = Builtins.check_symlinks
   ["clang-format"] = (Builtins.clang_format) {
     glob = "**/*.{cpp,cppm,ixx,cc,cxx,mm,hpp,hh,hxx,h,ipp,inl,tpp}"
     local style = "--style=file:.config/.clang-format"

@@ -10,7 +10,7 @@ Workflow `CI` and its jobs:
 - Job `affected` names the Playwright image Deploy publishes by installed `@playwright/test` version
 - Job `affected` runs `nrwl/nx-set-shas` once for every job but `unreal`, as a CI run finishing between jobs moves the base `nx-set-shas` finds
 - `nx-set-shas` falls back to the first commit where no successful run is in reach, and every task runs, as default `HEAD~1` checks one commit
-- Job `linux` runs affected projects tagged `os:linux`, `os:all`, or no `os:` on instance `host`, except `host:rhino`, `host:browser`, `host:unreal`
+- Job `linux` runs affected projects tagged `os:linux` or no `os:` on instance `host`, except `host:rhino`, `host:browser`, `host:unreal`
 - Configuration `ci` of job `linux` adds GitHub annotations to `check--knip` findings
 - Job `browser` runs `host:browser` projects on instance `container` with Chromium of its Playwright image
 - Selenium Manager downloads stable Firefox and `geckodriver` for WebDriver suites, and the image holds the libraries Firefox loads
@@ -19,7 +19,7 @@ Workflow `CI` and its jobs:
 - Job `browser` runs Chromium in a job container, as on the host each network Docker adds fails queued requests with `net::ERR_NETWORK_CHANGED`
 - Job containers and user `node` of the Playwright image take user `runner`'s uid, as every job of one instance shares its checkout
 - Jobs `linux` and `browser` remove each report path before their run, as their kept checkout holds earlier runs' reports
-- Job `macos` runs affected `os:darwin` and `os:all` projects except `host:rhino`, as no Linux graph holds an Apple project
+- Job `macos` runs affected `os:darwin` projects except `host:rhino`, as no Linux graph holds an Apple project
 - Job `files` runs `hk check` over changes from base to head on macOS, as `swiftlint`, `swift format`, `plutil`, and `xcprojformatter` run there alone
 - Job `files` runs every `codegen` target first, as type-aware lint reads the sources those targets write
 - Job `windows` runs `test -c headless` over affected `os:win32` and `host:rhino` projects with core-hour token `RHINO_TOKEN`
@@ -30,7 +30,10 @@ Workflow `CI` and its jobs:
 - CMake checks uninitialized variables in each file inside the source tree, vcpkg's toolchain file included where mise installs it there
 - CI and Release checkouts fetch full history, as `nx affected` and `nx release` compare commits a partial clone fetches one at a time
 - CI and Release checkouts on self-hosted runners keep ignored files (`clean: false`)
-- Action `tools` removes untracked files and bootstraps mise tools alone, and hook `post-tools` installs pnpm and analyzer packages
+- Action `tools` removes untracked files and bootstraps mise tools alone, and hook `post-tools` installs project dependencies
+- GitHub-hosted runners and job containers load mise profile `ci`, installing pnpm packages alone, as Python tasks run on instance `host`
+- Workflows name composite actions as `$/.github/actions/<name>`, read from the archive of the commit a run started from
+- Runners fail a job before its first step where a tracked symlink of that archive names an untracked file
 
 ## [02]-[CACHE]
 

@@ -1,5 +1,5 @@
 name: Tools
-description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose post-tools hook installs pnpm packages, and exports mise env
+description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose post-tools hook installs project dependencies, pnpm packages alone under mise profile ci on GitHub-hosted runners and in job containers, and exports mise env
 
 runs:
     using: composite
@@ -8,6 +8,9 @@ runs:
           run: |-
               git clean -ffd
               printf "%s\n" "TMPDIR=${RUNNER_TEMP}" >> "${GITHUB_ENV}"
+        - if: ${{ runner.environment == 'github-hosted' || job.container.id != '' }}
+          shell: bash
+          run: printf "%s\n" "MISE_ENV=ci" >> "${GITHUB_ENV}"
         - if: ${{ job.container.id != '' }}
           shell: bash
           run: |-

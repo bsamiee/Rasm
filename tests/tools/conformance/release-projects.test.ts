@@ -12,7 +12,7 @@ const checked = (release: Readonly<Record<string, unknown>>, ...projects: readon
 
 describe('release-projects', () => {
     it('accepts release configuration on exactly the projects release projects and groups select', async () => {
-        await expect(checked({ groups: { libraries: { projects: ['tag:release'] }, tools: { projects: 'cli' } } }, project('lib', { tags: ['release'], release: {} }), project('cli', { release: {} }), project('app', { tags: ['os:all'] }))).resolves.toStrictEqual([]);
+        await expect(checked({ groups: { libraries: { projects: ['tag:release'] }, tools: { projects: 'cli' } } }, project('lib', { tags: ['release'], release: {} }), project('cli', { release: {} }), project('app', { tags: ['os:darwin'] }))).resolves.toStrictEqual([]);
     });
 
     it('reports a selected project without release configuration and release configuration outside the selection', async () => {

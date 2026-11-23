@@ -53,11 +53,11 @@ jobs:
               with:
                   fallback-sha: ${{ steps.root.outputs.sha }}
             - &tools
-              uses: ./.github/actions/tools
+              uses: $/.github/actions/tools
             - run: nx sync:check
             - run: nx conformance:check
             - id: unreal
-              uses: ./.github/actions/unreal
+              uses: $/.github/actions/unreal
             - id: listed
               run: |-
                   unreal="$(nx show projects --affected --exclude='*,!tag:host:unreal' --json)"
@@ -81,7 +81,7 @@ jobs:
               run: rm -rf .artifacts/cmake/*/*.log .artifacts/dotnet/test .artifacts/playwright .artifacts/vitest
             - *checkout
             - *tools
-            - run: nx affected --targets=check,test,build --configuration=ci --exclude='tag:os:*,!tag:os:linux,!tag:os:all,tag:host:rhino,tag:host:browser,tag:host:unreal'
+            - run: nx affected --targets=check,test,build --configuration=ci --exclude='tag:os:*,!tag:os:linux,tag:host:rhino,tag:host:browser,tag:host:unreal'
             - &reports
               if: ${{ always() }}
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -151,8 +151,8 @@ jobs:
               with:
                   xcode-version: latest-stable
             - *tools
-            - uses: ./.github/actions/signing
-            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,!tag:os:all,tag:host:rhino'
+            - uses: $/.github/actions/signing
+            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino'
             - if: ${{ !cancelled() && steps.graph.outcome == 'success' && steps.graph.outputs.cache-hit != 'true' }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:

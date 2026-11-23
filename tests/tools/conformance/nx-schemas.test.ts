@@ -16,7 +16,7 @@ const labelled = (data: Omit<ProjectConfiguration, 'root'>, nxJson: Readonly<Rec
 
 describe('nx-schemas', () => {
     it('accepts settings, a project, and target options under the schemas Nx states', async () => {
-        await expect(labelled({ tags: ['os:all'], targets: { build: { executor: 'nx:run-commands', options: { command: 'tsc' }, configurations: { watch: { command: 'tsc --watch' } } } } }, { parallel: 4 })).resolves.toStrictEqual([]);
+        await expect(labelled({ tags: ['os:darwin'], targets: { build: { executor: 'nx:run-commands', options: { command: 'tsc' }, configurations: { watch: { command: 'tsc --watch' } } } } }, { parallel: 4 })).resolves.toStrictEqual([]);
     });
 
     it('reports nx.json settings outside the settings schema against nx.json', async () => {
