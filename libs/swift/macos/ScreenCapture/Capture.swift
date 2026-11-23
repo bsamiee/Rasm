@@ -62,7 +62,7 @@ extension CGImage {
 extension Instance {
     func targets(
         _ source: Source?,
-        longestSide: Int?,
+        longestSide: LongestSide?,
     ) async throws(ApplicationFailure) -> [CGWindowID: Result<(filter: SCContentFilter, region: CGRect?, width: Int, height: Int), ApplicationFailure>] {
         try Grant.screenCapture.check()
         let element: (window: CGWindowID, frame: CGRect)? = if case .element(let id) = source { try await id.framed() } else { nil }
@@ -93,7 +93,7 @@ extension Instance {
                         let region = element.map { element in element.frame.offsetBy(dx: -window.frame.minX, dy: -window.frame.minY).intersection(CGRect(origin: .zero, size: window.frame.size)) }
                         guard region?.isEmpty != true else { throw ApplicationFailure(subject: String(number), reason: .noWindow) }
                         let (size, scale) = (region?.size ?? filter.contentRect.size, CGFloat(filter.pointPixelScale))
-                        let factor = scale * (longestSide.map { limit in min(1, CGFloat(limit) / (max(size.width, size.height) * scale)) } ?? 1)
+                        let factor = scale * (longestSide.map { limit in min(1, CGFloat(limit.rawValue) / (max(size.width, size.height) * scale)) } ?? 1)
                         return (filter, region, Int((size.width * factor).rounded()), Int((size.height * factor).rounded()))
                     },
                 )
@@ -104,7 +104,7 @@ extension Instance {
     public func capture(
         _ source: Source?,
         to folder: URL,
-        longestSide: Int? = nil,
+        longestSide: LongestSide? = nil,
         preview: LongestSide? = nil,
     ) async throws(ApplicationFailure) -> [CGWindowID: Result<Shot, ApplicationFailure>] {
         do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) } catch {

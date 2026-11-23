@@ -61,7 +61,7 @@ actor Recorder {
 
     private let folder: URL
     private let hostLogs: LogFolder
-    private let longestSide: Int?
+    private let longestSide: LongestSide?
     private let timeline: Mutex<FileDescriptor>
     private let failed: @Sendable (ApplicationFailure) -> Void
     private var held: [Instance: Held] = [:]
@@ -69,7 +69,7 @@ actor Recorder {
     private var observing: Task<Void, Never>?
     private var open: Bool = true
 
-    init(folder: URL, longestSide: Int?, failed: @escaping @Sendable (ApplicationFailure) -> Void) throws(ApplicationFailure) {
+    init(folder: URL, longestSide: LongestSide?, failed: @escaping @Sendable (ApplicationFailure) -> Void) throws(ApplicationFailure) {
         let hostLogs = LogFolder(url: folder.appending(component: "host", directoryHint: .isDirectory), glob: "*.log")
         (self.folder, self.hostLogs, self.longestSide, self.failed) = (folder, hostLogs, longestSide, failed)
         do {

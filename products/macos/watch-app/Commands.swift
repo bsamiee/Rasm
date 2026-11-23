@@ -27,6 +27,11 @@ private func elementID(_ id: String) throws(ValidationError) -> Element.ID {
     return element
 }
 
+private func pixels(_ count: String) throws(ValidationError) -> LongestSide {
+    guard let side = Int(count).flatMap(LongestSide.init(rawValue:)) else { throw ValidationError("\(count) is not a positive integer") }
+    return side
+}
+
 private func installed(_ names: [String], _ run: Run) async -> [(name: String, installations: [Installation])] {
     await OrderedSet(names).async.compactMap { name -> (name: String, installations: [Installation])? in
         do throws(ApplicationFailure) { return (name, try await Installation.installed(named: name)) } catch {
@@ -124,11 +129,10 @@ struct Watch: AsyncParsableCommand {
     )
     var record: URL?
 
-    @Option(help: ArgumentHelp("Longest side of recorded frames in pixels, smaller windows keep native size", valueName: "pixels"))
-    var longestSide: Int?
+    @Option(help: ArgumentHelp("Longest side of recorded frames in pixels, smaller windows keep native size", valueName: "pixels"), transform: pixels)
+    var longestSide: LongestSide?
 
     func validate() throws(ValidationError) {
-        if let longestSide, longestSide <= 0 { throw ValidationError("\(longestSide) is not a positive integer") }
         if longestSide != nil, record == nil { throw ValidationError("--longest-side belongs to --record") }
     }
 
@@ -292,11 +296,10 @@ struct Capture: AsyncParsableCommand {
     @Option(help: "Element ID from a read line, a pane, panel, or canvas", transform: elementID)
     var element: Element.ID?
 
-    @Option(help: ArgumentHelp("Longest side in pixels, smaller captures keep native size", valueName: "pixels"))
-    var longestSide: Int?
+    @Option(help: ArgumentHelp("Longest side in pixels, smaller captures keep native size", valueName: "pixels"), transform: pixels)
+    var longestSide: LongestSide?
 
     func validate() throws(ValidationError) {
-        if let longestSide, longestSide <= 0 { throw ValidationError("\(longestSide) is not a positive integer") }
         if window != nil, element != nil { throw ValidationError("Pass --window or --element") }
     }
 

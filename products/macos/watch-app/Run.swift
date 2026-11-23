@@ -9,6 +9,7 @@ import Files
 import Logging
 import OrderedCollections
 import Processes
+import ScreenCapture
 import ServiceLifecycle
 import Subprocess
 import Synchronization
@@ -31,7 +32,7 @@ final class Run: Sendable {
     private let claims: (stream: AsyncStream<Instance?>, continuation: AsyncStream<Instance?>.Continuation)?
     private let recorder: Recorder?
 
-    init(lineLength: Int? = nil, waiting: Bool = false, recording: (folder: URL, longestSide: Int?)? = nil) {
+    init(lineLength: Int? = nil, waiting: Bool = false, recording: (folder: URL, longestSide: LongestSide?)? = nil) {
         let failures = AsyncStream<ApplicationFailure>.makeStream()
         let failed = failures.continuation
         let recorded = Result { () throws(ApplicationFailure) in
@@ -214,7 +215,7 @@ final class Run: Sendable {
         lineLength: Int? = nil,
         grants: [Grant] = [.accessibility],
         waiting: Bool = false,
-        recording: (folder: URL, longestSide: Int?)? = nil,
+        recording: (folder: URL, longestSide: LongestSide?)? = nil,
         _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void,
     ) async {
         let run = Run(lineLength: lineLength, waiting: waiting, recording: recording)

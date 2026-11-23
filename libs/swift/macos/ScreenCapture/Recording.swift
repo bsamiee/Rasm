@@ -100,7 +100,7 @@ extension SCStreamConfiguration {
 }
 
 extension Instance {
-    public func recording(_ source: Source, to file: URL, longestSide: Int? = nil, configuration: SCStreamConfiguration = .background) async throws(ApplicationFailure) -> Recording {
+    public func recording(_ source: Source, to file: URL, longestSide: LongestSide? = nil, configuration: SCStreamConfiguration = .background) async throws(ApplicationFailure) -> Recording {
         guard let target = try await targets(source, longestSide: longestSide).values.first else { throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .noWindow) }
         let (filter, region, width, height) = try target.get()
         (configuration.width, configuration.height) = (width, height)
