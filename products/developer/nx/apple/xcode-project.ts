@@ -72,7 +72,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const report = Option.all({ file: Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info')), folder: derived }).pipe(Option.map(({ file: at, folder }) => ({ profiles: [join(folder, DERIVED.profiles)], results: [join(folder, DERIVED.results)], file: at })));
     const covered = Option.toArray(Option.map(report, ({ file: at }) => at));
     const builds = (): Runs => Array.flatMap(schemes, (scheme) => (scheme.packages ? destinations(scheme.containers).map((platform) => ['-destination', `generic/platform=${platform}`]) : [[]]).map((destination) => invoke('build', scheme.name, destination)));
-    const installs = archives.map(({ scheme, configuration }) => invoke('install', scheme, ['-configuration', configuration, 'DSTROOT=/']));
+    const installs = archives.map(({ scheme, configuration }) => invoke('install', scheme, ['-configuration', configuration, 'DSTROOT=$(LOCAL_APPS_DIR)', 'INSTALL_PATH=/']));
     const launches = Array.dedupe(Array.getSomes(schemes.map(({ launch }) => Option.fromUndefinedOr(launch))));
     const modes = (planned: (configuration: Option.Option<string>) => Runs): Partial<TargetConfiguration> => ({
         configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned(Option.some(configuration)).map((run) => [...run, '-configuration', configuration]) }]),
@@ -148,7 +148,8 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                     installs,
                     {
                         technologies: ['xcode'],
-                        description: "Builds each shared scheme archiving an application that installs, under -configuration set to the scheme's archive configuration, and installs its products at the INSTALL_PATH xcodebuild evaluates on this Mac with its install action under DSTROOT /",
+                        description:
+                            "Builds each shared scheme archiving an application that installs, under -configuration set to the scheme's archive configuration, and installs its applications into the LOCAL_APPS_DIR xcodebuild evaluates on this Mac with its install action, that folder as DSTROOT since the build system refuses / as one",
                         help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
                     },
                     { dependsOn: ['^build--*'], inputs: read, options: { applications: Array.dedupe(archives.flatMap(({ bundles }) => bundles)) } },

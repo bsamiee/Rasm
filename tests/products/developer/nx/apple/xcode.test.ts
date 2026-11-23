@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
 import { Run } from '@rasm/nx-apple/executors/run';
 import { it as nx, outputs, unaggregated, unportable } from '@rasm/testing/nx';
@@ -120,9 +122,9 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
         ]);
     });
 
-    it('installs the application of its archive configuration under DSTROOT=/, naming its bundle for the relaunch notice', ({ analyzed: { viewer } }) => {
+    it('installs the application of its archive configuration with the applications folder as DSTROOT, naming its bundle for the relaunch notice', ({ analyzed: { viewer } }) => {
         expect(viewer.data.targets?.['install--xcodebuild']?.options).toStrictEqual({
-            runs: [['xcodebuild', 'install', '-project', 'apps/Viewer/Viewer.xcodeproj', '-skipMacroValidation', '-skipPackagePluginValidation', '-onlyUsePackageVersionsFromResolvedFile', '-scheme', 'Viewer', '-configuration', 'Release', 'DSTROOT=/']],
+            runs: [['xcodebuild', 'install', '-project', 'apps/Viewer/Viewer.xcodeproj', '-skipMacroValidation', '-skipPackagePluginValidation', '-onlyUsePackageVersionsFromResolvedFile', '-scheme', 'Viewer', '-configuration', 'Release', 'DSTROOT=$(LOCAL_APPS_DIR)', 'INSTALL_PATH=/']],
             applications: ['Viewer.app'],
         });
     });
@@ -133,6 +135,15 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
         const landed = Option.getOrThrow(Schema.decodeOption(Settings)(execFileSync('xcodebuild', ['-showBuildSettings', '-json', ...install], { cwd: root, encoding: 'utf-8' }))).map(({ buildSettings }) => `${buildSettings.TARGET_BUILD_DIR}/${buildSettings.WRAPPER_NAME}`);
 
         expect(landed).toStrictEqual(['/Applications/Viewer.app']);
+    });
+
+    it('installs the application with the command it infers, into the applications folder xcodebuild names', ({ analyzed: { root, viewer } }) => {
+        const [, ...install] = ran(viewer.data.targets?.['install--xcodebuild']?.options).runs.flat();
+        const applications = join(root, 'installed');
+
+        execFileSync('xcodebuild', [...install, `LOCAL_APPS_DIR=${applications}`], { cwd: root, stdio: 'ignore' });
+
+        expect(readdirSync(applications)).toStrictEqual(['Viewer.app']);
     });
 
     it('packs the archive, its disk image, and its zip into the outputPath folder of the scheme, and releases them', ({ analyzed: { graph, viewer } }) => {
