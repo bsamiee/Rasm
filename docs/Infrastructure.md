@@ -31,6 +31,7 @@ Machines, their reinstall, and images their stacks run:
 - Role `Cache` runs the Nx cache server with its proxy and object storage
 - Role `Runner` runs a runner service per instance and pulls an Unreal image per engine release a tracked `.uproject` names
 - Role `Runner` builds and pushes `ghcr.io/<owner>/<repository>/playwright:<version>`, locked Playwright Chromium over the newest `node:slim`
+- Playwright images add `curl`, a C compiler, and ICU, as action `tools` downloads mise, builds cargo tools, and runs `dotnet` inside them
 - Pushed images hold their source label as a manifest annotation, as GHCR links a package by annotation alone and a linked package inherits access
 - Role `Apps` runs the proxy, sign-in, and object storage of hosted apps, on one machine per zone, as a zone holds each public name once
 - Docker engines build stack images from inline Dockerfiles with build checks as errors, load local images, and push registry images
