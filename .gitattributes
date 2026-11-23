@@ -1,36 +1,41 @@
+# --- [TEXT] -----------------------------------------------------------------------------
+
 * text=auto eol=lf
 
 # --- [DIFF] -----------------------------------------------------------------------------
 
-*.c diff=cpp
-*.h diff=cpp
-*.cpp diff=cpp
-*.hpp diff=cpp
-*.cppm diff=cpp
-*.ixx diff=cpp
-*.mm diff=objc
-*.cs diff=csharp
-*.rs diff=rust
-*.py diff=python
-*.java diff=java
 *.sh diff=bash
-*.swift diff=swift
-*.md diff=markdown
+*.c diff=cpp
+*.cpp diff=cpp
+*.cppm diff=cpp
+*.h diff=cpp
+*.hpp diff=cpp
+*.ixx diff=cpp
+*.cs diff=csharp
 *.css diff=css
 *.html diff=html
+*.java diff=java
+*.md diff=markdown
+*.mm diff=objc
+*.py diff=python
+*.rs diff=rust
+*.swift diff=swift
 
 # --- [LINGUIST] -------------------------------------------------------------------------
 
-*.globalconfig linguist-language=EditorConfig
-*.entitlements linguist-language=XML-Property-List
-*.xcscheme linguist-language=XML
 **/*.xcodeproj/project.xcproj linguist-language=JSON-with-Comments
+*.entitlements linguist-language=XML-Property-List
+*.globalconfig linguist-language=EditorConfig
+*.xcscheme linguist-language=XML
 
 # --- [LOCK] -----------------------------------------------------------------------------
 
-pixi.lock merge=binary linguist-language=YAML linguist-generated=true -diff
-uv.lock linguist-language=TOML linguist-generated=true -diff
-pnpm-lock.yaml linguist-generated=true -diff
+*.py.lock linguist-generated=true -diff
+aube-lock.yaml linguist-generated=true -diff
 Cargo.lock linguist-generated=true -diff
 mise.lock linguist-generated=true -diff
+Package.resolved linguist-generated=true -diff
 packages*.lock.json linguist-generated=true -diff
+pixi.lock merge=binary linguist-language=YAML linguist-generated=true -diff
+pnpm-lock.yaml linguist-generated=true -diff
+uv.lock linguist-language=TOML linguist-generated=true -diff

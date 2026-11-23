@@ -2,9 +2,9 @@
     // --- [RECOMMENDATIONS] -------------------------------------------------------------
 
     "recommendations": [
+        "adobe.extendscript-debug",
         "astral-sh.ty",
         "charliermarsh.ruff",
-        "adobe.extendscript-debug",
         "ctcuff.font-preview",
         "github.vscode-github-actions",
         "hverlin.mise-vscode",

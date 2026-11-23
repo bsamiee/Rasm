@@ -1,4 +1,11 @@
 {
+    // --- [WORKBENCH] -------------------------------------------------------------------
+
+    "chat.disableAIFeatures": true,
+    "debug.focusWindowOnBreak": false,
+    "git.autoRepositoryDetection": false,
+    "problems.showCurrentInStatus": true,
+
     // --- [FILES] -----------------------------------------------------------------------
 
     // --- [ASSOCIATIONS]
@@ -25,47 +32,23 @@
         "project.xcproj": "jsonc"
     },
 
-    // --- [ICONS]
+    // --- [EXCLUSIONS]
 
-    "material-icon-theme.files.associations": {
-        "*.entitlements": "xml",
-        "*.gh": "3d",
-        "*.ghz": "3d",
-        "*.globalconfig": "editorconfig",
-        "*.ips": "log",
-        "*.uasset": "3d",
-        "*.umap": "3d",
-        "*.xcconfig": "settings",
-        "Package.resolved": "lock",
-        "project.xcproj": "swift"
+    "files.exclude": {
+        ".artifacts": true,
+        ".cache": true,
+        ".cargo/rustc-source": true,
+        ".nx": true,
+        ".pixi": true,
+        "**/.build": true,
+        "**/.cloudflare": true,
+        "**/.swiftpm": true,
+        "**/.venv": true,
+        "**/__pycache__": true,
+        "**/dist": true,
+        "**/node_modules": true,
+        "**/xcuserdata": true
     },
-
-    // --- [NESTING]
-
-    "explorer.fileNesting.enabled": true,
-    "explorer.fileNesting.patterns": {
-        "*.csproj": "AnalyzerReleases.*.md, packages*.lock.json",
-        "*.py": "${capture}.py.lock",
-        ".clang-tidy": ".clang-format, gersemi.yaml",
-        ".gitignore": ".gitattributes, .gitmodules",
-        "Cargo.toml": "build.rs, Cargo.lock, rust-toolchain.toml",
-        "CLAUDE.md": "AGENTS.md",
-        "clippy.toml": "deny.toml, nextest.toml, rustfmt.toml",
-        "CMakeLists.txt": "*.cmake, CMakePresets.json, vcpkg.json",
-        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
-        "hk.pkl": ".globalconfig, jscpd.json, knip.json, pmd.xml, ryl.toml, shellcheckrc, squawk.toml, stylelint.config.ts",
-        "Info.plist": "*.entitlements",
-        "mise.toml": "mise.*.toml, mise.lock, miserc.toml",
-        "nx.json": ".editorconfig, sgconfig.yml",
-        "package.json": "*.config.ts, .oxfmtrc.json, .oxlintrc.json, executors.json, manifest.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
-        "Package.swift": "Package.resolved, Xcode.xcconfig",
-        "pyproject.toml": "hatch_build.py, pixi.lock, uv.lock",
-        "README.md": "LICENSE, TODO*.md",
-        "swiftlint.yml": "swift-format.json"
-    },
-
-    // --- [WATCHING]
-
     "files.watcherExclude": {
         ".artifacts": true,
         ".cache": true,
@@ -85,41 +68,35 @@
         "**/xcuserdata/**": true
     },
 
-    // --- [WORKBENCH] -------------------------------------------------------------------
+    // --- [SEARCH]
 
-    // --- [DEBUG]
-
-    "debug.focusWindowOnBreak": false,
-
-    // --- [EDITOR]
-
-    "chat.disableAIFeatures": true,
-    "problems.showCurrentInStatus": true,
-
-    // --- [SOURCE_CONTROL]
-
-    "git.autoRepositoryDetection": false,
-
-    // --- [VISIBILITY]
-
-    "explorer.compactFolders": false,
-    "files.exclude": {
-        ".artifacts": true,
-        ".cache": true,
-        ".cargo/rustc-source": true,
-        ".nx": true,
-        ".pixi": true,
-        "**/.build": true,
-        "**/.cloudflare": true,
-        "**/.swiftpm": true,
-        "**/.venv": true,
-        "**/__pycache__": true,
-        "**/dist": true,
-        "**/node_modules": true,
-        "**/xcuserdata": true
-    },
     "search.experimental.useIgnoreFilesInFindFiles": true,
     "search.followSymlinks": false,
+
+    // --- [EXPLORER] --------------------------------------------------------------------
+
+    "explorer.compactFolders": false,
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+        "*.csproj": "AnalyzerReleases.*.md, packages*.lock.json",
+        "*.py": "${capture}.py.lock",
+        ".clang-tidy": ".clang-format, gersemi.yaml",
+        ".gitignore": ".gitattributes, .gitmodules",
+        "Cargo.toml": "Cargo.lock, rust-toolchain.toml",
+        "CLAUDE.md": "AGENTS.md",
+        "clippy.toml": "deny.toml, nextest.toml, rustfmt.toml",
+        "CMakeLists.txt": "*.cmake, CMakePresets.json, vcpkg.json",
+        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
+        "hk.pkl": ".globalconfig, jscpd.json, knip.json, pmd.xml, ryl.toml, shellcheckrc, squawk.toml, stylelint.config.ts",
+        "Info.plist": "*.entitlements",
+        "mise.toml": "mise.*.toml, mise.lock, miserc.toml",
+        "nx.json": ".editorconfig, sgconfig.yml",
+        "package.json": "*.config.ts, .oxfmtrc.json, .oxlintrc.json, executors.json, manifest.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
+        "Package.swift": "Package.resolved, Xcode.xcconfig",
+        "pyproject.toml": "hatch_build.py, pixi.lock, uv.lock",
+        "README.md": "LICENSE",
+        "swiftlint.yml": "swift-format.json"
+    },
 
     // --- [CLANGD] ----------------------------------------------------------------------
 
@@ -129,7 +106,6 @@
 
     "cmake.configureOnEdit": false,
     "cmake.configureOnOpen": false,
-    "cmake.sourceDirectory": "${workspaceFolder}/tools/ast-grep/grammars",
 
     // --- [CSS] -------------------------------------------------------------------------
 
@@ -148,23 +124,56 @@
     // --- [JAVA] ------------------------------------------------------------------------
 
     "java.configuration.runtimes": [{ "default": true, "name": "JavaSE-27", "path": "${JAVA_HOME}" }],
-    "java.import.exclusions": ["**/.cache/**", "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/node_modules/**"],
+    "java.import.exclusions": [
+        "**/.archive/**",
+        "**/.artifacts/**",
+        "**/.build/**",
+        "**/.cache/**",
+        "**/.cargo/rustc-source/**",
+        "**/.cloudflare/**",
+        "**/.metadata/**",
+        "**/.nx/**",
+        "**/.pixi/**",
+        "**/.swiftpm/**",
+        "**/.venv/**",
+        "**/__pycache__/**",
+        "**/archetype-resources/**",
+        "**/coverage/**",
+        "**/dist/**",
+        "**/docs/research/**",
+        "**/META-INF/maven/**",
+        "**/node_modules/**",
+        "**/xcuserdata/**"
+    ],
     "java.import.gradle.enabled": false,
     "java.import.maven.enabled": false,
     "java.project.referencedLibraries": ["${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar"],
-    "java.project.resourceFilters": ["node_modules", "research", "rustc-source", "\\.(artifacts|build|cache|cloudflare|git|pixi|swiftpm|venv)"],
+    "java.project.resourceFilters": ["__pycache__", "coverage", "dist", "node_modules", "research", "rustc-source", "xcuserdata", "\\.(archive|artifacts|build|cache|cloudflare|git|nx|pixi|swiftpm|venv)"],
     "java.project.sourcePaths": ["plugins/shared/tool/skills/ghidra/scripts"],
 
     // --- [JSON] ------------------------------------------------------------------------
 
     "json.schemas": [{ "fileMatch": ["**/*.xcodeproj/project.xcproj"], "schema": { "allowTrailingCommas": true } }],
 
+    // --- [MATERIAL_ICON_THEME] ---------------------------------------------------------
+
+    "material-icon-theme.files.associations": {
+        "*.entitlements": "xml",
+        "*.gh": "3d",
+        "*.ghz": "3d",
+        "*.globalconfig": "editorconfig",
+        "*.ips": "log",
+        "*.uasset": "3d",
+        "*.umap": "3d",
+        "*.xcconfig": "settings",
+        "Package.resolved": "lock",
+        "project.xcproj": "swift"
+    },
+
     // --- [MISE] ------------------------------------------------------------------------
 
     "mise.enableCodeLens": false,
     "mise.enableConfigDiagnostics": false,
-    "mise.notifyDaemonFailures": false,
-    "mise.showDaemonsInStatusBar": false,
 
     // --- [OXC] -------------------------------------------------------------------------
 
@@ -184,7 +193,26 @@
 
     // --- [SHELL] -----------------------------------------------------------------------
 
-    "bashIde.backgroundAnalysisIgnore": ["**/.artifacts/**", "**/.cache/**", "**/.git/**", "**/.pixi/**", "**/.venv/**", "**/node_modules/**", "assets/**"],
+    "bashIde.backgroundAnalysisIgnore": [
+        "**/.archive/**",
+        "**/.artifacts/**",
+        "**/.build/**",
+        "**/.cache/**",
+        "**/.cargo/rustc-source/**",
+        "**/.cloudflare/**",
+        "**/.git/**",
+        "**/.nx/**",
+        "**/.pixi/**",
+        "**/.swiftpm/**",
+        "**/.venv/**",
+        "**/__pycache__/**",
+        "**/coverage/**",
+        "**/dist/**",
+        "**/node_modules/**",
+        "**/xcuserdata/**",
+        "assets/**",
+        "docs/research/**"
+    ],
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
 

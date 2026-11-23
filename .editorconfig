@@ -3,17 +3,20 @@ root = true
 # --- [EDITORCONFIG] ---------------------------------------------------------------------
 
 [*]
-end_of_line = lf
-insert_final_newline = true
 charset = utf-8
-trim_trailing_whitespace = true
-indent_style = space
+end_of_line = lf
 indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
 
 [*.{plist,entitlements}]
 indent_style = tab
 
 [*.pkl]
+indent_size = 2
+
+[vcpkg.json]
 indent_size = 2
 
 # --- [SHFMT] ----------------------------------------------------------------------------
@@ -29,36 +32,34 @@ switch_case_indent = true
 
 # --- [CODE_STYLE]
 
-csharp_style_namespace_declarations = file_scoped
-csharp_style_prefer_top_level_statements = false
-csharp_style_prefer_local_over_anonymous_function = false
-csharp_style_expression_bodied_methods = true
-csharp_style_expression_bodied_constructors = true
-csharp_style_expression_bodied_operators = true
-csharp_style_expression_bodied_local_functions = true
 csharp_prefer_braces = false
-dotnet_style_require_accessibility_modifiers = always
-dotnet_style_allow_multiple_blank_lines_experimental = false
-csharp_style_allow_blank_lines_between_consecutive_braces_experimental = false
 csharp_style_allow_blank_line_after_colon_in_constructor_initializer_experimental = false
 csharp_style_allow_blank_line_after_token_in_conditional_expression_experimental = false
+csharp_style_allow_blank_lines_between_consecutive_braces_experimental = false
+csharp_style_expression_bodied_constructors = true
+csharp_style_expression_bodied_local_functions = true
+csharp_style_expression_bodied_methods = true
+csharp_style_expression_bodied_operators = true
+csharp_style_namespace_declarations = file_scoped
+csharp_style_prefer_local_over_anonymous_function = false
+csharp_style_prefer_top_level_statements = false
+dotnet_style_allow_multiple_blank_lines_experimental = false
+dotnet_style_require_accessibility_modifiers = always
 
 # --- [FORMATTING]
 
-csharp_new_line_before_open_brace = none
-csharp_new_line_before_else = false
 csharp_new_line_before_catch = false
+csharp_new_line_before_else = false
 csharp_new_line_before_finally = false
-csharp_new_line_before_members_in_object_initializers = false
 csharp_new_line_before_members_in_anonymous_types = false
+csharp_new_line_before_members_in_object_initializers = false
+csharp_new_line_before_open_brace = none
 csharp_new_line_between_query_expression_clauses = false
 
+# --- [SEVERITY]
+
 [tests/**/*.cs]
-dotnet_diagnostic.VSTHRD111.severity = none
 dotnet_diagnostic.CA1515.severity = none
 dotnet_diagnostic.CA2007.severity = none # xUnit1030: test methods keep the runner's context, ConfigureAwait in tests allocates and breaks await using
 dotnet_diagnostic.MA0004.severity = none # MA0004 states CA2007's rule, the xUnit1030 reason holds
-
-[products/**/*.cs]
-dotnet_diagnostic.RASM1206.severity = none
-dotnet_diagnostic.RASM3107.severity = none
+dotnet_diagnostic.VSTHRD111.severity = none
