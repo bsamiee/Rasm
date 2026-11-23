@@ -35,13 +35,12 @@ const highs = (readings: readonly Reading[], sensor: Reading['sensor']) => readi
 - Unions type their operations through their own fold: `U.match({...})` is a function of the union, and `flow(U.match({...}), next)` an operation over it
 - Signatures naming a bare union take the record holding it, the case they read, or the parameter of its own fold (`Parameters<typeof <fold>>[0]`)
 - Case classes stand where each case is a record with readers of its own, a class per case declared to name a union restating it
-- Static member schemas read `typeof X.<Member>.Type` at each use, as a static holds no type name: a sibling class restates them, and `Parameters<typeof X.<operation>>[n]` reads them at a distance
 - Encoded sides flow through `encodeEffect`, `decodeEffect`, and `S['Encoded']` on a schema parameter
 - Wire shapes take a class where code loading no Effect writes them, imported there by type alone
 - Classes are exported from their module where TypeScript names them in a declaration (TS4023), and package entries list public API alone
 - TS2883 on a class no entry exports marks an exported value whose signature leaks it, rebuilt to return what its callers read
 - Schemas one module reads stay a `const`, and a schema no codec or derivation reads goes with its type
-- Classes, structs, and schemas added to make a type nameable restate that type, and a change adding one rebuilds the signature in its place
+- Classes, structs, schemas, and type expressions added to make a type nameable are indirection and surface, their signature rebuilt in their place
 
 ## [02]-[MODELS]
 

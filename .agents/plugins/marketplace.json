@@ -376,7 +376,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.4.1",
+            "version": "0.4.2",
             "description": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
             "author": {
                 "name": "Bardia Samiee"

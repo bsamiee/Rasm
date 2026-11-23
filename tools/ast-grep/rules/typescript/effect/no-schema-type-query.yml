@@ -171,4 +171,4 @@ transform:
     GROUPED: { replace: { source: $WIDENED, replace: '^(.+)$', by: '(${1})' } }
     INDEXED: { replace: { source: $MEMBER, replace: '^(.+)$', by: "['${1}']`" } }
 message: '$RESTATED$QUERIED$REBUILT$EXTRACTION$NARROWED$GROUPED$INDEXED'
-note: "Record schemas are classes that are their own type, `Schema.Opaque` over a struct for plain objects and `Schema.Class` where instances hold members, type parameters constrained to a schema read `<S>['<view>']`, static member schemas of a class read `typeof <Owner>.<Member>.Type`, and a bare union reads the parameter of its own fold (`Parameters<typeof <fold>>[0]`); an alias, a sibling class, or a class declared only to name a type restates a query"
+note: "Record schemas are classes that are their own type, `Schema.Opaque` over a struct for plain objects and `Schema.Class` where instances hold members, type parameters constrained to a schema read `<S>['<view>']`, and a bare union reads the parameter of its own fold (`Parameters<typeof <fold>>[0]`); an alias, a sibling class, or a class declared only to name a type restates a query"
