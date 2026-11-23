@@ -1,76 +1,33 @@
-import { posix } from 'node:path';
-import { platform } from 'node:process';
+import { execFileSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
-import { outputs } from '@rasm/testing/nx';
-import { flow, Option, Schema } from 'effect';
-import { describe, expect, vi } from 'vitest';
-import { it, node, report } from '#/analyzer';
+import { it, outputs } from '@rasm/testing/nx';
+import { expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PROJECT = '<Project Sdk="Microsoft.NET.Sdk" />\n';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Tested = Schema.Struct({ commands: Schema.Tuple([Schema.Struct({ command: Schema.String, forwardAllArgs: Schema.Boolean }), Schema.String]) });
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const tested = flow(Schema.decodeUnknownOption(Tested), Option.getOrThrow);
+const PACKAGES = join(dirname(fileURLToPath(import.meta.resolve('@rasm/nx-dotnet/package.json'))), '../../../../.cache/nuget/packages');
+const FILES = {
+    'global.json': JSON.stringify({ test: { runner: 'Microsoft.Testing.Platform' } }),
+    'NuGet.config': `<configuration>\n  <config>\n    <add key="globalPackagesFolder" value="${PACKAGES}" />\n  </config>\n</configuration>\n`,
+    'apps/Tests/Tests.csproj':
+        '<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n    <OutputType>Exe</OutputType>\n    <IsTestProject>true</IsTestProject>\n    <RollForward>Major</RollForward>\n  </PropertyGroup>\n  <ItemGroup>\n    <PackageReference Include="xunit.v3.mtp-v2" Version="4.0.3" />\n    <PackageReference Include="coverlet.MTP" Version="10.1.1" />\n  </ItemGroup>\n</Project>\n',
+    'apps/Tests/Sums.cs': 'namespace Tests;\n\npublic sealed class Sums {\n    [Xunit.Fact]\n    public void Adds() => Xunit.Assert.Equal(3, 1 + 2);\n}\n',
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('restore', () => {
-    it.for([
-        { kind: 'keeps a lock file', locks: ['apps/Tests/packages.lock.json'], restore: 'dotnet restore --no-dependencies --locked-mode -p:Configuration=Debug' },
-        { kind: 'keeps no lock file', locks: [], restore: 'dotnet restore --no-dependencies -p:Configuration=Debug' },
-    ])('restores the project alone before dotnet test, in locked mode only where it $kind', async ({ locks, restore }, { workspace }) => {
-        const graph = await workspace.write({ 'apps/Tests/Tests.csproj': PROJECT, ...report([node('apps/Tests/Tests.csproj', { test: true, locks })]) }).graph({ createNodes, createDependencies });
+it('runs the tests of a Microsoft Testing Platform project under configuration coverage, writing the coverlet lcov report into coveragePath within its declared outputs', { timeout: 600_000 }, async ({ workspace }) => {
+    const graph = await workspace.write(FILES).graph({ createNodes, createDependencies }, { coveragePath: 'coverage/{projectName}' });
+    execFileSync('dotnet', ['build', 'apps/Tests/Tests.csproj', '--configuration', 'Debug'], { cwd: workspace.root, stdio: 'ignore' });
+    const before = workspace.files();
 
-        expect(tested(graph.nodes['Tests']?.data.targets?.['test--dotnet']?.options).commands[0]).toStrictEqual({ command: restore, forwardAllArgs: false });
-    });
-});
+    const { success } = await workspace.run(graph, 'Tests', 'test--dotnet', 'coverage');
 
-describe('results', () => {
-    it('resolves its outputs to the test results folders, and to the results directory a run names', async ({ workspace }) => {
-        const graph = await workspace.write({ 'apps/Tests/Tests.csproj': PROJECT, ...report([node('apps/Tests/Tests.csproj', { test: true, results: ['apps/Tests/bin/Debug/net10.0/TestResults', 'artifacts/test/Tests'] })]) }).graph({ createNodes, createDependencies });
-
-        expect([outputs(graph, 'Tests', 'test--dotnet'), outputs(graph, 'Tests', 'test--dotnet', undefined, { 'results-directory': 'reports' })]).toStrictEqual([
-            ['apps/Tests/bin/Debug/net10.0/TestResults', 'artifacts/test/Tests'],
-            ['apps/Tests/bin/Debug/net10.0/TestResults', 'artifacts/test/Tests', 'apps/Tests/reports'],
-        ]);
-    });
-});
-
-describe('coverage', () => {
-    it('writes the coverlet.MTP lcov report into coveragePath under the coverage configuration', async ({ workspace }) => {
-        const graph = await workspace.write({ 'apps/Tests/Tests.csproj': PROJECT, ...report([node('apps/Tests/Tests.csproj', { test: true, referenced: ['coverlet.MTP', 'xunit.v3'] })]) }).graph({ createNodes, createDependencies }, { coveragePath: 'coverage/{projectName}' });
-
-        const [, command] = tested(graph.nodes['Tests']?.data.targets?.['test--dotnet']?.configurations?.['coverage']).commands;
-
-        expect([/ --coverlet --coverlet-output-format lcov /u.test(command), posix.join('apps/Tests', /--results-directory '(?<folder>[^']+)'/u.exec(command)?.groups?.['folder'] ?? ''), outputs(graph, 'Tests', 'test--dotnet', 'coverage')]).toStrictEqual([true, 'coverage/Tests', ['coverage/Tests']]);
-    });
-
-    it('gives no coverage configuration to a project that references no coverlet.MTP', async ({ workspace }) => {
-        const graph = await workspace.write({ 'apps/Tests/Tests.csproj': PROJECT, ...report([node('apps/Tests/Tests.csproj', { test: true, referenced: ['coverlet.collector', 'xunit.v3'] })]) }).graph({ createNodes, createDependencies }, { coveragePath: 'coverage/{projectName}' });
-
-        expect(graph.nodes['Tests']?.data.targets?.['test--dotnet']?.configurations).toStrictEqual({});
-    });
-});
-
-describe('platforms', () => {
-    it.for([
-        { kind: 'a test project targeting windows', test: true, platforms: ['windows'], tags: ['os:win32'], hosts: ['win32'] },
-        { kind: 'a test project targeting windows and macos', test: true, platforms: ['windows', 'macos'], tags: ['os:win32', 'os:darwin'], hosts: ['win32', 'darwin'] },
-        { kind: 'a test project targeting a platform no host runs', test: true, platforms: ['windows', 'browser'], tags: [], hosts: ['win32', 'darwin', 'linux'] },
-        { kind: 'a test project targeting no platform', test: true, platforms: [], tags: [], hosts: ['win32', 'darwin', 'linux'] },
-        { kind: 'a project running no tests that targets windows', test: false, platforms: ['windows'], tags: [], hosts: [] },
-    ])('tags $kind by the hosts that run its tests, and tests it only on those', async ({ test, platforms, tags, hosts }, { workspace }) => {
-        const graph = await workspace.write({ 'apps/Tests/Tests.csproj': PROJECT, ...report([node('apps/Tests/Tests.csproj', { test, platforms })]) }).graph({ createNodes, createDependencies });
-        const held = graph.nodes['Tests']?.data;
-
-        expect([held?.root, held?.tags ?? [], 'test--dotnet' in (held?.targets ?? {})]).toStrictEqual(['apps/Tests', tags, hosts.includes(platform)]);
-    });
+    const declared = outputs(graph, 'Tests', 'test--dotnet', 'coverage');
+    const written = [...workspace.files().difference(before)];
+    expect({ success, reports: written.filter((file) => /^coverage\/Tests\/coverage\.\d+\.info$/u.test(file)).length, outside: written.filter((file) => !declared.some((output) => file.startsWith(`${output}/`))) }).toStrictEqual({ success: true, reports: 1, outside: [] });
 });

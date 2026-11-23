@@ -50,7 +50,7 @@ describe('batch order', () => {
     it('runs a batch only after the batches holding the tasks it depends on, in as many runs as the order needs', async ({ workspace }) => {
         const folder = mkdtempSync(join(tmpdir(), 'dotnet-batches-'));
         onTestFinished(() => rmSync(folder, { recursive: true }));
-        pathed(folder, { dotnet: `[ "$1" = --roll-forward ] && exec /usr/bin/printf '{}'\n/usr/bin/grep -o 'ProjectReference Include="[^"]*/[a-z]*\\.csproj"' "$2" | /usr/bin/sed 's#.*/\\([a-z]*\\)\\.csproj"#\\1#' | /usr/bin/paste -sd, - >> ${folder}/runs.log` });
+        pathed(folder, { dotnet: `[ "$2" = results ] && exec /usr/bin/printf '{}'\n/usr/bin/grep -o 'ProjectReference Include="[^"]*/[a-z]*\\.csproj"' "$2" | /usr/bin/sed 's#.*/\\([a-z]*\\)\\.csproj"#\\1#' | /usr/bin/paste -sd, - >> ${folder}/runs.log` });
 
         await Array.fromAsync(
             batch(
