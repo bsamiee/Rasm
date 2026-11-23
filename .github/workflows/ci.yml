@@ -28,14 +28,15 @@ jobs:
         runs-on: [self-hosted, host]
         timeout-minutes: 30
         outputs:
-            base: ${{ steps.shas.outputs.base }}
-            head: ${{ steps.shas.outputs.head }}
+            base: ${{ steps.shas.outputs.base || steps.root.outputs.sha }}
+            head: ${{ steps.shas.outputs.head || github.sha }}
             engines: ${{ steps.unreal.outputs.engines }}
             unreal: ${{ steps.listed.outputs.unreal }}
             browser: ${{ steps.listed.outputs.browser }}
             windows: ${{ steps.listed.outputs.windows }}
             rhino: ${{ steps.listed.outputs.rhino }}
             image: ${{ steps.listed.outputs.image }}
+            infra: ${{ steps.listed.outputs.infra }}
         env:
             GH_TOKEN: &github ${{ github.token }}
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
@@ -50,11 +51,16 @@ jobs:
               run: |-
                   root="$(git rev-list --max-parents=0 HEAD)"
                   printf "sha=%s\n" "${root}" >> "${GITHUB_OUTPUT}"
+                  [[ "${GITHUB_EVENT_NAME}" != workflow_dispatch ]] || printf "%s\n" "NX_BASE=${root}" "NX_HEAD=${GITHUB_SHA}" >> "${GITHUB_ENV}"
             - id: shas
+              if: ${{ github.event_name != 'workflow_dispatch' }}
               uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
               with:
                   fallback-sha: ${{ steps.root.outputs.sha }}
+                  lookup-strategy: per-commit
+                  max-commits: 150
             - &tools
+              id: tools
               uses: $/.github/actions/tools
             - run: nx sync:check
             - run: nx conformance:check
@@ -66,8 +72,9 @@ jobs:
                   browser="$(nx show projects --affected --exclude='*,!tag:host:browser' --json)"
                   windows="$(nx show projects --affected --exclude='*,!tag:os:win32,!tag:host:rhino' --json)"
                   rhino="$(nx show projects --affected --exclude='*,!tag:host:rhino' --json)"
-                  version="$(jq --raw-output .version infra/node_modules/@playwright/test/package.json)"
-                  printf "%s\n" "unreal=${unreal}" "browser=${browser}" "windows=${windows}" "rhino=${rhino}" "image=ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" >> "${GITHUB_OUTPUT}"
+                  infra="$(nx show projects --affected --projects=@rasm/infra --json)"
+                  version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
+                  printf "%s\n" "unreal=${unreal}" "browser=${browser}" "windows=${windows}" "rhino=${rhino}" "infra=${infra}" "image=ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" >> "${GITHUB_OUTPUT}"
 
     linux:
         name: Linux
@@ -150,8 +157,9 @@ jobs:
                       .cache/nx/workspace-data/*
                       !.cache/nx/workspace-data/cache
                       !.cache/nx/workspace-data/*.db*
-                  key: nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'nx.json', 'products/developer/nx/**') }}
-                  restore-keys: nx-${{ runner.os }}-
+                      !.cache/nx/workspace-data/task-cache.jsonl
+                      !.cache/nx/workspace-data/xcode-packages
+                  key: nx-${{ runner.os }}-
             - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
                   xcode-version: latest-stable
@@ -162,25 +170,37 @@ jobs:
             - id: swift
               uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
-                  path: .build
-                  key: swift-${{ steps.xcode.outputs.build }}-${{ hashFiles('Package.resolved') }}
-                  restore-keys: swift-${{ steps.xcode.outputs.build }}-
+                  path: &swift |-
+                      .build/*
+                      !.build/repositories
+                      !.build/out
+                      .build/out/*
+                      !.build/out/Products
+                      .build/out/Products/*/*
+                      !.build/out/Products/*/lib*.a
+                  key: swift-${{ steps.xcode.outputs.build }}-${{ hashFiles('Package.resolved') }}-${{ hashFiles('Package.swift', '**/*.swift') }}
+                  restore-keys: swift-${{ steps.xcode.outputs.build }}-${{ hashFiles('Package.resolved') }}-
             - *tools
-            - uses: $/.github/actions/signing
+            - if: ${{ env.APPLE_DEVELOPMENT_P12 != '' }}
+              uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
+              with:
+                  p12-file-base64: ${{ env.APPLE_DEVELOPMENT_P12 }}
+                  p12-password: ${{ env.APPLE_DEVELOPMENT_P12_PASSWORD }}
+            - run: nx conformance:check
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
-            - if: ${{ !cancelled() && steps.swift.outputs.cache-hit != 'true' }}
+            - if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.swift.outcome == 'success' && steps.swift.outputs.cache-hit != 'true' }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
-                  path: .build
+                  path: *swift
                   key: ${{ steps.swift.outputs.cache-primary-key }}
-            - if: ${{ !cancelled() }}
+            - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
               run: hk check --step swiftlint --step swift-format --step plutil --step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
             - &save
-              if: ${{ !cancelled() && steps.graph.outcome == 'success' && steps.graph.outputs.cache-hit != 'true' }}
+              if: ${{ !cancelled() && github.ref == 'refs/heads/main' && !endsWith(steps.graph.outputs.cache-matched-key, hashFiles('.cache/nx/workspace-data/*.hash')) }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: *graph
-                  key: ${{ steps.graph.outputs.cache-primary-key }}
+                  key: nx-${{ runner.os }}-${{ hashFiles('.cache/nx/workspace-data/*.hash') }}
             - *reports
 
     files:
@@ -198,7 +218,7 @@ jobs:
             - *checkout
             - *tools
             - run: nx run-many --targets=codegen
-            - run: hk check --skip-step swiftlint --skip-step swift-format --skip-step plutil --skip-step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
+            - run: hk check --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
 
     windows:
         name: Windows
@@ -246,7 +266,7 @@ jobs:
         container:
             image: ghcr.io/epicgames/unreal-engine:dev-slim-${{ matrix.engine }}
             credentials:
-                username: ${{ github.actor }}
+                username: ${{ github.repository_owner }}
                 password: ${{ secrets.EPIC_GHCR_TOKEN }}
             options: --memory=10g
         env:
@@ -260,3 +280,13 @@ jobs:
             - run: nx run-many --targets=check,test,build --projects="${PROJECTS}"
               env:
                   PROJECTS: ${{ join(fromJSON(needs.affected.outputs.unreal), ',') }}
+
+    deploy:
+        name: Deploy
+        needs: [affected, linux, browser, macos, files, windows, unreal]
+        if: ${{ !cancelled() && github.event_name == 'push' && needs.affected.result == 'success' && needs.affected.outputs.infra != '[]' }}
+        permissions:
+            contents: read
+            id-token: write
+        uses: $/.github/workflows/deploy.yml
+        secrets: inherit

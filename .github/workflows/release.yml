@@ -21,44 +21,45 @@ on:
 concurrency:
     group: ${{ github.workflow }}
     cancel-in-progress: false
+    queue: max
+
+cache-mode: none
+
+env:
+    GH_TOKEN: ${{ github.token }}
+    MSBUILDDISABLENODEREUSE: '1'
+    NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
+    NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
 
 defaults:
     run:
         shell: bash
 
 jobs:
-    release:
-        name: Release
+    version:
+        name: Version
         runs-on: xcode-27
-        timeout-minutes: 120
-        environment: release
+        timeout-minutes: 30
         permissions:
             contents: write
-            id-token: write
         outputs:
             commit: ${{ steps.released.outputs.commit }}
+            projects: ${{ steps.released.outputs.projects }}
+            deliver: ${{ steps.released.outputs.deliver }}
+            browser: ${{ steps.released.outputs.browser }}
+            unreal: ${{ steps.released.outputs.unreal }}
+            image: ${{ steps.released.outputs.image }}
             engines: ${{ steps.unreal.outputs.engines }}
-        env:
-            GH_TOKEN: &github ${{ github.token }}
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
-            APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
-            APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
-            DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
-            DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
-            ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
-            ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-            ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
-            - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+            - &xcode
+              uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
                   xcode-version: latest-stable
             - &tools
               uses: $/.github/actions/tools
-            - uses: $/.github/actions/signing
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} ${PROJECTS:+--projects="${PROJECTS}"} --skip-publish --dry-run=${{ inputs.dry-run }}
               env:
                   SPECIFIER: ${{ inputs.specifier }}
@@ -70,13 +71,68 @@ jobs:
             - id: released
               run: |-
                   commit="$(git rev-parse HEAD)"
-                  printf "commit=%s\n" "${commit}" >> "${GITHUB_OUTPUT}"
+                  [[ "${commit}" != "${GITHUB_SHA}" ]] || exit 0
+                  tags="$(git tag --points-at HEAD)"
+                  version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
+                  nx run-many --targets=attach --configuration=release --graph=stdout | jq --raw-output --arg tags "${tags}" \
+                      --arg commit "${commit}" --arg image "ghcr.io/${GITHUB_REPOSITORY}/playwright:${version}" '
+                      .graph.nodes as $nodes | .tasks as {tasks: $tasks, dependencies: $edges} | INDEX($tasks[] | select(.target.target == "attach"); .target.project) as $attach
+                      | ($tags | split("\n") | map(select(. != "") | sub("@[^@]*$"; ""))) as $tagged
+                      | def reach: (. + [.[] | $edges[.][].id] | unique) as $next | if $next == . then . else $next | reach end;
+                      reduce ($tagged[] | select($attach[.] or IN("host:unreal"; $nodes[.].data.tags[]?))) as $project ({projects: $tagged, deliver: [], browser: [], unreal: []};
+                          [$nodes[$project].data.tags[]?, ([$attach[$project].id // empty] | reach[] | $nodes[$tasks[.].target.project].data.tags[]?)] as $reached
+                          | .[if IN("host:unreal"; $reached[]) then "unreal" elif IN("host:browser"; $reached[]) then "browser" else "deliver" end] += [$project])
+                      | map_values(join(",")) + {commit: $commit, image: ($image | ascii_downcase)} | to_entries[] | "\(.key)=\(.value)"' >> "${GITHUB_OUTPUT}"
             - id: unreal
               uses: $/.github/actions/unreal
-            - if: ${{ !inputs.dry-run }}
-              run: nx run-many --targets=attach --configuration=release --exclude='tag:host:unreal'
+
+    deliver:
+        name: Deliver
+        needs: version
+        if: ${{ needs.version.outputs.deliver != '' || inputs.publish && needs.version.outputs.projects != '' }}
+        runs-on: xcode-27
+        timeout-minutes: 120
+        environment: release
+        permissions:
+            contents: write
+            id-token: write
+        env:
+            APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
+            APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
+            DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+            DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+            ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+            ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+            ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        steps:
+            - &released
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ needs.version.outputs.commit }}
+                  fetch-depth: 0
+                  clean: false
+            - *xcode
+            - *tools
+            - id: development
+              if: ${{ env.APPLE_DEVELOPMENT_P12 != '' }}
+              uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
+              with:
+                  p12-file-base64: ${{ env.APPLE_DEVELOPMENT_P12 }}
+                  p12-password: ${{ env.APPLE_DEVELOPMENT_P12_PASSWORD }}
+            - if: ${{ env.DEVELOPER_ID_P12 != '' }}
+              uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
+              with:
+                  create-keychain: ${{ steps.development.outcome == 'skipped' }}
+                  keychain-password: ${{ steps.development.outputs.keychain-password }}
+                  p12-file-base64: ${{ env.DEVELOPER_ID_P12 }}
+                  p12-password: ${{ env.DEVELOPER_ID_P12_PASSWORD }}
+            - &attach
+              if: ${{ needs.version.outputs[github.job] != '' }}
+              run: nx run-many --targets=attach --configuration=release --projects="${PROJECTS}"
+              env:
+                  PROJECTS: ${{ needs.version.outputs[github.job] }}
             - id: google
-              if: &publishing ${{ inputs.publish && !inputs.dry-run }}
+              if: &publishing ${{ inputs.publish }}
               uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
               with:
                   workload_identity_provider: ${{ vars.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
@@ -86,8 +142,9 @@ jobs:
                   create_credentials_file: false
                   export_environment_variables: false
             - if: *publishing
-              run: nx release publish
+              run: nx release publish --projects="${PROJECTS}"
               env:
+                  PROJECTS: ${{ needs.version.outputs.projects }}
                   PNPM_CONFIG__AUTH: '{"https://registry.npmjs.org":{"@":{"authToken":"${NODE_AUTH_TOKEN}"}}}'
                   NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
                   UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
@@ -102,14 +159,36 @@ jobs:
                   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
                   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+    browser:
+        name: Browser
+        needs: version
+        if: ${{ needs.version.outputs.browser != '' }}
+        runs-on: [self-hosted, container]
+        timeout-minutes: 120
+        permissions:
+            contents: write
+            packages: read
+        container:
+            image: ${{ needs.version.outputs.image }}
+            credentials:
+                username: ${{ github.actor }}
+                password: ${{ github.token }}
+            options: --init --ipc=host
+        env:
+            NX_PARALLEL: 50%
+        steps:
+            - *released
+            - *tools
+            - *attach
+
     unreal:
         name: Unreal Engine ${{ matrix.engine }}
-        needs: release
-        if: ${{ !inputs.dry-run && needs.release.outputs.engines != '[]' }}
+        needs: version
+        if: ${{ needs.version.outputs.unreal != '' && needs.version.outputs.engines != '[]' }}
         strategy:
             fail-fast: false
             matrix:
-                engine: ${{ fromJSON(needs.release.outputs.engines) }}
+                engine: ${{ fromJSON(needs.version.outputs.engines) }}
         runs-on: [self-hosted, container]
         timeout-minutes: 120
         environment: release
@@ -118,18 +197,14 @@ jobs:
         container:
             image: ghcr.io/epicgames/unreal-engine:dev-slim-${{ matrix.engine }}
             credentials:
-                username: ${{ github.actor }}
+                username: ${{ github.repository_owner }}
                 password: ${{ secrets.EPIC_GHCR_TOKEN }}
             options: --memory=10g
         env:
-            GH_TOKEN: *github
+            NX_PARALLEL: 50%
             HOME: /home/ue4
             UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: 'false'
         steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  ref: ${{ needs.release.outputs.commit }}
-                  fetch-depth: 0
-                  clean: false
+            - *released
             - *tools
-            - run: nx run-many --targets=attach --configuration=release --exclude='*,!tag:host:unreal'
+            - *attach
