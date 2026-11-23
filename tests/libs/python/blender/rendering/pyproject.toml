@@ -8,22 +8,22 @@ requires-python = ">=3.13"
 dependencies = [
     # --- [CORE]
 
-    "expression",                   # Outcome each client scope and publish returns, read once per case
-    "hypothesis",                   # Plugin the shared pytest table loads
-    "msgspec",                      # JSON bodies a Manager and an ntfy server exchange
-    "pytest",                       # Fixtures, parameters, and raised refusals
-    "pytest-cov",                   # Plugin the shared pytest table loads, coverage of `nx test -c coverage`
-    "pytest-randomly",              # Random test order and seeds
-    "pytest-socket",                # Connections refused to every test hosting no server
-    "pytest-timeout",               # Per-test deadline
-    "rasm-records",                 # Outcome a refused exchange holds its exception in
-    "rasm-rendering",               # Client scope, Manager reads, and notice publishing the cases send through
-    "rasm-testing[hosting,sqlite]", # HTTP server a test hosts, its answers, the requests it received, and the exception a refused outcome raises
+    "expression",            # Outcome each client scope and publish returns, read once per case
+    "hypothesis",            # Plugin the shared pytest table loads
+    "msgspec",               # JSON bodies a Manager and an ntfy server exchange
+    "pytest",                # Fixtures, parameters, and raised refusals
+    "pytest-cov",            # Plugin the shared pytest table loads, coverage of `nx test -c coverage`
+    "pytest-randomly",       # Random test order and seeds
+    "pytest-socket",         # Connections refused to every test hosting no server
+    "pytest-timeout",        # Per-test deadline
+    "rasm-records",          # Outcome a refused exchange holds its exception in
+    "rasm-rendering",        # Client scope, Manager reads, and notice publishing the cases send through
+    "rasm-testing[hosting]", # HTTP server a test hosts, its answers, the requests it received, and the exception a refused outcome raises
 
     # --- [PROTOCOL]
 
-    "httpx2",                       # Responses and the exception classes a refused exchange raises
-    "opentelemetry-sdk",            # Recording span whose trace a request header carries
+    "httpx2",                # Responses and the exception classes a refused exchange raises
+    "opentelemetry-sdk",     # Recording span whose trace a request header carries
 ]
 
 # --- [UV] -------------------------------------------------------------------------------

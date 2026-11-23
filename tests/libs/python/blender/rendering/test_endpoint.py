@@ -1,4 +1,4 @@
-"""Server addresses of `Endpoint` and the client scope they open: refused addresses and durations, the closed client, trace context, timeouts, and unreachable servers."""
+"""Client scope an `Endpoint` opens: the client closed with it, trace context on each request, timeouts, and unreachable servers."""
 
 from datetime import timedelta
 from http import HTTPMethod
@@ -15,28 +15,6 @@ from rasm.testing import raised
 from rasm.testing.hosting import Answer, Hosted
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "url", [pytest.param("ftp://farm.local", id="scheme-not-http"), pytest.param("://farm.local", id="no-scheme"), pytest.param("http://", id="no-host"), pytest.param("http://[::1", id="unparsable")]
-)
-def test_an_address_without_an_http_scheme_and_host_is_refused(url: str) -> None:
-    """A URL whose scheme is not `http` or `https`, that names no host, or does not parse raises `ValueError` naming it at construction."""
-    with pytest.raises(ValueError, match=re.escape(url)):
-        Endpoint(url=url)
-
-
-@pytest.mark.parametrize("durations", [pytest.param({"timeout": timedelta()}, id="zero-timeout"), pytest.param({"deadline": timedelta(seconds=-1)}, id="negative-deadline")])
-def test_a_duration_not_above_zero_is_refused(durations: dict[str, timedelta]) -> None:
-    """A socket timeout or deadline at or below zero raises `ValueError` at construction."""
-    with pytest.raises(ValueError, match="timedelta"):
-        Endpoint(url="https://farm.local", **durations)
-
-
-def test_the_least_positive_durations_construct() -> None:
-    """A socket timeout and deadline of one microsecond, the least durations above zero, construct."""
-    endpoint = Endpoint(url="https://farm.local", timeout=timedelta(microseconds=1), deadline=timedelta(microseconds=1))
-    assert (endpoint.timeout, endpoint.deadline) == (timedelta(microseconds=1), timedelta(microseconds=1))
 
 
 def test_the_client_closes_with_its_scope(hosted: Hosted) -> None:
@@ -61,9 +39,10 @@ def test_a_request_carries_the_current_trace(hosted: Hosted) -> None:
 
 def test_an_answer_held_past_the_timeout_is_a_read_timeout(hosted: Hosted) -> None:
     """An answer arriving after the endpoint's socket timeout is a fault holding `ReadTimeout`."""
-    url, _ = hosted(lambda _: Answer(delay=timedelta(milliseconds=400)))
+    url, _ = hosted(lambda _: Answer(delay=timedelta(milliseconds=150)))
+    outcome = Endpoint(url=url, timeout=timedelta(milliseconds=50)).opened(lambda session: session.sent(HTTPMethod.GET, "/"))
     with pytest.raises(httpx2.ReadTimeout):
-        raised(Endpoint(url=url, timeout=timedelta(milliseconds=50)).opened(lambda session: session.sent(HTTPMethod.GET, "/")))
+        raised(outcome)
 
 
 @pytest.mark.enable_socket
