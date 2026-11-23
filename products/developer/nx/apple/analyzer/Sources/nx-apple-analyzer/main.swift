@@ -22,11 +22,6 @@ func report(_ containers: [FilePath]) -> Report {
     )
 }
 
-func input() throws -> Data {
-    guard let data = try FileHandle.standardInput.readToEnd() else { throw AnalyzerError(subject: "standard input", reason: .empty) }
-    return data
-}
-
 func encoded(_ value: some Encodable) throws -> Data {
     let encoder = JSONEncoder()
     encoder.outputFormatting = .sortedKeys
@@ -40,15 +35,17 @@ struct Analyzer: ParsableCommand {
         commandName: "nx-apple-analyzer",
         abstract: "Reads Xcode projects, workspaces, and schemes for @rasm/nx-apple",
         subcommands: [Analyze.self, Version.self],
-        defaultSubcommand: Analyze.self,
     )
 }
 
 struct Analyze: ParsableCommand {
-    static let configuration: CommandConfiguration = .init(abstract: "Reports the containers whose files stdin lists as a JSON array")
+    static let configuration: CommandConfiguration = .init(abstract: "Reports the containers of the given project.xcproj and contents.xcworkspacedata files")
+
+    @Argument(help: "project.xcproj and contents.xcworkspacedata files", transform: { file in FilePath(file).removingLastComponent() })
+    var containers: [FilePath]
 
     func run() throws {
-        try FileHandle.standardOutput.write(contentsOf: encoded(report(JSONDecoder().decode([String].self, from: input()).map { file in FilePath(file).removingLastComponent() })))
+        try FileHandle.standardOutput.write(contentsOf: encoded(report(containers)))
     }
 }
 
@@ -61,7 +58,8 @@ struct Version: ParsableCommand {
     var marketingVersion: String?
 
     func run() throws {
-        let next = try versioned(input(), to: marketingVersion)
+        guard let data = try FileHandle.standardInput.readToEnd() else { throw AnalyzerError(subject: "standard input", reason: .empty) }
+        let next = try versioned(data, to: marketingVersion)
         guard let project = String(validating: try next.jsonRepresentation(), as: UTF8.self) else { throw CocoaError(.fileWriteInapplicableStringEncoding) }
         try FileHandle.standardOutput.write(contentsOf: encoded(Versioned(version: next.buildSettings[marketingSetting]?.text, project: project)))
     }
