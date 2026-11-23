@@ -157,12 +157,13 @@ const absent =
 const perSubcommand =
     (table: Record.ReadonlyRecord<string, readonly Rule[]>): Rule =>
     (invocation, call) =>
-        all(
-            ...Option.getOrElse(
-                Option.flatMap(Option.firstSomeOf([Array.head(invocation.path), Option.map(Array.head(invocation.operands), Struct.get('text'))]), (name) => Record.get(table, name)),
-                () => [],
-            ),
-        )(invocation, call);
+        Option.match(
+            Option.flatMap(Option.firstSomeOf([Array.head(invocation.path), Option.map(Array.head(invocation.operands), Struct.get('text'))]), (name) => Option.map(Record.get(table, name), (rules) => [name, rules] as const)),
+            {
+                onNone: () => [],
+                onSome: ([name, rules]) => all(...rules)({ ...invocation, path: [name, ...invocation.path.slice(1)] }, call),
+            },
+        );
 
 const refuse =
     (fact: string, action: string, ...names: readonly string[]) =>

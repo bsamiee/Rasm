@@ -579,7 +579,11 @@ const TASKS: Ruleset = {
                     daemon: [when(({ has }) => has('--stop'), sharedDaemon)],
                     reset: [
                         when(({ has }) => has('--only-daemon'), sharedDaemon),
-                        (invocation, { host }) => (!invocation.has('--only-cache', '--only-daemon', '--only-cloud') && Option.exists(invocation.command.cwd, (folder) => host.inside(folder, host.root)) ? refuse('drops the graph', 'fix the inputs or pass --only-cache')(invocation) : []),
+                        (invocation, { host }) => {
+                            const reset = commandOf(invocation);
+                            const full = !invocation.has('--only-cache', '--only-daemon', '--only-workspace-data');
+                            return (full || invocation.has('--only-workspace-data')) && Option.exists(invocation.command.cwd, (folder) => host.inside(folder, host.root)) ? refusal(`${reset} ${full ? 'stops the daemon and deletes' : 'deletes'} the workspace data every session shares, run ${reset} --only-cache`) : [];
+                        },
                     ],
                 }),
                 when((invocation) => !invocation.has('--graph'), loopedRun('Loop reruns nx tasks, use one nx run-many', runMany)),
