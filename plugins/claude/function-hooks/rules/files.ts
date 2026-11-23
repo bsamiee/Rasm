@@ -89,6 +89,8 @@ const PRINT0: ReadonlySet<string> = new Set(['--print0', '-print0']);
 const BATCHED = (removal: string) => `-X ${removal}`;
 const EXECUTED = (removal: string) => `-exec ${removal} {} +`;
 const WALKERS: Record.ReadonlyRecord<string, (removal: string) => string> = { fd: BATCHED, fdfind: BATCHED, find: EXECUTED, gfind: EXECUTED };
+const BATCHABLE: ReadonlySet<string> = new Set(['du', 'stat', 'ls', 'file', 'shasum', 'sha256sum', 'md5', 'cat', 'rm', 'touch', 'chmod', 'chown', 'xattr']);
+const PLACEHOLDER = /\{(?:\/{0,2}|\/?\.)\}/u;
 const RECURSIVE_REMOVERS: ReadonlySet<string> = new Set(['rimraf', 'trash']);
 const DD_OUTPUT = 'of=';
 const LAST_OPERAND = (operands: readonly Word[]) => operands.slice(-1);
@@ -129,6 +131,28 @@ const unignored =
     (named: Predicate.Predicate<Invocation>): Rule =>
     (invocation, call) =>
         Effect.map(call.host.ignored(rootFolders(invocation, call)), (ignored) => (ignored || named(invocation) ? ensure(['--no-ignore'], ...NO_IGNORE)(invocation) : []));
+
+const perResult =
+    (flag: string, batch: Record.ReadonlyRecord<string, string>, implied: boolean, advice: string): Rule =>
+    (invocation) =>
+        invocation.args
+            .filter(({ names, values }) => names.includes(flag) && values.at(-1)?.text !== '+')
+            .flatMap(({ words }) => {
+                const [given, ...template] = words;
+                const [command, ...operands] = template.filter(({ text }) => text !== ';');
+                const placed = operands.filter(({ text }) => PLACEHOLDER.test(text));
+                const alike = command?.known === true && BATCHABLE.has(command.text) && (placed.length === 0 ? implied : placed.length === 1 && operands.at(-1)?.text === '{}');
+                return Option.match(
+                    Option.filter(
+                        Array.findFirst(words, (word) => Option.map(Record.get(batch, word.text), (spelling) => [word, spelling] as const)),
+                        () => alike,
+                    ),
+                    {
+                        onSome: ([word, spelling]) => edited(invocation, word, spelling, `${invocation.program} ${word.raw}`),
+                        onNone: () => (command === undefined || (invocation.has('--max-results', '-1') && invocation.values('--threads').includes('1')) ? [] : refusal(`${invocation.program} ${given.raw} ${command.raw} starts one process per search result, ${advice}`)),
+                    },
+                );
+            });
 
 // --- [DELETIONS]
 
@@ -475,14 +499,14 @@ const FILES: Ruleset = {
             leading: 1,
             execs: ['--exec', '--exec-batch'],
             recursive: { roots: ['--search-path'], base: ['--base-directory'], names: ['--extension'] },
-            rules: [ensure(['--hidden'], '--no-hidden', '--unrestricted'), unfiltered(['--exclude'], ONLY_IGNORED), unignored(holds(IGNORED))],
+            rules: [ensure(['--hidden'], '--no-hidden', '--unrestricted'), unfiltered(['--exclude'], ONLY_IGNORED), unignored(holds(IGNORED)), perResult('--exec', { '-x': '-X', '--exec': '--exec-batch' }, true, 'pass -X for a command taking every path in one run, else --max-results with --threads=1')],
         },
         find: {
             aliases: ['gfind'],
             flags: ['-type=', '-maxdepth=', '-mindepth='],
             execs: ['-exec', '-execdir', '-ok', '-okdir'],
             recursive: { until: ['-', '(', '!'], names: ['-name', '-iname', '-path', '-ipath', '-wholename', '-iwholename', '-regex', '-iregex'] },
-            rules: [when(({ has }) => has('-delete'), fedRemoval()), when(findsAsFd, findAsFd)],
+            rules: [when(({ has }) => has('-delete'), fedRemoval()), when(findsAsFd, findAsFd), perResult('-exec', { ';': '+' }, false, 'end -exec with {} + for a command taking every path in one run, else fd -x with --max-results and --threads=1')],
         },
         rm: { aliases: ['rimraf', 'trash', 'unlink', 'shred'], rules: [fedRemoval()] },
         git: { rules: [perSubcommand({ rm: [when(({ has }) => !has('--cached'), fedRemoval('-C'))] })] },
