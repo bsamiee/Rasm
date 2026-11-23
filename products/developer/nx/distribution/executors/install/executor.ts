@@ -1,7 +1,7 @@
-import type { ExecutorContext } from '@nx/devkit';
 import { Array, Cause, Effect, Schema } from 'effect';
 import { run, Words } from '#/executor';
 import { located } from '#/host-packages';
+import { executor } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -12,7 +12,7 @@ const Install = Schema.Struct({ __unparsed__: Words }).annotate({
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ __unparsed__: words = [] }: typeof Install.Type, context: ExecutorContext) {
+const execute = executor(Install, run, function* ({ __unparsed__: words = [] }, context) {
     const { project, outputs, packages, folders } = yield* located(context);
     const loaded = [...packages.filter(({ host, foreign }) => host.install?.unpacked !== true && !foreign), ...folders.filter(({ host }) => host.install?.unpacked === true)].flatMap((found) => Array.fromNullishOr(found.host.install).map((install) => ({ found, install })));
     yield* Array.match(loaded, {
@@ -20,7 +20,7 @@ const execute = Effect.fnUntraced(function* ({ __unparsed__: words = [] }: typeo
         onNonEmpty: Effect.forEach(({ found, install }) => Effect.andThen(install.run(found, words), Effect.logInfo(`Installed ${found.at} through ${install.command}, a running host loads it at its next start`)), { discard: true }),
     });
     return { success: true };
-}, run);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

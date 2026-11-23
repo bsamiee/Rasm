@@ -14,7 +14,7 @@ interface Package {
     readonly entitled: ReadonlyMap<string, string>;
     readonly bins: Readonly<Record<'debug' | 'release' | 'codecov', string>>;
     readonly whole: boolean;
-    readonly manifest: typeof Described.Type;
+    readonly manifest: Described;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -29,19 +29,21 @@ const RESOLVED = 'Package.resolved';
 const Listed = Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
 const Tests = Schema.Literal('test');
 const Executable = Schema.Literal('executable');
-const Described = Schema.fromJsonString(
-    Schema.Struct({
-        name: Schema.String,
-        platforms: Schema.Array(Schema.Struct({ name: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-        dependencies: Schema.Array(Schema.Struct({ path: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-        targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, product_memberships: Listed, target_dependencies: Listed, product_dependencies: Listed, resources: Schema.Array(Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })),
-        products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String), type: Schema.Record(Schema.String, Schema.Unknown) })),
-    }),
-);
+class Described extends Schema.Opaque<Described, unknown>()(
+    Schema.fromJsonString(
+        Schema.Struct({
+            name: Schema.String,
+            platforms: Schema.Array(Schema.Struct({ name: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+            dependencies: Schema.Array(Schema.Struct({ path: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+            targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, product_memberships: Listed, target_dependencies: Listed, product_dependencies: Listed, resources: Schema.Array(Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })),
+            products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String), type: Schema.Record(Schema.String, Schema.Unknown) })),
+        }),
+    ),
+) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const locals = (manifest: typeof Described.Type, described: ReadonlyMap<string, Package>) => Array.getSomes(manifest.dependencies.map((dependency) => Option.flatMap(Option.fromUndefinedOr(dependency.path), (at) => Option.fromUndefinedOr(described.get(at)))));
+const locals = (manifest: Described, described: ReadonlyMap<string, Package>) => Array.getSomes(manifest.dependencies.map((dependency) => Option.flatMap(Option.fromUndefinedOr(dependency.path), (at) => Option.fromUndefinedOr(described.get(at)))));
 
 const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Package>): readonly string[] => [
     ...manifest.targets.map((module) => join('{workspaceRoot}', root, module.path, '**/*')),
@@ -51,7 +53,7 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
         .filter((input) => !input.endsWith(RESOLVED)),
 ];
 
-const packageParts = (options: typeof Options.Type, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
+const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
     const { file, root, plists, entitled, manifest, bins, whole } = local;
     const modules = manifest.targets.filter((module) => module.product_memberships.length > 0 && module.name !== manifest.name);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));

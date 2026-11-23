@@ -40,7 +40,7 @@ const own = fingerprinted(import.meta.dirname);
 
 const joined = (left: Verbs, right: Verbs): Verbs => Record.union(left, right, (base, stated) => Record.union(base, stated, (held, over) => mergeTargetConfigurations(over, held)));
 
-const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typeof Options.Type, files: readonly string[], { info, xcodebuild, compiled }: Readonly<Record<'info' | 'xcodebuild' | 'compiled', Option.Option<string>>>) {
+const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Options, files: readonly string[], { info, xcodebuild, compiled }: Readonly<Record<'info' | 'xcodebuild' | 'compiled', Option.Option<string>>>) {
     const fs = yield* FileSystem.FileSystem;
     const paths = new Set(files);
     const manifests = files.filter((file) => basename(file) === MANIFEST);
@@ -79,10 +79,10 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const described = new Map(packages.map((swiftPackage) => [resolve(workspaceRoot, swiftPackage.root), swiftPackage] as const));
     const local = (at: string) => Option.fromUndefinedOr(described.get(resolve(workspaceRoot, at)));
     const analysis = yield* Option.match(reader, {
-        onNone: () => Effect.succeed(Result.succeed<typeof Analyzed.Type>({ containers: [], failures: {} })),
+        onNone: () => Effect.succeed(Result.succeed(Analyzed.make({ containers: [], failures: {} }))),
         onSome: (at) => Effect.flatMap(Schema.encodeEffect(Listed)(containers), (input) => spawned([at], { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.make(input)) })).pipe(Effect.flatMap(Schema.decodeEffect(Analyzed)), Effect.result),
     });
-    const analyzed = Result.getOrElse(analysis, (): typeof Analyzed.Type => ({ containers: [], failures: {} }));
+    const analyzed = Result.getOrElse(analysis, () => Analyzed.make({ containers: [], failures: {} }));
     const workspaces = analyzed.containers.filter((container) => basename(marker(container.path)) === 'contents.xcworkspacedata');
     const built = (at: string) => {
         const owners = workspaces.filter((workspace) => workspace.projects.includes(at)).map((workspace) => workspace.path);
@@ -104,11 +104,24 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const destinations = (folders: readonly string[]) => Array.dedupe(folders.flatMap((folder) => (platforms(folder).length === 0 ? Option.toArray(host) : platforms(folder))));
     const nested = packages.flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: `${join(owner.root, module.path)}/` }))).flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${dirname(other)}/`.startsWith(folder)).map((inner) => ({ owner, inner })));
     yield* Effect.forEach(nested, ({ owner, inner }) => Effect.sync(() => emitPluginWorkerLog('warn', `${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`)));
-    const linkedSources = (container: (typeof analyzed.containers)[number]) => Array.getSomes(container.projects.map(local)).flatMap((swiftPackage) => sources(swiftPackage, described));
     const parts: readonly Part[] = [
         ...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described)),
         ...analyzed.containers.map((container) =>
-            xcodeParts(options, marker(container.path), container, Array.dedupe([...container.inputs.flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]), built(container.path), destinations, packaged, relative(workspaceRoot, workspaceDataDirectory)),
+            xcodeParts(
+                options,
+                marker(container.path),
+                container,
+                Array.dedupe([
+                    ...container.inputs.flatMap(tokened),
+                    ...Array.getSomes(container.projects.map(local))
+                        .flatMap((swiftPackage) => sources(swiftPackage, described))
+                        .filter((input) => !input.endsWith(RESOLVED)),
+                ]),
+                built(container.path),
+                destinations,
+                packaged,
+                relative(workspaceRoot, workspaceDataDirectory),
+            ),
         ),
     ];
     const grouped = Array.groupBy(parts, (part) => part.root);
@@ -145,7 +158,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
 
 const run = runner(Graphs.layer);
 
-const createNodes: CreateNodes<typeof Options.Encoded> = [
+const createNodes: CreateNodes = [
     FILES,
     (matched, options, { workspaceRoot }) =>
         run(

@@ -40,14 +40,16 @@ const RELEASED: NonNullable<TargetConfiguration['inputs']> = [{ dependentTasksOu
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({
-    outputPath: Folder,
-    storeCredentials: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
-    remoteCacheTimeout: Schema.optionalKey(Schema.DurationFromString),
-}).annotate({
-    description:
-        'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN, Chrome: CHROME_WEB_STORE_TOKEN, an OAuth access token of scope chromewebstore beside CHROME_WEB_STORE_PUBLISHER naming the publisher), a publish whose variable is unset naming it and succeeding. remoteCacheTimeout: longest wait, as a number and a unit (5 seconds), for the answer to the one read each nx run no task started sends the remote cache server before its tasks, a read answered other than 200 or 404, refused, or unanswered that long printing one warning and emptying NX_SELF_HOSTED_REMOTE_CACHE_SERVER for that run, absent waits without bound',
-});
+class Options extends Schema.Opaque<Options, unknown>()(
+    Schema.Struct({
+        outputPath: Folder,
+        storeCredentials: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+        remoteCacheTimeout: Schema.optionalKey(Schema.DurationFromString),
+    }).annotate({
+        description:
+            'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN, Chrome: CHROME_WEB_STORE_TOKEN, an OAuth access token of scope chromewebstore beside CHROME_WEB_STORE_PUBLISHER naming the publisher), a publish whose variable is unset naming it and succeeding. remoteCacheTimeout: longest wait, as a number and a unit (5 seconds), for the answer to the one read each nx run no task started sends the remote cache server before its tasks, a read answered other than 200 or 404, refused, or unanswered that long printing one warning and emptying NX_SELF_HOSTED_REMOTE_CACHE_SERVER for that run, absent waits without bound',
+    }),
+) {}
 
 const Requirements = Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Member = Schema.fromJsonString(Schema.Struct({ name: Schema.String, dependencies: Requirements, devDependencies: Requirements, optionalDependencies: Requirements, peerDependencies: Requirements })).annotate({
@@ -117,7 +119,7 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
 
 const placed = (operation: keyof typeof FOLDERS) => `{options.outputPath}/${FOLDERS[operation]}`;
 
-const projects = (declared: readonly Declared[], settings: typeof Options.Type, exec: string, release: readonly string[]) => {
+const projects = (declared: readonly Declared[], settings: Options, exec: string, release: readonly string[]) => {
     const holds = (other: Declared, item: Declared) => (other.fields.folders ?? []).some((folder) => !posix.relative(posix.join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled);
     const hosts = Function.memoize((item: Declared) => (item.fields.folders === undefined ? declared.filter((other) => holds(other, item)) : [item]));
     const uses = (item: Declared) => declared.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name));
@@ -284,7 +286,7 @@ const workflows = (files: readonly string[], workspaceRoot: string) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = [
+const createNodes: CreateNodes = [
     FILES,
     (files, options, context) =>
         run(
@@ -305,7 +307,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
         ),
 ];
 
-const preTasksExecution: PreTasksExecution<typeof Options.Encoded> = (options, context) =>
+const preTasksExecution: PreTasksExecution = (options, context) =>
     run(
         Effect.gen(function* () {
             const variable = 'NX_SELF_HOSTED_REMOTE_CACHE_SERVER';

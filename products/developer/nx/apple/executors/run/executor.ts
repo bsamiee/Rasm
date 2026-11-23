@@ -1,10 +1,9 @@
 import { glob } from 'node:fs/promises';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { env } from 'node:process';
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { spawned } from '@rasm/nx-distribution/inference';
+import { batched, executor, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Function, HashSet, Option, Predicate, Record, Schema, Stream } from 'effect';
 import { CommandLine } from 'effect/process';
 import { ran, run } from '#/targets';
@@ -22,14 +21,16 @@ const Report = Schema.Struct({
     file: Schema.String.annotate({ description: 'File the lcov report is written to' }),
 }).annotate({ description: 'lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects and the targets of each matching result bundle with xcrun llvm-cov export' });
 const Covered = Schema.fromJsonString(Schema.Array(Schema.Struct({ buildProductPath: Schema.String })));
-const Run = Schema.Struct({
-    runs: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'Invocations the plugin infers, each a program and its arguments' }),
-    applications: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Bundle names of the applications the invocations install, a running executable inside one named in the last line as needing a relaunch' }),
-    report: Schema.optionalKey(Report),
-    dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each invocation and runs none' }),
-    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
-    outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
-}).annotate({ title: 'Run', description: "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed and git status.branch off after the caller's GIT_CONFIG_<n> entries, stopping at the first failure, then writes the lcov report a coverage configuration states" });
+class Run extends Schema.Opaque<Run, unknown>()(
+    Schema.Struct({
+        runs: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'Invocations the plugin infers, each a program and its arguments' }),
+        applications: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Bundle names of the applications the invocations install, a running executable inside one named in the last line as needing a relaunch' }),
+        report: Schema.optionalKey(Report),
+        dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each invocation and runs none' }),
+        __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+        outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
+    }).annotate({ title: 'Run', description: "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed and git status.branch off after the caller's GIT_CONFIG_<n> entries, stopping at the first failure, then writes the lcov report a coverage configuration states" }),
+) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -37,7 +38,7 @@ const configured = Config.map(Config.withDefault(Config.Int('GIT_CONFIG_COUNT'),
 
 const matched = (patterns: readonly string[], root: string) => Effect.promise(() => globalThis.Array.fromAsync(glob(patterns, { cwd: root }), (at) => resolve(root, at)));
 
-const lcov = Effect.fnUntraced(function* ({ profiles, objects, results }: typeof Report.Type, root: string) {
+const lcov = Effect.fnUntraced(function* ({ profiles, objects, results }: NonNullable<Run['report']>, root: string) {
     const fs = yield* FileSystem.FileSystem;
     const written = yield* Effect.filterOrFail(matched(profiles, root), Array.isReadonlyArrayNonEmpty, () => new Cause.UnknownError(profiles, `No profile matches ${profiles.join(' or ')} after the invocations`));
     const reported = Effect.flatMap(matched(results, root), (bundles) => Effect.forEach(bundles, (bundle) => Effect.flatMap(spawned(['xcrun', 'xccov', 'view', '--report', '--only-targets', '--json', bundle], { cwd: root }), Schema.decodeEffect(Covered))));
@@ -51,7 +52,7 @@ const lcov = Effect.fnUntraced(function* ({ profiles, objects, results }: typeof
     return yield* spawned(['xcrun', 'llvm-cov', 'export', '--format=lcov', `--instr-profile=${merged}`, ...instrumented.flatMap((object) => ['--object', object])], { cwd: root });
 }, Effect.scoped);
 
-const commands = Effect.fnUntraced(function* ({ runs, applications = [], report, dryRun: dry = false, __unparsed__: words = [] }: typeof Run.Type, root: string) {
+const commands = Effect.fnUntraced(function* ({ runs, applications = [], report, dryRun: dry = false, __unparsed__: words = [] }: Run, root: string) {
     const fs = yield* FileSystem.FileSystem;
     const stated = yield* configured;
     const reported = Option.filter(Option.fromUndefinedOr(report), () => !dry);
@@ -82,7 +83,7 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], report,
     return { success };
 });
 
-const ordered = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Run.Type>>, root: string) =>
+const ordered = (graph: TaskGraph, inputs: Readonly<Record<string, Run>>, { root }: ExecutorContext) =>
     Stream.paginate({ pending: Record.keys(inputs), failed: HashSet.empty<string>() }, ({ pending, failed }) => {
         const waits = (id: string) => (graph.dependencies[id] ?? []).some((edge) => pending.includes(edge.id) && edge.id !== id);
         return Option.match(
@@ -101,9 +102,11 @@ const ordered = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Run.Ty
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: typeof Run.Type, context: ExecutorContext) => run(commands(options, context.root));
+const execute = executor(Run, run, function* (stated, context) {
+    return yield* commands(stated, context.root);
+});
 
-const batch = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Run.Type>>, _: unknown, context: ExecutorContext) => Stream.toReadableStream(Stream.provide(ordered(graph, inputs, context.root), layer)).values();
+const batch = batched(Run, ordered);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

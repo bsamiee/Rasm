@@ -1,14 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
-import { batch, type Run } from '@rasm/nx-apple/executors/run';
+import { batch, execute } from '@rasm/nx-apple/executors/run';
 import { it } from '@rasm/testing/nx';
 import { describe, expect } from 'vitest';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const task = (project: string, target: string) => ({ id: `${project}:${target}`, target: { project, target }, outputs: [], overrides: {}, projectRoot: project, parallelism: true, cache: true });
-const logged = (name: string, code: number): typeof Run.Type => ({ runs: [['sh', '-c', `echo start-${name} >> order.log; sleep 0.2; echo end-${name} >> order.log; exit ${code}`]] });
+const logged = (name: string, code: number) => ({ runs: [['sh', '-c', `echo start-${name} >> order.log; sleep 0.2; echo end-${name} >> order.log; exit ${code}`]] });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -32,5 +32,16 @@ describe('run batch', { timeout: 60_000 }, () => {
             ['Kit:test--swift', false, 'skipped'],
         ]);
         expect(readFileSync(join(workspace.root, 'order.log'), 'utf-8')).toBe(['start-tool-build', 'end-tool-build', 'start-tool-test', 'end-tool-test', 'start-kit-build', 'end-kit-build', ''].join('\n'));
+    });
+});
+
+describe('run coverage report', { timeout: 60_000 }, () => {
+    it.for([
+        { stated: 'no result bundle pattern', runs: [['true']], report: { profiles: ['*.profdata'], objects: ['Suite.xctest'], file: 'lcov.info' }, refusal: /^No profile matches \*\.profdata after the invocations$/u },
+        { stated: 'no instrumented binary', runs: [['touch', 'default.profdata']], report: { profiles: ['*.profdata'], results: ['*.xcresult'], file: 'lcov.info' }, refusal: /^No instrumented binary is stated or reported by a result bundle matching \*\.xcresult after the invocations$/u },
+    ])('reads a report with $stated as one stating none, and names what the invocations left unwritten', async ({ runs, report, refusal }, { workspace }) => {
+        const context: ExecutorContext = { root: workspace.root, cwd: workspace.root, isVerbose: false, projectGraph: { nodes: {}, dependencies: {} }, projectsConfigurations: { version: 2, projects: {} }, nxJsonConfiguration: {} };
+
+        await expect(execute({ runs, report }, context)).rejects.toThrow(refusal);
     });
 });

@@ -1,8 +1,7 @@
-import type { ExecutorContext } from '@nx/devkit';
 import { Effect, Option, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import { Dry, dried, forwarded, packaged, released, run, Words } from '#/executor';
-import { spawned } from '#/inference';
+import { executor, spawned } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,15 +13,15 @@ const Attach = Dry.mapFields(Struct.assign({ __unparsed__: Words })).annotate({
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* (stated: typeof Attach.Type, context: ExecutorContext) {
-    const [dry, { project, files }, tag] = yield* Effect.all([dried(stated), packaged(context), released(context)]);
-    const upload = (at: string) => ['gh', 'release', 'upload', at, ...files, '--clobber', ...forwarded(stated.__unparsed__ ?? [])] as const;
+const execute = executor(Attach, run, function* ({ dryRun, __unparsed__: words = [] }, context) {
+    const [dry, { project, files }, tag] = yield* Effect.all([dried(dryRun), packaged(context), released(context)]);
+    const upload = (at: string) => ['gh', 'release', 'upload', at, ...files, '--clobber', ...forwarded(words)] as const;
     const pending = `<tag nx release makes for ${project}>`;
     yield* dry
         ? Effect.logInfo(`Would run ${CommandLine.display(upload(Option.getOrElse(tag, () => pending)))}`)
         : Option.match(tag, { onNone: () => Effect.logInfo(`Skipped ${project}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: (at) => Effect.asVoid(spawned(upload(at), { cwd: context.root })) });
     return { success: true };
-}, run);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { isAbsolute, join, posix, relative, sep } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodesContext, hashArray, normalizePath, type NxJsonConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateNodesContext, type ExecutorContext, hashArray, normalizePath, type NxJsonConfiguration, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, type PluginCache } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import { Array, Cause, Effect, Equal, FileSystem, Formatter, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
@@ -58,6 +58,21 @@ const runner = <R>(services: Layer.Layer<R>): Run<R> => {
 };
 
 const run = runner(Layer.empty);
+
+const executor = <S extends Schema.Decoder<unknown>, A, R>(options: S, entered: <B, E>(effect: Effect.Effect<B, E, R>) => Promise<B>, body: (stated: S['Type'], context: ExecutorContext) => Effect.fn.Return<A, Error, NoInfer<R>>) => {
+    const stated = Effect.fnUntraced(body);
+    return (raw: unknown, context: ExecutorContext) => entered(Effect.flatMap(Schema.decodeUnknownEffect(options)(raw), (decoded) => stated(decoded, context)));
+};
+
+const inferring = <S extends Schema.Decoder<unknown>, A, R>(options: S, entered: <B, E>(effect: Effect.Effect<B, E, R>) => Promise<B>, body: (files: readonly string[], settings: S['Type'], context: CreateNodesContext) => Effect.fn.Return<A, Error, NoInfer<R>>) => {
+    const inferred = Effect.fnUntraced(body);
+    return (files: readonly string[], raw: unknown, context: CreateNodesContext) => entered(Effect.flatMap(Schema.decodeEffect(options)(raw ?? {}), (settings) => inferred(files, settings, context)));
+};
+
+const batched = <S extends Schema.Decoder<unknown>, A, E>(options: S, body: (graph: TaskGraph, inputs: Readonly<Record<string, S['Type']>>, context: ExecutorContext) => Stream.Stream<A, E, NodeServices>) => {
+    const decode = Schema.decodeUnknownEffect(Schema.Record(Schema.String, options));
+    return (graph: TaskGraph, raw: unknown, _: unknown, context: ExecutorContext) => Stream.toReadableStream(Stream.provide(Stream.unwrap(Effect.map(decode(raw), (inputs) => body(graph, inputs, context))), layer)).values();
+};
 
 const fingerprinted = (folder: string) =>
     Effect.runSync(
@@ -131,7 +146,7 @@ const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: str
         return fs.readFileString(at).pipe(
             Effect.when(fs.exists(at)),
             Effect.flatMap((text) => Effect.transposeOption(Option.map(text, Schema.decodeEffect(Overrides)))),
-            Effect.map(Option.getOrElse((): typeof Overrides.Type => ({}))),
+            Effect.map(Option.getOrElse(() => Overrides.make({}))),
         );
     };
     const [manifest, project] = yield* Effect.all([read('package.json'), read('project.json')], { concurrency: 'unbounded' });
@@ -176,4 +191,4 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, anchored, extended, fingerprinted, Folder, Input, manifested, namedInput, packaged, parsed, PLATFORM, ran, recalled, type Run, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, within };
+export { above, aggregated, anchored, batched, executor, extended, fingerprinted, Folder, Input, inferring, manifested, namedInput, packaged, parsed, PLATFORM, ran, recalled, type Run, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, within };

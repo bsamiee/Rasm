@@ -30,7 +30,7 @@ interface Fields {
     readonly folders?: readonly string[];
     readonly references?: readonly { readonly name: string; readonly enabled: boolean }[];
     readonly installed?: boolean;
-    readonly packages?: typeof Linked.Type;
+    readonly packages?: NonNullable<Plugin['nx']>['packages'];
 }
 
 interface Found {
@@ -109,7 +109,9 @@ const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, P
 const Linked = Schema.Record(Schema.String, Schema.Struct({ project: Schema.String, target: Schema.String, configuration: Schema.optionalKey(Schema.String) })).annotate({
     description: 'Folders of a .uplugin, each mapped to the Nx target that installs a package under it in a folder named for the engine platform',
 });
-const Plugin = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.optionalKey(Schema.String), Installed: Schema.optionalKey(Schema.Boolean), Plugins: References, nx: Schema.optionalKey(Schema.Struct({ packages: Linked })) }));
+class Plugin extends Schema.Opaque<Plugin, unknown>()(
+    Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.optionalKey(Schema.String), Installed: Schema.optionalKey(Schema.Boolean), Plugins: References, nx: Schema.optionalKey(Schema.Struct({ packages: Linked })) })),
+) {}
 const Association = Schema.Struct({ EngineAssociation: Schema.optionalKey(Schema.String) });
 const Engined = Schema.fromJsonString(Association);
 const Launcher = Schema.fromJsonString(Schema.Struct({ InstallationList: Schema.Array(Schema.Struct({ AppName: Schema.String, InstallLocation: Schema.String })) }));

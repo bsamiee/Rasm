@@ -1,6 +1,5 @@
 import { pid } from 'node:process';
-import type { ExecutorContext } from '@nx/devkit';
-import { spawned } from '@rasm/nx-distribution/inference';
+import { executor, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Config, Effect, FileSystem, Path, Schema } from 'effect';
 import { commands, configured } from '#/executors/run/executor';
 import { run, SIGNED, SWIFTPM } from '#/targets';
@@ -19,7 +18,7 @@ const Install = Schema.Struct({
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ package: root, product, entitlements, __unparsed__: words = [] }: typeof Install.Type, context: ExecutorContext) {
+const execute = executor(Install, run, function* ({ package: root, product, entitlements, __unparsed__: words = [] }, context) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const stated = yield* configured;
     const folder = path.join(yield* Config.String('HOME'), '.local', 'bin');
@@ -38,7 +37,7 @@ const execute = Effect.fnUntraced(function* ({ package: root, product, entitleme
               ),
           )
         : Effect.succeed(built);
-}, run);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

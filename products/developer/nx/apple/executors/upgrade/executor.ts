@@ -1,5 +1,4 @@
-import type { ExecutorContext } from '@nx/devkit';
-import { spawned } from '@rasm/nx-distribution/inference';
+import { executor, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, DateTime, Effect, FileSystem, Option, Order, Path, Result, Schema, SemVer, Struct } from 'effect';
 import { commands } from '#/executors/run/executor';
 import { MANIFEST } from '#/swift-package';
@@ -61,7 +60,7 @@ const newest = Effect.fnUntraced(function* (url: string, lowerBound: SemVer.SemV
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ package: root, dryRun }: typeof Upgrade.Type, context: ExecutorContext) {
+const execute = executor(Upgrade, run, function* ({ package: root, dryRun }, context) {
     const [fs, path, stated] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.withDefault(Config.Boolean('NX_DRY_RUN'), false)]);
     const dry = dryRun === true || stated;
     const file = path.join(context.root, root, MANIFEST);
@@ -93,7 +92,7 @@ const execute = Effect.fnUntraced(function* ({ package: root, dryRun }: typeof U
     yield* Effect.forEach(moves, ({ url, lowerBound, head }) => Effect.logInfo(`${url} ${SemVer.format(lowerBound)} -> ${SemVer.format(head.version)} (tag ${head.tag}, published ${DateTime.formatIso(head.at)}) in ${file}`), { discard: true });
     yield* dry || moves.length === 0 ? Effect.void : fs.writeFileString(file, rewritten);
     return yield* commands({ runs: [['swift', 'package', '--package-path', root, 'update', ...(dry ? ['--dry-run'] : [])]] }, context.root);
-}, run);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

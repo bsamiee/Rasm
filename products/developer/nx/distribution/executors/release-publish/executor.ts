@@ -1,8 +1,8 @@
-import type { ExecutorContext } from '@nx/devkit';
 import { Array, Cause, Effect, Option, Schema, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { credentialed, Dry, dried, forwarded, released, run, Words } from '#/executor';
 import { located } from '#/host-packages';
+import { executor } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,31 +14,27 @@ const Publish = Dry.mapFields(Struct.assign({ credential: Schema.String.annotate
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(
-    function* ({ credential, __unparsed__: words = [], ...stated }: typeof Publish.Type, context: ExecutorContext) {
-        const [dry, token, { project, target, outputs, packages }] = yield* Effect.all([dried(stated), credentialed(credential), located(context)]);
-        const stored = packages.flatMap((found) => Array.fromNullishOr(found.host.publish).map((store) => ({ found, ...store })));
-        const pushed = Effect.fnUntraced(function* ({ found, store, command, held: listed, push }: (typeof stored)[number]) {
-            const kept = Option.isSome(token) && (yield* listed(found, store, token.value));
-            const skipped = yield* Option.match(
-                Option.filter(token, () => !kept),
-                {
-                    onNone: () => Effect.succeedSome(kept ? 'the store holds that version' : `${credential} is not set`),
-                    onSome: (held) => push(found, store, held, forwarded(words)),
-                },
-            );
-            return yield* Option.match(skipped, { onNone: () => Effect.logInfo(`Published ${found.at} to ${store} with ${command}`), onSome: (reason) => Effect.logWarning(`Skipped ${found.at} for ${store}: ${reason}`) });
-        });
-        const delivered = Array.match(stored, {
-            onEmpty: () => Effect.fail(new Cause.UnknownError(outputs, `${project}: no host package sits under ${outputs.join(', ')}, the outputs ${target} depends on; run its dependencies first`)),
-            onNonEmpty: Effect.forEach((row) => (dry ? Effect.logInfo(`Would publish ${row.found.at} to ${row.store} through ${row.command}`) : pushed(row)), { discard: true }),
-        });
-        yield* dry ? delivered : Effect.flatMap(released(context), Option.match({ onNone: () => Effect.logInfo(`Skipped ${project}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: () => delivered }));
-        return { success: true };
-    },
-    Effect.provide(FetchHttpClient.layer),
-    run,
-);
+const execute = executor(Publish, run, function* ({ credential, dryRun, __unparsed__: words = [] }, context) {
+    const [dry, token, { project, target, outputs, packages }] = yield* Effect.all([dried(dryRun), credentialed(credential), located(context)]);
+    const stored = packages.flatMap((found) => Array.fromNullishOr(found.host.publish).map((store) => ({ found, ...store })));
+    const pushed = Effect.fnUntraced(function* ({ found, store, command, held: listed, push }: (typeof stored)[number]) {
+        const kept = Option.isSome(token) && (yield* listed(found, store, token.value));
+        const skipped = yield* Option.match(
+            Option.filter(token, () => !kept),
+            {
+                onNone: () => Effect.succeedSome(kept ? 'the store holds that version' : `${credential} is not set`),
+                onSome: (held) => push(found, store, held, forwarded(words)),
+            },
+        );
+        return yield* Option.match(skipped, { onNone: () => Effect.logInfo(`Published ${found.at} to ${store} with ${command}`), onSome: (reason) => Effect.logWarning(`Skipped ${found.at} for ${store}: ${reason}`) });
+    }, Effect.provide(FetchHttpClient.layer));
+    const delivered = Array.match(stored, {
+        onEmpty: () => Effect.fail(new Cause.UnknownError(outputs, `${project}: no host package sits under ${outputs.join(', ')}, the outputs ${target} depends on; run its dependencies first`)),
+        onNonEmpty: Effect.forEach((row) => (dry ? Effect.logInfo(`Would publish ${row.found.at} to ${row.store} through ${row.command}`) : pushed(row)), { discard: true }),
+    });
+    yield* dry ? delivered : Effect.flatMap(released(context), Option.match({ onNone: () => Effect.logInfo(`Skipped ${project}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: () => delivered }));
+    return { success: true };
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

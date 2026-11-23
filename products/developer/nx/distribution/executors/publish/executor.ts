@@ -1,8 +1,7 @@
-import type { ExecutorContext } from '@nx/devkit';
 import { Array, Effect, Option, Schema, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import { credentialed, Dry, dried, forwarded, packaged, released, run, Words } from '#/executor';
-import { spawned } from '#/inference';
+import { executor, spawned } from '#/inference';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -28,8 +27,8 @@ const Publish = Dry.mapFields(
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ publish, preview, credential, flag, __unparsed__: words = [], ...stated }: typeof Publish.Type, context: ExecutorContext) {
-    const [dry, { project, files }, held] = yield* Effect.all([dried(stated), packaged(context), credentialed(credential)]);
+const execute = executor(Publish, run, function* ({ publish, preview, credential, flag, dryRun, __unparsed__: words = [] }, context) {
+    const [dry, { project, files }, held] = yield* Effect.all([dried(dryRun), packaged(context), credentialed(credential)]);
     const command = Array.appendAll(Array.appendAll(publish, files), forwarded(words));
     const keyed = Option.getOrElse(Option.all([Option.fromUndefinedOr(flag), held]), Array.empty<string>);
     const skipped = dry ? Effect.logInfo(`Would run ${CommandLine.display(command)}`) : Effect.logWarning(`Skipped ${CommandLine.display(command)}: ${ALTERNATIVES.format(Array.ensure(credential))} is not set`);
@@ -39,7 +38,7 @@ const execute = Effect.fnUntraced(function* ({ publish, preview, credential, fla
     });
     yield* dry ? delivered : Effect.flatMap(released(context), Option.match({ onNone: () => Effect.logInfo(`Skipped ${CommandLine.display(command)}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: () => delivered }));
     return { success: true };
-}, run);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

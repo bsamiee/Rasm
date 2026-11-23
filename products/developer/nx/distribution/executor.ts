@@ -19,7 +19,7 @@ const Words = Schema.optionalKey(Schema.Array(Schema.String)).annotate({ descrip
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const dried = ({ dryRun }: typeof Dry.Type) => Effect.map(Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false)), (stated) => dryRun === true || stated);
+const dried = (dryRun = false) => Effect.map(Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false)), (stated) => dryRun || stated);
 
 const forwarded = (words: readonly string[]) => {
     const owned = new RegExp(

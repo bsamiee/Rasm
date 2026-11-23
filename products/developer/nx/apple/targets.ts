@@ -39,15 +39,17 @@ const ATTACH: TargetConfiguration = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({
-    trustPackages: Schema.optionalKey(Schema.Boolean),
-    outputPath: Schema.optionalKey(Schema.String),
-    coveragePath: Schema.optionalKey(Schema.String),
-    derivedDataPath: Schema.optionalKey(Schema.String),
-}).annotate({
-    description:
-        'trustPackages: passes -skipMacroValidation and -skipPackagePluginValidation to xcodebuild. outputPath: workspace folder holding each scheme archive under <outputPath>/<scheme> and each product zip under <outputPath>/<product>, {projectName} naming the project, absent zips products in the SwiftPM release bin folder and gives no Xcode pack target, since xcodebuild archives outside the workspace. coveragePath: workspace folder the coverage configuration of a test target writes lcov.info to, exported with llvm-cov from the profile swift test or xcodebuild writes, {projectName} naming the project, absent leaves both tools their default profile and writes no lcov.info. derivedDataPath: workspace folder the coverage configuration of an xcodebuild test target passes as -derivedDataPath, so its profile and binaries sit at workspace paths, {projectName} naming the project, absent uses <outputPath>/DerivedData, and with neither leaves Xcode its per-user DerivedData and writes no lcov.info',
-});
+class Options extends Schema.Opaque<Options, unknown>()(
+    Schema.Struct({
+        trustPackages: Schema.optionalKey(Schema.Boolean),
+        outputPath: Schema.optionalKey(Schema.String),
+        coveragePath: Schema.optionalKey(Schema.String),
+        derivedDataPath: Schema.optionalKey(Schema.String),
+    }).annotate({
+        description:
+            'trustPackages: passes -skipMacroValidation and -skipPackagePluginValidation to xcodebuild. outputPath: workspace folder holding each scheme archive under <outputPath>/<scheme> and each product zip under <outputPath>/<product>, {projectName} naming the project, absent zips products in the SwiftPM release bin folder and gives no Xcode pack target, since xcodebuild archives outside the workspace. coveragePath: workspace folder the coverage configuration of a test target writes lcov.info to, exported with llvm-cov from the profile swift test or xcodebuild writes, {projectName} naming the project, absent leaves both tools their default profile and writes no lcov.info. derivedDataPath: workspace folder the coverage configuration of an xcodebuild test target passes as -derivedDataPath, so its profile and binaries sit at workspace paths, {projectName} naming the project, absent uses <outputPath>/DerivedData, and with neither leaves Xcode its per-user DerivedData and writes no lcov.info',
+    }),
+) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -58,7 +60,7 @@ const tokened = (at: string) => (isAbsolute(at) || at.startsWith('..') ? [] : [j
 const ran = (argv: Array.NonEmptyReadonlyArray<string>, options: Pick<ChildProcess.CommandOptions, 'cwd' | 'env'>) =>
     Effect.flatMap(ChildProcessSpawner.ChildProcessSpawner, (spawner) => spawner.exitCode(ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { ...options, extendEnv: true, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })));
 
-const sequenced = (runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, { options, ...extra }: Partial<TargetConfiguration<Partial<typeof Run.Type>>> = {}): TargetConfiguration => ({
+const sequenced = (runs: Run['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, { options, ...extra }: Partial<TargetConfiguration<Partial<Run>>> = {}): TargetConfiguration => ({
     executor: `${PLUGIN}:run`,
     options: { runs, ...options },
     metadata,

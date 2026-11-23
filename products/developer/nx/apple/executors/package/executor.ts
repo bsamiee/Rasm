@@ -1,5 +1,4 @@
-import type { ExecutorContext } from '@nx/devkit';
-import { spawned } from '@rasm/nx-distribution/inference';
+import { executor, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Option, Path, Redacted, Schema, Stream, Struct } from 'effect';
 import { commands } from '#/executors/run/executor';
 import { NOTARY, run, SIGNED, SWIFTPM } from '#/targets';
@@ -26,7 +25,7 @@ const Application = Schema.fromJsonString(Schema.Struct({ ApplicationPath: Schem
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ exports = [], products = [], __unparsed__: words = [] }: typeof Package.Encoded, context: ExecutorContext) {
+const execute = executor(Package, run, function* ({ exports, products, __unparsed__: words = [] }, context) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     yield* Effect.filterOrFail(commands({ runs: exports.map((exported) => exported.run) }, context.root), Struct.get('success'), () => new Cause.UnknownError(exports, 'xcodebuild archive does not exit 0'));
     const applications = yield* Effect.forEach(exports, ({ archive }) => Effect.flatMap(spawned(['plutil', '-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')], { cwd: context.root }), Schema.decodeEffect(Application)));
@@ -66,7 +65,7 @@ const execute = Effect.fnUntraced(function* ({ exports = [], products = [], __un
         ];
     });
     return yield* commands({ runs: [...archived, ...built] }, context.root);
-}, run);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

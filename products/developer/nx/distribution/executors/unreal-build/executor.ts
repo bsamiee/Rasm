@@ -1,11 +1,11 @@
 import { posix } from 'node:path';
-import { type ExecutorContext, runExecutor } from '@nx/devkit';
+import { runExecutor } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, Stream, String, Struct } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { run, Words } from '#/executor';
 import { ANALYSIS, engine, FOLDERS, Linked, zipped } from '#/host-packages';
-import { spawned } from '#/inference';
+import { executor, spawned } from '#/inference';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -46,7 +46,7 @@ const Listed = Schema.fromJsonString(Schema.Struct({ FabURL: Schema.optionalKey(
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ outputPath, descriptor, hosts, dependencies, packages, users, operation, __unparsed__: words = [] }: typeof Unreal.Type, context: ExecutorContext) {
+const execute = executor(Unreal, run, function* ({ outputPath, descriptor, hosts, dependencies, packages, users, operation, __unparsed__: words = [] }, context) {
     const workspaceRoot = context.root;
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const absolute = (at: string) => path.resolve(workspaceRoot, at);
@@ -158,7 +158,7 @@ const execute = Effect.fnUntraced(function* ({ outputPath, descriptor, hosts, de
         install: Effect.forEach(users, installed, { discard: true }),
     }[operation];
     return { success: true };
-}, run);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -7,7 +7,7 @@ import { Toml } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { run, Words } from '#/executor';
 import { BUILDER, EXTENSION } from '#/host-packages';
-import { spawned } from '#/inference';
+import { executor, spawned } from '#/inference';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ const Build = Schema.Struct({
     description:
         "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none, or for a check validates the manifest and files of the source folder with blender_ext.py validate; a project holding pyproject.toml builds one staged copy per platform the manifest lists, or one for every platform where it lists none, that bundles its local dependencies as subpackages and as wheels the registry dependencies uv installs from the exported lock for its platforms at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles",
 });
-const Manifest = Schema.Struct({ id: Schema.String, platforms: Schema.optionalKey(Schema.Array(Schema.String)) });
+class Manifest extends Schema.Opaque<Manifest, unknown>()(Schema.Struct({ id: Schema.String, platforms: Schema.optionalKey(Schema.Array(Schema.String)) })) {}
 const Minor = Schema.TemplateLiteralParser(['==', Schema.Natural, '.', Schema.Natural, '.*']);
 const Locked = Schema.Struct({
     'requires-python': Schema.String,
@@ -71,7 +71,7 @@ const fetched = Effect.fnUntraced(function* (url: string, sha256: string, file: 
     yield* hash('sha256', bytes, 'hex') === sha256 ? fs.writeFile(file, bytes) : Effect.fail(new Cause.UnknownError(sha256, `${url} does not hash to ${sha256}, the sha256 its lock states`));
 }, Effect.provide(FetchHttpClient.layer));
 
-const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: string, text: string, document: Record.ReadonlyRecord<string, unknown>, declared: typeof Manifest.Type) {
+const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: string, text: string, document: Record.ReadonlyRecord<string, unknown>, declared: Manifest) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const [source, work, vendor] = yield* Effect.all([fs.makeTempDirectoryScoped(), fs.makeTempDirectoryScoped(), fs.makeTempDirectoryScoped()]);
     const member = path.join(context.root, root);
@@ -124,7 +124,7 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ outputPath: folder, operation, __unparsed__: words = [] }: typeof Build.Type, context: ExecutorContext) {
+const execute = executor(Build, run, function* ({ outputPath: folder, operation, __unparsed__: words = [] }, context) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const { root } = (yield* Effect.flatMap(Effect.fromNullishOr(context.projectName), (project) => Effect.fromNullishOr(context.projectGraph.nodes[project]))).data;
     yield* {
@@ -142,7 +142,7 @@ const execute = Effect.fnUntraced(function* ({ outputPath: folder, operation, __
         }),
     }[operation];
     return { success: true };
-}, run);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -32,20 +32,14 @@ const Container = Schema.Struct({
     projects: Schema.Array(Schema.String),
     buildFiles: Schema.Array(Schema.String),
 });
-const Analyzed = Schema.fromJsonString(Schema.Struct({ containers: Schema.Array(Container), failures: Schema.Record(Schema.String, Schema.String) }));
+class Analyzed extends Schema.Opaque<Analyzed, unknown>()(Schema.fromJsonString(Schema.Struct({ containers: Schema.Array(Container), failures: Schema.Record(Schema.String, Schema.String) }))) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const invocation = (options: typeof Options.Type, built: string) => {
+const xcodeParts = (options: Options, file: string, container: Analyzed['containers'][number], inputs: readonly string[], built: string, destinations: (roots: readonly string[]) => readonly string[], packaged: (at: string) => Option.Option<string>, data: string): Part => {
     const workspace = extname(built) === '.xcworkspace';
-    return {
-        lock: join(built, workspace ? 'xcshareddata/swiftpm/Package.resolved' : 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved'),
-        flags: [workspace ? '-workspace' : '-project', built, ...(options.trustPackages === true ? ['-skipMacroValidation', '-skipPackagePluginValidation'] : [])],
-    };
-};
-
-const xcodeParts = (options: typeof Options.Type, file: string, container: typeof Container.Type, inputs: readonly string[], built: string, destinations: (roots: readonly string[]) => readonly string[], packaged: (at: string) => Option.Option<string>, data: string): Part => {
-    const { lock, flags } = invocation(options, built);
+    const lock = join(built, workspace ? 'xcshareddata/swiftpm/Package.resolved' : 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved');
+    const flags = [workspace ? '-workspace' : '-project', built, ...(options.trustPackages === true ? ['-skipMacroValidation', '-skipPackagePluginValidation'] : [])];
     const name = basename(container.path, extname(container.path));
     const cloned = join(data, 'xcode-packages', container.path);
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
