@@ -11,7 +11,7 @@ import hosting from '#/hosting.config';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 export default defineConfig({
-    build: { target: 'esnext', rolldownOptions: { experimental: { lazyBarrel: true }, output: { strictExecutionOrder: true } } },
+    build: { target: 'esnext', rolldownOptions: { output: { strictExecutionOrder: true } } },
     plugins: [
         checks(),
         react({ compiler: { panicThreshold: 'all_errors' } }),

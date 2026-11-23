@@ -66,7 +66,7 @@ export default Effect.fnUntraced(
             writeBundle: ({ dir = directory }) => Effect.runPromiseWith(context)(Effect.flatMap(compiler, (root) => fs.copyFile(join(root, 'tsc.original'), join(dir, 'tsc')))),
         } satisfies Plugin;
         return {
-            build: { rolldownOptions: { experimental: { lazyBarrel: true }, output: { codeSplitting: false } } },
+            build: { rolldownOptions: { output: { codeSplitting: false } } },
             plugins: [checks(), declarations, script(resolved('@rasm/extendscript/host'), 'runtime'), script(resolved('es5-shim'), 'shim'), script(resolved('es5-shim/es5-sham.js'), 'sham'), yield* helper(join(directory, 'main.ts'), 'server', { KeepAlive: true }, app)],
         };
     },

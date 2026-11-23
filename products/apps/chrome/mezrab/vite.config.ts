@@ -1,10 +1,6 @@
 import { chrome } from '@rasm/vite/chrome';
-import type { UserConfigFnPromise } from 'vite';
+import { defineConfig } from 'vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const config: UserConfigFnPromise = chrome(import.meta.dirname);
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-
-export default config;
+export default defineConfig(chrome(import.meta.dirname));

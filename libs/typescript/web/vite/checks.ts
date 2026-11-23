@@ -8,6 +8,7 @@ const REFUSED = new Set(['CANNOT_CALL_NAMESPACE', 'COMMONJS_VARIABLE_IN_ESM', 'D
 
 const checks = (): Plugin => ({
     name: '@rasm/vite/checks',
+    config: () => ({ build: { rolldownOptions: { experimental: { lazyBarrel: true } } } }),
     onLog(level, log) {
         return level === 'warn' && REFUSED.has(log.code ?? '') ? this.error(log) : undefined;
     },
