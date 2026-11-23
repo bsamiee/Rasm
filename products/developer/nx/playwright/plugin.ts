@@ -1,13 +1,13 @@
-import { createRequire, registerHooks } from 'node:module';
-import { dirname, join, posix, relative, resolve } from 'node:path';
-import { env } from 'node:process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { once } from 'node:events';
+import { join, posix, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { applyDaemonEnvFromClient, calculateHashesForCreateNodes, emitPluginWorkerLog, getAppliedDaemonClientEnv, getDaemonClientEnvGeneration, getLockFileName, hashDaemonClientEnv, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { emitPluginWorkerLog, getDaemonClientEnvGeneration, getLockFileName, globWithWorkspaceContext, hashDaemonClientEnv, hashObject, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Clock, Effect, Function, MutableRef, Option, Predicate, Record, Result, Schema, Semaphore } from 'effect';
+import { Array, Cause, Effect, flow, Function, MutableRef, Option, Record, Result, Schema, String } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -15,13 +15,11 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const WORKER = fileURLToPath(import.meta.resolve('#/worker'));
 const RUN = /^(?:(?:npx|yarn|bunx?|bun x|pnpm(?: exec)?|pnpx) )?nx (?:run (?<project>[^\s:]+):(?<target>[^\s:]+)(?::\S*)?|(?<target>\S+) (?<project>\S+))$/u;
 const NX = /(?:^|\s)nx(?:@\S+)?\s/u;
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const OWN = fingerprinted(import.meta.dirname);
-const LOADING = Semaphore.makeUnsafe(1);
-const MODULES = createRequire(import.meta.url).cache;
-const REPORTS: Readonly<Record<string, string>> = { html: 'playwright-report', blob: 'blob-report' };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -29,32 +27,16 @@ const Options = Schema.Struct({ outputPath: Folder }).annotate({
     description:
         'outputPath: workspace folder a suite writes test-results and the files of each built-in reporter to, {projectName} naming the project, each config project with its own outputDir under it and test files its testMatch finds running as pack--playwright into that outputDir, absent leaves Playwright its own folders and infers no pack--playwright',
 });
-const Loader = Schema.Struct({
-    configLoader: Schema.Struct({ loadConfigFromFile: Schema.declare((input: unknown): input is (file: string, overrides: { readonly outputDir?: string }) => Promise<unknown> => Predicate.isFunction(input)) }),
-    cc: Schema.Struct({
-        addToCompilationCache: Schema.declare((input: unknown): input is (payload: { readonly sourceMaps: readonly []; readonly memoryCache: readonly (readonly [string, object])[]; readonly fileDependencies: readonly [] }) => void => Predicate.isFunction(input)),
-    }),
-    resolveReporterOutputPath: Schema.declare((input: unknown): input is (defaultValue: string, configDir: string, configValue: undefined) => string => Predicate.isFunction(input)),
-    projectUtils: Schema.Struct({ collectFilesForProject: Schema.declare((input: unknown): input is (project: unknown) => Promise<readonly string[]> => Predicate.isFunction(input)) }),
+const Loaded = Schema.Struct({
+    edges: Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])),
+    scripts: Schema.Array(Schema.String),
+    routes: Schema.Array(Schema.String),
+    reported: Schema.Array(Schema.String),
+    commands: Schema.Array(Schema.String),
+    suites: Schema.Array(Schema.Struct({ name: Schema.String, outputDir: Schema.String, testDir: Schema.String, found: Schema.Boolean })),
 }).annotate({
     description:
-        'The configLoader and compilation cache members of playwright/lib/common, the loader playwright test resolves its configuration with and the per-process cache of the code it compiled for each file, the resolveReporterOutputPath member of playwright/lib/util, which places the default folder of a built-in reporter beside the package.json nearest the config, and the projectUtils member of playwright/lib/runner, whose collectFilesForProject lists the test files a project runs through its testDir, testMatch, and testIgnore',
-});
-const Listed = Schema.Struct({ projects: Schema.Array(Schema.Unknown) }).annotate({ description: 'The FullProjectInternal rows of a loaded config, each passed whole to collectFilesForProject' });
-const Server = Schema.Struct({
-    command: Schema.optional(Schema.String),
-    reuseExistingServer: Schema.optional(Schema.Boolean),
-    env: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-    wait: Schema.optional(Schema.Struct({ stdout: Schema.optional(Schema.Unknown), stderr: Schema.optional(Schema.Unknown) })),
-}).annotate({ description: 'A webServer row: the command Playwright starts, whether it reuses a server already listening, and the env and output wait that bind it to the process Playwright starts' });
-const Loaded = Schema.Struct({
-    configDir: Schema.String,
-    webServers: Schema.Array(Server),
-    config: Schema.Struct({ reporter: Schema.Array(Schema.Tuple([Schema.String, Schema.optionalKey(Schema.Unknown)])) }),
-    projects: Schema.Array(Schema.Struct({ project: Schema.Struct({ name: Schema.String, outputDir: Schema.String, webServer: Schema.Array(Server) }) })),
-}).annotate({ description: 'The FullConfigInternal loadConfigFromFile returns: config folder, webServer rows, resolved reporters, and the name, output folder, and webServer rows of each project' });
-const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), outputDir: Schema.optionalKey(Schema.String), outputFolder: Schema.optionalKey(Schema.String) }).annotate({
-    description: 'The file and folder options of a resolved [reporter, options] Playwright entry',
+        'What the worker read from a Playwright config through Playwright: the resolved URL, specifier, and importing module URL of every import its load resolved, the global setup and teardown scripts, the built-in reporters the run routes under outputPath, the files and folders every other reporter writes, the command of each webServer row whose server Playwright reuses and does not bind, and the name, output folder, test folder, and test file presence of each project',
 });
 const Task = Schema.Struct({ project: Schema.String, target: Schema.String }).annotate({ description: 'The project and target of an nx run command' });
 
@@ -67,110 +49,32 @@ const directed = (to: string, reporters: readonly string[]) => {
     return { flags: [`--output=${results}`], env: reports, folders: [results, ...Object.values(reports)] };
 };
 
-const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, output: Option.Option<string>, lock: string) {
-    const entry = join(workspaceRoot, file);
+const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, routed: boolean, lock: string) {
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
-    const playwright = createRequire(createRequire(entry).resolve('@playwright/test'));
-    const { configLoader, cc, resolveReporterOutputPath, projectUtils } = yield* Effect.flatMap(
-        Effect.forEach(['playwright/lib/common', 'playwright/lib/util', 'playwright/lib/runner'], (at) => Effect.tryPromise({ try: (): Promise<unknown> => import(pathToFileURL(playwright.resolve(at)).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no ${at} through @playwright/test`) })),
-        (modules) => Schema.decodeUnknownEffect(Loader)(Object.assign({}, ...modules)),
+    const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Playwright config`);
+    const listened = Effect.acquireUseRelease(
+        Effect.sync(() => new Worker(WORKER, { workerData: [join(workspaceRoot, file), routed] })),
+        (worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail))),
+        (worker) => Effect.promise(() => worker.terminate()),
     );
-    const edges: { readonly specifier: string; readonly parent: string | undefined; readonly url: string; readonly path: string }[] = [];
-    const fresh = yield* Clock.currentTimeNanos;
-    const [{ configDir, webServers, config: resolvedConfig, projects }, listed] = yield* LOADING.withPermit(
-        Effect.acquireUseRelease(
-            Effect.sync(() => ({
-                hooks: registerHooks({
-                    resolve: (specifier, context, nextResolve) => {
-                        const resolved = nextResolve(specifier, context);
-                        const path = resolved.url.startsWith('file:') ? fileURLToPath(resolved.url) : undefined;
-                        edges.push(...(path === undefined ? [] : [{ specifier, parent: context.parentURL, url: resolved.url, path }]));
-                        return path !== undefined && within(local(path)) && context.conditions.includes('import') ? { ...resolved, url: `${resolved.url}?${fresh}` } : resolved;
-                    },
-                }),
-                ambient: { ...env },
-                applied: getAppliedDaemonClientEnv()?.sequence,
-            })),
-            () =>
-                Effect.flatMap(
-                    Effect.tryPromise({
-                        try: () => configLoader.loadConfigFromFile(entry, {}),
-                        catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Playwright config`),
-                    }),
-                    (full) => Effect.all([Schema.decodeUnknownEffect(Loaded)(full), Schema.decodeUnknownEffect(Listed)(full)]),
-                ),
-            ({ hooks, ambient, applied }) => {
-                const compiled = edges.filter(({ path }) => within(local(path))).map(({ path }): readonly [string, object] => [path, {}]);
-                const client = Option.filter(Option.fromUndefinedOr(getAppliedDaemonClientEnv()), ({ sequence }) => sequence !== applied);
-                return Effect.forEach(
-                    [
-                        () => hooks.deregister(),
-                        ...compiled.map(
-                            ([path]) =>
-                                () =>
-                                    Reflect.deleteProperty(MODULES, path),
-                        ),
-                        () => cc.addToCompilationCache({ sourceMaps: [], memoryCache: compiled, fileDependencies: [] }),
-                        ...Object.keys(env)
-                            .filter((name) => !(name in ambient))
-                            .map((name) => () => Reflect.deleteProperty(env, name)),
-                        () => {
-                            Object.assign(env, ambient);
-                        },
-                        ...Option.toArray(client).map(
-                            ({ env: next }) =>
-                                () =>
-                                    applyDaemonEnvFromClient(next),
-                        ),
-                    ],
-                    Effect.sync,
-                    { discard: true },
-                );
-            },
-        ),
-    );
-    const collected = yield* Effect.forEach(listed.projects, (project) => Effect.tryPromise({ try: () => projectUtils.collectFilesForProject(project), catch: (cause) => new Cause.UnknownError(cause, `${file} lists no test files of its projects through Playwright`) }));
-    const loaded = Array.dedupe([file, ...edges.map(({ path }) => local(path))]).filter(within);
-    const { packages, linked } = yield* packaged(
-        Array.getSomes(
-            edges.map(({ specifier, parent }) =>
-                Option.map(
-                    Option.filter(Option.liftPredicate(parent, Predicate.isString), (at) => at.startsWith('file:') && within(local(fileURLToPath(at)))),
-                    (at) => [specifier, at] as const,
-                ),
-            ),
-        ),
-    );
-    const reports = resolvedConfig.reporter.flatMap(([name, options]) => {
-        const { outputFile, outputDir, outputFolder } = Option.getOrElse(Schema.decodeUnknownOption(Reported)(options), () => Reported.make({}));
-        const stated = Option.map(Option.fromUndefinedOr(outputDir ?? outputFolder), (at) => resolve(configDir, at));
-        const fallback = Option.map(Record.get(REPORTS, name), (at) => resolveReporterOutputPath(at, configDir, undefined));
-        const folder = Option.filter(
-            Option.orElse(stated, () => fallback),
-            () => Option.isNone(output),
-        );
-        return Option.toArray(
-            Option.orElse(
-                Option.map(Option.fromUndefinedOr(outputFile), (at) => resolve(configDir, at)),
-                () => folder,
-            ),
-        );
-    });
-    const commands = [...webServers, ...projects.flatMap(({ project }) => project.webServer)]
-        .filter(({ reuseExistingServer }) => reuseExistingServer === true)
-        .map((server) => Option.filter(Option.fromNullishOr(server.command), () => server.wait?.stdout === undefined && server.wait?.stderr === undefined && Record.isEmptyRecord(server.env ?? {})));
-    const tasks = commands.map(Option.flatMap((command) => Schema.decodeUnknownOption(Task)(RUN.exec(command)?.groups)));
-    const unread = Array.getSomes(Array.zipWith(commands, tasks, (command, task) => Option.filter(command, (text) => Option.isNone(task) && NX.test(text))));
+    const { edges, scripts, routes, reported, commands, suites } = yield* Effect.flatMap(listened, ([message]) => Schema.decodeUnknownEffect(Loaded)(message));
+    const workspaced = (url: string) => Option.filter(Option.map(Option.liftPredicate(url, String.startsWith('file:')), flow(fileURLToPath, local)), within);
+    const loaded = Array.dedupe([file, ...Array.getSomes(edges.map(([url]) => workspaced(url)))]);
+    const { packages, linked } = yield* packaged(Array.getSomes(edges.map(([, specifier, parent]) => Option.as(workspaced(parent), [specifier, parent] as const))));
+    const tasks = commands.map((command) => Schema.decodeUnknownOption(Task)(RUN.exec(command)?.groups));
+    const unread = Array.getSomes(Array.zipWith(commands, tasks, (command, task) => Option.liftPredicate(command, (text) => Option.isNone(task) && NX.test(text))));
     yield* Effect.forEach(unread, (command) => Effect.sync(() => emitPluginWorkerLog('warn', `${PLUGIN} reads no Nx task from webServer command "${command}" in ${file}, so test--playwright waits on no server task`)), { discard: true });
+    const scanned = Array.dedupe(suites.map(({ testDir }) => posix.join(local(testDir), '**/*'))).filter(within);
     const sources = [lock, ...loaded];
     return {
         packages,
         linked,
-        loaded,
+        loaded: [...loaded, ...scripts.map(local).filter(within)],
+        scanned,
         servers: Array.dedupeWith(Array.getSomes(tasks), (left, right) => left.project === right.project && left.target === right.target),
-        reported: Array.dedupe(reports.map(local)),
-        suites: Array.zipWith(projects, collected, ({ project: { name, outputDir } }, files) => ({ name, outputDir: local(outputDir), found: Array.isReadonlyArrayNonEmpty(files) })),
-        reporters: resolvedConfig.reporter.map(([name]) => name),
+        reported: Array.dedupe(reported.map(local)),
+        suites: suites.map(({ name, outputDir, found }) => ({ name, outputDir: local(outputDir), found })),
+        routes,
         sources,
         stamp: yield* stamped(workspaceRoot)(sources),
     };
@@ -178,63 +82,69 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
 
 const templated = (folder: string) => new RegExp(`^${folder.split('{projectName}').map(RegExp.escape).join('.+')}(?:/|$)`, 'u');
 
-const targets = (home: string, { loaded: configs, packages, linked, servers, reported, reporters, suites }: Resolved, chain: readonly string[], upstream: readonly string[], outputPath: string | undefined, exec: string): Verbs => {
+const targets = (home: string, { loaded: configs, scanned, packages, linked, servers, reported, routes, suites }: Resolved, chain: readonly string[], upstream: readonly string[], outputPath: string | undefined, exec: string): Verbs => {
     const rooted = getRootTsConfigFileName();
-    const routed = outputPath === undefined ? { flags: [], env: {}, folders: [] } : directed(posix.relative(home, outputPath), reporters);
+    const routed = outputPath === undefined ? { flags: [], env: {}, folders: [] } : directed(posix.relative(home, outputPath), routes);
     const held = routed.folders.map((at) => posix.join(home, at));
     const under = Option.map(Option.fromUndefinedOr(outputPath), templated);
-    const unheld = (at: string) => !held.map(templated).some((folder) => folder.test(at));
+    const holding = held.map(templated);
+    const unheld = (at: string) => !holding.some((folder) => folder.test(at));
     const [packed, tested] = Array.partition(suites, (suite) => Result.liftPredicate(suite, ({ outputDir, found }) => found && unheld(outputDir) && Option.exists(under, (folder) => folder.test(outputDir)), Function.identity));
     const selected = (chosen: readonly (typeof suites)[number][]) => chosen.map(({ name }) => `--project=${name}`);
     const outside = Record.filter(
-        { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions', 'extends'] }]), ...Record.fromIterableWith(configs, (at) => [at, posix.join('{workspaceRoot}', at)]) },
+        { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions', 'extends'] }]), ...Record.fromIterableWith([...configs, ...scanned], (at) => [at, posix.join('{workspaceRoot}', at)]) },
         (_input, at) => home !== '.' && !at.startsWith(`${home}/`) && at !== rooted,
     );
-    const test = {
-        playwright: {
-            command: invocation([...Array.match(packed, { onEmpty: () => [], onNonEmpty: () => selected(tested) }), ...routed.flags]),
-            options: { cwd: home, ...(Record.isEmptyRecord(routed.env) ? {} : { env: routed.env }) },
-            dependsOn: [
-                'codegen--*',
-                '^codegen--*',
-                '^build--vite',
-                ...Record.collect(
-                    Array.groupBy(servers, ({ target }) => target),
-                    (target, rows) => ({ projects: rows.map(({ project }) => project), target, waitFor: 'ready' as const }),
-                ),
-            ],
-            cache: true,
-            inputs: [
-                'default',
-                ...upstream,
-                ...Array.match(linked, {
-                    onEmpty: () => [],
-                    onNonEmpty: (owners) => [{ input: 'default', projects: [...owners] }],
-                }),
-                ...Object.values(outside),
-                { dependentTasksOutputFiles: '**/*', transitive: true },
-                { env: 'CI' },
-                { externalDependencies: Array.dedupe(['@playwright/test', ...packages]) },
-            ],
-            outputs: Array.dedupe([...held, ...[...(outputPath === undefined ? tested.map(({ outputDir }) => outputDir) : []), ...reported].filter(unheld)]).map(tokened(home)),
-            metadata: {
-                description: 'Runs every Playwright project of the config whose own outputDir sits outside outputPath with playwright test after the Vite build of each project the suite depends on and once the Nx task each reused webServer row runs is ready',
-                help: { command: `${exec} playwright test --help`, example: { args: ['--project', '<name>'] } },
+    const needs = {
+        dependsOn: [
+            'codegen--*',
+            '^codegen--*',
+            '^build--vite',
+            ...Record.collect(
+                Array.groupBy(servers, ({ target }) => target),
+                (target, rows) => ({ projects: rows.map(({ project }) => project), target, waitFor: 'ready' as const }),
+            ),
+        ],
+        cache: true,
+        inputs: [
+            'default',
+            ...upstream,
+            ...Array.match(linked, {
+                onEmpty: () => [],
+                onNonEmpty: (owners) => [{ input: 'default', projects: [...owners] }],
+            }),
+            ...Object.values(outside),
+            { dependentTasksOutputFiles: '**/*', transitive: true },
+            { env: 'CI' },
+            { externalDependencies: Array.dedupe(['@playwright/test', ...packages]) },
+        ],
+    };
+    const test: Record<string, TargetConfiguration> = Array.match(tested, {
+        onEmpty: () => ({}),
+        onNonEmpty: (chosen) => ({
+            playwright: {
+                command: invocation([...Array.match(packed, { onEmpty: () => [], onNonEmpty: () => selected(chosen) }), ...routed.flags]),
+                options: { cwd: home, ...(Record.isEmptyRecord(routed.env) ? {} : { env: routed.env }) },
+                ...needs,
+                outputs: Array.dedupe([...held, ...[...(outputPath === undefined ? chosen.map(({ outputDir }) => outputDir) : []), ...reported].filter(unheld)]).map(tokened(home)),
+                metadata: {
+                    description: 'Runs every Playwright project of the config whose own outputDir sits outside outputPath with playwright test after the Vite build of each project the suite depends on and once the Nx task each reused webServer row runs is ready',
+                    help: { command: `${exec} playwright test --help`, example: { args: ['--project', '<name>'] } },
+                },
             },
-        },
-    } satisfies Record<string, TargetConfiguration>;
+        }),
+    });
     const pack: Record<string, TargetConfiguration> = Array.match(packed, {
         onEmpty: () => ({}),
         onNonEmpty: (chosen) => ({
             playwright: {
                 command: invocation([...selected(chosen), '--no-deps', '--reporter=list']),
                 options: { cwd: home },
-                dependsOn: ['test--playwright'],
-                cache: true,
-                inputs: test.playwright.inputs,
+                ...needs,
+                dependsOn: Record.isEmptyRecord(test) ? needs.dependsOn : ['test--playwright'],
                 outputs: chosen.map(({ outputDir }) => outputDir).map(tokened(home)),
                 metadata: {
-                    description: `Writes the files of the Playwright projects ${chosen.map(({ name }) => name).join(', ')} into each one's own outputDir under outputPath, which playwright test empties first, after test--playwright passes`,
+                    description: `Writes the files of the Playwright projects ${chosen.map(({ name }) => name).join(', ')} into each one's own outputDir under outputPath, which playwright test empties first, once test--playwright passes where the config holds other projects`,
                     help: { command: `${exec} playwright test --help`, example: { args: ['--project', '<name>'] } },
                 },
             },
@@ -255,16 +165,20 @@ const targets = (home: string, { loaded: configs, packages, linked, servers, rep
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly digest: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly lock: string; readonly exec: string }, context: CreateNodesContext, outputPath: string | undefined, hash: string, file: string) {
-    const home = dirname(file);
-    const digest = hashArray([hash, yield* OWN]);
-    const held = Option.filter(yield* recalled(pass.cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
+const inferred = Effect.fnUntraced(function* (
+    { outputPath, ...pass }: { readonly cache: PluginCache<Resolved & { readonly digest: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly digest: string; readonly lock: string; readonly exec: string; readonly outputPath: string | undefined },
+    context: CreateNodesContext,
+    file: string,
+) {
+    const home = posix.dirname(file);
+    const listed = (entry: Resolved) => Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [...entry.scanned])).pipe(Effect.map((names) => ({ ...entry, digest: hashArray([pass.digest, ...names]) })));
+    const held = yield* Effect.findFirst(Option.toArray(yield* recalled(pass.cache, file, stamped(context.workspaceRoot))), (cached) => Effect.map(listed(cached), ({ digest }) => digest === cached.digest));
     const resolved = yield* Option.match(held, {
         onSome: Effect.succeed,
         onNone: () =>
-            Effect.tap(read(context.workspaceRoot, file, Option.fromUndefinedOr(outputPath), pass.lock), (fresh) =>
+            Effect.tap(Effect.flatMap(read(context.workspaceRoot, file, outputPath !== undefined, pass.lock), listed), (entry) =>
                 Effect.sync(() => {
-                    pass.cache.set(file, { ...fresh, digest });
+                    pass.cache.set(file, entry);
                     MutableRef.set(pass.stored, true);
                 }),
             ),
@@ -281,21 +195,23 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCach
 
 const nodes = inferring(Options, run, function* (files, settings, context) {
     const project = anchored(context.workspaceRoot);
-    const configs = files.filter((file) => project(dirname(file)));
+    const configs = files.filter((file) => project(posix.dirname(file)));
     const manager = detectPackageManager(context.workspaceRoot);
-    const pass = { cache: new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'playwright.hash')), stored: MutableRef.make(false), lock: getLockFileName(manager), exec: getPackageManagerCommand(manager).exec };
     const [ambient, generation] = [hashDaemonClientEnv(), getDaemonClientEnvGeneration()];
-    const hashes = yield* Effect.promise(() =>
-        calculateHashesForCreateNodes(
-            configs.map(dirname),
-            { ...settings, ambient },
-            context,
-            configs.map(() => [pass.lock]),
-        ),
-    );
+    const pass = {
+        cache: new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'playwright.hash')),
+        stored: MutableRef.make(false),
+        digest: hashArray([hashObject(settings), ambient, yield* OWN]),
+        lock: getLockFileName(manager),
+        exec: getPackageManagerCommand(manager).exec,
+        outputPath: settings.outputPath,
+    };
     return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles((file, _options, _context, index) => run(inferred(pass, context, settings.outputPath, `${hashes[index]}`, file)), configs, settings, context)),
-        Effect.sync(() => MutableRef.get(pass.stored) && getDaemonClientEnvGeneration() === generation && hashDaemonClientEnv() === ambient && pass.cache.writeToDisk()),
+        Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, file)), configs, settings, context)),
+        Effect.when(
+            Effect.sync(() => pass.cache.writeToDisk()),
+            Effect.sync(() => MutableRef.get(pass.stored) && getDaemonClientEnvGeneration() === generation && hashDaemonClientEnv() === ambient),
+        ),
     );
 });
 
