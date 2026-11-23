@@ -19,7 +19,6 @@ interface Helping {
     readonly command: string;
 }
 type Loop = Option.Option.Value<Effect.Success<ReturnType<typeof forLoop>>>;
-type Runner = Effect.Success<ReturnType<typeof runnersOf>>['chosen'][number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -121,8 +120,7 @@ const ownersOf = ({ nodes, owner }: Graph, invocation: Invocation, paths: readon
 };
 
 const executedFiles = Effect.fnUntraced(function* (options: Targets[string]['options'], reads: string | undefined, call: Call) {
-    const decoded = Option.getOrElse(Schema.decodeUnknownOption(Options)(options), () => Options.make({}));
-    const { command, commands = [], cwd = '' } = decoded;
+    const { command, commands = [], cwd = '' } = Option.getOrElse(Schema.decodeUnknownOption(Options)(options), () => Options.make({}));
     const folder = Option.some(call.host.path.join(call.host.root, cwd));
     const bodies = yield* Effect.forEach([...Option.toArray(Option.fromUndefinedOr(command)), ...commands], (text) => bodyOf(text, call));
     const words = bodies.flatMap(({ invocations }) => invocations.flatMap((invocation) => invocation.words));
@@ -155,7 +153,7 @@ const runnersOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, in
 
 const launcherStart = ({ head, outer }: Invocation): Word => outer[outer.findLastIndex(({ row, path, has }) => has('-C', '--cd') || !(row.launcher === true || row.module !== undefined || (row.wraps !== '--' && path.length > 0))) + 1]?.head ?? head;
 
-const routed = (invocation: Invocation, [first, ...others]: Array.NonEmptyReadonlyArray<Runner>, foreign: { readonly words: readonly string[]; readonly located: boolean }, widened: boolean, everywhere: boolean): readonly Verdict[] => {
+const routed = (invocation: Invocation, [first, ...others]: Array.NonEmptyReadonlyArray<Effect.Success<ReturnType<typeof runnersOf>>['chosen'][number]>, foreign: { readonly words: readonly string[]; readonly located: boolean }, widened: boolean, everywhere: boolean): readonly Verdict[] => {
     const projects = everywhere && widened ? '' : ` -p ${[first, ...others].map(({ node }) => quote(node.name)).join(',')}`;
     const tool = others.length === 0 ? `nx run ${quote(`${first.node.name}:${first.target}`)}` : `nx run-many -t ${first.target}${projects}`;
     const forwarded = [tool, '--', ...foreign.words].join(' ');
@@ -228,12 +226,13 @@ const hkStep: Rule = Effect.fnUntraced(function* (invocation, call) {
     const ran = bodies.map(({ invocations }) => invocations.find((other) => programOf(other, call) === programOf(invocation, call)));
     const modes = Array.filterMap(Array.zip(runs, ran), ([run, found]) => (found === undefined ? Result.failVoid : Result.succeed({ ...run, keys: flagsOf(found), words: argued(found) })));
     const asked = flagsOf(invocation);
-    const common = (held: typeof modes) => held.slice(1).reduce((shared, { keys }) => shared.intersection(keys), held[0]?.keys ?? new Set<string>());
-    const policy = ({ step, mode }: (typeof modes)[number]) => {
-        const held = modes.filter((other) => other.step === step);
-        return mode === 'fix' ? common(held.length > 1 ? held : []) : common(held.filter((other) => other.words === words));
-    };
-    const [fit, ...more] = modes.filter((mode) => (mode.mode === 'check' || mode.mode === 'fix') && mode.words === words && asked.isSubsetOf(mode.keys) && mode.keys.difference(policy(mode)).isSubsetOf(asked));
+    const [fit, ...more] = modes.filter(({ step, mode, keys, words: stated }) => {
+        if (!(mode === 'check' || mode === 'fix') || stated !== words || !asked.isSubsetOf(keys)) {
+            return false;
+        }
+        const peers = modes.filter((other) => other.step === step && (mode === 'fix' || other.words === words));
+        return keys.difference(mode === 'fix' && peers.length === 1 ? new Set() : peers.reduce((shared, other) => shared.intersection(other.keys), keys)).isSubsetOf(asked);
+    });
     if (fit === undefined || more.length > 0) {
         return [];
     }

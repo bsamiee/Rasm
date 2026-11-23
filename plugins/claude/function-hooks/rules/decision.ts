@@ -23,11 +23,12 @@ class Request extends Schema.Opaque<Request, unknown>()(
         call: Schema.String,
     }),
 ) {}
-class Allow extends Schema.Opaque<Allow, unknown>()(Schema.TaggedStruct('Allow', { note: Schema.optionalKey(Schema.String) })) {}
-class Deny extends Schema.Opaque<Deny, unknown>()(Schema.TaggedStruct('Deny', { reason: Schema.String })) {}
-class Rewrite extends Schema.Opaque<Rewrite, unknown>()(Schema.TaggedStruct('Rewrite', { command: Schema.String, background: Schema.Boolean, note: Schema.optionalKey(Schema.String) })) {}
-class Monitor extends Schema.Opaque<Monitor, unknown>()(Schema.TaggedStruct('Monitor', { command: Schema.String, note: Schema.optionalKey(Schema.String) })) {}
-const Decision = Schema.Union([Allow, Deny, Rewrite, Monitor]).pipe(Schema.toTaggedUnion('_tag'));
+const Decision = Schema.TaggedUnion({
+    Allow: { note: Schema.optionalKey(Schema.String) },
+    Deny: { reason: Schema.String },
+    Rewrite: { command: Schema.String, background: Schema.Boolean, note: Schema.optionalKey(Schema.String) },
+    Monitor: { command: Schema.String, note: Schema.optionalKey(Schema.String) },
+});
 
 const Verdict = Data.taggedEnum<Verdict>();
 
@@ -57,7 +58,7 @@ const decisionOf = Effect.fnUntraced(function* <E, R>(command: string, verdicts:
     const background = !monitor && verdicts.some(Verdict.$is('Background'));
     const refused = Array.dedupe(verdicts.filter(Verdict.$is('Refuse')).map(({ reason }) => reason));
     if (refused.length > 0) {
-        return Deny.make({ reason: refused.join('; ') });
+        return Decision.cases.Deny.make({ reason: refused.join('; ') });
     }
     const source = new TextEncoder().encode(command);
     const decoder = new TextDecoder();
@@ -69,11 +70,11 @@ const decisionOf = Effect.fnUntraced(function* <E, R>(command: string, verdicts:
     const noted = notes.length > 0 ? { note: notes.join('. ') } : {};
     const rewritten = edits.length === 0 ? command : [...ordered.flatMap(({ start, text }, at) => [between(ordered[at - 1]?.end ?? 0, start), ...Option.toArray(text)]), between(ordered.at(-1)?.end ?? 0)].join('');
     if (monitor) {
-        return Monitor.make({ command: rewritten, ...noted });
+        return Decision.cases.Monitor.make({ command: rewritten, ...noted });
     }
-    return edits.length === 0 && !background ? Allow.make(noted) : Rewrite.make({ command: rewritten, background, ...noted });
+    return edits.length === 0 && !background ? Decision.cases.Allow.make(noted) : Decision.cases.Rewrite.make({ command: rewritten, background, ...noted });
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Allow, Decision, type Deny, decisionOf, type Monitor, Request, type Rewrite, Verdict };
+export { Decision, decisionOf, Request, Verdict };

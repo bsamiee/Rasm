@@ -1,7 +1,7 @@
 import { Array, Combiner, Effect, Layer, Match, Option, Predicate, Record } from 'effect';
 import { RateLimiter } from 'effect/persistence';
 import { Host, type HostError } from '#/host';
-import { Decision, type Deny, decisionOf, type Monitor, type Request, type Rewrite } from '#/rules/decision';
+import { Decision, decisionOf, type Request } from '#/rules/decision';
 import { FILES } from '#/rules/files';
 import { GHIDRA } from '#/rules/ghidra';
 import { GIT } from '#/rules/git';
@@ -38,7 +38,7 @@ const judged = Effect.fnUntraced(function* (request: Request) {
     return yield* decisionOf(request.command, verdicts.flat(), (notes) => due(request, notes));
 });
 
-const converged = Effect.fnUntraced(function* (request: Request, current: Rewrite | Monitor, seen: ReadonlySet<string>): Effect.fn.Return<Deny | Rewrite | Monitor, HostError, Host | Parser | RateLimiter.RateLimiter> {
+const converged = Effect.fnUntraced(function* (request: Request, current: Extract<Effect.Success<ReturnType<typeof judged>>, { readonly _tag: 'Rewrite' | 'Monitor' }>, seen: ReadonlySet<string>): Effect.fn.Return<Effect.Success<ReturnType<typeof judged>>, HostError, Host | Parser | RateLimiter.RateLimiter> {
     const kind = Match.valueTags(current, { Monitor: () => 'monitor' as const, Rewrite: ({ background }) => (background ? 'background' : request.kind) });
     const again = yield* judged({ ...request, command: current.command, kind });
     if (again._tag === 'Deny') {

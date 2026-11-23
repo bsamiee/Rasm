@@ -14,7 +14,6 @@ interface Server {
     readonly socket: string;
     readonly phase: Phase;
 }
-type Task = (typeof TASKS.initial)[string];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -146,7 +145,7 @@ const scanned = async ($: EngineInterface): Promise<void> => {
         const resting = task.agent === undefined ? turns.size === 0 : !running.has(task.agent);
         const due = stuck !== undefined && stuck.key !== task.told && resting ? [stuck] : [];
         const { told: _told, ...untold } = task;
-        const told: Task = due.map(({ key }) => ({ ...untold, told: key })).at(0) ?? task;
+        const told = due.map(({ key }) => ({ ...untold, told: key })).at(0) ?? task;
         return { id, task, due, held: written ? [stuck === undefined ? untold : told] : [] };
     });
     const scans = new Map(judged.map(({ id, held }) => [id, held] as const));

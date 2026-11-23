@@ -5,14 +5,10 @@ import { layerUndiciOptions } from '@effect/platform-node/NodeHttpClient';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it, makeMethods } from '@effect/vitest';
 import { type Workspace, it as workspaceTest } from '@rasm/testing/nx';
-import { Cause, Effect, FileSystem, Layer, Path, Schema, Stream } from 'effect';
+import { Array, Cause, Effect, FileSystem, Layer, Path, Schema, Stream } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Decision = typeof Decision.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -238,7 +234,7 @@ it.live(
             const [fs, spawner, { output, holding, decided }] = yield* Effect.all([FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner, held('writer')]);
             const bounded = yield* decided(`tail -f ${output}`, 'monitor');
             assert(bounded._tag === 'Rewrite', `tail -f ${output} decides ${bounded._tag}`);
-            assert.deepStrictEqual<readonly Decision[]>([bounded, yield* decided(bounded.command, 'monitor')], [{ _tag: 'Rewrite', command: bounded.command, background: false }, ALLOWED]);
+            assert.deepStrictEqual([bounded, yield* decided(bounded.command, 'monitor')], [{ _tag: 'Rewrite', command: bounded.command, background: false }, ALLOWED]);
             yield* fs.writeFileString(output, 'first\n', { flag: 'a' });
             const monitor = yield* spawner.spawn(ChildProcess.make('sh', ['-c', bounded.command]));
             const tailed = Stream.runCollect(Stream.tap(Stream.splitLines(Stream.decodeText(monitor.stdout)), (line) => (line === 'first' ? fs.writeFileString(output, 'second\n', { flag: 'a' }) : holding.kill())));
@@ -258,7 +254,7 @@ it.live.each([
     Effect.fnUntraced(
         function* ([holder, decisions]) {
             const { output, decided } = yield* held(holder);
-            assert.deepStrictEqual<readonly Decision[]>([yield* decided(`cat ${output}`, 'foreground'), yield* decided(`cat ${output}`, 'foreground')], decisions(output));
+            assert.deepStrictEqual([yield* decided(`cat ${output}`, 'foreground'), yield* decided(`cat ${output}`, 'foreground')], [...decisions(output)]);
         },
         Effect.scoped,
         Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
@@ -290,9 +286,9 @@ it.live(
         function* () {
             const { decided } = yield* served();
             const decisions = yield* Effect.forEach(WAITS, ([command, kind]) => decided(command, kind));
-            assert.deepStrictEqual<readonly Decision[]>(
+            assert.deepStrictEqual(
                 decisions,
-                WAITS.map((wait) => wait[2]),
+                Array.map(WAITS, (wait) => wait[2]),
             );
         },
         Effect.scoped,
@@ -316,9 +312,9 @@ it.live(
                 ['/Users/u/.claude/projects', { _tag: 'Deny', reason: `/Users/u/.claude/projects ${transcript}` }],
                 ['/Users/u/.zsh_history', { _tag: 'Deny', reason: "/Users/u/.zsh_history is shell history, atuin search --filter-mode global --search-mode fulltext '<words>' reads it" }],
             ] as const;
-            assert.deepStrictEqual<readonly Decision[]>(
+            assert.deepStrictEqual(
                 yield* Effect.forEach(cases, ([file]) => asked('read', { file })),
-                cases.map(([, decision]) => decision),
+                Array.map(cases, ([, decision]) => decision),
             );
         },
         Effect.scoped,
@@ -337,9 +333,9 @@ it.live(
                 ['nx build web --skipSync 2>&1 | tail -5', REWRITTEN('set -o pipefail; nx sync && nx build web 2>&1 | tail -5')],
                 ['nx build web', ALLOWED],
             ] as const;
-            assert.deepStrictEqual<readonly Decision[]>(
+            assert.deepStrictEqual(
                 yield* Effect.forEach(cases, ([command]) => decided(command, 'foreground')),
-                cases.map(([, decision]) => decision),
+                Array.map(cases, ([, decision]) => decision),
             );
         },
         Effect.scoped,
@@ -353,7 +349,7 @@ makeMethods(workspaceTest).live.each(WORKSPACE_CALLS)(
     ([command, folder, decision], { workspace }) =>
         servedIn(workspace).pipe(
             Effect.flatMap((decided) => decided(command, folder)),
-            Effect.map((got) => assert.deepStrictEqual<Decision>(got, decision)),
+            Effect.map((got) => assert.deepStrictEqual(got, decision)),
             Effect.scoped,
             Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
         ),
@@ -378,10 +374,8 @@ it.live(
             const stored = yield* Effect.forEach(cases, ([command]) => storing.decided(command, 'foreground', { cwd }));
             const reading = yield* served({ env: { CLAUDE_PLUGIN_DATA: data, PATH: `${bin}:/usr/bin:/bin` } });
             const read = yield* Effect.forEach(cases, ([command]) => reading.decided(command, 'foreground', { cwd }));
-            assert.deepStrictEqual<readonly (readonly Decision[])[]>(
-                [stored, read],
-                [stored, read].map(() => cases.map(([, decision]) => decision)),
-            );
+            const wanted = Array.map(cases, ([, decision]) => decision);
+            assert.deepStrictEqual([stored, read], [wanted, wanted]);
         },
         Effect.scoped,
         Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
@@ -394,7 +388,7 @@ it.live(
     Effect.fnUntraced(
         function* () {
             const { decided } = yield* served();
-            assert.deepStrictEqual<Decision>(yield* decided('nx show project rasm --json 2>&1 | jq .name', 'foreground'), { _tag: 'Rewrite', command: 'set -o pipefail; nx show project rasm --json | jq .name', background: false });
+            assert.deepStrictEqual(yield* decided('nx show project rasm --json 2>&1 | jq .name', 'foreground'), { _tag: 'Rewrite', command: 'set -o pipefail; nx show project rasm --json | jq .name', background: false });
         },
         Effect.scoped,
         Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
@@ -409,9 +403,9 @@ it.live(
             const [fs, path, { folder, decided }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, served()]);
             yield* Effect.forEach(Object.entries(FIXTURES), ([name, text]) => fs.writeFileString(path.join(folder, name), text));
             const cases = SCRIPTED(folder);
-            assert.deepStrictEqual<readonly Decision[]>(
+            assert.deepStrictEqual(
                 yield* Effect.forEach(cases, ([command]) => decided(command, 'foreground')),
-                cases.map(([, decision]) => decision),
+                Array.map(cases, ([, decision]) => decision),
             );
         },
         Effect.scoped,
@@ -425,9 +419,9 @@ it.live(
     Effect.fnUntraced(
         function* () {
             const { decided } = yield* served();
-            assert.deepStrictEqual<readonly Decision[]>(
+            assert.deepStrictEqual(
                 yield* Effect.forEach(SESSION_CALLS, ([command]) => decided(command, 'foreground', { agent: 'a1' })),
-                SESSION_CALLS.map(([, decision]) => decision),
+                Array.map(SESSION_CALLS, ([, decision]) => decision),
             );
         },
         Effect.scoped,
@@ -469,9 +463,9 @@ it.live(
                 [`git -C ${folder} commit --no-verify -m probe`, { _tag: 'Rewrite', command: `git -C ${folder} commit -m probe`, background: false, note: 'git commit --no-verify removed' }],
                 [`git -C ${folder} commit -nm probe`, { _tag: 'Rewrite', command: `git -C ${folder} commit -m probe`, background: false, note: 'git commit -nm became -m' }],
             ] as const;
-            assert.deepStrictEqual<readonly Decision[]>(
+            assert.deepStrictEqual(
                 yield* Effect.forEach(cases, ([command]) => decided(command, 'foreground')),
-                cases.map(([, decision]) => decision),
+                Array.map(cases, ([, decision]) => decision),
             );
         },
         Effect.scoped,

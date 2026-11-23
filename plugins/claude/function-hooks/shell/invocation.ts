@@ -1,5 +1,5 @@
 import { tmpdir } from 'node:os';
-import { Array, Cache, Config, Context, Effect, Layer, Option, Path, Result, String } from 'effect';
+import { Array, Cache, Config, Context, Effect, Layer, Match, Option, Path, Result, String } from 'effect';
 import { KeyValueStore } from 'effect/persistence';
 import { RedirOperator, type Stmt } from 'sh-syntax/sync';
 import { Host, type HostError, KEEP_SUCCESSES, Machine } from '#/host';
@@ -27,11 +27,6 @@ interface Invocation extends Arguments {
 }
 interface Analysis extends Script {
     readonly invocations: readonly Invocation[];
-}
-interface Body {
-    readonly invocation: Invocation;
-    readonly text: string;
-    readonly file: boolean;
 }
 type Start = Pick<Command, 'cwd' | 'origin'> & Partial<Pick<Command, 'fed' | 'looping'>> & { readonly visited?: ReadonlySet<string> };
 
@@ -146,21 +141,6 @@ const invocations = Effect.fnUntraced(function* (command: Command, words: readon
     return [invocation, ...(yield* Effect.forEach(wrappedWords(invocation), (inner) => invocations(command, inner, [...outer, invocation]))).flat()];
 });
 
-const bodies = (invocation: Invocation): readonly Body[] => {
-    const { row, has, operands, command } = invocation;
-    if (row.concatenates === true) {
-        return [{ invocation, text: operands.map(({ text }) => text).join(' '), file: false }];
-    }
-    const [first] = operands;
-    const shell = row.shell !== undefined;
-    const inline = shell && has(...row.shell);
-    return [
-        ...(inline && first !== undefined ? [{ invocation, text: first.text, file: false }] : []),
-        ...(shell && !inline && first === undefined ? Option.toArray(Option.map(command.input, (text) => ({ invocation, text, file: false }))) : []),
-        ...(shell && !inline && first?.known === true ? [{ invocation, text: first.text, file: true }] : []),
-    ];
-};
-
 const written = (host: Host['Service'], file: string, { command }: Invocation, found: readonly Invocation[]): Option.Option<Option.Option<string>> =>
     Option.map(
         Array.findLast(found, (writer) => {
@@ -194,14 +174,26 @@ const interpreted = (invocation: Invocation, found: readonly Invocation[], visit
     );
 };
 
-const bodyAnalyzed = Effect.fnUntraced(function* ({ invocation, text, file }: Body, origin: Command['origin'], visited: ReadonlySet<string>, enclosing: 'bash' | 'zsh', found: readonly Invocation[]): Effect.fn.Return<Option.Option<Analysis>, HostError, Parser | Host> {
-    const { cwd, fed } = invocation.command;
-    const content = file ? yield* contentOf(invocation, text, found, visited) : Option.some({ text, visited });
-    const stated = invocation.program === 'zsh' || (file && text.endsWith('.zsh')) ? 'zsh' : 'bash';
-    const dialect = invocation.row.concatenates === true ? enclosing : stated;
-    const stmts = Option.flatten(yield* Effect.transposeOption(Option.map(content, (body) => Effect.option(parsed(body.text, dialect)))));
-    return yield* Effect.transposeOption(Option.map(Option.all({ body: content, held: stmts }), ({ body, held }) => analysisOf(held, body.text, { cwd, fed, looping: invocation.repeated, origin: file || origin === 'file' ? 'file' : 'body', visited: body.visited }, dialect)));
-});
+const bodyAnalyzed = (invocation: Invocation, origin: Command['origin'], visited: ReadonlySet<string>, enclosing: 'bash' | 'zsh', found: readonly Invocation[]) => {
+    const { row, has, operands, command } = invocation;
+    const stated = Match.value({ joined: row.concatenates === true, inline: row.shell === undefined ? undefined : has(...row.shell), first: operands[0] }).pipe(
+        Match.when({ joined: true }, () => Option.some({ text: operands.map(({ text }) => text).join(' '), file: false })),
+        Match.when({ inline: true, first: Match.defined }, ({ first }) => Option.some({ text: first.text, file: false })),
+        Match.when({ inline: false, first: Match.undefined }, () => Option.map(command.input, (text) => ({ text, file: false }))),
+        Match.when({ inline: false, first: { known: true } }, ({ first }) => Option.some({ text: first.text, file: true })),
+        Match.orElse(() => Option.none()),
+    );
+    return Option.match(stated, {
+        onNone: () => Effect.succeedNone,
+        onSome: Effect.fnUntraced(function* ({ text, file }) {
+            const content = file ? yield* contentOf(invocation, text, found, visited) : Option.some({ text, visited });
+            const named = invocation.program === 'zsh' || (file && text.endsWith('.zsh')) ? 'zsh' : 'bash';
+            const dialect = row.concatenates === true ? enclosing : named;
+            const stmts = Option.flatten(yield* Effect.transposeOption(Option.map(content, (body) => Effect.option(parsed(body.text, dialect)))));
+            return yield* Effect.transposeOption(Option.map(Option.all({ body: content, held: stmts }), ({ body, held }) => analysisOf(held, body.text, { cwd: command.cwd, fed: command.fed, looping: invocation.repeated, origin: file || origin === 'file' ? 'file' : 'body', visited: body.visited }, dialect)));
+        }),
+    });
+};
 
 const analysisOf = Effect.fnUntraced(function* (stmts: readonly Stmt[], text: string, { visited = new Set(), ...start }: Start, dialect: 'bash' | 'zsh'): Effect.fn.Return<Analysis, HostError, Parser | Host> {
     const host = yield* Host;
@@ -210,7 +202,11 @@ const analysisOf = Effect.fnUntraced(function* (stmts: readonly Stmt[], text: st
     const script = scriptOf(stmts, text, { ...start, dialect, home: host.home, environment, resolve: host.resolve });
     const listed = (yield* Effect.forEach(script.commands, (command) => invocations(command, command.words, []))).flat();
     const found = yield* Effect.forEach(listed, (invocation) => interpreted(invocation, listed, visited), { concurrency: 'unbounded' });
-    const nested = yield* Effect.forEach(found.filter(({ last, informational }) => last && !informational).flatMap(bodies), (body) => bodyAnalyzed(body, start.origin, visited, dialect, found), { concurrency: 'unbounded' });
+    const nested = yield* Effect.forEach(
+        found.filter(({ last, informational }) => last && !informational),
+        (invocation) => bodyAnalyzed(invocation, start.origin, visited, dialect, found),
+        { concurrency: 'unbounded' },
+    );
     const scripts = Array.getSomes(nested);
     return { ...concat([script, ...scripts]), invocations: [...found, ...scripts.flatMap((analysis) => analysis.invocations)] };
 });
