@@ -9,6 +9,10 @@ import { Digest } from 'effect/crypto';
 import { Zip } from 'effect/encoding';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Mark = readonly [at: number, end: number, text: string, closing: boolean];
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CORE = {
@@ -42,38 +46,38 @@ const Entry = Schema.Struct({ originalSource: Schema.String, originalLine: Schem
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const grouped = (code: string): string => {
-    const marks: (readonly [number, number, string])[] = [];
+    const marks: Mark[] = [];
     simple(parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true }), {
         LogicalExpression: ({ operator, right }) => {
             if (operator === '||' && right.type === 'LogicalExpression' && right.operator === '&&') {
-                marks.push([right.start, right.start, '('], [right.end, right.end, ')']);
+                marks.push([right.start, right.start, '(', false], [right.end, right.end, ')', true]);
             }
         },
         ConditionalExpression: ({ consequent, alternate }) => {
             marks.push(
                 ...[consequent, alternate]
                     .filter(({ type }) => type === 'ConditionalExpression')
-                    .flatMap(({ start, end }): (readonly [number, number, string])[] => [
-                        [start, start, '('],
-                        [end, end, ')'],
+                    .flatMap(({ start, end }): Mark[] => [
+                        [start, start, '(', false],
+                        [end, end, ')', true],
                     ]),
             );
         },
         Property: ({ key, computed }) => {
             if (!computed && key.type === 'Identifier' && RESERVED.test(key.name)) {
-                marks.push([key.start, key.start, '"'], [key.end, key.end, '"']);
+                marks.push([key.start, key.start, '"', false], [key.end, key.end, '"', true]);
             }
         },
         MemberExpression: ({ property, computed }) => {
             if (!computed && property.type === 'Identifier' && RESERVED.test(property.name)) {
-                marks.push([code.lastIndexOf('.', property.start), property.start, '["'], [property.end, property.end, '"]']);
+                marks.push([code.lastIndexOf('.', property.start), property.start, '["', false], [property.end, property.end, '"]', true]);
             }
         },
     });
     return Array.sort(
-        marks,
-        Order.mapInput(Order.flip(Order.Number), ([at]: readonly [number, number, string]) => at),
-    ).reduce((text, [start, end, mark]) => `${text.slice(0, start)}${mark}${text.slice(end)}`, code);
+        Array.map(marks, ([at, end, text, closing], index) => ({ at, end, text, key: [-at, closing, closing ? -index : index] as const })),
+        Order.mapInput(Order.Tuple([Order.Number, Order.Boolean, Order.Number]), ({ key }: { readonly key: readonly [number, boolean, number] }) => key),
+    ).reduce((written, { at, end, text }) => `${written.slice(0, at)}${text}${written.slice(end)}`, code);
 };
 const lower = Object.assign(
     (code: string, { emitted = Function.identity, ...env }: EnvConfig & { readonly emitted?: (code: string) => string }, syntax: 'typescript' | 'ecmascript' = 'ecmascript') =>
