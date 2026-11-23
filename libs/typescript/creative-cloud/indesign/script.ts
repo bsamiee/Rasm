@@ -1,4 +1,5 @@
 import type indesign from 'adobe:indesign';
+import type { InDesignDOMObject } from 'adobe:indesign';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -34,7 +35,12 @@ const stepped = <A>({ app, ScriptLanguage, UndoModes, UserInteractionLevels }: P
     }
     return settled.value;
 };
-const ScriptHost = { module: 'indesign', around: String(stepped) } as const;
+const referenced = (value: object) => {
+    const held: Partial<Pick<InDesignDOMObject<unknown>, 'constructorName' | 'isValid' | 'toSpecifier'>> & { readonly name?: unknown } = value;
+    const specifier = held.toSpecifier?.();
+    return specifier === undefined || held.constructorName === undefined || held.isValid === undefined ? undefined : { type: held.constructorName, specifier, valid: held.isValid, ...(held.isValid && typeof held.name === 'string' ? { name: held.name } : {}) };
+};
+const ScriptHost = { module: 'indesign', around: String(stepped), reference: String(referenced) } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

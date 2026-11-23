@@ -168,7 +168,10 @@ const answering = ({ answers, element }: Pick<Asked, 'answers' | 'element'>) => 
         onNonEmpty: (picked) => `answers ${labelled(picked)}${Array.match(others, { onEmpty: () => '', onNonEmpty: (rest) => `, ${rest.length} more buttons inspect of ${element ?? 'the dialog'} lists` })}`,
     });
 };
-const asked = ({ kind, window, title, text, answers, element }: Asked) => `${kind} in window ${window} asks${UndefinedOr.match(title, { onUndefined: () => '', onDefined: (named) => ` "${named}"` })}: ${text.join(' ')}, ${answering({ answers, element })}`;
+const asked = ({ kind, window, title, text, answers, element }: Asked) =>
+    kind === 'blocking'
+        ? `window ${window} blocks its application, which answers no Accessibility read while it shows: view shows it, and act with a key answers it`
+        : `${kind} in window ${window} asks${UndefinedOr.match(title, { onUndefined: () => '', onDefined: (named) => ` "${named}"` })}: ${text.join(' ')}, ${answering({ answers, element })}`;
 const changed = Event.match({
     started: () => 'started',
     opened: ({ opened }) => `opened ${shown(opened)}`,

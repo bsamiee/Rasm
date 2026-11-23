@@ -42,7 +42,7 @@ Effect.gen(function* () {
                 'Take element, window, and document ids from results and events, never compose them.',
                 "Change document content through scripts in the application's own object model, and drive the interface through its Accessibility tree only where scripts cannot reach, such as dialogs and panels.",
                 Declarations.instruction,
-                "Opening an application launches it in the background or targets its running instance, never a second one; closing it reports each unsaved document's save dialog as an event.",
+                "Opening an application launches it in the background or targets its running instance, never a second one; closing it reports each unsaved document's save dialog as an event, and an application comes forward by itself to show one, so save or close its documents through a script first.",
                 "An Adobe extension linked from a running application adds tools of its own and renders its documents for view of object while that application runs, and a running application's own MCP server adds its tools under the prefix illustrator_, aftereffects_, premiere_, or mediaencoder_.",
             ],
             settings: [Preview],

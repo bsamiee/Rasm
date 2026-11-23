@@ -101,7 +101,12 @@ extension Instance {
         do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) } catch {
             throw ApplicationFailure(subject: folder.path(percentEncoded: false), reason: .host(error as NSError))
         }
-        let (targets, documents) = (try await targets(source, longestSide: longestSide), try await documents())
+        let targets = try await targets(source, longestSide: longestSide)
+        let documents: [CGWindowID: URL]
+        do throws(ApplicationFailure) { documents = try await self.documents() } catch {
+            guard case .unanswered = error.reason else { throw error }
+            documents = [:]
+        }
         var shots: [CGWindowID: Result<Shot, ApplicationFailure>] = [:]
         let context = CIContext()
         for (number, target) in targets {

@@ -410,10 +410,11 @@ const render = Effect.fn('render')(function* (target: Specifier, path: string) {
     const { app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum } = model;
     const found = yield* Effect.filterOrFail(
         Model.resolve(target),
-        (value): value is Page | Spread | PageItem => (model.page(value) && model.spread(value.parent)) || model.spread(value) || model.item(value),
-        () => Unmatched.of({ subject: 'document page, spread, or page item', query: Option.some(target.path) }),
+        (value): value is Document | Page | Spread | PageItem => model.document(value) || (model.page(value) && model.spread(value.parent)) || model.spread(value) || model.item(value),
+        () => Unmatched.of({ subject: 'document, document page, spread, or page item', query: Option.some(target.path) }),
     );
     const { source, range } = Match.value(found).pipe(
+        Match.when(model.document, (each) => ({ source: each, range: { pageString: '+1', exportingSpread: true } })),
         Match.when(model.page, (each) => ({ source: each.parent.parent, range: { pageString: `+${each.documentOffset + 1}`, exportingSpread: false } })),
         Match.when(model.spread, (each) => ({ source: each.parent, range: { pageString: `+${each.pages.firstItem().documentOffset + 1}`, exportingSpread: true } })),
         Match.orElse((each) => ({ source: each, range: {} })),
