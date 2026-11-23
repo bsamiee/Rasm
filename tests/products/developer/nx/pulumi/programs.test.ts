@@ -1,6 +1,7 @@
 import { createNodes } from '@rasm/nx-pulumi';
 import { refused } from '@rasm/testing/errors';
 import { it } from '@rasm/testing/nx';
+import { asyncProperty, assert, constant, constantFrom, dictionary, oneof, record, string } from 'fast-check';
 import { describe, expect } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -10,40 +11,55 @@ const PROGRAM = { name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/p
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('Pulumi programs', () => {
-    it.for([
-        { case: 'a string bin and @pulumi/pulumi in dependencies', manifest: PROGRAM, program: true },
-        { case: 'one named bin and @pulumi/pulumi in devDependencies', manifest: { name: 'infra', bin: { infra: './stacks.mjs' }, devDependencies: { '@pulumi/pulumi': '*' } }, program: true },
-        { case: 'two named bins', manifest: { name: 'infra', bin: { up: './up.mjs', down: './down.mjs' }, dependencies: { '@pulumi/pulumi': '*' } }, program: false },
-        { case: 'no bin', manifest: { name: 'infra', dependencies: { '@pulumi/pulumi': '*' } }, program: false },
-        { case: 'a bin and no @pulumi/pulumi', manifest: { name: 'infra', bin: './cli.mjs' }, program: false },
-    ])('runs a package with $case as a program: $program', async ({ manifest, program }, { workspace }) => {
-        const graph = await workspace.write({ ...WORKSPACES, 'packages/infra/package.json': JSON.stringify(manifest) }).graph({ createNodes });
+describe('Pulumi programs and the packages running them', () => {
+    it('runs a package as a program exactly when it declares @pulumi/pulumi and one bin command', async ({ workspace }) => {
+        await assert(
+            asyncProperty(
+                record({
+                    stated: oneof(
+                        constant({ bin: {}, commands: 0 }),
+                        string({ minLength: 1 }).map((path) => ({ bin: { bin: `./${path}.mjs` }, commands: 1 })),
+                        dictionary(string({ minLength: 1 }), constant('./stacks.mjs'), { maxKeys: 3 }).map((bin) => ({ bin: { bin }, commands: Object.keys(bin).length })),
+                    ),
+                    declared: constantFrom('none', 'dependencies', 'devDependencies'),
+                }),
+                async ({ stated: { bin, commands }, declared }) => {
+                    const manifest = { name: 'program', ...bin, ...(declared === 'none' ? {} : { [declared]: { '@pulumi/pulumi': '*' } }) };
 
-        expect(graph.nodes['infra']?.data.targets?.['deploy--pulumi'] !== undefined).toBe(program);
+                    const graph = await workspace.write({ ...WORKSPACES, 'packages/program/package.json': JSON.stringify(manifest) }).graph({ createNodes });
+
+                    expect({ manifest, program: 'deploy--pulumi' in (graph.nodes['program']?.data.targets ?? {}) }).toStrictEqual({ manifest, program: declared !== 'none' && commands === 1 });
+                },
+            ),
+            { numRuns: 60 },
+        );
     });
 
-    it.for([
-        { case: 'depends on it', site: { name: 'site', dependencies: { infra: 'workspace:*' } }, hosted: true },
-        { case: 'names it in nx.implicitDependencies', site: { name: 'site', nx: { implicitDependencies: ['infra'] } }, hosted: true },
-        { case: 'neither depends on it nor names it', site: { name: 'site' }, hosted: false },
-    ])('runs the program for a package that $case: $hosted', async ({ site, hosted }, { workspace }) => {
-        const graph = await workspace.write({ ...WORKSPACES, 'packages/infra/package.json': JSON.stringify(PROGRAM), 'packages/site/package.json': JSON.stringify(site) }).graph({ createNodes });
+    it('runs the program for each package that depends on it or names it, where a project.json or the workspaces anchor it', async ({ workspace }) => {
+        const graph = await workspace
+            .write({
+                ...WORKSPACES,
+                'packages/infra/package.json': JSON.stringify(PROGRAM),
+                'packages/site/package.json': JSON.stringify({ name: 'site', dependencies: { infra: 'workspace:*' } }),
+                'packages/named/package.json': JSON.stringify({ name: 'named', nx: { implicitDependencies: ['infra'] } }),
+                'packages/plain/package.json': JSON.stringify({ name: 'plain', devDependencies: { infra: 'workspace:*' } }),
+                'tools/marked/project.json': '{"name":"marked"}',
+                'tools/marked/package.json': JSON.stringify({ ...PROGRAM, name: 'marked' }),
+                'tools/unlisted/package.json': JSON.stringify({ ...PROGRAM, name: 'unlisted' }),
+            })
+            .graph({ createNodes });
 
-        expect(graph.nodes['site']?.data.targets?.['deploy--pulumi'] !== undefined).toBe(hosted);
-    });
-
-    it.for([
-        { anchor: 'a project.json beside it', files: { 'tools/infra/project.json': '{"name":"infra"}' }, program: true },
-        { anchor: 'no project.json and no workspaces entry', files: {}, program: false },
-    ])('runs a program outside the workspaces with $anchor: $program', async ({ files, program }, { workspace }) => {
-        const graph = await workspace.write({ ...WORKSPACES, ...files, 'tools/infra/package.json': JSON.stringify(PROGRAM) }).graph({ createNodes });
-
-        expect(Object.values(graph.nodes).some(({ data }) => data.root === 'tools/infra' && data.targets?.['deploy--pulumi'] !== undefined)).toBe(program);
+        expect(Object.fromEntries(Object.values(graph.nodes).map(({ data: { root, targets = {} } }) => [root, 'deploy--pulumi' in targets]))).toStrictEqual({
+            'packages/infra': true,
+            'packages/site': true,
+            'packages/named': true,
+            'packages/plain': false,
+            'tools/marked': true,
+        });
     });
 
     it('refuses a workspace manifest that is no JSON, naming the decode failure', async ({ workspace }) => {
-        const read = workspace.write({ ...WORKSPACES, 'packages/infra/package.json': JSON.stringify(PROGRAM), 'packages/torn/package.json': '{ "name": ' }).graph({ createNodes });
+        const read = workspace.write({ ...WORKSPACES, 'packages/torn/package.json': '{ "name": ' }).graph({ createNodes });
 
         await expect(read).rejects.toSatisfy(refused(/^Expected a valid JSON string/u));
     });

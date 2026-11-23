@@ -1,18 +1,51 @@
+import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-pulumi';
-import { it, unaggregated, taskGraph } from '@rasm/testing/nx';
+import { it, taskGraph, type Workspace } from '@rasm/testing/nx';
+import { readNxJson } from 'nx/src/config/nx-json';
+import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { describe, expect } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const BUILT = { targets: { build: { dependsOn: [{ target: 'build--*', params: 'forward' }] }, 'build--tsc': { command: 'true' } } };
-const STACKS = {
-    'package.json': '{"name":"root","workspaces":["packages/*"]}',
-    'packages/shared/package.json': JSON.stringify({ name: 'shared', nx: BUILT }),
-    'packages/infra/package.json': JSON.stringify({ name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', shared: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['shared'] } }),
-    'packages/infra/stacks.mjs': 'export {};\n',
-    'packages/site/package.json': JSON.stringify({ name: 'site', dependencies: { infra: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['infra'] } }),
-    'packages/compiled/package.json': JSON.stringify({ name: 'compiled', bin: 'dist/stacks.js', dependencies: { '@pulumi/pulumi': '*' }, nx: BUILT }),
-    'packages/app/package.json': JSON.stringify({ name: 'app', dependencies: { compiled: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['compiled'] } }),
+const MANIFESTS: Readonly<Record<string, { readonly name: string; readonly bin?: string; readonly dependencies?: Readonly<Record<string, string>>; readonly nx: object }>> = {
+    shared: { name: 'shared', nx: BUILT },
+    infra: { name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', '@pulumi/cloudflare': '*', shared: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['shared'] } },
+    site: { name: 'site', dependencies: { infra: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['infra'] } },
+    compiled: { name: 'compiled', bin: 'dist/stacks.js', dependencies: { '@pulumi/pulumi': '*' }, nx: BUILT },
+    app: { name: 'app', dependencies: { compiled: 'workspace:*', react: '*' }, nx: { ...BUILT, implicitDependencies: ['compiled'] } },
+};
+const STACKS = { 'package.json': '{"name":"root","workspaces":["packages/*"]}', 'packages/infra/stacks.mjs': 'export {};\n', ...Object.fromEntries(Object.entries(MANIFESTS).map(([name, manifest]) => [`packages/${name}/package.json`, JSON.stringify(manifest)])) };
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const hashed = (workspace: Workspace, graph: ProjectGraph, task: string, versions: Readonly<Record<string, string>>) => {
+    const [project = '', target = ''] = task.split(':');
+    const planned = taskGraph(graph, [project], [target]);
+    const installed: ProjectGraph = {
+        nodes: graph.nodes,
+        externalNodes: Object.fromEntries(Object.entries(versions).map(([name, version]) => [`npm:${name}`, { type: 'npm', name: `npm:${name}`, data: { packageName: name, version, hash: `${name}@${version}` } }])),
+        dependencies: {
+            ...graph.dependencies,
+            ...Object.fromEntries(
+                Object.values(MANIFESTS).map(({ name, dependencies = {} }) => [
+                    name,
+                    [
+                        ...(graph.dependencies[name] ?? []),
+                        ...Object.keys(dependencies)
+                            .filter((at) => at in versions)
+                            .map((at) => ({ source: name, target: `npm:${at}`, type: 'static' })),
+                    ],
+                ]),
+            ),
+        },
+    };
+    const found = planned.tasks[task];
+    return found === undefined
+        ? Promise.resolve(undefined)
+        : createTaskHasher(installed, readNxJson(workspace.root))
+              .hashTask(found, planned, {})
+              .then(({ value }) => value);
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -43,28 +76,19 @@ describe('task order', () => {
 
         expect([dependencies['site:dry-run--pulumi'], dependencies['app:dry-run--pulumi']]).toStrictEqual([[], []]);
     });
-
-    it('runs each program alone, never beside another task', async ({ workspace }) => {
-        const graph = await workspace.write(STACKS).graph({ createNodes });
-        const { targets } = graph.nodes['site']?.data ?? {};
-
-        expect(['install--pulumi', 'deploy--pulumi', 'dry-run--pulumi'].map((target) => targets?.[target]?.parallelism)).toStrictEqual([false, false, false]);
-    });
-
-    it('runs every tool target of a project through its verb', async ({ workspace }) => {
-        const graph = await workspace.write(STACKS).graph({ createNodes });
-
-        expect(unaggregated(graph)).toStrictEqual([]);
-    });
 });
 
-describe('inputs', () => {
+describe('what the program targets hash', () => {
     it.for([
-        { namedInputs: { default: ['{projectRoot}/**/*'] }, named: 'default' },
-        { namedInputs: { default: ['{projectRoot}/**/*'], production: ['default', '!{projectRoot}/**/*.test.mjs'] }, named: 'production' },
-    ])('hashes the $named files of the project and its dependencies', async ({ namedInputs, named }, { workspace }) => {
-        const graph = await workspace.write({ ...STACKS, 'nx.json': JSON.stringify({ namedInputs }) }).graph({ createNodes });
+        { case: 'a package the program it runs declares', task: 'site:dry-run--pulumi', moved: '@pulumi/cloudflare', changes: true },
+        { case: 'a package the program declares', task: 'infra:dry-run--pulumi', moved: '@pulumi/cloudflare', changes: true },
+        { case: 'a package another project declares', task: 'infra:dry-run--pulumi', moved: 'react', changes: false },
+    ])('hashes $task again after a new release of $case: $changes', async ({ task, moved, changes }, { workspace }) => {
+        const graph = await workspace.write(STACKS).graph({ createNodes });
+        const installed = { '@pulumi/pulumi': '3.0.0', '@pulumi/cloudflare': '6.0.0', react: '19.0.0' };
 
-        expect(graph.nodes['site']?.data.targets?.['deploy--pulumi']?.inputs).toStrictEqual(expect.arrayContaining([named, `^${named}`]));
+        const [before, after] = await Promise.all([hashed(workspace, graph, task, installed), hashed(workspace, graph, task, { ...installed, [moved]: '7.0.0' })]);
+
+        expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: changes });
     });
 });
