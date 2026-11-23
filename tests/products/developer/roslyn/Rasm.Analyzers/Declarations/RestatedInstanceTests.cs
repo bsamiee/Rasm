@@ -11,8 +11,10 @@ public sealed class RestatedInstanceTests : CSharpCodeFixVerifier<RestatedInstan
     // --- [VALUES]
 
     [Fact]
-    public Task ReportsConstructionEqualToAStaticInstanceButNotOneDifferingInValueTypeOrOverload() => VerifyAnalyzerAsync(
+    public Task ReportsConstructionEqualToAStaticInstanceEvenOnARecordTheSmartEnumGeneratorSkipsButNotOneDifferingInValueTypeOrOverload() => VerifyAnalyzerAsync(
         """
+        using Thinktecture;
+
         internal sealed record Factor(float Value) {
             public static Factor Unit { get; } = new(1f);
 
@@ -53,6 +55,13 @@ public sealed class RestatedInstanceTests : CSharpCodeFixVerifier<RestatedInstan
 
         internal sealed record TextPair(string First, string Second) {
             internal static TextPair Held { get; } = new("a,string=b", "c");
+        }
+
+        [SmartEnum]
+        internal sealed partial record Skipped(int Value) {
+            public static readonly Skipped First = {|#5:new(1)|};
+
+            public static readonly Skipped Second = {|#6:new(1)|};
         }
 
         internal sealed record Cycled(int Value) {
@@ -101,7 +110,9 @@ public sealed class RestatedInstanceTests : CSharpCodeFixVerifier<RestatedInstan
         Diagnostic().WithLocation(1).WithArguments("new Factor(1)", "Factor.Unit"),
         Diagnostic().WithLocation(2).WithArguments("new Grow(Factor.Create(1f))", "Grow.Fill"),
         Diagnostic().WithLocation(3).WithArguments("Factor.Create(1f)", "Factor.Unit"),
-        Diagnostic().WithLocation(4).WithArguments("new Dimensions(Height: 2, Width: 1)", "Dimensions.Unit"));
+        Diagnostic().WithLocation(4).WithArguments("new Dimensions(Height: 2, Width: 1)", "Dimensions.Unit"),
+        Diagnostic().WithLocation(5).WithArguments("new(1)", "Skipped.Second"),
+        Diagnostic().WithLocation(6).WithArguments("new(1)", "Skipped.First"));
 
     // --- [EFFECTS]
 

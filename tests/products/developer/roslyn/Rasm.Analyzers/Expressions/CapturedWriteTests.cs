@@ -29,8 +29,14 @@ public sealed class CapturedWriteTests : CSharpCodeFixVerifier<CapturedWriteAnal
                 values.Iter(value => Consume(cell.Count));
             }
 
-            internal static IO<List<int>> Lifted(Seq<int> values) => IO.lift(() => {
+            internal static void InWritingCallback(Seq<int> values) {
                 List<int> {|#2:cell|} = new();
+                values.Iter(value => cell.Add(value));
+                values.Iter(value => { cell.Add(value); Consume(cell.Count); });
+            }
+
+            internal static IO<List<int>> Lifted(Seq<int> values) => IO.lift(() => {
+                List<int> {|#3:cell|} = new();
                 values.Iter(value => cell.Add(value));
                 return cell;
             });
@@ -45,7 +51,8 @@ public sealed class CapturedWriteTests : CSharpCodeFixVerifier<CapturedWriteAnal
         """,
         Diagnostic().WithLocation(0).WithArguments("cell"),
         Diagnostic().WithLocation(1).WithArguments("cell"),
-        Diagnostic().WithLocation(2).WithArguments("cell"));
+        Diagnostic().WithLocation(2).WithArguments("cell"),
+        Diagnostic().WithLocation(3).WithArguments("cell"));
 
     // --- [ALIASES]
 
