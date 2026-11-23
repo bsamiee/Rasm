@@ -28,6 +28,7 @@ dotnet_code_quality.CA2241.additional_string_formatting_methods = M:Rasm.Rhino.L
 
 # --- [IDE_ANALYZERS] --------------------------------------------------------------------
 
+dotnet_diagnostic.IDE0055.severity = none # hk step `dotnet-format` checks whitespace file by file
 dotnet_diagnostic.IDE0058.severity = none # Fix assigns each unused expression value to `_`, a discard the code never writes
 dotnet_diagnostic.IDE0072.severity = none # Demands a `_` arm on exhaustive switches, `RASM3002` refuses it
 
