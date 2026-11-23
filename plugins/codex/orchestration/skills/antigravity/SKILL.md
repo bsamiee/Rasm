@@ -45,7 +45,7 @@ agy -p "$(cat <brief>)" --disable-slash-commands --model gemini-4-neon --effort 
 - Refusal: an unknown slug, an `--effort` the model lacks, or one conflicting with the slug's suffix exits 1 with no fallback
 - Quota: `agy -p /usage --output-format json` costs no turn and returns `remaining_fraction` per model group for 5h and weekly windows
 - Data: `--json-schema '<schema>'` or a schema file returns the answer in `.structured_output`, the schema root is `"type":"object"`
-- Read: `--settings '{"permissions":{"deny":["write_file(*)"]}}'` refuses file writes and keeps shell tools (`ffprobe`, `pdfinfo`), which can still write
+- Read: `--settings '{"permissions":{"deny":["write_file(*)"]}}'` refuses file writes and keeps shell tools (`ffprobe`, `mutool`), which can still write
 - Look-only: adding `"command(*)"` to that list refuses every shell command
 - Write: no `--settings`, the brief alone keeps the run to its files
 - Background: start it as a background command and keep working, a result arrives in minutes

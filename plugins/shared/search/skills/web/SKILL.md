@@ -152,8 +152,9 @@ curl -fsSL --create-dirs -o '.artifacts/search/<name>.pdf' '<pdf-url>'
 mutool draw -q -F stext.json -o - '.artifacts/search/<name>.pdf' \
     | jq -r --arg lit '<literal>' '.pages | to_entries[] | select([.value.blocks[] | .lines[]?.text] | join("\n") | contains($lit)) | .key + 1'
 
-# Table text from a selected PDF page, columns kept by layout
-pdftotext -layout -f <page> -l <page> '.artifacts/search/<name>.pdf' -
+# Table rows from a selected PDF page as tab-separated cells
+mutool draw -q -F stext.json -O segment,table-hunt -o - '.artifacts/search/<name>.pdf' <page> \
+    | jq -r '.. | objects | select(.std? == "TR") | [.contents[] | [.. | .text? // empty] | join(" ")] | @tsv'
 
 # Outline entries with PDF page numbers
 mutool show '.artifacts/search/<name>.pdf' outline | rg -- '<heading>'
