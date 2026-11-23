@@ -135,7 +135,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
         loaded: depended,
         triggers: Array.difference(forceRerunTriggers, defaults.configDefaults.forceRerunTriggers).map((glob) => (isAbsolute(glob) ? local(glob) : glob)),
         shared: Array.dedupe([attachmentsDir, ...reports].map((at) => local(resolve(root, at)))),
-        sources: Array.dedupe([...depended, ...folders.map((folder) => posix.join(local(folder), '**/*')), 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...(lists ? workspaces.positive : []), ...probes.flatMap((probe) => probe.manifests)]),
+        sources: Array.dedupe([...depended, ...folders.map((at) => posix.join(local(at), '**/*')), 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...(lists ? workspaces.positive : []), ...probes.flatMap((probe) => probe.manifests)]),
     };
 });
 
