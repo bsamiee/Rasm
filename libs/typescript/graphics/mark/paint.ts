@@ -55,10 +55,11 @@ const paint = Effect.fnUntraced(function* (drawings: Array.NonEmptyReadonlyArray
         }),
         Match.orElse(() => Effect.succeed([0, 0, canvas.width, canvas.height] as const)),
     );
-    const document = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${[x, y, across, down].join(' ')}" width="${String(across)}" height="${String(down)}"><image width="${String(canvas.width)}" height="${String(canvas.height)}" href="data:image/svg+xml;base64,${new TextEncoder().encode(themed).toBase64()}"/></svg>`;
+    const [wide, tall] = UndefinedOr.match(frame, { onUndefined: () => [across, down], onDefined: ({ width }) => [width, (width * down) / across] });
+    const document = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${[x, y, across, down].join(' ')}" width="${String(wide)}" height="${String(tall)}"><image width="${String(canvas.width)}" height="${String(canvas.height)}" href="data:image/svg+xml;base64,${new TextEncoder().encode(themed).toBase64()}"/></svg>`;
     return yield* UndefinedOr.match(frame, {
         onUndefined: () => Effect.succeed(new TextEncoder().encode(document)),
-        onDefined: ({ width }) => run(['resvg', '-w', String(width), '--resources-dir', path.dirname(drawing), '-', painted], { stdin: Stream.make(new TextEncoder().encode(document)) }).pipe(Effect.andThen(fs.readFile(painted))),
+        onDefined: () => run(['resvg', '--resources-dir', path.dirname(drawing), '-', painted], { stdin: Stream.make(new TextEncoder().encode(document)) }).pipe(Effect.andThen(fs.readFile(painted))),
     });
 }, Effect.scoped);
 
