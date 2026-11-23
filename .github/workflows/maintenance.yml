@@ -33,9 +33,11 @@ jobs:
                   clean: false
             - uses: $/.github/actions/tools
             - run: pnpm store prune
-            - run: uv cache prune
+            - run: uv cache prune --ci
+            - run: cargo clean
             - run: mise prune --yes
             - run: docker container prune --force --filter until=1h
             - run: docker volume prune --force
             - run: docker image prune --force
+            - run: docker builder prune --all --force --filter until=168h
             - run: docker image prune --all --force --filter until=168h --filter "label=org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"

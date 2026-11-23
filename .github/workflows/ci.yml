@@ -16,7 +16,7 @@ permissions:
 
 env:
     MSBUILDDISABLENODEREUSE: '1'
-    NX_PARALLEL: 100%
+    NX_PARALLEL: 50%
 
 defaults:
     run:
@@ -33,6 +33,8 @@ jobs:
             engines: ${{ steps.unreal.outputs.engines }}
             unreal: ${{ steps.listed.outputs.unreal }}
             browser: ${{ steps.listed.outputs.browser }}
+            windows: ${{ steps.listed.outputs.windows }}
+            rhino: ${{ steps.listed.outputs.rhino }}
             image: ${{ steps.listed.outputs.image }}
         env:
             GH_TOKEN: &github ${{ github.token }}
@@ -62,8 +64,10 @@ jobs:
               run: |-
                   unreal="$(nx show projects --affected --exclude='*,!tag:host:unreal' --json)"
                   browser="$(nx show projects --affected --exclude='*,!tag:host:browser' --json)"
+                  windows="$(nx show projects --affected --exclude='*,!tag:os:win32,!tag:host:rhino' --json)"
+                  rhino="$(nx show projects --affected --exclude='*,!tag:host:rhino' --json)"
                   version="$(jq --raw-output .version infra/node_modules/@playwright/test/package.json)"
-                  printf "%s\n" "unreal=${unreal}" "browser=${browser}" "image=ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" >> "${GITHUB_OUTPUT}"
+                  printf "%s\n" "unreal=${unreal}" "browser=${browser}" "windows=${windows}" "rhino=${rhino}" "image=ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" >> "${GITHUB_OUTPUT}"
 
     linux:
         name: Linux
@@ -131,29 +135,33 @@ jobs:
             GH_TOKEN: *github
             NX_BASE: *base
             NX_HEAD: *head
+            NX_PARALLEL: 100%
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
             APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
             APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
         steps:
             - *checkout
-            - id: graph
+            - &restore
+              id: graph
               uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: &graph |-
-                      .cache/nx/workspace-data
+                      .cache/nx/workspace-data/*
                       !.cache/nx/workspace-data/cache
                       !.cache/nx/workspace-data/*.db*
                   key: nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'nx.json', 'products/developer/nx/**') }}
                   restore-keys: nx-${{ runner.os }}-
-            - &xcode
-              uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+            - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
                   xcode-version: latest-stable
             - *tools
             - uses: $/.github/actions/signing
-            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino'
-            - if: ${{ !cancelled() && steps.graph.outcome == 'success' && steps.graph.outputs.cache-hit != 'true' }}
+            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
+            - if: ${{ !cancelled() }}
+              run: hk check --step swiftlint --step swift-format --step plutil --step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
+            - &save
+              if: ${{ !cancelled() && steps.graph.outcome == 'success' && steps.graph.outputs.cache-hit != 'true' }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: *graph
@@ -163,24 +171,8 @@ jobs:
     files:
         name: Files
         needs: affected
-        runs-on: xcode-27
+        runs-on: [self-hosted, host]
         timeout-minutes: 30
-        env:
-            GH_TOKEN: *github
-            NX_BASE: *base
-            NX_HEAD: *head
-        steps:
-            - *checkout
-            - *xcode
-            - *tools
-            - run: nx run-many --targets=codegen
-            - run: hk check --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
-
-    windows:
-        name: Windows
-        needs: affected
-        runs-on: windows-2025
-        timeout-minutes: 120
         env:
             GH_TOKEN: *github
             NX_BASE: *base
@@ -190,23 +182,40 @@ jobs:
         steps:
             - *checkout
             - *tools
-            - id: listed
-              run: |-
-                  rhino="$(nx show projects --affected --exclude='*,!tag:host:rhino' --json)"
-                  printf "rhino=%s\n" "${rhino}" >> "${GITHUB_OUTPUT}"
+            - run: nx run-many --targets=codegen
+            - run: hk check --skip-step swiftlint --skip-step swift-format --skip-step plutil --skip-step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
+
+    windows:
+        name: Windows
+        needs: affected
+        if: ${{ needs.affected.outputs.windows != '[]' }}
+        runs-on: windows-2025
+        timeout-minutes: 120
+        env:
+            GH_TOKEN: *github
+            NX_BASE: *base
+            NX_HEAD: *head
+            NX_PARALLEL: 100%
+            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
+            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
+        steps:
+            - *checkout
+            - *restore
+            - *tools
             - id: rhino
-              if: ${{ steps.listed.outputs.rhino != '[]' }}
+              if: &rhino ${{ needs.affected.outputs.rhino != '[]' }}
               run: |-
                   major="$(yq -p xml -oy '.Project.PropertyGroup[] | select(.+@Label == "Rhino") | .RhinoVersion | split(".") | .[0]' Directory.Packages.props)"
                   printf "major=%s\n" "${major}" >> "${GITHUB_OUTPUT}"
             - uses: mcneel/setup-rhino3d@095a5ff63cdb7dc8383e229fc40ffa779915b0af # v4.0.0
-              if: ${{ steps.listed.outputs.rhino != '[]' }}
+              if: *rhino
               with:
                   email-address: ${{ secrets.RHINO_EMAIL }}
                   major-version: ${{ steps.rhino.outputs.major }}
             - run: nx affected --targets=test --configuration=headless --exclude='*,!tag:os:win32,!tag:host:rhino'
               env:
                   RHINO_TOKEN: ${{ secrets.RHINO_TOKEN }}
+            - *save
             - *reports
 
     unreal:
