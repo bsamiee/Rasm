@@ -98,7 +98,7 @@ watch-app log [<run pid>]
 - `log` prints one line per run of the session with `pid`, `at`, `argv`, `exit`, and the last line per key, and a run pid prints every record of that run
 
 Settings read `WATCH_APP_<KEY>`, then `<key>` of defaults domain `app.rasm.watch-app`, and `watch-app --help` prints each folder:
-- `session` names the journal runs share, set per agent session so `log` reads its runs
+- `session` names the journal runs share, default the Claude Code, Codex, or Antigravity session id, so `log` reads an agent session's runs
 - `output.dir` holds `<application>/captures` and `watch-app/logs`
 - `log.level`, `log.filter`, `log.size`, `log.age`, and `log.files` set the failure log `watch-app.log`, and `OTEL_*` variables start OpenTelemetry export
 

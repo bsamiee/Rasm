@@ -12,7 +12,7 @@ struct Log: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Prints the last line per key of each run sharing this session. A process ID prints every record of that run",
         discussion: """
-            Runs append their records to \(journal.path(percentEncoded: false)), one file per WATCH_APP_SESSION setting, rotated at \
+            Runs append their records to \(journal.path(percentEncoded: false)), one file per session setting or agent session, rotated at \
             \(Int64(RotatingFile(journal).size).formatted(.byteCount(style: .memory))) or \(RotatingFile(journal).age.formatted(.units(width: .wide))) to \
             \(RotatingFile(journal).files) numbered files beside it
             """,

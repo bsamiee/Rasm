@@ -16,7 +16,7 @@ struct WatchApp: AsyncParsableCommand {
             prints a fail line.
 
             Settings read \(Program.current.name.uppercased().replacing("-", with: "_"))_<KEY> from the environment, then key <key> of defaults domain \(Program.current.identifier) \
-            (defaults write \(Program.current.identifier) <key> <value>): session names the journal runs share, output.dir the folder holding <application>/logs and \
+            (defaults write \(Program.current.identifier) <key> <value>): session names the journal runs share in place of the agent session id, output.dir the folder holding <application>/logs and \
             <application>/captures, the journal and failure log in \(Program.current.directory(.logs).path(percentEncoded: false)) and captures in \
             \(Program.current.directory(.captures, of: "<application>").path(percentEncoded: false)), log.level and log.filter the failure log's levels, log.size, log.age, \
             and log.files its rotation, and OTEL_* variables OpenTelemetry export.

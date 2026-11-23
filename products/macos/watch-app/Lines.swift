@@ -6,9 +6,11 @@ import Processes
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-let journal: URL = Program.current.directory(.logs).appending(
-    component: Program.current.settings.string(forKey: "session").flatMap { session in session.isEmpty ? nil : session } ?? Program.current.name
-).appendingPathExtension("jsonl")
+let journal: URL = {
+    let agents: [String?] = ["CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "ANTIGRAVITY_CONVERSATION_ID"].map { name in ProcessInfo.processInfo.environment[name] }
+    let named: [String] = ([Program.current.settings.string(forKey: "session")] + agents).compactMap(\.self)
+    return Program.current.directory(.logs).appending(component: named.first { session in !session.isEmpty } ?? Program.current.name).appendingPathExtension("jsonl")
+}()
 
 // --- [MODELS] --------------------------------------------------------------------------
 
