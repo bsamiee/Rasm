@@ -7,7 +7,7 @@ import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { refused } from '@rasm/testing/errors';
 import { pathed } from '@rasm/testing/nx';
 import { describe, expect, onTestFinished, vi } from 'vitest';
-import { it, node, report, STUB } from '#/analyzer';
+import { it, node, report } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
@@ -26,10 +26,7 @@ describe('launch', () => {
     it('runs the built analyzer under the newest runtime over the workspace root, the MSBuild files it matched on stdin', async ({ workspace, analyzer }) => {
         await workspace.write({ 'apps/App/App.csproj': PROJECT, 'Directory.Build.props': '<Project />\n', 'global.json': '{}\n', 'README.md': '# fixture\n', ...report([node('apps/App/App.csproj')]) }).graph({ createNodes, createDependencies });
 
-        expect([analyzer.logged('calls').trim().split('\n').toSorted(), analyzer.logged('stdin').split('\n').toSorted()]).toStrictEqual([
-            [`--roll-forward LatestMajor ${ANALYZER} ${workspace.root}`, '--version'],
-            ['Directory.Build.props', 'apps/App/App.csproj', 'global.json'],
-        ]);
+        expect([analyzer.logged('calls').trim().split('\n').toSorted(), analyzer.logged('stdin').split('\n').toSorted()]).toStrictEqual([[`--roll-forward LatestMajor ${ANALYZER} ${workspace.root}`], ['Directory.Build.props', 'apps/App/App.csproj', 'global.json']]);
     });
 
     it('gives the analyzer alone prerelease roll forward and crash dumps under .artifacts/dotnet/dumps', async ({ workspace, analyzer }) => {
@@ -63,13 +60,21 @@ describe('cache', () => {
         { kind: 'a file the evaluation imported', stated: {}, edited: 'build/Common.msbuild' },
         { kind: 'the assets file a restore rewrote', stated: { restored: ['apps/App/obj/project.assets.json'] }, edited: 'apps/App/obj/project.assets.json' },
         { kind: 'a lock file', stated: { locks: ['apps/App/packages.lock.json'] }, edited: 'apps/App/packages.lock.json' },
-        { kind: 'the SDK version global.json selects', stated: {}, edited: STUB.sdk },
     ])('analyzes again once $kind changes', async ({ stated, edited }, { workspace, analyzer }) => {
         await workspace
             .write({ 'apps/App/App.csproj': PROJECT, 'build/Common.msbuild': '<Project />\n', 'apps/App/obj/project.assets.json': '{}\n', 'apps/App/packages.lock.json': '{}\n', ...report([node('apps/App/App.csproj', stated)], { evaluated: ['apps/App/App.csproj', 'build/Common.msbuild'] }) })
             .graph({ createNodes, createDependencies });
 
         await workspace.write({ [edited]: '<Project>\n  <!-- edited -->\n</Project>\n' }).graph({ createNodes, createDependencies });
+
+        expect(analyses(analyzer.logged('calls'))).toBe(2);
+    });
+
+    it('analyzes again once an SDK lands beside the dotnet on PATH', async ({ workspace, analyzer }) => {
+        await workspace.write({ 'apps/App/App.csproj': PROJECT, ...report([node('apps/App/App.csproj')], { evaluated: ['apps/App/App.csproj'] }) }).graph({ createNodes, createDependencies });
+
+        analyzer.installed('11.0.200-preview.1');
+        await workspace.graph({ createNodes, createDependencies });
 
         expect(analyses(analyzer.logged('calls'))).toBe(2);
     });

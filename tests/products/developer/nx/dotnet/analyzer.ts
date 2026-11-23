@@ -1,11 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import { it as workspaced, pathed } from '@rasm/testing/nx';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const STUB = { report: '.stub/report.json', sdk: '.stub/sdk' } as const;
+const STUB = { report: '.stub/report.json' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -43,20 +42,14 @@ const report = (nodes: readonly Readonly<Record<string, unknown>>[], stated: Rea
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const it = workspaced.extend('analyzer', { auto: true }, ({ workspace }, { onCleanup }) => {
-    const folder = mkdtempSync(join(tmpdir(), 'dotnet-stub-'));
-    onCleanup(() => rmSync(folder, { recursive: true }));
+const it = workspaced.extend('analyzer', { auto: true }, ({ workspace }) => {
+    const folder = join(workspace.root, '.stub', 'dotnet');
     pathed(folder, {
-        dotnet: [
-            `printf '%s\\n' "$*" >> ${folder}/calls.log`,
-            `[ "$1" = --version ] && exec /bin/cat ${STUB.sdk}`,
-            `printf '%s|%s|%s\\n' "$DOTNET_ROLL_FORWARD_TO_PRERELEASE" "$DOTNET_DbgMiniDumpName" "$DOTNET_EnableCrashReport" >> ${folder}/env.log`,
-            `/bin/cat > ${folder}/stdin.log`,
-            `exec /bin/cat ${STUB.report}`,
-        ].join('\n'),
+        dotnet: [`printf '%s\\n' "$*" >> ${folder}/calls.log`, `printf '%s|%s|%s\\n' "$DOTNET_ROLL_FORWARD_TO_PRERELEASE" "$DOTNET_DbgMiniDumpName" "$DOTNET_EnableCrashReport" >> ${folder}/env.log`, `/bin/cat > ${folder}/stdin.log`, `exec /bin/cat ${STUB.report}`].join('\n'),
     });
-    workspace.write({ [STUB.sdk]: '11.0.100\n' });
-    return { logged: (log: 'calls' | 'stdin' | 'env') => readFileSync(join(folder, `${log}.log`), 'utf-8') };
+    const installed = (version: string) => mkdirSync(join(folder, 'sdk', version), { recursive: true });
+    installed('11.0.100');
+    return { installed, logged: (log: 'calls' | 'stdin' | 'env') => readFileSync(join(folder, `${log}.log`), 'utf-8') };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
