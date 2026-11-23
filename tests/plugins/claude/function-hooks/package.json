@@ -1,8 +1,11 @@
 {
     "name": "@rasm/test-function-hooks",
     "private": true,
-    "description": "@rasm/function-hooks suites over a served engine's decide route",
+    "description": "@rasm/function-hooks suites over the decide engine in process and its served routes",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "devDependencies": {
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
