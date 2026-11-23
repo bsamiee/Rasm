@@ -28,11 +28,6 @@ pub struct Echo {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
-pub struct Sized {
-    pub bytes: usize,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
 pub struct Slow {
     pub millis: u64,
     pub steps: u32,
@@ -84,17 +79,16 @@ pub struct Isolated {
     pub root: PathBuf,
     pub muxer: PathBuf,
     pub fixture: PathBuf,
-    pub everything: PathBuf,
     pub level: &'static str,
 }
 
 impl Isolated {
-    pub fn new(root: &Path, muxer: &str, fixture: &str, everything: &str) -> io::Result<Self> {
+    pub fn new(root: &Path, muxer: &str, fixture: &str) -> io::Result<Self> {
         let held = |binary: &str, built: &str| {
             let held = root.join(binary);
             fs_err::hard_link(built, &held).map(|()| held)
         };
-        Ok(Self { root: root.to_owned(), muxer: held("mcp-muxer", muxer)?, fixture: held("mcp-fixture", fixture)?, everything: held("mcp-everything", everything)?, level: "debug" })
+        Ok(Self { root: root.to_owned(), muxer: held("mcp-muxer", muxer)?, fixture: held("mcp-fixture", fixture)?, level: "debug" })
     }
 
     #[must_use]

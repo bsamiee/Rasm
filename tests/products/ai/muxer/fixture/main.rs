@@ -22,7 +22,7 @@ use self::tools::{Fixture, Speaks};
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Parser)]
-#[command(about = "Stdio MCP server with settable protocol versions, start delay, start failure, crash, progress, input requests, result size, unread requests, and time past end of input")]
+#[command(about = "Stdio MCP server with settable protocol versions, start delay, start failure, progress, input requests, unread requests, and time past end of input")]
 struct Arguments {
     #[arg(long, value_name = "DURATION", default_value = "0s", value_parser = |text: &str| SpanParser::new().parse_unsigned_duration(text), help = "Time before the server reads its first message")]
     start_delay: Duration,
@@ -53,7 +53,6 @@ fn main() -> ExitCode {
             }
             time::sleep(start_delay).await;
             let fixture = Fixture::new(speaks);
-            let crashed = fixture.crashed.clone();
             let running = match fixture.serve(rmcp::transport::stdio()).await {
                 Ok(running) => running,
                 Err(error) => {
@@ -62,7 +61,6 @@ fn main() -> ExitCode {
                 }
             };
             Ok(tokio::select! {
-                () = crashed.cancelled() => ExitCode::from(3),
                 _ = signals.next() => ExitCode::SUCCESS,
                 () = running.waiting().then(|_| time::sleep(linger)) => ExitCode::SUCCESS,
             })

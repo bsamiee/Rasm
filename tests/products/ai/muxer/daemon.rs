@@ -1,15 +1,16 @@
+use core::future::ready;
 use core::time::Duration;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use claims::{assert_err, assert_ok, assert_some};
-use futures::future;
+use futures::{StreamExt as _, future, stream};
 use mcp_muxer_tests::{Agent, Isolated, Slow, call, exited, reached, session, spawned};
 use rasm_testing::{Failure, Folder};
-use rmcp::model::ProtocolVersion;
-use rmcp::service::ClientLifecycleMode;
+use rmcp::model::{CallToolRequest, ClientRequest, NumberOrString, ProgressNotificationParam, ProgressToken, ProtocolVersion};
+use rmcp::service::{ClientLifecycleMode, PeerRequestOptions};
 use rstest::rstest;
-use sysinfo::{Pid, ProcessesToUpdate, System};
+use sysinfo::{Pid, ProcessStatus, ProcessesToUpdate, Signal, System};
 use tokio::time::{self, Instant};
 
 use crate::{HOME, IDLE, daemon, echoed, refusal, scoped, servers, settled, whoami};
@@ -84,10 +85,10 @@ async fn newer_build_takes_over() -> Result<(), Failure<Folder>> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn slow_start_waits_once_then_answers_from_the_stored_handshake() -> Result<(), Failure<Folder>> {
-    const DELAY: Duration = Duration::from_secs(4);
+    const DELAY: Duration = Duration::from_secs(2);
     scoped(async |isolated: &Isolated| {
         let relay = || {
-            let mut command = isolated.relay(&[], &["--start-delay", "4s"]);
+            let mut command = isolated.relay(&[], &["--start-delay", "2s"]);
             command.envs(IDLE);
             session(Agent::default(), command)
         };
@@ -132,6 +133,52 @@ async fn failed_start_reports_its_cause_and_backs_off() -> Result<(), Failure<Fo
         assert!(states(&stored, &["server is down", "fixture refuses to start"]), "a new daemon answers from the stored failure: {stored:?}");
         let counted = failing().await;
         assert!(matches!(counted, Some((0, 1) | (2, 2))), "inside the stored window the new daemon starts no process, after it the stored failure count grows: {counted:?}");
+    })
+    .await
+}
+
+// --- [SHUTDOWN]
+
+#[tokio::test(flavor = "multi_thread")]
+async fn daemon_stops_past_a_server_that_stopped_reading() -> Result<(), Failure<Folder>> {
+    scoped(async |isolated: &Isolated| {
+        let running = assert_ok!(session(Agent::default(), isolated.relay(&[], &["--speaks", "legacy"])).await);
+        let held = assert_some!(daemon(isolated, &[]).await);
+        let request = ClientRequest::CallToolRequest(CallToolRequest::new(assert_ok!(call("stall", &Slow { millis: 600_000, steps: 600 }))));
+        let _stalled = assert_ok!(running.peer().send_cancellable_request(request, PeerRequestOptions::no_options()).await);
+        let progress = ProgressNotificationParam::new(ProgressToken(NumberOrString::Number(0)), 0.0).with_message("x".repeat(4 << 10));
+        let sends = stream::repeat(progress).then(async |update| time::timeout(Duration::from_secs(1), running.peer().notify_progress(update)).await.map(|sent| assert_ok!(sent)));
+        sends.take_while(|sent| ready(sent.is_ok())).for_each(|_| ready(())).await;
+        let mut system = assert_ok!(System::new());
+        system.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(held)]), true);
+        assert_eq!(assert_some!(system.process(Pid::from_u32(held))).kill_with(Signal::Term), Some(true), "the daemon is signalled");
+        assert_ok!(assert_ok!(time::timeout(Duration::from_secs(10), exited(held)).await, "a signalled daemon stops though its server reads nothing"));
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn server_that_ignores_end_of_input_ends_on_the_terminate_signal_after_its_session_left() -> Result<(), Failure<Folder>> {
+    scoped(async |isolated: &Isolated| {
+        let running = assert_ok!(session(Agent::default(), isolated.relay(&["--per", "session"], &["--linger", "1m"])).await);
+        let server = whoami(&running, HOME).await.pid;
+        assert_ok!(running.cancel().await);
+        assert_ok!(assert_ok!(time::timeout(Duration::from_secs(10), exited(server)).await, "a server that stays a minute past end of input ends on the signal that follows"));
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn relay_alone_signalled_stops_its_server() -> Result<(), Failure<Folder>> {
+    scoped(async |isolated: &Isolated| {
+        let (running, relay) = assert_ok!(spawned(Agent::default(), isolated.relay(&["--per", "session"], &[]), ClientLifecycleMode::Initialize).await);
+        let (server, relay) = (whoami(&running, HOME).await.pid, Pid::from_u32(assert_some!(relay)));
+        let mut system = assert_ok!(System::new());
+        system.refresh_processes(ProcessesToUpdate::Some(&[relay]), true);
+        assert_eq!(assert_some!(system.process(relay)).kill_with(Signal::Term), Some(true), "the relay alone is signalled, never its process group");
+        assert_ok!(assert_ok!(time::timeout(Duration::from_secs(10), exited(server)).await, "the server ends with the relay that owned it"));
+        system.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(server)]), true);
+        assert!(system.process(Pid::from_u32(server)).is_none_or(|left| left.status() != ProcessStatus::Zombie), "no zombie stays behind");
     })
     .await
 }

@@ -1,3 +1,5 @@
+use core::iter;
+use std::collections::BTreeSet;
 #[cfg(unix)]
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -35,18 +37,18 @@ async fn sessions_share_a_server_only_under_one_key() -> Result<(), Failure<Fold
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn racing_first_sessions_all_share() -> Result<(), Failure<Folder>> {
+async fn racing_first_sessions_all_share_one_server_started_once() -> Result<(), Failure<Folder>> {
+    const RACE: [(&str, &str); 1] = [("MCP_MUXER_RUNTIME_DIR", "race")];
     scoped(async |isolated: &Isolated| {
-        let relay = |round: usize| {
+        let relay = || {
             let mut command = isolated.relay(&[], &[]);
-            command.env("MCP_MUXER_RUNTIME_DIR", format!("r{round}")).env("MCP_MUXER_IDLE", "5s");
+            command.envs(RACE);
             session(Agent::default(), command)
         };
-        for round in 0..100 {
-            let (first, second) = future::join(relay(round), relay(round)).await;
-            let (first, second) = (assert_ok!(first), assert_ok!(second));
-            assert_eq!(whoami(&first, HOME).await.pid, whoami(&second, HOME).await.pid, "round {round}: both racing sessions reach one server");
-        }
+        let raced = future::join_all(iter::repeat_with(relay).take(8)).await;
+        let reached = stream::iter(&raced).then(async |running| whoami(assert_ok!(running.as_ref()), HOME).await.pid).collect::<BTreeSet<_>>().await;
+        assert_eq!(reached.len(), 1, "eight sessions started at once with no daemon reach one server process: {reached:?}");
+        assert_eq!(Vec::from_iter(servers(isolated, &RACE).await.iter().map(|served| served.starts)), [1], "the shared server started once");
     })
     .await
 }

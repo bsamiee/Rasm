@@ -25,7 +25,6 @@ test = false
 
 [dependencies]
 tokio                              = { workspace = true, features = ["io-std"] }
-tokio-util                         = { workspace = true }
 futures                            = { workspace = true }
 sysinfo                            = { workspace = true }
 nonempty-collections               = { workspace = true }
@@ -44,14 +43,12 @@ rasm-cli                           = { workspace = true }
 rasm-telemetry                     = { workspace = true, features = ["process"] }
 
 [dev-dependencies]
-backon         = { workspace = true }
-tokio          = { workspace = true, features = ["test-util"] }
-nix            = { workspace = true }
-claims         = { workspace = true }
-rstest         = { workspace = true }
-rasm-testing   = { workspace = true }
-mcp-muxer      = { workspace = true }
-rasm-mcp-tests = { workspace = true }
+backon       = { workspace = true }
+nix          = { workspace = true }
+claims       = { workspace = true }
+rstest       = { workspace = true }
+rasm-testing = { workspace = true }
+mcp-muxer    = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

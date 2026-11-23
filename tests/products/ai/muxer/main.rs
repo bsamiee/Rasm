@@ -1,5 +1,3 @@
-#![feature(error_reporter)]
-
 use core::time::Duration;
 use std::io;
 use std::path::Path;
@@ -25,7 +23,7 @@ const HOME: &str = "HOME";
 async fn scoped<T>(test: impl AsyncFnOnce(&Isolated) -> T) -> Result<(), Failure<Folder>>
 where T: Termination {
     let ended = async |folder: &Folder| {
-        let isolated = Isolated::new(folder.path(), env!("CARGO_BIN_FILE_MCP_MUXER"), env!("CARGO_BIN_EXE_mcp-fixture"), env!("CARGO_BIN_FILE_RASM_MCP_TESTS_mcp-everything"))?;
+        let isolated = Isolated::new(folder.path(), env!("CARGO_BIN_FILE_MCP_MUXER"), env!("CARGO_BIN_EXE_mcp-fixture"))?;
         let outcome = test(&isolated).await;
         isolated.ended().await.map(|_ended| outcome)
     };
@@ -68,10 +66,5 @@ async fn settled(isolated: &Isolated, reached: impl Fn(&[Served]) -> bool) -> Ve
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-mod backpressure;
-mod cli;
 mod daemon;
-mod framing;
-mod process;
 mod sharing;
-mod wire;

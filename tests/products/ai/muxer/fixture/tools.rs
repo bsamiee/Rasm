@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::thread;
 
 use clap::ValueEnum;
-use mcp_muxer_tests::{Answer, Ask, Echo, Sized, Slow};
+use mcp_muxer_tests::{Answer, Ask, Echo, Slow};
 use rmcp::handler::server::tool::{InputResponses, ToolCallContext, ToolRouter};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
@@ -15,7 +15,6 @@ use rmcp::model::{
 use rmcp::service::RequestContext;
 use rmcp::{ErrorData, RoleServer, ServerHandler, tool, tool_router};
 use tokio::time;
-use tokio_util::sync::CancellationToken;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -32,18 +31,14 @@ pub(crate) enum Speaks {
 pub(crate) struct Fixture {
     tools: ToolRouter<Self>,
     speaks: Speaks,
-    pub(crate) crashed: CancellationToken,
 }
 
 #[tool_router]
 impl Fixture {
-    pub(crate) fn new(speaks: Speaks) -> Self { Self { tools: Self::tool_router(), speaks, crashed: CancellationToken::new() } }
+    pub(crate) fn new(speaks: Speaks) -> Self { Self { tools: Self::tool_router(), speaks } }
 
     #[tool(description = "Return the text")]
     fn echo(Parameters(Echo { text }): Parameters<Echo>) -> String { text }
-
-    #[tool(description = "Return a string of the given length")]
-    fn sized(Parameters(Sized { bytes }): Parameters<Sized>) -> String { "x".repeat(bytes) }
 
     #[tool(description = "Sleep in steps, reporting progress after each")]
     async fn slow(Parameters(Slow { millis, steps }): Parameters<Slow>, context: RequestContext<RoleServer>) -> Result<String, ErrorData> {
@@ -89,12 +84,6 @@ impl Fixture {
 
     #[tool(description = "Return the server process id")]
     fn whoami() -> String { std::process::id().to_string() }
-
-    #[tool(description = "End the server process with status 3")]
-    fn crash(&self) -> String {
-        self.crashed.cancel();
-        "crashing".to_owned()
-    }
 }
 
 impl ServerHandler for Fixture {
