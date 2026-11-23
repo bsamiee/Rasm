@@ -155,9 +155,24 @@ jobs:
             - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
                   xcode-version: latest-stable
+            - id: xcode
+              run: |-
+                  build="$(xcodebuild -version | awk '/^Build version/ { print $3 }')"
+                  printf "build=%s\n" "${build}" >> "${GITHUB_OUTPUT}"
+            - id: swift
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: .build
+                  key: swift-${{ steps.xcode.outputs.build }}-${{ hashFiles('Package.resolved') }}
+                  restore-keys: swift-${{ steps.xcode.outputs.build }}-
             - *tools
             - uses: $/.github/actions/signing
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
+            - if: ${{ !cancelled() && steps.swift.outputs.cache-hit != 'true' }}
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: .build
+                  key: ${{ steps.swift.outputs.cache-primary-key }}
             - if: ${{ !cancelled() }}
               run: hk check --step swiftlint --step swift-format --step plutil --step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
             - &save

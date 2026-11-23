@@ -22,6 +22,7 @@ Workflow `CI` and its jobs:
 - Job `macos` runs affected `os:darwin` projects except `host:rhino`, as no Linux graph holds an Apple project
 - Job `macos` leaves out root `rasm`, as job `linux` runs its other checks and each Swift project's tasks depend on its Swift targets
 - Job `macos` runs `hk check` steps `swiftlint`, `swift-format`, `plutil`, and `xcprojformatter` from base to head, as they need macOS
+- Job `macos` caches `.build` by Xcode build and `Package.resolved`, as SwiftPM reuses a build folder only at the path that built it
 - Job `files` runs every other `hk check` step on instance `host`, which keeps the Nx graph between runs
 - Job `files` runs every `codegen` target first, as type-aware lint reads the sources those targets write
 - Job `windows` starts only where job `affected` lists an `os:win32` or `host:rhino` project, and installs Rhino where one is `host:rhino`
