@@ -5,5 +5,6 @@
 
     <PropertyGroup Label="Libraries">
         <IsPackable>true</IsPackable>
+        <PackageTags>rasm;$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName($(MSBuildProjectDirectory)))))</PackageTags>
     </PropertyGroup>
 </Project>
