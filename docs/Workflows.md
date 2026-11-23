@@ -49,7 +49,7 @@ Nx remote cache per workflow and machine:
 
 Workflow `Deploy` triggers and steps:
 - Workflow `Deploy` runs `nx deploy @rasm/infra` when a CI run on `main` ends, failed runs included, and fixes apply past a failing test
-- `Deploy` applies only when its CI run tested the tip of `main`, and services stay up under a later push's CI run
+- `Deploy` checks out and applies the commit its CI run tested, as CI runs on `main` end in push order and a newer push replaces a waiting run
 - Cancelled CI runs start no deploy
 - Doppler config `deploy` changes start `Deploy` through a Doppler webhook sending GitHub a `repository_dispatch` event
 - Job `deploy` runs on a GitHub-hosted runner and reads Doppler `deploy`
