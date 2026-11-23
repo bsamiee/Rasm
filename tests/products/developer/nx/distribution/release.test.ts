@@ -53,7 +53,7 @@ describe('nx release', () => {
         const variables = new Set(
             Object.values(jobs)
                 .flatMap(({ steps }) => steps)
-                .filter(({ run }) => run?.trim() === 'nx release publish')
+                .filter(({ run }) => run?.startsWith('nx release publish'))
                 .flatMap(({ env = {} }) => Object.keys(env)),
         );
         const graph = await workspace.write(hosts).graph({ createNodes });

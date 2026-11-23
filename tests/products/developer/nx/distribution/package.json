@@ -12,5 +12,16 @@
         "fast-check": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "test--vitest": {
+                "inputs": [
+                    "...",
+                    "{workspaceRoot}/products/developer/nx/**/*",
+                    "{workspaceRoot}/nx.json"
+                ]
+            }
+        }
     }
 }
