@@ -9,7 +9,7 @@ import { getLatestGitTagForPattern, sanitizeProjectNameForGitTag } from 'nx/src/
 import { getFilesForOutputsBatch } from 'nx/src/native';
 import { createProjectFileMapUsingProjectGraph } from 'nx/src/project-graph/file-map-utils';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
-import { spawned } from '#/inference.ts';
+import { spawned } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

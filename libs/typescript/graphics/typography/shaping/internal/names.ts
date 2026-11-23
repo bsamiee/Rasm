@@ -2,8 +2,8 @@ import { sha1 } from '@noble/hashes/legacy.js';
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { Array, Data, Number, Option, Order, Record, Schema, SchemaGetter } from 'effect';
 import type { Face, NameEntry } from 'harfbuzzjs';
-import { Tag } from '#/settings.ts';
-import type { Tables } from '#/shaping/internal/tables.ts';
+import { Tag } from '#/settings';
+import type { Tables } from '#/shaping/internal/tables';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -40,7 +40,7 @@ class Names extends Data.Class<{ readonly handle: Face; readonly entries: readon
     get prefix() {
         return Option.orElse(this.find('prefix'), () => Option.map(this.find('family'), (family) => family.replaceAll(NON_ALPHANUMERIC, '')));
     }
-    namedInstance({ nameID, postscriptNameID }: (typeof Tables.Type)['fvar']['instance'][number]) {
+    namedInstance({ nameID, postscriptNameID }: Tables['fvar']['instance'][number]) {
         const style = this.findById(nameID);
         const postscriptName = Option.firstSomeOf([Option.flatMap(postscriptNameID, (id) => this.findById(id)), Option.map(Option.all([this.prefix, Option.map(style, (given) => given.replaceAll(NON_ALPHANUMERIC, ''))]), Array.join('-'))]);
         return {
@@ -48,7 +48,7 @@ class Names extends Data.Class<{ readonly handle: Face; readonly entries: readon
             keys: Array.getSomes([postscriptName, Option.map(Option.all([this.find('postscriptName'), Option.map(style, (given) => given.replaceAll(' ', '-'))]), Array.join('_'))]),
         };
     }
-    generated(variations: (typeof Names.Generated.Type)['variations']) {
+    generated(variations: Record.ReadonlyRecord<string, number>) {
         const nameLength = 127;
         const named = Option.bind(Option.bindTo(this.prefix, 'prefix'), 'name', ({ prefix }) => Schema.encodeOption(Names.Generated)({ prefix, variations }));
         return Option.map(named, ({ prefix, name }) => (name.length > nameLength ? `${prefix}-${sha1(utf8ToBytes(name)).toHex()}...` : name));

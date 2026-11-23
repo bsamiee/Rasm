@@ -1,4 +1,4 @@
-import { Array } from 'effect';
+import { Array, Function, UndefinedOr } from 'effect';
 import { GripVertical } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button, GridList, GridListItem, type GridListProps, type ItemDropTarget, type Key, type Selection, useDragAndDrop } from 'react-aria-components';
@@ -25,11 +25,16 @@ const ReorderableList = <T extends { readonly id: string }>({
 }) => {
     const [selection, setSelection] = useState<Selection>(new Set());
     const selected: ReadonlySet<T['id']> = new Set(items.filter(({ id }) => selection === 'all' || selection.has(id)).map(({ id }) => id));
-    const reorder = (keys: ReadonlySet<Key>, { key, dropPosition }: Omit<ItemDropTarget, 'type'>) => {
-        const [before, after] = Array.splitAt(items, items.findIndex(({ id }) => id === key) + (dropPosition === 'after' ? 1 : 0));
-        onChange([...before.filter(({ id }) => !keys.has(id)), ...items.filter(({ id }) => keys.has(id)), ...after.filter(({ id }) => !keys.has(id))]);
-    };
     const targets = items.map((target, index) => ({ id: target.id, label: textValue(target), index }));
+    const indexes = new Map<Key, number>(targets.map(({ id, index }) => [id, index]));
+    const reorder = (keys: ReadonlySet<Key>, { key, dropPosition }: Omit<ItemDropTarget, 'type'>) =>
+        UndefinedOr.match(indexes.get(key), {
+            onUndefined: Function.constVoid,
+            onDefined: (index) => {
+                const [before, after] = Array.splitAt(items, index + (dropPosition === 'after' ? 1 : 0));
+                onChange([...before.filter(({ id }) => !keys.has(id)), ...items.filter(({ id }) => keys.has(id)), ...after.filter(({ id }) => !keys.has(id))]);
+            },
+        });
     const { dragAndDropHooks } = useDragAndDrop<T>({
         getItems: (_keys, values) => values.map((item) => ({ 'text/plain': textValue(item) })),
         onReorder: ({ keys, target }) => reorder(keys, target),

@@ -43,9 +43,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.341, )",
-        "resolved": "3.0.341",
-        "contentHash": "zpogT6IwYBgNRa9+oETzs7aTU6Te3M/Osdkk/HN1TlJTDjz9dZwoUgh/yWqovT3jTofQGGLB1JqEK8I4uA6+yA=="
+        "requested": "[3.0.342, )",
+        "resolved": "3.0.342",
+        "contentHash": "g8p2VDRGOui0eTVEOG0MOS6ib4IPNVDwSSier3o95S1xeJltMF8ntpuBWzzmn6A6Y5a0VcEmeGkrMLNXPs/QeQ=="
       },
       "Microsoft.macOS.Ref.net10.0_26.0": {
         "type": "Direct",
@@ -938,9 +938,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.341, )",
-        "resolved": "3.0.341",
-        "contentHash": "zpogT6IwYBgNRa9+oETzs7aTU6Te3M/Osdkk/HN1TlJTDjz9dZwoUgh/yWqovT3jTofQGGLB1JqEK8I4uA6+yA=="
+        "requested": "[3.0.342, )",
+        "resolved": "3.0.342",
+        "contentHash": "g8p2VDRGOui0eTVEOG0MOS6ib4IPNVDwSSier3o95S1xeJltMF8ntpuBWzzmn6A6Y5a0VcEmeGkrMLNXPs/QeQ=="
       },
       "Microsoft.macOS.Ref.net10.0_26.0": {
         "type": "Direct",
@@ -998,9 +998,9 @@
       },
       "Rhino.Inside": {
         "type": "Direct",
-        "requested": "[9.0.26321.3440-beta, )",
-        "resolved": "9.0.26321.3440-beta",
-        "contentHash": "dXf1X3NJO1JEr9+9LhXWClc9NkFPkplSZtJch3HIyzmr99r48jOO9/FDHMDeAK7Ul+nKSngZ6/QFE5S9RvP2pQ==",
+        "requested": "[9.0.26322.17400-beta, )",
+        "resolved": "9.0.26322.17400-beta",
+        "contentHash": "meD1saVT1J2gA5NkOIRGxwpTUltsyTwXyD1TT3TmYD3imbEBEzoPyPvGafcHsF6KjvQjKyBXmUPh3PNDVKCYPw==",
         "dependencies": {
           "Grasshopper": "9.0.26300.9401",
           "RhinoCommon": "9.0.26300.9401"

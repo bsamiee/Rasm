@@ -16,15 +16,14 @@ const access = Config.all({
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Presignable = Schema.Union([
-    Schema.Struct({ method: Schema.Literal('PUT'), key: Schema.String, uploadId: Schema.String, partNumber: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10_000 })) }),
-    Schema.Struct({ method: Schema.Literal('PUT'), key: Schema.String }),
-    Schema.Struct({ method: Schema.Literal('POST'), key: Schema.String, uploadId: Schema.String }),
-    Schema.Struct({ method: Schema.Literal('POST'), key: Schema.String }),
-    Schema.Struct({ method: Schema.Literal('GET'), key: Schema.String, uploadId: Schema.String }),
-    Schema.Struct({ method: Schema.Literal('DELETE'), key: Schema.String, uploadId: Schema.String }),
-]);
-const Presigned = Schema.Struct({ url: Schema.String, headers: Schema.Record(Schema.String, Schema.String) });
+class UploadPart extends Schema.Opaque<UploadPart, unknown>()(Schema.Struct({ method: Schema.Literal('PUT'), key: Schema.String, uploadId: Schema.String, partNumber: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10_000 })) })) {}
+class PutObject extends Schema.Opaque<PutObject, unknown>()(Schema.Struct({ method: Schema.Literal('PUT'), key: Schema.String })) {}
+class CompleteMultipartUpload extends Schema.Opaque<CompleteMultipartUpload, unknown>()(Schema.Struct({ method: Schema.Literal('POST'), key: Schema.String, uploadId: Schema.String })) {}
+class CreateMultipartUpload extends Schema.Opaque<CreateMultipartUpload, unknown>()(Schema.Struct({ method: Schema.Literal('POST'), key: Schema.String })) {}
+class ListParts extends Schema.Opaque<ListParts, unknown>()(Schema.Struct({ method: Schema.Literal('GET'), key: Schema.String, uploadId: Schema.String })) {}
+class AbortMultipartUpload extends Schema.Opaque<AbortMultipartUpload, unknown>()(Schema.Struct({ method: Schema.Literal('DELETE'), key: Schema.String, uploadId: Schema.String })) {}
+const Presignable = Schema.Union([UploadPart, PutObject, CompleteMultipartUpload, CreateMultipartUpload, ListParts, AbortMultipartUpload]);
+class Presigned extends Schema.Opaque<Presigned, unknown>()(Schema.Struct({ url: Schema.String, headers: Schema.Record(Schema.String, Schema.String) })) {}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -45,7 +44,7 @@ class ObjectStorage extends Context.Service<
     {
         readonly objects: ObjectStore;
         readonly endpoint: Effect.Effect<URL, ObjectStorageError>;
-        readonly sign: (request: typeof Presignable.Type, stated: { readonly size: ByteSize.ByteSize; readonly mime: string }) => Effect.Effect<typeof Presigned.Type, ObjectStorageError>;
+        readonly sign: (request: UploadPart | PutObject | CompleteMultipartUpload | CreateMultipartUpload | ListParts | AbortMultipartUpload, stated: { readonly size: ByteSize.ByteSize; readonly mime: string }) => Effect.Effect<Presigned, ObjectStorageError>;
         readonly stat: (key: string) => Effect.Effect<Option.Option<{ readonly size: ByteSize.ByteSize; readonly mime: string }>, ObjectStorageError>;
         readonly remove: (key: string, uploadId: Option.Option<string>) => Effect.Effect<void, ObjectStorageError>;
     }

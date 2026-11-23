@@ -1,8 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Array, Effect, Fiber, Option, Queue, Ref, Schema, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol } from 'effect/ai';
-import { Called, outcome, PROTOCOLS, served, since } from '#/conformance.ts';
-import { ASKED, EMBEDDED, FAILURE, PNG, STATE } from '#/fixtures.ts';
+import { Called, outcome, PROTOCOLS, served, since } from '#/conformance';
+import { ASKED, EMBEDDED, FAILURE, PNG, STATE } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

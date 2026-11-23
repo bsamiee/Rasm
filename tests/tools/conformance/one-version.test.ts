@@ -1,7 +1,7 @@
 import rule from '@rasm/conformance/one-version';
 import { Effect, Record } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { violations } from '#/workspace.ts';
+import { violations } from '#/workspace';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

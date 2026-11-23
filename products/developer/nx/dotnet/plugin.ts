@@ -6,7 +6,7 @@ import { aggregated, fingerprinted, manifested, spawned } from '@rasm/nx-distrib
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, targets } from '#/targets.ts';
+import { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, targets } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

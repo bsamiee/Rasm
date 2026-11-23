@@ -5,12 +5,12 @@ import { paint } from '@rasm/mark';
 import { generateManifestIconsEntry } from '@vite-pwa/assets-generator/api/generate-manifest-icons-entry';
 import { instructions } from '@vite-pwa/assets-generator/api/instructions';
 import { minimal2023Preset } from '@vite-pwa/assets-generator/presets/minimal-2023';
-import { formatRgb } from 'culori';
+import { formatRgb, rgb } from 'culori';
 import { Array, Cause, Deferred, Duration, Effect, FileSystem, flow, Function, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type ChildNode, list, parse } from 'postcss';
 import { type DevEnvironment, type HtmlTagDescriptor, normalizePath, type Plugin, type ResolvedConfig, type Rolldown } from 'vite';
 import type { WebAppManifest } from 'web-app-manifest';
-import { HostingError } from '#/app/error.ts';
+import { HostingError } from '#/app/error';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -60,9 +60,10 @@ const computed = (declared: ReadonlyMap<string, string>, scheme: Scheme, value: 
 const headAssets = Effect.fnUntraced(function* ({ root, base }: ResolvedConfig, { stylesheet, fill, background, manifest }: Head) {
     const fs = yield* FileSystem.FileSystem;
     const { nodes } = parse(yield* fs.readFileString(join(root, stylesheet)), { from: stylesheet });
-    const color = (scheme: Scheme, token: string) => Effect.fromOption(Option.flatMapNullishOr(computed(new Map(cascade(nodes, scheme)), scheme, `var(${token})`), formatRgb), () => new Cause.NoSuchElementError(`${stylesheet} holds no ${scheme} color at ${token}`));
-    const [iconColor, chrome, darkChrome] = yield* Effect.all([color('light', fill), color('light', background), color('dark', background)]);
-    const painted = yield* paint([join(root, MARK)], `svg { color: ${iconColor}; }`);
+    const color = (scheme: Scheme, token: string) => Effect.fromOption(Option.flatMapNullishOr(computed(new Map(cascade(nodes, scheme)), scheme, `var(${token})`), rgb), () => new Cause.NoSuchElementError(`${stylesheet} holds no ${scheme} color at ${token}`));
+    const [icon, light, dark] = yield* Effect.all([color('light', fill), color('light', background), color('dark', background)]);
+    const [chrome, darkChrome] = [formatRgb(light), formatRgb(dark)];
+    const painted = yield* paint([join(root, MARK)], { color: icon });
     const installed = <A extends { readonly sizes: unknown }>(asset: A) => (manifest === undefined ? { ...asset, sizes: [] } : asset);
     const resizeOptions = { background: chrome, fit: 'contain' as const };
     const generated = yield* Effect.tryPromise({

@@ -9,14 +9,16 @@ const Groups = Schema.Struct({
 const Next = Schema.TaggedUnion({ End: {}, Letter: { groups: Schema.OptionFromOptionalKey(Groups).pipe(Schema.withConstructorDefault(Effect.succeedNone)) } }).annotate({
     description: 'Letter after the pair in its join, End when the pair closes it',
 });
-const Place = Schema.Struct({
+class Place extends Schema.Opaque<Place, { readonly brand: unique symbol }>()(
+    Schema.Struct({
     rank: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).annotate({ description: 'Justification rank, lower ranks taking slack first and equal ranks sharing it by capacity' }),
     stage: Schema.Literals(['text', 'line'])
         .annotate({ description: 'text elongates before line breaking so lines reflow, line fits slack after it' })
         .pipe(Schema.withConstructorDefault(Effect.succeed('line'))),
     ...Struct.Record(['before', 'after'], Schema.OptionFromOptionalKey(Groups.annotate({ description: 'Letter beside the place, any when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone))),
     next: Schema.OptionFromOptionalKey(Next).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-});
+    }),
+) {}
 const Elongated = {
     lower: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).annotate({ description: 'Lower elongation bound in nuqta, the length of each text-stage place and the least of each line-stage place' }),
     upper: Schema.Int.annotate({ description: 'Upper elongation bound in nuqta, each chosen place stretching at most this far' }),
@@ -41,7 +43,7 @@ const Elongation = Schema.TaggedUnion({ None: {}, Tatweel: Elongated, Stretched:
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const naskh = (): readonly (typeof Place.Type)[] => {
+const naskh = () => {
     const among = (...groups: readonly string[]) => Option.some(Groups.make({ groups }));
     const notYeh = Option.some(Groups.make({ groups: ['Yeh', 'FarsiYeh'], except: true }));
     const end = Option.some(Next.cases.End.make({}));
@@ -60,4 +62,4 @@ const naskh = (): readonly (typeof Place.Type)[] => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Elongation };
+export { Elongation, type Place };

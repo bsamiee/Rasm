@@ -1,7 +1,7 @@
 import { layer } from '@effect/platform-node/NodeCrypto';
-import { acceptance } from '#/acceptance.ts';
-import { delivery } from '#/delivery.ts';
-import { signatures } from '#/signatures.ts';
+import { acceptance } from '#/acceptance';
+import { delivery } from '#/delivery';
+import { signatures } from '#/signatures';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

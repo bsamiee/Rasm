@@ -1,9 +1,9 @@
 import { Choice, Field, MenuButton } from '@rasm/ui';
 import { Match, Option, Record, String, Struct } from 'effect';
 import type { ReactNode } from 'react';
-import { choiceLayout, descriptionLabel, joinDetails, sheetLabel } from '#/media/labels.ts';
-import { Asset, type Assets } from '#/model/asset.ts';
-import { Placement } from '#/model/placement.ts';
+import { choiceLayout, descriptionLabel, joinDetails, sheetLabel } from '#/media/labels';
+import { Asset, type Assets } from '#/model/asset';
+import { Placement } from '#/model/placement';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,8 +16,8 @@ const present = <K extends 'caption' | 'alt' | 'description'>(key: K, input: str
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const PlacementFields = ({ value, assets, onChange, children }: { readonly value: typeof Placement.Type; readonly assets: typeof Assets.Service; readonly onChange: (value: typeof Placement.Type) => void; readonly children?: ReactNode }) => (
-    <div className="flex flex-col gap-3.25 border-t border-line pt-4.5">
-        <span className="text-caption wrap-anywhere">{value.asset.name}</span>
+    <div className="placement-fields">
+        <span>{value.asset.name}</span>
         <Field
             label="Caption"
             onChange={(caption) => {
@@ -65,7 +65,7 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                     );
                 },
                 video: (film) => (
-                    <div className="flex flex-col gap-3">
+                    <div className="placement-poster">
                         <MenuButton
                             aria-label="Video poster"
                             onAction={({ asset }) => onChange({ ...film, poster: asset })}
@@ -76,7 +76,7 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                             {film.poster === undefined ? 'Choose poster image' : joinDetails(['Poster', film.poster.name])}
                         </MenuButton>
                         {film.poster && (
-                            <button className="button self-start button-ghost" onClick={() => onChange(Struct.omit(film, ['poster']))} type="button">
+                            <button className="button button-ghost" onClick={() => onChange(Struct.omit(film, ['poster']))} type="button">
                                 Clear poster
                             </button>
                         )}

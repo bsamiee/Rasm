@@ -1,23 +1,6 @@
-import { expect, type JSHandle, type Locator, type Page, type Route } from '@playwright/test';
+import { expect, type Locator, type Page, type Route } from '@playwright/test';
 import { type Extension, loaded } from '@rasm/testing/playwright';
 import { Effect } from 'effect';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-interface Timed {
-    readonly property: string;
-    readonly duration: unknown;
-    readonly delay: unknown;
-    readonly easing: unknown;
-}
-
-interface Lifecycle {
-    readonly entry: readonly Timed[];
-    readonly exit: readonly Timed[];
-    readonly opened: number;
-    readonly closed: number;
-    readonly removed: boolean;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -38,70 +21,21 @@ const SETTLE = {
 
 const served = (body: string, headers: Record<string, string>) => (route: Route) => route.fulfill({ contentType: 'text/html', headers, body: `<!doctype html><title>Page</title>${body}` });
 
-const watched = () => {
-    const marks: Lifecycle = { entry: [], exit: [], opened: 0, closed: 0, removed: false };
-    const timed = (popover: Element, phase: 'entry' | 'exit') =>
-        Object.assign(marks, {
-            [phase]: popover.getAnimations().flatMap((animation) => (animation instanceof CSSTransition ? [{ property: animation.transitionProperty, duration: animation.effect?.getTiming().duration, delay: animation.effect?.getTiming().delay, easing: animation.effect?.getTiming().easing }] : [])),
-        });
-    new MutationObserver((records, observer) => {
-        const nodes = records.flatMap(({ addedNodes, removedNodes }) => [...addedNodes, ...removedNodes]);
-        nodes
-            .flatMap((node) => (node instanceof Element && node.isConnected ? [node.shadowRoot?.querySelector('[popover]')].filter((found) => found instanceof Element) : []))
-            .forEach((popover) => {
-                timed(popover, 'entry');
-                popover.addEventListener(
-                    'toggle',
-                    ({ timeStamp }) => {
-                        Object.assign(marks, { opened: timeStamp });
-                    },
-                    { once: true },
-                );
-                popover.addEventListener('animationend', ({ timeStamp }) => {
-                    Object.assign(marks, { closed: timeStamp });
-                    timed(popover, 'exit');
-                });
+const held = (toast: Locator) => toast.evaluate((element) => element.getAnimations().flatMap((animation) => (animation instanceof CSSAnimation ? [{ state: animation.playState, at: Number(animation.currentTime) }] : [])));
+
+const settled = (toast: Locator) => expect.poll(() => toast.evaluate((element) => element.getAnimations().filter((animation) => animation instanceof CSSTransition).length)).toBe(0);
+
+const frozen = (toast: Locator) => toast.evaluate((element) => element.getAnimations().forEach((animation) => animation.pause()));
+
+const sought = (toast: Locator, at: number) =>
+    toast.evaluate((element, time) => {
+        element
+            .getAnimations()
+            .filter((animation) => animation instanceof CSSAnimation)
+            .forEach((animation) => {
+                Object.assign(animation, { currentTime: time });
             });
-        nodes
-            .filter((node) => node instanceof Element && !node.isConnected && node.shadowRoot !== null)
-            .forEach(() => {
-                observer.disconnect();
-                Object.assign(marks, { removed: true });
-            });
-    }).observe(document.documentElement, { childList: true });
-    return marks;
-};
-
-const moving = (element: Element) => element.getAnimations({ subtree: true }).filter((animation) => animation instanceof CSSTransition).length;
-
-const settled = (toast: Locator) => expect.poll(() => toast.evaluate(moving)).toBe(0);
-
-const ended = (handle: JSHandle<Lifecycle>) =>
-    expect
-        .poll(() => handle.evaluate(({ removed }) => removed), { timeout: 20_000 })
-        .toBe(true)
-        .then(() => handle.jsonValue());
-
-const styled = (toast: Locator, pseudo?: string) =>
-    toast.evaluate((element, at) => {
-        const style = getComputedStyle(element, at);
-        return { width: style.width, height: style.height, font: [style.fontFamily, style.fontSize, style.fontWeight, style.lineHeight], background: style.backgroundColor, color: style.color, border: [style.borderTopWidth, style.borderTopStyle] };
-    }, pseudo ?? null);
-
-const drawn = (base64: string) =>
-    createImageBitmap(new Blob([Uint8Array.fromBase64(base64)], { type: 'image/png' })).then((bitmap) => {
-        const pen = new OffscreenCanvas(1, 1).getContext('2d');
-        pen?.drawImage(bitmap, 0, 0);
-        return [...(pen?.getImageData(0, 0, 1, 1).data.slice(0, 3) ?? [])];
-    });
-
-const pixel = (page: Page, x: number, y: number) =>
-    Effect.runPromise(
-        Effect.flatMap(
-            Effect.promise(() => page.screenshot({ clip: { x, y, width: 1, height: 1 }, scale: 'css' })),
-            (png) => Effect.promise(() => page.evaluate(drawn, png.toString('base64'))),
-        ),
-    );
+    }, at);
 
 const isolate = ({ page, extension }: { readonly page: Page; readonly extension: Extension }, expression: string) =>
     Effect.all([Effect.promise(() => extension.act(page)), Effect.promise(() => expect(page.getByRole('status')).toBeVisible()), Effect.promise(() => extension.evaluate(page, expression))], { discard: true });
@@ -113,7 +47,6 @@ const it = loaded.extend<{
     readonly copied: () => Promise<string>;
     readonly toast: Locator;
     readonly button: Locator;
-    readonly lifecycle: () => Promise<JSHandle<Lifecycle>>;
     readonly isolated: (expression: string) => Promise<void>;
     readonly armed: (stub: string) => Promise<void>;
     readonly shares: () => Promise<unknown>;
@@ -132,7 +65,6 @@ const it = loaded.extend<{
     copied: ({ page }, use) => use(() => page.evaluate(() => navigator.clipboard.readText())),
     toast: ({ page }, use) => use(page.getByRole('status')),
     button: ({ toast }, use) => use(toast.getByRole('button')),
-    lifecycle: ({ page }, use) => use(() => page.evaluateHandle(watched)),
     isolated: ({ page, extension }, use) => use((expression) => Effect.runPromise(isolate({ page, extension }, expression))),
     armed: ({ page, isolated, toast }, use) =>
         use((stub) =>
@@ -152,4 +84,4 @@ const it = loaded.extend<{
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ended, isolate, it, pixel, SETTLE, STUB, settled, styled };
+export { frozen, held, isolate, it, SETTLE, STUB, settled, sought };

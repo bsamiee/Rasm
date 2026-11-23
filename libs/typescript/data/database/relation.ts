@@ -1,8 +1,8 @@
 import { Array, Data, Duration, Effect, Equal, Filter, Function, Option, Record, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema, Statement } from 'effect/sql';
-import { Column, type FieldName, type Fields, type Where } from '#/column.ts';
-import { Rows } from '#/engine.ts';
-import type { methods, referentialActions } from '#/reconcile.ts';
+import { Column, type FieldName, type Fields, type Where } from '#/column';
+import { Rows } from '#/engine';
+import type { methods, referentialActions } from '#/reconcile';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

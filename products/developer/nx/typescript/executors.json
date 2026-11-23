@@ -8,7 +8,7 @@
         "upgrade": {
             "implementation": "./dist/executors/upgrade/executor#execute",
             "schema": "./executors/upgrade/schema.json",
-            "description": "Moves every exact version a catalog or a package manifest of the workspace pins, npm: aliases included, to the newest of the package's undeprecated dist-tag heads, or of the versions an installed package lists for a supported name, among those published at or after the pinned version, ranked by release, then stable before prerelease, then publish time, ranges staying as floors, then installs to move the lockfile, then prunes the package manager's store"
+            "description": "Moves every exact version a catalog or a package manifest of the workspace pins, npm: aliases included, to the newest of the package's undeprecated dist-tag heads, or of the versions an installed package lists for a supported name, among those published at or after the pinned version, ranked by release, then stable before prerelease, then publish time, ranges staying as floors, then installs and deduplicates to move the lockfile, then prunes the package manager's store"
         }
     }
 }

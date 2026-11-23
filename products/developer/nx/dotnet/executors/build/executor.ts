@@ -3,7 +3,7 @@ import type { TaskResult } from '@nx/devkit/internal';
 import { ran, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Console, Effect, Equal, FileSystem, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { ANALYZER, environment, launched, run, streamed } from '#/targets.ts';
+import { ANALYZER, environment, launched, run, streamed } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

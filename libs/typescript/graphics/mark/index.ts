@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { paint } from '#/paint.ts';
+export { paint, type Tone } from '#/paint';

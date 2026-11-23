@@ -48,7 +48,7 @@ import { Toolkit } from 'effect/ai';
 import { FetchHttpClient, Url } from 'effect/http';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 import { imageSize } from 'image-size';
-import { UxpManifest } from '#/manifest.ts';
+import { UxpManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

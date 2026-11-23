@@ -1,98 +1,112 @@
-import { CustomProperties, ModalDialog } from '@rasm/ui';
+import { ModalDialog } from '@rasm/ui';
+import { Match } from 'effect';
 import { Expand, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { type ComponentProps, lazy, Suspense, useId, useRef } from 'react';
 import { Button, DialogTrigger, Heading, Text } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import { descriptionLabel, format, placementTitle } from '#/media/labels.ts';
+import { descriptionLabel, format, placementTitle } from '#/media/labels';
 import { MediaElement } from '#/media/media-element.tsx';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
-import { assetUrl } from '#/model/api.ts';
-import { Placement } from '#/model/placement.ts';
+import { assetUrl } from '#/model/api';
+import { Placement } from '#/model/placement';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+declare module 'react' {
+    interface CSSProperties {
+        readonly '--focus-x'?: number;
+        readonly '--focus-y'?: number;
+        readonly '--media-ratio'?: number;
+        readonly '--ratio-max'?: number;
+        readonly '--ratio-sum'?: number;
+    }
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const ZoomViewer = lazy(() => import('@rasm/media/zoom-viewer').then((module) => ({ default: module.ZoomViewer })));
-const MediaFigure = ({ placement, active, presentation, priority, renderMedia }: { placement: typeof Placement.Type; active: boolean; presentation: Exclude<ComponentProps<typeof MediaElement>['presentation'], 'expanded'>; priority: boolean; renderMedia: boolean }) => {
+const MediaFigure = ({ placement, active, presentation, priority, renderMedia }: { readonly placement: typeof Placement.Type; readonly active: boolean; readonly presentation: Exclude<ComponentProps<typeof MediaElement>['presentation'], 'expanded'>; readonly priority: boolean; readonly renderMedia: boolean }) => {
     const layoutId = useId();
     const figure = useRef<HTMLElement>(null);
     const reducedMotion = useReducedMotion() ?? false;
     const viewer = presentation === 'expandable' && placement.kind !== 'video' ? placement : undefined;
+    const ratio = Placement.ratio(placement);
+    const framed = Match.value(placement).pipe(
+        Match.when({ kind: 'image', role: 'photograph', framing: { mode: 'cover' } }, ({ framing }) => ({ 'data-framing': framing.mode, style: { '--media-ratio': ratio, '--focus-x': framing.x, '--focus-y': framing.y } })),
+        Match.orElse(() => ({ style: { '--media-ratio': ratio } })),
+    );
     const description = Boolean(placement.description) && (
-        <details className="hint landscape-short:col-span-full landscape-short:row-start-4">
-            <summary className="list-item min-h-11 cursor-pointer content-center">{descriptionLabel(placement)}</summary>
-            <p className="max-h-quarter-screen overflow-auto whitespace-pre-line">{placement.description}</p>
+        <details className="media-description hint">
+            <summary>{descriptionLabel(placement)}</summary>
+            <p>{placement.description}</p>
         </details>
     );
     return (
-        <CustomProperties properties={{ '--media-ratio': Placement.ratio(placement), ...(placement.kind === 'image' && placement.role === 'photograph' && placement.framing.mode === 'cover' && { '--media-focus-x': `${placement.framing.x}%`, '--media-focus-y': `${placement.framing.y}%` }) }}>
-            {(scope) => (
-                <figure aria-hidden={presentation === 'thumbnail'} className="media-figure" ref={figure} {...scope}>
-                    <motion.div {...(viewer && { layoutId })} className="relative flex aspect-(--media-ratio) w-full items-center justify-center overflow-hidden bg-background-muted">
-                        {renderMedia && <MediaElement active={active} key={placement.asset.id} placement={placement} presentation={presentation} priority={priority} viewport={figure} />}
-                    </motion.div>
-                    {presentation !== 'thumbnail' && (
-                        <>
-                            <figcaption className="grid grid-cols-trailing items-start gap-x-3 pt-2 text-sm leading-body wrap-anywhere text-muted empty:hidden">
-                                {placement.caption !== undefined && <span className="col-start-1 block min-w-0 whitespace-pre-line">{placement.caption}</span>}
-                                {placement.kind === 'pdf' && (
-                                    <span className="col-start-1 flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
-                                        <span>{placement.asset.name}</span>
-                                        <span className="inline-flex shrink-0 gap-1.5 font-mono text-xs tabular-nums">
-                                            <span className="sr-only">Sheet </span>
-                                            <span className="text-accent-text">{format.numeral(placement.page.number, placement.asset.pages.length)}</span>
-                                            <span aria-hidden="true">/</span>
-                                            <span className="sr-only"> of </span>
-                                            <span>{format.numeral(placement.asset.pages.length)}</span>
-                                        </span>
-                                        <span className="empty:hidden">{placement.page.label}</span>
-                                    </span>
-                                )}
-                                {viewer && (
-                                    <DialogTrigger>
-                                        <Button aria-label={`Expand ${placementTitle(viewer)}`} className="col-start-2 row-start-1 grid size-11 place-items-center text-foreground hover:text-accent-text">
-                                            <Expand className="size-4.5" />
-                                        </Button>
-                                        <ModalDialog className="fixed inset-0 z-50 bg-foreground/70 motion-safe:entering:animate-fade motion-safe:exiting:animate-fade-out" dialog={{ className: 'outline-none' }} isDismissable>
-                                            <motion.div className="viewer-dialog" layoutRoot>
-                                                <div className="flex shrink-0 items-start justify-between gap-4 landscape-short:contents">
-                                                    <Heading className="viewer-heading" slot="title">
-                                                        {viewer.kind === 'pdf' ? viewer.asset.name : placementTitle(viewer)}
-                                                    </Heading>
-                                                    <Button aria-label="Close viewer" className="grid min-h-11 min-w-11 shrink-0 place-items-center landscape-short:col-start-2 landscape-short:row-start-1" slot="close">
-                                                        <X className="size-6" />
-                                                    </Button>
-                                                </div>
-                                                {viewer.kind === 'image' && (
-                                                    <Text className="viewer-hint" elementType="p" slot="description">
-                                                        Scroll, pinch, or press + and − to zoom. Drag or press arrow keys to move
-                                                    </Text>
+        <figure className="media-figure" ref={figure} {...framed}>
+            <motion.div {...(viewer && { layoutId })} className="media-frame">
+                {renderMedia && <MediaElement active={active} key={placement.asset.id} placement={placement} presentation={presentation} priority={priority} viewport={figure} />}
+            </motion.div>
+            {presentation !== 'thumbnail' && (
+                <>
+                    <figcaption>
+                        {placement.caption !== undefined && <span>{placement.caption}</span>}
+                        {placement.kind === 'pdf' && (
+                            <span className="sheet-number">
+                                <span>{placement.asset.name}</span>
+                                <span>
+                                    <span className="sr-only">Sheet </span>
+                                    <span>{format.numeral(placement.page.number, placement.asset.pages.length)}</span>
+                                    <span aria-hidden="true">/</span>
+                                    <span className="sr-only"> of </span>
+                                    <span>{format.numeral(placement.asset.pages.length)}</span>
+                                </span>
+                                <span>{placement.page.label}</span>
+                            </span>
+                        )}
+                        {viewer && (
+                            <DialogTrigger>
+                                <Button aria-label={`Expand ${placementTitle(viewer)}`}>
+                                    <Expand size={18} />
+                                </Button>
+                                <ModalDialog isDismissable>
+                                    <motion.div className="viewer-dialog" layoutRoot>
+                                        <div className="viewer-header">
+                                            <Heading className="viewer-heading" slot="title">
+                                                {viewer.kind === 'pdf' ? viewer.asset.name : placementTitle(viewer)}
+                                            </Heading>
+                                            <Button aria-label="Close viewer" slot="close">
+                                                <X size={24} />
+                                            </Button>
+                                        </div>
+                                        {viewer.kind === 'image' && (
+                                            <Text className="viewer-hint" elementType="p" slot="description">
+                                                Scroll, pinch, or press + and − to zoom. Drag or press arrow keys to move
+                                            </Text>
+                                        )}
+                                        <ErrorBoundary fallback={<MediaFailure asset={viewer.asset} message="Viewer failed to load" />}>
+                                            <Suspense fallback={<MediaLoading />}>
+                                                {viewer.kind === 'pdf' ? (
+                                                    <MediaElement active layoutId={layoutId} placement={viewer} presentation="expanded" priority={false} />
+                                                ) : (
+                                                    <ZoomViewer classNames={{ controls: 'viewer-controls', stage: 'viewer-stage' }} href={assetUrl(viewer.asset)} reducedMotion={reducedMotion}>
+                                                        <motion.div layoutId={layoutId}>
+                                                            <MediaElement active placement={viewer} presentation="expanded" priority={false} />
+                                                        </motion.div>
+                                                    </ZoomViewer>
                                                 )}
-                                                <ErrorBoundary fallback={<MediaFailure asset={viewer.asset} message="Viewer failed to load" />}>
-                                                    <Suspense fallback={<MediaLoading />}>
-                                                        {viewer.kind === 'pdf' ? (
-                                                            <MediaElement active layoutId={layoutId} placement={viewer} presentation="expanded" priority={false} />
-                                                        ) : (
-                                                            <ZoomViewer classNames={{ controls: 'viewer-controls', stage: 'viewer-stage' }} href={assetUrl(viewer.asset)} reducedMotion={reducedMotion}>
-                                                                <motion.div className="shrink-0" layoutId={layoutId}>
-                                                                    <MediaElement active placement={viewer} presentation="expanded" priority={false} />
-                                                                </motion.div>
-                                                            </ZoomViewer>
-                                                        )}
-                                                    </Suspense>
-                                                </ErrorBoundary>
-                                                {viewer.kind === 'image' && description}
-                                            </motion.div>
-                                        </ModalDialog>
-                                    </DialogTrigger>
-                                )}
-                            </figcaption>
-                            {viewer?.kind !== 'image' && description}
-                        </>
-                    )}
-                </figure>
+                                            </Suspense>
+                                        </ErrorBoundary>
+                                        {viewer.kind === 'image' && description}
+                                    </motion.div>
+                                </ModalDialog>
+                            </DialogTrigger>
+                        )}
+                    </figcaption>
+                    {viewer?.kind !== 'image' && description}
+                </>
             )}
-        </CustomProperties>
+        </figure>
     );
 };
 

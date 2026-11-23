@@ -1,7 +1,7 @@
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Cause, Effect, FileSystem, Option, Path, Schema } from 'effect';
-import { run, Words } from '#/executor.ts';
-import { located } from '#/host-packages.ts';
+import { run, Words } from '#/executor';
+import { located } from '#/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

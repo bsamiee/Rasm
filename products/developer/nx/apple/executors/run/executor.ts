@@ -7,7 +7,7 @@ import type { TaskResult } from '@nx/devkit/internal';
 import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Function, HashSet, Option, Predicate, Record, Schema, Stream } from 'effect';
 import { CommandLine } from 'effect/process';
-import { ran, run } from '#/targets.ts';
+import { ran, run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

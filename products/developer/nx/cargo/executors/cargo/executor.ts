@@ -5,7 +5,7 @@ import type { ExecutorContext, Task, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { Array, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { Crate, run } from '#/workspace.ts';
+import { Crate, run } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

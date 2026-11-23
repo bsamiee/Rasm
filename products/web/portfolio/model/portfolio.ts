@@ -1,28 +1,27 @@
 import { Array, Effect, Function, Predicate, Record, Result, Schema, SchemaGetter, SchemaIssue, SchemaParser, Struct } from 'effect';
 import isEmail from 'validator/lib/isEmail.js';
-import { type AssetId, Assets } from '#/model/asset.ts';
-import { Composition, defaulted, Placement } from '#/model/placement.ts';
+import { type AssetId, Assets } from '#/model/asset';
+import { Composition, defaulted, Placement, Prose } from '#/model/placement';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const EntryId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('EntryId'));
-const text = defaulted(Schema.String, '');
 const Entry = Schema.Struct({
     id: EntryId,
     kind: Schema.Literals(['project', 'study']),
-    title: text,
-    year: text,
-    location: text,
-    description: text,
-    role: text,
-    credits: text,
+    title: Prose,
+    year: Prose,
+    location: Prose,
+    description: Prose,
+    role: Prose,
+    credits: Prose,
     cover: Schema.optionalKey(Placement),
     compositions: defaulted(Schema.Array(Composition), []),
 });
 const PortfolioStructure = Schema.Struct({
-    name: text,
-    introduction: text,
-    email: defaulted(Schema.String.check(Schema.makeFilter((value) => value === '' || isEmail(value), { expected: 'email address or empty string' })), ''),
+    name: Prose,
+    introduction: Prose,
+    email: Prose.of(Schema.String.check(Schema.makeFilter((value) => isEmail(value), { expected: 'email address' }))),
     hero: Schema.optionalKey(Placement),
     entries: defaulted(Schema.Array(Entry), []),
 });

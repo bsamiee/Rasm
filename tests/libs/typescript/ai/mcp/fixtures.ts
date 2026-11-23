@@ -141,4 +141,4 @@ const upstream = (protocol: McpProtocol.ProtocolAdapter, token: MutableRef.Mutab
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { app, ASKED, Echoing, EMBEDDED, FAILURE, IDS, INTERNAL, PNG, Probe, STATE, STATIC, STEPS, TEXT, UPSTREAM, upstream };
+export { app, ASKED, Echoing, EMBEDDED, FAILURE, IDS, PNG, Probe, STATE, STATIC, STEPS, TEXT, UPSTREAM, upstream };

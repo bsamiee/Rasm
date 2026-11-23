@@ -1,8 +1,8 @@
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Cause, Effect, Option, Schema, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
-import { credentialed, Dry, dried, forwarded, released, run, Words } from '#/executor.ts';
-import { located } from '#/host-packages.ts';
+import { credentialed, Dry, dried, forwarded, released, run, Words } from '#/executor';
+import { located } from '#/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

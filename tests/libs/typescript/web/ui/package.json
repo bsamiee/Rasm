@@ -4,7 +4,6 @@
     "description": "Interface control suites in the browser",
     "type": "module",
     "devDependencies": {
-        "@effect/atom-react": "catalog:",
         "@rasm/ui": "workspace:*",
         "@types/node": "catalog:",
         "@types/react": "catalog:",

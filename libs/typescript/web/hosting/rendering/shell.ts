@@ -1,16 +1,18 @@
-import { Data, type Option, type Record, Schema, SchemaGetter } from 'effect';
-import type { ReactElement } from 'react';
+import { Data, type Record, Schema } from 'effect';
+import { createElement, type ReactElement } from 'react';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Shell<S extends Schema.Codec<unknown, unknown>> extends Data.Class<{
-    readonly root: string;
+    readonly name: string;
     readonly schema: S;
     readonly render: (value: S['Type']) => ReactElement;
-    readonly head: (value: S['Type']) => { readonly title: Option.Option<string>; readonly meta: Record.ReadonlyRecord<'name' | 'property', Record.ReadonlyRecord<string, Option.Option<string>>> };
     readonly policy?: Record.ReadonlyRecord<string, readonly string[]>;
 }> {
-    readonly script = { id: `${this.root}-data`, json: Schema.fromJsonString(this.schema).pipe(Schema.encode({ decode: SchemaGetter.passthrough(), encode: SchemaGetter.transform((json: string) => json.replaceAll('<', String.raw`\u003c`)) })) };
+    readonly data = { id: `${this.name}-data`, json: Schema.fromJsonString(this.schema) };
+    page(value: S['Type'], json: string, { lang, head }: { readonly lang: string; readonly head?: string }) {
+        return createElement('html', { lang }, createElement('head', head === undefined ? null : { dangerouslySetInnerHTML: { __html: head } }), createElement('body', null, this.render(value), createElement('script', { id: this.data.id, type: 'application/json' }, json)));
+    }
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

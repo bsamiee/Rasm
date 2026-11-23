@@ -4,7 +4,7 @@
     "description": "@rasm/conformance rule suites over stubbed project graphs and temporary workspaces",
     "type": "module",
     "imports": {
-        "#/*.ts": "./*.ts"
+        "#/*": "./*.ts"
     },
     "devDependencies": {
         "@nx/conformance": "catalog:",

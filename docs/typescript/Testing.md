@@ -122,7 +122,7 @@ Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)`
 - `@rasm/nx-playwright` infers tag `host:browser` and `test--playwright` per Playwright config, and reports and `test-results` go to `outputPath`
 - Project `test` runs `*.spec.ts` and `*.test.ts` files, and project `media` runs `*.media.ts` files outside the default `testMatch`
 - Project `media` writes to `<outputPath>/media` at a fixed scale factor, color scheme, locale, and zone, with traces and failure screenshots off
-- `media(scenes)` registers one Chrome Web Store screenshot per scene and both promo tiles from the built manifest and its `scalable.svg` mark
+- `media(scenes)` registers one Chrome Web Store screenshot per scene and both promo tiles from the built manifest, the product's `icons/mark.svg`, and its `config.brand`
 - Projects matching files with an `outputDir` under `outputPath` run in `pack--playwright` after `test--playwright`, the rest in `test--playwright`
 - `pack--playwright` runs reporter `list` and outputs each `outputDir`, and `attach--gh` gets no earlier file, as Playwright empties them first
 - `test--playwright` runs after `build--*` of its suite's dependencies and each reused `webServer` task, and a suite naming a product loads its build

@@ -3,8 +3,8 @@ import { type CreateDependencies, type CreateNodes, type CreateNodesContext, cre
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { fingerprinted, manifested } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Equal, Option, Order, Record, Schema } from 'effect';
-import { memberInputs, memberTargets } from '#/targets.ts';
-import { Linked, MANIFEST, PLUGIN, PRESETS, resolved, run, type Tree } from '#/workspace.ts';
+import { memberInputs, memberTargets } from '#/targets';
+import { Linked, MANIFEST, PLUGIN, PRESETS, resolved, run, type Tree } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

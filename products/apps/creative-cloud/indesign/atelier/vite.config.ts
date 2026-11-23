@@ -13,24 +13,26 @@ const INLINED = Schema.fromJsonString(Schema.fromJsonString(Declaration.Model));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default uxp(import.meta.dirname, join(import.meta.dirname, '../../multi-app/atelier/icons/mark.svg'), {
-    plugins: [
-        {
-            name: 'declared',
-            enforce: 'pre',
-            resolveId: { filter: { id: DECLARED }, handler: () => MOUNTED },
-            load: {
-                filter: { id: new RegExp(`^${MOUNTED}$`, 'u') },
-                handler: Effect.fnUntraced(
-                    function* () {
-                        const open = yield* declared(Option.none(), join(import.meta.dirname, 'node_modules'));
-                        const source = yield* open({ root: 'indesign-uxp-types/flat', types: ['indesign-uxp-types'], preamble: '', enumeration: Option.some('Enumeration') });
-                        return `export default ${yield* Schema.encodeEffect(INLINED)(yield* source.model)}`;
-                    },
-                    Effect.scoped,
-                    Effect.runPromise,
-                ),
-            },
-        } satisfies Plugin,
-    ],
+export default uxp(import.meta.dirname, {
+    config: {
+        plugins: [
+            {
+                name: 'declared',
+                enforce: 'pre',
+                resolveId: { filter: { id: DECLARED }, handler: () => MOUNTED },
+                load: {
+                    filter: { id: new RegExp(`^${MOUNTED}$`, 'u') },
+                    handler: Effect.fnUntraced(
+                        function* () {
+                            const open = yield* declared(Option.none(), join(import.meta.dirname, 'node_modules'));
+                            const source = yield* open({ root: 'indesign-uxp-types/flat', types: ['indesign-uxp-types'], preamble: '', enumeration: Option.some('Enumeration') });
+                            return `export default ${yield* Schema.encodeEffect(INLINED)(yield* source.model)}`;
+                        },
+                        Effect.scoped,
+                        Effect.runPromise,
+                    ),
+                },
+            } satisfies Plugin,
+        ],
+    },
 });

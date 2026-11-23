@@ -17,7 +17,7 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const WORKER = fileURLToPath(import.meta.resolve('#/worker.ts'));
+const WORKER = fileURLToPath(import.meta.resolve('#/worker'));
 const RUNNER = '@storybook/test-runner';
 const OWN = fingerprinted(import.meta.dirname);
 

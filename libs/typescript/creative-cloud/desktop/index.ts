@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application } from '#/application.ts';
+export { Application } from '#/application';

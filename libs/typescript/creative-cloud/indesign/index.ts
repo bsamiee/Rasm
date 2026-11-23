@@ -1,6 +1,6 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ScriptHost } from '#/script.ts';
-export { Adjust, FontSource, Kerns, Runs, Typeset, Typesetting } from '#/typesetting.ts';
-export { Value } from '#/value.ts';
-export { Called, Extent, Inspection, Search, Slice } from '#/views.ts';
+export { ScriptHost } from '#/script';
+export { Adjust, FontSource, Kerns, Runs, Typeset, Typesetting } from '#/typesetting';
+export { Value } from '#/value';
+export { Called, Extent, Inspection, Search, Slice } from '#/views';

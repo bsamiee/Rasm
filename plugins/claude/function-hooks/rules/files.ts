@@ -1,9 +1,9 @@
 import { Array, Effect, Function, Match, Option, Predicate, Record, String } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
-import { Verdict } from '#/rules/decision.ts';
-import { absent, type Call, commandOf, cut, deleted, edited, ensure, erased, folderOf, holds, inserted, listed, NUL, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, relocated, respell, silent, spelled, stages, unresolved, when, whole } from '#/rules/rule.ts';
-import { type Invocation, WRITES } from '#/shell/invocation.ts';
-import { slicedWord, type Word } from '#/shell/script.ts';
+import { Verdict } from '#/rules/decision';
+import { absent, type Call, commandOf, cut, deleted, edited, ensure, erased, folderOf, holds, inserted, listed, NUL, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, relocated, respell, silent, spelled, stages, unresolved, when, whole } from '#/rules/rule';
+import { type Invocation, WRITES } from '#/shell/invocation';
+import { slicedWord, type Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

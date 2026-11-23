@@ -13,7 +13,7 @@ const PANEL = { id: 'typesetting', label: 'Typesetting', type: 'panel' } as cons
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const manifest = (app: string, icons: readonly object[], entrypoints: readonly object[] = []) => JSON.stringify({ manifestVersion: 5, id: 'app.rasm.test', name: 'Test', version: '0.1.0', main: 'main.js', host: { app }, icons, entrypoints, requiredPermissions: {} });
-const built = Effect.fnUntraced(function* (source: string, glyphs: readonly string[]) {
+const built = Effect.fnUntraced(function* (source: string, glyphs: readonly string[], mark?: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const folder = yield* fs.makeTempDirectoryScoped();
     yield* fs.makeDirectory(path.join(folder, 'icons'));
@@ -21,10 +21,7 @@ const built = Effect.fnUntraced(function* (source: string, glyphs: readonly stri
         [
             fs.writeFileString(path.join(folder, 'manifest.json'), source),
             fs.writeFileString(path.join(folder, 'main.ts'), 'export {};\n'),
-            fs.writeFileString(
-                path.join(folder, 'mark.svg'),
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5.25L10 2.75L11 5.25M6.5 13.25L5 17.25M13.5 13.25L15 17.25"/><rect x="2.75" y="5.25" width="14.5" height="8" rx="1.5"/></svg>',
-            ),
+            ...(mark === undefined ? [] : [fs.writeFileString(path.join(folder, 'mark.svg'), mark)]),
             ...glyphs.map((id) => fs.writeFileString(path.join(folder, 'icons', `${id}.svg`), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.25 11.5H18.75"/></svg>')),
         ],
         {
@@ -32,7 +29,7 @@ const built = Effect.fnUntraced(function* (source: string, glyphs: readonly stri
         },
     );
     const out = path.join(folder, 'out');
-    const config = yield* Effect.tryPromise({ try: () => uxp(folder, path.join(folder, 'mark.svg'))({ command: 'build', mode: 'production' }), catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)) });
+    const config = yield* Effect.tryPromise({ try: () => uxp(folder, mark === undefined ? {} : { mark: path.join(folder, 'mark.svg') })({ command: 'build', mode: 'production' }), catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)) });
     yield* Effect.tryPromise({ try: () => build(mergeConfig(config, { configFile: false, root: folder, logLevel: 'silent', build: { outDir: out } })), catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)) });
     return (file: string) =>
         Effect.map(Effect.tryPromise({ try: () => sharp(path.join(out, file)).ensureAlpha().raw().toBuffer({ resolveWithObject: true }), catch: (cause) => new Cause.UnknownError(cause, `sharp decodes no image at ${file}`) }), ({ data, info: { width, height } }) => {
@@ -59,24 +56,11 @@ it.layer(layer, { excludeTestServices: true })('UxpManifest', (methods) => {
             assert.deepStrictEqual(Result.match(decoded, { onSuccess: () => undefined, onFailure: ({ message }) => (refusal !== undefined && message.includes(refusal) ? refusal : message) }), refusal);
         }),
     );
-
-    methods.effect('fills black on light themes and white on dark themes at the opacity of each host glyph', () =>
-        Effect.sync(() => {
-            assert.deepStrictEqual(
-                [UxpManifest.fills.PS.darkest, UxpManifest.fills.ID.lightest, UxpManifest.fills.aftereffects.medium],
-                [
-                    { mode: 'rgb', r: 1, g: 1, b: 1, alpha: 0.8 },
-                    { mode: 'rgb', r: 0, g: 0, b: 0, alpha: 0.65 },
-                    { mode: 'rgb', r: 1, g: 1, b: 1, alpha: 0.65 },
-                ],
-            );
-        }),
-    );
 });
 
 it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
     methods.effect(
-        'writes the plug-in list icon at 24 and 48 px, the stroked mark filling the 16 px live area, white at Photoshop glyph opacity',
+        'writes the plug-in list icon from the library mark at 24 and 48 px, its strokes on the 16 px live area, white at Photoshop glyph opacity',
         Effect.fnUntraced(function* () {
             const read = yield* built(manifest('PS', [{ width: 24, height: 24, path: 'icons/plugin-dark.png', scale: [1, 2], theme: ['dark', 'darkest'], species: ['pluginList'] }]), []);
             const [single, double] = yield* Effect.all([read('icons/plugin-dark@1x.png'), read('icons/plugin-dark@2x.png')]);
@@ -88,6 +72,22 @@ it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
                     [255, 255, 255, 204],
                     [48, 48],
                     [8, 8, 39, 39],
+                ],
+            );
+        }, Effect.scoped),
+        { timeout: 60_000 },
+    );
+
+    methods.effect(
+        'writes the plug-in list icon from an app mark in place of the library mark, its 20-unit canvas centred at 1 and 2 px per unit',
+        Effect.fnUntraced(function* () {
+            const read = yield* built(manifest('ID', [{ width: 24, height: 24, path: 'icons/plugin-light.png', scale: [1, 2], theme: ['light'], species: ['pluginList'] }]), [], '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><rect x="1" y="3" width="18" height="14"/></svg>');
+            const [single, double] = yield* Effect.all([read('icons/plugin-light@1x.png'), read('icons/plugin-light@2x.png')]);
+            assert.deepStrictEqual(
+                [single.bounds, double.bounds],
+                [
+                    [3, 5, 20, 18],
+                    [6, 10, 41, 37],
                 ],
             );
         }, Effect.scoped),

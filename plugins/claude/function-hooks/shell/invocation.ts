@@ -2,10 +2,10 @@ import { tmpdir } from 'node:os';
 import { Array, Cache, Config, Context, Effect, Layer, Option, Path, Result, String } from 'effect';
 import { KeyValueStore } from 'effect/persistence';
 import { RedirOperator, type Stmt } from 'sh-syntax/sync';
-import { Host, type HostError, KEEP_SUCCESSES, Machine } from '#/host.ts';
-import { type Arguments, NO_USAGE, parseArguments, type Usage, usageOf } from '#/shell/arguments.ts';
-import type { Program } from '#/shell/programs.ts';
-import { type Command, concat, parsed, referenced, type Script, scriptOf, type Word } from '#/shell/script.ts';
+import { Host, type HostError, KEEP_SUCCESSES, Machine } from '#/host';
+import { type Arguments, NO_USAGE, parseArguments, type Usage, usageOf } from '#/shell/arguments';
+import type { Program } from '#/shell/programs';
+import { type Command, concat, parsed, referenced, type Script, scriptOf, type Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

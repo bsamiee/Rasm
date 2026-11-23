@@ -13,7 +13,7 @@ import { ATTR_PROCESS_PID } from '@opentelemetry/semantic-conventions/incubating
 import { Array, Cause, Config, Context, Effect, ErrorReporter, Exit, Formatter, Function, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaTransformation, String, Struct, Tracer, UndefinedOr } from 'effect';
 import envPaths from 'env-paths';
 import { createStream, type FileSize, type Interval, type OptionsWithoutRotate } from 'rotating-file-stream';
-import { errorReporter, exporters, formatLogRecord, layerMinimumLogLevels, layerWithoutDefaultLogger } from '#/otlp.ts';
+import { errorReporter, exporters, formatLogRecord, layerMinimumLogLevels, layerWithoutDefaultLogger } from '#/otlp';
 
 // --- [TABLES] --------------------------------------------------------------------------
 
@@ -43,7 +43,7 @@ const Rotation = Schema.Struct({
     ]),
     maxFiles: Schema.Int.check(Schema.isGreaterThan(0)),
 }) satisfies Schema.Schema<{ readonly size: FileSize; readonly interval: Interval; readonly maxFiles: number }>;
-const ROTATION = { size: '8M', interval: '1d', maxFiles: 7 } as const satisfies typeof Rotation.Type;
+const ROTATION = Rotation.make({ size: '8M', interval: '1d', maxFiles: 7 });
 
 const Level = Schema.String.pipe(Schema.decode(SchemaTransformation.toLowerCase()), Schema.decode(SchemaTransformation.capitalize()), Schema.decodeTo(Schema.Literals(LogLevel.values)));
 const Target = Schema.Literals(['file', 'stderr']);
@@ -216,7 +216,7 @@ const layerNodeFromConfig = Effect.fnUntraced(function* ({
     file: log = join(envPaths(resource.serviceName, { suffix: '' }).log, `${resource.serviceName}.log`),
 }: {
     readonly resource: Parameters<typeof layerNode>[0]['resource'];
-    readonly target: typeof Target.Type;
+    readonly target: 'file' | 'stderr';
     readonly level?: LogLevel.LogLevel;
     readonly file?: string;
 }) {

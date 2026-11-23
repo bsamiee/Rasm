@@ -15,8 +15,8 @@ import { Tool } from 'effect/ai';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 import shim from 'es5-shim?inline';
 import sham from 'es5-shim/es5-sham.js?inline';
-import { Inventory } from '#/applications.ts';
-import { Declarations } from '#/declarations.ts';
+import { Inventory } from '#/applications';
+import { Declarations } from '#/declarations';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

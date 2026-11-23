@@ -1,12 +1,24 @@
 {
     "name": "@rasm/test-portfolio",
     "private": true,
-    "description": "Portfolio suite in Chromium against the Vite development server Nx starts",
+    "description": "Portfolio suite in Chromium against the built Node bundle on an allocated port, each test with its own database and object storage in a temporary folder: the served site and its accessibility, the page a visitor sees at desktop and phone width, sessions and owner endpoints, and the editor from a new entry through save, refused publish, preview, publish, a newer draft, and removal",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        "./rendering": "./rendering.ts",
+        "./served": "./served.ts"
+    },
     "devDependencies": {
+        "@effect/platform-node": "catalog:",
         "@playwright/test": "catalog:",
+        "@rasm/hosting": "workspace:*",
+        "@rasm/object-storage": "workspace:*",
         "@rasm/testing": "workspace:*",
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "miniflare": "catalog:"
     },
     "nx": {
         "implicitDependencies": [

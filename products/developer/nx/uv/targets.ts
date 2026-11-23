@@ -6,7 +6,7 @@ import { aggregated, PLATFORM, runner, type Verbs } from '@rasm/nx-distribution/
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Context, Effect, FileSystem, identity, Layer, Option, pipe, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
-import type { Member } from '#/workspace.ts';
+import type { Member } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

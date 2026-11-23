@@ -7,7 +7,7 @@ import type { TaskResult } from '@nx/devkit/internal';
 import { run } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Equal, Exit, Formatter, Function, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
-import { testMode } from '#/plugin.ts';
+import { testMode } from '#/plugin';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

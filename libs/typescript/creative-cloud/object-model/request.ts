@@ -1,7 +1,7 @@
 import { Unmatched } from '@rasm/search';
 import { Array, Cause, Option, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { HostError, Reference, Specifier } from '#/model.ts';
+import { HostError, Reference, Specifier } from '#/model';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

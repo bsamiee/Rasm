@@ -3,8 +3,8 @@ import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, t
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { anchored, fingerprinted, manifested } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Option, Record, Result, Schema, String } from 'effect';
-import { crateInputs, Options, projectTargets, released } from '#/targets.ts';
-import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, type Reading, resolved, run, workspaces } from '#/workspace.ts';
+import { crateInputs, Options, projectTargets, released } from '#/targets';
+import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, type Reading, resolved, run, workspaces } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -7,7 +7,7 @@ import { Output } from '@rasm/mcp/node';
 import { UxpManifest } from '@rasm/uxp';
 import { Array, Effect, FileSystem, Function, Option, Order, Path, Schema, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Tool } from 'effect/ai';
-import { Inventory } from '#/applications.ts';
+import { Inventory } from '#/applications';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

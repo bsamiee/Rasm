@@ -34,8 +34,8 @@ import indesign, {
     type XmlStory,
 } from 'adobe:indesign';
 import { Array, Cause, Context, Deferred, Effect, Equal, Equivalence, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaAST, Struct } from 'effect';
-import { Value } from '#/value.ts';
-import { Extent, type Search } from '#/views.ts';
+import { Value } from '#/value';
+import { Extent, type Search } from '#/views';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

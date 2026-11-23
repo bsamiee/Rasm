@@ -11,14 +11,16 @@
     },
     "files": [
         "dist/**/*.js",
-        "dist/**/*.d.ts"
+        "dist/**/*.d.ts",
+        "icons/*.svg"
     ],
     "type": "module",
     "sideEffects": [
         "plugin.*"
     ],
     "imports": {
-        "#/*.ts": "./*.ts"
+        "#/*": "./*.ts",
+        "#/*.svg": "./*.svg"
     },
     "exports": {
         ".": "./index.ts",
@@ -29,7 +31,8 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*.ts": "./dist/*.js"
+            "#/*": "./dist/*.js",
+            "#/*.svg": "./*.svg"
         },
         "exports": {
             ".": "./dist/index.js",

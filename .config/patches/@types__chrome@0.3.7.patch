@@ -1,0 +1,28 @@
+diff --git a/index.d.ts b/index.d.ts
+index 2aa9276..25133fc 100644
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -10225,12 +10225,12 @@ declare namespace chrome {
+ 
+         /** Fired when a message is sent from either {@link runtime.sendMessage} or {@link tabs.sendMessage}. */
+         const onMessage: events.Event<
+-            (message: any, sender: MessageSender, sendResponse: (response?: any) => void) => void
++            (message: any, sender: MessageSender, sendResponse: (response?: any) => void) => boolean | Promise<any> | undefined
+         >;
+ 
+         /** Fired when a message is sent from another extension (by {@link runtime.sendMessage}). Cannot be used in a content script. */
+         const onMessageExternal: events.Event<
+-            (message: any, sender: MessageSender, sendResponse: (response?: any) => void) => void
++            (message: any, sender: MessageSender, sendResponse: (response?: any) => void) => boolean | Promise<any> | undefined
+         >;
+ 
+         /** Fired when an app or the device that it runs on needs to be restarted. The app should close all its windows at its earliest convenient time to let the restart to happen. If the app does nothing, a restart will be enforced after a 24-hour grace period has passed. Currently, this event is only fired for Chrome OS kiosk apps. */
+@@ -10256,7 +10256,7 @@ declare namespace chrome {
+          * @since Chrome 115, MV3
+          */
+         const onUserScriptMessage: events.Event<
+-            (message: any, sender: MessageSender, sendResponse: (response?: any) => void) => void
++            (message: any, sender: MessageSender, sendResponse: (response?: any) => void) => boolean | Promise<any> | undefined
+         >;
+     }
+ 

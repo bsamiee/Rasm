@@ -3,8 +3,8 @@ import { assert, it } from '@effect/vitest';
 import { Forward, Ssh } from '@rasm/ssh';
 import { Array, Effect, Exit, Fiber, FileSystem, Path, Schedule, Schema } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { Asked, Reached } from '#/peer.ts';
-import { answered, bounds, callers, connection, greeted, greeting, Master, printed, reached, Sshd, within } from '#/sshd.ts';
+import { Asked, Reached } from '#/peer';
+import { answered, bounds, callers, connection, greeted, greeting, Master, printed, reached, Sshd, within } from '#/sshd';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

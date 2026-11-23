@@ -4,12 +4,10 @@ import { useUppyState } from '@uppy/react';
 import Dashboard from '@uppy/react/dashboard';
 import { Array, Option, Predicate, Result, String, Struct } from 'effect';
 import { useState } from 'react';
-import '@uppy/core/css/style.min.css';
-import '@uppy/dashboard/css/style.min.css';
-import { Destination, nextDestination, pendingUploads, preprocessing, queue, uppy } from '#/editor/uploader.ts';
-import { choiceLayout, entryTitle, format, joinDetails } from '#/media/labels.ts';
-import { Asset, type AssetId, type Assets, uploadLimit } from '#/model/asset.ts';
-import type { Entry, EntryId } from '#/model/portfolio.ts';
+import { Destination, nextDestination, pendingUploads, preprocessing, queue, uppy } from '#/editor/uploader';
+import { choiceLayout, entryTitle, format, joinDetails } from '#/media/labels';
+import { Asset, type AssetId, type Assets, uploadLimit } from '#/model/asset';
+import type { Entry, EntryId } from '#/model/portfolio';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -17,7 +15,7 @@ const key = (value: Destination): string => (Destination.$is('Entry')(value) ? v
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; entries: readonly (typeof Entry.Type)[]; onPlace: (entryId: typeof EntryId.Type, assetId: typeof AssetId.Type) => void }) => {
+const Uploads = ({ assets, entries, onPlace }: { readonly assets: typeof Assets.Service; readonly entries: readonly (typeof Entry.Type)[]; readonly onPlace: (entryId: typeof EntryId.Type, assetId: typeof AssetId.Type) => void }) => {
     const uploader = useAtomValue(uppy);
     useAtomMount(preprocessing);
     const files = Object.values(useAtomValue(queue));
@@ -46,8 +44,8 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                 </MenuButton>
             )}
             {selectedFile !== undefined && (
-                <div className="min-w-0">
-                    <p className="mb-2 hint wrap-anywhere">{selectedFile.name}</p>
+                <div>
+                    <p className="file-name hint">{selectedFile.name}</p>
                     {selectedFile.progress.uploadStarted === null && selectedFile.meta.prepared === undefined && !Object.values(batches).some((batch) => batch.fileIDs.includes(selectedFile.id)) ? (
                         <Choice
                             {...choiceLayout}
@@ -70,8 +68,8 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                     )}
                 </div>
             )}
-            <div className="min-w-0 upload-dashboard">
-                <p className="mb-3 hint">
+            <div className="uploads">
+                <p className="hint">
                     {joinDetails([
                         format.list(
                             Asset.mediaTypes.map((type) => type.slice(type.indexOf('/') + 1).toUpperCase()),
@@ -80,32 +78,30 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                         `Up to ${format.bytes(uploadLimit)} per file`,
                     ])}
                 </p>
-                <div className={files.length > 0 ? 'h-88' : 'h-50'}>
+                <div data-filled={files.length > 0}>
                     <Dashboard disableInformer doneButtonHandler={() => uploader.removeFiles(files.map(Struct.get('id')))} height="100%" proudlyDisplayPoweredByUppy={false} uppy={uploader} width="100%" />
                 </div>
                 {notices
                     .filter(({ isHidden }) => isHidden !== true)
                     .map(({ message, details: detail }) => [message, ...(Predicate.isString(detail) ? [detail] : Object.values(detail ?? {}))].filter(String.isNonEmpty).join(' '))
                     .map((text) => (
-                        <p className="mt-3 hint wrap-anywhere" key={text} role="alert">
+                        <p className="hint" key={text} role="alert">
                             {text}
                         </p>
                     ))}
                 {documents.length > 0 && (
-                    <div className="mt-3">
-                        <MenuButton onAction={({ entryId, assetId }) => onPlace(entryId, assetId)} options={documents}>
-                            Choose uploaded sheets
-                        </MenuButton>
-                    </div>
+                    <MenuButton onAction={({ entryId, assetId }) => onPlace(entryId, assetId)} options={documents}>
+                        Choose uploaded sheets
+                    </MenuButton>
                 )}
-                <p className="mt-3 hint">Images and videos place directly. Choose PDF sheets after upload</p>
-                {pending.length > 0 && <p className="mt-3 hint">Keep tab open until uploads finish. Closing editor is safe</p>}
-                <p className="mt-3 hint">Publishing any sheet makes whole PDF public</p>
-                <details className="mt-3 hint">
-                    <summary className="min-h-11 cursor-pointer content-center">Upload guidance</summary>
+                <p className="hint">Images and videos place directly. Choose PDF sheets after upload</p>
+                {pending.length > 0 && <p className="hint">Keep tab open until uploads finish. Closing editor is safe</p>}
+                <p className="hint">Publishing any sheet makes whole PDF public</p>
+                <details className="hint">
+                    <summary>Upload guidance</summary>
                     <p>File destinations retargets queued files until processing starts</p>
-                    <p className="mt-2">Done clears queue. Uploaded files stay in library</p>
-                    <p className="mt-2">Export CAD and BIM files as PDF or images</p>
+                    <p>Done clears queue. Uploaded files stay in library</p>
+                    <p>Export CAD and BIM files as PDF or images</p>
                 </details>
             </div>
         </>

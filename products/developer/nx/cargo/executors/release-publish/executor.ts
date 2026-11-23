@@ -2,7 +2,7 @@ import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
 import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, Option, Path, Result, Schema, SemVer, String, Struct } from 'effect';
-import { Crate, run } from '#/workspace.ts';
+import { Crate, run } from '#/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

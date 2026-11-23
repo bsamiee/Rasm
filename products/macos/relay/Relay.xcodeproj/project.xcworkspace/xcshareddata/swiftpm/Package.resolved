@@ -105,8 +105,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto.git",
       "state" : {
-        "revision" : "f8fad2f95ad67b45f6340c0960e2396094d67e07",
-        "version" : "5.1.1"
+        "revision" : "3280a5f72874d2f73bf25551bbb64f524c76d834",
+        "version" : "5.1.2"
       }
     },
     {
@@ -222,8 +222,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swift-otel/swift-otel",
       "state" : {
-        "revision" : "f6771f8c6b1c3c08d386638fc5c3015b452136d9",
-        "version" : "1.6.0"
+        "revision" : "c656bfdb7a22e703d1440abded3de5d1cebe36be",
+        "version" : "1.6.1"
+      }
+    },
+    {
+      "identity" : "swift-otel-semantic-conventions",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swift-otel/swift-otel-semantic-conventions.git",
+      "state" : {
+        "revision" : "b364ec4f8fc03dc45c09d32015d8ffd9776c6ea4",
+        "version" : "1.44.0"
       }
     },
     {

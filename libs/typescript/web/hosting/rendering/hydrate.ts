@@ -1,13 +1,12 @@
 import { Effect, Schema } from 'effect';
 import { hydrateRoot } from 'react-dom/client';
-import type { Shell } from '#/rendering/shell.ts';
+import type { Shell } from '#/rendering/shell';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const hydrate = Effect.fnUntraced(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>) {
-    const [root, data] = yield* Effect.all([Effect.fromNullishOr(document.getElementById(shell.root)), Effect.fromNullishOr(document.getElementById(shell.script.id))]);
-    hydrateRoot(root, shell.render(yield* Schema.decodeEffect(shell.script.json)(data.textContent)));
-    data.remove();
+    const { textContent } = yield* Effect.fromNullishOr(document.getElementById(shell.data.id));
+    hydrateRoot(document, shell.page(yield* Schema.decodeEffect(shell.data.json)(textContent), textContent, { lang: document.documentElement.lang }));
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

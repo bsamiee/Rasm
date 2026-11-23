@@ -4,8 +4,8 @@
     "description": "Hooks that correct agent commands",
     "type": "module",
     "imports": {
-        "#/*.ts": "./*.ts",
-        "#/*": "./*"
+        "#/*": "./*.ts",
+        "#/*.json": "./*.json"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",

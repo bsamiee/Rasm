@@ -4,7 +4,7 @@ import { Upstream } from '@rasm/mcp';
 import { Array, Duration, Effect, HashSet, MutableRef, Option, Queue, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol, type McpTest } from 'effect/ai';
 import { FetchHttpClient } from 'effect/http';
-import { echoed, names, PEER, proxied, REVISIONS, SETTLED, settled } from '#/conformance.ts';
+import { echoed, names, PEER, proxied, REVISIONS, SETTLED, settled } from '#/conformance';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

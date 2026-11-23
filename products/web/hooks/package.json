@@ -5,7 +5,7 @@
     "description": "Webhook receiver of the platform: one route per sender, each delivery verified, queued by delivery id, and recorded as telemetry",
     "type": "module",
     "imports": {
-        "#/*.ts": "./*.ts"
+        "#/*": "./*.ts"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",

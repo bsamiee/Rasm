@@ -5,7 +5,7 @@ import { createNodes } from '@rasm/nx-vitest';
 import { refused } from '@rasm/testing/errors';
 import { taskGraph, unaggregated } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
-import { it } from '#/installed.ts';
+import { it } from '#/installed';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

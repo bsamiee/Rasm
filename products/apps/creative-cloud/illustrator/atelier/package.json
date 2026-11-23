@@ -11,15 +11,5 @@
         "@adobe-uxp-types/uxp": "catalog:",
         "@types/node": "catalog:",
         "vite": "catalog:"
-    },
-    "nx": {
-        "targets": {
-            "build--vite": {
-                "inputs": [
-                    "...",
-                    "{workspaceRoot}/products/apps/creative-cloud/multi-app/atelier/icons/mark.svg"
-                ]
-            }
-        }
     }
 }

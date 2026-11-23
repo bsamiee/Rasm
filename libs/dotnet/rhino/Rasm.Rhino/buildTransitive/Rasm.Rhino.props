@@ -1,4 +1,14 @@
 <Project>
+    <PropertyGroup Label="Rhino Icons">
+        <RhinoIconColor>#212529</RhinoIconColor>
+        <RhinoIconDarkColor>#e1e1e1</RhinoIconDarkColor>
+        <RhinoPlugInIconColor>#868e96</RhinoPlugInIconColor>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino Icons">
+        <RhinoIconPart Include="accent" Fill="#339af0" Stroke="#0e3a67" />
+    </ItemGroup>
+
     <ItemGroup Label="Analyzer Options">
         <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)Rasm.Rhino.globalconfig" />
     </ItemGroup>

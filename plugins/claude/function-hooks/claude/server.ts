@@ -6,10 +6,10 @@ import { layerNodeFromConfig, teardown } from '@rasm/telemetry/node';
 import { Array, Cause, Console, Effect, Layer, Schedule, Schema, Stdio } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import manifest from '#/.claude-plugin/plugin.json' with { type: 'json' };
-import { HostError } from '#/host.ts';
-import { decide, Engine } from '#/rules/decide.ts';
-import { Decision, Request } from '#/rules/decision.ts';
-import { recorded, watched } from '#/rules/waits.ts';
+import { HostError } from '#/host';
+import { decide, Engine } from '#/rules/decide';
+import { Decision, Request } from '#/rules/decision';
+import { recorded, watched } from '#/rules/waits';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

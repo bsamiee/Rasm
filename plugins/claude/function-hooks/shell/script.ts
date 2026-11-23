@@ -21,7 +21,7 @@ import {
     type WordPart,
     type Word as WordNode,
 } from 'sh-syntax/sync';
-import { HostError } from '#/host.ts';
+import { HostError } from '#/host';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

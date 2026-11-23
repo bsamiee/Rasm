@@ -5,9 +5,9 @@ import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import { Toml } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
-import { run, Words } from '#/executor.ts';
-import { BUILDER, EXTENSION } from '#/host-packages.ts';
-import { spawned } from '#/inference.ts';
+import { run, Words } from '#/executor';
+import { BUILDER, EXTENSION } from '#/host-packages';
+import { spawned } from '#/inference';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

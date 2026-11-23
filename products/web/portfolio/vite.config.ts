@@ -4,10 +4,9 @@ import { nodeBundle, worker } from '@rasm/hosting/bundle';
 import { siteHead } from '@rasm/hosting/head';
 import { pdfjs } from '@rasm/media/vite';
 import { checks } from '@rasm/vite';
-import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import hosting from '#/hosting.config.ts';
+import hosting from '#/hosting.config';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -16,7 +15,6 @@ export default defineConfig({
     plugins: [
         checks(),
         react({ compiler: { panicThreshold: 'all_errors' } }),
-        tailwindcss(),
         pdfjs(),
         nxReadySignal(),
         siteHead({ stylesheet: 'site/theme.css', fill: '--color-accent', background: '--color-background' }),

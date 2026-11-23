@@ -1,37 +1,33 @@
-@property --hold {
-    syntax: '<number>';
-    inherits: false;
-    initial-value: 0;
-}
-
 :host {
     all: initial !important;
 }
 
 [popover] {
-    color-scheme: light dark;
+    --shade: light-dark(oklch(36.88% 0.0074 240.02deg), oklch(0% 0 0deg));
+    --shadow-key: oklch(from var(--shade) l c h / 0.2);
+    --shadow-ambient: oklch(from var(--shade) l c h / 0.1);
+
     inset-block: 6px auto;
+    box-sizing: border-box;
     max-inline-size: calc(100vi - 8px);
     block-size: 48px;
-    box-sizing: border-box;
-    padding-block: 12px;
     padding-inline: 14px 16px;
     overflow: hidden;
-    border: 0;
-    border-radius: 48px;
-    background: if(media(prefers-contrast: more): CanvasText; else: light-dark(lab(20 0 0), lab(90 0 0)));
-    box-shadow:
-        0 2px 4px light-dark(rgb(60 64 67 / 20%), rgb(0 0 0 / 20%)),
-        0 2px 6px light-dark(rgb(60 64 67 / 10%), rgb(0 0 0 / 10%));
+    font: 400 0.8125em / calc(24 / 13) system-ui;
     color: transparent;
-    font: 400 13px / 24px system-ui;
     white-space: nowrap;
-
     pointer-events: none;
     user-select: none;
+    color-scheme: light dark;
+    background: if(media(prefers-contrast: more): canvastext; else: light-dark(oklch(30.92% 0 0deg), oklch(91.58% 0 0deg)));
+    border: 0;
+    border-radius: 48px;
+    box-shadow:
+        0 2px 4px var(--shadow-key),
+        0 2px 6px var(--shadow-ambient);
     opacity: 0;
-    translate: 0 -50px;
     scale: 1 0.5;
+    translate: 0 -50px;
     transition:
         translate 150ms cubic-bezier(0.3, 0, 0.8, 0.15),
         scale 150ms cubic-bezier(0.3, 0, 0.8, 0.15),
@@ -41,12 +37,12 @@
         overlay 150ms allow-discrete;
 
     &::before {
-        content: '';
         flex: none;
         inline-size: 20px;
         block-size: 20px;
         margin-inline-end: 6px;
-        background: currentColor;
+        content: '';
+        background: currentcolor;
         mask: url('@material-symbols/svg-400/outlined/link.svg') center / contain no-repeat;
     }
 
@@ -54,65 +50,64 @@
         padding-inline-end: 0;
     }
 
-    & span {
+    span {
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
-    & button {
+    button {
         all: unset;
         position: relative;
         flex: none;
         inline-size: 44px;
         block-size: 48px;
-        margin-block: -12px;
         pointer-events: auto;
         cursor: default;
 
         &::before,
         &::after {
-            content: '';
             position: absolute;
-            inset-inline-end: 8px;
             inset-block-start: 8px;
+            inset-inline-end: 8px;
             inline-size: 32px;
             block-size: 32px;
+            content: '';
         }
 
         &::before {
             border-radius: 16px;
-            background: transparent;
             transition: background-color 50ms linear;
         }
 
         &::after {
-            background: currentColor;
-            mask: var(--glyph) center / 20px no-repeat;
-        }
-
-        &:hover::before {
-            background: color-mix(in srgb, currentColor 8%, transparent);
+            background: currentcolor;
+            mask: var(--glyph, none) center / 20px no-repeat;
         }
 
         &:focus-visible::before {
-            background: color-mix(in srgb, currentColor 10%, transparent);
-            outline: 2px solid currentColor;
+            outline: 2px solid currentcolor;
             outline-offset: -1px;
+            background: color-mix(in srgb, currentcolor 10%, transparent);
         }
 
         &:active::before {
-            background: color-mix(in srgb, currentColor 10%, transparent);
+            background: color-mix(in srgb, currentcolor 10%, transparent);
+        }
+
+        @media (hover: hover) {
+            &:hover::before {
+                background: color-mix(in srgb, currentcolor 8%, transparent);
+            }
         }
     }
 
     &:popover-open {
         display: flex;
         align-items: center;
-        color: if(media(prefers-contrast: more): Canvas; else: light-dark(lab(95 0 0), lab(10 0 0)));
+        color: if(media(prefers-contrast: more): canvas; else: light-dark(oklch(96.12% 0 0deg), oklch(23.93% 0 0deg)));
         opacity: 1;
-        translate: none;
         scale: none;
-        animation: hold linear;
+        translate: none;
         transition:
             translate 300ms cubic-bezier(0.05, 0.7, 0.1, 1),
             scale 300ms cubic-bezier(0.05, 0.7, 0.1, 1),
@@ -120,23 +115,34 @@
             opacity 50ms linear,
             display 300ms allow-discrete,
             overlay 300ms allow-discrete;
+        animation: hold 4s linear;
 
-        &:is(:hover, :focus-within) {
+        &:has(button) {
+            animation-duration: 8s;
+        }
+
+        &:focus-within {
             animation-play-state: paused;
+        }
+
+        @media (hover: hover) {
+            &:hover {
+                animation-play-state: paused;
+            }
         }
 
         @starting-style {
             color: transparent;
             opacity: 0;
-            translate: 0 -50px;
             scale: 1 0.5;
+            translate: 0 -50px;
         }
     }
 
     @media (prefers-reduced-motion: reduce) {
         &,
         &:popover-open,
-        & button::before {
+        button::before {
             transition: none;
         }
     }
@@ -144,14 +150,20 @@
     @media (forced-colors: active) {
         border: 1px solid CanvasText;
 
-        & button:is(:hover, :focus-visible)::before {
+        button:focus-visible::before {
+            outline: 2px solid ButtonText;
+        }
+    }
+
+    @media (forced-colors: active) and (hover: hover) {
+        button:hover::before {
             outline: 2px solid ButtonText;
         }
     }
 }
 
 @keyframes hold {
-    to {
+    100% {
         --hold: 1;
     }
 }

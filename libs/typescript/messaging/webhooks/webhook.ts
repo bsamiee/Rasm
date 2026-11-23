@@ -2,7 +2,7 @@ import { Array, DateTime, Duration, Effect, Option, pipe, type Redacted, type Sc
 import { Digest } from 'effect/crypto';
 import { type Headers, HttpClient, type HttpClientError, HttpClientRequest, type HttpClientResponse, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { PersistedQueue } from 'effect/persistence';
-import { Scheme, Stamp, WebhookError } from '#/scheme.ts';
+import { Scheme, Stamp, WebhookError } from '#/scheme';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

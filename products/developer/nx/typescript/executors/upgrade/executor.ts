@@ -11,7 +11,12 @@ import { Composer, CST, Parser, Scalar, YAMLMap } from 'yaml';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SECTIONS = [['catalog'], ['catalogs', '*'], ['workspaces', 'catalog'], ['workspaces', 'catalogs', '*'], ['dependencies'], ['devDependencies'], ['optionalDependencies']] as const;
-const PRUNES = { npm: ['npm', 'cache', 'verify'], pnpm: ['pnpm', 'store', 'prune'], yarn: ['yarn', 'cache', 'clean'], bun: ['bun', 'pm', 'cache', 'rm'] } as const satisfies Record<PackageManager, readonly string[]>;
+const MANAGERS = {
+    npm: { lock: ['install', 'dedupe'], prune: ['cache', 'verify'] },
+    pnpm: { lock: ['dedupe'], prune: ['store', 'prune'] },
+    yarn: { lock: ['install', 'dedupe'], prune: ['cache', 'clean'] },
+    bun: { lock: ['install', 'dedupe'], prune: ['pm', 'cache', 'rm'] },
+} as const satisfies Record<PackageManager, Readonly<Record<'lock' | 'prune', readonly string[]>>>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -29,7 +34,7 @@ const Upgrade = Schema.Struct({
 }).annotate({
     title: 'Upgrade',
     description:
-        "Moves every exact version a catalog or a package manifest of the workspace pins, npm: aliases included, to the newest of the package's undeprecated dist-tag heads, or of the versions an installed package lists for a supported name, among those published at or after the pinned version, ranked by release, then stable before prerelease, then publish time, ranges staying as floors, then installs to move the lockfile, then prunes the package manager's store",
+        "Moves every exact version a catalog or a package manifest of the workspace pins, npm: aliases included, to the newest of the package's undeprecated dist-tag heads, or of the versions an installed package lists for a supported name, among those published at or after the pinned version, ranked by release, then stable before prerelease, then publish time, ranges staying as floors, then installs and deduplicates to move the lockfile, then prunes the package manager's store",
 });
 const Packument = Schema.Struct({ 'dist-tags': Schema.Record(Schema.String, Schema.String), time: Schema.Record(Schema.String, Schema.DateTimeUtcFromString) }).annotate({ description: 'The dist-tags and publish times the registry holds for a package' });
 const Release = Schema.Struct({ version: Schema.String, deprecated: Schema.optionalKey(Schema.String) }).annotate({ description: 'The deprecation message the registry holds for one version, absent where the version stands' });
@@ -154,9 +159,10 @@ const execute = Effect.fnUntraced(function* ({ catalogs, supported, dryRun }: ty
     yield* Effect.forEach(moves, ({ file, name, version, head }) => Effect.logInfo(`${name} ${SemVer.format(version)} -> ${SemVer.format(head.version)} (${head.tag}, published ${DateTime.formatIso(head.at)}) in ${file}`), { discard: true });
     yield* Effect.forEach(failures, (failure) => Effect.logError(failure), { discard: true });
     const manager = detectPackageManager(context.root);
+    const prune = [manager, ...MANAGERS[manager].prune] as const;
     const shell = { cwd: context.root, stdout: 'inherit', stderr: 'inherit' } as const;
     yield* dryRun === true || stated
-        ? Effect.logInfo(`Would run ${CommandLine.display(PRUNES[manager])}`)
+        ? Effect.logInfo(`Would run ${CommandLine.display(prune)}`)
         : Effect.andThen(
               moves.length === 0
                   ? Effect.void
@@ -167,8 +173,8 @@ const execute = Effect.fnUntraced(function* ({ catalogs, supported, dryRun }: ty
                             ({ file, tokens }) => fs.writeFileString(join(context.root, file), tokens.map((token) => CST.stringify(token)).join('')),
                             { discard: true },
                         ),
-                    ).pipe(Effect.andThen(spawned([manager, 'install'], shell))),
-              spawned(PRUNES[manager], shell),
+                    ).pipe(Effect.andThen(Effect.forEach(MANAGERS[manager].lock, (step) => spawned([manager, step], shell), { discard: true }))),
+              spawned(prune, shell),
           );
     return { success: failures.length === 0 };
 }, run);

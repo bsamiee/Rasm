@@ -1,15 +1,17 @@
-import { useAtomSet } from '@effect/atom-react';
-import { focusElement, MenuButton, ModalDialog } from '@rasm/ui';
-import { Array, ByteSize, Function, Optic, Option, Record } from 'effect';
+import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
+import { MenuButton, ModalDialog } from '@rasm/ui';
+import { Array, ByteSize, Optic, Option, Record } from 'effect';
 import { FileText, Film } from 'lucide-react';
-import { useId } from 'react';
+import { useRef } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
-import { deleteRequest, draft, hero } from '#/editor/state.ts';
-import { confirmation, entryTitle, format, joinDetails } from '#/media/labels.ts';
+import { flushSync } from 'react-dom';
+import { chosen, deleteRequest, draft, hero } from '#/editor/state';
+import { confirmation, entryTitle, format, joinDetails } from '#/media/labels';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import { Asset, type AssetId, type Assets } from '#/model/asset.ts';
-import { Placement } from '#/model/placement.ts';
-import { type EntryId, Portfolio } from '#/model/portfolio.ts';
+import { Asset, type AssetId, type Assets } from '#/model/asset';
+import { Placement } from '#/model/placement';
+import { type EntryId, Portfolio } from '#/model/portfolio';
+import { published } from '#/site/state';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -17,56 +19,50 @@ const summary = (asset: typeof Asset.Type) => [format.bytes(ByteSize.bytes(asset
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Library = ({
-    assets,
-    portfolio,
-    published,
-    assetId,
-    onSelect,
-    onPlace,
-}: {
-    assets: typeof Assets.Service;
-    portfolio: typeof Portfolio.Type;
-    published: typeof Portfolio.Type;
-    assetId: Option.Option<typeof AssetId.Type>;
-    onSelect: (id: Option.Option<typeof AssetId.Type>) => void;
-    onPlace: (entryId: typeof EntryId.Type, assetId: typeof AssetId.Type) => void;
-}) => {
-    const idPrefix = useId();
+const Library = ({ assets, portfolio, onPlace }: { readonly assets: typeof Assets.Service; readonly portfolio: typeof Portfolio.Type; readonly onPlace: (entryId: typeof EntryId.Type, assetId: typeof AssetId.Type) => void }) => {
+    const files = useRef<HTMLDivElement>(null);
+    const detail = useRef<HTMLHeadingElement>(null);
+    const [assetId, setAssetId] = useAtom(chosen);
+    const live = useAtomValue(published).portfolio;
     const setDraft = useAtomSet(draft);
+    const choose = (next: Option.Option<typeof AssetId.Type>, target: typeof files | typeof detail) => {
+        flushSync(() => setAssetId(next));
+        target.current?.focus();
+    };
     const remove = useAtomSet(deleteRequest);
     const selected = Option.flatMap(assetId, (id) => Record.get(assets, id));
     return (
-        <section className="min-w-0 border-t border-line pt-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="text-xl tracking-tight">Library</h3>
-                <span className="text-xs text-muted">{format.quantity(Object.keys(assets).length, { one: (count) => `${count} file`, other: (count) => `${count} files` })}</span>
-            </div>
-            <div className="grid min-w-0 gap-6 editor:grid-cols-2">
+        <section className="library">
+            <header>
+                <h3>Library</h3>
+                <span>{format.quantity(Object.keys(assets).length, { one: (count) => `${count} file`, other: (count) => `${count} files` })}</span>
+            </header>
+            <div className="library-layout">
                 <GridList
                     aria-label="Source files"
-                    className="grid grid-cols-2 content-start gap-3 max-editor:data-chosen:hidden"
+                    className="library-files"
                     data-chosen={Option.isSome(selected) || undefined}
-                    id={`${idPrefix}library`}
                     items={Object.values(assets)}
-                    onSelectionChange={(keys) => {
-                        const chosen = Array.findFirst(Record.keys(assets), (id) => keys !== 'all' && keys.has(id));
-                        onSelect(chosen);
-                        Option.match(chosen, { onNone: Function.constVoid, onSome: () => focusElement(`${idPrefix}place`) });
-                    }}
+                    onSelectionChange={(keys) =>
+                        choose(
+                            Array.findFirst(Record.keys(assets), (id) => keys !== 'all' && keys.has(id)),
+                            detail,
+                        )
+                    }
+                    ref={files}
                     selectedKeys={Option.toArray(assetId)}
                     selectionMode="single"
                 >
                     {(asset) => (
-                        <GridListItem className="min-w-0 cursor-pointer border border-line p-3 outline-none focus-visible:outline-2 focus-visible:outline-accent-text selected:border-accent-text" id={asset.id} textValue={asset.name}>
-                            <div className="pointer-events-none grid aspect-4/3 place-items-center bg-background-muted media-h-30">
+                        <GridListItem id={asset.id} textValue={asset.name}>
+                            <div>
                                 {Asset.match(asset, {
-                                    pdf: () => <FileText className="size-6 text-muted" />,
-                                    video: () => <Film className="size-6 text-muted" />,
+                                    pdf: () => <FileText size={24} />,
+                                    video: () => <Film size={24} />,
                                     image: (image) => <MediaFigure active={false} placement={Array.headNonEmpty(Placement.fromAsset(image))} presentation="thumbnail" priority={false} renderMedia />,
                                 })}
                             </div>
-                            <span className="mt-3 block text-sm wrap-anywhere">{asset.name}</span>
+                            <span className="asset-name">{asset.name}</span>
                             <span className="meta-line">{joinDetails(summary(asset))}</span>
                         </GridListItem>
                     )}
@@ -74,24 +70,17 @@ const Library = ({
                 {Option.match(selected, {
                     onNone: () => <p className="hint">Select file to preview or place</p>,
                     onSome: (asset) => {
-                        const uses = Record.keys(Record.filter({ draft: portfolio, 'published work': published }, (document) => Portfolio.assetIds(document).has(asset.id)));
+                        const uses = Record.keys(Record.filter({ draft: portfolio, 'published work': live }, (document) => Portfolio.assetIds(document).has(asset.id)));
                         const placement = Array.headNonEmpty(Placement.fromAsset(asset));
                         return (
-                            <div className="flex min-w-0 flex-col gap-4 editor:border-l editor:border-line editor:pl-6">
-                                <button
-                                    className="button self-start button-ghost"
-                                    onClick={() => {
-                                        onSelect(Option.none());
-                                        focusElement(`${idPrefix}library`);
-                                    }}
-                                    type="button"
-                                >
+                            <div className="library-detail">
+                                <button className="button button-ghost" onClick={() => choose(Option.none(), files)} type="button">
                                     Back to files
                                 </button>
-                                <h4 className="text-lg tracking-tight wrap-anywhere outline-none" id={`${idPrefix}place`} tabIndex={-1}>
+                                <h4 ref={detail} tabIndex={-1}>
                                     {asset.name}
                                 </h4>
-                                <div className="grid place-items-center bg-background-muted p-3 media-h-70">
+                                <div className="library-preview">
                                     <MediaFigure active placement={placement} presentation="expandable" priority={false} renderMedia />
                                 </div>
                                 <div className="actions">
@@ -106,7 +95,7 @@ const Library = ({
                                 </div>
                                 <p className="hint">{joinDetails([...summary(asset), uses.length > 0 ? `Used in ${format.list(uses)}` : undefined])}</p>
                                 <details className="hint">
-                                    <summary className="min-h-11 cursor-pointer content-center">Deletion</summary>
+                                    <summary>Deletion</summary>
                                     {uses.length > 0 && <p>Remove its placements and publish before deleting</p>}
                                     <ModalDialog.Confirm {...confirmation} description="Deletion is permanent" isDisabled={uses.length > 0} label="Delete file" onConfirm={() => remove(asset.id)} />
                                 </details>

@@ -1,21 +1,19 @@
 import { Array, Data, Function, flow, Number, Option, Order, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { Feature, type Font } from 'harfbuzzjs';
 import { Script } from 'icu';
-import { joins } from '#/arabic/joining.ts';
-import { kashidaFlagged, kashidaMechanisms, kashidaPrepared, kashidaRanks } from '#/arabic/kashida.ts';
-import { Direction, Settings } from '#/settings.ts';
-import type { Face } from '#/shaping/face.ts';
-import { ShapedText } from '#/shaping/shaped-text.ts';
-import { baseDirection, letters, words } from '#/shaping/word.ts';
+import { joins } from '#/arabic/joining';
+import { kashidaFlagged, kashidaMechanisms, kashidaPrepared, kashidaRanks } from '#/arabic/kashida';
+import { Direction, Settings } from '#/settings';
+import type { Face } from '#/shaping/face';
+import { ShapedText, type TextRun } from '#/shaping/shaped-text';
+import { baseDirection, letters, words } from '#/shaping/word';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Run = typeof ShapedText.Run.Type;
-type Glyph = ShapedText['glyphs'][number];
 type Line = Array.NonEmptyReadonlyArray<Measured>;
 interface Styled {
     readonly face: Face;
-    readonly run: Run;
+    readonly run: TextRun;
     readonly settings: Settings;
 }
 interface Amounts {
@@ -50,12 +48,12 @@ class Measured extends Data.Class<
         readonly amounts: Amounts;
     }
 > {
-    static readonly of = (styled: Styled, run: Run) => {
+    static readonly of = (styled: Styled, run: TextRun) => {
         const shaped = ShapedText.of(styled.face, run, styled.settings);
         return new Measured({ ...styled, run, shaped, base: bases(styled.face, shaped), scales: new Map(), kashida: 0, alternates: 0, amounts: { words: {}, letter: 0, glyph: 0 } });
     };
 
-    reshaped(run: Run, scales: ReadonlyMap<number, number> = this.scales, font: Font = this.face.font): Measured {
+    reshaped(run: TextRun, scales: ReadonlyMap<number, number> = this.scales, font: Font = this.face.font): Measured {
         const { text, glyphs, missing } = ShapedText.of({ font, em: this.face.em }, run, this.settings);
         const shaped = ShapedText.make({ text, glyphs: glyphs.map((glyph) => UndefinedOr.match(scales.get(glyph.cluster), { onUndefined: () => glyph, onDefined: (scale) => ({ ...rescaled(glyph, scale), xAdvance: glyph.xAdvance * scale }) })), missing });
         return new Measured({ ...this, run, scales, shaped, base: bases(this.face, shaped) });
@@ -126,9 +124,9 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
 
 const summed = flow(Object.values<number>, Math.sumPrecise);
 const alternate = (settings: Settings) => Option.filter(Record.get(settings.features, JUSTIFICATION_ALTERNATES), Number.isGreaterThan(0));
-const rescaled = (glyph: Glyph, ratio: number): Glyph => ({ ...glyph, xOffset: glyph.xOffset * ratio, scale: glyph.scale * ratio, extents: Option.map(glyph.extents, (box) => ({ ...box, xBearing: box.xBearing * ratio, width: box.width * ratio })) });
+const rescaled = (glyph: ShapedText['glyphs'][number], ratio: number): ShapedText['glyphs'][number] => ({ ...glyph, xOffset: glyph.xOffset * ratio, scale: glyph.scale * ratio, extents: Option.map(glyph.extents, (box) => ({ ...box, xBearing: box.xBearing * ratio, width: box.width * ratio })) });
 const isWordSpace = (text: string, cluster: number) => WORD_SPACE.test(text.charAt(cluster));
-const isLetter = (text: string, { class: kind, xAdvance, cluster }: Glyph) => kind !== 'MARK' && xAdvance !== 0 && !SPACE_SEPARATOR.test(text.charAt(cluster));
+const isLetter = (text: string, { class: kind, xAdvance, cluster }: ShapedText['glyphs'][number]) => kind !== 'MARK' && xAdvance !== 0 && !SPACE_SEPARATOR.test(text.charAt(cluster));
 const scriptAt = (placed: ReturnType<typeof letters>, cluster: number) =>
     pipe(
         Array.findLast(placed, ({ offset }) => offset < cluster),

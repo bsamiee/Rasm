@@ -21,6 +21,7 @@
         "no-restricted-globals": [
             "error",
             { "name": "Buffer", "message": "Import `Buffer` from `node:buffer`, so the load graph sees the host module" },
+            { "name": "chrome", "message": "Call extension APIs through `browser`, which Chrome 148 and later define beside `chrome`" },
             { "name": "clearImmediate", "message": "Import `clearImmediate` from `node:timers`, so the load graph sees the host module" },
             { "name": "setImmediate", "message": "Import `setImmediate` from `node:timers`, so the load graph sees the host module" }
         ],
@@ -46,7 +47,21 @@
         "sort-keys": "off", // Members follow domain order, CLAUDE.md file organization
         "import/consistent-type-specifier-style": "off", // Contradicts `typescript/consistent-type-imports` `inline-type-imports`
         "import/default": "off", // Flags Vite `?inline` and UXP `indesign` imports, `tsc` reports TS1192
-        "import/extensions": ["error", "always", { "ignorePackages": true, "checkTypeImports": true, "pathGroupOverrides": [{ "pattern": "#/**", "action": "enforce" }] }],
+        "import/extensions": [
+            "error",
+            "never",
+            {
+                "checkTypeImports": true,
+                "tsx": "always",
+                "json": "always",
+                "css": "always",
+                "svg": "always",
+                "pathGroupOverrides": [
+                    { "pattern": "#/**", "action": "enforce" },
+                    { "pattern": "**", "action": "ignore" }
+                ]
+            }
+        ],
         "import/max-dependencies": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
         "import/no-named-export": "off", // With `import/no-default-export` no export remains
         "import/no-nodejs-modules": "off", // Scoped to browser code, `no-restricted-globals` requires `node:` imports

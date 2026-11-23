@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/test-hosting",
+    "private": true,
+    "description": "Hosting suites: the server-rendered page streams before suspended content settles, with head tags of the built template, metadata in its head, request data, and a per-response script nonce",
+    "type": "module",
+    "devDependencies": {
+        "@rasm/hosting": "workspace:*",
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

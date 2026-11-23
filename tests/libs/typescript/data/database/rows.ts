@@ -3,7 +3,7 @@ import { Catalog, Relation, Rows, Tokenizer } from '@rasm/database';
 import { Array, BigDecimal, DateTime, Effect, Equal, Option, Order, Predicate, Schema, String, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { SqlClient } from 'effect/sql';
-import { accounts, blobs, children, type Client, declared, events, isolated, notes, parents, refused, values, words } from '#/fixtures.ts';
+import { accounts, blobs, children, type Client, declared, events, isolated, notes, parents, refused, values, words } from '#/fixtures';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

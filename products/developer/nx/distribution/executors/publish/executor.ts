@@ -1,8 +1,8 @@
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Effect, Option, Schema, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { credentialed, Dry, dried, forwarded, packaged, released, run, Words } from '#/executor.ts';
-import { spawned } from '#/inference.ts';
+import { credentialed, Dry, dried, forwarded, packaged, released, run, Words } from '#/executor';
+import { spawned } from '#/inference';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

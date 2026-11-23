@@ -1,11 +1,12 @@
 import type { Engine, Rows } from '@rasm/database';
 import type { ObjectStorage } from '@rasm/object-storage';
 import { Config, Effect, Layer, Record, Schema, Struct } from 'effect';
+import { SecureRandom } from 'effect/crypto';
 import { HttpRouter, type HttpServer } from 'effect/http';
 import type { SqlClient, SqlError } from 'effect/sql';
-import { App, type Binding } from '#/app/app.ts';
-import { Enrollment, Identity } from '#/app/identity.ts';
-import { Template } from '#/rendering/template.ts';
+import { App, type Binding } from '#/app/app';
+import { Enrollment, Identity } from '#/app/identity';
+import { Template } from '#/rendering/template';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -20,11 +21,13 @@ type Served =
     | Template
     | Enrollment
     | Identity
+    | SecureRandom.SecureRandom
     | Layer.Success<typeof HttpServer.layerServices>
     | HttpRouter.HttpRouter
     | HttpRouter.Request<'Requires', Template>
     | HttpRouter.Request<'Requires', Enrollment>
     | HttpRouter.Request<'Requires', Identity>
+    | HttpRouter.Request<'Requires', SecureRandom.SecureRandom>
     | HttpRouter.Request<'Error', unknown>
     | HttpRouter.Request<'GlobalError', unknown>;
 
@@ -42,7 +45,7 @@ const Bound = {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const hosted = <const E extends Record.ReadonlyRecord<string, Binding>, A, Err, R>(app: App<E>, runtime: Runtime, routes: Routes<E, A, Err, R>, assets: Parameters<typeof Template.layer>[0]) => {
-    const services = Layer.mergeAll(Template.layer(assets), Enrollment.layer(app.allowed), Identity.layer);
+    const services = Layer.mergeAll(Template.layer(assets), Enrollment.layer(app.allowed), Identity.layer, SecureRandom.layerWebCrypto);
     const resolved = Record.map(app.env, (binding: Binding, variable) =>
         App.Binding.$match(binding, {
             sqlite: () => runtime.sqlite(variable),

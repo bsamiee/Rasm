@@ -3,22 +3,37 @@ import { Match } from 'effect';
 import { useInView } from 'motion/react';
 import { lazy, type RefObject, Suspense, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { placementAlt } from '#/media/labels.ts';
+import { placementAlt } from '#/media/labels';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
-import { assetUrl } from '#/model/api.ts';
-import type { ImageAsset } from '#/model/asset.ts';
-import type { Placement } from '#/model/placement.ts';
+import { assetUrl } from '#/model/api';
+import type { ImageAsset } from '#/model/asset';
+import type { Placement } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const PdfSheet = lazy(() => import('#/media/pdf-sheet.tsx').then((module) => ({ default: module.PdfSheet })));
-const MediaElement = ({ placement, active, priority, presentation, layoutId, viewport }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: 'expandable' | 'expanded' | 'full' | 'preview' | 'thumbnail'; layoutId?: string; viewport?: RefObject<HTMLElement | null> }) => {
+const MediaElement = ({
+    placement,
+    active,
+    priority,
+    presentation,
+    layoutId,
+    viewport,
+}: {
+    readonly placement: typeof Placement.Type;
+    readonly active: boolean;
+    readonly priority: boolean;
+    readonly presentation: 'expandable' | 'expanded' | 'full' | 'preview' | 'thumbnail';
+    readonly layoutId?: string;
+    readonly viewport?: RefObject<HTMLElement | null>;
+}) => {
     const video = useRef<HTMLVideoElement>(null);
     const nearby = useInView(viewport ?? video, { margin: '200px' });
     const visible = useInView(viewport ?? video);
     const [attempt, setAttempt] = useState({ count: 0, failed: false });
     const url = assetUrl(placement.asset);
-    const label = placementAlt(placement);
+    const decorative = presentation === 'thumbnail';
+    const label = decorative ? '' : placementAlt(placement);
     const thumbnail = presentation === 'preview' || presentation === 'thumbnail';
     const expanded = presentation === 'expanded';
     const eager = priority || presentation === 'expandable';
@@ -37,7 +52,7 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
             () => <MediaFailure asset={placement.asset} message={placement.kind === 'video' ? 'Video failed to play' : 'Image failed to load'} onRetry={() => setAttempt(({ count }) => ({ count: count + 1, failed: false }))} />,
         ),
         Match.when({ kind: 'video', poster: (poster: ImageAsset | undefined): poster is ImageAsset => thumbnail && poster !== undefined }, ({ poster, asset: { width, height } }) => (
-            <img alt={label} className="block size-full object-contain" decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={assetUrl(poster)} srcSet={Inspection.sourceSet(poster, (rendition) => assetUrl(poster, rendition))} width={width} />
+            <img alt={label} decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={assetUrl(poster)} srcSet={Inspection.sourceSet(poster, (rendition) => assetUrl(poster, rendition))} width={width} />
         )),
         Match.discriminatorsExhaustive('kind')({
             pdf: (sheet) => (
@@ -48,12 +63,11 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
                 </ErrorBoundary>
             ),
             video: ({ poster, asset: { width, height } }) => (
-                <video aria-label={label} className="block size-full object-contain" controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline poster={poster && assetUrl(poster)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
+                <video {...(decorative ? { 'aria-hidden': true } : { 'aria-label': label })} controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline poster={poster && assetUrl(poster)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
             ),
             image: (image) => (
                 <img
                     alt={label}
-                    className={expanded ? 'block max-w-none' : { contain: 'block size-full object-contain', cover: 'block size-full object-cover object-[var(--media-focus-x)_var(--media-focus-y)]' }[image.role === 'drawing' ? 'contain' : image.framing.mode]}
                     decoding="async"
                     fetchPriority={Match.value({ priority, active }).pipe(
                         Match.when({ priority: true }, () => 'high' as const),

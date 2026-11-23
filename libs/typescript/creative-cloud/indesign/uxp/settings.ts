@@ -3,7 +3,7 @@ import { Digits, type Unmatched } from '@rasm/search';
 import { Settings } from '@rasm/typography';
 import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
 import { Array, type Cause, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
-import { Model, STYLISTIC_SETS } from '#/uxp/model.ts';
+import { Model, STYLISTIC_SETS } from '#/uxp/model';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

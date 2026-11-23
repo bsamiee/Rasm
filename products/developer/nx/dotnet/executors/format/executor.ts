@@ -3,8 +3,8 @@ import type { TaskResult } from '@nx/devkit/internal';
 import { ran } from '@rasm/nx-distribution/inference';
 import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { grouped } from '#/executors/build/executor.ts';
-import { run, streamed } from '#/targets.ts';
+import { grouped } from '#/executors/build/executor';
+import { run, streamed } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -1,16 +1,16 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { Choice, Field, ModalDialog, ReorderableList } from '@rasm/ui';
-import { Array, Optic, Struct } from 'effect';
-import { useState } from 'react';
+import { Array, Optic, Option, Struct } from 'effect';
+import { type Ref, useState } from 'react';
 import { Button } from 'react-aria-components';
-import { draft, portfolio, updateEntry } from '#/editor/state.ts';
-import { Destination, nextDestination, pendingUploads } from '#/editor/uploader.ts';
-import { choiceLayout, confirmation, entryTitle, format, joinDetails, literalOptions } from '#/media/labels.ts';
-import { Entry, type EntryId } from '#/model/portfolio.ts';
+import { draft, entered, portfolio, updateEntry } from '#/editor/state';
+import { Destination, nextDestination, pendingUploads } from '#/editor/uploader';
+import { choiceLayout, confirmation, entryTitle, format, joinDetails, literalOptions } from '#/media/labels';
+import { Entry, type EntryId } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries: readonly (typeof Entry.Type)[]; readonly selected: typeof EntryId.Type | undefined; readonly onSelect: (entry: typeof Entry.Type) => void; readonly onRemove: () => void }) => {
+const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries: readonly (typeof Entry.Type)[]; readonly selected: Option.Option<typeof EntryId.Type>; readonly onSelect: (entry: typeof Entry.Type) => void; readonly onRemove: () => void }) => {
     const setDraft = useAtomSet(draft);
     const setTarget = useAtomSet(nextDestination);
     const pending = useAtomValue(pendingUploads);
@@ -31,10 +31,10 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries
             textValue={entryTitle}
         >
             {(item) => (
-                <div className="flex items-center justify-between gap-4.5 pb-2.5 max-sm:items-start max-sm:gap-2">
-                    <Button aria-pressed={selected === item.id} className="min-w-0 flex-1 text-left text-lg wrap-anywhere aria-pressed:text-accent-text aria-pressed:underline aria-pressed:underline-offset-5" onPress={() => onSelect(item)}>
+                <div className="entry-row">
+                    <Button aria-pressed={Option.contains(selected, item.id)} onPress={() => onSelect(item)}>
                         {entryTitle(item)}
-                        <span className="meta-line no-underline">{format.quantity(item.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
+                        <span className="meta-line">{format.quantity(item.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
                     </Button>
                     <ModalDialog.Confirm {...confirmation} isDisabled={locked(new Set([item.id]))} label="Remove entry" onConfirm={() => remove(new Set([item.id]))} />
                 </div>
@@ -42,32 +42,32 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries
         </ReorderableList>
     );
 };
-const EntryFields = ({ entry, titleId }: { readonly entry: typeof Entry.Type; readonly titleId: string }) => {
-    const [open, setOpen] = useState(entry.title.length === 0);
+const EntryFields = ({ entry, title }: { readonly entry: typeof Entry.Type; readonly title: Ref<HTMLInputElement> }) => {
+    const [open, setOpen] = useState(entry.title === undefined);
     const setDraft = useAtomSet(draft);
-    const update = (fields: Partial<typeof Entry.Type>) => setDraft(updateEntry(entry.id, (current) => ({ ...current, ...fields })));
+    const field = (key: 'title' | 'year' | 'location' | 'description' | 'role' | 'credits') => ({ value: entry[key] ?? '', onChange: (input: string) => setDraft(updateEntry(entry.id, Optic.replace(Optic.id<typeof Entry.Type>().optionalKey(key), entered(input)))) });
     return (
-        <details onToggle={(event) => setOpen(event.currentTarget.open)} open={open}>
-            <summary className="min-h-11 cursor-pointer content-center text-sm">Entry details</summary>
-            <div className="flex flex-col gap-5 py-3">
+        <details className="entry-details" onToggle={(event) => setOpen(event.currentTarget.open)} open={open}>
+            <summary>Entry details</summary>
+            <div>
                 <div className="field-pair">
-                    <Field id={titleId} label="Title" onChange={(title) => update({ title })} value={entry.title} />
-                    <Choice {...choiceLayout} label="Entry type" onChange={({ id }) => update({ kind: id })} options={literalOptions(Entry.fields.kind.literals)} value={entry.kind} />
+                    <Field {...field('title')} control={title} label="Title" />
+                    <Choice {...choiceLayout} label="Entry type" onChange={({ id }) => setDraft(updateEntry(entry.id, Struct.assign({ kind: id })))} options={literalOptions(Entry.fields.kind.literals)} value={entry.kind} />
                 </div>
-                <div className="flex flex-col gap-4.5">
+                <div className="entry-fields">
                     <div className="field-pair">
-                        <Field label="Year" onChange={(year) => update({ year })} value={entry.year} />
-                        <Field label="Location" onChange={(location) => update({ location })} value={entry.location} />
+                        <Field {...field('year')} label="Year" />
+                        <Field {...field('location')} label="Location" />
                     </div>
-                    <Field label="Description" multiline onChange={(description) => update({ description })} value={entry.description} />
+                    <Field {...field('description')} label="Description" multiline />
                     <div className="field-pair">
-                        <Field label="Role" onChange={(role) => update({ role })} value={entry.role} />
-                        <Field label="Credits" onChange={(credits) => update({ credits })} value={entry.credits} />
+                        <Field {...field('role')} label="Role" />
+                        <Field {...field('credits')} label="Credits" />
                     </div>
                 </div>
                 {entry.cover && (
-                    <div className="flex flex-wrap items-center justify-between gap-2.5">
-                        <span className="min-w-0 eyebrow wrap-anywhere">{joinDetails(['Cover', entry.cover.asset.name])}</span>
+                    <div className="entry-cover">
+                        <span className="eyebrow">{joinDetails(['Cover', entry.cover.asset.name])}</span>
                         <button className="button button-ghost" onClick={() => setDraft(updateEntry(entry.id, Struct.omit(['cover'])))} type="button">
                             Clear cover
                         </button>

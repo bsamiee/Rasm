@@ -41,6 +41,7 @@
     "rhino@rasm": true,
     "typescript@rasm": true,
     "chrome@rasm": true,
+    "web@rasm": true,
     "rust@rasm": true,
     "media@rasm": true,
     "cpp@rasm": true,

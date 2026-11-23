@@ -1,8 +1,8 @@
 import { Array, Data, Effect, Option, Record, Schema, Struct } from 'effect';
 import type { Font } from 'fontkit';
 import { type AxisInfo, type Blob, Face } from 'harfbuzzjs';
-import { Names } from '#/shaping/internal/names.ts';
-import type { Tables } from '#/shaping/internal/tables.ts';
+import { Names } from '#/shaping/internal/names';
+import type { Tables } from '#/shaping/internal/tables';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -19,7 +19,7 @@ class Member extends Data.Class<{
     readonly base: Row;
     readonly namedInstances: readonly Row[];
 }> {
-    static readonly of = (blob: Blob, sfnt: Font, instances: (typeof Tables.Type)['fvar']['instance'], index: number) => {
+    static readonly of = (blob: Blob, sfnt: Font, instances: Tables['fvar']['instance'], index: number) => {
         const handle = new Face(blob, index);
         const names = Names.of(handle);
         const axisInfos = Object.values(handle.getAxisInfos());

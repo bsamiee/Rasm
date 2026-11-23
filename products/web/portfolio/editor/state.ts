@@ -1,21 +1,43 @@
-import { Array, Effect, Optic, Record, Schema, Struct } from 'effect';
+import { Array, Data, Effect, Optic, Option, Record, Schema, String, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
-import { AsyncResult, Atom, AtomHttpApi } from 'effect/reactivity';
-import { Api, type Recovery } from '#/model/api.ts';
-import type { AssetId } from '#/model/asset.ts';
-import { type Entry, type EntryId, Portfolio } from '#/model/portfolio.ts';
+import { AsyncResult, Atom, AtomHttpApi, Reactivity } from 'effect/reactivity';
+import { Api, type Recovery } from '#/model/api';
+import type { AssetId } from '#/model/asset';
+import type { CompositionId } from '#/model/placement';
+import { type Entry, type EntryId, Portfolio } from '#/model/portfolio';
+import { preview, revised } from '#/site/state';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Workspace = Data.TaggedEnum<{
+    Entries: { readonly last: Option.Option<typeof EntryId.Type> };
+    Entry: { readonly entry: typeof EntryId.Type; readonly composition: Option.Option<typeof CompositionId.Type> };
+    Place: { readonly entry: typeof EntryId.Type; readonly asset: Option.Option<typeof AssetId.Type> };
+}>;
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const recovery = ['recovery'] as const;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Workspace = Data.taggedEnum<Workspace>();
+const Tab = Schema.Literals(['entries', 'files', 'profile']);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class PortfolioClient extends AtomHttpApi.Service<PortfolioClient>()('@rasm/portfolio/editor/state/PortfolioClient', { api: Api, httpClient: FetchHttpClient.layer }) {}
 const load = PortfolioClient.use((api) => api.documents.draft({})).pipe(Effect.map(({ body, headers }) => ({ ...body, saved: body.portfolio, revision: headers['draft-etag'] })));
 const draftRequest = PortfolioClient.runtime.atom(load);
-const recoveryRequest = PortfolioClient.runtime.atom(PortfolioClient.use((api) => api.assets.recovery({})));
+const recoveryRequest = PortfolioClient.query('assets', 'recovery', { reactivityKeys: recovery });
 const draft = Atom.writable(
     (get) => get(draftRequest),
     (context, value: Atom.Type<typeof draftRequest>) => context.setSelf(value),
     (refresh) => refresh(draftRequest),
 ).pipe(Atom.keepAlive);
+const workspace = Atom.make<Workspace>(Workspace.Entries({ last: Option.none() }));
+const tab = Atom.make<typeof Tab.Type>('entries');
+const chosen = Atom.make(Option.none<typeof AssetId.Type>());
 const saveRequest = PortfolioClient.runtime
     .fn(
         Effect.fnUntraced(function* (submitted: Atom.Success<typeof draft> & { readonly publish: boolean }, get: Atom.FnContext) {
@@ -25,6 +47,10 @@ const saveRequest = PortfolioClient.runtime
                 Effect.mapError((error) => ({ error, portfolio: submitted.portfolio })),
             );
             get.registry.update(draft, loaded.modify(Struct.evolve({ saved: () => submitted.portfolio, revision: () => response.headers['draft-etag'] })));
+            if (submitted.publish) {
+                get.set(revised, Option.some(Struct.pick(submitted, ['portfolio', 'assets'])));
+                get.set(preview, Option.none());
+            }
             return submitted;
         }),
     )
@@ -40,7 +66,7 @@ const reloadRequest = PortfolioClient.runtime
 const deleteRequest = PortfolioClient.runtime
     .fn(
         Effect.fnUntraced(function* (id: typeof AssetId.Type, get: Atom.FnContext) {
-            yield* PortfolioClient.use((api) => api.assets.delete({ params: { id } })).pipe(Effect.tapError(() => Effect.sync(get.refresh.bind(get, recoveryRequest))));
+            yield* PortfolioClient.use((api) => api.assets.delete({ params: { id } })).pipe(Effect.tapError(() => Reactivity.invalidate(recovery)));
             get.registry.update(draft, assets.modify(Record.remove(id)));
         }),
     )
@@ -52,10 +78,11 @@ const discardRequest = PortfolioClient.runtime
             if (upload.status === 'removing') {
                 get.registry.update(draft, assets.modify(Record.remove(upload.id)));
             }
-            get.refresh(recoveryRequest);
         }),
+        { reactivityKeys: recovery },
     )
     .pipe(Atom.keepAlive);
+const busy = Atom.make((get) => get(saveRequest).waiting || get(deleteRequest).waiting || get(reloadRequest).waiting);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -66,7 +93,8 @@ const assets = loaded.key('assets');
 const portfolio = loaded.key('portfolio');
 const hero = portfolio.optionalKey('hero');
 const updateEntry = (id: typeof EntryId.Type, update: (entry: typeof Entry.Type) => typeof Entry.Type) => portfolio.key('entries').modify(Array.map((item) => (item.id === id ? update(item) : item)));
+const entered = (input: string) => Option.getOrUndefined(Option.liftPredicate(input, String.isNonEmpty));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assets, deleteRequest, discardRequest, draft, hero, PortfolioClient, portfolio, recoveryRequest, reloadRequest, saveRequest, updateEntry };
+export { assets, busy, chosen, deleteRequest, discardRequest, draft, entered, hero, PortfolioClient, portfolio, recoveryRequest, reloadRequest, saveRequest, Tab, tab, updateEntry, Workspace, workspace };

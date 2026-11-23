@@ -1,5 +1,5 @@
 import { Array, Data, Effect, Option, Result, Schema } from 'effect';
-import type { Span } from '#/shell/script.ts';
+import type { Span } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

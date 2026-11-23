@@ -9,7 +9,7 @@ import { Declaration } from '@rasm/object-model';
 import { declared, documents, manifest, omv } from '@rasm/object-model/node';
 import { Array, Cause, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Order, Path, Record, Schema, Scope, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema } from 'effect/ai';
-import { Inventory } from '#/applications.ts';
+import { Inventory } from '#/applications';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -2,7 +2,7 @@ import { normalize, posix, relative } from 'node:path';
 import { DependencyType, normalizePath, type RawProjectGraphDependency } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
-import { CHECKERS, declared, PIXI } from '#/targets.ts';
+import { CHECKERS, declared, PIXI } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

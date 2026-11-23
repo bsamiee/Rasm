@@ -2,7 +2,7 @@ import { assert, it } from '@effect/vitest';
 import { Ssh, SshError } from '@rasm/ssh';
 import { Effect, FileSystem, Path, pipe, Record, Schema } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { bounds, printed, reached, reasoned, Sshd, served, within } from '#/sshd.ts';
+import { bounds, printed, reached, reasoned, Sshd, served, within } from '#/sshd';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

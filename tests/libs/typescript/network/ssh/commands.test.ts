@@ -3,7 +3,7 @@ import { assert, it } from '@effect/vitest';
 import { Ssh, SshError } from '@rasm/ssh';
 import { Array, Bytes, Effect, Option, pipe, Schema, Stream, Struct } from 'effect';
 import type { ChildProcess } from 'effect/process';
-import { bounds, reached, reasoned, Sshd } from '#/sshd.ts';
+import { bounds, reached, reasoned, Sshd } from '#/sshd';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

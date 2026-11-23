@@ -6,7 +6,7 @@ import { batch, execute, Test } from '@rasm/nx-vitest/executors/test';
 import { targetOptions, type Workspace } from '@rasm/testing/nx';
 import { Record } from 'effect';
 import { describe, expect, vi } from 'vitest';
-import { it } from '#/installed.ts';
+import { it } from '#/installed';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

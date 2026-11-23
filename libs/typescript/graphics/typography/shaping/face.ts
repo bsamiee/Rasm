@@ -3,20 +3,31 @@ import { Unmatched } from '@rasm/search';
 import { Array, Effect, Equal, Function, flow, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Variation } from 'harfbuzzjs';
-import { TypographyError } from '#/error.ts';
-import { Tag } from '#/settings.ts';
-import { Color } from '#/shaping/internal/color.ts';
-import { Layout } from '#/shaping/internal/layout.ts';
-import { Member } from '#/shaping/internal/member.ts';
-import { Metrics } from '#/shaping/internal/metrics.ts';
-import { Names } from '#/shaping/internal/names.ts';
-import { Tables } from '#/shaping/internal/tables.ts';
-import type { Source } from '#/source.ts';
+import { TypographyError } from '#/error';
+import { Tag } from '#/settings';
+import { Color } from '#/shaping/internal/color';
+import { Layout } from '#/shaping/internal/layout';
+import { Member } from '#/shaping/internal/member';
+import { Metrics } from '#/shaping/internal/metrics';
+import { Names } from '#/shaping/internal/names';
+import { Tables } from '#/shaping/internal/tables';
+import type { Source } from '#/source';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Outlines = Schema.Literals(['glyf', 'CFF ', 'CFF2']);
 const MemberFvars = Schema.Array(Tables.mapFields(Struct.pick(['fvar'])));
+class FaceInstance extends Schema.Opaque<FaceInstance, unknown>()(
+    Schema.Struct({
+        coordinates: Schema.Array(Schema.Finite)
+            .annotate({ description: 'Axis values in fvar order, under variations by tag' })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
+        variations: Schema.Record(Tag, Schema.Finite)
+            .annotate({ description: 'Axis values by tag over selected instance, clamped to axis range, absent axes ignored' })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.succeed({}))),
+        size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+    }),
+) {}
 class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')(
     {
         ...Record.map(Struct.omit(Names.ids, ['prefix']), (ids) => Schema.OptionFromOptionalKey(Schema.String.annotate({ description: `Name ID ${Object.values(ids).join(' else ')}, preferring English` }))),
@@ -48,16 +59,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
     },
     { description: 'Face at one instance, names from named instance matching coordinates, else Adobe Technical Note 5902 postscriptName' },
 ) {
-    static readonly Instance = Schema.Struct({
-        coordinates: Schema.Array(Schema.Finite)
-            .annotate({ description: 'Axis values in fvar order, under variations by tag' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
-        variations: Schema.Record(Tag, Schema.Finite)
-            .annotate({ description: 'Axis values by tag over selected instance, clamped to axis range, absent axes ignored' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.succeed({}))),
-        size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-    });
-    static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: typeof Source.Type, { coordinates, variations, size }: typeof Face.Instance.Type = Face.Instance.make({})) {
+    static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: Source, { coordinates, variations, size }: FaceInstance = FaceInstance.make({})) {
         const container = yield* Effect.try({ try: () => create(Buffer.from(data.buffer, data.byteOffset, data.byteLength)), catch: TypographyError.unreadable(Option.getOrElse(selection, () => 'default face')) });
         const fonts = yield* Match.value(container).pipe(
             Match.whenOr({ type: 'WOFF' }, { type: 'WOFF2' }, ({ type }) => Effect.fail(TypographyError.unsupported(`${type} container`))),
@@ -158,4 +160,4 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Face };
+export { Face, FaceInstance };

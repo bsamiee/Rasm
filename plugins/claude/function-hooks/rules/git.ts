@@ -1,8 +1,8 @@
 import { Array, Effect, Function, Option, Predicate, Result, Struct } from 'effect';
-import type { Host } from '#/host.ts';
-import { all, commandOf, edited, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, refuse, relocated, respell, unresolved, when, whole } from '#/rules/rule.ts';
-import type { Argument } from '#/shell/arguments.ts';
-import type { Invocation } from '#/shell/invocation.ts';
+import type { Host } from '#/host';
+import { all, commandOf, edited, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, refuse, relocated, respell, unresolved, when, whole } from '#/rules/rule';
+import type { Argument } from '#/shell/arguments';
+import type { Invocation } from '#/shell/invocation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

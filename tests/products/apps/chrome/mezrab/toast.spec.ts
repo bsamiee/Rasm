@@ -1,39 +1,90 @@
 import { expect } from '@playwright/test';
 import { Function } from 'effect';
-import { ended, it, STUB, settled, styled } from '#/fixtures.ts';
+import { frozen, held, it, STUB, settled, sought } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REFUSED = { 'permissions-policy': 'web-share=()' } as const;
+const RATE = 20;
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const painted = (element: Element) =>
+    [getComputedStyle(element).backgroundColor, getComputedStyle(element).color].map((tone) => {
+        const context = new OffscreenCanvas(1, 1).getContext('2d');
+        Object.assign(context ?? {}, { fillStyle: tone });
+        context?.fillRect(0, 0, 1, 1);
+        return `#${new Uint8Array(context?.getImageData(0, 0, 1, 1).data.buffer ?? new ArrayBuffer(3), 0, 3).toHex()}`;
+    });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it('shows Link copied as a 48px pill centred 6px below the top, its 20px icon 14px from the start and 6px before 13px system text that ends 16px from the end', async ({ page, open, extension, toast, button }) => {
-    await open('/article', '<p>Article</p>', REFUSED);
+[1, 2].forEach((zoom) =>
+    it(`shows Link copied as Chrome's 48px pill, centred, its text 40px from the start and 16px from the end in 13px/24px type, at ${zoom * 100}% page zoom`, async ({ page, open, extension, toast, button }) => {
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await open(`/size-${zoom}`, '<p>Size</p>', REFUSED);
+        const [tab] = await extension.worker.evaluate(() => browser.tabs.query({ active: true, lastFocusedWindow: true }));
+        await extension.worker.evaluate((id) => browser.tabs.setZoomSettings(id, { scope: 'per-tab' }), tab?.id ?? -1);
+        await extension.worker.evaluate(([id, level]) => browser.tabs.setZoom(id, level), [tab?.id ?? -1, zoom] as const);
+        await expect.poll(() => page.evaluate('devicePixelRatio')).toBe(zoom);
+
+        await extension.act(page);
+
+        await expect(toast).toHaveText('Link copied');
+        expect(await button.count()).toBe(0);
+        const drawn = await toast.evaluate((element) => {
+            const [pill, text, style] = [element.getBoundingClientRect(), document.createRange(), getComputedStyle(element)];
+            text.selectNodeContents(element);
+            const words = text.getBoundingClientRect();
+            return { box: [pill.height, pill.left + pill.width / 2 - innerWidth / 2, words.left - pill.left, pill.right - words.right], type: [style.fontSize, style.lineHeight] };
+        });
+        expect({ ...drawn, box: drawn.box.map((length) => Math.round(length * zoom) + 0) }).toEqual({ box: [48, 0, 40, 16], type: ['13px', '24px'] });
+    }),
+);
+
+(
+    [
+        { setting: 16, size: 13, leading: 24 },
+        { setting: 20, size: 16.25, leading: 30 },
+    ] as const
+).forEach(({ setting, size, leading }) =>
+    it(`sets its type ${size}px/${leading}px at a Chrome font size setting of ${setting}px on a page whose CSS sets every font size to 5px`, async ({ page, context, open, extension, toast }) => {
+        await open(`/type-${setting}`, '<style>:root, * { font-size: 5px !important }</style><p>Type</p>', REFUSED);
+        const session = await context.newCDPSession(page);
+        await session.send('Page.setFontSizes', { fontSizes: { standard: setting } });
+
+        await extension.act(page);
+
+        await expect(toast).toBeVisible();
+        const type = await toast.evaluate((element) => ({ size: Number.parseFloat(getComputedStyle(element).fontSize), leading: Number.parseFloat(getComputedStyle(element).lineHeight) }));
+        expect(type.size).toBeCloseTo(size, 2);
+        expect(type.leading).toBeCloseTo(leading, 2);
+    }),
+);
+
+it("keeps Chrome's 4px from each side of a 120px viewport too narrow for the pill, with the whole share button inside it", async ({ page, open, armed, extension, toast, button }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 120, height: 400 });
+    await open('/narrow', '<p>Narrow</p>');
+    await armed(STUB.offered);
 
     await extension.act(page);
 
-    await expect(toast).toHaveText('Link copied');
-    await expect(button).toHaveCount(0);
-    await settled(toast);
-    const geometry = await toast.evaluate((element) => {
-        const [box, text] = [element.getBoundingClientRect(), document.createRange()];
-        text.selectNodeContents(element);
-        const { left, right } = text.getBoundingClientRect();
-        return { top: box.top, centre: box.left + box.width / 2 - innerWidth / 2, height: box.height, start: left - box.left, end: box.right - right };
+    await expect(button).toBeVisible();
+    const drawn = await toast.evaluate((element) => {
+        const [pill, action] = [element.getBoundingClientRect(), element.querySelector('button')?.getBoundingClientRect()];
+        return { start: pill.left, end: innerWidth - pill.right, cut: Math.max(0, (action?.right ?? Number.NaN) - pill.right) };
     });
-    expect(geometry).toEqual({ top: 6, centre: expect.closeTo(0, 0), height: 48, start: expect.closeTo(40, 0), end: expect.closeTo(16, 0) });
-    expect(await styled(toast)).toMatchObject({ font: ['system-ui', '13px', '400', '24px'] });
-    expect(await styled(toast, '::before')).toMatchObject({ width: '20px', height: '20px' });
+    expect(drawn).toEqual({ start: 4, end: 4, cut: 0 });
 });
 
 (
     [
-        { scheme: 'light', background: 'lab(20 0 0)', color: 'lab(95 0 0)' },
-        { scheme: 'dark', background: 'lab(90 0 0)', color: 'lab(10 0 0)' },
+        { scheme: 'light', background: '#303030', color: '#f2f2f2' },
+        { scheme: 'dark', background: '#e3e3e3', color: '#1f1f1f' },
     ] as const
 ).forEach(({ scheme, background, color }) =>
-    it(`paints Chrome's neutral inverse surface ${background} under text ${color} in the ${scheme} colour scheme`, async ({ page, open, extension, toast }) => {
+    it(`paints Chrome's neutral ${background} under text ${color} in the ${scheme} colour scheme`, async ({ page, open, extension, toast }) => {
         await page.emulateMedia({ colorScheme: scheme });
         await open(`/${scheme}`, '<p>Scheme</p>');
 
@@ -41,124 +92,123 @@ it('shows Link copied as a 48px pill centred 6px below the top, its 20px icon 14
 
         await expect(toast).toBeVisible();
         await settled(toast);
-        expect(await styled(toast)).toMatchObject({ background, color, border: ['0px', 'none'] });
+        expect(await toast.evaluate(painted)).toEqual([background, color]);
     }),
 );
 
-(
-    [
-        { scheme: 'light', background: 'rgb(0, 0, 0)', color: 'rgb(255, 255, 255)' },
-        { scheme: 'dark', background: 'rgb(255, 255, 255)', color: 'rgb(18, 18, 18)' },
-    ] as const
-).forEach(({ scheme, background, color }) =>
-    it(`paints CanvasText ${background} under Canvas ${color} text under prefers-contrast more in the ${scheme} colour scheme`, async ({ page, open, extension, toast }) => {
-        await page.emulateMedia({ colorScheme: scheme, contrast: 'more' });
-        await open(`/contrast-${scheme}`, '<p>Contrast</p>');
+it('paints the CanvasText system colour under Canvas text under prefers-contrast more', async ({ page, open, extension, toast }) => {
+    await page.emulateMedia({ contrast: 'more' });
+    await open('/contrast', '<p style="color: CanvasText; background-color: Canvas">System</p>');
+    const system = await page.getByText('System').evaluate((element) => [getComputedStyle(element).color, getComputedStyle(element).backgroundColor] as const);
 
-        await extension.act(page);
+    await extension.act(page);
 
-        await expect(toast).toBeVisible();
-        await settled(toast);
-        expect(await styled(toast)).toMatchObject({ background, color });
-    }),
-);
+    await expect(toast).toHaveCSS('background-color', system[0]);
+    await expect(toast).toHaveCSS('color', system[1]);
+});
 
-it('draws a 1px solid border under forced colours', async ({ page, open, extension, toast }) => {
-    await page.emulateMedia({ forcedColors: 'active' });
+it('draws a solid border under forced colours and none without them', async ({ page, open, extension, toast }) => {
     await open('/forced', '<p>Forced</p>');
-
     await extension.act(page);
+    await expect(toast).toHaveCSS('border-block-start-style', 'none');
 
-    await expect(toast).toBeVisible();
-    expect(await styled(toast)).toMatchObject({ border: ['1px', 'solid'] });
+    await page.emulateMedia({ forcedColors: 'active' });
+
+    await expect(toast).toHaveCSS('border-block-start-style', 'solid');
 });
 
-it("enters over 300ms and leaves over 150ms on Chrome's emphasized curves", async ({ page, open, extension, lifecycle }) => {
+it("enters over 300ms and leaves over 150ms on Chrome's toast curves", async ({ page, context, open, extension }) => {
     await open('/motion', '<p>Motion</p>', REFUSED);
-    const watching = await lifecycle();
-
-    await extension.act(page);
-
-    const { entry, exit } = await ended(watching);
-    expect(entry).toEqual(
-        expect.arrayContaining([
-            { property: 'translate', duration: 300, delay: 0, easing: 'cubic-bezier(0.05, 0.7, 0.1, 1)' },
-            { property: 'scale', duration: 300, delay: 0, easing: 'cubic-bezier(0.05, 0.7, 0.1, 1)' },
-        ]),
-    );
-    expect(exit).toEqual(
-        expect.arrayContaining([
-            { property: 'translate', duration: 150, delay: 0, easing: 'cubic-bezier(0.3, 0, 0.8, 0.15)' },
-            { property: 'scale', duration: 150, delay: 0, easing: 'cubic-bezier(0.3, 0, 0.8, 0.15)' },
-        ]),
-    );
-});
-
-(
-    [
-        { offer: 'without the share button', stub: STUB.refused, buttons: 0, hold: 4000 },
-        { offer: 'with the share button', stub: STUB.offered, buttons: 1, hold: 8000 },
-    ] as const
-).forEach(({ offer, stub, buttons, hold }) =>
-    it(`closes ${hold}ms after it opens ${offer}`, async ({ page, open, armed, extension, button, lifecycle }) => {
-        await open('/held', '<p>Held</p>');
-        await armed(stub);
-        const watching = await lifecycle();
-
-        await extension.act(page);
-
-        await expect(button).toHaveCount(buttons);
-        const { opened, closed } = await ended(watching);
-        expect(closed - opened).toBeGreaterThanOrEqual(hold - 50);
-        expect(closed - opened).toBeLessThanOrEqual(hold + 250);
-    }),
-);
-
-it('runs no transition on entry or exit under prefers-reduced-motion', async ({ page, open, extension, lifecycle }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await open('/still', '<p>Still</p>', REFUSED);
-    const watching = await lifecycle();
-
-    await extension.act(page);
-
-    const { entry, exit } = await ended(watching);
-    expect({ entry, exit }).toEqual({ entry: [], exit: [] });
-});
-
-it('announces Link copied through ariaNotify on each action', async ({ page, open, extension, isolated }) => {
-    await open('/announced', '<p>Announced</p>');
-    await isolated('globalThis.notified = []; document.ariaNotify = (...given) => globalThis.notified.push(given);');
-
-    await extension.act(page);
-
-    await expect.poll(() => extension.evaluate(page, 'globalThis.notified')).toEqual([['Link copied']]);
-});
-
-it('keeps one toast and restarts its 4s hold when a second action 2s later finds it showing', async ({ page, open, extension, toast, lifecycle }) => {
-    await open('/twice', '<p>Twice</p>', REFUSED);
-    const watching = await lifecycle();
-    await extension.act(page);
-    await expect(toast).toBeVisible();
-    await page.waitForTimeout(2000);
+    const session = await context.newCDPSession(page);
+    const moved: string[] = [];
+    session.on('Animation.animationStarted', ({ animation: { type, name, source } }) => {
+        moved.push(...(type === 'CSSTransition' && (name === 'translate' || name === 'scale') ? [`${name} ${source?.duration} ${source?.easing}`] : []));
+    });
+    await session.send('Animation.enable');
+    await session.send('Animation.setPlaybackRate', { playbackRate: RATE });
 
     await extension.act(page);
 
     await expect(page.locator('mezrab-toast')).toHaveCount(1);
-    const { opened, closed } = await ended(watching);
-    expect(closed - opened).toBeGreaterThanOrEqual(6000 - 50);
-    expect(closed - opened).toBeLessThanOrEqual(6000 + 500);
+    await expect(page.locator('mezrab-toast')).toHaveCount(0);
+    expect(moved.toSorted()).toEqual(['scale 150 cubic-bezier(0.3, 0, 0.8, 0.15)', 'scale 300 cubic-bezier(0.05, 0.7, 0.1, 1)', 'translate 150 cubic-bezier(0.3, 0, 0.8, 0.15)', 'translate 300 cubic-bezier(0.05, 0.7, 0.1, 1)']);
 });
 
-it('cancels page zoom, keeping 48 device-independent pixels of height at 200% zoom', async ({ page, open, extension, toast }) => {
-    await open('/zoomed', '<p>Zoomed</p>');
-    await extension.worker.evaluate(() => chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([tab]) => chrome.tabs.setZoom(tab?.id ?? chrome.tabs.TAB_ID_NONE, 2)));
-    await expect.poll(() => page.evaluate(() => devicePixelRatio)).toBe(2);
+it('runs no transition under prefers-reduced-motion and still leaves the page when its hold ends', async ({ page, context, open, extension, toast }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open('/still', '<p>Still</p>', REFUSED);
+    const session = await context.newCDPSession(page);
+    const moved: string[] = [];
+    session.on('Animation.animationStarted', ({ animation: { type, name } }) => {
+        moved.push(...(type === 'CSSTransition' ? [name] : []));
+    });
+    await session.send('Animation.enable');
+    await extension.act(page);
+    await expect(toast).toBeVisible();
+
+    await sought(toast, 4000);
+
+    await expect(page.locator('mezrab-toast')).toHaveCount(0);
+    expect(moved).toEqual([]);
+});
+
+(
+    [
+        { offer: 'without the share button', stub: STUB.refused, hold: 4000 },
+        { offer: 'with the share button', stub: STUB.offered, hold: 8000 },
+    ] as const
+).forEach(({ offer, stub, hold }) =>
+    it(`stays open through ${hold - 1}ms of its hold and leaves the page at ${hold}ms ${offer}`, async ({ page, open, armed, extension, toast }) => {
+        await open(`/held-${hold}`, '<p>Held</p>');
+        await armed(stub);
+        await extension.act(page);
+        await expect(toast).toBeVisible();
+        await frozen(toast);
+
+        await sought(toast, hold - 1);
+        const before = await toast.evaluate((element) => element.matches(':popover-open'));
+        await sought(toast, hold);
+
+        await expect(page.locator('mezrab-toast')).toHaveCount(0);
+        expect(before).toBe(true);
+    }),
+);
+
+it('leaves the page when Chrome cancels its exit motion', async ({ page, context, open, extension, toast }) => {
+    await open('/cancelled', '<p>Cancelled</p>', REFUSED);
+    await extension.act(page);
+    await expect(toast).toBeVisible();
+    await settled(toast);
+    const session = await context.newCDPSession(page);
+    await session.send('Animation.setPlaybackRate', { playbackRate: 1 / RATE });
+    await sought(toast, 4000);
+    await expect.poll(() => toast.evaluate((element) => element.matches(':popover-open'))).toBe(false);
+    await expect(page.locator('mezrab-toast')).toHaveCount(1);
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+
+    await expect(page.locator('mezrab-toast')).toHaveCount(0, { timeout: 1000 });
+});
+
+it('keeps one toast and restarts its hold when a second action finds it 2000ms into the hold', async ({ page, open, extension, toast }) => {
+    await open('/twice', '<p>Twice</p>', REFUSED);
+    await extension.act(page);
+    await expect(toast).toBeVisible();
+    await sought(toast, 2000);
 
     await extension.act(page);
 
-    await expect(toast).toBeVisible();
-    await settled(toast);
-    expect(await toast.evaluate((element) => [element.getBoundingClientRect().height * devicePixelRatio, element.getBoundingClientRect().top * devicePixelRatio])).toEqual([48, 6]);
+    await expect.poll(() => held(toast).then(([hold]) => (hold?.at ?? Number.NaN) < 1000)).toBe(true);
+    await expect(page.locator('mezrab-toast')).toHaveCount(1);
+});
+
+it('announces Link copied from the toast on each action', async ({ page, open, extension, isolated }) => {
+    await open('/announced', '<p>Announced</p>');
+    await isolated("globalThis.notified = []; Document.prototype.ariaNotify = Element.prototype.ariaNotify = function (text) { globalThis.notified.push([this instanceof Element ? this.role ?? this.localName : 'document', text]); };");
+
+    await extension.act(page);
+
+    await expect.poll(() => extension.evaluate(page, 'globalThis.notified')).toEqual([['output', 'Link copied']]);
 });
 
 it('stays visible in its own case under page CSS that unsets every element and hides and uppercases the root', async ({ page, open, extension, toast }) => {
@@ -168,6 +218,18 @@ it('stays visible in its own case under page CSS that unsets every element and h
 
     await expect(toast).toBeVisible();
     await expect(toast).toHaveText('Link copied', { useInnerText: true });
+});
+
+it('passes a click on its pill to the page beneath', async ({ page, open, extension, toast }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open('/through', '<button style="position: fixed; inset: 0 0 auto; block-size: 96px" onclick="this.dataset.hits = Number(this.dataset.hits ?? 0) + 1">Under</button>', REFUSED);
+    await extension.act(page);
+    await expect(toast).toBeVisible();
+    const [x, y] = await toast.evaluate((element) => [element.getBoundingClientRect().left + element.getBoundingClientRect().width / 2, element.getBoundingClientRect().top + element.getBoundingClientRect().height / 2] as const);
+
+    await page.mouse.click(x, y);
+
+    await expect(page.getByRole('button', { name: 'Under' })).toHaveAttribute('data-hits', '1');
 });
 
 it('shows on a page that painted and still parses behind a script that has not loaded', async ({ page, context, extension, toast }) => {

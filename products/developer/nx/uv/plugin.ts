@@ -3,8 +3,8 @@ import { type CreateDependencies, type CreateNodes, type CreateNodesContext, cre
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { fingerprinted, manifested, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Option, Record, Schema } from 'effect';
-import { ancestors, CONFIGS, documents, Linked, Options, PLUGIN, run, targets } from '#/targets.ts';
-import { folders, LOCK, located, MANIFEST, Metadata, report, SCHEMA } from '#/workspace.ts';
+import { ancestors, CONFIGS, documents, Linked, Options, PLUGIN, run, targets } from '#/targets';
+import { folders, LOCK, located, MANIFEST, Metadata, report, SCHEMA } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

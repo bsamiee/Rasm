@@ -3,7 +3,7 @@ import { Link, Server, Upstream } from '@rasm/mcp';
 import { Array, Effect, Function, Layer, Number, Option, Queue, Ref, Schema, Stream, Struct } from 'effect';
 import { McpProtocol, Tool, Toolkit } from 'effect/ai';
 import { RpcTest } from 'effect/rpc';
-import { connected, names, settled } from '#/conformance.ts';
+import { connected, names, settled } from '#/conformance';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

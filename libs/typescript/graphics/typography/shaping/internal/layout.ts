@@ -1,11 +1,11 @@
 import { Array, Effect, Function, Option, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { type Face, Feature, type FeatureNameIds } from 'harfbuzzjs';
-import { TypographyError } from '#/error.ts';
-import type { Settings } from '#/settings.ts';
-import type { Member } from '#/shaping/internal/member.ts';
-import type { Names } from '#/shaping/internal/names.ts';
-import { Lookup, type Tables } from '#/shaping/internal/tables.ts';
-import type { ShapedText } from '#/shaping/shaped-text.ts';
+import { TypographyError } from '#/error';
+import type { SettingsPatch } from '#/settings';
+import type { Member } from '#/shaping/internal/member';
+import type { Names } from '#/shaping/internal/names';
+import { Lookup, type Tables } from '#/shaping/internal/tables';
+import type { ShapedText } from '#/shaping/shaped-text';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -37,11 +37,11 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
         .annotate({ description: 'GSUB coverage and alternates of aalt, salt, jalt, cvNN and ssNN by tag' }),
 }) {
     static readonly Choice = Schema.Struct({ cluster: Schema.Int, glyph: Schema.Int, feature: Schema.String }).annotate({ description: 'Alternate glyph of one shaped cluster, feature selecting it in run features' });
-    static readonly of = Effect.fn('Layout.of')(function* ({ handle, sfnt, names }: Pick<Member, 'handle' | 'sfnt' | 'names'>, tables: typeof Tables.Type) {
+    static readonly of = Effect.fn('Layout.of')(function* ({ handle, sfnt, names }: Pick<Member, 'handle' | 'sfnt' | 'names'>, tables: Tables) {
         const records = yield* Effect.try({ try: () => featureRecords(handle, names), catch: TypographyError.unreadable('GSUB FeatureParams') });
         const substituting = records.filter(({ table, tag }) => table === 'GSUB' && (tag === 'jalt' || CHOOSABLE.test(tag) || STYLISTIC.test(tag)));
         const indexes = Array.dedupe(substituting.flatMap(Struct.get('lookups')));
-        const decoded = yield* Option.match(tables.GSUB, { onNone: () => Effect.succeed(Array.empty<typeof Lookup.Type>()), onSome: ({ lookupList }) => Effect.forEach(indexes, (index) => Schema.decodeUnknownEffect(Lookup)(lookupList.get(index))) });
+        const decoded = yield* Effect.forEach(Option.match(tables.GSUB, { onNone: () => [], onSome: ({ lookupList }) => indexes.map((index) => lookupList.get(index)) }), (table) => Schema.decodeUnknownEffect(Lookup)(table));
         const subtables = new Map(Array.zip(indexes, decoded.map(Struct.get('subTables'))));
         const substitutions = new Map(Record.collect(Array.groupBy(substituting, Struct.get('tag')), (tag, rows) => [tag, substitutionOf(rows.flatMap(Struct.get('lookups')), subtables)] as const));
         const unlabeled = { ...Record.map(LABELS, () => Option.none<string>()), parameters: Array.empty<string>(), characters: Array.empty<string>() };
@@ -57,7 +57,7 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
         });
     });
 
-    choices({ glyphs }: ShapedText): readonly (typeof Layout.Choice.Type)[] {
+    choices({ glyphs }: ShapedText) {
         const choosable = Array.fromIterable(this.substitutions.keys()).filter((tag) => CHOOSABLE.test(tag));
         return Array.cartesian(glyphs, choosable).flatMap(([{ glyph, cluster }, tag]) => this.variants(tag, glyph).map((alternate, index) => ({ cluster, glyph: alternate, feature: new Feature(tag, index + 1, cluster, cluster + 1).toString() })));
     }
@@ -67,7 +67,7 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
     variants(tag: string, glyph: number): readonly number[] {
         return this.substitutions.get(tag)?.alternates.get(glyph) ?? [];
     }
-    exclusive(features: NonNullable<(typeof Settings.Partial.Type)['features']>) {
+    exclusive(features: NonNullable<SettingsPatch['features']>) {
         const rivals = Record.fromIterableWith(this.features, ({ tag, rivals: unset }) => [tag, unset] as const);
         return Record.fromEntries(Record.toEntries(features).flatMap(([tag, value]) => [...(value !== null && value > 0 ? Option.getOrElse(Record.get(rivals, tag), Array.empty<string>).map((rival) => [rival, null] as const) : []), [tag, value] as const]));
     }
@@ -79,7 +79,7 @@ const featureRecords = (handle: Face, names: Names) => {
     const gsub = Option.map(Option.fromUndefinedOr(handle.referenceTable('GSUB')), (bytes) => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength));
     return LayoutTable.literals.flatMap((table) => handle.getTableFeatureTags(table).map((tag, at) => featureRecord(handle, names, gsub, { table, tag, at })));
 };
-const featureRecord = (handle: Face, names: Names, gsub: Option.Option<DataView>, { table, tag, at }: { readonly table: typeof LayoutTable.Type; readonly tag: string; readonly at: number }) => ({
+const featureRecord = (handle: Face, names: Names, gsub: Option.Option<DataView>, { table, tag, at }: { readonly table: Layout['languageSystems'][number]['table']; readonly tag: string; readonly at: number }) => ({
     table,
     tag,
     lookups: handle.getFeatureLookups(table, at),
@@ -102,11 +102,11 @@ const charactersAt = (gsub: DataView, featureIndex: number): readonly string[] =
               return String.fromCodePoint(gsub.getUint16(at) * byteValues + gsub.getUint8(at + uint24 - 1));
           });
 };
-const substitutionOf = (lookups: readonly number[], subtables: ReadonlyMap<number, (typeof Lookup.Type)['subTables']>): typeof Substitution.Type => {
+const substitutionOf = (lookups: readonly number[], subtables: ReadonlyMap<number, Lookup['subTables']>) => {
     const read = lookups.flatMap((index) => subtables.get(index) ?? []);
     return { coverage: new Set(read.flatMap(Struct.get('coverage'))), alternates: new Map(read.flatMap(({ coverage, alternates }) => Array.zip(coverage, alternates)).toReversed()) };
 };
-const rivalsOf = (substitutions: ReadonlyMap<string, typeof Substitution.Type>, tags: readonly string[], tag: string) =>
+const rivalsOf = (substitutions: Layout['substitutions'], tags: readonly string[], tag: string) =>
     tags.filter(
         (other) =>
             other !== tag &&

@@ -1,6 +1,6 @@
 import { Digits } from '@rasm/search';
 import { Effect, Option, Predicate, Record, Schema, SchemaTransformation, String, Struct } from 'effect';
-import { Elongation } from '#/arabic/elongation.ts';
+import { Elongation } from '#/arabic/elongation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -82,17 +82,7 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
     },
     { description: 'Typesetting of one paragraph or run' },
 ) {
-    static readonly Partial = Settings.mapFields((fields) =>
-        Struct.map(Schema.optionalKey)({
-            ...fields,
-            direction: Schema.OptionFromNullOr(Direction),
-            numberingSystem: Schema.OptionFromNullOr(Digits.System),
-            ...Record.map({ leading: Leading, justification: Ranks, marks: Marks }, (section) => Schema.Struct(Struct.map(section.fields, Schema.optionalKey))),
-            features: Schema.Record(Tag, Schema.NullOr(Feature)),
-            spacing: Schema.Struct(Record.map(Spacing.fields, (range) => Schema.optionalKey(Schema.Struct(Struct.map(range.schema.fields, Schema.optionalKey))))),
-        }),
-    ).annotate({ description: 'Absent keys, section fields, spacing bounds and feature tags stay unchanged, null unsets direction, numbering system or a feature tag' });
-    static readonly merge = (settings: Settings, change: typeof Settings.Partial.Type) =>
+    static readonly merge = (settings: Settings, change: SettingsPatch) =>
         Settings.makeEffect({
             ...settings,
             ...Struct.evolve(change, {
@@ -107,7 +97,7 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
     digits(text: string) {
         return Option.match(this.numberingSystem, { onNone: () => text, onSome: (digits) => digits.format(text) });
     }
-    lineAlignment(line: { readonly last: boolean; readonly single: boolean }): typeof LineAlignment.Type {
+    lineAlignment(line: { readonly last: boolean; readonly single: boolean }) {
         return Alignment.match(this.alignment, {
             Aligned: Struct.get('side'),
             Justified: ({ last, single }) => {
@@ -120,7 +110,19 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
         return Height.match(this.leading.height, { Auto: ({ ratio }) => size * ratio, Fixed: Struct.get('em'), Extents: ({ ratio }) => (extents.descent + extents.ascent) * ratio });
     }
 }
+class SettingsPatch extends Schema.Opaque<SettingsPatch, unknown>()(
+    Settings.mapFields((fields) =>
+        Struct.map(Schema.optionalKey)({
+            ...fields,
+            direction: Schema.OptionFromNullOr(Direction),
+            numberingSystem: Schema.OptionFromNullOr(Digits.System),
+            ...Record.map({ leading: Leading, justification: Ranks, marks: Marks }, (section) => Schema.Struct(Struct.map(section.fields, Schema.optionalKey))),
+            features: Schema.Record(Tag, Schema.NullOr(Feature)),
+            spacing: Schema.Struct(Record.map(Spacing.fields, (range) => Schema.optionalKey(Schema.Struct(Struct.map(range.schema.fields, Schema.optionalKey))))),
+        }),
+    ).annotate({ description: 'Absent keys, section fields, spacing bounds and feature tags stay unchanged, null unsets direction, numbering system or a feature tag' }),
+) {}
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Direction, Settings, Tag };
+export { Direction, Settings, SettingsPatch, Tag };

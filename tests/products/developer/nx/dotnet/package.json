@@ -4,7 +4,7 @@
     "description": "@rasm/nx-dotnet suites: the project graph, targets, cache, and refusals Nx reads from the plugin over temporary workspaces, against MsbuildAnalyzer and a stub of its report, and the build executor over real MSBuild runs",
     "type": "module",
     "imports": {
-        "#/*.ts": "./*.ts"
+        "#/*": "./*.ts"
     },
     "devDependencies": {
         "@nx/devkit": "catalog:",

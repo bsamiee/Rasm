@@ -1,122 +1,196 @@
-import { Array, Function, Option, Schema } from 'effect';
-import { type RefObject, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from 'react';
-import { CompositionId } from '#/model/placement.ts';
-import { type Entry, EntryId, type Portfolio } from '#/model/portfolio.ts';
+import { Array, Data, Effect, Equal, Function, Option, Queue, Schema, Stream, Struct } from 'effect';
+import { Atom, type AtomRegistry } from 'effect/reactivity';
+import { CompositionId } from '#/model/placement';
+import { type Entry, EntryId } from '#/model/portfolio';
+import { editor, shown } from '#/site/state';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Place = Data.TaggedEnum<{ Anchor: { readonly id: typeof Anchor.Type }; Project: typeof Position.Type }>;
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const silent = { scroll: 'manual', focusReset: 'manual' } as const satisfies NavigationInterceptOptions;
+const instant = { behavior: 'instant' } as const satisfies ScrollIntoViewOptions;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Params = Schema.fromURLSearchParams(Schema.Struct({ project: EntryId, composition: Schema.optional(CompositionId) }));
-const UrlFragment = Object.assign((project: typeof EntryId.Type, composition?: typeof CompositionId.Type) => Option.match(Schema.encodeOption(Params)({ project, composition }), { onNone: () => UrlFragment.work, onSome: (params) => `#${params}` }), {
-    top: '#top',
-    work: '#work',
-    read: (hash: string) => Schema.decodeOption(Params)(new URLSearchParams(hash.slice(1))),
-} as const);
+const Anchor = Schema.Literals(['top', 'work']);
+const Position = Schema.fromURLSearchParams(Schema.Struct({ project: EntryId, composition: Schema.optional(CompositionId) }));
+const Place = Data.taggedEnum<Place>();
+const top = Place.Anchor({ id: 'top' });
+const work = Place.Anchor({ id: 'work' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const line = () => Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
-const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
-const write = (method: 'pushState' | 'replaceState', target: string) => {
-    history.scrollRestoration = target === UrlFragment.top || target === UrlFragment.work ? 'auto' : 'manual';
+const href = Place.$match({ Anchor: ({ id }) => `#${id}`, Project: ({ project, composition }) => Option.match(Schema.encodeOption(Position)({ project, composition }), { onNone: () => `#${work.id}`, onSome: (params) => `#${params}` }) });
+const read = (hash: string): Option.Option<Place> => {
+    const text = hash.slice(1);
+    return text === ''
+        ? Option.some(top)
+        : Option.orElse(
+              Option.map(Schema.decodeUnknownOption(Anchor)(text), (id) => Place.Anchor({ id })),
+              () => Option.map(Schema.decodeOption(Position)(new URLSearchParams(text)), Place.Project),
+          );
+};
+const project = (place: Option.Option<Place>) => Option.map(Option.filter(place, Place.$is('Project')), Struct.get('project'));
+const visit = (place: Place, mode: NavigationHistoryBehavior) => {
+    const target = href(place);
+    history.scrollRestoration = Place.$is('Project')(place) ? 'manual' : 'auto';
     if (location.hash !== target) {
-        history[method](null, '', target);
+        navigation.navigate(target, { history: mode, info: silent });
     }
 };
-const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLElement | null>, sticky: RefObject<HTMLDivElement | null>, foreground: boolean) => {
-    const hash = useSyncExternalStore(
-        (notify) => {
-            navigation.addEventListener('currententrychange', notify);
-            return () => navigation.removeEventListener('currententrychange', notify);
-        },
-        () => location.hash,
-        () => '',
+const line = () => Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
+const observed = <A>(observe: (emit: (value: A) => void) => { readonly disconnect: () => void }) =>
+    Stream.callback<A>((queue) =>
+        Effect.acquireRelease(
+            Effect.sync(() => observe(Function.flow((value: A) => Queue.offerUnsafe(queue, value), Function.constVoid))),
+            (observer) => Effect.sync(() => observer.disconnect()),
+        ),
     );
-    const [selections, setSelections] = useState<Readonly<Partial<Record<typeof EntryId.Type, typeof CompositionId.Type>>>>({});
-    const intersections = useRef(new Set<string>());
-    const located = (target: string) => Option.bind(UrlFragment.read(target), 'entry', ({ project }) => Array.findFirst(portfolio.entries, ({ id }) => id === project));
-    const current = located(hash);
-    const selected = (entry: typeof Entry.Type) => first(entry, Option.getOrUndefined(Option.filter(current, (position) => position.entry === entry))?.composition ?? selections[entry.id]);
-    const select = (project: typeof EntryId.Type, composition: typeof CompositionId.Type | undefined) => {
-        write('pushState', UrlFragment(project, composition));
-        if (composition !== undefined) {
-            setSelections((value) => ({ ...value, [project]: composition }));
-        }
-    };
-    const jump = (entry: typeof Entry.Type) => {
-        select(entry.id, selected(entry));
-        const section = document.getElementById(entry.id);
-        section?.querySelector('h3')?.focus({ preventScroll: true });
-        section?.scrollIntoView();
-    };
-    const track = useEffectEvent((records: readonly IntersectionObserverEntry[], entries: readonly (typeof Entry.Type)[]) => {
-        records.forEach(({ isIntersecting, target: { id } }) => {
-            intersections.current[isIntersecting ? 'add' : 'delete'](id);
-        });
-        const entry = entries.findLast(({ id }) => intersections.current.has(id));
-        const page = work.current !== null && work.current.getBoundingClientRect().top > line() ? UrlFragment.top : UrlFragment.work;
-        const pinned = Option.exists(current, ({ entry: active }) => {
-            const section = document.getElementById(active.id);
-            return section !== null && section.getBoundingClientRect().top < globalThis.innerHeight && Math.ceil(globalThis.scrollY + globalThis.innerHeight) >= document.documentElement.scrollHeight;
-        });
-        if (foreground && !pinned) {
-            write('replaceState', entry === undefined ? page : UrlFragment(entry.id, selected(entry)));
-        }
-    });
-    const restore = useEffectEvent((event?: Event) => {
-        if (['', UrlFragment.top, UrlFragment.work].includes(location.hash)) {
-            history.scrollRestoration = 'auto';
-            return;
-        }
-        Option.match(located(location.hash), {
-            onNone: () => {
-                write('replaceState', UrlFragment.work);
-                work.current?.scrollIntoView({ behavior: 'instant' });
-            },
-            onSome: ({ entry, composition }) => {
-                if (event === undefined || !Option.exists(current, (position) => position.entry.id === entry.id)) {
-                    document.getElementById(entry.id)?.scrollIntoView({ behavior: 'instant' });
+const resized = (bar: HTMLElement) =>
+    Stream.merge(
+        observed<unknown>((emit) => {
+            const sized = new ResizeObserver(emit);
+            sized.observe(bar);
+            return sized;
+        }),
+        Stream.fromEventListener(globalThis, 'resize'),
+    );
+const crossed = (bar: HTMLElement, targets: readonly HTMLElement[]) =>
+    observed<readonly IntersectionObserverEntry[]>((emit) => {
+        document.documentElement.style.setProperty('--sticky-height', `${bar.getBoundingClientRect().height}px`);
+        const margin = line();
+        const crossing = new IntersectionObserver(emit, { rootMargin: `${-margin}px 0px ${margin + 1 - globalThis.innerHeight}px 0px` });
+        targets.forEach((target) => crossing.observe(target));
+        return crossing;
+    }).pipe(
+        Stream.scan(
+            () => new Set<Element>(),
+            (held, records) => held.union(new Set(records.filter(({ isIntersecting }) => isIntersecting).map(({ target }) => target))).difference(new Set(records.filter(({ isIntersecting }) => !isIntersecting).map(({ target }) => target))),
+        ),
+        Stream.drop(1),
+    );
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+const element = () =>
+    Atom.writable(
+        () => Option.none<HTMLElement>(),
+        (context, mounted: HTMLElement | null) => context.setSelf(Option.map(Option.fromNullOr(mounted), Equal.byReferenceUnsafe)),
+    ).pipe(Atom.keepAlive);
+const stickyBar = element();
+const workSection = element();
+const chapterSection = Atom.family((_: typeof EntryId.Type) => element());
+const selections = Atom.make<Readonly<Partial<Record<typeof EntryId.Type, typeof CompositionId.Type>>>>({});
+const settle = (registry: AtomRegistry.AtomRegistry, from: Option.Option<Place>) => {
+    const destination = read(location.hash);
+    const arrived = project(destination);
+    Option.match(
+        Option.flatMap(arrived, (id) => registry.get(chapterSection(id))),
+        {
+            onSome: (chapter) => {
+                history.scrollRestoration = 'manual';
+                if (!Equal.equals(arrived, project(from))) {
+                    chapter.scrollIntoView(instant);
                 }
-                write('replaceState', UrlFragment(entry.id, first(entry, composition)));
             },
-        });
-    });
-    useEffect(() => {
-        const [bar, section] = [sticky.current, work.current];
-        if (bar === null || section === null) {
-            return Function.constVoid;
-        }
-        const events = new AbortController();
-        const observed = () => {
-            const top = line();
-            const next = new IntersectionObserver((records) => track(records, portfolio.entries), { rootMargin: `${-top}px 0px ${top + 1 - globalThis.innerHeight}px 0px` });
-            intersections.current.clear();
-            [section, ...section.querySelectorAll(':scope > section')].forEach((target) => next.observe(target));
-            return next;
-        };
-        const measure = () => document.documentElement.style.setProperty('--sticky-height', `${bar.getBoundingClientRect().height}px`);
-        measure();
-        let observer = observed();
-        const observe = () => {
-            observer.disconnect();
-            observer = observed();
-        };
-        const size = new ResizeObserver(() => {
-            measure();
-            observe();
-        });
-        restore();
-        size.observe(bar);
-        ['popstate', 'hashchange'].forEach((name) => globalThis.addEventListener(name, restore, { signal: events.signal }));
-        globalThis.addEventListener('resize', observe, { signal: events.signal });
-        return () => {
-            events.abort();
-            observer.disconnect();
-            size.disconnect();
-        };
-    }, [portfolio.entries, sticky, work]);
-    return { active: Option.getOrUndefined(Option.map(current, ({ entry }) => entry.id)), selected, select, jump };
+            onNone: () => {
+                if (!Option.exists(destination, Place.$is('Anchor'))) {
+                    visit(work, 'replace');
+                    Option.match(registry.get(workSection), { onNone: Function.constVoid, onSome: (section) => section.scrollIntoView(instant) });
+                }
+            },
+        },
+    );
 };
+const fragment = Atom.make((get) => {
+    const listeners = new AbortController();
+    const settled = ({ from }: NavigationCurrentEntryChangeEvent) => settle(get.registry, read(new URL(from.url ?? location.href).hash));
+    navigation.addEventListener('currententrychange', () => get.setSelf(location.hash), { signal: listeners.signal });
+    navigation.addEventListener(
+        'navigate',
+        (event) => {
+            if (event.info === silent && event.canIntercept) {
+                event.intercept(silent);
+            }
+            if (event.info !== silent && event.hashChange) {
+                navigation.addEventListener('currententrychange', settled, { once: true, signal: listeners.signal });
+            }
+        },
+        { signal: listeners.signal },
+    );
+    get.addFinalizer(() => listeners.abort());
+    return location.hash;
+}).pipe(Atom.withServerValue(() => ''));
+const entries = Atom.make((get) => new Map(get(shown).entries.map((entry) => [entry.id, entry] as const)));
+const position = Atom.make((get) => Option.filter(Option.filter(read(get(fragment)), Place.$is('Project')), ({ project: id }) => get(entries).has(id)));
+const activeEntry = Atom.make((get) => Option.map(get(position), Struct.get('project'))).pipe(Atom.withServerValue(() => Option.none<typeof EntryId.Type>()));
+const shownComposition = (entry: typeof Entry.Type | undefined, stated: typeof CompositionId.Type | undefined) =>
+    Option.map(
+        Option.orElse(
+            Array.findFirst(entry?.compositions ?? [], ({ id }) => id === stated),
+            () => Array.head(entry?.compositions ?? []),
+        ),
+        Struct.get('id'),
+    );
+const selectedComposition = Atom.family((id: typeof EntryId.Type) =>
+    Atom.make((get) => shownComposition(get(entries).get(id), Option.getOrUndefined(Option.filter(get(position), ({ project: current }) => current === id))?.composition ?? get(selections)[id])).pipe(Atom.withServerValue((get) => shownComposition(get(entries).get(id), undefined))),
+);
+const selectComposition = Atom.writable(Function.constVoid, (context, { project: id, composition }: typeof Position.Type) => {
+    visit(Place.Project({ project: id, composition }), 'push');
+    context.set(selections, { ...context.get(selections), ...(composition !== undefined && { [id]: composition }) });
+});
+const jumpToEntry = Atom.writable(Function.constVoid, (context, entry: typeof Entry.Type) => {
+    context.set(selectComposition, { project: entry.id, composition: Option.getOrUndefined(context.get(selectedComposition(entry.id))) });
+    Option.match(context.get(chapterSection(entry.id)), {
+        onNone: Function.constVoid,
+        onSome: (chapter) => {
+            (chapter.ariaLabelledByElements ?? []).filter((heading) => heading instanceof HTMLElement).forEach((heading) => heading.focus({ preventScroll: true }));
+            chapter.scrollIntoView();
+        },
+    });
+});
+const track = (registry: AtomRegistry.AtomRegistry, section: HTMLElement, held: ReadonlySet<Element>) => {
+    const pinned = Option.exists(
+        Option.flatMap(registry.get(position), ({ project: id }) => registry.get(chapterSection(id))),
+        (chapter) => chapter.getBoundingClientRect().top < globalThis.innerHeight && Math.ceil(globalThis.scrollY + globalThis.innerHeight) >= document.documentElement.scrollHeight,
+    );
+    if (registry.get(editor) !== 'open' && !pinned) {
+        visit(
+            Option.match(
+                Array.findLast(registry.get(shown).entries, (entry) => Option.exists(registry.get(chapterSection(entry.id)), (chapter) => held.has(chapter))),
+                {
+                    onNone: () => (section.getBoundingClientRect().top > line() ? top : work),
+                    onSome: (entry) => Place.Project({ project: entry.id, composition: Option.getOrUndefined(registry.get(selectedComposition(entry.id))) }),
+                },
+            ),
+            'replace',
+        );
+    }
+};
+const follow =
+    (registry: AtomRegistry.AtomRegistry, section: HTMLElement) =>
+    ([held, index]: readonly [ReadonlySet<Element>, number]) =>
+        Effect.sync(() => (index === 0 ? settle(registry, Option.none()) : track(registry, section, held)));
+const scrollTracking = Atom.make((get) =>
+    Option.match(Option.all({ bar: get(stickyBar), section: get(workSection) }), {
+        onNone: () => Effect.void,
+        onSome: ({ bar, section }) => {
+            const targets = [section, ...Array.getSomes(get(shown).entries.map((entry) => get(chapterSection(entry.id))))];
+            return resized(bar).pipe(
+                Stream.switchMap(() => crossed(bar, targets)),
+                Stream.zipWithIndex,
+                Stream.runForEach(follow(get.registry, section)),
+            );
+        },
+    }),
+);
+const topHref = href(top);
+const workAnchor = { id: work.id, href: href(work) } as const;
+const entryHref = (entry: typeof Entry.Type) => href(Place.Project({ project: entry.id }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { UrlFragment, useNavigation };
+export { activeEntry, chapterSection, entryHref, jumpToEntry, scrollTracking, selectComposition, selectedComposition, stickyBar, topHref, workAnchor, workSection };

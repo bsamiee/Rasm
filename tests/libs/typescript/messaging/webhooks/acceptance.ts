@@ -3,7 +3,7 @@ import { Scheme } from '@rasm/webhooks';
 import { Duration, Effect, Function, Record } from 'effect';
 import { Headers } from 'effect/http';
 import { TestClock } from 'effect/testing';
-import { type Crypto, made, outcome, pair, tolerance, vectors } from '#/fixtures.ts';
+import { type Crypto, made, outcome, pair, tolerance, vectors } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -4,11 +4,11 @@ import type { Node } from '@pgsql/types';
 import { Array, Config, Duration, Effect, Equal, Equivalence, Exit, Filter, Formatter, Function, HashSet, Layer, Option, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
-import type { Catalog } from '#/catalog.ts';
-import type { Kind } from '#/column.ts';
-import { type Dialect, Engine, Rows } from '#/engine.ts';
-import { catalogDdl, constant, diff, type Identity, identifier, literal, mergeTreeRefusals, methods, type referentialActions, Stamp, unsupported } from '#/reconcile.ts';
-import { Tokenizer } from '#/relation.ts';
+import type { Catalog } from '#/catalog';
+import type { Kind } from '#/column';
+import { type Dialect, Engine, Rows } from '#/engine';
+import { catalogDdl, constant, diff, type Identity, identifier, literal, mergeTreeRefusals, methods, type referentialActions, Stamp, unsupported } from '#/reconcile';
+import { Tokenizer } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -58,13 +58,15 @@ const opclasses: Readonly<Record<(typeof methods)[number], { readonly [K in Kind
 
 const Role = Schema.Struct({ role: Schema.String });
 const ColumnRef = Schema.Struct({ fields: Schema.Array(Schema.Unknown) });
-const Configuration = Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Schema.Array(Schema.String) });
+class Configuration extends Schema.Opaque<Configuration, unknown>()(Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Schema.Array(Schema.String) })) {}
 const Prelude = Schema.Struct({ required: Schema.Array(Schema.String), filters: Schema.Array(Schema.String), declared: Schema.fromJsonString(Schema.Array(Configuration)) });
-const Configurations = Schema.Struct({
-    migrator: Schema.String,
-    absent: Schema.Array(Schema.String),
-    configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
-});
+class Configurations extends Schema.Opaque<Configurations, { readonly brand: unique symbol }>()(
+    Schema.Struct({
+        migrator: Schema.String,
+        absent: Schema.Array(Schema.String),
+        configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
+    }),
+) {}
 class PgObject extends Schema.Class<PgObject, { readonly brand: unique symbol }>('PgObject')({ name: Schema.String, comment: Schema.OptionFromNullOr(Schema.String) }) {
     get identity() {
         return Option.flatMap(this.comment, Schema.decodeOption(Stamp));
@@ -161,7 +163,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     };
     static readonly atomic = Engine.transaction;
     static readonly tenant: NonNullable<Rows['Service']['tenant']> = (sql, setting, value) => sql`SELECT set_config(${setting}, ${value}, true)`;
-    static readonly configuration = ({ configuration, filters }: Pick<typeof Configuration.Type, 'configuration' | 'filters'>) => identifier([configuration, ...filters]);
+    static readonly configuration = ({ configuration, filters }: Pick<Configuration, 'configuration' | 'filters'>) => identifier([configuration, ...filters]);
     static readonly document = (sql: SqlClient.SqlClient, { columns, tokenizer }: Parameters<Dialect['fulltext']>[2]) => {
         const joined = sql.join(` || ' ' || `, false)(columns.map(({ name }) => sql`coalesce(${sql(name)}, '')`));
         return Tokenizer.$match(tokenizer, { Trigram: () => joined, Words: (words) => sql`to_tsvector(${sql.literal(literal(Pg.configuration(words)))}, ${joined})` });
@@ -233,7 +235,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const target = Option.match(column, { onNone: () => sql`TABLE ${relation}`, onSome: (name) => sql`COLUMN ${relation}.${sql(name)}` });
         return sql`COMMENT ON ${target} IS ${sql.literal(Option.match(text, { onNone: () => 'NULL', onSome: literal }))}`;
     };
-    static readonly #stamped = (sql: SqlClient.SqlClient, relation: Statement.Fragment, column: Option.Option<string>, name: string, recorded: Option.Option<typeof Identity.Type>, identity: typeof Identity.Type) => {
+    static readonly #stamped = (sql: SqlClient.SqlClient, relation: Statement.Fragment, column: Option.Option<string>, name: string, recorded: Option.Option<Identity>, identity: Identity) => {
         const text = Option.liftPredicate(Formatter.formatJson(identity), () => !Equal.equals(identity, { origin: name, generation: 0 }));
         return Option.contains(recorded, identity) || Option.isNone(Option.orElse(text, () => recorded)) ? [] : [Pg.#commented(sql, relation, column, text)];
     };
@@ -442,7 +444,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         },
         (effect, sql) => Effect.provideService(effect, SqlClient.SqlClient, sql),
     );
-    #reconcile(planning: Planning, { absent, configurations }: typeof Configurations.Type, parts: Pick<Parameters<Planning['resolved']['plan']>[0], 'populated' | 'preamble'>, session: readonly { readonly name: string; readonly value: string }[]) {
+    #reconcile(planning: Planning, { absent, configurations }: Configurations, parts: Pick<Parameters<Planning['resolved']['plan']>[0], 'populated' | 'preamble'>, session: readonly { readonly name: string; readonly value: string }[]) {
         const { sql, resolved } = planning;
         const scratch = Record.fromIterableBy(this.scratch, Struct.get('name'));
         const altered = Array.getSomes(resolved.matched.map((entry) => Option.map(Record.get(scratch, entry.declared.name), (desired) => Pg.#altered(planning, entry, desired))));

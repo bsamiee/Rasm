@@ -13,7 +13,7 @@ import { Secret } from '@pulumiverse/doppler';
 import type { deploy } from '@rasm/hosting/deploy';
 import { Access, Identity } from '@rasm/hosting/identity';
 import { Array, Data, Duration, Effect, Function, Option, Record, Schema, Struct } from 'effect';
-import type { configs } from '#/repository-stack.ts';
+import type { configs } from '#/repository-stack';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

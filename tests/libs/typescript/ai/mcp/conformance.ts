@@ -4,7 +4,7 @@ import { Array, Duration, Effect, Layer, MutableRef, Option, Predicate, Record, 
 import { McpProtocol, type McpSchema, McpTest } from 'effect/ai';
 import { FetchHttpClient, HttpRouter } from 'effect/http';
 import { Host } from 'effect/net';
-import { app, Echoing, Probe, UPSTREAM, upstream } from '#/fixtures.ts';
+import { app, Echoing, Probe, UPSTREAM, upstream } from '#/fixtures';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -144,4 +144,4 @@ const proxied = Effect.fnUntraced(function* (protocol: (typeof REVISIONS)[number
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ALLOWED, BOUND, Called, CLIENT, connected, echoed, ENDPOINT, hosted, INSTRUCTIONS, MANIFEST, names, opened, outcome, PEER, PROTOCOLS, proxied, REVISIONS, served, SESSION, SETTINGS, SETTLED, settled, since, STATEFUL, VERSION };
+export { Called, CLIENT, connected, echoed, hosted, INSTRUCTIONS, MANIFEST, names, opened, outcome, PEER, PROTOCOLS, proxied, REVISIONS, served, SESSION, SETTLED, settled, since, STATEFUL, VERSION };

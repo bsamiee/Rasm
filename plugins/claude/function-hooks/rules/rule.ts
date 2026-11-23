@@ -2,12 +2,12 @@ import { Array, Effect, Option, type Predicate, Record, Result, String, Struct }
 import { RateLimiter } from 'effect/persistence';
 import { CommandLine } from 'effect/process';
 import type { RedirOperator } from 'sh-syntax/sync';
-import type { Host, HostError } from '#/host.ts';
-import { type Request, Verdict } from '#/rules/decision.ts';
-import type { Argument } from '#/shell/arguments.ts';
-import type { Analysis, Invocation, Parser } from '#/shell/invocation.ts';
-import type { Program } from '#/shell/programs.ts';
-import type { Span, Word } from '#/shell/script.ts';
+import type { Host, HostError } from '#/host';
+import { type Request, Verdict } from '#/rules/decision';
+import type { Argument } from '#/shell/arguments';
+import type { Analysis, Invocation, Parser } from '#/shell/invocation';
+import type { Program } from '#/shell/programs';
+import type { Span, Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

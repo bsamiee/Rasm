@@ -1,20 +1,37 @@
 import { Array, Effect, Function, Number, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Buffer, BufferFlag, ClusterLevel, Direction, Feature, GlyphClass, GlyphFlag, otTagToLanguage, otTagToScript, shape } from 'harfbuzzjs';
-import { Settings, Tag } from '#/settings.ts';
-import type { Face } from '#/shaping/face.ts';
-import { Span } from '#/shaping/word.ts';
+import { Settings, Tag } from '#/settings';
+import type { Face } from '#/shaping/face';
+import { Span } from '#/shaping/word';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const GlyphFlags = Schema.Literals(Struct.keys(Struct.omit(GlyphFlag, ['DEFINED'])));
 const GlyphClasses = Schema.Literals(Struct.keys(GlyphClass));
-const Bounds = Schema.Struct(Struct.Record(['minX', 'minY', 'maxX', 'maxY'], Schema.Finite)).annotate({ description: 'Union of HarfBuzz glyph extents in em from run origin, y up' });
 const FeatureString = Schema.String.pipe(
     Schema.decodeTo(Schema.instanceOf(Feature), {
         decode: SchemaGetter.transformEffect((given: string, options) => Effect.fromOption(Option.fromUndefinedOr(Feature.fromString(given)), () => new SchemaIssue.InvalidValue({ message: `Invalid HarfBuzz feature ${given}` }, given, options))),
         encode: SchemaGetter.String(),
     }),
 );
+class TextRun extends Schema.Opaque<TextRun, unknown>()(
+    Schema.Struct({
+        text: Schema.String.annotate({ description: 'Text in one script and direction, or context around item' }),
+        item: Schema.OptionFromOptionalKey(Span.annotate({ description: 'UTF-16 range shaped, text around it giving context, whole text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        features: Schema.Array(FeatureString)
+            .annotate({ description: 'HarfBuzz features (tag, -tag, tag=value, tag[start:end] in UTF-16 offsets) after settings features' })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
+        language: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems tag (SRB, TRK), script default when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        script: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems script (cyrl, arab), detected from text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        direction: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(Struct.omit(Direction, ['INVALID']))).annotate({ description: 'Script direction when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        clusterLevel: Schema.Literals(Struct.keys(Struct.omit(ClusterLevel, ['DEFAULT'])))
+            .annotate({ description: 'HarfBuzz cluster level, MONOTONE_CHARACTERS when absent' })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed('MONOTONE_CHARACTERS')), Schema.withConstructorDefault(Effect.succeed('MONOTONE_CHARACTERS' as const))),
+        flags: Schema.UniqueArray(Schema.Literals(Struct.keys(Struct.omit(BufferFlag, ['DEFAULT', 'DEFINED']))))
+            .annotate({ description: 'HarfBuzz buffer flags (BOT, EOT, PRODUCE_UNSAFE_TO_CONCAT), none when absent' })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
+    }),
+) {}
 class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbol }>('ShapedText')({
     text: Schema.String.annotate({ description: 'Run text in settings numbering system' }),
     glyphs: Schema.Array(
@@ -30,30 +47,14 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
     ).annotate({ description: 'Visual order, positions in em, marks moved by settings mark offset away from their base' }),
     missing: Schema.Array(Schema.String).annotate({ description: 'Characters with no glyph, default-ignorables excluded' }),
 }) {
-    static readonly Run = Schema.Struct({
-        text: Schema.String.annotate({ description: 'Text in one script and direction, or context around item' }),
-        item: Schema.OptionFromOptionalKey(Span.annotate({ description: 'UTF-16 range shaped, text around it giving context, whole text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-        features: Schema.Array(FeatureString)
-            .annotate({ description: 'HarfBuzz features (tag, -tag, tag=value, tag[start:end] in UTF-16 offsets) after settings features' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
-        language: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems tag (SRB, TRK), script default when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-        script: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems script (cyrl, arab), detected from text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-        direction: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(Struct.omit(Direction, ['INVALID']))).annotate({ description: 'Script direction when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-        clusterLevel: Schema.Literals(Struct.keys(Struct.omit(ClusterLevel, ['DEFAULT'])))
-            .annotate({ description: 'HarfBuzz cluster level, MONOTONE_CHARACTERS when absent' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed('MONOTONE_CHARACTERS')), Schema.withConstructorDefault(Effect.succeed('MONOTONE_CHARACTERS' as const))),
-        flags: Schema.UniqueArray(Schema.Literals(Struct.keys(Struct.omit(BufferFlag, ['DEFAULT', 'DEFINED']))))
-            .annotate({ description: 'HarfBuzz buffer flags (BOT, EOT, PRODUCE_UNSAFE_TO_CONCAT), none when absent' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
-    });
-    static readonly enclosing = (boxes: readonly (typeof Bounds.Type)[]) =>
+    static readonly enclosing = (boxes: readonly Record.ReadonlyRecord<'minX' | 'minY' | 'maxX' | 'maxY', number>[]) =>
         Option.map(Option.liftPredicate(boxes, Array.isReadonlyArrayNonEmpty), (enclosed) => ({
             minX: Math.min(...enclosed.map(Struct.get('minX'))),
             minY: Math.min(...enclosed.map(Struct.get('minY'))),
             maxX: Math.max(...enclosed.map(Struct.get('maxX'))),
             maxY: Math.max(...enclosed.map(Struct.get('maxY'))),
         }));
-    static readonly converted = (run: typeof ShapedText.Run.Type, settings: Settings): typeof ShapedText.Run.Type => {
+    static readonly converted = (run: TextRun, settings: Settings): TextRun => {
         const offset = (at: number) => (at > run.text.length ? at : settings.digits(run.text.slice(0, at)).length);
         return {
             ...run,
@@ -62,7 +63,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
             features: run.features.map(({ tag, value, start, end }) => new Feature(tag, value, offset(start), offset(end))),
         };
     };
-    static readonly of = ({ font, em }: Pick<Face, 'font' | 'em'>, run: typeof ShapedText.Run.Type, settings = Settings.make({})) => {
+    static readonly of = ({ font, em }: Pick<Face, 'font' | 'em'>, run: TextRun, settings = Settings.make({})) => {
         const { text, item, features, language, script, direction, clusterLevel, flags } = ShapedText.converted(run, settings);
         const buffer = new Buffer();
         const { start, length } = Option.getOrElse(item, () => Span.make({ start: 0, end: text.length }));
@@ -113,7 +114,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
     get advance() {
         return Math.hypot(Math.sumPrecise(this.glyphs.map(Struct.get('xAdvance'))), Math.sumPrecise(this.glyphs.map(Struct.get('yAdvance'))));
     }
-    get extents(): Option.Option<typeof Bounds.Type> {
+    get extents() {
         const [, boxes] = Array.mapAccum(this.glyphs, { x: 0, y: 0 }, (pen, { xAdvance, yAdvance, xOffset, yOffset, extents }) => [
             { x: pen.x + xAdvance, y: pen.y + yAdvance },
             Option.map(
@@ -134,4 +135,4 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ShapedText };
+export { ShapedText, TextRun };

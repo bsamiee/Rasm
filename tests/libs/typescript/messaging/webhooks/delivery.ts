@@ -6,7 +6,7 @@ import { Array, Effect, Exit, Fiber, Function, Layer, Option, Queue, Record, Red
 import { Headers, HttpClient, HttpClientRequest, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { PersistedQueue } from 'effect/persistence';
 import { TestClock } from 'effect/testing';
-import { type Crypto, encoder, made, standard, tolerance, vectors } from '#/fixtures.ts';
+import { type Crypto, encoder, made, standard, tolerance, vectors } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

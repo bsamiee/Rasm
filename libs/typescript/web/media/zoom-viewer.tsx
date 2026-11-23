@@ -31,7 +31,9 @@ const ZoomViewer = ({ href, reducedMotion, classNames, children }: { readonly hr
                             Effect.runFork(Effect.promise(() => zoomOut(undefined, animationTime)));
                         }}
                     />
-                    <TransformComponent wrapperClass={classNames.stage}>{children}</TransformComponent>
+                    <TransformComponent disableStyleInjection wrapperClass={classNames.stage}>
+                        {children}
+                    </TransformComponent>
                 </>
             )}
         </TransformWrapper>

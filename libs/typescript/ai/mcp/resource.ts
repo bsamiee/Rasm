@@ -1,6 +1,6 @@
 import { Array, Cause, Context, Effect, Equal, flow, HashMap, HashSet, Option, Predicate, Record, Schema, SchemaAST, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, McpServer } from 'effect/ai';
-import { Server } from '#/server.ts';
+import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ const complete = <Fields extends Schema.Struct.Fields, Given = Schema.Struct.Typ
             (picked) => ({ ...none, ...Object.fromEntries(Array.flatMap(Array.getSomes(picked), Object.entries)) }),
         );
     return <Values, R>(completing: (input: string, given: Partial<Given>) => Effect.Effect<Values, Error, R>) =>
-        (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
+        (input: string, context: Parameters<McpServer.McpServer['Service']['completion']>[0]['context']) =>
             Effect.flatMap(decode(context?.arguments ?? {}), (given) => completing(input, given));
 };
 const make = Effect.fnUntraced(function* <A, I, R, D extends Partial<Record<'uri' | 'mimeType' | 'description', string | undefined>>>({ schema, changes, uri, mimeType, description, ...descriptor }: D & { readonly schema: Schema.Codec<A, I>; readonly changes: Stream.Stream<unknown, never, R> }) {

@@ -247,6 +247,12 @@
         },
         {
             "path": "./tests/libs/typescript/creative-cloud/uxp"
+        },
+        {
+            "path": "./tests/libs/typescript/web/hosting"
+        },
+        {
+            "path": "./tests/e2e/portfolio-safari"
         }
     ]
 }

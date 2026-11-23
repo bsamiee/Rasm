@@ -2,8 +2,8 @@ import { pid } from 'node:process';
 import type { ExecutorContext } from '@nx/devkit';
 import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Config, Effect, FileSystem, Path, Schema } from 'effect';
-import { commands, configured } from '#/executors/run/executor.ts';
-import { run, SIGNED, SWIFTPM } from '#/targets.ts';
+import { commands, configured } from '#/executors/run/executor';
+import { run, SIGNED, SWIFTPM } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -3,8 +3,8 @@ import { Unmatched } from '@rasm/search';
 import type { Settings } from '@rasm/typography';
 import type { InsertionPoint, Text, TextDefault, TextStyleRange } from 'adobe:indesign';
 import { Array, Effect, flow, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
-import { Model } from '#/uxp/model.ts';
-import { InDesignSettings, thousandths } from '#/uxp/settings.ts';
+import { Model } from '#/uxp/model';
+import { InDesignSettings, thousandths } from '#/uxp/settings';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

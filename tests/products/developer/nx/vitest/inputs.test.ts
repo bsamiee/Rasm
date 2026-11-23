@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { createNodes } from '@rasm/nx-vitest';
 import { Predicate } from 'effect';
 import { describe, expect, vi } from 'vitest';
-import { it } from '#/installed.ts';
+import { it } from '#/installed';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

@@ -1,7 +1,7 @@
 import { createNodes } from '@rasm/nx-vitest';
 import { unportable } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
-import { it } from '#/installed.ts';
+import { it } from '#/installed';
 
 vi.mock(import('node:path'), async (actual) => {
     const { windows } = await import('@rasm/testing/path');

@@ -2,7 +2,7 @@
     "name": "@rasm/hosting",
     "version": "0.1.0",
     "private": true,
-    "description": "One web app declared once and hosted by any provider: its bindings resolved per runtime, request identity and enrollment, one server shape served on Node or Workers, Node bundle and Worker configuration, Cloudflare and machine deployment, head assets, and server-rendered page",
+    "description": "One web app declared once and hosted by any provider: its bindings resolved per runtime, request identity and enrollment, one server shape served on Node or Workers, Node bundle and Worker configuration, Cloudflare and machine deployment, head assets, and a server-rendered document streamed with the head tags of the built page",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -16,7 +16,7 @@
     "type": "module",
     "sideEffects": false,
     "imports": {
-        "#/*.ts": "./*.ts"
+        "#/*": "./*.ts"
     },
     "exports": {
         ".": "./index.ts",
@@ -35,7 +35,7 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*.ts": "./dist/*.js"
+            "#/*": "./dist/*.js"
         },
         "exports": {
             ".": "./dist/index.js",

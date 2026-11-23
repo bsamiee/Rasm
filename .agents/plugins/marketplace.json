@@ -41,15 +41,16 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
-            "description": "Chrome extensions: Manifest V3 manifest and permissions, service worker, page UI in Chrome's own look, Playwright suites, and Web Store release",
+            "version": "0.2.0",
+            "description": "Chrome extensions from manifest and permissions through execution contexts, UI elements in Chrome's own look, suites, and Web Store release, and the signed-in Chrome's pages, settings, flags, and unpacked builds through chrome-devtools-mcp",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
+            "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Chrome",
-                "shortDescription": "Chrome extensions from manifest to Web Store release",
+                "shortDescription": "Chrome extensions from manifest to Web Store release, and the signed-in Chrome",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"
@@ -349,8 +350,8 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.8.1",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, the signed-in Chrome through chrome-devtools-mcp, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
+            "version": "0.8.2",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -358,7 +359,7 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Tool",
-                "shortDescription": "Ghidra analysis, desktop app inspection and monitoring, Chrome, Raycast, Parallels VMs, Superhuman Mail and Docs, and Google Workspace",
+                "shortDescription": "Ghidra analysis, desktop app inspection and monitoring, Raycast, Parallels VMs, Superhuman Mail and Docs, and Google Workspace",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"
@@ -414,6 +415,31 @@
                 "brandColor": "#090909"
             },
             "mcpServers": "./.mcp.json"
+        },
+        {
+            "name": "web",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/web"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Web styling and components: modern CSS, CSS architecture, browser support facts, and React Aria Components",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Web",
+                "shortDescription": "Web styling and components: modern CSS, CSS architecture, browser support facts, and React Aria Components",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
+                "brandColor": "#090909"
+            }
         },
         {
             "name": "orchestration",

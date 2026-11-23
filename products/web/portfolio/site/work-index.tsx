@@ -1,8 +1,9 @@
+import { useAtomSet, useAtomValue } from '@effect/atom-react';
 import { Array, Function, Option } from 'effect';
-import type { ReactNode, Ref } from 'react';
-import { entryTitle, format } from '#/media/labels.ts';
-import type { Portfolio } from '#/model/portfolio.ts';
-import { UrlFragment, type useNavigation } from '#/site/navigation.ts';
+import type { ReactNode } from 'react';
+import { entryTitle, format } from '#/media/labels';
+import { activeEntry, entryHref, jumpToEntry, stickyBar, workAnchor } from '#/site/navigation';
+import { shown } from '#/site/state';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -10,71 +11,81 @@ const reveal = (link: HTMLAnchorElement | null) => link?.scrollIntoView({ block:
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const WorkIndex = ({ portfolio, navigation }: { portfolio: typeof Portfolio.Type; navigation: ReturnType<typeof useNavigation> }) => (
-    <nav aria-label="Work index" className="work-index">
-        <a className="min-h-11 self-start pb-5.75 eyebrow text-muted hover:text-accent-text" href={UrlFragment.work}>
-            Index
-        </a>
-        <div className="index-list">
-            {Array.match(portfolio.entries, {
-                onEmpty: () => (
-                    <a className="group index-link" href={UrlFragment.work}>
-                        <span className="col-span-full">Selected work</span>
-                    </a>
-                ),
-                onNonEmpty: (entries) =>
-                    entries.map((entry) => (
-                        <a
-                            aria-current={navigation.active === entry.id ? 'location' : undefined}
-                            className="group index-link ordinal before:font-mono before:text-accent-text before:tabular-nums"
-                            href={UrlFragment(entry.id)}
-                            key={entry.id}
-                            onClick={(event) => {
-                                if (!(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) && event.button === 0) {
-                                    event.preventDefault();
-                                    navigation.jump(entry);
-                                }
-                            }}
-                            ref={navigation.active === entry.id ? reveal : undefined}
-                        >
-                            <span className="wrap-anywhere underline-offset-4 group-hover:underline group-aria-current:underline">{entryTitle(entry)}</span>
+const WorkIndex = () => {
+    const { entries } = useAtomValue(shown);
+    const active = Option.getOrUndefined(useAtomValue(activeEntry));
+    const jump = useAtomSet(jumpToEntry);
+    return (
+        <nav aria-label="Work index" className="work-index">
+            <a className="eyebrow" href={workAnchor.href}>
+                Index
+            </a>
+            <div className="index-list">
+                {Array.match(entries, {
+                    onEmpty: () => (
+                        <a className="index-link" href={workAnchor.href}>
+                            <span>Selected work</span>
                         </a>
-                    )),
-            })}
-        </div>
-    </nav>
-);
-const StickyBar = ({ portfolio, navigation, children, ref }: { portfolio: typeof Portfolio.Type; navigation: ReturnType<typeof useNavigation>; children: ReactNode; ref: Ref<HTMLDivElement> }) => (
-    <div className="sticky top-0 z-30" ref={ref}>
-        {children}
-        {portfolio.entries.length > 0 && (
-            <nav aria-label="Work index" className="hidden max-md:block">
-                <label className="flex items-center justify-between gap-4 border-b border-line bg-background px-(--page-gutter) py-2">
-                    <span className="eyebrow">Index</span>
-                    <select
-                        className="control min-w-0 flex-1 truncate border-0 shadow-none"
-                        onChange={(event) =>
-                            Option.match(
-                                Array.findFirst(portfolio.entries, ({ id }) => id === event.target.value),
-                                { onNone: Function.constVoid, onSome: navigation.jump },
-                            )
-                        }
-                        value={navigation.active ?? ''}
-                    >
-                        <option disabled value="">
-                            Select work
-                        </option>
-                        {portfolio.entries.map((entry, index) => (
-                            <option key={entry.id} value={entry.id}>
-                                [{format.numeral(index + 1, portfolio.entries.length)}] {entryTitle(entry)}
+                    ),
+                    onNonEmpty: (listed) =>
+                        listed.map((entry) => (
+                            <a
+                                aria-current={active === entry.id ? 'location' : undefined}
+                                className="index-link ordinal"
+                                href={entryHref(entry)}
+                                key={entry.id}
+                                onClick={(event) => {
+                                    if (!(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) && event.button === 0) {
+                                        event.preventDefault();
+                                        jump(entry);
+                                    }
+                                }}
+                                ref={active === entry.id ? reveal : undefined}
+                            >
+                                <span>{entryTitle(entry)}</span>
+                            </a>
+                        )),
+                })}
+            </div>
+        </nav>
+    );
+};
+const StickyBar = ({ children }: { readonly children: ReactNode }) => {
+    const { entries } = useAtomValue(shown);
+    const active = useAtomValue(activeEntry);
+    const jump = useAtomSet(jumpToEntry);
+    return (
+        <div className="sticky-bar" ref={useAtomSet(stickyBar)}>
+            {children}
+            {entries.length > 0 && (
+                <nav aria-label="Work index">
+                    <label>
+                        <span className="eyebrow">Index</span>
+                        <select
+                            className="control"
+                            onChange={(event) =>
+                                Option.match(
+                                    Array.findFirst(entries, ({ id }) => id === event.target.value),
+                                    { onNone: Function.constVoid, onSome: jump },
+                                )
+                            }
+                            value={Option.getOrElse(active, () => '')}
+                        >
+                            <option disabled value="">
+                                Select work
                             </option>
-                        ))}
-                    </select>
-                </label>
-            </nav>
-        )}
-    </div>
-);
+                            {entries.map((entry, index) => (
+                                <option key={entry.id} value={entry.id}>
+                                    [{format.numeral(index + 1, entries.length)}] {entryTitle(entry)}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                </nav>
+            )}
+        </div>
+    );
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

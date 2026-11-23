@@ -1,8 +1,8 @@
 import { Array, Effect, Option, Predicate, Result, Schema, String } from 'effect';
 import { KeyValueStore } from 'effect/persistence';
-import { Host, HostError } from '#/host.ts';
-import type { Program } from '#/shell/programs.ts';
-import { slicedWord, type Word } from '#/shell/script.ts';
+import { Host, HostError } from '#/host';
+import type { Program } from '#/shell/programs';
+import { slicedWord, type Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

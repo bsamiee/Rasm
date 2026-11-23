@@ -1,7 +1,7 @@
 import { assert, it } from '@effect/vitest';
 import { Forward, Ssh } from '@rasm/ssh';
 import { Array, Effect, FileSystem, Path, Record, Result, Schema } from 'effect';
-import { answered, banner, bounds, greeted, greeting, type Listeners, reasoned, Sshd, served, vacant } from '#/sshd.ts';
+import { answered, banner, bounds, greeted, greeting, type Listeners, reasoned, Sshd, served, vacant } from '#/sshd';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

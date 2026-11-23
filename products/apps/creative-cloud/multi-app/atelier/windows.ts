@@ -9,7 +9,7 @@ import { Array, Cause, Context, Effect, FileSystem, Match, Option, Path, Record,
 import { Tool } from 'effect/ai';
 import { SecureRandom } from 'effect/crypto';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
-import { Inventory } from '#/applications.ts';
+import { Inventory } from '#/applications';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

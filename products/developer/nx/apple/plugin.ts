@@ -4,9 +4,9 @@ import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, D
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, manifested, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Context, Effect, FileSystem, flow, Layer, Option, Record, Result, Schema, Stream } from 'effect';
-import { Described, ENTITLEMENTS, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package.ts';
-import { analyzer, Options, type Part, PLUGIN, tokened } from '#/targets.ts';
-import { Analyzed, xcodeParts } from '#/xcode-project.ts';
+import { Described, ENTITLEMENTS, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
+import { analyzer, Options, type Part, PLUGIN, tokened } from '#/targets';
+import { Analyzed, xcodeParts } from '#/xcode-project';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

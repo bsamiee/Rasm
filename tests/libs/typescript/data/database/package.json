@@ -4,7 +4,7 @@
     "description": "Database suites over SQLite and D1",
     "type": "module",
     "imports": {
-        "#/*.ts": "./*.ts"
+        "#/*": "./*.ts"
     },
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",

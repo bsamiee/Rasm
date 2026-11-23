@@ -13,12 +13,14 @@ Packages keep image sources as SVG masters in `icons/` at their package root:
 - Masters draw in `currentColor`, and class `accent` marks parts each palette fills apart
 - Glyphs a dependency publishes resolve through that package at build
 - Libraries keep glyphs their own interface draws in their own `icons/`, and consumers reach each through its typed member
-- Multi-host products keep one mark per visual language, in its sole host package or the product package its host packages share
+- Host libraries keep the default mark of their host family, as `@rasm/uxp` does for Adobe plug-ins, and a product passes its own where it differs
 
 ## [02]-[APPLE]
 
 Apple targets keep containers `actool` compiles at their target root, where Xcode's app template places them:
 - `AppIcon.icon` is the Icon Composer document `ASSETCATALOG_COMPILER_APPICON_NAME` names, its layer `Assets/mark.svg` the mark
+- Layers stroke at 3/32 of their canvas, 2.25 units of 24
+- Layers of a mark with a master elsewhere repeat its paths at that weight, as `actool` reads only a real file inside `Assets/`
 - `Assets.xcassets` holds glyphs views draw, each imageset read through its generated `ImageResource` member
 - Imagesets reading a mark or a package glyph hold a relative Git symlink to it
 - Xcode resources phases and SwiftPM `.process` run `actool`, and no compiled form is tracked
@@ -29,7 +31,7 @@ UXP plug-ins draw every icon in Spectrum 2 outline, whatever set a host's own gl
 - Glyphs are `currentColor` outlines at one 1.5-unit stroke, round caps and joins, and 1.5-unit corner rounding, with no fill, color, plate, or text
 - Stroke centerlines sit on quarter units, the subdivision Spectrum 2 states for its 1.5-pixel stroke
 - Marks draw on Spectrum 2's 20-unit canvas inside its 1-unit safe area, panel glyphs on the host's 23-unit grid around it
-- Plug-in list icons are `pluginList` PNGs at 24 and 48 pixels, the mark's 18-unit drawing at 18 of 24 pixels
+- Plug-in list icons are `pluginList` PNGs at 24 and 48 pixels of `icons/mark.svg` of `@rasm/uxp`, its 20-unit canvas centred at 1 and 2 pixels per unit
 - Panel icons are `toolbar` PNGs at 23 and 46 pixels from `icons/<entrypoint id>.svg` of the plug-in package, and a panel without one fails the build
 - Icons paint black for light themes and white for dark themes at the opacity of the host's own glyphs, stated per host in `HOSTS` of `@rasm/uxp`
 - Brand tiles, colored list icons, and copies of host glyphs stay out of every host form
@@ -41,12 +43,12 @@ Rhino plug-ins draw on transparency in Rhino 9's toolbar language, Open Color gr
 - Command faces and marks are 36-unit artboards with 1.5-unit strokes and round joins, 1 px at the 24 px button
 - Strokes stay heavier than the 0.5-unit outlines of Rhino's own command glyphs, a third of a pixel at the 24 px button
 - Command faces take their typed key as file name (`Lancet.svg`), and toolbars fall back to the mark for a command with none
-- Linework paints gray 9 `#212529` in light and `#e1e1e1` in dark, from `icon-light.css` and `icon-dark.css` of `Rasm.Rhino`
-- `.accent` fills blue 5 `#339af0` outlined in its edge tone `#0e3a67` in both themes
+- Linework paints `RhinoIconColor` in light and `RhinoIconDarkColor` in dark, gray 9 and Rhino's dark linework gray by default in `Rasm.Rhino.props`
+- `RhinoIconPart` rows fill and outline one class each in both themes, `accent` in blue 5 and its edge tone by default
 - Each master paints into a `<stem>.svg` and `<stem>_darkmode.svg` resource, the pair Rhino's asset system and the `.rui` writer read
 - `IconResource.PlugIn` reads the `mark.svg` pair for license, splash, and toolbar art
 - Forms that cannot switch theme paint the mark in one mid-tone clearing 3:1 against both Settings backgrounds (`#ffffff` light, `#212121` dark)
-- Mid-tone is Open Color gray 6 `#868e96`, at 3.32:1 and 4.85:1, from `products/apps/rhino/icon-plugin.css`
+- Mid-tone is `RhinoPlugInIconColor`, Open Color gray 6 by default at 3.32:1 and 4.85:1
 - Plug-in icons are `PlugIn.ico`, the full-frame mid-tone mark at 16, 24, 32, 48, and 256 px, as RhinoCommon reads `DescriptionType.Icon` as ICO
 - Yak icons are a 64 px `icon.png` of the mid-tone mark, as Package Manager draws one PNG on both themes
 - Plug-ins declaring toolbars write `<TargetName>.rui` beside the `.rhp`, every toolbar inside a toolbar group so it shows on first load
@@ -86,12 +88,12 @@ Blender extensions draw on Blender's UI icon grid in one white shape, and the th
 
 Builds derive every host form from masters into build output:
 - `resvg` rasterizes and `usvg` writes themed SVG, both CLIs mise installs from `linebender/resvg`
-- Build theming runs `--stylesheet` with one stylesheet per host tone over `currentColor` and `.accent`, for every host but Grasshopper 2
-- `@rasm/mark` writes a wrapper SVG around a themed mark with the view box, padding, and plate a host form fixes, which `resvg` renders
-- Host packages pass each mark to `@rasm/mark` and hash it as a build input
+- Build theming writes each host tone over `currentColor` and part classes as a stylesheet in build output, the form both CLIs read, for all hosts but Grasshopper 2
+- `@rasm/mark` paints a `Tone` into a wrapper SVG placing a canvas at a whole pixel scale or artwork inside a padding for `resvg`
+- Tones come from the host's library (`HOSTS` of `@rasm/uxp`, `Rasm.Rhino.props`), a web app's theme, or a product's own value, a Chrome extension's `config.brand`
 - `@rasm/hosting/head` rasterizes web favicons, touch icons, and PWA icons through `@vite-pwa/assets-generator`
 - ImageMagick packs PNG frames into an ICO and draws nothing
-- Libraries read masters from `icons/` of the package they build, and a caller passes a master another package publishes
+- Libraries read masters from `icons/` of their package, and a caller passes a master another package publishes and names it as a build input
 - Hosts theming at run time (Blender preview tint, Apple template rendering) read an untinted master
 
 ## [08]-[HOSTS]
@@ -104,6 +106,6 @@ Each host form, its build owner, and files it writes:
 |  [02]   | Grasshopper 2 | `Rasm.Grasshopper.targets`                                          | Embedded `<TypeName>.ghicon` and `mark.ghicon`    |
 |  [03]   | Blender       | `rasm.extension.ui` at load and draw                                | Previews tinted per place, turned variants        |
 |  [04]   | Adobe UXP     | `@rasm/uxp/vite`                                                    | Plug-in and panel PNGs per theme and scale        |
-|  [05]   | Chrome        | Product `vite.config.ts`                                            | Manifest PNG sizes, `scalable.svg`                |
+|  [05]   | Chrome        | Product `vite.config.ts`                                            | Manifest PNG sizes                                |
 |  [06]   | Web           | `@rasm/hosting/head`                                                | ICO, touch and PWA icons, painted SVG, head links |
 |  [07]   | Apple         | `actool`                                                            | `Assets.car`, `.icns`, `ImageResource` members    |

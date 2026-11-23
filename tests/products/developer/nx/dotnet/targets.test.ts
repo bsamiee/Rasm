@@ -4,7 +4,7 @@ import { Build } from '@rasm/nx-dotnet/executors/build';
 import { outputs, unaggregated, unportable } from '@rasm/testing/nx';
 import { Array, flow, Option, Order, Record, Schema } from 'effect';
 import { describe, expect, vi } from 'vitest';
-import { it, mode, node, report } from '#/analyzer.ts';
+import { it, mode, node, report } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

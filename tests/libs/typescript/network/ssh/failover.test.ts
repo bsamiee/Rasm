@@ -1,7 +1,7 @@
 import { assert, it } from '@effect/vitest';
 import { Ssh } from '@rasm/ssh';
 import { Array, Effect } from 'effect';
-import { bounds, callers, reached, Sshd, within } from '#/sshd.ts';
+import { bounds, callers, reached, Sshd, within } from '#/sshd';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

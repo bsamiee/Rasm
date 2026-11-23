@@ -20,6 +20,7 @@ SessionStart = [{ hooks = [{ type = "command", command = "mise daemons register 
 "rhino@rasm"         = { enabled = true }
 "typescript@rasm"    = { enabled = true }
 "chrome@rasm"        = { enabled = true }
+"web@rasm"           = { enabled = true }
 "rust@rasm"          = { enabled = true }
 "cpp@rasm"           = { enabled = true }
 "media@rasm"         = { enabled = true }

@@ -3,7 +3,7 @@ import type { TargetConfiguration } from '@nx/devkit';
 import rule from '@rasm/conformance/portable-graph';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { project, violations } from '#/workspace.ts';
+import { project, violations } from '#/workspace';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

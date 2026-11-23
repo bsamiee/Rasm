@@ -48,6 +48,8 @@ Root manifest fields:
 Root project and Nx settings:
 - Root `package.json` holding an `nx` key becomes an Nx project, and `"includedScripts": []` there keeps `prepare` from becoming a target
 - Root targets `check--jscpd` and `check--knip` read every workspace file, and `knipConfig` names `.config/knip.json`, as knip searches no `.config`
+- Root target `check--stylelint` lints every `.css` file Git lists, with `stylelintConfig` naming `.config/stylelint.config.ts`
+- `check--stylelint` hashes each listed file, each module and reference file `stylelintConfig` names, and each package it imports, extends, or plugs in
 - `nx.json` sets `useDaemonProcess: false` while the Nx daemon forces debug logs into an unrotated `daemon.log` and restarts graphs edits interrupt
 
 ## [03]-[WORKSPACE_FILE]
@@ -115,7 +117,7 @@ Library manifest:
         "./node": "./node.ts",
         "./package.json": "./package.json"
     },
-    "imports": { "#/*.ts": "./*.ts" },
+    "imports": { "#/*": "./*.ts" },
     "files": ["dist/**/*.js", "dist/**/*.d.ts"],
     "peerDependencies": { "effect": "catalog:peers" },
     "devDependencies": { "effect": "catalog:" },
@@ -126,7 +128,7 @@ Library manifest:
             "./node": "./dist/node.js",
             "./package.json": "./package.json"
         },
-        "imports": { "#/*.ts": "./dist/*.js" }
+        "imports": { "#/*": "./dist/*.js" }
     }
 }
 ```
@@ -161,12 +163,14 @@ Entry points across packages and specifiers inside one:
 - Entries beyond `.` exist per runtime or optional dependency family (`./node`, `./browser`), each with an optional peer where it adds one
 - Entries callers import alike on every runtime take one key with a condition per runtime resolver (`workerd`), `default` serving Node
 - `"./package.json"` stays exported, as `exports` hides every path it omits from tools reading the manifest
-- Files inside a package import `#/<path>` with its extension and any query (`#/toast.ts`, `#/panel.tsx`, `#/manifest.json`, `#/toast.css?inline`)
-- Rule `import/extensions` of oxlint refuses a `#/` specifier without its extension, and `no-restricted-imports` refuses every relative one
-- Rows take fixed forms: `#/*.ts` to `./*.ts` for TypeScript modules, `#/*.tsx` to `./*.tsx` for TSX modules, and `#/*` to `./*` for other files
+- Files inside a package import `#/<path>`, a TypeScript module by path alone and any other file with its extension and any query (`#/toast`, `#/panel.tsx`, `#/manifest.json`, `#/toast.css?inline`)
+- Packages importing a file with a Vite query declare no `#/*` row, as that row takes a specifier with its query and appends `.ts`
+- Rule `import/extensions` of oxlint refuses a `.ts` or `.js` extension on a specifier, and `no-restricted-imports` refuses every relative one
+- Rows take fixed forms: `#/*` to `./*.ts` for TypeScript modules, or `./*.js` in a JavaScript package, and `#/*.<extension>` to `./*.<extension>` for each other kind (`.tsx`, `.json`, `.css`)
+- TSX modules keep their extension, as one row appends one extension, Node runs no `.tsx` file, and Node and Vite refuse a row whose target is a list
 - Packages declare only the rows their specifiers use, in `imports` and `publishConfig.imports` alike, as knip reports an unused key
-- TypeScript accepts a `.ts` or `.tsx` specifier only where its row's target spells the extension, and row `#/*` spells none
-- Node, TypeScript, and Vite take the matching row with the longest key, and Vite passes a query through `#/*` to its file
+- TypeScript accepts a `.tsx` specifier only where its row's target spells the extension
+- Node, TypeScript, and Vite take the matching row with the longest key, and Vite tries a specifier with its query before trying it without
 - TypeScript resolves `#/` keys under `nodenext` and `bundler` resolution
 - Conditional entries list `types` first and `default` last, as Node orders conditions by key position
 - `null` targets block a path a wildcard entry opens (`"./internal/*": null`), and wildcards match nested folders

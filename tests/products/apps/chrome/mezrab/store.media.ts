@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { type Extension, hosted, media } from '@rasm/testing/playwright';
 import { Effect } from 'effect';
-import { isolate, STUB } from '#/fixtures.ts';
+import { isolate, STUB } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

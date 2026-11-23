@@ -2,7 +2,7 @@ import { assert, type Vitest } from '@effect/vitest';
 import { Catalog, Column, Relation, Rows } from '@rasm/database';
 import { Effect, Exit, Fiber, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
-import { accounts, blobs, children, type Client, declared, events, isolated, notes, parents, refused, values, words } from '#/fixtures.ts';
+import { accounts, blobs, children, type Client, declared, events, isolated, notes, parents, refused, values, words } from '#/fixtures';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

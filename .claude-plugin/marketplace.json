@@ -21,8 +21,8 @@
         {
             "name": "chrome",
             "source": "./plugins/shared/chrome",
-            "version": "0.1.0",
-            "description": "Chrome extensions: Manifest V3 manifest and permissions, service worker, page UI in Chrome's own look, Playwright suites, and Web Store release",
+            "version": "0.2.0",
+            "description": "Chrome extensions from manifest and permissions through execution contexts, UI elements in Chrome's own look, suites, and Web Store release, and the signed-in Chrome's pages, settings, flags, and unpacked builds through chrome-devtools-mcp",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -130,8 +130,8 @@
         {
             "name": "tool",
             "source": "./plugins/shared/tool",
-            "version": "0.8.1",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, the signed-in Chrome through chrome-devtools-mcp, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
+            "version": "0.8.2",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -150,6 +150,15 @@
             "source": "./plugins/shared/uxp",
             "version": "0.5.0",
             "description": "Code that runs in an Adobe UXP host, and the Atelier server that drives Adobe apps and proxies their own servers",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "web",
+            "source": "./plugins/shared/web",
+            "version": "0.1.0",
+            "description": "Web styling and components: modern CSS, CSS architecture, browser support facts, and React Aria Components",
             "author": {
                 "name": "Bardia Samiee"
             }

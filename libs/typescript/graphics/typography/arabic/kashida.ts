@@ -1,18 +1,18 @@
 import { Array, Function, flow, Match, Number, Option, Order, Predicate, pipe, Record, Struct } from 'effect';
 import { Feature } from 'harfbuzzjs';
 import type { JoiningGroup } from 'icu';
-import { Elongation } from '#/arabic/elongation.ts';
-import { joiningGroups, joins } from '#/arabic/joining.ts';
-import type { Face } from '#/shaping/face.ts';
-import { Profile } from '#/shaping/internal/profile.ts';
-import type { Measured } from '#/shaping/justification.ts';
-import type { ShapedText } from '#/shaping/shaped-text.ts';
-import { Span, words } from '#/shaping/word.ts';
+import { Elongation, type Place } from '#/arabic/elongation';
+import { joiningGroups, joins } from '#/arabic/joining';
+import type { Settings } from '#/settings';
+import type { Face } from '#/shaping/face';
+import { Profile } from '#/shaping/internal/profile';
+import type { Measured } from '#/shaping/justification';
+import type { ShapedText, TextRun } from '#/shaping/shaped-text';
+import { Span, words } from '#/shaping/word';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Place = Elongating['places'][number];
-type Elongating = Exclude<typeof Elongation.Type, { readonly _tag: 'None' }>;
+type Elongating = Exclude<Settings['kashida'], { readonly _tag: 'None' }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -68,7 +68,7 @@ const kashidaPlaces = (text: string, rows: readonly Place[], allowed: (cluster: 
 
 // --- [ELONGATION]
 
-const elongationOf = (settings: { readonly kashida: typeof Elongation.Type }) => Option.liftPredicate(settings.kashida, Elongation.isAnyOf(['Tatweel', 'Stretched']));
+const elongationOf = (settings: Pick<Settings, 'kashida'>) => Option.liftPredicate(settings.kashida, Elongation.isAnyOf(['Tatweel', 'Stretched']));
 const eligible = (measured: Measured, elongation: Elongating, stretched: boolean, stage: Place['stage']) => {
     const flagged = (glyph: ShapedText['glyphs'][number]) => glyph.flags.includes('SAFE_TO_INSERT_TATWEEL') || (stretched && measured.face.layout.covers(JUSTIFICATION_ALTERNATES, glyph.glyph));
     const clusters = new Set(measured.shaped.glyphs.filter(flagged).map(Struct.get('cluster')));
@@ -136,13 +136,13 @@ const elongated = (current: Measured, elongation: Elongating, rank: number, amou
 
 // --- [JUSTIFICATION]
 
-const kashidaFlagged = (run: typeof ShapedText.Run.Type, settings: { readonly kashida: typeof Elongation.Type }): typeof ShapedText.Run.Type => Option.match(elongationOf(settings), { onNone: () => run, onSome: () => ({ ...run, flags: Array.union(run.flags, ['PRODUCE_SAFE_TO_INSERT_TATWEEL' as const]) }) });
+const kashidaFlagged = (run: TextRun, settings: Pick<Settings, 'kashida'>): TextRun => Option.match(elongationOf(settings), { onNone: () => run, onSome: () => ({ ...run, flags: Array.union(run.flags, ['PRODUCE_SAFE_TO_INSERT_TATWEEL' as const]) }) });
 const kashidaPrepared = (measured: Measured) =>
     Option.match(elongationOf(measured.settings), {
         onNone: () => measured,
         onSome: (elongation) => tatweeled(measured, elongation, eligible(measured, elongation, false, 'text').map(Struct.get('cluster')), Option.none()),
     });
-const kashidaRanks = (settings: { readonly kashida: typeof Elongation.Type }) => Option.match(elongationOf(settings), { onNone: Array.empty<number>, onSome: ({ places }) => places.map(Struct.get('rank')) });
+const kashidaRanks = (settings: Pick<Settings, 'kashida'>) => Option.match(elongationOf(settings), { onNone: Array.empty<number>, onSome: ({ places }) => places.map(Struct.get('rank')) });
 const kashidaMechanisms = (measured: Measured, rank: number) =>
     Option.match(Option.all([elongationOf(measured.settings), nuqtaWidth(measured.face)]), {
         onNone: () => [],

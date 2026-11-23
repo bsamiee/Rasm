@@ -1,21 +1,19 @@
 import { RegistryProvider } from '@effect/atom-react';
 import { Shell } from '@rasm/hosting/shell';
-import { Option, String } from 'effect';
-import { joinDetails } from '#/media/labels.ts';
-import { Bootstrap } from '#/model/api.ts';
+import { Bootstrap } from '#/model/api';
 import { Site } from '#/site/site.tsx';
+import { bootstrap } from '#/site/state';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const shell = new Shell({
-    root: 'portfolio',
+    name: 'portfolio',
     schema: Bootstrap,
     render: (value) => (
-        <RegistryProvider>
-            <Site {...value} />
+        <RegistryProvider initialValues={[[bootstrap, value]]}>
+            <Site />
         </RegistryProvider>
     ),
-    head: ({ published: { portfolio } }) => ({ title: Option.map(Option.liftPredicate(portfolio.name, String.isNonEmpty), (name) => joinDetails([name, 'Architecture'])), meta: { name: { description: Option.liftPredicate(portfolio.introduction, String.isNonEmpty) }, property: {} } }),
     ...(import.meta.env.PROD && {
         policy: {
             'default-src': ["'self'"],

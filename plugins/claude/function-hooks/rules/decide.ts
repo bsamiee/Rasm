@@ -1,15 +1,15 @@
 import { Array, Combiner, Effect, Layer, Match, Option, Predicate, Record } from 'effect';
 import { RateLimiter } from 'effect/persistence';
-import { Host, type HostError } from '#/host.ts';
-import { Decision, decisionOf, type Request } from '#/rules/decision.ts';
-import { FILES } from '#/rules/files.ts';
-import { GHIDRA } from '#/rules/ghidra.ts';
-import { GIT } from '#/rules/git.ts';
-import { all, type Call, once, type Ruleset, settled } from '#/rules/rule.ts';
-import { TASKS } from '#/rules/tasks.ts';
-import { WAITS } from '#/rules/waits.ts';
-import { analyzed, Parser } from '#/shell/invocation.ts';
-import { PROGRAMS } from '#/shell/programs.ts';
+import { Host, type HostError } from '#/host';
+import { Decision, decisionOf, type Request } from '#/rules/decision';
+import { FILES } from '#/rules/files';
+import { GHIDRA } from '#/rules/ghidra';
+import { GIT } from '#/rules/git';
+import { all, type Call, once, type Ruleset, settled } from '#/rules/rule';
+import { TASKS } from '#/rules/tasks';
+import { WAITS } from '#/rules/waits';
+import { analyzed, Parser } from '#/shell/invocation';
+import { PROGRAMS } from '#/shell/programs';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

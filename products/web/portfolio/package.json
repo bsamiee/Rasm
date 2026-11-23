@@ -5,9 +5,9 @@
     "description": "Architectural portfolio website",
     "type": "module",
     "imports": {
-        "#/*.ts": "./*.ts",
-        "#/*.tsx": "./*.tsx",
-        "#/*": "./*"
+        "#/*": "./*.ts",
+        "#/*.css": "./*.css",
+        "#/*.tsx": "./*.tsx"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "catalog:",
@@ -34,8 +34,6 @@
         "react-dom": "catalog:",
         "react-error-boundary": "catalog:",
         "react-zoom-pan-pinch": "catalog:",
-        "tailwindcss": "catalog:",
-        "tailwindcss-react-aria-components": "catalog:",
         "validator": "catalog:"
     },
     "devDependencies": {
@@ -48,7 +46,6 @@
         "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",
         "@storybook/react-vite": "catalog:",
-        "@tailwindcss/vite": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",

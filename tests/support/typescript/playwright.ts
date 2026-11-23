@@ -46,6 +46,7 @@ const Unpacked = Schema.fromJsonString(Schema.declare((input: unknown): input is
     description: 'The manifest.json at the root of an unpacked Manifest V3 extension, the folder Chrome loads through --load-extension',
 });
 const Messages = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Struct({ message: Schema.String }))).annotate({ description: 'The _locales/<locale>/messages.json an extension names its __MSG_<key>__ strings from' });
+const Branded = Schema.fromJsonString(Schema.Struct({ config: Schema.Struct({ brand: Schema.String }) })).annotate({ description: 'The package.json config.brand color an extension paints its icons and promo tiles in' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -55,11 +56,11 @@ const routed = (plugin: string, projectName: string) =>
         ({ options }) => join(workspaceRoot, interpolate(options.outputPath, { projectName })),
     );
 
-const focused = (windowId: number) => chrome.tabs.query({ active: true, windowId }).then(([tab]) => tab?.id ?? chrome.tabs.TAB_ID_NONE);
+const focused = (windowId: number) => browser.tabs.query({ active: true, windowId }).then(([tab]) => tab?.id ?? browser.tabs.TAB_ID_NONE);
 
-const badged = (tabId: number) => chrome.action.getBadgeText({ tabId });
+const badged = (tabId: number) => browser.action.getBadgeText({ tabId });
 
-const titled = (tabId: number) => chrome.action.getTitle({ tabId });
+const titled = (tabId: number) => browser.action.getTitle({ tabId });
 
 const attached = Effect.fnUntraced(function* (context: BrowserContext) {
     const worker = yield* Option.match(Array.head(context.serviceWorkers()), { onSome: Effect.succeed, onNone: () => Effect.promise(() => context.waitForEvent('serviceworker')) });
@@ -91,6 +92,8 @@ const attached = Effect.fnUntraced(function* (context: BrowserContext) {
     const toolbar = Effect.fnUntraced(function* (page: Page) {
         const { targetId } = yield* tabbed(page);
         const { windowId } = yield* Effect.promise(() => browser.send('Browser.getWindowForTarget', { targetId }));
+        const session = yield* inspected(page);
+        yield* Effect.promise(() => session.send('ServiceWorker.startWorker', { scopeURL: `chrome-extension://${id}/` }));
         const tabId = yield* Effect.promise(() => worker.evaluate(focused, windowId));
         return yield* Effect.all({ badge: Effect.promise(() => worker.evaluate(badged, tabId)), title: Effect.promise(() => worker.evaluate(titled, tabId)) });
     });
@@ -132,7 +135,8 @@ const branded = Effect.fnUntraced(function* ({ folder, root }: { readonly folder
         onDefined: (locale) => Effect.flatMap(fs.readFileString(join(folder, '_locales', locale, 'messages.json')), Schema.decodeUnknownEffect(Messages)),
     });
     const named = Option.flatMap(Option.fromNullishOr(/^__MSG_(?<key>\w+)__$/u.exec(manifest.name)?.groups?.['key']), (key) => Record.get(messages, key));
-    return { name: Option.match(named, { onNone: () => manifest.name, onSome: ({ message }) => message }), mark: hosted(pathToFileURL(join(root, 'icons', 'mark.svg')).href), stylesheet: hosted(pathToFileURL(join(root, 'icon.css')).href) };
+    const { config } = yield* Effect.flatMap(fs.readFileString(join(root, 'package.json')), Schema.decodeUnknownEffect(Branded));
+    return { name: Option.match(named, { onNone: () => manifest.name, onSome: ({ message }) => message }), mark: hosted(pathToFileURL(join(root, 'icons', 'mark.svg')).href), color: config.brand };
 });
 
 const moving = (element: Element) => element.getAnimations({ subtree: true }).filter((animation) => animation instanceof CSSTransition).length;
@@ -145,13 +149,18 @@ const still = (page: Page) => (role: Parameters<Page['getByRole']>[0]) =>
         Effect.promise(() => page.getByRole(role).evaluate(paused)),
     );
 
-const themed = (drawn: Element, mark: string) => {
+const themed = (mark: string) => {
     const image = Object.assign(new Image(), { src: mark });
-    document.documentElement.style.setProperty('--brand', getComputedStyle(drawn).color);
     return image.decode().then(() => document.documentElement.style.setProperty('--ratio', `${image.naturalWidth} / ${image.naturalHeight}`));
 };
 
 const rendered = () => document.fonts.ready.then(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0));
+
+const aligned = (heading: HTMLElement) => {
+    const { x, y } = heading.getBoundingClientRect();
+    const [across, down] = [x, y].map((at) => (Math.round(at * devicePixelRatio) - at * devicePixelRatio) / devicePixelRatio);
+    heading.style.setProperty('translate', `${String(across)}px ${String(down)}px`);
+};
 
 const scene = Effect.fnUntraced(function* ({ name, url, body, colorScheme, shows, after }: Scene, index: number, { page, context, extension, deviceScaleFactor }: { readonly page: Page; readonly context: BrowserContext; readonly extension: Extension; readonly deviceScaleFactor: number }, info: TestInfo) {
     const open = (at: string, html: string) =>
@@ -185,12 +194,13 @@ const tile = Effect.fnUntraced(function* ({ name, width, height, axis, gap, mark
     yield* Effect.promise(() => page.setViewportSize({ width: width / deviceScaleFactor, height: height / deviceScaleFactor }));
     yield* Effect.promise(() =>
         page.setContent(
-            `<!doctype html><html lang="en"><link rel="stylesheet" href="${hosted(import.meta.resolve('@fontsource-variable/google-sans-flex'))}"><link rel="stylesheet" href="${brand.stylesheet}"><style>:root { color-scheme: light; background: var(--brand); color: white; font: 650 ${type / deviceScaleFactor}px / 1.1 'Google Sans Flex Variable' } body { display: flex; flex-direction: ${axis}; gap: ${gap / deviceScaleFactor}px; align-items: center; justify-content: center; block-size: 100vh; margin: 0 } svg { display: block; block-size: ${mark / deviceScaleFactor}px; aspect-ratio: var(--ratio); background: white; mask: url("${brand.mark}") center / contain no-repeat } h1 { margin: 0; font: inherit; letter-spacing: -0.02em }</style><svg aria-hidden="true"></svg><h1></h1>`,
+            `<!doctype html><html lang="en"><link rel="stylesheet" href="${hosted(import.meta.resolve('@fontsource-variable/google-sans-flex'))}"><style>:root { color-scheme: light; background: ${brand.color}; color: white; font: 650 ${type / deviceScaleFactor}px / 1.1 'Google Sans Flex Variable' } body { display: flex; flex-direction: ${axis}; gap: ${gap / deviceScaleFactor}px; align-items: center; justify-content: center; block-size: 100vh; margin: 0 } svg { display: block; block-size: ${mark / deviceScaleFactor}px; aspect-ratio: var(--ratio); background: white; mask: url("${brand.mark}") center / contain no-repeat } h1 { margin: 0; font: inherit; letter-spacing: -0.02em }</style><svg aria-hidden="true"></svg><h1></h1>`,
         ),
     );
-    yield* Effect.promise(() => page.locator('svg').evaluate(themed, brand.mark));
+    yield* Effect.promise(() => page.evaluate(themed, brand.mark));
     yield* Effect.promise(() => page.locator('h1').evaluate((heading, text) => heading.replaceChildren(text), brand.name));
     yield* Effect.promise(() => page.waitForFunction(rendered));
+    yield* Effect.promise(() => page.locator('h1').evaluate(aligned));
     yield* Effect.promise(() => page.screenshot({ path: join(info.project.outputDir, `${name}.png`), scale: 'device' }));
 }, Effect.scoped);
 

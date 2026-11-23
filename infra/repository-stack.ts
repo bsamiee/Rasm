@@ -8,7 +8,7 @@ import { Environment, Project, ServiceToken, secretssync, Webhook } from '@pulum
 import { run } from '@rasm/process';
 import { Array, Cause, Effect, FileSystem, Path, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
-import { hosts } from '#/platform-stack.ts';
+import { hosts } from '#/platform-stack';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

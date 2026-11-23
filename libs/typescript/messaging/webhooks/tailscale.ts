@@ -1,6 +1,6 @@
 import { type Array, type Duration, type Redacted, Schema } from 'effect';
-import { Scheme } from '#/scheme.ts';
-import { Webhook } from '#/webhook.ts';
+import { Scheme } from '#/scheme';
+import { Webhook } from '#/webhook';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

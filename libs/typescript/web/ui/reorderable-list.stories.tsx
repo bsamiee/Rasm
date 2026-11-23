@@ -3,7 +3,7 @@ import { Array } from 'effect';
 import { type ComponentProps, useState } from 'react';
 import { Button } from 'react-aria-components';
 import { expect, fn, mocked, screen, waitFor, within } from 'storybook/test';
-import preview from '#/.storybook/preview.ts';
+import preview from '#/.storybook/preview';
 import { ReorderableList } from '#/reorderable-list.tsx';
 
 // --- [TYPES] ---------------------------------------------------------------------------

@@ -1,10 +1,10 @@
 import { Array, Effect, Option, Schema, Struct } from 'effect';
-import { JoiningGroupName, joiningGroups, joins } from '#/arabic/joining.ts';
-import { Settings } from '#/settings.ts';
-import type { Face } from '#/shaping/face.ts';
-import { Profile } from '#/shaping/internal/profile.ts';
-import { ShapedText } from '#/shaping/shaped-text.ts';
-import { baseDirection, Span, words } from '#/shaping/word.ts';
+import { JoiningGroupName, joiningGroups, joins } from '#/arabic/joining';
+import { Settings } from '#/settings';
+import type { Face } from '#/shaping/face';
+import { Profile } from '#/shaping/internal/profile';
+import { ShapedText, TextRun } from '#/shaping/shaped-text';
+import { baseDirection, Span, words } from '#/shaping/word';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -41,7 +41,7 @@ class Kerning extends Schema.Class<Kerning, { readonly brand: unique symbol }>('
         const [outlines, profiles] = [new Map<number, ReturnType<typeof Profile.outline>>(), new Map<string, Profile>()];
         const outline = (glyph: number) => outlines.getOrInsertComputed(glyph, () => Profile.outline(face.font.glyphToJson(glyph)));
         const direction = Option.getOrElse(settings.direction, () => baseDirection(text));
-        const profile = (span: string) => profiles.getOrInsertComputed(span, () => Profile.of(ShapedText.of(face, ShapedText.Run.make({ text: span, direction: LONE_PUNCTUATION.test(span) ? Option.some(direction) : Option.none() }), settings), unitsPerEm, outline));
+        const profile = (span: string) => profiles.getOrInsertComputed(span, () => Profile.of(ShapedText.of(face, TextRun.make({ text: span, direction: LONE_PUNCTUATION.test(span) ? Option.some(direction) : Option.none() }), settings), unitsPerEm, outline));
         const spans = words(text).flatMap((word) =>
             Array.window([word.start, ...joins(text, word).flatMap((join) => [join.start, join.end]), word.end], 2)
                 .map(([from, to]) => ({ span: Span.make({ start: from, end: to }), rest: Span.make({ start: from, end: word.end }) }))

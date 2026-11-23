@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Array, Effect, Result, Struct } from 'effect';
-import { echoed, names, proxied, REVISIONS } from '#/conformance.ts';
-import { TEXT } from '#/fixtures.ts';
+import { echoed, names, proxied, REVISIONS } from '#/conformance';
+import { TEXT } from '#/fixtures';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

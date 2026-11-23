@@ -1,13 +1,15 @@
 import { load } from 'cheerio/slim';
-import { Array, Cause, Context, Duration, Effect, Exit, Function, Layer, Option, Record, Schema, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Duration, Effect, Exit, Function, Layer, Option, Record, Schema, Stream, UndefinedOr } from 'effect';
+import { SecureRandom } from 'effect/crypto';
+import { Base64 } from 'effect/encoding';
 import { HttpServerResponse } from 'effect/http';
 import { renderToReadableStream } from 'react-dom/server';
-import { HostingError } from '#/app/error.ts';
-import type { Shell } from '#/rendering/shell.ts';
+import { HostingError } from '#/app/error';
+import type { Shell } from '#/rendering/shell';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Template extends Context.Service<Template, Effect.Effect<string, HostingError>>()('@rasm/hosting/rendering/template') {
+class Template extends Context.Service<Template, Effect.Effect<{ readonly lang: string; readonly head: string }, HostingError>>()('@rasm/hosting/rendering/template') {
     static readonly layer = (assets: { readonly fetch: (request: Request) => Promise<Response> }) =>
         Layer.effect(
             Template,
@@ -17,39 +19,25 @@ class Template extends Context.Service<Template, Effect.Effect<string, HostingEr
                     ({ status }) => HostingError.of('Template', `answer ${status}`)(),
                 ),
                 Effect.flatMap((response) => Effect.tryPromise({ try: () => response.text(), catch: HostingError.of('Template', 'read') })),
+                Effect.flatMap((html) => {
+                    const document = load(html);
+                    return Effect.fromOption(Option.all({ lang: Option.fromUndefinedOr(document('html').attr('lang')), head: Option.fromNullOr(document('head').html()) })).pipe(Effect.mapError(HostingError.of('Template', 'language and head')));
+                }),
                 Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
             ),
         );
     static readonly render = Effect.fn('Template.render')(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>, value: S['Type'], sources: Record.ReadonlyRecord<string, readonly string[]> = {}) {
-        const [template, context] = yield* Effect.all([Effect.flatten(Template), Effect.context<never>()]);
-        const onError = (error: unknown) => Effect.runSyncWith(context)(Effect.logError(Cause.die(error)));
-        const [serialized, markup] = yield* Effect.all(
-            [
-                Schema.encodeEffect(shell.script.json)(value).pipe(Effect.orDie),
-                Effect.promise((signal) => renderToReadableStream(shell.render(value), { signal, onError })).pipe(
-                    Effect.tap((stream) => Effect.promise(Function.constant(stream.allReady))),
-                    Effect.flatMap((stream) => Effect.promise(Response.prototype.text.bind(new Response(stream)))),
-                ),
-            ],
-            { concurrency: 'unbounded' },
-        );
-        const { title, meta } = shell.head(value);
-        const document = load(template);
-        const upsert = (selector: string, element: string) => (document(selector).length > 0 ? document(selector) : document(element).appendTo('head'));
-        document(`#${shell.root}`)
-            .html(markup)
-            .after(document('<script>').attr({ id: shell.script.id, type: 'application/json' }).text(serialized));
-        upsert('title', '<title>').text((_, current) => Option.getOrElse(title, Function.constant(current)));
-        const tagged = (attribute: string, contents: Record.ReadonlyRecord<string, string>) => Record.collect(contents, (key, content) => upsert(`meta[${attribute}="${key}"]`, '<meta>').attr({ [attribute]: key, content }));
-        Record.collect(Record.map(meta, Record.getSomes), tagged);
-        return HttpServerResponse.html(document.html()).pipe(
+        const [document, context, json, random] = yield* Effect.all([Effect.flatten(Template), Effect.context<never>(), Effect.orDie(Schema.encodeEffect(shell.data.json)(value)), SecureRandom.SecureRandom]);
+        const nonce = Base64.encode(yield* random.randomBytes(16));
+        const rendered = yield* Effect.promise((signal) => renderToReadableStream(shell.page(value, json, document), { signal, nonce, onError: (error) => Effect.runSyncWith(context)(Effect.logError(Cause.die(error))) }));
+        return HttpServerResponse.stream(Stream.fromReadableStream<Uint8Array, HostingError>({ evaluate: Function.constant(rendered), onError: HostingError.of('Template', 'render') }), { contentType: 'text/html; charset=utf-8' }).pipe(
             UndefinedOr.match(shell.policy, {
                 onUndefined: () => Function.identity,
                 onDefined: (policy) =>
                     HttpServerResponse.setHeader(
                         'Content-Security-Policy',
                         Record.collect(
-                            Record.union(policy, sources, (stated: readonly string[], added: readonly string[]) => [...stated, ...added]),
+                            [sources, { 'script-src': [`'nonce-${nonce}'`] }].reduce((stated, added) => Record.union(stated, added, (held: readonly string[], more: readonly string[]) => Array.appendAll(held, more)), policy),
                             (directive, allowed) => `${directive} ${Array.dedupe(allowed).join(' ')}`,
                         ).join('; '),
                     ),

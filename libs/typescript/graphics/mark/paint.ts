@@ -1,6 +1,14 @@
 import { run } from '@rasm/process';
-import { Array, Effect, FileSystem, Match, Option, Order, Path, Record, Schema, UndefinedOr } from 'effect';
+import { type Color, formatHex, formatRgb } from 'culori';
+import { Array, Effect, FileSystem, Match, Order, Path, Record, Schema, Stream, UndefinedOr } from 'effect';
 import { imageSize } from 'image-size';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+interface Tone {
+    readonly color: Color;
+    readonly parts?: Readonly<Record<string, Readonly<Record<string, Color>>>>;
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -8,34 +16,25 @@ const Bounds = Schema.TemplateLiteralParser([Schema.Finite, ',', Schema.Finite, 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const paint = Effect.fnUntraced(function* (drawings: Array.NonEmptyReadonlyArray<string>, style: string, frame?: { readonly width: number; readonly padding?: number | undefined }) {
+const paint = Effect.fnUntraced(function* (drawings: Array.NonEmptyReadonlyArray<string>, { color, parts = {} }: Tone, frame?: { readonly width: number; readonly padding?: number | undefined }) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const folder = yield* fs.makeTempDirectoryScoped();
-    const { stylesheet, themed, framed, painted } = Record.map({ stylesheet: 'style.css', themed: 'themed.svg', framed: 'framed.svg', painted: 'painted.png' }, (name) => path.join(folder, name));
-    const sized = yield* Effect.forEach(
-        drawings,
-        (drawing, index) => {
-            const native = path.join(folder, `${String(index)}.png`);
-            return run(['resvg', drawing, native]).pipe(
-                Effect.andThen(fs.readFile(native)),
-                Effect.map((image) => ({ drawing, canvas: imageSize(image) })),
-            );
+    const [stylesheet, painted] = [path.join(folder, 'tone.css'), path.join(folder, 'painted.png')];
+    const sized = yield* Effect.forEach(drawings, (drawing) => Effect.map(fs.readFile(drawing), (source) => ({ drawing, canvas: imageSize(source) })), { concurrency: 'unbounded' });
+    const byWidth = Order.mapInput(Order.Number, ({ canvas }: (typeof sized)[number]) => canvas.width);
+    const { drawing, canvas } = UndefinedOr.match(frame, {
+        onUndefined: () => Array.max(sized, byWidth),
+        onDefined: ({ width, padding = 0 }) => {
+            const held = sized.filter(({ canvas: { width: side } }) => side <= width - 2 * padding);
+            const leftover = Order.mapInput(Order.Number, ({ canvas: { width: side } }: (typeof sized)[number]) => (width - 2 * padding) % side);
+            return Array.isReadonlyArrayNonEmpty(held) ? Array.min(held, Order.combine(leftover, Order.flip(byWidth))) : Array.min(sized, byWidth);
         },
-        { concurrency: 'unbounded' },
-    );
-    const ordered = Array.sort(
-        sized,
-        Order.mapInput(Order.Number, ({ canvas }: (typeof sized)[number]) => canvas.width),
-    );
-    const { drawing, canvas } = Option.getOrElse(
-        Option.flatMap(Option.fromUndefinedOr(frame), ({ width, padding = 0 }) => Array.findFirst(ordered, ({ canvas: { width: side } }) => width - 2 * padding <= 2 * side)),
-        () => Array.lastNonEmpty(ordered),
-    );
-    yield* fs.writeFileString(stylesheet, style);
-    yield* run(['usvg', '--stylesheet', stylesheet, drawing, themed]);
+    });
+    yield* fs.writeFileString(stylesheet, [`svg { color: ${formatHex(color)}; opacity: ${String(color.alpha ?? 1)} }`, ...Record.collect(parts, (part, paints) => `.${part} { ${Record.collect(paints, (property, shade) => `${property}: ${formatRgb(shade)}`).join('; ')} }`)].join('\n'));
+    const { stdout: themed } = yield* run(['usvg', '--stylesheet', stylesheet, drawing, '-c']);
     const [x, y, across, down] = yield* Match.value(frame).pipe(
         Match.when({ padding: Match.number }, ({ width, padding }) =>
-            run(['resvg', '--query-bbox', themed]).pipe(
+            run(['resvg', '--query-bbox', '--stylesheet', stylesheet, drawing]).pipe(
                 Effect.flatMap(({ stdout }) => Schema.decodeUnknownEffect(Bounds)(stdout.trim())),
                 Effect.map(([left, , top, , wide, , tall]) => {
                     const side = (Math.max(wide, tall) * width) / (width - 2 * padding);
@@ -43,15 +42,19 @@ const paint = Effect.fnUntraced(function* (drawings: Array.NonEmptyReadonlyArray
                 }),
             ),
         ),
+        Match.when({ width: (width: number) => width >= canvas.width }, ({ width }) => {
+            const side = width / Math.floor(width / canvas.width);
+            return Effect.succeed([(canvas.width - side) / 2, (canvas.height - side) / 2, side, side] as const);
+        }),
         Match.orElse(() => Effect.succeed([0, 0, canvas.width, canvas.height] as const)),
     );
-    const document = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${[x, y, across, down].join(' ')}" width="${String(across)}" height="${String(down)}"><image width="${String(canvas.width)}" height="${String(canvas.height)}" href="data:image/svg+xml;base64,${(yield* fs.readFile(themed)).toBase64()}"/></svg>`;
+    const document = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${[x, y, across, down].join(' ')}" width="${String(across)}" height="${String(down)}"><image width="${String(canvas.width)}" height="${String(canvas.height)}" href="data:image/svg+xml;base64,${new TextEncoder().encode(themed).toBase64()}"/></svg>`;
     return yield* UndefinedOr.match(frame, {
         onUndefined: () => Effect.succeed(new TextEncoder().encode(document)),
-        onDefined: ({ width }) => fs.writeFileString(framed, document).pipe(Effect.andThen(run(['resvg', '-w', String(width), framed, painted])), Effect.andThen(fs.readFile(painted))),
+        onDefined: ({ width }) => run(['resvg', '-w', String(width), '--resources-dir', path.dirname(drawing), '-', painted], { stdin: Stream.make(new TextEncoder().encode(document)) }).pipe(Effect.andThen(fs.readFile(painted))),
     });
 }, Effect.scoped);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { paint };
+export { paint, type Tone };

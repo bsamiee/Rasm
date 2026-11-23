@@ -110,7 +110,7 @@ class Host extends Schema.Class<Host, { readonly brand: unique symbol }>('Host')
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const quiet = (words: readonly string[]) => Result.map(CommandLine.join(words), (line) => `${line} 2>/dev/null`);
-const section = ({ name, user, identity, host, port }: typeof Hop.Type) => ({
+const section = ({ name, user, identity, host, port }: Pick<Host, 'name' | 'user' | 'identity' | 'host' | 'port'>) => ({
     HostName: host,
     User: user,
     HostKeyAlias: name,

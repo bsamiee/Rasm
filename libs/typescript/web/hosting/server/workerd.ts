@@ -4,8 +4,8 @@ import { layer } from '@rasm/telemetry';
 import { env, tracing } from 'cloudflare:workers';
 import { Config, ConfigProvider, Context, DateTime, Effect, Exit, Formatter, Layer, MutableRef, Option, Predicate, Record, Redacted, Scheduler, Schema, Scope, Struct, Tracer } from 'effect';
 import { FetchHttpClient, HttpEffect, HttpRouter, HttpServer, type HttpServerRequest } from 'effect/http';
-import { App, type Binding } from '#/app/app.ts';
-import { hosted, type Routes, type Served } from '#/server/hosted.ts';
+import { App, type Binding } from '#/app/app';
+import { hosted, type Routes, type Served } from '#/server/hosted';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

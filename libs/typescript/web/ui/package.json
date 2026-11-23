@@ -2,7 +2,7 @@
     "name": "@rasm/ui",
     "version": "0.1.0",
     "private": true,
-    "description": "Accessible React interface for web apps: form controls, choice, menu, and reorderable lists, modal and confirmation dialogs with an open-dialog count, schema issue display, Intl formatting, scoped CSS custom properties, and deferred focus",
+    "description": "Accessible React interface for web apps: form controls, choice, menu, and reorderable lists, modal and confirmation dialogs, schema issue display, and Intl formatting",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -16,7 +16,7 @@
     "type": "module",
     "sideEffects": false,
     "imports": {
-        "#/*.ts": "./*.ts",
+        "#/*": "./*.ts",
         "#/*.tsx": "./*.tsx"
     },
     "exports": {
@@ -25,7 +25,7 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*.ts": "./dist/*.js",
+            "#/*": "./dist/*.js",
             "#/*.tsx": "./dist/*.js"
         },
         "exports": {
@@ -38,7 +38,6 @@
         "lucide-react": "catalog:"
     },
     "devDependencies": {
-        "@effect/atom-react": "catalog:",
         "@rasm/testing": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/addon-docs": "catalog:",
@@ -57,10 +56,10 @@
         "vitest": "catalog:"
     },
     "peerDependencies": {
-        "@effect/atom-react": "catalog:peers",
         "effect": "catalog:peers",
         "react": "catalog:peers",
-        "react-aria-components": "catalog:peers"
+        "react-aria-components": "catalog:peers",
+        "react-dom": "catalog:peers"
     },
     "engines": {
         "node": ">=27"

@@ -7,7 +7,7 @@ import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { refused } from '@rasm/testing/errors';
 import { pathed } from '@rasm/testing/nx';
 import { describe, expect, onTestFinished, vi } from 'vitest';
-import { it, node, report, STUB } from '#/analyzer.ts';
+import { it, node, report, STUB } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

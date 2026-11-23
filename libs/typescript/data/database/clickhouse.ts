@@ -1,11 +1,11 @@
 import { ClickhouseClient } from '@effect/sql-clickhouse';
 import { Array, Config, Duration, Effect, Equal, Filter, Formatter, flow, HashSet, Layer, Match, Option, Order, Record, Result, Schema, SchemaGetter, String, Struct, UndefinedOr } from 'effect';
 import { SqlClient, SqlSchema, Statement } from 'effect/sql';
-import type { Catalog } from '#/catalog.ts';
-import { Column, type Kind } from '#/column.ts';
-import { type Dialect, Engine } from '#/engine.ts';
-import { catalogDdl, constant, diff, digest, Identity, identifier, literal, replacement, Stamp, unsupported } from '#/reconcile.ts';
-import type { Relation } from '#/relation.ts';
+import type { Catalog } from '#/catalog';
+import { Column, type Kind } from '#/column';
+import { type Dialect, Engine } from '#/engine';
+import { catalogDdl, constant, diff, digest, Identity, identifier, literal, replacement, Stamp, unsupported } from '#/reconcile';
+import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -27,16 +27,18 @@ const quoted = flow(literal, String.replaceAll('\\', '$&$&'));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Part = Schema.Struct({ kind: Schema.Literals(Struct.keys(kinds)), name: Schema.String, digest: Schema.String, columns: Schema.Array(Schema.String) });
+class Part extends Schema.Opaque<Part, unknown>()(Schema.Struct({ kind: Schema.Literals(Struct.keys(kinds)), name: Schema.String, digest: Schema.String, columns: Schema.Array(Schema.String) })) {}
 const MergeTree = Schema.Struct({ key: Schema.Array(Schema.String), version: Schema.optionalKey(Schema.String), partition: Schema.optionalKey(Schema.String) });
-const TableStamp = Schema.fromJsonString(Identity.mapFields(Struct.assign({ mergeTree: MergeTree, expires: Schema.optionalKey(Schema.Int), codecs: Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String)), parts: Schema.Array(Part) })));
+class TableStamp extends Schema.Opaque<TableStamp, unknown>()(Identity.mapFields(Struct.assign({ mergeTree: MergeTree, expires: Schema.optionalKey(Schema.Int), codecs: Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String)), parts: Schema.Array(Part) }))) {}
 const recorded = <S extends Schema.Codec<unknown, string>>(stamp: S) => Schema.String.pipe(Schema.decodeTo(Schema.Option(Schema.toType(stamp)), { decode: SchemaGetter.transform(Schema.decodeOption(stamp)), encode: SchemaGetter.forbiddenEncoding }));
-const Table = Schema.Struct({
-    name: Schema.String,
-    identity: recorded(TableStamp),
-    columns: Schema.Array(Schema.Struct({ name: Schema.String, identity: recorded(Stamp), comment: Schema.String, definition: Schema.String, codec: Schema.String, copied: Schema.BooleanFromBit })),
-    parts: Schema.Array(Schema.Struct({ kind: Part.fields.kind, name: Schema.String, definition: Schema.String })),
-});
+class Table extends Schema.Opaque<Table, { readonly brand: unique symbol }>()(
+    Schema.Struct({
+        name: Schema.String,
+        identity: recorded(Schema.fromJsonString(TableStamp)),
+        columns: Schema.Array(Schema.Struct({ name: Schema.String, identity: recorded(Stamp), comment: Schema.String, definition: Schema.String, codec: Schema.String, copied: Schema.BooleanFromBit })),
+        parts: Schema.Array(Schema.Struct({ kind: Part.fields.kind, name: Schema.String, definition: Schema.String })),
+    }),
+) {}
 class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbol }>('Clickhouse')({ tables: Schema.Array(Table), scratch: Schema.Array(Schema.String) }) {
     // --- [DDL]
 
@@ -185,7 +187,7 @@ const observed = SqlSchema.findOne({
 });
 const seconds = (after: Duration.Duration) => Math.ceil(Duration.toSeconds(after));
 const ttl = (sql: SqlClient.SqlClient, { column, after }: Option.Option.Value<Relation['mergeTree']['expires']>) => sql`TTL toDateTime(${sql(column)}) + INTERVAL ${sql.literal(seconds(after).toString())} SECOND`;
-const commented = (sql: SqlClient.SqlClient, name: string, identity: typeof Identity.Type) => sql`COMMENT COLUMN ${sql(name)} ${sql.literal(quoted(Formatter.formatJson(identity)))}`;
+const commented = (sql: SqlClient.SqlClient, name: string, identity: Identity) => sql`COMMENT COLUMN ${sql(name)} ${sql.literal(quoted(Formatter.formatJson(identity)))}`;
 const parts = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, { declared: { columns }, ddl: { definitions, indexes } }: Effect.Success<ReturnType<typeof catalogDdl>>[number]) {
     const maps = new Map(
         Object.values(columns)
@@ -203,7 +205,7 @@ const parts = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, { declared:
     });
     return yield* Effect.forEach([...checks, ...accessed], (part) => Effect.map(digest(sql`${part.body}`.compile(true)[0]), (hashed) => ({ ...part, digest: hashed })));
 });
-const tableStamp = ({ key, mergeTree: { version, expires, codecs } }: Relation, { origin, generation }: typeof Identity.Type, wanted: Effect.Success<ReturnType<typeof parts>>): (typeof TableStamp)['Type'] => ({
+const tableStamp = ({ key, mergeTree: { version, expires, codecs } }: Relation, { origin, generation }: Identity, wanted: Effect.Success<ReturnType<typeof parts>>): TableStamp => ({
     origin,
     generation,
     mergeTree: { key, ...Option.getOrUndefined(Option.map(version, (column) => ({ version: column }))), ...Option.getOrUndefined(Option.map(expires, ({ column }) => ({ partition: column }))) },
@@ -211,7 +213,7 @@ const tableStamp = ({ key, mergeTree: { version, expires, codecs } }: Relation, 
     codecs,
     parts: wanted.map(Struct.pick(['kind', 'name', 'digest', 'columns'])),
 });
-const recoded = (sql: SqlClient.SqlClient, { columns, mergeTree }: Relation, held: (typeof TableStamp)['Type']['codecs']) =>
+const recoded = (sql: SqlClient.SqlClient, { columns, mergeTree }: Relation, held: TableStamp['codecs']) =>
     Array.filterMap(Object.values(columns), ({ name }) => {
         const codec = Record.get(mergeTree.codecs, name);
         return Equal.equals(codec, Record.get(held, name)) ? Result.failVoid : Result.succeed(sql`MODIFY COLUMN ${sql(name)} ${sql.literal(Option.match(codec, { onNone: () => 'REMOVE CODEC', onSome: (chain) => ['CODEC(', chain.join(', '), ')'].join('') }))}`);
@@ -223,8 +225,8 @@ const built = (sql: SqlClient.SqlClient, target: Statement.Fragment, { declared,
         ...stamps.map(({ name, stamp: identity }) => commented(sql, name, identity)),
         sql`MODIFY COMMENT ${sql.literal(quoted(Formatter.formatJson(stamp)))}`,
     ])}`;
-const keyed = ({ kind, name }: Pick<(typeof Part)['Type'], 'kind' | 'name'>) => ({ kind, name });
-const aligned = (entry: ReturnType<typeof diff<typeof Table.Type & { readonly references: never[] }>>['matched'][number], wanted: Effect.Success<ReturnType<typeof parts>>) => {
+const keyed = ({ kind, name }: Pick<Part, 'kind' | 'name'>) => ({ kind, name });
+const aligned = (entry: ReturnType<typeof diff<Table & { readonly references: never[] }>>['matched'][number], wanted: Effect.Success<ReturnType<typeof parts>>) => {
     const [stamp, present, declared] = [tableStamp(entry.declared, entry.identity, wanted), HashSet.fromIterable(entry.live.parts.map(keyed)), HashSet.fromIterable(wanted.map(keyed))];
     const managed = Option.filter(entry.live.identity, () => entry.owned);
     const moved = new Set([...entry.dropping.map(Struct.get('name')), ...entry.renames.map(Struct.get('from'))]);

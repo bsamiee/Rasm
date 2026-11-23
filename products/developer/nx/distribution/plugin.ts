@@ -6,9 +6,9 @@ import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellA
 import { Array, Config, ConfigProvider, Duration, Effect, FileSystem, Formatter, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import which from 'which';
-import { run } from '#/executor.ts';
-import { type Fields, FOLDERS, HOSTS, type Host, routed } from '#/host-packages.ts';
-import { aggregated, anchored, Folder, manifested, namedInput, type Stated, tagged, type Verbs } from '#/inference.ts';
+import { run } from '#/executor';
+import { type Fields, FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
+import { aggregated, anchored, Folder, manifested, namedInput, type Stated, tagged, type Verbs } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

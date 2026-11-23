@@ -1,7 +1,7 @@
 import { D1Client } from '@effect/sql-d1';
 import { Context, Effect, Layer } from 'effect';
-import { type Dialect, Engine, Rows } from '#/engine.ts';
-import { Sqlite } from '#/sqlite.ts';
+import { type Dialect, Engine, Rows } from '#/engine';
+import { Sqlite } from '#/sqlite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

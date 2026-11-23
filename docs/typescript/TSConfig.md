@@ -80,21 +80,22 @@ Written compiler options and the decision each states:
 | :-----: | :----------------------------------- | :----------------------- | :------------------------------------------------------------------ |
 |  [01]   | `target`                             | `esnext`                 | Every Node `engines.node` allows runs emitted syntax unlowered      |
 |  [02]   | `lib`                                | `["esnext"]`             | Compiler's newest ECMAScript library, matching `target`             |
-|  [03]   | `module`                             | `nodenext`               | Code Node runs and published libraries, resolution following it     |
-|  [04]   | `module`                             | `preserve`               | Bundled applications, and programs over types `nodenext` misreads   |
-|  [05]   | `outDir`                             | `${configDir}/dist`      | Each package emits into its own `dist`                              |
-|  [06]   | `composite`                          | `true`                   | Implies `declaration` and `incremental`, required for references    |
-|  [07]   | `sourceMap`                          | `true` where `tsc` emits | Stack traces reach source lines                                     |
-|  [08]   | `verbatimModuleSyntax`               | `true`                   | Type-only imports stay marked, implies `isolatedModules`            |
-|  [09]   | `erasableSyntaxOnly`                 | `true`                   | Refuses syntax Node type stripping cannot run (`enum`, namespaces)  |
-|  [10]   | `exactOptionalPropertyTypes`         | `true`                   | Optional keys and keys holding `undefined` stay distinct            |
-|  [11]   | `noUncheckedIndexedAccess`           | `true`                   | Index reads include `undefined`                                     |
-|  [12]   | `noPropertyAccessFromIndexSignature` | `true`                   | Index signature keys read through brackets alone                    |
-|  [13]   | `skipLibCheck`                       | `true`                   | Dependency declarations go unchecked, their own builds checked them |
-|  [14]   | `types`                              | Per program              | Default `[]` loads no globals                                       |
-|  [15]   | `plugins`                            | Effect language service  | Patched `tsc` reports Effect diagnostics as compiler errors         |
-|  [16]   | `jsx`                                | `react-jsx`              | Packages holding `.tsx` alone                                       |
-|  [17]   | `noEmit`                             | `true`                   | Programs no other program references: suites, apps, tools           |
+|  [03]   | `lib`                                | `["es2023", "dom"]`      | UXP programs, as UXP's V8 11.8 stages `Promise.withResolvers`       |
+|  [04]   | `module`                             | `nodenext`               | Code Node runs and published libraries, resolution following it     |
+|  [05]   | `module`                             | `preserve`               | Bundled applications, and programs over types `nodenext` misreads   |
+|  [06]   | `outDir`                             | `${configDir}/dist`      | Each package emits into its own `dist`                              |
+|  [07]   | `composite`                          | `true`                   | Implies `declaration` and `incremental`, required for references    |
+|  [08]   | `sourceMap`                          | `true` where `tsc` emits | Stack traces reach source lines                                     |
+|  [09]   | `verbatimModuleSyntax`               | `true`                   | Type-only imports stay marked, implies `isolatedModules`            |
+|  [10]   | `erasableSyntaxOnly`                 | `true`                   | Refuses syntax Node type stripping cannot run (`enum`, namespaces)  |
+|  [11]   | `exactOptionalPropertyTypes`         | `true`                   | Optional keys and keys holding `undefined` stay distinct            |
+|  [12]   | `noUncheckedIndexedAccess`           | `true`                   | Index reads include `undefined`                                     |
+|  [13]   | `noPropertyAccessFromIndexSignature` | `true`                   | Index signature keys read through brackets alone                    |
+|  [14]   | `skipLibCheck`                       | `true`                   | Dependency declarations go unchecked, their own builds checked them |
+|  [15]   | `types`                              | Per program              | Default `[]` loads no globals                                       |
+|  [16]   | `plugins`                            | Effect language service  | Patched `tsc` reports Effect diagnostics as compiler errors         |
+|  [17]   | `jsx`                                | `react-jsx`              | Packages holding `.tsx` alone                                       |
+|  [18]   | `noEmit`                             | `true`                   | Programs no other program references: suites, apps, tools           |
 
 Options that stay unwritten:
 
@@ -110,7 +111,9 @@ Options that stay unwritten:
 |  [08]   | `declarationMap`                   | Tarball `files` omit maps, and editors open referenced source           |
 
 Options for one case alone:
-- `rewriteRelativeImportExtensions` rewrites relative `.ts` specifiers alone and refuses `#/` ones (TS2877), and `#/` rows serve them as written
+- UXP programs take `lib` `es2023`, as `libdynamic-napi` of every 2027 host and beta embeds V8 11.8.172.13, whose ES2024 lacks `Promise.withResolvers`
+- `UxpManifest.target` stays `es2022`, the newest year swc `JscTarget` names, as ES2023 adds hashbang syntax alone
+- `rewriteRelativeImportExtensions` rewrites relative `.ts` specifiers alone and refuses `#/` ones (TS2877), and `#/` rows append the extension in their target
 - `allowImportingTsExtensions` permits `.ts` specifiers in programs emitting no JavaScript, and `rewriteRelativeImportExtensions` implies it
 - `isolatedDeclarations` lets Oxc write `.d.ts` per file with no checker, and requires explicit types on every export
 - `customConditions` names a source condition only where `exports` hide source behind one

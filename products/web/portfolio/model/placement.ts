@@ -1,5 +1,5 @@
-import { Array, Effect, identity, Match, Option, Record, Result, Schema, type SchemaAST, SchemaGetter, SchemaIssue, SchemaTransformation, String } from 'effect';
-import { Asset, AssetId, Assets, Sheet } from '#/model/asset.ts';
+import { Array, Effect, Match, Option, Record, Result, Schema, type SchemaAST, SchemaGetter, SchemaIssue, SchemaTransformation, String } from 'effect';
+import { Asset, AssetId, Assets, Sheet } from '#/model/asset';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -23,7 +23,9 @@ const reference = <K extends (typeof Asset.Type)['kind']>(kind: K) => {
         }),
     );
 };
-const Prose = Schema.optionalKey(Schema.String).pipe(Schema.decodeTo(Schema.optionalKey(Schema.Trimmed.check(Schema.isNonEmpty())), SchemaTransformation.transformOptional({ decode: (given) => Option.filter(Option.map(given, String.trim), String.isNonEmpty), encode: identity })));
+const stated = (given: Option.Option<string>) => Option.filter(Option.map(given, String.trim), String.isNonEmpty);
+const prose = <S extends Schema.Codec<string, string>>(kept: S) => Schema.optionalKey(Schema.String).pipe(Schema.decodeTo(Schema.optionalKey(kept), SchemaTransformation.transformOptional({ decode: stated, encode: stated })));
+const Prose = Object.assign(prose(Schema.NonEmptyString), { of: prose });
 const text = { caption: Prose, alt: Prose, description: Prose };
 const placed = <K extends (typeof Asset.Type)['kind'], F extends Schema.Struct.Fields>(kind: K, fields: F) => Schema.Struct({ ...text, kind: Schema.Literal(kind), asset: reference(kind), ...fields }).pipe(Schema.encodeKeys({ asset: 'assetId' }));
 const percentage = Schema.Finite.check(Schema.isBetween(focus));
@@ -73,4 +75,4 @@ const Composition = Schema.Struct({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Alignment, Composition, CompositionId, defaulted, Placement, Scale };
+export { Alignment, Composition, CompositionId, defaulted, Placement, Prose, Scale };

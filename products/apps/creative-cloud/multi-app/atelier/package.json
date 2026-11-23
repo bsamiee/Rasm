@@ -7,8 +7,8 @@
     ],
     "type": "module",
     "imports": {
-        "#/*.ts": "./*.ts",
-        "#/*": "./*"
+        "#/*": "./*.ts",
+        "#/*.json": "./*.json"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",

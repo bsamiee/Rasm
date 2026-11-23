@@ -4,7 +4,7 @@
     "description": "MCP suites over @rasm/mcp: protocol lifecycle, transports, sessions, cancellation, progress, tools, resources, and completion per protocol version through the HTTP handler with no socket, RPC groups, content blocks, upstream MCP servers of each client revision proxied through the server, and the official conformance scenarios against a served endpoint",
     "type": "module",
     "imports": {
-        "#/*.ts": "./*.ts"
+        "#/*": "./*.ts"
     },
     "devDependencies": {
         "@effect/platform-node": "catalog:",

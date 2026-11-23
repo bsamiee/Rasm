@@ -246,4 +246,4 @@ const applications = Effect.gen(function* () {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { applications, Inventory, Target };
+export { applications, Inventory };

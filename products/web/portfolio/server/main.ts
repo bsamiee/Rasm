@@ -1,9 +1,9 @@
 import { Catalog } from '@rasm/database';
 import { serve } from '@rasm/hosting/server';
 import { Layer } from 'effect';
-import hosting from '#/hosting.config.ts';
-import { app } from '#/server/app.ts';
-import { catalog } from '#/server/catalog.ts';
+import hosting from '#/hosting.config';
+import { app } from '#/server/app';
+import { catalog } from '#/server/catalog';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

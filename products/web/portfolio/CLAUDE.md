@@ -17,6 +17,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - ALWAYS derive options and upload restrictions from schema `.literals` and `.members`, and fold assets through `Asset.match` and `Asset.guards`
 - `AssetId`, `EntryId`, and `CompositionId` brand every id, a swapped id fails to compile
 - Document fields a later build adds take `Schema.withDecodingDefaultKey`, bodies older builds stored still decode
+- Text fields are optional keys through `Prose`, which trims on decode and encode and drops blank text, absent text never an empty string
 - Stored forms are the `Schema.toEncoded` side of resolved schemas, with no second declaration
 - `Placement` resolves stored asset ids through `Schema.decodeTo` and `SchemaGetter.transformEffect` against an `Assets` service
 - Dangling or mistyped asset references fail decoding with `SchemaIssue.InvalidValue` and an owner-readable message
@@ -55,20 +56,24 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [04]-[PAGE]
 
-[RENDER]: Worker and Node entry render `Site` into built `index.html` through `Template.render`, browsers hydrate the same `Site` through `hydrate`:
+[RENDER]: Worker and Node entry stream `Site` as one document through `Template.render`, its head holding the tags of built `index.html`, and browsers hydrate the same document through `hydrate`:
 - Served markup holds published document and session alone, drafts reach a browser through owner endpoints
-- Fragments name active project and selected composition, user selection pushes history and scrolling replaces it
-- `popstate` and `hashchange` restore selection and scroll position from the fragment
+- `Site` renders `<title>` and the description `<meta>`, which React places in the document head, and `index.html` states neither
+- `site/state.ts` holds the page state as atoms: bootstrap value, editor view, preview, and the document published in this session
+- `site/navigation.ts` holds fragment, selection, and scroll tracking as atoms over the Navigation API, and `Site` mounts `scrollTracking`
+- Fragments name active project and selected composition, selection pushes history and scrolling replaces it
+- Page writes are `navigation.navigate` calls a `navigate` listener intercepts, so no write scrolls or moves focus
+- Fragment navigations the page did not start (links, typed fragments, traversals) restore selection and scroll position from the fragment
 - At page end, where the tracking line cannot reach last sections, scrolling keeps current fragment while its section stays in view
 - Side index and phone select are each the `Work index` navigation at their width
 
-[STYLE]: `site/theme.css` owns Tailwind tokens, shared utilities, and layout variants:
-- Class names take theme tokens and spacing steps, a value one utility reads stays a declaration in that utility
-- Presentation components name visual roles, typed `data-*` attributes select composition layouts
-- Elements carry no `style` attribute, theme rules hold visual choices and the formulas over media values
-- `CustomProperties` sets media values as custom properties, one hoisted `<style precedence>` rule per declaration a `data-properties` token selects
-- Figures reserve their box before media loads, server rendering emits each hoisted rule ahead of the markup it sizes
-- React Aria state variants come from `tailwindcss-react-aria-components`
+[STYLE]: `site/theme.css` holds tokens, base rules, and site and media styles, and each lazy chunk imports its own stylesheet (`editor/editor.css`, `media/pdf-sheet.css`):
+- Class names name visual roles, React Aria default classes and `data-*` state attributes select control styles and states
+- `site/theme.css` declares layer order `reset, tokens, base, vendor, components, editor`, every rule sits in one, and third-party stylesheets enter through `@import … layer(vendor)`
+- Styles use only features current Chrome, Safari, and Firefox all ship, and a feature one engine lacks sits in `@supports` where the page reads correctly without it
+- Figures and compositions pass continuous media values (ratio, focus) as registered custom properties in `style`, closed sets (alignment, scale, framing) as `data-*` attributes, so server markup sizes each figure before media loads
+- Theme rules hold visual choices and every formula over media values
+- Editor control rules apply inside `@scope (.editor) to (.media-figure)`, leaving site controls and hosted figures to site rules
 - `react-aria-components` owns composite controls, focus, selection, and overlays sized to its `--visual-viewport-height`
 - Motion owns layout animation, in-view detection, and reduced-motion preference
 - ALWAYS give each interaction a keyboard path, an accessible name or live announcement, a focus target, and a reduced-motion form
@@ -99,6 +104,9 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Draft, mutation, and upload atoms are `Atom.keepAlive`, closing the editor keeps edits, results, and queued files
 - Draft edits are `Optic` modifications returning a new portfolio, identity against the last saved or loaded snapshot marks unsaved work
 - Save failures hold their submitted snapshot, schema issue paths select the failing entry in it
+- `workspace` holds the entries panel as one `Workspace` case (list, entry with its composition, or placement with its file), `tab` the panel shown
+- Focus moves through element refs after `flushSync` commits the view a command shows, no element takes a DOM id for focus
+- Mutations state the `reactivityKeys` of the reads they change, and `recoveryRequest` reruns on them
 - Precondition failures keep local edits and offer a confirmed reload or a save over the stored revision
 - Pending uploads block publish and reload
 - ALWAYS map typed failures to owner text in the view, stating what was kept and which step comes next
@@ -138,9 +146,10 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Workers write one JSON log record per console line, record each span in the Workers trace, and export at invocation end
 - Node servers pass the app name to `layerNodeFromConfig`, which reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`
 - Each server exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names
-- `.storybook/main.ts` sets `viteConfigPath: null` and states the React and Tailwind plugins its stories read, so no `vite.config.ts` plugin runs
+- `.storybook/main.ts` sets `viteConfigPath: null` and takes the React plugin from `@rasm/testing/storybook`, so no `vite.config.ts` plugin runs
 - `siteHead` takes `icons/mark.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
-- `site/shell.tsx` states the content security policy of a production build, the page adds the storage origin to `connect-src`, and `Template.render` sets no header without one
+- `site/shell.tsx` states the content security policy of a production build, and the page adds the storage origin to `connect-src`
+- `Template.render` adds one nonce per response to `script-src` for scripts React streams, and sets no header for a shell with no policy
 
 [IDENTITY]: Views and handlers read the signed-in user of each request through `Identity` of `@rasm/hosting/identity`, which owns the sign-in and sign-out paths:
 - `ACCESS` holds one `Access` as JSON, source `Forwarded` reading headers a proxy sets

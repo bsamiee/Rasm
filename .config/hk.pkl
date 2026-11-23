@@ -209,7 +209,7 @@ steps {
     }
     diagnostic_format = "sarif"
   }
-  ["oxfmt"] = (Builtins.oxfmt) { depends = "oxlint" }
+  ["oxfmt"] = (Builtins.oxfmt) { depends = List("oxlint", "stylelint") }
   ["pkl-format"] = Builtins.pkl_format
   ["plutil"] {
     glob = "**/*.{plist,entitlements}"
@@ -254,6 +254,11 @@ steps {
       effect = "read"
     }
     diagnostic_format = "gcc"
+  }
+  ["stylelint"] = (Builtins.stylelint) {
+    local stylelint = List("stylelint", "--config", ".config/stylelint.config.ts")
+    check { command { argv = stylelint + List("{{files}}") } }
+    fix { command { argv = stylelint + List("--fix", "{{files}}") } }
   }
   ["swiftlint"] = (Builtins.swiftlint) {
     local swiftlint = List("swiftlint", "lint", "--quiet", "--config", ".config/swiftlint.yml")

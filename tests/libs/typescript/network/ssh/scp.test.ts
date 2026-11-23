@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { assert, it } from '@effect/vitest';
 import { Ssh, SshError } from '@rasm/ssh';
 import { Array, Effect, FileSystem, Path, Record, Schema } from 'effect';
-import { bounds, Sshd } from '#/sshd.ts';
+import { bounds, Sshd } from '#/sshd';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

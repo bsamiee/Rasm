@@ -2,8 +2,8 @@ import { Catalog, Relation } from '@rasm/database';
 import { Cause, Effect, Schema } from 'effect';
 import { HttpApiError } from 'effect/http-api';
 import { type SqlClient, Statement } from 'effect/sql';
-import { AssetId } from '#/model/asset.ts';
-import { StoredPortfolio } from '#/model/portfolio.ts';
+import { AssetId } from '#/model/asset';
+import { StoredPortfolio } from '#/model/portfolio';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 import { Option, Schema } from 'effect';
-import { Cargo, decides } from '#/executors/cargo/executor.ts';
+import { Cargo, decides } from '#/executors/cargo/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

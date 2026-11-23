@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ExitError, run, spawn } from '#/child-process.ts';
+export { ExitError, run, spawn } from '#/child-process';

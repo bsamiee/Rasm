@@ -1,17 +1,18 @@
 import { Issues } from '@rasm/ui';
-import { Match } from 'effect';
-import type { Atom } from 'effect/reactivity';
+import { Match, type Schema } from 'effect';
+import type { HttpClientError } from 'effect/http';
+import type { HttpApi, HttpApiEndpoint, HttpApiGroup } from 'effect/http-api';
 import { Button } from 'react-aria-components';
-import type { deleteRequest, discardRequest, draft, saveRequest } from '#/editor/state.ts';
+import type { Api } from '#/model/api';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type RequestFailure = Atom.Failure<typeof saveRequest>['error'] | Atom.Failure<typeof draft> | Atom.Failure<typeof deleteRequest> | Atom.Failure<typeof discardRequest>['error'];
+type RequestFailure = (typeof Api extends HttpApi.HttpApi<string, infer Groups> ? HttpApiEndpoint.Errors<HttpApiGroup.Endpoints<Groups>> : never) | HttpClientError.HttpClientError | Schema.SchemaError;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { error: E; conflict?: string; onField?: (path: readonly PropertyKey[]) => void } & ([Extract<E, { readonly _tag: 'Conflict' }>] extends [never] ? unknown : { conflict: string })) => (
-    <div className="border-l-3 border-accent-text bg-background-muted p-4 text-sm" role="alert">
+const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { readonly error: E; readonly conflict?: string; readonly onField?: (path: readonly PropertyKey[]) => void } & ([Extract<E, { readonly _tag: 'Conflict' }>] extends [never] ? unknown : { readonly conflict: string })) => (
+    <div className="request-alert" role="alert">
         {Match.value<RequestFailure>(error).pipe(
             Match.tag('SchemaError', ({ issue }) => (
                 <>
@@ -30,6 +31,7 @@ const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { 
                 </>
             )),
             Match.tag('PreconditionFailed', ({ revision }) => <p>Draft revision {revision} saved in another tab. Edits stay here until reload replaces them or replacing keeps them</p>),
+            Match.tag('UploadRefused', ({ message }) => <p>{message}</p>),
             Match.tag('Forbidden', () => <p>Sign in as owner to edit</p>),
             Match.tag('NotFound', () => <p>Upload data already removed. Refresh list</p>),
             Match.tag('Conflict', () => <p>{conflict}</p>),

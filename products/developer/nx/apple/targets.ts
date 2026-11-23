@@ -7,7 +7,7 @@ import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, Schema, type Scope } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import type { Run } from '#/executors/run/executor.ts';
+import type { Run } from '#/executors/run/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -7,11 +7,11 @@ import { SecureRandom } from 'effect/crypto';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { HttpApiClient } from 'effect/http-api';
 import { Atom, AtomRegistry } from 'effect/reactivity';
-import { assets, draft, hero, PortfolioClient, recoveryRequest, updateEntry } from '#/editor/state.ts';
-import { Api, type UploadRefused } from '#/model/api.ts';
-import { Asset, PdfAsset, uploadLimit, VideoAsset } from '#/model/asset.ts';
-import { Composition, CompositionId, Placement } from '#/model/placement.ts';
-import type { EntryId } from '#/model/portfolio.ts';
+import { assets, draft, hero, PortfolioClient, recoveryRequest, updateEntry } from '#/editor/state';
+import { Api, type UploadRefused } from '#/model/api';
+import { Asset, PdfAsset, uploadLimit, VideoAsset } from '#/model/asset';
+import { Composition, CompositionId, Placement } from '#/model/placement';
+import type { EntryId } from '#/model/portfolio';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -65,7 +65,7 @@ const refused = {
 } as const;
 const prepare = Effect.fnUntraced(
     function* ({ meta: { destination }, name, type }: UppyFile<UploadMeta, Body>, data: Blob) {
-        const { inspectFile } = yield* Effect.tryPromise({ try: () => import('#/editor/inspect-file.ts'), catch: MediaError.of('Unavailable', name) });
+        const { inspectFile } = yield* Effect.tryPromise({ try: () => import('#/editor/inspect-file'), catch: MediaError.of('Unavailable', name) });
         const [random, api, http] = yield* Effect.all([SecureRandom.SecureRandom, PortfolioClient, HttpClient.HttpClient]);
         const { asset, renditions } = yield* inspectFile(new File([data], name, { type }), yield* random.uuidV7());
         const { attempt, objects } = yield* api.assets.begin({ payload: asset });

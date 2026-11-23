@@ -1,9 +1,9 @@
 import { Array, Cause, Data, type Duration, Effect, Formatter, Layer, Option, Struct, UndefinedOr } from 'effect';
 import { SqlClient, type Statement } from 'effect/sql';
-import { Engine } from '#/engine.ts';
-import { ReconcileError } from '#/error.ts';
-import { digest, refusals } from '#/reconcile.ts';
-import type { Relation } from '#/relation.ts';
+import { Engine } from '#/engine';
+import { ReconcileError } from '#/error';
+import { digest, refusals } from '#/reconcile';
+import type { Relation } from '#/relation';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

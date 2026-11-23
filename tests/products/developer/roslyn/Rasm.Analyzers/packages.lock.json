@@ -28,15 +28,15 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.341, )",
-        "resolved": "3.0.341",
-        "contentHash": "zpogT6IwYBgNRa9+oETzs7aTU6Te3M/Osdkk/HN1TlJTDjz9dZwoUgh/yWqovT3jTofQGGLB1JqEK8I4uA6+yA=="
+        "requested": "[3.0.342, )",
+        "resolved": "3.0.342",
+        "contentHash": "g8p2VDRGOui0eTVEOG0MOS6ib4IPNVDwSSier3o95S1xeJltMF8ntpuBWzzmn6A6Y5a0VcEmeGkrMLNXPs/QeQ=="
       },
       "Microsoft.CodeAnalysis.Analyzer.Testing": {
         "type": "Direct",
-        "requested": "[5.14.0-1.26567.113, )",
-        "resolved": "5.14.0-1.26567.113",
-        "contentHash": "fS5S1B75Smqh9Bh2XFhV6TEEdatgm+NastK0McDRl16IrFzjGcbt0rUqFsTU3oT2KyJ1YqPu0KbB7i2k+lwCyQ==",
+        "requested": "[5.15.0-1.26570.9, )",
+        "resolved": "5.15.0-1.26570.9",
+        "contentHash": "2FrHllBLcG/8MQu+Owe/JSoNtHOfFazzU+MabBlnuYOseCVUYyi2Dc2VePVHpoDKlYAGKqIir2dfsBoWPM6vjQ==",
         "dependencies": {
           "DiffPlex": "1.7.2",
           "Microsoft.CodeAnalysis.Workspaces.Common": "4.12.0",
@@ -59,11 +59,11 @@
       },
       "Microsoft.CodeAnalysis.CodeFix.Testing": {
         "type": "Direct",
-        "requested": "[5.14.0-1.26567.113, )",
-        "resolved": "5.14.0-1.26567.113",
-        "contentHash": "GLKZBt+fN8rEfNn4WSNi/vQCZN/t0kLHoSN2dtRZxfD6OVGVMfEL66sofglkDEFvJV+nA81VE/XenpcRoRFV4g==",
+        "requested": "[5.15.0-1.26570.9, )",
+        "resolved": "5.15.0-1.26570.9",
+        "contentHash": "d6cvVOxLPTRJNBdJCjbQwTeZzX+Tym0OiWYuMXTPYOqxhJ8ENWHJ3NtOZ5BHh3W5zzPJx1ha0/XlxpEK9HC7Lg==",
         "dependencies": {
-          "Microsoft.CodeAnalysis.Analyzer.Testing": "[5.14.0-1.26567.113]",
+          "Microsoft.CodeAnalysis.Analyzer.Testing": "[5.15.0-1.26570.9]",
           "Microsoft.CodeAnalysis.Workspaces.Common": "4.12.0"
         }
       },
@@ -88,12 +88,12 @@
       },
       "Microsoft.CodeAnalysis.CSharp.CodeFix.Testing": {
         "type": "Direct",
-        "requested": "[5.14.0-1.26567.113, )",
-        "resolved": "5.14.0-1.26567.113",
-        "contentHash": "Uu3mZgRvn4MvqUlkLuT6fSmvY22vx6X+QpVPzeGGmjJtzPIfZwsh+F4fKl0DxA2eFp70nnkRxqR7IIzazlZ1kw==",
+        "requested": "[5.15.0-1.26570.9, )",
+        "resolved": "5.15.0-1.26570.9",
+        "contentHash": "ZdZtRpu5cL9GEGv7gO1bdETWqKWGk7a7Ag9fobQtwrhs5gB50ic4bapZ6fAxFH71EilYsvFOzjoal+T6dSwHxw==",
         "dependencies": {
           "Microsoft.CodeAnalysis.CSharp.Workspaces": "4.12.0",
-          "Microsoft.CodeAnalysis.CodeFix.Testing": "[5.14.0-1.26567.113]"
+          "Microsoft.CodeAnalysis.CodeFix.Testing": "[5.15.0-1.26570.9]"
         }
       },
       "Microsoft.CodeAnalysis.Workspaces.Common": {

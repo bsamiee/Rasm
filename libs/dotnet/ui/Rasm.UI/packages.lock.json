@@ -67,9 +67,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.341, )",
-        "resolved": "3.0.341",
-        "contentHash": "zpogT6IwYBgNRa9+oETzs7aTU6Te3M/Osdkk/HN1TlJTDjz9dZwoUgh/yWqovT3jTofQGGLB1JqEK8I4uA6+yA=="
+        "requested": "[3.0.342, )",
+        "resolved": "3.0.342",
+        "contentHash": "g8p2VDRGOui0eTVEOG0MOS6ib4IPNVDwSSier3o95S1xeJltMF8ntpuBWzzmn6A6Y5a0VcEmeGkrMLNXPs/QeQ=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
@@ -226,9 +226,9 @@
       },
       "Topten.RichTextKit": {
         "type": "Direct",
-        "requested": "[0.6.173, )",
-        "resolved": "0.6.173",
-        "contentHash": "DCYDSPiXx6nfrRYwXf6ZU0Vo26bFMUHPNsTg0HO1Sn3qiDAPIF4P9StZWHHCewAr+nJcRBFmEDi0vTuN1FqXBw==",
+        "requested": "[0.6.174, )",
+        "resolved": "0.6.174",
+        "contentHash": "XvldpzmZf8rQqSgTzsXWMPZt67FR7C0Ztuq/2pOCFasglANhubobgsvCsu+31TeAKtQu00qTiyLsZXgy91Wwiw==",
         "dependencies": {
           "HarfBuzzSharp.NativeAssets.Linux": "14.2.1.301",
           "SkiaSharp": "4.153.1",

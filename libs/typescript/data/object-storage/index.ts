@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ObjectStorage, ObjectStorageError, Presignable, Presigned } from '#/storage.ts';
+export { ObjectStorage, ObjectStorageError, Presignable, Presigned } from '#/storage';

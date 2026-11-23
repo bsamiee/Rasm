@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+        "chrome-devtools": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": ["--per", "user", "--", "chrome-devtools-mcp", "--autoConnect", "--categoryExtensions", "--experimentalIncludeAllPages", "--experimentalDevtools", "--workspace=/", "--no-usage-statistics", "--no-performance-crux"],
+            "default_tools_approval_mode": "approve"
+        }
+    }
+}

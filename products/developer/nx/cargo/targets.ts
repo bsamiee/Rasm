@@ -3,8 +3,8 @@ import { normalizePath, type TargetConfiguration } from '@nx/devkit';
 import { aggregated, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record, Schema } from 'effect';
-import type { Cargo, Command } from '#/executors/cargo/executor.ts';
-import { binary, library, LOCK, MANIFEST, type Member, own, PLUGIN, tokened, type Workspace } from '#/workspace.ts';
+import type { Cargo, Command } from '#/executors/cargo/executor';
+import { binary, library, LOCK, MANIFEST, type Member, own, PLUGIN, tokened, type Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

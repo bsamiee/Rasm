@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-  "builtin-baseline": "de36db04550a8625e3154b1a758c60035901f244",
+  "builtin-baseline": "93ad765c7b66ab9ce97469ec23a90b15c3a14ee5",
   "features": {
     "tests": {
       "description": "Libraries test executables link",

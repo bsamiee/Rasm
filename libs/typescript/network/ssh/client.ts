@@ -1,8 +1,8 @@
 import { ExitError, run, spawn } from '@rasm/process';
 import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Path, pipe, Record, Schema, Stream } from 'effect';
 import { type ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { Forward } from '#/forward.ts';
-import { type Host, Line } from '#/host.ts';
+import { type Dynamic, Forward, type Local, type Remote } from '#/forward';
+import { type Host, Line } from '#/host';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -79,7 +79,7 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
                 yield* Cache.get(shared, host);
                 return yield* captured(host.copy(path, root, source, target)).pipe(Effect.catchTag('ExitError', settled(host)), Effect.asVoid);
             }),
-            forward: Effect.fn('Ssh.forward')(function* (host: Host, wanted: typeof Forward.Type) {
+            forward: Effect.fn('Ssh.forward')(function* (host: Host, wanted: Local | Remote | Dynamic) {
                 yield* Cache.get(placed, host);
                 const socket = path.join(yield* fs.makeTempDirectoryScoped(), 'control');
                 const holder = yield* started(yield* Effect.fromResult(host.command(path, root, ['sh', '-c', 'echo && exec cat'], [], Option.some(socket))), { stdin: 'pipe' });

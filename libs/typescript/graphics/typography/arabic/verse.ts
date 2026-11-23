@@ -1,10 +1,19 @@
 import { Array, Effect, Schema, Struct } from 'effect';
-import { Settings } from '#/settings.ts';
-import { Justification } from '#/shaping/justification.ts';
+import { Settings } from '#/settings';
+import { Justification } from '#/shaping/justification';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Length = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0));
+class Columns extends Schema.Opaque<Columns, { readonly brand: unique symbol }>()(Schema.TaggedStruct('Columns', { gap: Length.annotate({ description: 'Em between the hemistich columns' }) })) {}
+class Staggered extends Schema.Opaque<Staggered, { readonly brand: unique symbol }>()(
+    Schema.TaggedStruct('Staggered', {
+        indent: Length.annotate({ description: 'Em a hemistich indents from its own side, the other side taking the measure less width and indent' }),
+        sides: Schema.NonEmptyArray(Schema.Literals(['start', 'center', 'end']))
+            .annotate({ description: 'Side each hemistich takes in stanza order, cycling, center ignoring indent' })
+            .pipe(Schema.withConstructorDefault(Effect.succeed(['start', 'end'] as const))),
+    }),
+) {}
 class Verse extends Schema.Class<Verse, { readonly brand: unique symbol }>('Verse')({
     width: Schema.Finite.annotate({ description: 'Hemistich width in em, the widest hemistich at desired spacing within the room the setting leaves' }),
     hemistichs: Schema.NonEmptyArray(
@@ -15,16 +24,8 @@ class Verse extends Schema.Class<Verse, { readonly brand: unique symbol }>('Vers
         }),
     ),
 }) {
-    static readonly Setting = Schema.TaggedUnion({
-        Columns: { gap: Length.annotate({ description: 'Em between the hemistich columns' }) },
-        Staggered: {
-            indent: Length.annotate({ description: 'Em a hemistich indents from its own side, the other side taking the measure less width and indent' }),
-            sides: Schema.NonEmptyArray(Schema.Literals(['start', 'center', 'end']))
-                .annotate({ description: 'Side each hemistich takes in stanza order, cycling, center ignoring indent' })
-                .pipe(Schema.withConstructorDefault(Effect.succeed(['start', 'end'] as const))),
-        },
-    }).annotate({ description: 'Arabic-script verse set as centered hemistich column pairs, even hemistichs at the start side, or one hemistich per row at cycling sides' });
-    static readonly of = (hemistichs: Array.NonEmptyReadonlyArray<Parameters<typeof Justification.of>[0]>, measure: number, setting: typeof Verse.Setting.Type) => {
+    static readonly Setting = Schema.Union([Columns, Staggered]).annotate({ description: 'Arabic-script verse set as centered hemistich column pairs, even hemistichs at the start side, or one hemistich per row at cycling sides' }).pipe(Schema.toTaggedUnion('_tag'));
+    static readonly of = (hemistichs: Array.NonEmptyReadonlyArray<Parameters<typeof Justification.of>[0]>, measure: number, setting: Columns | Staggered) => {
         const widest = Math.max(...Array.map(hemistichs, Justification.natural));
         const { width, at } = Verse.Setting.match(setting, {
             Columns: ({ gap }) => {

@@ -6,8 +6,8 @@ import { bindings } from 'cf/config';
 import { Array, Effect, FileSystem, Function, Option, Record, Result } from 'effect';
 import { CorePaths } from 'miniflare';
 import type { Plugin } from 'vite';
-import { App, type Binding } from '#/app/app.ts';
-import { HostingError } from '#/app/error.ts';
+import { App, type Binding } from '#/app/app';
+import { HostingError } from '#/app/error';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

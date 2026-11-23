@@ -1,6 +1,6 @@
 import { Inspection } from '@rasm/media';
 import { Array, Effect, Schema, String, Struct } from 'effect';
-import { Asset, Rendition } from '#/model/asset.ts';
+import { Asset, Rendition } from '#/model/asset';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

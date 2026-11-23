@@ -11,14 +11,14 @@ import { teardown } from '@rasm/telemetry/node';
 import { UxpManifest } from '@rasm/uxp';
 import { Cause, Deferred, Effect, Layer, Option } from 'effect';
 import { Host } from 'effect/net';
-import { applications, Inventory } from '#/applications.ts';
-import { Declarations, declarations } from '#/declarations.ts';
-import { diagnostics } from '#/diagnostics.ts';
-import { native } from '#/native.ts';
+import { applications, Inventory } from '#/applications';
+import { Declarations, declarations } from '#/declarations';
+import { diagnostics } from '#/diagnostics';
+import { native } from '#/native';
 import manifest from '#/package.json' with { type: 'json' };
-import { scripts } from '#/scripts.ts';
-import { typography } from '#/typography.ts';
-import { Preview, windows } from '#/windows.ts';
+import { scripts } from '#/scripts';
+import { typography } from '#/typography';
+import { Preview, windows } from '#/windows';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -4,7 +4,7 @@ import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
 import { Array, Cause, Effect, identity, Option, Result, Schema, SemVer, String, Struct } from 'effect';
 import { VersionActions } from 'nx/release';
-import { run } from '#/targets.ts';
+import { run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

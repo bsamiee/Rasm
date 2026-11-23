@@ -13,8 +13,8 @@ import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
 import { applyEdits, modify, parse } from 'jsonc-parser';
 import { parseDocument, Scalar } from 'yaml';
-import { packaged } from '#/executor.ts';
-import { PLATFORM, spawned } from '#/inference.ts';
+import { packaged } from '#/executor';
+import { PLATFORM, spawned } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -467,4 +467,4 @@ const HOSTS: readonly Host[] = [
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ANALYSIS, BUILDER, EXTENSION, engine, type Fields, FOLDERS, type Found, HOSTS, type Host, Linked, located, routed, zipped };
+export { ANALYSIS, BUILDER, EXTENSION, engine, type Fields, FOLDERS, HOSTS, type Host, Linked, located, routed, zipped };

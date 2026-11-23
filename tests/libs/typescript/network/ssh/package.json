@@ -4,7 +4,7 @@
     "description": "SSH suites against two sshd containers: commands, exit statuses, and late stderr, one shared connection across callers and processes, control requests, preferred and stated dials, forwards under each server forwarding policy, copies, a hop, an agent, certificates, and the config the OpenSSH client resolves",
     "type": "module",
     "imports": {
-        "#/*.ts": "./*.ts"
+        "#/*": "./*.ts"
     },
     "devDependencies": {
         "@effect/platform-node": "catalog:",

@@ -5,11 +5,10 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { paint } from '@rasm/mark';
 import { HostError } from '@rasm/object-model';
 import { checks } from '@rasm/vite';
-import { formatHex } from 'culori/fn';
-import { Array, Effect, FileSystem, Record, Schema, SemVer, String, UndefinedOr } from 'effect';
+import { Array, Effect, FileSystem, Record, Schema, SemVer, String } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { defaultClientConditions, defaultServerConditions, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { HOSTS, THEMES, UxpManifest } from '#/manifest.ts';
+import { HOSTS, THEMES, UxpManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -19,7 +18,6 @@ type Icon = NonNullable<UxpManifest['icons']>[number];
 
 const HOSTED = /^adobe:/u;
 const RASTER = /\.png$/u;
-const GLYPH = 16;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -29,12 +27,10 @@ const Painted = Schema.NonEmptyArray(UxpManifest.Theme)
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const emitted = Effect.fnUntraced(function* (app: UxpManifest['host']['app'], drawing: string, { width, path, scale = [1], theme = [] }: Icon, padding?: number) {
+const emitted = Effect.fnUntraced(function* (app: UxpManifest['host']['app'], drawing: string, { width, path, scale = [1], theme = [] }: Icon) {
     const [first] = yield* Effect.mapError(Schema.decodeUnknownEffect(Painted)(theme), HostError.refused(`Icon ${path}`));
-    const fill = UxpManifest.fills[app][first];
-    const style = `svg { color: ${formatHex(fill)}; opacity: ${fill.alpha ?? 1}; }`;
-    const files = path.endsWith('.png') ? Array.map(scale, (factor) => ({ fileName: path.replace(RASTER, `@${factor}x.png`), frame: { width: width * factor, padding: UndefinedOr.map(padding, (margin) => margin * factor) } })) : [{ fileName: path, frame: undefined }];
-    return yield* Effect.forEach(files, ({ fileName, frame }) => Effect.map(paint([drawing], style, frame), (source) => ({ fileName, source })), { concurrency: 'unbounded' });
+    const files = path.endsWith('.png') ? Array.map(scale, (factor) => ({ fileName: path.replace(RASTER, `@${factor}x.png`), frame: { width: width * factor } })) : [{ fileName: path, frame: undefined }];
+    return yield* Effect.forEach(files, ({ fileName, frame }) => Effect.map(paint([drawing], { color: UxpManifest.fills[app][first] }, frame), (source) => ({ fileName, source })), { concurrency: 'unbounded' });
 });
 const pluginBundle = (directory: string, exported: readonly string[], config: UserConfig): UserConfig => {
     const encoding = fileURLToPath(import.meta.resolve('@exodus/bytes/encoding-lite.js'));
@@ -73,7 +69,7 @@ const pluginBundle = (directory: string, exported: readonly string[], config: Us
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const uxp = (directory: string, mark: string, config: UserConfig = {}): UserConfigFnPromise =>
+const uxp = (directory: string, { mark = fileURLToPath(import.meta.resolve('#/icons/mark.svg')), config = {} }: { readonly mark?: string; readonly config?: UserConfig } = {}): UserConfigFnPromise =>
     Effect.fnUntraced(
         function* () {
             const fs = yield* FileSystem.FileSystem;
@@ -84,10 +80,7 @@ const uxp = (directory: string, mark: string, config: UserConfig = {}): UserConf
             const formatting = { formattingOptions: { insertSpaces: true, tabSize: 4 } };
             const floored = applyEdits(source, modify(source, ['host', 'minVersion'], SemVer.format(HOSTS[manifest.host.app].since), formatting));
             const permitted = domains === 'all' ? floored : applyEdits(floored, modify(floored, ['requiredPermissions', 'network', 'domains'], Array.dedupe([...domains, UxpManifest.link.origin]), formatting));
-            const icons = [
-                ...Array.map(manifest.icons ?? [], (icon) => emitted(manifest.host.app, mark, icon, (icon.width - GLYPH) / 2)),
-                ...manifest.entrypoints.flatMap((entry) => (entry.type === 'panel' ? Array.map(entry.icons ?? [], (icon) => emitted(manifest.host.app, join(directory, 'icons', `${entry.id}.svg`), icon)) : [])),
-            ];
+            const icons = [...Array.map(manifest.icons ?? [], (icon) => emitted(manifest.host.app, mark, icon)), ...manifest.entrypoints.flatMap((entry) => (entry.type === 'panel' ? Array.map(entry.icons ?? [], (icon) => emitted(manifest.host.app, join(directory, 'icons', `${entry.id}.svg`), icon)) : []))];
             return pluginBundle(
                 directory,
                 Object.keys(lite),

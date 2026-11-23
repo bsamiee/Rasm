@@ -2,8 +2,8 @@ import type { ExecutorContext } from '@nx/devkit';
 import { Array, Effect, Option, Path, Record, Schema, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import { readPath, resolveTokens, type TokenScope } from 'nx/src/tasks-runner/tokens';
-import { Dry, dried, run } from '#/executor.ts';
-import { spawned } from '#/inference.ts';
+import { Dry, dried, run } from '#/executor';
+import { spawned } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

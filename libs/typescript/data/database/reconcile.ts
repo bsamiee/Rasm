@@ -1,18 +1,17 @@
 import { Array, Effect, Equal, Filter, Function, flow, Graph, HashSet, Match, Option, Order, Record, Result, Schema, Struct } from 'effect';
 import { Digest } from 'effect/crypto';
 import { type SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
-import type { Catalog } from '#/catalog.ts';
-import { Column } from '#/column.ts';
-import type { Engine } from '#/engine.ts';
-import { ReconcileError } from '#/error.ts';
-import type { Relation } from '#/relation.ts';
+import type { Catalog } from '#/catalog';
+import { Column } from '#/column';
+import type { Engine } from '#/engine';
+import { type Finding, ReconcileError } from '#/error';
+import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Finding = ReconcileError['findings'][number];
 interface Live {
     readonly name: string;
-    readonly identity: Option.Option<typeof Identity.Type>;
+    readonly identity: Option.Option<Identity>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -23,7 +22,7 @@ const methods = ['btree', 'gin', 'gist', 'brin'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Identity = Schema.Struct({ origin: Schema.String, generation: Schema.Int, digest: Schema.optionalKey(Schema.String.pipe(Schema.catchDecoding(() => Effect.succeedNone))) });
+class Identity extends Schema.Opaque<Identity, unknown>()(Schema.Struct({ origin: Schema.String, generation: Schema.Int, digest: Schema.optionalKey(Schema.String.pipe(Schema.catchDecoding(() => Effect.succeedNone))) })) {}
 const Stamp = Schema.fromJsonString(Identity);
 const Populated = Schema.Struct({ populated: Schema.BooleanFromBit });
 
@@ -199,7 +198,7 @@ const catalogDdl = (sql: SqlClient.SqlClient, engine: Omit<Engine['Service'], 'n
 
 // --- [DIFF]
 
-const claim = <R extends Live, D extends { readonly name: string; readonly renamedFrom: Option.Option<string>; readonly identity: typeof Identity.Type }>(live: readonly R[], retired: readonly string[], declared: readonly D[]) => {
+const claim = <R extends Live, D extends { readonly name: string; readonly renamedFrom: Option.Option<string>; readonly identity: Identity }>(live: readonly R[], retired: readonly string[], declared: readonly D[]) => {
     const generations = Map.groupBy(retired, Function.identity);
     const [standing, retiring] = Array.partition(live, (row) => {
         const { origin, generation } = Option.getOrElse(row.identity, () => ({ origin: row.name, generation: 0 }));

@@ -1,10 +1,10 @@
 import { Array, Effect, Equal, Filter, Formatter, Function, Graph, HashSet, Layer, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type SqlClient, SqlSchema, Statement } from 'effect/sql';
-import type { Catalog } from '#/catalog.ts';
-import type { Kind } from '#/column.ts';
-import { type Dialect, Engine, Rows } from '#/engine.ts';
-import { catalogDdl, constant, diff, literal, mergeTreeRefusals, referentialActions, replacement, Stamp, unsupported } from '#/reconcile.ts';
-import { Tokenizer } from '#/relation.ts';
+import type { Catalog } from '#/catalog';
+import type { Kind } from '#/column';
+import { type Dialect, Engine, Rows } from '#/engine';
+import { catalogDdl, constant, diff, literal, mergeTreeRefusals, referentialActions, replacement, Stamp, unsupported } from '#/reconcile';
+import { Tokenizer } from '#/relation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -15,16 +15,18 @@ const keywords: ReadonlySet<string> = new Set(['CHECK', 'COLLATE', 'UNIQUE', 'RE
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const SqliteTable = Schema.Struct({
-    name: Schema.String,
-    strict: Schema.BooleanFromBit,
-    withoutRowid: Schema.BooleanFromBit,
-    sql: Schema.String,
-    columns: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.OptionFromNullOr(Schema.String), required: Schema.BooleanFromBit, default: Schema.OptionFromNullOr(Schema.String), hidden: Schema.Int })),
-    references: Schema.Array(Schema.Struct({ target: Schema.String, onDelete: Schema.Literals(referentialActions), onUpdate: Schema.Literals(referentialActions), columns: Schema.NonEmptyArray(Schema.String), to: Schema.Array(Schema.String) })),
-    indexes: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String, unique: Schema.BooleanFromBit, partial: Schema.BooleanFromBit, keys: Schema.Array(Schema.Struct({ name: Schema.NullOr(Schema.String), collation: Schema.String, descending: Schema.BooleanFromBit })) })),
-    triggers: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
-});
+class SqliteTable extends Schema.Opaque<SqliteTable, unknown>()(
+    Schema.Struct({
+        name: Schema.String,
+        strict: Schema.BooleanFromBit,
+        withoutRowid: Schema.BooleanFromBit,
+        sql: Schema.String,
+        columns: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.OptionFromNullOr(Schema.String), required: Schema.BooleanFromBit, default: Schema.OptionFromNullOr(Schema.String), hidden: Schema.Int })),
+        references: Schema.Array(Schema.Struct({ target: Schema.String, onDelete: Schema.Literals(referentialActions), onUpdate: Schema.Literals(referentialActions), columns: Schema.NonEmptyArray(Schema.String), to: Schema.Array(Schema.String) })),
+        indexes: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String, unique: Schema.BooleanFromBit, partial: Schema.BooleanFromBit, keys: Schema.Array(Schema.Struct({ name: Schema.NullOr(Schema.String), collation: Schema.String, descending: Schema.BooleanFromBit })) })),
+        triggers: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
+    }),
+) {}
 class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sqlite')({
     tables: Schema.Array(SqliteTable),
     virtual: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
@@ -125,7 +127,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             Option.filter(token, (text) => text.startsWith('/*')),
             (text) => Schema.decodeOption(Stamp)(text.slice(2, -2).trim()),
         );
-    static readonly identities = ({ columns, ...table }: typeof SqliteTable.Type) => {
+    static readonly identities = ({ columns, ...table }: SqliteTable) => {
         const tokens: readonly string[] = table.sql.match(lexemes) ?? [];
         const quotes: Readonly<Record<string, string>> = { '"': '"', '`': '`', '[': ']' };
         const opening = tokens.indexOf('(');

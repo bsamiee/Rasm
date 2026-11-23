@@ -53,7 +53,7 @@
         "clippy.toml": "deny.toml, nextest.toml, rustfmt.toml",
         "CMakeLists.txt": "*.cmake, CMakePresets.json, vcpkg.json",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
-        "hk.pkl": ".globalconfig, jscpd.json, knip.json, pmd.xml, ryl.toml, shellcheckrc, squawk.toml",
+        "hk.pkl": ".globalconfig, jscpd.json, knip.json, pmd.xml, ryl.toml, shellcheckrc, squawk.toml, stylelint.config.ts",
         "Info.plist": "*.entitlements",
         "mise.toml": "mise.*.toml, mise.lock, miserc.toml",
         "nx.json": ".editorconfig, sgconfig.yml",
@@ -127,6 +127,11 @@
     "cmake.configureOnOpen": false,
     "cmake.sourceDirectory": "${workspaceFolder}/tools/ast-grep/grammars",
 
+    // --- [CSS] -------------------------------------------------------------------------
+
+    "css.validate": false,
+    "stylelint.configFile": "${workspaceFolder}/.config/stylelint.config.ts",
+
     // --- [DOTNET] ----------------------------------------------------------------------
 
     "csharp.suppressBuildAssetsNotification": true,
@@ -135,10 +140,6 @@
     "dotnet.diagnostics.reportInformationAsHint": false,
     "dotnet.projects.enableAutomaticRestore": false,
     "dotnet.server.useServerGC": false,
-
-    // --- [ESLINT] ----------------------------------------------------------------------
-
-    "eslint.validate": ["json"],
 
     // --- [JAVA] ------------------------------------------------------------------------
 
@@ -161,6 +162,10 @@
     "mise.notifyDaemonFailures": false,
     "mise.showDaemonsInStatusBar": false,
 
+    // --- [OXC] -------------------------------------------------------------------------
+
+    "[css][html][javascript][javascriptreact][json][jsonc][typescript][typescriptreact][yaml]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+
     // --- [PYTHON] ----------------------------------------------------------------------
 
     "ruff.configurationPreference": "filesystemFirst",
@@ -179,7 +184,6 @@
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
 
-    "css.lint.unknownAtRules": "ignore",
     "js/ts.experimental.useTsgo": true,
     "js/ts.trace.server": "off",
     "js/ts.tsdk.path": "./node_modules/@typescript/native",

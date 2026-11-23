@@ -2,11 +2,11 @@ import { devNull } from 'node:os';
 import process from 'node:process';
 import { Array, Clock, Duration, Effect, Filter, Option, Record } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
-import { Host } from '#/host.ts';
-import { Decision, Verdict } from '#/rules/decision.ts';
-import { type Call, edited, erased, inserted, once, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, spelled, stages, when, whole, within } from '#/rules/rule.ts';
-import type { Invocation } from '#/shell/invocation.ts';
-import type { Word } from '#/shell/script.ts';
+import { Host } from '#/host';
+import { Decision, Verdict } from '#/rules/decision';
+import { type Call, edited, erased, inserted, once, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, spelled, stages, when, whole, within } from '#/rules/rule';
+import type { Invocation } from '#/shell/invocation';
+import type { Word } from '#/shell/script';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

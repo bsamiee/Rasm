@@ -4,7 +4,7 @@
     "description": "Tree-sitter grammars and outline catalogs ast-grep lacks, built by CMake",
     "type": "module",
     "imports": {
-        "#/*": "./*"
+        "#/*": "./*.js"
     },
     "exports": {
         "./grammars/*": "./grammars/*/grammar.js",

@@ -9,10 +9,10 @@ import { automation } from '@pulumi/pulumi';
 import { run } from '@rasm/process';
 import { Array, Cause, Effect, Exit, FileSystem, flow, Option, type Path, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import { hostingStacks } from '#/hosting-stack.ts';
+import { hostingStacks } from '#/hosting-stack';
 import manifest from '#/package.json' with { type: 'json' };
-import { hosts, installed, local, provisioned } from '#/platform-stack.ts';
-import { type configs, identified, repositoryStack } from '#/repository-stack.ts';
+import { hosts, installed, local, provisioned } from '#/platform-stack';
+import { type configs, identified, repositoryStack } from '#/repository-stack';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

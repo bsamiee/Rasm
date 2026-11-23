@@ -2,7 +2,7 @@ import type { ProjectNodesWithFiles } from '@nx/conformance/testing';
 import rule from '@rasm/conformance/release-projects';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { project, violations } from '#/workspace.ts';
+import { project, violations } from '#/workspace';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

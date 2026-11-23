@@ -24,8 +24,8 @@ Build and check per product kind:
 
 Emit and bundle rules:
 - `tsc` writes each source file's `.js` and `.d.ts` into `dist` at its source path, with syntax at `target` `esnext`
-- Emitted files keep specifiers `#/<path>.ts` and `#/<path>.tsx`, and published rows `#/*.ts` and `#/*.tsx` send them to `./dist/*.js`
-- Published `#/*` serves every other file at its source path, and `files` lists each one
+- Emitted files keep specifiers `#/<path>` and `#/<path>.tsx`, and published rows `#/*` and `#/*.tsx` send them to `./dist/*.js`
+- Published rows of every other kind serve files at their source path, and `files` lists each one
 - Vite library mode writes no `.d.ts`, and a typed library builds with `tsc`
 - Vite bundles through Rolldown and transforms and minifies through Oxc
 - Rolldown `checks` emit warnings, and every Vite build includes plugin `checks` of `@rasm/vite`
@@ -48,7 +48,7 @@ Manifest a consumer installs after `pnpm pack`:
         "./node": "./dist/node.js",
         "./package.json": "./package.json"
     },
-    "imports": { "#/*.ts": "./dist/*.js" },
+    "imports": { "#/*": "./dist/*.js" },
     "files": ["dist/**/*.js", "dist/**/*.d.ts"],
     "peerDependencies": { "effect": "<range>" },
     "publishConfig": { "access": "public" }

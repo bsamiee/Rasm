@@ -2,7 +2,7 @@
     "name": "@rasm/mark",
     "version": "0.1.0",
     "private": true,
-    "description": "SVG drawings of one mark themed through a CSS stylesheet over currentColor and class accent, each raster width taking the drawing whose grid serves it at 1x or 2x, artwork framed inside a padding, and written by the resvg and usvg command-line tools",
+    "description": "SVG drawings of one mark painted in a tone over currentColor and part classes, each raster width taking the drawing whose grid it holds at a whole scale, artwork placed on its canvas or framed inside a padding, and written by the resvg and usvg command-line tools",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -16,7 +16,7 @@
     "type": "module",
     "sideEffects": false,
     "imports": {
-        "#/*.ts": "./*.ts"
+        "#/*": "./*.ts"
     },
     "exports": {
         ".": "./index.ts",
@@ -24,7 +24,7 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*.ts": "./dist/*.js"
+            "#/*": "./dist/*.js"
         },
         "exports": {
             ".": "./dist/index.js",
@@ -37,10 +37,13 @@
         "image-size": "catalog:"
     },
     "devDependencies": {
+        "@types/culori": "catalog:",
         "@types/node": "catalog:",
+        "culori": "catalog:",
         "effect": "catalog:"
     },
     "peerDependencies": {
+        "culori": "catalog:peers",
         "effect": "catalog:peers"
     },
     "engines": {

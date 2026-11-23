@@ -2,11 +2,18 @@
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
         "noEmit": true,
+        "lib": ["esnext", "dom"],
         "types": ["node"]
     },
     "references": [
         {
             "path": "../../support/typescript"
+        },
+        {
+            "path": "../../../libs/typescript/data/object-storage"
+        },
+        {
+            "path": "../../../libs/typescript/web/hosting"
         }
     ]
 }

@@ -5,8 +5,8 @@ import { Catalog, Relation } from '@rasm/database';
 import { Sqlite } from '@rasm/database/sqlite';
 import { Effect, FileSystem, Layer, Path, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
-import { reconciliation } from '#/reconciliation.sqlite.ts';
-import { rows } from '#/rows.ts';
+import { reconciliation } from '#/reconciliation.sqlite';
+import { rows } from '#/rows';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

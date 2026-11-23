@@ -15,7 +15,7 @@
 - ALWAYS load the coding skill of each language a change writes or reviews
 - Use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for any fact about Claude Code or Codex, their configuration included
 - Use `tool:watch-app` skill to open, interface, and interact with apps, (except Adobe apps), always open an app as 1 step, visually check to clear modal dialogue windows
-- Use `tool:chrome` skill for any work in the owner's Chrome, web pages and chrome:// pages alike
+- Use `chrome:browser` skill for any work in the owner's Chrome, web pages and chrome:// pages alike
 - Use `Atelier` app built by this repo to drive all work inside Adobe applications (InDesign, Illustrator, Photoshop, Acrobat, etc)
 - Use `blender:host` skill for any work against a live Blender or a `bpy` member of the installed build
 - Use `rhino:host` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas

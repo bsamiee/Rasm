@@ -58,7 +58,8 @@ Switch failing each checker on every finding, and the file stating it:
 |  [37]   | Squawk             | Exit 1 on any finding                                             | Default                                      |
 |  [38]   | `clang-format`     | `--dry-run -Werror`                                               | `.config/hk.pkl`                             |
 |  [39]   | `gersemi`          | `--warnings-as-errors`                                            | `.config/hk.pkl`                             |
-|  [40]   | `jactionlint`      | `--strict-exit`, profile `correctness`, rules raised to `error`   | `.config/hk.pkl`, `.github/jactionlint.yaml` |
+|  [40]   | Stylelint          | Exit 2 on any finding, `ignoreDisables`                           | `.config/stylelint.config.ts`                |
+|  [41]   | `jactionlint`      | `--strict-exit`, profile `correctness`, rules raised to `error`   | `.config/hk.pkl`, `.github/jactionlint.yaml` |
 
 Rule selection behind each switch:
 - Clippy documents its `restriction` group as unfit to enable whole, and its lints join by name
@@ -72,6 +73,7 @@ Rule selection behind each switch:
 - Squawk prints each finding as `warning` and exits 1, and `excluded_rules` alone decides what passes
 - `mise` exits 0 on unknown fields, and Tombi lints every mise file against mise's schema through its catalog and `[[tool.tombi.schemas]]`
 - `dotnet format style --verify-no-changes` reports the IDE rules no build runs
+- `hk` runs Stylelint over named CSS files and root `check--stylelint` over every CSS file Git lists, as `referenceFiles` rules read tokens another file declares
 - `jactionlint` profiles widen from `correctness` through `default` to `pedantic`, and `--strict-exit` fails `warn` and `info` findings
 
 ## [03]-[DIAGNOSTICS]

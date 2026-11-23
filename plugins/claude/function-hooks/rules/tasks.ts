@@ -3,11 +3,11 @@ import process from 'node:process';
 import type { ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Function, Glob, Match, Option, Predicate, Record, Result, Schema, String, Struct } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
-import type { Host, HostError } from '#/host.ts';
-import { Verdict } from '#/rules/decision.ts';
-import { all, type Call, commandOf, cut, edited, ensure, erased, feedsJq, holds, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, unassign, when, whole } from '#/rules/rule.ts';
-import { analyzed, type Invocation, type Parser, WRITES } from '#/shell/invocation.ts';
-import { parsed, type Word } from '#/shell/script.ts';
+import type { Host, HostError } from '#/host';
+import { Verdict } from '#/rules/decision';
+import { all, type Call, commandOf, cut, edited, ensure, erased, feedsJq, holds, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, unassign, when, whole } from '#/rules/rule';
+import { analyzed, type Invocation, type Parser, WRITES } from '#/shell/invocation';
+import { parsed, type Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

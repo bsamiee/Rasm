@@ -4,13 +4,12 @@ import { McpClient, McpClientError, McpProtocol, McpSchema, McpServer } from 'ef
 import { SecureRandom } from 'effect/crypto';
 import type { HttpClient } from 'effect/http';
 import { Rpc } from 'effect/rpc';
-import { Link } from '#/link.ts';
-import { Server } from '#/server.ts';
+import { Link, type Notice } from '#/link';
+import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Pattern = string | RegExp;
-type Noticed = typeof Link.Notice.Type & { readonly peer: string };
 interface Filter {
     readonly allow?: readonly Pattern[];
     readonly deny?: readonly Pattern[];
@@ -33,17 +32,17 @@ const PROTOCOLS = Array.sort(Object.values(McpProtocol), Order.flip(Order.mapInp
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Listing = Schema.Struct({ tools: Schema.Array(McpSchema.Tool), resources: Schema.Array(McpSchema.Resource), templates: Schema.Array(McpSchema.ResourceTemplate), prompts: Schema.Array(McpSchema.Prompt) });
+class Listing extends Schema.Opaque<Listing, unknown>()(Schema.Struct({ tools: Schema.Array(McpSchema.Tool), resources: Schema.Array(McpSchema.Resource), templates: Schema.Array(McpSchema.ResourceTemplate), prompts: Schema.Array(McpSchema.Prompt) })) {}
 
 class Upstream extends Data.Class<
-    typeof Listing.Type & {
+    Listing & {
         readonly peer: Link;
         readonly annotations: Context.Context<never>;
-        readonly notices: Stream.Stream<typeof Link.Notice.Type>;
+        readonly notices: Stream.Stream<Notice>;
         readonly call: (name: string, given: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<McpSchema.CallToolResult, McpSchema.InternalError | McpSchema.InvalidParams, McpSchema.McpRequestContext>;
         readonly read: (uri: string) => Effect.Effect<McpSchema.ReadResourceResult, McpSchema.InternalError | McpSchema.InvalidParams>;
         readonly get: (name: string, given: Record.ReadonlyRecord<string, string>) => Effect.Effect<McpSchema.GetPromptResult, McpSchema.InternalError | McpSchema.InvalidParams>;
-        readonly complete: (payload: Pick<typeof McpSchema.Complete.payloadSchema.Type, 'ref' | 'argument'> & { readonly context: typeof McpSchema.Complete.payloadSchema.Type.context | undefined }) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError>;
+        readonly complete: (payload: Pick<Parameters<McpServer.McpServer['Service']['completion']>[0], 'ref' | 'argument'> & { readonly context: Parameters<McpServer.McpServer['Service']['completion']>[0]['context'] | undefined }) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError>;
     }
 > {
     static readonly serve = Effect.fnUntraced(function* <R>(sources: Array.NonEmptyReadonlyArray<Stream.Stream<readonly Upstream[], never, R>>, { route }: { readonly route: Route }) {
@@ -106,7 +105,7 @@ class Upstream extends Data.Class<
                         }),
             }),
         ]);
-        const [noticed, following] = yield* Effect.all([Queue.unbounded<Noticed>(), FiberMap.make<string>()]);
+        const [noticed, following] = yield* Effect.all([Queue.unbounded<Notice & { readonly peer: string }>(), FiberMap.make<string>()]);
         const follow = (current: readonly Upstream[]) => {
             const peers = Record.fromIterableWith(current, ({ peer, notices }) => [Link.key(peer), notices] as const);
             return Effect.andThen(
@@ -195,7 +194,7 @@ class Upstream extends Data.Class<
             }, Effect.scoped);
             const run = <A, E2>(use: (connection: Parameters<typeof listed>[0]) => Effect.Effect<A, E2, SecureRandom.SecureRandom>) =>
                 Effect.catchIf(attempt(use), flow(lost, Option.contains(true)), Function.constant(attempt(use))).pipe(Effect.updateContext((request: Context.Context<never>) => Context.merge(services, request)));
-            const served = (listing: typeof Listing.Type) => {
+            const served = (listing: Listing) => {
                 const [tools, prompts] = [
                     Record.fromIterableBy(
                         Array.filter(listing.tools, ({ name }) => admits(name, filters.tools)),

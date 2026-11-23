@@ -1,8 +1,8 @@
 import { Layer } from 'effect';
 import { Digest, Mac, SecureRandom, Signature } from 'effect/crypto';
-import { acceptance } from '#/acceptance.ts';
-import { delivery } from '#/delivery.ts';
-import { signatures } from '#/signatures.ts';
+import { acceptance } from '#/acceptance';
+import { delivery } from '#/delivery';
+import { signatures } from '#/signatures';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

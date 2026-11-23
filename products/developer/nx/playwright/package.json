@@ -14,7 +14,7 @@
     ],
     "type": "module",
     "imports": {
-        "#/*": "./*"
+        "#/*.json": "./*.json"
     },
     "exports": {
         ".": "./plugin.ts",
@@ -22,7 +22,7 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*": "./*"
+            "#/*.json": "./*.json"
         },
         "exports": {
             ".": "./dist/plugin.js",

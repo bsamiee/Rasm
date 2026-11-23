@@ -1,0 +1,30 @@
+@import 'pdfjs-dist/web/pdf_viewer.css' layer(vendor);
+
+/* --- [SHEETS] ------------------------------------------------------------------------ */
+
+@layer components {
+    .sheet-preview {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+    }
+
+    .sheet-scroller {
+        position: absolute;
+        inset: 0;
+        overflow: auto;
+
+        &[data-pan] {
+            touch-action: none;
+            cursor: grab;
+
+            .textLayer {
+                pointer-events: none;
+            }
+        }
+
+        @supports (overscroll-behavior: contain) {
+            overscroll-behavior: contain;
+        }
+    }
+}

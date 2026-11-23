@@ -19,8 +19,9 @@
     ],
     "type": "module",
     "imports": {
-        "#/*.ts": "./*.ts",
-        "#/*": "./*"
+        "#/*": "./*.ts",
+        "#/*.json": "./*.json",
+        "#/*.py": "./*.py"
     },
     "exports": {
         ".": "./plugin.ts",
@@ -34,8 +35,9 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*.ts": "./dist/*.js",
-            "#/*": "./*"
+            "#/*": "./dist/*.js",
+            "#/*.json": "./*.json",
+            "#/*.py": "./*.py"
         },
         "exports": {
             ".": "./dist/plugin.js",

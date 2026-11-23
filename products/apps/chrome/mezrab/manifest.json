@@ -10,5 +10,5 @@
     "action": { "default_title": "__MSG_action__" },
     "background": { "service_worker": "service-worker.js", "type": "module" },
     "commands": { "_execute_action": { "suggested_key": { "default": "Ctrl+Shift+U", "mac": "Command+Shift+U", "linux": "Alt+Shift+U" } } },
-    "permissions": ["activeTab", "clipboardWrite", "scripting"]
+    "permissions": ["activeTab", "alarms", "clipboardWrite", "scripting"]
 }

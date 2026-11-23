@@ -1,20 +1,20 @@
 import { useAtomSet } from '@effect/atom-react';
 import { Choice, MenuButton, ModalDialog, ReorderableList } from '@rasm/ui';
-import { Array, Optic, Struct } from 'effect';
+import { Array, Optic, Option, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
-import { useState } from 'react';
+import { type Ref, useState } from 'react';
 import { Button } from 'react-aria-components';
 import { PlacementFields } from '#/editor/placement-fields.tsx';
-import { draft, hero, updateEntry } from '#/editor/state.ts';
+import { draft, hero, updateEntry } from '#/editor/state';
 import { CompositionGrid } from '#/media/composition-grid.tsx';
-import { choiceLayout, compositionLabel, confirmation, entryTitle, format, literalOptions, placementTitle } from '#/media/labels.ts';
-import type { Assets } from '#/model/asset.ts';
-import { Alignment, type Composition, CompositionId, type Placement, Scale } from '#/model/placement.ts';
-import type { Entry } from '#/model/portfolio.ts';
+import { choiceLayout, compositionLabel, confirmation, entryTitle, format, literalOptions, placementTitle } from '#/media/labels';
+import type { Assets } from '#/model/asset';
+import { Alignment, type Composition, CompositionId, type Placement, Scale } from '#/model/placement';
+import type { Entry } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof Assets.Service; readonly entry: typeof Entry.Type; readonly item: typeof Composition.Type }) => {
+const CompositionEditor = ({ assets, entry, item, ref }: { readonly assets: typeof Assets.Service; readonly entry: typeof Entry.Type; readonly item: typeof Composition.Type; readonly ref: Ref<HTMLDivElement> }) => {
     const setDraft = useAtomSet(draft);
     const [first, second] = item.items;
     const update = (change: (compositions: readonly (typeof Composition.Type)[]) => readonly (typeof Composition.Type)[]) => setDraft(updateEntry(entry.id, Struct.evolve({ compositions: change })));
@@ -32,7 +32,7 @@ const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof As
         </PlacementFields>
     );
     return (
-        <div className="flex min-w-0 flex-col gap-4.5 outline-none" id={item.id} tabIndex={-1}>
+        <div className="composition-editor" ref={ref} tabIndex={-1}>
             <CompositionGrid active composition={item} presentation="preview" renderMedia />
             <div className="field-pair">
                 <Choice {...choiceLayout} label="Scale" onChange={({ id }) => replace({ ...item, scale: id })} options={literalOptions(Scale.literals)} value={item.scale} />
@@ -67,25 +67,32 @@ const Compositions = ({
     assets,
     entry,
     selected,
+    editor,
     onSelect,
     onUpload,
     onPlace,
 }: {
     readonly assets: typeof Assets.Service;
     readonly entry: typeof Entry.Type;
-    readonly selected: typeof CompositionId.Type | undefined;
+    readonly selected: Option.Option<typeof CompositionId.Type>;
+    readonly editor: Ref<HTMLDivElement>;
     readonly onSelect: (id: typeof CompositionId.Type) => void;
     readonly onUpload: () => void;
     readonly onPlace: () => void;
 }) => {
     const setDraft = useAtomSet(draft);
     const [choosing, setChoosing] = useState(false);
-    const item = entry.compositions.find((candidate) => candidate.id === selected) ?? entry.compositions[0];
+    const item = Option.getOrUndefined(
+        Option.orElse(
+            Array.findFirst(entry.compositions, (candidate) => Option.contains(selected, candidate.id)),
+            () => Array.head(entry.compositions),
+        ),
+    );
     return (
         <>
             <div className="actions">
-                <h3 className="mr-auto text-xl tracking-tight max-editor:w-full">
-                    Sequence <span className="ml-2.5 text-sm text-muted">{format.quantity(entry.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
+                <h3 className="sequence-heading">
+                    Sequence <span>{format.quantity(entry.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
                 </h3>
                 <button className="button button-outline" onClick={onUpload} type="button">
                     Add files
@@ -93,12 +100,12 @@ const Compositions = ({
                 <button className="button button-ghost" onClick={onPlace} type="button">
                     Add from library
                 </button>
-                <button aria-expanded={choosing} aria-label="Choose composition" className="button button-outline editor:hidden" onClick={() => setChoosing(!choosing)} type="button">
+                <button aria-expanded={choosing} aria-label="Choose composition" className="button button-outline sequence-toggle" onClick={() => setChoosing(!choosing)} type="button">
                     {choosing ? 'Close' : 'Choose'}
                 </button>
             </div>
-            <div className="grid min-w-0 gap-6 editor:grid-cols-sequence">
-                <div className="min-w-0 max-editor:not-data-open:hidden editor:editor-scroll" data-open={choosing || undefined}>
+            <div className="sequence-layout">
+                <div data-open={choosing || undefined}>
                     <ReorderableList
                         actions={(keys) => (
                             <ModalDialog.Confirm
@@ -117,14 +124,14 @@ const Compositions = ({
                         {(candidate) => (
                             <Button
                                 aria-pressed={item?.id === candidate.id}
-                                className="block w-full min-w-0 py-2 text-left text-sm wrap-anywhere aria-pressed:text-accent-text aria-pressed:underline aria-pressed:underline-offset-4"
+                                className="sequence-item"
                                 onPress={() => {
                                     onSelect(candidate.id);
                                     setChoosing(false);
                                 }}
                             >
                                 {candidate.items.every((placement) => placement.kind === 'image') && (
-                                    <div className="pointer-events-none mb-2 max-w-24">
+                                    <div inert>
                                         <CompositionGrid active={false} composition={candidate} presentation="thumbnail" renderMedia />
                                     </div>
                                 )}
@@ -133,7 +140,7 @@ const Compositions = ({
                         )}
                     </ReorderableList>
                 </div>
-                {item && <CompositionEditor assets={assets} entry={entry} item={item} key={item.id} />}
+                {item && <CompositionEditor assets={assets} entry={entry} item={item} key={item.id} ref={editor} />}
             </div>
         </>
     );

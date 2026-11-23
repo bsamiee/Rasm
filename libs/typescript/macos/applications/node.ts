@@ -5,7 +5,7 @@ import { Cause, Context, Effect, Fiber, FileSystem, Formatter, Layer, Path, Sche
 import type { ChildProcessSpawner } from 'effect/process';
 import { RpcClient } from 'effect/rpc';
 import { parse } from 'plist';
-import { Automation } from '#/contract.ts';
+import { Automation } from '#/contract';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

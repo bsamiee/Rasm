@@ -1,0 +1,37 @@
+{
+    "name": "@rasm/test-portfolio-safari",
+    "private": true,
+    "description": "Portfolio suite in the installed Safari, driven through safaridriver against the built Node bundle with its own database and object storage: the page a visitor sees at desktop and phone width and its hydration, by the cases the Chromium suite runs",
+    "os": [
+        "darwin"
+    ],
+    "type": "module",
+    "devDependencies": {
+        "@effect/vitest": "catalog:",
+        "@rasm/test-portfolio": "workspace:*",
+        "@types/node": "catalog:",
+        "@types/selenium-webdriver": "catalog:",
+        "effect": "catalog:",
+        "selenium-webdriver": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    },
+    "nx": {
+        "implicitDependencies": [
+            "@rasm/portfolio"
+        ],
+        "targets": {
+            "test--vitest": {
+                "dependsOn": [
+                    "...",
+                    {
+                        "projects": [
+                            "@rasm/portfolio"
+                        ],
+                        "target": "build--vite"
+                    }
+                ]
+            }
+        }
+    }
+}

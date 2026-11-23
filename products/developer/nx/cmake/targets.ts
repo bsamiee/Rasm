@@ -4,7 +4,7 @@ import { quoteShellArg } from '@nx/devkit/internal';
 import { aggregated, PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Predicate, Record, UndefinedOr } from 'effect';
-import { configured, ENVIRONMENT, PACKAGING, PRESETS, type Tree, WORKING } from '#/workspace.ts';
+import { configured, ENVIRONMENT, PACKAGING, PRESETS, type Tree, WORKING } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
