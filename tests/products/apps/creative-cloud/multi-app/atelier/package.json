@@ -12,6 +12,7 @@
         "@rasm/applications": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
+        "acorn": "catalog:",
         "effect": "catalog:",
         "plist": "catalog:",
         "vite": "catalog:",

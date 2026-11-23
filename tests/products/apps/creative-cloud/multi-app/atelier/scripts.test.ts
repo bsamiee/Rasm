@@ -1,17 +1,27 @@
 import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { pathToFileURL } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { layer as sockets } from '@effect/platform-node/NodeSocketServer';
 import { assert, layer } from '@effect/vitest';
 import { Automation, RunningInstance, TermKind, Terms } from '@rasm/applications';
 import { routed } from '@rasm/testing/playwright';
+import { parse } from 'acorn';
 import { Array, Cause, Config, Context, Effect, FileSystem, Layer, MutableRef, Option, Path, Record, Result, Schedule, Schema, Stream, Struct } from 'effect';
 import { McpClient, McpProtocol } from 'effect/ai';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
 import { build } from 'plist';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+interface Sent {
+    readonly instance: string;
+    readonly arguments: readonly string[];
+    readonly direct: string;
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -29,7 +39,8 @@ const INSTALLED = [
     { receipt: 'com.adobe.acrobat.DC.scamini.app.pkg.MUI', name: 'Adobe Acrobat', identifier: 'com.adobe.Acrobat.Pro', version: '26.003.22110', dictionary: { command: [SCRIPT], script: SCRIPT } },
     { receipt: 'com.adobe.acrobat.DC.scafull.app.pkg.MUI', name: 'Acrobat Distiller', identifier: 'com.adobe.distiller', version: '26.003.22110', dictionary: { command: [DISTILL] } },
 ] as const;
-const REPLY = encodeURIComponent(JSON.stringify({ _tag: 'Value', value: { result: 7 } }));
+const MARK = 'marked';
+const ES3 = { ecmaVersion: 3, allowReserved: 'never' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -37,6 +48,8 @@ const Bound = Schema.Struct({ port: Schema.Int });
 const Instances = Schema.Array(Schema.toCodecJson(RunningInstance));
 const Opened = Schema.Struct({ handle: Schema.String, result: Schema.Struct({ instance: Schema.String }) });
 const Text = Schema.Struct({ text: Schema.String });
+const Answered = Schema.Struct({ result: Schema.Struct({ result: Schema.Finite }) });
+const Reply = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Unknown)));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -58,7 +71,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
         const empty = Struct.Record(TermKind.literals, []);
         const dictionaries = Record.fromEntries(yield* Effect.forEach(INSTALLED, ({ name, dictionary }) => Effect.map(Schema.decodeEffect(Terms)({ ...empty, ...dictionary }), (terms) => [located(name), terms] as const)));
         const instances = yield* Schema.decodeEffect(Instances)(INSTALLED.map(({ name, identifier }, at) => ({ pid: 100 + at, instance: `${100 + at}@1`, identifier, url: located(name), activationPolicy: 'regular', state: { running: { active: false, status: 'responding', windows: [] } }, listening: [] })));
-        const executed = MutableRef.make<readonly { readonly instance: string; readonly arguments: readonly string[] }[]>([]);
+        const executed = MutableRef.make<readonly Sent[]>([]);
         const files: Record<string, string> = {
             [path.join(contents, 'Info.plist')]: build({ CFBundleExecutable: 'Atelier', CFBundleIdentifier: 'app.rasm.atelier.suite', CFBundleShortVersionString: '0.0.0' }),
             [path.join(contents, 'MacOS', 'Atelier')]: `#!/bin/sh\nexec /usr/bin/nc -U '${socket}'\n`,
@@ -93,11 +106,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
                         events: () => Stream.never,
                         pressure: () => Stream.never,
                         terms: ({ url }) => Effect.orDie(Effect.fromNullishOr(dictionaries[url.href])),
-                        execute: ({ instance, arguments: given }) =>
-                            Effect.as(
-                                Effect.sync(() => MutableRef.update(executed, Array.append({ instance, arguments: Record.keys(given) }))),
-                                { reply: REPLY, artifacts: [] },
-                            ),
+                        execute: (payload) => executing(executed, payload),
                     }),
                     RpcServer.layerProtocolSocketServer,
                 ]),
@@ -112,7 +121,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
         );
         const call = Effect.fnUntraced(function* (name: string, given: Record<string, unknown>) {
             const tool = yield* client.listTools().pipe(Effect.map(Array.findFirst((listed) => listed.name === name)), Effect.flatMap(Effect.fromOption));
-            return yield* client.callTool({ tool, arguments: given });
+            return yield* client.callTool({ tool: Struct.omit(tool, ['outputSchema']), arguments: given });
         });
         return { call, executed: Effect.sync(() => MutableRef.get(executed)) };
     }),
@@ -120,28 +129,64 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const ran = Effect.fnUntraced(function* (name: string) {
+const executing = (executed: MutableRef.MutableRef<readonly Sent[]>, { instance, arguments: given }: { readonly instance: string; readonly arguments: Record.ReadonlyRecord<string, unknown> }) =>
+    Effect.orDie(Schema.decodeUnknownEffect(Schema.String)(given['direct'])).pipe(
+        Effect.tap((direct) => Effect.sync(() => MutableRef.update(executed, Array.append({ instance, arguments: Record.keys(given), direct })))),
+        Effect.flatMap((direct) => {
+            const line = direct.split('\n').findIndex((text) => text.includes(MARK)) + 1;
+            return line > 0 ? Effect.orDie(Schema.encodeEffect(Reply)({ _tag: 'Thrown', message: MARK, line })) : Effect.orDie(Schema.decodeUnknownEffect(Schema.String)(runInNewContext(direct, {})));
+        }),
+        Effect.map((reply) => ({ reply, artifacts: [] })),
+    );
+const ran = Effect.fnUntraced(function* (name: string, code: string) {
     const suite = yield* Suite;
     const {
         handle,
         result: { instance },
     } = yield* Effect.flatMap(suite.call('applications', { action: 'open', application: name }), ({ structuredContent }) => Schema.decodeUnknownEffect(Opened)(structuredContent));
-    const result = yield* suite.call('execute_script', { code: 'return 7;', handle });
-    const executed = yield* suite.executed;
+    const before = (yield* suite.executed).length;
+    const result = yield* suite.call('execute_script', { code, handle });
     return {
-        arguments: Option.map(
-            Array.findFirst(executed, (each) => each.instance === instance),
-            Struct.get('arguments'),
-        ),
-        refused: Option.liftPredicate(Array.map(Array.getSomes(Array.map(result.content, (block) => Schema.decodeUnknownOption(Text)(block))), Struct.get('text')), () => result.isError === true),
+        instance,
+        sent: Array.drop(yield* suite.executed, before),
+        failed: result.isError === true,
+        text: Array.map(Array.getSomes(Array.map(result.content, (block) => Schema.decodeUnknownOption(Text)(block))), Struct.get('text')).join('\n'),
+        structured: Option.map(Schema.decodeUnknownOption(Answered)(result.structuredContent), Struct.get('result')),
     };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici])), { timeout: '1 minute', excludeTestServices: true })('script route', (it) => {
+    it.effect(
+        'runs a body through the do script of an application no UXP host lists, sending to its instance one strict ES3 script as the direct parameter alone, and answers what that script returns',
+        Effect.fnUntraced(function* () {
+            const { instance, sent, failed, structured } = yield* ran('Adobe Acrobat', 'const doubled: number = [3.5].map((each) => each * 2)[0];\nreturn doubled;');
+            assert.deepStrictEqual([Array.map(sent, Struct.pick(['instance', 'arguments'])), failed, structured], [[{ instance, arguments: ['direct'] }], false, Option.some({ result: 7 })]);
+            for (const { direct } of sent) {
+                assert.doesNotThrow(() => {
+                    parse(direct, ES3);
+                });
+            }
+        }),
+    );
+
     it.effect.each([
-        { named: 'runs a body through the do script of an application no UXP host lists, sending its direct parameter alone', name: 'Adobe Acrobat', expected: { arguments: Option.some(['direct']), refused: Option.none() } },
-        { named: 'refuses an application whose dictionary declares commands but no script command', name: 'Acrobat Distiller', expected: { arguments: Option.none(), refused: Option.some(['Acrobat Distiller declares no script command and links no extension']) } },
-    ])('$named', ({ name, expected }) => Effect.map(ran(name), (taken) => assert.deepStrictEqual(taken, expected)));
+        { named: 'a throw the host reports at a lowered script line', code: `const first = 1;\nconst second = first + 1;\nthrow new Error('${MARK}' + second);`, line: 3, sends: 1 },
+        { named: 'a syntax error, sending nothing to the host', code: 'const first = 1;\nconst = 2;\nreturn first;', line: 2, sends: 0 },
+    ])(
+        'names the body line of $named',
+        Effect.fnUntraced(function* ({ code, line, sends }) {
+            const { sent, failed, text } = yield* ran('Adobe Acrobat', code);
+            assert.deepStrictEqual([sent.length, failed, new RegExp(`\\bline ${line}\\b`, 'u').test(text), text.includes(MARK)], [sends, true, true, sends > 0], text);
+        }),
+    );
+
+    it.effect(
+        'refuses an application whose dictionary declares commands but no script command, naming it and sending nothing',
+        Effect.fnUntraced(function* () {
+            const { sent, failed, text } = yield* ran('Acrobat Distiller', 'return 7;');
+            assert.deepStrictEqual([sent, failed, text.includes('Acrobat Distiller')], [[], true, true], text);
+        }),
+    );
 });
