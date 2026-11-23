@@ -1,5 +1,5 @@
 import { lexer } from 'css-tree';
-import type { Config } from 'stylelint';
+import stylelint, { type Config, type Rule } from 'stylelint';
 import recess from 'stylelint-config-recess-order/groups';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -8,11 +8,28 @@ const systemSyntax = lexer.getType('system-color')?.syntax;
 const systemColors = systemSyntax?.type === 'Group' ? systemSyntax.terms.flatMap((term) => (term.type === 'Keyword' ? [term.name] : [])) : [];
 const vendorPrefix = '/^-(?!-)/';
 
+// --- [PLUGINS] -------------------------------------------------------------------------
+
+const documentUnits = 'rasm/document-declaration-property-unit-disallowed-list';
+
+const isolated = (root: Parameters<ReturnType<Rule>>[0]) => root.some((node) => node.type === 'rule' && node.selectors.some((selector) => /^:host$/iu.test(selector)) && node.some((held) => held.type === 'decl' && /^all$/iu.test(held.prop) && /^initial$/iu.test(held.value)));
+
+const documentRule: Rule = Object.assign(
+    (units: unknown): ReturnType<Rule> =>
+        (root, result) =>
+            isolated(root)
+                ? undefined
+                : stylelint.utils.checkAgainstRule({ ruleName: 'declaration-property-unit-disallowed-list', ruleSettings: units, root, result }, (warning) => {
+                      stylelint.utils.report({ ruleName: documentUnits, result, message: warning.text, node: warning.node, start: { line: warning.line, column: warning.column }, end: { line: warning.endLine ?? warning.line, column: warning.endColumn ?? warning.column } });
+                  }),
+    { ruleName: documentUnits, messages: {} },
+);
+
 // --- [STYLELINT] -----------------------------------------------------------------------
 
 export default {
     extends: ['stylelint-config-standard', '@projectwallace/stylelint-plugin/configs/correctness'],
-    plugins: ['stylelint-use-nesting', 'stylelint-use-logical-spec', 'stylelint-order', 'stylelint-declaration-block-no-ignored-properties', 'stylelint-plugin-defensive-css'],
+    plugins: ['stylelint-use-nesting', 'stylelint-use-logical-spec', 'stylelint-order', 'stylelint-declaration-block-no-ignored-properties', 'stylelint-plugin-defensive-css', stylelint.createPlugin(documentUnits, documentRule)],
     ignoreDisables: true,
     overrides: [
         {
@@ -82,7 +99,7 @@ export default {
 
         // --- [UNITS]
 
-        'declaration-property-unit-disallowed-list': { '/^(font|font-size|line-height)$/': ['px'] },
+        [documentUnits]: { '/^(font|font-size|line-height)$/i': ['px'] },
         'unit-disallowed-list': ['cm', 'mm', 'q', 'in', 'pt', 'pc'],
         'unit-no-unknown': true,
 

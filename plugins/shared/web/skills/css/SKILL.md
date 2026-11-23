@@ -71,7 +71,7 @@ Document stylesheets open with their layer order, and every rule sits in a named
 |  [05]   | `components` | Class rules                                                                                   |
 |  [06]   | `<chunk>`    | Rules of one lazily loaded stylesheet, its layer listed after `components` in layer statement |
 
-Later layers win over earlier ones at any specificity. `!important` declarations win in reverse layer order, and `reset` alone holds them (`[hidden]`). Layer and `rem` rules govern document stylesheets, and a stylesheet adopted into a shadow root on a third-party page follows `chrome:extensions`.
+Later layers win over earlier ones at any specificity. `!important` declarations win in reverse layer order, and `reset` alone holds them (`[hidden]`). Layer and `rem` rules govern document stylesheets, and a stylesheet adopted into a shadow root on a third-party page follows `chrome:extensions`. Stylelint reports `px` in `font`, `font-size`, and `line-height` outside a stylesheet isolating its host through a top-level `:host { all: initial }`.
 
 Stylesheets divide by section and by load:
 - Sections open with a divider comment of 85 characters between `/*` and `*/` (`--- [<LABEL>] ---`) and reopen their layer by name

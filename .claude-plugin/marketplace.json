@@ -157,7 +157,7 @@
         {
             "name": "web",
             "source": "./plugins/shared/web",
-            "version": "0.2.0",
+            "version": "0.2.1",
             "description": "Web styling and components: CSS, browser support facts, and React Aria Components",
             "author": {
                 "name": "Bardia Samiee"
