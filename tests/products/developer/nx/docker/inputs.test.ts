@@ -1,7 +1,10 @@
 import { join } from 'node:path';
+import { env } from 'node:process';
 import { createDependencies, createNodes } from '@rasm/nx-docker';
-import { it, pathed } from '@rasm/testing/nx';
-import { describe, expect, vi } from 'vitest';
+import { it, pathed, taskGraph } from '@rasm/testing/nx';
+import { readNxJson } from 'nx/src/config/nx-json';
+import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
+import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
@@ -41,32 +44,27 @@ const READ = {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('inputs', () => {
-    it('hashes every workspace file the Compose model reads into the checks, and no file outside the workspace', async ({ workspace }) => {
-        const graph = await workspace.write(READ).graph({ createNodes, createDependencies });
+describe('task hashes', () => {
+    it.for([
+        { task: 'infra:check--compose', edited: { 'shared/cache.yaml': 'services:\n    cache:\n        image: memcached:2\n' }, changes: true },
+        { task: 'infra:check--compose', edited: { 'infra/api.env': 'PORT=9090\n' }, changes: true },
+        { task: 'infra:check--buildx', edited: { 'infra/images/site.Dockerfile': 'FROM busybox\n' }, changes: true },
+        { task: 'infra:check--compose', edited: { 'docs/notes.md': 'More notes\n' }, changes: false },
+        { task: 'infra:build--compose', edited: { 'apps/api/Dockerfile': 'FROM busybox\n' }, changes: true },
+    ])('$task hash changes ($changes) after editing $edited', async ({ task, edited, changes }, { workspace }) => {
+        const [project = '', target = ''] = task.split(':');
+        const hashed = async (files: Readonly<Record<string, string>>) => {
+            const graph = await workspace.write(files).graph({ createNodes, createDependencies });
+            const tasks = taskGraph(graph, [project], [target]);
+            const found = tasks.tasks[task];
+            assert(found !== undefined, `${task} is a task of the graph`);
+            return createTaskHasher(graph, readNxJson(workspace.root)).hashTask(found, tasks, env);
+        };
+        const before = await hashed({ ...READ, 'apps/api/project.json': '{"name":"api"}', 'docs/notes.md': 'Notes\n' });
 
-        expect(new Set(graph.nodes['infra']?.data.targets?.['check--compose']?.inputs)).toStrictEqual(
-            new Set([
-                '{workspaceRoot}/apps/api/Dockerfile',
-                '{workspaceRoot}/infra/.env',
-                '{workspaceRoot}/infra/api.env',
-                '{workspaceRoot}/infra/compose.override.yaml',
-                '{workspaceRoot}/infra/compose.yaml',
-                '{workspaceRoot}/infra/images/site.Dockerfile',
-                '{workspaceRoot}/shared/cache.yaml',
-                '{workspaceRoot}/shared/proxy.yaml',
-                '{workspaceRoot}/shared/queue.yaml',
-                '{workspaceRoot}/shared/store.yaml',
-                { externalDependencies: [] },
-            ]),
-        );
-    });
+        const after = await hashed(edited);
 
-    it('hashes the project files of the build context into the image build and the start', async ({ workspace }) => {
-        const graph = await workspace.write(READ).graph({ createNodes, createDependencies });
-        const { 'build--compose': build, 'install--compose': install } = graph.nodes['infra']?.data.targets ?? {};
-
-        expect([build?.inputs, install?.inputs]).toStrictEqual([expect.arrayContaining(['default', '^default', '{workspaceRoot}/shared/store.yaml']), expect.arrayContaining(['default', '^default', '{workspaceRoot}/shared/store.yaml'])]);
+        expect(before.value === after.value).toBe(!changes);
     });
 });
 

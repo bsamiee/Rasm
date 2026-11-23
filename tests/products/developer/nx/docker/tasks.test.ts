@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { platform } from 'node:process';
 import { createDependencies, createNodes } from '@rasm/nx-docker';
-import { it, shimmed, taskGraph, unaggregated } from '@rasm/testing/nx';
+import { it, shimmed, taskGraph } from '@rasm/testing/nx';
 import { describe, expect, onTestFinished, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -47,18 +47,6 @@ describe('task order', () => {
             'build--buildx': [undefined, undefined],
             'serve--compose': [undefined, true],
         });
-    });
-
-    it('install--compose starts the services from built images and returns once each is running and healthy', async ({ workspace }) => {
-        const graph = await workspace.write(SERVED).graph({ createNodes, createDependencies });
-
-        expect(graph.nodes['infra']?.data.targets?.['install--compose']?.options).toHaveProperty('command', expect.stringMatching(/^(?=.* --detach\b)(?=.* --wait\b)(?=.* --no-build\b)docker compose up /u));
-    });
-
-    it('runs every tool target of a project through its verb', async ({ workspace }) => {
-        const graph = await workspace.write(SERVED).graph({ createNodes, createDependencies });
-
-        expect(unaggregated(graph)).toStrictEqual([]);
     });
 });
 

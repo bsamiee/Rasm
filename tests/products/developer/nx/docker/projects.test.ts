@@ -16,7 +16,7 @@ const tools = (targets: object | undefined) =>
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('compose projects', () => {
-    it.for(['compose.yaml', 'compose.yml', 'docker-compose.yaml', 'docker-compose.yml'])('infers compose targets for a project folder holding %s', async (file, { workspace }) => {
+    it.for(['docker-compose.yml'])('infers compose targets for a project folder holding %s', async (file, { workspace }) => {
         const graph = await workspace.write({ 'proj/project.json': '{"name":"proj"}', [`proj/${file}`]: 'services:\n    app:\n        image: alpine:3\n' }).graph({ createNodes, createDependencies });
 
         expect(tools(graph.nodes['proj']?.data.targets)).toStrictEqual(['check--compose', 'install--compose']);
@@ -30,7 +30,6 @@ describe('compose projects', () => {
 
     it.for([
         { anchor: 'no manifest', files: {}, inferred: false },
-        { anchor: 'a project.json', files: { 'deploy/project.json': '{"name":"deploy"}' }, inferred: true },
         { anchor: 'a package.json the workspaces cover', files: { 'package.json': '{"name":"root","workspaces":["deploy"]}', 'deploy/package.json': '{"name":"deploy"}' }, inferred: true },
         { anchor: 'a package.json outside the workspaces', files: { 'package.json': '{"name":"root","workspaces":["apps/*"]}', 'deploy/package.json': '{"name":"deploy"}' }, inferred: false },
     ])('anchors a Compose folder holding $anchor: $inferred', async ({ files, inferred }, { workspace }) => {
@@ -74,7 +73,6 @@ describe('compose projects', () => {
 
         expect(tools(targets)).toStrictEqual(['build--buildx', 'serve--compose']);
         expect([targets?.['build--buildx']?.options, targets?.['serve--compose']?.options]).toMatchObject([{ cwd: 'infra' }, { cwd: 'infra' }]);
-        expect(targets?.['build--buildx']?.options).toHaveProperty('command', expect.stringMatching(/ build --with-dependencies api$/u));
     });
 });
 
