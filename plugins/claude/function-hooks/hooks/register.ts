@@ -78,7 +78,7 @@ const supervised = async (server: Server): Promise<void> => {
 const started = async ($: EngineInterface): Promise<Server> => {
     const [folder = '/tmp', env] = await Promise.all([$.env.get('TMPDIR'), $.process.hookEnv()]);
     const socket = `${folder.replace(TRAILING_SLASHES, '')}/${$.plugin.name}-${crypto.randomUUID().slice(0, 8)}.sock`;
-    return { child: $.process.spawn({ argv: ['mise', 'exec', '--', 'node', `${$.plugin.root}/claude/server.ts`, socket], cwd: $.plugin.root, env }), socket, phase: { kind: 'starting', waiting: [] } };
+    return { child: $.process.spawn({ argv: ['node', `${$.plugin.root}/claude/server.ts`, socket], cwd: $.plugin.root, env }), socket, phase: { kind: 'starting', waiting: [] } };
 };
 
 const serving = ($: EngineInterface, lost?: Promise<Server>): Promise<Server> => {

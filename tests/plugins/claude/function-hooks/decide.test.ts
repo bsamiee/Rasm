@@ -44,10 +44,7 @@ const WAITS = [
             reason: "/tmp/claude-501/x/tasks/a46c9759cea20d51a.output is a running agent's output that the agent reports when it ends, SendMessage asks it for status",
         },
     ],
-    ['rg -c error /Users/u/.claude/projects/-x/5f1e.jsonl', 'foreground', { _tag: 'Deny', reason: '/Users/u/.claude/projects/-x/5f1e.jsonl is a session transcript, atuin threads show <session id> --style ndjson reads it' }],
     ['tail -n 50 /Users/u/.zsh_history', 'foreground', { _tag: 'Deny', reason: "/Users/u/.zsh_history is shell history, atuin search --filter-mode global --search-mode fulltext '<words>' reads it" }],
-    ['rg -l error /Users/u/.claude/projects', 'foreground', { _tag: 'Deny', reason: '/Users/u/.claude/projects is a session transcript, atuin threads show <session id> --style ndjson reads it' }],
-    ['cat /Users/u/.claude/projects/-x/memory/MEMORY.md', 'foreground', ALLOWED],
 ] as const;
 const HOLDERS = {
     writer: (output: string) => ChildProcess.make('sh', ['-c', 'exec sleep 60 >> "$0"', output]),
@@ -316,18 +313,13 @@ it.live(
 );
 
 it.live(
-    'Read of a running agent output, a session transcript, the projects folder, or shell history is refused with its route, and a shell task output or a project memory file is allowed',
+    'Read of a running agent output or shell history is refused with its route, and a shell task output is allowed',
     Effect.fnUntraced(
         function* () {
             const { asked } = yield* served();
-            const transcript = 'is a session transcript, atuin threads show <session id> --style ndjson reads it';
             const cases = [
                 ['/tmp/claude-501/x/tasks/b7k2.output', ALLOWED],
-                ['/Users/u/.claude/projects/-x/memory/MEMORY.md', ALLOWED],
                 ['/tmp/claude-501/x/tasks/a46c9759cea20d51a.output', { _tag: 'Deny', reason: "/tmp/claude-501/x/tasks/a46c9759cea20d51a.output is a running agent's output that the agent reports when it ends, SendMessage asks it for status" }],
-                ['/Users/u/.claude/projects/-x/5f1e.jsonl', { _tag: 'Deny', reason: `/Users/u/.claude/projects/-x/5f1e.jsonl ${transcript}` }],
-                ['/Users/u/.claude/projects/-x', { _tag: 'Deny', reason: `/Users/u/.claude/projects/-x ${transcript}` }],
-                ['/Users/u/.claude/projects', { _tag: 'Deny', reason: `/Users/u/.claude/projects ${transcript}` }],
                 ['/Users/u/.zsh_history', { _tag: 'Deny', reason: "/Users/u/.zsh_history is shell history, atuin search --filter-mode global --search-mode fulltext '<words>' reads it" }],
             ] as const;
             assert.deepStrictEqual(

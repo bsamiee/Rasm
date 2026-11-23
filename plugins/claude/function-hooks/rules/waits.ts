@@ -34,7 +34,6 @@ const SILENT_SOURCE = /^a?nullsrc\b/u;
 const PACED: ReadonlySet<string> = new Set(['-re', '-readrate']);
 const RECORDS = [
     [/\/tasks\/a[0-9a-f]{16}\.output$/u, "is a running agent's output that the agent reports when it ends, SendMessage asks it for status"],
-    [/\/\.claude\/projects(?:\/[^/]+)?\/?$|\/\.claude\/projects\/.+\.jsonl$|\/\.codex\/(?:archived_)?sessions(?:\/|$)/u, 'is a session transcript, atuin threads show <session id> --style ndjson reads it'],
     [/\/\.(?:zsh|bash)_history$|\/\.zsh_sessions(?:\/|$)/u, "is shell history, atuin search --filter-mode global --search-mode fulltext '<words>' reads it"],
 ] as const;
 const STUCK_LINES = 10;

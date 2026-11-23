@@ -91,7 +91,7 @@ const worldOf = (on: On, decide: () => HttpResponse | { readonly deny: string },
             },
             { once: true },
         );
-        const chunks = e.argv.slice(0, 1).flatMap((program) => printed.get(program) ?? (program === 'mise' ? [{ stream: 'stdout', text: `${e.argv.at(-1)}\n` } as const] : []));
+        const chunks = e.argv.slice(0, 1).flatMap((program) => printed.get(program) ?? (program === 'node' ? [{ stream: 'stdout', text: `${e.argv.at(-1)}\n` } as const] : []));
         const listening = chunks.some(({ stream }) => stream === 'stdout');
         seen.spawned.push(e.argv);
         seen.envs.push(e.env);
@@ -234,7 +234,7 @@ test('Decide request states run kind and calling agent, and both calls use one s
         ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'background', agent: 'a1', ...DECIDED }],
         ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'foreground', ...DECIDED }],
     ]);
-    expect(world.spawned).toEqual([['mise', 'exec', '--', 'node', expect.stringMatching(/\/claude\/server\.ts$/u), expect.stringMatching(/^\/tmp\/function-hooks-[\da-f]{8}\.sock$/u)]]);
+    expect(world.spawned).toEqual([['node', expect.stringMatching(/\/claude\/server\.ts$/u), expect.stringMatching(/^\/tmp\/function-hooks-[\da-f]{8}\.sock$/u)]]);
     expect(world.stopped).toEqual([]);
     expect(world.envs).toEqual([DATA]);
 });
@@ -250,7 +250,7 @@ test('Call with a failed decision runs as written and notes each agent once per 
 });
 
 test('Call runs as written with crash cause noted when server exits before listening', async ($, on) => {
-    const world = worldOf(on, () => answered(ALLOWED), { printed: { mise: [{ stream: 'stderr', text: 'file:///work/rules/decide.ts:3\nSyntaxError: Unexpected token\n    at compile\n\nNode.js v26\n' }] } });
+    const world = worldOf(on, () => answered(ALLOWED), { printed: { node: [{ stream: 'stderr', text: 'file:///work/rules/decide.ts:3\nSyntaxError: Unexpected token\n    at compile\n\nNode.js v26\n' }] } });
     await $.session.start(SESSION);
     expect(await $.tool.call(LIST)).toEqual({ ...RAN, context: [`${UNJUDGED}SyntaxError: Unexpected token`] });
     expect(world.sent).toEqual([]);
@@ -261,7 +261,7 @@ test('Call after a lost socket stops its server, starts one new server, and gets
     await $.session.start(SESSION);
     await $.tool.call(LIST);
     expect(await $.tool.call(LIST)).toEqual({ deny: 'no' });
-    expect([world.spawned, world.stopped].map((streams) => streams.map(([program]) => program))).toEqual([['mise', 'mise'], ['mise']]);
+    expect([world.spawned, world.stopped].map((streams) => streams.map(([program]) => program))).toEqual([['node', 'node'], ['node']]);
 });
 
 test('Read is refused with the reason the server gives its file, and runs where the server allows it', async ($, on) => {
