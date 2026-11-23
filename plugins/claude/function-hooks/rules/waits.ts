@@ -326,7 +326,8 @@ const waitLoop = ({ analysis, request }: Call): readonly Verdict[] => {
     const waits = (tested.length > 0 && tested.every(({ probe, program }) => probe && !UNTESTED.has(program))) || looping.some(({ program }) => LEAVES.has(program));
     const probes = looping.every(({ probe }) => probe);
     const sleeps = looping.some(({ sleep: waited }) => waited);
-    const placed = outside.every(({ program, command }) => command.start >= end && TRAILING_READS.has(program));
+    const headed = ({ program, command }: Invocation) => PROBES.has(program) && looping.some(({ loop }) => command.start >= loop.start && command.end <= loop.end);
+    const placed = outside.every((invocation) => (invocation.command.start >= end && TRAILING_READS.has(invocation.program)) || headed(invocation));
     return request.kind !== 'monitor' && looping.length > 0 && waits && probes && sleeps && placed ? [Verdict.Monitor()] : [];
 };
 
