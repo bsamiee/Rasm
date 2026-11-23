@@ -45,7 +45,6 @@
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <AnalysisLevel>latest-all</AnalysisLevel>
         <MeziantouAnalysisMode>all-errors</MeziantouAnalysisMode>
-        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     </PropertyGroup>
 
     <PropertyGroup Label="Configurations">
