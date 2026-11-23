@@ -8,7 +8,9 @@ import { Decider, decided, refusing } from '#/engine';
 const CORES = availableParallelism();
 const REFUSED = [
     ['nx daemon --stop', 'nx daemon --stop stops the daemon every session shares'],
-    ['nx reset', 'drops the graph, fix the inputs or pass --only-cache'],
+    ['nx reset', 'nx reset stops the daemon and deletes the workspace data every session shares, run nx reset --only-cache'],
+    ['nx reset --only-cloud', 'nx reset stops the daemon and deletes the workspace data every session shares, run nx reset --only-cache'],
+    ['nx reset --only-workspace-data', 'nx reset deletes the workspace data every session shares, run nx reset --only-cache'],
     ['for p in web api; do nx test $p > $p.log; done', 'Loop reruns nx tasks, use one nx run-many'],
     ['for i in 1 2 3; do vitest run 2>&1 | rg Tests; done', 'Loop reruns vitest, use --repeats'],
     ['pnpm patch effect', 'pnpm patch copies a package into the tree'],

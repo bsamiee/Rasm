@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -7,6 +6,7 @@ import { layer as NodeServices } from '@effect/platform-node/NodeServices';
 import { Decision } from '@rasm/function-hooks/rules/decision';
 import { it as workspaceTest } from '@rasm/testing/nx';
 import { Cause, Context, Effect, FileSystem, Layer, ManagedRuntime, Path, Schema, Stream } from 'effect';
+import { SecureRandom } from 'effect/crypto';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { expect } from 'vitest';
@@ -92,11 +92,11 @@ class Served extends Context.Service<Served>()('@rasm/test-function-hooks/nx.tes
 const it = workspaceTest.extend('engine', { scope: 'file' }, async ({ fileWorkspace }, { onCleanup }) => {
     const graphed = await fileWorkspace.write(FILES).graph({});
     fileWorkspace.write({ [`${DATA}/project-graph.json`]: JSON.stringify(graphed) });
-    const runtime = ManagedRuntime.make(Layer.provideMerge(Served.layer(fileWorkspace.root), NodeServices));
+    const runtime = ManagedRuntime.make(Layer.provideMerge(Served.layer(fileWorkspace.root), Layer.merge(NodeServices, SecureRandom.layerWebCrypto)));
     onCleanup(() => runtime.dispose());
     const { asked } = await runtime.runPromise(Served.use(Effect.succeed));
     return {
-        decided: (command: string, folder: string) => runtime.runPromise(asked('decide', { command, cwd: join(fileWorkspace.root, folder), kind: 'foreground', session: randomUUID(), call: randomUUID() })),
+        decided: (command: string, folder: string) => runtime.runPromise(SecureRandom.SecureRandom.use((random) => Effect.flatMap(Effect.all({ session: random.uuidV4(), call: random.uuidV4() }), (ids) => asked('decide', { command, cwd: join(fileWorkspace.root, folder), kind: 'foreground', ...ids })))),
         read: (file: string) => runtime.runPromise(asked('read', { file })),
     };
 });
