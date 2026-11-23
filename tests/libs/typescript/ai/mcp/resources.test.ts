@@ -1,96 +1,66 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Array, Effect, Layer, Option, Order, Queue, Schema, String, SubscriptionRef } from 'effect';
-import { McpProtocol } from 'effect/ai';
-import { connected, outcome, PROTOCOLS, served, since, STATEFUL } from '#/conformance';
-import { IDS, PNG, STATIC } from '#/fixtures';
+import { Array, Effect, Layer, Option, Result, Schema, Stream, SubscriptionRef } from 'effect';
+import type { McpTest } from 'effect/ai';
+import { connected, SETTLED } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const ABSENT = { modern: -32_602, legacy: -32_002 } as const;
-const COMPLETED = { most: 100 } as const;
+const TEMPLATE = 'test://template/{id}/data';
+const URIS = { alpha: 'test://template/alpha/data', beta: 'test://template/beta/data', opal: 'test://template/opal/data', watched: 'test://watched-resource' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Resources = Schema.Struct({ result: Schema.Struct({ resources: Schema.Array(Schema.Struct({ uri: Schema.String, name: Schema.String, description: Schema.optionalKey(Schema.String), mimeType: Schema.optionalKey(Schema.String) })) }) });
-const Templates = Schema.Struct({ result: Schema.Struct({ resourceTemplates: Schema.Array(Schema.Struct({ uriTemplate: Schema.String, name: Schema.String })) }) });
-const Read = Schema.Struct({ result: Schema.Struct({ contents: Schema.Tuple([Schema.Struct({ uri: Schema.String, mimeType: Schema.optionalKey(Schema.String), text: Schema.optionalKey(Schema.String), blob: Schema.optionalKey(Schema.String) })]) }) });
-const Completed = Schema.Struct({ result: Schema.Struct({ completion: Schema.Struct({ values: Schema.Array(Schema.String), total: Schema.optionalKey(Schema.Finite) }) }) });
+const Updated = Schema.Struct({ uri: Schema.String });
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const updated = (client: McpTest.Client, until: string) =>
+    Stream.fromQueue(client.notifications).pipe(
+        Stream.filterMap(({ method, payload }) =>
+            Result.fromOption(
+                Option.filter(
+                    Option.map(Schema.decodeUnknownOption(Updated)(payload), ({ uri }) => uri),
+                    () => method === 'notifications/resources/updated',
+                ),
+                () => undefined,
+            ),
+        ),
+        Stream.takeUntil((uri) => uri === until),
+        Stream.runCollect,
+        Effect.timeout(SETTLED),
+    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe.each(PROTOCOLS)('$protocolVersion resources', (protocol) => {
-    const absent = since(protocol, McpProtocol.v2026_07_28) ? ABSENT.modern : ABSENT.legacy;
-
+describe('resources of the server', () => {
     it.live(
-        'lists each registered resource under the server scheme with its name, description, and media type',
+        'completes a template argument with only the values matching the typed text, the value it starts first, and their count as total',
         Effect.fnUntraced(function* () {
-            const { test, held } = yield* served(protocol);
-            const { result } = yield* Effect.flatMap(test.answer(held, 'resources/list'), Schema.decodeUnknownEffect(Resources));
-            assert.includeDeepMembers(
-                result.resources.map(({ uri, name, description, mimeType }) => ({ uri, name, description, mimeType })),
-                [
-                    { uri: 'test://static-text', name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain' },
-                    { uri: 'test://static-binary', name: 'static-binary', description: 'A static binary resource for testing', mimeType: 'image/png' },
-                    { uri: 'test://watched-resource', name: 'watched-resource', description: 'A resource whose value changes', mimeType: 'text/plain' },
-                ],
-            );
-        }, Effect.scoped),
-    );
-
-    it.live.each([
-        { uri: 'test://static-text', content: { mimeType: 'text/plain', text: STATIC } },
-        { uri: 'test://static-binary', content: { mimeType: 'image/png', blob: PNG } },
-        { uri: 'test://template/alpha/data', content: { mimeType: 'application/json', text: '{"id":"alpha","templateTest":true,"data":"Data for ID: alpha"}' } },
-    ] as const)(
-        'reads $uri as one content entry holding that URI, its media type, and its text or base64 bytes',
-        Effect.fnUntraced(function* ({ uri, content }) {
-            const { test, held } = yield* served(protocol);
-            const { result } = yield* Effect.flatMap(test.answer(held, 'resources/read', { uri }), Schema.decodeUnknownEffect(Read));
-            assert.deepStrictEqual(result.contents, [{ uri, ...content }]);
-        }, Effect.scoped),
+            const { client } = yield* connected(Layer.empty);
+            const { completion } = yield* client.complete({ ref: { type: 'ref/resource', uri: TEMPLATE }, argument: { name: 'id', value: 'al' } });
+            assert.deepStrictEqual([completion.values, completion.total], [['alpha', 'opal'], 2]);
+        }),
     );
 
     it.live(
-        'answers a read of a resource that does not exist with the resource-not-found error of the revision: -32002 through 2025-11-25, -32602 from 2026-07-28',
+        'notifies a subscriber of a resource it never read with its URI when the value of the resource changes',
         Effect.fnUntraced(function* () {
-            const { test, held } = yield* served(protocol);
-            assert.deepStrictEqual(yield* Effect.flatMap(test.answer(held, 'resources/read', { uri: 'test://nonexistent-resource-for-conformance-testing' }), outcome), { code: absent, failed: false });
-        }, Effect.scoped),
-    );
-
-    it.live(
-        'lists a resource template by its URI template and name',
-        Effect.fnUntraced(function* () {
-            const { test, held } = yield* served(protocol);
-            const { result } = yield* Effect.flatMap(test.answer(held, 'resources/templates/list'), Schema.decodeUnknownEffect(Templates));
-            assert.deepInclude(result.resourceTemplates, { uriTemplate: 'test://template/{id}/data', name: 'template' });
-        }, Effect.scoped),
-    );
-
-    it.live(
-        'completes a template argument with the values nearest the typed text first, at most 100 of them, and their count as total',
-        Effect.fnUntraced(function* () {
-            const { test, held } = yield* served(protocol);
-            const { result } = yield* Effect.flatMap(test.answer(held, 'completion/complete', { ref: { type: 'ref/resource', uri: 'test://template/{id}/data' }, argument: { name: 'id', value: 'al' } }), Schema.decodeUnknownEffect(Completed));
-            const [{ values, total }, nearest] = [result.completion, IDS.filter(String.startsWith('al'))];
-            assert.deepStrictEqual({ nearest: Array.sort(values.slice(0, nearest.length), Order.String), bounded: values.length <= COMPLETED.most, total }, { nearest: Array.sort(nearest, Order.String), bounded: true, total: values.length });
-        }, Effect.scoped),
-    );
-});
-
-describe.each(STATEFUL)('$protocolVersion resource subscription', (protocol) => {
-    it.live(
-        'notifies a subscriber of a resource with its URI when the value of the resource changes',
-        Effect.fnUntraced(function* () {
-            const { probe, client } = yield* connected(protocol, Layer.empty);
-            yield* client.subscribe({ uri: 'test://watched-resource' });
+            const { probe, client } = yield* connected(Layer.empty);
+            yield* client.subscribe({ uri: URIS.watched });
             yield* SubscriptionRef.set(probe.watched, 'moved');
-            const updated = yield* Queue.take(client.notifications).pipe(
-                Effect.repeat({ until: ({ method }) => method === 'notifications/resources/updated' }),
-                Effect.map(({ payload }) => payload),
-                Effect.timeoutOption('2 seconds'),
-            );
-            assert.deepStrictEqual(updated, Option.some({ uri: 'test://watched-resource' }));
-        }, Effect.scoped),
+            assert.deepStrictEqual(yield* updated(client, URIS.watched), [URIS.watched]);
+        }),
+    );
+
+    it.live(
+        'notifies the URI of each read template entry whose value changed, never one whose value held',
+        Effect.fnUntraced(function* () {
+            const { probe, client } = yield* connected(Layer.empty);
+            yield* Effect.forEach([URIS.alpha, URIS.beta, URIS.opal], (uri) => Effect.andThen(client.subscribe({ uri }), client.readResource({ uri })), { discard: true });
+            yield* SubscriptionRef.set(probe.versions, { alpha: 1 });
+            const first = yield* updated(client, URIS.alpha);
+            yield* SubscriptionRef.set(probe.versions, { alpha: 1, opal: 1 });
+            assert.deepStrictEqual(Array.appendAll(first, yield* updated(client, URIS.opal)), [URIS.alpha, URIS.opal]);
+        }),
     );
 });

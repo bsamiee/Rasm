@@ -1,9 +1,9 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Link, Server, Upstream } from '@rasm/mcp';
 import { Array, Effect, Function, Layer, Number, Option, Queue, Ref, Schema, Stream, Struct } from 'effect';
-import { McpProtocol, Tool, Toolkit } from 'effect/ai';
+import { Tool, Toolkit } from 'effect/ai';
 import { RpcTest } from 'effect/rpc';
-import { connected, names, settled } from '#/conformance';
+import { connected, names, settled } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -33,7 +33,7 @@ const linked = Effect.fnUntraced(function* (silent: readonly Stream.Stream<reado
             Upstream.serve(Array.append(silent, Upstream.linked(links)), { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) }),
         ),
     );
-    const { client } = yield* connected(McpProtocol.v2025_11_25, proxy);
+    const { client } = yield* connected(proxy);
     yield* settled(names(client), Array.contains('unique'));
     const { handle } = yield* Effect.flatMap(client.callTool({ name: 'test_simple_text', arguments: {} }), ({ structuredContent }) => Schema.decodeUnknownEffect(Trailed)(structuredContent));
     const read = client.callTool({ name: 'test_simple_text', arguments: { handle } }).pipe(

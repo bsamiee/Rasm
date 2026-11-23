@@ -6,7 +6,7 @@ import { Context, Effect, FileSystem, Layer, Match, Path, Schema, Stream } from 
 import { HttpRouter, HttpServer } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { hosted } from '#/conformance';
+import { hosted } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
