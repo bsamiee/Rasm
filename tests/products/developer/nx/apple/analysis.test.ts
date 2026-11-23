@@ -86,6 +86,20 @@ describe('Xcode projects as their files state them', { timeout: 240_000 }, () =>
         expect([Object.keys(graph.nodes['Viewer']?.data.targets ?? {}).includes('build--xcodebuild'), xcodebuild.called()]).toStrictEqual([true, []]);
     });
 
+    it('puts the build settings of the default configuration on the project node, resolved through an include, an expression, and a condition', async ({ workspace }) => {
+        const graph = await workspace
+            .write({
+                ...XCODE,
+                'apps/Viewer/Configs/Base.xcconfig': `${XCODE['apps/Viewer/Configs/Base.xcconfig']}DEVELOPMENT_TEAM = $(TEAM_PREFIX)9R367P\nDEVELOPMENT_TEAM[config=Debug] = DEBUGTEAM0\n`,
+                'apps/Viewer/Configs/Signing.xcconfig': `${XCODE['apps/Viewer/Configs/Signing.xcconfig']}TEAM_PREFIX = BBXB\n`,
+            })
+            .graph({ createNodes, createDependencies });
+
+        expect(graph.nodes['Viewer']?.data.metadata?.['buildSettings']).toStrictEqual({
+            Viewer: { PRODUCT_BUNDLE_IDENTIFIER: 'example.fixture.viewer', DEVELOPMENT_TEAM: 'BBXB9R367P', INFOPLIST_FILE: 'apps/Viewer/Support/Info.plist', CODE_SIGN_ENTITLEMENTS: 'apps/Viewer/Support/Viewer-Release.entitlements' },
+        });
+    });
+
     it('hashes each Info.plist and entitlements file xcodebuild resolves for the target in every configuration', async ({ workspace }) => {
         const graph = await workspace.write(XCODE).graph({ createNodes, createDependencies });
         const root = realpathSync(workspace.root);

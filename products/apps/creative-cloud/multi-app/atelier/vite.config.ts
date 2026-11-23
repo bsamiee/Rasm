@@ -2,12 +2,19 @@ import { createRequire, findPackageJSON } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import process from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
+import { readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
 import { helper } from '@rasm/applications/vite';
 import { script } from '@rasm/extendscript/vite';
 import { run } from '@rasm/process';
 import { checks } from '@rasm/vite';
-import { Array, Effect, FileSystem, Struct } from 'effect';
+import { Array, Cause, Effect, FileSystem, Schema, Struct } from 'effect';
 import type { Plugin, Rolldown, UserConfigFnPromise } from 'vite';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Node = Schema.Struct({
+    data: Schema.Struct({ metadata: Schema.Struct({ buildSettings: Schema.Struct({ Atelier: Schema.Struct({ PRODUCT_BUNDLE_IDENTIFIER: Schema.String, DEVELOPMENT_TEAM: Schema.String, CODE_SIGN_ENTITLEMENTS: Schema.String }) }) }) }),
+}).annotate({ description: 'Atelier project node of the Nx graph, with the build settings @rasm/nx-apple resolves for its app target' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -42,6 +49,11 @@ export default Effect.fnUntraced(
             ]);
             return [...read, { fileName: 'after-effects.jsonl', source: stdout }];
         });
+        const app = Effect.try({ try: () => readCachedProjectGraph().nodes['Atelier'], catch: (cause) => new Cause.UnknownError(cause, 'No cached Nx project graph, which an nx run writes') }).pipe(
+            Effect.flatMap(Schema.decodeUnknownEffect(Node)),
+            Effect.map(({ data }) => data.metadata.buildSettings.Atelier),
+            Effect.map((settings) => ({ identifier: settings.PRODUCT_BUNDLE_IDENTIFIER, team: settings.DEVELOPMENT_TEAM, entitlements: join(workspaceRoot, settings.CODE_SIGN_ENTITLEMENTS) })),
+        );
         const declarations = {
             name: 'declarations',
             apply: 'build',
@@ -62,14 +74,7 @@ export default Effect.fnUntraced(
         } satisfies Plugin;
         return {
             build: { rolldownOptions: { experimental: { lazyBarrel: true }, output: { codeSplitting: false } } },
-            plugins: [
-                checks(),
-                declarations,
-                script(resolved('@rasm/extendscript/host'), 'runtime'),
-                script(resolved('es5-shim'), 'shim'),
-                script(resolved('es5-shim/es5-sham.js'), 'sham'),
-                yield* helper(join(directory, 'main.ts'), 'server', { KeepAlive: true }, { project: join(directory, 'macos', 'Atelier.xcodeproj'), target: 'Atelier' }),
-            ],
+            plugins: [checks(), declarations, script(resolved('@rasm/extendscript/host'), 'runtime'), script(resolved('es5-shim'), 'shim'), script(resolved('es5-shim/es5-sham.js'), 'sham'), yield* helper(join(directory, 'main.ts'), 'server', { KeepAlive: true }, app)],
         };
     },
     Effect.provide(layer),

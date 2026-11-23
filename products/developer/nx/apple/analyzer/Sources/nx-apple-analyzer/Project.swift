@@ -58,6 +58,7 @@ struct Analysis {
     let configurations: [String]
     let projects: [String]
     let buildFiles: [String]
+    let buildSettings: [String: [String: String]]
     let built: Built
     let references: [Reference]
 }
@@ -99,16 +100,30 @@ func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(Analyze
             )
         }
         let located = settings.flatMap { held in
-            Located.allCases.compactMap { (located: Located) -> Reference? in
+            Resolved.allCases.filter(\.locates).compactMap { (located: Resolved) -> Reference? in
                 switch held.resolved(located.rawValue) {
                     case nil, .some(""): nil
                     case .some(let value): Reference(owner: "target \(target.name)", setting: located.rawValue, path: value.map { at in joined(root, at) })
                 }
             }
         }
+        let stated = settings.first { held in held.configuration == decoded.defaultConfigurationName.rawValue }.map { held in
+            Resolved.allCases.compactMap { (setting: Resolved) -> (String, String)? in
+                switch held.resolved(setting.rawValue) {
+                    case nil, .some(nil), .some(""): nil
+                    case .some(let value?): (setting.rawValue, setting.locates ? joined(root, value).string : value)
+                }
+            }
+        }
         let bundle = target.productTypeID == application ? target.product.flatMap(tree.node(of:)).map(\.file) : nil
         let installed = bundle.map { file in settings.filter { held in held.resolved(skipInstall) != enabled }.map { held in (held.configuration, file) } } ?? []
-        return (id: target.objectID.rawValue, installed: Dictionary(installed) { first, _ in first }, references: specialized.values.flatMap(\.self).map(\.reference) + located)
+        return (
+            id: target.objectID.rawValue,
+            name: target.name,
+            installed: Dictionary(installed) { first, _ in first },
+            settings: Dictionary(stated ?? []) { first, _ in first },
+            references: specialized.values.flatMap(\.self).map(\.reference) + located,
+        )
     }
     let remotes =
         targets.flatMap { target in target.dependencies.compactMap { dependency in if case .remoteTarget(let remote, _) = dependency { tree.node(of: remote.project).flatMap(\.path) } else { nil } } }
@@ -118,6 +133,7 @@ func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(Analyze
         configurations: configurations,
         projects: Set(remotes.map(\.string) + locals).sorted(),
         buildFiles: Set(tree.built.map(\.string)).sorted(),
+        buildSettings: Dictionary(evaluated.map { held in (held.name, held.settings) }) { first, _ in first },
         built: Built(configuration: decoded.defaultConfigurationName.rawValue, products: Dictionary(evaluated.map { held in (held.id, held.installed) }) { first, _ in first }),
         references: project.values.flatMap(\.self).map(\.reference) + evaluated.flatMap(\.references),
     )
@@ -134,6 +150,7 @@ func project(_ analysis: Analysis, built: [String: Built]) throws(AnalyzerError)
             inputs: Set(references.compactMap(\.path).map(\.string)).sorted(),
             projects: analysis.projects,
             buildFiles: analysis.buildFiles,
+            buildSettings: analysis.buildSettings,
         ),
         references,
     )

@@ -118,10 +118,11 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         (root, group) => {
             const { name, file, technologies } = Array.headNonEmpty(group);
             const release = Array.findFirst(group, (part) => Option.fromUndefinedOr(part.release));
+            const buildSettings = Array.findFirst(group, (part) => Option.fromUndefinedOr(part.buildSettings));
             const project: ProjectConfiguration = {
                 root,
                 name,
-                metadata: { technologies: Array.dedupe(group.flatMap((part) => part.technologies)) },
+                metadata: { technologies: Array.dedupe(group.flatMap((part) => part.technologies)), ...Option.getOrUndefined(Option.bindTo(buildSettings, 'buildSettings')) },
                 tags: [...Option.toArray(Option.as(release, TAGS.release)), `${TAGS.platform}${HOST}`],
                 ...Option.getOrUndefined(Option.map(release, (held) => ({ release: held }))),
                 targets: Record.getSomes({ 'nx-release-publish': Array.findFirst(group, (part) => Option.fromUndefinedOr(part.published)) }),

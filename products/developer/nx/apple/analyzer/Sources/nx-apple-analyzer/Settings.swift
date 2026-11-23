@@ -4,9 +4,18 @@ import XcodeProjectFormat
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-enum Located: String, CaseIterable {
+enum Resolved: String, CaseIterable {
     case infoPlist = "INFOPLIST_FILE"
     case entitlements = "CODE_SIGN_ENTITLEMENTS"
+    case bundleIdentifier = "PRODUCT_BUNDLE_IDENTIFIER"
+    case team = "DEVELOPMENT_TEAM"
+
+    var locates: Bool {
+        switch self {
+            case .infoPlist, .entitlements: true
+            case .bundleIdentifier, .team: false
+        }
+    }
 }
 
 enum Builtin: String, CaseIterable {

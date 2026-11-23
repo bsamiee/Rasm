@@ -31,6 +31,7 @@ const Container = Schema.Struct({
     inputs: Schema.Array(Schema.String),
     projects: Schema.Array(Schema.String),
     buildFiles: Schema.Array(Schema.String),
+    buildSettings: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.String)),
 });
 class Analyzed extends Schema.Opaque<Analyzed, unknown>()(Schema.fromJsonString(Schema.Struct({ containers: Schema.Array(Container), failures: Schema.Record(Schema.String, Schema.String) }))) {}
 
@@ -161,6 +162,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
         name,
         file,
         technologies: ['xcode'],
+        buildSettings: container.buildSettings,
         tools: {
             ...tools,
             ...(schemes.length > 0 && {

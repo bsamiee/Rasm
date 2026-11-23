@@ -29,6 +29,7 @@
     "devDependencies": {
         "@adobe/cc-ext-uxp-types": "catalog:",
         "@adobe/premierepro": "catalog:",
+        "@nx/devkit": "catalog:",
         "@rasm/process": "workspace:*",
         "@rasm/vite": "workspace:*",
         "@types/node": "catalog:",

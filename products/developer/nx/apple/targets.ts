@@ -16,6 +16,7 @@ interface Part {
     readonly file: string;
     readonly technologies: Array.NonEmptyReadonlyArray<string>;
     readonly tools: Verbs;
+    readonly buildSettings?: Readonly<Record<string, Readonly<Record<string, string>>>>;
     readonly published?: TargetConfiguration;
     readonly release?: NonNullable<ProjectConfiguration['release']>;
 }
