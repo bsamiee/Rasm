@@ -3,6 +3,6 @@
     "compilerOptions": {
         "types": ["@cloudflare/workers-types/experimental", "@cloudflare/vitest-plugin/types"]
     },
-    "include": ["*.workers.test.ts", "fixtures.ts", "signatures.ts", "acceptance.ts", "delivery.ts", "cloudflare.config.ts", ".cloudflare/types"],
-    "references": [{ "path": "../../../../../libs/typescript/messaging/webhooks" }, { "path": "../../../../support/typescript" }]
+    "include": ["*.workers.test.ts", "fixtures.ts", "signatures.ts", "cloudflare.config.ts", ".cloudflare/types"],
+    "references": [{ "path": "../../../../../libs/typescript/messaging/webhooks" }]
 }

@@ -96,12 +96,12 @@ const signatures = (crypto: Crypto) => {
         'standard scheme: refuses a secret holding no key, verifies with a secret written without its whsec_ prefix, and signs the bytes of a view alone',
         Effect.fnUntraced(function* () {
             const { scheme, secret, id, at, bytes } = vectors.binary;
-            const [empty, webhook, bare] = yield* Effect.all([Effect.exit(made(scheme, 'whsec_')), made(scheme, secret), Effect.exit(made(scheme, secret.slice('whsec_'.length)))]);
+            const [empty, webhook, bare] = yield* Effect.all([Effect.match(made(scheme, 'whsec_'), { onSuccess: () => 'built', onFailure: ({ _tag }) => _tag }), made(scheme, secret), Effect.exit(made(scheme, secret.slice('whsec_'.length)))]);
             yield* TestClock.setTime(Duration.toMillis(Duration.seconds(at)));
             const margin = encoder.encode('--');
             const headers = yield* webhook.sign(id, Bytes.concat([margin, bytes, margin]).subarray(margin.length, margin.length + bytes.length));
             const unprefixed = yield* Exit.match(bare, { onFailure: () => Effect.succeed('refused at construction'), onSuccess: (reader) => outcome(reader.verify(headers, bytes)) });
-            assert.deepStrictEqual([Exit.isFailure(empty), Headers.get(headers, scheme.signature), unprefixed], [true, Option.some(vectors.binary.signed), vectors.binary.accepted]);
+            assert.deepStrictEqual([empty, Headers.get(headers, scheme.signature), unprefixed], ['CryptoError', Option.some(vectors.binary.signed), vectors.binary.accepted]);
         }, Effect.provide(crypto)),
     );
     it.effect(
