@@ -1,0 +1,15 @@
+{
+    "$schema": "http://json-schema.org/schema",
+    "$id": "tasks",
+    "title": "tasks rule configuration",
+    "type": "object",
+    "properties": {
+        "clean": {
+            "type": "string",
+            "description": "Name of the target removing the outputs of a project's targets",
+            "minLength": 1
+        }
+    },
+    "required": ["clean"],
+    "additionalProperties": false
+}

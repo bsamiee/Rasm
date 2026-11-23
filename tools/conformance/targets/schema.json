@@ -1,7 +1,7 @@
 {
     "$schema": "http://json-schema.org/schema",
-    "$id": "aggregate-targets",
-    "title": "aggregate-targets rule configuration",
+    "$id": "targets",
+    "title": "targets rule configuration",
     "type": "object",
     "properties": {
         "separator": {
