@@ -39,7 +39,7 @@ const helper = Effect.fnUntraced(function* (entry: string, name: string) {
             const assets = Record.fromIterableWith([...Record.keys(read), ...Object.values(output).flatMap((file) => (file.type === 'asset' ? [file.fileName] : []))], (fileName) => [fileName, join(outDir, fileName)]);
             this.emitFile({ type: 'asset', fileName: 'sea.json', source: JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets }) });
         },
-        closeBundle(): Promise<void> {
+        writeBundle(): Promise<void> {
             return Effect.forEach(
                 [
                     [process.execPath, '--build-sea', join(outDir, 'sea.json')],
