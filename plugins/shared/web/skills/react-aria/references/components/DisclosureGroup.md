@@ -48,44 +48,6 @@ export function DisclosureGroup(props: DisclosureGroupProps) {
 
 ```
 
-## Tailwind example
-
-```tsx
-import {DisclosureGroup} from 'tailwind-starter/DisclosureGroup';
-import {Disclosure, DisclosureHeader, DisclosurePanel} from 'tailwind-starter/Disclosure';
-
-<DisclosureGroup>
-  <Disclosure>
-    <DisclosureHeader>Personal Information</DisclosureHeader>
-    <DisclosurePanel>Personal information form here.</DisclosurePanel>
-  </Disclosure>
-  <Disclosure>
-    <DisclosureHeader>Billing Address</DisclosureHeader>
-    <DisclosurePanel>Billing address form here.</DisclosurePanel>
-  </Disclosure>
-</DisclosureGroup>
-```
-
-### DisclosureGroup.tsx
-
-```tsx
-'use client';
-import React from 'react';
-import {
-  DisclosureGroup as AriaDisclosureGroup,
-  type DisclosureGroupProps as AriaDisclosureGroupProps
-} from 'react-aria-components/DisclosureGroup';
-
-export interface DisclosureGroupProps extends AriaDisclosureGroupProps {
-  children: React.ReactNode;
-}
-
-export function DisclosureGroup({children, ...props}: DisclosureGroupProps) {
-  return <AriaDisclosureGroup {...props}>{children}</AriaDisclosureGroup>;
-}
-
-```
-
 ## Expanding
 
 Use the `defaultExpandedKeys` or `expandedKeys` prop to set the expanded items, and `onExpandedChange` to handle user interactions. The expanded keys correspond to the `id` prop of each `<Disclosure>`.

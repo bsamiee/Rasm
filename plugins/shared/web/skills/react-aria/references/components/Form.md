@@ -168,37 +168,6 @@ export function FieldButton(props: ButtonProps) {
 
 ```
 
-## Tailwind example
-
-```tsx
-import {Form} from 'tailwind-starter/Form';
-import {TextField} from 'tailwind-starter/TextField';
-import {Button} from 'tailwind-starter/Button';
-
-<Form>
-  <TextField label="Name" name="name" isRequired placeholder="Enter your full name" />
-  <TextField label="Email" name="email" type="email" isRequired placeholder="Enter your email" />
-  <div style={{display: 'flex', gap: 8}}>
-    <Button type="submit">Submit</Button>
-    <Button type="reset" variant="secondary">Reset</Button>
-  </div>
-</Form>
-```
-
-### Form.tsx
-
-```tsx
-'use client';
-import React from 'react';
-import {type FormProps, Form as RACForm} from 'react-aria-components/Form';
-import {twMerge} from 'tailwind-merge';
-
-export function Form(props: FormProps) {
-  return <RACForm {...props} className={twMerge('flex flex-col gap-6', props.className)} />;
-}
-
-```
-
 ## Submitting data
 
 When using React 19, use the `action` prop to handle form submission. This receives a [FormData](https://developer.mozilla.org/en-US/docs/Web/API/FormData) object containing the values for each form field. In React 18 or earlier, use the `onSubmit` event instead. See the [Forms](../guides/forms.md) guide details about integrating with frameworks.

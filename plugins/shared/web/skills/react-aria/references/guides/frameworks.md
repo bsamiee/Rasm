@@ -80,10 +80,6 @@ Learn how to integrate React Aria with your framework.
         const config: NextConfig = {
           turbopack: {
             rules: {
-              '*.css': {
-                loaders: ['@tailwindcss/turbopack'],
-                as: '*.css'
-              },
               ...localeOptimization.rules
             }
           }

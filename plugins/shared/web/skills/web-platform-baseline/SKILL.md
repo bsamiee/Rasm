@@ -68,7 +68,7 @@ marked more available than they are (the "stale confidence" failure). So: when
 you write a `verified:` date, the check must have happened in that turn, and the
 sources must be named on the line. If you cannot verify a row, mark it
 `UNVERIFIED` and say so rather than guessing a tier. The same rule applies to anything you remember about
-framework defaults (Tailwind, React, the kit stacks) — those live in
+framework defaults (React, the kit stacks) — those live in
 `tech-stack` and `research-web`, and rot the same way.
 
 When you do verify, use the primary sources in this order: **MDN** (syntax and

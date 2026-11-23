@@ -95,66 +95,6 @@ export function CheckboxGroup({
 
 ```
 
-## Tailwind example
-
-```tsx
-import {CheckboxGroup} from 'tailwind-starter/CheckboxGroup';
-import {Checkbox} from 'tailwind-starter/Checkbox';
-
-<CheckboxGroup>
-  <Checkbox
-    value="product"
-    description="Get notified about new features and improvements">
-    Product Updates
-  </Checkbox>
-  <Checkbox
-    value="security"
-    description="Important notifications about your account safety">
-    Security Alerts
-  </Checkbox>
-  <Checkbox
-    value="marketing"
-    description="Receive promotions, offers, and newsletters">
-    Marketing Emails
-  </Checkbox>
-</CheckboxGroup>
-```
-
-### CheckboxGroup.tsx
-
-```tsx
-'use client';
-import React, {type ReactNode} from 'react';
-import {
-  CheckboxGroup as AriaCheckboxGroup,
-  type CheckboxGroupProps as AriaCheckboxGroupProps,
-  type ValidationResult
-} from 'react-aria-components/CheckboxGroup';
-import {Description, FieldError, Label} from './Field';
-import {composeTailwindRenderProps} from './utils';
-
-export interface CheckboxGroupProps extends Omit<AriaCheckboxGroupProps, 'children'> {
-  label?: string;
-  children?: ReactNode;
-  description?: string;
-  errorMessage?: string | ((validation: ValidationResult) => string);
-}
-
-export function CheckboxGroup(props: CheckboxGroupProps) {
-  return (
-    <AriaCheckboxGroup
-      {...props}
-      className={composeTailwindRenderProps(props.className, 'flex flex-col gap-2 font-sans')}>
-      <Label>{props.label}</Label>
-      {props.children}
-      {props.description && <Description>{props.description}</Description>}
-      <FieldError>{props.errorMessage}</FieldError>
-    </AriaCheckboxGroup>
-  );
-}
-
-```
-
 ## Value
 
 Use the `value` or `defaultValue` prop to set the selected items, and `onChange` to handle selection changes.

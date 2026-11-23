@@ -105,54 +105,6 @@ export function ToggleButtonGroup(props: ToggleButtonGroupProps) {
 
 ```
 
-## Tailwind example
-
-```tsx
-import {ToggleButtonGroup} from 'tailwind-starter/ToggleButtonGroup';
-import {ToggleButton} from 'tailwind-starter/ToggleButton';
-
-<ToggleButtonGroup>
-  <ToggleButton id="left">Bold</ToggleButton>
-  <ToggleButton id="center">Italic</ToggleButton>
-  <ToggleButton id="right">Underline</ToggleButton>
-</ToggleButtonGroup>
-```
-
-### ToggleButtonGroup.tsx
-
-```tsx
-'use client';
-import React from 'react';
-import {composeRenderProps} from 'react-aria-components/composeRenderProps';
-import {
-  ToggleButtonGroup as RACToggleButtonGroup,
-  type ToggleButtonGroupProps
-} from 'react-aria-components/ToggleButtonGroup';
-import {tv} from 'tailwind-variants';
-
-const styles = tv({
-  base: 'flex gap-1',
-  variants: {
-    orientation: {
-      horizontal: 'flex-row',
-      vertical: 'flex-col'
-    }
-  }
-});
-
-export function ToggleButtonGroup(props: ToggleButtonGroupProps) {
-  return (
-    <RACToggleButtonGroup
-      {...props}
-      className={composeRenderProps(props.className, (className, renderProps) =>
-        styles({...renderProps, className})
-      )}
-    />
-  );
-}
-
-```
-
 ## Selection
 
 Use the `selectionMode` prop to enable single or multiple selection. The selected items can be controlled via the `selectedKeys` prop, matching the `id` of each `<ToggleButton>`. Items can be disabled with the `isDisabled` prop. See the [selection guide](../guides/selection.md?component=ToggleButtonGroup) for more details.
