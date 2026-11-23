@@ -1,7 +1,7 @@
 use clippy_utils::diagnostics::span_lint_hir_and_then;
 use clippy_utils::res::MaybeDef as _;
 use clippy_utils::sugg::{Sugg, make_binop};
-use clippy_utils::{fn_def_id, sym};
+use clippy_utils::{fn_def_id, get_parent_expr, sym};
 use itertools::Itertools as _;
 use rustc_ast::BinOpKind;
 use rustc_errors::Applicability;
@@ -55,8 +55,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 }
             };
             let (left, right) = (borrowed(set), borrowed(other));
+            let operand = get_parent_expr(cx, expr).is_some_and(|parent| match parent.kind {
+                ExprKind::MethodCall(_, receiver, ..) | ExprKind::Field(receiver, _) | ExprKind::Index(receiver, ..) => receiver.hir_id == expr.hir_id,
+                ExprKind::Unary(..) | ExprKind::AddrOf(..) | ExprKind::Cast(..) | ExprKind::Binary(..) => true,
+                _ => false,
+            });
+            let bare = make_binop(operator, &left, &right);
+            let written = if operand { bare.maybe_paren() } else { bare };
             span_lint_hir_and_then(cx, MANUAL_SET_OPERATOR, expr.hir_id, expr.span, format!("`{name}` collects a set by hand"), |diag| {
-                suggest(cx, expr.hir_id, diag, expr.span, "write the set operator", make_binop(operator, &left, &right), applicability);
+                suggest(cx, expr.hir_id, diag, expr.span, "write the set operator", written, applicability);
             });
         }
     }
