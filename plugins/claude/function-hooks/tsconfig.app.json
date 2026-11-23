@@ -1,0 +1,11 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": { "types": ["node"] },
+    "include": ["**/*", ".claude-plugin/plugin.json"],
+    "exclude": ["hooks", "types"],
+    "references": [
+        {
+            "path": "../../../libs/typescript/runtime/telemetry"
+        }
+    ]
+}

@@ -1,14 +1,6 @@
 {
     "extends": "../../../tsconfig.base.json",
-    "compilerOptions": {
-        "noEmit": true,
-        "types": ["node"]
-    },
-    "include": ["**/*", ".claude-plugin/plugin.json"],
-    "exclude": ["hooks", "types"],
-    "references": [
-        {
-            "path": "../../../libs/typescript/runtime/telemetry"
-        }
-    ]
+    "compilerOptions": { "noEmit": true },
+    "files": [],
+    "references": [{ "path": "./tsconfig.app.json" }, { "path": "./hooks" }]
 }
