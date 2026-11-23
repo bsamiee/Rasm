@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
 import { detectPackageManager } from '@nx/devkit';
 import { dried, executor, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Boolean, Cause, DateTime, Effect, FileSystem, Match, Option, Order, Predicate, Record, Result, Schema, SemVer } from 'effect';
@@ -7,7 +7,7 @@ import { CommandLine } from 'effect/process';
 import npa from 'npm-package-arg';
 import { packageRegistryView, parseRegistryViewJson } from 'nx/src/utils/package-manager';
 import { Composer, CST, Parser, Scalar, YAMLMap } from 'yaml';
-import { MANAGERS } from '#/plugin';
+import { MANAGERS } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ const Upgrade = Schema.Struct({
 }).annotate({
     title: 'Upgrade',
     description:
-        "Moves every exact version a catalog or a package manifest of the workspace pins, npm: aliases included, to the newest of the package's undeprecated dist-tag heads, or of the versions an installed package lists for a supported name, among those published at or after the pinned version, ranked by release, then stable before prerelease, then publish time, ranges staying as floors, then installs and deduplicates to move the lockfile, then prunes the package manager's store",
+        "Moves every exact version a catalog or a package manifest of the workspace pins, npm: aliases included, to the newest of the package's undeprecated dist-tag heads, or of the versions an installed package lists for a supported name, among those published at or after the pinned version, ranked by release, then stable before prerelease, then publish time, ranges staying as floors, then installs and deduplicates to move the lockfile, then removes the packages no installed project uses where the package manager registers the workspace with its store, as pnpm store prune does for a store outside the workspace",
 });
 const Packument = Schema.Struct({ 'dist-tags': Schema.Record(Schema.String, Schema.String), time: Schema.Record(Schema.String, Schema.DateTimeUtcFromString) }).annotate({ description: 'The dist-tags and publish times the registry holds for a package' });
 const Release = Schema.Struct({ version: Schema.String, deprecated: Schema.optionalKey(Schema.String) }).annotate({ description: 'The deprecation message the registry holds for one version, absent where the version stands' });
@@ -143,34 +143,43 @@ const execute = executor(Upgrade, function* ({ catalogs, supported, dryRun }, co
             { concurrency: 'unbounded' },
         ),
     ]);
-    const manifests = yield* Effect.filter(Array.dedupe(Object.values(context.projectsConfigurations.projects).map(({ root }) => join(root, 'package.json'))), (at) => fs.exists(join(context.root, at)));
-    const files = yield* Effect.forEach(Array.dedupe([...catalogs, ...manifests]), (file) => opened(context.root, file));
+    const held = yield* Effect.filter(Array.dedupe([...catalogs, ...Object.values(context.projectsConfigurations.projects).map(({ root }) => join(root, 'package.json'))]), (at) => fs.exists(join(context.root, at)));
+    const files = yield* Effect.forEach(held, (file) => opened(context.root, file));
     const grouped = Array.groupBy(
         files.flatMap(({ rows }) => rows),
         ({ registry }) => registry,
     );
     const [resolutions, failures] = yield* Effect.partition(Record.toEntries(grouped), ([registry, pins]) => resolved(registry, pins, bounds), { concurrency: 16 });
     const moves = resolutions.flat();
+    const moved = new Set(moves.map(({ file }) => file));
     yield* Effect.forEach(moves, ({ file, name, version, head }) => Effect.logInfo(`${name} ${SemVer.format(version)} -> ${SemVer.format(head.version)} (${head.tag}, published ${DateTime.formatIso(head.at)}) in ${file}`), { discard: true });
     yield* Effect.forEach(failures, (failure) => Effect.logError(failure), { discard: true });
     const manager = detectPackageManager(context.root);
-    const prune = [manager, ...MANAGERS[manager].prune] as const;
+    const { lock, prune, stored } = MANAGERS[manager];
     const shell = { cwd: context.root, stdout: 'inherit', stderr: 'inherit' } as const;
-    yield* dry
-        ? Effect.logInfo(`Would run ${CommandLine.display(prune)}`)
-        : Effect.andThen(
-              moves.length === 0
-                  ? Effect.void
-                  : Effect.andThen(
-                        Effect.forEach(moves, ({ token, spec }) => Effect.sync(() => CST.setScalarValue(token, spec)), { discard: true }),
-                        Effect.forEach(
-                            files.filter(({ file }) => moves.some((move) => move.file === file)),
-                            ({ file, tokens }) => fs.writeFileString(join(context.root, file), tokens.map((token) => CST.stringify(token)).join('')),
-                            { discard: true },
-                        ),
-                    ).pipe(Effect.andThen(Effect.forEach(MANAGERS[manager].lock, (step) => spawned([manager, step], shell), { discard: true }))),
-              spawned(prune, shell),
-          );
+    const pruning = [manager, ...prune] as const;
+    const relocked = Effect.andThen(
+        Effect.forEach(moves, ({ token, spec }) => Effect.sync(() => CST.setScalarValue(token, spec)), { discard: true }),
+        Effect.forEach(
+            files.filter(({ file }) => moved.has(file)),
+            ({ file, tokens }) => fs.writeFileString(join(context.root, file), tokens.map((token) => CST.stringify(token)).join('')),
+            { discard: true },
+        ),
+    ).pipe(Effect.andThen(Effect.forEach(lock, (step) => spawned([manager, step], shell), { discard: true })));
+    const freed = Array.match(stored, {
+        onEmpty: () => Effect.void,
+        onNonEmpty: (args) =>
+            Effect.flatMap(
+                Effect.map(spawned([manager, ...args], { cwd: context.root }), (at) => relative(context.root, at.trim())),
+                (at) =>
+                    Match.value({ kept: !(at.startsWith('..') || isAbsolute(at)), dry }).pipe(
+                        Match.when({ kept: true }, () => Effect.logInfo(`Keeps ${at} whole, as ${manager} registers no workspace holding its store and ${CommandLine.display(pruning)} there removes every package the workspace installed`)),
+                        Match.when({ dry: true }, () => Effect.logInfo(`Would run ${CommandLine.display(pruning)}`)),
+                        Match.orElse(() => spawned(pruning, shell)),
+                    ),
+            ),
+    });
+    yield* Array.isReadonlyArrayEmpty(moves) ? Effect.void : Effect.andThen(dry ? Effect.void : relocked, freed);
     return { success: failures.length === 0 };
 });
 

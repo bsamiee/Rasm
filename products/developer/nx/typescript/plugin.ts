@@ -1,38 +1,16 @@
-import { createRequire, findPackageJSON } from 'node:module';
-import { basename, dirname, extname, join, posix, relative, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import type { loadConfig } from '@cloudflare/config';
-import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getFilesInDirectoryUsingContext, getLockFileName, hashObject, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { getRootTsConfigFileName } from '@nx/js';
-import { above, aggregated, fingerprinted, Folder, inferring, namedInput, run, spawned, type Stated, tagged, Targets, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import type { API, ParsedCommandLine } from '@typescript/native/sync';
-import { Array, Cause, Effect, FileSystem, Filter, Match, Option, Order, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
-import type { ESLint } from 'eslint';
-import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Program = Result.Result.Success<ReturnType<typeof resolved>>;
+import { basename, dirname, join, posix } from 'node:path';
+import { type CreateNodes, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
+import { hashObject } from '@nx/devkit/internal';
+import { getLockFileName, getRootTsConfigFileName } from '@nx/js';
+import { anchored, fingerprinted, Folder, inferring, namedInput, run, tagged, tokened } from '@rasm/nx-distribution/inference';
+import { Array, Effect, FileSystem, Match, Option, Order, Predicate, Record, type Result, Schema } from 'effect';
+import { linted } from '#/eslint';
+import { compiled, CONFIG, programmed } from '#/programs';
+import { installed, loaded, MANIFEST, projected, tarball, worker, WORKER, workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CONFIG = 'tsconfig.json';
-const MANIFEST = 'package.json';
-const WORKER = 'cloudflare.config.ts';
 const PROJECT = 'project.json';
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
-const LINTERS = ['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts', 'eslint.config.mts', 'eslint.config.cts'];
-const DUPLICATES = ['.jscpd.json', '.config/jscpd.json', '.config/.jscpd.json'];
-const PACKAGE = /^(?![./]|node:)(?<name>(?:@[^/]+\/)?[^/]+)/u;
-const UNPACKAGED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
-const MANAGERS = {
-    npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], workspace: { json: posix.join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [], lock: ['install', 'dedupe'], prune: ['cache', 'verify'] },
-    pnpm: { argv: ['pnpm', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], workspace: posix.join('{workspaceRoot}', 'pnpm-workspace.yaml'), catalogs: ['pnpm-workspace.yaml'], lock: ['dedupe'], prune: ['store', 'prune'] },
-    yarn: { argv: ['yarn', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], workspace: posix.join('{workspaceRoot}', '.yarnrc.yml'), catalogs: ['.yarnrc.yml'], lock: ['install', 'dedupe'], prune: ['cache', 'clean'] },
-    bun: { argv: ['bun', 'pm', 'pack'], to: (at: string) => ['--destination', at], workspace: { json: posix.join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [], lock: ['install', 'dedupe'], prune: ['pm', 'cache', 'rm'] },
-} as const satisfies Record<PackageManager, { readonly argv: readonly string[]; readonly to: (at: string) => readonly string[]; readonly workspace: NonNullable<TargetConfiguration['inputs']>[number]; readonly catalogs: readonly string[]; readonly lock: readonly string[]; readonly prune: readonly string[] }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -44,441 +22,20 @@ const Options = Schema.Struct({
     description:
         'outputPath: workspace folder the package manager packs each tarball to, {projectName} naming the project, absent packs into the package folder. compilerPackages: npm packages every tsc target hashes as external dependencies, the first the native TypeScript package whose tsc runs and whose ./sync API reads each tsconfig.json. knipConfig: workspace file knip reads its configuration from through --config, absent leaving knip to find its own',
 });
-class Manifest extends Schema.Opaque<Manifest, unknown>()(
-    Schema.fromJsonString(
-        Schema.Struct({
-            version: Schema.optionalKey(Schema.String),
-            os: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-            nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Targets) })),
-            jscpd: Schema.optionalKey(Schema.Unknown),
-        }),
-    ).annotate({ description: "The version, os, nx.targets, and jscpd rows of a project's package.json, Nx merging the inputs over the inferred targets after every plugin and jscpd reading its configuration from the jscpd row" }),
-) {}
-const Literal = Schema.Struct({ text: Schema.String }).annotate({ description: 'A module specifier literal of a source file the native TypeScript API parses' });
-const Exported = Schema.fromJsonString(Schema.Struct({ exports: Schema.Struct({ '.': Schema.Struct({ import: Schema.String }) }) })).annotate({ description: 'The import entry of the root export of @cloudflare/config, the package cf loads cloudflare.config.ts through' });
-const Scanned = Schema.fromJsonString(Schema.Struct({ pattern: Schema.NullOr(Schema.String) })).annotate({ description: 'The pattern row of the merged configuration jscpd --debug prints, the glob of the files jscpd scans, null scanning every file' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const own = fingerprinted(import.meta.dirname);
 
-const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const at = join(workspaceRoot, root, MANIFEST);
-    return [
-        root,
-        yield* Effect.result(
-            Effect.flatMap(
-                Effect.flatMap(fs.exists(at), (present) => (present ? fs.readFileString(at) : Effect.succeed('{}'))),
-                Schema.decodeEffect(Manifest),
-            ),
-        ),
-    ] as const;
-});
-
-const projected = (root: string, technology: string, verbs: Verbs, stated: Stated, extra: Partial<ProjectConfiguration> = {}) => ({ root, metadata: { technologies: [technology] }, ...extra, targets: aggregated(verbs, stated, technology) }) satisfies ProjectConfiguration;
-
-const installed = (name: string, from: string) => Option.isSome(Option.flatMap(Option.liftThrowable(findPackageJSON)(name, pathToFileURL(from)), Option.fromUndefinedOr));
-
-const listing = (sources: readonly string[]) => Array.dedupe(sources.flatMap((at) => [at, posix.join(dirname(at), '*')]));
-
-const referenced = ({ projectReferences = [] }: ParsedCommandLine) => projectReferences.map(({ path: at }) => (extname(at) === '.json' ? at : join(at, CONFIG)));
-
-const owning = (workspaceRoot: string, roots: ReadonlySet<string>) => (at: string) => {
-    const parts = normalizePath(relative(workspaceRoot, dirname(at))).split('/');
-    return Option.getOrElse(
-        Array.findFirst(
-            Array.makeBy(parts.length, (index) => parts.slice(0, parts.length - index).join('/')),
-            (folder) => roots.has(folder),
-        ),
-        () => '.',
-    );
-};
-
-const connected = (workspaceRoot: string, compiler: string, from: string) =>
-    Effect.flatMap(
-        Effect.tryPromise({
-            try: (): Promise<{ readonly API: typeof API }> => import(pathToFileURL(createRequire(resolve(workspaceRoot, from)).resolve(`${compiler}/sync`)).href),
-            catch: (cause) => new Cause.UnknownError(cause, `${workspaceRoot} resolves no ${compiler}/sync`),
-        }),
-        (native) => Effect.acquireDisposable(Effect.sync(() => new native.API({ cwd: workspaceRoot }))),
-    );
-
-const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, roots: ReadonlySet<string>, configs: Array.NonEmptyReadonlyArray<string>) {
-    const unopened = (cause: unknown) => new Cause.UnknownError(cause, `${compiler}/sync opens no snapshot of ${workspaceRoot}`);
-    const api = yield* connected(workspaceRoot, compiler, Array.headNonEmpty(configs));
-    const fs = yield* FileSystem.FileSystem;
-    const linked = (at: string) =>
-        Result.getOrElse(
-            Result.try(() => referenced(api.parseConfigFile(at))),
-            () => [],
-        );
-    const reached = (pending: readonly string[], seen: ReadonlySet<string>): ReadonlySet<string> =>
-        Array.match(
-            pending.filter((at) => !seen.has(at)),
-            { onEmpty: () => seen, onNonEmpty: (fresh) => reached(fresh.flatMap(linked), new Set([...seen, ...fresh])) },
-        );
-    const owner = owning(workspaceRoot, roots);
-    const parsed = (config: string) => {
-        const file = resolve(workspaceRoot, config);
-        const read = api.parseConfigFile(file);
-        const [owned, external] = Array.partition(
-            referenced(read),
-            Filter.fromPredicate((at: string) => owner(at) === dirname(config)),
-        );
-        return { entry: { file, parsed: read, chain: [file], loaded: read.fileNames }, owned, external: [...reached([...(Array.isReadonlyArrayEmpty(read.fileNames) ? [] : external), ...owned.flatMap(linked)], new Set([file, ...owned]))].filter((at) => !(at === file || owned.includes(at))) };
-    };
-    const reads = configs.map((config) => [config, Result.try({ try: () => parsed(config), catch: (cause) => new Cause.UnknownError(cause, `${config} does not parse as a tsconfig`) })] as const);
-    const files = yield* Effect.filter(Array.dedupe(Array.getSuccesses(reads.map(([, read]) => read)).flatMap(({ entry, owned, external }) => [entry.file, ...owned, ...external])), (at) => fs.exists(at));
-    const snapshot = yield* Effect.acquireDisposable(Effect.try({ try: () => api.createSnapshot({ openProjects: files }), catch: unopened }));
-    const configured = (file: string) => Option.map(Option.fromNullishOr(snapshot.getConfiguredProject(file)), (project) => [file, { file, parsed: project.parsedCommandLine, chain: project.program.getConfigFileNames(), loaded: project.program.getSourceFileNames() }] as const);
-    const opened = new Map(yield* Effect.try({ try: () => Array.getSomes(files.map(configured)), catch: unopened }));
-    const members = (listed: readonly string[]) => Array.getSomes(listed.map((file) => Option.fromUndefinedOr(opened.get(file))));
-    return reads.map(([config, read]) => [config, Result.map(read, ({ entry, owned, external }) => ({ config, entry: opened.get(entry.file) ?? entry, members: members(owned), external: members(external) }))] as const);
-}, Effect.scoped);
-
-const resolved = (workspaceRoot: string, roots: ReadonlySet<string>, solution: Effect.Success<ReturnType<typeof solved>>[number][1]) =>
-    Result.map(solution, ({ config, entry, members, external }) => {
-        const folder = join(workspaceRoot, dirname(config));
-        const local = (at: string) => normalizePath(relative(workspaceRoot, at));
-        const holding = [entry, ...members].filter(({ parsed }) => parsed.fileNames.length > 0);
-        const checked = entry.parsed.fileNames.length > 0 || (Array.isReadonlyArrayEmpty(holding) && Array.isReadonlyArrayEmpty(entry.parsed.projectReferences ?? [])) ? [entry] : holding;
-        const placed = holding.map(({ file, loaded, parsed: { options, projectReferences = [] } }) => {
-            const offset = options.outDir === undefined || options.rootDir === undefined ? '.' : relative(options.rootDir, dirname(file));
-            const base = join(options.outDir ?? dirname(file), offset.startsWith('..') ? '.' : offset);
-            const scripts = options.emitDeclarationOnly === true ? [] : [join(base, `**/*.{js,cjs,mjs,jsx}${options.sourceMap === true ? '{,.map}' : ''}`), ...(loaded.some((at) => extname(at) === '.json') ? [join(base, '**/*.json')] : [])];
-            const declarations = options.declaration === true || options.composite === true ? [join(options.declarationDir ?? base, `**/*.{d.ts,d.cts,d.mts}${options.declarationMap === true ? '{,.map}' : ''}`)] : [];
-            return {
-                emitted: options.noEmit === true ? [] : [...scripts, ...declarations].map(local),
-                informed: options.incremental === true || options.composite === true || projectReferences.length > 0 ? [local(options.tsBuildInfoFile ?? join(resolve(options.outDir ?? dirname(file), offset), `${basename(file, '.json')}.tsbuildinfo`))] : [],
-            };
-        });
-        const owner = owning(workspaceRoot, roots);
-        const sources = Array.dedupe([...[entry, ...holding].flatMap(({ chain, parsed, loaded }) => [...chain, ...parsed.fileNames, ...loaded.filter((at) => owner(at) === dirname(config))]), ...external.flatMap(({ chain }) => chain)].map(local)).filter(within);
-        return {
-            commands: checked.map(({ file, parsed }) => {
-                const named = relative(folder, file) === CONFIG ? [] : [relative(folder, file)];
-                return ['tsc', ...((parsed.projectReferences ?? []).length > 0 ? ['--build', ...named] : named.flatMap((at) => ['-p', at]))].map(quoteShellArg).join(' ');
-            }),
-            configs: checked.map(({ file }) => relative(folder, file)),
-            outputs: Array.dedupe(placed.flatMap(({ emitted }) => emitted)),
-            informed: Array.dedupe(placed.flatMap(({ informed }) => informed)),
-            chain: entry.chain.map(local).filter(within),
-            sources,
-        };
-    });
-
-const compiled = (root: string, { commands, configs, outputs, informed, sources }: Program, packages: readonly string[], upstream: string, linted: boolean, synced: boolean, exec: string): Verbs => {
-    const metadata = (description: string, example: readonly string[]) => ({ description, help: { command: `${exec} tsc --help`, example: { args: [...example] } } });
-    const token = tokened(root);
-    const tsc = {
-        executor: 'nx:run-commands',
-        options: { commands, cwd: root },
-        dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'],
-        cache: true,
-        inputs: [...Array.dedupe([posix.join(root, MANIFEST), ...sources].map(token)), upstream, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: [...packages] }],
-        outputs: [],
-        ...(synced && { syncGenerators: ['@nx/js:typescript-sync'] }),
-    } satisfies TargetConfiguration;
-    const cleaned = (removed: readonly string[]) => ({
-        tsc: {
-            executor: `${distribution.name}:clean`,
-            options: { targets: removed, commands: configs.map((config) => ['tsc', '--build', '--clean', config]), cwd: root },
-            inputs: ['default', '^default', { externalDependencies: [...packages] }],
-            metadata: { description: `Removes the outputs ${removed.join(', ')} declare and each program output with tsc --build --clean`, help: { command: `${exec} tsc --build --help`, example: { args: ['--dry'] } } },
-        },
-    });
-    return Array.match(outputs, {
-        onEmpty: () => ({ check: { tsc: { ...tsc, outputs: informed.map(token), metadata: metadata('Type-checks every program of the project with tsc', ['--extendedDiagnostics']) } }, ...(Array.isReadonlyArrayNonEmpty(informed) && { clean: cleaned(['check--tsc']) }) }),
-        onNonEmpty: (written) => {
-            const build = { tsc: { ...tsc, outputs: Array.dedupe([...written, ...informed]).map(token), metadata: metadata('Emits JavaScript and declarations with tsc, type-checking every program it builds', ['--listEmittedFiles']) } };
-            return {
-                build,
-                check: {
-                    tsc: { executor: 'nx:noop', dependsOn: ['build--tsc'], inputs: tsc.inputs, metadata: metadata('Type-checks through the build--tsc compile with tsc', ['--extendedDiagnostics']) },
-                    ...(linted && {
-                        publint: {
-                            command: 'publint --strict',
-                            options: { cwd: root },
-                            dependsOn: ['build--*'],
-                            cache: true,
-                            inputs: ['default', { dependentTasksOutputFiles: '**/*' }, { externalDependencies: ['publint'] }],
-                            outputs: [],
-                            metadata: { description: 'Lints the tarball the package manager packs against its package.json with publint, warnings failing through --strict', help: { command: `${exec} publint run --help`, example: { args: ['--level', 'warning'] } } },
-                        },
-                    }),
-                },
-                clean: cleaned(Record.collect(build, (tool) => `build--${tool}`)),
-            };
-        },
-    });
-};
-
-const tarball = (manager: PackageManager, exec: string, outputPath: string | undefined, { version, os, nx }: Manifest, root: string, released: readonly string[]) => {
-    const { argv, to, workspace } = MANAGERS[manager];
-    const folder = Option.fromUndefinedOr(outputPath);
-    const pack = {
-        [manager]: {
-            executor: `${PLUGIN}:pack`,
-            options: Option.match(folder, { onNone: () => ({ argv }), onSome: (at) => ({ argv: [...argv, ...to(posix.relative(root, at))], outputPath: at }) }),
-            dependsOn: ['build--*'],
-            cache: true,
-            inputs: ['default', '^{projectRoot}/package.json', workspace, { dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-            outputs: [
-                tokened(root)(
-                    posix.join(
-                        Option.getOrElse(folder, () => root),
-                        '*.tgz',
-                    ),
-                ),
-            ],
-            metadata: { description: `Packs the package into one tarball named for it with ${argv.join(' ')}`, help: { command: `${argv.join(' ')} --help`, example: { args: ['--json'] } } },
-        },
-    } satisfies Record<string, TargetConfiguration>;
-    const removed = Record.collect(pack, (tool) => `pack--${tool}`);
-    const verbs: Verbs = {
-        pack,
-        clean: { [manager]: { executor: `${distribution.name}:clean`, options: { targets: removed }, inputs: UNPACKAGED, metadata: { description: `Removes the outputs ${removed.join(', ')} declare`, help: { command: `${exec} nx run --help`, example: { options: { targets: removed } } } } } },
-        attach: {
-            gh: {
-                executor: `${distribution.name}:attach`,
-                dependsOn: removed,
-                inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-                metadata: { description: `Uploads the files ${removed.join(', ')} wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload`, help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
-            },
-        },
-    };
-    const systems = os.filter((system) => !system.startsWith('!')).map((system) => `os:${system}`);
-    return UndefinedOr.match(version, {
-        onUndefined: () => Option.map(Option.liftPredicate(systems, Array.isReadonlyArrayNonEmpty), (tags): ProjectConfiguration => ({ root, tags: [...tags] })),
-        onDefined: () => Option.some(projected(root, 'npm', verbs, nx?.targets ?? {}, { tags: [...released, ...systems], release: {} })),
-    });
-};
-
-const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: PackageManager, exec: string, knipConfig: string | undefined, { nx, jscpd }: Manifest) {
-    const { catalogs } = MANAGERS[manager];
-    const knip = ['knip', ...UndefinedOr.match(knipConfig, { onUndefined: () => [], onDefined: (at) => ['--config', at] })].map(quoteShellArg).join(' ');
-    const configured = Option.orElse(yield* Effect.findFirst(DUPLICATES, (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => Option.liftPredicate(MANIFEST, () => jscpd !== undefined));
-    const decoded = Effect.flatMap(spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }), Schema.decodeEffect(Scanned));
-    const scanned = yield* Effect.transposeOption(Option.as(configured, decoded));
-    const duplicated = Option.zipWith(configured, scanned, (config, { pattern }) => ({
-        command: 'jscpd .',
-        options: { cwd: '.' },
-        cache: true,
-        inputs: [posix.join('{workspaceRoot}', pattern ?? '**/*'), posix.join('{workspaceRoot}', config), { runtime: 'jscpd --version' }, { externalDependencies: [] }],
-        outputs: [],
-        metadata: { technologies: ['jscpd'], description: `Reports code duplicated across the workspace files ${config} selects with jscpd`, help: { command: 'jscpd --help', example: { args: ['--changed'] } } },
-    }));
-    return Option.some(
-        projected(
-            '.',
-            manager,
-            {
-                upgrade: {
-                    [manager]: {
-                        executor: `${PLUGIN}:upgrade`,
-                        options: { catalogs },
-                        inputs: [{ externalDependencies: [] }],
-                        metadata: { description: `Moves every exact version of the catalogs and package manifests to the newest dist-tag head published since, then installs and deduplicates the lockfile with ${manager}`, help: { command: `${exec} nx run --help`, example: { options: { dryRun: true } } } },
-                    },
-                },
-                clean: {
-                    [manager]: {
-                        executor: `${distribution.name}:clean`,
-                        configurations: { cache: { commands: [[manager, ...MANAGERS[manager].prune]] } },
-                        inputs: [{ externalDependencies: [] }],
-                        metadata: { description: `Under configuration cache, removes the packages no project of the store or cache of ${manager} references with ${manager} ${MANAGERS[manager].prune.join(' ')}`, help: { command: `${manager} ${MANAGERS[manager].prune.join(' ')} --help`, example: { args: [] } } },
-                    },
-                },
-                check: {
-                    ...Record.getSomes({ jscpd: duplicated }),
-                    ...(installed('knip', join(workspaceRoot, MANIFEST)) && {
-                        knip: {
-                            command: knip,
-                            options: { cwd: '.' },
-                            cache: true,
-                            inputs: [posix.join('{workspaceRoot}', '**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts,json,jsonc,json5,yml,yaml,toml}'), posix.join('{workspaceRoot}', getLockFileName(manager)), { externalDependencies: ['knip'] }],
-                            outputs: [],
-                            configurations: { ci: { args: '--reporter symbols --reporter github-actions' } },
-                            metadata: { technologies: ['knip'], description: `Reports unused files, exports, and dependencies of every workspace package with ${knip}, adding GitHub annotations under the ci configuration`, help: { command: `${exec} knip --help`, example: { args: ['--production'] } } },
-                        },
-                    }),
-                },
-            },
-            nx?.targets ?? {},
-        ),
-    );
-}, Effect.scoped);
-
-const worker = Effect.fnUntraced(function* (context: CreateNodesContext, exec: string, stated: Stated, file: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const [root, at] = [dirname(file), join(context.workspaceRoot, file)];
-    const unresolved = (cause: unknown) => new Cause.UnknownError(cause, `${file} resolves no @cloudflare/config through cf`);
-    const configured = yield* Effect.flatMap(Effect.try({ try: () => findPackageJSON('@cloudflare/config', pathToFileURL(createRequire(at).resolve('cf/package.json'))), catch: unresolved }), Effect.fromNullishOr);
-    const { exports } = yield* Effect.flatMap(fs.readFileString(configured), Schema.decodeEffect(Exported));
-    const cloudflare = yield* Effect.tryPromise({ try: (): Promise<{ readonly loadConfig: typeof loadConfig }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href), catch: unresolved });
-    const { dependencies } = yield* Effect.tryPromise({ try: () => cloudflare.loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
-    const sources = Array.map(Array.fromIterable(dependencies), (dependency) => normalizePath(relative(context.workspaceRoot, dependency))).filter((dependency) => !(dependency.startsWith('..') || dependency.startsWith(`${root}/`) || dependency.split('/').includes('node_modules')));
-    const typed = installed('@cloudflare/workers-types', at);
-    const codegen = {
-        cf: {
-            command: typed ? 'cf workers types --include-runtime=false' : 'cf workers types',
-            options: { cwd: root },
-            dependsOn: ['^codegen--*'],
-            cache: true,
-            inputs: ['default', `^${namedInput(root, context)}`, ...sources.map((dependency) => posix.join('{workspaceRoot}', dependency)), { externalDependencies: ['cf'] }],
-            outputs: ['{projectRoot}/.cloudflare/types'],
-            metadata: {
-                description: typed ? `Generates the Worker binding types from ${WORKER} with cf workers types, runtime types coming from @cloudflare/workers-types` : `Generates the Worker binding and runtime types from ${WORKER} with cf workers types`,
-                help: { command: `${exec} cf workers types --help`, example: { args: ['--mode', 'production'] } },
-            },
-        },
-    } satisfies Record<string, TargetConfiguration>;
-    const removed = Record.collect(codegen, (tool) => `codegen--${tool}`);
-    return projected(
-        root,
-        'cloudflare',
-        {
-            codegen,
-            clean: { cf: { executor: `${distribution.name}:clean`, options: { targets: removed }, inputs: UNPACKAGED, metadata: { description: `Removes the outputs ${removed.join(', ')} declare`, help: { command: `${exec} nx run --help`, example: { options: { targets: removed } } } } } },
-        },
-        stated,
-    );
-});
-
 const merged = (prior: Option.Option<ProjectConfiguration>, next: ProjectConfiguration) => Option.some(Option.match(prior, { onNone: () => next, onSome: (held) => ({ ...held, ...next, targets: { ...held.targets, ...next.targets } }) }));
 
 const looked = <A, E>(table: ReadonlyMap<string, Result.Result<A, E>>, at: string) => Effect.flatMap(Effect.fromNullishOr(table.get(at)), Effect.fromResult);
-
-const imported = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, configs: Array.NonEmptyReadonlyArray<readonly [config: string, named: readonly string[]]>) {
-    const api = yield* connected(workspaceRoot, compiler, Array.headNonEmpty(configs)[0]);
-    const named = new Map(configs);
-    const specified = (file: string) =>
-        Effect.map(Effect.acquireDisposable(Effect.try({ try: () => api.createSourceFileFromFile(file), catch: (cause) => new Cause.UnknownError(cause, `${compiler}/sync parses no ${file}`) })), ({ sourceFile }) => {
-            const texts = [...(named.get(file) ?? []), ...Array.getSomes(sourceFile.imports.map((node) => Schema.decodeUnknownOption(Literal)(node))).map(({ text }) => text)];
-            return { locals: texts.filter((text) => text.startsWith('.')).map((text) => posix.join(dirname(file), text)), packages: Array.getSomes(texts.map((text) => Option.fromNullishOr(PACKAGE.exec(text)?.groups?.['name']))) };
-        });
-    const reached = (pending: readonly string[], files: ReadonlySet<string>, packages: ReadonlySet<string>): Effect.Effect<{ readonly files: readonly string[]; readonly packages: readonly string[] }, Cause.UnknownError, Scope.Scope> =>
-        Array.match(
-            pending.filter((at) => !files.has(at)),
-            {
-                onEmpty: () => Effect.succeed({ files: [...files], packages: [...packages] }),
-                onNonEmpty: (fresh) =>
-                    Effect.flatMap(Effect.forEach(fresh, specified), (found) =>
-                        reached(
-                            found.flatMap(({ locals }) => locals),
-                            new Set([...files, ...fresh]),
-                            new Set([...packages, ...found.flatMap((held) => held.packages)]),
-                        ),
-                    ),
-            },
-        );
-    return new Map(yield* Effect.forEach(configs, ([config]) => Effect.map(reached([config], new Set(), new Set()), (held) => [config, held] as const)));
-}, Effect.scoped);
-
-const inspected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, exec: string, rows: Array.NonEmptyReadonlyArray<{ readonly root: string; readonly scope: string; readonly owned: readonly string[] }>) {
-    const unanswered = (cause: unknown) => new Cause.UnknownError(cause, `eslint resolved from ${workspaceRoot} answers no config or ignore question`);
-    const { ESLint: Linter } = yield* Effect.tryPromise({ try: (): Promise<{ readonly ESLint: typeof ESLint }> => import(pathToFileURL(createRequire(join(workspaceRoot, MANIFEST)).resolve('eslint')).href), catch: unanswered });
-    const eslint = new Linter({ cwd: workspaceRoot });
-    const linting = (file: string) => Effect.map(Effect.tryPromise({ try: () => eslint.isPathIgnored(join(workspaceRoot, file)), catch: unanswered }), (ignored) => !ignored);
-    const governed = yield* Effect.forEach(
-        rows,
-        Effect.fnUntraced(function* ({ root, scope, owned }) {
-            const config = Option.map(Option.fromUndefinedOr(yield* Effect.tryPromise({ try: () => eslint.findConfigFile(join(workspaceRoot, root, MANIFEST)), catch: unanswered })), (at) => normalizePath(relative(workspaceRoot, at)));
-            const files = yield* Option.match(config, { onNone: () => Effect.succeed([]), onSome: () => Effect.filter(owned, linting) });
-            return { root, scope, config, lintable: Array.isReadonlyArrayNonEmpty(files) };
-        }),
-        { concurrency: 'unbounded' },
-    );
-    const imports = yield* Array.match(Array.dedupe(Array.getSomes(governed.map(({ config }) => config))), {
-        onEmpty: () => Effect.succeed(new Map<string, { readonly files: readonly string[]; readonly packages: readonly string[] }>()),
-        onNonEmpty: (configs) =>
-            imported(
-                workspaceRoot,
-                compiler,
-                Array.map(configs, (config) => [config, ['eslint']] as const),
-            ),
-    });
-    const target = (root: string, scope: string, config: string): TargetConfiguration => ({
-        command: root === scope ? 'eslint .' : `eslint ./${scope}`,
-        options: { cwd: root },
-        cache: true,
-        inputs: ['default', '^default', ...(imports.get(config)?.files ?? [config]).map(tokened(root)), { externalDependencies: [...(imports.get(config)?.packages ?? ['eslint'])] }],
-        outputs: [],
-        metadata: { description: `Lints the files ${config} governs in the project with eslint`, help: { command: `${exec} eslint --help`, example: { args: ['--max-warnings', '0'] } } },
-    });
-    return new Map(
-        governed.map(({ root, scope, config, lintable }) => [
-            root,
-            {
-                read: Option.match(config, { onNone: () => [], onSome: (at) => imports.get(at)?.files ?? [at] }),
-                targets: Option.toArray(
-                    Option.map(
-                        Option.filter(config, () => lintable),
-                        (at) => target(root, scope, at),
-                    ),
-                ),
-            },
-        ]),
-    );
-});
-
-const linted = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, exec: string, roots: readonly { readonly root: string; readonly scope: string }[], hashed: string) {
-    const cache = new PluginCache<{ readonly targets: readonly TargetConfiguration[]; readonly read: readonly string[]; readonly stamp: string; readonly digest: string }>(join(workspaceDataDirectory, 'typescript-eslint.hash'));
-    const lock = getLockFileName(detectPackageManager(workspaceRoot));
-    const owner = owning(workspaceRoot, new Set(roots.map(({ root }) => root)));
-    const listed = yield* Effect.forEach(
-        roots,
-        ({ root, scope }) =>
-            Effect.map(
-                Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, scope)),
-                (beneath) => ({ root, scope, beneath, recorded: Option.fromNullishOr(cache.get(root)) }),
-            ),
-        { concurrency: 'unbounded' },
-    );
-    const hashes = yield* Effect.promise(() =>
-        hashMultiGlobWithWorkspaceContext(
-            workspaceRoot,
-            listed.flatMap(({ root, recorded }) => [[lock, ...Array.cartesianWith(above(root), LINTERS, posix.join)], Option.match(recorded, { onNone: () => [], onSome: ({ read }) => [...read] })]),
-        ),
-    );
-    const keyed = Array.zipWith(listed, Array.chunksOf(hashes, 2), ({ root, scope, beneath, recorded }, [configured, stamp]) => {
-        const owned = beneath.filter((file) => owner(join(workspaceRoot, file)) === root);
-        const digest = hashArray([hashed, configured, ...owned]);
-        return { root, scope, owned, digest, current: Option.exists(recorded, (entry) => entry.digest === digest && entry.stamp === stamp) };
-    });
-    const missed = keyed.filter(({ current }) => !current);
-    const fresh = yield* Array.match(missed, { onEmpty: () => Effect.succeed(new Map<string, { readonly read: readonly string[]; readonly targets: readonly TargetConfiguration[] }>()), onNonEmpty: (rows) => inspected(workspaceRoot, compiler, exec, rows) });
-    const stored = Array.getSomes(missed.map(({ root, digest }) => Option.map(Option.fromUndefinedOr(fresh.get(root)), ({ read, targets }) => ({ root, digest, read, targets }))));
-    const stamps = yield* Effect.promise(() =>
-        hashMultiGlobWithWorkspaceContext(
-            workspaceRoot,
-            stored.map(({ read }) => [...read]),
-        ),
-    );
-    yield* Effect.forEach(Array.zip(stored, stamps), ([{ root, digest, read, targets }, stamp]) => Effect.sync(() => cache.set(root, { targets, read, stamp, digest })));
-    yield* Array.isReadonlyArrayNonEmpty(missed) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
-    return new Map(
-        Array.getSomes(
-            keyed.map(({ root, digest }) =>
-                Option.map(
-                    Option.flatMap(
-                        Option.filter(Option.fromNullishOr(cache.get(root)), (held) => held.digest === digest),
-                        ({ targets }) => Array.head(targets),
-                    ),
-                    (target) => [root, target] as const,
-                ),
-            ),
-        ),
-    );
-});
 
 const nodes = inferring(Options, run, function* (files, settings, context) {
     const { workspaceRoot } = context;
     const hashed = yield* own;
     const listed = new Set(files);
-    const member = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(workspaceRoot, (file: string) => readJsonFile<PackageJson>(join(workspaceRoot, file))));
-    const held = new Set(Array.dedupe(files.map(dirname)).filter((root) => root !== '.' && ((listed.has(posix.join(root, MANIFEST)) && member(posix.join(root, MANIFEST))) || listed.has(posix.join(root, PROJECT)))));
+    const held = new Set(Array.dedupe(files.map(dirname)).filter(Predicate.and((root: string) => root !== '.', anchored(workspaceRoot))));
     const nested = files.filter((file) => file === MANIFEST || (file === CONFIG && listed.has(MANIFEST)) || held.has(dirname(file)));
     const anchors = new Set(
         Object.values(
@@ -488,66 +45,31 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
             ),
         ).map(Array.min(Order.String)),
     );
-    const configs = nested.filter((file) => basename(file) === CONFIG);
     const manager = detectPackageManager(workspaceRoot);
     const { exec } = getPackageManagerCommand(manager);
     const synced = installed('@nx/js', join(workspaceRoot, MANIFEST));
     const row = hashArray([hashed, hashObject(settings)]);
-    const cache = new PluginCache<Program & { readonly digest: string; readonly stamp: string }>(join(workspaceDataDirectory, 'typescript.hash'));
     const lock = getLockFileName(manager);
-    const manifests = new Map(yield* Effect.forEach(Array.dedupe(nested.map(dirname)), (root) => manifested(workspaceRoot, root), { concurrency: 'unbounded' }));
-    const kept = yield* Effect.forEach(
-        configs,
-        (config) =>
-            Effect.map(
-                Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, dirname(config))),
-                (beneath) => ({ config, beneath, recorded: Option.fromNullishOr(cache.get(config)) }),
-            ),
-        { concurrency: 'unbounded' },
+    const manifests = new Map(yield* Effect.forEach(Array.dedupe(nested.map(dirname)), (root) => loaded(workspaceRoot, root), { concurrency: 'unbounded' }));
+    const programs = yield* programmed(
+        workspaceRoot,
+        Array.headNonEmpty(settings.compilerPackages),
+        row,
+        lock,
+        held,
+        nested.filter((file) => basename(file) === CONFIG),
     );
-    const hashes = yield* Effect.promise(() =>
-        hashMultiGlobWithWorkspaceContext(
-            workspaceRoot,
-            kept.flatMap(({ config, recorded }) => [[posix.join(dirname(config), '*.json'), posix.join(dirname(config), '**/tsconfig*.json'), lock], Option.match(recorded, { onNone: () => [], onSome: ({ sources }) => listing(sources) })]),
-        ),
-    );
-    const rows = Array.zipWith(kept, Array.chunksOf(hashes, 2), ({ config, beneath, recorded }, [configured, stamp]) => {
-        const digest = hashArray([row, configured, ...beneath]);
-        return { config, digest, program: Option.filter(recorded, (entry) => entry.digest === digest && entry.stamp === stamp) };
-    });
-    const unread = rows.filter(({ program }) => Option.isNone(program));
-    const solutions = yield* Array.match(unread, {
-        onEmpty: () => Effect.succeed([]),
-        onNonEmpty: (missed) =>
-            solved(
-                workspaceRoot,
-                Array.headNonEmpty(settings.compilerPackages),
-                held,
-                Array.map(missed, ({ config }) => config),
-            ),
-    });
-    const fresh = solutions.map(([, solution]) => resolved(workspaceRoot, held, solution));
-    const stored = Array.getSuccesses(Array.zipWith(unread, fresh, ({ config, digest }, program) => Result.map(program, (value) => [config, { ...value, digest }] as const)));
-    const stamps = yield* Effect.promise(() =>
-        hashMultiGlobWithWorkspaceContext(
-            workspaceRoot,
-            stored.map(([, { sources }]) => listing(sources)),
-        ),
-    );
-    yield* Effect.forEach(Array.zip(stored, stamps), ([[config, value], stamp]) => Effect.sync(() => cache.set(config, { ...value, stamp })));
-    yield* Array.isReadonlyArrayNonEmpty(stored) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
     const standalone = Option.filter(yield* Effect.findFirst(['src', 'lib'], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => listed.has(MANIFEST));
     const lints = installed('eslint', join(workspaceRoot, MANIFEST))
-        ? yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), exec, [...[...held].map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))], row)
+        ? yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), exec, lock, [...[...held].map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))], row)
         : new Map<string, TargetConfiguration>();
     const rooted = getRootTsConfigFileName();
-    const programs = new Map<string, Result.Result<Program, Cause.UnknownError>>([...Array.getSomes(rows.map(({ config, program }) => Option.map(program, (cached) => [config, Result.succeed(cached)] as const))), ...Array.zipWith(unread, fresh, ({ config }, program) => [config, program] as const)]);
     const chained = (root: string) => Option.match(Option.flatMap(Option.fromUndefinedOr(programs.get(posix.join(root, CONFIG))), Option.getSuccess), { onNone: () => [], onSome: ({ chain }) => chain.filter((at) => posix.relative(root, at).startsWith('..') && at !== rooted).map(tokened(root)) });
     const read = Effect.fnUntraced(function* (file: string) {
         const root = dirname(file);
-        const manifest = yield* looked(manifests, root);
-        const stated = manifest.nx?.targets ?? {};
-        const typed = (program: Program) =>
+        const described = yield* looked(manifests, root);
+        const { manifest, stated } = described;
+        const typed = (program: Parameters<typeof compiled>[1]) =>
             Option.map(
                 Option.liftPredicate(program, ({ commands }) => Array.isReadonlyArrayNonEmpty(commands)),
                 (checked) => projected(root, 'typescript', compiled(root, checked, settings.compilerPackages, `^${namedInput(root, context)}`, manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, exec), stated),
@@ -557,21 +79,12 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
             Option.filter(Option.fromUndefinedOr(lints.get(root)), () => anchors.has(file) || root === '.'),
             (eslint) => projected(root, 'eslint', { check: { eslint: { ...eslint, inputs: [...(eslint.inputs ?? []), ...chained(root)] } } }, stated),
         );
-        const branch = yield* Match.value(file).pipe(
-            Match.when(MANIFEST, () => workspace(workspaceRoot, manager, exec, settings.knipConfig, manifest)),
-            Match.when(
-                (at) => basename(at) === PROJECT,
-                () => Effect.succeedNone,
-            ),
-            Match.when(
-                (at) => basename(at) === CONFIG,
-                () => Effect.map(looked(programs, file), typed),
-            ),
-            Match.when(
-                (at) => basename(at) === WORKER,
-                () => Effect.when(worker(context, exec, stated, file), loadable),
-            ),
-            Match.orElse(() => Effect.succeed(tarball(manager, exec, settings.outputPath, manifest, root, tagged(context.nxJsonConfiguration)))),
+        const branch = yield* Match.value({ file, name: basename(file) }).pipe(
+            Match.when({ file: MANIFEST }, () => workspace(workspaceRoot, manager, exec, settings.knipConfig, described)),
+            Match.when({ name: PROJECT }, () => Effect.succeedNone),
+            Match.when({ name: CONFIG }, () => Effect.map(looked(programs, file), typed)),
+            Match.when({ name: WORKER }, () => Effect.when(worker(context, exec, stated, file), loadable)),
+            Match.orElse(() => Effect.succeed(tarball(manager, exec, settings.outputPath, described, root, tagged(context.nxJsonConfiguration)))),
         );
         return Option.reduceCompact([linting, branch], Option.none<ProjectConfiguration>(), merged);
     });
@@ -585,4 +98,4 @@ const createNodes: CreateNodes = [`**/{${CONFIG},${MANIFEST},${WORKER},${PROJECT
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createNodes, MANAGERS };
+export { createNodes };
