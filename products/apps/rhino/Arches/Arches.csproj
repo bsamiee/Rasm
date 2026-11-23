@@ -1,9 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
         <Version>0.1.0-alpha.0</Version>
         <Description>Historical arch forms drawn by their traditional geometric constructions</Description>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Rhino Plug-In">
         <PlugInId>07134403-e825-43e4-b711-8fa2f330760a</PlugInId>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Rhino">
         <PackageReference Include="RhinoCommon" />

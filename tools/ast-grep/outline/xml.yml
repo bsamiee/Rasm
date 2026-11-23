@@ -100,11 +100,12 @@ isExported: false
 id: xml-divider
 role: item
 symbolType: namespace
-rule: { kind: Comment, regex: '^<!--[\t\n\r ]*\[[0-9A-Z_]+\][\t\n\r ]*-->$', pattern: $DIVIDER, not: { inside: { kind: ERROR } } }
+rule: { kind: Comment, regex: '^<!-- \[[0-9A-Z_]+\] ─+ -->$', pattern: $DIVIDER, not: { inside: { kind: ERROR } } }
 transform:
-    LABEL: { replace: { source: $DIVIDER, replace: '^<!--[\t\n\r ]*\[([0-9A-Z_]+)\][\t\n\r ]*-->$', by: '${1}' } }
+    LABEL: { replace: { source: $DIVIDER, replace: '^<!-- \[([0-9A-Z_]+)\] ─+ -->$', by: '${1}' } }
+    SIGNATURE: { replace: { source: $DIVIDER, replace: ' ─+ -->$', by: ' ─── -->' } }
 name: $LABEL
-signature: <!-- [$LABEL] -->
+signature: $SIGNATURE
 isExported: false
 ---
 id: xml-interface

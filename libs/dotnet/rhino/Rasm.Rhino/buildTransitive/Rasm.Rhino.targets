@@ -1,7 +1,20 @@
 <Project>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
     <PropertyGroup Label="Rhino Icons">
         <_IconDir>$(IntermediateOutputPath)Icons/</_IconDir>
     </PropertyGroup>
+
+    <!-- [ITEM_DEFINITIONS] ────────────────────────────────────────────────────────── -->
+
+    <ItemDefinitionGroup Label="Rhino Plug-In Dependencies" Condition="'$(TargetExt)' == '.rhp'">
+        <RuntimeCopyLocalItems DestinationSubDirectory="lib/" />
+        <NativeCopyLocalItems DestinationSubDirectory="lib/" />
+        <ReferenceCopyLocalPaths DestinationSubDirectory="lib/" />
+        <ReferencePath DestinationSubDirectory="lib/" />
+    </ItemDefinitionGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Rhino Icons">
         <_IconTone Include="$(_IconDir)light.css" Color="$(RhinoIconColor)" />
@@ -14,6 +27,8 @@
         <FileWrites Include="@(_ThemedIcon);@(_IconTone)" />
     </ItemGroup>
 
+    <!-- [TARGETS] ─────────────────────────────────────────────────────────────────── -->
+
     <Target Name="WriteIconTones" Condition="'$(DesignTimeBuild)' != 'true'">
         <PropertyGroup>
             <_IconParts>@(RhinoIconPart->'.%(Identity) { fill: %(Fill)%3B stroke: %(Stroke) }', ' ')</_IconParts>
@@ -25,13 +40,6 @@
     <Target Name="PaintIcons" BeforeTargets="CoreCompile" DependsOnTargets="WriteIconTones" Condition="'@(_ThemedIcon)' != '' and '$(DesignTimeBuild)' != 'true'" Inputs="%(_ThemedIcon.Master);%(_ThemedIcon.Stylesheet)" Outputs="%(_ThemedIcon.FullPath)">
         <Exec Command="usvg --stylesheet &quot;%(_ThemedIcon.Stylesheet)&quot; &quot;%(_ThemedIcon.Master)&quot; &quot;%(_ThemedIcon.FullPath)&quot;" LogStandardErrorAsError="true" />
     </Target>
-
-    <ItemDefinitionGroup Label="Rhino Plug-In Dependencies" Condition="'$(TargetExt)' == '.rhp'">
-        <RuntimeCopyLocalItems DestinationSubDirectory="lib/" />
-        <NativeCopyLocalItems DestinationSubDirectory="lib/" />
-        <ReferenceCopyLocalPaths DestinationSubDirectory="lib/" />
-        <ReferencePath DestinationSubDirectory="lib/" />
-    </ItemDefinitionGroup>
 
     <Target Name="PlacePlugInNatives" AfterTargets="ResolvePackageAssets" Condition="'$(TargetExt)' == '.rhp'">
         <ItemGroup>

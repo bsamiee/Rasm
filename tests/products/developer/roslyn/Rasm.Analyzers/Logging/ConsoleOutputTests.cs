@@ -26,6 +26,8 @@ public sealed class ConsoleOutputTests : CSharpCodeFixVerifier<StaticSinkAnalyze
             internal static void Redirected(TextWriter output) => {|#4:Console.SetOut(output)|};
 
             internal static Stream Raw() => {|#5:Console.OpenStandardOutput()|};
+
+            internal static void Main() => {|#6:Console.WriteLine()|};
         }
         """,
         Diagnostic("RASM1206").WithLocation(0).WithArguments("Console.WriteLine(message)"),
@@ -33,7 +35,8 @@ public sealed class ConsoleOutputTests : CSharpCodeFixVerifier<StaticSinkAnalyze
         Diagnostic("RASM1206").WithLocation(2).WithArguments("Console.Out"),
         Diagnostic("RASM1206").WithLocation(3).WithArguments("Console.Write"),
         Diagnostic("RASM1206").WithLocation(4).WithArguments("Console.SetOut(output)"),
-        Diagnostic("RASM1206").WithLocation(5).WithArguments("Console.OpenStandardOutput()"));
+        Diagnostic("RASM1206").WithLocation(5).WithArguments("Console.OpenStandardOutput()"),
+        Diagnostic("RASM1206").WithLocation(6).WithArguments("Console.WriteLine()"));
 
     [Theory]
     [InlineData(OutputKind.ConsoleApplication)]
@@ -46,6 +49,10 @@ public sealed class ConsoleOutputTests : CSharpCodeFixVerifier<StaticSinkAnalyze
 
             Console.WriteLine("started");
             Console.Error.WriteLine("failed");
+
+            internal static class Report {
+                internal static void Written(string line) => Console.Out.WriteLine(line);
+            }
             """,
     }.RunAsync(TestContext.Current.CancellationToken);
 

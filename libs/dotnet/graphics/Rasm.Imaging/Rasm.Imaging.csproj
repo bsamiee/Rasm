@@ -1,11 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
         <Version>0.1.0-alpha.0</Version>
         <Description>Color-managed image processing in scene-linear light</Description>
-        <IsPackable>true</IsPackable>
         <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Compiler">
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />

@@ -1,18 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
         <Version>0.1.0-alpha.0</Version>
         <Description>Roslyn analyzers, code fixes, and source generators that keep C# functional over LanguageExt, Thinktecture, Microsoft.Extensions.Logging, RhinoCommon, and Eto</Description>
         <PackageTags>roslyn;analyzers;languageext;thinktecture;logging;rhinocommon;eto</PackageTags>
         <IsPackable>true</IsPackable>
-        <IncludeBuildOutput>false</IncludeBuildOutput>
         <DevelopmentDependency>true</DevelopmentDependency>
         <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Package Files">
+        <IncludeBuildOutput>false</IncludeBuildOutput>
         <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackAnalyzers</TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
-    <ItemGroup Label="Global Usings">
-        <Using Include="Rasm.Analyzers.Semantics" Static="true" />
-    </ItemGroup>
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Analyzer Authoring">
         <PackageReference Include="Microsoft.CodeAnalysis.AnalyzerUtilities" />
@@ -21,6 +24,10 @@
 
     <ItemGroup Label="Code Fixes">
         <ProjectReference Include="../Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" ReferenceOutputAssembly="false" OutputItemType="CodeFix" />
+    </ItemGroup>
+
+    <ItemGroup Label="Global Usings">
+        <Using Include="Rasm.Analyzers.Semantics" Static="true" />
     </ItemGroup>
 
     <ItemGroup Label="Release Tracking">
@@ -34,6 +41,8 @@
     <ItemGroup Label="Package Files">
         <None Include="build/Rasm.Analyzers.props" Pack="true" PackagePath="build/" />
     </ItemGroup>
+
+    <!-- [TARGETS] ─────────────────────────────────────────────────────────────────── -->
 
     <Target Name="PackAnalyzers" DependsOnTargets="GetTargetPath;ResolveProjectReferences">
         <ItemGroup>

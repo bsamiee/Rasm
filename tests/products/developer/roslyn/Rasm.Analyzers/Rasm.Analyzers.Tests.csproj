@@ -1,7 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
         <Description>Tests of Rasm.Analyzers rules and code fixes, one class per rule over inline sources</Description>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
+
+    <ItemGroup Label="Analyzer Authoring">
+        <PackageReference Include="Microsoft.CodeAnalysis.AnalyzerUtilities" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" />
+    </ItemGroup>
+
+    <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="QuikGraph" />
+    </ItemGroup>
+
+    <ItemGroup Label="Testing">
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzer.Testing" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CodeFix.Testing" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
+    </ItemGroup>
 
     <ItemGroup Label="Compiler Fixtures">
         <PackageReference Include="LanguageExt.Core" AdditionalReference="true" />
@@ -16,24 +37,12 @@
         <Reference Include="$(PkgThinktecture_Runtime_Extensions_SourceGenerator)/analyzers/dotnet/cs/Thinktecture.Runtime.Extensions.SourceGenerator.dll" />
     </ItemGroup>
 
-    <ItemGroup Label="Analyzer Authoring">
-        <PackageReference Include="Microsoft.CodeAnalysis.AnalyzerUtilities" />
-        <PackageReference Include="Microsoft.CodeAnalysis.Common" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
-        <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" />
-        <PackageReference Include="QuikGraph" />
-    </ItemGroup>
-
-    <ItemGroup Label="Testing">
-        <PackageReference Include="Microsoft.CodeAnalysis.Analyzer.Testing" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CodeFix.Testing" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
-    </ItemGroup>
-
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../../../products/developer/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj" />
         <ProjectReference Include="../../../../../products/developer/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
     </ItemGroup>
+
+    <!-- [TARGETS] ─────────────────────────────────────────────────────────────────── -->
 
     <Target Name="StateCompilerFixtures" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="ResolvePackageAssets;ResolveTargetingPackAssets">
         <JoinItems Left="@(ResolvedCompileFileDefinitions)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('AdditionalReference', 'true'))" ItemSpecToUse="Left">

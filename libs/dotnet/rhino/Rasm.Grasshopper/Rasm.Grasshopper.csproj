@@ -1,9 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
         <Version>0.1.0-alpha.0</Version>
         <Description>Grasshopper 2 as typed effects, with plug-ins declared as data</Description>
-        <IsPackable>true</IsPackable>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Rhino">
         <PackageReference Include="Grasshopper2" />

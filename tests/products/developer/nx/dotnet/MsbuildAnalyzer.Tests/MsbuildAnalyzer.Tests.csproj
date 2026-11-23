@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
         <Description>Tests of MsbuildAnalyzer over temporary workspaces, ported from the specs of Nx's own .NET analyzer</Description>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../../../../products/developer/nx/dotnet/analyzer/MsbuildAnalyzer.csproj" />

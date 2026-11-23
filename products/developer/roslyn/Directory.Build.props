@@ -1,6 +1,8 @@
 <Project>
     <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
     <PropertyGroup Label="Roslyn Components">
         <TargetFramework>netstandard2.0</TargetFramework>
         <IsRoslynComponent>true</IsRoslynComponent>
@@ -8,9 +10,13 @@
         <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
     </PropertyGroup>
 
+    <!-- [ITEM_DEFINITIONS] ────────────────────────────────────────────────────────── -->
+
     <ItemDefinitionGroup Label="Roslyn Components">
         <PackageReference ExcludeAssets="runtime" PrivateAssets="all" GeneratePathProperty="true" />
     </ItemDefinitionGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Analyzer Authoring">
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />

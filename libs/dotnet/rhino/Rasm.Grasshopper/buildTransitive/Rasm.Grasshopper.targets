@@ -1,13 +1,19 @@
 <Project>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
     <PropertyGroup Label="Grasshopper Plug-In">
         <_GrasshopperShell>$(IntermediateOutputPath)$(TargetName).Grasshopper$(TargetExt)</_GrasshopperShell>
         <_GrasshopperShellAttributes>$(IntermediateOutputPath)$(TargetName).Grasshopper.AssemblyInfo.cs</_GrasshopperShellAttributes>
         <_GrasshopperShellDocumentation>$(IntermediateOutputPath)$(TargetName).Grasshopper.xml</_GrasshopperShellDocumentation>
     </PropertyGroup>
 
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
+
     <ItemGroup Label="Grasshopper Icons">
         <EmbeddedResource Include="icons/*.ghicon" LogicalName="%(Filename)%(Extension)" />
     </ItemGroup>
+
+    <!-- [TARGETS] ─────────────────────────────────────────────────────────────────── -->
 
     <Target Name="BuildGrasshopperShell" AfterTargets="BuildPlugInShell" Condition="'$(DesignTimeBuild)' != 'true' and '@(ReferencePath->WithMetadataValue('Filename', 'Rasm.Grasshopper'))' != ''" Inputs="$(PlugInShell);@(ReferencePath);@(Analyzer);@(EditorConfigFiles);$(MSBuildThisFileDirectory)PluginInfo.cs;$(MSBuildAllProjects)" Outputs="$(_GrasshopperShell)">
         <ItemGroup>

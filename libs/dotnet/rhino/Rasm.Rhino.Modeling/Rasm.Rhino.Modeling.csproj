@@ -1,9 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
         <Version>0.1.0-alpha.0</Version>
         <Description>Geometric modeling over RhinoCommon: construction, booleans, fillets, sweeps, intersections, and repair</Description>
-        <IsPackable>true</IsPackable>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Rhino">
         <PackageReference Include="RhinoCommon" />
@@ -18,7 +21,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Mathematics">
-        <PackageReference Include="HyperJet" PrivateAssets="contentfiles;analyzers;build;buildtransitive" />
+        <PackageReference Include="HyperJet" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="Silk.NET.Maths" />
     </ItemGroup>

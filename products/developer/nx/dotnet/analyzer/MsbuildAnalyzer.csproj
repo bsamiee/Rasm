@@ -1,13 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <Description>Evaluates every MSBuild project of a workspace in one process and reports the facts the Nx plugin derives targets from, or moves the central package versions of a solution to their newest releases</Description>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
+        <Description>Workspace-wide MSBuild evaluation in one process, reporting the facts the Nx plugin derives targets from, and upgrades of a solution's central package versions to their newest releases</Description>
+        <IsPublishable>true</IsPublishable>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Application">
         <OutputType>Exe</OutputType>
         <RollForward>LatestMajor</RollForward>
         <ServerGarbageCollection>true</ServerGarbageCollection>
         <UseAppHost>false</UseAppHost>
-        <IsPublishable>true</IsPublishable>
         <PublishDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'dist'))</PublishDir>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Package Management">
         <PackageReference Include="NuGet.Common" ExcludeAssets="runtime" />

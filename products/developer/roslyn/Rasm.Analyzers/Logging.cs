@@ -141,12 +141,12 @@ public sealed class StaticSinkAnalyzer : DiagnosticAnalyzer {
 
     private static readonly DiagnosticDescriptor Console = new(
         "RASM1206",
-        "Console output outside a composition root, log through an `ILogger`",
+        "Console output in a library, log through an `ILogger`",
         "`{0}` writes to `Console`, log through an `ILogger` the composition root creates and let the application compose its console sink",
         Categories.Logging,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "Library code writes no `Console` output, the application composes a console sink behind the `ILogger` it hands down, executables are composition roots and path rows name others.",
+        "A compilation with no entry point writes no `Console` output, the application composes a console sink behind the `ILogger` it hands down.",
         Link("RASM1206"));
 
     private static readonly ImmutableArray<string> Sinks = ["System.Diagnostics.Debug", "System.Diagnostics.Trace", "System.Diagnostics.TraceSource"];
@@ -160,7 +160,7 @@ public sealed class StaticSinkAnalyzer : DiagnosticAnalyzer {
             WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(start.Compilation);
             ImmutableArray<INamedTypeSymbol> sinks = [.. Sinks.Select(types.GetOrCreateTypeByMetadataName).OfType<INamedTypeSymbol>()];
             ImmutableArray<IMethodSymbol> logs = Members(types.GetOrCreateTypeByMetadataName("System.Diagnostics.Debugger"), "Log");
-            ImmutableArray<ISymbol> console = start.Compilation.Options.OutputKind is OutputKind.ConsoleApplication or OutputKind.WindowsApplication or OutputKind.WindowsRuntimeApplication ? []
+            ImmutableArray<ISymbol> console = start.Compilation.GetEntryPoint(start.CancellationToken) is not null ? []
                 : [
                     .. Members(types.GetOrCreateTypeByMetadataName("System.Console"), "Write", "WriteLine", "SetOut", "SetError", "OpenStandardOutput", "OpenStandardError"),
                     .. Declared(start.Compilation, "P:System.Console.Out", "P:System.Console.Error"),

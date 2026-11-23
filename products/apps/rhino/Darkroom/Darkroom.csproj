@@ -1,11 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
         <Version>0.1.0-alpha.0</Version>
         <Description>Post-production from raw render to finished image</Description>
-        <PlugInId>b5bac151-510d-4dc3-9f2d-14526e39d793</PlugInId>
         <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Compiler">
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
+
+    <PropertyGroup Label="Rhino Plug-In">
+        <PlugInId>b5bac151-510d-4dc3-9f2d-14526e39d793</PlugInId>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Tables">
+        <BlenderColorManagement>https://raw.githubusercontent.com/blender/blender/6bff2767edae535dba25246e8176b774af499870/release/datafiles/colormanagement</BlenderColorManagement>
+        <TonyMcMapface>https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9</TonyMcMapface>
+    </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Rhino">
         <PackageReference Include="RhinoCommon" />
@@ -64,11 +79,6 @@
     <ItemGroup Label="Render Farm">
         <EmbeddedResource Include="Queue/darkroom-render.js" LogicalName="%(Filename)%(Extension)" />
     </ItemGroup>
-
-    <PropertyGroup Label="Tables">
-        <BlenderColorManagement>https://raw.githubusercontent.com/blender/blender/6bff2767edae535dba25246e8176b774af499870/release/datafiles/colormanagement</BlenderColorManagement>
-        <TonyMcMapface>https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9</TonyMcMapface>
-    </PropertyGroup>
 
     <ItemGroup Label="Tables">
         <FetchedResource Include="$(BlenderColorManagement)/luts/AgX_Base_P3.cube" Sha256="6075ac4726cc41ca2d36de65782959d060d20cc9306202c02395796d3b3f7328" />

@@ -61,8 +61,55 @@ public sealed class SystemTimeProviderTests : CSharpCodeFixVerifier<AmbientClock
             _ = Host.Started(TimeProvider.System);
 
             internal static class Host {
+                internal static TimeProvider Clock => TimeProvider.System;
+
                 internal static DateTimeOffset Started(TimeProvider time) => time.GetUtcNow();
             }
             """,
     }.RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public Task IgnoresTimeProviderSystemInTypePlugInShellEnters() => VerifyAnalyzerAsync(
+        """
+        using System;
+
+        namespace Rasm.Rhino {
+            public interface IDefined<TDefinition> {
+                static abstract TDefinition Definition { get; }
+            }
+        }
+
+        namespace Rasm.Rhino.PlugIns {
+            public sealed record PlugInDefinition(TimeProvider Clock);
+
+            public sealed record EffectDefinition(TimeProvider Clock);
+
+            public static class PlugInShell {
+                public static PlugInDefinition PlugIn<TDefinition>(object host) where TDefinition : IDefined<PlugInDefinition> => TDefinition.Definition;
+            }
+        }
+
+        namespace Hosted {
+            using Rasm.Rhino;
+            using Rasm.Rhino.PlugIns;
+
+            internal abstract class Entered : IDefined<PlugInDefinition> {
+                internal static TimeProvider Clock { get; } = TimeProvider.System;
+
+                public static PlugInDefinition Definition { get; } = new(TimeProvider.System);
+
+                internal static Func<TimeProvider> Deferred => static () => TimeProvider.System;
+            }
+
+            internal abstract class Registered : IDefined<EffectDefinition> {
+                public static EffectDefinition Definition { get; } = new({|#0:TimeProvider.System|});
+            }
+
+            internal static class Inward {
+                internal static DateTimeOffset Read() => {|#1:TimeProvider.System|}.GetUtcNow();
+            }
+        }
+        """,
+        Diagnostic("RASM3107").WithLocation(0).WithArguments("TimeProvider.System"),
+        Diagnostic("RASM3107").WithLocation(1).WithArguments("TimeProvider.System"));
 }

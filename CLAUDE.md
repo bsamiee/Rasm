@@ -141,4 +141,5 @@ Source files group declarations into sections and a type's members into groups n
 - CMake: `find_package` calls are `[DEPENDENCIES]`, targets with their sources and links `[TARGETS]`, `install` calls `[INSTALL]`
 - Bash: `readonly` values are `[CONSTANTS]`, `declare -Ar` maps `[TABLES]`, `main` `[COMPOSITION]`
 - SQL: types and domains are `[TYPES]`, tables `[MODELS]`, functions `[OPERATIONS]`, indexes, triggers, and grants `[COMPOSITION]`
+- XML: a divider fills with `─` to column 90 (`<!-- [ITEMS] ─── -->`), as XML forbids `--` inside a comment
 - Configuration files: sections name the tool or table they configure (`[RUFF]`, `[TOOLS]`)

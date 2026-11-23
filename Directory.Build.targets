@@ -1,4 +1,32 @@
 <Project>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Central Package Management">
+        <CentralPackageTransitivePinningEnabled Condition="'$(IsRoslynComponent)' != 'true' and '$(IsPackable)' != 'true'">true</CentralPackageTransitivePinningEnabled>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Package Output">
+        <PackageOutputPath>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'package', '$(MSBuildProjectName)', '$(Version)'))</PackageOutputPath>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Compiler Report">
+        <ErrorLog>$(IntermediateOutputPath)$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Fetched Files">
+        <_FetchedStore>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.cache', 'dotnet', 'fetched'))</_FetchedStore>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Documentation Files" Condition="'$(IsPackable)' != 'true'">
+        <CopyDocumentationFileToOutputDirectory>false</CopyDocumentationFileToOutputDirectory>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Rhino Platform References" Condition="'$(RhinoHost)' != ''">
+        <_RhinoReferenceFramework>net$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)', 2))</_RhinoReferenceFramework>
+    </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
+
     <ItemGroup Label="Implicit Usings" Condition="'$(IsRoslynComponent)' != 'true'">
         <Using Remove="System.Collections.Generic" />
         <Using Include="System.Collections.Frozen;System.Collections.Immutable" />
@@ -22,50 +50,22 @@
         <ProjectReference Include="$(MSBuildThisFileDirectory)products/developer/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj;$(MSBuildThisFileDirectory)products/developer/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" />
     </ItemGroup>
 
-    <Import Project="products/developer/roslyn/Rasm.Analyzers/build/Rasm.Analyzers.props" Condition="'$(IsRoslynComponent)' != 'true' and '$(RunAnalyzers)' != 'false'" />
-
-    <PropertyGroup Label="Central Package Management">
-        <CentralPackageTransitivePinningEnabled Condition="'$(IsRoslynComponent)' != 'true' and '$(IsPackable)' != 'true'">true</CentralPackageTransitivePinningEnabled>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Package Output">
-        <PackageOutputPath>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'package', '$(MSBuildProjectName)', '$(Version)'))</PackageOutputPath>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Compiler Report">
-        <ErrorLog>$(IntermediateOutputPath)$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Fetched Files">
-        <_FetchedStore>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.cache', 'dotnet', 'fetched'))</_FetchedStore>
-    </PropertyGroup>
+    <ItemGroup Label="Package Assets">
+        <PackageReference Update="HyperJet" PrivateAssets="contentfiles;analyzers;build;buildtransitive" /> <!-- HyperJet buildTransitive targets add global usings and DScalar aliases, which stay in the referencing project -->
+    </ItemGroup>
 
     <ItemGroup Label="Fetched Files">
         <FetchedResource Update="@(FetchedResource)" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
         <EmbeddedResource Include="@(FetchedResource->'$(_FetchedStore)%(Sha256)')" />
     </ItemGroup>
 
-    <Target Name="FetchResources" BeforeTargets="CoreCompile" Condition="'@(FetchedResource)' != '' and '$(DesignTimeBuild)' != 'true'">
-        <DownloadFile SourceUrl="%(FetchedResource.Identity)" DestinationFolder="$(IntermediateOutputPath)" DestinationFileName="%(FetchedResource.Sha256)" Retries="3" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
-        <VerifyFileHash File="$(IntermediateOutputPath)%(FetchedResource.Sha256)" Hash="%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
-        <Move SourceFiles="$(IntermediateOutputPath)%(FetchedResource.Sha256)" DestinationFiles="$(_FetchedStore)%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
-    </Target>
-
-    <PropertyGroup Label="Documentation Files" Condition="'$(IsPackable)' != 'true'">
-        <CopyDocumentationFileToOutputDirectory>false</CopyDocumentationFileToOutputDirectory>
-    </PropertyGroup>
-
     <ItemGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
-        <PackageReference Update="Grasshopper;Grasshopper2;RhinoCommon" ExcludeAssets="runtime" PrivateAssets="all" />
+        <PackageReference Update="Grasshopper2;RhinoCommon" ExcludeAssets="runtime" PrivateAssets="all" />
         <SupportedPlatform Remove="@(SupportedPlatform)" />
         <SupportedPlatform Include="macOS;Windows" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
     </ItemGroup>
-
-    <PropertyGroup Label="Rhino Platform References" Condition="'$(RhinoHost)' != ''">
-        <_RhinoReferenceFramework>net$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)', 2))</_RhinoReferenceFramework>
-    </PropertyGroup>
 
     <ItemGroup Label="Rhino Platform References" Condition="'$(RhinoHost)' != ''">
         <PackageReference Include="System.Drawing.Common" ExcludeAssets="runtime" PrivateAssets="all" />
@@ -74,5 +74,16 @@
         <Reference Include="$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(_RhinoReferenceFramework)/PresentationCore.dll;$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(_RhinoReferenceFramework)/PresentationFramework.dll;$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(_RhinoReferenceFramework)/WindowsBase.dll" Private="false" />
     </ItemGroup>
 
+    <!-- [TARGETS] ─────────────────────────────────────────────────────────────────── -->
+
+    <Target Name="FetchResources" BeforeTargets="CoreCompile" Condition="'@(FetchedResource)' != '' and '$(DesignTimeBuild)' != 'true'">
+        <DownloadFile SourceUrl="%(FetchedResource.Identity)" DestinationFolder="$(IntermediateOutputPath)" DestinationFileName="%(FetchedResource.Sha256)" Retries="3" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+        <VerifyFileHash File="$(IntermediateOutputPath)%(FetchedResource.Sha256)" Hash="%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+        <Move SourceFiles="$(IntermediateOutputPath)%(FetchedResource.Sha256)" DestinationFiles="$(_FetchedStore)%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+    </Target>
+
+    <!-- [IMPORTS] ─────────────────────────────────────────────────────────────────── -->
+
+    <Import Project="products/developer/roslyn/Rasm.Analyzers/build/Rasm.Analyzers.props" Condition="'$(IsRoslynComponent)' != 'true' and '$(RunAnalyzers)' != 'false'" />
     <Import Project="libs/dotnet/rhino/Rasm.Rhino/buildTransitive/Rasm.Rhino.targets" Condition="'$(RhinoHost)' != ''" />
 </Project>

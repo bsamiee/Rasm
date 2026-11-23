@@ -1,9 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
         <Description>xUnit v3 fixtures that open a resource per test and release it by test result</Description>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Test Applications">
         <IsTestProject>false</IsTestProject>
         <OutputType>Library</OutputType>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />

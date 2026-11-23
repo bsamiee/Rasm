@@ -30,7 +30,7 @@ public sealed class AmbientClockAnalyzer : DiagnosticAnalyzer {
         Categories.CSharp,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "Only a composition root names `TimeProvider.System`, every other member takes the `TimeProvider` its caller holds, executables are composition roots and path rows name others.",
+        "Only a composition root names `TimeProvider.System`, a compilation with an entry point or a definition type a plug-in shell enters, every other member takes the `TimeProvider` its caller holds.",
         Link("RASM3107"));
 
     private static readonly ImmutableArray<(string Id, string Remedy)> Readings = [
@@ -55,11 +55,19 @@ public sealed class AmbientClockAnalyzer : DiagnosticAnalyzer {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start => {
             ImmutableArray<(ISymbol Symbol, string Remedy)> readings = [.. from row in Readings from symbol in Declared(start.Compilation, row.Id) select (symbol, row.Remedy)];
-            ISymbol? system = start.Compilation.Options.OutputKind is OutputKind.ConsoleApplication or OutputKind.WindowsApplication or OutputKind.WindowsRuntimeApplication
-                ? null : Declared(start.Compilation, "P:System.TimeProvider.System").FirstOrDefault();
-            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.PropertyReference, OperationKind.FieldReference, OperationKind.MethodReference, OperationKind.ObjectCreation], (operation, _) =>
+            ISymbol? system = start.Compilation.GetEntryPoint(start.CancellationToken) is null ? Declared(start.Compilation, "P:System.TimeProvider.System").FirstOrDefault() : null;
+            WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(start.Compilation);
+            ImmutableArray<ITypeSymbol> entered = [
+                .. from shell in PlugInShells.Entries
+                from method in types.GetOrCreateTypeByMetadataName(shell.Entry)?.GetMembers().OfType<IMethodSymbol>() ?? []
+                from definition in method.TypeParameters
+                from contract in definition.ConstraintTypes
+                select contract,
+            ];
+            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.PropertyReference, OperationKind.FieldReference, OperationKind.MethodReference, OperationKind.ObjectCreation], (operation, analysis) =>
                 Target(operation) is not { } member || Inside<INameOfOperation>(operation) ? []
-                : Same(member, system) ? [Diagnostic.Create(System, operation.Syntax.GetLocation(), operation.Syntax)]
+                : Same(member, system) && !Containers(analysis.ContainingSymbol).OfType<INamedTypeSymbol>().Any(type => type.AllInterfaces.Any(face => entered.Contains(face, SymbolEqualityComparer.Default)))
+                    ? [Diagnostic.Create(System, operation.Syntax.GetLocation(), operation.Syntax)]
                 : readings.FirstOrDefault(row => Same(row.Symbol, member) || Same(row.Symbol, member.ContainingType)) is { Symbol: not null } row
                     ? [Diagnostic.Create(Clock, operation.Syntax.GetLocation(), operation.Syntax, row.Remedy)]
                 : []);

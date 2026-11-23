@@ -1,4 +1,6 @@
 <Project>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
     <PropertyGroup Label="Artifacts Output">
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
     </PropertyGroup>
@@ -46,10 +48,6 @@
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     </PropertyGroup>
 
-    <ItemGroup Label="Diagnostics">
-        <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory).config/.globalconfig" />
-    </ItemGroup>
-
     <PropertyGroup Label="Configurations">
         <Configurations>Release;Debug</Configurations>
         <Configuration>Release</Configuration>
@@ -65,11 +63,19 @@
         <CreateHardLinksForCopyLocalIfPossible>true</CreateHardLinksForCopyLocalIfPossible>
     </PropertyGroup>
 
-    <Import Project="libs/dotnet/rhino/Rasm.Rhino/buildTransitive/Rasm.Rhino.props" Condition="'$(RhinoHost)' != ''" />
-
     <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
         <RestoreLockedMode>true</RestoreLockedMode>
         <UseSharedCompilation>false</UseSharedCompilation>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
+
+    <ItemGroup Label="Diagnostics">
+        <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory).config/.globalconfig" />
+    </ItemGroup>
+
+    <!-- [IMPORTS] ─────────────────────────────────────────────────────────────────── -->
+
+    <Import Project="libs/dotnet/rhino/Rasm.Rhino/buildTransitive/Rasm.Rhino.props" Condition="'$(RhinoHost)' != ''" />
 </Project>

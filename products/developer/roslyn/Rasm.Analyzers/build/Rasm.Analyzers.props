@@ -1,7 +1,11 @@
 <Project>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
     <PropertyGroup Label="Project References">
         <ProjectReferenceAssemblies>@(ReferencePath->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference')->'%(Filename)', ',')</ProjectReferenceAssemblies>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Project References">
         <CompilerVisibleProperty Include="ProjectReferenceAssemblies" />

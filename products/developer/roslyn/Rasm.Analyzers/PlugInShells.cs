@@ -14,7 +14,7 @@ public sealed class PlugInShells : IIncrementalGenerator {
 
     private const string Entry = "PlugInEntry";
 
-    private static readonly ImmutableArray<(string Entry, string? Exposed)> Entries = [("Rasm.Rhino.PlugIns.PlugInShell", null), ("Rasm.Grasshopper.PluginShell", "GrasshopperShell")];
+    internal static readonly ImmutableArray<(string Entry, string? Exposed)> Entries = [("Rasm.Rhino.PlugIns.PlugInShell", null), ("Rasm.Grasshopper.PluginShell", "GrasshopperShell")];
 
     private static readonly SymbolDisplayFormat Qualified = SymbolDisplayFormat.FullyQualifiedFormat.AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 

@@ -1,11 +1,15 @@
 <Project>
     <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
     <PropertyGroup Label="Test Applications">
         <IsTestProject>true</IsTestProject>
         <OutputType>Exe</OutputType>
         <TestingPlatformCommandLineArguments>--report-trx --report-trx-filename {asm}_{tfm}_{arch}.trx --hangdump --hangdump-type Mini --hangdump-timeout 10m --crashdump --crashdump-type Mini --crash-report-if-supported</TestingPlatformCommandLineArguments>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Testing" Condition="'$(OutputType)' == 'Exe'">
         <PackageReference Include="coverlet.MTP" />

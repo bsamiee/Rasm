@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
+    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
+
+    <PropertyGroup Label="Package Metadata">
         <Description>Code fixes that rewrite each analyzer finding into the form its rule requires</Description>
     </PropertyGroup>
+
+    <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Analyzer Authoring">
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />

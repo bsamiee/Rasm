@@ -7,9 +7,8 @@ dotnet_diagnostic.CS9236.severity = error
 
 # --- [DOTNET_ANALYZERS] -----------------------------------------------------------------
 
-dotnet_code_quality.CA1003.api_surface = all
-dotnet_code_quality.CA2000.dispose_ownership_transfer_at_constructor = true
-dotnet_code_quality.CA2241.additional_string_formatting_methods = M:Rasm.Rhino.LocalText.Of(System.String,System.ReadOnlySpan{System.Object})
+# --- [SEVERITY]
+
 dotnet_diagnostic.CA1000.severity = none # Moves factories off their generic type, CLAUDE.md keeps them with it
 dotnet_diagnostic.CA1021.severity = error
 dotnet_diagnostic.CA1034.severity = none # Flags Thinktecture union cases, nested in their type
@@ -20,6 +19,12 @@ dotnet_diagnostic.CA1715.severity = none # Type parameters follow LanguageExt na
 dotnet_diagnostic.CA1716.severity = none # Guards keywords of other CLR languages, solution is C# alone
 dotnet_diagnostic.CA1720.severity = none # Names (`Int`, `Object`) tag host value kinds
 dotnet_diagnostic.CA1724.severity = none # Flags names other packages' namespaces hold, renames coin names
+
+# --- [OPTIONS]
+
+dotnet_code_quality.CA1003.api_surface = all
+dotnet_code_quality.CA2000.dispose_ownership_transfer_at_constructor = true
+dotnet_code_quality.CA2241.additional_string_formatting_methods = M:Rasm.Rhino.LocalText.Of(System.String,System.ReadOnlySpan{System.Object})
 
 # --- [IDE_ANALYZERS] --------------------------------------------------------------------
 
@@ -53,6 +58,8 @@ dotnet_diagnostic.RMG096.severity = error
 
 # --- [MEZIANTOU_ANALYZERS] --------------------------------------------------------------
 
+# --- [SEVERITY]
+
 dotnet_diagnostic.MA0018.severity = none # Deprecated for `CA1000`
 dotnet_diagnostic.MA0038.severity = none # Deprecated for `CA1822`
 dotnet_diagnostic.MA0045.severity = none # Converts sync Roslyn and Rhino callbacks to async, `MA0042` covers blocking
@@ -67,6 +74,9 @@ dotnet_diagnostic.MA0174.severity = none # Opposite of `MA0175`, which `all-erro
 dotnet_diagnostic.MA0181.severity = none # Flags every cast, Meziantou's own defaults leave it off
 dotnet_diagnostic.MA0214.severity = none # Opposite of `MA0215`, Meziantou enables one, `FixAllProvider.Create` needs the other
 dotnet_diagnostic.MA0215.severity = none # Opposite of `MA0214`, Meziantou enables one, `FixAllProvider.Create` needs the other
+
+# --- [OPTIONS]
+
 MA0053.class_with_virtual_member_should_be_sealed = true
 MA0053.exceptions_should_be_sealed = true
 MA0053.public_class_should_be_sealed = true
@@ -77,6 +87,8 @@ MA0185.treat_opaque_runtime_types_as_culture_sensitive = true
 RASM3110.types = T:MathNet.Numerics.RootFinding.Bisection|T:MathNet.Numerics.RootFinding.Brent|T:MathNet.Numerics.RootFinding.Broyden|T:MathNet.Numerics.RootFinding.NewtonRaphson|T:MathNet.Numerics.RootFinding.RobustNewtonRaphson|T:MathNet.Numerics.RootFinding.Secant|T:Rhino.PersistentSettings|T:Rhino.Collections.ArchivableDictionary
 
 # --- [ROSLYNATOR_ANALYZERS] -------------------------------------------------------------
+
+# --- [SEVERITY]
 
 dotnet_diagnostic.RCS1001.severity = none # `.editorconfig` sets `csharp_prefer_braces = false`
 dotnet_diagnostic.RCS1002.severity = error
@@ -99,6 +111,9 @@ dotnet_diagnostic.RCS1248.severity = error
 dotnet_diagnostic.RCS1252.severity = error
 dotnet_diagnostic.RCS1253.severity = error
 dotnet_diagnostic.ROS0003.severity = error
+
+# --- [OPTIONS]
+
 roslynator_array_creation_type_style = implicit_when_type_is_obvious
 roslynator_doc_comment_summary_style = single_line
 roslynator_empty_string_style = literal
