@@ -5,15 +5,10 @@ import { Headers, HttpServerRespondable, HttpServerResponse, HttpStatus } from '
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Part = (typeof PARTS)[number];
 interface Key {
     readonly label: string;
     readonly key: (typeof keying)[keyof typeof keying];
 }
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const PARTS = ['id', 't'] as const;
 
 // --- [TABLES] --------------------------------------------------------------------------
 
@@ -43,8 +38,8 @@ const Stamp = Schema.FiniteFromString.check(Schema.isInt()).pipe(Schema.decodeTo
 
 class Scheme extends Data.Class<{
     readonly signature: string;
-    readonly named: Readonly<Partial<Record<Part, string>>>;
-    readonly signed: readonly Part[];
+    readonly named: Readonly<Partial<Record<'id' | 't', string>>>;
+    readonly signed: readonly (keyof Scheme['named'])[];
     readonly separator: string;
     readonly assign: string;
     readonly encoding: Pick<typeof Hex, 'decode' | 'encode'>;
@@ -57,14 +52,14 @@ class Scheme extends Data.Class<{
         new Scheme({
             signature: `${prefix}-signature`,
             named: { id: `${prefix}-id`, t: `${prefix}-timestamp` },
-            signed: PARTS,
+            signed: ['id', 't'],
             separator: ' ',
             assign: ',',
             encoding: Base64,
             material: Base64.decode,
             keys: { whsec_: { label: 'v1', key: keying.symmetric }, whsk_: { label: 'v1a', key: keying.signing }, whpk_: { label: 'v1a', key: keying.verifying }, '': { label: 'v1', key: keying.symmetric } },
         });
-    static readonly keyed = (signature: string, label: string, signed: readonly Part[], named: Scheme['named'] = {}) => new Scheme({ signature, named, signed, separator: ',', assign: '=', encoding: Hex, material: (secret) => Result.succeed(encoder.encode(secret)), keys: { '': { label, key: keying.symmetric } } });
+    static readonly keyed = (signature: string, label: string, signed: Scheme['signed'], named: Scheme['named'] = {}) => new Scheme({ signature, named, signed, separator: ',', assign: '=', encoding: Hex, material: (secret) => Result.succeed(encoder.encode(secret)), keys: { '': { label, key: keying.symmetric } } });
     static readonly standard = Scheme.prefixed('webhook');
     static readonly svix = Scheme.prefixed('svix');
     static readonly tailscale = Scheme.keyed('tailscale-webhook-signature', 'v1', ['t']);
@@ -74,7 +69,7 @@ class Scheme extends Data.Class<{
     // --- [WIRE]
 
     readonly entry = Schema.TemplateLiteralParser([Schema.String, this.assign, Schema.String]);
-    readonly content = (values: Readonly<Partial<Record<Part, string>>>, body: Uint8Array) => Bytes.concat([encoder.encode([...this.signed.flatMap((part) => Array.fromNullishOr(values[part])), ''].join('.')), body]);
+    readonly content = (values: Scheme['named'], body: Uint8Array) => Bytes.concat([encoder.encode([...this.signed.flatMap((part) => Array.fromNullishOr(values[part])), ''].join('.')), body]);
     static readonly read = Effect.fnUntraced(
         function* ({ signature, named, signed, separator, entry, content, encoding }: Scheme, headers: Headers.Headers, body: Uint8Array) {
             const written = Array.filterMap((yield* found(signature, Headers.get(headers, signature))).split(separator), (text) => Schema.decodeResult(entry)(text));
@@ -86,7 +81,7 @@ class Scheme extends Data.Class<{
         },
         (effect, { signature }) => Effect.catchTag(effect, 'SchemaError', WebhookError.of({ _tag: 'Unsigned' }, signature)),
     );
-    write(values: Readonly<Record<Part, string>>, signatures: readonly { readonly label: string; readonly bytes: Uint8Array }[]) {
+    write(values: Required<Scheme['named']>, signatures: readonly { readonly label: string; readonly bytes: Uint8Array }[]) {
         const written = [...this.signed.filter((part) => this.named[part] === undefined).map((part) => [part, this.assign, values[part]] as const), ...signatures.map(({ label, bytes }) => [label, this.assign, this.encoding.encode(bytes)] as const)];
         return Effect.map(Effect.orDie(Effect.forEach(written, (parts) => Schema.encodeEffect(this.entry)(parts))), (texts) =>
             Headers.fromInput([...Record.toEntries(values).flatMap(([part, value]) => Array.fromNullishOr(this.named[part]).map((header) => [header, value] as const)), [this.signature, texts.join(this.separator)]]),
