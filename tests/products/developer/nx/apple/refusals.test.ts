@@ -53,7 +53,7 @@ describe('Xcode projects', { timeout: 120_000 }, () => {
         onTestFinished(() => rmSync(folder, { recursive: true }));
         const warned = vi.spyOn(console, 'warn').mockReturnValue(undefined);
         onTestFinished(() => warned.mockRestore());
-        shimmed(folder, { 'nx-apple-analyzer': `cat > /dev/null\nprintf '%s' '{"containers":[{"buildFiles":[],"configurations":["Debug","Release"],"inputs":[],"path":"Viewer.xcodeproj","projects":[],"schemes":[]}],"failures":{}}'` });
+        shimmed(folder, { 'nx-apple-analyzer': `cat > /dev/null\nprintf '%s' '{"containers":[{"configurations":["Debug","Release"],"inputs":[],"path":"Viewer.xcodeproj","projects":[],"schemes":[]}],"failures":{}}'` });
         Object.assign(core, { at: join(folder, 'nx-apple-analyzer') });
         onTestFinished(() => {
             Reflect.deleteProperty(core, 'at');

@@ -128,11 +128,10 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         (root, group) => {
             const { name, file, technologies } = Array.headNonEmpty(group);
             const release = Array.findFirst(group, (part) => Option.fromUndefinedOr(part.release));
-            const buildSettings = Array.findFirst(group, (part) => Option.fromUndefinedOr(part.buildSettings));
             const project: ProjectConfiguration = {
                 root,
                 name,
-                metadata: { technologies: Array.dedupe(group.flatMap((part) => part.technologies)), ...Option.getOrUndefined(Option.bindTo(buildSettings, 'buildSettings')) },
+                metadata: { technologies: Array.dedupe(group.flatMap((part) => part.technologies)) },
                 tags: [...Option.toArray(Option.as(release, TAGS.release)), `${TAGS.platform}${HOST}`],
                 ...Option.getOrUndefined(Option.bindTo(release, 'release')),
                 targets: Record.getSomes({ 'nx-release-publish': Array.findFirst(group, (part) => Option.fromUndefinedOr(part.published)) }),
@@ -175,7 +174,7 @@ const createNodes: CreateNodes = [
             ],
             { concurrency: 'unbounded' },
         );
-        const cache = new PluginCache<Graph>(join(workspaceDataDirectory, 'apple.hash'));
+        const slot = join(workspaceDataDirectory, 'apple.hash');
         const stamps = [
             ...Option.toArray(developer),
             ...Option.toArray(Option.flatMap(developer, (path) => Option.fromNullishOr(hashFile(join(path.trim(), '..', 'version.plist'))))),
@@ -184,9 +183,9 @@ const createNodes: CreateNodes = [
             ...files.filter((file) => basename(file) === MANIFEST).flatMap((file) => Array.fromNullishOr(hashFile(join(workspaceRoot, dirname(file), PACKAGED)))),
         ];
         const digest = hashArray([hashObject(settings), hashed, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), ...stamps, ...files]);
-        const stored = Option.fromNullishOr(cache.get(digest));
+        const stored = Option.filter(Option.fromNullishOr(new PluginCache<{ readonly digest: string; readonly graph: Graph }>(slot).get(FILES)), (held) => held.digest === digest);
         const read = yield* Option.match(stored, {
-            onSome: (graph) => Effect.succeed({ graph, failures: [], partial: false }),
+            onSome: ({ graph }) => Effect.succeed({ graph, failures: [], partial: false }),
             onNone: () =>
                 Effect.flatMap(
                     Effect.all(
@@ -204,12 +203,7 @@ const createNodes: CreateNodes = [
                     (probed) => analyze(workspaceRoot, settings, files, { ...probed, compiled }),
                 ),
         });
-        yield* Option.isNone(stored) && read.failures.length === 0 && !read.partial
-            ? Effect.sync(() => {
-                  cache.set(digest, read.graph);
-                  cache.writeToDisk();
-              })
-            : Effect.void;
+        yield* Option.isNone(stored) && read.failures.length === 0 && !read.partial ? Effect.sync(() => new PluginCache(slot, { [FILES]: { digest, graph: read.graph } }).writeToDisk()) : Effect.void;
         (yield* Graphs).set(workspaceRoot, read.graph);
         const [placed, unread] = yield* Effect.partition(read.graph.projects, ({ file, technology, project, tools }) =>
             Effect.mapBoth(manifested(workspaceRoot, project.root), {
@@ -232,7 +226,7 @@ const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) 
             const { edges = [], buildFiles = {} } = graphs.get(workspaceRoot) ?? {};
             const names = createProjectRootMappingsFromProjectConfigurations(projects);
             const built = Record.collect(buildFiles, (root, files) => files.map((at) => ({ root, at }))).flat();
-            const declared = Record.collect(projects, (name, data) =>
+            const declared = Record.collect(Array.isReadonlyArrayNonEmpty(built) ? projects : {}, (name, data) =>
                 Record.collect(
                     Record.filter(data.targets ?? {}, ({ outputs }) => outputs !== undefined),
                     (target, { configurations = {} }) => ({ name, data, target, configurations }),

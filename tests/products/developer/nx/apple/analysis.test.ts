@@ -48,6 +48,7 @@ const XCODE = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Stored = Schema.fromJsonString(Schema.Struct({ entries: Schema.Record(Schema.String, Schema.Unknown) }));
 const Located = Schema.fromJsonString(Schema.Array(Schema.Struct({ buildSettings: Schema.Struct({ SRCROOT: Schema.String, INFOPLIST_FILE: Schema.String, CODE_SIGN_ENTITLEMENTS: Schema.String }) })));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -86,20 +87,6 @@ describe('Xcode projects as their files state them', { timeout: 240_000 }, () =>
         expect([Object.keys(graph.nodes['Viewer']?.data.targets ?? {}).includes('build--xcodebuild'), xcodebuild.called()]).toStrictEqual([true, []]);
     });
 
-    it('puts the build settings of the default configuration on the project node, resolved through an include, an expression, and a condition', async ({ workspace }) => {
-        const graph = await workspace
-            .write({
-                ...XCODE,
-                'apps/Viewer/Configs/Base.xcconfig': `${XCODE['apps/Viewer/Configs/Base.xcconfig']}DEVELOPMENT_TEAM = $(TEAM_PREFIX)9R367P\nDEVELOPMENT_TEAM[config=Debug] = DEBUGTEAM0\n`,
-                'apps/Viewer/Configs/Signing.xcconfig': `${XCODE['apps/Viewer/Configs/Signing.xcconfig']}TEAM_PREFIX = BBXB\n`,
-            })
-            .graph({ createNodes, createDependencies });
-
-        expect(graph.nodes['Viewer']?.data.metadata?.['buildSettings']).toStrictEqual({
-            Viewer: { PRODUCT_BUNDLE_IDENTIFIER: 'example.fixture.viewer', DEVELOPMENT_TEAM: 'BBXB9R367P', INFOPLIST_FILE: 'apps/Viewer/Support/Info.plist', CODE_SIGN_ENTITLEMENTS: 'apps/Viewer/Support/Viewer-Release.entitlements' },
-        });
-    });
-
     it('hashes each Info.plist and entitlements file xcodebuild resolves for the target in every configuration', async ({ workspace }) => {
         const graph = await workspace.write(XCODE).graph({ createNodes, createDependencies });
         const root = realpathSync(workspace.root);
@@ -136,6 +123,16 @@ describe('cache', { timeout: 120_000 }, () => {
         await workspace.write({ 'proj/Package.swift': PACKAGE.replace('"Proj"', '"Renamed"') }).graph({ createNodes, createDependencies });
 
         expect(swift.described()).toHaveLength(2);
+    });
+
+    it('holds the graph of the last workspace state alone, however many states it read', async ({ workspace }) => {
+        await workspace.write({ 'proj/Package.swift': PACKAGE, 'proj/Sources/Lib/Lib.swift': 'public let lib = 1\n' }).graph({ createNodes, createDependencies });
+
+        await workspace.write({ 'proj/Package.swift': PACKAGE.replace('"Proj"', '"Renamed"') }).graph({ createNodes, createDependencies });
+
+        const { entries } = await Effect.runPromise(Schema.decodeEffect(Stored)(readFileSync(join(workspace.root, 'tmp/project-graph-cache/apple.hash'), 'utf-8')));
+
+        expect(Object.keys(entries)).toHaveLength(1);
     });
 
     it('describes a package again once the swift toolchain changes', async ({ workspace, swift }) => {
