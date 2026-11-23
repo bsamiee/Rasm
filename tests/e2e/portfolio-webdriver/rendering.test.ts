@@ -86,7 +86,7 @@ const drawn = Effect.fnUntraced(function* ({ viewer, path, width, read, expected
     yield* Effect.promise(() => driver.get('about:blank'));
     yield* sized(width);
     yield* Effect.promise(() => driver.get(new URL(path, site[viewer]).href));
-    assert.deepStrictEqual(yield* Effect.promise(() => driver.executeScript(() => [innerWidth, innerHeight, document.visibilityState])), [width, HEIGHT, 'visible'], 'a browser draws no frame while opaque windows cover all of its window, or it is minimized or on another desktop');
+    assert.deepStrictEqual(yield* Effect.promise(() => driver.executeScript(() => [innerWidth, innerHeight, document.visibilityState])), [width, HEIGHT, 'visible'], 'a browser draws no frame while opaque windows cover all of its window');
     const seen = yield* Effect.filterOrFail(
         Effect.promise(() => driver.executeScript(read)),
         (value) => isDeepStrictEqual(value, expected),

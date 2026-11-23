@@ -143,7 +143,9 @@ WebDriver suites drive the installed Safari and Firefox, as Playwright and Vites
 - Selenium Manager finds an installed Firefox and `geckodriver`, and downloads the stable release of each where a machine holds none
 - Cases a Chromium and a WebDriver suite share are rows of viewer, width, in-page read, and expected value, exported by the Chromium suite
 - Each case sets a viewport of its width by 900, loads the page as a new document, and polls its read until it equals the expected value
-- Cases first assert a visible page, as Safari draws no frame while its window is covered, minimized, or on another desktop
+- Safari's window sits at the bottom of the screen, its top strip in the Dock's band below where a full-size window ends
+- WebKit `isViewVisible` reports a page hidden only while no point of its window shows, and a hidden page draws no frame
+- Cases first assert a visible page, and fail there while opaque windows cover all of Safari's window
 - Firefox takes a viewport through WebDriver BiDi `browsingContext.setViewport`, as its window stops at 500px, and Safari through its window size
 - Owner cases load through a proxy stating the owner's `Forwarded` headers, as WebDriver sets no request header
 - Safari comes to the front once as its session opens, and the suite then activates the app that was in front
