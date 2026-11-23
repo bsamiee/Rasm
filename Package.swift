@@ -146,6 +146,7 @@ let applications: [Target] = [
         ],
         path: "products/macos/watch-app",
         exclude: ["AppIcon.icon", "watch-app.entitlements", "watch-app.xcodeproj"],
+        swiftSettings: [.unsafeFlags(["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "watch_app_main"])],
     ),
 ]
 let tests: [Target] = [
@@ -195,6 +196,13 @@ let tests: [Target] = [
             .product(name: "CustomDump", package: "swift-custom-dump"),
         ],
         path: "tests/libs/swift/macos/ApplicationServer",
+    ),
+    .testTarget(
+        name: "watch-appTests",
+        dependencies: [
+            "ScreenCapture", "watch-app", .product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "CustomDump", package: "swift-custom-dump"),
+        ],
+        path: "tests/products/macos/watch-app",
     ),
 ]
 

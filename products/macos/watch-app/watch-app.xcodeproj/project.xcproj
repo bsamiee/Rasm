@@ -50,6 +50,7 @@
         "CODE_SIGN_ENTITLEMENTS": "watch-app.entitlements",
         "INFOPLIST_KEY_LSUIElement": "YES",
         "INFOPLIST_KEY_NSAppleEventsUsageDescription": "watch-app sends the quit event to applications an agent asks it to quit.",
+        "LD_ENTRY_POINT": "_watch_app_main",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.watch-app",
       },
     },
