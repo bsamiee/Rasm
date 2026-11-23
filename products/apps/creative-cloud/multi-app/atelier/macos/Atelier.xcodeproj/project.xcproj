@@ -19,7 +19,6 @@
   "files": [
     { "path": "../../../../../../.artifacts/vite/@rasm/atelier/server", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
     { "path": "../../../../../../.artifacts/vite/@rasm/atelier/tsc", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
-    { "path": "../../../../../../.artifacts/vite/@rasm/atelier/Helpers", "target-membership": [ "Atelier/copy/Embed Compiler Library" ] },
     { "path": "../../../../../../.artifacts/vite/@rasm/atelier/typescript/lib.d.ts", "target-membership": [ "Atelier/resources" ] },
     { "path": "../../../../../../.artifacts/vite/@rasm/atelier/LaunchAgents", "target-membership": [ "Atelier/copy/Embed Server Agent" ] },
     { "path": "<PROJECT>/../../../../../../Xcode.xcconfig" },
@@ -44,13 +43,20 @@
         "resources",
         {
           "kind": "copy",
-          "name": "Embed Compiler Library",
-          "bundle-base-path": "contents-directory",
-        }, {
-          "kind": "copy",
           "name": "Embed Server",
           "bundle-base-path": "contents-directory",
           "relative-path": "Helpers",
+        }, {
+          "kind": "script",
+          "name": "Link Compiler Library",
+          "input-paths": [
+            "$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/lib.d.ts",
+          ],
+          "output-paths": [
+            "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/lib.d.ts",
+          ],
+          "shell": "/bin/sh",
+          "script": "ln -sfh ../Resources/lib.d.ts \"$SCRIPT_OUTPUT_FILE_0\"",
         }, {
           "kind": "copy",
           "name": "Embed Server Agent",
