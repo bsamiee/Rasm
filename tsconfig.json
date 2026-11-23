@@ -6,7 +6,7 @@
     "include": [],
     "references": [
         {
-            "path": "./tsconfig.tests.json"
+            "path": "./tsconfig.node.json"
         },
         {
             "path": "./libs/typescript/creative-cloud/indesign"

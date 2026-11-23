@@ -447,7 +447,7 @@ def smoothed(window: Window, values: np.ndarray, /) -> Outcome[np.ndarray]:
 - Use `blender:coding` for imports under Blender's Python 3.13
 - Use `python:cyclopts` for command-line applications
 - Use `python:document` for docstrings
-- Use `clean-prose` for names, messages, and descriptions
+- Use `writing:prose` for names, messages, and descriptions
 
 ### [06.1]-[LAZINESS]
 

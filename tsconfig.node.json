@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "outDir": ".artifacts/tsc",
+        "types": ["node"]
+    },
+    "include": ["vitest.config.ts", ".config/stylelint.config.ts"],
+    "references": [{ "path": "./tests/support/typescript" }]
+}

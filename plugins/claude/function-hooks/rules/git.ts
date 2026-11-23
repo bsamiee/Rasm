@@ -142,13 +142,17 @@ const branchWrites: Rule = (invocation) => {
     return invocation.operands.length > 0 && !BRANCH_READS.some((name) => named.has(name)) ? refusal(`${commandOf(invocation)} ${BRANCHES.join(', ')}`) : [];
 };
 
+const tagsAlone: Predicate.Predicate<Invocation> = ({ operands: [, ...refs] }) => Array.isReadonlyArrayNonEmpty(refs) && refs.every(({ text }) => TAG.test(text));
+
 const forcedRefs: Rule = (invocation) =>
-    invocation.operands.flatMap((word) => {
-        if (word.text.startsWith(':')) {
-            return refusal(`${commandOf(invocation)} ${word.text} ${REMOTE.join(', ')}`);
-        }
-        return word.text.startsWith('+') && word.known ? edited(invocation, word, quote(word.text.slice(1)), `git push ${word.text}`) : [];
-    });
+    invocation.operands
+        .filter(({ text }) => !TAG.test(text))
+        .flatMap((word) => {
+            if (word.text.startsWith(':')) {
+                return refusal(`${commandOf(invocation)} ${word.text} ${REMOTE.join(', ')}`);
+            }
+            return word.text.startsWith('+') && word.known ? edited(invocation, word, quote(word.text.slice(1)), `git push ${word.text}`) : [];
+        });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -183,7 +187,7 @@ const GIT: Ruleset = {
                             'update-ref': [refuse('deletes a ref', 'leave the ref in place', '-d')],
                             checkout: [refuse(...BRANCHES, '-b', '--orphan', '--track')],
                             config: [when(({ operands }) => operands.slice(0, -1).some(({ text }) => text.startsWith('alias.')), refuse(...ALIASES))],
-                            push: [when(Predicate.not(holds(TAG)), UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune'), forcedRefs)],
+                            push: [when(Predicate.not(tagsAlone), UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune')), forcedRefs],
                             rebase: [when(({ has }) => !has(...UNWINDS), refuse('rewrites shared commits', 'merge or commit forward'))],
                             reflog: [when(nested('delete', 'drop', 'expire'), refuse('deletes entries', 'leave the reflog intact'))],
                             reset: [when(({ has }) => !has(...RESET_DISCARDS), resetTarget)],

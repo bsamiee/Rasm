@@ -101,6 +101,24 @@ describe('running the tsc targets', { timeout: 30_000 }, () => {
         expect([...workspace.files('node_modules', 'tmp').difference(before)]).toStrictEqual([]);
     });
 
+    it('checks the program a workspace root solution references beside it, and no program of another project', async ({ workspace }) => {
+        workspace.install(typescript).write({
+            ...LIB,
+            'tsconfig.json': '{"files":[],"references":[{"path":"./tsconfig.node.json"},{"path":"./libs/lib"}]}',
+            'tsconfig.node.json': '{"files":["tool.ts"],"compilerOptions":{"composite":true,"noEmit":true}}',
+            'tool.ts': 'export {};',
+            'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"composite":true,"outDir":"dist"}}',
+        });
+        const graph = await workspace.graph({ createNodes });
+        const before = workspace.files('node_modules', 'tmp');
+
+        const { success } = await workspace.run(graph, 'root', 'check--tsc');
+
+        expect(success).toBe(true);
+        expect(graph.nodes['root']?.data.targets?.['check--tsc']?.options).toStrictEqual({ commands: ['tsc -p tsconfig.node.json'], cwd: '.' });
+        expect([...workspace.files('node_modules', 'tmp').difference(before)]).toStrictEqual(['tsconfig.node.tsbuildinfo']);
+    });
+
     it('runs a referenced tsconfig whose name holds shell syntax as that file', async ({ workspace }) => {
         workspace.install(typescript).write({
             ...LIB,

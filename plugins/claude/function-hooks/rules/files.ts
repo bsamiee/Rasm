@@ -29,6 +29,7 @@ const EXPANSION = /[$`<]/u;
 const FLAG_SHAPED = /^--?[A-Za-z][\w-]*$/u;
 const ESCAPED_NEWLINE = /(?<!\\)(?:\\\\)*\\n/u;
 const SHELL_SYNTAX = /[$|&;<>()`]|^\w+=/u;
+const REGEX_SYNTAX = /[\\.+*?()|[\]{}^$]/u;
 const MULTILINE: ReadonlySet<string> = new Set(['-U', '--multiline']);
 const PREFIXES: ReadonlySet<string> = new Set(['builtin', 'command']);
 const DECODER = new TextDecoder();
@@ -303,7 +304,8 @@ const unmatched: Rule = Effect.fnUntraced(function* (invocation, { analysis, hos
 
 const sameTexts: Rule = (invocation) => {
     const [find, replaced] = invocation.leading;
-    return find !== undefined && find.text === replaced?.text && invocation.inputs.length > 0 && !invocation.has('--preview') ? edited(invocation, invocation.command, ':', 'sd replacing text with itself') : [];
+    const same = find !== undefined && find.text === replaced?.text && (invocation.has('--fixed-strings') || !REGEX_SYNTAX.test(find.text)) && !invocation.values('--flags').join('').includes('i');
+    return same && invocation.inputs.length > 0 && !invocation.has('--preview') ? edited(invocation, invocation.command, ':', 'sd replacing text with itself') : [];
 };
 
 // --- [REWRITES]
@@ -451,18 +453,17 @@ const substitutedInput: Rule = (invocation) => {
 
 const systemTemp = ({ analysis }: Call): readonly Verdict[] => {
     const own = analysis.invocations.filter(({ command }) => command.origin === 'call');
-    const targets = [
-        ...Array.dedupe(own.map(({ command }) => command)).flatMap(({ redirects }) => Array.getSomes(redirects.filter(({ op }) => WRITES.has(op)).map(({ target }) => target))),
-        ...own.flatMap(({ program, operands }) =>
-            Option.getOrElse(
-                Option.map(Record.get(WRITERS, program), (written) => written(operands)),
-                () => [],
-            ),
+    const commands = Array.dedupe(own.map(({ command }) => command));
+    const outputs = own.flatMap(({ program, operands }) =>
+        Option.getOrElse(
+            Option.map(Record.get(WRITERS, program), (written) => written(operands)),
+            () => [],
         ),
-    ];
+    );
+    const targets = [...commands.flatMap(({ redirects }) => Array.getSomes(redirects.filter(({ op }) => WRITES.has(op)).map(({ target }) => target))), ...outputs];
     const written = new Set(targets.filter(({ known, raw }) => known && relocated(raw) !== raw).map(({ raw }) => raw));
-    const words = Array.dedupe(own.map(({ command }) => command)).flatMap(({ words: held, redirects }) => [...held, ...Array.getSomes(redirects.map(({ target }) => target))]);
-    return words.filter(({ raw, field, prefix }) => written.has(raw) && field === undefined && prefix === undefined).map(({ start, end, raw }) => Verdict.Edit({ start, end, text: Option.some(relocated(raw)), subject: Option.some(raw) }));
+    const words = [...commands.flatMap(({ words: held, redirects }) => [...held, ...Array.getSomes(redirects.map(({ target }) => target))]), ...outputs.filter(({ prefix }) => prefix !== undefined)];
+    return words.filter(({ raw, field }) => written.has(raw) && field === undefined).map(({ start, end, raw, prefix }) => Verdict.Edit({ start, end, text: Option.some([prefix, relocated(raw)].join('')), subject: Option.some(raw) }));
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

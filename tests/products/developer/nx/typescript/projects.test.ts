@@ -15,7 +15,19 @@ describe('projects the plugin infers', () => {
         { case: 'beside a package.json the root workspaces cover', files: { 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}', 'libs/lib/index.ts': 'export {};' }, project: 'lib', tsc: ['check--tsc'] },
         { case: 'beside a project.json', files: { 'apps/app/project.json': '{"name":"app"}', 'apps/app/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}', 'apps/app/index.ts': 'export {};' }, project: 'app', tsc: ['check--tsc'] },
         { case: 'beside a package.json outside the root workspaces', files: { 'tools/tool/package.json': '{"name":"tool"}', 'tools/tool/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}', 'tools/tool/index.ts': 'export {};' }, project: 'tool', tsc: [] },
-        { case: 'at a workspace root holding a project.json', files: { 'project.json': '{"name":"root"}', 'tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}', 'index.ts': 'export {};' }, project: 'root', tsc: [] },
+        { case: 'at a workspace root, holding files', files: { 'tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}', 'index.ts': 'export {};' }, project: 'root', tsc: ['check--tsc'] },
+        {
+            case: 'at a workspace root, referencing a program beside it',
+            files: { 'tsconfig.json': '{"files":[],"references":[{"path":"./tsconfig.node.json"}]}', 'tsconfig.node.json': '{"files":["index.ts"],"compilerOptions":{"composite":true,"noEmit":true}}', 'index.ts': 'export {};' },
+            project: 'root',
+            tsc: ['check--tsc', 'clean--tsc'],
+        },
+        {
+            case: 'at a workspace root, referencing programs of other projects alone',
+            files: { 'tsconfig.json': '{"files":[],"references":[{"path":"./libs/lib"}]}', 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"composite":true,"outDir":"dist"}}', 'libs/lib/index.ts': 'export {};' },
+            project: 'root',
+            tsc: [],
+        },
     ])('infers the tsc targets $tsc for a tsconfig.json $case', async ({ files, project, tsc }, { workspace }) => {
         const graph = await workspace
             .install(typescript)

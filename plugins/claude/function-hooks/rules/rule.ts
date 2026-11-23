@@ -65,7 +65,7 @@ const listed = (source: Uint8Array, { start, end }: Pick<Span, 'start' | 'end'>)
     if (lead === null || (after.trim() !== '' && trail === null)) {
         return Option.none();
     }
-    return lead.groups?.['separator'] === ';' && trail?.groups?.['separator'] === '&&' ? forward : backward;
+    return trail !== null && !(lead.groups?.['separator'] === '&&' && trail.groups?.['separator'] !== '&&') ? forward : backward;
 };
 
 const folderOf = (host: Host['Service'], { values, command }: Invocation, ...flags: readonly string[]): Option.Option<string> => values(...flags).reduce((folder, value) => host.resolve(value, folder), command.cwd);

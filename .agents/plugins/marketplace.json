@@ -57,6 +57,31 @@
             }
         },
         {
+            "name": "code",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/code"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Refactoring and testing rules for code in any language",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Code",
+                "shortDescription": "Refactoring and testing rules for code in any language",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
+                "brandColor": "#090909"
+            }
+        },
+        {
             "name": "cpp",
             "source": {
                 "source": "local",
@@ -77,31 +102,6 @@
             "interface": {
                 "displayName": "C++",
                 "shortDescription": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, Unreal Engine debugging, reloads, and logs on macOS, and the Unreal Engine editor MCP server",
-                "developerName": "Bardia Samiee",
-                "category": "Coding",
-                "brandColor": "#090909"
-            }
-        },
-        {
-            "name": "delegate",
-            "source": {
-                "source": "local",
-                "path": "./plugins/shared/delegate"
-            },
-            "policy": {
-                "installation": "AVAILABLE",
-                "authentication": "ON_INSTALL"
-            },
-            "category": "Coding",
-            "version": "0.3.0",
-            "description": "Work handed to other agents: headless Antigravity runs and a council of models",
-            "author": {
-                "name": "Bardia Samiee"
-            },
-            "skills": "./skills/",
-            "interface": {
-                "displayName": "Delegate",
-                "shortDescription": "Work handed to other agents: headless Antigravity runs and a council of models",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"
@@ -436,6 +436,31 @@
             "interface": {
                 "displayName": "Web",
                 "shortDescription": "Web styling and components: CSS, browser support facts, and React Aria Components",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
+                "brandColor": "#090909"
+            }
+        },
+        {
+            "name": "writing",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/writing"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Project prose and names: wording rules, a word map, and automatic checks",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Writing",
+                "shortDescription": "Project prose and names: wording rules, a word map, and automatic checks",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "brandColor": "#090909"

@@ -85,6 +85,23 @@ const WORKSPACE_CALLS = [
     ['timeout 20 nx graph', 'suite', ALLOWED],
     ['timeout 20 nx graph --file=graph.json', 'suite', REWRITTEN('nx graph --file=graph.json', UNBOUND)],
 ] as const;
+const BROWSER = {
+    'nx.json': '{}',
+    'e2e/playwright.config.ts': '',
+    'e2e/project.json': JSON.stringify({
+        name: 'e2e',
+        targets: {
+            test: { executor: 'nx:noop', dependsOn: [{ target: 'test--*', params: 'forward' }] },
+            'test--playwright': { command: 'playwright test', options: { cwd: 'e2e' }, cache: true, metadata: { help: { command: 'pnpm exec playwright test --help', example: {} } } },
+        },
+    }),
+} as const;
+const BROWSER_CALLS = [
+    ['playwright test', 'e2e', REWRITTEN('nx test e2e', 'playwright became nx test e2e')],
+    ['playwright test --config e2e/playwright.config.ts --list', '.', REWRITTEN('nx run e2e:test--playwright -- --list', 'playwright became nx run e2e:test--playwright -- --list')],
+    ['playwright test -c e2e --grep toast', '.', REWRITTEN('nx run e2e:test--playwright -- --grep toast', 'playwright became nx run e2e:test--playwright -- --grep toast')],
+    ['playwright show-report', 'e2e', ALLOWED],
+] as const;
 const SESSION_CALLS = [
     ['launchctl submit -l probe -- /bin/sleep 9', { _tag: 'Deny', reason: 'launchctl submit detached jobs outlive the session; use run_in_background and TaskStop, or a mise [daemons] row' }],
     ['claude -p hi', ALLOWED],
@@ -214,12 +231,13 @@ const held = Effect.fnUntraced(function* (holder: keyof typeof HOLDERS) {
     return { output, holding: yield* spawner.spawn(HOLDERS[holder](output)), decided };
 });
 
-const servedIn = Effect.fnUntraced(function* (workspace: Workspace) {
+const servedIn = Effect.fnUntraced(function* (workspace: Workspace, files: Readonly<Record<string, string>>) {
     const [path, spawner] = yield* Effect.all([Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
     const data = '.nx/workspace-data';
     const repository = yield* spawner.exitCode(ChildProcess.make('git', ['init', '--quiet'], { cwd: workspace.root }));
-    const graph = yield* Effect.promise(() => workspace.write(WORKSPACE).graph({}));
-    assert.deepStrictEqual<readonly [number, readonly string[]]>([repository, Object.keys(graph.nodes)], [0, ['suite']], 'workspace is a git repository whose graph holds its one project');
+    const graph = yield* Effect.promise(() => workspace.write(files).graph({}));
+    const projects = Object.keys(files).filter((file) => path.basename(file) === 'project.json');
+    assert.deepStrictEqual<readonly [number, readonly string[]]>([repository, Object.keys(graph.nodes)], [0, projects.map(path.dirname)], 'workspace is a git repository whose graph holds its one project');
     workspace.write({ [path.join(data, 'project-graph.json')]: yield* Effect.orDie(Schema.encodeEffect(GraphFile)(graph)) });
     const { decided } = yield* served({ cwd: workspace.root, env: { NX_WORKSPACE_DATA_DIRECTORY: data } });
     return (command: string, folder: string) => decided(command, 'foreground', { cwd: path.join(workspace.root, folder) });
@@ -347,7 +365,19 @@ it.live(
 makeMethods(workspaceTest).live.each(WORKSPACE_CALLS)(
     'Call %s in folder %s of an Nx workspace whose only project, in folder suite, holds one test--* target, two clean--* targets, and one continuous serve--* target is decided %j',
     ([command, folder, decision], { workspace }) =>
-        servedIn(workspace).pipe(
+        servedIn(workspace, WORKSPACE).pipe(
+            Effect.flatMap((decided) => decided(command, folder)),
+            Effect.map((got) => assert.deepStrictEqual(got, decision)),
+            Effect.scoped,
+            Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
+        ),
+    30_000,
+);
+
+makeMethods(workspaceTest).live.each(BROWSER_CALLS)(
+    'Call %s in folder %s of an Nx workspace whose only project, in folder e2e, holds one test--playwright target beside its playwright.config.ts is decided %j',
+    ([command, folder, decision], { workspace }) =>
+        servedIn(workspace, BROWSER).pipe(
             Effect.flatMap((decided) => decided(command, folder)),
             Effect.map((got) => assert.deepStrictEqual(got, decision)),
             Effect.scoped,

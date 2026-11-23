@@ -271,7 +271,9 @@ const forLoop = Effect.fnUntraced(function* ({ request }: Call) {
     const stmts = yield* Effect.option(parsed(request.command, 'bash'));
     const [stmt, ...more] = Option.getOrElse(stmts, () => []);
     const clause = stmt?.cmd;
-    const head = clause?.type === 'ForClause' && clause.do.length === 1 && more.length === 0 ? clause.loop : undefined;
+    const [body, ...rest] = clause?.type === 'ForClause' ? clause.do : [];
+    const bare = body?.cmd?.type === 'CallExpr' && body.cmd.assigns.length === 0 && [stmt, body].every((held) => held?.redirs.length === 0);
+    const head = clause?.type === 'ForClause' && bare && rest.length === 0 && more.length === 0 ? clause.loop : undefined;
     const iterated = head?.type === 'WordIter' ? head : undefined;
     const items = (iterated?.items ?? []).map(({ parts }) => parts.map((part) => (part.type === 'Lit' || part.type === 'SglQuoted' ? part.value : undefined)));
     const literal = items.flatMap((parts) => (parts.every(Predicate.isString) ? [parts.join('')] : []));
@@ -670,6 +672,35 @@ const TASKS: Ruleset = {
             flags: ['--exclude=', '--mode=', '--repeats=', '-r, --root=', '--dir=', '--config='],
             nx: { ignores: ['--run'], narrows: true },
             rules: [loopedRun('Loop reruns vitest, use --repeats', repeated)],
+        },
+        playwright: {
+            flags: [
+                '--add-reporter=',
+                '--browser=',
+                '-c, --config=',
+                '-g, --grep=',
+                '-G, --grep-invert=',
+                '--global-timeout=',
+                '-j, --workers=',
+                '--last-failed-file=',
+                '--max-failures=',
+                '--output=',
+                '--project=',
+                '--repeat-each=',
+                '--reporter=',
+                '--retries=',
+                '--run-agents=',
+                '--shard=',
+                '--test-list=',
+                '--test-list-invert=',
+                '--timeout=',
+                '--trace=',
+                '--tsconfig=',
+                '--ui-host=',
+                '--ui-port=',
+                '--update-source-method=',
+            ],
+            nx: { selects: ['--config'], reads: 'playwright.config.ts' },
         },
         xargs: { rules: [cores(/./u, '-P', '--max-procs')] },
         parallel: { flags: ['-j, --jobs=', '-P, --max-procs='], rules: [cores(/./u, '--jobs', '--max-procs')] },

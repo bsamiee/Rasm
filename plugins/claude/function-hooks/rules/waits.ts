@@ -4,9 +4,9 @@ import { Array, Clock, Duration, Effect, Filter, Option, Record } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
 import { Host } from '#/host';
 import { Decision, Verdict } from '#/rules/decision';
-import { type Call, edited, erased, inserted, once, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, spelled, stages, when, whole, within } from '#/rules/rule';
-import type { Invocation } from '#/shell/invocation';
-import type { Word } from '#/shell/script';
+import { type Call, edited, erased, inserted, listed, once, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, spelled, stages, when, whole, within } from '#/rules/rule';
+import { type Invocation, WRITES } from '#/shell/invocation';
+import { INSTANT, type Word } from '#/shell/script';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ const SPECIAL_KIND = /\b(?:tied|readonly|association)\b.*\bspecial\b/u;
 const ENDLESS: ReadonlySet<string> = new Set(['/dev/zero', '/dev/urandom', '/dev/random']);
 const IDLE: ReadonlySet<string> = new Set(['echo', 'printf', ':', 'true']);
 const CAPTURE = /^(?:\$\((?!\()|`)/u;
-const RUN_POLLS: ReadonlySet<string> = new Set(['sleep', 'jq', 'grep', 'rg', 'echo', 'printf', 'test', '[', 'true', ':', 'date', 'read']);
+const RUN_POLLS: ReadonlySet<string> = new Set(['sleep', 'jq', 'grep', 'rg', 'echo', 'printf', 'test', '[', '[[', '((', 'true', ':', 'date', 'read']);
 const PROBES: ReadonlySet<string> = new Set([...RUN_POLLS, 'false', 'pgrep', 'ps', 'stat', 'ls', 'cat', 'tail', 'head', 'wc', 'curl', 'lsof', 'nc', 'wait4path', 'caffeinate', 'seq', 'break', 'continue', 'exit']);
 const UNTESTED: ReadonlySet<string> = new Set(['true', ':', 'false', 'read', 'sleep']);
 const CONSTANT: ReadonlySet<string> = new Set(['true', ':', 'false']);
@@ -31,6 +31,7 @@ const WAITERS: ReadonlySet<string> = new Set(['sleep', 'timeout', 'caffeinate', 
 const PATH_WORD = /^\S+$/u;
 const LOOPBACK: ReadonlySet<string> = new Set(['127.0.0.1', 'localhost', '::1']);
 const SILENT_SOURCE = /^a?nullsrc\b/u;
+const PACED: ReadonlySet<string> = new Set(['-re', '-readrate']);
 const RECORDS = [
     [/\/tasks\/a[0-9a-f]{16}\.output$/u, "is a running agent's output that the agent reports when it ends, SendMessage asks it for status"],
     [/\/\.claude\/projects(?:\/[^/]+)?\/?$|\/\.claude\/projects\/.+\.jsonl$|\/\.codex\/(?:archived_)?sessions(?:\/|$)/u, 'is a session transcript, atuin threads show <session id> --style ndjson reads it'],
@@ -53,18 +54,30 @@ const viewedRun = (invocation: Invocation) => {
     const viewed = invocation.path[0] === 'run' && invocation.path[1] === 'view' && !invocation.has('--log', '--log-failed', '--job', '--web', '--attempt');
     return Option.map(
         Option.filter(Option.fromNullishOr(run), ({ text }) => viewed && DIGITS.test(text)),
-        ({ text }) => ({ run: text, follow: ['gh run watch', text, '--exit-status', ...invocation.supplied('--repo').flatMap(({ raw }) => ['--repo', raw])].join(' ') }),
+        ({ text }) => ['gh run watch', text, '--exit-status', ...invocation.supplied('--repo').flatMap(({ raw }) => ['--repo', raw])].join(' '),
     );
 };
+
+const fileless = ({ command }: Invocation): boolean => command.redirects.every(({ op, target }) => !WRITES.has(op) || Option.exists(target, ({ text }) => text === devNull));
 
 const polledRun: Rule = (invocation, { analysis, request }) =>
     Option.match(
         Option.filter(viewedRun(invocation), () => invocation.repeated),
         {
             onNone: () => [],
-            onSome: ({ run, follow }) => {
+            onSome: (watch) => {
                 const own = analysis.invocations.filter((other) => other.command.origin === 'call');
-                const polls = own.every((other) => other.repeated && (RUN_POLLS.has(other.program) || Option.exists(viewedRun(other), (viewed) => viewed.run === run)));
+                const follow = [...invocation.assigned.map(({ raw }) => raw), watch].join(' ');
+                const polls = own.every(
+                    (other) =>
+                        other.repeated &&
+                        fileless(other) &&
+                        (RUN_POLLS.has(other.program) ||
+                            Option.contains(
+                                Option.map(viewedRun(other), (viewed) => [...other.assigned.map(({ raw }) => raw), viewed].join(' ')),
+                                follow,
+                            )),
+                );
                 const background = request.kind === 'foreground' ? [Verdict.Background()] : [];
                 return invocation.command.origin === 'call' && polls ? [Verdict.Edit({ start: 0, end: invocation.command.source.length, text: Option.some(follow), subject: Option.some('gh run view loop') }), ...background] : refusal(`Loop polls gh run view, run ${follow}`);
             },
@@ -75,14 +88,12 @@ const watchedRun: Rule = (invocation, { analysis, request }) => {
     const { command } = invocation;
     const waited = analysis.invocations.findLast((other) => other.command.source === command.source && other.command.end <= command.start);
     const read = command.origin === 'call' && invocation.outer.length === 0 && !(command.pipes || command.fed || command.captured) && command.redirects.every(({ op }) => op === RedirOperator.DplOut);
-    const slept = waited?.program === 'sleep' && waited.outer.length === 0 && !waited.command.looping;
-    return Option.match(
-        Option.filter(viewedRun(invocation), () => !invocation.repeated && read && slept && request.kind !== 'monitor'),
-        {
-            onNone: () => [],
-            onSome: ({ follow }) => [...(waited === undefined ? [] : edited(waited, waited.command, ':')), ...whole(invocation, follow, 'sleep before gh run view'), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])],
-        },
-    );
+    const slept = Option.filter(Option.fromNullishOr(waited), (held) => held.program === 'sleep' && held.outer.length === 0 && !held.command.looping);
+    const removed = Option.flatMap(slept, (held) => Option.map(listed(command.source, held.command), (span) => erased(held, span)));
+    return Option.match(Option.all({ follow: Option.filter(viewedRun(invocation), () => !invocation.repeated && read && request.kind !== 'monitor'), removed }), {
+        onNone: () => [],
+        onSome: ({ follow, removed: gone }) => [...gone, ...whole(invocation, follow, 'sleep before gh run view'), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])],
+    });
 };
 
 // --- [TIMERS]
@@ -94,15 +105,15 @@ const closesInput = ({ row: { closesInput: closes }, has }: Invocation): boolean
 const timer = (invocation: Invocation, { request }: Call): readonly Verdict[] => (request.kind === 'foreground' && invocation.last ? [Verdict.Background()] : []);
 
 const bareTimer = (call: Call, waiter: string): readonly Verdict[] | undefined =>
-    call.analysis.invocations.every(({ program, command: other }) => other.origin !== 'call' || program === waiter || program === 'timeout' || IDLE.has(program))
+    call.analysis.invocations.every((other) => !other.last || other.row.shell !== undefined || other.program === waiter || other.program === 'timeout' || (IDLE.has(other.program) && fileless(other)))
         ? refusal('A bare timer waits on nothing and wakes you with nothing new: background tasks and agents notify when they end, Monitor `until <check>; do sleep 5; done` waits on a condition with timeout_ms as its bound, and a turn with nothing to do ends until a notice arrives')
         : undefined;
 
 const sleep: Rule = (invocation, call) => {
     const { command, operands } = invocation;
     const alone = command.origin === 'call' && invocation.outer.length === 0 && !command.looping && !command.fed && !command.pipes;
-    if (operands.every(({ text }) => Number(text) === 0)) {
-        return alone ? edited(invocation, command, ':', spelled(invocation.words)) : [];
+    if (Array.isReadonlyArrayNonEmpty(operands) && operands.every(({ known, text }) => known && INSTANT.test(text))) {
+        return alone ? whole(invocation, ':', spelled(invocation.words)) : [];
     }
     return bareTimer(call, 'sleep') ?? timer(invocation, call);
 };
@@ -127,8 +138,8 @@ const silentSleep: Rule = (invocation) => {
         (at) => Array.get(texts, at + 1),
     );
     const target = Array.last(texts);
-    const discarded = Option.contains(format, 'null') || Option.contains(target, devNull) || (Option.contains(target, '-') && !invocation.command.pipes);
-    const silent = Option.exists(after('-i'), (source) => SILENT_SOURCE.test(source)) && discarded;
+    const discarded = Option.contains(target, devNull) || (Option.contains(format, 'null') && Option.contains(target, '-'));
+    const silent = texts.some((text) => PACED.has(text)) && Option.exists(after('-i'), (source) => SILENT_SOURCE.test(source)) && discarded;
     return Option.match(
         Option.filter(after('-t'), (seconds) => silent && Number.isFinite(Number(seconds))),
         { onNone: () => [], onSome: (seconds) => whole(invocation, `sleep ${seconds}`, spelled(invocation.words)) },
@@ -136,17 +147,11 @@ const silentSleep: Rule = (invocation) => {
 };
 
 const loopbackPing: Rule = (invocation) => {
-    const texts = invocation.words.map(({ text }) => text);
-    const after = (flag: string, fallback: number) =>
-        Option.match(
-            Option.flatMap(
-                Array.findFirstIndex(texts, (text) => text === flag),
-                (at) => Array.get(texts, at + 1),
-            ),
-            { onNone: () => fallback, onSome: Number },
-        );
-    const seconds = after('-c', Number.NaN) * after('-i', 1);
-    return invocation.operands.some(({ text }) => LOOPBACK.has(text)) && Number.isFinite(seconds) ? whole(invocation, `sleep ${seconds}`, spelled(invocation.words)) : [];
+    const { command } = invocation;
+    const [count = Number.NaN] = invocation.values('-c').map(Number);
+    const [interval = 1] = invocation.values('-i').map(Number);
+    const seconds = (count - 1) * interval;
+    return invocation.operands.some(({ text }) => LOOPBACK.has(text)) && seconds > 0 && !(command.pipes || command.captured) ? whole(invocation, `sleep ${seconds}`, spelled(invocation.words)) : [];
 };
 
 const unwrap = (invocation: Invocation) => Option.match(Array.head(invocation.rest), { onNone: () => [], onSome: ({ start }) => erased(invocation, { start: invocation.head.start, end: start }, spelled(invocation.words)) });
@@ -159,11 +164,13 @@ const stalledRead: Rule = (invocation, call) => {
     const [amount] = invocation.values('-t');
     const sources = Array.getSomes(redirected(invocation, RedirOperator.RdrIn).flatMap(({ descriptor, target }) => (Option.getOrElse(descriptor, () => '0') === '0' ? [target] : []))).map(({ text }) => text);
     const endless = sources.find((source) => ENDLESS.has(source));
-    const unwaited = !command.fed || (sources.length > 0 && sources.every((source) => source === '/dev/null' || ENDLESS.has(source))) || within(invocation, call).some(({ command: inner }) => inner.substituted);
+    const bounded = invocation.has('-n', '-N') || invocation.values('-d').includes('');
+    const substituted = within(invocation, call).filter(({ command: inner }) => inner.substituted);
+    const unwaited = !command.fed || (endless !== undefined && !bounded && sources.every((source) => ENDLESS.has(source))) || (Array.isReadonlyArrayNonEmpty(substituted) && substituted.every(({ program }) => WAITERS.has(program) || IDLE.has(program)));
     if (amount !== undefined) {
-        return unwaited ? [...edited(invocation, command, `sleep ${amount}`, `read -t ${amount}`), ...timer(invocation, call)] : [];
+        return unwaited ? edited(invocation, command, `sleep ${amount}`, `read -t ${amount}`) : [];
     }
-    return endless === undefined || invocation.has('-n', '-N') ? [] : refusal(`read < ${endless} never returns and spins a core, run sleep <seconds>`);
+    return endless === undefined || bounded ? [] : refusal(`read < ${endless} never returns and spins a core, run sleep <seconds>`);
 };
 
 const selfMatch = (invocation: Invocation, word: Word | undefined) => (word === undefined || !word.known || !LETTER.test(word.text) ? [] : edited(invocation, word, quote(`[${word.text.slice(0, 1)}]${word.text.slice(1)}`)));
@@ -184,27 +191,33 @@ const recordRoute = (file: string): Option.Option<string> =>
 const recorded = (file: string) => Option.match(recordRoute(file), { onNone: () => Decision.cases.Allow.make({}), onSome: (route) => Decision.cases.Deny.make({ reason: `${file} ${route}` }) });
 
 const writers = (host: Host['Service'], files: readonly string[]) =>
-    Effect.map(Effect.all([host.parents, Effect.forEach(files, (file) => host.output(['lsof', '-F', 'pa', file]), { concurrency: 'unbounded' })]), ([parents, listings]) =>
+    Effect.map(Effect.all([host.parents, Effect.forEach(files, (file) => Effect.orElseSucceed(host.output(['lsof', '-F', 'pa', file]), () => ''), { concurrency: 'unbounded' })]), ([parents, listings]) =>
         listings.map((listing) => {
-            const holders = listing
-                .split(PROCESS_FIELD)
-                .filter((held) => WRITE_ACCESS.test(held))
-                .map((held) => held.split('\n', 1).join(''));
-            return holders.filter((pid) => parents.has(pid) && !holders.includes(`${parents.get(pid)}`)).slice(0, 1);
+            const holders = new Set(
+                listing
+                    .split(PROCESS_FIELD)
+                    .filter((held) => WRITE_ACCESS.test(held))
+                    .map((held) => held.split('\n', 1).join('')),
+            );
+            return [...holders].filter((pid) => parents.has(pid) && !holders.has(`${parents.get(pid)}`));
         }),
     );
 
 const tailedTask: Rule = (invocation, call) => {
-    const files = invocation.inputs.map(({ text }) => text).filter((file) => taskIds(file).length > 0);
-    if (call.request.kind !== 'monitor' || files.length === 0 || (invocation.command.job && reaped(call)) || stages(invocation, call).later.some(closesInput)) {
+    const files = Array.getSomes(invocation.inputs.map(({ text }) => call.host.resolve(text, invocation.command.cwd))).filter((file) => taskIds(file).length > 0);
+    if (call.request.kind !== 'monitor' || files.length === 0 || files.length < invocation.inputs.length || (invocation.command.job && reaped(call)) || stages(invocation, call).later.some(closesInput)) {
         return [];
     }
-    return writers(call.host, files).pipe(
-        Effect.map((held) =>
-            Option.match(Option.fromNullishOr(EXIT_WAITERS[process.platform]), {
-                onNone: () => [],
-                onSome: (waiter) => (held.flat().length === 0 ? respell({ drops: ['-f', '-F', '--follow'] })(invocation) : [...inserted(invocation, invocation.head.start, '{ '), ...inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` & ${held.flat().map(waiter).join('; ')}; kill $!; }`)]),
-            }),
+    const { start } = (invocation.outer[0] ?? invocation).head;
+    return Effect.all([writers(call.host, files), Effect.forEach(files, call.host.exists)]).pipe(
+        Effect.map(([held, found]) =>
+            Option.match(
+                Option.filter(Option.fromNullishOr(EXIT_WAITERS[process.platform]), () => found.every(Boolean)),
+                {
+                    onNone: () => [],
+                    onSome: (waiter) => (held.flat().length === 0 ? respell({ drops: ['-f', '-F', '--follow'] })(invocation) : [...inserted(invocation, start, '{ '), ...inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` & ${held.flat().map(waiter).join('; ')}; kill $!; }`)]),
+                },
+            ),
         ),
         Effect.orElseSucceed(() => []),
     );
@@ -238,10 +251,8 @@ const watched = Effect.fnUntraced(function* (files: readonly string[]) {
 const polledTask = Effect.fnUntraced(function* (call: Call) {
     const { analysis, host, request } = call;
     const own = analysis.invocations.filter(({ command }) => command.origin === 'call');
-    const files = Array.dedupe(
-        own.flatMap((invocation) =>
-            Array.getSomes([...invocation.words, ...Array.getSomes(invocation.command.redirects.map(({ target }) => target))].filter(({ text }) => PATH_WORD.test(text) && (taskIds(text).length > 0 || Option.isSome(recordRoute(text)))).map(({ text }) => host.resolve(text, invocation.command.cwd))),
-        ),
+    const files = Array.dedupe(analysis.invocations.flatMap((invocation) => Array.getSomes([...invocation.words, ...Array.getSomes(invocation.command.redirects.map(({ target }) => target))].filter(({ text }) => PATH_WORD.test(text)).map(({ text }) => host.resolve(text, invocation.command.cwd))))).filter(
+        (file) => taskIds(file).length > 0 || Option.isSome(recordRoute(file)),
     );
     const routed = Array.getSomes(files.map((file) => Option.map(recordRoute(file), (route) => ({ route, file }))));
     const routes = Record.collect(
@@ -274,7 +285,7 @@ const polledTask = Effect.fnUntraced(function* (call: Call) {
 
 // --- [JOBS]
 
-const reaped = ({ analysis }: Call): boolean => analysis.invocations.some(({ program }) => program === 'wait' || program === 'kill');
+const reaped = ({ analysis: { jobs, invocations } }: Call): boolean => jobs.every(({ end }) => invocations.some(({ program, has, command }) => (program === 'wait' || (program === 'kill' && !has('-0'))) && command.start >= end));
 
 const backgroundJob = (call: Call): readonly Verdict[] => {
     const { analysis, request } = call;
@@ -297,10 +308,12 @@ const backgroundJob = (call: Call): readonly Verdict[] => {
 
 const pipedStatus = (call: Call): readonly Verdict[] => {
     const own = call.analysis.invocations.filter(({ command: { origin } }) => origin === 'call');
-    const set = own.some(({ program, values }) => program === 'set' && values('-o').includes('pipefail'));
     const hidden = own.find(({ row, last, command: { pipes } }) => pipes && last && (row.pipefail === true || row.nx !== undefined));
-    const closing = own.some((invocation) => invocation.command.fed && closesInput(invocation));
-    return hidden !== undefined && !set && !closing ? inserted(hidden, 0, 'set -o pipefail; ') : [];
+    if (hidden === undefined) {
+        return [];
+    }
+    const set = own.some(({ program, words, command }) => program === 'set' && command.start < hidden.command.start && words.some(({ text }) => text === 'pipefail'));
+    return set || stages(hidden, call).later.some(closesInput) ? [] : inserted(hidden, 0, 'set -o pipefail; ');
 };
 
 const waitLoop = ({ analysis, request }: Call): readonly Verdict[] => {
@@ -319,21 +332,25 @@ const waitLoop = ({ analysis, request }: Call): readonly Verdict[] => {
 };
 
 const endlessLoop = ({ analysis }: Call): readonly Verdict[] => {
+    const own = analysis.invocations.filter(({ command }) => command.origin === 'call');
     const loops = Map.groupBy(
-        analysis.invocations.filter(({ command }) => command.origin === 'call' && Option.isSome(command.loop)),
+        own.filter(({ command }) => Option.isSome(command.loop)),
         ({ command }) => Option.match(command.loop, { onNone: () => -1, onSome: ({ start }) => start }),
     );
     return [...loops.values()].flatMap((looped) => {
         const tested = looped.filter(({ command }) => Option.exists(command.loop, ({ condition }) => condition));
         const runs = looped.some(({ program }) => !CONSTANT.has(program) && !IDLE.has(program) && !WAITERS.has(program));
-        return runs && tested.length > 0 && tested.every(({ program }) => CONSTANT.has(program)) && !looped.some(({ program }) => LEAVES.has(program) || program === 'return')
+        const spins = tested.every(({ program, command }) => CONSTANT.has(program) && Option.exists(command.loop, ({ until }) => (program === 'false') === until));
+        const spans = Array.getSomes(looped.map(({ command }) => command.loop));
+        const left = own.some(({ program, command }) => (program === 'exit' || program === 'return') && spans.some(({ start, end }) => command.start >= start && command.end <= end));
+        return runs && tested.length > 0 && spins && !left && !looped.some(({ program }) => LEAVES.has(program))
             ? refusal(`Loop on ${tested.map(({ program }) => program).join(' ')} never ends, as nothing changes its condition and no break or exit leaves it, wait on a real condition with Monitor \`until <check>; do sleep <seconds>; done\``)
             : [];
     });
 };
 
 const idleCall = ({ analysis: { invocations } }: Call): readonly Verdict[] =>
-    invocations.length > 0 &&
+    invocations.some(({ program }) => program !== ':') &&
     invocations.every(({ program, words, command }) => (IDLE.has(program) || (program === 'date' && command.captured)) && command.redirects.length === 0 && words.every(({ parts }) => parts.every(({ known, glob, parameter, raw }) => parameter === undefined && !glob && (known || CAPTURE.test(raw)))))
         ? refusal('Call prints literal text and runs nothing: background tasks and agents notify when they end, so end the turn, and a foreground subagent, whose background work ends with its final answer, keeps working instead')
         : [];
@@ -371,9 +388,16 @@ const WAITS: Ruleset = {
         rg: { closesInput: ['--quiet', '--max-count', '--files-with-matches'] },
         head: { closesInput: true },
         tail: {
-            flags: ['-F', '-b='],
+            flags: ['-F', '-b=', '--pid='],
             reads: true,
-            rules: [when(({ has, inputs }) => has('-f', '-F') && inputs.some(({ text }) => text !== devNull), tailedTask, streamed), when(({ has, inputs }) => has('-f', '-F') && inputs.length > 0 && inputs.every(({ text }) => text === devNull), nullTail)],
+            rules: [
+                when(({ has }) => has('--pid'), exitsAlone),
+                when(
+                    ({ has }) => !has('--pid') && has('-f', '-F'),
+                    when(({ inputs, command }) => inputs.some(({ text }) => text !== devNull) || (inputs.length === 0 && command.redirects.some(({ op }) => op === RedirOperator.RdrIn)), tailedTask, streamed),
+                    when(({ inputs }) => inputs.length > 0 && inputs.every(({ text }) => text === devNull), nullTail),
+                ),
+            ],
         },
         ffmpeg: { rules: [silentSleep] },
         ping: { rules: [loopbackPing] },

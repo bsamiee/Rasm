@@ -28,6 +28,15 @@
             }
         },
         {
+            "name": "code",
+            "source": "./plugins/shared/code",
+            "version": "0.1.0",
+            "description": "Refactoring and testing rules for code in any language",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
             "name": "cpp",
             "source": "./plugins/shared/cpp",
             "version": "0.5.0",
@@ -39,9 +48,9 @@
         },
         {
             "name": "delegate",
-            "source": "./plugins/shared/delegate",
+            "source": "./plugins/claude/delegate",
             "version": "0.3.0",
-            "description": "Work handed to other agents: headless Antigravity runs and a council of models",
+            "description": "Work handed to other agents: headless Antigravity and Codex runs, audits of paths, and a council of models",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -159,6 +168,15 @@
             "source": "./plugins/shared/web",
             "version": "0.2.2",
             "description": "Web styling and components: CSS, browser support facts, and React Aria Components",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "writing",
+            "source": "./plugins/shared/writing",
+            "version": "0.1.0",
+            "description": "Project prose and names: wording rules, a word map, and automatic checks",
             "author": {
                 "name": "Bardia Samiee"
             }

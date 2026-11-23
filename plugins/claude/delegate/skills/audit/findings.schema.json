@@ -1,0 +1,32 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["findings", "notes", "unread"],
+    "properties": {
+        "findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "line", "kind", "severity", "issue", "evidence", "verify", "fix"],
+                "properties": {
+                    "path": { "type": "string", "description": "File path relative to the checkout root" },
+                    "line": { "type": "integer", "description": "First line of the code or text the finding is about" },
+                    "kind": {
+                        "type": "string",
+                        "enum": ["defect", "risk", "config", "stale", "standard"],
+                        "description": "defect: wrong behavior today. risk: correct today, wrong under a named input or state. config: a setting that contradicts another file or its tool. stale: text or a reference to something that no longer exists. standard: code that breaks a rule of this repository's AGENTS.md"
+                    },
+                    "severity": { "type": "string", "enum": ["high", "medium", "low"], "description": "high: data loss, a wrong result, or a broken build. medium: wrong in a case users reach. low: wrong in a rare case or costly to maintain" },
+                    "issue": { "type": "string", "description": "What is wrong, in one sentence" },
+                    "evidence": { "type": "string", "description": "Input, call, or state that triggers it and what is then observed" },
+                    "verify": { "type": "string", "description": "Command or read that shows it, and whether this run performed it" },
+                    "fix": { "type": "string", "description": "Smallest change that removes the cause" }
+                }
+            }
+        },
+        "notes": { "type": "array", "items": { "type": "string" }, "description": "Observations of value that are not findings" },
+        "unread": { "type": "array", "items": { "type": "string" }, "description": "Every path of the share this run did not read whole" }
+    }
+}

@@ -6,7 +6,8 @@
             "args": ["--per", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "binlog-mcp"],
             "default_tools_approval_mode": "approve",
             "disabled_tools": ["stop", "stop_instance"],
-            "supports_parallel_tool_calls": true
+            "supports_parallel_tool_calls": true,
+            "disabledTools": ["stop", "stop_instance"]
         }
     }
 }

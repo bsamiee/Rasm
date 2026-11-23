@@ -67,7 +67,7 @@ Rasm/
 ├── .claude/
 ├── .claude-plugin/           # Claude Code marketplace of plugins/
 ├── .codex/
-├── .agents/                  # Codex marketplace of plugins/
+├── .agents/                  # Codex marketplace and Antigravity registry of plugins/
 ├── .vscode/
 ├── CLAUDE.md                 # Agent standards, linked as AGENTS.md
 ├── LICENSE

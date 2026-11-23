@@ -119,7 +119,8 @@ test('decode', async ({ bench }) => {
 ## [08]-[PLAYWRIGHT]
 
 Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)` of `@rasm/testing/playwright`:
-- `@rasm/nx-playwright` infers tag `host:browser` and `test--playwright` per Playwright config, and reports and `test-results` go to `outputPath`
+- `@rasm/nx-playwright` infers tag `host:browser` and `test--playwright` per Playwright config
+- `test--playwright` sends reports and `test-results` to `outputPath` through `--output` and `PLAYWRIGHT_<REPORTER>_OUTPUT_DIR`, over folders a config states
 - Project `test` runs `*.spec.ts` and `*.test.ts` files, and project `media` runs `*.media.ts` files outside the default `testMatch`
 - Project `media` writes to `<outputPath>/media` at a fixed scale factor, color scheme, locale, and zone, with traces and failure screenshots off
 - `media(scenes)` registers a Chrome Web Store screenshot per scene and both promo tiles from the built manifest, `icons/mark.svg`, and `config.brand`

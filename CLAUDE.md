@@ -13,7 +13,7 @@
 
 [TOOL_ROUTING]:
 - ALWAYS load the coding skill of each language a change writes or reviews
-- Use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for any fact about Claude Code or Codex, their configuration included
+- Use `claudeCodeDocs`/`openaiDeveloperDocs`/`googleDeveloperDocs` MCP for any fact about Claude Code, Codex, or Antigravity, configuration included
 - Use `tool:watch-app` skill to open, interface, and interact with apps, (except Adobe apps), always open an app as 1 step, visually check to clear modal dialogue windows
 - Use `chrome:browser` skill for any work in the owner's Chrome, web pages and chrome:// pages alike
 - Use `Atelier` app built by this repo to drive all work inside Adobe applications (InDesign, Illustrator, Photoshop, Acrobat, etc)
@@ -21,12 +21,12 @@
 - Use `cpp:unreal` skill for any work against a running Unreal Engine, its debugging, reloads, and logs
 - Use `rhino:host` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas
 - Use `tool:inspect` skill for a vendor host fact its docs lack or contradict, read from installed files, logs, and binaries before any launch
-- Use `refactor-code` skill whenever code or configuration is written, reduced, rebuilt, or judged for quality
+- Use `code:refactor` skill whenever code or configuration is written, reduced, rebuilt, or judged for quality
 - Use `search:web` skill for any fact outside the repository
 - Use `search:code` skill for any fact regarding an external dependency
 - Use `terminal:history` skill before rerunning, re-deriving, or asking what earlier work ran, printed, found, or settled
 - Use `tool:google` skill for any Google account or service, every account holding every scope
-- Use `clean-prose` skill for when writing, editing, or reviewing prose of any kind
+- Use `writing:prose` skill for when writing, editing, or reviewing prose of any kind
 - Use `dotnet:codelens` skill to read, trace, or change any file in a .NET solution
 - Use `nx build`/`nx test` for Xcode builds and tests, `xcrun simctl`, `devicectl`, and `xcresulttool` for simulators, devices, and results, `lldb` MCP for a debug session
 
@@ -65,7 +65,7 @@ Values come from the code, host, or package that already states them:
 
 ## [04]-[CODE_QUALITY]
 
-Architecture: no flat folders, no tiny or oversized files, no `.d.ts`, no `src/`, no coined names (clean-prose):
+Architecture: no flat folders, no tiny or oversized files, no `.d.ts`, no `src/`, no coined names (`writing:prose`):
 - Category folders name a field outliving their members, never a mechanism, a project is one capability, and its folders group files of one concept
 - Growth lives in names, categories, and general shapes, never in speculative code, exports, constants, types, or folders today's work lacks
 - Libraries solve their field's problem once in general form, callers pick paths, policy, runtime, and transport, and products adapt to them

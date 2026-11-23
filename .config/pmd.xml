@@ -19,9 +19,9 @@
         <exclude name="MethodArgumentCouldBeFinal" /> <!-- `javac` treats effectively final parameters as final -->
         <exclude name="NoPackage" /> <!-- Ghidra loads scripts from script folders in the default package -->
         <exclude name="OnlyOneReturn" /> <!-- `switch` arms and guards return per case -->
-        <exclude name="ShortClassName" /> <!-- Names come from their subject (`Row`, `Role`), clean-prose naming -->
-        <exclude name="ShortMethodName" /> <!-- Names come from their subject, clean-prose naming -->
-        <exclude name="ShortVariable" /> <!-- Names come from their subject, clean-prose naming -->
+        <exclude name="ShortClassName" /> <!-- Names come from their subject (`Row`, `Role`), `writing:prose` naming -->
+        <exclude name="ShortMethodName" /> <!-- Names come from their subject, `writing:prose` naming -->
+        <exclude name="ShortVariable" /> <!-- Names come from their subject, `writing:prose` naming -->
     </rule>
 
     <rule ref="category/java/design.xml">

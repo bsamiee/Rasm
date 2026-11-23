@@ -19,16 +19,17 @@ Rules every tsconfig file follows:
 
 tsconfig files and what each holds:
 
-| [INDEX] | [FILE]                     | [HOLDS]                                                                   |
-| :-----: | :------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | Root `tsconfig.base.json`  | Every shared compiler option, no `include`, no `files`                    |
-|  [02]   | Root `tsconfig.json`       | `extends` base, `"include": []`, `references` to each project             |
-|  [03]   | Package `tsconfig.json`    | `extends` base, `references`, runtime `types` and `lib`                   |
-|  [04]   | Root `tsconfig.tests.json` | `noEmit: true` over root `vitest.config.ts`, `references` to test support |
+| [INDEX] | [FILE]                    | [HOLDS]                                                                                                     |
+| :-----: | :------------------------ | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | Root `tsconfig.base.json` | Every shared compiler option, no `include`, no `files`                                                      |
+|  [02]   | Root `tsconfig.json`      | `extends` base, `"include": []`, `references` to each project                                               |
+|  [03]   | Package `tsconfig.json`   | `extends` base, `references`, runtime `types` and `lib`                                                     |
+|  [04]   | Root `tsconfig.node.json` | `noEmit: true` over root `vitest.config.ts` and `.config/stylelint.config.ts`, `references` to test support |
+|  [05]   | UXP `tsconfig.base.json`  | `extends` root base, UXP `lib`, `module`, `types`, and `paths`, in `@rasm/uxp`                              |
 
 Programs and their emit:
 - Programs write into their own `dist` for `pnpm pack`, and `noEmit` is the one emit decision every `tsc` mode, editor, and Nx target reads
-- Root `tsconfig.json` and `tsconfig.tests.json` emit nothing and write their `.tsbuildinfo` to `.cache/tsc`
+- Root `tsconfig.json` and `tsconfig.node.json` emit nothing, and their `.tsbuildinfo` go to `.cache/tsc` and `.artifacts/tsc`, as a target writes the second
 - Test suite programs `references` reach each package they import, else TS6307 refuses the files outside their `include`
 - Applications another project imports pair a composite `tsconfig.json` holding `"files": []` with a `noEmit` `tsconfig.app.json`
 - `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program and `build--tsc` for an emitting one, where `check--tsc` runs the build
@@ -99,11 +100,15 @@ Project references and the generator writing them:
 - Imports from a referenced project load its emitted `.d.ts`, and a package program re-checks no sibling source
 - Referenced projects set `composite`, and a config with `"files": []` can reference a `noEmit` program, as TS6310 needs input files
 - `@rasm/nx-typescript` runs `tsc --build` on a package `tsconfig.json` with `references`, `tsc` on one without
+- Solution files check only programs their own project holds, and root `check--tsc` checks `tsconfig.node.json` alone
 - `@nx/js` sync generator `typescript-sync` writes `references` from graph dependencies, run by `nx sync` and targets listing it in `syncGenerators`
 - `typescript-sync` reports a project missing from root `references` on every run while its `tsconfig.json` is not composite
 - `typescript-sync` writes each project dependency into the project's `tsconfig.lib.json` or `tsconfig.app.json`, else its `tsconfig.json`
+- `typescript-sync` writes `tsconfig.build.json`, `cjs`, `esm`, and `runtime` the same way, and a base takes none of those names
+- `typescript-sync` names a dependency's `tsconfig.lib.json` from a `lib` or `app` config and its folder from a `tsconfig.json`
 - `references` follow each program's own imports: `nx.sync.ignoredDependencies` in a runtime config drops a dependency only another program imports
-- Programs `typescript-sync` never writes (`tsconfig.node.json`, `worker`, `storybook`, `server`) list the packages their own files import
+- Programs `typescript-sync` never writes (`tsconfig.node.json`, `extendscript`, `shared`, `worker`, `storybook`, `server`) list the packages their own files import
+- Root files a referenced project also includes load as its `.d.ts`, and no second program re-checks them under another `lib`
 - Suites importing nothing from a `noEmit` project name it in `ignoredDependencies`, as TS6310 refuses a `noEmit` reference
 
 ## [05]-[COMPILERS]

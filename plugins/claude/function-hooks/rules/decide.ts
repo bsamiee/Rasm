@@ -10,9 +10,11 @@ import { TASKS } from '#/rules/tasks';
 import { WAITS } from '#/rules/waits';
 import { analyzed, Parser } from '#/shell/invocation';
 import { PROGRAMS } from '#/shell/programs';
+import { parsed } from '#/shell/script';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const BACKGROUND = 'Call runs in the background and notifies on completion, never poll it';
 const RULESETS: readonly Ruleset[] = [FILES, WAITS, GIT, GHIDRA, TASKS, { programs: PROGRAMS }];
 const EVERY = RULESETS.flatMap(({ every = [] }) => every);
 const CALLS = RULESETS.flatMap(({ calls = [] }) => calls);
@@ -35,32 +37,50 @@ const judged = Effect.fnUntraced(function* (request: Request) {
     const analysis = yield* analyzed(request.command, { cwd: host.resolve(request.cwd, Option.none()), origin: 'call' });
     const call: Call = { request, analysis, host, programs: BY_NAME };
     const verdicts = yield* Effect.all([...analysis.invocations.map((invocation) => all(...(invocation.informational ? [] : [...(BY_NAME.get(invocation.program)?.rules ?? []), ...EVERY]))(invocation, call)), ...CALLS.map((rule) => settled(rule(call)))], { concurrency: 'unbounded' });
-    return yield* decisionOf(request.command, verdicts.flat(), (notes) => due(request, notes));
+    return decisionOf(request.command, verdicts.flat());
 });
 
-const converged = Effect.fnUntraced(function* (request: Request, current: Extract<Effect.Success<ReturnType<typeof judged>>, { readonly _tag: 'Rewrite' | 'Monitor' }>, seen: ReadonlySet<string>): Effect.fn.Return<Effect.Success<ReturnType<typeof judged>>, HostError, Host | Parser | RateLimiter.RateLimiter> {
+const converged = Effect.fnUntraced(function* (
+    request: Request,
+    current: Extract<ReturnType<typeof decisionOf>['decision'], { readonly _tag: 'Rewrite' | 'Monitor' }>,
+    subjects: ReturnType<typeof decisionOf>['subjects'],
+    seen: ReadonlySet<string>,
+): Effect.fn.Return<ReturnType<typeof decisionOf>, HostError, Host | Parser | RateLimiter.RateLimiter> {
     const kind = Match.valueTags(current, { Monitor: () => 'monitor' as const, Rewrite: ({ background }) => (background ? 'background' : request.kind) });
     const again = yield* judged({ ...request, command: current.command, kind });
-    if (again._tag === 'Deny') {
+    if (again.decision._tag === 'Deny') {
         return again;
     }
-    const notes = Array.dedupe([current.note, again.note].filter(Predicate.isNotUndefined));
-    const shared = { command: again._tag === 'Allow' ? current.command : again.command, ...(notes.length === 0 ? {} : { note: notes.join('. ') }) };
-    const merged = current._tag === 'Monitor' || again._tag === 'Monitor' ? Decision.cases.Monitor.make(shared) : Decision.cases.Rewrite.make({ ...shared, background: current.background || (again._tag === 'Rewrite' && again.background) });
+    const notes = Array.dedupe([current.note, again.decision.note].filter(Predicate.isNotUndefined));
+    const shared = { command: again.decision._tag === 'Allow' ? current.command : again.decision.command, ...(notes.length === 0 ? {} : { note: notes.join('. ') }) };
+    const merged = current._tag === 'Monitor' || again.decision._tag === 'Monitor' ? Decision.cases.Monitor.make(shared) : Decision.cases.Rewrite.make({ ...shared, background: current.background || (again.decision._tag === 'Rewrite' && again.decision.background) });
+    const joined = new Map([...subjects, ...again.subjects]);
     const key = `${merged._tag} ${merged.command}`;
     if (merged.command === current.command && merged._tag === current._tag) {
-        return merged;
+        return { decision: merged, subjects: joined };
     }
     if (seen.has(key) || seen.size > RULESETS.length) {
-        return Decision.cases.Deny.make({ reason: `Rules undo each other's rewrite, ${current.command} then ${merged.command}, fix the rule at its cause` });
+        return { decision: Decision.cases.Deny.make({ reason: `Rules undo each other's rewrite, ${current.command} then ${merged.command}, fix the rule at its cause` }), subjects: joined };
     }
-    return yield* converged(request, merged, seen.union(new Set([key])));
+    return yield* converged(request, merged, joined, seen.union(new Set([key])));
 });
+
+const parses = (text: string) => Effect.isSuccess(Effect.catch(parsed(text, 'bash'), () => parsed(text, 'zsh')));
 
 const decide = Effect.fn('decide')(
     function* (request: Request) {
         const first = yield* judged(request);
-        const decision = first._tag === 'Rewrite' || first._tag === 'Monitor' ? yield* converged(request, first, new Set([`Rewrite ${request.command}`, `${first._tag} ${first.command}`])) : first;
+        const { decision: settledOn, subjects } = first.decision._tag === 'Rewrite' || first.decision._tag === 'Monitor' ? yield* converged(request, first.decision, first.subjects, new Set([`Rewrite ${request.command}`, `${first.decision._tag} ${first.decision.command}`])) : first;
+        const broken = (settledOn._tag === 'Rewrite' || settledOn._tag === 'Monitor') && (yield* parses(request.command)) && !(yield* parses(settledOn.command));
+        const reached = broken && 'command' in settledOn ? Decision.cases.Deny.make({ reason: `Rules rewrote the call to ${settledOn.command}, which does not parse, fix the rule at its cause` }) : settledOn;
+        const notes = reached._tag === 'Deny' ? [] : [...Option.toArray(Option.fromNullishOr(reached.note)), ...(yield* due(request, subjects)), ...(reached._tag === 'Rewrite' && reached.background ? [BACKGROUND] : [])];
+        const noted = notes.length === 0 ? {} : { note: notes.join('. ') };
+        const decision = Decision.match(reached, {
+            Allow: () => Decision.cases.Allow.make(noted),
+            Deny: (denied) => denied,
+            Rewrite: ({ command, background }) => Decision.cases.Rewrite.make({ command, background, ...noted }),
+            Monitor: ({ command }) => Decision.cases.Monitor.make({ command, ...noted }),
+        });
         const outcome = Decision.match(decision, {
             Allow: ({ note }) => Record.getSomes({ note: Option.fromNullishOr(note) }),
             Deny: ({ reason }) => ({ reason }),

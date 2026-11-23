@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { AxeBuilder } from '@axe-core/playwright';
 import { layer } from '@effect/platform-node/NodeServices';
-import { getOutputsForTargetAndConfiguration, getPackageManagerCommand, getReadyUrl, readCachedProjectGraph, readJsonFile, workspaceRoot } from '@nx/devkit';
+import { getOutputsForTargetAndConfiguration, readCachedProjectGraph, readJsonFile, workspaceRoot } from '@nx/devkit';
 import { interpolate, isCI, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { type BrowserContext, chromium, defineConfig, expect, type Page, test, type TestInfo, type Worker } from '@playwright/test';
 import { Brand } from '@rasm/vite/chrome';
@@ -228,11 +228,10 @@ const config = (home: string) => {
     const folder = Option.flatMap(Schema.decodeUnknownOption(Named)(readJsonFile(join(home, 'package.json'))), ({ name }) => routed('@rasm/nx-playwright', name));
     return defineConfig({
         forbidOnly: Boolean(isCI()),
-        reporter: [['html', { open: 'never', ...Option.getOrUndefined(Option.map(folder, (at) => ({ outputFolder: join(at, 'html') }))) }]],
+        reporter: [['html', { open: 'never' }]],
         use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
         ...Option.getOrUndefined(
             Option.map(folder, (at) => ({
-                outputDir: join(at, 'test-results'),
                 projects: [
                     { name: 'test' },
                     {
@@ -245,11 +244,6 @@ const config = (home: string) => {
             })),
         ),
     });
-};
-
-const served = (task: string, address: string) => {
-    const url = getReadyUrl(address);
-    return defineConfig({ use: { baseURL: url }, webServer: { command: `${getPackageManagerCommand().exec} nx run ${task}`, url, reuseExistingServer: true, gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 } } });
 };
 
 const resource =
@@ -345,4 +339,4 @@ const media = (scenes: Array.NonEmptyReadonlyArray<Scene>) => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { config, type Extension, hosted, it, loaded, media, resource, routed, type Scene, served };
+export { config, type Extension, hosted, it, loaded, media, resource, routed, type Scene };

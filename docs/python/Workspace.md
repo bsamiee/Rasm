@@ -67,7 +67,7 @@ Fields the manifest states or leaves out:
 
 Distribution and import names per package kind:
 - Libraries take distribution `rasm-<name>` and import `rasm_<name>`, as `uv_build` and PEP 794 derive import names from the distribution name
-- Products import under a name skill `name-things` chooses, never a generic word or prefix `rasm_`
+- Products import under a name skill `writing:names` chooses, never a generic word or prefix `rasm_`
 - Packages hold no PEP 420 namespace, as an earlier top-level module of the same name on `sys.path` replaces every portion
 - Library import names never reach Blender's shared site-packages
 - PEP 561 stub distributions take `<package>-stubs`

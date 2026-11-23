@@ -24,6 +24,17 @@
             "type": "http",
             "url": "https://developers.openai.com/mcp",
             "default_tools_approval_mode": "approve"
+        },
+        "googleDeveloperDocs": {
+            "type": "http",
+            "url": "https://developerknowledge.googleapis.com/mcp",
+            "headers": {
+                "X-Goog-Api-Key": "${GOOGLE_DEVELOPER_KNOWLEDGE_API_KEY}"
+            },
+            "default_tools_approval_mode": "approve",
+            "env_http_headers": {
+                "X-Goog-Api-Key": "GOOGLE_DEVELOPER_KNOWLEDGE_API_KEY"
+            }
         }
     }
 }

@@ -49,7 +49,9 @@
     "search@rasm": true,
     "tool@rasm": true,
     "python@rasm": true,
-    "delegate@rasm": true
+    "delegate@rasm": true,
+    "code@rasm": true,
+    "writing@rasm": true
   },
   "extraKnownMarketplaces": {
     "rasm": {

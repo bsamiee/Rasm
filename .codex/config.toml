@@ -24,8 +24,9 @@ SessionStart = [{ hooks = [{ type = "command", command = "mise daemons register 
 "rust@rasm"          = { enabled = true }
 "cpp@rasm"           = { enabled = true }
 "media@rasm"         = { enabled = true }
-"delegate@rasm"      = { enabled = true }
 "tool@rasm"          = { enabled = true }
+"code@rasm"          = { enabled = true }
+"writing@rasm"       = { enabled = true }
 
 [marketplaces]
 rasm = { source_type = "local", source = "/Users/bardiasamiee/Developer/Rasm" }

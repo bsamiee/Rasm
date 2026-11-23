@@ -95,13 +95,24 @@ const listing = (workspaceRoot: string) => (sources: readonly string[]) => stamp
 
 const kept = Effect.fnUntraced(function* (cache: PluginCache<Program & { readonly digest: string }>, workspaceRoot: string, lock: string, row: string, config: string) {
     const root = dirname(config);
-    const [configured, listed] = yield* Effect.all([Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [`${root}/*.json`, `${root}/**/tsconfig*.json`, lock])), Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, root))], { concurrency: 'unbounded' });
+    const [configured, listed] = yield* Effect.all([Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [posix.join(root, '*.json'), posix.join(root, '**/tsconfig*.json'), lock])), Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, root))], { concurrency: 'unbounded' });
     const digest = hashArray([row, configured, ...listed]);
     const program = Option.filter(yield* recalled(cache, config, listing(workspaceRoot)), (held) => held.digest === digest);
     return { config, digest, program };
 });
 
 const referenced = ({ projectReferences = [] }: ParsedCommandLine) => projectReferences.map(({ path: at }) => (extname(at) === '.json' ? at : join(at, CONFIG)));
+
+const owning = (workspaceRoot: string, roots: ReadonlySet<string>) => (at: string) => {
+    const parts = normalizePath(relative(workspaceRoot, dirname(at))).split('/');
+    return Option.getOrElse(
+        Array.findFirst(
+            Array.makeBy(parts.length, (index) => parts.slice(0, parts.length - index).join('/')),
+            (folder) => roots.has(folder),
+        ),
+        () => '.',
+    );
+};
 
 const connected = (workspaceRoot: string, compiler: string, from: string) =>
     Effect.flatMap(
@@ -126,16 +137,7 @@ const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
             pending.filter((at) => !seen.has(at)),
             { onEmpty: () => seen, onNonEmpty: (fresh) => reached(fresh.flatMap(linked), new Set([...seen, ...fresh])) },
         );
-    const owner = (at: string) => {
-        const parts = normalizePath(relative(workspaceRoot, dirname(at))).split('/');
-        return Option.getOrElse(
-            Array.findFirst(
-                Array.makeBy(parts.length, (index) => parts.slice(0, parts.length - index).join('/')),
-                (folder) => roots.has(folder),
-            ),
-            () => '.',
-        );
-    };
+    const owner = owning(workspaceRoot, roots);
     const parsed = (config: string) => {
         const file = resolve(workspaceRoot, config);
         const read = api.parseConfigFile(file);
@@ -143,7 +145,7 @@ const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
             referenced(read),
             Filter.fromPredicate((at: string) => owner(at) === dirname(config)),
         );
-        return { entry: { file, parsed: read, chain: [file], loaded: read.fileNames }, owned, external: [...reached([...external, ...owned.flatMap(linked)], new Set([file, ...owned]))].filter((at) => !(at === file || owned.includes(at))) };
+        return { entry: { file, parsed: read, chain: [file], loaded: read.fileNames }, owned, external: [...reached([...(Array.isReadonlyArrayEmpty(read.fileNames) ? [] : external), ...owned.flatMap(linked)], new Set([file, ...owned]))].filter((at) => !(at === file || owned.includes(at))) };
     };
     const reads = configs.map((config) => [config, Result.try({ try: () => parsed(config), catch: (cause) => new Cause.UnknownError(cause, `${config} does not parse as a tsconfig`) })] as const);
     const files = yield* Effect.filter(Array.dedupe(Array.getSuccesses(reads.map(([, read]) => read)).flatMap(({ entry, owned, external }) => [entry.file, ...owned, ...external])), (at) => fs.exists(at));
@@ -154,12 +156,12 @@ const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
     return reads.map(([config, read]) => [config, Result.map(read, ({ entry, owned, external }) => ({ config, entry: opened.get(entry.file) ?? entry, members: members(owned), external: members(external) }))] as const);
 }, Effect.scoped);
 
-const resolved = Effect.fnUntraced(function* (workspaceRoot: string, solution: Effect.Success<ReturnType<typeof solved>>[number][1]) {
+const resolved = Effect.fnUntraced(function* (workspaceRoot: string, roots: ReadonlySet<string>, solution: Effect.Success<ReturnType<typeof solved>>[number][1]) {
     const { config, entry, members, external } = yield* Effect.fromResult(solution);
     const folder = join(workspaceRoot, dirname(config));
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
     const holding = [entry, ...members].filter(({ parsed }) => parsed.fileNames.length > 0);
-    const checked = entry.parsed.fileNames.length > 0 || Array.isReadonlyArrayEmpty(holding) ? [entry] : holding;
+    const checked = entry.parsed.fileNames.length > 0 || (Array.isReadonlyArrayEmpty(holding) && Array.isReadonlyArrayEmpty(entry.parsed.projectReferences ?? [])) ? [entry] : holding;
     const placed = holding.map(({ file, loaded, parsed: { options, projectReferences = [] } }) => {
         const offset = options.outDir === undefined || options.rootDir === undefined ? '.' : relative(options.rootDir, dirname(file));
         const base = join(options.outDir ?? dirname(file), offset.startsWith('..') ? '.' : offset);
@@ -170,7 +172,8 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, solution: E
             informed: options.incremental === true || options.composite === true || projectReferences.length > 0 ? [local(options.tsBuildInfoFile ?? join(resolve(options.outDir ?? dirname(file), offset), `${basename(file, '.json')}.tsbuildinfo`))] : [],
         };
     });
-    const sources = Array.dedupe([...[entry, ...holding].flatMap(({ chain, parsed, loaded }) => [...chain, ...parsed.fileNames, ...loaded.filter((at) => !relative(folder, at).startsWith('..'))]), ...external.flatMap(({ chain }) => chain)].map(local)).filter(within);
+    const owner = owning(workspaceRoot, roots);
+    const sources = Array.dedupe([...[entry, ...holding].flatMap(({ chain, parsed, loaded }) => [...chain, ...parsed.fileNames, ...loaded.filter((at) => owner(at) === dirname(config))]), ...external.flatMap(({ chain }) => chain)].map(local)).filter(within);
     return {
         commands: checked.map(({ file, parsed }) => {
             const named = relative(folder, file) === CONFIG ? [] : [relative(folder, file)];
@@ -529,7 +532,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
     const listed = new Set(files);
     const member = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(workspaceRoot, (file: string) => readJsonFile<PackageJson>(join(workspaceRoot, file))));
     const held = new Set(Array.dedupe(files.map(dirname)).filter((root) => root !== '.' && ((listed.has(posix.join(root, MANIFEST)) && member(posix.join(root, MANIFEST))) || listed.has(posix.join(root, PROJECT)))));
-    const nested = files.filter((file) => file === MANIFEST || held.has(dirname(file)));
+    const nested = files.filter((file) => file === MANIFEST || (file === CONFIG && listed.has(MANIFEST)) || held.has(dirname(file)));
     const anchors = new Set(
         Object.values(
             Array.groupBy(
@@ -557,7 +560,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
                 Array.map(missed, ({ config }) => config),
             ),
     });
-    const fresh = yield* Effect.forEach(solutions, ([, solution]) => Effect.result(resolved(workspaceRoot, solution)), { concurrency: 'unbounded' });
+    const fresh = yield* Effect.forEach(solutions, ([, solution]) => Effect.result(resolved(workspaceRoot, held, solution)), { concurrency: 'unbounded' });
     const stored = Array.getSuccesses(Array.zipWith(unread, fresh, ({ config, digest }, program) => Result.map(program, (value) => [config, { ...value, digest }] as const)));
     yield* Effect.forEach(stored, ([config, value]) => Effect.sync(() => cache.set(config, value)));
     yield* Array.isReadonlyArrayNonEmpty(stored) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
@@ -580,7 +583,11 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
         const root = dirname(file);
         const manifest = yield* looked(manifests, root);
         const stated = manifest.nx?.targets ?? {};
-        const typed = (program: Program) => Option.some(projected(root, 'typescript', compiled(root, program, settings.compilerPackages, `^${namedInput(root, context)}`, manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, exec), stated));
+        const typed = (program: Program) =>
+            Option.map(
+                Option.liftPredicate(program, ({ commands }) => Array.isReadonlyArrayNonEmpty(commands)),
+                (checked) => projected(root, 'typescript', compiled(root, checked, settings.compilerPackages, `^${namedInput(root, context)}`, manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, exec), stated),
+            );
         const loadable = Effect.sync(() => installed('cf', join(workspaceRoot, file)));
         const linting = Option.map(
             Option.filter(Option.fromUndefinedOr(lints.get(root)), () => anchors.has(file) || root === '.'),

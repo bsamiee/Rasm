@@ -5,7 +5,7 @@
         "types": ["node"]
     },
     "include": ["**/*", ".claude-plugin/plugin.json"],
-    "exclude": ["hooks", "types", "node_modules"],
+    "exclude": ["hooks", "types"],
     "references": [
         {
             "path": "../../../libs/typescript/runtime/telemetry"
