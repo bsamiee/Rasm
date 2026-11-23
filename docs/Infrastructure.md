@@ -33,13 +33,14 @@ Machines, their reinstall, and images their stacks run:
 - Role `Cache` runs the Nx cache server with its proxy and object storage
 - Role `History` runs the Atuin sync server with its proxy
 - Role `Runner` runs a runner service per instance and pulls an Unreal image per engine release a tracked `.uproject` names
-- Role `Runner` builds and pushes `ghcr.io/<owner>/<repository>/playwright:<version>`, locked Playwright Chromium over the newest `node:slim`
+- Role `Runner` builds and pushes `ghcr.io/<owner>/<repository>/playwright:<version>`, locked Playwright Chromium over `node:slim`
+- Playwright images rebuild on a changed Playwright version or Dockerfile alone, and read and write layer cache at tag `cache`
 - Playwright images add `curl`, a C compiler, and ICU, as action `tools` downloads mise, builds cargo tools, and runs `dotnet` inside them
 - Pushed images hold their source label as a manifest annotation, as GHCR links a package by annotation alone and a linked package inherits access
 - Role `Apps` runs the proxy, sign-in, and object storage of hosted apps, on one machine per zone, as a zone holds each public name once
 - Docker engines build stack images from inline Dockerfiles with build checks as errors, load local images, and push registry images
 - Pushed images hold their registry credentials, as a changed `registries` setting replaces the build provider and images ignore a changed password
-- Builds run in a BuildKit container the build provider creates per client
+- Builds run in a BuildKit container the build provider creates per client, which job `deploy` removes, so registry cache alone outlives a deploy
 - Pulled images take name `<tag>@<digest>` from registry digests each deploy reads, and a moved tag replaces its image, then its containers
 - Docker removes no image name a container uses, its provider pulls no name a machine holds, and stacks name no image by tag alone
 
@@ -63,6 +64,7 @@ Routes from public names to containers:
 - Proxies strip `Remote-User` and `Remote-Email` from every app request and set both from its sign-in session, and apps read both through `ACCESS`
 - Object storage publishes its port on its machine's tailnet IPv4 alone, `127.0.0.1` on a local install
 - `net.ipv4.ip_nonlocal_bind` lets Docker bind a tailnet address before `tailscaled` sets it at boot
+- Docker maps published ports through firewall rules with no userland proxy, as `docker-proxy` accepts connections for a container with no listener
 - Stacks dial object storage by tailnet name, and containers dial it inside their Docker network
 - Stacks and `[bootstrap]` declare no firewall
 - Containers a CI job starts without an address publish on every address
@@ -111,6 +113,8 @@ Doppler configs and their readers:
 - Stacks write no `deploy` row, as a change to `deploy` starts workflow `Deploy`
 - Row `DOPPLER_IAC_TOKEN` reaches stacks as `DOPPLER_TOKEN`, and row `GITHUB_TOKEN` authorizes GitHub's provider and deploy webhook
 - Pulumi state sits in Pulumi Cloud for `deploy` and in local backend `file://~` for `install`
+- Stack `rasm` declares each repository of table `repositories` beside `Rasm` with its Doppler project, environments, and branch configs
+- Repositories and their Doppler resources take option `import` of their provider ID, which adopts them once and changes nothing after
 
 ## [09]-[GOOGLE_CLOUD]
 

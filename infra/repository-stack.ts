@@ -4,7 +4,7 @@ import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, IssueLabels, Repo
 import { VpsPostInstallScript } from '@pulumi/hostinger';
 import { type Input, interpolate, type Output, jsonStringify, secret } from '@pulumi/pulumi';
 import { Acl, DnsPreferences, OauthClient, TailnetKey, TailnetSettings } from '@pulumi/tailscale';
-import { Environment, Project, ServiceToken, secretssync, Webhook } from '@pulumiverse/doppler';
+import { BranchConfig, Environment, Project, ServiceToken, secretssync, Webhook } from '@pulumiverse/doppler';
 import { run } from '@rasm/process';
 import { Array, Cause, Effect, FileSystem, Path, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
@@ -15,6 +15,20 @@ import { hosts } from '#/platform-stack';
 const palette = { bug: 'd73a4a', enhancement: 'a2eeef' };
 const feed = { setting: 'SPARKLE_FEED_URL', variable: 'SPARKLE_FEED_BUCKET' } as const;
 const configs = ['dev', 'ci', 'release', 'deploy'] as const;
+const settings = {
+    visibility: 'public',
+    hasIssues: true,
+    allowAutoMerge: true,
+    allowMergeCommit: false,
+    allowUpdateBranch: true,
+    deleteBranchOnMerge: true,
+    squashMergeCommitTitle: 'PR_TITLE',
+    squashMergeCommitMessage: 'PR_BODY',
+    securityAndAnalysis: { secretScanning: { status: 'disabled' }, secretScanningPushProtection: { status: 'disabled' } },
+} as const;
+const repositories = {
+    Parametric_Forge: { description: 'My Nix based repo for nix-darwin configuration, dotfiles, and more', project: 'parametric-forge', secrets: 'macOS machine and Home Manager toolchain secrets', environments: ['dev'], branches: { dev_machine: 'dev' } },
+} as const;
 const google = {
     issuer: 'https://token.actions.githubusercontent.com',
     apis: ['serviceusage', 'cloudresourcemanager', 'iam', 'iamcredentials', 'sts', 'chromewebstore'],
@@ -43,15 +57,23 @@ const Policy = Schema.fromJsonString(Schema.Struct({ bindings: Schema.optionalKe
 
 const identified = Effect.fnUntraced(function* (root: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const [manifest, settings, engines] = yield* Effect.all([
+    const [manifest, xcconfig, engines] = yield* Effect.all([
         Effect.flatMap(fs.readFileString(path.join(root, 'package.json')), Schema.decodeEffect(Manifest)),
         fs.readFileString(path.join(root, 'Xcode.xcconfig')),
         Effect.flatMap(run(['git', 'ls-files', '-z', '--', '*.uproject'], { cwd: root }), ({ stdout }) => Effect.forEach(stdout.split('\0').filter(String.isNonEmpty), (project) => Effect.flatMap(fs.readFileString(path.join(root, project)), Schema.decodeEffect(Uproject)))),
     ]);
-    const [, { hostname }] = yield* Effect.flatMap(Effect.fromNullishOr(settings.split('\n').find((line) => line.startsWith(feed.setting))), (line) => Schema.decodeUnknownEffect(Feed)(line.replace('/$()/', '//')));
+    const [, { hostname }] = yield* Effect.flatMap(Effect.fromNullishOr(xcconfig.split('\n').find((line) => line.startsWith(feed.setting))), (line) => Schema.decodeUnknownEffect(Feed)(line.replace('/$()/', '//')));
     const [, owner, , repository] = manifest.repository.url;
     return { project: manifest.name, description: manifest.description, owner, repository, feed: { domain: hostname, zone: hostname.split('.').slice(1).join('.') }, engines: Array.dedupe(engines.map(Struct.get('EngineAssociation')).filter(Schema.is(Release))).toSorted() };
 });
+
+const managed = <E extends string>(name: string, { description, project, secrets, environments, branches }: { readonly description: string; readonly project: string; readonly secrets: string; readonly environments: readonly E[]; readonly branches: Readonly<Record<string, E>> }) => {
+    const { name: repository, fullName, repoId } = new Repository(name, { name, description, ...settings }, { protect: true, import: name });
+    const doppler = new Project(project, { name: project, description: secrets }, { protect: true, import: project }).name;
+    const held = Record.map(Struct.Record(environments, undefined), (_, slug) => new Environment(`${project}-${slug}`, { project: doppler, slug, name: slug }, { protect: true, import: `${project}.${slug}` }).slug);
+    const branched = Record.map(branches, (environment, branch) => new BranchConfig(`${project}-${branch}`, { project: doppler, environment: held[environment], name: branch }, { protect: true, import: `${project}.${environment}.${branch}` }).name);
+    return { repository, fullName, repoId, doppler, held, branched };
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -66,30 +88,9 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
         Effect.tryPromise({ try: () => getZeroTrustOrganization({ accountId }), catch: (cause) => new Cause.UnknownError(cause, `Cloudflare account ${accountId} holds no Zero Trust organization`) }),
         Effect.flatMap(Effect.tryPromise({ try: () => projects.getIamPolicy({ project: cloud }), catch: (cause) => new Cause.UnknownError(cause, `Google Cloud project ${cloud} answers no IAM policy`) }), ({ policyData }) => Schema.decodeEffect(Policy)(policyData)),
     ]);
-    const {
-        name: repository,
-        fullName,
-        repoId,
-    } = new Repository(
-        name,
-        {
-            name,
-            description,
-            visibility: 'public',
-            hasIssues: true,
-            allowMergeCommit: false,
-            allowUpdateBranch: true,
-            deleteBranchOnMerge: true,
-            squashMergeCommitTitle: 'PR_TITLE',
-            squashMergeCommitMessage: 'PR_BODY',
-            securityAndAnalysis: { secretScanning: { status: 'disabled' }, secretScanningPushProtection: { status: 'disabled' } },
-        },
-        { protect: true },
-    );
-    const doppler = new Project(project, { name: project, description }, { protect: true });
-    const held = Record.map(Struct.Record(configs, undefined), (_, config) => new Environment(`${project}-${config}`, { project: doppler.name, slug: config, name: config }, { protect: true }).slug);
+    const { repository, fullName, repoId, doppler, held } = managed(name, { description, project, secrets: description, environments: configs, branches: {} });
     const environments = Record.map(Struct.pick(held, ['release', 'deploy']), (_, environment) => new RepositoryEnvironment(`${name}-${environment}`, { repository, environment }).environment);
-    const synced = { integration: '51df65fc-7097-4d4d-a4ca-308ce2a5918a', project: doppler.name, syncTarget: 'repo', repoName: repository, deleteBehavior: 'delete_from_target' };
+    const synced = { integration: '51df65fc-7097-4d4d-a4ca-308ce2a5918a', project: doppler, syncTarget: 'repo', repoName: repository, deleteBehavior: 'delete_from_target' };
     const bucket = new R2Bucket(`${name}-updates`, { accountId, name: `${name.toLowerCase()}-updates` }, { protect: true });
     const tags = Array.dedupe(Object.values(hosts).flatMap((row) => row.tags));
     const deployer = 'tag:deploy';
@@ -128,11 +129,12 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
     });
     return {
         repository: fullName,
+        adopted: Record.map(repositories, (row, adopted) => managed(adopted, row)),
         configs: {
             ci: new secretssync.GithubActions(`${project}-ci`, { ...synced, config: held.ci }).config,
             release: new secretssync.GithubActions(`${project}-release`, { ...synced, config: held.release, environmentName: environments.release }).config,
-            deploy: new ActionsEnvironmentSecret(`${name}-deploy-doppler`, { repository, environment: environments.deploy, secretName: 'DOPPLER_TOKEN', value: new ServiceToken(`${project}-deploy`, { project: doppler.name, config: held.deploy, name, access: 'read' }).key }).environment,
-            dispatch: new Webhook(`${project}-deploy`, { project: doppler.name, url: interpolate`https://api.github.com/repos/${fullName}/dispatches`, authentication: { type: 'Bearer', token: secret(token) }, payload: '{"event_type":"deploy"}', enabledConfigs: [held.deploy] }).slug,
+            deploy: new ActionsEnvironmentSecret(`${name}-deploy-doppler`, { repository, environment: environments.deploy, secretName: 'DOPPLER_TOKEN', value: new ServiceToken(`${project}-deploy`, { project: doppler, config: held.deploy, name, access: 'read' }).key }).environment,
+            dispatch: new Webhook(`${project}-deploy`, { project: doppler, url: interpolate`https://api.github.com/repos/${fullName}/dispatches`, authentication: { type: 'Bearer', token: secret(token) }, payload: '{"event_type":"deploy"}', enabledConfigs: [held.deploy] }).slug,
         },
         feed: {
             bucket: new ActionsEnvironmentVariable(`${name}-release-${feed.variable}`, { repository, environment: environments.release, variableName: feed.variable, value: bucket.name }).value,
