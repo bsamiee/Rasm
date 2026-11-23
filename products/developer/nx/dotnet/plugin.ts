@@ -2,7 +2,7 @@ import { hash } from 'node:crypto';
 import { basename, dirname, extname, format, join, parse, posix, relative } from 'node:path';
 import { platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, normalizePath, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Graph, Option, Record, Ref, Result, Schema, Stream, String, Struct } from 'effect';
@@ -77,8 +77,8 @@ const ready = Effect.fnUntraced(function* (workspaceRoot: string, matched: reado
             ).pipe(Effect.map(Array.map(([file]) => file))),
     });
     yield* Result.match(resolved, {
-        onFailure: (reason) => (matched.some((file) => PROJECTS.includes(extname(file))) ? Effect.logWarning(`No MSBuild project of the workspace enters the graph, as ${reason}`) : Effect.void),
-        onSuccess: () => (sourced && stale.length > 0 ? Effect.logWarning(`${relative(workspaceRoot, ANALYZER)} predates ${stale.map((file) => relative(workspaceRoot, file)).join(', ')}, ${published(workspaceRoot)}`) : Effect.void),
+        onFailure: (reason) => (matched.some((file) => PROJECTS.includes(extname(file))) ? Effect.sync(() => emitPluginWorkerLog('warn', `No MSBuild project of the workspace enters the graph, as ${reason}`)) : Effect.void),
+        onSuccess: () => (sourced && stale.length > 0 ? Effect.sync(() => emitPluginWorkerLog('warn', `${relative(workspaceRoot, ANALYZER)} predates ${stale.map((file) => relative(workspaceRoot, file)).join(', ')}, ${published(workspaceRoot)}`)) : Effect.void),
     });
     return Result.getSuccess(resolved);
 });
