@@ -18,7 +18,7 @@ const ALLOWED = ['nx reset --only-cache', 'timeout 20 nx graph', 'make -j4'] as 
 const REWRITTEN = [
     ['seq 3 | xargs -P 0 echo', `seq 3 | xargs -P ${CORES} echo`],
     ['make -j all', `make -j${CORES} all`],
-    ["printf 'naïve → ✓\\n' > n.txt; make -j all", `printf 'naïve → ✓\\n' > n.txt; make -j${CORES} all`],
+    [String.raw`printf 'naïve → ✓\n' > n.txt; make -j all`, `printf 'naïve → ✓\\n' > n.txt; make -j${CORES} all`],
     ['for p in web api; do nx test $p; done', 'nx run-many -t test -p web,api'],
     ['for i in 1 2 3; do vitest run; done', 'vitest run --repeats 2'],
     ['nx daemon --stop; nx show projects', 'nx show projects'],
