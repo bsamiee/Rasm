@@ -2,7 +2,7 @@ use core::time::Duration;
 
 use claims::{assert_ok, assert_some};
 use rasm_mcp_tests::Id;
-use serde_json::json;
+use serde_json::{Value, json};
 use tokio::time::{self, Instant};
 
 use super::{INITIALIZE, LINE, SERVED, declared, joined, proxy};
@@ -159,6 +159,63 @@ async fn server_request_the_calling_session_declared_no_capability_for_is_refuse
     assert_eq!(refused.id, Some(Id::Text("s1".to_owned())), "the server learns at once that the calling session cannot sample");
     assert!(refused.error.message.as_deref().is_some_and(|message| message.contains("sampling/createMessage")), "the refusal names the request: {refused:?}");
     bare.silent(Duration::from_millis(100)).await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn roots_request_outside_any_call_is_answered_once_with_the_roots_each_declaring_session_lists() {
+    let (proxy, mut starts, _actor) = proxy(16, LINE);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let rooted = INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{"roots":{}}"#);
+    let (mut first, mut second, mut refusing, mut leaving) =
+        (declared(&proxy, &rooted).await.0, declared(&proxy, &rooted).await.0, declared(&proxy, &rooted).await.0, declared(&proxy, &rooted).await.0);
+    let mut bare = joined(&proxy).await;
+    server.wire.send(r#"{"jsonrpc":"2.0","id":"r1","method":"roots/list"}"#).await;
+    for session in [&mut first, &mut second, &mut refusing, &mut leaving] {
+        assert_eq!(session.next().await.method.as_deref(), Some("roots/list"), "each session that declares roots is asked");
+    }
+    bare.silent(Duration::from_millis(100)).await;
+    first.send(r#"{"jsonrpc":"2.0","id":"r1","result":{"roots":[{"uri":"file:///work/a","name":"a"}]}}"#).await;
+    second.send(r#"{"jsonrpc":"2.0","id":"r1","result":{"roots":[{"uri":"file:///work/b","name":"b"},{"uri":"file:///work/a","name":"a"}]}}"#).await;
+    refusing.send(r#"{"jsonrpc":"2.0","id":"r1","error":{"code":-32603,"message":"no roots here"}}"#).await;
+    server.wire.silent(Duration::from_millis(100)).await;
+    drop(leaving);
+    let merged = server.wire.next().await;
+    let mut listed = assert_some!(merged.result.roots, "the server is answered with a root list: {merged:?}");
+    listed.sort_unstable_by_key(Value::to_string);
+    let expected = vec![json!({"uri": "file:///work/a", "name": "a"}), json!({"uri": "file:///work/b", "name": "b"})];
+    assert_eq!((merged.id, listed), (Some(Id::Text("r1".to_owned())), expected), "one answer holds the roots of each session that listed them, a root two sessions share once");
+    server.wire.silent(Duration::from_millis(100)).await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn roots_request_outside_any_call_is_answered_with_no_root_once_every_asked_session_left() {
+    let (proxy, mut starts, _actor) = proxy(16, LINE);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let (mut leaving, _) = declared(&proxy, &INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{"roots":{}}"#)).await;
+    let _bare = joined(&proxy).await;
+    server.wire.send(r#"{"jsonrpc":"2.0","id":"r1","method":"roots/list"}"#).await;
+    assert_eq!(leaving.next().await.method.as_deref(), Some("roots/list"));
+    drop(leaving);
+    let merged = server.wire.next().await;
+    assert_eq!((merged.id, merged.result.roots, merged.error.message), (Some(Id::Text("r1".to_owned())), Some(Vec::new()), None), "the server is answered with an empty root list");
+}
+
+#[tokio::test(start_paused = true)]
+async fn roots_request_during_one_call_reaches_the_calling_session_alone() {
+    let (proxy, mut starts, _actor) = proxy(16, LINE);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let rooted = INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{"roots":{}}"#);
+    let ((mut calling, _), (mut other, _)) = (declared(&proxy, &rooted).await, declared(&proxy, &rooted).await);
+    calling.send(r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scan"}}"#).await;
+    let call = server.wire.next().await;
+    server.wire.send(r#"{"jsonrpc":"2.0","id":"r1","method":"roots/list"}"#).await;
+    assert_eq!(calling.next().await.method.as_deref(), Some("roots/list"), "the session whose call is in flight is asked");
+    other.silent(Duration::from_millis(100)).await;
+    calling.send(r#"{"jsonrpc":"2.0","id":"r1","result":{"roots":[{"uri":"file:///work/a"}]}}"#).await;
+    let listed = server.wire.next().await;
+    assert_eq!((listed.id, listed.result.roots), (Some(Id::Text("r1".to_owned())), Some(vec![json!({"uri": "file:///work/a"})])), "the server receives the calling session's roots alone");
+    server.wire.send(&call.answered("{}")).await;
+    assert_eq!(calling.next().await.id, Some(Id::Number(1)));
 }
 
 #[tokio::test(start_paused = true)]

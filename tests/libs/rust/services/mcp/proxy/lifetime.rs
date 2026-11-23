@@ -56,20 +56,65 @@ async fn server_that_never_answers_stops_at_the_first_ceiling_with_no_session_wa
 // --- [LIVENESS]
 
 #[tokio::test(start_paused = true)]
-async fn server_silent_with_a_call_in_flight_is_pinged_then_replaced() {
+async fn server_that_answers_no_ping_during_a_call_outlives_a_ten_minute_call() {
+    let (proxy, mut starts, _actor) = proxy(16, LINE);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let mut caller = joined(&proxy).await;
+    caller.send(r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"hang"}}"#).await;
+    let call = server.wire.next().await;
+    assert_eq!(call.method.as_deref(), Some("tools/call"));
+    let sent = Instant::now();
+    assert_eq!(server.wire.next().await.method.as_deref(), Some("ping"), "a server silent for the quiet period with a call in flight is pinged");
+    assert_eq!(sent.elapsed(), QUIET, "the ping follows the quiet period");
+    time::sleep_until(sent + Duration::from_mins(10)).await;
+    assert!(!server.stop.is_cancelled(), "a server never seen to answer a ping during this call is not stopped for its silence");
+    server.wire.send(&call.answered("{}")).await;
+    let answer = caller.next().await;
+    assert_eq!((answer.id, answer.error.message), (Some(Id::Number(7)), None), "the ten minute call is answered under its own id");
+}
+
+#[tokio::test(start_paused = true)]
+async fn server_that_answered_a_ping_during_a_call_is_replaced_once_it_answers_none() {
     let (proxy, mut starts, _actor) = proxy(16, LINE);
     let mut server = assert_some!(starts.recv().await).linked().await;
     let mut caller = joined(&proxy).await;
     caller.send(r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"hang"}}"#).await;
     assert_eq!(server.wire.next().await.method.as_deref(), Some("tools/call"));
-    let sent = Instant::now();
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("ping"), "a server silent for the quiet period with a call in flight is pinged");
-    assert_eq!(sent.elapsed(), QUIET, "the ping follows the quiet period");
-    assert_ok!(time::timeout(Duration::from_secs(61), server.stop.cancelled()).await, "a server that answers no ping inside the one minute grace is stopped");
+    let answered = server.wire.next().await;
+    assert_eq!(answered.method.as_deref(), Some("ping"));
+    server.wire.send(&answered.answered("{}")).await;
+    assert_eq!(server.wire.next().await.method.as_deref(), Some("ping"), "the server is pinged again after the next quiet period");
+    let learned = assert_some!(proxy.status().borrow().profile.clone());
+    let responsive = Vec::from_iter(learned.responsive.iter().map(|key| (key.method.to_string(), key.target.as_deref().map(str::to_owned))));
+    assert_eq!(responsive, [("tools/call".to_owned(), Some(r#""hang""#.to_owned()))], "the stored profile names the call the server answered a ping during");
+    assert_ok!(time::timeout(Duration::from_secs(61), server.stop.cancelled()).await, "a server that answered a ping during this call and answers none inside the one minute grace is stopped");
     assert_ok!(server.exit.send("killed".to_owned()));
     let answer = caller.next().await;
     assert_eq!(answer.id, Some(Id::Number(7)), "the call in flight is answered under its own id");
     assert!(answer.error.message.as_deref().is_some_and(|message| message.contains("stopped answering")), "the error states the cause: {answer:?}");
+}
+
+#[tokio::test(start_paused = true)]
+async fn ping_answered_during_one_call_proves_nothing_about_another() {
+    let (proxy, mut starts, _actor) = proxy(16, LINE);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let mut caller = joined(&proxy).await;
+    caller.send(r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"hang"}}"#).await;
+    let attended = server.wire.next().await;
+    let answered = server.wire.next().await;
+    assert_eq!(answered.method.as_deref(), Some("ping"));
+    server.wire.send(&answered.answered("{}")).await;
+    server.wire.send(&attended.answered("{}")).await;
+    assert_eq!(caller.next().await.id, Some(Id::Number(7)));
+    caller.send(r#"{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"block"}}"#).await;
+    let blocking = server.wire.next().await;
+    assert_eq!(blocking.method.as_deref(), Some("tools/call"));
+    let sent = Instant::now();
+    assert_eq!(server.wire.next().await.method.as_deref(), Some("ping"));
+    time::sleep_until(sent + Duration::from_mins(10)).await;
+    assert!(!server.stop.is_cancelled(), "a ping answered during one tool's call does not stop the server for its silence in another tool's call");
+    server.wire.send(&blocking.answered("{}")).await;
+    assert_eq!(caller.next().await.id, Some(Id::Number(8)));
 }
 
 // --- [SHUTDOWN]

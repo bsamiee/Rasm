@@ -94,6 +94,8 @@ pub struct Profile {
     pub cost: Duration,
     pub askers: BTreeSet<Key>,
     pub quiet: BTreeSet<Key>,
+    #[serde(default)]
+    pub responsive: BTreeSet<Key>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -64,6 +64,7 @@ struct Fields {
     protocol_version: Option<String>,
     server_info: Option<Named>,
     content: Option<Answered>,
+    roots: Option<Vec<Value>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]

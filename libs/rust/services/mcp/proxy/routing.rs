@@ -55,6 +55,7 @@ pub(super) enum Origin {
     Discover,
     Initialize,
     Internal,
+    Probe,
 }
 
 #[derive(Debug)]
@@ -125,7 +126,7 @@ pub(super) struct Calls {
     named: BTreeMap<(u64, Bytes), u64>,
     next: u64,
     in_flight: Arc<AtomicUsize>,
-    pub(super) asked: BTreeMap<Bytes, u64>,
+    pub(super) asked: BTreeMap<Bytes, (BTreeSet<u64>, Option<Vec<Box<RawValue>>>)>,
     pub(super) held: Vec<Held>,
     pub(super) writer: Option<(u64, delay_queue::Key)>,
     pub(super) backlog: VecDeque<(u64, Bytes)>,
@@ -173,7 +174,7 @@ impl Calls {
     pub(super) fn callers(&self) -> impl Iterator<Item = (u64, &Call)> {
         self.pending.iter().filter_map(|(request, origin)| match origin {
             Origin::Session(call) => Some((*request, call)),
-            Origin::Discover | Origin::Initialize | Origin::Internal => None,
+            Origin::Discover | Origin::Initialize | Origin::Internal | Origin::Probe => None,
         })
     }
 }

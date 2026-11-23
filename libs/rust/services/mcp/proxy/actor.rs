@@ -8,6 +8,7 @@ use std::sync::Arc;
 use backon::BackoffBuilder as _;
 use bytes::Bytes;
 use futures::StreamExt as _;
+use itertools::Itertools as _;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::ErrorData;
 use rmcp::model::{
@@ -291,8 +292,9 @@ where
         };
         let held = self.profile.take().map(Arc::unwrap_or_clone);
         let (changed, flipped) = held.as_ref().map_or((false, false), |held| (held.handshake.get() != handshake.get(), held.lifecycle != lifecycle));
-        let (askers, quiet) = held.map_or_default(|Profile { lifecycle: _, handshake: _, cost: _, askers, quiet }| (askers, if changed { BTreeSet::new() } else { quiet }));
-        let profile = Arc::new(Profile { lifecycle, handshake, cost, askers, quiet });
+        let (askers, kept) = held.map_or_default(|Profile { lifecycle: _, handshake: _, cost: _, askers, quiet, responsive }| (askers, (!changed).then_some((quiet, responsive))));
+        let (quiet, responsive) = kept.unwrap_or_default();
+        let profile = Arc::new(Profile { lifecycle, handshake, cost, askers, quiet, responsive });
         self.profile = Some(Arc::clone(&profile));
         let relinked = self.status.borrow().starts > 1;
         tracing::debug!(%lifecycle, ?cost, changed, "server linked");
@@ -364,7 +366,7 @@ where
         let error = ErrorData::internal_error(message.to_owned(), None);
         let waiting = self.calls.reset().filter_map(|origin| match origin {
             Origin::Session(call) => Some((call.session, call.id)),
-            Origin::Discover | Origin::Initialize | Origin::Internal => None,
+            Origin::Discover | Origin::Initialize | Origin::Internal | Origin::Probe => None,
         });
         let parked = mem::take(&mut self.calls.backlog).into_iter().filter_map(|(session, line)| Some((session, identity(&line, &[]).0?)));
         for (session, id) in waiting.chain(parked) {
@@ -431,9 +433,11 @@ where
                 self.clock.quiet = None;
                 match (self.clock.activity, self.calls.waiting(), self.policy.liveness) {
                     (Activity::Quiet | Activity::Probing, 0, _) if self.sessions.joined.is_empty() => self.idle().await,
-                    (Activity::Touched, _, _) | (Activity::Quiet | Activity::Probing, 0, _) => self.rearm(),
+                    (Activity::Probing, 1.., Some(_)) if self.profile.as_ref().is_some_and(|profile| self.calls.callers().all(|(_, call)| profile.responsive.contains(&call.key))) =>
+                        self.halt("server stopped answering"),
+                    (Activity::Touched, _, _) | (Activity::Quiet | Activity::Probing, 0, _) | (Activity::Probing, 1.., Some(_)) => self.rearm(),
                     (Activity::Quiet, 1.., Some(Liveness { quiet: _, grace })) => {
-                        let id = self.calls.issue(Origin::Internal);
+                        let id = self.calls.issue(Origin::Probe);
                         self.upstream.send(match self.profile.as_ref().map(|profile| profile.lifecycle) {
                             Some(Lifecycle::Discover) => discover(&self.policy.client, id),
                             Some(Lifecycle::Initialize) | None => message(Some(id), PingRequestMethod::VALUE, None::<()>),
@@ -441,7 +445,6 @@ where
                         self.clock.activity = Activity::Probing;
                         self.clock.quiet = Some(self.clock.timers.insert(Timer::Quiet, grace));
                     }
-                    (Activity::Probing, 1.., Some(_)) => self.halt("server stopped answering"),
                     (Activity::Quiet | Activity::Probing, 1.., None) => {}
                 }
             }
@@ -469,8 +472,8 @@ where
                 self.settled(request, None);
             }
         }
-        for id in Vec::from_iter(self.calls.asked.extract_if(.., |_, asked| *asked == session).map(|(id, _)| id)) {
-            self.decline(&id, "client session closed before answering");
+        for id in Vec::from_iter(self.calls.asked.iter().filter(|(_, (waiting, _))| waiting.contains(&session)).map(|(id, _)| id.clone())) {
+            self.answered(session, &id, None);
         }
         for uri in self.subscribers.leave(session) {
             self.upstream.send(message(Some(self.calls.issue(Origin::Internal)), UnsubscribeRequestMethod::VALUE, Some(UnsubscribeRequestParams::new(uri))));
@@ -502,11 +505,7 @@ where
                 },
             (None, Some(method)) if method.is_cancelled() => self.cancelled(session, line, params.and_then(|params| params.request_id)),
             (None, Some(_)) => self.upstream.forward([line.clone()]),
-            (Some(id), None) =>
-                if self.calls.asked.get(id.get().as_bytes()) == Some(&session) {
-                    self.calls.asked.remove(id.get().as_bytes());
-                    self.upstream.forward([line.clone()]);
-                },
+            (Some(id), None) => self.answered(session, id.get().as_bytes(), Some((line, envelope.result))),
             (None, None) => {}
         }
     }
@@ -708,12 +707,34 @@ where
         call.asked = true;
         let (session, key, declared) = (call.session, call.key.clone(), call.capabilities.as_deref().is_none_or(|capabilities| declares(capabilities, method)));
         if declared {
-            self.calls.asked.insert(id, session);
+            self.calls.asked.insert(id, (BTreeSet::from([session]), None));
             self.sessions.deliver(session, [line]);
         } else {
             self.decline(&id, &format!("the client session whose call caused {method} declares no capability for it"));
         }
         self.learn(key, true);
+    }
+
+    #[expect(deprecated, reason = "rmcp deprecates its roots types under SEP-2577, and servers opened with initialize still list roots")]
+    fn answered(&mut self, session: u64, id: &[u8], answer: Option<(&Bytes, Option<&RawValue>)>) {
+        let Some((waiting, listed)) = self.calls.asked.get_mut(id).filter(|(waiting, _)| waiting.contains(&session)) else { return };
+        waiting.remove(&session);
+        if let Some(listed) = listed {
+            listed.extend(answer.and_then(|(_, result)| result).map(RawValue::to_owned));
+        }
+        if !waiting.is_empty() {
+            return;
+        }
+        match (self.calls.asked.remove(id).and_then(|(_, results)| results), answer) {
+            (Some(results), _) => {
+                let roots = results.iter().filter_map(|result| read::<rmcp::model::ListRootsResult>(Some(result))).flat_map(|result| result.roots).unique_by(|root| root.uri.clone());
+                let merged = rmcp::model::ListRootsResult::new(roots.collect());
+                let reply = |request| encoded(&Message::<&RawValue, (), _> { jsonrpc: JsonRpcVersion2_0, id: Some(request), method: None, params: None, result: Some(merged), error: None });
+                self.upstream.send(decode::<&RawValue>(id).map_err(serde_path_to_error::Error::into_inner).and_then(reply));
+            }
+            (None, Some((line, _))) => self.upstream.forward([line.clone()]),
+            (None, None) => self.decline(id, "client session closed before answering"),
+        }
     }
 
     fn learn(&mut self, key: Key, asks: bool) {
@@ -765,7 +786,7 @@ where
             }
             Some((_, Origin::Discover)) => self.negotiated(Lifecycle::Discover, None, None),
             Some((_, Origin::Initialize)) => self.negotiated(Lifecycle::Initialize, None, None),
-            Some((_, Origin::Internal)) | None => {}
+            Some((_, Origin::Internal | Origin::Probe)) | None => {}
         }
     }
 
@@ -781,6 +802,14 @@ where
             Origin::Discover => self.negotiated(Lifecycle::Discover, result, error),
             Origin::Initialize => self.negotiated(Lifecycle::Initialize, result, error),
             Origin::Internal => {}
+            Origin::Probe => {
+                let during = BTreeSet::from_iter(self.calls.callers().take_while(|(caller, _)| *caller < request).map(|(_, call)| call.key.clone()));
+                if let Some(profile) = self.profile.as_mut().filter(|profile| !during.is_subset(&profile.responsive)) {
+                    Arc::make_mut(profile).responsive.extend(during);
+                    let learned = Arc::clone(profile);
+                    self.status.send_modify(|status| status.profile = Some(learned));
+                }
+            }
         }
     }
 
@@ -795,12 +824,16 @@ where
         let unknown = BTreeSet::from_iter(self.calls.callers().filter(|(_, call)| !quiet.contains(&call.key)).map(|(request, _)| request));
         let candidates = if unknown.is_empty() { BTreeSet::from_iter(self.calls.callers().map(|(request, _)| request)) } else { unknown };
         let asked = Bytes::copy_from_slice(id.get().as_bytes());
-        let rooted =
-            || self.sessions.joined.iter().find(|(_, held)| held.initialized && held.client.as_ref().is_some_and(|client| declares(&client.capabilities, &method))).map(|(session, _)| *session);
-        match (candidates.first().copied(), candidates.len(), method.is_list_roots().then(rooted).flatten()) {
-            (None, _, Some(session)) => {
-                self.calls.asked.insert(asked, session);
-                self.sessions.deliver(session, [line.clone()]);
+        let rooted = || {
+            let declaring = self.sessions.joined.iter().filter(|(_, held)| held.initialized && held.client.as_ref().is_some_and(|client| declares(&client.capabilities, &method)));
+            BTreeSet::from_iter(declaring.map(|(session, _)| *session))
+        };
+        match (candidates.first().copied(), candidates.len(), method.is_list_roots().then(rooted).filter(|rooted| !rooted.is_empty())) {
+            (None, _, Some(rooted)) => {
+                for session in &rooted {
+                    self.sessions.deliver(*session, [line.clone()]);
+                }
+                self.calls.asked.insert(asked, (rooted, Some(Vec::new())));
             }
             (None, _, None) => self.decline(&asked, "no client session has a call in flight"),
             (Some(caller), 1, _) => self.ask(caller, asked, line.clone(), &method),
@@ -824,7 +857,7 @@ where
             Method::Cancelled =>
                 if let Some(id) = params.and_then(|params| params.request_id) {
                     self.calls.held.retain(|held| *held.id != *id.get().as_bytes());
-                    if let Some(session) = self.calls.asked.remove(id.get().as_bytes()) {
+                    for session in self.calls.asked.remove(id.get().as_bytes()).into_iter().flat_map(|(waiting, _)| waiting) {
                         self.sessions.deliver(session, [line.clone()]);
                     }
                 },
