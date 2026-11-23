@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: csharp-visible-member
-language: csharplang
+language: csharp
 utils:
-    enclosing: { kind: 'class_declaration, enum_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration' }
+    enclosing: { kind: 'class_declaration, enum_declaration, interface_declaration, record_declaration, struct_declaration' }
     public:
         any:
             - has: { kind: modifier, regex: '^(?:public|protected)$', stopBy: { not: { kind: preproc_if } } }

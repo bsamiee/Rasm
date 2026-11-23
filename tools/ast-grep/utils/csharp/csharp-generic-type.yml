@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: csharp-generic-type
-language: csharplang
+language: csharp
 arguments: [name, list]
 rule:
     matches: { csharp-type-name: { name: { matches: name, inside: { kind: generic_name, has: { kind: type_argument_list, matches: list } } } } }

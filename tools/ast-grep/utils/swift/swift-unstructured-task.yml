@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: swift-unstructured-task
-language: swiftlang
+language: swift
 rule:
     any:
         - kind: call_expression

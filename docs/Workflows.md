@@ -22,7 +22,7 @@ Workflow `CI` and its jobs:
 - Job `macos` runs affected `os:darwin` projects except `host:rhino`, as no Linux graph holds an Apple project
 - Job `macos` leaves out root `rasm`, as job `linux` runs its other checks and each Swift project's tasks depend on its Swift targets
 - Job `macos` runs `hk check` steps `swiftlint`, `swift-format`, `plutil`, and `xcprojformatter` from base to head, as they need macOS
-- Job `files` runs every other `hk check` step on instance `host`, which keeps the ast-grep grammars and Nx graph between runs
+- Job `files` runs every other `hk check` step on instance `host`, which keeps the Nx graph between runs
 - Job `files` runs every `codegen` target first, as type-aware lint reads the sources those targets write
 - Job `windows` starts only where job `affected` lists an `os:win32` or `host:rhino` project, and installs Rhino where one is `host:rhino`
 - Job `windows` runs `test -c headless` over affected `os:win32` and `host:rhino` projects with core-hour token `RHINO_TOKEN`
@@ -37,7 +37,7 @@ Workflow `CI` and its jobs:
 - Action `tools` removes untracked files and bootstraps mise tools alone, and hook `post-tools` installs project dependencies
 - GitHub-hosted runners and job containers load mise profile `ci`, installing pnpm packages alone, as Python tasks run on instance `host`
 - Profile `ci-<job id>` sets `enable_tools` to the tools a job's steps and Nx tasks run, and a job with no such file installs every tool
-- Profiles list the tools graph creation spawns: `cargo`, `dotnet`, `uv`, `jscpd`, and CMake with LLVM, Ninja, vcpkg, and `tree-sitter`
+- Profiles list the tools graph creation spawns: `cargo`, `dotnet`, `uv`, `jscpd`, and CMake with LLVM, Ninja, and vcpkg
 - Profiles repeat those tools, as a later mise file replaces `enable_tools` whole
 - Profile `ci-macos` holds `yq`, as `mise.macos.toml` reads the Rhino major through it
 - Workflows name composite actions as `$/.github/actions/<name>`, read from the archive of the commit a run started from

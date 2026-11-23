@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: csharplang
-severity: error
-rule:
-    kind: parameter
-    pattern: $RECEIVER
-    has: { kind: modifier, regex: '^this$' }
-message: '`$RECEIVER` declares an extension method through a `this` parameter'
-note: 'Declare the member in an `extension(<type> <name>)` block holding receiver type parameters, constraints, and `ref` or `in` modifier'

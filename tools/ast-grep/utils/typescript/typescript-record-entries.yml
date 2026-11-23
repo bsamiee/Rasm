@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: typescript-record-entries
-language: tsxlang
-rule:
-    kind: member_expression
-    any:
-        - all: [{ has: { field: property, regex: '^entries$' } }, { has: { field: object, regex: '(^|\.)Object$', matches: typescript-global-member } }]
-        - matches: { effect-module-member: { module: { regex: '(?-u:\b)Record$' }, member: { regex: '^toEntries$' } } }

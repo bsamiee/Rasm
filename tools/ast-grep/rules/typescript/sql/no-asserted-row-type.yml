@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: tsxlang
+language: tsx
 severity: error
 rule:
     any:
@@ -8,6 +8,11 @@ rule:
               - has: { pattern: sql }
               - has: { field: type_arguments, kind: type_arguments, pattern: $TYPE }
               - inside: { kind: call_expression, stopBy: { kind: call_expression }, has: { field: arguments, kind: template_string } }
+        - kind: binary_expression
+          all:
+              - has: { field: operator, regex: '^>$' }
+              - has: { field: left, kind: binary_expression, all: [{ has: { field: left, kind: identifier, regex: '^sql$' } }, { has: { field: operator, regex: '^<$' } }, { has: { field: right, kind: 'identifier, member_expression', pattern: $TYPE } }] }
+              - has: { field: right, kind: template_string }
         - kind: call_expression
           all:
               - has: { field: function, kind: member_expression, all: [{ has: { field: object, regex: '^sql$' } }, { has: { field: property, regex: '^unsafe$' } }] }

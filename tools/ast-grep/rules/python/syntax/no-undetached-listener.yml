@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: python
+severity: error
+utils:
+    fresh:
+        any:
+            - kind: lambda
+            - kind: call
+              has: { field: function, regex: '^(functools\.)?partial(method)?$' }
+    made:
+        any:
+            - matches: fresh
+            - kind: call
+              not: { has: { field: function, regex: '(^|\.)persistent$' } }
+    registry:
+        kind: attribute
+        pattern: $REGISTRY
+        any:
+            - has: { field: object, kind: attribute, pattern: bpy.app.handlers }
+            - all:
+                  - has: { field: object, kind: attribute, pattern: bpy.types }
+                  - has: { field: attribute, regex: '_(MT|HT|PT)_' }
+    attach:
+        kind: call
+        all:
+            - has: { field: function, kind: attribute, all: [{ has: { field: attribute, regex: '^(append|prepend)$' } }, { has: { field: object, matches: registry } }] }
+rule:
+    all:
+        - any:
+              - all:
+                    - matches: attach
+                    - any:
+                          - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: made } }
+                          - inside: { kind: module, stopBy: end, not: { has: { stopBy: end, kind: attribute, pattern: $REGISTRY.remove } } }
+              - kind: call
+                all:
+                    - has: { field: function, kind: attribute, has: { field: attribute, regex: '^(remove|discard|unregister|disconnect|unsubscribe|removeHandler|remove_listener|remove_handler|remove_callback|remove_done_callback|draw_handler_remove)$' } }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: fresh } }
+              - kind: call
+                all:
+                    - has: { field: function, kind: attribute, has: { field: attribute, pattern: draw_handler_add } }
+                    - inside: { kind: expression_statement }
+              - kind: call
+                all:
+                    - has: { field: function, kind: attribute, all: [{ has: { field: attribute, pattern: subscribe_rna } }, { has: { field: object, kind: attribute, all: [{ has: { field: attribute, pattern: msgbus } }, { has: { field: object, pattern: bpy } }] } }] }
+                    - has: { field: arguments, has: { kind: keyword_argument, all: [{ has: { field: name, pattern: owner } }, { has: { field: value, not: { kind: 'identifier, attribute, subscript' } } }] } }
+        - pattern: $CALL
+message: '`$CALL` passes a handler or owner no held name pairs with its release'
+note: 'Bind the callable, draw handle, or msgbus owner to a name released through `remove`, `draw_handler_remove`, or `clear_by_owner`'

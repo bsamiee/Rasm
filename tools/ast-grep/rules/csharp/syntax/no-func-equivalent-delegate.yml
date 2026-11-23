@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: csharplang
+language: csharp
 severity: error
 rule:
     kind: delegate_declaration
@@ -18,7 +18,8 @@ rule:
                                 - has: { kind: modifier, regex: '^(ref|out|in|params|scoped|this)$' }
                                 - has: { kind: attribute_list }
                                 - has: { field: type, kind: 'pointer_type, function_pointer_type' }
-                                - has: { field: value, pattern: $_ }
+                                - has: { regex: '^=$' }
+                  - has: { field: parameters, has: { regex: '^params$' } }
                   - has: { field: parameters, has: { kind: parameter, nthChild: 17 } }
                   - all:
                         - has: { field: type, regex: '^void$' }

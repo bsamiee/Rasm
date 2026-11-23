@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-import-reference
-language: tsxlang
+language: tsx
 arguments: [source, exported]
 utils:
     module-reference:

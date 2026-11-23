@@ -29,8 +29,8 @@ Rasm/
 │   ├── tools/
 │   ├── e2e/                  # Suites against a served or installed product
 │   └── support/              # Test harnesses by language
-├── tools/                    # Checks and grammars other checkers lack
-│   ├── ast-grep/             # Grammars and rules per language
+├── tools/                    # Checks other checkers lack
+│   ├── ast-grep/             # Rules and outline catalogs per language
 │   ├── conformance/          # Nx project graph and workspace files
 │   ├── dylint/               # Rust
 │   └── refurb/               # Python

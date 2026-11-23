@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: yamllang
+language: yaml
 severity: error
 rule:
     kind: document
@@ -20,7 +20,7 @@ rule:
                 kind: block_mapping_pair, flow_pair
                 has: { field: key, pattern: $KEY }
                 any:
-                    - not: { has: { field: key, regex: '^["'']?(?:id|language|role|symbolType|rule|name|signature|constraints|utils|transform|rewriters|variants|parentRuleIds|isImport|isExported|isPublic)["'']?$' } }
+                    - not: { has: { field: key, regex: '^["'']?(?:id|language|role|symbolType|rule|name|signature|constraints|utils|transform|rewriters|parentRuleIds|isImport|isExported|isPublic)["'']?$' } }
                     - all:
                           - has: { field: key, regex: '^["'']?(?:isImport|isExported)["'']?$' }
                           - inside: { has: { matches: { yaml-resolved-pair: { key: { regex: '^["'']?role["'']?$' }, value: { has: { regex: '^["'']?member["'']?$' } } } } } }
@@ -30,4 +30,4 @@ rule:
 labels:
     KEY: { style: primary, message: Key the loader skips }
 message: Outline loads extractor key `$KEY` silently and ignores it
-note: Items take `isImport` and `isExported`, members `isPublic` and `parentRuleIds`, every extractor `id`, `language`, `role`, `symbolType`, `rule`, `name`, `signature`, `constraints`, `utils`, `transform`, and `rewriters`, every source document `variants`
+note: Items take `isImport` and `isExported`, members `isPublic` and `parentRuleIds`, every extractor `id`, `language`, `role`, `symbolType`, `rule`, `name`, `signature`, `constraints`, `utils`, `transform`, and `rewriters`

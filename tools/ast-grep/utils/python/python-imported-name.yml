@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-imported-name
-language: pythonlang
+language: python
 arguments: [module, name]
 utils:
     plain-import:

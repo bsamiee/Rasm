@@ -10,39 +10,17 @@ fail_fast = false
 // --- [STEPS] ----------------------------------------------------------------------------
 
 steps {
-  ["grammars"] {
-    check = new CommandSpec {
-      command = "cd tools/ast-grep/grammars && cmake --workflow --preset default"
-      effect = "write"
-    }
-    stomp = true
-  }
   ["ast-grep"] {
     glob = "**/*"
-    exclude =
-      read("../tests/tools/dylint/.ignore").text
-        .split("\n")
-        .filter((line) -> line.startsWith("/"))
-        .map((line) -> "tests/tools/dylint\(line)")
-    depends = "grammars"
     check = new CommandSpec {
       command = new Command {
-        argv =
-          List(
-            "ast-grep",
-            "scan",
-            "--custom-languages",
-            "allow",
-            "--report-style",
-            "short",
-            "{{files}}",
-          )
+        argv = List("ast-grep", "scan", "--report-style", "short", "{{files}}")
       }
       effect = "read"
     }
     fix = new CommandSpec {
       command = new Command {
-        argv = List("ast-grep", "scan", "--custom-languages", "allow", "--update-all", "{{files}}")
+        argv = List("ast-grep", "scan", "--update-all", "{{files}}")
       }
       effect = "write"
     }
@@ -227,25 +205,6 @@ steps {
   }
   ["shellcheck"] = Builtins.shellcheck
   ["shfmt"] = Builtins.shfmt
-  ["squawk"] {
-    glob = "**/*.pgsql"
-    check = new CommandSpec {
-      command = new Command {
-        argv =
-          List(
-            "squawk",
-            "check",
-            "--config",
-            ".config/squawk.toml",
-            "--reporter",
-            "gcc",
-            "{{files}}",
-          )
-      }
-      effect = "read"
-    }
-    diagnostic_format = "gcc"
-  }
   ["stylelint"] = (Builtins.stylelint) {
     local stylelint =
       List("stylelint", "--config", ".config/stylelint.config.ts", "--max-warnings", "0")

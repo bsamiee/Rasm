@@ -240,11 +240,6 @@ const hkStep: Rule = Effect.fnUntraced(function* (invocation, call) {
     return included.length === paths.length ? whole(invocation, ['hk', fit.mode, '--step', quote(fit.step), spelled(files)].join(' '), invocation.program, launcherStart(invocation)) : [];
 });
 
-const customLanguages: Rule = (invocation) => {
-    const [, subcommand = invocation.head] = invocation.words;
-    return invocation.has('--custom-languages') ? [] : inserted(invocation, (subcommand.text.startsWith('-') ? invocation.head : subcommand).end, ' --custom-languages allow');
-};
-
 const hiddenErrors: Rule = (invocation, call) => {
     const nulled = redirected(invocation, RedirOperator.RdrOut, undefined, '/dev/null');
     const merged = nulled.some(({ descriptor }) => Option.isNone(descriptor)) || feedsJq(invocation, call);
@@ -636,13 +631,7 @@ const TASKS: Ruleset = {
             rules: [projectOptions(respell({ drops: ['--isolated'], notify: true }), strayCache, unassign(/^RUFF_CACHE_DIR=/u), perSubcommand({ check: [configFile], format: [configFile] }))],
         },
         ryl: { flags: ['-c, --config-file=', '-d, --config-data=', '-f, --output-format=', '-o, --output-file='] },
-        squawk: { flags: ['-c, --config=', '--reporter='] },
-        'ast-grep': {
-            aliases: ['sg'],
-            flags: ['-U, --update-all', '-i, --interactive', '--custom-languages=', '--filter=', '--globs=', '--color=', '--report-style='],
-            nx: { ignores: ['--report-style'] },
-            rules: [customLanguages],
-        },
+        'ast-grep': { aliases: ['sg'], flags: ['-U, --update-all', '-i, --interactive', '--filter=', '--globs=', '--color=', '--report-style='], nx: { ignores: ['--report-style'] } },
         stubgen: { rules: [projectOptions(stubCache)] },
         mypy: {
             flags: ['--cache-dir=', '--config-file=', '--python-version='],

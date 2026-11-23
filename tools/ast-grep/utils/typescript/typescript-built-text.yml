@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-built-text
-language: tsxlang
+language: tsx
 rule:
     any:
         - kind: template_string

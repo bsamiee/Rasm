@@ -18,6 +18,5 @@ enable_tools = [
     "pnpm",
     "pulumi",
     "rust",
-    "tree-sitter",
     "uv",
 ]

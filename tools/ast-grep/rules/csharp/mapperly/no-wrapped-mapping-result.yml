@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: csharplang
+language: csharp
 severity: error
 utils:
     option:
@@ -14,7 +14,7 @@ utils:
                   regex: '^((Option|Fin|Either|Validation|Try|Reader|State|Writer|Identity)T?|IO|Eff|These|ChronicleT|RWST|Free|K)$'
             - any:
                   - inside:
-                        field: type
+                        field: returns
                         stopBy: end
                         kind: method_declaration
                         matches: mapperly-mapping-method
@@ -22,7 +22,7 @@ utils:
                         all:
                             - matches: option
                             - inside:
-                                  field: type
+                                  field: returns
                                   stopBy: end
                                   kind: method_declaration
                                   not: { has: { kind: modifier, regex: '^partial$' } }

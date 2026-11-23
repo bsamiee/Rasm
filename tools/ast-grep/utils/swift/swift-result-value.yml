@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: swift-result-value
-language: swiftlang
+language: swift
 rule:
     any:
         - kind: call_expression
@@ -14,7 +14,7 @@ rule:
                         - has: { field: target, matches: swift-result-type }
         - kind: constructor_expression
           has: { field: constructed_type, matches: swift-result-type }
-        - kind: 'await_expression, unsafe_expression, consume_expression'
+        - kind: await_expression
           has: { field: expr, matches: swift-result-value }
         - kind: try_expression
           all:

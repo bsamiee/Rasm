@@ -1,38 +1,30 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: yamllang
+language: yaml
 severity: error
-utils:
-    shared-header:
-        kind: document
-        precedes: { kind: document }
-        not: { has: { kind: &node 'block_node, flow_node', has: { kind: &map 'block_mapping, flow_mapping', has: { kind: &pair 'block_mapping_pair, flow_pair', has: { field: key, regex: '^["'']?id["'']?$' } } } } }
 rule:
-    kind: *pair
+    kind: &pair block_mapping_pair, flow_pair
     all:
-        - inside: { stopBy: end, kind: document, has: { kind: 'block_node, flow_node', has: { kind: 'block_mapping, flow_mapping', has: { kind: 'block_mapping_pair, flow_pair', has: { field: key, regex: '^["'']?language["'']?$' } } } } }
+        - inside: { stopBy: end, kind: document, has: { kind: &node 'block_node, flow_node', has: { kind: &map 'block_mapping, flow_mapping', has: { kind: *pair, has: { field: key, regex: '^["'']?language["'']?$' } } } } }
         - inside: { kind: *map, inside: { kind: *node, inside: { kind: *pair, has: { field: key, regex: '^["'']?utils["'']?$' } } } }
         - has: { field: key, pattern: $UTIL }
         - not:
-              any:
-                  - inside:
-                        kind: *map
-                        inside:
-                            kind: *node
-                            inside:
-                                kind: *pair
-                                inside:
-                                    kind: *map
-                                    any:
-                                        - has: &call
-                                              stopBy: end
-                                              kind: *pair
-                                              all:
-                                                  - has: { field: key, regex: '^["'']?matches["'']?$' }
-                                                  - has: { field: value, pattern: $UTIL }
-                                        - all:
-                                              - has: { stopBy: end, kind: alias }
-                                              - inside: { stopBy: end, kind: document, has: *call }
-                  - inside: { stopBy: end, matches: shared-header, inside: { kind: stream, has: { kind: document, has: *call } } }
-                  - inside: { stopBy: end, kind: document, inside: { kind: stream, has: { kind: document, matches: shared-header, has: *call } } }
+              inside:
+                  kind: *map
+                  inside:
+                      kind: *node
+                      inside:
+                          kind: *pair
+                          inside:
+                              kind: *map
+                              any:
+                                  - has: &call
+                                        stopBy: end
+                                        kind: *pair
+                                        all:
+                                            - has: { field: key, regex: '^["'']?matches["'']?$' }
+                                            - has: { field: value, pattern: $UTIL }
+                                  - all:
+                                        - has: { stopBy: end, kind: alias }
+                                        - inside: { stopBy: end, kind: document, has: *call }
 message: Local util `$UTIL` has no `matches` call in its document
-note: Delete the util, or write its rule at its one use and an anchor at the first of several, a source's shared header supplies utils every document calls and calls utils every document holds
+note: Delete the util, or write its rule at its one use and an anchor at the first of several

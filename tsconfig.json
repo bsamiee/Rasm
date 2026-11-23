@@ -60,9 +60,6 @@
             "path": "./libs/typescript/web/ui"
         },
         {
-            "path": "./tools/ast-grep"
-        },
-        {
             "path": "./infra"
         },
         {

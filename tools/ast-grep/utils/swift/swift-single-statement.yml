@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: swift-single-statement
-language: swiftlang
-arguments: [first]
-rule:
-    matches: swift-sole-statement
-    has: { pattern: $_, not: { kind: 'comment, multiline_comment' }, matches: first }

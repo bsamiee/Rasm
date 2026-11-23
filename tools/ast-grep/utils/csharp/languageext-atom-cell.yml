@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: languageext-atom-cell
-language: csharplang
+language: csharp
 utils:
     atom-type:
         matches: { csharp-type-name: { name: { regex: '^(?:Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)$' } } }
@@ -157,17 +157,7 @@ rule:
                     kind: compilation_unit
                     stopBy: end
                     all:
-                        - has:
-                              {
-                                  stopBy:
-                                      &container {
-                                          not:
-                                              {
-                                                  kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, union_declaration, extension_declaration, extension_body, parameter_list, preproc_if, preproc_elif, preproc_else',
-                                              },
-                                      },
-                                  matches: atom-member,
-                              }
+                        - has: { stopBy: &container { not: { kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, parameter_list, preproc_if, preproc_elif, preproc_else' } }, matches: atom-member }
                         - not: { has: { stopBy: *container, matches: plain-member } }
         - kind: element_access_expression
           has: { field: expression, matches: elements }

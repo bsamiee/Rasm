@@ -178,7 +178,6 @@ hyperfine            = "latest"
 jq                   = "latest"
 ripgrep              = "latest"
 sd                   = "latest"
-tree-sitter          = "latest"
 xh                   = "latest"
 yq                   = "latest"
 
@@ -189,7 +188,6 @@ editorconfig-checker           = "latest"
 "github:BlankSpruce/gersemi"   = "latest"
 "github:fonttools/fontspector" = { version = "latest", version_prefix = "fontspector-v" }
 "github:pmd/pmd"               = { version = "latest", version_prefix = "pmd_releases/", version_regex = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$' }
-"github:sbdchd/squawk"         = "latest"
 "github:trailofbits/dylint"    = { matching = "cargo-dylint-", os = ["unix"], version = "latest" }
 google-java-format             = "latest"
 hk                             = { depends = ["sd"], postinstall = { run = '''{% if os() != "windows" %}sd 'download/v[^/]+/hk@[^#]+#' "download/v$MISE_TOOL_VERSION/hk@$MISE_TOOL_VERSION#" "$MISE_CONFIG_ROOT/.config/hk.pkl"{% endif %}''', when = "always" }, version = "latest" }

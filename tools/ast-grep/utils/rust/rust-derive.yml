@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: rust-derive
-language: rustlang
-arguments: [trait]
-rule:
-    kind: attribute_item
-    has: { stopBy: end, kind: token_tree, follows: { pattern: derive }, has: { kind: identifier, matches: trait } }

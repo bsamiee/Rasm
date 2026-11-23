@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: pgsql-wrapper
-language: pgsql
-rule:
-    kind: a_expr, c_expr, func_expr, func_arg_expr
-    not:
-        any:
-            - has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } }
-            - has: { not: { any: [{ pattern: $_ }, { regex: '^[()]$' }] } }

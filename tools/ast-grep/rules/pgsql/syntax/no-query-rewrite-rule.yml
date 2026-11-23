@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: pgsql
-severity: error
-ignores: ['**/*.sqlite.{ts,tsx}']
-rule:
-    kind: RuleStmt
-    has: { kind: ColId, pattern: $NAME }
-message: 'Rule `$NAME` rewrites each query before planning'
-note: 'Use a trigger, or an updatable view with `instead of` triggers'

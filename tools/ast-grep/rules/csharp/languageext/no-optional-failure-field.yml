@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: csharplang
+language: csharp
 severity: error
 utils:
     error-type-name:
@@ -14,8 +14,7 @@ utils:
                   stopBy: end
                   kind: compilation_unit
                   has:
-                      stopBy:
-                          { not: { kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, union_declaration, extension_declaration, extension_body, parameter_list, preproc_if, preproc_elif, preproc_else' } }
+                      stopBy: { not: { kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, parameter_list, preproc_if, preproc_elif, preproc_else' } }
                       kind: record_declaration
                       all: [{ has: { field: name, pattern: { context: 'class $ERROR;', selector: identifier } } }, { matches: languageext-error-record }]
     failure-name:

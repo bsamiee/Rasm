@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: rustlang
-severity: error
-rule:
-    kind: call_expression
-    pattern: $P.into_os_string().into_string()
-message: '`$P` converts to `String` through an intermediate `OsString`'
-note: 'Call `<path>.into_string()` and handle its `Err(PathBuf)` in place of `Err(OsString)`'

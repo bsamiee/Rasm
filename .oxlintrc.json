@@ -13,7 +13,7 @@
 
         "class-methods-use-this": ["error", { "ignoreOverrideMethods": true }],
         "func-names": ["error", "as-needed", { "generators": "never" }],
-        "id-length": "off", // Grammar `$`, `_` that `no-unused-vars` requires, Effect type parameters
+        "id-length": "off", // `_` that `no-unused-vars` requires, Effect type parameters
         "max-classes-per-file": "off", // Schema classes of one concept share a file, CLAUDE.md file organization
         "max-lines": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
         "max-lines-per-function": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
@@ -142,7 +142,7 @@
         "unicorn/import-style": ["error", { "styles": { "node:path": { "named": true, "default": false } }, "checkDynamicImport": false }],
         "unicorn/max-nested-calls": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
         "unicorn/no-array-callback-reference": "off", // Point-free calls, CLAUDE.md functional rule
-        "unicorn/no-array-for-each": "off", // Fix writes a `for...of` loop, ast-grep `no-statement-loop-tsx` refuses it
+        "unicorn/no-array-for-each": "off", // Fix writes a `for...of` loop, CLAUDE.md keeps imperative code at boundaries
         "unicorn/no-array-method-this-argument": "off", // Reads the function of `Effect.forEach` and `Record.map` as `thisArg`
         "unicorn/no-array-reduce": "off", // Fix writes a `for` loop, CLAUDE.md keeps imperative code at boundaries
         "unicorn/no-instanceof-builtins": ["error", { "useErrorIsError": true }],
@@ -150,7 +150,7 @@
         "unicorn/no-useless-undefined": ["error", { "checkArguments": false, "checkArrowFunctionBody": false }],
         "unicorn/number-literal-case": "off", // `oxfmt` writes hex literal case the other way
         "unicorn/prefer-number-coercion": "off", // Fix reads CSS lengths (`80px`) through `Number`, which returns `NaN`
-        "unicorn/prefer-query-selector": "off", // Contradicts ast-grep `no-id-query-by-selector`
+        "unicorn/prefer-query-selector": "off", // `getElementById` reads an id without `CSS.escape`
         "unicorn/text-encoding-identifier-case": ["error", { "withDash": true }],
         "unicorn/throw-new-error": "off" // Flags `Schema.TaggedError<X>()(...)` class heritage calls
     },
@@ -178,7 +178,7 @@
             }
         },
         {
-            "files": ["**/*.config.ts", "**/server/main.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js", "tools/conformance/*/rule.ts"],
+            "files": ["**/*.config.ts", "**/server/main.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "tools/conformance/*/rule.ts"],
             "rules": {
                 "import/no-default-export": "off" // Loaders read default exports
             }
@@ -248,18 +248,6 @@
                 "typescript/no-unsafe-call": "off", // Scripts read untyped host globals (`job`)
                 "typescript/no-unsafe-member-access": "off", // Scripts read untyped host globals (`job`)
                 "typescript/no-unsafe-return": "off" // Scripts read untyped host globals (`job`)
-            }
-        },
-        {
-            "files": ["tools/ast-grep/grammars/**"],
-            "rules": {
-                "no-underscore-dangle": "off", // Grammars name hidden rules `_x`
-                "typescript/no-unsafe-argument": "off", // Grammar DSL is untyped
-                "typescript/no-unsafe-assignment": "off", // Grammar DSL is untyped
-                "typescript/no-unsafe-call": "off", // Grammar DSL is untyped
-                "typescript/no-unsafe-member-access": "off", // Grammar DSL is untyped
-                "typescript/no-unsafe-return": "off", // Grammar DSL is untyped
-                "typescript/prefer-nullish-coalescing": "off" // Grammar DSL is untyped
             }
         }
     ]

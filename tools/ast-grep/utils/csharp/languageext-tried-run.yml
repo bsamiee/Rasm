@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: languageext-tried-run
-language: csharplang
+language: csharp
 arguments: [effect]
 utils:
     tried:

@@ -2769,34 +2769,6 @@ checksum_source = "mise-versions"
 url = "https://github.com/rudrankriyam/App-Store-Connect-CLI/releases/download/7.0.0/asc_7.0.0_macOS_arm64"
 url_api = "https://api.github.com/repos/rudrankriyam/App-Store-Connect-CLI/releases/assets/758990219"
 
-[[tools."github:sbdchd/squawk"]]
-version = "2.73.0"
-backend = "github:sbdchd/squawk"
-specifiers = ["latest"]
-
-[tools."github:sbdchd/squawk"."platforms.linux-arm64"]
-checksum = "sha256:84c925d19fba29c845b58cd12e1003cbfe9c70dc014bbf7174a84e1b433518d5"
-checksum_source = "mise-versions"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.73.0/squawk-linux-arm64"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/751706071"
-
-[tools."github:sbdchd/squawk"."platforms.linux-x64"]
-checksum = "sha256:9ae3747ca5eafa48b4d5c535fc64b61e0735a763164193644aa6436cc97c4274"
-checksum_source = "mise-versions"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.73.0/squawk-linux-x64"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/751707141"
-
-[tools."github:sbdchd/squawk"."platforms.macos-arm64"]
-checksum = "sha256:1806b8d16204606c35e6496b3727f76cf13a4d0665439ea5df1dcca579954551"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.73.0/squawk-darwin-arm64"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/751707143"
-
-[tools."github:sbdchd/squawk"."platforms.windows-x64"]
-checksum = "sha256:324ce27c2c97d65afb81fec973844c734b25de3aa3e9cf4fc947e6adf2767962"
-checksum_source = "mise-versions"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.73.0/squawk-windows-x64.exe"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/751705994"
-
 [[tools."github:sparkle-project/Sparkle"]]
 version = "2.11.0-beta.1"
 backend = "github:sparkle-project/Sparkle"
@@ -4177,31 +4149,6 @@ checksum = "sha256:b6b2d9e6419216aaa0b8e74a5c81c48335cb193d6eb87f50a7d77468bce10
 checksum_source = "mise-versions"
 url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.3/tombi-cli-1.11.3-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/755626450"
-
-[[tools.tree-sitter]]
-version = "0.27.2"
-backend = "aqua:tree-sitter/tree-sitter"
-specifiers = ["latest"]
-
-[tools.tree-sitter."platforms.linux-arm64"]
-checksum = "sha256:34fcc5c4fa7bdd2058a2a45a03b6eb9a49b03a93b6d52ec750f99b1516d98d33"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-linux-arm64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450855"
-
-[tools.tree-sitter."platforms.linux-x64"]
-checksum = "sha256:7ed56d152c52437397b9fcaa43cf341f49933cecc1ca291843f0d347c6e2cb3a"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-linux-x64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450853"
-
-[tools.tree-sitter."platforms.macos-arm64"]
-checksum = "sha256:5a08b66e5713b0c69691611250b2191d07139647a3c6e39ba85954284b634d2d"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-macos-arm64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450878"
-
-[tools.tree-sitter."platforms.windows-x64"]
-checksum = "sha256:230779ee4a729e3044d4a8ed57490b776ea1bac0671d12afbd6f5b4d1878f1d0"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-windows-x64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450892"
 
 [[tools.uv]]
 version = "0.13.9"
