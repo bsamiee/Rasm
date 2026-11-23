@@ -1,4 +1,4 @@
-import { rmSync, statSync, symlinkSync } from 'node:fs';
+import { readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-vitest';
@@ -12,10 +12,15 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const ROOT = { 'package.json': '{"name":"repo","workspaces":["libs/*","packages/*"]}' };
 const LIB = { ...ROOT, 'libs/lib/package.json': '{"name":"lib"}' };
+const LOADS = 'tmp/loads';
 const LISTED =
     "import { globSync, readFileSync } from 'node:fs';\nimport { dirname } from 'node:path';\n\nexport default { test: { projects: globSync('packages/*/package.json', { cwd: import.meta.dirname }).map((file) => ({ test: { name: JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf-8')).name, root: dirname(file) } })) } };\n";
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const counted = (up: string) => `import { appendFileSync } from 'node:fs';\n\nappendFileSync(new URL('${up}/${LOADS}', import.meta.url), '+');\n\n`;
+
+const loads = (root: string) => readFileSync(join(root, LOADS), 'utf-8').length;
 
 const targets = (graph: ProjectGraph) => Object.fromEntries(Object.values(graph.nodes).map(({ name, data }) => [name, data.targets]));
 
@@ -50,31 +55,28 @@ describe('test--vitest inference reused across graph runs', () => {
     });
 
     it('reuses the inferred targets of a root configuration while a file it never reads changes', async ({ workspace }) => {
-        Reflect.set(globalThis, 'loads', 0);
-        await workspace.write({ ...ROOT, 'vitest.config.ts': "globalThis.loads += 1;\n\nexport default { test: { projects: ['packages/*'] } };\n", 'packages/a/package.json': '{"name":"a"}' }).graph({ createNodes });
-        expect(Reflect.get(globalThis, 'loads')).toBeGreaterThan(0);
-        Reflect.set(globalThis, 'loads', 0);
+        await workspace.write({ ...ROOT, [LOADS]: '', 'vitest.config.ts': `${counted('.')}export default { test: { projects: ['packages/*'] } };\n`, 'packages/a/package.json': '{"name":"a"}' }).graph({ createNodes });
+        expect(loads(workspace.root)).toBeGreaterThan(0);
 
-        const graph = await workspace.write({ 'packages/a/notes.md': '# a\n' }).graph({ createNodes });
+        const graph = await workspace.write({ [LOADS]: '', 'packages/a/notes.md': '# a\n' }).graph({ createNodes });
 
-        expect([Reflect.get(globalThis, 'loads'), graph.nodes['a']?.data.targets?.['test--vitest']?.options]).toStrictEqual([0, { config: 'vitest.config.ts', projects: [] }]);
+        expect([loads(workspace.root), graph.nodes['a']?.data.targets?.['test--vitest']?.options]).toStrictEqual([0, { config: 'vitest.config.ts', projects: [] }]);
     });
 
     it('describes a configuration again after a source of a linked workspace package it imports changes', async ({ workspace }) => {
-        Reflect.set(globalThis, 'loads', 0);
         workspace.write({
             ...LIB,
+            [LOADS]: '',
             'libs/helper/package.json': '{"name":"helper","type":"module","exports":"./index.js"}',
             'libs/helper/index.js': "export const include = ['*.test.ts'];\n",
-            'libs/lib/vitest.config.ts': "import { include } from 'helper';\n\nglobalThis.loads += 1;\n\nexport default { test: { include } };\n",
+            'libs/lib/vitest.config.ts': `import { include } from 'helper';\n${counted('../..')}export default { test: { include } };\n`,
         });
         symlinkSync(join(workspace.root, 'libs/helper'), join(workspace.root, 'node_modules/helper'), 'dir');
         await workspace.graph({ createNodes });
-        Reflect.set(globalThis, 'loads', 0);
 
-        const graph = await workspace.write({ 'libs/helper/index.js': "export const include = ['*.spec.ts'];\n" }).graph({ createNodes });
+        const graph = await workspace.write({ [LOADS]: '', 'libs/helper/index.js': "export const include = ['*.spec.ts'];\n" }).graph({ createNodes });
 
-        expect([Reflect.get(globalThis, 'loads'), graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs]).toStrictEqual([1, expect.arrayContaining([{ input: 'default', projects: ['helper'] }])]);
+        expect([loads(workspace.root), graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs]).toStrictEqual([1, expect.arrayContaining([{ input: 'default', projects: ['helper'] }])]);
     });
 
     it('leaves the plugin cache file unwritten while every configuration is reused', async ({ workspace }) => {
