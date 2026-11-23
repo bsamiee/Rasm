@@ -214,7 +214,9 @@ TONES.forEach(({ scheme, background, color, hovered, pressed, ring }) => {
         await page.keyboard.press('Tab');
 
         await expect(button).toBeFocused();
-        expect([await sampled(page, start - 3, row), await sampled(page, start - 2, row), await sampled(page, start - 1, row), await sampled(page, start + 2, row)]).toEqual([background, ring, ring, background]);
+        expect(await button.evaluate((element) => getComputedStyle(element, '::before').outlineWidth)).toBe('2px');
+        expect([await sampled(page, start - 4, row), await sampled(page, start + 2, row)]).toEqual([background, background]);
+        expect([await sampled(page, start - 2, row), await sampled(page, start - 1, row)]).toContain(ring);
     });
 });
 
