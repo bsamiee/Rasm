@@ -27,6 +27,7 @@ prerelease-mode = "allow"
 members = [
     "rasm",
     "rasm-cli",
+    "rasm-cli-tests",
     "rasm-foundry",
     "rasm-foundry-tests",
     "rasm-records",
@@ -7770,7 +7771,7 @@ test = [
     { name = "pytest-randomly" },
     { name = "pytest-socket" },
     { name = "pytest-timeout" },
-    { name = "rasm-testing", extra = ["hosting", "sqlite"] },
+    { name = "rasm-testing", extra = ["hosting"] },
 ]
 typography = [
     { name = "blackrenderer" },
@@ -8113,7 +8114,7 @@ test = [
     { name = "pytest-randomly" },
     { name = "pytest-socket" },
     { name = "pytest-timeout" },
-    { name = "rasm-testing", extras = ["hosting", "sqlite"], editable = "tests/support/python" },
+    { name = "rasm-testing", extras = ["hosting"], editable = "tests/support/python" },
 ]
 typography = [
     { name = "blackrenderer" },
@@ -8166,6 +8167,29 @@ requires-dist = [
 ]
 
 [[package]]
+name = "rasm-cli-tests"
+version = "0.1.0"
+source = { virtual = "tests/libs/python/runtime/cli" }
+dependencies = [
+    { name = "expression" },
+    { name = "msgspec" },
+    { name = "pytest" },
+    { name = "rasm-cli" },
+    { name = "rasm-records" },
+    { name = "sysexits" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "expression" },
+    { name = "msgspec" },
+    { name = "pytest" },
+    { name = "rasm-cli", editable = "libs/python/runtime/cli" },
+    { name = "rasm-records", editable = "libs/python/data/records" },
+    { name = "sysexits" },
+]
+
+[[package]]
 name = "rasm-foundry"
 version = "0.1.0"
 source = { editable = "products/cli/foundry" }
@@ -8204,9 +8228,8 @@ version = "0.1.0"
 source = { virtual = "tests/products/cli/foundry" }
 dependencies = [
     { name = "anyio" },
-    { name = "cyclopts" },
     { name = "expression" },
-    { name = "msgspec" },
+    { name = "fonttools" },
     { name = "pytest" },
     { name = "rasm-cli" },
     { name = "rasm-foundry" },
@@ -8217,9 +8240,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "anyio" },
-    { name = "cyclopts" },
     { name = "expression" },
-    { name = "msgspec" },
+    { name = "fonttools" },
     { name = "pytest" },
     { name = "rasm-cli", editable = "libs/python/runtime/cli" },
     { name = "rasm-foundry", editable = "products/cli/foundry" },
@@ -8276,9 +8298,9 @@ source = { virtual = "tests/tools/refurb" }
 dependencies = [
     { name = "expression" },
     { name = "fake-bpy-module-latest" },
+    { name = "hypothesis" },
     { name = "msgspec" },
     { name = "mypy" },
-    { name = "pydantic" },
     { name = "pytest" },
     { name = "rasm-refurb" },
     { name = "refurb" },
@@ -8289,9 +8311,9 @@ dependencies = [
 requires-dist = [
     { name = "expression" },
     { name = "fake-bpy-module-latest" },
+    { name = "hypothesis" },
     { name = "msgspec" },
     { name = "mypy" },
-    { name = "pydantic" },
     { name = "pytest" },
     { name = "rasm-refurb", editable = "tools/refurb" },
     { name = "refurb" },
@@ -8365,33 +8387,27 @@ name = "rasm-telemetry-tests"
 version = "0.1.0"
 source = { virtual = "tests/libs/python/runtime/telemetry" }
 dependencies = [
+    { name = "hypothesis" },
     { name = "msgspec" },
     { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp-common" },
-    { name = "opentelemetry-proto" },
     { name = "opentelemetry-sdk" },
     { name = "opentelemetry-test-utils" },
     { name = "portalocker" },
-    { name = "pydantic" },
     { name = "pytest" },
-    { name = "rasm-telemetry", extra = ["configuration", "otlp-http", "process"] },
-    { name = "rasm-testing", extra = ["hosting"] },
+    { name = "rasm-telemetry", extra = ["configuration", "process"] },
     { name = "structlog" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "hypothesis" },
     { name = "msgspec" },
     { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp-common" },
-    { name = "opentelemetry-proto" },
     { name = "opentelemetry-sdk" },
     { name = "opentelemetry-test-utils" },
     { name = "portalocker" },
-    { name = "pydantic" },
     { name = "pytest" },
-    { name = "rasm-telemetry", extras = ["configuration", "otlp-http", "process"], editable = "libs/python/runtime/telemetry" },
-    { name = "rasm-testing", extras = ["hosting"], editable = "tests/support/python" },
+    { name = "rasm-telemetry", extras = ["configuration", "process"], editable = "libs/python/runtime/telemetry" },
     { name = "structlog" },
 ]
 
@@ -8412,9 +8428,6 @@ hosting = [
     { name = "hypercorn" },
     { name = "msgspec" },
 ]
-sqlite = [
-    { name = "sqlite-vec" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -8425,9 +8438,8 @@ requires-dist = [
     { name = "pytest" },
     { name = "pytest-socket" },
     { name = "rasm-records", editable = "libs/python/data/records" },
-    { name = "sqlite-vec", marker = "extra == 'sqlite'" },
 ]
-provides-extras = ["hosting", "sqlite"]
+provides-extras = ["hosting"]
 
 [[package]]
 name = "rasm-typography"

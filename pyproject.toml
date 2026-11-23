@@ -14,12 +14,12 @@ dependencies    = []
 dev  = [
     # --- [CHECKERS]
 
-    "mypy",                         # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
-    "pydantic",                     # mypy plugin typing each pydantic model, whose replace signature holds explicit `Any` without it
-    "rasm-refurb",                  # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
-    "refurb",                       # FURB checks Ruff lacks, over a mypy build
-    "ty",                           # Type checker of every project
-    "vulture",                      # Private functions, classes, methods, and attributes nothing reads
+    "mypy",                  # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
+    "pydantic",              # mypy plugin typing each pydantic model, whose replace signature holds explicit `Any` without it
+    "rasm-refurb",           # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
+    "refurb",                # FURB checks Ruff lacks, over a mypy build
+    "ty",                    # Type checker of every project
+    "vulture",               # Private functions, classes, methods, and attributes nothing reads
 
     # --- [STUBS]
 
@@ -37,13 +37,13 @@ dev  = [
     "types-shapely",
 ]
 test = [
-    "hypothesis",                   # Property-based tests
-    "pytest",                       # Test collection, assertions, and fixtures
-    "pytest-cov",                   # Coverage collection
-    "pytest-randomly",              # Random test order and seeds
-    "pytest-socket",                # Block unrequested network connections
-    "pytest-timeout",               # Per-test deadline
-    "rasm-testing[hosting,sqlite]", # SQLite and hosted server fixtures, each loaded by pytest as a plugin
+    "hypothesis",            # Property-based tests
+    "pytest",                # Test collection, assertions, and fixtures
+    "pytest-cov",            # Coverage collection
+    "pytest-randomly",       # Random test order and seeds
+    "pytest-socket",         # Block unrequested network connections
+    "pytest-timeout",        # Per-test deadline
+    "rasm-testing[hosting]", # Hosted server fixtures pytest loads as a plugin
 ]
 
 # --- [RUNTIME]
@@ -411,6 +411,7 @@ members = [
     "libs/python/runtime/telemetry",
     "products/cli/foundry",
     "tests/libs/python/graphics/typography",
+    "tests/libs/python/runtime/cli",
     "tests/libs/python/runtime/telemetry",
     "tests/products/cli/foundry",
     "tests/support/python",
@@ -731,10 +732,13 @@ task-tags                 = ["---", "TODO", "FIXME", "XXX"]                     
 [tool.ruff.lint.per-file-ignores]
 # --- [TESTS]
 
-"**/tests/**"                                         = ["assert", "implicit-namespace-package"] # pytest imports each test file by rootdir path, a test root holds no package
-"tests/libs/python/runtime/telemetry/conftest.py"     = ["banned-api", "pytest-fixture-autouse"] # Every case runs over the root logger and structlog configuration it restores, `structlog.reset_defaults` among them, so no case leaks process logging state
-"tests/libs/python/runtime/telemetry/test_logger.py"  = ["banned-api"]                           # Cases configure structlog process-wide and empty the root logger, the state `telemetry.logger` stands apart from
-"tests/libs/python/runtime/telemetry/test_process.py" = ["banned-api", "import-private-name"]    # Cases log through third-party stdlib loggers and read the logger class the scope restores, and opentelemetry-sdk holds its log exporters in private `_logs` alone
+"**/tests/**"                                         = ["assert", "implicit-namespace-package"]  # pytest imports each test file by rootdir path, a test root holds no package
+"tests/libs/python/runtime/telemetry/conftest.py"     = ["banned-api", "pytest-fixture-autouse"]  # Every case runs over the root logger and structlog configuration it restores, `structlog.reset_defaults` among them, so no case leaks process logging state
+"tests/libs/python/runtime/telemetry/test_records.py" = ["banned-api"]                            # A case configures structlog process-wide, the state `telemetry.logger` stands apart from
+"tests/products/cli/foundry/test_checks.py"           = ["import-private-name"]                   # A build reaches fontspector reports only after compiling a declared set from its originals, so cases read them through private `_checks`
+"tests/tools/refurb/test_defaults.py"                 = ["exec-builtin", "suspicious-eval-usage"] # The oracle runs each case module and each reported call with and without its keyword, comparing what the call returns and prints
+"tests/tools/refurb/test_python_versions.py"          = ["suspicious-eval-usage"]                 # The oracle evaluates each flagged expression and the rewrite its finding proposes over drawn rows
+"tests/libs/python/runtime/telemetry/test_process.py" = ["banned-api", "import-private-name"]     # Cases log through third-party stdlib loggers and read the logger class the scope restores, and opentelemetry-sdk holds its log exporters in private `_logs` alone
 
 # --- [LIBRARIES]
 
@@ -917,8 +921,6 @@ addopts                   = [
     "-p",
     "rasm.testing.hosting",                     # Hosted HTTP servers of `tests/support/python`
     "-p",
-    "rasm.testing.sqlite",                      # SQLite database of `tests/support/python`
-    "-p",
     "pytest_socket",                            # Named by its module, the entry point name `socket` being the standard library module the hosting plugin imports first
     "-p",
     "timeout",
@@ -933,7 +935,7 @@ empty_parameter_set_mark  = "fail_at_collect"
 filterwarnings            = ["error"]
 strict                    = true
 timeout                   = "30"
-tmp_path_retention_policy = "failed"            # Keeps the folders of failed tests alone, as the SQLite fixture keeps the file of a failed test
+tmp_path_retention_policy = "failed"            # Keeps the folders of failed tests alone
 
 # --- [TOMBI] ----------------------------------------------------------------------------
 

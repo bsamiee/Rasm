@@ -6,16 +6,16 @@ version         = "0.1.0"
 requires-python = ">=3.13"
 
 dependencies = [
-    "expression",                   # Outcome a tool class build returns, read once per case
-    "hypothesis",                   # Plugin the shared pytest table loads
-    "pytest",                       # Fixtures, parameters, and raised refusals
-    "pytest-cov",                   # Plugin the shared pytest table loads, coverage of `nx test -c coverage`
-    "pytest-randomly",              # Random test order and seeds
-    "pytest-socket",                # Connections refused to every test
-    "pytest-timeout",               # Per-test deadline
-    "rasm-extension[host]",         # Icons and tools the cases build, on Blender as a Python module
-    "rasm-records",                 # Fault reasons a refused tool icon carries
-    "rasm-testing[hosting,sqlite]", # Plugins the shared pytest table loads
+    "expression",            # Outcome a tool class build returns, read once per case
+    "hypothesis",            # Plugin the shared pytest table loads
+    "pytest",                # Fixtures, parameters, and raised refusals
+    "pytest-cov",            # Plugin the shared pytest table loads, coverage of `nx test -c coverage`
+    "pytest-randomly",       # Random test order and seeds
+    "pytest-socket",         # Connections refused to every test
+    "pytest-timeout",        # Per-test deadline
+    "rasm-extension[host]",  # Icons and tools the cases build, on Blender as a Python module
+    "rasm-records",          # Fault reasons a refused tool icon carries
+    "rasm-testing[hosting]", # Plugins the shared pytest table loads
 ]
 
 # --- [UV] -------------------------------------------------------------------------------

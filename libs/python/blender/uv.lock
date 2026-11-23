@@ -1355,7 +1355,7 @@ dependencies = [
     { name = "pytest-timeout" },
     { name = "rasm-extension", extra = ["host"] },
     { name = "rasm-records" },
-    { name = "rasm-testing", extra = ["hosting", "sqlite"] },
+    { name = "rasm-testing", extra = ["hosting"] },
 ]
 
 [package.metadata]
@@ -1369,7 +1369,7 @@ requires-dist = [
     { name = "pytest-timeout" },
     { name = "rasm-extension", extras = ["host"], editable = "extension" },
     { name = "rasm-records", editable = "../data/records" },
-    { name = "rasm-testing", extras = ["hosting", "sqlite"], editable = "../../../tests/support/python" },
+    { name = "rasm-testing", extras = ["hosting"], editable = "../../../tests/support/python" },
 ]
 
 [[package]]
@@ -1530,7 +1530,7 @@ dependencies = [
     { name = "pytest-timeout" },
     { name = "rasm-records" },
     { name = "rasm-rendering" },
-    { name = "rasm-testing", extra = ["hosting", "sqlite"] },
+    { name = "rasm-testing", extra = ["hosting"] },
 ]
 
 [package.metadata]
@@ -1547,7 +1547,7 @@ requires-dist = [
     { name = "pytest-timeout" },
     { name = "rasm-records", editable = "../data/records" },
     { name = "rasm-rendering", editable = "rendering" },
-    { name = "rasm-testing", extras = ["hosting", "sqlite"], editable = "../../../tests/support/python" },
+    { name = "rasm-testing", extras = ["hosting"], editable = "../../../tests/support/python" },
 ]
 
 [[package]]
@@ -1617,9 +1617,6 @@ hosting = [
     { name = "hypercorn" },
     { name = "msgspec" },
 ]
-sqlite = [
-    { name = "sqlite-vec" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -1630,9 +1627,8 @@ requires-dist = [
     { name = "pytest" },
     { name = "pytest-socket" },
     { name = "rasm-records", editable = "../data/records" },
-    { name = "sqlite-vec", marker = "extra == 'sqlite'" },
 ]
-provides-extras = ["hosting", "sqlite"]
+provides-extras = ["hosting"]
 
 [[package]]
 name = "refurb"
@@ -1727,16 +1723,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e8/c4/ba2f8066cceb6f23394729afe52f3bf7adec04bf9ed2c820b39e19299111/sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88", size = 30594, upload-time = "2021-05-16T22:03:42.897Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0", size = 29575, upload-time = "2021-05-16T22:03:41.177Z" },
-]
-
-[[package]]
-name = "sqlite-vec"
-version = "0.1.10a4"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f2/52/ca3edf018d67f7736ad7520770b66031063b54f8a0b1bc3622ead3a9f646/sqlite_vec-0.1.10a4-py3-none-macosx_11_0_arm64.whl", hash = "sha256:8d1b8cffdd8fe86d48efc3e447569da3874e4cf7d61ad2ddf5a8ece102294b0e", size = 197402, upload-time = "2026-05-18T06:54:33.456Z" },
-    { url = "https://files.pythonhosted.org/packages/79/27/57ccbf098b2bb4ab4f0ee138cf1e38235f84636f74e0a52464b9a8aa1c0e/sqlite_vec-0.1.10a4-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux1_x86_64.whl", hash = "sha256:f1897fa54780aaee4ce216091a51193f6383060099325360163550836f803eff", size = 213876, upload-time = "2026-05-18T06:54:35.949Z" },
-    { url = "https://files.pythonhosted.org/packages/73/26/9f64179d13d2032edcf7b6ab8539d600db3fa08a359a0859c0daa2bf2b86/sqlite_vec-0.1.10a4-py3-none-win_amd64.whl", hash = "sha256:21473f81e58536f2594e4196a03c19a553476c834d97be4d03a2bb0a7d51e1c3", size = 310292, upload-time = "2026-05-18T06:54:36.876Z" },
 ]
 
 [[package]]
