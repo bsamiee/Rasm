@@ -1,5 +1,5 @@
 import { Array, Cause, Data, type Duration, Effect, Formatter, Layer, Option, Struct, UndefinedOr } from 'effect';
-import { SqlClient, type Statement } from 'effect/sql';
+import { SqlClient, type SqlError, type Statement } from 'effect/sql';
 import { Engine } from '#/engine';
 import { ReconcileError } from '#/error';
 import { digest, refusals } from '#/reconcile';
@@ -28,10 +28,9 @@ class Catalog extends Data.Class<{
                 reader,
             }),
         );
-    static readonly #text = (written: readonly Statement.Statement<object>[]) => written.map((statement) => statement.compile(true)[0]);
     static readonly plan = Effect.fn('Catalog.plan')(
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, () => Effect.void),
-        Effect.map(({ preamble, statements, concurrent, undeclared }) => ({ preamble: Catalog.#text(preamble), statements: Catalog.#text(statements), concurrent: Catalog.#text(concurrent), undeclared })),
+        Effect.map(({ preamble, statements, concurrent, undeclared }) => ({ preamble: text(preamble), statements: text(statements), concurrent: text(concurrent), undeclared })),
     );
     static readonly reconcile = Effect.fn('Catalog.reconcile')(
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, ({ statements }, engine) => Array.match(statements, { onEmpty: () => Effect.void, onNonEmpty: engine.execute })),
@@ -43,7 +42,8 @@ class Catalog extends Data.Class<{
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: Option.Option<string>, after: (planned: Effect.Success<ReturnType<Engine['Service']['plan']>>, engine: Engine['Service']) => Effect.Effect<unknown, E, R>) {
+const text = (written: readonly Statement.Statement<object>[]) => written.map((statement) => statement.compile(true)[0]);
+const converge = Effect.fnUntraced(function* (catalog: Catalog, runtime: Option.Option<string>, after: (planned: Effect.Success<ReturnType<Engine['Service']['plan']>>, engine: Engine['Service']) => Effect.Effect<unknown, SqlError.SqlError, SqlClient.SqlClient>) {
     const [client, engine] = yield* Effect.all([SqlClient.SqlClient, Engine]);
     const stored = UndefinedOr.match(engine.names.transformQueryNames, {
         onUndefined: () => catalog,
@@ -51,14 +51,17 @@ const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: O
     });
     yield* ReconcileError.raise([...stored.tables.flatMap(refusals), ...stored.tables.flatMap(engine.refusals)]);
     const steps = engine.plan(client.withoutTransforms(), stored, runtime);
-    const applied = Effect.tap(steps, (planned) => after(planned, engine));
-    const converged = <X>(error: X) =>
-        Effect.filterOrFail(
-            steps,
-            ({ statements }) => Array.isReadonlyArrayEmpty(statements),
-            () => error,
+    const settled = (planned: Parameters<typeof after>[0]): Effect.Effect<Parameters<typeof after>[0], Effect.Error<typeof steps>, SqlClient.SqlClient> =>
+        Effect.catchTag(
+            Effect.as(after(planned, engine), planned),
+            'SqlError',
+            Effect.fnUntraced(function* (error) {
+                const next = yield* steps;
+                const [failed, left] = [new Set(text(planned.statements)), new Set(text(next.statements))];
+                return yield* left.size < failed.size && left.isSubsetOf(failed) ? settled(next) : Effect.fail(error);
+            }),
         );
-    return yield* engine.transactional ? client.withTransaction(applied) : Effect.catchTag(applied, 'SqlError', converged);
+    return yield* engine.transactional ? client.withTransaction(Effect.tap(steps, (planned) => after(planned, engine))) : Effect.flatMap(steps, settled);
 });
 const start = Effect.fnUntraced(function* <M, N>(catalog: Catalog, migrator: Option.Option<Layer.Layer<SqlClient.SqlClient, M, N>>) {
     const [engine, client] = yield* Effect.all([Engine, SqlClient.SqlClient]);

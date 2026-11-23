@@ -104,7 +104,16 @@ const tableDdl = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: 
             const [type, defaulted, name] = [engine.type(entry), Option.map(entry.default, (value) => engine.constant(entry, value)), quoted(entry.name)];
             const checked = (subject: Statement.Fragment) =>
                 Column.Bound.$match({
-                    Compare: ({ op, value, subject: measured }) => spaced([measured === 'codePoints' ? engine.codePoints(sql, subject) : subject, op, value instanceof Date ? literal(value.toISOString()) : `${value}`]),
+                    Compare: ({ op, value, subject: measured }) =>
+                        spaced([
+                            measured === 'codePoints' ? engine.codePoints(sql, subject) : subject,
+                            op,
+                            Match.value(value).pipe(
+                                Match.when(Match.number, String),
+                                Match.when(Match.date, (instant) => literal(instant.toISOString())),
+                                Match.orElse((wide) => engine.constant(entry, wide.toString())),
+                            ),
+                        ]),
                     MultipleOf: ({ divisor }) => spaced([subject, '%', `${divisor}`, '= 0']),
                     Cased: ({ case: casing }) => engine.cased(sql, subject, entry.kind, casing),
                 });
@@ -133,7 +142,11 @@ const tableDdl = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: 
             const parts = [type, ...Option.toArray(projection(entry)).map((expression) => engine.generated(sql, expression)), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(defaulted).map((value) => `DEFAULT ${value}`)];
             const identity = { origin: Option.getOrElse(entry.renamedFrom, () => entry.name), generation: entry.generation };
             const hashed = yield* digest(sql`${spaced([...parts, ...Option.toArray(rule(sql.literal('subject'))).map(Struct.get('text'))])}`.compile(true)[0]);
-            const [stamp, written] = [{ ...identity, digest: hashed }, (held: Identity) => spaced([sql`${name}${engine.comment(sql, entry.name, { ...held, digest: hashed }).inline}`, ...parts, ...Option.toArray(check).map(({ text }) => engine.constraint(sql, checkName.name, text))])];
+            const [stamp, constrained] = [{ ...identity, digest: hashed }, Option.toArray(check).map(({ text }) => engine.constraint(sql, checkName.name, text))];
+            const written = (held: Identity) => {
+                const marked = engine.comment(sql, entry.name, { ...held, digest: hashed });
+                return spaced([sql`${name}${marked.inline}`, ...parts, ...constrained, ...marked.trailing]);
+            };
             return { ...entry, type, check: Option.map(check, Struct.assign(checkName)), default: defaulted, identity, stamp, digest: hashed, comment: engine.comment(sql, entry.name, stamp), written, text: written(identity) };
         }),
     );
@@ -191,7 +204,8 @@ const tableDdl = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: 
             const constraints = linked(target)
                 .filter(inline)
                 .map(({ name, text }) => engine.constraint(sql, name, text));
-            return sql`CREATE TABLE ${target(owner)}${engine.comment(sql, owner, stamp).inline} (${sql.csv([...columns, ...elements, primary, ...constraints])})${engine.suffix(sql, declared)}`;
+            const marked = engine.comment(sql, owner, stamp);
+            return sql`${spaced([sql`CREATE TABLE ${target(owner)}${marked.inline} (${sql.csv([...columns, ...elements, primary, ...constraints])})${engine.suffix(sql, declared)}`, ...marked.trailing])}`;
         },
     };
 });

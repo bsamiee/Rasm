@@ -1,7 +1,7 @@
 import { PgClient, PgTypes } from '@effect/sql-pg';
 import { traverse } from '@pgsql/traverse';
 import type { Node } from '@pgsql/types';
-import { Array, Config, Duration, Effect, Equal, Equivalence, Exit, Filter, Formatter, Function, HashSet, Layer, Option, Record, Result, Schema, Struct } from 'effect';
+import { Array, Config, Duration, Effect, Equal, Equivalence, Exit, Filter, Formatter, Function, HashSet, Layer, Option, Record, Result, Schedule, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
 import type { Catalog } from '#/catalog';
@@ -103,6 +103,7 @@ class PgTable extends PgObject.extend<PgTable>('PgTable')({
     indexes: Schema.Array(
         Schema.Struct({
             name: Schema.String,
+            oid: Schema.Int,
             valid: Schema.Boolean,
             definition: Schema.String,
             columns: Schema.Array(Schema.String),
@@ -176,7 +177,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                     Effect.map(Effect.provideService(extension, SqlClient.SqlClient, sql), (namespace) => ({
                         score: sql`${sql.literal(namespace)}.word_similarity(${text}, ${body})`,
                         source: owner,
-                        filter: sql`(${body}) ILIKE ${pattern}`,
+                        filter: sql`(${body}) ILIKE ${pattern} AND (${sql.or(searchable.columns.map(({ name }) => sql`${sql(name)} ILIKE ${pattern}`))})`,
                         mark: (part: string, open: string, close: string) => sql`regexp_replace(${sql(part)}, ${['***=', text].join('')}, ${[open, close].map((marker) => marker.replaceAll('\\', String.raw`\\`)).join(String.raw`\&`)}, 'gi')`,
                     })),
                 Words: (words) => {
@@ -239,7 +240,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const text = Option.liftPredicate(Formatter.formatJson(identity), () => !Equal.equals(identity, { origin: name, generation: 0 }));
         return Option.contains(recorded, identity) || Option.isNone(Option.orElse(text, () => recorded)) ? [] : [Pg.#commented(sql, relation, column, text)];
     };
-    static readonly comment: Dialect['comment'] = (sql, name, identity) => ({ inline: sql.literal(''), statements: (relation, column) => Pg.#stamped(sql, relation, column, name, Option.none(), identity) });
+    static readonly comment: Dialect['comment'] = (sql, name, identity) => ({ inline: sql.literal(''), trailing: [], statements: (relation, column) => Pg.#stamped(sql, relation, column, name, Option.none(), identity) });
 
     // --- [RECONCILIATION]
 
@@ -252,11 +253,14 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly open: Dialect['open'] = () => Effect.void;
     static readonly execute = Engine.transaction;
     static readonly transactional = true;
-    static readonly #concurrently = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, session: readonly { readonly name: string; readonly value: string }[], statements: Array.NonEmptyReadonlyArray<Statement.Statement<object>>) {
+    static readonly #concurrently = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, session: readonly { readonly name: string; readonly value: string }[], steps: Array.NonEmptyReadonlyArray<{ readonly statement: Statement.Statement<object>; readonly observed: readonly Statement.Statement<object>[] }>) {
         const connection = yield* Effect.acquireRelease(sql.reserve, (reserved) => Effect.orDie(reserved.executeUnprepared(...sql`SELECT set_config(name, reset_val, false) FROM pg_settings WHERE name = ANY(${session.map(Struct.get('name'))})`.compile(true), undefined)));
         const run = (statement: Statement.Statement<object>) => connection.executeUnprepared(...statement.compile(true), undefined);
         yield* Effect.forEach(session, ({ name, value }) => run(sql`SELECT set_config(${name}, ${value}, false)`), { discard: true });
-        return yield* Effect.forEach(statements, run, { discard: true });
+        yield* Effect.acquireRelease(Effect.repeat(run(sql`SELECT 1 WHERE pg_try_advisory_lock(hashtextextended(current_schema(), 1))`), { until: Array.isReadonlyArrayNonEmpty, schedule: Schedule.exponential(Duration.millis(1)) }), () =>
+            Effect.orDie(run(sql`SELECT pg_advisory_unlock(hashtextextended(current_schema(), 1))`)),
+        );
+        return yield* Effect.forEach(steps, ({ statement, observed }) => Effect.flatMap(Effect.forEach(observed, run), (seen) => (seen.every(Array.isReadonlyArrayNonEmpty) ? run(statement) : Effect.void)), { discard: true });
     }, Effect.scoped);
     static readonly #block = (sql: SqlClient.SqlClient, statements: readonly Statement.Statement<object>[]) => sql`DO ${sql.literal(literal(['BEGIN', ...statements.map((statement) => [statement.compile(true)[0], ';'].join('')), 'END'].join(' ')))}`;
     static readonly #aligned = <W extends { readonly name: string; readonly parts: readonly string[] }, L extends { readonly name: string }>(wanted: readonly W[], live: readonly L[], prior: Matched['prior'], fits: (row: L, item: W) => boolean) => {
@@ -266,7 +270,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             const kept = Option.exists(present, (row) => fits(row, item));
             const renamed = Option.filter(before, (row) => Option.isNone(present) && fits(row, item));
             const dropped = [...Option.toArray(present).filter(() => !kept), ...Option.toArray(before).filter(() => Option.isNone(renamed))];
-            return { item, renamed: Option.map(renamed, ({ name }) => name), missing: !kept && Option.isNone(renamed), dropped: dropped.map(({ name }) => name) };
+            return { item, renamed: Option.map(renamed, ({ name }) => name), missing: !kept && Option.isNone(renamed), dropped };
         });
         const claimed = new Set(wanted.flatMap((item) => [item.name, prior(item.parts)]));
         return { placed, foreign: live.filter(({ name }) => !claimed.has(name)) };
@@ -283,7 +287,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                 .entries()
                 .map(([from, to]) => sql`ALTER TABLE ${ddl.relation} RENAME CONSTRAINT ${sql(from)} TO ${sql(to)}`)
                 .toArray(),
-            dropped: links.placed.flatMap(({ dropped }) => dropped),
+            dropped: links.placed.flatMap(({ dropped }) => dropped.map(Struct.get('name'))),
             added: links.placed.filter(({ missing }) => missing).map(({ item }) => item),
             enforced: Array.intersection(live.unenforced.map(relabeled), [...checks, ...ddl.links].map(Struct.get('name'))),
             references: links.foreign.map(({ columns, target }) => ({ table: declared.name, columns: Array.map(columns, renamed), target: resolved.referenced(target).name })),
@@ -292,16 +296,13 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly #indexes = ({ sql, drifted }: Planning, { ddl, live, prior, renamed, retiredIndexes }: Matched, desired: PgTable) => {
         const wanted = Record.fromIterableBy(desired.indexes, Struct.get('name'));
         const { placed, foreign } = Pg.#aligned(ddl.indexes, live.indexes, prior, (row, index) => row.valid && Option.exists(Record.get(wanted, index.name), (target) => Equal.equals(Struct.evolve(row.shape, { keys: Array.map(renamed) }), target.shape)));
-        const retired = Array.intersection(live.indexes.map(Struct.get('name')), retiredIndexes);
+        const retired = live.indexes.filter(({ name }) => retiredIndexes.includes(name));
         const stale = placed.filter(({ item, missing }) => !missing && Option.exists(item.configuration, ({ name }) => drifted.includes(name)));
         return {
             relabels: Array.getSomes(placed.map(({ item, renamed: before }) => Option.map(before, (from) => sql`ALTER INDEX ${sql(from)} RENAME TO ${sql(item.name)}`))),
-            concurrent: [
-                ...[...placed.flatMap(({ dropped }) => dropped), ...retired].map((name) => sql`DROP INDEX CONCURRENTLY IF EXISTS ${sql(name)}`),
-                ...placed.filter(({ missing }) => missing).map(({ item }) => item.text(['CONCURRENTLY', 'IF NOT EXISTS'])),
-                ...stale.map(({ item }) => sql`REINDEX INDEX CONCURRENTLY ${sql(item.name)}`),
-            ],
-            indexes: Array.difference(foreign.map(Struct.get('name')), retired),
+            dropped: [...placed.flatMap(({ dropped }) => dropped), ...retired].map(({ name, oid, valid }) => ({ statement: sql`DROP INDEX CONCURRENTLY IF EXISTS ${sql(name)}`, observed: [sql`SELECT 1 FROM pg_index x WHERE x.indexrelid = ${oid}::oid AND x.indisvalid = ${sql.literal(`${valid}`)}`] })),
+            built: [...placed.filter(({ missing }) => missing).map(({ item }) => item.text(['CONCURRENTLY', 'IF NOT EXISTS'])), ...stale.map(({ item }) => sql`REINDEX INDEX CONCURRENTLY ${sql(item.name)}`)],
+            indexes: Array.difference(foreign, retired).map(Struct.get('name')),
         };
     };
     static readonly #secured = ({ sql, role, grantees }: Planning, { relation, policy }: Matched['ddl'], held: Pick<PgTable, 'grants' | 'rls' | 'force' | 'policies'>, wanted: PgTable['policies'], prior: Matched['prior']) => {
@@ -315,7 +316,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             ...granted,
             ...(Option.isSome(policy) && !held.rls ? [sql`ALTER TABLE ${relation} ENABLE ROW LEVEL SECURITY`] : []),
             ...(Option.isSome(policy) && !held.force ? [sql`ALTER TABLE ${relation} FORCE ROW LEVEL SECURITY`] : []),
-            ...placed.flatMap(({ item, renamed, missing, dropped }) => [...Option.toArray(renamed).map((from) => sql`ALTER POLICY ${sql(from)} ON ${relation} RENAME TO ${sql(item.name)}`), ...dropped.map((name) => sql`DROP POLICY ${sql(name)} ON ${relation}`), ...(missing ? [item.text(role)] : [])]),
+            ...placed.flatMap(({ item, renamed, missing, dropped }) => [...Option.toArray(renamed).map((from) => sql`ALTER POLICY ${sql(from)} ON ${relation} RENAME TO ${sql(item.name)}`), ...dropped.map(({ name }) => sql`DROP POLICY ${sql(name)} ON ${relation}`), ...(missing ? [item.text(role)] : [])]),
         ];
     };
     static readonly #columns = ({ owned, fields, live }: Matched, desired: PgTable) => {
@@ -409,7 +410,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                 ...stamps.flatMap(({ definition, recorded, identity }) => Pg.#stamped(sql, owner, Option.some(definition.name), definition.name, recorded, { ...identity, digest: definition.digest })),
                 ...added.flatMap(({ definition }) => definition.comment.statements(owner, Option.some(definition.name))),
             ],
-            concurrent: [...indexes.concurrent, ...constraints.enforced.map((name) => sql`ALTER TABLE ${owner} ALTER CONSTRAINT ${sql(name)} ENFORCED`), ...validated.map((name) => sql`ALTER TABLE ${owner} VALIDATE CONSTRAINT ${sql(name)}`)],
+            concurrent: [...indexes.dropped, ...[...indexes.built, ...constraints.enforced.map((name) => sql`ALTER TABLE ${owner} ALTER CONSTRAINT ${sql(name)} ENFORCED`), ...validated.map((name) => sql`ALTER TABLE ${owner} VALIDATE CONSTRAINT ${sql(name)}`)].map((statement) => ({ statement, observed: [] }))],
             undeclared: { indexes: indexes.indexes, references: constraints.references },
         };
     };
@@ -448,7 +449,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const { sql, resolved } = planning;
         const scratch = Record.fromIterableBy(this.scratch, Struct.get('name'));
         const altered = Array.getSomes(resolved.matched.map((entry) => Option.map(Record.get(scratch, entry.declared.name), (desired) => Pg.#altered(planning, entry, desired))));
-        const concurrent = altered.flatMap(({ concurrent: statements }) => statements);
+        const concurrent = altered.flatMap(({ concurrent: steps }) => steps);
         const unsecured = { grants: {}, rls: false, force: false, policies: [] };
         const mapping = ({ tokens, dictionaries }: Configurations['configurations'][number]['drift'][number]) => Option.match(dictionaries, { onNone: () => ['DROP MAPPING IF EXISTS FOR', tokens.join(', ')], onSome: (chain) => ['ALTER MAPPING FOR', tokens.join(', '), 'WITH', chain.join(', ')] });
         return resolved.plan({
@@ -472,8 +473,8 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                 ...resolved.created.flatMap(({ ddl: table, deferred }) => deferred.map((link) => sql`ALTER TABLE ${table.relation} ADD ${Pg.constraint(sql, link.name, link.text)}`)),
                 ...altered.flatMap(({ statements }) => statements),
             ],
-            concurrent,
-            concurrently: Array.match(concurrent, { onEmpty: () => Effect.void, onNonEmpty: (statements) => Pg.#concurrently(sql, session, statements) }),
+            concurrent: concurrent.map(Struct.get('statement')),
+            concurrently: Array.match(concurrent, { onEmpty: () => Effect.void, onNonEmpty: (steps) => Pg.#concurrently(sql, session, steps) }),
             undeclared: { indexes: altered.flatMap(({ undeclared }) => undeclared.indexes), references: altered.flatMap(({ undeclared }) => undeclared.references) },
         });
     }
@@ -564,12 +565,12 @@ const observed = SqlSchema.findOne({
                     'references', array(SELECT json_build_object('name', n.conname, 'columns', n.columns, 'target', t.relname, 'onDelete', n.confdeltype::text) FROM constraints n JOIN pg_class t ON t.oid = n.confrelid WHERE n.conrelid = r.oid AND n.contype = 'f'),
                     'invalid', array(SELECT n.conname::text FROM constraints n WHERE n.conrelid = r.oid AND n.conenforced AND NOT n.convalidated),
                     'unenforced', array(SELECT n.conname::text FROM constraints n WHERE n.conrelid = r.oid AND NOT n.conenforced),
-                    'indexes', array(SELECT json_build_object('name', i.relname, 'valid', x.indisvalid, 'definition', pg_get_indexdef(x.indexrelid),
+                    'indexes', array(SELECT json_build_object('name', i.relname, 'oid', x.indexrelid::bigint, 'valid', x.indisvalid, 'definition', pg_get_indexdef(x.indexrelid),
                         'columns', array(SELECT a.attname::text FROM pg_depend p JOIN pg_attribute a ON (a.attrelid, a.attnum) = (p.refobjid, p.refobjsubid) WHERE p.objid = x.indexrelid AND p.classid = 'pg_class'::regclass AND p.refobjsubid > 0),
                         'shape', json_build_object('unique', x.indisunique, 'method', am.amname, 'width', x.indnkeyatts, 'predicate', pg_get_expr(x.indpred, x.indrelid, true),
                             'keys', array(SELECT coalesce(a.attname::text, pg_get_indexdef(x.indexrelid, k, true)) FROM generate_series(1, x.indnatts) k LEFT JOIN pg_attribute a ON a.attrelid = x.indrelid AND a.attnum = x.indkey[k - 1] ORDER BY k),
                             'classes', array(SELECT o.opcname::text FROM unnest(x.indclass) WITH ORDINALITY u(oid, position) JOIN pg_opclass o ON o.oid = u.oid ORDER BY u.position)))
-                        FROM pg_index x JOIN pg_class i ON i.oid = x.indexrelid JOIN pg_am am ON am.oid = i.relam WHERE x.indrelid = r.oid AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conindid = x.indexrelid AND k.conrelid = x.indrelid)),
+                        FROM pg_index x JOIN pg_class i ON i.oid = x.indexrelid JOIN pg_am am ON am.oid = i.relam WHERE x.indrelid = r.oid AND pg_get_indexdef(x.indexrelid) IS NOT NULL AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conindid = x.indexrelid AND k.conrelid = x.indrelid)),
                     'policies', array(SELECT json_build_object('name', p.polname, 'using', pg_get_expr(p.polqual, p.polrelid, true), 'check', pg_get_expr(p.polwithcheck, p.polrelid, true), 'roles', p.polroles::regrole[]::text[]) FROM pg_policy p WHERE p.polrelid = r.oid)) AS relation
                     FROM relations r)
                 SELECT json_build_object('tables', array(SELECT d.relation FROM described d WHERE NOT d.scratch), 'scratch', array(SELECT d.relation FROM described d WHERE d.scratch))::text AS observed`,

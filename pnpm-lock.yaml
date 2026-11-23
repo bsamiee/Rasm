@@ -219,6 +219,9 @@ catalogs:
     '@swc/wasm':
       specifier: 1.16.22
       version: 1.16.22
+    '@testcontainers/clickhouse':
+      specifier: 12.2.2
+      version: 12.2.2
     '@testcontainers/postgresql':
       specifier: 12.2.2
       version: 12.2.2
@@ -2480,7 +2483,13 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
+      '@effect/sql-clickhouse':
+        specifier: 'catalog:'
+        version: 4.1.5(@effect/platform-node@4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0)))(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))
       '@effect/sql-d1':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))
+      '@effect/sql-pg':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))
       '@effect/sql-sqlite-node':
@@ -2492,6 +2501,12 @@ importers:
       '@rasm/database':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/data/database
+      '@testcontainers/clickhouse':
+        specifier: 'catalog:'
+        version: 12.2.2(bare-buffer@3.7.3)(supports-color@10.2.2)
+      '@testcontainers/postgresql':
+        specifier: 'catalog:'
+        version: 12.2.2(bare-buffer@3.7.3)(supports-color@10.2.2)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -6633,6 +6648,9 @@ packages:
 
   '@swc/wasm@1.16.22':
     resolution: {integrity: sha512-7wFC6rBgXXiNElVvrBokCD7xgNF6QOMyiEDeQyhcvPgIBc+jWW99FU/E4KScd+NPZBAxwEkj3/a7N9xnu1RI+A==}
+
+  '@testcontainers/clickhouse@12.2.2':
+    resolution: {integrity: sha512-Om+K/f5VJ1KhJNGSFGBn97bre1xOwqyubjsRv62Tmd/hK+T1PK5sf6kq2Lnwb8/rRwyaQqawKcaFcHK8wEWbcw==}
 
   '@testcontainers/postgresql@12.2.2':
     resolution: {integrity: sha512-ePhFeUswU6aHJ1HETznfnVKuR0KYtGkMfqE1DTltgSt21WokXFby/I+c7g/fPXSE9sfxfE+GtyoUeohejpVcSA==}
@@ -12900,6 +12918,15 @@ snapshots:
   '@swc/helpers@0.5.24': {}
 
   '@swc/wasm@1.16.22': {}
+
+  '@testcontainers/clickhouse@12.2.2(bare-buffer@3.7.3)(supports-color@10.2.2)':
+    dependencies:
+      testcontainers: 12.2.2(bare-buffer@3.7.3)(supports-color@10.2.2)
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
 
   '@testcontainers/postgresql@12.2.2(bare-buffer@3.7.3)(supports-color@10.2.2)':
     dependencies:

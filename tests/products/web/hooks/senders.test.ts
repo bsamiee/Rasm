@@ -41,7 +41,7 @@ const receiver = Layer.unwrap(
         const [spawner, bundle] = yield* Effect.all([ChildProcessSpawner.ChildProcessSpawner, Effect.fromOption(routed('@rasm/nx-vite', '@rasm/hooks'), () => new Cause.UnknownError('@rasm/hooks', 'nx.json states no Vite outputPath to run @rasm/hooks from'))]);
         const [database, port] = yield* Effect.all([
             Effect.acquireRelease(
-                Effect.promise(() => new PostgreSqlContainer('postgres:18-alpine').start()),
+                Effect.promise(() => new PostgreSqlContainer('postgres:19.0-alpine3.24').start()),
                 (started) => Effect.promise(() => started.stop()),
             ),
             allocated,

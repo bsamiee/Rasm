@@ -4,7 +4,7 @@ import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import { Column, type Kind } from '#/column';
 import { type Dialect, Engine } from '#/engine';
-import { catalogDdl, constant, diff, digest, Identity, identifier, literal, replacement, Stamp, unsupported } from '#/reconcile';
+import { catalogDdl, diff, digest, Identity, identifier, literal, replacement, Stamp, unsupported } from '#/reconcile';
 import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -66,7 +66,7 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
         );
         return entry.nullable ? `Nullable(${held})` : held;
     };
-    static readonly constant: Dialect['constant'] = flow(constant, String.replaceAll('\\', '$&$&'));
+    static readonly constant: Dialect['constant'] = (_, value) => (typeof value === 'string' ? quoted(value) : `${value}`);
     static readonly codePoints: Dialect['codePoints'] = (sql, subject) => sql`lengthUTF8(${subject})`;
     static readonly cased: Dialect['cased'] = (sql, subject, _, casing) => sql`${sql.literal(casing)}UTF8(toString(${subject})) = toString(${subject})`;
     static readonly domain: Dialect['domain'] = (sql, subject, kind) => (kind === 'real' ? [sql`isFinite(${subject})`] : []);
@@ -96,10 +96,7 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
     static readonly rename: Dialect['rename'] = (sql, from, to) => sql`RENAME TABLE ${sql(from)} TO ${to}`;
     static readonly fulltext: Dialect['fulltext'] = () => ({ indexes: [], virtual: Option.none() });
     static readonly policy: Dialect['policy'] = () => Option.none();
-    static readonly comment: Dialect['comment'] = (sql, _, identity) => ({
-        inline: sql.literal(''),
-        statements: (relation, column) => Option.toArray(column).map((name) => sql`ALTER TABLE ${relation} ${commented(sql, name, identity)}`),
-    });
+    static readonly comment: Dialect['comment'] = (sql, _, identity) => ({ inline: sql.literal(''), trailing: [sql`COMMENT ${sql.literal(quoted(Formatter.formatJson(identity)))}`], statements: () => [] });
 
     // --- [RECONCILIATION]
 
@@ -129,9 +126,7 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
             const live = yield* observed(Array.map(catalog.tables, ({ name }) => replacement(name)));
             const resolved = diff(sql, Clickhouse, catalog, ddl, live.tables.map(Struct.assign({ references: [] })));
             const matched = yield* Effect.forEach(resolved.matched, (entry) => Effect.map(parts(sql, entry), (wanted) => aligned(entry, wanted)));
-            const created = yield* Effect.forEach(resolved.created, ({ declared, ddl: table }) =>
-                Effect.map(parts(sql, { declared, ddl: table }), (wanted) => [table.create(), built(sql, table.relation, { declared, parts: wanted, stamp: tableStamp(declared, table.identity, wanted), stamps: table.definitions, foreign: [] })]),
-            );
+            const created = yield* Effect.forEach(resolved.created, ({ declared, ddl: table }) => Effect.map(parts(sql, { declared, ddl: table }), (wanted) => built(sql, table.relation, { declared, ddl: table, parts: wanted, stamp: tableStamp(declared, table.identity, wanted), fields: [], foreign: [] }, [])));
             const [replaced, kept] = Array.partition(
                 matched,
                 Filter.fromPredicate(({ rebuild }) => rebuild),
@@ -216,13 +211,14 @@ const recoded = (sql: SqlClient.SqlClient, { columns, mergeTree }: Relation, hel
         const codec = Record.get(mergeTree.codecs, name);
         return Equal.equals(codec, Record.get(held, name)) ? Result.failVoid : Result.succeed(sql`MODIFY COLUMN ${sql(name)} ${sql.literal(Option.match(codec, { onNone: () => 'REMOVE CODEC', onSome: (chain) => ['CODEC(', chain.join(', '), ')'].join('') }))}`);
     });
-const built = (sql: SqlClient.SqlClient, target: Statement.Fragment, { declared, parts: wanted, stamp, stamps, foreign }: Pick<Aligned, 'declared' | 'parts' | 'stamp' | 'stamps' | 'foreign'>) =>
-    sql`ALTER TABLE ${target} ${sql.csv([
-        ...recoded(sql, declared, {}),
-        ...[...wanted, ...foreign.map(({ kind, name, definition }) => ({ kind, name, body: sql.literal(definition) }))].map(({ kind, name, body }) => sql`ADD ${sql.literal(kind)} ${sql(name)} ${body}`),
-        ...stamps.map(({ name, stamp: identity }) => commented(sql, name, identity)),
-        sql`MODIFY COMMENT ${sql.literal(quoted(Formatter.formatJson(stamp)))}`,
-    ])}`;
+const built = (sql: SqlClient.SqlClient, target: Statement.Fragment, { declared, ddl, parts: wanted, stamp, fields, foreign }: Pick<Aligned, 'declared' | 'ddl' | 'parts' | 'stamp' | 'fields' | 'foreign'>, elements: readonly Statement.Fragment[]) => [
+    ddl.create({
+        target: () => target,
+        elements: [...elements, ...[...wanted, ...foreign.map(({ kind, name, definition }) => ({ kind, name, body: sql.literal(definition) }))].map(({ kind, name, body }) => sql`${sql.literal(kind)} ${sql(name)} ${body}`)],
+        claimed: Option.some({ identity: stamp, fields }),
+    }),
+    ...Array.match(recoded(sql, declared, {}), { onEmpty: () => [], onNonEmpty: (all) => [sql`ALTER TABLE ${target} ${sql.csv(all)}`] }),
+];
 const keyed = ({ kind, name }: Pick<TableStamp['parts'][number], 'kind' | 'name'>) => ({ kind, name });
 const aligned = (entry: ReturnType<typeof diff<Clickhouse['tables'][number] & { readonly references: never[] }>>['matched'][number], wanted: Effect.Success<ReturnType<typeof parts>>) => {
     const [stamp, present, declared] = [tableStamp(entry.declared, entry.identity, wanted), HashSet.fromIterable(entry.live.parts.map(keyed)), HashSet.fromIterable(wanted.map(keyed))];
@@ -241,7 +237,6 @@ const aligned = (entry: ReturnType<typeof diff<Clickhouse['tables'][number] & { 
         stamp,
         managed,
         gone,
-        stamps: entry.fields.map(({ definition, identity }) => ({ name: definition.name, stamp: { ...identity, digest: definition.digest } })),
         missing: wanted.filter((part) => !HashSet.has(HashSet.difference(present, gone), keyed(part))),
         foreign: entry.live.parts.filter((part) => !(HashSet.has(gone, keyed(part)) || HashSet.has(declared, keyed(part)))),
         rebuild: entry.owned && (retyped || !Option.exists(entry.live.identity, ({ mergeTree }) => Equal.equals(mergeTree, stamp.mergeTree))),
@@ -255,7 +250,7 @@ const altered = (sql: SqlClient.SqlClient, entry: Aligned) => {
         ...entry.added.map(({ text }) => sql`ADD COLUMN ${text}`),
         ...Option.toArray(entry.managed).flatMap(({ codecs }) => recoded(sql, entry.declared, Record.mapKeys(codecs, entry.renamed))),
         ...entry.missing.flatMap(({ kind, name, body }) => [sql`ADD ${sql.literal(kind)} ${sql(name)} ${body}`, ...(kinds[kind].stored ? [sql`MATERIALIZE ${sql.literal(kind)} ${sql(name)}`] : [])]),
-        ...[...entry.added.map((definition) => ({ definition, identity: definition.identity })), ...restamped].map(({ definition, identity }) => commented(sql, definition.name, { ...identity, digest: definition.digest })),
+        ...restamped.map(({ definition, identity }) => commented(sql, definition.name, { ...identity, digest: definition.digest })),
         ...Option.toArray(Option.filter(entry.managed, (held) => !Equal.equals(held, entry.stamp))).map(() => sql`MODIFY COMMENT ${sql.literal(quoted(Formatter.formatJson(entry.stamp)))}`),
         ...Option.toArray(expiry).map((expires) => sql`MODIFY ${ttl(sql, expires)}`),
     ];
@@ -273,7 +268,7 @@ const rebuilt = (sql: SqlClient.SqlClient, entry: Aligned) => {
         ...entry.retained.filter(Struct.get('copied')).map(({ name }) => ({ from: name, to: name })),
     ];
     const listed = (side: 'from' | 'to') => sql.csv(copied.map((pair) => sql`${sql(pair[side])}`));
-    return [entry.ddl.create({ target: () => target, elements, claimed: Option.some(entry) }), built(sql, target, entry), sql`INSERT INTO ${target} (${listed('to')}) SELECT ${listed('from')} FROM ${entry.ddl.relation}`, sql`EXCHANGE TABLES ${entry.ddl.relation} AND ${target}`, sql`DROP TABLE ${target} SYNC`];
+    return [...built(sql, target, entry, elements), sql`INSERT INTO ${target} (${listed('to')}) SELECT ${listed('from')} FROM ${entry.ddl.relation}`, sql`EXCHANGE TABLES ${entry.ddl.relation} AND ${target}`, sql`DROP TABLE ${target} SYNC`];
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

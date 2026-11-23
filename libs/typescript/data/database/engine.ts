@@ -40,7 +40,7 @@ interface Dialect {
         readonly virtual: Option.Option<{ readonly name: string; readonly create: Statement.Statement<object>; readonly triggers: readonly { readonly name: string; readonly create: Statement.Statement<object> }[]; readonly rebuild: Statement.Statement<object> }>;
     };
     readonly policy: (sql: SqlClient.SqlClient, owner: string, name: string, type: string, setting: string) => Option.Option<{ readonly name: string; readonly parts: readonly string[]; readonly rule: Statement.Fragment; readonly text: (on: Statement.Fragment, role: Statement.Fragment) => Statement.Statement<object> }>;
-    readonly comment: (sql: SqlClient.SqlClient, name: string, identity: Identity) => { readonly inline: Statement.Fragment; readonly statements: (relation: Statement.Fragment, column: Option.Option<string>) => readonly Statement.Statement<object>[] };
+    readonly comment: (sql: SqlClient.SqlClient, name: string, identity: Identity) => { readonly inline: Statement.Fragment; readonly trailing: readonly Statement.Fragment[]; readonly statements: (relation: Statement.Fragment, column: Option.Option<string>) => readonly Statement.Statement<object>[] };
     readonly refusals: (relation: Relation) => readonly ReconcileError['findings'][number][];
     readonly role?: (sql: SqlClient.SqlClient) => Effect.Effect<string, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError>;
     readonly open: (sql: SqlClient.SqlClient) => Effect.Effect<unknown, SqlError.SqlError>;

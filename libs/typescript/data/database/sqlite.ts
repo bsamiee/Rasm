@@ -100,7 +100,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         };
     };
     static readonly policy: Engine['Service']['policy'] = () => Option.none();
-    static readonly comment: Engine['Service']['comment'] = (sql, _, identity) => ({ inline: sql.literal(` /* ${Formatter.formatJson(identity).replaceAll('*/', String.raw`*\/`)} */`), statements: () => [] });
+    static readonly comment: Engine['Service']['comment'] = (sql, _, identity) => ({ inline: sql.literal(` /* ${Formatter.formatJson(identity).replaceAll('*/', String.raw`*\/`)} */`), trailing: [], statements: () => [] });
 
     // --- [RECONCILIATION]
 
