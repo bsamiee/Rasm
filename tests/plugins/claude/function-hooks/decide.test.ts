@@ -117,6 +117,7 @@ const SESSION_CALLS = [
 const JSON_READ = (program: string) => ({ _tag: 'Deny', reason: `${program} inline code parses JSON, use jq` }) as const;
 const FILE_WRITE = (program: string) => ({ _tag: 'Deny', reason: `${program} inline code writes files or runs commands, run each command directly and edit files with sd or your file edit tool` }) as const;
 const UNRESOLVED_DELETE = (subject: string, raw: string) => ({ _tag: 'Deny', reason: `${subject} ${raw} expands later, pass a literal path` }) as const;
+const PER_RESULT = (subject: string) => ({ _tag: 'Deny', reason: `${subject} starts one process per search result, pass -X for a command taking every path in one run, else --max-results with --threads=1` }) as const;
 const FIXTURES = {
     'probe.py': 'print(open("a.txt").read())\n',
     'probe.mjs': 'console.log(1);\n',
@@ -163,6 +164,17 @@ const SCRIPTED = (scratch: string, scratchpad = '/private/tmp/claude-501/-Users-
         ['fd --hidden -d 3 react /usr', ALLOWED],
         ['fd --hidden -d 3 react /', { _tag: 'Deny', reason: 'fd root / too wide, pass a package folder or a depth of at most 2' }],
         ['fd --hidden react node_modules/.pnpm', { _tag: 'Rewrite', command: 'fd --no-ignore --hidden react node_modules/.pnpm', background: false }],
+        ['fd --hidden -e log -x du -sk', REWRITTEN('fd --hidden -e log -X du -sk', 'fd -x became -X')],
+        ['fd --hidden -e log --exec stat', REWRITTEN('fd --hidden -e log --exec-batch stat', 'fd --exec became --exec-batch')],
+        ['fd --hidden -e log -x du -sk {}', REWRITTEN('fd --hidden -e log -X du -sk {}')],
+        ['fd --hidden -e log -X du -sk', ALLOWED],
+        [`fd --hidden -e log -x sh -c 'echo "$1"' sh`, PER_RESULT('fd -x sh')],
+        ['fd --hidden -e log -x stat {/}', PER_RESULT('fd -x stat')],
+        ['fd --hidden -e log --threads=1 -x wc -l', PER_RESULT('fd -x wc')],
+        ['fd --hidden -e log --threads=1 --max-results 9 -x wc -l', ALLOWED],
+        [String.raw`find . -name '*.log' -exec du -sk {} \;`, REWRITTEN("find . -name '*.log' -exec du -sk {} +", String.raw`find \; became +`)],
+        ["find . -name '*.log' -exec du -sk {} +", ALLOWED],
+        [String.raw`find . -name '*.log' -exec wc -l {} \;`, { _tag: 'Deny', reason: 'find -exec wc starts one process per search result, end -exec with {} + for a command taking every path in one run, else fd -x with --max-results and --threads=1' }],
         ['K=/private/tmp/claude-501/x/scratchpad/nvkeys.toml; printf x > "$K"; rm -f "$K"', ALLOWED],
         ['K=$(mktemp); printf x > "$K"; rm -f "$K"', ALLOWED],
         ['T=$(mktemp -d); rm -rf "$T"', ALLOWED],
@@ -419,7 +431,7 @@ it.live(
 );
 
 it.live(
-    'Agent scripts run, inline code routes JSON reads and file writes, unresolved recursive deletions, scratchpad wipes, awk forms, and listing depths take their own form',
+    'Agent scripts run, inline code routes JSON reads and file writes, unresolved recursive deletions, scratchpad wipes, awk forms, listing depths, and commands run per search result take their own form',
     Effect.fnUntraced(
         function* () {
             const [fs, path, { folder, decided }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, served()]);
