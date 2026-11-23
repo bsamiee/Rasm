@@ -468,10 +468,11 @@ libpdal-core = "2.10.*"
 
 llvm-openmp = "*"
 
-# --- [BLAS]
+# --- [LINUX]
 
 [tool.pixi.environments.default.target.linux.dependencies]
 openblas = "*" # `sparsediffpy` builds from its sdist against a BLAS CMake finds, Accelerate on macOS
+openssl  = "*" # `pyroscope-io` links OpenSSL through `pkg-config` on Linux, Security.framework on macOS
 
 # --- [ACTIVATION]
 
@@ -480,6 +481,7 @@ CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
 CPATH             = "$CONDA_PREFIX/include"
 HDF5_DIR          = "$CONDA_PREFIX"
 LDFLAGS           = "-L$CONDA_PREFIX/lib -Wl,-rpath,$CONDA_PREFIX/lib"
+PKG_CONFIG_PATH   = "$CONDA_PREFIX/lib/pkgconfig"
 
 [tool.pixi.environments.default.target.win.activation.env]
 CMAKE_PREFIX_PATH          = "%CONDA_PREFIX%\\Library"
