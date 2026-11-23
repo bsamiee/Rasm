@@ -4,7 +4,20 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type AppleEventValue = null | boolean | number | string | readonly AppleEventValue[] | TypedRecord | Specifier | TypeDescriptor | EnumeratorDescriptor | DateDescriptor | FileDescriptor | OpaqueDescriptor | { readonly _tag?: never; readonly [term: string]: AppleEventValue };
+type AppleEventValue =
+    | null
+    | boolean
+    | number
+    | string
+    | readonly AppleEventValue[]
+    | TypedRecord
+    | Specifier
+    | { readonly _tag: 'type'; readonly name: string }
+    | { readonly _tag: 'enumerator'; readonly name: string }
+    | { readonly _tag: 'date'; readonly date: string }
+    | { readonly _tag: 'file'; readonly url: string }
+    | { readonly _tag: 'opaque'; readonly type: string; readonly data: string; readonly value?: string }
+    | { readonly _tag?: never; readonly [term: string]: AppleEventValue };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -19,13 +32,6 @@ class Specifier extends Schema.Opaque<Specifier, unknown>()(
         from: Schema.optionalKey(Nested.annotate({ description: 'Container specifier, null or absent for application' })),
     }).annotate({ description: 'Object specifier' }),
 ) {}
-class TypeDescriptor extends Schema.Opaque<TypeDescriptor, unknown>()(Schema.TaggedStruct('type', { name: Schema.String }).annotate({ description: 'Class or property by name or code' })) {}
-class EnumeratorDescriptor extends Schema.Opaque<EnumeratorDescriptor, unknown>()(Schema.TaggedStruct('enumerator', { name: Schema.String }).annotate({ description: 'Enumerator by name or code' })) {}
-class DateDescriptor extends Schema.Opaque<DateDescriptor, unknown>()(Schema.TaggedStruct('date', { date: Schema.String.annotate({ description: 'ISO 8601 date' }) })) {}
-class FileDescriptor extends Schema.Opaque<FileDescriptor, unknown>()(Schema.TaggedStruct('file', { url: Schema.String })) {}
-class OpaqueDescriptor extends Schema.Opaque<OpaqueDescriptor, unknown>()(
-    Schema.TaggedStruct('opaque', { type: Code, data: Schema.String.annotate({ description: 'Descriptor bytes in base64' }), value: Schema.optionalKey(Schema.String) }).annotate({ description: 'Descriptor no other case decodes, sent back unchanged' }),
-) {}
 const AppleEventValue: Schema.Codec<AppleEventValue> = Schema.Union([
     Schema.Null,
     Schema.Boolean,
@@ -34,7 +40,13 @@ const AppleEventValue: Schema.Codec<AppleEventValue> = Schema.Union([
     Schema.Array(Nested),
     TypedRecord,
     Specifier,
-    Schema.Union([TypeDescriptor, EnumeratorDescriptor, DateDescriptor, FileDescriptor, OpaqueDescriptor]),
+    Schema.Union([
+        Schema.TaggedStruct('type', { name: Schema.String }).annotate({ description: 'Class or property by name or code' }),
+        Schema.TaggedStruct('enumerator', { name: Schema.String }).annotate({ description: 'Enumerator by name or code' }),
+        Schema.TaggedStruct('date', { date: Schema.String.annotate({ description: 'ISO 8601 date' }) }),
+        Schema.TaggedStruct('file', { url: Schema.String }),
+        Schema.TaggedStruct('opaque', { type: Code, data: Schema.String.annotate({ description: 'Descriptor bytes in base64' }), value: Schema.optionalKey(Schema.String) }).annotate({ description: 'Descriptor no other case decodes, sent back unchanged' }),
+    ]),
     Schema.StructWithRest(Schema.Struct({ _tag: Schema.optionalKey(Schema.Never) }), [Schema.Record(Schema.String, Nested)]).annotate({ description: 'Plain record by property name or code' }),
 ]);
 const TermKind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'value-type', 'enumeration']).annotate({ description: 'Scripting definition element kind' });
@@ -219,9 +231,7 @@ const Launch = Schema.Struct({
     environment: defaulted(Schema.Record(Schema.String, Schema.String), {}),
     new: defaulted(Schema.Boolean, false).annotate({ description: 'Beside running instances' }),
 });
-class Pressure extends Schema.Opaque<Pressure, unknown>()(
-    Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical', 'unknown']) }).annotate({ description: 'Kernel memory pressure level and thermal state, unknown for a state this build names no case for' }),
-) {}
+const Pressure = Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical', 'unknown']) }).annotate({ description: 'Kernel memory pressure level and thermal state, unknown for a state this build names no case for' });
 const ActivationPolicy = Schema.Literals(['regular', 'accessory', 'prohibited']).annotate({ description: 'Regular in Dock, accessory for menu bar or helper process, prohibited for background only' });
 const Launched = Schema.Struct({
     pid: Pid,
