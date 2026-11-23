@@ -162,7 +162,7 @@ const createNodes: CreateNodes = [
         const [hashed, developer, swift, stamp] = yield* Effect.all(
             [
                 own,
-                Effect.option(Effect.firstSuccessOf([Config.String('DEVELOPER_DIR'), fs.readLink('/var/db/xcode_select_link'), Effect.map(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot }), (at) => at.trim())])),
+                process.platform === HOST ? Effect.option(Effect.firstSuccessOf([Config.String('DEVELOPER_DIR'), fs.readLink('/var/db/xcode_select_link'), Effect.map(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot }), (at) => at.trim())])) : Effect.succeed(Option.none<string>()),
                 Effect.promise(() => which('swift', { nothrow: true })).pipe(Effect.map(Option.fromNullOr)),
                 Effect.option(sourced),
             ],
