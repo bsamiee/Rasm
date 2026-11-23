@@ -72,8 +72,8 @@ Rhino runs plug-ins on its bundled .NET under the hardened runtime, and each rou
 6. `continue_execution`, `detach_from_process`, and `close_debug_session` leave Rhino running
 
 Plug-in sessions follow runtime rules:
-- Products put `<Name>.rhp` without symbols in Rhino's context and run `lib/<Name>.dll` beside `lib/<Name>.pdb` in their own load context
-- Other Rasm assemblies embed their PDB, and every PDB holds repository paths and sources, so breakpoints bind with no `sourceFileMap`
+- Products put a `<Name>.rhp` shell without product code or symbols in Rhino's context and run `lib/<Name>.dll` in their own load context
+- Rasm assemblies embed their PDB with repository paths and sources, so breakpoints bind with no `sourceFileMap`
 - Breakpoints bind in the first loaded module holding their line, so library code each plug-in copies stops in the first plug-in alone
 - CI builds set `ContinuousIntegrationBuild`, which writes `/_/` in place of the repository root, and take a `sourceFileMap` from `/_/` to it
 - Debug builds stop at breakpoints with locals readable, loaded before the attach or after it, plug-ins Rhino loads at startup included

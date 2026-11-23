@@ -194,7 +194,7 @@ internal static class Typesetting {
 
     private static Option<(TextRange Range, SKColorF Color)> Selected(View.Text text, Cascade cascade) =>
         from range in text.Selected
-        let style = cascade.Resolve(Roles.Selection, [])
+        let style = cascade.Resolve(StyleRole.Selection, [])
         from fill in style.Solid
         from color in cascade.Theme.Color(fill, style)
         select (range, color);
@@ -235,7 +235,7 @@ internal static class Typesetting {
     internal static Typeset Set(Shaping shaping, View.Text text, Cascade cascade, TextStyle style, float width, CultureInfo culture) {
         TextBlock source = new() { FontMapper = shaping.Mapper, BaseDirection = culture.TextInfo.IsRightToLeft ? TextDirection.RTL : TextDirection.LTR };
         text.Placeholder.Filter(_ => text.Edited.IsNone && text.Content.Length is 0).Match(
-                Some: placeholder => FaceRuns(shaping, placeholder, style with { TextColor = Colored(cascade, cascade.Resolve(Roles.Placeholder, cascade.Enclosing.Conditions)) }, culture),
+                Some: placeholder => FaceRuns(shaping, placeholder, style with { TextColor = Colored(cascade, cascade.Resolve(StyleRole.Placeholder, cascade.Enclosing.Conditions)) }, culture),
                 None: () => text.Spans.Fold(Seq<(Span Span, int Head)>(), static (held, span) => held.Add((span, held.Last.Filter(prior => span.Part.IsSome && prior.Span.Part == span.Part).Map(static prior => prior.Head).IfNone(held.Count))))
                     .Bind(Seq<(string Text, TextStyle Style)> (held) => FaceRuns(shaping, held.Span.Text, SpanStyle(shaping, cascade, style, held.Span, held.Head), culture)))
             .Iter(run => source.AddText(run.Text, run.Style));

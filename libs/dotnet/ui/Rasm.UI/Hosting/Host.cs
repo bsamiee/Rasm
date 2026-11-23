@@ -33,10 +33,10 @@ public sealed partial class Blending {
     internal partial bool Native(bool overSlot);
 }
 
-public sealed record Host(SKSize Size, Theme Theme, Visibility Visibility, Key Root, CultureInfo Culture) {
+public sealed record Host(SKSize Size, Theme Theme, Visibility Visibility, StyleRole Root, CultureInfo Culture) {
     private readonly Option<bool> cycles;
 
-    public bool Cycles { get => cycles.IfNone(Root == Roles.Window); init => cycles = value; }
+    public bool Cycles { get => cycles.IfNone(Root == StyleRole.Window); init => cycles = value; }
     public Blending Blending { get; init; } = Blending.Raster;
     public Factor Headroom { get; init; } = Factor.Unit;
 }

@@ -25,7 +25,7 @@ public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Un
         new Handles<ColorRamp>(Value, Stops, Edited) {
             Selection = Selection,
             Selected = Selected,
-            Handle = (key, at) => new View.Pin(at, new View.Box { Role = Roles.Stop, Conditions = Selection.Holds(key) ? [Condition.Selected] : [] }) { Align = UnitPoint.Center },
+            Handle = (key, at) => new View.Pin(at, new View.Box { Role = StyleRole.Stop, Conditions = Selection.Holds(key) ? [Condition.Selected] : [] }) { Align = UnitPoint.Center },
         }.Drawn(Track, [Legend.Strip]) with {
             Sheet = Legend.Scaled(Value),
         };
@@ -54,12 +54,12 @@ public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points,
     public View Drawn =>
         new Handles<Seq<Vector2>>(Points, Knots, Edited) { Selection = Selection, Selected = Selected }.Drawn(Plane,
             Background
-            + Underlay.Map(underlay => (View)new View.Mark(new Figure.Curve(Plane.X.Domain, underlay) { Fill = new Floor.Baseline(0f) }) { Role = Roles.Trace }).ToSeq()
-            + Seq<View>(new View.Mark(new Figure.Grid(PhysicalAxis.Horizontal)) { Role = Roles.Grid }, new View.Mark(new Figure.Grid(PhysicalAxis.Vertical)) { Role = Roles.Grid })
-            + (Plane.X == Plane.Y ? Seq<View>(new View.Mark(new Figure.Path([new Vector2(Plane.X.Domain.From), new Vector2(Plane.X.Domain.To)])) { Role = Roles.GridFine }) : [])
-            + References.Map(reference => (View)new View.Mark(new Figure.Graph(Plane.X.Domain, reference)) { Role = Roles.Trace })
-            + Seq<View>(new View.Mark(new Figure.Graph(Plane.X.Domain, Fit)) { Role = Roles.Series, Series = Series })) with {
-            Role = Roles.Well,
+            + Underlay.Map(underlay => (View)new View.Mark(new Figure.Curve(Plane.X.Domain, underlay) { Fill = new Floor.Baseline(0f) }) { Role = StyleRole.Trace }).ToSeq()
+            + Seq<View>(new View.Mark(new Figure.Grid(PhysicalAxis.Horizontal)) { Role = StyleRole.Grid }, new View.Mark(new Figure.Grid(PhysicalAxis.Vertical)) { Role = StyleRole.Grid })
+            + (Plane.X == Plane.Y ? Seq<View>(new View.Mark(new Figure.Path([new Vector2(Plane.X.Domain.From), new Vector2(Plane.X.Domain.To)])) { Role = StyleRole.GridFine }) : [])
+            + References.Map(reference => (View)new View.Mark(new Figure.Graph(Plane.X.Domain, reference)) { Role = StyleRole.Trace })
+            + Seq<View>(new View.Mark(new Figure.Graph(Plane.X.Domain, Fit)) { Role = StyleRole.Series, Series = Series })) with {
+            Role = StyleRole.Well,
             Aspect = Factor.Unit,
         };
 
@@ -80,7 +80,7 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, Seq<float> Val
     public Option<float> Origin { get; init; }
     public Option<Seq<float>> Rest { get; init; }
     public Seq<View> Background { get; init; }
-    public Key Role { get; init; } = Roles.Track;
+    public StyleRole Role { get; init; } = StyleRole.Track;
 
     public View Drawn(CultureInfo culture) =>
         Placed.Match(
@@ -103,12 +103,12 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, Seq<float> Val
 
     private View Shown(Axis axis, CultureInfo culture) {
         PlotPlane.Track plane = new(Along, axis);
-        bool filled = Role != Roles.Track;
+        bool filled = Role != StyleRole.Track;
         Seq<float> ends = Value is [var only] ? Seq(Origin.IfNone(axis.Domain.From), only) : Value;
         HashSet<Condition> marks = Edit.Marked(Rest, Some(Value));
         View slid = new Handles<Seq<float>>(Value, Thumbs(plane), Edited) { Rest = Rest }.Drawn(plane,
             (filled ? [] : Seq(new View.Box { Role = Role }.Stretched(Along))) + Background
-            + (from first in ends.Head from last in ends.Last from span in Gauge.Span(Along, first, last, Gauge.Band with { Role = Roles.Span }) select span).ToSeq());
+            + (from first in ends.Head from last in ends.Last from span in Gauge.Span(Along, first, last, Gauge.Band with { Role = StyleRole.Span }) select span).ToSeq());
         return (filled ? new View.Overlay(slid, Seq(Readout(axis, culture, marks)) + Entry(axis, culture).ToSeq()) { Role = Role, Conditions = marks } : slid).Stretched(Along);
     }
 
@@ -124,11 +124,11 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, Seq<float> Val
 
     private View Readout(Axis axis, CultureInfo culture, HashSet<Condition> marks) =>
         Value.Last.Map(last => (View)new View.Text([culture.TextInfo.Listed(Value.Init.Map(value => axis.Formatted(value, culture)).Add(axis.Spoken(last, culture)))]) {
-            Role = Roles.Label,
+            Role = StyleRole.Label,
             MaxLines = 1,
             Align = UnitPoint.Center,
             Conditions = marks,
-        }).IfNone(() => new View.Box { Role = Roles.Checkmark, Conditions = marks.TryAdd(Condition.Mixed), Align = UnitPoint.Center });
+        }).IfNone(() => new View.Box { Role = StyleRole.Checkmark, Conditions = marks.TryAdd(Condition.Mixed), Align = UnitPoint.Center });
 
     private Points<Seq<float>> Thumbs(PlotPlane.Track plane) =>
         new(values => values.Map((value, index) => new HandlePoint(new Key.Ordinal((uint)index), plane.Along.With(new Vector2(0.5f), value))),
@@ -164,7 +164,7 @@ public sealed record Swatch(Unicolour Color, Func<SKRect, IO<Unit>> Pressed) {
     public static View.Box Patch(Unicolour colour) => Patch([new Material.Solid(new ColorValue.Fixed(colour))]) with { Accessible = new Accessible { Value = new AccessValue.Text(Hex(colour)) } };
 
     internal static View.Box Patch(Seq<Material> fills) =>
-        new() { Role = Roles.Field, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit, Sheet = new StyleSheet(HashMap((Roles.Field, new Look { Fills = fills }))) };
+        new() { Role = StyleRole.Field, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit, Sheet = new StyleSheet(HashMap((StyleRole.Field, new Look { Fills = fills }))) };
 
     internal static string Hex(Unicolour colour) => colour.MapToRgbGamut(GamutMap.OklchChromaReduction) switch { var shown => shown.Alpha.A < 1d ? shown.Hex + shown.Alpha.Hex : shown.Hex };
 }
@@ -195,7 +195,7 @@ public sealed record ColorPicker(Unicolour Value, Func<Edit<Unicolour>, IO<Unit>
     private static readonly ColorRamp Hues = new ColorRamp.Smooth(Fraction.Partition(4).Map(static at =>
         new Stop(new ColorValue.Fixed(Colored(Turn.Span * (float)at, 1d, 1d, 1d)), at))) { Space = ColourSpace.Hsb };
     private static readonly Material Shade = Spread(new ColorValue.Fixed(new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d, 0d)), new ColorValue.Fixed(Css.Black), PhysicalAxis.Vertical);
-    private static readonly StyleSheet Unspanned = new(HashMap((Roles.Span, Look.Unpainted)));
+    private static readonly StyleSheet Unspanned = new(HashMap((StyleRole.Span, Look.Unpainted)));
 
     public bool Alpha { get; init; } = true;
     public Option<Unicolour> Rest { get; init; }
@@ -248,8 +248,8 @@ public sealed record Dial(Axis.Periodic Axis, float Value, Func<Edit<float>, IO<
     public View Drawn =>
         new Handles<float>(Value, Points<float>.Fixed([Lens<float, Vector2>.New(static held => new Vector2(held, 1f), at => _ => Axis.Constrained(at.X))]), Edited) { Rest = Rest }
             .Drawn(Plane, [
-                new View.Mark(new Figure.Region()) { Role = Roles.Track },
-                new View.Mark(new Figure.Path([new Vector2(Value, 0f), new Vector2(Value, 1f)])) { Role = Roles.Needle },
+                new View.Mark(new Figure.Region()) { Role = StyleRole.Track },
+                new View.Mark(new Figure.Path([new Vector2(Value, 0f), new Vector2(Value, 1f)])) { Role = StyleRole.Needle },
             ]) with {
             Aspect = Plane.Aspect,
         };
@@ -266,11 +266,11 @@ public sealed record Scrub(string Label, AxisRange Domain, float Value, Func<Edi
                 Gearing = Gearing,
                 Rest = Rest,
                 Handle = (_, _) => new View.Pin(new Vector2(Domain.Low, 0f), new View.Box().Grown) {
-                    Role = Roles.Label,
+                    Role = StyleRole.Label,
                     Span = new Vector2(MathF.Abs(Domain.Span), 1f),
                     Accessible = new Accessible { Label = Label },
                 },
-            }.Drawn(plane, [new View.Text([Label]) { Role = Roles.Label }]) with {
+            }.Drawn(plane, [new View.Text([Label]) { Role = StyleRole.Label }]) with {
                 Width = Sizing.Fit.Content,
             },
         };

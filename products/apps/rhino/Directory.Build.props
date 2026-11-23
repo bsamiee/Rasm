@@ -10,8 +10,7 @@
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <IsPublishable>true</IsPublishable>
         <PublishDocumentationFiles>false</PublishDocumentationFiles>
-        <DebugType>portable</DebugType>
-        <CopyOutputSymbolsToOutputDirectory>false</CopyOutputSymbolsToOutputDirectory>
-        <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+        <CopyBuildOutputToOutputDirectory>false</CopyBuildOutputToOutputDirectory>
+        <CopyBuildOutputToPublishDirectory>false</CopyBuildOutputToPublishDirectory>
     </PropertyGroup>
 </Project>

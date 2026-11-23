@@ -94,7 +94,7 @@ public sealed class SceneView : Drawable {
 
     private IO<Unit> Rehosted =>
         from theme in IO.lift(Projection.Themed)
-        from hosted in host.Rehost(new Host(new SKSize(Width, Height), theme, Visibility.Of(Visible, HasFocus), Parent is Window ? Roles.Window : Roles.Panel, CultureInfo.CurrentUICulture), sheet)
+        from hosted in host.Rehost(new Host(new SKSize(Width, Height), theme, Visibility.Of(Visible, HasFocus), Parent is Window ? StyleRole.Window : StyleRole.Panel, CultureInfo.CurrentUICulture), sheet)
         select hosted;
 
     private bool Received(InputEvent input) => host.Now.Bind(now => host.Receive(input, now)).RunSafe().IfFail(Faulted);

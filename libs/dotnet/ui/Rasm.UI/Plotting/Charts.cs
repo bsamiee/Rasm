@@ -17,7 +17,7 @@ namespace Rasm.UI.Plotting;
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record Plotted(Key Key, string Label, Figure Figure) {
-    public Option<Key> Role { get; init; }
+    public Option<StyleRole> Role { get; init; }
     public Option<ColorValue> Color { get; init; }
     public Option<double> Value { get; init; }
     public Option<Vector2> LabelAt { get; init; }
@@ -115,14 +115,14 @@ public sealed record ColorAxis(Axis Axis, ColorRamp Ramp) {
     internal static bool Shows(Option<ColorAxis> color, Option<double> value) =>
         color.ForAll(axis => value.ForAll(held => axis.Shown.ForAll(range => axis.Axis.Contains(range, (float)held))));
 
-    internal static StyleSheet Sheet(Option<ColorAxis> color) => color.Map(static axis => new StyleSheet(HashMap((Roles.Series, new Look { Scale = axis.Ramp })))).IfNone(StyleSheet.Empty);
+    internal static StyleSheet Sheet(Option<ColorAxis> color) => color.Map(static axis => new StyleSheet(HashMap((StyleRole.Series, new Look { Scale = axis.Ramp })))).IfNone(StyleSheet.Empty);
 }
 
 public sealed record Brush(PlotPlane Value, Func<Edit<PlotPlane>, IO<Unit>> Edited) {
     internal View Drawn(PlotPlane plane) =>
         new Handles<PlotPlane>(Value, Ends(plane), Edited) { BackgroundCursor = CursorShape.Crosshair }.Drawn(plane, [
             new View.Mark(new Figure.Region { First = Value.Dimension(PhysicalAxis.Horizontal).Map(static axis => axis.Domain), Second = Value.Dimension(PhysicalAxis.Vertical).Map(static axis => axis.Domain) }) {
-                Role = Roles.Selection,
+                Role = StyleRole.Selection,
             },
         ]);
 
@@ -158,14 +158,14 @@ public abstract partial record Legend {
     private static readonly Figure Area = new Figure.Region();
 
     internal static View.Mark Strip { get; } =
-        new(new Figure.Field(Marks.Steps, 1, new Samples(Generate.LinearSpacedMap(Marks.Steps, 0.5d / Marks.Steps, 1d - (0.5d / Marks.Steps), static at => (float)at)))) { Role = Roles.Well };
+        new(new Figure.Field(Marks.Steps, 1, new Samples(Generate.LinearSpacedMap(Marks.Steps, 0.5d / Marks.Steps, 1d - (0.5d / Marks.Steps), static at => (float)at)))) { Role = StyleRole.Well };
 
     public abstract View Drawn { get; }
 
     internal static Option<Legend> Of(Option<ColorAxis> color, Option<Swatches> swatches) => color.Map(static axis => (Legend)new Ramp(axis)) | swatches.Map(static held => (Legend)held);
 
     internal static StyleSheet Scaled(ColorRamp ramp) =>
-        new(HashMap((Roles.Well, Look.Unpainted with { Fills = Seq<Material>(new Material.Solid(new ColorValue.Data())), Scale = ramp })));
+        new(HashMap((StyleRole.Well, Look.Unpainted with { Fills = Seq<Material>(new Material.Solid(new ColorValue.Data())), Scale = ramp })));
 
     public sealed record Swatches(Seq<Plotted> Series) : Legend {
         public Option<Selection> Shown { get; init; }
@@ -183,11 +183,11 @@ public abstract partial record Legend {
             }
         }
 
-        private static View Stacked(Seq<View> rows) => new View.Flex(PhysicalAxis.Vertical, rows) { Role = Roles.Panel };
+        private static View Stacked(Seq<View> rows) => new View.Flex(PhysicalAxis.Vertical, rows) { Role = StyleRole.Panel };
 
         private static View.Flex Row(Plotted plotted, int ordinal, bool shown) {
-            View key = new View.Plot(PlotPlane.Cartesian.Unit, [new View.Mark(Keyed(plotted.Figure)) { Role = plotted.Role | Some(Roles.Series), Series = ColorAxis.Series(None, (uint)ordinal, plotted.Color, plotted.Value) }]) { Role = Roles.Legend };
-            return new View.Flex(PhysicalAxis.Horizontal, [shown ? key : key.Conditioned(Condition.Disabled), new View.Text([plotted.Label]) { Role = Roles.Label }]) {
+            View key = new View.Plot(PlotPlane.Cartesian.Unit, [new View.Mark(Keyed(plotted.Figure)) { Role = plotted.Role | Some(StyleRole.Series), Series = ColorAxis.Series(None, (uint)ordinal, plotted.Color, plotted.Value) }]) { Role = StyleRole.Legend };
+            return new View.Flex(PhysicalAxis.Horizontal, [shown ? key : key.Conditioned(Condition.Disabled), new View.Text([plotted.Label]) { Role = StyleRole.Label }]) {
                 Baseline = Baseline.Cap,
                 Accessible = new Accessible { Label = plotted.Label },
             };
@@ -208,7 +208,7 @@ public abstract partial record Legend {
                 return new View.Plot(plane, [
                     Axis.Filtered.Match(Some: filtered => new Handles<AxisRange>(Axis.Shown.IfNone(Axis.Axis.Domain), Filter, filtered).Drawn(plane, [Strip]), None: static () => Strip),
                 ]) {
-                    Role = Roles.Legend,
+                    Role = StyleRole.Legend,
                     Guides = [new Guide(PhysicalAxis.Horizontal)],
                     Sheet = Scaled(Axis.Ramp),
                 }.Stretched(plane.Along);
@@ -243,7 +243,7 @@ public sealed record Chart(PlotPlane Plane, Seq<Plotted> Series) {
             Seq<View> marks = arranged.Map((plotted, index) => Marked(plotted, index, visible.Holds(plotted.Key))).Strict();
             HashMap<Key, Plotted> keyed = toHashMap(arranged.Map(static plotted => (plotted.Key, plotted)));
             View plot = new View.Plot(Plane, Layered(arranged.Map(static plotted => plotted.Key), marks) + arranged.Choose(Pinned) + Brush.Map(brush => brush.Drawn(Plane)).ToSeq()) {
-                Role = Roles.Well,
+                Role = StyleRole.Well,
                 Width = Sizing.Grow.Unit,
                 Guides = Guides,
                 Pointed = Pointed,
@@ -258,7 +258,7 @@ public sealed record Chart(PlotPlane Plane, Seq<Plotted> Series) {
         });
 
     private View Marked(Plotted plotted, int ordinal, bool shown) {
-        View mark = new View.Mark(plotted.Figure) { Key = plotted.Key, Role = plotted.Role | Some(Roles.Series), Series = ColorAxis.Series(Color, (uint)ordinal, plotted.Color, plotted.Value) };
+        View mark = new View.Mark(plotted.Figure) { Key = plotted.Key, Role = plotted.Role | Some(StyleRole.Series), Series = ColorAxis.Series(Color, (uint)ordinal, plotted.Color, plotted.Value) };
         return shown && ColorAxis.Shows(Color, plotted.Value) ? mark : mark.Conditioned(Condition.Disabled);
     }
 
@@ -268,17 +268,17 @@ public sealed record Chart(PlotPlane Plane, Seq<Plotted> Series) {
             None: () => marks);
 
     private static Option<View> Pinned(Plotted plotted) =>
-        plotted.LabelAt.Map(at => (View)new View.Pin(at, new View.Text([plotted.Label]) { Role = Roles.Label }) { Align = UnitPoint.Center });
+        plotted.LabelAt.Map(at => (View)new View.Pin(at, new View.Text([plotted.Label]) { Role = StyleRole.Label }) { Align = UnitPoint.Center });
 
     private View Crossed(Nearest nearest, HashMap<Key, Plotted> keyed, CultureInfo culture) {
         AxisRange across = Plane.Dimension(PhysicalAxis.Vertical).Map(static axis => axis.Domain).IfNone(AxisRange.Unit);
         Seq<(Plotted Plotted, Datum Datum)> read = toSeq<(Key Key, Datum Value)>(nearest.Data).Choose(held => keyed.Find(held.Key).Map(plotted => (plotted, held.Value))).Strict();
         return new View.Plot(Plane,
-            read.Map(static held => held.Datum.Value.X).Distinct().Map(at => (View)new View.Mark(new Figure.Path([new Vector2(at, across.From), new Vector2(at, across.To)])) { Role = Roles.Crosshair })
+            read.Map(static held => held.Datum.Value.X).Distinct().Map(at => (View)new View.Mark(new Figure.Path([new Vector2(at, across.From), new Vector2(at, across.To)])) { Role = StyleRole.Crosshair })
             + read.Head.Map(first => (View)new View.Pin(first.Datum.Value, new View.Flex(PhysicalAxis.Vertical, read.Map(held => (View)new View.Flex(PhysicalAxis.Horizontal, [
-                new View.Text([held.Plotted.Label]) { Role = Roles.Label },
+                new View.Text([held.Plotted.Label]) { Role = StyleRole.Label },
                 new View.Text([Plane.Spoken(held.Datum.Value, culture)]),
-            ]))) { Role = Roles.Readout })).ToSeq()).Grown;
+            ]))) { Role = StyleRole.Readout })).ToSeq()).Grown;
     }
 
     private ChartDescription Described(Seq<Plotted> arranged, string title) {

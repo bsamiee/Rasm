@@ -85,7 +85,7 @@
         {
             "name": "rhino",
             "source": "./plugins/shared/rhino",
-            "version": "0.3.0",
+            "version": "0.3.1",
             "description": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
             "author": {
                 "name": "Bardia Samiee"

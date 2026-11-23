@@ -44,7 +44,7 @@ public sealed record AutomationElement(Seq<Key> Id, AccessRole Role, Accessible 
         layout.TextNode.Map(text => toSeq(text.Typeset.Parts.AsIterable()).Choose(laid =>
             from owner in scene.PartAt(layout.Path.Add(new Key.Ordinal((uint)laid.Key)))
             let span = text.Typeset.Text.Spans[laid.Key]
-            let role = span.Role.Exists(static held => held == Roles.Link) ? AccessRole.Link : AccessRole.Button
+            let role = span.Role.Exists(static held => held == StyleRole.Link) ? AccessRole.Link : AccessRole.Button
             select new AutomationElement(owner.Path, role, new Accessible { Role = role, Label = string.Concat(laid.Value.Map(static run => Utf32Utils.FromUtf32(run.Text))).Trim() },
                 Offered(scene, owner, owner.Path), layout.Style.Conditions.Union(span.Conditions), owner.Bounds, []))).IfNone([]);
 
@@ -67,7 +67,7 @@ public sealed record AutomationElement(Seq<Key> Id, AccessRole Role, Accessible 
     private static Accessible Charted(Accessible accessible, LayoutNode layout) =>
         (from chart in accessible.Chart
          from frame in layout.Plotted(SKPoint.Empty)
-         let spacing = layout.Within(Roles.Tick).Metrics[Metric.Spacing]
+         let spacing = layout.Within(StyleRole.Tick).Metrics[Metric.Spacing]
          select accessible with {
              Chart = chart with {
                  Axes = chart.Axes.Map(described => frame.Plane.Dimensions.Find(held => held.Axis == described.Axis)

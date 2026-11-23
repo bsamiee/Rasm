@@ -74,9 +74,9 @@ internal abstract partial record LayoutNode {
 
     internal Option<PlotFrame> Plotted(SKPoint origin) => View.Plotted.Map(plane => plane.In(Data).Translated(origin));
 
-    internal RoleStyle Styled(Key role) => Cascade.Resolve(role, Style.Conditions);
+    internal RoleStyle Styled(StyleRole role) => Cascade.Resolve(role, Style.Conditions);
 
-    internal RoleStyle Within(Key role) => Inner.Resolve(role, Style.Conditions);
+    internal RoleStyle Within(StyleRole role) => Inner.Resolve(role, Style.Conditions);
 
     private float Overhang => View.Role.IsSome || View.Traced.IsSome ? Style.Overhang : 0f;
 

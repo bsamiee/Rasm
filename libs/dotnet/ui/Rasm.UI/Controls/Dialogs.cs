@@ -20,7 +20,7 @@ public sealed record DialogAction(CommandPresentation Presentation, IO<Unit> Run
 
     private View Drawn(bool gated) =>
         (gated && Conditions.Contains(Condition.Default) ? Conditions.TryAdd(Condition.Disabled) : Conditions) switch {
-            var state => Presentation.Button(state, AccessRole.Button, Roles.Button, Some(new Part.Press(_ => Run)), CommandPresentation.IconAndLabel(Presentation, state)),
+            var state => Presentation.Button(state, AccessRole.Button, StyleRole.Button, Some(new Part.Press(_ => Run)), CommandPresentation.IconAndLabel(Presentation, state)),
         };
 }
 
@@ -43,7 +43,7 @@ public sealed record Dialog(string Title, Seq<View> Content) {
                 Seq<View>(Panel.Header(Panel.StatusGlyph(Conditions).ToSeq(), Title, None, Tools + Dismissed.Filter(_ => Actions.IsEmpty).Map(Part.Press.Dismiss).ToSeq()))
                 + Panel.Scrolled(Message.Map(static text => (View)new View.Text([text]) { Width = Sizing.Grow.Unit }).ToSeq() + Content)
                 + DialogAction.Footer(Actions, Valid)) {
-                Role = upright || level ? Roles.Sheet : Roles.Dialog,
+                Role = upright || level ? StyleRole.Sheet : StyleRole.Dialog,
                 Conditions = Conditions,
             }) {
                 Anchor = None,
@@ -83,7 +83,7 @@ public sealed record Palette<TItem>(Seq<TItem> Items, Func<TItem, CommandPresent
                 found.Map(entry => entry.Shown.Item([], None, query.Marked(entry.Shown.Caption, culture))),
                 rows => new View.Flex(PhysicalAxis.Vertical,
                     groups.Zip(groups.Scan(0, static (at, group) => at + group.Items.Count)).Map(group => (View)new View.Flex(PhysicalAxis.Vertical,
-                        group.First.Heading.Map(static title => (View)new View.Text([title]) { Role = Roles.Caption, MaxLines = 1 }).ToSeq()
+                        group.First.Heading.Map(static title => (View)new View.Text([title]) { Role = StyleRole.Caption, MaxLines = 1 }).ToSeq()
                         + rows.Skip(group.Second).Take(group.First.Items.Count)) {
                         Width = Sizing.Grow.Unit,
                         Accessible = new Accessible { Role = AccessRole.Group, Label = group.First.Heading },
@@ -92,12 +92,12 @@ public sealed record Palette<TItem>(Seq<TItem> Items, Func<TItem, CommandPresent
                     Accessible = new Accessible { Role = AccessRole.Menu },
                 })).Grown;
         return new(new View.Flex(PhysicalAxis.Vertical, [
-            (Query with { Glyph = Query.Glyph | Some(Roles.Magnifier) }).Drawn,
+            (Query with { Glyph = Query.Glyph | Some(StyleRole.Magnifier) }).Drawn,
             current.Bind(entry => Preview(entry.Item)).Match(
                 Some: pane => new View.Choice(PhysicalAxis.Horizontal, [new View.Flex(PhysicalAxis.Horizontal, [results, pane]) { Width = Sizing.Grow.Unit }, results]).Grown,
                 None: () => results),
         ]) {
-            Role = Roles.Popover,
+            Role = StyleRole.Popover,
         }) {
             Anchor = None,
             Side = UnitPoint.Center,
@@ -118,7 +118,7 @@ public sealed record Toasts(Seq<Toast> Shown, Func<Key, IO<Unit>> Dismissed) {
         DraggedOut = true,
     };
 
-    public Key Role { get; init; } = Roles.Popover;
+    public StyleRole Role { get; init; } = StyleRole.Popover;
     public UnitPoint Corner { get; init; } = new(Fraction.MaxValue, Fraction.MaxValue);
     public int Limit { get; init; } = 3;
 

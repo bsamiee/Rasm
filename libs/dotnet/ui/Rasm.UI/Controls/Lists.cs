@@ -52,7 +52,7 @@ public sealed record Search(Seq<string> Terms) {
 
     public Seq<Span> Marked(string text, CultureInfo culture) =>
         Hits(text, culture).Match(
-            Some: hits => hits.Fold((At: 0, Spans: Seq<Span>()), (held, hit) => (hit.End.Value, held.Spans + Plain(text[held.At..hit.Start.Value]).Add(new Span(text[hit]) { Role = Roles.Mark })))
+            Some: hits => hits.Fold((At: 0, Spans: Seq<Span>()), (held, hit) => (hit.End.Value, held.Spans + Plain(text[held.At..hit.Start.Value]).Add(new Span(text[hit]) { Role = StyleRole.Mark })))
                 switch { var held => held.Spans + Plain(text[held.At..]), },
             None: () => [text]);
 
@@ -70,7 +70,7 @@ public sealed record TextField(Option<string> Text, Func<Edit<string>, IO<Unit>>
     private static readonly Key Entry = new Key.Named("entry");
 
     public Option<string> Placeholder { get; init; }
-    public Option<Key> Glyph { get; init; }
+    public Option<StyleRole> Glyph { get; init; }
     public bool Clears { get; init; }
     public Option<int> MaxLines { get; init; } = Some(1);
 
@@ -88,7 +88,7 @@ public sealed record TextField(Option<string> Text, Func<Edit<string>, IO<Unit>>
                 Accessible = new Accessible { Role = AccessRole.TextBox, Label = Placeholder },
             })
             + (Clears && Text.Exists(static text => text.Length > 0) ? Seq(Part.Press.Dismiss(Edited(Edit.Of(EditPhase.Commit, "")))) : [])) {
-            Role = Roles.Field,
+            Role = StyleRole.Field,
             Width = Sizing.Grow.Unit,
         };
 }
@@ -121,9 +121,9 @@ public sealed record ValueTree<TItem>(Seq<TItem> Roots, Func<TItem, Key> Keyed, 
             row.Lead(Some(Toggled(Edit.Of(EditPhase.Commit, Open.SymmetricExcept([row.Key])))))
             + Seq<View>(
                 new View.Text(Find.Marked(name, culture)) { MaxLines = 1 },
-                new View.Text(Find.Marked(Value(row.Item), culture)) { Role = Roles.Code, MaxLines = 1, Width = Sizing.Grow.Unit })
-            + Kind(row.Item).Map(static kind => (View)new View.Text([kind]) { Role = Roles.Caption }).ToSeq()
-            + (below.IsEmpty ? [] : Seq<View>(new View.Text([below.Count.ToString(culture)]) { Role = Roles.Badge }))) {
+                new View.Text(Find.Marked(Value(row.Item), culture)) { Role = StyleRole.Code, MaxLines = 1, Width = Sizing.Grow.Unit })
+            + Kind(row.Item).Map(static kind => (View)new View.Text([kind]) { Role = StyleRole.Caption }).ToSeq()
+            + (below.IsEmpty ? [] : Seq<View>(new View.Text([below.Count.ToString(culture)]) { Role = StyleRole.Badge }))) {
             Accessible = new Accessible { Role = AccessRole.TreeItem, Label = name, Expanded = row.Open },
         };
     }
@@ -158,7 +158,7 @@ public sealed record Log<TEntry>(Seq<TEntry> Entries, Func<TEntry, Key> Keyed, F
         };
         Seq<View> bar = Levels.Map(levels => Leveled(levels, culture)).IfNone([]) + Filter.Map(static field => field.Drawn).ToSeq();
         return new View.Flex(PhysicalAxis.Vertical,
-            (bar.IsEmpty ? [] : Seq<View>(new View.Flex(PhysicalAxis.Horizontal, bar) { Role = Roles.Toolbar, Width = Sizing.Grow.Unit, Accessible = new Accessible { Role = AccessRole.Toolbar } }))
+            (bar.IsEmpty ? [] : Seq<View>(new View.Flex(PhysicalAxis.Horizontal, bar) { Role = StyleRole.Toolbar, Width = Sizing.Grow.Unit, Accessible = new Accessible { Role = AccessRole.Toolbar } }))
             .Add(new View.Scroll(PhysicalAxis.Vertical, listed) { KeepsEnd = Follows }.Grown)).Grown;
     }
 
@@ -167,22 +167,22 @@ public sealed record Log<TEntry>(Seq<TEntry> Entries, Func<TEntry, Key> Keyed, F
             edit => levels.Edited(edit.Map(shown => shown ? levels.Shown.TryAdd(group.Key) : levels.Shown.Remove(group.Key)).As())) {
             Kind = ToggleKind.Button,
             Content = [
-                new View.Box { Role = Roles.Status, Conditions = Signal(group.Key) },
+                new View.Box { Role = StyleRole.Status, Conditions = Signal(group.Key) },
                 new View.Text([levels.Named(group.Key)]),
-                new View.Text([group.Count().ToString(culture)]) { Role = Roles.Caption },
+                new View.Text([group.Count().ToString(culture)]) { Role = StyleRole.Caption },
             ],
         }.Drawn);
 
     private View.Flex Line(TEntry entry, int count, Search query, CultureInfo culture) {
         HashSet<Condition> signal = Signal(Level(entry));
         return new View.Flex(PhysicalAxis.Horizontal,
-            Stamp.Map(pattern => (View)new View.Text([Stamped(pattern, entry, culture)]) { Role = Roles.Code }).ToSeq()
-            + Seq<View>(new View.Box { Role = Roles.Status, Conditions = signal, Opacity = signal.IsEmpty ? Fraction.MinValue : Fraction.MaxValue })
-            + Source(entry).Map(source => (View)new View.Text(query.Marked(source, culture)) { Role = Roles.Caption, MaxLines = 1 }).ToSeq()
+            Stamp.Map(pattern => (View)new View.Text([Stamped(pattern, entry, culture)]) { Role = StyleRole.Code }).ToSeq()
+            + Seq<View>(new View.Box { Role = StyleRole.Status, Conditions = signal, Opacity = signal.IsEmpty ? Fraction.MinValue : Fraction.MaxValue })
+            + Source(entry).Map(source => (View)new View.Text(query.Marked(source, culture)) { Role = StyleRole.Caption, MaxLines = 1 }).ToSeq()
             + Seq<View>(new View.Text(query.Marked(Message(entry), culture)) { MaxLines = Wrap ? None : Some(1), Width = Sizing.Grow.Unit })
-            + Fields(entry).ToSeq().Map(static field => (View)new View.Flex(PhysicalAxis.Horizontal, [new View.Text([field.Key]) { Role = Roles.Caption }, new View.Text([field.Value]) { Role = Roles.Code }]) { Role = Roles.Chip })
-            + (count > 1 ? Seq<View>(new View.Text([count.ToString(culture)]) { Role = Roles.Badge }) : [])) {
-            Role = Roles.ListRow,
+            + Fields(entry).ToSeq().Map(static field => (View)new View.Flex(PhysicalAxis.Horizontal, [new View.Text([field.Key]) { Role = StyleRole.Caption }, new View.Text([field.Value]) { Role = StyleRole.Code }]) { Role = StyleRole.Chip })
+            + (count > 1 ? Seq<View>(new View.Text([count.ToString(culture)]) { Role = StyleRole.Badge }) : [])) {
+            Role = StyleRole.ListRow,
             Width = Sizing.Grow.Unit,
             Conditions = signal,
         };

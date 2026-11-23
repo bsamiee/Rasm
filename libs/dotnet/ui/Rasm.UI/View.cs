@@ -37,7 +37,7 @@ public abstract partial record View {
     private View(Option<Painting> painting = default) => Painting = painting.IfNone(Painting.Frame);
 
     public Option<Key> Key { get; init; }
-    public Option<Key> Role { get; init; }
+    public Option<StyleRole> Role { get; init; }
     public HashSet<Condition> Conditions { get; init; }
     public StyleSheet Sheet { get; init; } = StyleSheet.Empty;
     public Fraction Opacity { get; init; } = Fraction.MaxValue;
@@ -63,7 +63,7 @@ public abstract partial record View {
     public View Stretched(PhysicalAxis along) =>
         along.Map(horizontal: this with { Width = Sizing.Grow.Unit, Height = Sizing.Fit.Content }, vertical: this with { Width = Sizing.Fit.Content, Height = Sizing.Grow.Unit });
 
-    internal static View Divider(PhysicalAxis container) => new Box { Role = Roles.Divider, Accessible = new Accessible { Role = AccessRole.Separator } }.Stretched(container.Cross);
+    internal static View Divider(PhysicalAxis container) => new Box { Role = StyleRole.Divider, Accessible = new Accessible { Role = AccessRole.Separator } }.Stretched(container.Cross);
 
     internal Painting Painting { get; }
 
@@ -92,7 +92,7 @@ public abstract partial record View {
 
     public sealed record Lazy(PhysicalAxis Axis, Tracks Across, Seq<Key> Items) : View {
         public Option<float> Extent { get; init; }
-        public Key Rows { get; init; } = Roles.ListRow;
+        public StyleRole Rows { get; init; } = StyleRole.ListRow;
         public HashMap<Key, View> Realized { get; init; }
 
         internal override Option<PhysicalAxis> MainAxis => Some(Axis);

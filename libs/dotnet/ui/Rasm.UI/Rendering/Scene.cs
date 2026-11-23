@@ -237,7 +237,7 @@ internal sealed record Scene {
     internal Seq<PlacedLayer> Anchoring(Seq<Key> path) => anchors.Find(path).IfNone([]);
 
     internal Option<PlacedNode> FocusRing(Seq<Key> path) =>
-        Placed(path).Map(static held => held with { Style = held.Layout.Styled(Roles.FocusRing) });
+        Placed(path).Map(static held => held with { Style = held.Layout.Styled(StyleRole.FocusRing) });
 
     internal Option<Scroller> Scroller(Seq<Key> path) =>
         Index.Find(path).Bind(layout => Layouts.IsHandle(layout)

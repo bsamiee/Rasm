@@ -109,7 +109,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     public Option<Func<Edit<Selection>, IO<Unit>>> Selected { get; init; }
     public Option<Marquee> Marquee { get; init; }
     public Option<CursorShape> BackgroundCursor { get; init; }
-    public Func<Key, Vector2, View> Handle { get; init; } = static (_, at) => new View.Pin(at, new View.Box()) { Role = Roles.Handle, Align = UnitPoint.Center };
+    public Func<Key, Vector2, View> Handle { get; init; } = static (_, at) => new View.Pin(at, new View.Box()) { Role = StyleRole.Handle, Align = UnitPoint.Center };
     public Option<TValue> Rest { get; init; }
     public Option<float> Gearing { get; init; }
     public bool Snaps { get; init; }
@@ -129,7 +129,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private static View HandleNode(View node, HandlePoint point, PlotPlane plane, Option<PlaneAxis> track) =>
         node with {
             Key = point.Key,
-            Role = node.Role | Some(Roles.Handle),
+            Role = node.Role | Some(StyleRole.Handle),
             Accessible = node.Accessible.Combine(new Accessible {
                 Role = track.IsSome ? AccessRole.Slider : AccessRole.Handle,
                 Value = track.Match(
@@ -218,7 +218,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private State Translated(State start, Key key, Gesture.Press press, HitTarget aim, PlotFrame frame) {
         bool fine = press.Modifiers.Primary;
         HashMap<Metric, float> metrics = Metrics(aim.Owner.Layout, key);
-        float spacing = aim.Owner.Layout.Styled(Roles.Grid).Metrics[Metric.Spacing];
+        float spacing = aim.Owner.Layout.Styled(StyleRole.Grid).Metrics[Metric.Spacing];
         Seq<HandlePoint> read = Points.Read(start.Value);
         HashSet<Key> moving = toHashSet(read.Map(static point => point.Key).Filter(held => start.Selection.Holds(key) ? start.Selection.Holds(held) : held == key));
         Vector2 travel = Gearing.Match(Some: gearing => Geared(frame, press, gearing), None: () => frame.Delta(press.From, press.At).IfNone(Vector2.Zero)) * (fine ? metrics[Metric.Fine] : 1f);
@@ -273,7 +273,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
         frame.Plane.Dimensions.Head.Map(first => frame.Stepped(point.At, first.Along, sign, Extent(aim, point.Key))).IfNone(point.At);
 
     private static Vector2 Navigated(HitTarget aim, PlotFrame frame, Bearing toward, HandlePoint point) =>
-        toward.Granularity.Distance(Extent(aim, point.Key), aim.Owner.Layout.Styled(Roles.Grid).Metrics[Metric.Spacing]).Match(
+        toward.Granularity.Distance(Extent(aim, point.Key), aim.Owner.Layout.Styled(StyleRole.Grid).Metrics[Metric.Spacing]).Match(
             Some: stride => frame.Stepped(point.At, toward.Along, toward.Sign * frame.Sign(toward.Along), stride),
             None: () => frame.Ended(point.At, toward.Along, toward.Sign));
 
@@ -290,7 +290,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
         (from plot in Child(layout, Layer)
          from drawn in Child(plot, key)
          select drawn.Style.Metrics)
-        .IfNone(() => layout.Styled(Roles.Handle).Metrics);
+        .IfNone(() => layout.Styled(StyleRole.Handle).Metrics);
 
     private static Option<PlotFrame> Framed(LayoutNode layout, SKRect bounds) =>
         from plot in Child(layout, Layer)

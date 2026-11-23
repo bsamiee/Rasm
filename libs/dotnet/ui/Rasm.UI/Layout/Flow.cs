@@ -107,9 +107,9 @@ internal static partial class Layouts {
             grid: static grid => Segments(grid.Rows.Flatten()),
             lazy: static lazy => lazy.Items.Choose(key => lazy.Realized.Find(key).Map(realized => (Segment: key, View: realized with { Role = realized.Role | Some(lazy.Rows) }))),
             overlay: static overlay => Segments(overlay.Base.Cons(overlay.Above)),
-            layer: static layer => (layer.Modal ? Seq<(Key Segment, View View)>((LayerStack.Scrim, new View.Box { Role = Roles.Scrim })) : []) + Segments([layer.Content]),
+            layer: static layer => (layer.Modal ? Seq<(Key Segment, View View)>((LayerStack.Scrim, new View.Box { Role = StyleRole.Scrim })) : []) + Segments([layer.Content]),
             choice: static choice => Segments(choice.Alternatives),
-            scroll: static scroll => Segments([scroll.Content]).Add((new Key.Handle(), new View.Box { Key = new Key.Handle(), Role = Roles.Scrollbar })),
+            scroll: static scroll => Segments([scroll.Content]).Add((new Key.Handle(), new View.Box { Key = new Key.Handle(), Role = StyleRole.Scrollbar })),
             plot: static plot => Segments(plot.Children));
 
     private static Seq<(Key Segment, View View)> Segments(Seq<View> nodes) => nodes.Map(static (node, index) => (Segment: node.Key.IfNone(() => new Key.Ordinal((uint)index)), View: node));

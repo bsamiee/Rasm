@@ -18,9 +18,9 @@ namespace Rasm.UI.Controls;
 
 public sealed record Decoration(int Line) {
     public Option<System.Range> Range { get; init; }
-    public Option<Key> Role { get; init; }
+    public Option<StyleRole> Role { get; init; }
     public HashSet<Condition> Conditions { get; init; }
-    public Option<Key> Glyph { get; init; }
+    public Option<StyleRole> Glyph { get; init; }
     public Option<string> Help { get; init; }
 }
 
@@ -80,21 +80,21 @@ public sealed record CodeView(Seq<string> Lines, Func<Seq<Key>, Part.Choice> Cho
             + (glyphs
                 ? Seq(here.Find(static mark => mark.Glyph.IsSome).Match(
                     Some: static mark => (View)new View.Box { Role = mark.Glyph, Conditions = mark.Conditions },
-                    None: static () => new View.Box { Role = Roles.Status, Opacity = Fraction.MinValue }))
+                    None: static () => new View.Box { Role = StyleRole.Status, Opacity = Fraction.MinValue }))
                 : [])
             + Folding.Map(folding => Disclosure.Chevron(
                 line.Filter(folds.Contains).Map(start => !folding.Closed.Contains(Line(start))),
                 line.Map(start => folding.Toggled(Edit.Of(EditPhase.Commit, folding.Closed.SymmetricExcept([Line(start)])))))).ToSeq();
         return new View.Flex(PhysicalAxis.Horizontal, [
             new View.Flex(PhysicalAxis.Horizontal, gutter) {
-                Role = Roles.Gutter,
+                Role = StyleRole.Gutter,
                 Conditions = current ? [Condition.Selected] : [],
                 Height = Sizing.Grow.Unit,
                 Sticks = Wrap ? None : Some(PhysicalAxis.Horizontal),
             },
             new View.Text(line.Map(at => Spans(culture, at, here)).IfNone([])) { MaxLines = Wrap ? None : Some(1), Width = Sizing.Grow.Unit },
         ]) {
-            Role = Roles.Line,
+            Role = StyleRole.Line,
             Width = Sizing.Grow.Unit,
             Conditions = toHashSet(here.Filter(static mark => mark.Range.IsNone).Bind(static mark => toSeq(mark.Conditions))),
             Accessible = new Accessible { Help = helps.IsEmpty ? None : Some(string.Join('\n', helps)) },
@@ -103,7 +103,7 @@ public sealed record CodeView(Seq<string> Lines, Func<Seq<Key>, Part.Choice> Cho
 
     private Seq<Span> Spans(CultureInfo culture, int line, Seq<Decoration> here) {
         string text = Lines[line];
-        Seq<(int Start, int End, Decoration Mark)> overlaid = (here + Find.Hits(text, culture).IfNone([]).Map(hit => new Decoration(line) { Range = hit, Role = Roles.Mark })).Choose(mark => mark.Range.Map(range => Clamped(range, text.Length) switch {
+        Seq<(int Start, int End, Decoration Mark)> overlaid = (here + Find.Hits(text, culture).IfNone([]).Map(hit => new Decoration(line) { Range = hit, Role = StyleRole.Mark })).Choose(mark => mark.Range.Map(range => Clamped(range, text.Length) switch {
             var clamped => (Start: clamped.Start.Value, End: clamped.End.Value, Mark: mark),
         })).Strict();
         Seq<Span> pieces = Span.Cut(Tokens(text), overlaid.Bind(static mark => Seq(mark.Start, mark.End)));
@@ -159,17 +159,17 @@ public sealed record Document(string Text) {
     private const string Bullet = "•";
 
     private View.Flex Stacked(ContainerBlock container, CultureInfo culture) =>
-        new(PhysicalAxis.Vertical, toSeq(container.AsEnumerable()).Choose(block => Drawn(block, culture))) { Role = Roles.Stack, Width = Sizing.Grow.Unit };
+        new(PhysicalAxis.Vertical, toSeq(container.AsEnumerable()).Choose(block => Drawn(block, culture))) { Role = StyleRole.Stack, Width = Sizing.Grow.Unit };
 
     private Option<View> Drawn(Block block, CultureInfo culture) =>
         block switch {
-            HeadingBlock heading => new View.Text(Inlines(heading.Inline)) { Role = heading.Level > 1 ? Roles.Headline : Roles.Title, Accessible = new Accessible { Role = AccessRole.Heading } },
+            HeadingBlock heading => new View.Text(Inlines(heading.Inline)) { Role = heading.Level > 1 ? StyleRole.Headline : StyleRole.Title, Accessible = new Accessible { Role = AccessRole.Heading } },
             ParagraphBlock paragraph => new View.Text(Inlines(paragraph.Inline)) { Width = Sizing.Grow.Unit },
             CodeBlock code => Fenced(code),
-            HtmlBlock html => new View.Text([html.Lines.ToString()]) { Role = Roles.Code, Width = Sizing.Grow.Unit },
+            HtmlBlock html => new View.Text([html.Lines.ToString()]) { Role = StyleRole.Code, Width = Sizing.Grow.Unit },
             ThematicBreakBlock => View.Divider(PhysicalAxis.Vertical),
             LeafBlock leaf => new View.Text(Inlines(leaf.Inline)) { Width = Sizing.Grow.Unit },
-            QuoteBlock quote => new View.Flex(PhysicalAxis.Horizontal, [View.Divider(PhysicalAxis.Horizontal), Stacked(quote, culture)]) { Role = Roles.Stack, Width = Sizing.Grow.Unit },
+            QuoteBlock quote => new View.Flex(PhysicalAxis.Horizontal, [View.Divider(PhysicalAxis.Horizontal), Stacked(quote, culture)]) { Role = StyleRole.Stack, Width = Sizing.Grow.Unit },
             ListBlock list => Listed(list, culture),
             Table table => Tabled(table, culture),
             ContainerBlock container => Stacked(container, culture),
@@ -179,7 +179,7 @@ public sealed record Document(string Text) {
     private View.Flex Fenced(CodeBlock code) {
         Option<string> language = Optional(code as FencedCodeBlock).Bind(static fenced => Optional(fenced.Info)).Filter(static info => info.Length > 0);
         Seq<Span> spans = toSeq(code.Lines.Lines.Take(code.Lines.Count)).Map((line, index) => (index > 0 ? Seq<Span>("\n") : []) + Tokens(language, line.Slice.ToString())).Bind(static line => line);
-        return new View.Flex(PhysicalAxis.Vertical, [new View.Text(spans) { Role = Roles.Code }]) { Role = Roles.Section, Width = Sizing.Grow.Unit };
+        return new View.Flex(PhysicalAxis.Vertical, [new View.Text(spans) { Role = StyleRole.Code }]) { Role = StyleRole.Section, Width = Sizing.Grow.Unit };
     }
 
     private View.Flex Listed(ListBlock list, CultureInfo culture) {
@@ -187,8 +187,8 @@ public sealed record Document(string Text) {
         return new View.Flex(PhysicalAxis.Vertical, toSeq(list.OfType<ListItemBlock>()).Map((item, index) => (View)new View.Flex(PhysicalAxis.Horizontal, [
             new View.Text([list.IsOrdered ? string.Create(culture, $"{first + index}{list.OrderedDelimiter}") : Bullet]),
             Stacked(item, culture),
-        ]) { Role = Roles.Stack, Width = Sizing.Grow.Unit, Accessible = new Accessible { Role = AccessRole.ListItem } })) {
-            Role = Roles.Stack,
+        ]) { Role = StyleRole.Stack, Width = Sizing.Grow.Unit, Accessible = new Accessible { Role = AccessRole.ListItem } })) {
+            Role = StyleRole.Stack,
             Width = Sizing.Grow.Unit,
             Accessible = new Accessible { Role = AccessRole.List },
         };
@@ -197,7 +197,7 @@ public sealed record Document(string Text) {
     private View.Grid Tabled(Table table, CultureInfo culture) {
         Seq<TableColumnDefinition> columns = toSeq(table.ColumnDefinitions);
         return new View.Grid(new Tracks(columns.Map(static _ => (Sizing)Sizing.Fit.Content)), toSeq(table.OfType<TableRow>()).Map(row => toSeq(row.OfType<TableCell>()).Map(cell => (View)(Stacked(cell, culture) with {
-            Role = row.IsHeader ? Roles.Header : Roles.Cell,
+            Role = row.IsHeader ? StyleRole.Header : StyleRole.Cell,
             Width = None,
             Align = new UnitPoint(columns.At(cell.ColumnIndex).Bind(static column => Optional(column.Alignment)).Map(static align => align switch {
                 TableColumnAlign.Center => Fraction.Half,
@@ -217,8 +217,8 @@ public sealed record Document(string Text) {
     private Seq<Span> Inlined(ContainerInline container, Span style) =>
         toSeq(container.AsEnumerable()).Bind(inline => inline switch {
             LiteralInline literal => Seq(style with { Text = literal.Content.ToString() }),
-            CodeInline code => Seq(style with { Text = code.Content, Role = Roles.Code }),
-            EmphasisInline emphasis => Inlined(emphasis, style with { Role = emphasis.DelimiterCount > 1 ? Roles.Strong : Roles.Emphasis }),
+            CodeInline code => Seq(style with { Text = code.Content, Role = StyleRole.Code }),
+            EmphasisInline emphasis => Inlined(emphasis, style with { Role = emphasis.DelimiterCount > 1 ? StyleRole.Strong : StyleRole.Emphasis }),
             LinkInline link => Inlined(link, Linked(style, link.Url)),
             AutolinkInline automatic => Seq(Linked(style with { Text = automatic.Url }, automatic.Url)),
             LineBreakInline line => Seq(style with { Text = line.IsHard ? "\n" : " " }),
@@ -229,5 +229,5 @@ public sealed record Document(string Text) {
         });
 
     private Span Linked(Span style, string? url) =>
-        Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out Uri? uri) ? style with { Role = Roles.Link, Part = Followed.Map(followed => (Part)new Part.Press(_ => followed(uri))) } : style;
+        Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out Uri? uri) ? style with { Role = StyleRole.Link, Part = Followed.Map(followed => (Part)new Part.Press(_ => followed(uri))) } : style;
 }

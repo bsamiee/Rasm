@@ -33,7 +33,7 @@ public abstract partial record Shape {
     }
 
     public sealed record Icon(IconSet Set, Outlined Outline) : Shape {
-        public View Drawn => new View.Box { Role = Roles.Icon, Sheet = new StyleSheet(HashMap((Roles.Icon, new Look { Shape = this }))) };
+        public View Drawn => new View.Box { Role = StyleRole.Icon, Sheet = new StyleSheet(HashMap((StyleRole.Icon, new Look { Shape = this }))) };
     }
 
     public sealed record Placed(Shape Inner, SKRect Unit) : Shape;

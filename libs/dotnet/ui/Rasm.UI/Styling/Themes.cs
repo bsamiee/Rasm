@@ -11,19 +11,19 @@ namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record Token(Key Role, Channel Channel) {
-    public static readonly Token Canvas = new(Roles.Window, Channel.Fill);
-    public static readonly Token CanvasText = new(Roles.Window, Channel.Text);
-    public static readonly Token AccentColor = new(Roles.Accent, Channel.Fill);
-    public static readonly Token AccentColorText = new(Roles.Accent, Channel.Text);
-    public static readonly Token Highlight = new(Roles.Selection, Channel.Fill);
-    public static readonly Token HighlightText = new(Roles.Selection, Channel.Text);
-    public static readonly Token ButtonFace = new(Roles.Button, Channel.Fill);
-    public static readonly Token ButtonText = new(Roles.Button, Channel.Text);
-    public static readonly Token ButtonBorder = new(Roles.Button, Channel.Stroke);
-    public static readonly Token Field = new(Roles.Field, Channel.Fill);
-    public static readonly Token FieldText = new(Roles.Field, Channel.Text);
-    internal static readonly Token GrayText = new(Roles.Window, Channel.Text) { Condition = Styling.Condition.Disabled };
+public sealed record Token(StyleRole Role, Channel Channel) {
+    public static readonly Token Canvas = new(StyleRole.Window, Channel.Fill);
+    public static readonly Token CanvasText = new(StyleRole.Window, Channel.Text);
+    public static readonly Token AccentColor = new(StyleRole.Accent, Channel.Fill);
+    public static readonly Token AccentColorText = new(StyleRole.Accent, Channel.Text);
+    public static readonly Token Highlight = new(StyleRole.Selection, Channel.Fill);
+    public static readonly Token HighlightText = new(StyleRole.Selection, Channel.Text);
+    public static readonly Token ButtonFace = new(StyleRole.Button, Channel.Fill);
+    public static readonly Token ButtonText = new(StyleRole.Button, Channel.Text);
+    public static readonly Token ButtonBorder = new(StyleRole.Button, Channel.Stroke);
+    public static readonly Token Field = new(StyleRole.Field, Channel.Fill);
+    public static readonly Token FieldText = new(StyleRole.Field, Channel.Text);
+    internal static readonly Token GrayText = new(StyleRole.Window, Channel.Text) { Condition = Styling.Condition.Disabled };
 
     internal static readonly HashMap<string, Token> SystemColors = HashMap(
         (nameof(Canvas), Canvas), ("Window", Canvas), (nameof(CanvasText), CanvasText), ("WindowText", CanvasText), (nameof(GrayText), GrayText),
@@ -115,29 +115,29 @@ public sealed partial class Theme {
 
     private static readonly HashMap<Token, Tone> Painted = toHashMap(Seq<(Tone Tone, Seq<Token> Tokens)>(
         (Tone.Ground, [Token.Canvas]),
-        (Tone.Raised, Token.Field.Cons(Rows(Channel.Fill, [Roles.Card, Roles.Dialog, Roles.Sheet, Roles.Popover, Roles.Menu, Roles.Tooltip, Roles.Hud, Roles.Toggle]))),
-        (Tone.Subtle, Rows(Channel.Fill, [Roles.Panel, Roles.Toolbar, Roles.Header, Roles.Gutter, Roles.TabList])),
-        (Tone.Element, Token.ButtonFace.Cons(Rows(Channel.Fill, [Roles.Section, Roles.Segment, Roles.Group, Roles.Keycap, Roles.Chip]))
-            + Rows(Channel.Fill, [Roles.Tab, Roles.ListRow, Roles.Cell, Roles.Lane], interactions: [Interaction.Hover])
-            + Rows(Channel.Fill, [Roles.Button], [Condition.Borderless], [Interaction.Hover]) + Rows(Channel.Fill, [Roles.Line], [Condition.Selected])),
-        (Tone.Hover, Rows(Channel.Fill, [Roles.Chip, Roles.Button], interactions: [Interaction.Hover]) + Rows(Channel.Fill, [Roles.ListRow], interactions: [Interaction.Pressed])
-            + Rows(Channel.Fill, [Roles.Button], [Condition.Borderless], [Interaction.Pressed]) + Rows(Channel.Fill, [Roles.Lane], [Condition.Selected])),
-        (Tone.Active, Rows(Channel.Fill, [Roles.Track]) + Rows(Channel.Stroke, [Roles.GridFine]) + Rows(Channel.Fill, [Roles.Button], interactions: [Interaction.Pressed])),
-        (Tone.Chosen, Rows(Channel.Fill, [Roles.Tab, Roles.Button], [Condition.Selected])),
-        (Tone.Separator, Token.ButtonBorder.Cons(Rows(Channel.Stroke, [Roles.Group, Roles.Card, Roles.Field, Roles.Grid, Roles.Panel, Roles.Toolbar])) + Rows(Channel.Fill, [Roles.Divider])),
-        (Tone.Border, Rows(Channel.Fill, [Roles.Switch, Roles.Scrollbar]) + Rows(Channel.Stroke, [Roles.Toggle, Roles.Track])),
-        (Tone.Secondary, Rows(Channel.Text, [Roles.Gutter, Roles.Tab]) + Rows(Channel.Fill, [Roles.Scrollbar], interactions: [Interaction.Hover])),
-        (Tone.Text, [Token.CanvasText, Token.FieldText, Token.ButtonText, Token.HighlightText, .. Rows(Channel.Text, [Roles.Panel]), .. Rows(Channel.Text, [Roles.Tab], [Condition.Selected])]),
-        (Tone.Solid, Token.AccentColor.Cons(Rows(Channel.Fill, [Roles.Indicator]) + Rows(Channel.Stroke, [Roles.FocusRing]) + Rows(Channel.Fill, [Roles.Button], [Condition.Default])
-            + Rows(Channel.Fill, [Roles.Toggle, Roles.Switch], [Condition.Selected]) + Rows(Channel.Fill, [Roles.Toggle], [Condition.Mixed]))),
-        (Tone.SolidHover, Rows(Channel.Fill, [Roles.Button], [Condition.Default], [Interaction.Hover, Interaction.Pressed]) + Rows(Channel.Fill, [Roles.Accent], interactions: [Interaction.Hover])),
-        (Tone.Tint, Token.Highlight.Cons(Rows(Channel.Fill, [Roles.Chip, Roles.ListRow, Roles.Cell], [Condition.Selected])) + Rows(Channel.Fill, [Roles.ListRow], [Condition.Selected], [Interaction.Hover])),
-        (Tone.OnSolid, Token.AccentColorText.Cons(Rows(Channel.Text, [Roles.Button], [Condition.Default]) + Rows(Channel.Text, [Roles.Toggle], [Condition.Selected, Condition.Mixed]))),
-        (Tone.Clear, Rows(Channel.Fill, [Roles.Tab, Roles.ListRow, Roles.Cell, Roles.Lane, Roles.Line]) + Rows(Channel.Fill, [Roles.Button], [Condition.Borderless])),
+        (Tone.Raised, Token.Field.Cons(Rows(Channel.Fill, [StyleRole.Card, StyleRole.Dialog, StyleRole.Sheet, StyleRole.Popover, StyleRole.Menu, StyleRole.Tooltip, StyleRole.Hud, StyleRole.Toggle]))),
+        (Tone.Subtle, Rows(Channel.Fill, [StyleRole.Panel, StyleRole.Toolbar, StyleRole.Header, StyleRole.Gutter, StyleRole.TabList])),
+        (Tone.Element, Token.ButtonFace.Cons(Rows(Channel.Fill, [StyleRole.Section, StyleRole.Segment, StyleRole.Group, StyleRole.Keycap, StyleRole.Chip]))
+            + Rows(Channel.Fill, [StyleRole.Tab, StyleRole.ListRow, StyleRole.Cell, StyleRole.Lane], interactions: [Interaction.Hover])
+            + Rows(Channel.Fill, [StyleRole.Button], [Condition.Borderless], [Interaction.Hover]) + Rows(Channel.Fill, [StyleRole.Line], [Condition.Selected])),
+        (Tone.Hover, Rows(Channel.Fill, [StyleRole.Chip, StyleRole.Button], interactions: [Interaction.Hover]) + Rows(Channel.Fill, [StyleRole.ListRow], interactions: [Interaction.Pressed])
+            + Rows(Channel.Fill, [StyleRole.Button], [Condition.Borderless], [Interaction.Pressed]) + Rows(Channel.Fill, [StyleRole.Lane], [Condition.Selected])),
+        (Tone.Active, Rows(Channel.Fill, [StyleRole.Track]) + Rows(Channel.Stroke, [StyleRole.GridFine]) + Rows(Channel.Fill, [StyleRole.Button], interactions: [Interaction.Pressed])),
+        (Tone.Chosen, Rows(Channel.Fill, [StyleRole.Tab, StyleRole.Button], [Condition.Selected])),
+        (Tone.Separator, Token.ButtonBorder.Cons(Rows(Channel.Stroke, [StyleRole.Group, StyleRole.Card, StyleRole.Field, StyleRole.Grid, StyleRole.Panel, StyleRole.Toolbar])) + Rows(Channel.Fill, [StyleRole.Divider])),
+        (Tone.Border, Rows(Channel.Fill, [StyleRole.Switch, StyleRole.Scrollbar]) + Rows(Channel.Stroke, [StyleRole.Toggle, StyleRole.Track])),
+        (Tone.Secondary, Rows(Channel.Text, [StyleRole.Gutter, StyleRole.Tab]) + Rows(Channel.Fill, [StyleRole.Scrollbar], interactions: [Interaction.Hover])),
+        (Tone.Text, [Token.CanvasText, Token.FieldText, Token.ButtonText, Token.HighlightText, .. Rows(Channel.Text, [StyleRole.Panel]), .. Rows(Channel.Text, [StyleRole.Tab], [Condition.Selected])]),
+        (Tone.Solid, Token.AccentColor.Cons(Rows(Channel.Fill, [StyleRole.Indicator]) + Rows(Channel.Stroke, [StyleRole.FocusRing]) + Rows(Channel.Fill, [StyleRole.Button], [Condition.Default])
+            + Rows(Channel.Fill, [StyleRole.Toggle, StyleRole.Switch], [Condition.Selected]) + Rows(Channel.Fill, [StyleRole.Toggle], [Condition.Mixed]))),
+        (Tone.SolidHover, Rows(Channel.Fill, [StyleRole.Button], [Condition.Default], [Interaction.Hover, Interaction.Pressed]) + Rows(Channel.Fill, [StyleRole.Accent], interactions: [Interaction.Hover])),
+        (Tone.Tint, Token.Highlight.Cons(Rows(Channel.Fill, [StyleRole.Chip, StyleRole.ListRow, StyleRole.Cell], [Condition.Selected])) + Rows(Channel.Fill, [StyleRole.ListRow], [Condition.Selected], [Interaction.Hover])),
+        (Tone.OnSolid, Token.AccentColorText.Cons(Rows(Channel.Text, [StyleRole.Button], [Condition.Default]) + Rows(Channel.Text, [StyleRole.Toggle], [Condition.Selected, Condition.Mixed]))),
+        (Tone.Clear, Rows(Channel.Fill, [StyleRole.Tab, StyleRole.ListRow, StyleRole.Cell, StyleRole.Lane, StyleRole.Line]) + Rows(Channel.Fill, [StyleRole.Button], [Condition.Borderless])),
         (Tone.Muted, [Token.GrayText]),
-        (Tone.Success, Rows(Channel.Text, [Roles.Window], [Condition.Success])),
-        (Tone.Warning, Rows(Channel.Text, [Roles.Window], [Condition.Warning])),
-        (Tone.Faulted, Rows(Channel.Text, [Roles.Window], [Condition.Faulted])))
+        (Tone.Success, Rows(Channel.Text, [StyleRole.Window], [Condition.Success])),
+        (Tone.Warning, Rows(Channel.Text, [StyleRole.Window], [Condition.Warning])),
+        (Tone.Faulted, Rows(Channel.Text, [StyleRole.Window], [Condition.Faulted])))
         .SelectMany(static row => row.Tokens, static (row, token) => (token, row.Tone)));
 
     public HashMap<Token, SKColorF> Chrome { get; }
@@ -182,7 +182,7 @@ public sealed partial class Theme {
         return Painted.Map(tone => ramp[tone]);
     }
 
-    private static Seq<Token> Rows(Channel channel, Seq<Key> roles, Seq<Option<Condition>> conditions = default, Seq<Option<Interaction>> interactions = default) =>
+    private static Seq<Token> Rows(Channel channel, Seq<StyleRole> roles, Seq<Option<Condition>> conditions = default, Seq<Option<Interaction>> interactions = default) =>
         toSeq(from role in roles
               from condition in conditions.DefaultIfEmpty()
               from interaction in interactions.DefaultIfEmpty()

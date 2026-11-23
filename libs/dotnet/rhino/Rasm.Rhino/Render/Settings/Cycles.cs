@@ -25,7 +25,9 @@ public sealed record CyclesSetting<T>(string Key, bool Document) where T : notnu
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Cycles {
-    public static IO<Guid> PlugInId => IO.lift(static () => Conversions.Present(PlugIn.IdFromName("Rhino Render")).ToFin(new RhinoFault("Rhino Render", RhinoReason.Missing)));
+    public static IO<Guid> PlugInId => Installed("Rhino Render");
 
-    public static IO<SettingsNode> Node => PlugInId.Map(static id => new SettingsNode(new SettingsRoot.PlugInNode(id)));
+    public static IO<SettingsNode> Node => Installed("RhinoCycles").Map(static id => new SettingsNode(new SettingsRoot.PlugInNode(id)));
+
+    private static IO<Guid> Installed(string name) => IO.lift(() => Conversions.Present(PlugIn.IdFromName(name)).ToFin(new RhinoFault(name, RhinoReason.Missing)));
 }

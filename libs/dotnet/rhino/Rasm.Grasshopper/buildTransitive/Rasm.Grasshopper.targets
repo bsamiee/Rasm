@@ -2,13 +2,14 @@
     <PropertyGroup Label="Grasshopper Plug-In">
         <_GrasshopperShell>$(IntermediateOutputPath)$(TargetName).Grasshopper$(TargetExt)</_GrasshopperShell>
         <_GrasshopperShellAttributes>$(IntermediateOutputPath)$(TargetName).Grasshopper.AssemblyInfo.cs</_GrasshopperShellAttributes>
+        <_GrasshopperShellDocumentation>$(IntermediateOutputPath)$(TargetName).Grasshopper.xml</_GrasshopperShellDocumentation>
     </PropertyGroup>
 
     <ItemGroup Label="Grasshopper Icons">
         <EmbeddedResource Include="icons/*.ghicon" LogicalName="%(Filename)%(Extension)" />
     </ItemGroup>
 
-    <Target Name="BuildGrasshopperShell" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '@(ReferencePath->WithMetadataValue('Filename', 'Rasm.Grasshopper'))' != ''" Inputs="@(IntermediateAssembly);@(ReferencePath);@(Analyzer);@(EditorConfigFiles);$(MSBuildThisFileDirectory)PluginInfo.cs;$(MSBuildAllProjects)" Outputs="$(_GrasshopperShell)">
+    <Target Name="BuildGrasshopperShell" AfterTargets="BuildPlugInShell" Condition="'$(DesignTimeBuild)' != 'true' and '@(ReferencePath->WithMetadataValue('Filename', 'Rasm.Grasshopper'))' != ''" Inputs="$(PlugInShell);@(ReferencePath);@(Analyzer);@(EditorConfigFiles);$(MSBuildThisFileDirectory)PluginInfo.cs;$(MSBuildAllProjects)" Outputs="$(_GrasshopperShell)">
         <ItemGroup>
             <_PlugInIdentity Include="@(AssemblyAttribute->WithMetadataValue('Identity', 'System.Runtime.InteropServices.GuidAttribute')->Metadata('_Parameter1'))" />
         </ItemGroup>
@@ -22,9 +23,9 @@
             <_GrasshopperShellAttribute Include="System.Runtime.InteropServices.GuidAttribute"><_Parameter1>$(_GrasshopperShellId)</_Parameter1></_GrasshopperShellAttribute>
         </ItemGroup>
         <WriteCodeFragment Language="C#" AssemblyAttributes="@(_GrasshopperShellAttribute)" OutputFile="$(_GrasshopperShellAttributes)" />
-        <Csc Sources="$(MSBuildThisFileDirectory)PluginInfo.cs;$(_GrasshopperShellAttributes);$(TargetFrameworkMonikerAssemblyAttributesPath)" References="@(ReferencePath);@(IntermediateAssembly)" Analyzers="@(Analyzer)" AnalyzerConfigFiles="@(_GrasshopperShellConfig->Distinct())" OutputAssembly="$(_GrasshopperShell)" TargetType="Library" LangVersion="$(LangVersion)" Nullable="$(Nullable)" Deterministic="true" Optimize="true" NoConfig="true" NoStandardLib="true" NoLogo="true" DisabledWarnings="$(NoWarn)" TreatWarningsAsErrors="$(TreatWarningsAsErrors)" ToolExe="$(CscToolExe)" ToolPath="$(CscToolPath)" UseSharedCompilation="$(UseSharedCompilation)" />
+        <Csc Sources="$(MSBuildThisFileDirectory)PluginInfo.cs;$(_GrasshopperShellAttributes);$(TargetFrameworkMonikerAssemblyAttributesPath)" References="@(ReferencePath);$(PlugInShell)" Analyzers="@(Analyzer)" AnalyzerConfigFiles="@(_GrasshopperShellConfig->Distinct())" OutputAssembly="$(_GrasshopperShell)" DocumentationFile="$(_GrasshopperShellDocumentation)" TargetType="Library" LangVersion="$(LangVersion)" Nullable="$(Nullable)" Deterministic="true" Optimize="true" NoConfig="true" NoStandardLib="true" NoLogo="true" DisabledWarnings="$(NoWarn)" TreatWarningsAsErrors="$(TreatWarningsAsErrors)" ToolExe="$(CscToolExe)" ToolPath="$(CscToolPath)" UseSharedCompilation="$(UseSharedCompilation)" />
         <ItemGroup>
-            <FileWrites Include="$(_GrasshopperShell);$(_GrasshopperShellAttributes)" />
+            <FileWrites Include="$(_GrasshopperShell);$(_GrasshopperShellAttributes);$(_GrasshopperShellDocumentation)" />
             <ContentWithTargetPath Include="$(_GrasshopperShell)" TargetPath="$(TargetName).Grasshopper$(TargetExt)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
         </ItemGroup>
     </Target>

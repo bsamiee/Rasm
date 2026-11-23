@@ -50,8 +50,8 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     // --- [STATE]
 
     private static readonly Seq<View> Gridlines = toSeq(PhysicalAxis.Items).Bind(static along => Seq<View>(
-        new View.Mark(new Figure.Grid(along) { Major = false }) { Role = Roles.GridFine },
-        new View.Mark(new Figure.Grid(along)) { Role = Roles.Grid }));
+        new View.Mark(new Figure.Grid(along) { Major = false }) { Role = StyleRole.GridFine },
+        new View.Mark(new Figure.Grid(along)) { Role = StyleRole.Grid }));
 
     public Option<Func<TNode, Vector2>> Position { get; init; }
     public Func<TNode, Seq<Port>> Inputs { get; init; } = static _ => [];
@@ -73,7 +73,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     public bool Snaps { get; init; }
     public bool Minimap { get; init; }
     public Option<Interpolation> Curve { get; init; }
-    public Key Role { get; init; } = Roles.Well;
+    public StyleRole Role { get; init; } = StyleRole.Well;
 
     // --- [DRAWING]
 
@@ -110,17 +110,17 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     private View.Flex Mapped(Part.Viewport navigation, HashMap<Key, SKRect> boxes, Seq<Key> keys) =>
         new(PhysicalAxis.Horizontal, [
             navigation.Overview(View, keys.Choose(key => boxes.Find(key).Bind(static box => Figure.Region.Spanning(box.Left, box.Right, box.Top, box.Bottom))
-                .Map(region => (View)new View.Mark(region) { Role = Roles.Card, Conditions = Selection.Holds(key) ? [Condition.Selected] : [] }))),
+                .Map(region => (View)new View.Mark(region) { Role = StyleRole.Card, Conditions = Selection.Holds(key) ? [Condition.Selected] : [] }))),
         ]) {
-            Role = Roles.Hud,
+            Role = StyleRole.Hud,
             Accessible = new Accessible { Role = AccessRole.Group },
             Align = new UnitPoint(Fraction.MaxValue, Fraction.MaxValue),
         };
 
     private static View.Pin Framed(Group group, SKRect box) =>
         new(new Vector2(box.Left, box.Top),
-            new View.Flex(PhysicalAxis.Vertical, [new View.Text([group.Title]) { Role = Roles.Caption, MaxLines = 1 }]) {
-                Role = Roles.Group,
+            new View.Flex(PhysicalAxis.Vertical, [new View.Text([group.Title]) { Role = StyleRole.Caption, MaxLines = 1 }]) {
+                Role = StyleRole.Group,
                 Accessible = new Accessible { Role = AccessRole.Group, Label = group.Title },
             }) {
             Key = group.Key,
@@ -137,7 +137,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
             new View.Overlay(new View.Flex(PhysicalAxis.Vertical, [Header(node, marks) with { Height = Sizing.Grow.Unit }]), ports),
             new View.Box()])) {
             Span = Size(node),
-            Role = Roles.Card,
+            Role = StyleRole.Card,
             Conditions = Selection.Holds(node.Key) ? marks.TryAdd(Condition.Selected) : marks,
             Accessible = new Accessible { Label = node.Title },
         };
@@ -148,7 +148,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
                 PortLabel(node.Inputs.At(index), TextAlignment.Left),
                 PortLabel(node.Outputs.At(index), TextAlignment.Right),
             ]) {
-            Role = Roles.ListRow,
+            Role = StyleRole.ListRow,
             Height = share,
         }));
 
@@ -165,7 +165,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
             Hover = hovered => Hover.Map(report => report(hovered.Map(_ => slot.Socket))),
         }.Drawn(
             _ => new View.Box {
-                Role = Roles.Port,
+                Role = StyleRole.Port,
                 Series = slot.Port.Type,
                 Conditions = Hovered == Some(slot.Socket) ? [Condition.Highlighted] : [],
                 Accessible = new Accessible { Label = slot.Port.Label },
@@ -193,7 +193,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
 
     private View.Mark Line(Vector2 start, Vector2 end, DataSeries type, HashSet<Condition> marks) =>
         new(new Figure.Path([start, end]) { Interpolation = Curve.IfNone(() => Flow.Map(horizontal: Interpolation.BumpX, vertical: Interpolation.BumpY)) }) {
-            Role = Roles.Wire,
+            Role = StyleRole.Wire,
             Series = type,
             Conditions = marks,
         };

@@ -24,13 +24,13 @@ public sealed record Panel(string Title, Seq<View> Body) {
         new View.Choice(PhysicalAxis.Horizontal, [
             new View.Flex(PhysicalAxis.Vertical,
                 Seq<View>(Header(Icon(Glyph), Title, Subtitle, Actions))
-                + Search.Map(static entry => (entry with { Glyph = entry.Glyph | Some(Roles.Magnifier) }).Drawn).ToSeq()
+                + Search.Map(static entry => (entry with { Glyph = entry.Glyph | Some(StyleRole.Magnifier) }).Drawn).ToSeq()
                 + Seq(Body.IsEmpty ? new View.Box { Height = Sizing.Grow.Unit } : Scrolled(Body))).Grown,
             new View.Flex(PhysicalAxis.Vertical, [Icon(Glyph).Head.IfNone(() => new View.Text([Title]) { MaxLines = 1 })]) {
                 Height = Sizing.Grow.Unit,
             },
         ]) {
-            Role = Roles.Panel,
+            Role = StyleRole.Panel,
             Accessible = new Accessible { Role = AccessRole.Group, Label = Title },
         }.Grown;
 
@@ -39,12 +39,12 @@ public sealed record Panel(string Title, Seq<View> Body) {
             leading
             + Seq<View>(new View.Flex(PhysicalAxis.Vertical,
                 Seq<View>(new View.Text([title]) { MaxLines = 1, Accessible = new Accessible { Role = AccessRole.Heading } })
-                + subtitle.Map(static text => (View)new View.Text([text]) { Role = Roles.Caption, MaxLines = 1 }).ToSeq()) {
+                + subtitle.Map(static text => (View)new View.Text([text]) { Role = StyleRole.Caption, MaxLines = 1 }).ToSeq()) {
                 Width = Sizing.Grow.Unit,
                 Align = UnitPoint.Center,
             })
             + trailing) {
-            Role = Roles.Header,
+            Role = StyleRole.Header,
             Width = Sizing.Grow.Unit,
         };
 
@@ -53,7 +53,7 @@ public sealed record Panel(string Title, Seq<View> Body) {
     internal static Option<View> StatusGlyph(HashSet<Condition> conditions) =>
         conditions.Contains(Condition.Busy)
             ? Some(Progress.Ring(None) with { Align = UnitPoint.Center })
-            : Signals.Find(conditions.Contains).Map(static signal => (View)new View.Box { Role = Roles.Status, Conditions = [signal], Align = UnitPoint.Center });
+            : Signals.Find(conditions.Contains).Map(static signal => (View)new View.Box { Role = StyleRole.Status, Conditions = [signal], Align = UnitPoint.Center });
 
     internal static View Scrolled(Seq<View> content) =>
         content switch {
@@ -71,12 +71,12 @@ public sealed record Section(string Title, Seq<View> Content) {
 
     public View Drawn =>
         new Disclosure(
-            Panel.Header(Panel.Icon(Glyph), Title, None, Summary.Filter(_ => !Expanded).Map(static summary => (View)new View.Text([summary]) { Role = Roles.Caption, MaxLines = 1, Align = UnitPoint.Center }).ToSeq() + Actions),
+            Panel.Header(Panel.Icon(Glyph), Title, None, Summary.Filter(_ => !Expanded).Map(static summary => (View)new View.Text([summary]) { Role = StyleRole.Caption, MaxLines = 1, Align = UnitPoint.Center }).ToSeq() + Actions),
             new View.Flex(PhysicalAxis.Vertical, Content) { Width = Sizing.Grow.Unit },
             Expanded) {
             Edited = Edited,
         }.Drawn with {
-            Role = Roles.Section,
+            Role = StyleRole.Section,
             Accessible = new Accessible { Role = AccessRole.Group, Label = Title },
         };
 }
@@ -95,7 +95,7 @@ public sealed record Card(string Title) {
             + Seq<View>(Panel.Header(Panel.Icon(Glyph), Title, Subtitle, Panel.StatusGlyph(Conditions).ToSeq()) with { Role = None })
             + Content
             + DialogAction.Footer(Actions, unit)) {
-            Role = Roles.Card,
+            Role = StyleRole.Card,
             Width = Sizing.Grow.Unit,
             Conditions = Conditions,
             Accessible = new Accessible { Role = AccessRole.Group, Label = Title },
@@ -104,7 +104,7 @@ public sealed record Card(string Title) {
 
 public sealed record Disclosure(View Header, View Content, bool Expanded) {
     public Option<Func<Edit<bool>, IO<Unit>>> Edited { get; init; }
-    public Key Role { get; init; } = Roles.Header;
+    public StyleRole Role { get; init; } = StyleRole.Header;
 
     public View Drawn =>
         new View.Flex(PhysicalAxis.Vertical,
@@ -128,7 +128,7 @@ public sealed record Disclosure(View Header, View Content, bool Expanded) {
             },
             None: static () => Face(open: false) with { Opacity = Fraction.MinValue });
 
-    private static View.Box Face(bool open) => new() { Role = Roles.Chevron, Conditions = open ? [Condition.Selected] : [], Align = UnitPoint.Center };
+    private static View.Box Face(bool open) => new() { Role = StyleRole.Chevron, Conditions = open ? [Condition.Selected] : [], Align = UnitPoint.Center };
 }
 
 public sealed record Split(PhysicalAxis Along, Seq<(View Content, Factor Weight)> Panes, Func<Edit<Seq<Factor>>, IO<Unit>> Edited) {
@@ -188,7 +188,7 @@ public sealed record Board<TItem>(Seq<TItem> Items, Func<TItem, Key> Keyed, Func
 
     private static View.Grid Gridded(Seq<View> tiles, int count) =>
         new(new Tracks(LanguageExt.Seq.repeat<Sizing>(Sizing.Grow.Unit, count)), [tiles]) {
-            Role = Roles.Stack,
+            Role = StyleRole.Stack,
             Width = Sizing.Grow.Unit,
         };
 }

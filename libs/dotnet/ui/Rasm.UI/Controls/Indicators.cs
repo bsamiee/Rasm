@@ -23,12 +23,12 @@ public sealed record Gauge(float Value, Axis Axis) {
 
     public View Drawn(CultureInfo culture) {
         float start = Top + ((float)Sweep / 2f);
-        View.Mark swept = Band with { Role = Roles.Series, Series = new DataSeries(0) { Color = Color || Thresholds.Bind(axis => axis.Threshold(Value)) } };
+        View.Mark swept = Band with { Role = StyleRole.Series, Series = new DataSeries(0) { Color = Color || Thresholds.Bind(axis => axis.Threshold(Value)) } };
         string spoken = Axis.Spoken(Value, culture);
         Seq<View> Marked(Func<float, float, View.Mark, Option<View>> placed) =>
             Thresholds.Map(thresholds => thresholds.Ramp.Stops.Zip(thresholds.Ramp.Stops.Tail.Map(static stop => stop.At).Add(Fraction.MaxValue)).Choose(band =>
                 placed(Placed(thresholds.Axis.Value((float)band.First.At)), Placed(thresholds.Axis.Value((float)band.Second)), Band with {
-                    Role = Roles.Series,
+                    Role = StyleRole.Series,
                     Series = new DataSeries(0) { Color = band.First.Color },
                     Conditions = [Condition.Disabled],
                 }))).IfNone([])
@@ -36,9 +36,9 @@ public sealed record Gauge(float Value, Axis Axis) {
         return Along.Match(
             Some: along => new View.Flex(along, [Bar(along, Marked((from, to, mark) => Span(along, from, to, mark))), new View.Text([spoken]) { MaxLines = 1 }]).Stretched(along),
             None: () => new View.Plot(Turn,
-                Arc(start, Sweep, 0f, 1f, Band with { Role = Roles.Track }).ToSeq()
+                Arc(start, Sweep, 0f, 1f, Band with { Role = StyleRole.Track }).ToSeq()
                 + Marked((from, to, mark) => Arc(start, Sweep, from, to, mark))
-                + Seq<View>(new View.Pin(Vector2.Zero, new View.Text([spoken]) { Role = Roles.Stat, MaxLines = 1 }) { Align = UnitPoint.Center })) {
+                + Seq<View>(new View.Pin(Vector2.Zero, new View.Text([spoken]) { Role = StyleRole.Stat, MaxLines = 1 }) { Align = UnitPoint.Center })) {
                 Width = Sizing.Grow.Unit,
             }) with {
             Accessible = new Accessible { Role = AccessRole.ProgressBar, Value = new AccessValue.Ranged(Axis, Value) },
@@ -46,7 +46,7 @@ public sealed record Gauge(float Value, Axis Axis) {
     }
 
     internal static View Bar(PhysicalAxis along, Seq<View> marks) =>
-        new View.Plot(PlotPlane.Track.Unit(along), marks) { Role = Roles.Track, Align = UnitPoint.Center }.Stretched(along);
+        new View.Plot(PlotPlane.Track.Unit(along), marks) { Role = StyleRole.Track, Align = UnitPoint.Center }.Stretched(along);
 
     internal static Option<View> Span(PhysicalAxis along, float from, float to, View.Mark mark) =>
         AxisRange.Validated(from, to).ToOption().Map(span => (View)(mark with { Figure = along.Map(horizontal: new Figure.Region { First = span }, vertical: new Figure.Region { Second = span }) }));
@@ -67,7 +67,7 @@ public sealed partial class Progress {
     public static Fin<Progress> Validated(long done, long total) => UIFault.Unless(total > 0L && done >= 0L && done <= total, UIReason.Range, (done, total)).Map(_ => new Progress(done, total));
 
     public static View Meter(Option<Progress> work) =>
-        Gauge.Bar(PhysicalAxis.Horizontal, work.Bind(static progress => Gauge.Span(PhysicalAxis.Horizontal, 0f, (float)progress.Fraction, Gauge.Band with { Role = Roles.Span })).ToSeq()) with {
+        Gauge.Bar(PhysicalAxis.Horizontal, work.Bind(static progress => Gauge.Span(PhysicalAxis.Horizontal, 0f, (float)progress.Fraction, Gauge.Band with { Role = StyleRole.Span })).ToSeq()) with {
             Conditions = [Condition.Busy],
             Accessible = Announced(work),
         };
@@ -75,12 +75,12 @@ public sealed partial class Progress {
     public static View Ring(Option<Progress> work) =>
         work.Match(
             Some: static progress => (View)new View.Plot(Gauge.Turn, Seq(
-                Gauge.Arc(Gauge.Top, Fraction.MaxValue, 0f, 1f, Gauge.Band with { Role = Roles.Track }),
-                Gauge.Arc(Gauge.Top, Fraction.MaxValue, 0f, (float)progress.Fraction, Gauge.Band with { Role = Roles.Span })).Somes()) {
-                Role = Roles.Spinner,
+                Gauge.Arc(Gauge.Top, Fraction.MaxValue, 0f, 1f, Gauge.Band with { Role = StyleRole.Track }),
+                Gauge.Arc(Gauge.Top, Fraction.MaxValue, 0f, (float)progress.Fraction, Gauge.Band with { Role = StyleRole.Span })).Somes()) {
+                Role = StyleRole.Spinner,
                 Accessible = Announced(Some(progress)),
             },
-            None: static () => new View.Box { Role = Roles.Spinner, Conditions = [Condition.Busy], Accessible = Announced(None) });
+            None: static () => new View.Box { Role = StyleRole.Spinner, Conditions = [Condition.Busy], Accessible = Announced(None) });
 
     private static Accessible Announced(Option<Progress> work) =>
         new() { Role = AccessRole.ProgressBar, Value = work.Map(static progress => (AccessValue)new AccessValue.Ranged(progress.Done, 0d, progress.Total)) };
@@ -133,8 +133,8 @@ public sealed partial class Polarity {
 
 [SmartEnum]
 public sealed partial class ColorMode {
-    public static readonly ColorMode Value = new(static color => new StyleSheet(HashMap((Roles.Stat, new Look { Text = color }))));
-    public static readonly ColorMode Background = new(static color => new StyleSheet(HashMap((Roles.Card, new Look {
+    public static readonly ColorMode Value = new(static color => new StyleSheet(HashMap((StyleRole.Stat, new Look { Text = color }))));
+    public static readonly ColorMode Background = new(static color => new StyleSheet(HashMap((StyleRole.Card, new Look {
         Fills = Seq<Material>(new Material.Solid(color)),
         Text = new ColorValue.Contrasting(color, [new ColorValue.Host(Token.CanvasText), new ColorValue.Host(Token.Canvas)]),
     }))));
@@ -153,16 +153,16 @@ public sealed record Stat(string Label, float Value, Axis Axis) {
     public View Drawn(CultureInfo culture) {
         Option<ColorValue> color = Thresholds.Bind(axis => axis.Threshold(Value));
         Seq<View> head = [
-            new View.Text([Label]) { Role = Roles.Caption, MaxLines = 1 },
-            new View.Flex(PhysicalAxis.Horizontal, Seq<View>(new View.Text([Axis.Formatted(Value, culture)]) { Role = Roles.Stat, MaxLines = 1 })
-                + Axis.Unit.Map(static symbol => (View)new View.Text([symbol]) { Role = Roles.Caption }).ToSeq()
+            new View.Text([Label]) { Role = StyleRole.Caption, MaxLines = 1 },
+            new View.Flex(PhysicalAxis.Horizontal, Seq<View>(new View.Text([Axis.Formatted(Value, culture)]) { Role = StyleRole.Stat, MaxLines = 1 })
+                + Axis.Unit.Map(static symbol => (View)new View.Text([symbol]) { Role = StyleRole.Caption }).ToSeq()
                 + Prior.Map(prior => (View)Changed(prior, culture)).ToSeq()) {
                 Baseline = Baseline.First,
             },
         ];
         View Card(Seq<View> content) =>
             new View.Flex(PhysicalAxis.Vertical, content) {
-                Role = Roles.Card,
+                Role = StyleRole.Card,
                 Sheet = (from mode in Coloring from held in color select mode.Sheet(held)).IfNone(StyleSheet.Empty),
                 Accessible = new Accessible { Role = AccessRole.Group, Label = Label, Value = new AccessValue.Ranged(Axis, Value) },
             }.Grown;
@@ -175,14 +175,14 @@ public sealed record Stat(string Label, float Value, Axis Axis) {
         from across in AxisRange.Validated(0f, trend.Values.Length - 1).ToOption()
         from extent in trend.Extent
         select new View.Plot(new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(extent)), [
-            new View.Mark(new Figure.Curve(across, trend) { Fill = new Floor.Baseline(extent.Low) }) { Role = Roles.Series, Series = new DataSeries(0) { Color = color } },
+            new View.Mark(new Figure.Curve(across, trend) { Fill = new Floor.Baseline(extent.Low) }) { Role = StyleRole.Series, Series = new DataSeries(0) { Color = color } },
         ]).Grown;
 
     private View.Text Changed(float prior, CultureInfo culture) {
         float change = Value - prior;
         string shown = prior is 0f ? Axis.Formatted(change, culture) : (change / MathF.Abs(prior)).ToString("P", culture);
         return new View.Text([change > 0f ? culture.NumberFormat.PositiveSign + shown : shown]) {
-            Role = Roles.Label,
+            Role = StyleRole.Label,
             Conditions = Polarity.Map(polarity => MathF.Sign(change) * polarity.Sign).IfNone(0) switch {
                 > 0 => [Condition.Success],
                 < 0 => [Condition.Faulted],

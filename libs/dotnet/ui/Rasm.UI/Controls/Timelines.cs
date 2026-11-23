@@ -11,9 +11,9 @@ namespace Rasm.UI.Controls;
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Timing {
-    private Timing(Key role) => Role = role;
+    private Timing(StyleRole role) => Role = role;
 
-    internal Key Role { get; }
+    internal StyleRole Role { get; }
 
     internal Timing Moved(int handle, float to) =>
         Switch<(int Handle, float To), Timing>(
@@ -25,9 +25,9 @@ public abstract partial record Timing {
             }).Filter(static span => span.From < span.To).Map(static span => (Timing)new Clip(span)).IfNone(clip),
             point: static (held, point) => point with { At = held.To });
 
-    public sealed record Clip(AxisRange Span) : Timing(Roles.Card);
+    public sealed record Clip(AxisRange Span) : Timing(StyleRole.Card);
 
-    public sealed record Point(float At, Key Role) : Timing(Role);
+    public sealed record Point(float At, StyleRole Role) : Timing(Role);
 }
 
 public sealed record Lane<TItem>(Key Key, string Label, Seq<TItem> Items) where TItem : notnull {
@@ -71,13 +71,13 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
     }
 
     private View.Plot Ruler(Option<Part.Viewport> navigation) {
-        Seq<View> shade = Preview.Map(static span => (View)new View.Mark(new Figure.Region { First = span }) { Role = Roles.Selection }).ToSeq();
+        Seq<View> shade = Preview.Map(static span => (View)new View.Mark(new Figure.Region { First = span }) { Role = StyleRole.Selection }).ToSeq();
         return new View.Plot(Plane, Playhead.Match(
             Some: at => Scrubbed.Match(
                 Some: scrubbed => Seq(new Handles<float>(at, Points<float>.Scalar(Plane, Lens.identity<float>()), scrubbed).Drawn(Plane, shade)),
                 None: () => shade.Add(Needle(at))),
             None: () => shade)) {
-            Role = Roles.Lane,
+            Role = StyleRole.Lane,
             Width = Sizing.Grow.Unit,
             Guides = [new Guide(PhysicalAxis.Horizontal)],
             Part = navigation.Map(static viewport => (Part)viewport),
@@ -86,7 +86,7 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
 
     private Option<View> Overview(Option<Part.Viewport> navigation) =>
         navigation.Map(viewport => (View)(viewport.Overview(Plane, Playhead.Map(Needle).ToSeq()) with {
-            Role = Roles.Lane,
+            Role = StyleRole.Lane,
             Width = Sizing.Grow.Unit,
         }));
 
@@ -97,7 +97,7 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
         select (View)new View.Plot(Plane, [
             new Brush(plane, edit => previewed(edit.Choose(static held => held.Dimension(PhysicalAxis.Horizontal)).Map(static axis => axis.Domain).As())).Drawn(Plane),
         ]) {
-            Role = Roles.Lane,
+            Role = StyleRole.Lane,
             Width = Sizing.Grow.Unit,
         };
 
@@ -115,7 +115,7 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
                 Handle = (key, _) => faces[key],
             }.Drawn(Plane, under))) {
             Key = lane.Key,
-            Role = Roles.Lane,
+            Role = StyleRole.Lane,
             Width = Sizing.Grow.Unit,
             Part = navigation.Map(static viewport => (Part)viewport),
             Accessible = new Accessible { Role = AccessRole.Group, Label = lane.Label },
@@ -126,15 +126,15 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
         Lane<TItem> lane = row.Item;
         return new View.Flex(PhysicalAxis.Horizontal,
             row.Lead(Some(Edited(Edit.Of(EditPhase.Commit, lane with { Collapsed = !lane.Collapsed }))))
-            + Seq<View>(new View.Text([lane.Label]) { Role = Roles.Label, MaxLines = 1, Width = Sizing.Grow.Unit, Conditions = lane.Muted ? [Condition.Disabled] : [] })
+            + Seq<View>(new View.Text([lane.Label]) { Role = StyleRole.Label, MaxLines = 1, Width = Sizing.Grow.Unit, Conditions = lane.Muted ? [Condition.Disabled] : [] })
             + Toggles(lane)
-            + Seq(Flag(Roles.Lock, lane.Locked, locked => lane with { Locked = locked }), Flag(Roles.Visibility, !lane.Muted, audible => lane with { Muted = !audible }))) {
-            Role = Roles.Lane,
+            + Seq(Flag(StyleRole.Lock, lane.Locked, locked => lane with { Locked = locked }), Flag(StyleRole.Visibility, !lane.Muted, audible => lane with { Muted = !audible }))) {
+            Role = StyleRole.Lane,
             Accessible = new Accessible { Role = AccessRole.TreeItem, Label = lane.Label, Expanded = row.Open },
         };
     }
 
-    private View Flag(Key glyph, bool on, Func<bool, Lane<TItem>> lane) =>
+    private View Flag(StyleRole glyph, bool on, Func<bool, Lane<TItem>> lane) =>
         new Toggle(on, edit => Edited(edit.Map(lane).As())) {
             Content = [Toggle.Glyphed(glyph, Check.Of(on))],
             Kind = ToggleKind.Button,
@@ -150,7 +150,7 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
                     Conditions = toHashSet(Seq(Some(Condition.Selected).Filter(_ => Selection.Holds(Keyed(item))), Some(Condition.Disabled).Filter(_ => lane.Muted)).Somes()),
                 },
             }
-            : new View.Pin(point.At, new View.Box()) { Role = Roles.Grip, Align = UnitPoint.Center };
+            : new View.Pin(point.At, new View.Box()) { Role = StyleRole.Grip, Align = UnitPoint.Center };
 
     // --- [HANDLES]
 
@@ -168,5 +168,5 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
 
     // --- [READS]
 
-    private static View Needle(float at) => new View.Mark(new Figure.Path([new Vector2(at, (float)Fraction.MinValue), new Vector2(at, (float)Fraction.MaxValue)])) { Role = Roles.Needle };
+    private static View Needle(float at) => new View.Mark(new Figure.Path([new Vector2(at, (float)Fraction.MinValue), new Vector2(at, (float)Fraction.MaxValue)])) { Role = StyleRole.Needle };
 }

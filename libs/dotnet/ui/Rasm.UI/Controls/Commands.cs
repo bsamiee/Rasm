@@ -34,8 +34,8 @@ public sealed record CommandPresentation(Key Key, string Caption) {
 
     // --- [FACES]
 
-    internal View Button(HashSet<Condition> state, AccessRole access, Key look, Option<Part.Press> press, Seq<View> content, Seq<View> above = default) {
-        Seq<View> pinned = Badge.Map(static badge => (View)new View.Pin(new Vector2(1f, 0f), new View.Text([badge]) { Role = Roles.Badge, Align = UnitPoint.Center }) { Align = UnitPoint.Center }).ToSeq() + above;
+    internal View Button(HashSet<Condition> state, AccessRole access, StyleRole look, Option<Part.Press> press, Seq<View> content, Seq<View> above = default) {
+        Seq<View> pinned = Badge.Map(static badge => (View)new View.Pin(new Vector2(1f, 0f), new View.Text([badge]) { Role = StyleRole.Badge, Align = UnitPoint.Center }) { Align = UnitPoint.Center }).ToSeq() + above;
         View framed = (pinned.IsEmpty ? new View.Flex(PhysicalAxis.Horizontal, content) : (View)new View.Overlay(new View.Flex(PhysicalAxis.Horizontal, content), pinned)) with {
             Key = Key,
             Role = look,
@@ -51,8 +51,8 @@ public sealed record CommandPresentation(Key Key, string Caption) {
     }
 
     internal View Item(HashSet<Condition> state, Option<Part.Press> press, Seq<Span> caption, Seq<View> above = default) =>
-        Button(state, AccessRole.MenuItem, Roles.ListRow, press,
-            Labeled(state, caption) + Shortcut.ToSeq().Bind(static shortcut => Seq<View>(new View.Box { Width = Sizing.Grow.Unit }, new View.Text([shortcut]) { Role = Roles.Keycap, Align = UnitPoint.Center })),
+        Button(state, AccessRole.MenuItem, StyleRole.ListRow, press,
+            Labeled(state, caption) + Shortcut.ToSeq().Bind(static shortcut => Seq<View>(new View.Box { Width = Sizing.Grow.Unit }, new View.Text([shortcut]) { Role = StyleRole.Keycap, Align = UnitPoint.Center })),
             above) with {
             Width = Sizing.Grow.Unit,
         };
@@ -60,7 +60,7 @@ public sealed record CommandPresentation(Key Key, string Caption) {
     private Seq<View> Labeled(HashSet<Condition> state, Seq<Span> caption) => Glyph.Map(art => Icon(art, state)).ToSeq().Add(new View.Text(caption) { Align = UnitPoint.Center });
 
     private static View Icon(GlyphSource art, HashSet<Condition> state) =>
-        state.Contains(Condition.Busy) ? new View.Box { Role = Roles.Spinner, Align = UnitPoint.Center } : new View.Glyph(art) { Align = UnitPoint.Center };
+        state.Contains(Condition.Busy) ? new View.Box { Role = StyleRole.Spinner, Align = UnitPoint.Center } : new View.Glyph(art) { Align = UnitPoint.Center };
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -116,7 +116,7 @@ public sealed record CommandHost<TGate, TInvoke>(
         command.Switch(
             (Host: this, Content: content, Axis: axis, Within: within),
             run: static (held, run) => held.Host.State(run.Enabled, run.Busy, run.Checked)
-                .Map(state => run.Presentation.Button(state, held.Within.IfNone(run.Access), Roles.Button, Some(held.Host.Pressing(run)), held.Content(run.Presentation, state))),
+                .Map(state => run.Presentation.Button(state, held.Within.IfNone(run.Access), StyleRole.Button, Some(held.Host.Pressing(run)), held.Content(run.Presentation, state))),
             choice: static (held, choice) =>
                 from state in held.Host.State(choice.Enabled, None, None)
                 from members in choice.Members.TraverseM(member => held.Host.Drawn(member, held.Content, held.Axis, AccessRole.RadioGroup.Owns)).As()
@@ -130,14 +130,14 @@ public sealed record CommandHost<TGate, TInvoke>(
                 from split in held.Host.Split(menu, state)
                 select (from primary in menu.Primary
                         from shown in split
-                        select menu.Presentation.Button(shown, held.Within.IfNone(primary.Access), Roles.Button,
+                        select menu.Presentation.Button(shown, held.Within.IfNone(primary.Access), StyleRole.Button,
                             Some(new Part.Press(bounds => held.Host.Run(primary.Invoke, bounds)) { Secondary = bounds => Some(held.Host.Menu(menu.Groups, bounds)) }),
                             held.Content(menu.Presentation, shown)))
                     .IfNone(() => held.Host.MenuButton(menu.Presentation, state, menu.Groups, held.Content)));
 
     internal View.Flex Row(Seq<Seq<View>> shown, Seq<Seq<Command<TGate, TInvoke>>> rest, Toolbar<TGate, TInvoke> toolbar) =>
         new(toolbar.Axis, (rest.IsEmpty ? shown : shown.Add(Seq(MenuButton(toolbar.Overflow, [], rest, toolbar.Content)))).Intersperse(Seq(View.Divider(toolbar.Axis))).Flatten()) {
-            Role = Roles.Toolbar,
+            Role = StyleRole.Toolbar,
             Accessible = new Accessible { Role = AccessRole.Toolbar },
         };
 
@@ -148,7 +148,7 @@ public sealed record CommandHost<TGate, TInvoke>(
 
     private IO<View.Flex> Listed(Seq<Seq<Command<TGate, TInvoke>>> groups) =>
         groups.TraverseM(group => group.TraverseM(command => Rows(command)).As().Map(static rows => rows.Flatten())).As()
-            .Map(static rows => new View.Flex(PhysicalAxis.Vertical, rows.Intersperse(Seq(View.Divider(PhysicalAxis.Vertical))).Flatten()) { Role = Roles.Menu });
+            .Map(static rows => new View.Flex(PhysicalAxis.Vertical, rows.Intersperse(Seq(View.Divider(PhysicalAxis.Vertical))).Flatten()) { Role = StyleRole.Menu });
 
     private IO<Seq<View>> Rows(Command<TGate, TInvoke> command) =>
         command.Switch(
@@ -183,7 +183,7 @@ public sealed record CommandHost<TGate, TInvoke>(
             .Map(primary => primary.Filter(static shown => !shown.Contains(Condition.Disabled)).Map(shown => state + shown));
 
     private View MenuButton(CommandPresentation shown, HashSet<Condition> state, Seq<Seq<Command<TGate, TInvoke>>> groups, Func<CommandPresentation, HashSet<Condition>, Seq<View>> content) =>
-        shown.Button(state, AccessRole.MenuButton, Roles.Button, Some(new Part.Press(bounds => Menu(groups, bounds))), content(shown, state));
+        shown.Button(state, AccessRole.MenuButton, StyleRole.Button, Some(new Part.Press(bounds => Menu(groups, bounds))), content(shown, state));
 
     private Part.Press Pressing(Command<TGate, TInvoke>.Run run) => new(bounds => Run(run.Invoke, bounds)) { Secondary = bounds => run.Alternate.Map(alternate => Run(alternate, bounds)) };
 }

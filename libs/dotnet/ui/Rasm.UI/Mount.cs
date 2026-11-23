@@ -318,7 +318,7 @@ public sealed record Mount {
                                select (part.Owner, overlay)).ToSeq());
 
     private View Selected(Seq<Key> owner, Figure figure) =>
-        new View.Mark(figure) { Role = Roles.Selection } switch {
+        new View.Mark(figure) { Role = StyleRole.Selection } switch {
             var mark when (from layout in Scene.Index.Find(owner) from place in Scene.Places.Find(owner) from plot in place.Plotted(layout) select plot).IsSome => mark,
             var mark => new View.Plot(PlotPlane.Cartesian.Unit, [mark]).Grown,
         };

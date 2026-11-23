@@ -32,10 +32,10 @@ public sealed record Tabs(Seq<Key> Items, Option<Key> Value, Func<Key, string> L
     }
 
     internal static View Overflow(Seq<Key> hidden, Part.Choice choice, Func<Key, View> face) =>
-        Picker.Dropdown(new View.Flex(PhysicalAxis.Horizontal, [new View.Box { Role = Roles.Overflow, Align = UnitPoint.Center }]) { Role = Roles.Button },
+        Picker.Dropdown(new View.Flex(PhysicalAxis.Horizontal, [new View.Box { Role = StyleRole.Overflow, Align = UnitPoint.Center }]) { Role = StyleRole.Button },
             choice.Drawn(hidden,
                 key => face(key) switch { var row => row with { Width = Sizing.Grow.Unit, Accessible = row.Accessible.Combine(new Accessible { Role = AccessRole.MenuItem }) } },
-                static rows => new View.Flex(PhysicalAxis.Vertical, rows) { Role = Roles.Menu, Accessible = new Accessible { Role = AccessRole.Menu } })) with {
+                static rows => new View.Flex(PhysicalAxis.Vertical, rows) { Role = StyleRole.Menu, Accessible = new Accessible { Role = AccessRole.Menu } })) with {
             Key = Folded,
         };
 
@@ -60,14 +60,14 @@ public sealed record Tabs(Seq<Key> Items, Option<Key> Value, Func<Key, string> L
                 key => Tab(choice, key, iconic),
                 tabs => new View.Flex(Axis,
                     tabs + (hidden.IsEmpty ? [] : Seq(Overflow(hidden, new Part.Choice(hidden.Filter(Enabled), Value, Selected), key => new View.Flex(PhysicalAxis.Horizontal, Faced(key, iconic: false)))))) {
-                    Role = Roles.TabList,
+                    Role = StyleRole.TabList,
                     Accessible = new Accessible { Role = AccessRole.TabList, Orientation = Axis },
                 }),
         };
 
     private View.Flex Tab(Part.Choice choice, Key key, bool iconic) =>
         new(PhysicalAxis.Horizontal, Faced(key, iconic) + choice.Dismiss(key).Filter(_ => !iconic).ToSeq()) {
-            Role = Roles.Tab,
+            Role = StyleRole.Tab,
             Accessible = new Accessible { Role = AccessRole.Tab, Label = Label(key) },
         };
 
@@ -78,7 +78,7 @@ public sealed record Tabs(Seq<Key> Items, Option<Key> Value, Func<Key, string> L
 }
 
 public sealed record Breadcrumb(Seq<Key> Path, Func<Key, View> Face, Func<Key, IO<Unit>> Pressed) {
-    private static readonly View Separator = new View.Box { Role = Roles.Chevron, Align = UnitPoint.Center };
+    private static readonly View Separator = new View.Box { Role = StyleRole.Chevron, Align = UnitPoint.Center };
 
     public View Drawn =>
         new View.Choice(PhysicalAxis.Horizontal, toSeq(Range(0, int.Max(1, Path.Count - 1))).Map(hidden => (View)new View.Flex(PhysicalAxis.Horizontal,
@@ -93,7 +93,7 @@ public sealed record Breadcrumb(Seq<Key> Path, Func<Key, View> Face, Func<Key, I
     private View Segment(Key key) =>
         Face(key) switch {
             var face => new View.Flex(PhysicalAxis.Horizontal,
-                Seq(new Part.Press(_ => Pressed(key)).Drawn(face with { Role = face.Role | Some(Roles.Button), Conditions = Path.Last == Some(key) ? face.Conditions.TryAdd(Condition.Selected) : face.Conditions }))
+                Seq(new Part.Press(_ => Pressed(key)).Drawn(face with { Role = face.Role | Some(StyleRole.Button), Conditions = Path.Last == Some(key) ? face.Conditions.TryAdd(Condition.Selected) : face.Conditions }))
                 + (Path.Last == Some(key) ? [] : Seq(Separator))) {
                 Key = key,
             },
@@ -133,10 +133,10 @@ public sealed record Steps(Seq<Step> Pages, Key Current, Func<Edit<Key>, IO<Unit
 
     private static View.Flex Marker(Step page, int index, bool done, CultureInfo culture) =>
         new(PhysicalAxis.Horizontal, [
-            Panel.StatusGlyph(done ? [Condition.Success] : []).IfNone(() => new View.Text([(index + 1).ToString(culture)]) { Role = Roles.Caption, Align = UnitPoint.Center }),
+            Panel.StatusGlyph(done ? [Condition.Success] : []).IfNone(() => new View.Text([(index + 1).ToString(culture)]) { Role = StyleRole.Caption, Align = UnitPoint.Center }),
             new View.Flex(PhysicalAxis.Vertical,
                 Seq<View>(new View.Text([page.Title]) { MaxLines = 1 })
-                + page.Summary.Filter(_ => done).Map(static summary => (View)new View.Text([summary]) { Role = Roles.Caption, MaxLines = 1 }).ToSeq()) {
+                + page.Summary.Filter(_ => done).Map(static summary => (View)new View.Text([summary]) { Role = StyleRole.Caption, MaxLines = 1 }).ToSeq()) {
                 Align = UnitPoint.Center,
             },
         ]);

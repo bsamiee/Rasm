@@ -53,7 +53,7 @@ public abstract partial record ImageTool {
                     held => Vector2.Lerp(new Vector2(held.Bounds.Left, held.Bounds.Top), new Vector2(held.Bounds.Right, held.Bounds.Bottom), anchor) * extent,
                     to => held => held.Moved(anchor, to / extent, Aspect.Map(wide => wide * extent.Y / extent.X)).IfNone(held)))) with { Placed = static (_, _, _) => None, },
                 Edited).Drawn(view, Figure.Region.Spanning(Value.Bounds.Left * extent.X, Value.Bounds.Right * extent.X, Value.Bounds.Top * extent.Y, Value.Bounds.Bottom * extent.Y)
-                    .Map(static region => (View)new View.Mark(region) { Role = Roles.Ring }).ToSeq());
+                    .Map(static region => (View)new View.Mark(region) { Role = StyleRole.Ring }).ToSeq());
     }
 
     public sealed record Pick(Option<Vector2> At, Func<Edit<Option<Vector2>>, IO<Unit>> Edited) : ImageTool {
@@ -73,7 +73,7 @@ public abstract partial record ImageTool {
                         at => new Vector2((float)at * extent.X, extent.Y / 2f),
                         to => held => Fraction.Validated(to.X / extent.X).ToOption().IfNone(held))]), Edited)
                     .Drawn(view, Before.Current.Bind(source => ImagePlot.Clipped(new SKRect(0f, 0f, split, extent.Y), extent, new View.Image(source) { Rendering = ImageRendering.Pixelated })).ToSeq()
-                        .Add(new View.Mark(new Figure.Path([new Vector2(split, 0f), new Vector2(split, extent.Y)])) { Role = Roles.Needle })),
+                        .Add(new View.Mark(new Figure.Path([new Vector2(split, 0f), new Vector2(split, extent.Y)])) { Role = StyleRole.Needle })),
             };
     }
 }
@@ -100,7 +100,7 @@ public sealed record ImagePlot(Content<ImageSource> Image, Func<Edit<PlotPlane>,
                     Hovered = Hovered,
                     Accessible = Described,
                 },
-                Caption.Map(static caption => (View)new View.Text([caption]) { Role = Roles.OverlayCaption }).ToSeq()),
+                Caption.Map(static caption => (View)new View.Text([caption]) { Role = StyleRole.OverlayCaption }).ToSeq()),
             None: () => new View.Box { Width = Sizing.Grow.Unit, Conditions = Image.Conditions, Accessible = Described });
 
     public Option<float> Zoom(float across) => Shown.Bind(static view => view.Dimension(PhysicalAxis.Horizontal)).Map(axis => across / MathF.Abs(axis.Domain.Span));
@@ -126,7 +126,7 @@ public sealed record ImagePlot(Content<ImageSource> Image, Func<Edit<PlotPlane>,
             + Tool.Map(tool => tool.Drawn(view, extent)).ToSeq()
             + (from loupe in Loupe
                from lens in Clipped(loupe.Lens, extent, image)
-               select lens with { Role = Roles.Ring, Sheet = new StyleSheet(HashMap((Roles.Ring, new Look { Filters = Seq<Filter>(loupe.Magnify) }))) }).ToSeq();
+               select lens with { Role = StyleRole.Ring, Sheet = new StyleSheet(HashMap((StyleRole.Ring, new Look { Filters = Seq<Filter>(loupe.Magnify) }))) }).ToSeq();
     }
 }
 
@@ -209,8 +209,8 @@ public sealed record Gallery<TItem>(Seq<TItem> Items, Func<TItem, Key> Keyed, Fu
     private View.Overlay TileView((Key Key, TItem Item, int Number) entry, CultureInfo culture) =>
         Label(entry.Item) switch {
             var label => new(new ImageTile(Tiles.Shown(entry.Key)).Drawn,
-            (Numbered ? Seq<View>(new View.Text([entry.Number.ToString(culture)]) { Role = Roles.OverlayCaption }) : [])
-            + Overlay(entry.Item).Add(new View.Text([label]) { Role = Roles.OverlayCaption, MaxLines = 1, Width = Sizing.Grow.Unit, Align = UnitPoint.Bottom })) {
+            (Numbered ? Seq<View>(new View.Text([entry.Number.ToString(culture)]) { Role = StyleRole.OverlayCaption }) : [])
+            + Overlay(entry.Item).Add(new View.Text([label]) { Role = StyleRole.OverlayCaption, MaxLines = 1, Width = Sizing.Grow.Unit, Align = UnitPoint.Bottom })) {
                 Accessible = new Accessible { Label = label, Shortcut = Numbered && entry.Number <= 9 ? Some(entry.Number.ToString(CultureInfo.InvariantCulture)) : None },
             },
         };

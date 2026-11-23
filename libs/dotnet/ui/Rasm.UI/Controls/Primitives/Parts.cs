@@ -39,7 +39,7 @@ public abstract record Part {
 
         public View Drawn(View face) => face with { Part = this, Accessible = face.Accessible.Combine(new Accessible { Role = AccessRole.Button }) };
 
-        internal static View Dismiss(IO<Unit> run) => new Press(_ => run) { Delete = Some(run) }.Drawn(new View.Box { Role = Roles.Dismiss, Align = UnitPoint.Center });
+        internal static View Dismiss(IO<Unit> run) => new Press(_ => run) { Delete = Some(run) }.Drawn(new View.Box { Role = StyleRole.Dismiss, Align = UnitPoint.Center });
 
         internal override Option<Reply> Began(Gesture gesture, HitTarget aim) => gesture is Gesture.Press ? Some(new Reply([], Some(Holding(aim)))) : None;
 
@@ -83,7 +83,7 @@ public abstract record Part {
         // --- [DRAWING]
 
         public View Drawn(Func<Func<View, Key, View>, View> content) =>
-            content((node, key) => Member(node, key, Some(Roles.ListRow))) switch {
+            content((node, key) => Member(node, key, Some(StyleRole.ListRow))) switch {
                 var held => held with { Part = this, Accessible = held.Accessible.Combine(new Accessible { Role = Composite }) },
             };
 
@@ -106,7 +106,7 @@ public abstract record Part {
                 Accessible = new Accessible { Role = Composite },
             };
 
-        private View Member(View node, Key key, Option<Key> row) =>
+        private View Member(View node, Key key, Option<StyleRole> row) =>
             node with {
                 Key = key,
                 Role = node.Role | row,
@@ -268,7 +268,7 @@ public abstract record Part {
 
         internal override Option<Reply> Began(Gesture gesture, HitTarget aim) =>
             aim.Frame.Bind(frame => gesture.SwitchPartially(
-                (Viewport: this, Frame: frame, aim.Owner.Layout.Styled(Roles.Handle).Metrics),
+                (Viewport: this, Frame: frame, aim.Owner.Layout.Styled(StyleRole.Handle).Metrics),
                 @default: static (held, _) => held.Viewport.Panning(held.Frame, held.Metrics),
                 press: static (held, press) =>
                     press.Clicks >= 2 ? held.Viewport.Tracking(held.Frame, (start, next) => next is Gesture.Press ? held.Viewport.Cycled(held.Frame, start) : None)
@@ -278,7 +278,7 @@ public abstract record Part {
         internal override Option<Reply> Performed(Gesture gesture, HitTarget aim) =>
             from frame in aim.Frame
             from move in gesture.SwitchPartially(
-                (Viewport: this, Frame: frame, Center: new SKPoint(aim.Owner.Bounds.MidX, aim.Owner.Bounds.MidY), aim.Owner.Layout.Styled(Roles.Handle).Metrics),
+                (Viewport: this, Frame: frame, Center: new SKPoint(aim.Owner.Bounds.MidX, aim.Owner.Bounds.MidY), aim.Owner.Layout.Styled(StyleRole.Handle).Metrics),
                 @default: static (_, _) => Option<Func<PlotPlane, Option<PlotPlane>>>.None,
                 scroll: static (held, wheel) => held.Viewport.Wheeled(held.Frame, wheel, held.Metrics, notch: true),
                 perform: static (held, perform) => perform.Act.SwitchPartially(
@@ -382,18 +382,18 @@ public abstract record Part {
 
         public View Zooms(PlotPlane view) =>
             new View.Flex(PhysicalAxis.Horizontal, [
-                Zoom(Roles.Add, Some(Stepped(view, -1))),
-                Zoom(Roles.Subtract, Some(Stepped(view, 1))),
-                Zoom(Roles.Revert, view == Rest ? None : Some<Part>(new Press(_ => Edited(Edit.Of(EditPhase.Commit, Rest))))),
+                Zoom(StyleRole.Add, Some(Stepped(view, -1))),
+                Zoom(StyleRole.Subtract, Some(Stepped(view, 1))),
+                Zoom(StyleRole.Revert, view == Rest ? None : Some<Part>(new Press(_ => Edited(Edit.Of(EditPhase.Commit, Rest))))),
             ]) {
-                Role = Roles.Hud,
+                Role = StyleRole.Hud,
             };
 
-        internal View.Plot Overview(PlotPlane view, Seq<View> content) => new(Rest, content.Add(new Brush(view, Edited).Drawn(Rest))) { Role = Roles.Well, Aspect = Rest.Proportion };
+        internal View.Plot Overview(PlotPlane view, Seq<View> content) => new(Rest, content.Add(new Brush(view, Edited).Drawn(Rest))) { Role = StyleRole.Well, Aspect = Rest.Proportion };
 
-        private static View.Flex Zoom(Key glyph, Option<Part> part) =>
+        private static View.Flex Zoom(StyleRole glyph, Option<Part> part) =>
             new(PhysicalAxis.Horizontal, [new View.Box { Role = glyph }]) {
-                Role = Roles.Button,
+                Role = StyleRole.Button,
                 Conditions = part.IsSome ? [Condition.Borderless] : [Condition.Borderless, Condition.Disabled],
                 Part = part,
                 Accessible = new Accessible { Role = AccessRole.Button },
@@ -409,7 +409,7 @@ public abstract record Part {
             internal override Option<Reply> Performed(Gesture gesture, HitTarget aim) => Pressed(aim).Performed(gesture, aim);
 
             private Press Pressed(HitTarget aim) =>
-                new(_ => Owner.Zoomed(View, View.Center, MathF.Pow(aim.Owner.Layout.Styled(Roles.Handle).Metrics[Metric.Notch], Notches))
+                new(_ => Owner.Zoomed(View, View.Center, MathF.Pow(aim.Owner.Layout.Styled(StyleRole.Handle).Metrics[Metric.Notch], Notches))
                     .Map(plane => Owner.Edited(Edit.Of(EditPhase.Commit, plane))).IfNone(unitIO));
         }
     }

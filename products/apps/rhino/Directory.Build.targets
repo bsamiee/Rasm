@@ -12,6 +12,7 @@
         <_PlugInRuiReferences>$(IntermediateOutputPath)$(TargetName).rui.rsp</_PlugInRuiReferences>
         <_PlugInRuiStamp>$(IntermediateOutputPath)$(TargetName).rui.stamp</_PlugInRuiStamp>
         <PlugInBody>lib/$(TargetName).dll</PlugInBody>
+        <PlugInShell>$(_PlugInAssetDir)$(TargetFileName)</PlugInShell>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
@@ -21,7 +22,6 @@
         <PlugInDescription Include="WebSite" Exclude="@(PlugInDescription)" Value="$(PackageProjectUrl)" />
         <None Update="manifest.yml" CopyToPublishDirectory="PreserveNewest" />
         <None Include="@(IntermediateAssembly)" TargetPath="$(PlugInBody)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
-        <None Include="@(_DebugSymbolsIntermediatePath)" TargetPath="$([System.IO.Path]::GetDirectoryName('$(PlugInBody)'))/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
         <_PlugInIconFrame Include="$(_PlugInIconPngFrame);48;32;24;16" />
         <_PlugInRaster Include="@(_PlugInIconFrame->'$(_PlugInAssetDir)%(Identity).png')" />
     </ItemGroup>
@@ -44,9 +44,16 @@
         <Exec Command="magick @(_PlugInRaster->'&quot;%(Filename)%(Extension)&quot;', ' ') -define icon:png-compression-size=$(_PlugInIconPngFrame) &quot;$(_PlugInIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" />
         <ItemGroup>
             <None Include="$(_PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
-            <EmbeddedResource Include="$(_PlugInAssetDir)$(_PlugInIcon)" LogicalName="$(_PlugInIcon)" WithCulture="false" />
             <PlugInDescription Include="Icon" Value="$(_PlugInIcon)" />
             <FileWrites Include="$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInPackageIcon);@(_PlugInRaster)" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="BuildPlugInShell" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp'" Inputs="@(IntermediateAssembly);@(ReferencePath);@(Analyzer);@(EditorConfigFiles);$(GeneratedAssemblyInfoFile);$(_PlugInAssetDir)$(_PlugInIcon);$(MSBuildAllProjects)" Outputs="$(PlugInShell)">
+        <Csc Sources="$(GeneratedAssemblyInfoFile);$(TargetFrameworkMonikerAssemblyAttributesPath)" References="@(ReferencePath);@(IntermediateAssembly)" Analyzers="@(Analyzer)" AnalyzerConfigFiles="@(EditorConfigFiles)" Resources="$(_PlugInAssetDir)$(_PlugInIcon)" OutputAssembly="$(PlugInShell)" TargetType="Library" LangVersion="$(LangVersion)" Nullable="$(Nullable)" Deterministic="true" Optimize="true" NoConfig="true" NoStandardLib="true" NoLogo="true" DisabledWarnings="$(NoWarn)" TreatWarningsAsErrors="$(TreatWarningsAsErrors)" ToolExe="$(CscToolExe)" ToolPath="$(CscToolPath)" UseSharedCompilation="$(UseSharedCompilation)" />
+        <ItemGroup>
+            <FileWrites Include="$(PlugInShell)" />
+            <ContentWithTargetPath Include="$(PlugInShell)" TargetPath="$(TargetFileName)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
         </ItemGroup>
     </Target>
 

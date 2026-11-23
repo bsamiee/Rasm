@@ -57,7 +57,7 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
     public bool Ruler { get; init; }
     public Func<Vector2, Vector2, float> Distance { get; init; } = Vector2.Distance;
     public Option<string> DistanceUnit { get; init; }
-    public Key Role { get; init; } = Roles.Well;
+    public StyleRole Role { get; init; } = StyleRole.Well;
 
     // --- [DRAWING]
 
@@ -79,7 +79,7 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
         }.Grown;
         return new View.Overlay(plot, [
             Corners(Cluster(PhysicalAxis.Vertical, Controls + Views(culture).ToSeq() + Loading), Some(Navigation.Zooms(View))),
-            new View.Flex(PhysicalAxis.Vertical, Seq<View>(Corners(Cluster(PhysicalAxis.Vertical, Pointer.Map(at => (View)new View.Text([View.Spoken(at, culture)]) { Role = Roles.Readout }).ToSeq()), Cluster(PhysicalAxis.Vertical, Legended.ToSeq() + Overview(layers, highlighted, culture).ToSeq())))
+            new View.Flex(PhysicalAxis.Vertical, Seq<View>(Corners(Cluster(PhysicalAxis.Vertical, Pointer.Map(at => (View)new View.Text([View.Spoken(at, culture)]) { Role = StyleRole.Readout }).ToSeq()), Cluster(PhysicalAxis.Vertical, Legended.ToSeq() + Overview(layers, highlighted, culture).ToSeq())))
                 + ruled.Filter(_ => Ruler).Map(Scale).ToSeq()) {
                 Width = Sizing.Grow.Unit,
                 Align = UnitPoint.Bottom,
@@ -103,7 +103,7 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
             ColorAxis.Series(Color, ordinal, series.Color, value),
             @default: static (_, node) => node,
             mark: static (data, mark) => mark with { Series = data });
-        View member = face with { Key = key, Role = face.Role | Some(Roles.Series) };
+        View member = face with { Key = key, Role = face.Role | Some(StyleRole.Series) };
         bool present = !Hidden.Contains(key) && (Isolated.IsEmpty || Isolated.Contains(key)) && ColorAxis.Shows(Color, value);
         return present ? Some((key, member)) : Ghosted && !Hidden.Contains(key) ? Some((key, member.Conditioned(Condition.Disabled))) : None;
     }
@@ -111,7 +111,7 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
     private Func<Nearest, View> Tipped(Func<TEntity, View> tip, Seq<(Series<TEntity> Series, uint Ordinal)> shown, HashSet<Key> highlighted) {
         HashMap<Key, TEntity> entities = toHashMap(shown.Bind(static held => held.Series.Entities.Current.ToSeq().Flatten()).Map(entity => (Keyed(entity), entity)));
         return nearest => new View.Plot(View, toSeq<(Key Key, Datum Datum)>(nearest.Data).Filter(held => highlighted.Contains(held.Key)).Choose(held => entities.Find(held.Key)
-            .Map(entity => (View)new View.Pin(held.Datum.Value, new View.Flex(PhysicalAxis.Vertical, [tip(entity)]) { Role = Roles.Tooltip }) { Align = UnitPoint.Bottom }))).Grown;
+            .Map(entity => (View)new View.Pin(held.Datum.Value, new View.Flex(PhysicalAxis.Vertical, [tip(entity)]) { Role = StyleRole.Tooltip }) { Align = UnitPoint.Bottom }))).Grown;
     }
 
     private Option<View> Tooled(Option<Axis> ruled, CultureInfo culture) =>
@@ -125,10 +125,10 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
             image: static (held, image) => Some(image.Operation.Drawn(held.Viewer.View, held.Viewer.Extent)));
 
     private Seq<View> Measured(Tool.Measure measure, Option<Axis> ruled, CultureInfo culture) =>
-        Seq<View>(new View.Mark(new Figure.Path(measure.Points) { Closed = measure.Closed }) { Role = Roles.Crosshair })
+        Seq<View>(new View.Mark(new Figure.Path(measure.Points) { Closed = measure.Closed }) { Role = StyleRole.Crosshair })
         + (from axis in ruled.ToSeq()
            from pair in toSeq((measure.Closed ? measure.Points + measure.Points.Head.ToSeq() : measure.Points).AsIterable().Window(2))
-           select (View)new View.Mark(new Figure.Label(new Figure.Path([pair[0], pair[1]]), [axis.Spoken(Distance(pair[0], pair[1]), culture)])) { Role = Roles.Label });
+           select (View)new View.Mark(new Figure.Label(new Figure.Path([pair[0], pair[1]]), [axis.Spoken(Distance(pair[0], pair[1]), culture)])) { Role = StyleRole.Label });
 
     // --- [HUD]
 
@@ -162,9 +162,9 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
             : None;
 
     private static View Scale(Axis axis) =>
-        new View.Plot(new PlotPlane.Track(PhysicalAxis.Horizontal, axis), [new View.Mark(new Figure.Region()) { Role = Roles.Track }]) { Role = Roles.Hud, Guides = [new Guide(PhysicalAxis.Horizontal)] }.Stretched(PhysicalAxis.Horizontal);
+        new View.Plot(new PlotPlane.Track(PhysicalAxis.Horizontal, axis), [new View.Mark(new Figure.Region()) { Role = StyleRole.Track }]) { Role = StyleRole.Hud, Guides = [new Guide(PhysicalAxis.Horizontal)] }.Stretched(PhysicalAxis.Horizontal);
 
-    private static Option<View> Cluster(PhysicalAxis axis, Seq<View> members) => members.IsEmpty ? None : Some<View>(new View.Flex(axis, members) { Role = Roles.Hud });
+    private static Option<View> Cluster(PhysicalAxis axis, Seq<View> members) => members.IsEmpty ? None : Some<View>(new View.Flex(axis, members) { Role = StyleRole.Hud });
 
     private static View.Flex Corners(Option<View> start, Option<View> end) =>
         new(PhysicalAxis.Horizontal, start.ToSeq() + Seq<View>(new View.Box { Width = Sizing.Grow.Unit }) + end.ToSeq()) { Width = Sizing.Grow.Unit };

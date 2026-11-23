@@ -20,7 +20,7 @@ internal sealed record RoleStyle {
 
     // --- [CONSTRUCTION]
 
-    internal RoleStyle(Theme theme, StyleSheet sheet, Key role, HashSet<Condition> stated, Option<RoleStyle> enclosing) {
+    internal RoleStyle(Theme theme, StyleSheet sheet, StyleRole role, HashSet<Condition> stated, Option<RoleStyle> enclosing) {
         HashSet<Condition> conditions = stated.Union(enclosing.Map(static held => held.Conditions.Filter(static condition => condition.Inherited)).IfNone([])).Union(theme.Conditions);
         Look row = sheet.Looks.Find(role).IfNone(Look.Empty);
         bool dimmed = enclosing.Exists(static held => held.Dimmed) || (conditions.Contains(Condition.Disabled)
@@ -42,7 +42,7 @@ internal sealed record RoleStyle {
 
     // --- [RESOLVED]
 
-    internal Key Role { get; }
+    internal StyleRole Role { get; }
     internal Option<RoleStyle> Enclosing { get; }
     internal HashSet<Condition> Conditions { get; }
     internal HashSet<Condition> Shown { get; }
@@ -76,7 +76,7 @@ internal sealed record RoleStyle {
 }
 
 internal sealed record Cascade(Theme Theme, StyleSheet Sheet, RoleStyle Enclosing, SKColorF Background) {
-    internal static Cascade Root(Theme theme, StyleSheet sheet, Key root) => new(theme, sheet, new RoleStyle(theme, sheet, root, [], None), theme.Background);
+    internal static Cascade Root(Theme theme, StyleSheet sheet, StyleRole root) => new(theme, sheet, new RoleStyle(theme, sheet, root, [], None), theme.Background);
 
-    internal RoleStyle Resolve(Key role, HashSet<Condition> conditions) => new(Theme, Sheet, role, conditions, Enclosing);
+    internal RoleStyle Resolve(StyleRole role, HashSet<Condition> conditions) => new(Theme, Sheet, role, conditions, Enclosing);
 }

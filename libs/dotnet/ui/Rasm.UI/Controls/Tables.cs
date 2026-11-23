@@ -24,8 +24,8 @@ public sealed record Column<TRow>(Key Key, View Header) where TRow : notnull {
     public bool Hidden { get; init; }
     public bool Pinned { get; init; }
 
-    public static Column<TRow> Toggled(Key key, string label, Key glyph, Func<TRow, Check> value, Func<TRow, Edit<Check>, IO<Unit>> edited) =>
-        new(key, new View.Flex(PhysicalAxis.Horizontal, [Toggle.Glyphed(glyph, Check.On) with { Accessible = new Accessible { Role = AccessRole.Image, Label = label } }]) { Role = Roles.Button }) {
+    public static Column<TRow> Toggled(Key key, string label, StyleRole glyph, Func<TRow, Check> value, Func<TRow, Edit<Check>, IO<Unit>> edited) =>
+        new(key, new View.Flex(PhysicalAxis.Horizontal, [Toggle.Glyphed(glyph, Check.On) with { Accessible = new Accessible { Role = AccessRole.Image, Label = label } }]) { Role = StyleRole.Button }) {
             Cell = Some<Func<TRow, View>>(row => value(row) switch {
                 var check => new Toggle(check, edit => edited(row, edit)) { Kind = ToggleKind.Button, Content = [Toggle.Glyphed(glyph, check)] }.Drawn switch {
                     var drawn => drawn with { Conditions = drawn.Conditions.TryAdd(Condition.Borderless), Accessible = drawn.Accessible.Combine(new Accessible { Label = label }) },
@@ -68,7 +68,7 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
         Seq<TRow> totaled = Rows.Current.IfNone([]).Filter(kept);
         Seq<View> footer = shown.Exists(static column => column.Footer.IsSome)
             ? [View.Divider(PhysicalAxis.Vertical), new View.Flex(PhysicalAxis.Horizontal, Gutter(None, count, culture) + shown.Map(column => Framed(column, column.Footer.Map(total => total(totaled)).IfNone(static () => new View.Box()), [], CellRole))) {
-                Role = Roles.ListRow,
+                Role = StyleRole.ListRow,
                 Width = Sizing.Grow.Unit,
             }]
             : [];
@@ -129,13 +129,13 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
     private static View.Flex Grouped(IGrouping<Key, TRow> group, CultureInfo culture) =>
         new(PhysicalAxis.Horizontal, [
             new View.Text([group.Key.Identifier]) { MaxLines = 1, Align = UnitPoint.Center },
-            new View.Text([group.Count().ToString(culture)]) { Role = Roles.Badge, Align = UnitPoint.Center },
+            new View.Text([group.Count().ToString(culture)]) { Role = StyleRole.Badge, Align = UnitPoint.Center },
         ]) {
             Width = Sizing.Grow.Unit,
         };
 
     private Seq<View> Gutter(Option<int> number, int count, CultureInfo culture) =>
-        Numbered ? [CodeView.Number(number, count, culture) with { Role = Roles.Gutter, Height = Sizing.Grow.Unit, Sticks = PhysicalAxis.Horizontal }] : [];
+        Numbered ? [CodeView.Number(number, count, culture) with { Role = StyleRole.Gutter, Height = Sizing.Grow.Unit, Sticks = PhysicalAxis.Horizontal }] : [];
 
     // --- [CELLS]
 
@@ -151,7 +151,7 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
         View aligned = content with { Align = new UnitPoint(column.Align, Fraction.Half) };
         return (column.Width is Sizing.Fit ? new View.Flex(PhysicalAxis.Horizontal, [aligned]) : (View)new View.Overlay(new View.Box(), aligned.Cons(above))) with {
             Key = column.Key,
-            Role = Roles.Cell,
+            Role = StyleRole.Cell,
             Width = column.Width,
             Height = Sizing.Grow.Unit,
             Sticks = column.Pinned ? Some(PhysicalAxis.Horizontal) : None,
@@ -165,7 +165,7 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
         Seq<Key> keys = shown.Map(static column => column.Key);
         Seq<View> heads = shown.Map<View>(column => Head(column, culture));
         View Lined(Seq<View> cells) =>
-            new View.Flex(PhysicalAxis.Horizontal, Gutter(None, count, culture) + cells) { Role = Roles.ListRow, Width = Sizing.Grow.Unit, Accessible = new Accessible { Role = AccessRole.Row } };
+            new View.Flex(PhysicalAxis.Horizontal, Gutter(None, count, culture) + cells) { Role = StyleRole.ListRow, Width = Sizing.Grow.Unit, Accessible = new Accessible { Role = AccessRole.Row } };
         Option<Key> lead = Sort.Head.Map(static entry => entry.Column);
         return Sorted.IsSome || Arranged.IsSome
             ? new View.Overlay(new Part.Choice(keys, new Selection.Many(toHashSet(Sort.Map(static entry => entry.Column))) { Anchor = lead, Focus = lead }, edit => Sorted.Filter(_ => edit.Phase != EditPhase.Step).Match(
@@ -180,12 +180,12 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
         Seq<View> marks = column.Width is Sizing.Fit
             ? []
             : Sort.Map(static (entry, rank) => (Entry: entry, Rank: rank)).Find(held => held.Entry.Column == column.Key).Map(held =>
-                Seq<View>(new View.Box { Role = Roles.Sorter, Conditions = Direction(column.Key) })
-                + (Sort.Count > 1 ? Seq<View>(new View.Text([(held.Rank + 1).ToString(culture)]) { Role = Roles.Badge }) : [])).IfNone([]);
+                Seq<View>(new View.Box { Role = StyleRole.Sorter, Conditions = Direction(column.Key) })
+                + (Sort.Count > 1 ? Seq<View>(new View.Text([(held.Rank + 1).ToString(culture)]) { Role = StyleRole.Badge }) : [])).IfNone([]);
         View cell = Framed(column, marks.IsEmpty ? column.Header : new View.Flex(PhysicalAxis.Horizontal, column.Header.Cons(marks)), Arranged.Bind(arranged => Grip(column, arranged)).ToSeq(), None);
         return new View.Flex(PhysicalAxis.Horizontal, [cell with { Key = None, Width = Sizing.Grow.Unit, Sticks = None }]) {
             Key = column.Key,
-            Role = Roles.Stack,
+            Role = StyleRole.Stack,
             Width = column.Width,
             Sticks = cell.Sticks,
             Accessible = new Accessible { Role = AccessRole.GridCell },
@@ -199,7 +199,7 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
         select new Handles<float>(width.Extent, Points<float>.Scalar(plane, Lens.identity<float>()), Arranging<float>(arranged, extent => Changed(column.Key, held => held with { Width = new Sizing.Fixed(extent) { Limits = width.Limits } }))) {
             Gearing = Some(1f),
             Handle = (_, _) => new View.Pin(new Vector2(domain.Low, 0f), new View.Box().Grown) { Span = new Vector2(domain.Span, 1f) },
-        }.Drawn(plane, [new View.Box { Role = Roles.Grip }]) with {
+        }.Drawn(plane, [new View.Box { Role = StyleRole.Grip }]) with {
             Width = Sizing.Fit.Content,
             Height = Sizing.Grow.Unit,
             Align = new UnitPoint(Fraction.MaxValue, Fraction.Half),
@@ -213,15 +213,15 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
                 Width = Sizing.Grow.Unit,
             })
             + Sorted.Filter(_ => column.Order.IsSome || column.Text.IsSome).Map(sorted =>
-                new Part.Press(_ => sorted(Edit.Of(EditPhase.Commit, Cycled(column.Key)))).Drawn(new View.Box { Role = Roles.Sorter, Conditions = Direction(column.Key) })).ToSeq()
+                new Part.Press(_ => sorted(Edit.Of(EditPhase.Commit, Cycled(column.Key)))).Drawn(new View.Box { Role = StyleRole.Sorter, Conditions = Direction(column.Key) })).ToSeq()
             + Arranged.Map(arranged => new Toggle(column.Pinned, Arranging<bool>(arranged, pinned => Changed(column.Key, held => held with { Pinned = pinned }))) {
                 Kind = ToggleKind.Button,
-                Content = [new View.Box { Role = Roles.Pin }],
+                Content = [new View.Box { Role = StyleRole.Pin }],
             }.Drawn).ToSeq()) {
             Key = column.Key,
             Width = Sizing.Grow.Unit,
         })) {
-            Role = Roles.Menu,
+            Role = StyleRole.Menu,
             Accessible = new Accessible { Role = AccessRole.List },
         };
 
