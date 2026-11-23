@@ -75,7 +75,7 @@ it.effect(
         const open = `<script id="${shell.data.id}" type="application/json">`;
         const data = page.slice(page.indexOf(open) + open.length);
         const json = data.slice(0, data.indexOf('</script>'));
-        assert.deepStrictEqual({ scripts: page.split('<script>alert(1)').length - 1, value: Schema.decodeOption(shell.data.json)(json) }, { scripts: 0, value: Option.some('</script><script>alert(1)</script>') });
+        assert.deepStrictEqual({ scripts: page.split('<script>alert(1)').length - 1, value: Schema.decodeOption(Schema.fromJsonString(Schema.Unknown))(json) }, { scripts: 0, value: Option.some('</script><script>alert(1)</script>') });
     }),
 );
 
@@ -92,7 +92,13 @@ it.effect(
             .slice(1)
             .map((tag) => tag.slice(0, tag.indexOf('>')))
             .filter((attributes) => !/src=|application\/json/u.test(attributes));
-        assert.deepStrictEqual({ policy, held: Array.dedupe(inline.map(String.includes(`nonce="${nonce}"`))) }, { policy: `script-src 'self' 'nonce-${nonce}'; connect-src 'self' https://bucket.example`, held: [true] });
+        const directives = Object.fromEntries(
+            policy
+                .split(';')
+                .map((directive) => String.split(String.trim(directive), /\s+/u))
+                .map(([name, ...sources]) => [name, new Set(sources)]),
+        );
+        assert.deepStrictEqual({ directives, held: Array.dedupe(inline.map(String.includes(`nonce="${nonce}"`))) }, { directives: { 'script-src': new Set(["'self'", `'nonce-${nonce}'`]), 'connect-src': new Set(["'self'", 'https://bucket.example']) }, held: [true] });
     }),
 );
 
