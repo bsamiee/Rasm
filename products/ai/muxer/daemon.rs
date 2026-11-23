@@ -30,7 +30,7 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::task::{AbortOnDropHandle, TaskTracker};
 use tracing::Instrument as _;
 
-use crate::{BUFFER, Build, Command, Launch, MuxerError, OPENING, PROTOCOL, Per, Request, ServerKey, ServerState, State, Welcome, digest, server};
+use crate::{BUFFER, Build, Command, Launch, MuxerError, OPENING, PROTOCOL, Per, Request, ServerKey, ServerState, State, Welcome, digest};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -84,13 +84,13 @@ impl Daemon {
                     tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "state report not delivered");
                 },
             Ok(Opened { body: Request::Serve(launch), reader, mut writer }) => {
-                let Launch { command, per, environment } = *launch;
+                let Launch { command, per } = *launch;
                 let own = match per {
                     Per::Session => Some(self.joined.fetch_add(1, Ordering::Relaxed)),
                     Per::Directory | Per::User => None,
                 };
                 let key = (command, own);
-                let member = self.pool.join(&key, || self.start(&key, environment.into())).await;
+                let member = self.pool.join(&key, || self.start(&key)).await;
                 let served = async {
                     rasm_ipc::reply(&mut writer, Ok::<_, Refusal>(Welcome::Serving)).await.map_err(io::Error::other)?;
                     member.serve(reader, writer).await
@@ -114,9 +114,9 @@ impl Daemon {
     fn start(
         &self,
         key: &ServerKey,
-        environment: Arc<[(String, String)]>,
     ) -> (Policy, impl FnMut(CancellationToken) -> BoxFuture<'static, io::Result<Link<rasm_process::Output, rasm_process::Input, BoxFuture<'static, String>>>> + Send + use<>, tracing::Span) {
         const IDLE: IdleTimeout = IdleTimeout { ratio: 300, floor: Duration::from_mins(1), ceiling: Duration::from_hours(2) };
+        const LOGIN: Duration = Duration::from_secs(10);
         const GRACE: Duration = Duration::from_millis(500);
         const TAIL: usize = 8;
         const LINE: u64 = 4 << 10;
@@ -141,8 +141,14 @@ impl Daemon {
         let span = tracing::info_span!(parent: None, "server", program = %key.0.program.display());
         let connect = move |stop: CancellationToken| {
             let (key, processes, (attached, attachment)) = (key.clone(), processes.clone(), oneshot::channel());
-            let process = server(&key.0, &environment, Stdio::piped());
+            let Command { program, file: _, arguments, directory, environment } = key.0.clone();
             let mut exited = async move {
+                let login = match rasm_process::login(&directory, time::Instant::now().checked_add(LOGIN), GRACE, &stop).await {
+                    Ok(login) => login,
+                    Err(error) => return Report::new(&error).to_string(),
+                };
+                let mut process = tokio::process::Command::new(program);
+                process.args(arguments).current_dir(directory).env_clear().envs(login).envs(environment).stderr(Stdio::piped());
                 let attach = async |streams| attached.send(streams).map_err(|rasm_process::Streams { id: _, stdin: _, stdout: _, stderr: _ }| io::Error::from(io::ErrorKind::BrokenPipe));
                 match rasm_process::run(process, Some(BUFFER), None, GRACE, &stop, attach).await {
                     Ok(status) | Err(rasm_process::ProcessError { program: _, process: Some((_, Some(status))), failures: _ }) => status.to_string(),

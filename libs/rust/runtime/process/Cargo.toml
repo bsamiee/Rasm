@@ -5,7 +5,7 @@ name              = "rasm-process"
 version           = "0.1.0"
 edition.workspace = true
 publish           = false
-description       = "Child process ownership: process groups and job objects that end with their owner, detached service processes, and a run to completion under a deadline, a stop token, and a release grace"
+description       = "Child process ownership: process groups and job objects that end with their owner, detached service processes, a run to completion under a deadline, a stop token, and a release grace, and the environment a user's login shell yields"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -29,6 +29,7 @@ opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 
 [target."cfg(unix)".dependencies]
+nix     = { workspace = true }
 rustix  = { workspace = true }
 socket2 = { workspace = true }
 

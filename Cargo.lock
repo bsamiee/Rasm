@@ -7061,6 +7061,7 @@ dependencies = [
  "futures",
  "jiff 1.0.2",
  "mcp-muxer",
+ "nix 0.32.0",
  "nonempty-collections",
  "opentelemetry-semantic-conventions",
  "rasm-cli",
@@ -10494,6 +10495,7 @@ version = "0.1.0"
 dependencies = [
  "derive_more",
  "itertools 0.15.0",
+ "nix 0.32.0",
  "nonempty-collections",
  "opentelemetry-semantic-conventions",
  "process-wrap",

@@ -1,16 +1,25 @@
 #![feature(error_reporter)]
+#![cfg_attr(unix, feature(exit_status_error))]
 
 use core::error::Error;
+#[cfg(unix)]
+use core::hash::BuildHasher as _;
 use core::num::NonZero;
 use core::pin::{Pin, pin};
 use core::time::Duration;
 use core::{fmt, iter};
 use std::collections::VecDeque;
 use std::error::Report;
+#[cfg(unix)]
+use std::ffi::OsStr;
 use std::ffi::OsString;
+#[cfg(unix)]
+use std::hash::RandomState;
 use std::io;
 #[cfg(unix)]
 use std::os::fd::{AsFd, OwnedFd};
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt as _;
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt as _;
 #[cfg(unix)]
@@ -19,6 +28,8 @@ use std::path::Path;
 use std::process::{ExitStatus, Stdio};
 
 use itertools::Itertools as _;
+#[cfg(unix)]
+use nix::unistd::{Uid, User};
 use nonempty_collections::NEVec;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
@@ -56,6 +67,9 @@ pub enum ProcessOperation {
     Attach,
     #[display("release the process group or job")]
     Release,
+    #[cfg(unix)]
+    #[display("read the login environment")]
+    Login,
 }
 
 pub type Input = Pin<Box<dyn AsyncWrite + Send>>;
@@ -329,4 +343,27 @@ pub async fn run(
         Ok(status) => NEVec::try_from_vec(later).map_or(Ok(status), |failures| Err(error(Some(status), failures))),
         Err(source) => Err(error(None, NEVec::from((failed(ProcessOperation::Wait)(source), later)))),
     }
+}
+
+#[cfg(unix)]
+pub async fn login(directory: &Path, deadline: Option<Instant>, grace: Duration, stopping: &CancellationToken) -> Result<Vec<(OsString, OsString)>, ProcessError> {
+    let refused = |program: &OsStr, source| ProcessError { program: program.to_owned(), process: None, failures: NEVec::new(Failure::Io { operation: ProcessOperation::Login, source }) };
+    let user = Uid::effective();
+    let read = User::from_uid(user).map_err(io::Error::from).and_then(|account| account.ok_or_else(|| io::ErrorKind::NotFound.into()));
+    let account = read.map_err(|source| refused(OsStr::new(&format!("user {user}")), source))?;
+    let marker = format!("{}-{:016x}", env!("CARGO_PKG_NAME"), RandomState::new().hash_one(std::process::id()));
+    let mut shell = tokio::process::Command::new(&account.shell);
+    shell.args(["-i", "-l", "-c", &format!("printf '%s\\0' {marker}; exec /usr/bin/env -0")]).current_dir(directory).env_clear();
+    shell.envs([("HOME", account.dir.as_os_str()), ("USER", OsStr::new(&account.name)), ("LOGNAME", OsStr::new(&account.name)), ("SHELL", account.shell.as_os_str())]);
+    shell.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
+    let mut printed = Vec::new();
+    let attach = async |streams: Streams| match streams.stdout {
+        Some(mut stdout) => stdout.read_to_end(&mut printed).await.map(drop),
+        None => Err(io::ErrorKind::BrokenPipe.into()),
+    };
+    let status = run(shell, None, deadline, grace, stopping, attach).await?;
+    let mut entries = printed.split(|byte| *byte == 0).skip_while(|entry| !entry.ends_with(marker.as_bytes()));
+    let found = status.exit_ok().map_err(io::Error::other).and_then(|()| entries.next().map(drop).ok_or_else(|| io::ErrorKind::InvalidData.into()));
+    found.map_err(|source| refused(account.shell.as_os_str(), source))?;
+    Ok(entries.filter_map(|entry| entry.split_once(|byte| *byte == b'=')).map(|(name, value)| (OsStr::from_bytes(name).to_owned(), OsStr::from_bytes(value).to_owned())).collect())
 }

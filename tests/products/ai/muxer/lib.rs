@@ -100,8 +100,8 @@ impl Isolated {
     #[must_use]
     pub fn folder(&self, kind: &str) -> PathBuf { self.root.join(kind) }
 
-    fn isolated(&self, program: &Path) -> Command {
-        let mut command = Command::new(program);
+    fn isolated(&self) -> Command {
+        let mut command = Command::new(&self.muxer);
         command
             .env("HOME", &self.root)
             .env("MCP_MUXER_RUNTIME_DIR", "r")
@@ -113,23 +113,17 @@ impl Isolated {
     }
 
     #[must_use]
-    pub fn serving(&self, relayed: Option<&[&str]>, server: &Path, arguments: &[&str]) -> Command {
-        let mut command = self.isolated(relayed.map_or(server, |_| &self.muxer));
-        if let Some(options) = relayed {
-            command.args(options).arg("--").arg(server);
-        }
-        command.args(arguments);
+    pub fn serving(&self, options: &[&str], server: &Path, arguments: &[&str]) -> Command {
+        let mut command = self.isolated();
+        command.args(options).args(["--env", "HOME", "--"]).arg(server).args(arguments);
         command
     }
 
     #[must_use]
-    pub fn relay(&self, options: &[&str], server: &[&str]) -> Command { self.serving(Some(options), &self.fixture, server) }
-
-    #[must_use]
-    pub fn direct(&self, server: &[&str]) -> Command { self.serving(None, &self.fixture, server) }
+    pub fn relay(&self, options: &[&str], server: &[&str]) -> Command { self.serving(options, &self.fixture, server) }
 
     pub async fn state(&self, settings: &[(&str, &str)]) -> io::Result<Reported> {
-        let output = self.isolated(&self.muxer).envs(settings.iter().copied()).stdin(Stdio::null()).output().await?;
+        let output = self.isolated().envs(settings.iter().copied()).stdin(Stdio::null()).output().await?;
         decoded(&output.stdout)
     }
 

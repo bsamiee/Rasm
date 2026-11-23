@@ -7,22 +7,22 @@ use futures::future;
 use mcp_muxer_tests::{Agent, Isolated, Slow, call, exited, reached, session, spawned};
 use rasm_testing::{Failure, Folder};
 use rmcp::model::ProtocolVersion;
-use rmcp::service::{ClientInitializeError, ClientLifecycleMode};
+use rmcp::service::ClientLifecycleMode;
 use rstest::rstest;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use tokio::time::{self, Instant};
 
-use crate::{HOME, IDLE, daemon, echoed, scoped, servers, settled, whoami};
+use crate::{HOME, IDLE, daemon, echoed, refusal, scoped, servers, settled, whoami};
 
-// --- [FALLBACK]
+// --- [REFUSAL]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn runtime_folder_past_the_socket_limit_runs_the_server_unshared() -> Result<(), Failure<Folder>> {
+async fn runtime_folder_past_the_socket_limit_refuses_the_session_with_the_cause() -> Result<(), Failure<Folder>> {
     scoped(async |isolated: &Isolated| {
         let mut command = isolated.relay(&[], &[]);
         command.env("MCP_MUXER_RUNTIME_DIR", isolated.folder(&"long".repeat(40)));
-        let running = assert_ok!(session(Agent::default(), command).await);
-        assert_eq!(echoed(&running, "alone").await, "alone", "a session no daemon can serve runs its own server");
+        let refused = assert_err!(session(Agent::default(), command).await);
+        assert!(refusal(&refused).is_some_and(|message| message.contains("socket")), "a session no daemon can serve is answered with the cause and runs no server of its own: {refused:?}");
     })
     .await
 }
@@ -117,10 +117,7 @@ async fn failed_start_reports_its_cause_and_backs_off() -> Result<(), Failure<Fo
             session(Agent::default(), command)
         };
         let attached = assert_ok!(relay(&["--speaks", "legacy"]).await);
-        let states = |refused: &io::Error, texts: &[&str]| match refused.get_ref().and_then(|inner| inner.downcast_ref::<ClientInitializeError>()) {
-            Some(ClientInitializeError::JsonRpcError(answered)) => texts.iter().all(|text| answered.message.contains(text)),
-            Some(_) | None => false,
-        };
+        let states = |refused: &io::Error, texts: &[&str]| refusal(refused).is_some_and(|message| texts.iter().all(|text| message.contains(text)));
         let cause = assert_err!(relay(&["--fail-start"]).await);
         assert!(states(&cause, &["exit status: 7", "fixture refuses to start"]), "the error states exit status and stderr: {cause:?}");
         let again = assert_err!(relay(&["--fail-start"]).await);
@@ -144,22 +141,14 @@ async fn failed_start_reports_its_cause_and_backs_off() -> Result<(), Failure<Fo
 #[case::discover_then_initialize(ClientLifecycleMode::Auto { preferred_versions: vec![ProtocolVersion::LATEST], legacy_version: Some(ProtocolVersion::LATEST_WITH_INITIALIZE) })]
 #[tokio::test(flavor = "multi_thread")]
 async fn program_missing_from_path_is_named_to_the_client_and_starts_once_found(#[case] lifecycle: ClientLifecycleMode) -> Result<(), Failure<Folder>> {
-    fn answered(refused: &ClientInitializeError) -> Option<&str> {
-        match refused {
-            ClientInitializeError::JsonRpcError(answer) => Some(&answer.message),
-            ClientInitializeError::LegacyFallbackFailed { discover: _, fallback } => answered(fallback),
-            _ => None,
-        }
-    }
     scoped(async |isolated: &Isolated| {
         let relay = |path: PathBuf| {
-            let mut command = isolated.serving(Some(&[]), Path::new("mcp-fixture"), &[]);
+            let mut command = isolated.serving(&[], Path::new("mcp-fixture"), &[]);
             command.env("PATH", path);
             spawned(Agent::default(), command, lifecycle.clone())
         };
         let refused = assert_err!(relay(isolated.folder("empty")).await);
-        let message = refused.get_ref().and_then(|inner| inner.downcast_ref::<ClientInitializeError>()).and_then(answered);
-        assert!(message.is_some_and(|message| message.contains("mcp-fixture") && message.contains("PATH")), "the client's request is answered with the missing program: {refused:?}");
+        assert!(refusal(&refused).is_some_and(|message| message.contains("mcp-fixture") && message.contains("PATH")), "the client's request is answered with the missing program: {refused:?}");
         let (found, _) = assert_ok!(relay(isolated.root.clone()).await);
         assert_eq!(echoed(&found, "found").await, "found", "a later session whose PATH holds the program reaches its server");
     })

@@ -1,6 +1,7 @@
 #![feature(error_reporter)]
 
 use core::time::Duration;
+use std::io;
 use std::path::Path;
 use std::process::Termination;
 
@@ -10,7 +11,7 @@ use mcp_muxer_tests::{Agent, Echo, Isolated, Served, Whoami, call, decoded, text
 use rasm_testing::{Failure, Fixture as _, Folder};
 use rmcp::RoleClient;
 use rmcp::model::CallToolRequestParams;
-use rmcp::service::RunningService;
+use rmcp::service::{ClientInitializeError, RunningService};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -38,6 +39,17 @@ async fn whoami(running: &RunningService<RoleClient, Agent>, name: &str) -> Whoa
     let process = assert_some!(system.process(Pid::from_u32(pid)));
     let value = process.environ().iter().find_map(|entry| entry.to_str()?.split_once('=').filter(|&(held, _)| held == name).map(|(_, value)| value.to_owned()));
     Whoami { pid, directory: process.cwd().map(Path::to_path_buf), value }
+}
+
+fn refusal(refused: &io::Error) -> Option<&str> {
+    fn answered(refused: &ClientInitializeError) -> Option<&str> {
+        match refused {
+            ClientInitializeError::JsonRpcError(answer) => Some(&answer.message),
+            ClientInitializeError::LegacyFallbackFailed { discover: _, fallback } => answered(fallback),
+            _ => None,
+        }
+    }
+    refused.get_ref().and_then(|inner| inner.downcast_ref()).and_then(answered)
 }
 
 async fn echoed(running: &RunningService<RoleClient, Agent>, said: &str) -> String { text(&assert_ok!(running.peer().call_tool(assert_ok!(call("echo", &Echo { text: said.to_owned() }))).await)) }

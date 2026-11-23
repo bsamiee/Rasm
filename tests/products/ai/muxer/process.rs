@@ -1,33 +1,23 @@
 use core::time::Duration;
-use std::process::Stdio;
 
 use claims::{assert_ok, assert_some};
-use mcp_muxer_tests::{Agent, Isolated, exited, spawned};
+use mcp_muxer_tests::{Agent, Isolated, exited, session, spawned};
 use rasm_testing::{Failure, Folder};
-use rmcp::service::{ClientLifecycleMode, ClientServiceExt as _};
+use rmcp::service::ClientLifecycleMode;
 use sysinfo::{Pid, ProcessStatus, ProcessesToUpdate, Signal, System};
-use tokio::time::{self, Instant};
+use tokio::time;
 
-use crate::{HOME, echoed, scoped, whoami};
+use crate::{HOME, scoped, whoami};
 
 // --- [SHUTDOWN]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn unshared_server_ends_with_its_session() -> Result<(), Failure<Folder>> {
+async fn server_that_ignores_end_of_input_ends_on_the_terminate_signal_after_its_session_left() -> Result<(), Failure<Folder>> {
     scoped(async |isolated: &Isolated| {
-        for (server, ignored) in [([].as_slice(), false), (["--linger", "1m"].as_slice(), true)] {
-            let mut command = isolated.relay(&[], server);
-            command.env("MCP_MUXER_RUNTIME_DIR", isolated.folder(&"long".repeat(40))).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true);
-            let mut relay = assert_ok!(command.spawn());
-            let transport = (assert_some!(relay.stdout.take()), assert_some!(relay.stdin.take()));
-            let running = assert_ok!(Agent::default().serve_with_lifecycle(transport, ClientLifecycleMode::Initialize).await);
-            assert_eq!(echoed(&running, "alone").await, "alone");
-            let closed = Instant::now();
-            assert_ok!(running.cancel().await);
-            let status = assert_ok!(assert_ok!(time::timeout(Duration::from_secs(10), relay.wait()).await, "the relay ends once its session closed standard input: {server:?}"));
-            assert!(status.success(), "the server ends on end of input, or on the terminate signal that follows when it ignores end of input: {server:?} {status}");
-            assert_eq!(closed.elapsed() >= Duration::from_secs(3), ignored, "a server is signalled only after it ignored end of input for the grace period: {server:?}");
-        }
+        let running = assert_ok!(session(Agent::default(), isolated.relay(&["--per", "session"], &["--linger", "1m"])).await);
+        let server = whoami(&running, HOME).await.pid;
+        assert_ok!(running.cancel().await);
+        assert_ok!(assert_ok!(time::timeout(Duration::from_secs(10), exited(server)).await, "a server that stays a minute past end of input ends on the signal that follows"));
     })
     .await
 }

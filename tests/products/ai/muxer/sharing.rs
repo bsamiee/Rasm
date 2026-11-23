@@ -1,13 +1,15 @@
+use std::ffi::OsString;
 use std::path::PathBuf;
 
-use claims::assert_ok;
+use claims::{assert_err, assert_ok, assert_some};
 use futures::{StreamExt as _, future, stream};
 use mcp_muxer_tests::{Agent, Ask, Isolated, Slow, call, modern, reached, session, spawned, text};
+use nix::unistd::{Uid, User};
 use rasm_testing::{Failure, Folder};
 use rmcp::model::{CallToolRequest, ClientRequest};
 use rmcp::service::{ClientLifecycleMode, PeerRequestOptions};
 
-use crate::{HOME, echoed, scoped, servers, settled, whoami};
+use crate::{HOME, echoed, refusal, scoped, servers, settled, whoami};
 
 // --- [KEYS]
 
@@ -37,7 +39,7 @@ async fn racing_first_sessions_all_share() -> Result<(), Failure<Folder>> {
         for round in 0..100 {
             let (first, second) = future::join(relay(round), relay(round)).await;
             let (first, second) = (assert_ok!(first), assert_ok!(second));
-            assert_eq!(whoami(&first, HOME).await.pid, whoami(&second, HOME).await.pid, "round {round}: neither racing session fell back to an unshared server");
+            assert_eq!(whoami(&first, HOME).await.pid, whoami(&second, HOME).await.pid, "round {round}: both racing sessions reach one server");
         }
     })
     .await
@@ -46,23 +48,39 @@ async fn racing_first_sessions_all_share() -> Result<(), Failure<Folder>> {
 // --- [ENVIRONMENT]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn shared_server_runs_with_the_environment_and_directory_an_unshared_run_gets_except_trace_context() -> Result<(), Failure<Folder>> {
-    const TRACE: &str = "TRACEPARENT";
+async fn server_starts_with_the_account_login_environment_under_declared_values_and_no_other_session_variable() -> Result<(), Failure<Folder>> {
+    const SESSION: [(&str, &str); 4] = [("FIXTURE_TAG", "held"), ("TRACEPARENT", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"), ("SHELL", "/fixture/shell"), ("LOGNAME", "fixture")];
     scoped(async |isolated: &Isolated| {
-        let traced = |mut command: tokio::process::Command| {
-            command.env(TRACE, "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01");
+        let account = assert_some!(assert_ok!(User::from_uid(Uid::effective())), "the user running the suite has an account");
+        let root = assert_ok!(fs_err::tokio::canonicalize(&isolated.root).await);
+        let relay = |options: &[&str]| {
+            let mut command = isolated.relay(options, &[]);
+            command.envs(SESSION);
             session(Agent::default(), command)
         };
-        let (shared, tagged, own, direct) = (
-            assert_ok!(traced(isolated.relay(&[], &[])).await),
-            assert_ok!(traced(isolated.relay(&["--env", "FIXTURE_TAG=one"], &[])).await),
-            assert_ok!(traced(isolated.relay(&["--per", "session"], &[])).await),
-            assert_ok!(traced(isolated.direct(&[])).await),
-        );
-        let (relayed, unshared) = (whoami(&shared, HOME).await, whoami(&direct, HOME).await);
-        assert_eq!((relayed.value, relayed.directory), (unshared.value, unshared.directory), "the server gets the session's variables and working directory an unshared run gets");
-        assert_eq!(whoami(&tagged, "FIXTURE_TAG").await.value.as_deref(), Some("one"), "a declared variable reaches the server");
-        assert_eq!((whoami(&shared, TRACE).await.value, whoami(&own, TRACE).await.value.is_some()), (None, true), "trace context reaches a per-session server and no shared one");
+        for (options, scope) in [([].as_slice(), "shared"), (["--per", "session"].as_slice(), "per-session")] {
+            let running = assert_ok!(relay(options).await);
+            let seen = stream::iter(SESSION).then(async |(name, _)| whoami(&running, name).await.value.map(OsString::from)).collect::<Vec<_>>().await;
+            let login = [None, None, Some(account.shell.clone().into_os_string()), Some(OsString::from(&account.name))];
+            assert_eq!(seen, login, "{scope} server: the session's variables stay out, and the shell and name are the account's");
+            let placed = whoami(&running, "PWD").await;
+            assert_eq!((placed.value.map(PathBuf::from), placed.directory), (Some(root.clone()), Some(root.clone())), "{scope} server: the login shell ran in the server's directory");
+            assert_eq!(whoami(&running, HOME).await.value.map(PathBuf::from), Some(isolated.root.clone()), "{scope} server: a declared session value stands over the login value");
+        }
+        let (literal, passed) = (assert_ok!(relay(&["--env", "FIXTURE_TAG=stated"]).await), assert_ok!(relay(&["--env", "FIXTURE_TAG"]).await));
+        let declared = (whoami(&literal, "FIXTURE_TAG").await.value, whoami(&passed, "FIXTURE_TAG").await.value);
+        assert_eq!(declared, (Some("stated".to_owned()), Some("held".to_owned())), "a declared variable reaches the server as its literal or as the session's value");
+    })
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn server_whose_login_shell_cannot_start_in_its_directory_is_refused_with_the_shell_and_cause() -> Result<(), Failure<Folder>> {
+    scoped(async |isolated: &Isolated| {
+        let account = assert_some!(assert_ok!(User::from_uid(Uid::effective())), "the user running the suite has an account");
+        let refused = assert_err!(session(Agent::default(), isolated.relay(&["--directory", "missing"], &[])).await);
+        let named = refusal(&refused).zip(account.shell.as_os_str().to_str()).is_some_and(|(message, shell)| message.contains(shell));
+        assert!(named, "a server whose directory the login shell cannot start in is refused with the shell and its failure: {refused:?}");
     })
     .await
 }
