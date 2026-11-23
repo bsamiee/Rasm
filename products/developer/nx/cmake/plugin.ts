@@ -1,8 +1,8 @@
 import { join, posix, relative } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Effect, Equal, FileSystem, Option, Order, Record, Schema } from 'effect';
+import { fingerprinted, inferring, manifested } from '@rasm/nx-distribution/inference';
+import { Array, Effect, Equal, Option, Order, Record, Schema } from 'effect';
 import { memberInputs, memberTargets } from '#/targets';
 import { Linked, MANIFEST, PLUGIN, PRESETS, resolved, run, Tree } from '#/workspace';
 
@@ -14,9 +14,9 @@ const OWN = fingerprinted(import.meta.dirname);
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Options extends Schema.Opaque<Options, unknown>()(
-    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String), prebuilt: Schema.optionalKey(Schema.Array(Schema.String)) }).annotate({
+    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
         description:
-            "outputPath: workspace folder each member writes its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes archives under packages in the member build folder. coveragePath: workspace folder the coverage configuration of a member's test target writes the lcov.info report of the member's linked binaries to, its raw and merged profiles staying in the member build folder, {projectName} naming the member, absent leaves each test its default.profraw and writes no report. prebuilt: workspace folders of CMake trees whose first workflow preset runs while Nx infers the graph when an artifact of a member is missing, for tools outside the graph that load those artifacts",
+            "outputPath: workspace folder each member writes its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes archives under packages in the member build folder. coveragePath: workspace folder the coverage configuration of a member's test target writes the lcov.info report of the member's linked binaries to, its raw and merged profiles staying in the member build folder, {projectName} naming the member, absent leaves each test its default.profraw and writes no report.",
     }),
 ) {}
 
@@ -43,19 +43,6 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree
               cache.writeToDisk();
           })
         : Effect.void;
-    const artifacts = tree.members
-        .flatMap(({ targets }) => targets)
-        .flatMap(({ artifacts: made }) => made)
-        .map(({ path }) => path);
-    yield* Effect.forEach(
-        Array.fromNullishOr(tree.workflows[0]).filter(() => settings.prebuilt?.includes(tree.root) === true),
-        Effect.fnUntraced(function* ({ name, tree: at }) {
-            const fs = yield* FileSystem.FileSystem;
-            const present = yield* Effect.forEach(artifacts, (artifact) => fs.exists(join(context.workspaceRoot, at, artifact)), { concurrency: 'unbounded' });
-            yield* present.every(Boolean) ? Effect.void : spawned(['cmake', '--workflow', '--preset', name], { cwd: join(context.workspaceRoot, tree.root) });
-        }),
-        { discard: true },
-    );
     (yield* Linked).set(join(context.workspaceRoot, file), tree.members);
     const owner = (folder: string) =>
         Array.min(

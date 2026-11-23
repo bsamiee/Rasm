@@ -31,8 +31,7 @@
             "plugin": "@rasm/nx-cmake",
             "options": {
                 "outputPath": ".artifacts/cmake/projects/{projectName}",
-                "coveragePath": ".artifacts/coverage/{projectName}",
-                "prebuilt": ["tools/ast-grep/grammars"]
+                "coveragePath": ".artifacts/coverage/{projectName}"
             }
         },
         {
