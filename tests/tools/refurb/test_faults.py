@@ -53,13 +53,23 @@ CASES = frozendict(
             return Error(Exception(text))
     """),
     iterated=dedent("""\
+        from collections.abc import Callable, Iterable
         from expression import Option, Result, Some
+
+        def traced[**P, R](function: Callable[P, R]) -> Callable[P, R]:
+            return function
+
+        @traced
+        def total(values: Iterable[int]) -> int:
+            return sum(values)
 
         def read(found: Option[int], outcome: Result[int, int]) -> None:
             for value in found:  # expect: RASM101 `found` `Nothing`
                 print(value)
             print(*outcome, tuple(found))  # expect: RASM101 `outcome` `Error`; RASM101 `found` `Nothing`
             print(str(found), repr(outcome))
+            print(sum(found))  # expect: RASM101 `found` `Nothing`
+            print(total(found))  # expect: RASM101 `found` `Nothing`
             match found:
                 case Some() as held:
                     print(*held, *found.to_list())
