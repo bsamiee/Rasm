@@ -245,7 +245,6 @@ catalog:
     # --- [ICONS]
 
     '@material-symbols/svg-400': 0.49.0 # Material Symbols SVG masters, the glyph set Chrome's own UI draws
-    bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
     lucide-react: 1.77.0
 
     # --- [ANIMATION]

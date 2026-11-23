@@ -45,7 +45,7 @@ Apple targets keep containers `actool` compiles at their target root, where Xcod
 - Layers stroke at 3/32 of their canvas, 2.25 units of 24
 - Layers of a mark with a master elsewhere repeat its paths at that weight, as `actool` reads only a real file inside `Assets/`
 - `Assets.xcassets` holds glyphs views draw, each imageset read through its generated `ImageResource` member
-- Imagesets reading a mark or a package glyph hold a relative Git symlink to it
+- Imagesets reading a mark hold a relative Git symlink to it, and imagesets of a brand glyph hold its file
 - Xcode resources phases and SwiftPM `.process` run `actool`
 
 ## [04]-[ADOBE]
