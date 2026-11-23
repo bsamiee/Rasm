@@ -12,6 +12,7 @@ private enum Request: Decodable, Sendable {
     case add(left: Int, right: Int)
     case find(name: String)
     case count(to: Int)
+    case buffered(to: Int)
     case wait(id: Int)
 }
 
@@ -40,6 +41,16 @@ private struct Session {
                         case .add(let left, let right): return .value(left - right)
                         case .find(let name): throw Unmatched(subject: "application", query: name, candidates: ["Finder"])
                         case .count(let limit): return .stream([any Encodable & Sendable](Array(1...limit)).async)
+                        case .buffered(let limit):
+                            let (chunks, chunk) = AsyncStream<Int>.makeStream()
+                            for value in 1...limit { chunk.yield(value) }
+                            chunk.finish()
+                            return .stream(
+                                chunks.map { value -> any Encodable & Sendable in
+                                    event.yield("pulled \(value)")
+                                    return value
+                                }
+                            )
                         case .wait(let id):
                             event.yield("started \(id)")
                             do { try await Task.sleep(for: .seconds(30)) } catch { event.yield("cancelled \(id)") }
@@ -176,5 +187,33 @@ struct ServeTests {
         let first = try await session.reply()
         let rest = try await session.closed()
         expectNoDifference([first] + rest, [chunk(9, 1)])
+    }
+
+    @Test
+    func interruptStopsAStreamBeforeItsNextChunkWhateverTheSourceHolds() async throws {
+        var session = Session()
+        try session.call(10, "buffered", ["to": .number(3)])
+        let first = try await session.reply()
+        try session.control("@effect/rpc/Interrupt", 10)
+        let rest = try await session.closed()
+        var events: [String] = []
+        while let event = await session.event() { events.append(event) }
+        expectNoDifference([first] + rest, [chunk(10, 1)])
+        expectNoDifference(events, ["pulled 1"])
+    }
+
+    @Test(arguments: [true, false])
+    func endsWithTheWriterFailureWhetherOrNotTheInputCloses(closing: Bool) async throws {
+        let (lines, input) = AsyncThrowingStream<Data, any Error>.makeStream()
+        for id in [11, 12] {
+            let call = JSONValue.object(["jsonrpc": .string("2.0"), "id": .number(Double(id)), "method": .string("add"), "params": .object(["left": .number(2), "right": .number(1)])])
+            input.yield(try JSONEncoder().encodeLine(call))
+        }
+        if closing { input.finish() }
+        let ended = await Result { () async throws(JSONRPCFailure) in
+            try await serve(reading: lines, writing: { _ in throw POSIXError(.EPIPE) }, dropped: { failure in Issue.record(failure) }) { (_: Request) in Response.value(nil) }
+        }
+        let cause: POSIXError.Code? = if case .failure(let failure) = ended, case .transport(let error as POSIXError) = failure.reason { error.code } else { nil }
+        expectNoDifference(cause, .EPIPE)
     }
 }

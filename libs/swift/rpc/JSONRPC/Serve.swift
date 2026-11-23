@@ -141,11 +141,11 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
             case .success(.value(nil)): await send(id, answering: method) { try result(id, JSONValue.null) }
             case .success(.stream(let chunks)) where await streaming(id):
                 var acknowledgements = acks.makeAsyncIterator()
-                for await chunk in chunks {
+                let interrupted = await chunks.contains { chunk in
                     await send(id, answering: method) { try result(id, chunk, chunk: true) }
-                    _ = await acknowledgements.next()
+                    return await acknowledgements.next() == nil
                 }
-                if !Task.isCancelled { await send(id, answering: method) { try result(id, JSONValue.null) } }
+                if !interrupted, !Task.isCancelled { await send(id, answering: method) { try result(id, JSONValue.null) } }
             case .success(.stream): break
             case .failure(let cause): await send(id, answering: method) { try exit(id, cause) }
         }
@@ -176,14 +176,20 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
     _ perform: @escaping @Sendable (Request) async throws(Failure) -> Response,
 ) async throws(JSONRPCFailure) {
     let server = Server(perform: perform, dropped: dropped)
-    async let written: Void = server.output.reduce(()) { _, line in try await write(line) }
-    let read = await Result { () async throws in
-        for try await line in lines() { await server.receive(line) }
+    let ended = await withTaskGroup(of: Result<Void, any Error>.self) { group in
+        group.addTask {
+            defer { server.output.finish() }
+            return await Result { () async throws in try await server.output.reduce(()) { _, line in try await write(line) } }
+        }
+        group.addTask {
+            let read = await Result { () async throws in try await lines().reduce(()) { _, line in await server.receive(line) } }
+            let failed: Bool = if case .failure = read { true } else { false }
+            await server.close { streaming in streaming || failed || Task.isCancelled }
+            server.output.finish()
+            return read
+        }
+        defer { group.cancelAll() }
+        return await group.first { ending in if case .failure = ending { true } else { false } }
     }
-    let failed: Bool = if case .failure = read { true } else { false }
-    await server.close { streaming in streaming || failed || Task.isCancelled }
-    server.output.finish()
-    let wrote: Result<Void, any Error>
-    do { wrote = .success(try await written) } catch { wrote = .failure(error) }
-    for case .failure(let error) in [read, wrote] { throw JSONRPCFailure(subject: "connection", transport: error) }
+    if case .failure(let error)? = ended { throw JSONRPCFailure(subject: "connection", transport: error) }
 }

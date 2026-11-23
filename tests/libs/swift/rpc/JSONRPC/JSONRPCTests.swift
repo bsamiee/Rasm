@@ -78,6 +78,36 @@ struct JSONRPCConnectionTests {
         expectNoDifference(error.code, -32_602)
     }
 
+    @Test(
+        arguments: [
+            ["jsonrpc": .string("1.0"), "result": .number(5)],
+            [:],
+            ["result": .number(5), "error": .object(["code": .number(-32_603), "message": .string("Internal error")])],
+        ] as [[String: JSONValue]]
+    )
+    func refusesAReplyThatIsNoJSONRPC2Response(fields: [String: JSONValue]) async throws {
+        let answer = try await Peer.connected { connection, peer in
+            async let answer = Result { () async throws(JSONRPCFailure) in try await connection.request(.sum) }
+            let request = try await peer.sent()
+            try peer.reply(fields.merging(["id": try #require(request["id"])]) { field, _ in field })
+            return await answer
+        }
+        guard case .failure(let failure) = answer, case .unreadable = failure.reason else {
+            Issue.record("Unexpected \(String(customDumping: answer)) for \(fields)")
+            return
+        }
+    }
+
+    @Test
+    func returnsANullResultAsNull() async throws {
+        let answer = try await Peer.connected { connection, peer in
+            async let answer = connection.request(.sum)
+            try peer.reply(["id": try #require(try await peer.sent()["id"]), "result": .null])
+            return try await answer
+        }
+        expectNoDifference(answer, .null)
+    }
+
     @Test
     func endsPendingRequestsWhenInputCloses() async throws {
         let (answer, ending) = try await Peer.connected { connection, peer in
