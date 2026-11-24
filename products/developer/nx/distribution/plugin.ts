@@ -1,8 +1,8 @@
-import { join, posix } from 'node:path';
-import process, { platform } from 'node:process';
+import { join, posix, relative } from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, type PostTasksExecution, type PostTasksExecutionContext, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type Task, type TaskResult } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, normalizePath, type PostTasksExecution, type PostTasksExecutionContext, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type Task, type TaskResult } from '@nx/devkit';
 import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Config, DateTime, Duration, Effect, FileSystem, Formatter, Function, Option, Order, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
@@ -17,7 +17,6 @@ interface Declared {
     readonly named: 'production' | 'default';
     readonly fields: Fields;
     readonly lock?: string;
-    readonly engines: readonly string[];
     readonly stated: Stated;
     readonly host: Host;
     readonly dependents: readonly string[];
@@ -26,6 +25,7 @@ interface Declared {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
+const ENGINE = fileURLToPath(import.meta.resolve('#/host-packages'));
 const SERVER = 'NX_SELF_HOSTED_REMOTE_CACHE_SERVER';
 const UNCACHED = { flags: ['skip-nx-cache', 'skipNxCache', 'skip-remote-cache', 'skipRemoteCache'], variables: ['NX_SKIP_NX_CACHE', 'NX_DISABLE_NX_CACHE', 'NX_SKIP_REMOTE_CACHE', 'NX_DISABLE_REMOTE_CACHE'] } as const;
 const RECORD = { file: 'task-cache.jsonl', bound: 1_048_576, slowest: 5 } as const;
@@ -148,18 +148,15 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
         { concurrency: 'unbounded' },
     );
     const matched = Array.getSomes(held);
-    const local = new Set(matched.map(({ host }) => host).filter(({ platforms = [platform] }) => platforms.includes(platform)));
     const one = Effect.fnUntraced(function* ({ file, host, fields }: (typeof matched)[number]) {
         const root = posix.join(file, posix.relative(host.manifest, '.'));
         const lock = Option.map(yield* Effect.findFirst(Array.cartesianWith(above(root), Array.fromNullishOr(host.build?.lock), posix.join), (at) => fs.exists(join(workspaceRoot, at))), (at) => ({ lock: at }));
-        const stamp = local.has(host) && host.engine !== undefined ? yield* host.engine.stamp(join(workspaceRoot, file)) : Option.none<string>();
-        const engined = local.has(host) && (host.engine === undefined || Option.isSome(stamp));
         const stated = yield* manifested(workspaceRoot, root);
         const dependents = Option.getOrElse(
             Option.flatMap(Record.get(named, root), (name) => Option.map(Record.get(requiring, name), Array.map(Struct.get('name')))),
             Array.empty<string>,
         );
-        return { file, root, named: namedInput(root, context), fields, host: engined ? host : Struct.omit(host, WITHHELD), engines: Option.toArray(stamp), stated, dependents, ...Option.getOrUndefined(lock) } satisfies Declared;
+        return { file, root, named: namedInput(root, context), fields, host, stated, dependents, ...Option.getOrUndefined(lock) } satisfies Declared;
     });
     const [declared, refused] = yield* Effect.partition(matched, (row) => Effect.mapError(one(row), (error): [string, Error] => [row.file, error]), { concurrency: 'unbounded' });
     return { declared, failures: [...undecoded, ...unread, ...refused] };
@@ -167,7 +164,8 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
 
 const placed = (operation: keyof typeof FOLDERS) => `{options.outputPath}/${FOLDERS[operation]}`;
 
-const projects = (declared: readonly Declared[], settings: Options, exec: string, release: readonly string[]) => {
+const projects = (declared: readonly Declared[], settings: Options, exec: string, release: readonly string[], workspaceRoot: string) => {
+    const identified = ['node', normalizePath(relative(workspaceRoot, ENGINE))];
     const holds = (other: Declared, item: Declared) => (other.fields.folders ?? []).some((folder) => !posix.relative(posix.join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled);
     const hosts = Function.memoize((item: Declared) => (item.fields.folders === undefined ? declared.filter((other) => holds(other, item)) : [item]));
     const uses = Function.memoize((item: Declared) => declared.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name)));
@@ -176,7 +174,7 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
     return declared.map((item) => {
         const loading = Array.dedupe([...hosts(item), ...users(item)]);
         const hosting = loading.filter((other) => other !== item);
-        const lone = item.fields.folders === undefined && item.host.standalone === true && !hosting.some((other) => other.host.build !== undefined);
+        const lone = item.fields.folders === undefined && item.host.standalone === true && !Array.isReadonlyArrayNonEmpty(hosting);
         const offered: Host = lone ? Struct.omit(item.host, WITHHELD) : item.host;
         const { technology, archive, platforms = [], standalone = false, configurations = [], build, operations = {}, install, publish, write, output } = offered;
         const forwarded = Array.match(configurations, { onEmpty: () => ({}), onNonEmpty: (names) => ({ configurations: Record.fromIterableWith(names, (name) => [name, {}] as const) }) });
@@ -191,7 +189,7 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
             ...Array.fromNullishOr(build?.pack).map(() => UPSTREAM),
             ...Array.fromNullishOr(item.lock).map((lock) => `{workspaceRoot}/${lock}`),
             ...Array.fromNullishOr(build?.runtime).flatMap((runtimes) => runtimes.map((runtime) => ({ runtime }))),
-            ...Array.dedupe(loading.flatMap((other) => other.engines)).map((stamp) => ({ runtime: ['cat', stamp].map(quoteShellArg).join(' ') })),
+            ...loading.filter((other) => other.host.engine !== undefined).map((other) => ({ runtime: [...identified, other.file].map(quoteShellArg).join(' ') })),
             { externalDependencies: [] },
         ];
         const engined: NonNullable<TargetConfiguration['inputs']> = [...inputs, ...hosting.map((other) => UndefinedOr.match(other.host.engine, { onUndefined: () => `{workspaceRoot}/${other.file}`, onDefined: ({ fields }) => ({ json: `{workspaceRoot}/${other.file}`, fields: [...fields] }) }))];
@@ -222,16 +220,13 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
             ...Record.keys(packages).map((folder) => posix.join('{projectRoot}', folder, '*')),
         ];
         const installed = Option.firstSomeOf([
-            Option.map(
-                Option.filter(Option.fromUndefinedOr(install), ({ platforms: on = [platform] }) => on.includes(platform)),
-                ({ command, help = ran, unpacked = false }): TargetConfiguration => ({
-                    executor: `${PLUGIN}:install`,
-                    dependsOn: [unpacked ? `build--!(${technology})` : builder],
-                    inputs: RECEIVED,
-                    ...forwarded,
-                    metadata: { description: `Installs what build wrote in the run's configuration where its host loads it with ${command}`, help: { command: help, example: { args: [] } } },
-                }),
-            ),
+            Option.map(Option.fromUndefinedOr(install), ({ command, help = ran, unpacked = false }): TargetConfiguration => ({
+                executor: `${PLUGIN}:install`,
+                dependsOn: [unpacked ? `build--!(${technology})` : builder],
+                inputs: RECEIVED,
+                ...forwarded,
+                metadata: { description: `Installs what build wrote in the run's configuration where its host loads it with ${command}`, help: { command: help, example: { args: [] } } },
+            })),
             Option.flatMap(Option.liftPredicate(users(item), Array.isReadonlyArrayNonEmpty), (loaders) => operated('install', { dependsOn: [builder, ...held], inputs: UNSTATED, options: { users: loaders.map((other) => other.file) } })),
             Option.map(Array.head(held), (host): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [host], inputs: UNSTATED, metadata: { description: `Builds ${host.projects.join(', ')}, the host the result loads in, with its build target`, help: { command: ran, example: { options: {} } } } })),
         ]);
@@ -395,6 +390,7 @@ const createNodes: CreateNodes = [
                 settings,
                 EXEC[detectPackageManager(context.workspaceRoot)],
                 tagged(context.nxJsonConfiguration),
+                context.workspaceRoot,
             ),
             ...actions,
             ...root,

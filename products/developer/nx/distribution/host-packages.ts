@@ -1,13 +1,15 @@
 import { hash } from 'node:crypto';
 import { constants, openAsBlob } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, join, matchesGlob, posix } from 'node:path';
-import { arch, platform } from 'node:process';
+import { basename, dirname, join, matchesGlob, posix, resolve } from 'node:path';
+import { arch, argv, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
+import { runMain } from '@effect/platform-node/NodeRuntime';
+import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
 import { HOSTS as UXP } from '@rasm/uxp';
-import { Array, Cause, Config, Duration, Effect, FileSystem, Function, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Console, Duration, Effect, FileSystem, Function, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
@@ -52,7 +54,7 @@ interface Host {
     readonly standalone?: true;
     readonly hosted?: true;
     readonly configurations?: readonly string[];
-    readonly engine?: { readonly fields: readonly string[]; readonly stamp: (descriptor: string) => Effect.Effect<Option.Option<string>, never, Services> };
+    readonly engine?: { readonly fields: readonly string[] };
     readonly operations?: Partial<Record<'check' | 'test' | 'pack' | 'install', { readonly command: string; readonly options: Readonly<Record<string, unknown>> }>>;
     readonly output: string;
     readonly read: (text: string, file: string) => Effect.Effect<Option.Option<Fields>, Cause.UnknownError>;
@@ -213,8 +215,9 @@ const engine = Effect.fnUntraced(function* (descriptor: string) {
         ),
         (cause) => new Cause.UnknownError(cause, Option.match(named, { onNone: () => `${descriptor} names no engine, and no engine tree encloses it`, onSome: (key) => `${descriptor} names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` })),
     );
-    const { MajorVersion, MinorVersion } = yield* Effect.flatMap(fs.readFileString(path.join(root, 'Engine', 'Build', 'Build.version')), Schema.decodeEffect(Built));
-    return { root, stamp: path.join(root, 'Engine', 'Build', 'Build.version'), platform: host.name, version: `${MajorVersion}.${MinorVersion}`, binaries: path.join(root, 'Engine', 'Binaries', host.name), scripts: path.join(root, 'Engine', 'Build', 'BatchFiles') };
+    const stamp = yield* Effect.mapError(fs.readFileString(path.join(root, 'Engine', 'Build', 'Build.version')), (cause) => new Cause.UnknownError(cause, `${descriptor} associates the engine at ${root}, which holds no Engine/Build/Build.version`));
+    const { MajorVersion, MinorVersion } = yield* Schema.decodeEffect(Built)(stamp);
+    return { root, stamp, platform: host.name, version: `${MajorVersion}.${MinorVersion}`, binaries: path.join(root, 'Engine', 'Binaries', host.name), scripts: path.join(root, 'Engine', 'Build', 'BatchFiles') };
 });
 
 const stated = (host: Host, at: string, text: string, file: string, names: readonly string[]) =>
@@ -426,7 +429,7 @@ const HOSTS: readonly Host[] = [
                 onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not decode`),
                 onSuccess: ({ Plugins, AdditionalPluginDirectories }) => Option.some({ name: basename(file, '.uproject'), folders: ['Plugins', ...(AdditionalPluginDirectories ?? [])], references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })) }),
             }),
-        engine: { fields: Struct.keys(Association.fields), stamp: (descriptor) => Effect.option(Effect.map(engine(descriptor), Struct.get('stamp'))) },
+        engine: { fields: Struct.keys(Association.fields) },
         build: { executor: 'unreal-build', command: 'UnrealBuildTool', outputs: ({ folders = [] }) => ['Binaries', ...folders.map((folder) => posix.join(folder, '**', 'Binaries'))] },
         operations: { check: { command: ['UnrealBuildTool', ...ANALYSIS].join(' '), options: { operation: 'check' } } },
     },
@@ -463,6 +466,12 @@ const HOSTS: readonly Host[] = [
         },
     },
 ];
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+if (import.meta.main) {
+    runMain(Effect.match(engine(resolve(argv[2] ?? '')), { onFailure: () => 'absent', onSuccess: Struct.get('stamp') }).pipe(Effect.flatMap(Console.log), Effect.provide(layer)));
+}
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

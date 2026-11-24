@@ -52,7 +52,7 @@ Jobs of workflow `CI` and the projects each runs:
 - Job containers and user `node` of the Playwright image take user `runner`'s uid, as every job of one instance shares its checkout
 - Selenium Manager downloads stable Firefox and `geckodriver` for WebDriver suites, and the image holds the libraries Firefox loads
 - `pack--playwright` renders in job `browser`, extension UI in its image's Linux `system-ui`
-- Job `macos` runs affected `os:darwin` projects except `host:rhino`, as no Linux graph holds an Apple project
+- Job `macos` runs affected `os:darwin` projects except `host:rhino` and `host:unreal`, as no Linux graph holds an Apple project and its runner holds no engine
 - Job `macos` leaves out root `rasm`, as job `linux` runs its other checks and each Swift project's tasks depend on its Swift targets
 - Job `macos` runs `nx conformance:check` again, as Apple projects and their targets enter only the macOS graph
 - Job `macos` runs `hk check` steps `swiftlint`, `swift-format`, `plutil`, and `xcprojformatter` from base to head, as hk defines them on macOS alone
@@ -62,7 +62,7 @@ Jobs of workflow `CI` and the projects each runs:
 - Job `windows` first runs `test -c headless` over affected `host:rhino` projects without Rhino, which passes where every task hits the cache
 - Job `windows` installs that installer where that run fails, from a cache miss or a failing test, then runs those projects again with core-hour token `RHINO_TOKEN`
 - Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine a tracked `.uproject` names
-- Unreal projects hold no target on a runner outside their engine image
+- Unreal projects hold their targets on every machine, and a task run without the engine its `.uproject` associates refuses, naming where it looked
 - Unreal image pulls sign in to GHCR as the repository owner, the account `EPIC_GHCR_TOKEN` belongs to
 
 ## [04]-[TOOLS]
@@ -169,7 +169,7 @@ Workflow `Release` credentials and jobs:
 - Job `version` runs `nx release` on macOS, as Apple release projects enter only the macOS graph
 - Job `version` outputs the release commit and its projects only where `nx release` committed, as each versioned project writes its manifest
 - Job `version` reads the projects a release tagged from `git tag --points-at` its commit, each tag `<project>@<version>`
-- Job `version` assigns tagged `host:unreal` projects to job `unreal`, as their `attach` target exists only inside their engine image
+- Job `version` assigns tagged `host:unreal` projects to job `unreal`, as their `attach` target packs inside their engine image
 - Job `version` assigns each other tagged project with an `attach` target by the tasks its `attach` reaches in the task graph
 - Tasks of a `host:browser` project send it to job `browser`, as CI runs those tasks in the Playwright image, and the rest go to job `deliver`
 - Jobs `deliver`, `browser`, and `unreal` attach the projects of the job `version` output named as the job

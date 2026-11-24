@@ -55,12 +55,16 @@ describe('@rasm/nx-distribution under Windows path separators', () => {
         ]);
     });
 
-    it.for([
-        { case: 'is absent', engine: {}, building: false },
-        { case: 'holds Build.version', engine: ENGINE, building: true },
-    ])('infers the build and check of a project only where its engine tree $case', async ({ engine, building }, { workspace }) => {
-        const graph = await workspace.write({ ...files, ...engine }).graph({ createNodes });
+    it('names no folder of this machine in the targets of any project, the engine an Unreal project associates included', async ({ workspace }) => {
+        const graph = await workspace.write({ ...files, ...ENGINE }).graph({ createNodes });
 
-        expect(Record.keys(Record.filter(graph.nodes['Game']?.data.targets ?? {}, (_, target) => target === 'build--unreal' || target === 'check--unreal')).toSorted()).toStrictEqual(building ? ['build--unreal', 'check--unreal'] : []);
+        const named = Record.keys(
+            Record.filter(
+                Record.map(graph.nodes, ({ data }) => JSON.stringify(data.targets)),
+                (stated) => stated.includes(workspace.root),
+            ),
+        );
+
+        expect(named).toStrictEqual([]);
     });
 });

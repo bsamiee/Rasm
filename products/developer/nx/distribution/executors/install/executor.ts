@@ -1,3 +1,4 @@
+import { platform } from 'node:process';
 import { Array, Cause, Effect, Schema } from 'effect';
 import { located } from '#/host-packages';
 import { executor, Words } from '#/inference';
@@ -14,6 +15,7 @@ const Install = Schema.Struct({ __unparsed__: Words }).annotate({
 const execute = executor(Install, function* ({ __unparsed__: words = [] }, context) {
     const { project, outputs, packages, folders } = yield* located(context);
     const loaded = [...packages.filter(({ host, foreign }) => host.install?.unpacked !== true && !foreign), ...folders.filter(({ host }) => host.install?.unpacked === true)].flatMap((found) => Array.fromNullishOr(found.host.install).map((install) => ({ found, install })));
+    yield* Effect.forEach(loaded, ({ found, install: { platforms = [platform] } }) => (platforms.includes(platform) ? Effect.void : Effect.fail(new Cause.UnknownError(platforms, `${found.at}: ${found.host.technology} installs on ${platforms.join(', ')}, and this machine runs ${platform}`))), { discard: true });
     yield* Array.match(loaded, {
         onEmpty: () => Effect.fail(new Cause.UnknownError(outputs, `${project}: build wrote nothing a host on this platform installs under ${outputs.join(', ')}`)),
         onNonEmpty: Effect.forEach(({ found, install }) => Effect.andThen(install.run(found, words), Effect.logInfo(`Installed ${found.at} through ${install.command}, a running host loads it at its next start`)), { discard: true }),
