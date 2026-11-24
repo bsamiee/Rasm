@@ -1,6 +1,6 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { env } from 'node:process';
+import { env, stderr } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import type { NxPlugin } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-docker';
@@ -30,10 +30,11 @@ const SUITE = (folder: string, required: object, targets: readonly string[] = ['
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const hashed = async (workspace: Workspace, plugin: Pick<NxPlugin, 'createNodes'>) => {
+const hashed = async (workspace: Workspace, plugin: Pick<NxPlugin, 'createNodes'>, id: string) => {
     const graph = await workspace.graph(plugin);
-    const tasks = taskGraph(graph, ['workspace'], ['check--lint']);
-    const task = Option.getOrThrow(Option.fromUndefinedOr(tasks.tasks['workspace:check--lint']));
+    const [project = '', target = ''] = id.split(':');
+    const tasks = taskGraph(graph, [project], [target]);
+    const task = Option.getOrThrow(Option.fromUndefinedOr(tasks.tasks[id]));
     const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(task, tasks, env);
     return value;
 };
@@ -55,9 +56,9 @@ describe('root project', () => {
         homed(at(workspace.root));
         workspace.write(HOSTED);
 
-        const bare = await hashed(workspace, {});
+        const bare = await hashed(workspace, {}, 'workspace:check--lint');
 
-        await expect(hashed(workspace, { createNodes })).resolves.toBe(bare);
+        await expect(hashed(workspace, { createNodes }, 'workspace:check--lint')).resolves.toBe(bare);
     });
 });
 
@@ -136,11 +137,26 @@ describe('engine edges', () => {
         ]);
     });
 
-    it('tags a package and adds no edge where no engine project exists', async ({ workspace }) => {
+    it('tags a package and plans its tasks with no dependency and no warning where no engine project exists', async ({ workspace }) => {
         homed(undefined);
-        const graph = await workspace.write({ ...HOSTED, ...SUITE('suite', { devDependencies: { testcontainers: '12.2.2' } }) }).graph({ createNodes });
+        const graph = await workspace.write({ ...HOSTED, ...SUITE('suite', { dependencies: { '@pulumi/docker': '5.4.0' } }, ['test--vitest', 'install--pulumi']) }).graph({ createNodes });
+        const written = vi.spyOn(stderr, 'write');
+        onTestFinished(() => {
+            written.mockRestore();
+        });
 
-        expect([graph.nodes['suite']?.data.tags?.includes('host:docker'), taskGraph(graph, ['suite'], ['test--vitest']).dependencies]).toStrictEqual([true, { 'suite:test--vitest': [] }]);
+        const { dependencies } = taskGraph(graph, ['suite'], ['test--vitest', 'install--pulumi']);
+
+        expect([graph.nodes['suite']?.data.tags?.includes('host:docker'), dependencies, written.mock.calls]).toStrictEqual([true, { 'suite:test--vitest': [], 'suite:install--pulumi': [] }, []]);
+    });
+
+    it('hashes a tagged suite alike with and without the engine project', async ({ workspace }) => {
+        workspace.write({ ...HOSTED, ...SUITE('suite', { devDependencies: { testcontainers: '12.2.2' } }) });
+        homed(undefined);
+        const apart = await hashed(workspace, { createNodes }, 'suite:test--vitest');
+        homed(join(workspace.root, '.cache/colima'));
+
+        await expect(hashed(workspace, { createNodes }, 'suite:test--vitest')).resolves.toBe(apart);
     });
 });
 

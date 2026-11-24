@@ -117,7 +117,7 @@
         "{test,install}--*": [
             {
                 "filter": { "projects": ["tag:host:docker"] },
-                "dependsOn": ["...", { "projects": ["colima"], "target": "install--*" }]
+                "dependsOn": ["...", { "projects": "*", "target": "install--colima" }]
             }
         ]
     },
