@@ -198,18 +198,9 @@ jobs:
                       !.cache/nx/workspace-data/task-cache.jsonl
                       !.cache/nx/workspace-data/xcode-packages
                   key: nx-${{ runner.os }}-
-            - id: xcode
-              uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+            - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
                   xcode-version: latest-stable
-            - id: swift
-              if: &timed ${{ inputs.uncached == 'macos' || inputs.uncached == 'all' }}
-              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                  path: &swift |-
-                      ~/Library/Developer/Xcode/DerivedData/CompilationCache.noindex
-                      ~/Library/Developer/Xcode/DerivedData/Rasm-*/SourcePackages
-                  key: &compiled swift-${{ steps.xcode.outputs.version }}-${{ hashFiles('Package.resolved', 'Package.swift', 'Xcode.xcconfig', '.config/xcode.xcconfig') }}
             - *tools
             - if: ${{ env.APPLE_DEVELOPMENT_P12 != '' }}
               uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
@@ -217,21 +208,9 @@ jobs:
                   p12-file-base64: ${{ env.APPLE_DEVELOPMENT_P12 }}
                   p12-password: ${{ env.APPLE_DEVELOPMENT_P12_PASSWORD }}
             - run: nx conformance:check
-            - id: tasks
-              run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,tag:host:unreal,rasm'
+            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,tag:host:unreal,rasm'
               env:
-                  NX_SKIP_NX_CACHE: *timed
-            - if: ${{ (inputs.uncached == 'macos' || inputs.uncached == 'all') && steps.swift.outputs.cache-hit != 'true' }}
-              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                  path: *swift
-                  key: *compiled
-            - if: ${{ always() && steps.tasks.outcome != 'skipped' }}
-              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              with:
-                  name: xcode-build-logs
-                  if-no-files-found: ignore
-                  path: ~/Library/Developer/Xcode/DerivedData/Rasm-*/Logs/Build/*.xcactivitylog
+                  NX_SKIP_NX_CACHE: ${{ inputs.uncached == 'macos' || inputs.uncached == 'all' }}
             - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
               run: hk check --step swiftlint --step swift-format --step plutil --step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
               env:
