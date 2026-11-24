@@ -101,7 +101,7 @@ const targets = (file: string, { folders, signals, served, loaded, packages, env
             ...chain.filter((at) => at !== rooted).map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
             ...loaded.map((at) => posix.join('{workspaceRoot}', at)),
             ...Array.fromNullishOr(env.directory).map((at) => ({ fileset: posix.join('{workspaceRoot}', at, '.env*'), includeIgnored: true })),
-            { runtime: ['node', '-p', `Object.entries(process.env).filter(([name]) => ${JSON.stringify(env.prefixes)}.some((prefix) => name.startsWith(prefix))).sort().join()`].map(quoteShellArg).join(' ') },
+            { runtime: ['node', '-p', 'Object.entries(process.env).filter(([name]) => process.argv.slice(1).some((prefix) => name.startsWith(prefix))).sort().join()', '--', ...env.prefixes].map(quoteShellArg).join(' ') },
             { dependentTasksOutputFiles: '**/*', transitive: true },
             { externalDependencies: Array.dedupe(['vite', ...packages]) },
         ],

@@ -97,6 +97,14 @@ describe('what build--vite hashes', { timeout: 60_000 }, () => {
         expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: changes });
     });
 
+    it('states its variable digest in words cmd.exe quoting accepts, which refuses a double quote or a line break', async ({ workspace }) => {
+        const graph = await workspace.write({ 'apps/web/vite.config.ts': "export default { envPrefix: ['VITE_', 'PUBLIC_'] };\n" }).graph({ createNodes });
+
+        const digests = (graph.nodes['web']?.data.targets?.['build--vite']?.inputs ?? []).flatMap((input) => (typeof input === 'object' && 'runtime' in input ? [input.runtime] : []));
+
+        expect({ stated: digests.some((command) => command.includes('PUBLIC_')), refused: digests.filter((command) => /["\n]/u.test(command)) }).toStrictEqual({ stated: true, refused: [] });
+    });
+
     it('builds after the vite build of each dependency and never after its tsc or storybook build', async ({ workspace }) => {
         const graph = await workspace
             .write({

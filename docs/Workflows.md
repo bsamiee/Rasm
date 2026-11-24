@@ -104,6 +104,7 @@ Actions caches per workflow and machine:
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
 - Job `macos` restores no Swift build folder, as compilation cache hits need its path alone to repeat
 - Job `macos` restores and saves the compilation cache on uncached runs alone
+- Xcode tasks the owner's Mac ran first restore in job `macos` from the Nx cache while both hold one Xcode build, so pushes restore no compilation cache
 - Uncached `macos` runs took 1218 s of tasks from nothing and 858 s over a restored 727 MB compilation cache at 832 of 832 hits, 29 s to restore
 - Job `macos` uploads the build logs Xcode writes, each ending in a metrics record of cache hits per cacheable task
 - Xcode logs one `Cache hit` per cacheable task and `SwiftCompile` lines per file and per target plan, so a hit rate comes from the metrics record alone
