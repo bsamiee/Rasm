@@ -141,7 +141,7 @@ const declared = (documented: ReadonlyMap<string, unknown>, folders: { readonly 
                 (decoded) => [at, decoded] as const,
             ),
         );
-        return { found, read: Option.match(found, { onNone: () => [], onSome: ([, index]) => candidates.slice(0, index + 1).filter(([at]) => documented.has(at)) }) };
+        return { found, read: candidates.slice(0, Option.match(found, { onNone: () => candidates.length, onSome: ([, index]) => index + 1 })) };
     });
     const found = Option.orElse(searched.root.found, () => searched.cwd.found);
     const settings = Option.getOrUndefined(Option.map(found, ([[, stated]]) => stated));

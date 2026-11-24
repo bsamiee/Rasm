@@ -120,16 +120,17 @@ describe('checker targets', { timeout: 120_000 }, () => {
     });
 
     it.for([
-        { case: 'a mypy.ini in the member root', edited: { 'proj/library/mypy.ini': '[mypy]\ndisallow_untyped_defs = True\n' } },
-        { case: 'a mypy table in the member manifest', edited: { 'proj/library/pyproject.toml': `${LIBRARY['proj/library/pyproject.toml']}\n[tool.mypy]\ndisallow_untyped_defs = true\n` } },
-    ])('changes the mypy hash and result of a member after $case', async ({ edited }, { workspace }) => {
-        locked(workspace, { ...workspaced(['mypy']), 'proj/library/src/library/__init__.py': 'def one():\n    return 1\n' });
+        { case: 'a mypy.ini in the member root', target: 'check--mypy', source: 'def one():\n    return 1\n', edited: { 'proj/library/mypy.ini': '[mypy]\ndisallow_untyped_defs = True\n' } },
+        { case: 'a mypy table in the member manifest', target: 'check--mypy', source: 'def one():\n    return 1\n', edited: { 'proj/library/pyproject.toml': `${LIBRARY['proj/library/pyproject.toml']}\n[tool.mypy]\ndisallow_untyped_defs = true\n` } },
+        { case: 'a ty.toml at the uv root', target: 'check--ty', source: 'def one() -> float:\n    return 1 / 0\n', edited: { 'ty.toml': '[rules]\ndivision-by-zero = "error"\n' } },
+    ])('changes the $target hash and result of a member in the graph built before $case', async ({ target, source, edited }, { workspace }) => {
+        locked(workspace, { ...workspaced(['mypy', 'ty']), 'proj/library/src/library/__init__.py': source });
         const graph = await workspace.graph(uv);
-        const [before, passed] = [await hashed(workspace, graph, 'library:check--mypy'), await workspace.run(graph, 'library', 'check--mypy')];
+        const [before, passed] = [await hashed(workspace, graph, `library:${target}`), await workspace.run(graph, 'library', target)];
 
-        const configured = await workspace.write(edited).graph(uv);
+        await workspace.write(edited).graph(uv);
 
-        const [after, failed] = [await hashed(workspace, configured, 'library:check--mypy'), await workspace.run(configured, 'library', 'check--mypy')];
+        const [after, failed] = [await hashed(workspace, graph, `library:${target}`), await workspace.run(graph, 'library', target)];
         expect([passed.success, failed.success, after.value === before.value]).toStrictEqual([true, false, false]);
     });
 

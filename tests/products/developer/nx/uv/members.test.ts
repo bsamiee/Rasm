@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-uv';
 import { it, unaggregated } from '@rasm/testing/nx';
-import { Record, Struct } from 'effect';
+import { Array, Record, Struct } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
 import { buildProjectGraphUsingProjectFileMap } from 'nx/src/project-graph/build-project-graph';
@@ -48,13 +48,16 @@ const built = async (root: string, cache: FileMapCache | null) => {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('files Nx hands the plugin', { timeout: 60_000 }, () => {
-    it('leave out pixi.toml, whose edit is no project configuration change, while the uv root holding one keeps upgrade--pixi', async ({ workspace }) => {
-        locked(workspace.write({ ...MEMBERS, 'pixi.toml': '[workspace]\nchannels = ["conda-forge"]\nplatforms = ["osx-arm64"]\n' }).root);
+    it('hold the locks and manifests alone, as a matched file edit is a project configuration change, while the uv root holding a pixi.toml keeps upgrade--pixi', async ({ workspace }) => {
+        const read = { 'uv.toml': '', '.python-version': '3.13\n', '.python-versions': '3.13\n', 'mypy.ini': '', '.mypy.ini': '', 'setup.cfg': '', 'ty.toml': '', 'pytest.toml': '', '.pytest.toml': '', 'pytest.ini': '', '.pytest.ini': '', 'tox.ini': '' };
+        const placed = Array.cartesianWith(['', 'proj/library/'], Record.toEntries(read), (folder, [file, content]) => [`${folder}${file}`, content] as const);
+        locked(workspace.write({ ...MEMBERS, 'pixi.toml': '[workspace]\nchannels = ["conda-forge"]\nplatforms = ["osx-arm64"]\n', ...Record.fromEntries(placed) }).root);
 
         const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
         const graph = await workspace.graph({ createNodes, createDependencies });
 
-        expect([matched.includes('pixi.toml'), matched.includes('uv.lock'), 'upgrade--pixi' in (graph.nodes['uv-tutorial']?.data.targets ?? {})]).toStrictEqual([false, true, true]);
+        expect(matched.toSorted()).toStrictEqual(['proj/application/pyproject.toml', 'proj/internal/pyproject.toml', 'proj/library/pyproject.toml', 'proj/virtual/pyproject.toml', 'pyproject.toml', 'uv.lock']);
+        expect('upgrade--pixi' in (graph.nodes['uv-tutorial']?.data.targets ?? {})).toBe(true);
     });
 });
 
