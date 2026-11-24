@@ -92,15 +92,14 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
     );
     const depended = Array.dedupe(dependencies.map(local)).filter(within);
     const vite = yield* loaded<typeof Vite>(file, entry, 'vite');
-    const { packages, linked, folders } = yield* packaged([...providers.map((specifier) => [specifier, entry] as const), ...(yield* parsed(vite.parseSync, workspaceRoot, depended))]);
+    const { packages } = yield* packaged([...providers.map((specifier) => [specifier, entry] as const), ...(yield* parsed(vite.parseSync, workspaceRoot, depended))]);
     return {
         suites,
         packages,
-        linked,
         loaded: depended,
         triggers: triggers.map((glob) => (isAbsolute(glob) ? local(glob) : glob)),
         shared: Array.dedupe([attachmentsDir, ...reports].map((at) => local(resolve(root, at)))),
-        sources: Array.dedupe([...depended, ...folders.map((at) => posix.join(local(at), '**/*')), 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...(listed ? workspaces.positive : []), ...probes.flatMap((probe) => probe.manifests)]),
+        sources: Array.dedupe([...depended, 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...(listed ? workspaces.positive : []), ...probes.flatMap((probe) => probe.manifests)]),
     };
 });
 
@@ -121,13 +120,13 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         ([message]) => Schema.decodeUnknownEffect(Surveyed)(message),
     );
     const report = yield* Surveyed.match(config, {
-        Plain: ({ dependencies }): ReturnType<typeof surveyed> => Effect.succeed({ suites: [], packages: [], linked: [], loaded: [], triggers: [], shared: [], sources: [file, ...dependencies.map((at) => normalizePath(relative(workspaceRoot, at))).filter(within)] }),
+        Plain: ({ dependencies }): ReturnType<typeof surveyed> => Effect.succeed({ suites: [], packages: [], loaded: [], triggers: [], shared: [], sources: [file, ...dependencies.map((at) => normalizePath(relative(workspaceRoot, at))).filter(within)] }),
         Suite: (suite) => surveyed(workspaceRoot, file, suite),
     });
     return { ...report, stamp: yield* stamp(report.sources) };
 });
 
-const targets = (file: string, { loaded: configs, packages, linked, triggers, shared, suites }: Resolved, { root, projects, setup, coverage, written }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: Options, exec: string): Verbs => {
+const targets = (file: string, { loaded: configs, packages, triggers, shared, suites }: Resolved, { root, projects, setup, coverage, written }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: Options, exec: string): Verbs => {
     const rooted = getRootTsConfigFileName();
     const outside = Record.filter(
         { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) },
@@ -139,19 +138,7 @@ const targets = (file: string, { loaded: configs, packages, linked, triggers, sh
             options: { config: file, projects, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(outputPath), (at) => ({ attachmentsDir: posix.join(at, ATTACHMENTS) }))) },
             dependsOn: ['codegen--*', '^codegen--*'],
             cache: true,
-            inputs: [
-                'default',
-                upstream,
-                ...Array.match(linked, {
-                    onEmpty: () => [],
-                    onNonEmpty: (owners) => [{ input: 'default', projects: [...owners] }],
-                }),
-                ...Object.values(outside),
-                ...triggers.map((at) => posix.join('{workspaceRoot}', at)),
-                { externalDependencies: Array.dedupe(['vitest', ...packages]) },
-                { env: 'CI' },
-                { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true },
-            ],
+            inputs: ['default', upstream, ...Object.values(outside), ...triggers.map((at) => posix.join('{workspaceRoot}', at)), { externalDependencies: Array.dedupe(['vitest', ...packages]) }, { env: 'CI' }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
             outputs: [...Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])]).filter((at, _index, all) => !all.some((folder) => at.startsWith(`${folder}/`))), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
             configurations: {
                 coverage: { coverage: { enabled: true, reporter: 'lcovonly', ...(coveragePath === undefined ? {} : { reportsDirectory: coveragePath }) } },

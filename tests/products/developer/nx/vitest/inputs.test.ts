@@ -76,7 +76,7 @@ describe('test--vitest inference reused across graph runs', () => {
 
         const graph = await workspace.write({ [LOADS]: '', 'libs/helper/index.js': "export const include = ['*.spec.ts'];\n" }).graph({ createNodes });
 
-        expect([loads(workspace.root), graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs]).toStrictEqual([1, expect.arrayContaining([{ input: 'default', projects: ['helper'] }])]);
+        expect([loads(workspace.root), graph.nodes['lib']?.data.targets?.['test--vitest']?.inputs]).toStrictEqual([1, expect.arrayContaining(['{workspaceRoot}/libs/helper/index.js'])]);
     });
 
     it('leaves the plugin cache file unwritten while every configuration is reused', async ({ workspace }) => {
@@ -101,6 +101,22 @@ describe('test--vitest hashes the files a run loads outside its project', () => 
         const files = await hashed(graph, workspace.root, 'lib');
 
         expect([files.includes(loaded), files.includes('tools/vitest/unused.mts')]).toStrictEqual([true, false]);
+    });
+
+    it('hashes the modules a config loads from a linked workspace package and no other file of that package', async ({ workspace }) => {
+        workspace.write({
+            ...LIB,
+            'libs/helper/package.json': '{"name":"helper","type":"module","exports":{"./settings":"./settings.js"}}',
+            'libs/helper/settings.js': "export { include } from './include.js';\n",
+            'libs/helper/include.js': "export const include = ['*.test.ts'];\n",
+            'libs/helper/unused.js': 'export const unused = true;\n',
+            'libs/lib/vitest.config.ts': "import { include } from 'helper/settings';\n\nexport default { test: { include } };\n",
+        });
+        symlinkSync(join(workspace.root, 'libs/helper'), join(workspace.root, 'node_modules/helper'), 'dir');
+        const graph = await workspace.graph({ createNodes });
+        const files = await hashed(graph, workspace.root, 'lib');
+
+        expect(['libs/helper/settings.js', 'libs/helper/include.js', 'libs/helper/unused.js'].map((at) => files.includes(at))).toStrictEqual([true, true, false]);
     });
 
     it('hashes a root configuration from the package whose project it lists', async ({ workspace }) => {

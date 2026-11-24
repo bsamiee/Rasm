@@ -1,6 +1,6 @@
-import { createRequire } from 'node:module';
+import { createRequire, registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parentPort, workerData } from 'node:worker_threads';
 import { retryOnRequireEsmRace } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Option, Predicate, Schema } from 'effect';
@@ -64,20 +64,45 @@ const surveyed = Effect.fnUntraced(function* ({ file, entry, name, attachmentsDi
 });
 
 const read = Effect.fnUntraced(function* (task: typeof Task.Type) {
+    const resolved = new Set<string>();
+    yield* Effect.acquireRelease(
+        Effect.sync(() =>
+            registerHooks({
+                resolve: (specifier, context, nextResolve) => {
+                    const module = nextResolve(specifier, context);
+                    resolved.add(module.url);
+                    return module;
+                },
+            }),
+        ),
+        (hooks) => Effect.sync(() => hooks.deregister()),
+    );
     const plain = yield* Effect.when(
         Effect.flatMap(loaded<typeof Vite>(task.file, task.entry, 'vite'), (vite) =>
             Effect.tryPromise({ try: () => retryOnRequireEsmRace(() => vite.resolveConfig({ configFile: task.entry, root: dirname(task.entry), logLevel: 'silent' }, 'serve', 'test')), catch: (cause) => new Cause.UnknownError(cause, `${task.file} does not load for vite serve`) }),
         ),
         Effect.succeed(!task.suite),
     );
-    return yield* Option.match(
-        Option.filter(plain, (resolved) => !Object.hasOwn(resolved, 'test')),
+    const report = yield* Option.match(
+        Option.filter(plain, (config) => !Object.hasOwn(config, 'test')),
         {
             onSome: ({ configFileDependencies }) => Effect.succeed({ _tag: 'Plain' as const, dependencies: configFileDependencies }),
             onNone: () => surveyed(task),
         },
     );
-});
+    return {
+        ...report,
+        dependencies: Array.dedupe([
+            ...report.dependencies,
+            ...Array.getSomes(
+                Array.map(
+                    Array.fromIterable(resolved),
+                    Option.liftThrowable((url: string) => fileURLToPath(url)),
+                ),
+            ),
+        ]),
+    };
+}, Effect.scoped);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
