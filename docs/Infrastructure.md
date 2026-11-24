@@ -19,7 +19,7 @@ Each place holding state changes through one action:
 Machines, their reinstall, and images their stacks run:
 - Table `hosts` keys machines by DNS name, names state no role, provider, or location, and each service a role runs takes a DNS alias
 - Each machine holds DNS record `<name>.<zone>`, tailnet name `<name>`, and a Pulumi stack named by its DNS name
-- Stack `rasm` holds a Hostinger post-install script joining reinstalled machines to the tailnet with Tailscale SSH under key `machines` and its tags
+- Stack `rasm` holds a Hostinger post-install script joining reinstalled machines to the tailnet with Tailscale SSH under their tags
 - `set-hostname` restores a machine's hostname after its tailnet join and resets it with no shutdown, and post-install scripts flush writes first
 - `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine and erases its hostname
 - Reinstalls follow `tscli delete device`, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote` follows
