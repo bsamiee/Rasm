@@ -1,5 +1,10 @@
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 
+[bootstrap.files."/etc/apt/apt.conf.d/53unattended-upgrades-runner"]
+content = '''
+Unattended-Upgrade::Automatic-Reboot "false";
+'''
+
 [bootstrap.files."/etc/needrestart/conf.d/actions_runner_services.conf"]
 content = '''
 $nrconf{override_rc}{qr(^actions\.runner\..+\.service$)} = 0;
@@ -10,6 +15,30 @@ content = """
 runner ALL=(ALL) NOPASSWD:ALL
 """
 mode    = "0440"
+
+[bootstrap.files."/etc/systemd/system/reboot-when-idle.service"]
+content = """
+[Unit]
+Description=Reboot for an update once no workflow run of the runners' repository is queued or in progress
+ConditionPathExists=/run/reboot-required
+Wants=network-online.target
+After=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'url=$$(jq -rn "first(inputs.gitHubUrl)" /home/runner/actions-runner-*/.runner) && count=$$(curl -fsS "https://api.github.com/repos/$${url#https://github.com/}/actions/runs?per_page=100" | jq "[.workflow_runs[] | select(.conclusion == null)] | length") && [ "$$count" = 0 ] && exec systemctl reboot; echo "Skipping the reboot for $${count:-unknown} unfinished runs"'
+"""
+notify  = ["reboot-when-idle.timer"]
+
+[bootstrap.files."/etc/systemd/system/reboot-when-idle.timer"]
+content = """
+[Unit]
+Description=Hourly reboot check for an update requiring one
+[Timer]
+OnCalendar=hourly
+[Install]
+WantedBy=timers.target
+"""
+notify  = ["reboot-when-idle.timer"]
 
 [bootstrap.groups.docker]
 system = true
@@ -31,6 +60,9 @@ system = true
 "apt:sqlite3"         = "latest"
 "apt:unzip"           = "latest"
 "apt:zip"             = "latest"
+
+[bootstrap.services]
+"reboot-when-idle.timer" = {}
 
 [bootstrap.users.runner]
 create_home = true
