@@ -108,9 +108,28 @@ const it = nx
     });
 
 describe('files Nx hands the plugin', () => {
-    it('are the manifests and containers that make a project alone, so a setting, scheme, plist, entitlements, or test plan edit is no project configuration change', async ({ workspace }) => {
-        const markers = ['A/A.xcodeproj/project.pbxproj', 'A/A.xcodeproj/project.xcproj', 'W.xcworkspace/contents.xcworkspacedata', 'proj/Package.swift', 'proj/Package@swift-6.4.swift'];
-        workspace.write(Record.fromIterableWith([...markers, '.config/xcode.xcconfig', 'Xcode.xcconfig', 'A/A.xcodeproj/xcshareddata/xcschemes/A.xcscheme', 'W.xcworkspace/xcshareddata/xcschemes/W.xcscheme', 'A/Info.plist', 'A/Settings.plist', 'A/A.entitlements', 'A/A.xctestplan'], (at) => [at, '']));
+    it('are the Xcode containers alone, so a package manifest at the workspace root charges no project configuration change to the root project, nor does a setting, scheme, plist, entitlements, or test plan edit', async ({ workspace }) => {
+        const markers = ['A/A.xcodeproj/project.pbxproj', 'A/A.xcodeproj/project.xcproj', 'W.xcworkspace/contents.xcworkspacedata'];
+        workspace.write(
+            Record.fromIterableWith(
+                [
+                    ...markers,
+                    'Package.swift',
+                    'Package@swift-6.4.swift',
+                    'proj/Package.swift',
+                    'proj/Package@swift-6.4.swift',
+                    '.config/xcode.xcconfig',
+                    'Xcode.xcconfig',
+                    'A/A.xcodeproj/xcshareddata/xcschemes/A.xcscheme',
+                    'W.xcworkspace/xcshareddata/xcschemes/W.xcscheme',
+                    'A/Info.plist',
+                    'A/Settings.plist',
+                    'A/A.entitlements',
+                    'A/A.xctestplan',
+                ],
+                (at) => [at, ''],
+            ),
+        );
 
         const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
 
@@ -143,6 +162,15 @@ describe('graph cache', { timeout: 240_000 }, () => {
             upgraded: ['Lib', 'Renamed'],
             stored: 1,
         });
+    });
+
+    it('drops the projects of a package whose manifest is deleted after a first graph', async ({ workspace }) => {
+        workspace.write({ 'proj/Package.swift': PACKAGE, 'proj/Sources/Lib/Lib.swift': 'public let lib = 1\n', 'other/Package.swift': `${TOOLS}let package = Package(name: "Other", targets: [.target(name: "Kept")])\n`, 'other/Sources/Kept/Kept.swift': 'public let kept = 1\n' });
+
+        const whole = await workspace.graph({ createNodes, createDependencies });
+        const deleted = await workspace.remove('other/Package.swift').graph({ createNodes, createDependencies });
+
+        expect({ whole: Record.keys(whole.nodes).toSorted(), deleted: Record.keys(deleted.nodes).toSorted() }).toStrictEqual({ whole: ['Kept', 'Lib', 'Other', 'Proj'], deleted: ['Lib', 'Proj'] });
     });
 
     it('describes again after an edit to a setting, scheme, plist, or entitlements file the analysis reads, though none marks a project', async ({ workspace, swift }) => {

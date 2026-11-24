@@ -19,8 +19,9 @@ interface Graph {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FILES = combineGlobPatterns([MANIFEST, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcodeproj/project.pbxproj', '*.xcworkspace/contents.xcworkspacedata'].map((file) => `**/${file}`));
-const READ = [FILES, ...['*.xcscheme', '*.xcconfig', '*.xctestplan', '*.entitlements', '*.plist'].map((file) => `**/${file}`)];
+const FILES = combineGlobPatterns(['*.xcodeproj/project.xcproj', '*.xcodeproj/project.pbxproj', '*.xcworkspace/contents.xcworkspacedata'].map((file) => `**/${file}`));
+const MANIFESTS = combineGlobPatterns([MANIFEST, 'Package@swift-*.swift'].map((file) => `**/${file}`));
+const READ = [FILES, MANIFESTS, ...['*.xcscheme', '*.xcconfig', '*.xctestplan', '*.entitlements', '*.plist'].map((file) => `**/${file}`)];
 const HOST: NodeJS.Platform = 'darwin';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -186,7 +187,7 @@ const run = runner(Graphs.layer);
 const createNodes: CreateNodes = [
     FILES,
     inferring(Options, run, function* (matched, settings, { workspaceRoot }) {
-        const [files, fs] = [process.platform === HOST ? matched.toSorted() : [], yield* FileSystem.FileSystem];
+        const [files, fs] = [process.platform === HOST ? [...matched, ...(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [MANIFESTS])))].toSorted() : [], yield* FileSystem.FileSystem];
         const [hashed, developer, swift, compiled] = yield* Effect.all(
             [
                 own,

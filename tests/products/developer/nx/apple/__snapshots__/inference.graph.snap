@@ -1,0 +1,2495 @@
+{
+  "Consumer": {
+    "root": "packages/consumer",
+    "targets": {
+      "build": [
+        "{workspaceRoot}/packages/consumer/Sources/Consumer/**/*",
+        "{workspaceRoot}/packages/consumer/Package.swift",
+        "{workspaceRoot}/packages/consumer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/consumer/Package.resolved",
+        "{workspaceRoot}/packages/consumer/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--swift-build": [
+        "{workspaceRoot}/packages/consumer/Sources/Consumer/**/*",
+        "{workspaceRoot}/packages/consumer/Package.swift",
+        "{workspaceRoot}/packages/consumer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/consumer/Package.resolved",
+        "{workspaceRoot}/packages/consumer/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "{workspaceRoot}/packages/consumer/Sources/Consumer/**/*",
+        "{workspaceRoot}/packages/consumer/Package.swift",
+        "{workspaceRoot}/packages/consumer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/consumer/Package.resolved",
+        "{workspaceRoot}/packages/consumer/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--swift-build": [
+        "{workspaceRoot}/packages/consumer/Sources/Consumer/**/*",
+        "{workspaceRoot}/packages/consumer/Package.swift",
+        "{workspaceRoot}/packages/consumer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/consumer/Package.resolved",
+        "{workspaceRoot}/packages/consumer/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "{workspaceRoot}/packages/consumer/Sources/Consumer/**/*",
+        "{workspaceRoot}/packages/consumer/Package.swift",
+        "{workspaceRoot}/packages/consumer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/consumer/Package.resolved",
+        "{workspaceRoot}/packages/consumer/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "{workspaceRoot}/packages/consumer/Sources/Consumer/**/*",
+        "{workspaceRoot}/packages/consumer/Package.swift",
+        "{workspaceRoot}/packages/consumer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/consumer/Package.resolved",
+        "{workspaceRoot}/packages/consumer/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install": [
+        "{workspaceRoot}/packages/consumer/Sources/Consumer/**/*",
+        "{workspaceRoot}/packages/consumer/Package.swift",
+        "{workspaceRoot}/packages/consumer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/consumer/Package.resolved",
+        "{workspaceRoot}/packages/consumer/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install--swift-package": [
+        "{workspaceRoot}/packages/consumer/Sources/Consumer/**/*",
+        "{workspaceRoot}/packages/consumer/Package.swift",
+        "{workspaceRoot}/packages/consumer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/consumer/Package.resolved",
+        "{workspaceRoot}/packages/consumer/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade": [
+        "{workspaceRoot}/packages/consumer/Sources/Consumer/**/*",
+        "{workspaceRoot}/packages/consumer/Package.swift",
+        "{workspaceRoot}/packages/consumer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/consumer/Package.resolved",
+        "{workspaceRoot}/packages/consumer/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade--swift-package": [
+        "{workspaceRoot}/packages/consumer/Sources/Consumer/**/*",
+        "{workspaceRoot}/packages/consumer/Package.swift",
+        "{workspaceRoot}/packages/consumer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/consumer/Package.resolved",
+        "{workspaceRoot}/packages/consumer/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Core": {
+    "root": "libs/Core",
+    "targets": {
+      "build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--xcodebuild": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--xcodebuild": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "test": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "test--xcodebuild": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Fixture-Package": {
+    "root": "Fixture.xcworkspace",
+    "targets": {
+      "build": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--xcodebuild": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--xcodebuild": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+      ],
+      "clean--swift-package": [
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--xcodebuild": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "test": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "test--xcodebuild": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade": [
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+      ],
+      "upgrade--swift-package": [
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade--xcodebuild": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Kit": {
+    "root": "packages/kit/Sources/Kit",
+    "targets": {
+      "build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--swift-build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "default",
+        "^default",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--swift-build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "default",
+        "^default",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "default",
+        "^default",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install": [
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install--swift-package": [
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "KitPackage": {
+    "root": "packages/kit",
+    "targets": {
+      "build": [
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--swift-build": [
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--swift-build": [
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade": [
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade--swift-package": [
+        "{workspaceRoot}/packages/kit/Sources/Kit/**/*",
+        "{workspaceRoot}/packages/kit/Package.swift",
+        "{workspaceRoot}/packages/kit/Package@swift-*.swift",
+        "{workspaceRoot}/packages/kit/Package.resolved",
+        "{workspaceRoot}/packages/kit/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Loose": {
+    "root": "libs/Loose",
+    "targets": {
+      "build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--xcodebuild": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--xcodebuild": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Middle": {
+    "root": "libs/Middle",
+    "targets": {
+      "build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--xcodebuild": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--xcodebuild": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Probe": {
+    "root": "apps/Viewer/Probe",
+    "targets": {
+      "build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--swift-build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "default",
+        "^default",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--swift-build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "default",
+        "^default",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "default",
+        "^default",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install": [
+        "{workspaceRoot}/apps/Viewer/Probe/**/*",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package@swift-*.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        "{workspaceRoot}/apps/Viewer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install--swift-package": [
+        "{workspaceRoot}/apps/Viewer/Probe/**/*",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package@swift-*.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        "{workspaceRoot}/apps/Viewer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Quoted": {
+    "root": "x; touch pwned/Sources/Quoted",
+    "targets": {
+      "build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--swift-build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "default",
+        "^default",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--swift-build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "default",
+        "^default",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "default",
+        "^default",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Remote": {
+    "root": "packages/remote",
+    "targets": {
+      "build": [
+        "{workspaceRoot}/packages/remote/Sources/Remote/**/*",
+        "{workspaceRoot}/packages/remote/Package.swift",
+        "{workspaceRoot}/packages/remote/Package@swift-*.swift",
+        "{workspaceRoot}/packages/remote/Package.resolved",
+        "{workspaceRoot}/packages/remote/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--swift-build": [
+        "{workspaceRoot}/packages/remote/Sources/Remote/**/*",
+        "{workspaceRoot}/packages/remote/Package.swift",
+        "{workspaceRoot}/packages/remote/Package@swift-*.swift",
+        "{workspaceRoot}/packages/remote/Package.resolved",
+        "{workspaceRoot}/packages/remote/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "{workspaceRoot}/packages/remote/Sources/Remote/**/*",
+        "{workspaceRoot}/packages/remote/Package.swift",
+        "{workspaceRoot}/packages/remote/Package@swift-*.swift",
+        "{workspaceRoot}/packages/remote/Package.resolved",
+        "{workspaceRoot}/packages/remote/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--swift-build": [
+        "{workspaceRoot}/packages/remote/Sources/Remote/**/*",
+        "{workspaceRoot}/packages/remote/Package.swift",
+        "{workspaceRoot}/packages/remote/Package@swift-*.swift",
+        "{workspaceRoot}/packages/remote/Package.resolved",
+        "{workspaceRoot}/packages/remote/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "{workspaceRoot}/packages/remote/Sources/Remote/**/*",
+        "{workspaceRoot}/packages/remote/Package.swift",
+        "{workspaceRoot}/packages/remote/Package@swift-*.swift",
+        "{workspaceRoot}/packages/remote/Package.resolved",
+        "{workspaceRoot}/packages/remote/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "{workspaceRoot}/packages/remote/Sources/Remote/**/*",
+        "{workspaceRoot}/packages/remote/Package.swift",
+        "{workspaceRoot}/packages/remote/Package@swift-*.swift",
+        "{workspaceRoot}/packages/remote/Package.resolved",
+        "{workspaceRoot}/packages/remote/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install": [
+        "{workspaceRoot}/packages/remote/Sources/Remote/**/*",
+        "{workspaceRoot}/packages/remote/Package.swift",
+        "{workspaceRoot}/packages/remote/Package@swift-*.swift",
+        "{workspaceRoot}/packages/remote/Package.resolved",
+        "{workspaceRoot}/packages/remote/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install--swift-package": [
+        "{workspaceRoot}/packages/remote/Sources/Remote/**/*",
+        "{workspaceRoot}/packages/remote/Package.swift",
+        "{workspaceRoot}/packages/remote/Package@swift-*.swift",
+        "{workspaceRoot}/packages/remote/Package.resolved",
+        "{workspaceRoot}/packages/remote/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade": [
+        "{workspaceRoot}/packages/remote/Sources/Remote/**/*",
+        "{workspaceRoot}/packages/remote/Package.swift",
+        "{workspaceRoot}/packages/remote/Package@swift-*.swift",
+        "{workspaceRoot}/packages/remote/Package.resolved",
+        "{workspaceRoot}/packages/remote/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade--swift-package": [
+        "{workspaceRoot}/packages/remote/Sources/Remote/**/*",
+        "{workspaceRoot}/packages/remote/Package.swift",
+        "{workspaceRoot}/packages/remote/Package@swift-*.swift",
+        "{workspaceRoot}/packages/remote/Package.resolved",
+        "{workspaceRoot}/packages/remote/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Shell": {
+    "root": "x; touch pwned",
+    "targets": {
+      "build": [
+        "{workspaceRoot}/x; touch pwned/Sources/Quoted/**/*",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package@swift-*.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        "{workspaceRoot}/x; touch pwned/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--swift-build": [
+        "{workspaceRoot}/x; touch pwned/Sources/Quoted/**/*",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package@swift-*.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        "{workspaceRoot}/x; touch pwned/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "{workspaceRoot}/x; touch pwned/Sources/Quoted/**/*",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package@swift-*.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        "{workspaceRoot}/x; touch pwned/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--swift-build": [
+        "{workspaceRoot}/x; touch pwned/Sources/Quoted/**/*",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package@swift-*.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        "{workspaceRoot}/x; touch pwned/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "{workspaceRoot}/x; touch pwned/Sources/Quoted/**/*",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package@swift-*.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        "{workspaceRoot}/x; touch pwned/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "{workspaceRoot}/x; touch pwned/Sources/Quoted/**/*",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package@swift-*.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        "{workspaceRoot}/x; touch pwned/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade": [
+        "{workspaceRoot}/x; touch pwned/Sources/Quoted/**/*",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package@swift-*.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        "{workspaceRoot}/x; touch pwned/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade--swift-package": [
+        "{workspaceRoot}/x; touch pwned/Sources/Quoted/**/*",
+        "{workspaceRoot}/x; touch pwned/Package.swift",
+        "{workspaceRoot}/x; touch pwned/Package@swift-*.swift",
+        "{workspaceRoot}/x; touch pwned/Package.resolved",
+        "{workspaceRoot}/x; touch pwned/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Signer": {
+    "root": "packages/signer",
+    "targets": {
+      "attach": [
+        {
+          "dependentTasksOutputFiles": "**/*",
+          "transitive": true,
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "attach--gh": [
+        {
+          "dependentTasksOutputFiles": "**/*",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--swift-build": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--swift-build": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install--swift-package": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "pack": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/Info.plist",
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "pack--ditto": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/Info.plist",
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade--swift-package": [
+        "{workspaceRoot}/packages/signer/Sources/Signer/**/*",
+        "{workspaceRoot}/packages/signer/Package.swift",
+        "{workspaceRoot}/packages/signer/Package@swift-*.swift",
+        "{workspaceRoot}/packages/signer/Package.resolved",
+        "{workspaceRoot}/packages/signer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Tool": {
+    "root": "apps/Tool",
+    "targets": {
+      "attach": [
+        {
+          "dependentTasksOutputFiles": "**/*",
+          "transitive": true,
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "attach--gh": [
+        {
+          "dependentTasksOutputFiles": "**/*",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--xcodebuild": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--xcodebuild": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--swift-package": [
+        "default",
+        "^default",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package.resolved",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install": [
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install--swift-package": [
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "pack": [
+        "{workspaceRoot}/apps/Tool/Info.plist",
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "pack--ditto": [
+        "{workspaceRoot}/apps/Tool/Info.plist",
+        "{workspaceRoot}/apps/Tool/**/*",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/libs/Loose/**/*",
+        "{workspaceRoot}/libs/tests/CoreTests/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+  "Viewer": {
+    "root": "apps/Viewer",
+    "targets": {
+      "attach": [
+        {
+          "dependentTasksOutputFiles": "**/*",
+          "transitive": true,
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "attach--gh": [
+        {
+          "dependentTasksOutputFiles": "**/*",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build": [
+        "{workspaceRoot}/apps/Viewer/Probe/**/*",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package@swift-*.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        "{workspaceRoot}/apps/Viewer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+      ],
+      "build--swift-build": [
+        "{workspaceRoot}/apps/Viewer/Probe/**/*",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package@swift-*.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        "{workspaceRoot}/apps/Viewer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "build--xcodebuild": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check": [
+        "{workspaceRoot}/apps/Viewer/Probe/**/*",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package@swift-*.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        "{workspaceRoot}/apps/Viewer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+      ],
+      "check--swift-build": [
+        "{workspaceRoot}/apps/Viewer/Probe/**/*",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package@swift-*.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        "{workspaceRoot}/apps/Viewer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "check--xcodebuild": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean": [
+        "{workspaceRoot}/apps/Viewer/Probe/**/*",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package@swift-*.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        "{workspaceRoot}/apps/Viewer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+      ],
+      "clean--swift-package": [
+        "{workspaceRoot}/apps/Viewer/Probe/**/*",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package@swift-*.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        "{workspaceRoot}/apps/Viewer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "clean--xcodebuild": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "install--xcodebuild": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "nx-release-publish": [
+        {
+          "dependentTasksOutputFiles": "**/*.dmg",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "pack": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+        {
+          "env": "ASC_API_KEY_ID",
+        },
+      ],
+      "pack--ditto": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+        {
+          "env": "ASC_API_KEY_ID",
+        },
+      ],
+      "upgrade": [
+        "{workspaceRoot}/apps/Viewer/Probe/**/*",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package@swift-*.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        "{workspaceRoot}/apps/Viewer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+      ],
+      "upgrade--swift-package": [
+        "{workspaceRoot}/apps/Viewer/Probe/**/*",
+        "{workspaceRoot}/apps/Viewer/Package.swift",
+        "{workspaceRoot}/apps/Viewer/Package@swift-*.swift",
+        "{workspaceRoot}/apps/Viewer/Package.resolved",
+        "{workspaceRoot}/apps/Viewer/.swiftpm/configuration/*.json",
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+      "upgrade--xcodebuild": [
+        "{projectRoot}/**/*",
+        "{workspaceRoot}/apps/Viewer/Configs/Base.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Configs/Signing.xcconfig",
+        "{workspaceRoot}/apps/Viewer/Support/Info.plist",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer-Release.entitlements",
+        "{workspaceRoot}/apps/Viewer/Support/Viewer.entitlements",
+        "{workspaceRoot}/.config/shared.xcconfig",
+        "{workspaceRoot}/libs/Middle/**/*",
+        "{workspaceRoot}/libs/Core/**/*",
+        "{workspaceRoot}/Package.swift",
+        "{workspaceRoot}/Package@swift-*.swift",
+        "{workspaceRoot}/.swiftpm/configuration/*.json",
+        "{workspaceRoot}/Fixture.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "{workspaceRoot}/Package.resolved",
+        "{workspaceRoot}/Fixture.xcworkspace/contents.xcworkspacedata",
+        {
+          "runtime": "xcodebuild -version",
+        },
+        {
+          "runtime": "swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version",
+        },
+        {
+          "runtime": "node -p process.platform+process.arch",
+        },
+        {
+          "externalDependencies": [],
+        },
+      ],
+    },
+  },
+}

@@ -7,7 +7,7 @@ import { createDependencies, createNodes } from '@rasm/nx-apple';
 import { Install } from '@rasm/nx-apple/executors/install';
 import { execute, Run } from '@rasm/nx-apple/executors/run';
 import { it as nx, outputs, targetOptions, unaggregated, unportable } from '@rasm/testing/nx';
-import { Array, Effect, Option, Predicate, Record, Schema } from 'effect';
+import { Array, Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => {
@@ -325,5 +325,9 @@ describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
 describe('the graph as a whole', { timeout: 240_000 }, () => {
     it('runs every tool target through its verb and states no machine path', ({ fixture: { graph, root } }) => {
         expect({ unaggregated: unaggregated(graph), unportable: unportable(graph), machine: JSON.stringify(graph).includes(root) }).toStrictEqual({ unaggregated: [], unportable: [], machine: false });
+    });
+
+    it('infers each project at its root with the targets and inputs recorded from the plugin while Nx handed it package manifests', async ({ fixture: { graph } }) => {
+        await expect(Record.map(graph.nodes, ({ data: { root, targets = {} } }) => ({ root, targets: Record.map(targets, Struct.get('inputs')) }))).toMatchFileSnapshot('__snapshots__/inference.graph.snap');
     });
 });
