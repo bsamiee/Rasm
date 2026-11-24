@@ -14,7 +14,8 @@ import { ANALYZER, Edges, ENVIRONMENT, line, Node, PLUGIN, publishing, run, targ
 
 const PROJECTS = ['.csproj', '.fsproj', '.vbproj'];
 const SOLUTIONS = ['.slnx', '.sln'];
-const FILES = combineGlobPatterns([`*{${[...PROJECTS, ...SOLUTIONS].join(',')},.props,.targets,.globalconfig}`, 'global.json', 'Directory.Build.rsp', 'nuget.config', 'NuGet.config', 'NuGet.Config', '.editorconfig'].map((file) => `**/${file}`));
+const FILES = `**/*{${[...PROJECTS, ...SOLUTIONS].join(',')}}`;
+const SIDES = combineGlobPatterns(['*{.props,.targets,.globalconfig}', 'global.json', 'Directory.Build.rsp', 'nuget.config', 'NuGet.config', 'NuGet.Config', '.editorconfig'].map((file) => `**/${file}`));
 const PLATFORMS: Readonly<Record<string, NodeJS.Platform>> = { windows: 'win32', macos: 'darwin', maccatalyst: 'darwin', ios: 'darwin', tvos: 'darwin' };
 const SOURCE = format({ dir: dirname(dirname(ANALYZER)), name: parse(ANALYZER).name, ext: '.csproj' });
 const SUMS = format({ dir: dirname(ANALYZER), name: parse(ANALYZER).name, ext: '.sha256' });
@@ -166,7 +167,7 @@ const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests:
 const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArray<string>, settings: Options, { workspaceRoot }: CreateNodesContext) {
     const [fs, edges, hashed] = yield* Effect.all([FileSystem.FileSystem, Edges, own]);
     const slot = join(workspaceDataDirectory, 'dotnet.hash');
-    const key = hashArray([hashObject(settings), hashed, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched]))]);
+    const key = hashArray([hashObject(settings), hashed, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched, SIDES]))]);
     const host = yield* ready(workspaceRoot, matched);
     const entries = Option.isSome(host) ? (new PluginCache<readonly { readonly report: Report; readonly stamp: string }[]>(slot).get(key) ?? []) : [];
     const cached = yield* Effect.findFirst(entries, (entry) => Effect.map(stamped(workspaceRoot, host, entry.report), Equal.equals(entry.stamp)));

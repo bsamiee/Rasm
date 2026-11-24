@@ -2,6 +2,7 @@ import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { refused } from '@rasm/testing/errors';
 import { environment, it, pathed, shimmed } from '@rasm/testing/nx';
@@ -57,6 +58,23 @@ describe('analysis cache', { timeout: 240_000 }, () => {
         expect([reads, reused, shim.analyses()]).toStrictEqual([[['App'], ['App'], ['App']], 1, 2]);
     });
 
+    it.for([
+        { kind: 'a Directory.Build.props MSBuild probes for', added: 'apps/Directory.Build.props', text: '<Project />\n' },
+        { kind: 'an .editorconfig no evaluation probes for', added: 'apps/.editorconfig', text: 'root = false\n' },
+    ])('analyzes again once $kind lands in a folder above the project, and hashes it in build--dotnet', async ({ added, text }, { workspace }) => {
+        const shim = counted();
+        const read = async () => {
+            const { nodes } = await workspace.write({ 'apps/App/App.csproj': LIBRARY }).graph({ createNodes, createDependencies });
+            return nodes['App']?.data.targets?.['build--dotnet']?.inputs ?? [];
+        };
+        const [before] = [await read(), await read()];
+
+        workspace.write({ [added]: text });
+        const after = await read();
+
+        expect([before.includes(`{workspaceRoot}/${added}`), after.includes(`{workspaceRoot}/${added}`), shim.analyses()]).toStrictEqual([false, true, 2]);
+    });
+
     it('states in the graph an edit to a file the project imports, read on the next graph', async ({ workspace }) => {
         const importing = '<Project Sdk="Microsoft.NET.Sdk">\n  <Import Project="../../build/Common.msbuild" />\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n  </PropertyGroup>\n</Project>\n';
         const before = await workspace.write({ 'apps/App/App.csproj': importing, 'build/Common.msbuild': '<Project />\n' }).graph({ createNodes, createDependencies });
@@ -74,6 +92,18 @@ describe('analysis cache', { timeout: 240_000 }, () => {
         await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/^The project file could not be loaded\. /u));
 
         expect(shim.analyses()).toBe(2);
+    });
+});
+
+describe('files Nx hands the plugin', () => {
+    it('are the project and solution files alone, so an edit to a file MSBuild, NuGet, or the SDK finds beside them is no project configuration change', async ({ workspace }) => {
+        const markers = ['Workspace.slnx', 'apps/App/App.csproj', 'apps/Fs/Fs.fsproj', 'apps/Vb/Vb.vbproj', 'tools/Tools.sln'];
+        const sides = ['.config/.globalconfig', '.editorconfig', 'Directory.Build.props', 'Directory.Build.rsp', 'Directory.Build.targets', 'Directory.Packages.props', 'apps/NuGet.config', 'build/Common.targets', 'global.json', 'libs/Directory.Build.props', 'libs/NuGet.Config', 'nuget.config'];
+        workspace.write(Object.fromEntries([...markers, ...sides].map((at) => [at, ''])));
+
+        const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
+
+        expect(matched.toSorted()).toStrictEqual(markers);
     });
 });
 
