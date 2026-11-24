@@ -1,12 +1,13 @@
-import { Array, Effect, Function, Option, Predicate, Result, Struct } from 'effect';
+import { Array, Effect, Function, Match, Option, Predicate, Result, String, Struct } from 'effect';
 import type { Host } from '#/host';
-import { all, commandOf, edited, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, refuse, relocated, respell, unresolved, when, whole } from '#/rules/rule';
+import { all, commandOf, edited, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, refuse, relocated, respell, spelled, unresolved, when, whole } from '#/rules/rule';
 import type { Argument } from '#/shell/arguments';
 import type { Invocation } from '#/shell/invocation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const BRANCHES = ['changes branches', 'stay on this branch'] as const;
+const MOVES = 'moves the HEAD every session shares';
 const OVERWRITES = ['overwrites uncommitted edits another session may own', 'read git diff and undo only your own hunks with your file edit tool'] as const;
 const HOOKS = ['skips the commit hooks', 'fix what they report'] as const;
 const HISTORY = ['rewrites shared history', 'commit forward'] as const;
@@ -62,13 +63,47 @@ const dirty = (host: Host['Service'], invocation: Invocation, paths: readonly st
         () => true,
     );
 
+const namesPaths = (host: Host['Service'], invocation: Invocation) =>
+    Option.match(Array.head(invocation.operands), {
+        onNone: () => Effect.succeed(false),
+        onSome: (first) => (invocation.tail.length > 0 || invocation.operands.length > 1 || first.text === '.' || first.text.startsWith(':') ? Effect.succeed(true) : Effect.map(present(host, invocation, first.text), (found) => found && first.text !== '-')),
+    });
+
+const movedHead: Rule = Effect.fnUntraced(function* (invocation, { host }) {
+    const detached = invocation.has('--detach');
+    const target = Array.head(invocation.operands);
+    if ((!detached && Option.isNone(target)) || (yield* namesPaths(host, invocation))) {
+        return [];
+    }
+    const repository = Option.getOrElse(repositoryOf(host, invocation), () => host.root);
+    const branch = Option.liftPredicate((yield* host.output(['git', '-C', repository, 'symbolic-ref', '--short', '-q', 'HEAD'])).trim(), String.isNonEmpty);
+    const staying = !detached && Option.exists(target, ({ known, text }) => known && Option.contains(branch, text));
+    const held = Option.getOrElse(branch, () => 'HEAD');
+    const subject = detached ? '--detach' : Option.match(target, { onNone: () => '--detach', onSome: ({ text }) => text });
+    return staying ? [] : refusal(`${commandOf(invocation)} ${subject} ${MOVES} off ${held}, stay on ${held} and read other commits through git show <commit>:<path>`);
+});
+
+const cleanMerge: Rule = Effect.fnUntraced(function* (invocation, { host }) {
+    const { operands } = invocation;
+    if (operands.length > 1 || !operands.every(({ known }) => known)) {
+        return refusal(`${commandOf(invocation)} ${spelled(operands)} names more than one branch or one that expands later, merge one literal branch at a time`);
+    }
+    const target = Option.getOrElse(Option.map(Array.head(operands), Struct.get('text')), () => '@{upstream}');
+    const { code, stderr } = yield* host.run(['git', '-C', Option.getOrElse(repositoryOf(host, invocation), () => host.root), 'merge-tree', '--write-tree', '--quiet', 'HEAD', target]);
+    return Match.value(code).pipe(
+        Match.when(0, () => []),
+        Match.when(1, () => refusal(`${commandOf(invocation)} ${target} conflicts with HEAD, which leaves conflict markers in the tree every session shares, merge it in a clone under "$TMPDIR"`)),
+        Match.orElse(() => refusal(`${commandOf(invocation)} ${target} is no merge git merge-tree can check, ${stderr.trim()}`)),
+    );
+});
+
 const checkoutPaths: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const { operands } = invocation;
-    const [first, ...more] = operands;
+    const [first] = operands;
     if (first === undefined || invocation.has('--detach')) {
         return [];
     }
-    const paths = invocation.tail.length > 0 || more.length > 0 || first.text === '.' || first.text.startsWith(':') || (first.text !== '-' && (yield* present(host, invocation, first.text)));
+    const paths = yield* namesPaths(host, invocation);
     const uncommitted =
         paths &&
         (!operands.every(({ known }) => known) ||
@@ -183,13 +218,16 @@ const GIT: Ruleset = {
                             'filter-repo': [refuse(...HISTORY)],
                             tag: [refuse('deletes a tag', 'leave published tags in place', '-d', '--delete')],
                             'update-ref': [refuse('deletes a ref', 'leave the ref in place', '-d')],
-                            checkout: [refuse(...BRANCHES, '-b', '--orphan', '--track')],
+                            bisect: [when(Predicate.not(nested('log', 'view', 'visualize', 'help')), refuse(MOVES, 'bisect in a clone under "$TMPDIR"'))],
+                            checkout: [refuse(...BRANCHES, '-b', '--orphan', '--track'), movedHead],
                             config: [when(({ operands }) => operands.slice(0, -1).some(({ text }) => text.startsWith('alias.')), refuse(...ALIASES))],
+                            merge: [when(({ has }) => !has(...UNWINDS, '--continue'), cleanMerge)],
+                            pull: [when(({ has }) => !has('--ff-only') || has('--rebase', '-r', '--no-ff', '--ff'), refuse('merges or rebases onto the HEAD every session shares', 'run git pull --ff-only'))],
                             push: [when(Predicate.not(tagsAlone), UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune')), forcedRefs],
                             rebase: [when(({ has }) => !has(...UNWINDS), refuse('rewrites shared commits', 'merge or commit forward'))],
                             reflog: [when(nested('delete', 'drop', 'expire'), refuse('deletes entries', 'leave the reflog intact'))],
                             reset: [when(({ has }) => !has(...RESET_DISCARDS), resetTarget)],
-                            switch: [refuse(...BRANCHES, '--create', '--orphan')],
+                            switch: [refuse(...BRANCHES, '--create', '--orphan'), movedHead],
                         }),
                     ),
                 ),
