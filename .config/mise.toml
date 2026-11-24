@@ -143,7 +143,7 @@ sources = []
 
 [hooks]
 postinstall = [
-    '''node -e "JSON.parse(process.env.MISE_INSTALLED_TOOLS).some((tool) => tool.name === 'rust') && require('node:child_process').execSync('cargo clean && mise prune --tools rust', { stdio: 'inherit' })"''',
+    '''node -e "JSON.parse(process.env.MISE_INSTALLED_TOOLS).some((tool) => tool.name === 'rust') && require('node:child_process').execSync('mise prune --tools rust', { stdio: 'inherit' })"''',
     "mise deps install",
 ]
 

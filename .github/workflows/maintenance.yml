@@ -41,7 +41,6 @@ jobs:
             - uses: $/.github/actions/tools
             - run: pnpm store prune
             - run: uv cache prune --ci
-            - run: cargo clean
             - run: mise prune --yes
             - run: docker container prune --force --filter until=1h
             - run: docker volume prune --force

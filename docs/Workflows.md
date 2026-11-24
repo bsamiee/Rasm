@@ -23,7 +23,8 @@ Workflow `CI` and its jobs:
 - `nx-set-shas` walks first-parent ancestors of `HEAD~1` (`per-commit`), as its default list can pick a later commit for a re-run of an older run
 - `nx-set-shas` stops at the first commit with a successful push run, and each walked commit costs one API request
 - `max-commits` (150) covers a streak of failed CI runs on `main`, as each run walks back to the last commit with a successful run
-- Pushes and manual runs each take a concurrency group of their own, as overlapping runs find an older base and share tasks through the Nx cache
+- Pushes to `main` run one at a time from one queue (`queue: max`), where no waiting run gives way to a newer push
+- Manual runs each take a concurrency group of their own, so no push waits for one
 - `nx-set-shas` fails a run past the token's 1000 requests an hour, which seven runs walking to `max-commits` reach
 - Job `affected` runs on instance `graph`, as every other job waits for it and instance `host` holds a job behind job `linux` of an earlier run
 - `nx-set-shas` falls back to the first commit where no successful run is in reach, and every task runs, as default `HEAD~1` checks one commit
@@ -92,6 +93,7 @@ Nx remote cache and Actions caches per workflow and machine:
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
 - Job `macos` restores the Xcode compilation cache and package clones by Xcode version, workspace `Package.resolved`, `Package.swift`, and `Xcode.xcconfig`
 - Job `macos` saves both folders where its key restored none, so a saved cache holds one run's builds and no run adds to one
+- Failed and cancelled runs of job `macos` save both folders under a key the next run starts from, as Nx stores a batch's results at its end alone
 - Job `macos` caches no Swift build folder, as compilation cache hits need the build folder path alone to repeat
 - Runs read and write with `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`, and a pull request from a fork holds no secret and uses its local cache
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
@@ -114,8 +116,9 @@ Workflow `Deploy` triggers and steps:
 - Pushes apply only where `@rasm/infra` is affected between the base and head of job `affected`
 - Failed deploys fail their CI run, so `nx-set-shas` keeps the base before it and the next push applies again
 - CI job `deploy` passes `secrets: inherit`, as a called job reads environment `deploy` secrets only where its caller passes them
-- `Deploy` runs wait in one queue (`queue: max`), as a single pending run gives way to a newer one and drops a Doppler request
-- Job `newest` reads the commit `main` points at once a run leaves the queue, and job `deploy` applies that commit alone, as a newer push applies its own
+- `Deploy` jobs wait in a queue (`queue: max`), as a single pending job gives way to a newer one and drops a Doppler request
+- Scheduled and dispatched `Deploy` runs wait in the queue of pushes to `main`, so no deploy starts beside a push run's jobs on a machine
+- Manual CI runs wait for no deploy, and Docker keeps their containers through a daemon restart (`live-restore`) while a `docker` call during one fails
 - Doppler config `deploy` changes start `Deploy` through a Doppler webhook sending GitHub a `repository_dispatch` event
 - `Deploy` runs daily, applying image tags that moved with no commit
 - Job `deploy` runs on a GitHub-hosted runner and reads Doppler `deploy`
@@ -160,7 +163,7 @@ Workflow `Maintenance` jobs per runner instance:
 - Workflow `Maintenance` runs weekly before the machine update hour
 - Job `container` checks out clean, removing every ignored file of its checkout, package store included, and deletes its tool cache's mise tools
 - Job `graph` checks out clean, removing every ignored file of its checkout
-- Job `host` keeps ignored files and prunes package stores, the cargo build folder, unused mise tools and Docker objects, and week-old build cache
+- Job `host` keeps ignored files and prunes package stores, unused mise tools and Docker objects, and week-old build cache
 - Jobs `container`, `graph`, and `host` each take their instance's queue, and a reset or prune never overlaps a job there as a machine timer can
 
 ## [08]-[TIMINGS]
