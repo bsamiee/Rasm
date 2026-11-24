@@ -142,7 +142,8 @@ flowchart LR
 mise installs every tool, `[env]` holds process variables, and `[bootstrap]` holds what a machine's OS keeps across boots:
 - `mise bootstrap` configures a machine for the workspace after a clone
 - `mise install` installs every tool and project dependency and sets the rustup default to the pinned toolchain
-- New Rust toolchains run `cargo clean` and prune the old one, as a new compiler rebuilds every crate and Cargo keeps the old one's artifacts beside them
+- `mise install` runs `cargo clean` in a checkout whose build folder another compiler wrote, read from the `.rustc_info.json` Cargo keeps there
+- New compilers rebuild every crate and Cargo keeps the old one's artifacts beside them, and a new Rust toolchain prunes the old one
 - `.config/mise.toml` `[tools]` rows stay at `latest` where a backend lists releases, and a `version_regex` excludes development builds
 - Platform rows sit in the `.config/mise.<os>.toml` mise loads, as only a file limits a row to one OS
 - Doppler project `rasm` and 1Password hold every secret, a registry token as a `rasm/release` row named as the variable its publish target reads
