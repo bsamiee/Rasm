@@ -62,7 +62,7 @@ apt-get update && apt-get install -y "rhino3d=<version>" && apt-mark hold rhino3
 
 1. Checkout without persisted credentials
 2. .NET SDK install, `global.json` selecting Microsoft.Testing.Platform for `dotnet test`
-3. Rhino install before the build, as the build drops copy-local assemblies Rhino ships, and a cached build or test keyed on the installer URL skips the install
+3. Rhino install before the build, as the build drops copy-local assemblies Rhino ships, skipped on a cache hit keyed on the installer URL
 4. NuGet cache keyed on project files
 5. Build once in Release
 6. `dotnet test --no-build --results-directory <dir>` with `RHINO_TOKEN` on this step alone
@@ -71,7 +71,7 @@ apt-get update && apt-get install -y "rhino3d=<version>" && apt-mark hold rhino3
 9. Package and publish in a separate job with `needs` on the test job
 
 Job settings:
-- `concurrency` with `cancel-in-progress` per ref stops billing for superseded runs
+- `concurrency` with `cancel-in-progress` per pull request stops billing for superseded runs, and a queue (`queue: max`) keeps every push to the default branch
 - `timeout-minutes` above the hang dump timeout, a hang ends in a dump before the job is killed
 - `permissions: contents: read` at workflow level, `checks: write` on the job that reports
 - `fail-fast: false` across runners, one platform's failure keeps the other's results
