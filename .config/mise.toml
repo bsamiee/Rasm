@@ -237,7 +237,6 @@ uv                            = "latest"
 # --- [CONTAINERS]
 
 colima                                    = { os = ["macos"], version = "latest" }
-docker-compose                            = { os = ["unix"], postinstall = { run = "{{ vars.docker_plugin }}", when = "always" }, version = "latest" }
 "github:docker/buildx"                    = { bin = "docker-buildx", os = ["unix"], postinstall = { run = "{{ vars.docker_plugin }}", when = "always" }, version = "latest" }
 "github:docker/docker-credential-helpers" = { bin = "docker-credential-osxkeychain", matching = "docker-credential-osxkeychain", os = ["macos"], version = "latest" }
 "http:docker-cli"                         = { checksum_url = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz.sha256', os = ["unix"], url = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz', version = "latest", version_list_url = "https://download.docker.com/mac/static/test/aarch64/", version_order = "semver", version_regex = 'href="docker-cli_([^"]+)\.tgz"' }
