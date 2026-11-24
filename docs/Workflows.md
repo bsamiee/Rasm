@@ -90,7 +90,9 @@ Nx remote cache and Actions caches per workflow and machine:
 - Tool cache keys leave out OS and machine mise files, as those state environment, bootstrap, and dependency rows alone
 - Jobs on macOS restore the Apple analyzer, its stamp, and mise freshness state by runner image, `mise.macos.toml`, and analyzer sources
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
-- Job `macos` caches no Swift build folder, as restored folders shortened no build and Swift and Xcode tasks hit the Nx cache
+- Job `macos` restores the Xcode compilation cache and package clones by Xcode version, workspace `Package.resolved`, `Package.swift`, and `Xcode.xcconfig`
+- Job `macos` saves both folders where its key restored none, so a saved cache holds one run's builds and no run adds to one
+- Job `macos` caches no Swift build folder, as compilation cache hits need the build folder path alone to repeat
 - Runs read and write with `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`, and a pull request from a fork holds no secret and uses its local cache
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
@@ -173,6 +175,7 @@ Sources of run, job, and task times and cache hits:
 - Nx task database `*.db` of workspace data holds start, end, and status of every task in `task_history`, keyed to `task_details` by hash
 - `duckdb` reads the record through `read_json` and the task database through `ATTACH '<file>' (TYPE sqlite)`, times in milliseconds
 - Batch executors stamp each task with its own start and end, so slowest misses and the critical path of a batch hold task times
+- Nx runs one batch at a time and stores its results when it ends, and `@rasm/nx-apple:run` runs a batch's invocations in order
 - `gh api repos/<owner>/<repository>/actions/runs/<run>/jobs` returns start and end of each job and step, and `created_at` to `started_at` is queue time
 - Manual CI runs take input `uncached`, the jobs running every task of their `nx affected` step past the Nx cache over state their tools keep
 - `NX_PERF_LOGGING=true` prints each task's time and graph creation times, and `NX_PROFILE=<file>` writes a trace of a run's tasks
