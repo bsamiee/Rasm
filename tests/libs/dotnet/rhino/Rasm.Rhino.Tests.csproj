@@ -59,6 +59,10 @@
         <ProjectReference Include="../../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 
+    <ItemGroup Label="Rhino Plug-Ins">
+        <ProjectReference Include="../../../../products/apps/rhino/*/*.csproj" ReferenceOutputAssembly="false" OutputItemType="RhinoPlugIn" /> <!-- Built shells whose described icon Rhino's own loader reads -->
+    </ItemGroup>
+
     <ItemGroup Label="Rhino Test Host">
         <ProjectCapability Include="RuntimeEnvironmentVariableSupport" />
         <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute">
@@ -104,6 +108,12 @@
         <Error Condition="!Exists('$(RhinoApplication)') or !Exists('$(RunCommand)')" Text="$(MSBuildProjectName) builds and runs against Rhino $(_RhinoMajor), absent at '$(RhinoApplication)' with its .NET runtime at '$(RunCommand)'" />
         <ItemGroup>
             <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)" Condition="Exists('$(_RhinoResources)%(Filename)%(Extension)')" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="ListRhinoPlugIns" AfterTargets="ResolveProjectReferences">
+        <ItemGroup>
+            <RuntimeHostConfigurationOption Include="RhinoPlugIns" Value="@(RhinoPlugIn->'%(FullPath)')" />
         </ItemGroup>
     </Target>
 
