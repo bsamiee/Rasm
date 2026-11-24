@@ -10,6 +10,12 @@
         },
         {
             "path": "../../../../../products/developer/nx/playwright"
+        },
+        {
+            "path": "../../../../../products/developer/nx/distribution"
+        },
+        {
+            "path": "../../../../../libs/typescript/developer/nx"
         }
     ]
 }

@@ -1,6 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { env, execPath } from 'node:process';
 import { createNodes } from '@rasm/nx-distribution';
 import { execute, Upgrade } from '@rasm/nx-distribution/executors/upgrade';
 import { it, shimmed, targetOptions } from '@rasm/testing/nx';
@@ -28,24 +27,5 @@ describe('upgrade--jactionlint', () => {
         await execute({ ...(await targetOptions(Upgrade, graph, 'repo', 'upgrade--jactionlint')), ...options }, workspace.context(graph, 'repo', 'upgrade--jactionlint'));
 
         expect(readFileSync(join(workspace.root, 'ran.txt'), 'utf-8').trim().split('\n')).toStrictEqual([workspace.root, 'update', mode]);
-    });
-});
-
-describe('upgrade commands', () => {
-    it('runs a command under its env row with Nx tokens resolved, and the next command without it', async ({ workspace }) => {
-        const graph = await workspace.write({ ...repository, 'tools/record.js': "import { writeFileSync } from 'node:fs';\n\nwriteFileSync(process.argv[2], process.env.UPGRADE_DUMPS ?? 'unset');\n" }).graph({ createNodes });
-        const recorded = (file: string) => [execPath, join(workspace.root, 'tools/record.js'), file] as const;
-
-        await execute({ cwd: '.', commands: [{ apply: recorded('moved.txt'), env: { UPGRADE_DUMPS: '{root}/dumps/{projectName}-%p.dmp' } }, { apply: recorded('locked.txt') }] }, workspace.context(graph, 'repo', 'upgrade--jactionlint'));
-
-        expect([readFileSync(join(workspace.root, 'moved.txt'), 'utf-8'), readFileSync(join(workspace.root, 'locked.txt'), 'utf-8'), env['UPGRADE_DUMPS']]).toStrictEqual([`${workspace.root}/dumps/repo-%p.dmp`, 'unset', undefined]);
-    });
-
-    it('prints a command with no preview and runs nothing under a dry run', async ({ workspace }) => {
-        const graph = await workspace.write({ ...repository, 'tools/record.js': "import { writeFileSync } from 'node:fs';\n\nwriteFileSync(process.argv[2], 'ran');\n" }).graph({ createNodes });
-
-        await execute({ cwd: '.', dryRun: true, commands: [{ apply: [execPath, join(workspace.root, 'tools/record.js'), 'moved.txt'] }] }, workspace.context(graph, 'repo', 'upgrade--jactionlint'));
-
-        expect(existsSync(join(workspace.root, 'moved.txt'))).toBe(false);
     });
 });

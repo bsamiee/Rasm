@@ -1,0 +1,15 @@
+{
+    "name": "@rasm/test-nx",
+    "private": true,
+    "description": "@rasm/nx suites over its executors and sync generator through Nx's own resolvers and temporary workspaces, with gh replaced",
+    "type": "module",
+    "devDependencies": {
+        "@nx/devkit": "catalog:",
+        "@rasm/nx": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "nx": "catalog:",
+        "vitest": "catalog:"
+    }
+}

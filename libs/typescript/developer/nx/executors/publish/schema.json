@@ -1,0 +1,77 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        },
+        "publish": {
+            "type": "array",
+            "minItems": 1,
+            "description": "The tool's publish argument list, followed by each file of the target's dependentTasksOutputFiles input, none where the target states no such input",
+            "items": [
+                {
+                    "type": "string"
+                }
+            ],
+            "additionalItems": {
+                "type": "string"
+            }
+        },
+        "preview": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Arguments the tool's own dry run adds to publish, run under a dry run in place of publish; absent prints publish and runs nothing",
+            "items": [
+                {
+                    "type": "string"
+                }
+            ],
+            "additionalItems": {
+                "type": "string"
+            }
+        },
+        "credential": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": [
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "additionalItems": {
+                        "type": "string"
+                    }
+                }
+            ],
+            "description": "Environment variable holding the destination's credential, or variables in order of preference any one of which grants it (an OIDC token request beside a registry token), where every one is unset or empty the run publishes nothing, names them, and succeeds"
+        },
+        "flag": {
+            "type": "string",
+            "description": "Argument the tool takes the credential under, for a tool reading no variable itself"
+        },
+        "__unparsed__": {
+            "type": "array",
+            "description": "Words after -- of the run, appended after the configured arguments",
+            "$default": {
+                "$source": "unparsed"
+            },
+            "hidden": true,
+            "x-priority": "internal",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": ["publish", "credential"],
+    "additionalProperties": true,
+    "title": "Publish",
+    "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command where the destination's credential is set and the checked-out commit holds the project's tag nx release made from release.releaseTag.pattern, and names the missing variable or tag where it is not; runs through nx release publish, a dry run previewing every project"
+}

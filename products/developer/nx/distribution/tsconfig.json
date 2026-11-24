@@ -6,6 +6,9 @@
     "references": [
         {
             "path": "../../../../libs/typescript/creative-cloud/uxp"
+        },
+        {
+            "path": "../../../../libs/typescript/developer/nx"
         }
     ]
 }

@@ -9,10 +9,13 @@
             "path": "../../../../support/typescript"
         },
         {
+            "path": "../../../../../products/developer/nx/vite"
+        },
+        {
             "path": "../../../../../products/developer/nx/distribution"
         },
         {
-            "path": "../../../../../products/developer/nx/vite"
+            "path": "../../../../../libs/typescript/developer/nx"
         }
     ]
 }

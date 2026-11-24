@@ -1,6 +1,6 @@
 import { readJson } from '@nx/devkit';
 import { FsTree, flushChanges } from '@nx/devkit/internal';
-import { generate } from '@rasm/nx-distribution/generators/executor-schemas';
+import { generate } from '@rasm/nx/generators/executor-schemas';
 import { it as workspaced } from '@rasm/testing/nx';
 import { combineOptionsForExecutor } from 'nx/src/utils/params';
 import { describe, expect, vi } from 'vitest';

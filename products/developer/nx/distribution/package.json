@@ -58,6 +58,7 @@
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
+        "@rasm/nx": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "effect": "catalog:",
         "jsonc-parser": "catalog:",

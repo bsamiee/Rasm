@@ -253,6 +253,12 @@
         },
         {
             "path": "./tests/libs/typescript/network/rpc"
+        },
+        {
+            "path": "./tests/libs/typescript/developer/nx"
+        },
+        {
+            "path": "./libs/typescript/developer/nx"
         }
     ]
 }

@@ -6,6 +6,7 @@
     "devDependencies": {
         "@nx/devkit": "catalog:",
         "@nx/vite": "catalog:",
+        "@rasm/nx": "workspace:*",
         "@rasm/nx-distribution": "workspace:*",
         "@rasm/nx-vite": "workspace:*",
         "@rasm/testing": "workspace:*",

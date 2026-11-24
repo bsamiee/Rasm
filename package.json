@@ -24,6 +24,7 @@
         "@nx/web": "catalog:",
         "@playwright/test": "catalog:",
         "@projectwallace/stylelint-plugin": "catalog:",
+        "@rasm/nx": "workspace:*",
         "@rasm/nx-apple": "workspace:*",
         "@rasm/nx-cargo": "workspace:*",
         "@rasm/nx-cmake": "workspace:*",

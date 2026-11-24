@@ -34,6 +34,7 @@
     },
     "dependencies": {
         "@nx/devkit": "catalog:",
+        "@rasm/nx": "workspace:*",
         "@rasm/nx-distribution": "workspace:*",
         "effect": "catalog:"
     },

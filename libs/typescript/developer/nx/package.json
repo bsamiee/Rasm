@@ -1,0 +1,68 @@
+{
+    "name": "@rasm/nx",
+    "version": "0.1.0",
+    "description": "Nx plugin authoring over Effect: inferred target aggregation and caching, executor and batch runners, and the clean, attach, publish, and upgrade executors every plugin names",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/developer/nx"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts",
+        "executors.json",
+        "executors/*/schema.json",
+        "generators.json",
+        "generators/*/schema.json"
+    ],
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts",
+        "#/*.json": "./*.json"
+    },
+    "exports": {
+        ".": "./inference.ts",
+        "./executor": "./executor.ts",
+        "./executors.json": "./executors.json",
+        "./generators.json": "./generators.json",
+        "./executors/*": "./executors/*/executor.ts",
+        "./generators/*": "./generators/*/generator.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js",
+            "#/*.json": "./*.json"
+        },
+        "exports": {
+            ".": "./dist/inference.js",
+            "./executor": "./dist/executor.js",
+            "./executors.json": "./executors.json",
+            "./generators.json": "./generators.json",
+            "./executors/*": "./dist/executors/*/executor.js",
+            "./generators/*": "./dist/generators/*/generator.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@nx/js": "catalog:",
+        "effect": "catalog:",
+        "minimatch": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "nx": "catalog:"
+    },
+    "peerDependencies": {
+        "nx": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    },
+    "executors": "./executors.json",
+    "generators": "./generators.json"
+}

@@ -33,6 +33,7 @@
     "dependencies": {
         "@nx/devkit": "catalog:",
         "@nx/vite": "catalog:",
+        "@rasm/nx": "workspace:*",
         "@rasm/nx-distribution": "workspace:*",
         "effect": "catalog:"
     },

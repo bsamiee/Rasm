@@ -6,6 +6,9 @@
     "references": [
         {
             "path": "../distribution"
+        },
+        {
+            "path": "../../../../libs/typescript/developer/nx"
         }
     ]
 }

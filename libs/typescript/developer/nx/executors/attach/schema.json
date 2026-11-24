@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        },
+        "__unparsed__": {
+            "type": "array",
+            "description": "Words after -- of the run, appended after the configured arguments",
+            "$default": {
+                "$source": "unparsed"
+            },
+            "hidden": true,
+            "x-priority": "internal",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "additionalProperties": true,
+    "title": "Attach",
+    "description": "Uploads the files a project's packaging targets wrote to the GitHub release of the project's tag at the checked-out commit through gh release upload --clobber, or where gh release view finds no release of that tag creates it with those files through gh release create --verify-tag, the tag nx release made from release.releaseTag.pattern or one made by hand, fails where gh release view fails for another reason, and uploads nothing where HEAD holds no tag of the project, a dry run previewing every project"
+}

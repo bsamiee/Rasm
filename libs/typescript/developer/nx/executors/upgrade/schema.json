@@ -1,0 +1,107 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        },
+        "commands": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Commands run in order, stopping at the first failure",
+            "items": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "apply": {
+                            "type": "array",
+                            "minItems": 1,
+                            "description": "The tool's argument list moving requirements and locks",
+                            "items": [
+                                {
+                                    "type": "string"
+                                }
+                            ],
+                            "additionalItems": {
+                                "type": "string"
+                            }
+                        },
+                        "preview": {
+                            "type": "array",
+                            "minItems": 1,
+                            "description": "The tool's own dry run argument list, run under a dry run in place of apply; absent prints apply and runs nothing",
+                            "items": [
+                                {
+                                    "type": "string"
+                                }
+                            ],
+                            "additionalItems": {
+                                "type": "string"
+                            }
+                        },
+                        "env": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            },
+                            "description": "Variables this command alone runs with over the inherited environment"
+                        }
+                    },
+                    "required": ["apply"],
+                    "additionalProperties": true
+                }
+            ],
+            "additionalItems": {
+                "type": "object",
+                "properties": {
+                    "apply": {
+                        "type": "array",
+                        "minItems": 1,
+                        "description": "The tool's argument list moving requirements and locks",
+                        "items": [
+                            {
+                                "type": "string"
+                            }
+                        ],
+                        "additionalItems": {
+                            "type": "string"
+                        }
+                    },
+                    "preview": {
+                        "type": "array",
+                        "minItems": 1,
+                        "description": "The tool's own dry run argument list, run under a dry run in place of apply; absent prints apply and runs nothing",
+                        "items": [
+                            {
+                                "type": "string"
+                            }
+                        ],
+                        "additionalItems": {
+                            "type": "string"
+                        }
+                    },
+                    "env": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Variables this command alone runs with over the inherited environment"
+                    }
+                },
+                "required": ["apply"],
+                "additionalProperties": true
+            }
+        },
+        "cwd": {
+            "type": "string",
+            "description": "Folder the commands run in, relative to the workspace root",
+            "default": "."
+        }
+    },
+    "required": ["commands", "cwd"],
+    "additionalProperties": true,
+    "title": "Upgrade",
+    "description": "Runs a tool's upgrade commands in order, and under a dry run each command's own dry run in its place, printing a command without one"
+}
