@@ -140,7 +140,7 @@ const compiled =
         const token = tokened(root);
         const tsc = {
             executor: 'nx:run-commands',
-            options: { commands, cwd: root },
+            options: { commands, cwd: root, parallel: false },
             dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'],
             cache: true,
             inputs: [...Array.dedupe([posix.join(root, MANIFEST), ...sources].map(token)), upstream, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: [...packages] }],
