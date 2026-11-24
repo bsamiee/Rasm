@@ -15,6 +15,7 @@ type Member = Effect.Success<ReturnType<typeof located>>['members'][number];
 const LOCK = 'uv.lock';
 const SCHEMA = 'preview';
 const MANIFEST = 'pyproject.toml';
+const LOADERS: ReadonlySet<string> = new Set(Object.values(CHECKERS).flatMap(({ plugins }) => plugins ?? []));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -24,6 +25,7 @@ const Declared = Schema.Struct({
         classifiers: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         dynamic: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         scripts: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+        'entry-points': Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.String)).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     }),
 });
 const Filed = Schema.Struct({ file: Schema.String });
@@ -97,7 +99,11 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
             ),
         ),
     );
-    const owned = Array.groupBy(Record.toEntries(sited), ([, root]) => root);
+    const grouped = new Set(Record.values(resolution).flatMap(({ dependency_groups }) => (dependency_groups ?? []).map(({ id }) => id)));
+    const owned = Array.groupBy(
+        Record.toEntries(sited).filter(([id]) => !grouped.has(id)),
+        ([, root]) => root,
+    );
     const workspace = rooted(metadata.workspace.path);
     const present = Array.cartesianWith(Array.dedupe([workspace, ...Record.values(sited)].flatMap(above)), CONFIGS, posix.join).filter((at) => files.has(at));
     const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [at, posix.extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
@@ -115,7 +121,16 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
         (name: string) =>
         ({ id }: { readonly id: string }) =>
             (resolution[id]?.dependencies ?? []).some(distributed(name));
+    const declaring = (id: string) => Option.flatMap(Record.get(sited, id), (root) => Option.map(Schema.decodeUnknownOption(Declared)(stated(root)), ({ project }) => project));
+    const loaded = (group: string | undefined) => (id: string) => Option.match(declaring(id), { onNone: () => true, onSome: (project) => Record.isEmptyRecord(project['entry-points']) || Record.keys(project['entry-points']).some((kind) => kind === group || !LOADERS.has(kind)) });
     const members = metadata.members.map((member) => ({ ...member, root: rooted(member.path) }));
+    const packages = new Set(
+        yield* Effect.filter(
+            members.map(({ root }) => root),
+            (root) => fs.exists(join(workspaceRoot, root, '__init__.py')),
+            { concurrency: 'unbounded' },
+        ),
+    );
     const shared =
         resolution[
             Array.findFirst(members, ({ root }) => root === workspace).pipe(
@@ -133,7 +148,8 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
     const shaped = members.map((member) => {
         const groups = Array.unionWith(resolution[member.id]?.dependency_groups ?? [], shared, Equivalence.Struct({ name: Equivalence.String }));
         const packaged = 'editable' in (resolution[member.id]?.source ?? {});
-        const project = Option.getOrUndefined(Schema.decodeUnknownOption(Declared)(stated(member.root)))?.project;
+        const project = Option.getOrUndefined(declaring(member.id));
+        const base = packages.has(member.root) ? posix.dirname(member.root) : member.root;
         const nested = members.some((other) => other.root !== member.root && (member.root === '.' || other.root.startsWith(`${member.root}/`)));
         return {
             name: member.name,
@@ -159,23 +175,22 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
                 const group = Array.findFirst(groups, offering(key));
                 const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
                 const installed = reach([member.id, ...from]);
+                const cwd = row.folder(workspace, base);
                 return installed.values().some(distributed(key))
-                    ? Result.succeed({ key, ...declared(documented, row.origin(workspace, member.root), member.root, key), group: Option.getOrUndefined(group)?.name, projects: named(from), covered: row.coverage !== undefined && installed.values().some(distributed(row.coverage)) })
+                    ? Result.succeed({ key, cwd, ...declared(documented, { cwd, root: member.root }, key), group: Option.getOrUndefined(group)?.name, projects: named(from.filter(loaded(row.plugins))), covered: row.coverage !== undefined && installed.values().some(distributed(row.coverage)) })
                     : Result.failVoid;
             }),
         };
     });
     const patterns = Array.dedupe(shaped.flatMap(({ checks }) => checks.flatMap((check) => check.patterns)));
-    const listed = new Set(
-        yield* Array.match(patterns, {
-            onEmpty: () => Effect.succeed([]),
-            onNonEmpty: (globs) => Effect.promise(() => globWithWorkspaceContext(workspaceRoot, globs)),
-        }),
-    );
+    const listed = yield* Array.match(patterns, {
+        onEmpty: () => Effect.succeed([]),
+        onNonEmpty: (globs) => Effect.promise(() => globWithWorkspaceContext(workspaceRoot, globs)),
+    });
     const matched = new Set(
         patterns.filter((pattern) => {
             const glob = Glob.make(pattern, { dot: true });
-            return listed.values().some((file) => Glob.match(glob, file));
+            return listed.some((file) => Glob.match(glob, file));
         }),
     );
     return {
@@ -186,7 +201,6 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
         members: shaped.map(({ table, checks, ...member }) => ({
             ...member,
             implicit: Result.getOrUndefined(table)?.implicitDependencies,
-            base: listed.has(posix.join(member.root, '__init__.py')) ? posix.dirname(member.root) : member.root,
             checks: checks.filter((check) => !matched.isDisjointFrom(new Set(check.patterns))),
         })),
     };

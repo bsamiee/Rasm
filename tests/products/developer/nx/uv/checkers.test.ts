@@ -22,10 +22,29 @@ const APPLICATION = {
     'proj/application/src/application/__init__.py': 'from library import one\n\n\ndef two() -> int:\n    return one() + 1\n',
 };
 const TESTED = { 'proj/library/tests/test_library.py': 'from library import one\n\n\ndef test_one() -> None:\n    assert one() == 1\n' };
+const WORDS = {
+    'proj/words/pyproject.toml': `[project]\nname = "words"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n${BUILT}`,
+    'proj/words/src/words/__init__.py': 'WORD = "one"\n',
+};
+const HELPER = {
+    'proj/helper/pyproject.toml': `[project]\nname = "helper"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["words"]\n\n[tool.uv.sources]\nwords = { workspace = true }\n${BUILT}`,
+    'proj/helper/src/helper/__init__.py': 'from words import WORD\n',
+};
+const CHECKS = {
+    'proj/checks/pyproject.toml': `[project]\nname = "checks"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[project.entry-points."refurb.plugins"]\nchecks = "checks"\n${BUILT}`,
+    'proj/checks/src/checks/__init__.py': 'NAME = "checks"\n',
+};
+const STUBS = {
+    'proj/words-stubs/pyproject.toml': `[project]\nname = "words-stubs"\nversion = "0.1.0"\nrequires-python = ">=3.13"\nclassifiers = ["Typing :: Stubs Only"]\n${BUILT}`,
+    'proj/words-stubs/src/words-stubs/__init__.pyi': 'WORD: str\n',
+};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const workspaced = (dev: readonly string[]) => ({ 'pyproject.toml': `[project]\nname = "uv-tutorial"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[dependency-groups]\ndev = ${JSON.stringify(dev)}\n\n[tool.uv.workspace]\nmembers = ["proj/*"]\n`, ...LIBRARY });
+const workspaced = (dev: readonly string[], sourced: readonly string[] = []) => ({
+    'pyproject.toml': `[project]\nname = "uv-tutorial"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[dependency-groups]\ndev = ${JSON.stringify(dev)}\n\n[tool.uv.workspace]\nmembers = ["proj/*"]\n\n[tool.uv.sources]\n${sourced.map((name) => `${name} = { workspace = true }\n`).join('')}`,
+    ...LIBRARY,
+});
 
 const locked = (workspace: Workspace, files: Readonly<Record<string, string>>) => execFileSync('uv', ['lock', '--quiet'], { cwd: workspace.write(files).root });
 
@@ -87,6 +106,64 @@ describe('checker targets', { timeout: 120_000 }, () => {
 
         const after = await Promise.all(['application:check--vulture', 'uv-tutorial:check--uv'].map((task) => hashed(workspace, edited, task)));
         expect(after.map(({ value }, index) => value === before[index]?.value)).toStrictEqual([false, false]);
+    });
+
+    it('changes the hash of a checker uv runs from the member root, and of none uv runs from the uv root, after .python-version appears in the member root', async ({ workspace }) => {
+        locked(workspace, workspaced(['mypy', 'vulture']));
+        const graph = await workspace.graph(uv);
+        const before = await Promise.all(['library:check--mypy', 'library:check--vulture'].map((task) => hashed(workspace, graph, task)));
+
+        const edited = await workspace.write({ 'proj/library/.python-version': '3.13\n' }).graph(uv);
+
+        const after = await Promise.all(['library:check--mypy', 'library:check--vulture'].map((task) => hashed(workspace, edited, task)));
+        expect(after.map(({ value }, index) => value === before[index]?.value)).toStrictEqual([false, true]);
+    });
+
+    it.for([
+        { case: 'a mypy.ini in the member root', edited: { 'proj/library/mypy.ini': '[mypy]\ndisallow_untyped_defs = True\n' } },
+        { case: 'a mypy table in the member manifest', edited: { 'proj/library/pyproject.toml': `${LIBRARY['proj/library/pyproject.toml']}\n[tool.mypy]\ndisallow_untyped_defs = true\n` } },
+    ])('changes the mypy hash and result of a member after $case', async ({ edited }, { workspace }) => {
+        locked(workspace, { ...workspaced(['mypy']), 'proj/library/src/library/__init__.py': 'def one():\n    return 1\n' });
+        const graph = await workspace.graph(uv);
+        const [before, passed] = [await hashed(workspace, graph, 'library:check--mypy'), await workspace.run(graph, 'library', 'check--mypy')];
+
+        const configured = await workspace.write(edited).graph(uv);
+
+        const [after, failed] = [await hashed(workspace, configured, 'library:check--mypy'), await workspace.run(configured, 'library', 'check--mypy')];
+        expect([passed.success, failed.success, after.value === before.value]).toStrictEqual([true, false, false]);
+    });
+
+    it('changes the refurb hash of a member after a mypy.ini appears in the folder refurb builds mypy from', async ({ workspace }) => {
+        locked(workspace, workspaced(['refurb']));
+        const before = await hashed(workspace, await workspace.graph(uv), 'library:check--refurb');
+
+        const after = await hashed(workspace, await workspace.write({ 'proj/library/mypy.ini': '[mypy]\ndisallow_untyped_defs = True\n' }).graph(uv), 'library:check--refurb');
+
+        expect(after.value).not.toBe(before.value);
+    });
+
+    it('changes the pytest hash of a member after an edit to a dependency of a workspace member its dependency group installs', async ({ workspace }) => {
+        locked(workspace, { ...workspaced(['pytest>=8', 'helper'], ['helper']), ...WORDS, ...HELPER, ...TESTED });
+        const before = await hashed(workspace, await workspace.graph(uv), 'library:test--pytest');
+
+        const after = await hashed(workspace, await workspace.write({ 'proj/words/src/words/__init__.py': 'WORD = "two"\n' }).graph(uv), 'library:test--pytest');
+
+        expect(after.value).not.toBe(before.value);
+    });
+
+    it.for([
+        { case: 'the source of a refurb plugin', edited: { 'proj/checks/src/checks/__init__.py': 'NAME = "renamed"\n' }, changed: { 'check--refurb': true, 'check--mypy': false, 'check--ty': false } },
+        { case: 'a stubs package', edited: { 'proj/words-stubs/src/words-stubs/__init__.pyi': 'WORD: int\n' }, changed: { 'check--refurb': true, 'check--mypy': true, 'check--ty': true } },
+    ])('changes the checker hashes of a member as $changed after an edit to $case its dependency group installs', async ({ edited, changed }, { workspace }) => {
+        locked(workspace, { ...workspaced(['mypy', 'refurb', 'ty', 'checks', 'words-stubs'], ['checks', 'words-stubs']), ...CHECKS, ...STUBS });
+        const tasks = Object.keys(changed).map((target) => `library:${target}`);
+        const graph = await workspace.graph(uv);
+        const before = await Promise.all(tasks.map((task) => hashed(workspace, graph, task)));
+
+        const edits = await workspace.write(edited).graph(uv);
+
+        const after = await Promise.all(tasks.map((task) => hashed(workspace, edits, task)));
+        expect(Object.fromEntries(Object.keys(changed).map((target, index) => [target, after[index]?.value !== before[index]?.value]))).toStrictEqual(changed);
     });
 
     it('runs refurb with no mypy cache folder under the member, as the mypy build refurb runs reads and writes none', async ({ workspace }) => {

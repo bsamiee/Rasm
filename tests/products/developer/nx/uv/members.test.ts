@@ -62,6 +62,19 @@ describe('uv workspace members', { timeout: 60_000 }, () => {
         expect(graph.nodes['library']?.data.release?.version?.versionActionsOptions).toStrictEqual({ lock: 'nested/proj/uv.lock' });
     });
 
+    it('gives a member a dependency on each member its manifest declares and on none its dependency groups alone install', async ({ workspace }) => {
+        locked(
+            workspace.write({
+                ...MEMBERS,
+                'pyproject.toml': '[project]\nname = "uv-tutorial"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["library"]\n\n[dependency-groups]\ndev = ["internal"]\n\n[tool.uv.workspace]\nmembers = ["proj/*"]\n\n[tool.uv.sources]\nlibrary = { workspace = true }\ninternal = { workspace = true }\n',
+            }).root,
+        );
+
+        const graph = await workspace.graph({ createNodes, createDependencies });
+
+        expect(graph.dependencies['uv-tutorial']?.map(({ target }) => target)).toStrictEqual(['library']);
+    });
+
     it('adds the implicit dependencies the nx table of a member manifest names', async ({ workspace }) => {
         locked(workspace.write({ ...MEMBERS, 'proj/virtual/pyproject.toml': `${MEMBERS['proj/virtual/pyproject.toml']}\n[tool.nx]\nimplicitDependencies = ["internal"]\n` }).root);
 

@@ -8,7 +8,7 @@ import { LOCK, located, MANIFEST, Metadata, SCHEMA } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const READ: readonly string[] = [LOCK, MANIFEST, ...UV.configs];
+const READ: readonly string[] = [LOCK, MANIFEST, UV.settings, ...UV.pins];
 const FILES = combineGlobPatterns(Array.dedupe([...READ, ...CONFIGS]).map((file) => `**/${file}`));
 const OWN = fingerprinted(import.meta.dirname);
 

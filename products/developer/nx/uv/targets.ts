@@ -9,17 +9,18 @@ import type { Member } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const MYPY = [['mypy.ini'], ['.mypy.ini'], ['pyproject.toml', 'tool', 'mypy'], ['setup.cfg', 'mypy']] as const;
 const CHECKERS = {
     ty: {
         verb: 'check',
         variables: ['TY_UV'],
         hashes: ['platform'],
         imports: true,
-        files: [['ty.toml'], ['pyproject.toml', 'tool', 'ty']],
+        plugins: undefined,
+        configs: { cwd: [['ty.toml'], ['pyproject.toml', 'tool', 'ty']], root: [] },
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: identity<string>,
-        origin: identity<string>,
         isolated: false,
         command: (at: string) => ['ty', 'check', at],
         coverage: undefined,
@@ -32,11 +33,11 @@ const CHECKERS = {
         variables: [],
         hashes: ['platform', 'python'],
         imports: true,
-        files: [['mypy.ini'], ['.mypy.ini'], ['pyproject.toml', 'tool', 'mypy'], ['setup.cfg', 'mypy']],
+        plugins: undefined,
+        configs: { cwd: MYPY, root: [] },
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
-        origin: identity<string>,
         isolated: false,
         command: (at: string, _config: string | undefined, version: string | undefined, cache: string) => ['mypy', at, ...flagged('--python-version', version), '--cache-dir', cache],
         coverage: undefined,
@@ -49,11 +50,11 @@ const CHECKERS = {
         variables: [],
         hashes: ['platform', 'python'],
         imports: true,
-        files: [['pyproject.toml', 'tool', 'refurb']],
+        plugins: 'refurb.plugins',
+        configs: { cwd: MYPY, root: [['pyproject.toml', 'tool', 'refurb']] },
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
-        origin: (_: string, root: string) => root,
         isolated: false,
         command: (at: string, config?: string, version?: string) => ['refurb', ...(config === undefined ? [] : ['--config-file', config]), ...flagged('--python-version', version), at],
         coverage: undefined,
@@ -66,11 +67,11 @@ const CHECKERS = {
         variables: [],
         hashes: [],
         imports: false,
-        files: [['pyproject.toml', 'tool', 'vulture']],
+        plugins: undefined,
+        configs: { cwd: [], root: [['pyproject.toml', 'tool', 'vulture']] },
         matches: ['*.py'],
         sources: ['*.py'],
         folder: identity<string>,
-        origin: (_: string, root: string) => root,
         isolated: false,
         command: (at: string, config?: string) => ['vulture', at, ...(config === undefined ? [] : ['--config', config])],
         coverage: undefined,
@@ -83,12 +84,12 @@ const CHECKERS = {
         variables: ['PYTEST_ADDOPTS', 'PYTEST_PLUGINS', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD'],
         hashes: ['platform', 'python'],
         imports: true,
-        files: [['pytest.toml', 'pytest'], ['.pytest.toml', 'pytest'], ['pytest.ini'], ['.pytest.ini'], ['pyproject.toml', 'tool', 'pytest'], ['tox.ini', 'pytest'], ['setup.cfg', 'tool:pytest']],
+        plugins: undefined,
+        configs: { cwd: [], root: [['pytest.toml', 'pytest'], ['.pytest.toml', 'pytest'], ['pytest.ini'], ['.pytest.ini'], ['pyproject.toml', 'tool', 'pytest'], ['tox.ini', 'pytest'], ['setup.cfg', 'tool:pytest']] },
         matches: ['test_*.py', '*_test.py'],
         sources: ['*'],
         isolated: true,
         folder: identity<string>,
-        origin: (_: string, root: string) => root,
         command: (at: string) => ['pytest', at],
         coverage: 'pytest-cov',
         description: 'Runs the member tests with pytest',
@@ -98,8 +99,8 @@ const CHECKERS = {
 } as const;
 const PIXI = 'pixi.toml';
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
-const UV = { version: { runtime: 'uv self version --short' }, configs: ['uv.toml', '.python-version', '.python-versions'] } as const;
-const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)), PIXI]);
+const UV = { version: { runtime: 'uv self version --short' }, settings: 'uv.toml', pins: ['.python-version', '.python-versions'] } as const;
+const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ configs }) => [...configs.cwd, ...configs.root].map(([file]) => file)), PIXI]);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -127,29 +128,28 @@ class Linked extends Context.Service<Linked, Map<string, readonly RawProjectGrap
 
 const flagged = (flag: string, value: string | undefined): readonly string[] => (value === undefined ? [] : [flag, value]);
 
-const declared = (documented: ReadonlyMap<string, unknown>, origin: string, root: string, checker: keyof typeof CHECKERS) => {
-    const candidates = above(origin).flatMap((folder) => CHECKERS[checker].files.map(([file, ...keys]) => [posix.join(folder, file), keys] as const));
-    const found = Array.findFirstWithIndex(candidates, ([at, keys]) =>
-        Option.flatMap(
-            keys.reduce<Option.Option<unknown>>((table, key) => table.pipe(Option.flatMap(Schema.decodeUnknownOption(Table)), Option.flatMap(Record.get(key))), Option.fromUndefinedOr(documented.get(at))),
-            (table) => Option.map(Schema.decodeUnknownOption(Settings)(table), (decoded) => [at, decoded] as const),
-        ),
-    );
+const declared = (documented: ReadonlyMap<string, unknown>, folders: { readonly cwd: string; readonly root: string }, checker: keyof typeof CHECKERS) => {
+    const configs: Readonly<Record<keyof typeof folders, readonly (readonly [file: string, ...keys: string[]])[]>> = CHECKERS[checker].configs;
+    const searched = Record.map(configs, (files, start) => {
+        const candidates = above(folders[start]).flatMap((folder) => files.map(([file, ...keys]) => [posix.join(folder, file), keys] as const));
+        const found = Array.findFirstWithIndex(candidates, ([at, keys]) =>
+            Option.map(
+                Option.flatMap(
+                    keys.reduce<Option.Option<unknown>>((table, key) => table.pipe(Option.flatMap(Schema.decodeUnknownOption(Table)), Option.flatMap(Record.get(key))), Option.fromUndefinedOr(documented.get(at))),
+                    Schema.decodeUnknownOption(Settings),
+                ),
+                (decoded) => [at, decoded] as const,
+            ),
+        );
+        return { found, read: Option.match(found, { onNone: () => [], onSome: ([, index]) => candidates.slice(0, index + 1).filter(([at]) => documented.has(at)) }) };
+    });
+    const found = Option.orElse(searched.root.found, () => searched.cwd.found);
     const settings = Option.getOrUndefined(Option.map(found, ([[, stated]]) => stated));
     return {
         config: Option.getOrUndefined(Option.map(found, ([[config]]) => config)),
         cache: settings?.cache_dir,
-        inputs: Option.match(found, {
-            onNone: () => [],
-            onSome: ([, index]) =>
-                Array.dedupe(
-                    candidates
-                        .slice(0, index + 1)
-                        .filter(([at]) => documented.has(at))
-                        .map(([at]) => posix.join('{workspaceRoot}', at)),
-                ),
-        }),
-        patterns: (settings?.python_files ?? settings?.ini_options?.python_files ?? settings?.pytest?.python_files ?? CHECKERS[checker].matches).map((pattern) => posix.join(root, '**', pattern)),
+        inputs: Array.dedupe([...searched.root.read, ...searched.cwd.read].map(([at]) => posix.join('{workspaceRoot}', at))),
+        patterns: (settings?.python_files ?? settings?.ini_options?.python_files ?? settings?.pytest?.python_files ?? CHECKERS[checker].matches).map((pattern) => posix.join(folders.root, '**', pattern)),
     };
 };
 
@@ -161,10 +161,15 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
     const environed = Option.map(Option.fromUndefinedOr(environmentPath), (template) => template.replaceAll('{projectName}', member.name));
     const built = [posix.relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${posix.join('{projectRoot}', held, '**', '*')}`);
     const hashed = { platform: PLATFORM, python: { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) } };
-    const resolved = [...UV.configs.map((file) => posix.join('{workspaceRoot}', member.workspace, file)), posix.join('{workspaceRoot}', member.lock)];
+    const resolved = (cwd: string) => {
+        const outside = posix.relative(member.workspace, cwd).startsWith('..');
+        const searched = above(outside ? member.workspace : cwd);
+        return { outside, inputs: [...searched.slice(0, searched.indexOf(member.workspace) + 1).flatMap((at) => UV.pins.map((file) => posix.join('{workspaceRoot}', at, file))), posix.join('{workspaceRoot}', member.workspace, UV.settings), posix.join('{workspaceRoot}', member.lock)] };
+    };
     const checked = member.checks.map((stated) => {
         const row = CHECKERS[stated.key];
-        const cwd = row.folder(member.workspace, member.base);
+        const { cwd } = stated;
+        const project = resolved(cwd);
         const config = UndefinedOr.map(stated.config, (file) => posix.relative(cwd, file));
         const environment = Option.filter(environed, () => row.isolated);
         const argv = [
@@ -173,7 +178,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             '--no-active',
             '--locked',
             ...(row.isolated ? [Option.isSome(environment) ? '--exact' : '--isolated'] : []),
-            ...(posix.relative(member.workspace, cwd).startsWith('..') ? ['--project', posix.relative(cwd, member.workspace)] : []),
+            ...(project.outside ? ['--project', posix.relative(cwd, member.workspace)] : []),
             '--package',
             member.name,
             '--all-extras',
@@ -203,8 +208,14 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                 ...row.variables.map((env) => ({ env })),
                 ...row.hashes.map((hash) => hashed[hash]),
                 ...(row.imports ? ['^default'] : []),
-                ...resolved,
-                ...Array.match(row.imports ? stated.projects.filter((name) => name !== member.name) : [], { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects }] }),
+                ...project.inputs,
+                ...Array.match(row.imports ? stated.projects.filter((name) => name !== member.name) : [], {
+                    onEmpty: () => [],
+                    onNonEmpty: (projects) => [
+                        { input: 'default', projects },
+                        { input: 'default', projects, dependencies: true },
+                    ],
+                }),
                 { externalDependencies: [] },
             ],
             ...(stated.covered && { outputs: ['{options.outputs.0}'], configurations: { coverage: covered } }),
@@ -212,7 +223,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
         };
         return { verb: row.verb, key: stated.key, target };
     });
-    const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests, ...resolved, { externalDependencies: [] }];
+    const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests, ...resolved(member.root).inputs, { externalDependencies: [] }];
     const rooted: Verbs =
         member.root === member.workspace
             ? {
