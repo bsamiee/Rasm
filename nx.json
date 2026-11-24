@@ -98,7 +98,7 @@
             }
         },
         "@nx/js:release-publish": {
-            "executor": "@rasm/nx-distribution:publish",
+            "executor": "@rasm/nx:publish",
             "dependsOn": ["pack--*"],
             "inputs": [{ "dependentTasksOutputFiles": "**/*.tgz" }, { "externalDependencies": [] }],
             "options": {
@@ -123,7 +123,7 @@
     },
     "sync": {
         "applyChanges": true,
-        "globalGenerators": ["@rasm/nx-distribution:executor-schemas"]
+        "globalGenerators": ["@rasm/nx:executor-schemas"]
     },
     "release": {
         "projects": ["tag:release"],
