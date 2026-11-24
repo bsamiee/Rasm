@@ -22,7 +22,7 @@ permissions:
 
 env:
     MSBUILDDISABLENODEREUSE: '1'
-    NX_PARALLEL: 100%
+    NX_PARALLEL: 50%
 
 defaults:
     run:
@@ -156,6 +156,7 @@ jobs:
             GH_TOKEN: *github
             NX_BASE: *base
             NX_HEAD: *head
+            NX_PARALLEL: 100%
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
             APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
@@ -212,6 +213,7 @@ jobs:
             GH_TOKEN: *github
             NX_BASE: *base
             NX_HEAD: *head
+            NX_PARALLEL: 100%
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
         steps:
