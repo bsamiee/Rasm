@@ -1,4 +1,5 @@
 import { dirname, join, posix } from 'node:path';
+import { arch, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { anchored, fingerprinted, inferring, manifested } from '@rasm/nx-distribution/inference';
@@ -55,7 +56,7 @@ const createNodes: CreateNodes = [
             [Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched])), Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(posix.dirname), LAYOUT, posix.join))), Effect.forEach(PLACED, (name) => Config.String(name).pipe(Config.withDefault('')))],
             { concurrency: 'unbounded' },
         );
-        const digest = hashArray([content, ...laid, ...targeted, yield* OWN]);
+        const digest = hashArray([content, ...laid, ...targeted, platform, arch, yield* OWN]);
         const hit = Option.filter(Option.fromNullishOr(cache.get(FILES)), (held) => held.digest === digest);
         const [readings, failures] = yield* Option.match(hit, {
             onNone: () => Effect.map(workspaces(workspaceRoot, manifests, files), (read) => Array.partition(read, identity)),

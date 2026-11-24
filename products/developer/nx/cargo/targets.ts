@@ -54,7 +54,7 @@ const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: Targ
 
 const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { crate, root, packages, linted }: Member): Verbs => {
     const selected = { cwd: workspace.root, package: crate.name };
-    const kinds = [...(crate.targets.some(Target.library) ? ['--lib'] : []), '--bins', '--tests', '--benches', '--all-features'];
+    const kinds = ['--all-targets', '--all-features'];
     const plain = Option.isNone(workspace.nextest);
     const tested = crate.targets.some(({ test }) => test);
     const documented = crate.targets.some(({ doctest }) => doctest);
@@ -163,16 +163,16 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
         Option.toArray(workspace.deny)
             .flatMap(({ files, tables }) => DENIED.map((row) => ({ ...row, files, selected: Array.intersection(row.checks, tables) })))
             .filter(({ selected }) => selected.length > 0),
-        ({ tool, extra, files, selected }) =>
-            [
-                tool,
-                cargoTarget(
-                    'deny',
-                    `Reports the cargo-deny ${selected.join(', ')} findings of the workspace graph with cargo deny check, failing on any warning`,
-                    { cwd: workspace.root, commands: [{ args: ['deny', LOCKED, '--workspace', 'check', '--deny', 'warnings', ...selected] }] },
-                    { ...extra, inputs: [...graph, ...files.map(tokened), version('deny'), { externalDependencies: [] }] },
-                ),
-            ] as const,
+        ({ tool, extra, files, selected }): readonly [string, TargetConfiguration] => [
+            tool,
+            {
+                ...extra,
+                executor: 'nx:run-commands',
+                options: { cwd: workspace.root, command: ['cargo', 'deny', LOCKED, '--workspace', 'check', '--deny', 'warnings', ...selected].join(' ') },
+                inputs: [...graph, ...files.map(tokened), version('deny'), { externalDependencies: [] }],
+                metadata: { description: `Reports the cargo-deny ${selected.join(', ')} findings of the workspace graph with cargo deny check, failing on any warning, outside the Cargo batch as it reads the whole graph once`, help: { command: 'cargo deny check --help', example: { args: ['--show-stats'] } } },
+            },
+        ],
     );
     return {
         check,
