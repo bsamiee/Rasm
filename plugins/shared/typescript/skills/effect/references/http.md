@@ -10,7 +10,7 @@ class Hold extends Schema.Class<Hold, { readonly brand: unique symbol }>('Hold')
 class Api extends HttpApi.make('ledger').add(
     HttpApiGroup.make('holds')
         .add(
-            HttpApiEndpoint.get('list', '/holds', { query: { after: Schema.optionalKey(Schema.DateTimeUtc) }, success: HttpApiSchema.WithHeaders(Schema.Array(Hold), { 'x-total-count': Schema.Int }) }),
+            HttpApiEndpoint.get('list', '/holds', { query: { after: Schema.OptionFromOptionalKey(Schema.DateTimeUtc) }, success: HttpApiSchema.WithHeaders(Schema.Array(Hold), { 'x-total-count': Schema.Int }) }),
             HttpApiEndpoint.post('place', '/holds', { payload: Hold.mapFields(Struct.pick(['account', 'amount'])), success: Hold.pipe(HttpApiSchema.status('Created')), error: Overdrawn }),
             HttpApiEndpoint.delete('release', '/holds/:id', { params: { id: Hold.fields.id }, error: Missing }),
         )
@@ -80,7 +80,7 @@ const HoldsLive = HttpApiBuilder.group(
     Effect.fn(function* (handlers) {
         const holds = yield* Holds;
         return handlers.handleAll({
-            list: ({ query }) => Effect.map(holds.list(Option.fromUndefinedOr(query.after)), (body) => HttpApiSchema.withHeaders({ body, headers: { 'x-total-count': body.length } })),
+            list: ({ query }) => Effect.map(holds.list(query.after), (body) => HttpApiSchema.withHeaders({ body, headers: { 'x-total-count': body.length } })),
             place: ({ payload }) => holds.place(payload).pipe(Effect.catchReason('LedgerError', 'Overdrawn', Effect.fail, Effect.die)),
             release: ({ params }) => holds.release(params.id).pipe(Effect.catchReason('LedgerError', 'Missing', Effect.fail, Effect.die)),
         });

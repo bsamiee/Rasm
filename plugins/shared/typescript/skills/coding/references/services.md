@@ -115,7 +115,7 @@ Api.pipe(Layer.provide(Store), Layer.provide([NodeHttpClient.layerUndici, Config
 - Workers read bindings through `ConfigProvider.fromUnknown(env)` over the `cloudflare:workers` export, building once at module scope
 - Host events pass their `AbortSignal` as `signal`, and a canceled event interrupts its run
 - Importable Node modules can own CLI startup with a top-level `if (import.meta.main)` around `runMain`
-- Library entries taking app values are `Effect.fnUntraced(body, Effect.provide(layer), NodeRuntime.runMain({ teardown }))`, a call running the program
+- Product entries pass app values to library operations and run them through `Effect.provide(layer)` and `NodeRuntime.runMain({ teardown })`
 - Host callbacks are one `Effect.fnUntraced(body, Effect.scoped, (effect) => runtime.runPromise(effect))` typed by the callback type
 - Hosts reading a callback's parameters from its source take a literal arrow with an object-pattern first parameter
 - Host thunks and synchronous callbacks run an exported `Effect` through `runPromiseWith` or `runSyncWith` over `yield* Effect.context<R>()`

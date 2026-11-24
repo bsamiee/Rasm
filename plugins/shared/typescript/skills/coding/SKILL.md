@@ -306,7 +306,7 @@ Classes hold their data with operations reading one instance as methods and gett
 - Exported names read correctly beside other packages' names: nouns for owners, verb-noun for functions
 - Union schemas, components, and primary functions hold their variants as members `Object.assign` or an expando sets
 - Schemas declare where a boundary decodes or encodes through them, a record signatures name as a class and a member schema reached through its owner
-- Libraries never call `NodeRuntime.runMain` or provide a platform layer
+- Library operations require platform services and leave the platform layer and runtime to their entry point
 - Package types pass whole, and consumers read returned host handles and the context a host passes its callback, a re-read from source restating them
 - Host process-global defaults (`GlobalWorkerOptions.workerSrc`) stay unset, each instance taking the value through its constructor option
 - Resources a caller passes to a host handle release with the caller

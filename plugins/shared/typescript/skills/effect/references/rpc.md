@@ -32,14 +32,12 @@ Framing selects the `RpcSerialization` layer: `layerJson` where the transport fr
 
 ```ts
 const child = ({ stdin, stdout }: Pick<ChildProcessSpawner.ChildProcessHandle, 'stdin' | 'stdout'>) =>
-    Layer.effect(RpcClient.Protocol)(
-        Effect.gen(function* () {
-            const requests = new TransformStream<Uint8Array, Uint8Array>();
-            yield* Stream.fromReadableStream({ evaluate: Function.constant(requests.readable), onError: Function.identity }).pipe(Stream.orDie, Stream.run(stdin), Effect.forkScoped);
-            const socket = yield* Socket.fromTransformStream(Effect.succeed({ readable: Stream.toReadableStream(stdout), writable: requests.writable }));
-            return yield* RpcClient.makeProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) }).pipe(Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerNdjson));
-        }),
-    );
+    Effect.gen(function* () {
+        const requests = new TransformStream<Uint8Array, Uint8Array>();
+        yield* Stream.fromReadableStream({ evaluate: Function.constant(requests.readable), onError: Function.identity }).pipe(Stream.orDie, Stream.run(stdin), Effect.forkScoped);
+        const socket = yield* Socket.fromTransformStream(Effect.succeed({ readable: Stream.toReadableStream(stdout), writable: requests.writable }));
+        return yield* RpcClient.makeProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) }).pipe(Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerNdjson));
+    }).pipe(Layer.effect(RpcClient.Protocol));
 ```
 
 Forked pumps copy requests into the child's `stdin`, and the protocol ends with its `stdout` in place of reconnecting:
