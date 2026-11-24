@@ -53,15 +53,19 @@ describe('host manifests', () => {
     });
 });
 
-describe('workflow folders', () => {
+describe('workspace root', () => {
     it.for([
-        { case: 'the workspace root', files: { 'package.json': '{ "name": "repo" }', '.github/workflows/ci.yml': 'on: push\n' }, name: 'repo' },
-        { case: 'a nested project', files: { 'sites/web/project.json': '{ "name": "web" }', 'sites/web/.github/workflows/release.yaml': 'on: push\n' }, name: 'web' },
-    ])('gives $case holding .github/workflows an upgrade running upgrade--jactionlint', async ({ files, name }, { workspace }) => {
-        const graph = await workspace.write(files).graph({ createNodes });
+        { case: '.github/workflows', files: { '.github/workflows/ci.yml': 'on: push\n' }, upgrades: ['upgrade', 'upgrade--jactionlint'] },
+        { case: '.config/mise.toml', files: { '.config/mise.toml': '[tools]\n' }, upgrades: ['upgrade', 'upgrade--mise'] },
+        { case: 'both', files: { '.github/workflows/ci.yml': 'on: push\n', '.config/mise.toml': '[tools]\n' }, upgrades: ['upgrade', 'upgrade--jactionlint', 'upgrade--mise'] },
+        { case: 'neither', files: {}, upgrades: [] },
+    ])('gives the root package.json project holding $case the upgrade targets $upgrades', async ({ files, upgrades }, { workspace }) => {
+        const graph = await workspace.write({ 'package.json': '{ "name": "repo" }', ...files }).graph({ createNodes });
 
-        const { tasks } = taskGraph(graph, [name], ['upgrade']);
-
-        expect(Object.keys(tasks).toSorted()).toStrictEqual([`${name}:upgrade`, `${name}:upgrade--jactionlint`]);
+        expect(
+            Object.keys(graph.nodes['repo']?.data.targets ?? {})
+                .filter((target) => target.startsWith('upgrade'))
+                .toSorted(),
+        ).toStrictEqual(upgrades);
     });
 });

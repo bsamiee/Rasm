@@ -1,6 +1,6 @@
 import { env } from 'node:process';
-import type { PreTasksExecutionContext } from '@nx/devkit';
-import { preTasksExecution } from '@rasm/nx-distribution';
+import type { PostTasksExecutionContext, PreTasksExecutionContext, TaskResult } from '@nx/devkit';
+import { postTasksExecution, preTasksExecution } from '@rasm/nx-distribution';
 import { answered, remote } from '@rasm/testing/nx';
 import { Effect, Exit, Function, Option, Scope } from 'effect';
 import { describe, expect, test, vi } from 'vitest';
@@ -10,6 +10,17 @@ import { describe, expect, test, vi } from 'vitest';
 const [server, token] = ['NX_SELF_HOSTED_REMOTE_CACHE_SERVER', 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN'] as const;
 const uncached = ['NX_SKIP_NX_CACHE', 'NX_DISABLE_NX_CACHE', 'NX_SKIP_REMOTE_CACHE', 'NX_DISABLE_REMOTE_CACHE'] as const;
 const context: PreTasksExecutionContext = { id: 'run-7f3a', workspaceRoot: '.', nxJsonConfiguration: {}, argv: ['node', 'nx', 'run-many', '--targets=build'] };
+const ended = (rows: readonly (readonly [task: string, status: TaskResult['status'], code: number, cache: boolean])[]): PostTasksExecutionContext => ({
+    ...context,
+    startTime: 1000,
+    endTime: 61_000,
+    taskResults: Object.fromEntries(
+        rows.map(([id, status, code, cache]) => {
+            const [project = '', target = ''] = id.split(':');
+            return [id, { status, code, task: { id, target: { project, target }, overrides: {}, outputs: [], cache } }];
+        }),
+    ),
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -120,5 +131,30 @@ describe('remote cache read before a run', () => {
         await preTasksExecution({ remoteCacheTimeout: '10 seconds' }, { ...context, argv: [...context.argv, '--', '--skip-nx-cache'] });
 
         expect([requests, warned.mock.calls]).toStrictEqual([['GET /v1/cache/run-7f3a'], []]);
+    });
+});
+
+describe('failed tasks after a run', () => {
+    it.for([
+        { on: 'true', printed: ['::error title=b%3Atest--vitest::b:test--vitest ended in failure with exit code 1', '::error title=c%3Aserve--vite::c:serve--vite ended in stopped with exit code 130'] },
+        { on: 'false', printed: [] },
+    ])('prints an error workflow command per failed or stopped task where GITHUB_ACTIONS is $on', async ({ on, printed }, { onTestFinished }) => {
+        const log = vi.spyOn(console, 'log').mockReturnValue(undefined);
+        onTestFinished(() => {
+            log.mockRestore();
+        });
+        vi.stubEnv('GITHUB_ACTIONS', on);
+
+        await postTasksExecution(
+            {},
+            ended([
+                ['a:build--tsc', 'local-cache', 0, true],
+                ['b:test--vitest', 'failure', 1, true],
+                ['c:serve--vite', 'stopped', 130, false],
+                ['d:build--tsc', 'success', 0, true],
+            ]),
+        );
+
+        expect(log.mock.calls.map((call) => String(call.at(-1)))).toStrictEqual(printed);
     });
 });

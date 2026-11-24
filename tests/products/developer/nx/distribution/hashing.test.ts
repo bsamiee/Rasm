@@ -1,10 +1,12 @@
+import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
-import { env } from 'node:process';
+import { env, execPath } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { CreateNodes, ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-distribution';
 import { aggregated } from '@rasm/nx-distribution/inference';
-import { it, shimmed, type Workspace, taskGraph } from '@rasm/testing/nx';
+import { environment, it, shimmed, type Workspace, taskGraph } from '@rasm/testing/nx';
+import { Option, Schema } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';
@@ -17,6 +19,8 @@ vi.mock(import('node:process'), async (actual) => {
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
+
+const NX = fileURLToPath(import.meta.resolve('nx/bin/nx'));
 
 const files = {
     'package.json': '{ "name": "repo", "private": true }',
@@ -43,6 +47,21 @@ const provider = {
     'tools/shared/package.json': '{ "name": "@fixture/shared" }',
     'tools/shared/index.ts': 'export const shared = 1;\n',
 };
+
+const plugged = {
+    'nx.json': '{ "plugins": ["@rasm/nx-distribution"] }',
+    'package.json': '{ "name": "repo", "private": true }',
+    '.github/workflows/ci.yml': 'on: push\n',
+    '.config/mise.toml': '[tools]\n',
+    'panel/manifest.json': '{ "manifestVersion": 5, "id": "com.example.panel", "name": "Panel", "version": "1.2.3", "host": { "app": "PS", "minVersion": "24.0.0" } }',
+    'panel/main.js': 'export const main = 1;\n',
+};
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Explained = Schema.fromJsonString(Schema.Struct({ affected: Schema.Record(Schema.String, Schema.Array(Schema.Struct({ kind: Schema.String }))) })).annotate({
+    description: 'The reasons nx affected --explain=stdout prints for each task a change reaches',
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -101,6 +120,7 @@ describe('task hashes', () => {
         },
         { task: 'repo:upgrade--jactionlint', edited: { '.github/workflows/ci.yml': 'on: [push, pull_request]\n' }, changes: true },
         { task: 'repo:upgrade--jactionlint', edited: { '.github/actions/setup/action.yml': 'runs:\n    using: composite\n    steps: [{ run: echo }]\n' }, changes: true },
+        { task: 'repo:upgrade--jactionlint', edited: { '.github/workflows/release.yaml': 'on: release\n' }, changes: true },
         { task: 'repo:upgrade--jactionlint', edited: { 'docs/notes.md': 'More notes\n' }, changes: false },
         { task: 'repo:upgrade--jactionlint', edited: { 'tools/setup/action.yml': 'runs:\n    using: composite\n    steps: []\n' }, changes: false },
         { task: 'Game:build--unreal', edited: { 'Engine/Engine/Build/Build.version': '{ "MajorVersion": 5, "MinorVersion": 6, "PatchVersion": 1 }\n' }, changes: true },
@@ -147,5 +167,18 @@ describe('executor package inputs', () => {
             .graph(executing(executor));
 
         expect(['check', 'check--runner', 'nx-release-publish'].map((target) => graph.nodes['app']?.data.targets?.[target]?.inputs)).toStrictEqual([['default'], ['default'], ['default']]);
+    });
+});
+
+describe('affected selection', { timeout: 120_000 }, () => {
+    it.for([
+        { case: 'a deleted workflow', file: '.github/workflows/old.yml', affected: { 'repo:clean': [{ kind: 'input-file' }], 'repo:upgrade': [{ kind: 'input-file' }] } },
+        { case: 'an edited mise file', file: '.config/mise.toml', affected: { 'repo:clean': [{ kind: 'input-file' }] } },
+    ])('selects only the tasks reading $case, with no project configuration change', ({ file, affected }, { workspace }) => {
+        workspace.install(import.meta.resolve('nx/package.json'), import.meta.resolve('@rasm/nx-distribution/package.json')).write(plugged);
+
+        const printed = execFileSync(execPath, [NX, 'affected', '-t', 'build,clean,upgrade', `--files=${file}`, '--explain=stdout'], { cwd: workspace.root, env: environment(workspace.root), encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
+
+        expect(Schema.decodeOption(Explained)(printed)).toStrictEqual(Option.some({ affected }));
     });
 });

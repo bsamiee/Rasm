@@ -18,10 +18,12 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 const ENGINE = { 'products/engines/Engine/Engine/Build/Build.version': '{ "MajorVersion": 5, "MinorVersion": 6, "PatchVersion": 0 }\n' };
 const files = {
     'nx.json': '{ "release": { "projects": ["*"], "projectsRelationship": "independent" } }',
+    'package.json': '{ "name": "repo" }',
+    '.github/workflows/ci.yml': 'on: push\n',
+    '.config/mise.toml': '[tools]\n',
     'products/apps/rhino/Arches/manifest.yml': 'name: arches\nversion: 1.2.3\nauthors:\n    - Suite\ndescription: Arches\n',
     'products/apps/adobe/Bridge/manifest.json': '{ "manifestVersion": 5, "id": "com.example.bridge", "name": "Bridge", "version": "1.2.3", "host": { "app": "PS", "minVersion": "24.0.0" } }',
     'products/web/site/project.json': '{ "name": "site" }',
-    'products/web/site/.github/workflows/ci.yml': 'on: push\n',
     'products/games/Game/Game.uproject': '{ "FileVersion": 3, "EngineAssociation": "../../engines/Engine", "Plugins": [{ "Name": "Marker", "Enabled": true }, { "Name": "Tools", "Enabled": true }, { "Name": "Retired", "Enabled": false }] }\n',
     'products/games/Game/Plugins/Marker/Marker.uplugin': '{ "FileVersion": 3, "Version": 1, "VersionName": "1.2.3" }\n',
     'products/games/Game/Plugins/Retired/Retired.uplugin': '{ "FileVersion": 3, "Version": 1, "VersionName": "0.9.0" }\n',
@@ -39,7 +41,7 @@ describe('@rasm/nx-distribution under Windows path separators', () => {
         const graph = await workspace.write({ ...files, ...ENGINE }).graph({ createNodes });
 
         expect(unportable(graph)).toStrictEqual([]);
-        expect(Object.keys(graph.nodes).toSorted()).toStrictEqual(['Game', 'Marker', 'Retired', 'Tools', 'arches', 'com.example.bridge', 'site']);
+        expect(Object.keys(graph.nodes).toSorted()).toStrictEqual(['Game', 'Marker', 'Retired', 'Tools', 'arches', 'com.example.bridge', 'repo', 'site']);
     });
 
     it('builds a nested project under its parent-relative engine, naming each plug-in manifest it loads by workspace path, after installing the one outside its folders, linking only the plug-ins it enables', async ({ workspace }) => {

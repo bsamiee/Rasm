@@ -2,9 +2,9 @@ import { join, posix, relative } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, normalizePath, type PostTasksExecution, type PostTasksExecutionContext, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type Task, type TaskResult } from '@nx/devkit';
-import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Config, DateTime, Duration, Effect, FileSystem, Formatter, Function, Option, Order, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, normalizePath, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type TaskResult } from '@nx/devkit';
+import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { Array, Config, Duration, Effect, FileSystem, Formatter, Function, Option, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { type Fields, FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
 import { above, aggregated, anchored, EXEC, Folder, inferring, manifested, namedInput, run, type Stated, tagged, type Verbs } from '#/inference';
@@ -28,22 +28,11 @@ const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/pa
 const ENGINE = fileURLToPath(import.meta.resolve('#/host-packages'));
 const SERVER = 'NX_SELF_HOSTED_REMOTE_CACHE_SERVER';
 const UNCACHED = { flags: ['skip-nx-cache', 'skipNxCache', 'skip-remote-cache', 'skipRemoteCache'], variables: ['NX_SKIP_NX_CACHE', 'NX_DISABLE_NX_CACHE', 'NX_SKIP_REMOTE_CACHE', 'NX_DISABLE_REMOTE_CACHE'] } as const;
-const RECORD = { file: 'task-cache.jsonl', bound: 1_048_576, slowest: 5 } as const;
-const OUTCOMES: Readonly<Record<TaskResult['status'], { readonly kind: 'local' | 'remote' | 'missed' | 'none'; readonly failed: boolean }>> = {
-    'local-cache': { kind: 'local', failed: false },
-    'local-cache-kept-existing': { kind: 'local', failed: false },
-    'remote-cache': { kind: 'remote', failed: false },
-    success: { kind: 'missed', failed: false },
-    failure: { kind: 'missed', failed: true },
-    skipped: { kind: 'none', failed: false },
-    stopped: { kind: 'none', failed: true },
-};
-const SHARE = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 1 });
-const WORKFLOWS = '**/.github/workflows/*.{yml,yaml}';
-const COMPOSITES = '**/.github/actions/*/action.{yml,yaml}';
+const FAILED: ReadonlySet<TaskResult['status']> = new Set(['failure', 'stopped']);
 const PACKAGE = 'package.json';
 const MISE = '.config/mise.toml';
-const FILES = combineGlobPatterns([...Array.dedupe(HOSTS.map(({ manifest }) => `**/${posix.basename(manifest)}`)), `**/${PACKAGE}`, WORKFLOWS, COMPOSITES, MISE]);
+const WORKFLOWS = '.github/workflows';
+const FILES = combineGlobPatterns([...Array.dedupe(HOSTS.map(({ manifest }) => `**/${posix.basename(manifest)}`)), `**/${PACKAGE}`]);
 const WITHHELD = ['archive', 'build', 'operations', 'publish'] as const;
 const UPSTREAM = { dependentTasksOutputFiles: '**/*' } as const;
 const RECEIVED: NonNullable<TargetConfiguration['inputs']> = [UPSTREAM, { externalDependencies: [] }];
@@ -81,6 +70,20 @@ const ROOT: Verbs = {
         },
     },
 };
+const ACTIONS: Verbs = {
+    upgrade: {
+        jactionlint: {
+            executor: `${PLUGIN}:upgrade`,
+            options: { cwd: '.', commands: [{ apply: ['jactionlint', 'update', '--apply'], preview: ['jactionlint', 'update', '--diff'] }] },
+            inputs: ['{projectRoot}/.github/**/*', { externalDependencies: [] }],
+            metadata: {
+                technologies: ['github-actions'],
+                description: 'Moves every external action and reusable workflow the workflows and composite actions of the repository use to its newest release with jactionlint update --apply, keeping commit pins and their version comments',
+                help: { command: 'jactionlint update --help', example: { options: { dryRun: true } } },
+            },
+        },
+    },
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -98,23 +101,6 @@ class Options extends Schema.Opaque<Options, unknown>()(
 const Requirements = Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Member = Schema.fromJsonString(Schema.Struct({ name: Schema.String, dependencies: Requirements, devDependencies: Requirements, optionalDependencies: Requirements, peerDependencies: Requirements })).annotate({
     description: 'The name of a workspace package.json and the packages each of its dependency fields requires',
-});
-const Line = Schema.fromJsonString(
-    Schema.Struct({
-        id: Schema.String,
-        at: Schema.DateTimeUtcFromString,
-        command: Schema.String,
-        seconds: Schema.Finite,
-        local: Schema.Int,
-        remote: Schema.Int,
-        missed: Schema.Int,
-        rate: Schema.optionalKey(Schema.Finite),
-        targets: Schema.Record(Schema.String, Schema.Struct({ hits: Schema.Int, misses: Schema.Int })),
-        slowest: Schema.Array(Schema.Struct({ task: Schema.String, status: Schema.String, seconds: Schema.Finite })),
-        failed: Schema.Array(Schema.Struct({ task: Schema.String, status: Schema.String, code: Schema.Int, seconds: Schema.optionalKey(Schema.Finite) })),
-    }),
-).annotate({
-    description: 'One run of the task cache record: hits and misses of cacheable tasks with their rate where any ran, by target, the slowest timed misses, and every failed or stopped task with its exit code, a duration standing only where Nx holds both times of a task',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -307,78 +293,11 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
     });
 };
 
-const upgrading = (listed: readonly string[]): Verbs => ({
-    upgrade: {
-        jactionlint: {
-            executor: `${PLUGIN}:upgrade`,
-            options: { cwd: '{projectRoot}', commands: [{ apply: ['jactionlint', 'update', '--apply', ...listed], preview: ['jactionlint', 'update', '--diff', ...listed] }] },
-            inputs: [posix.join('{projectRoot}', '.github', '**', '*'), { externalDependencies: [] }],
-            metadata: {
-                description: 'Moves every external action and reusable workflow the workflows and composite actions under .github use to its newest release with jactionlint update --apply over those files, keeping commit pins and their version comments',
-                help: { command: 'jactionlint update --help', example: { options: { dryRun: true } } },
-            },
-        },
-    },
-});
-
-const workflows = (files: readonly string[], workspaceRoot: string) =>
-    Effect.forEach(
-        Array.dedupeWith(
-            files.filter((file) => posix.matchesGlob(file, WORKFLOWS)).map((file) => ({ file, root: posix.join(file, '..', '..', '..') })),
-            (left, right) => left.root === right.root,
-        ),
-        ({ file, root }) => {
-            const listed = files.filter((at) => [WORKFLOWS, COMPOSITES].some((glob) => posix.matchesGlob(at, glob)) && posix.relative(root, at).split('/')[0] === '.github').map((at) => posix.relative(root, at));
-            return Effect.map(manifested(workspaceRoot, root), (stated) => [file, { projects: { [root]: { root, targets: aggregated(upgrading(listed), stated, 'github-actions', workspaceRoot) } } }] as const);
-        },
-    );
-
-const workspace = (files: readonly string[], workspaceRoot: string) =>
-    Effect.forEach(
-        files.filter((file) => file === MISE),
-        (file) => Effect.map(manifested(workspaceRoot, '.'), (stated) => [file, { projects: { '.': { root: '.', targets: aggregated(ROOT, stated, 'mise', workspaceRoot) } } }] as const),
-    );
-
-const recorded = Effect.fnUntraced(function* ({ id, argv, startTime, endTime }: PostTasksExecutionContext, rows: Array.NonEmptyReadonlyArray<{ readonly task: Task; readonly status: TaskResult['status']; readonly code: number; readonly kind: (typeof OUTCOMES)[TaskResult['status']]['kind']; readonly failed: boolean }>) {
-    const [fs, summary, annotated] = yield* Effect.all([FileSystem.FileSystem, Config.option(Config.String('GITHUB_STEP_SUMMARY')), Config.withDefault(Config.Boolean('GITHUB_ACTIONS'), false)]);
-    const timed = rows.map(({ task, ...row }) => ({ ...row, task: task.id, target: task.target.target, seconds: Option.map(Option.all([Option.fromUndefinedOr(task.startTime), Option.fromUndefinedOr(task.endTime)]), ([from, to]) => (to - from) / 1000) }));
-    const counted = timed.filter(({ kind }) => kind !== 'none');
-    const { local = [], remote = [], missed = [] } = Array.groupBy(counted, Struct.get('kind'));
-    const hits = local.length + remote.length;
-    const rate = Option.map(
-        Option.liftPredicate(counted.length, (total) => total > 0),
-        (total) => hits / total,
-    );
-    const slowest = Array.sortWith(
-        missed.flatMap(({ task, status, seconds }) => Option.toArray(Option.map(seconds, (spent) => ({ task, status, seconds: spent })))),
-        Struct.get('seconds'),
-        Order.flip(Order.Number),
-    ).slice(0, RECORD.slowest);
-    const failed = timed.filter(Struct.get('failed')).map(({ task, status, code, seconds }) => ({ task, status, code, ...Option.getOrUndefined(Option.map(seconds, (spent) => ({ seconds: spent }))) }));
-    const targets = Record.map(Array.groupBy(counted, Struct.get('target')), (held) => ({ hits: Array.countBy(held, ({ kind }) => kind !== 'missed'), misses: Array.countBy(held, ({ kind }) => kind === 'missed') }));
-    const line = yield* Schema.encodeEffect(Line)({
-        id,
-        at: DateTime.makeUnsafe(endTime),
-        command: argv.slice(2).join(' '),
-        seconds: (endTime - startTime) / 1000,
-        local: local.length,
-        remote: remote.length,
-        missed: missed.length,
-        ...Option.getOrUndefined(Option.map(rate, (share) => ({ rate: share }))),
-        targets,
-        slowest,
-        failed,
-    });
-    const at = join(workspaceDataDirectory, RECORD.file);
-    yield* fs.makeDirectory(workspaceDataDirectory, { recursive: true });
-    const size = yield* fs.stat(at).pipe(
-        Effect.map(({ size: held }) => Number(held)),
-        Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(0)),
-    );
-    yield* size + line.length < RECORD.bound ? fs.writeFileString(at, `${line}\n`, { flag: 'a' }) : Effect.flatMap(fs.readFileString(at), (held) => fs.writeFileString(at, `${held.slice(held.indexOf('\n', held.length - RECORD.bound / 2) + 1)}${line}\n`));
-    const tally = Option.map(rate, (share) => [`Nx cache: ${hits} of ${counted.length} cacheable tasks hit (${SHARE.format(share)}: ${local.length} local, ${remote.length} remote)`, ...slowest.slice(0, 1).map(({ task, seconds }) => `slowest miss ${task} at ${Duration.format(Duration.seconds(seconds))}`)].join('; '));
-    yield* Effect.forEach(Option.toArray(Option.all([summary, tally])), ([file, text]) => fs.writeFileString(file, `${text}\n`, { flag: 'a' }), { discard: true });
-    yield* Effect.forEach(annotated ? failed : [], ({ task, status, code }) => Effect.sync(() => emitPluginWorkerLog('log', `::error title=${task.replaceAll(/[%\r\n:,]/gu, encodeURIComponent)}::${`${task} ended in ${status} with exit code ${code}`.replaceAll(/[%\r\n]/gu, encodeURIComponent)}`)), { discard: true });
+const workspace = Effect.fnUntraced(function* (files: readonly string[], workspaceRoot: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const [mise, actions] = yield* Effect.all([fs.exists(join(workspaceRoot, MISE)), fs.exists(join(workspaceRoot, WORKFLOWS))]);
+    const verbs: Verbs = Record.union(mise ? ROOT : {}, actions ? ACTIONS : {}, (tools, more) => ({ ...tools, ...more }));
+    return yield* Effect.forEach(Record.isEmptyRecord(verbs) ? [] : files.filter((file) => file === PACKAGE), (file) => Effect.map(manifested(workspaceRoot, '.'), (stated) => [file, { projects: { '.': { root: '.', targets: aggregated(verbs, stated, 'mise', workspaceRoot) } } }] as const));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -386,7 +305,7 @@ const recorded = Effect.fnUntraced(function* ({ id, argv, startTime, endTime }: 
 const createNodes: CreateNodes = [
     FILES,
     inferring(Options, run, function* (files, settings, context) {
-        const [{ declared, failures }, actions, root] = yield* Effect.all([read(files, context), workflows(files, context.workspaceRoot), workspace(files, context.workspaceRoot)]);
+        const [{ declared, failures }, root] = yield* Effect.all([read(files, context), workspace(files, context.workspaceRoot)]);
         const results = [
             ...projects(
                 declared.filter(({ fields }) => fields.installed !== true),
@@ -395,7 +314,6 @@ const createNodes: CreateNodes = [
                 tagged(context.nxJsonConfiguration),
                 context.workspaceRoot,
             ),
-            ...actions,
             ...root,
         ];
         return yield* Array.match(failures, { onEmpty: () => Effect.succeed(results), onNonEmpty: (refused) => Effect.fail(new AggregateCreateNodesError(refused, results)) });
@@ -436,16 +354,14 @@ const preTasksExecution: PreTasksExecution = (options, { id, argv }) =>
         }).pipe(Effect.provide(FetchHttpClient.layer)),
     );
 
-const postTasksExecution: PostTasksExecution = (_, context) =>
+const postTasksExecution: PostTasksExecution = (_, { taskResults }) =>
     run(
-        Effect.catchCause(
-            Array.match(
-                Object.values(context.taskResults)
-                    .map(({ task, status, code }) => ({ task, status, code, kind: task.cache ? OUTCOMES[status].kind : 'none', failed: OUTCOMES[status].failed }))
-                    .filter(({ kind, failed }) => kind !== 'none' || failed),
-                { onEmpty: () => Effect.void, onNonEmpty: (rows) => recorded(context, rows) },
+        Effect.flatMap(Config.withDefault(Config.Boolean('GITHUB_ACTIONS'), false), (annotated) =>
+            Effect.forEach(
+                annotated ? Object.values(taskResults).filter(({ status }) => FAILED.has(status)) : [],
+                ({ task: { id }, status, code }) => Effect.sync(() => emitPluginWorkerLog('log', `::error title=${id.replaceAll(/[%\r\n:,]/gu, encodeURIComponent)}::${`${id} ended in ${status} with exit code ${code}`.replaceAll(/[%\r\n]/gu, encodeURIComponent)}`)),
+                { discard: true },
             ),
-            (cause) => Effect.sync(() => emitPluginWorkerLog('warn', `Task cache record of run ${context.id} is not written: ${Cause.pretty(cause)}`)),
         ),
     );
 
