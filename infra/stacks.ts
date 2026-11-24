@@ -24,6 +24,10 @@ const Request = Schema.Struct({ positionals: Schema.Tuple([Schema.Literals(['ins
     Schema.encodeKeys({ expectNoChanges: 'expect-no-changes' }),
 );
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const read = (config: (typeof configs)[number]) => Effect.map(run(['doppler', 'secrets', 'download', '--no-file', '--format', 'json', '--config', config]), Struct.get('stdout'));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 runMain(
@@ -36,7 +40,6 @@ runMain(
             (parsed) => Schema.decodeUnknownEffect(Request)({ ...parsed.values, positionals: parsed.positionals }),
         );
         const [fs, services] = yield* Effect.all([FileSystem.FileSystem, Effect.context<FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>()]);
-        const read = (config: (typeof configs)[number]) => Effect.map(run(['doppler', 'secrets', 'download', '--no-file', '--format', 'json', '--config', config]), Struct.get('stdout'));
         const deploy = positionals[0] === 'deploy' ? Option.some({ production, rows: yield* Effect.flatMap(read('deploy'), Schema.decodeEffect(Deployed)) }) : Option.none();
         const root = relative(workspaceRoot, process.cwd()) || '.';
         const groups =
