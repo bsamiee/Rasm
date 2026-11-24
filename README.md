@@ -195,6 +195,7 @@ Nx runs project-level work over a graph its plugins infer:
 - Stale analyzers fail the graph, and a missing Swift analyzer leaves out Xcode targets alone
 - `nx affected -t <target>` runs only the tasks whose inputs a change reaches, aggregate targets included
 - Tasks hash their executor's workspace package and that package's direct workspace dependencies
+- Tasks hash each input file whole, so tools Nx never runs keep configuration out of files its tasks read (`ruff.toml`, `pixi.toml`, `.config/tombi.toml`)
 - Tools keep their own incremental state, and Nx caches results around it in one remote cache that pull request runs read alone
 - `nx sync` writes executor schemas and tsconfig `references`, and non-terminal runs outside CI stop on stale ones until it runs, never `--skip-sync`
 - `nx conformance:check` runs `nx.json` conformance rules over the graph and every target
