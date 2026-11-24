@@ -1,5 +1,5 @@
 name: Tools
-description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, restores the pnpm store on GitHub-hosted runners and places rustup and cargo homes inside the cached mise folder there, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose postinstall hook installs project dependencies, on GitHub-hosted runners, in job containers, and in job affected under mise profiles ci, pnpm packages alone, and ci-<job id>, the tools that job runs where its file exists, and exports mise env
+description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, restores the pnpm store on GitHub-hosted runners and places rustup and cargo homes inside the cached mise folder there, restores the Apple analyzer and its mise freshness state on macOS, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose postinstall hook installs project dependencies, on GitHub-hosted runners, in job containers, and in job affected under mise profiles ci, pnpm packages alone, and ci-<job id>, the tools that job runs where its file exists, and exports mise env
 
 runs:
     using: composite
@@ -24,6 +24,14 @@ runs:
               path: .cache/pnpm/store
               key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
               restore-keys: pnpm-${{ runner.os }}-
+        - if: ${{ runner.os == 'macOS' && runner.environment == 'github-hosted' }}
+          uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          with:
+              path: |-
+                  products/developer/nx/apple/analyzer/.build/out/Products/Release/nx-apple-analyzer
+                  products/developer/nx/apple/analyzer/.build/out/Products/Release/nx-apple-analyzer.hash
+                  ~/.local/state/mise/deps
+              key: nx-apple-analyzer-${{ env.ImageVersion }}-${{ hashFiles('.config/mise.macos.toml', 'products/developer/nx/apple/analyzer/Package*', 'products/developer/nx/apple/analyzer/package.json', 'products/developer/nx/apple/analyzer/Sources/**', 'products/developer/nx/apple/analyzer/Tests/**') }}
         - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
           with:
               mise_dir: ${{ runner.os == 'Windows' && 'C:\mise' || '' }}
