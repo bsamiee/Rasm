@@ -105,7 +105,7 @@ const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProces
 
 const within = (at: string) => !(at.startsWith('..') || at.split('/').includes('node_modules'));
 
-const tokened = (root: string) => (at: string) => (posix.relative(root, at).startsWith('..') ? posix.join('{workspaceRoot}', at) : posix.join('{projectRoot}', posix.relative(root, at)));
+const tokened = (root: string) => (at: string) => (root === '.' || posix.relative(root, at).startsWith('..') ? posix.join('{workspaceRoot}', at) : posix.join('{projectRoot}', posix.relative(root, at)));
 
 const namedInput = (root: string, context: CreateNodesContext) => ('production' in getNamedInputs(root, context) ? 'production' : 'default');
 

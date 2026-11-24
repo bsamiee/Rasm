@@ -152,6 +152,25 @@ describe('check--tsc hashes the files tsc reads', () => {
         expect(after.hash).not.toBe(before.hash);
     });
 
+    it('hashes in check--tsc of the root project the tsconfig of each nested project its program references', async ({ workspace }) => {
+        workspace.install(typescript).write({
+            ...LIB,
+            'tsconfig.json': '{"files":[],"references":[{"path":"./tsconfig.node.json"}]}',
+            'tsconfig.node.json': '{"files":["tool.ts"],"references":[{"path":"./libs/lib"}],"compilerOptions":{"composite":true,"outDir":"dist/node","module":"preserve"}}',
+            'tool.ts': 'export const tool = 1;\n',
+            'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"composite":true,"outDir":"dist","module":"preserve"}}',
+            'libs/lib/index.ts': 'export const lib = 1;\n',
+        });
+        const inspector = new HashPlanInspector(await graphed(workspace), workspace.root);
+        await inspector.init();
+
+        const built = [...compiled(workspace, '.', '--build', '--dry', '--verbose').matchAll(/^\s+\* (?<config>\S+)$/gmu)].map(({ groups }) => groups?.['config'] ?? '');
+        const hashed = new Set(inspector.inspectTaskInputs({ project: 'root', target: 'check--tsc' })['root:check--tsc']?.files);
+
+        expect(built).toContain('libs/lib/tsconfig.json');
+        expect(built.filter((config) => !hashed.has(config))).toStrictEqual([]);
+    });
+
     it("hashes the declarations tsc reads in place of a referenced project's sources through its build outputs, each upstream manifest, and sources imported without a reference, and no other upstream file", async ({ workspace }) => {
         workspace.install(typescript).write(LAYERED);
         compiled(workspace, 'libs/up', '-b');
