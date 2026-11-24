@@ -145,7 +145,7 @@ mise installs every tool, `[env]` holds process variables, and `[bootstrap]` hol
 - `mise bootstrap` configures a machine for the workspace after a clone
 - `mise install` installs every tool and project dependency and sets the rustup default to the pinned toolchain
 - `mise install` runs `cargo clean` in a checkout whose build folder another compiler wrote, read from the `.rustc_info.json` Cargo keeps there
-- New compilers rebuild every crate and Cargo keeps the old one's artifacts beside them, and a new Rust toolchain prunes the old one
+- New compilers rebuild every crate beside the old one's artifacts Cargo keeps, and a new Rust toolchain prunes the old one with its compiler source
 - `.config/mise.toml` `[tools]` rows stay at `latest` where a backend lists releases, and a `version_regex` excludes development builds
 - Platform rows sit in the `.config/mise.<os>.toml` mise loads, as only a file limits a row to one OS
 - Doppler project `rasm` and 1Password hold every secret, a registry token as a `rasm/release` row named as the variable its publish target reads

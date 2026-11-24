@@ -122,7 +122,7 @@ Nx cache server of role `Cache`:
 - Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes a read-write and a read-only token
 - Runners reach the server over public HTTPS through its proxy
 - Doppler `ci` holds server URL and both tokens, `dev` references URL and read-write token, and `deploy` both tokens
-- Cache objects expire role field `kept` after their write, and a read refreshes none
+- Cache objects expire role field `kept` after their write, and a read refreshes none, so an unchanged task runs again once per `kept`
 - Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a task once its cache write fails six times
 - Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop
 
@@ -142,11 +142,17 @@ Atuin sync server of role `History`:
 ## [11]-[RUNNERS]
 
 GitHub Actions runners of role `Runner`:
-- Role `Runner` field `instances` names each runner service by label with systemd limits `systemctl set-property` sets once it starts
+- Role `Runner` field `instances` names each runner service by label with systemd limits its unit's drop-in `instance` sets
 - Systemd limits of instance `container` reach no job, as its jobs run in containers under Docker's cgroups
 - Runner `<machine>-<label>` installs in folder `actions-runner-<label>`, works in folder `actions-work-<label>`, and holds label `<label>` beside default labels
 - Instances `host` and `graph` run jobs on their machine and `container` in a container, one job of each at once, and `graph` runs jobs `shas` and `affected` alone
-- Changes to runner version, limits, repository, or tailnet node reinstall a runner after `systemctl revert`
+- Runner services stop by removing their label through GitHub's API and waiting until GitHub reports them idle, as a stop cancels a running job
+- Label removal comes first, as a listener takes the next queued job within seconds of its last one
+- Stops GitHub refuses wait for their instance's `Runner.Worker` to exit, and a job GitHub assigns meanwhile is canceled
+- Runner services restore their label as they start, retry a failed start every 30 seconds, and stop before Docker
+- Drains wait up to `drained` of the `Runner` arm, the longest self-hosted job timeout, and a runner command's Pulumi timeout adds 15 minutes
+- Runner installs keep `GITHUB_TOKEN` in root-only file `.token` of their folder, which the drain reads
+- Changes to runner version, limits, repository, or tailnet node stop a runner, then `systemctl revert` deletes its drop-ins and it reinstalls
 - Reinstalls replace folder `actions-runner-<label>` alone and keep the work folder's checkouts, tools, and caches, which only a label leaving `instances` deletes
 - Runner installs register through `config.sh --pat`, which takes a registration token from `GITHUB_TOKEN` at each attempt
 - Runner removals run `config.sh remove --pat` with the token of their last install, and a revoked token leaves an offline registration
@@ -169,5 +175,9 @@ Google Cloud project `rasm-release`, its identities, and GitHub variables naming
 
 Package updates and reboots of each machine:
 - Machines install Ubuntu `*-updates` and Docker packages daily on a timer `.config/mise.machine.toml` sets
-- Machines reboot when an update requires it, and each reboot stops jobs there and CI runs reading its cache
+- Machines reboot once an update requires it, except a machine with role `Runner`, as a reboot stops its jobs and runs reading its cache
+- Role `Runner` turns off `Automatic-Reboot` in `.config/mise.runner.toml`, and its timer `reboot-when-idle` checks hourly
+- `reboot-when-idle` reboots while `/run/reboot-required` exists and the repository's 100 newest runs hold none without a conclusion
+- `reboot-when-idle` reads the unfiltered run list, as a run filtered by status appears seconds after its creation
+- Reboots stop runner services through their drain
 - Docker Engine's builder garbage collection keeps the build cache CI builds fill under `defaultMaxUsedSpace`
