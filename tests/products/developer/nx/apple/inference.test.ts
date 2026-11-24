@@ -23,11 +23,12 @@ const VERSIONED = '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">
 const REFERENCE = '<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A10000000000000000000002" BuildableName="Viewer.app" BlueprintName="Viewer" ReferencedContainer="container:Viewer.xcodeproj"/>';
 const PACKAGED = (target: string) => `<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="${target}" BuildableName="${target}" BlueprintName="${target}" ReferencedContainer="container:"/>`;
 const PACKAGES = {
-    'Package.swift': `${TOOLS}let package = Package(\n    name: "Fixture",\n    platforms: [.macOS(.v27)],\n    products: [.library(name: "Middle", targets: ["Middle"])],\n    targets: [\n        .target(name: "Core", path: "libs/Core"),\n        .target(name: "Middle", dependencies: ["Core"], path: "libs/Middle"),\n        .target(name: "Loose", path: "libs/Loose"),\n        .executableTarget(name: "Tool", dependencies: ["Middle"], path: "apps/Tool"),\n        .testTarget(name: "CoreTests", dependencies: ["Core"], path: "libs/tests/CoreTests"),\n    ]\n)\n`,
+    'Package.swift': `${TOOLS}let package = Package(\n    name: "Fixture",\n    platforms: [.macOS(.v27)],\n    products: [.library(name: "Middle", targets: ["Middle"])],\n    targets: [\n        .target(name: "Core", path: "libs/Core"),\n        .target(name: "Middle", dependencies: ["Core"], path: "libs/Middle"),\n        .target(name: "Loose", path: "libs/Loose"),\n        .executableTarget(name: "Tool", dependencies: ["Middle"], path: "apps/Tool", exclude: ["Info.plist"]),\n        .testTarget(name: "CoreTests", dependencies: ["Core"], path: "libs/tests/CoreTests"),\n    ]\n)\n`,
     'libs/Core/Core.swift': 'public func one() -> Int { 1 }\n',
     'libs/Middle/Middle.swift': 'import Core\n\npublic func two() -> Int { one() + 1 }\n',
     'libs/Loose/Loose.swift': 'public let loose = 0\n',
     'apps/Tool/main.swift': 'import Middle\n\nprint(two())\n',
+    'apps/Tool/Info.plist': VERSIONED,
     'libs/tests/CoreTests/CoreTests.swift': 'import Core\nimport Testing\n\n@Test func oneIsOne() { #expect(one() == 1) }\n',
     'packages/kit/Package.swift': `${TOOLS}let package = Package(name: "KitPackage", products: [.executable(name: "Kit", targets: ["Kit"])], targets: [.executableTarget(name: "Kit")])\n`,
     'packages/kit/Sources/Kit/main.swift': 'print("kit")\n',
@@ -216,7 +217,7 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
 });
 
 describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
-    it('builds and tests the package through its workspace scheme in place of swift build and swift test, each module running its build and check, and the test where a test target reaches it', async ({ fixture: { graph } }) => {
+    it('builds and tests the package through its workspace scheme in place of swift build and swift test, each module running its build and check, the test where a test target reaches it, and the pack after its build, hashing the Package.resolved the workspace one links to', async ({ fixture: { graph } }) => {
         const targets = ['build--xcodebuild', 'check--xcodebuild', 'test--xcodebuild'] as const;
         const [build, test] = await Promise.all([targetOptions(Run, graph, 'Fixture', 'build--xcodebuild'), targetOptions(Run, graph, 'Fixture', 'test--xcodebuild')]);
         const forwards = [...Array.cartesian(MODULES, ['build--xcodebuild', 'check--xcodebuild'] as const), ['Core', 'test--xcodebuild'] as const];
@@ -226,11 +227,15 @@ describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
             runs: [build.runs, test.runs],
             forwarded: forwards.map(([module, target]) => graph.nodes[module]?.data.targets?.[target]?.dependsOn),
             tested: MODULES.filter((module) => 'test--xcodebuild' in (graph.nodes[module]?.data.targets ?? {})),
+            packed: graph.nodes['Tool']?.data.targets?.['pack--ditto']?.dependsOn,
+            locked: targets.map((target) => graph.nodes['Fixture']?.data.targets?.[target]?.inputs?.includes('{workspaceRoot}/Package.resolved')),
         }).toStrictEqual({
             compiled: targets,
             runs: [invoked('build'), invoked('test')],
             forwarded: forwards.map(([, target]) => [{ projects: ['Fixture'], target }]),
             tested: ['Core'],
+            packed: ['build--xcodebuild'],
+            locked: [true, true, true],
         });
     });
 

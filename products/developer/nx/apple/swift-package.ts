@@ -186,7 +186,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
                     pack: {
                         ditto: {
                             executor: `${PLUGIN}:package`,
-                            dependsOn: ['build--swift-build'],
+                            dependsOn: Record.keys(own['build'] ?? {}).map((tool) => `build--${tool}`),
                             inputs: [join('{workspaceRoot}', plist), ...inputs],
                             options: { products: [{ package: root, product: held, folder, bin: bins.release, ...signing }] },
                             outputs: [join('{workspaceRoot}', folder, `${held}.zip`)],

@@ -49,7 +49,15 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     );
     const referenced = container.buildFiles.filter((at) => relative(dirname(container.path), at).startsWith('..')).flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
     const listing = extname(container.path) === '.xcworkspace';
-    const read = Array.dedupe([join(listing ? join('{workspaceRoot}', container.path) : '{projectRoot}', '**/*'), ...inputs, ...referenced, ...tokened(lock), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'test -z "$XCODE_XCCONFIG_FILE" || cat "$XCODE_XCCONFIG_FILE"' }, ...INPUTS]);
+    const read = Array.dedupe([
+        join(listing ? join('{workspaceRoot}', container.path) : '{projectRoot}', '**/*'),
+        ...inputs,
+        ...referenced,
+        ...[lock, ...Option.toArray(seed)].flatMap(tokened),
+        ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []),
+        { runtime: 'xcodebuild -version && { test -z "$XCODE_XCCONFIG_FILE" || cat "$XCODE_XCCONFIG_FILE"; }' },
+        ...INPUTS,
+    ]);
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
     const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
     const derived = Option.orElse(Option.fromUndefinedOr(options.derivedDataPath), () => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, 'DerivedData')));

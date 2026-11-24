@@ -28,7 +28,7 @@ const NOTARY = { key: 'ASC_API_KEY_P8', keyId: 'ASC_API_KEY_ID', issuer: 'ASC_AP
 const SIGNED = { development: 'Apple Development', distribution: 'Developer ID Application' } as const;
 const APPCAST = { key: 'SPARKLE_ED_PRIVATE_KEY', bucket: 'SPARKLE_FEED_BUCKET' } as const;
 const SWIFTPM = ['--force-resolved-versions', '--disable-index-store'] as const;
-const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'swift -print-target-info | plutil -extract compilerVersion raw -' }, PLATFORM, { externalDependencies: [] }];
+const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version' }, PLATFORM, { externalDependencies: [] }];
 const ATTACH: TargetConfiguration = {
     executor: `${distribution.name}:attach`,
     dependsOn: ['pack--ditto'],
