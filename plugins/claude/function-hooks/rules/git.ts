@@ -55,10 +55,63 @@ const located = (host: Host['Service'], folder: string) =>
         return Option.liftPredicate({ gitdir, ledger: host.path.join(gitdir, manifest.name), toplevel, prefix }, () => code === 0);
     });
 
-const entriesOf = Effect.fnUntraced(function* (host: Host['Service'], ledger: string) {
-    const files = yield* Effect.orElseSucceed(host.fs.readDirectory(ledger), (): readonly string[] => []);
-    const texts = yield* Effect.forEach(files, (file) => Effect.orElseSucceed(host.fs.readFileString(host.path.join(ledger, file)), () => ''));
-    return Array.zip(files, texts).flatMap(([file, text]) => Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Line)(line))).map((entry) => [host.path.basename(file, LEDGER), entry] as const));
+const ledgersOf = Effect.fnUntraced(function* (host: Host['Service'], ledger: string) {
+    const listed = yield* Effect.orElseSucceed(host.fs.readDirectory(ledger), (): readonly string[] => []);
+    const named = listed.filter((file) => host.path.extname(file) === LEDGER);
+    const texts = yield* Effect.forEach(named, (file) => Effect.orElseSucceed(host.fs.readFileString(host.path.join(ledger, file)), () => ''));
+    const files = Array.zip(named, texts).map(([file, text]) => ({ session: host.path.basename(file, LEDGER), path: host.path.join(ledger, file), text, entries: Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Line)(line))) }));
+    return { files, entries: files.flatMap(({ session, entries }) => entries.map((entry) => [session, entry] as const)) };
+});
+
+const windowsOf = (entries: readonly (readonly [string, typeof Entry.Type])[], at: number) => {
+    const ended = new Map(entries.flatMap(([owner, entry]) => (Predicate.isTagged(entry, 'Closed') ? [[`${owner} ${entry.call}`, entry.at] as const] : [])));
+    return Effect.forEach(
+        entries.flatMap(([owner, entry]) => (Predicate.isTagged(entry, 'Opened') ? [{ owner, entry }] : [])),
+        ({ owner, entry }) => Effect.map(Effect.isSuccess(Effect.try({ try: () => process.kill(entry.pid, 0), catch: HostError.of('kill') })), (alive) => ({ owner, entry, end: ended.get(`${owner} ${entry.call}`) ?? Math.min(entry.until ?? Number.POSITIVE_INFINITY, alive ? Number.POSITIVE_INFINITY : at) })),
+    );
+};
+
+const blobsOf = (listed: string, field: number) =>
+    new Map(
+        listed
+            .split('\0')
+            .filter(String.isNonEmpty)
+            .map((record) => [record.slice(record.indexOf('\t') + 1), record.slice(0, record.indexOf('\t')).split(' ')[field] ?? ''] as const),
+    );
+
+const swept = Effect.fnUntraced(function* (host: Host['Service'], { ledger, toplevel }: { readonly ledger: string; readonly toplevel: string }) {
+    const [{ files, entries }, at] = yield* Effect.all([ledgersOf(host, ledger), Clock.currentTimeMillis]);
+    const windows = yield* windowsOf(entries, at);
+    const opening = Math.min(...windows.filter(({ end }) => end > at).map(({ entry }) => entry.at));
+    const paths = Array.dedupe(entries.flatMap(([, entry]) => (Predicate.isTagged(entry, 'Wrote') ? [entry.path] : [])));
+    const git = (...args: readonly string[]) => host.output(['git', '--literal-pathspecs', '-C', toplevel, ...args, '--', ...paths]);
+    const [head, index, kept] = paths.length === 0 ? ['', '', []] : yield* Effect.all([git('ls-tree', '-z', 'HEAD'), git('ls-files', '-s', '-z'), Effect.filter(paths, (path) => host.exists(host.path.join(toplevel, path)))]);
+    const hashed = kept.length === 0 ? [] : (yield* host.output(['git', '-C', toplevel, 'hash-object', '--', ...kept])).split('\n');
+    const [committed, staged, worktree] = [blobsOf(head, 2), blobsOf(index, 1), new Map(Array.zip(kept, hashed))];
+    const grants = ({ entries: held }: (typeof files)[number]) => {
+        const writes = held.flatMap((entry) => (Predicate.isTagged(entry, 'Wrote') ? [entry] : []));
+        return writes.some(({ path, agent }) => {
+            const links = writes.filter((link) => link.path === path && link.agent === agent);
+            const [h, i, w] = [committed.get(path), staged.get(path), worktree.get(path)];
+            return (w !== i && derived(links, i, w)) || (w !== h && derived(links, h, w)) || (i !== h && derived(links, h, i));
+        });
+    };
+    const live = (file: (typeof files)[number]) => windows.some(({ owner, end }) => owner === file.session && end > at) || file.entries.some((entry) => Predicate.isTagged(entry, 'Closed') && entry.at >= opening) || grants(file);
+    yield* Effect.forEach(
+        files.filter((file) => !live(file)),
+        ({ path, text }) =>
+            Effect.mapError(
+                Effect.gen(function* () {
+                    const tomb = `${path}.swept`;
+                    yield* host.fs.rename(path, tomb);
+                    const late = (yield* host.fs.readFileString(tomb)).slice(text.length);
+                    yield* String.isNonEmpty(late) ? host.fs.writeFileString(path, late, { flag: 'a' }) : Effect.void;
+                    yield* host.fs.remove(tomb);
+                }),
+                HostError.of(path),
+            ),
+        { discard: true },
+    );
 });
 
 const afterOf = (output: typeof Output.Type): Option.Option<string> =>
@@ -106,7 +159,7 @@ const foreign = Effect.fnUntraced(function* (host: Host['Service'], repository: 
     }
     const { ledger, toplevel } = place.value;
     const diffed = (...against: readonly string[]) => Effect.map(host.output(['git', '-C', repository, 'diff', '--raw', '-z', '--no-abbrev', '--no-renames', '--no-relative', ...against, '--', ...pathspecs]), changesOf);
-    const [worktree, index, entries] = yield* Effect.all([diffed(...Option.toArray(source)), indexed ? diffed('--cached', ...Option.toArray(source)) : Effect.succeed([]), entriesOf(host, ledger)]);
+    const [worktree, index, entries] = yield* Effect.all([diffed(...Option.toArray(source)), indexed ? diffed('--cached', ...Option.toArray(source)) : Effect.succeed([]), Effect.map(ledgersOf(host, ledger), Struct.get('entries'))]);
     const present = worktree.filter(({ kept }) => kept);
     const hashed = present.length === 0 ? [] : (yield* host.output(['git', '-C', toplevel, 'hash-object', '--', ...present.map(({ path }) => path)])).split('\n');
     const blobs = new Map(present.map(({ path }, at) => [path, hashed[at]] as const));
@@ -353,19 +406,15 @@ const closed = Effect.fn('closed')(
     function* ({ session, agent, call }: typeof Calling.Type) {
         const host = yield* Host;
         const place = yield* located(host, host.root);
-        const own = Option.isSome(place) ? Array.findLast(yield* entriesOf(host, place.value.ledger), ([owner, entry]) => owner === session && Predicate.isTagged(entry, 'Opened') && entry.call === call) : Option.none();
+        const own = Option.isSome(place) ? Array.findLast((yield* ledgersOf(host, place.value.ledger)).entries, ([owner, entry]) => owner === session && Predicate.isTagged(entry, 'Opened') && entry.call === call) : Option.none();
         const start = Option.flatMap(own, ([, entry]) => (Predicate.isTagged(entry, 'Opened') ? Option.fromUndefinedOr(entry.tree === undefined ? undefined : { at: entry.at, tree: entry.tree }) : Option.none()));
         if (Option.isNone(place) || Option.isNone(start)) {
             return;
         }
         const { ledger, toplevel } = place.value;
         const tree = yield* snapshot(host, place.value);
-        const [at, entries] = yield* Effect.all([Clock.currentTimeMillis, entriesOf(host, ledger)]);
-        const ended = new Map(entries.flatMap(([owner, entry]) => (Predicate.isTagged(entry, 'Closed') ? [[`${owner} ${entry.call}`, entry.at] as const] : [])));
-        const windows = entries.flatMap(([owner, entry]) => (Predicate.isTagged(entry, 'Opened') && (owner !== session || entry.agent !== agent) ? [{ owner, entry }] : []));
-        const living = yield* Effect.forEach(windows, ({ owner, entry }) =>
-            Effect.map(Effect.isSuccess(Effect.try({ try: () => process.kill(entry.pid, 0), catch: HostError.of('kill') })), (alive) => ({ owner, entry, end: ended.get(`${owner} ${entry.call}`) ?? Math.min(entry.until ?? Number.POSITIVE_INFINITY, alive ? Number.POSITIVE_INFINITY : at) })),
-        );
+        const [at, { entries }] = yield* Effect.all([Clock.currentTimeMillis, ledgersOf(host, ledger)]);
+        const living = (yield* windowsOf(entries, at)).filter(({ owner, entry }) => owner !== session || entry.agent !== agent);
         const overlapping = living.filter(({ entry, end }) => entry.at <= at && end >= start.value.at);
         const blocked = new Set(overlapping.map(({ entry }) => entry.path));
         const changes = blocked.has(undefined) ? [] : changesOf(yield* host.output(['git', '-C', toplevel, 'diff-tree', '-r', '-z', '--no-renames', start.value.tree, tree])).filter(({ path }) => !blocked.has(path));
@@ -376,6 +425,7 @@ const closed = Effect.fn('closed')(
             ...changes.map(({ path, from, to }) => Entry.cases.Wrote.make({ path, ...held, ...Option.match(from, { onNone: () => ({}), onSome: (before) => ({ before }) }), ...Option.match(to, { onNone: () => ({}), onSome: (after) => ({ after }) }) })),
             Entry.cases.Closed.make({ call, at, ...held }),
         ]);
+        yield* swept(host, place.value);
     },
     (effect, { cwd }) => Effect.provideServiceEffect(effect, Host, Host.make(cwd)),
 );
@@ -397,6 +447,7 @@ const wrote = Effect.fn('wrote')(function* ({ session, agent, call, file, result
     });
     const at = yield* Clock.currentTimeMillis;
     yield* appended(host, ledger, session, [...Option.toArray(Option.map(written, ({ before, after }) => Entry.cases.Wrote.make({ path, after, ...held, ...Option.match(before, { onNone: () => ({}), onSome: (hash) => ({ before: hash }) }) }))), Entry.cases.Closed.make({ call, at, ...held })]);
+    yield* swept(host, place.value);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

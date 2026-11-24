@@ -106,6 +106,14 @@ const KEPT = [
     ],
     ['its own path beside a path another session edited, naming only that path', [STEPS.mine, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], 'git restore f g', 'a', `git restore ${FOREIGN} g,`],
 ] as const;
+const SWEPT = [
+    ['its own paths were all committed', [STEPS.mine, { hand: 'git commit -qam hand' }, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], { 'session-a': false, 'session-b': true }],
+    ['its own path another session rewrote since', [STEPS.mine, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }, { edit: 'b', file: 'f', old: 'mine', new: 'theirs', text: 'theirs\n' }], { 'session-a': false, 'session-b': true }],
+    ['its own path is still dirty', [STEPS.mine, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], { 'session-a': true, 'session-b': true }],
+    ['one of its own paths is still dirty after the other was committed', [STEPS.mine, { edit: 'a', file: 'g', old: 'base', new: 'mine', text: 'mine\n' }, { hand: 'git commit -q -m hand g' }, { edit: 'b', file: 'h', old: 'base', new: 'theirs', text: 'theirs\n' }], { 'session-a': true, 'session-b': true }],
+    ['another session only opened a shell window that is still open', [{ opens: 'b' }, STEPS.mine], { 'session-a': true, 'session-b': true }],
+    ['another session holds an open shell window that started before its last call ended', [{ opens: 'b' }, STEPS.mine, { hand: 'git commit -qam hand' }, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], { 'session-a': true, 'session-b': true }],
+] as const;
 const NOT_COMMITTED = 'git commit --amend rewrites HEAD, which this session did not commit';
 const AMENDED = [
     ['its own commit', [{ hand: 'echo 1 > c && git add c' }, { by: 'a', command: 'git commit -q -m one' }]],
@@ -181,7 +189,7 @@ const scratch = Effect.fnUntraced(function* () {
     const succeeded = (command: string) => reached(shell(command), (code) => code === 0, `a passing ${command}`);
     const file = (name: string) => path.join(repo, name);
     const decidedAs = (command: string, by: keyof typeof OWNERS, call?: string) => decided(command, repo, { ...OWNERS[by], ...(call === undefined ? {} : { call }) });
-    yield* Effect.forEach(['f', 'g'], (name) => fs.writeFileString(file(name), 'base\n'), { discard: true });
+    yield* Effect.forEach(['f', 'g', 'h'], (name) => fs.writeFileString(file(name), 'base\n'), { discard: true });
     yield* succeeded('git init -q -b main && git add . && git commit -q -m base');
     return {
         repo,
@@ -190,6 +198,7 @@ const scratch = Effect.fnUntraced(function* () {
         succeeded,
         decidedAs,
         written: (name: string, text: string) => fs.writeFileString(file(name), text),
+        ledgerOf: (session: string) => fs.exists(path.join(repo, '.git', 'function-hooks', `${session}.jsonl`)),
         recorded: Effect.fnUntraced(function* (by: keyof typeof OWNERS, name: string, text: string, call: string, result: object) {
             yield* opened({ ...OWNERS[by], call, cwd: repo, file: file(name) });
             const originalFile = (yield* fs.exists(file(name))) ? yield* fs.readFileString(file(name)) : null;
@@ -215,7 +224,7 @@ type Scratch = Effect.Success<ReturnType<typeof scratch>>;
 const duringStep = (held: Scratch, step: { readonly opens: keyof typeof OWNERS } | { readonly edit: keyof typeof OWNERS; readonly file: string; readonly old: string; readonly new: string; readonly text: string }, at: number) =>
     'opens' in step ? opened({ ...OWNERS[step.opens], call: `open-${at}`, cwd: held.repo }) : held.recorded(step.edit, step.file, step.text, `edit-${at}`, { oldString: step.old, newString: step.new, replaceAll: false, structuredPatch: [], userModified: false });
 
-const restoreStep = (held: Scratch) => (step: (typeof RESTORED | typeof KEPT)[number][1][number], at: number) =>
+const restoreStep = (held: Scratch) => (step: (typeof RESTORED | typeof KEPT | typeof SWEPT)[number][1][number], at: number) =>
     Match.value(step).pipe(
         Match.when({ runs: Match.string }, (call) => held.shelled(call.runs, call.command, `call-${at}`, 'during' in call ? duringStep(held, call.during, at + 100) : Effect.void)),
         Match.when({ edit: Match.string }, ({ edit, file, old, new: replacement, text }) => held.recorded(edit, file, text, `edit-${at}`, { oldString: old, newString: replacement, replaceAll: false, structuredPatch: [], userModified: false })),
@@ -223,6 +232,8 @@ const restoreStep = (held: Scratch) => (step: (typeof RESTORED | typeof KEPT)[nu
         Match.when({ write: Match.string }, ({ write, file, text }) => held.recorded(write, file, text, `edit-${at}`, { type: 'update', content: text, structuredPatch: [] })),
         Match.when({ shell: Match.string }, ({ shell, text }) => held.written(shell, text)),
         Match.when({ remove: Match.string }, ({ remove }) => held.succeeded(`rm ${remove}`)),
+        Match.when({ hand: Match.string }, ({ hand }) => held.succeeded(hand)),
+        Match.when({ opens: Match.string }, ({ opens }) => opened({ ...OWNERS[opens], call: `open-${at}`, cwd: held.repo })),
         Match.orElse(({ stage }) => held.succeeded(`git add ${stage}`)),
     );
 
@@ -313,6 +324,19 @@ layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })
                     const held = yield* scratch();
                     yield* Effect.forEach(steps, restoreStep(held), { discard: true });
                     expect(yield* held.decidedAs(command, by)).toSatisfy(refusing(reason), `refused because ${reason}`);
+                }),
+            ),
+        30_000,
+    );
+
+    it.effect.each(SWEPT)(
+        'Ledger files after %s keep exactly the sessions that can still grant',
+        ([, steps, held]) =>
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const tree = yield* scratch();
+                    yield* Effect.forEach(steps, restoreStep(tree), { discard: true });
+                    expect(yield* Effect.all({ 'session-a': tree.ledgerOf('session-a'), 'session-b': tree.ledgerOf('session-b') })).toStrictEqual(held);
                 }),
             ),
         30_000,
