@@ -27,7 +27,7 @@
             "entry": ["main.ts"]
         },
         "products/developer/nx/*": {
-            "entry": ["executors/*/executor.ts", "generators/*/generator.ts"]
+            "entry": ["executors/*/executor.ts"]
         },
         "products/web/*": {
             "entry": ["server/main.ts"]
