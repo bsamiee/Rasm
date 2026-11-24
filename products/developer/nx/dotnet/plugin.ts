@@ -5,7 +5,7 @@ import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, t
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Graph, Option, Record, Ref, Result, Schema, Stream, String, Struct } from 'effect';
+import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Function, Graph, Option, Record, Ref, Result, Schema, Stream, String, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import which from 'which';
 import { ANALYZER, Edges, ENVIRONMENT, line, Node, PLUGIN, publishing, run, targets } from '#/targets';
@@ -66,37 +66,21 @@ const published = (workspaceRoot: string) => `${line(['dotnet', 'publish', relat
 const ready = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
     const [host, present, sourced, sums] = yield* Effect.all([Effect.promise(() => which('dotnet', { nothrow: true })), fs.exists(ANALYZER), fs.exists(SOURCE), Effect.option(fs.readFileString(SUMS))], { concurrency: 'unbounded' });
-    const resolved = Result.fromNullishOr(host, () => 'no folder of PATH holds dotnet').pipe(
-        Result.filterOrFail(
-            () => present,
-            () => `${relative(workspaceRoot, ANALYZER)} is absent, ${published(workspaceRoot)}`,
-        ),
+    const resolved = Result.fromNullishOr(host, () => 'no folder of PATH holds dotnet').pipe(Result.filterOrFail(Function.constant(present), () => `${relative(workspaceRoot, ANALYZER)} is absent, ${published(workspaceRoot)}`));
+    yield* Result.getFailure(resolved).pipe(
+        Option.filter(() => matched.some((file) => PROJECTS.includes(extname(file)))),
+        Option.map((reason) => Effect.sync(() => emitPluginWorkerLog('warn', `No MSBuild project of the workspace enters the graph, as ${reason}`))),
+        Effect.transposeOption,
     );
-    yield* Option.match(
-        Option.filter(Result.getFailure(resolved), () => matched.some((file) => PROJECTS.includes(extname(file)))),
-        {
-            onNone: () => Effect.void,
-            onSome: (reason) => Effect.sync(() => emitPluginWorkerLog('warn', `No MSBuild project of the workspace enters the graph, as ${reason}`)),
-        },
+    yield* Effect.fromOption(sums).pipe(
+        Effect.map((text) => Array.map(text.split('\n').filter(String.isNonEmpty), (row) => [join(dirname(SOURCE), row.slice(row.indexOf(' ')).trim()), row.slice(0, row.indexOf(' ')).toLowerCase()] as const)),
+        Effect.flatMap((rows) => Effect.filter(rows, ([file, digest]) => Effect.match(fs.readFile(file), { onFailure: () => true, onSuccess: (bytes) => hash('sha256', bytes) !== digest }), { concurrency: 'unbounded' })),
+        Effect.map(Array.map(([file]) => file)),
+        Effect.orElseSucceed(() => [SUMS]),
+        Effect.filterOrFail(Array.isArrayEmpty, (files) => new Cause.UnknownError(files, `${relative(workspaceRoot, ANALYZER)} predates ${files.map((file) => relative(workspaceRoot, file)).join(', ')}, ${published(workspaceRoot)}`)),
+        Effect.when(Effect.succeed(Result.isSuccess(resolved) && sourced)),
     );
-    const stale = yield* Result.isSuccess(resolved) && sourced
-        ? Option.match(sums, {
-              onNone: () => Effect.succeed([SUMS]),
-              onSome: (text) =>
-                  Effect.filter(
-                      text
-                          .split('\n')
-                          .filter(String.isNonEmpty)
-                          .map((row) => [join(dirname(SOURCE), row.slice(row.indexOf(' ')).trim()), row.slice(0, row.indexOf(' ')).toLowerCase()] as const),
-                      ([file, digest]) => Effect.match(fs.readFile(file), { onFailure: () => true, onSuccess: (bytes) => hash('sha256', bytes) !== digest }),
-                      { concurrency: 'unbounded' },
-                  ).pipe(Effect.map(Array.map(([file]) => file))),
-          })
-        : Effect.succeed(Array.empty<string>());
-    return yield* Array.match(stale, {
-        onEmpty: () => Effect.succeed(Result.getSuccess(resolved)),
-        onNonEmpty: (files) => Effect.fail(new Cause.UnknownError(files, `${relative(workspaceRoot, ANALYZER)} predates ${files.map((file) => relative(workspaceRoot, file)).join(', ')}, ${published(workspaceRoot)}`)),
-    });
+    return Result.getSuccess(resolved);
 });
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {

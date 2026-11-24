@@ -81,19 +81,10 @@ const commands = (text: string) => {
 };
 
 const versioned = (text: string, at: string) =>
-    Effect.mapError(
-        Effect.fromOption(
-            pipe(
-                Array.findFirst(commands(text), ({ name }) => name === 'project'),
-                Option.flatMap(({ args }) =>
-                    Option.flatMap(
-                        Array.findFirstIndex(args, ({ value }) => value === 'VERSION'),
-                        (keyword) => Array.get(args, keyword + 1),
-                    ),
-                ),
-            ),
-        ),
-        (cause) => new Cause.UnknownError(cause, `${at} states no VERSION in a project() call, which nx release reads and writes`),
+    Array.findFirst(commands(text), ({ name }) => name === 'project').pipe(
+        Option.flatMap(({ args }) => Array.findFirst(args, ({ value }, index) => (value === 'VERSION' ? Array.get(args, index + 1) : Option.none()))),
+        Effect.fromOption,
+        Effect.mapError((cause) => new Cause.UnknownError(cause, `${at} states no VERSION in a project() call, which nx release reads and writes`)),
     );
 
 const restated = Effect.fnUntraced(function* (text: string, version: string, at: string) {

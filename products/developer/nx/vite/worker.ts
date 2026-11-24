@@ -5,7 +5,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parentPort, workerData } from 'node:worker_threads';
 import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
-import { Array, Cause, Effect, MutableRef, Option, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, MutableRef, Option, Predicate, Result, Schema, Struct } from 'effect';
 import type { Plugin, resolveConfig, resolveEnvPrefix, UserConfig } from 'vite';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -17,20 +17,16 @@ const Task = Schema.Struct({ at: Schema.String, outDir: Schema.optional(Schema.S
 const read = Effect.fnUntraced(function* ({ at, outDir }: typeof Task.Type) {
     const vite = yield* Effect.promise((): Promise<{ readonly resolveConfig: typeof resolveConfig; readonly resolveEnvPrefix: typeof resolveEnvPrefix }> => import(pathToFileURL(createRequire(at).resolve('vite')).href));
     const imported = new Set<string>();
-    yield* Effect.acquireRelease(
-        Effect.sync(() =>
-            registerHooks({
-                resolve: (specifier, context, nextResolve) => {
-                    const module = nextResolve(specifier, context);
-                    imported.add(module.url);
-                    return module;
-                },
-            }),
-        ),
-        (hooks) => Effect.sync(() => hooks.deregister()),
-    );
+    const registration = Effect.succeed({
+        resolve: (specifier, context, nextResolve) => {
+            const module = nextResolve(specifier, context);
+            imported.add(module.url);
+            return module;
+        },
+    } satisfies Parameters<typeof registerHooks>[0]).pipe(Effect.map(registerHooks));
+    yield* Effect.acquireRelease(registration, (hooks) => Effect.sync(() => hooks.deregister()));
     yield* Effect.sync(() => Object.assign(process, { cwd: () => dirname(at) }));
-    const resolved = (command: 'build' | 'serve') => {
+    const resolved = (command: Parameters<typeof resolveConfig>[1], inline: UserConfig, mode?: string) => {
         const stated = MutableRef.make(false);
         const capture = {
             name: 'nx-vite-stated-server',
@@ -42,26 +38,22 @@ const read = Effect.fnUntraced(function* ({ at, outDir }: typeof Task.Type) {
                 },
             },
         } as const;
-        const mode = command === 'build' ? 'production' : 'development';
-        return Effect.map(
-            Effect.tryPromise({
-                try: () =>
-                    vite.resolveConfig({ configFile: at, plugins: [capture], ...(command === 'serve' && { logLevel: 'silent' }), ...(outDir !== undefined && { build: { outDir } }) }, command, mode, mode, false, undefined, (plugins) => {
-                        plugins.splice(0, plugins.length, ...plugins.map(Struct.omit<Plugin, ['configResolved']>(['configResolved'])));
-                    }),
-                catch: (cause) => new Cause.UnknownError(cause, `${at} does not load for vite ${command}`),
-            }),
-            (config) => ({ config, stated: MutableRef.get(stated) }),
-        );
+        return Effect.tryPromise({
+            try: () =>
+                vite.resolveConfig({ configFile: at, plugins: [capture], ...inline, ...(outDir !== undefined && { build: { outDir } }) }, command, mode, mode, false, undefined, (plugins) => {
+                    plugins.splice(0, plugins.length, ...plugins.map(Struct.omit<Plugin, ['configResolved']>(['configResolved'])));
+                }),
+            catch: (cause) => new Cause.UnknownError(cause, `${at} does not load for vite ${command}`),
+        }).pipe(Effect.map((config) => ({ config, stated: MutableRef.get(stated) })));
     };
-    const { config, stated } = yield* Effect.orDie(resolved('build'));
+    const { config, stated } = yield* Effect.orDie(resolved('build', {}, 'production'));
     const built = config.builder === undefined ? Array.fromNullishOr(config.environments[config.build.ssr === false ? 'client' : 'ssr']) : Object.values(config.environments);
     const library = config.build.lib !== false;
     const entry = existsSync(join(config.root, 'index.html'));
-    const buildable = library || entry || config.builder !== undefined || built.some(({ input, build }) => input !== undefined || typeof build.ssr === 'string' || build.rolldownOptions.input !== undefined);
+    const buildable = library || entry || config.builder !== undefined || built.some(({ input, build }) => input !== undefined || Predicate.isString(build.ssr) || build.rolldownOptions.input !== undefined);
     const signals = config.plugins.some(({ name }) => name === nxReadySignal().name);
     const implied = (!library && (entry || signals)) || stated;
-    const serve = buildable && !implied ? yield* Effect.option(resolved('serve')) : Option.none();
+    const serve = yield* Effect.when(resolved('serve', { logLevel: 'silent' }), Effect.succeed(buildable && !implied)).pipe(Effect.orElseSucceed(Option.none));
     return {
         root: config.root,
         library,
@@ -70,16 +62,7 @@ const read = Effect.fnUntraced(function* ({ at, outDir }: typeof Task.Type) {
         served: buildable && (implied || Option.exists(serve, ({ stated: declared }) => declared)),
         written: built.map(({ build }) => build.outDir),
         env: { directory: config.envDir === false ? null : config.envDir, prefixes: vite.resolveEnvPrefix(config.envPrefix === undefined ? {} : { envPrefix: config.envPrefix }) },
-        dependencies: Array.dedupe([
-            ...config.configFileDependencies,
-            ...Option.toArray(serve).flatMap(({ config: { configFileDependencies } }) => configFileDependencies),
-            ...Array.getSomes(
-                Array.map(
-                    [...imported],
-                    Option.liftThrowable((url: string) => fileURLToPath(url)),
-                ),
-            ),
-        ]),
+        dependencies: Array.dedupe([...config.configFileDependencies, ...Option.toArray(serve).flatMap(({ config: { configFileDependencies } }) => configFileDependencies), ...Array.filterMap(imported, (url) => Result.try(() => fileURLToPath(url)))]),
     };
 }, Effect.scoped);
 

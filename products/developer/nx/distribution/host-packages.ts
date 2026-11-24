@@ -115,7 +115,7 @@ const Linked = Schema.Record(Schema.String, Schema.Struct({ project: Schema.Stri
 class Plugin extends Schema.Opaque<Plugin, unknown>()(
     Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.optionalKey(Schema.String), Installed: Schema.optionalKey(Schema.Boolean), Plugins: References, nx: Schema.optionalKey(Schema.Struct({ packages: Linked })) })),
 ) {}
-const Association = Schema.Struct({ EngineAssociation: Schema.optionalKey(Schema.String) });
+const Association = Schema.Struct({ EngineAssociation: Schema.OptionFromOptionalKey(Schema.String) });
 const Engined = Schema.fromJsonString(Association);
 const Launcher = Schema.fromJsonString(Schema.Struct({ InstallationList: Schema.Array(Schema.Struct({ AppName: Schema.String, InstallLocation: Schema.String })) }));
 const Registered = Schema.Struct({ Installations: Schema.Record(Schema.String, Schema.String) });
@@ -171,49 +171,32 @@ const zipped = Effect.fnUntraced(function* (folder: string, names: readonly stri
 });
 
 const entry = (file: string, name: string) =>
-    Effect.flatMap(FileSystem.FileSystem, (fs) =>
-        fs.stream(file).pipe(
-            Stream.pipeThroughChannel(Zip.decode()),
-            Stream.mapEffect((member) =>
-                matchesGlob(member.header.path, name)
-                    ? pipe(
-                          Stream.decodeText(member.body),
-                          Stream.mkString,
-                          Effect.map((text) => ({ at: member.header.path, text })),
-                          Effect.asSome,
-                      )
-                    : Effect.succeedNone,
-            ),
-            Stream.filter(Option.isSome),
-            Stream.runHead,
-            Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not read as a zip archive`), onSuccess: Option.flatten }),
-        ),
+    Stream.unwrap(FileSystem.FileSystem.useSync((fs) => fs.stream(file))).pipe(
+        Stream.pipeThroughChannel(Zip.decode()),
+        Stream.filter(({ header }) => matchesGlob(header.path, name)),
+        Stream.mapEffect(({ header, body }) => Effect.map(Stream.mkString(Stream.decodeText(body)), (text) => ({ at: header.path, text }))),
+        Stream.runHead,
+        Effect.mapError((cause) => new Cause.UnknownError(cause, `${file} does not read as a zip archive`)),
     );
 
 const engine = Effect.fnUntraced(function* (descriptor: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const host = yield* Effect.mapError(Effect.fromNullishOr(UNREAL[platform]), (cause) => new Cause.UnknownError(cause, `${platform} is no supported Unreal Engine host; supported: ${Object.keys(UNREAL).join(', ')}`));
     const settings = path.join(homedir(), ...host.settings);
-    const declared = yield* Effect.flatMap(fs.readFileString(descriptor), Schema.decodeEffect(Engined));
-    const named = Option.filter(Option.fromUndefinedOr(declared.EngineAssociation), String.isNonEmpty);
-    const read = (at: readonly string[]) => Effect.option(fs.readFileString(path.join(settings, ...at)));
-    const [registered, launched] = yield* Effect.all([read(['UnrealEngine', 'Install.ini']), read(['UnrealEngineLauncher', 'LauncherInstalled.dat'])]);
+    const { EngineAssociation } = yield* Effect.flatMap(fs.readFileString(descriptor), Schema.decodeEffect(Engined));
+    const named = Option.filter(EngineAssociation, String.isNonEmpty);
+    const [registered, launched] = yield* Effect.all([Effect.option(fs.readFileString(path.join(settings, 'UnrealEngine', 'Install.ini'))), Effect.option(fs.readFileString(path.join(settings, 'UnrealEngineLauncher', 'LauncherInstalled.dat')))]);
     const native = yield* Effect.filter(above(path.dirname(descriptor)), (at) => fs.exists(path.join(at, 'Engine', 'Build', 'Build.version')));
-    const root = yield* Effect.mapError(
-        Effect.fromOption(
-            Option.firstSomeOf([
-                Option.flatMap(named, (key) => Option.liftPredicate(path.resolve(path.dirname(descriptor), key), () => ENGINE_PATH.test(key))),
-                Option.match(named, { onNone: () => Array.head(native), onSome: () => Option.none() }),
-                Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Schema.decodeUnknownOption(Registered)(Ini.parse(text)))]), ([key, { Installations }]) => Option.orElse(Record.get(Installations, key), () => Record.get(Installations, `UE_${key}`))),
-                Option.flatMap(Option.all([named, Option.flatMap(launched, (text) => Schema.decodeOption(Launcher)(text))]), ([key, { InstallationList }]) =>
-                    Option.map(
-                        Array.findFirst(InstallationList, ({ AppName }) => AppName === `UE_${key}`),
-                        ({ InstallLocation }) => InstallLocation,
-                    ),
-                ),
-            ]),
+    const root = yield* Option.firstSomeOf([
+        Option.flatMap(named, (key) => Option.liftPredicate(path.resolve(path.dirname(descriptor), key), () => ENGINE_PATH.test(key))),
+        Option.match(named, { onNone: () => Array.head(native), onSome: () => Option.none() }),
+        Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Schema.decodeUnknownOption(Registered)(Ini.parse(text)))]), ([key, { Installations }]) => Option.orElse(Record.get(Installations, key), () => Record.get(Installations, `UE_${key}`))),
+        Option.flatMap(Option.all([named, Option.flatMap(launched, Schema.decodeOption(Launcher))]), ([key, { InstallationList }]) => Array.findFirst(InstallationList, ({ AppName, InstallLocation }) => (AppName === `UE_${key}` ? Option.some(InstallLocation) : Option.none()))),
+    ]).pipe(
+        Effect.fromOption,
+        Effect.mapError(
+            (cause) => new Cause.UnknownError(cause, Option.match(named, { onNone: () => `${descriptor} names no engine, and no engine tree encloses it`, onSome: (key) => `${descriptor} names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` })),
         ),
-        (cause) => new Cause.UnknownError(cause, Option.match(named, { onNone: () => `${descriptor} names no engine, and no engine tree encloses it`, onSome: (key) => `${descriptor} names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` })),
     );
     const stamp = yield* Effect.mapError(fs.readFileString(path.join(root, 'Engine', 'Build', 'Build.version')), (cause) => new Cause.UnknownError(cause, `${descriptor} associates the engine at ${root}, which holds no Engine/Build/Build.version`));
     const { MajorVersion, MinorVersion } = yield* Schema.decodeEffect(Built)(stamp);

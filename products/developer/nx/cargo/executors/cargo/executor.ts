@@ -47,29 +47,16 @@ const Suited = Schema.Struct({ nextest: Schema.Struct({ crate: Schema.String }) 
 const ran = Effect.fnUntraced(
     function* (cwd: string, args: readonly string[], env: Readonly<Record<string, string>> = {}) {
         const handle = yield* ChildProcess.make('cargo', args, { cwd, env, extendEnv: true, detached: false, stdin: 'inherit' });
-        const [lines, code] = yield* Effect.all(
-            [
-                Stream.mergeAll(
-                    [[handle.stdout, stdout] as const, [handle.stderr, stderr] as const].map(([bytes, sink]) => Stream.map(Stream.splitLines(Stream.decodeText(bytes)), (line) => ({ line, sink }))),
-                    { concurrency: 'unbounded' },
-                ).pipe(
-                    Stream.mapEffect((read) => Effect.map(Clock.currentTimeMillis, (at) => ({ ...read, at }))),
-                    Stream.mapAccum(HashSet.empty<string>, (seen, { line, sink, at }) => {
-                        const message = Schema.decodeOption(Message)(line);
-                        const fresh = Option.filter(
-                            Option.flatMap(message, (parsed) => (Schema.is(Diagnostic)(parsed) ? parsed.message.rendered : Option.none())),
-                            (rendered) => !HashSet.has(seen, rendered),
-                        );
-                        return [Option.match(fresh, { onNone: () => seen, onSome: (rendered) => HashSet.add(seen, rendered) }), [{ text: Option.isSome(message) ? fresh : Option.some(`${line}\n`), message, sink, at }]];
-                    }),
-                    Stream.tap(({ text, sink }) => Option.match(text, { onNone: () => Effect.void, onSome: (rendered) => Effect.sync(() => sink.write(rendered)) })),
-                    Stream.runCollect,
-                ),
-                handle.exitCode,
-            ],
-            { concurrency: 'unbounded' },
+        const [lines, code] = yield* Stream.make([handle.stdout, stdout] as const, [handle.stderr, stderr] as const).pipe(
+            Stream.flatMap(([bytes, sink]) => Stream.map(Stream.splitLines(Stream.decodeText(bytes)), (line) => ({ line, sink })), { concurrency: 'unbounded' }),
+            Stream.mapEffect((read) => Effect.map(Clock.currentTimeMillis, (at) => ({ ...read, at, message: Schema.decodeOption(Message)(read.line) }))),
+            Stream.map((read) => ({ ...read, rendered: Option.flatMap(Option.filter(read.message, Schema.is(Diagnostic)), (diagnostic) => diagnostic.message.rendered) })),
+            Stream.mapAccum(HashSet.empty<string>, (seen, { rendered, line, ...read }) => [Option.reduceCompact([rendered], seen, (kept, held) => HashSet.add(kept, held)), [{ ...read, text: Option.isSome(read.message) ? Option.filter(rendered, (held) => !HashSet.has(seen, held)) : Option.some(`${line}\n`) }]]),
+            Stream.tap(({ text, sink }) => Option.match(text, { onNone: () => Effect.void, onSome: (rendered) => Effect.sync(() => sink.write(rendered)) })),
+            Stream.runCollect,
+            Effect.zip(handle.exitCode, { concurrent: true }),
         );
-        return { passed: code === 0, log: Array.getSomes(lines.map(({ text }) => text)).join(''), stamped: lines.flatMap(({ message, at }) => Option.toArray(Option.map(message, (held) => ({ message: held, at })))) };
+        return { passed: code === 0, log: Array.getSomes(lines.map(({ text }) => text)).join(''), stamped: Array.getSomes(lines.map(({ message, at }) => Option.map(message, (held) => ({ message: held, at })))) };
     },
     Effect.scoped,
     Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ passed: false, log: 'cargo is not on PATH, so no Cargo task can run\n', stamped: [] })),

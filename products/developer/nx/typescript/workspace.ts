@@ -84,9 +84,9 @@ const tarball = (manager: PackageManager, outputPath: string | undefined, { mani
 
 const plugins = Effect.fnUntraced(function* (row: string, manifest: string) {
     const [cache, key] = [new PluginCache<{ readonly configs: readonly string[] }>(join(workspaceDataDirectory, 'typescript-knip.hash')), hashArray([row, manifest, hashFile(manifest)])];
-    return yield* Option.match(Option.fromUndefinedOr(cache.get(key)), {
-        onSome: ({ configs }) => Effect.succeed(configs),
-        onNone: Effect.fnUntraced(function* () {
+    return yield* UndefinedOr.match(cache.get(key), {
+        onDefined: ({ configs }) => Effect.succeed(configs),
+        onUndefined: Effect.fnUntraced(function* () {
             const { Plugins } = yield* Effect.flatMap(Effect.tryPromise({ try: (): Promise<unknown> => import(new URL('dist/plugins.js', pathToFileURL(manifest)).href), catch: (cause) => new Cause.UnknownError(cause, `${manifest} holds no knip plugin map at dist/plugins.js`) }), Schema.decodeUnknownEffect(Plugged));
             const configs = Array.dedupe(Object.values(Plugins).flatMap(({ config, isRootOnly = false }) => Array.cartesianWith([isRootOnly ? '{workspaceRoot}' : '{workspaceRoot}/**'], Schema.is(Globs)(config) ? config : [], posix.join)));
             cache.set(key, { configs });
@@ -99,38 +99,28 @@ const plugins = Effect.fnUntraced(function* (row: string, manifest: string) {
 const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: PackageManager, knipConfig: string | undefined, row: string, { manifest: { jscpd }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }) {
     const { catalogs, prune } = MANAGERS[manager];
     const lock = getLockFileName(manager);
-    const knip = ['knip', ...UndefinedOr.match(knipConfig, { onUndefined: () => [], onDefined: (at) => ['--config', at] })].map(quoteShellArg).join(' ');
+    const knip = ['knip', ...(UndefinedOr.map(knipConfig, (at) => ['--config', at]) ?? [])].map(quoteShellArg).join(' ');
     const configured = Option.orElse(yield* Effect.findFirst(['.jscpd.json', '.config/jscpd.json', '.config/.jscpd.json'], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => Option.liftPredicate(MANIFEST, () => jscpd !== undefined));
-    const duplicated = yield* Effect.transposeOption(
-        Option.map(
-            configured,
-            Effect.fnUntraced(function* (config) {
-                const [cache, key] = [new PluginCache<{ readonly sources: readonly string[]; readonly stamp: string } & typeof Scanned.Type>(join(workspaceDataDirectory, 'typescript-jscpd.hash')), hashArray([row, config])];
-                const { pattern, ignore } = yield* Effect.flatMap(
-                    recalled(cache, key, stamped(workspaceRoot)),
-                    Option.match({
-                        onSome: Effect.succeed,
-                        onNone: Effect.fnUntraced(function* () {
-                            const sources = [config, ...(installed('jscpd', join(workspaceRoot, MANIFEST)) ? [lock] : [])];
-                            const [scanned, stamp] = yield* Effect.all([Effect.flatMap(spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }), Schema.decodeEffect(Scanned)), stamped(workspaceRoot)(sources)]);
-                            const entry = { sources, stamp, ...scanned };
-                            cache.set(key, entry);
-                            cache.writeToDisk();
-                            return entry;
-                        }),
-                    }),
-                );
-                return {
-                    command: 'jscpd .',
-                    inputs: [posix.join('{workspaceRoot}', pattern ?? '**/*'), ...ignore.map((glob) => `!${posix.join('{workspaceRoot}', glob)}`), posix.join('{workspaceRoot}', config), { runtime: 'jscpd --version' }, { externalDependencies: [] }],
-                    metadata: { description: `Reports code duplicated across the workspace files ${config} selects with jscpd`, help: { command: 'jscpd --help', example: { args: ['--changed'] } } },
-                };
-            }),
-        ),
-    );
+    const keyed = Option.map(configured, (config) => ({ config, cache: new PluginCache<{ readonly sources: readonly string[]; readonly stamp: string } & typeof Scanned.Type>(join(workspaceDataDirectory, 'typescript-jscpd.hash')), key: hashArray([row, config]) }));
+    const held = Option.flatten(yield* Effect.transposeOption(Option.map(keyed, ({ cache, key }) => recalled(cache, key, stamped(workspaceRoot)))));
+    const current = yield* Option.match(Option.isNone(held) ? keyed : Option.none(), {
+        onNone: () => Effect.succeed(held),
+        onSome: Effect.fnUntraced(function* ({ config, cache, key }) {
+            const sources = [config, ...(installed('jscpd', join(workspaceRoot, MANIFEST)) ? [lock] : [])];
+            const [scanned, stamp] = yield* Effect.all([spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }).pipe(Effect.flatMap(Schema.decodeEffect(Scanned))), stamped(workspaceRoot)(sources)]);
+            const entry = { sources, stamp, ...scanned };
+            cache.set(key, entry);
+            cache.writeToDisk();
+            return Option.some(entry);
+        }),
+    });
     const plugged = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(UndefinedOr.liftThrowable(findPackageJSON)('knip', pathToFileURL(join(workspaceRoot, MANIFEST)))), (manifest) => plugins(row, manifest)));
     const checks = Record.getSomes<string, TargetConfiguration>({
-        jscpd: duplicated,
+        jscpd: Option.zipWith(configured, current, (config, { pattern, ignore }) => ({
+            command: 'jscpd .',
+            inputs: [posix.join('{workspaceRoot}', pattern ?? '**/*'), ...ignore.map((glob) => `!${posix.join('{workspaceRoot}', glob)}`), posix.join('{workspaceRoot}', config), { runtime: 'jscpd --version' }, { externalDependencies: [] }],
+            metadata: { description: `Reports code duplicated across the workspace files ${config} selects with jscpd`, help: { command: 'jscpd --help', example: { args: ['--changed'] } } },
+        })),
         knip: Option.map(plugged, (configs) => ({
             command: knip,
             inputs: [posix.join('{workspaceRoot}', '**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts,json,jsonc,json5}'), ...configs, posix.join('{workspaceRoot}', lock), { externalDependencies: ['knip'] }],
@@ -169,23 +159,20 @@ const worker = Effect.fnUntraced(function* (context: CreateNodesContext, manager
     const fs = yield* FileSystem.FileSystem;
     const [root, at, lock] = [dirname(file), join(context.workspaceRoot, file), getLockFileName(manager)];
     const unresolved = (cause: unknown) => new Cause.UnknownError(cause, `${file} resolves no @cloudflare/config through cf`);
-    const { sources } = yield* Effect.flatMap(
-        recalled(cache, file, stamped(context.workspaceRoot)),
-        Option.match({
-            onSome: Effect.succeed,
-            onNone: Effect.fnUntraced(function* () {
-                const configured = yield* Effect.flatMap(Effect.try({ try: () => findPackageJSON('@cloudflare/config', pathToFileURL(createRequire(at).resolve('cf/package.json'))), catch: unresolved }), Effect.fromNullishOr);
-                const { exports } = yield* Effect.flatMap(fs.readFileString(configured), Schema.decodeEffect(Exported));
-                const cloudflare = yield* Effect.tryPromise({ try: (): Promise<{ readonly loadConfig: typeof loadConfig }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href), catch: unresolved });
-                const { dependencies } = yield* Effect.tryPromise({ try: () => cloudflare.loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
-                const read = [lock, ...Array.dedupe([file, ...Array.fromIterable(dependencies).map((dependency) => normalizePath(relative(context.workspaceRoot, dependency)))]).filter(within)];
-                const entry = { sources: read, stamp: yield* stamped(context.workspaceRoot)(read) };
-                cache.set(file, entry);
-                cache.writeToDisk();
-                return entry;
-            }),
+    const { sources } = yield* Option.match(yield* recalled(cache, file, stamped(context.workspaceRoot)), {
+        onSome: Effect.succeed,
+        onNone: Effect.fnUntraced(function* () {
+            const configured = yield* Effect.try({ try: () => findPackageJSON('@cloudflare/config', pathToFileURL(createRequire(at).resolve('cf/package.json'))), catch: unresolved }).pipe(Effect.flatMap(Effect.fromNullishOr));
+            const { exports } = yield* fs.readFileString(configured).pipe(Effect.flatMap(Schema.decodeEffect(Exported)));
+            const cloudflare = yield* Effect.tryPromise({ try: (): Promise<{ readonly loadConfig: typeof loadConfig }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href), catch: unresolved });
+            const { dependencies } = yield* Effect.tryPromise({ try: () => cloudflare.loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
+            const read = [lock, ...Array.dedupe([file, ...dependencies.values().map((dependency) => normalizePath(relative(context.workspaceRoot, dependency)))]).filter(within)];
+            const entry = { sources: read, stamp: yield* stamped(context.workspaceRoot)(read) };
+            cache.set(file, entry);
+            cache.writeToDisk();
+            return entry;
         }),
-    );
+    });
     const typed = installed('@cloudflare/workers-types', at);
     return projected(
         root,
