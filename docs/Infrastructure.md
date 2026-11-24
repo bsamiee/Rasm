@@ -71,6 +71,7 @@ Machines, their reinstall, and images their stacks run:
 - Role `Runner` builds and pushes `ghcr.io/<owner>/<repository>/playwright:<version>`, locked Playwright Chromium over `node:slim`
 - Playwright images rebuild on a changed Playwright version or Dockerfile alone, and read and write layer cache at tag `cache`
 - Playwright images add `curl`, a C compiler, and ICU, as action `tools` downloads mise, builds cargo tools, and runs `dotnet` inside them
+- Playwright images give user `node` home `/github/home`, the `HOME` Actions sets in job containers, as rustup reports a home differing from its user's
 - Pushed images hold their source label as a manifest annotation, as GHCR links a package by annotation alone and a linked package inherits access
 - Role `Apps` runs the proxy, sign-in, and object storage of hosted apps, on one machine per zone, as a zone holds each public name once
 - Docker engines build stack images from inline Dockerfiles with build checks as errors, load local images, and push registry images

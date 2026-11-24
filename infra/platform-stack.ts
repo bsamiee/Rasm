@@ -330,7 +330,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, engines }: E
                         ),
                         browsers: machine.imaged(
                             `${browsers}:${playwright.version}`,
-                            `FROM node:slim\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends build-essential ca-certificates curl git libicu-dev && rm -rf /var/lib/apt/lists/*\nRUN npx --yes playwright@${playwright.version} install --with-deps chromium && npx --yes playwright@${playwright.version} install-deps firefox && rm -rf /var/lib/apt/lists/* /root/.npm\nUSER node\n`,
+                            `FROM node:slim\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends build-essential ca-certificates curl git libicu-dev && rm -rf /var/lib/apt/lists/*\nRUN npx --yes playwright@${playwright.version} install --with-deps chromium && npx --yes playwright@${playwright.version} install-deps firefox && rm -rf /var/lib/apt/lists/* /root/.npm && usermod --home /github/home node\nUSER node\n`,
                             { registries, labels: { 'org.opencontainers.image.source': `https://github.com/${owner}/${repository}` }, cache: `${browsers}:cache` },
                         ),
                     };

@@ -35,7 +35,14 @@
     "nx": {
         "namedInputs": {
             "deployed": [
-                "{workspaceRoot}/package.json",
+                {
+                    "json": "{workspaceRoot}/package.json",
+                    "fields": [
+                        "name",
+                        "description",
+                        "repository"
+                    ]
+                },
                 "{workspaceRoot}/Xcode.xcconfig",
                 "{workspaceRoot}/**/*.uproject",
                 "{workspaceRoot}/.github/ISSUE_TEMPLATE/*.yml",
