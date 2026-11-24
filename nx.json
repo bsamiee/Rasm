@@ -113,7 +113,13 @@
                     "@typescript/native": { "package": "@effect/tsgo", "file": "lib/upstream.json", "path": ["components", "typescript"] }
                 }
             }
-        }
+        },
+        "{test,install}--*": [
+            {
+                "filter": { "projects": ["tag:host:docker"] },
+                "dependsOn": ["...", { "projects": ["colima"], "target": "install--*" }]
+            }
+        ]
     },
     "sync": {
         "applyChanges": true,
