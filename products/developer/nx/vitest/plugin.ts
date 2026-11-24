@@ -5,12 +5,11 @@ import { basename, dirname, isAbsolute, join, matchesGlob, posix, relative, reso
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { getLockFileName } from '@nx/js';
-import { above, aggregated, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson } from '@nx/devkit/internal';
+import { above, aggregated, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, run, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, FileSystem, MutableRef, Option, Record, Schema } from 'effect';
+import { Array, Cause, Effect, FileSystem, Option, Record, Schema } from 'effect';
 import type { Vite } from 'vitest/node';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -160,8 +159,8 @@ const targets = (file: string, { triggers, shared, suites }: Resolved, { root, p
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly stamp: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly stamp: ReturnType<typeof stamped>; readonly exec: string }, context: CreateNodesContext, settings: Options, file: string) {
-    const resolved = yield* recalled(pass.cache, file, pass.stamp, read(context.workspaceRoot, file, settings.outputPath), () => MutableRef.set(pass.stored, true));
+const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, context: CreateNodesContext, settings: Options, file: string) {
+    const resolved = yield* pass.recall(file, read(context.workspaceRoot, file, settings.outputPath));
     const projects = yield* Effect.forEach(
         resolved.suites,
         Effect.fnUntraced(function* (suite) {
@@ -180,24 +179,11 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCach
     return { projects: Record.fromEntries(projects) };
 });
 
-const nodes = inferring(Options, run, function* (matched, settings, context) {
+const nodes = inferring(Options, run, function* (matched, settings, context, cached) {
     const files = Array.dedupe([...matched, ...(yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [`**/${SUITE}`])))]);
     const configs = files.filter((file) => matchesGlob(basename(file), SUITE) || !files.some((other) => dirname(other) === dirname(file) && matchesGlob(basename(other), SUITE)));
-    const manager = detectPackageManager(context.workspaceRoot);
-    const [lock, digest] = [getLockFileName(manager), hashArray([hashObject(settings), yield* OWN])];
-    const pass = {
-        cache: new PluginCache<Resolved & { readonly stamp: string }>(join(workspaceDataDirectory, 'vitest.hash')),
-        stored: MutableRef.make(false),
-        stamp: (sources: readonly string[]) => Effect.map(stamped(context.workspaceRoot)([lock, ...sources]), (held) => hashArray([held, digest])),
-        exec: EXEC[manager],
-    };
-    return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, settings, file)), configs, settings, context)),
-        Effect.when(
-            Effect.sync(() => pass.cache.writeToDisk()),
-            Effect.sync(() => MutableRef.get(pass.stored)),
-        ),
-    );
+    const pass = yield* cached<Resolved>('vitest.hash', hashArray([hashObject(settings), yield* OWN]));
+    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, settings, file)), configs, settings, context));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

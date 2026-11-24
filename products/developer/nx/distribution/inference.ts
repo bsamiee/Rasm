@@ -3,10 +3,10 @@ import { existsSync, readdirSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodesContext, type ExecutorContext, getOutputsForTargetAndConfiguration, hashArray, normalizePath, type NxJsonConfiguration, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, type PluginCache, parseExecutor, readModulePackageJson } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateNodesContext, detectPackageManager, type ExecutorContext, getOutputsForTargetAndConfiguration, hashArray, normalizePath, type NxJsonConfiguration, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getLockFileName, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, PluginCache, parseExecutor, readModulePackageJson, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Cause, Config, ConfigProvider, Effect, Equal, FileSystem, Formatter, Glob, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
+import { Array, Cause, Config, ConfigProvider, Effect, Equal, FileSystem, Formatter, Function, Glob, identity, Layer, ManagedRuntime, Match, MutableRef, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -66,11 +66,6 @@ const dried = (dryRun = false) => Effect.map(Config.Boolean('NX_DRY_RUN').pipe(C
 const executor = <S extends Schema.Decoder<unknown>, A>(options: S, body: (stated: S['Type'], context: ExecutorContext) => Effect.fn.Return<A, Error, NodeServices | Scope.Scope>) => {
     const stated = Effect.fnUntraced(body);
     return (raw: unknown, context: ExecutorContext) => run(Effect.flatMap(Schema.decodeUnknownEffect(options)(raw), (decoded) => stated(decoded, context)));
-};
-
-const inferring = <S extends Schema.Decoder<unknown>, A, R>(options: S, entered: <B, E>(effect: Effect.Effect<B, E, R>) => Promise<B>, body: (files: readonly string[], settings: S['Type'], context: CreateNodesContext) => Effect.fn.Return<A, Error, NoInfer<R>>) => {
-    const inferred = Effect.fnUntraced(body);
-    return (files: readonly string[], raw: unknown, context: CreateNodesContext) => entered(Effect.flatMap(Schema.decodeEffect(options)(raw ?? {}), (settings) => inferred(files, settings, context)));
 };
 
 const batched = <S extends Schema.Decoder<unknown>, A, E>(options: S, body: (graph: TaskGraph, inputs: Readonly<Record<string, S['Type']>>, context: ExecutorContext) => Stream.Stream<A, E, NodeServices>) => {
@@ -152,6 +147,47 @@ const recalled = Effect.fnUntraced(function* <A extends { readonly sources: read
         }),
     });
 });
+
+const inferring = <S extends Schema.Decoder<unknown>, A, R>(
+    options: S,
+    entered: <B, E>(effect: Effect.Effect<B, E, R>) => Promise<B>,
+    body: (
+        files: readonly string[],
+        settings: S['Type'],
+        context: CreateNodesContext,
+        cached: <C extends { readonly sources: readonly string[] }>(
+            name: string,
+            digest: string,
+            extra?: (entry: C) => Effect.Effect<readonly string[]>,
+            steady?: () => unknown,
+        ) => Effect.Effect<{ readonly recall: <E2, R2>(key: string, fresh: Effect.Effect<C, E2, R2>) => Effect.Effect<C & { readonly stamp: string }, E2, R2>; readonly exec: string }, never, Scope.Scope>,
+    ) => Effect.fn.Return<A, Error, NoInfer<R>>,
+) => {
+    const inferred = Effect.fnUntraced(body);
+    return (files: readonly string[], raw: unknown, context: CreateNodesContext) => {
+        const cached = Effect.fnUntraced(function* <C extends { readonly sources: readonly string[] }>(name: string, digest: string, extra: (entry: C) => Effect.Effect<readonly string[]> = () => Effect.succeed([]), steady: () => unknown = Function.constUndefined) {
+            const manager = detectPackageManager(context.workspaceRoot);
+            const [cache, stored, lock, reading] = [new PluginCache<C & { readonly stamp: string }>(join(workspaceDataDirectory, name)), MutableRef.make(false), getLockFileName(manager), steady()];
+            const written = Effect.when(
+                Effect.sync(() => cache.writeToDisk()),
+                Effect.sync(() => MutableRef.get(stored) && steady() === reading),
+            );
+            yield* Effect.addFinalizer(() => Effect.asVoid(written));
+            return {
+                recall: <E2, R2>(key: string, fresh: Effect.Effect<C, E2, R2>) =>
+                    recalled(
+                        cache,
+                        hashArray([digest, key]),
+                        (sources, entry) => Effect.map(Effect.all([stamped(context.workspaceRoot)([lock, ...sources]), extra(entry)]), ([held, more]) => hashArray([held, ...more])),
+                        fresh,
+                        () => MutableRef.set(stored, true),
+                    ),
+                exec: EXEC[manager],
+            };
+        });
+        return entered(Effect.flatMap(Schema.decodeEffect(options)(raw ?? {}), (settings) => inferred(files, settings, context, cached)));
+    };
+};
 
 const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
     const fs = yield* FileSystem.FileSystem;

@@ -3,13 +3,13 @@ import { findPackageJSON } from 'node:module';
 import { dirname, join, posix, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, hashArray, normalizePath } from '@nx/devkit';
-import { getLockFileName, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, normalizePath } from '@nx/devkit';
+import { quoteShellArg } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
-import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, run, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, MutableRef, Option, Schema } from 'effect';
+import { Array, Cause, Effect, Option, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -128,32 +128,19 @@ const targets = (root: string, { packages, linked, loaded, globs, runner }: Reso
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly stamp: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly stamp: ReturnType<typeof stamped>; readonly exec: string }, context: CreateNodesContext, output: Option.Option<string>, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, context: CreateNodesContext, output: Option.Option<string>, file: string) {
     const root = dirname(dirname(file));
-    const resolved = yield* recalled(pass.cache, file, pass.stamp, read(context.workspaceRoot, file), () => MutableRef.set(pass.stored, true));
+    const resolved = yield* pass.recall(file, read(context.workspaceRoot, file));
     const stated = yield* manifested(context.workspaceRoot, root);
     const chain = extended(context.workspaceRoot, root).filter((config) => !config.startsWith(`${root}/`) && config !== getRootTsConfigFileName());
     return { projects: { [root]: { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, chain, namedInput(root, context) === 'production', output, pass.exec), stated, 'storybook', context.workspaceRoot) } } };
 });
 
-const nodes = inferring(Options, run, function* (files, settings, context) {
+const nodes = inferring(Options, run, function* (files, settings, context, cached) {
     const project = anchored(context.workspaceRoot);
     const mains = files.filter((file) => project(dirname(dirname(file))));
-    const manager = detectPackageManager(context.workspaceRoot);
-    const [lock, digest] = [getLockFileName(manager), yield* OWN];
-    const pass = {
-        cache: new PluginCache<Resolved & { readonly stamp: string }>(join(workspaceDataDirectory, 'storybook.hash')),
-        stored: MutableRef.make(false),
-        stamp: (sources: readonly string[]) => Effect.map(stamped(context.workspaceRoot)([lock, ...sources]), (held) => hashArray([held, digest])),
-        exec: EXEC[manager],
-    };
-    return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, Option.fromUndefinedOr(settings.outputPath), file)), mains, settings, context)),
-        Effect.when(
-            Effect.sync(() => pass.cache.writeToDisk()),
-            Effect.sync(() => MutableRef.get(pass.stored)),
-        ),
-    );
+    const pass = yield* cached<Resolved>('storybook.hash', yield* OWN);
+    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, Option.fromUndefinedOr(settings.outputPath), file)), mains, settings, context));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
