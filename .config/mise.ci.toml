@@ -7,6 +7,7 @@ disable = ["blender", "darkroom", "playwright", "uv"]
 
 [settings]
 enable_tools = [
+    "cargo:svg_to_ico",
     "conda:openssh",
     "doppler",
     "dotnet",
@@ -18,7 +19,6 @@ enable_tools = [
     "http:blender-ext",
     "http:docker-cli",
     "http:yak",
-    "imagemagick",
     "jq",
     "jscpd",
     "node",
@@ -27,6 +27,7 @@ enable_tools = [
     "resvg",
     "rust",
     "sd",
+    "svg_to_ico",
     "swiftlint",
     "usvg",
     "uv",

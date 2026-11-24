@@ -7,9 +7,9 @@
     <PropertyGroup Label="Rhino Plug-In">
         <_PlugInAssetDir>$(IntermediateOutputPath)PlugInAssets/</_PlugInAssetDir>
         <_PlugInMark>icons/mark.svg</_PlugInMark>
+        <_PlugInTonedMark>$(_PlugInAssetDir)mark.svg</_PlugInTonedMark>
         <_PlugInPackageIcon>$(_PlugInAssetDir)icon.png</_PlugInPackageIcon>
         <_PlugInIcon>PlugIn.ico</_PlugInIcon>
-        <_PlugInIconPngFrame>256</_PlugInIconPngFrame>
         <_PlugInRui>$(IntermediateOutputPath)$(TargetName).rui</_PlugInRui>
         <_PlugInRuiReferences>$(IntermediateOutputPath)$(TargetName).rui.rsp</_PlugInRuiReferences>
         <_PlugInRuiStamp>$(IntermediateOutputPath)$(TargetName).rui.stamp</_PlugInRuiStamp>
@@ -26,8 +26,7 @@
         <PlugInDescription Include="WebSite" Exclude="@(PlugInDescription)" Value="$(PackageProjectUrl)" />
         <None Update="manifest.yml" CopyToPublishDirectory="PreserveNewest" />
         <None Include="@(IntermediateAssembly)" TargetPath="$(PlugInBody)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
-        <_PlugInIconFrame Include="$(_PlugInIconPngFrame);48;32;24;16" />
-        <_PlugInRaster Include="@(_PlugInIconFrame->'$(_PlugInAssetDir)%(Identity).png')" />
+        <_PlugInIconFrame Include="256;48;32;24;16" />
     </ItemGroup>
 
     <!-- [TARGETS] ─────────────────────────────────────────────────────────────────── -->
@@ -42,16 +41,16 @@
         </ItemGroup>
     </Target>
 
-    <Target Name="BuildPlugInIcon" BeforeTargets="AssignTargetPaths" DependsOnTargets="WriteIconTones" Condition="'$(DesignTimeBuild)' != 'true'" Inputs="$(MSBuildAllProjects);$(_PlugInMark);$(_IconDir)plugin.css" Outputs="$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInPackageIcon);@(_PlugInRaster)">
+    <Target Name="BuildPlugInIcon" BeforeTargets="AssignTargetPaths" DependsOnTargets="WriteIconTones" Condition="'$(DesignTimeBuild)' != 'true'" Inputs="$(MSBuildAllProjects);$(_PlugInMark);$(_IconDir)plugin.css" Outputs="$(_PlugInTonedMark);$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInPackageIcon)">
         <Error Condition="!Exists('$(_PlugInMark)')" Text="$(MSBuildProjectName) mark $(_PlugInMark) is missing" />
         <MakeDir Directories="$(_PlugInAssetDir)" />
-        <Exec Command="resvg -w %(_PlugInRaster.Filename) --stylesheet &quot;$(_IconDir)plugin.css&quot; &quot;$(_PlugInMark)&quot; &quot;%(_PlugInRaster.FullPath)&quot;" LogStandardErrorAsError="true" />
-        <Exec Command="resvg -w 64 --stylesheet &quot;$(_IconDir)plugin.css&quot; &quot;$(_PlugInMark)&quot; &quot;$(_PlugInPackageIcon)&quot;" LogStandardErrorAsError="true" />
-        <Exec Command="magick @(_PlugInRaster->'&quot;%(Filename)%(Extension)&quot;', ' ') -define icon:png-compression-size=$(_PlugInIconPngFrame) &quot;$(_PlugInIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" />
+        <Exec Command="usvg --stylesheet &quot;$(_IconDir)plugin.css&quot; &quot;$(_PlugInMark)&quot; &quot;$(_PlugInTonedMark)&quot;" LogStandardErrorAsError="true" />
+        <Exec Command="svg_to_ico -i &quot;$(_PlugInTonedMark)&quot; -o &quot;$(_PlugInAssetDir)$(_PlugInIcon)&quot; @(_PlugInIconFrame->'-s %(Identity)', ' ')" LogStandardErrorAsError="true" />
+        <Exec Command="resvg -w 64 &quot;$(_PlugInTonedMark)&quot; &quot;$(_PlugInPackageIcon)&quot;" LogStandardErrorAsError="true" />
         <ItemGroup>
             <None Include="$(_PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
             <PlugInDescription Include="Icon" Value="$(_PlugInIcon)" />
-            <FileWrites Include="$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInPackageIcon);@(_PlugInRaster)" />
+            <FileWrites Include="$(_PlugInTonedMark);$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInPackageIcon)" />
         </ItemGroup>
     </Target>
 

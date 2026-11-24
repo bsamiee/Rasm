@@ -160,8 +160,9 @@ docker_plugin = 'plugins="$${DOCKER_CONFIG:-$$HOME/.docker}/cli-plugins" && mkdi
 # --- [TOOLS] ----------------------------------------------------------------------------
 
 [tool_alias]
-resvg = "github:linebender/resvg"
-usvg  = "github:linebender/resvg"
+resvg      = "github:linebender/resvg"
+svg_to_ico = "github:Ortham/svg_to_ico"
+usvg       = "github:linebender/resvg"
 
 [tools]
 # --- [SHELL]
@@ -274,11 +275,12 @@ pulumi                                      = "latest"
 
 # --- [MEDIA]
 
-"cargo:resvg" = { os = ["linux"], version = "latest" }
-"cargo:usvg"  = { os = ["linux"], version = "latest" }
-imagemagick   = "latest"
-resvg         = { os = ["macos", "windows"], version = "latest" }
-usvg          = { matching = "usvg", os = ["macos", "windows"], version = "latest" }
+"cargo:resvg"      = { os = ["linux"], version = "latest" }
+"cargo:svg_to_ico" = { os = ["linux", "macos"], version = "latest" }
+"cargo:usvg"       = { os = ["linux"], version = "latest" }
+resvg              = { os = ["macos", "windows"], version = "latest" }
+svg_to_ico         = { matching = "svg_to_ico.7z", os = ["windows"], version = "latest" }
+usvg               = { matching = "usvg", os = ["macos", "windows"], version = "latest" }
 
 [tools."github:NationalSecurityAgency/ghidra"]
 bin_path         = "support"
