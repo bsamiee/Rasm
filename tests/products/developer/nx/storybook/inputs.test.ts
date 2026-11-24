@@ -62,14 +62,32 @@ describe('what the Storybook targets hash', { timeout: 60_000 }, () => {
         { case: 'the compilerOptions of a tsconfig outside the project its extends chain reaches', edit: { 'tsconfig.shared.json': '{"extends":"./tsconfig.base.json","compilerOptions":{"jsx":"preserve"}}' }, changes: true },
         { case: 'a file outside the project that no stories glob matches', edit: { 'libs/ui/button.tsx': 'export const Button = 2;\n' }, changes: false },
         { case: 'the main config the production input leaves out', edit: { 'apps/site/.storybook/main.ts': "import { stories } from '../../../tools/storybook/shared.ts';\n\nexport default { stories, framework: '@storybook/react-vite', addons: ['addon'], docs: {} };\n" }, changes: true },
-    ])('hashes build--storybook and test--storybook again after an edit to $case: $changes', async ({ edit, changes }, { workspace }) => {
+    ])('hashes build--storybook, test--storybook, and the test target running it again after an edit to $case: $changes', async ({ edit, changes }, { workspace }) => {
         const graph = await workspace.graph({ createNodes });
-        const before = await Promise.all([hashed(workspace, graph, 'build--storybook'), hashed(workspace, graph, 'test--storybook')]);
+        const before = await Promise.all([hashed(workspace, graph, 'build--storybook'), hashed(workspace, graph, 'test--storybook'), hashed(workspace, graph, 'test')]);
 
         const edited = await workspace.write(edit).graph({ createNodes });
-        const after = await Promise.all([hashed(workspace, edited, 'build--storybook'), hashed(workspace, edited, 'test--storybook')]);
+        const after = await Promise.all([hashed(workspace, edited, 'build--storybook'), hashed(workspace, edited, 'test--storybook'), hashed(workspace, edited, 'test')]);
 
-        expect({ planned: [...before, ...after].every(Predicate.isString), build: before[0] !== after[0], test: before[1] !== after[1] }).toStrictEqual({ planned: true, build: changes, test: changes });
+        expect({ planned: [...before, ...after].every(Predicate.isString), build: before[0] !== after[0], test: before[1] !== after[1], aggregate: before[2] !== after[2] }).toStrictEqual({ planned: true, build: changes, test: changes, aggregate: changes });
+    });
+
+    it.for([
+        { case: 'the module of a workspace package the main config imports', edit: { 'libs/helper/index.js': "export const stories = ['../src'];\nexport const unused = 1;\n" }, changes: true },
+        { case: 'a file of that package the main config never loads', edit: { 'libs/helper/other.js': 'export const unused = 2;\n' }, changes: false },
+    ])('hashes build--storybook again after an edit to $case: $changes', async ({ edit, changes }, { workspace }) => {
+        workspace.write({
+            'libs/helper/package.json': '{"name":"helper","type":"module","exports":"./index.js"}',
+            'libs/helper/index.js': "export const stories = ['../src'];\n",
+            'libs/helper/other.js': 'export const unused = 1;\n',
+            'apps/site/.storybook/main.ts': "import { stories } from 'helper';\n\nexport default { stories, framework: '@storybook/react-vite' };\n",
+        });
+        symlinkSync(join(workspace.root, 'libs/helper'), join(workspace.root, 'node_modules/helper'), 'dir');
+        const before = await hashed(workspace, await workspace.graph({ createNodes }), 'build--storybook');
+
+        const after = await hashed(workspace, await workspace.write(edit).graph({ createNodes }), 'build--storybook');
+
+        expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: changes });
     });
 
     it.for([
