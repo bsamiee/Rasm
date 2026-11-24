@@ -1,19 +1,18 @@
+import { fork } from 'node:child_process';
+import { once } from 'node:events';
+import { availableParallelism } from 'node:os';
 import { dirname, relative, resolve } from 'node:path';
-import { chdir, cwd, env } from 'node:process';
+import process, { env } from 'node:process';
 import { normalizePath } from '@nx/devkit';
 import { type BatchExecutorTaskResult, findProjectForPath, hashObject } from '@nx/devkit/internal';
 import { batched, executor } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Clock, Effect, Exit, Formatter, Function, Option, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Clock, Effect, Exit, Formatter, flow, Option, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
 import { loaded, MODE } from '#/plugin';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Planned {
-    readonly task: string;
-    readonly options: Test;
-    readonly home: string;
-}
+type Planned = (typeof Grouped.Type)['group'][number];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -22,33 +21,25 @@ class Test extends Schema.Opaque<Test, unknown>()(
         config: Schema.String.annotate({ description: 'Vitest configuration file the run loads, relative to the workspace root, whose folder the run starts from' }),
         projects: Schema.Array(Schema.String).annotate({ description: 'Vitest projects the task runs, passed as --project, every project the configuration resolves where empty' }),
         attachmentsDir: Schema.optionalKey(Schema.String).annotate({ description: "Folder the task's projects write attachments to, relative to the workspace root, the run's attachmentsDir where the task runs alone" }),
-        coverage: Schema.optionalKey(Schema.Struct({ enabled: Schema.Boolean, reporter: Schema.String, reportsDirectory: Schema.optionalKey(Schema.String) })).annotate({
-            description: 'Coverage options of the run, reportsDirectory relative to the workspace root, which the coverage configuration of the target sets',
+        coverage: Schema.optionalKey(Schema.Struct({ enabled: Schema.optionalKey(Schema.Boolean), reporter: Schema.optionalKey(Schema.String), reportsDirectory: Schema.optionalKey(Schema.String) })).annotate({
+            description: 'Coverage options of the run over the coverage words after --, reportsDirectory relative to the workspace root, which every run enabling coverage writes to and the coverage configuration of the target enables',
         }),
         __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, parsed as vitest run arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
     }).annotate({
         title: 'Test',
-        description: "Runs vitest run once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, and decides each task from the test modules of its own projects",
+        description:
+            "Runs vitest run in a child process of its own once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, side by side with the runs of other option groups, a task running coverage alone, and decides each task from the test modules of its own projects",
     }),
 ) {}
 const Traced = Schema.Struct({ VITEST_TEST_PATH: Schema.String }).annotate({ description: 'The test file path Vitest stamps on an unhandled error a test module raised' });
+const Grouped = Schema.Struct({ root: Schema.String, group: Schema.NonEmptyArray(Schema.Struct({ task: Schema.String, options: Test, home: Schema.String })) }).annotate({
+    description: 'The workspace root and the tasks one vitest run decides, each with its options and the root of its project, which the executor sends the child process running them',
+});
+const Settled = Schema.Array(Schema.Struct({ task: Schema.String, result: Schema.Struct({ success: Schema.Boolean, terminalOutput: Schema.String, startTime: Schema.optionalKey(Schema.Finite), endTime: Schema.optionalKey(Schema.Finite) }) })).annotate({
+    description: 'The result of each task of one vitest run, which the child process running it sends back in the shape Nx reads from a batch',
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const testMode = Effect.acquireRelease(
-    Effect.sync(() => {
-        const before = { ...env };
-        Object.assign(env, { ...MODE, NODE_ENV: before['NODE_ENV'] ?? MODE.NODE_ENV });
-        return before;
-    }),
-    (before) =>
-        Effect.sync(() => {
-            Record.keys(MODE).forEach((name) => {
-                Reflect.deleteProperty(env, name);
-            });
-            Object.assign(env, before);
-        }),
-);
 
 const reported = (module: TestModule) =>
     [...module.children.allTests('failed')].flatMap((test) => {
@@ -68,25 +59,17 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
         Option.liftPredicate(group, (all) => all.length === 1),
         ([{ options }]) => Option.fromUndefinedOr(options.attachmentsDir),
     );
+    const parsed = node.parseCLI(['vitest', 'run', ...words]).options;
     const stated: CliOptions = {
         allowOnly: false,
         update: 'none',
-        ...node.parseCLI(['vitest', 'run', ...words]).options,
+        ...parsed,
         config: entry,
         watch: false,
         project: group.some(({ options }) => options.projects.length === 0) ? [] : Array.dedupe(group.flatMap(({ options }) => options.projects)),
         ...Option.getOrUndefined(Option.map(alone, (at) => ({ attachmentsDir: resolve(root, at) }))),
-        ...(coverage === undefined ? {} : { coverage: { ...coverage, ...(coverage.reportsDirectory === undefined ? {} : { reportsDirectory: resolve(root, coverage.reportsDirectory) }) } }),
+        ...(coverage === undefined ? {} : { coverage: { ...parsed.coverage, ...coverage, ...(coverage.reportsDirectory === undefined ? {} : { reportsDirectory: resolve(root, coverage.reportsDirectory) }) } }),
     };
-    yield* testMode;
-    yield* Effect.acquireRelease(
-        Effect.sync(() => {
-            const before = cwd();
-            chdir(dirname(entry));
-            return before;
-        }),
-        (before) => Effect.sync(() => chdir(before)),
-    );
     const vitest = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => node.createVitest(stated), catch: (cause) => new Cause.UnknownError(cause, `${config} does not start Vitest`) }), (started) => Effect.promise(() => started.close()));
     const homes = new Map(group.map(({ home, task }) => [home, task] as const));
     const owner = (at: string) => Option.fromNullOr(findProjectForPath(normalizePath(relative(root, at)), homes));
@@ -102,14 +85,6 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
         .forEach(([project, at]) => {
             Object.assign(project.config, { attachmentsDir: at });
         });
-    yield* Effect.acquireRelease(
-        Effect.sync(() => {
-            const before = process.exitCode;
-            process.exitCode = undefined;
-            return before;
-        }),
-        (before) => Effect.sync(() => Object.assign(process, { exitCode: before })),
-    );
     const started = yield* Effect.exit(Effect.tryPromise({ try: () => vitest.start(), catch: (cause) => new Cause.UnknownError(cause, `vitest run over ${config} stops before it reports`) }));
     const modules = vitest.state.getTestModules();
     const unhandled = vitest.state.getUnhandledErrors().map((error) => ({ said: `unhandled error: ${Formatter.format(error)}`, by: Option.flatMap(Schema.decodeUnknownOption(Traced)(error), ({ VITEST_TEST_PATH }) => owner(VITEST_TEST_PATH)) }));
@@ -146,31 +121,75 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
     });
 }, Effect.scoped);
 
-const settled = (root: string, group: Array.NonEmptyReadonlyArray<Planned>) =>
-    Effect.map(Effect.all([Clock.currentTimeMillis, Effect.result(tested(root, group)), Clock.currentTimeMillis]), ([startTime, outcome, endTime]) =>
+const settled = (group: Array.NonEmptyReadonlyArray<Planned>, run: Effect.Effect<readonly BatchExecutorTaskResult[], Error>) =>
+    Effect.map(Effect.all([Clock.currentTimeMillis, Effect.result(run), Clock.currentTimeMillis]), ([startTime, outcome, endTime]) =>
         Result.match(outcome, {
             onFailure: (error) => Array.map(group, ({ task }): BatchExecutorTaskResult => ({ task, result: { success: false, terminalOutput: error.message, startTime, endTime } })),
             onSuccess: Array.map(({ task, result }): BatchExecutorTaskResult => ({ task, result: { startTime, endTime, ...result } })),
         }),
     );
 
+const forked = (root: string, group: Array.NonEmptyReadonlyArray<Planned>) => {
+    const [
+        {
+            options: { config },
+        },
+    ] = group;
+    const failed = (cause: unknown) => new Cause.UnknownError(cause, `vitest run over ${config} stops before it reports`);
+    return settled(
+        group,
+        Effect.flatMap(
+            Effect.acquireUseRelease(
+                Effect.sync(() => fork(import.meta.filename, { cwd: dirname(resolve(root, config)), env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV }, serialization: 'advanced' })),
+                (child) =>
+                    Effect.raceFirst(
+                        Effect.andThen(
+                            Effect.sync(() => child.send({ root, group })),
+                            Effect.tryPromise({ try: (signal) => once(child, 'message', { signal }), catch: failed }),
+                        ),
+                        Effect.flatMap(Effect.tryPromise({ try: (signal) => once(child, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail)),
+                    ),
+                (child) => Effect.sync(() => child.kill()),
+            ),
+            ([message]) => Schema.decodeUnknownEffect(Settled)(message),
+        ),
+    );
+};
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = executor(Test, function* (options, context) {
     const task = yield* Effect.fromNullishOr(context.projectName);
-    const [{ result }] = yield* settled(context.root, [{ task, options, home: context.projectGraph.nodes[task]?.data.root ?? '.' }]);
+    const [{ result }] = yield* forked(context.root, [{ task, options, home: context.projectGraph.nodes[task]?.data.root ?? '.' }]);
     return { success: result.success };
 });
 
 const batch = batched(Test, (graph, inputs, context) =>
-    Function.pipe(
-        Record.collect(inputs, (task, options): Planned => ({ task, options, home: graph.tasks[task]?.projectRoot ?? '.' })),
-        Array.groupBy(({ options }) => hashObject(Struct.omit(options, ['projects', 'attachmentsDir']))),
-        Record.values,
-        Stream.fromIterable,
-        Stream.flatMap((group) => Stream.fromIterableEffect(settled(context.root, group))),
+    Stream.unwrap(
+        Effect.gen(function* () {
+            const entries = Record.toEntries(inputs);
+            const runners = yield* Effect.forEach(entries, ([, options]) => loaded<{ readonly parseCLI: typeof parseCLI }>(options.config, resolve(context.root, options.config), 'vitest/node'));
+            const planned = Array.zipWith(entries, runners, ([task, options], node) => ({
+                held: { task, options, home: graph.tasks[task]?.projectRoot ?? '.' },
+                key: hashObject([Struct.omit(options, ['projects', 'attachmentsDir', 'coverage']), (options.coverage?.enabled ?? node.parseCLI(['vitest', 'run', ...(options.__unparsed__ ?? [])]).options.coverage?.enabled) === true ? task : null]),
+            }));
+            return Stream.fromIterable(Record.values(Array.groupBy(planned, Struct.get('key')))).pipe(
+                Stream.mapEffect((group) => forked(context.root, Array.map(group, Struct.get('held'))), { concurrency: Math.max(availableParallelism() - 1, 1), unordered: true }),
+                Stream.flatMap(Stream.fromIterable),
+            );
+        }),
     ),
 );
+
+if (import.meta.main) {
+    Effect.runFork(
+        Effect.promise((): Promise<readonly unknown[]> => once(process, 'message')).pipe(
+            Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Grouped)(message)),
+            Effect.flatMap(({ root, group }) => settled(group, tested(root, group))),
+            Effect.flatMap((results) => Effect.sync(() => process.send?.(results, () => process.disconnect?.()))),
+        ),
+    );
+}
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

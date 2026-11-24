@@ -5,7 +5,12 @@
             "batchImplementation": "./dist/executors/test/executor#batch",
             "schema": "./executors/test/schema.json",
             "preferBatch": true,
-            "description": "Runs vitest run once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, and decides each task from the test modules of its own projects"
+            "description": "Runs vitest run in a child process of its own once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, side by side with the runs of other option groups, a task running coverage alone, and decides each task from the test modules of its own projects"
+        },
+        "browser": {
+            "implementation": "./dist/executors/test/executor#execute",
+            "schema": "./executors/test/schema.json",
+            "description": "Runs vitest run in a child process of its own once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, side by side with the runs of other option groups, a task running coverage alone, and decides each task from the test modules of its own projects"
         }
     }
 }

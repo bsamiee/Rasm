@@ -50,7 +50,6 @@ const patterns = buildPackageJsonPatterns(import.meta.dirname, (file: string) =>
 export default defineConfig({
     test: {
         chaiConfig: { includeStack: true, truncateThreshold: 0 },
-        reporters: ['default', ['html', { outputDir: join(ARTIFACTS, 'html') }]],
         attachmentsDir: join(ARTIFACTS, 'attachments'),
         coverage: { allowExternal: true, reportOnFailure: true },
         silent: 'passed-only',

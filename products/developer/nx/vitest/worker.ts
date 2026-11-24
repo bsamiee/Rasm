@@ -40,6 +40,7 @@ const surveyed = Effect.fnUntraced(function* ({ file, entry, name, attachmentsDi
         _tag: 'Suite' as const,
         root,
         reportsDirectory: coverage.reportsDirectory,
+        covered: coverage.enabled,
         providers: coverage.provider === 'custom' ? Array.fromNullishOr(coverage.customProviderModule) : [`@vitest/coverage-${coverage.provider}`],
         attachmentsDir: attached,
         reports: entries.flatMap(([named, decoded]) =>

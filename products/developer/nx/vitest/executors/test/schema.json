@@ -31,9 +31,8 @@
                     "type": "string"
                 }
             },
-            "required": ["enabled", "reporter"],
             "additionalProperties": true,
-            "description": "Coverage options of the run, reportsDirectory relative to the workspace root, which the coverage configuration of the target sets"
+            "description": "Coverage options of the run over the coverage words after --, reportsDirectory relative to the workspace root, which every run enabling coverage writes to and the coverage configuration of the target enables"
         },
         "__unparsed__": {
             "type": "array",
@@ -51,5 +50,5 @@
     "required": ["config", "projects"],
     "additionalProperties": true,
     "title": "Test",
-    "description": "Runs vitest run once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, and decides each task from the test modules of its own projects"
+    "description": "Runs vitest run in a child process of its own once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, side by side with the runs of other option groups, a task running coverage alone, and decides each task from the test modules of its own projects"
 }

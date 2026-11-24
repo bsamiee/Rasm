@@ -32,7 +32,7 @@ const OWN = fingerprinted(import.meta.dirname);
 class Options extends Schema.Opaque<Options, unknown>()(
     Schema.Struct({ outputPath: Folder, coveragePath: Folder }).annotate({
         description:
-            'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder. coveragePath: workspace folder the coverage configuration writes lcov.info to, {projectName} naming the project, absent leaves Vitest its coverage.reportsDirectory',
+            'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder. coveragePath: workspace folder every run enabling coverage writes lcov.info to, {projectName} naming the project, absent leaves Vitest its coverage.reportsDirectory',
     }),
 ) {}
 const Surveyed = Schema.TaggedUnion({
@@ -40,6 +40,7 @@ const Surveyed = Schema.TaggedUnion({
     Suite: {
         root: Schema.String,
         reportsDirectory: Schema.String,
+        covered: Schema.Boolean,
         providers: Schema.Array(Schema.String),
         attachmentsDir: Schema.String,
         reports: Schema.Array(Schema.String),
@@ -50,14 +51,14 @@ const Surveyed = Schema.TaggedUnion({
     },
 }).annotate({
     description:
-        'What the worker read from a Vite or Vitest config under the TEST, VITEST, and NODE_ENV values vitest sets: the files a Vite config stating no test block loaded, or the resolved Vitest root, coverage folder and providers, attachments folder, reporter outputs, added rerun triggers, whether it lists projects, the files its load read, and each project it declares with its root, setup files, browser output folders, and browser providers',
+        'What the worker read from a Vite or Vitest config under the TEST, VITEST, and NODE_ENV values vitest sets: the files a Vite config stating no test block loaded, or the resolved Vitest root, coverage folder, whether it enables coverage, and its coverage providers, attachments folder, reporter outputs, added rerun triggers, whether it lists projects, the files its load read, and each project it declares with its root, setup files, browser output folders, and browser providers',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const loaded = <A>(file: string, entry: string, specifier: string) => Effect.tryPromise({ try: (): Promise<A> => import(pathToFileURL(createRequire(entry).resolve(specifier)).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no ${specifier}`) });
 
-const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: string, { root, reportsDirectory, providers, attachmentsDir, reports, triggers, listed, dependencies, projects }: Extract<typeof Surveyed.Type, { readonly _tag: 'Suite' }>) {
+const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: string, { root, reportsDirectory, covered, providers, attachmentsDir, reports, triggers, listed, dependencies, projects }: Extract<typeof Surveyed.Type, { readonly _tag: 'Suite' }>) {
     const fs = yield* FileSystem.FileSystem;
     const entry = join(workspaceRoot, file);
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
@@ -93,6 +94,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
                 setup: Array.dedupe(group.flatMap(({ setup }) => setup)).filter((at) => !at.startsWith(`${owner}/`)),
                 providers: Array.dedupe(group.flatMap(({ providers: hosted }) => hosted)),
                 coverage: local(resolve(root, reportsDirectory)),
+                covered,
                 written: Array.dedupe(group.flatMap(({ written }) => written).map((at) => local(resolve(root, at)))),
                 loaded: [...held],
                 packages,
@@ -130,24 +132,28 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     return { ...report, stamp: yield* stamp(report.sources) };
 });
 
-const targets = (file: string, { triggers, shared, suites }: Resolved, { root, projects, setup, coverage, written, loaded: configs, packages }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: Options, exec: string): Verbs => {
+const targets = (file: string, { triggers, shared, suites }: Resolved, { root, projects, setup, providers, coverage, covered, written, loaded: configs, packages }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: Options, exec: string): Verbs => {
     const rooted = getRootTsConfigFileName();
     const outside = Record.filter(
         { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) },
         (_input, at) => root !== '.' && !at.startsWith(`${root}/`) && at !== rooted,
     );
+    const directed = { ...(covered && { enabled: true }), ...(coveragePath !== undefined && { reportsDirectory: coveragePath }) };
     const test = {
         vitest: {
-            executor: `${PLUGIN}:test`,
-            options: { config: file, projects, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(outputPath), (at) => ({ attachmentsDir: posix.join(at, ATTACHMENTS) }))) },
+            executor: `${PLUGIN}:${Array.isReadonlyArrayNonEmpty(providers) ? 'browser' : 'test'}`,
+            options: { config: file, projects, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(outputPath), (at) => ({ attachmentsDir: posix.join(at, ATTACHMENTS) }))), ...(covered || coveragePath !== undefined ? { coverage: directed } : {}) },
             dependsOn: ['codegen--*', '^codegen--*'],
             cache: true,
             inputs: ['default', upstream, ...Object.values(outside), ...triggers.map((at) => posix.join('{workspaceRoot}', at)), { externalDependencies: Array.dedupe(['vitest', ...packages]) }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
             outputs: [...Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])]).filter((at, _index, all) => !all.some((folder) => at.startsWith(`${folder}/`))), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
             configurations: {
-                coverage: { coverage: { enabled: true, reporter: 'lcovonly', ...(coveragePath === undefined ? {} : { reportsDirectory: coveragePath }) } },
+                coverage: { coverage: { ...directed, enabled: true, reporter: 'lcovonly' } },
             },
-            metadata: { description: 'Runs every Vitest project of the suite with vitest run, in one run with every other suite of the configuration the same nx run tests', help: { command: `${exec} vitest run --help`, example: { args: ['--reporter', 'verbose'] } } },
+            metadata: {
+                description: 'Runs every Vitest project of the suite with vitest run, a suite without a browser provider in one run with every other such suite of the configuration the same nx run tests, as a batch holds every other Nx task until it ends',
+                help: { command: `${exec} vitest run --help`, example: { args: ['--reporter', 'verbose'] } },
+            },
         },
     } satisfies Record<string, TargetConfiguration>;
     const removed = Record.collect(test, (tool) => `test--${tool}`);
