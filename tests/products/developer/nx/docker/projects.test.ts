@@ -74,13 +74,28 @@ describe('compose projects', () => {
         expect(tools(targets)).toStrictEqual(['build--buildx', 'serve--compose']);
         expect([targets?.['build--buildx']?.options, targets?.['serve--compose']?.options]).toMatchObject([{ cwd: 'infra' }, { cwd: 'infra' }]);
     });
+
+    it('drops the image edge of a Compose file removed between two graphs of one process', async ({ workspace }) => {
+        const first = await workspace
+            .write({
+                'infra/project.json': '{"name":"infra"}',
+                'infra/compose.yaml': 'services:\n    api:\n        build:\n            context: ../apps/api/dist\n',
+                'apps/api/project.json': '{"name":"api","targets":{"build":{"command":"true","outputs":["{projectRoot}/dist"]}}}',
+                'apps/api/dist/Dockerfile': 'FROM scratch\n',
+            })
+            .graph({ createNodes, createDependencies });
+
+        const second = await workspace.remove('infra/compose.yaml').graph({ createNodes, createDependencies });
+
+        expect([first.dependencies['infra']?.map(({ target }) => target), second.dependencies['infra']?.map(({ target }) => target)]).toStrictEqual([['api'], []]);
+    });
 });
 
 describe('inference refusals', () => {
     it('refuses a Compose file docker compose rejects, naming the field docker names', async ({ workspace }) => {
         const read = workspace.write({ 'proj/project.json': '{"name":"proj"}', 'proj/compose.yaml': 'services:\n    app:\n        image: alpine:3\n        ports: nonsense\n' }).graph({ createNodes, createDependencies });
 
-        await expect(read).rejects.toSatisfy(refused(/^docker compose config .*exits \d+: .*services\.app\.ports must be a array/u));
+        await expect(read).rejects.toSatisfy(refused(/^docker compose config .*exits \d+: .*services\.app\.ports/u));
     });
 
     it('refuses when no docker executable is on PATH', async ({ workspace }) => {

@@ -35,6 +35,7 @@ interface Pass {
     readonly stored: MutableRef.MutableRef<boolean>;
     readonly rooted: (folder: string) => boolean;
     readonly engines: readonly TargetDependencyConfig[];
+    readonly analyses: Map<string, Composed>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -83,7 +84,7 @@ const Required = Schema.fromJsonString(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Analyses extends Context.Service<Analyses, Map<string, Composed>>()(`${PLUGIN}/plugin/Analyses`) {
+class Analyses extends Context.Service<Analyses, Map<string, ReadonlyMap<string, Composed>>>()(`${PLUGIN}/plugin/Analyses`) {
     static readonly layer = Layer.sync(Analyses, () => new Map());
 }
 
@@ -161,7 +162,7 @@ const compose = (root: string, args: Array.NonEmptyReadonlyArray<string>, descri
 
 const inferred = Effect.fnUntraced(function* (pass: Pass, root: string, matched: Array.NonEmptyReadonlyArray<string>) {
     const project = yield* recall(pass, root, matched, (entry) => 'name' in entry, analyzed(pass.workspaceRoot, root, matched));
-    (yield* Analyses).set(join(pass.workspaceRoot, root), project);
+    pass.analyses.set(root, project);
     const read = [...project.sources.map((file) => `{workspaceRoot}/${file}`), { externalDependencies: [] }];
     const checked = { cache: true, inputs: [...read, ...project.variables.map((env) => ({ env })), { runtime: 'docker compose version --short' }], options: { env: EVERY_PROFILE } };
     const built = { dependsOn: [...PRODUCERS, ...pass.engines], inputs: ['default', '^default', ...read] };
@@ -281,8 +282,8 @@ const required = (pass: Pass, files: readonly string[]) => {
     );
 };
 
-const edges = (analyses: ReadonlyMap<string, Composed>, { projects, workspaceRoot }: CreateDependenciesContext) => {
-    const built = Record.collect(projects, (name, { root }) => Array.fromNullishOr(analyses.get(join(workspaceRoot, root))).flatMap(({ file, contexts }) => contexts.map((at) => ({ name, file, at })))).flat();
+const edges = (analyses: ReadonlyMap<string, Composed>, projects: CreateDependenciesContext['projects']) => {
+    const built = Record.collect(projects, (name, { root }) => Array.fromNullishOr(analyses.get(root)).flatMap(({ file, contexts }) => contexts.map((at) => ({ name, file, at })))).flat();
     const made: Readonly<Record<string, readonly string[]>> = Array.match(
         built.map(({ at }) => at),
         { onEmpty: () => ({}), onNonEmpty: (contexts) => produced(projects, contexts) },
@@ -304,7 +305,8 @@ const createNodes: CreateNodes = [
                 Effect.gen(function* () {
                     const rooted = anchored(context.workspaceRoot);
                     const hosting = files.filter((file) => file === MISE && process.platform === 'darwin');
-                    const pass: Pass = { workspaceRoot: context.workspaceRoot, cache, stored, rooted, engines: Array.match(hosting, { onEmpty: () => [], onNonEmpty: () => [ENGINE] }) };
+                    const pass: Pass = { workspaceRoot: context.workspaceRoot, cache, stored, rooted, engines: Array.match(hosting, { onEmpty: () => [], onNonEmpty: () => [ENGINE] }), analyses: new Map() };
+                    (yield* Analyses).set(context.workspaceRoot, pass.analyses);
                     const folders = new Map(
                         Record.collect(
                             Record.filter(
@@ -319,8 +321,7 @@ const createNodes: CreateNodes = [
                     );
                     const read = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(folders.get(file)), ({ root, matched }) => inferred(pass, root, matched)));
                     const [composed, drivers] = yield* Effect.all([Effect.promise(() => createNodesFromFiles(read, folders.keys().toArray(), options, context)), Array.isReadonlyArrayNonEmpty(pass.engines) ? required(pass, files) : Effect.succeed([])]);
-                    const analyses = yield* Analyses;
-                    const cleaned = folders.values().some(({ root }) => analyses.get(join(context.workspaceRoot, root))?.built === true);
+                    const cleaned = pass.analyses.values().some(({ built }) => built);
                     const started = yield* Effect.forEach(hosting, (file) => engine(context.workspaceRoot, file, cleaned));
                     return [...composed, ...started, ...drivers];
                 }),
@@ -333,7 +334,7 @@ const createNodes: CreateNodes = [
     },
 ];
 
-const createDependencies: CreateDependencies = (_, context) => run(Effect.map(Analyses, (analyses) => edges(analyses, context)));
+const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) => run(Effect.map(Analyses, (analyses) => edges(analyses.get(workspaceRoot) ?? new Map(), projects)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
