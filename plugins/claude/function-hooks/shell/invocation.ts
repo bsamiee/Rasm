@@ -47,10 +47,8 @@ const ZSH_FEATURE = /\bzsh feature\b/u;
 const Stored = Layer.unwrap(
     Effect.gen(function* () {
         const [machine, path, data] = yield* Effect.all([Machine, Path.Path, Config.option(Config.String('CLAUDE_PLUGIN_DATA'))]);
-        return yield* Option.match(data, {
-            onNone: () => Effect.succeed(KeyValueStore.layerMemory),
-            onSome: (folder) => Effect.map(machine.run(['carapace', '--version'], { cwd: folder }), ({ stdout }) => Layer.orDie(KeyValueStore.layerFileSystem(path.join(folder, String.trim(stdout))))),
-        });
+        const versioned = Option.zipWith(data, yield* Effect.transposeOption(Option.map(data, (folder) => machine.run(['carapace', '--version'], { cwd: folder }))), (folder, { stdout }) => path.join(folder, String.trim(stdout)));
+        return Option.match(versioned, { onNone: () => KeyValueStore.layerMemory, onSome: (folder) => Layer.orDie(KeyValueStore.layerFileSystem(folder)) });
     }),
 );
 

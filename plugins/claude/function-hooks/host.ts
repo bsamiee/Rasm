@@ -94,11 +94,7 @@ class Machine extends Context.Service<Machine>()('@rasm/function-hooks/host/Mach
             home,
             run,
             inside,
-            toplevel: (cwd: string) =>
-                Effect.map(
-                    Cache.get(repositories, cwd),
-                    Option.getOrElse(() => cwd),
-                ),
+            toplevel: (cwd: string) => Cache.get(repositories, cwd).pipe(Effect.map(Option.getOrElse(() => cwd))),
             graph: Effect.fnUntraced(function* (root: string) {
                 const [{ workspaceRoot }, { workspaceDataDirectory }] = yield* nx;
                 return root === workspaceRoot ? yield* Cache.get(graphs, yield* modified(path.join(workspaceDataDirectory, 'project-graph.json'))) : Option.none();
@@ -109,13 +105,10 @@ class Machine extends Context.Service<Machine>()('@rasm/function-hooks/host/Mach
             },
             onPath: (program: string) => Cache.get(onPath, program),
             ignored: (files: readonly string[]) =>
-                Effect.map(
-                    Effect.findFirst(
-                        files,
-                        repositoryHolds((root, file) => Effect.flatMap(modified(path.join(root, '.gitignore')), (at) => Cache.get(ignored, [root, at, file]))),
-                    ),
-                    Option.isSome,
-                ),
+                Effect.findFirst(
+                    files,
+                    repositoryHolds((root, file) => Effect.flatMap(modified(path.join(root, '.gitignore')), (at) => Cache.get(ignored, [root, at, file]))),
+                ).pipe(Effect.map(Option.isSome)),
             tracked: repositoryHolds((root, file) => Effect.flatMap(modified(path.join(root, '.git/index')), (at) => Cache.get(tracked, [root, at, file]))),
         };
     }),

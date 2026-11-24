@@ -192,14 +192,8 @@ const nxTarget: Rule = Effect.fnUntraced(function* (invocation, call) {
     const picks = runners.flatMap((chosen) => (chosen.length === 1 ? chosen : []));
     const several = runners.find((chosen) => chosen.length > 1) ?? [];
     const unsettled = invocation.args.filter(({ names }) => names.length > 0 && !new Set(names).isSubsetOf(settled));
-    const located = yield* Effect.findFirst(
-        unsettled.flatMap(({ values }) => values),
-        ({ text, known }) =>
-            Option.match(
-                Option.filter(host.resolve(text, invocation.command.cwd), () => known),
-                { onNone: () => Effect.succeed(!known), onSome: host.exists },
-            ),
-    );
+    const values = unsettled.flatMap((argument) => argument.values);
+    const located = yield* Effect.findFirst(values, ({ text, known }) => (known ? Option.match(host.resolve(text, invocation.command.cwd), { onNone: () => Effect.succeed(false), onSome: host.exists }) : Effect.succeed(true)));
     const foreign = { words: unsettled.map(({ words: held }) => spelled(held)), located: Option.isSome(located) };
     if (several.length > 1) {
         return refusal(`${commandOf(invocation)} maps to several targets, run one of: ${several.map(({ node, target }) => `nx run ${quote(`${node.name}:${target}`)}`).join(', ')}`);
@@ -261,14 +255,9 @@ const loopedRun =
         if (!invocation.repeated || command.origin !== 'call' || Option.exists(Array.head(operands), ({ text }) => LOOP_READS.has(text))) {
             return [];
         }
-        return Effect.map(forLoop(call), (loop) =>
-            Option.match(
-                Option.flatMap(loop, (held) => Option.map(form(invocation, held), (text) => ({ text, variable: held.variable }))),
-                {
-                    onNone: () => [],
-                    onSome: ({ text, variable }) => [Verdict.Edit({ start: 0, end: command.source.length, text: Option.some(text), subject: Option.some(`for ${variable} loop`) })],
-                },
-            ),
+        return forLoop(call).pipe(
+            Effect.map((loop) => Option.flatMap(loop, (held) => Option.map(form(invocation, held), (text) => [Verdict.Edit({ start: 0, end: command.source.length, text: Option.some(text), subject: Option.some(`for ${held.variable} loop`) })]))),
+            Effect.map(Option.getOrElse(() => [])),
         );
     };
 
@@ -321,12 +310,10 @@ const pulumiDeploy: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const graph = yield* host.graph;
     const deployable = Option.match(graph, { onNone: () => [], onSome: ({ nodes }) => Object.values(nodes).filter((node) => targetsOf(node)[target] !== undefined) });
     const owned = Option.flatMap(graph, ({ owner }) => Option.filter(Option.flatMap(invocation.command.cwd, owner), (node) => targetsOf(node)[target] !== undefined));
-    const project = Option.getOrElse(
-        Option.map(
-            Option.orElse(owned, () => Option.filter(Array.head(deployable), () => deployable.length === 1)),
-            ({ name }) => quote(name),
-        ),
-        () => `<${deployable.map(({ name }) => name).join('|') || 'project'}>`,
+    const project = owned.pipe(
+        Option.orElse(() => Option.filter(Array.head(deployable), () => deployable.length === 1)),
+        Option.map(({ name }) => quote(name)),
+        Option.getOrElse(() => `<${deployable.map(({ name }) => name).join('|') || 'project'}>`),
     );
     const [stack] = invocation.values('--stack');
     const foreign = invocation.args.filter(({ names }) => names.length > 0 && !names.every((name) => PULUMI_FLAGS.has(name)));
@@ -424,32 +411,24 @@ const aggregateArgs: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     return asked.length === 1 && tool !== undefined && tools.length === 1 ? whole(invocation, ['nx run', quote([node.name, tool].join(':')), ...kept, '--', spelled(invocation.tail)].join(' '), `nx ${aggregate}`) : refusal(`pass one-run arguments to one of: ${tools.join(',')}`);
 });
 
-const forwardedOptions: Rule = Effect.fnUntraced(function* (invocation, call) {
-    const configured = Option.flatMap(yield* call.host.graph, (graph) =>
-        Option.flatMap(addressOf(invocation, graph), ([project, target]) => {
-            const entry = graph.nodes[project]?.data.targets?.[target];
-            const configuration = invocation.values('--configuration').at(-1) ?? entry?.defaultConfiguration;
-            return Option.flatMapNullishOr(Schema.decodeUnknownOption(Options)(entry === undefined ? undefined : { ...entry.options, ...(configuration === undefined ? {} : entry.configurations?.[configuration]) }), Struct.get('command'));
-        }),
-    );
-    const ran = yield* Option.match(configured, {
-        onNone: () => Effect.undefined,
-        onSome: (command) => Effect.map(bodyOf(command, call), ({ invocations }) => invocations.at(-1)),
-    });
-    if (ran === undefined) {
-        return [];
-    }
-    const tail = spelled(invocation.tail);
-    const [forwarded] = (yield* bodyOf([ran.program, ...invocation.values('--args'), tail].join(' '), call)).invocations;
-    if (forwarded === undefined) {
-        return [];
-    }
-    const guards = ['mypy', 'pytest'].includes(ran.program) ? yield* all(...(call.programs.get(forwarded.program)?.rules ?? []))(forwarded, call) : [];
-    return [
-        ...guards,
-        ...(Option.isSome(invocation.separator) && !invocation.has('--args') && forwarded.args.length > 0 && forwarded.args.every(({ names }) => names.length > 0) && keysOf(forwarded).isSubsetOf(keysOf(ran)) ? silent(cut(invocation, [invocation.separator.value, ...invocation.tail], `nx -- ${tail}`)) : []),
-    ];
-});
+const forwardedOptions: Rule = Effect.fnUntraced(
+    function* (invocation, call) {
+        const graph = yield* Effect.fromOption(yield* call.host.graph);
+        const [project, target] = yield* Effect.fromOption(addressOf(invocation, graph));
+        const entry = graph.nodes[project]?.data.targets?.[target];
+        const configuration = invocation.values('--configuration').at(-1) ?? entry?.defaultConfiguration;
+        const command = yield* Effect.fromOption(Option.flatMapNullishOr(Schema.decodeUnknownOption(Options)(entry === undefined ? undefined : { ...entry.options, ...(configuration === undefined ? {} : entry.configurations?.[configuration]) }), Struct.get('command')));
+        const ran = yield* Effect.fromNullishOr((yield* bodyOf(command, call)).invocations.at(-1));
+        const tail = spelled(invocation.tail);
+        const forwarded = yield* Effect.fromNullishOr((yield* bodyOf([ran.program, ...invocation.values('--args'), tail].join(' '), call)).invocations[0]);
+        const guards = ['mypy', 'pytest'].includes(ran.program) ? yield* all(...(call.programs.get(forwarded.program)?.rules ?? []))(forwarded, call) : [];
+        return [
+            ...guards,
+            ...(Option.isSome(invocation.separator) && !invocation.has('--args') && forwarded.args.length > 0 && forwarded.args.every(({ names }) => names.length > 0) && keysOf(forwarded).isSubsetOf(keysOf(ran)) ? silent(cut(invocation, [invocation.separator.value, ...invocation.tail], `nx -- ${tail}`)) : []),
+        ];
+    },
+    Effect.catchTag('NoSuchElementError', () => Effect.succeed([])),
+);
 
 // --- [CONCURRENCY]
 
@@ -505,30 +484,16 @@ const outsideScript: Rule = Effect.fnUntraced(function* (invocation, { host }) {
         .flatMap(({ values }) => values('-C'))
         .reduce((folder, value) => host.resolve(value, folder), command.cwd);
     const file = script?.known === true && !invocation.has(...(row.code ?? [])) ? Option.filter(host.resolve(script.text, cwd), (outside) => !host.inside(outside, host.root)) : Option.none();
-    if (script === undefined || script === head || !invocation.outer.every(({ program }) => program === 'env') || Option.isNone(file) || !Option.exists(cwd, (folder) => host.inside(folder, host.root))) {
-        return [];
-    }
-    const entries = Option.map(
-        Option.match(
-            Array.findLast(assigned, ({ text }) => text.startsWith(`${searchPath}=`)),
-            {
-                onNone: () => command.variables.get(searchPath) ?? Option.some(''),
-                onSome: ({ known, text }) => Option.liftPredicate(text.slice(searchPath.length + 1), () => known),
-            },
-        ),
-        (value) => (value === '' ? [] : value.split(':')),
+    const entries = Array.findLast(assigned, ({ text }) => text.startsWith(`${searchPath}=`)).pipe(
+        Option.match({ onNone: () => command.variables.get(searchPath) ?? Option.some(''), onSome: ({ known, text }) => Option.liftPredicate(text.slice(searchPath.length + 1), () => known) }),
+        Option.map((value) => (value === '' ? [] : value.split(':'))),
     );
-    if (Option.isNone(entries) || rest.some(({ known }) => !known)) {
+    if (script === undefined || script === head || !invocation.outer.every(({ program }) => program === 'env') || Option.isNone(file) || !Option.exists(cwd, (folder) => host.inside(folder, host.root)) || Option.isNone(entries) || rest.some(({ known }) => !known)) {
         return [];
     }
     const launched = head.text.includes('/') ? Option.getOrElse(yield* absolute(head, cwd, host), () => head.raw) : head.raw;
     const search = entries.value.some((entry) => !host.path.isAbsolute(entry)) ? [`${searchPath}=${quote(Array.getSomes(entries.value.map((entry) => host.resolve(entry, cwd))).join(':'))}`] : [];
-    const moved = yield* Effect.forEach([script, ...rest], (word) =>
-        Effect.map(
-            absolute(word, cwd, host),
-            Option.map((text) => edited(invocation, word, text)),
-        ),
-    );
+    const moved = yield* Effect.forEach([script, ...rest], (word) => absolute(word, cwd, host).pipe(Effect.map(Option.map((text) => edited(invocation, word, text)))));
     return [...edited(invocation, head, ['env -C', quote(host.path.dirname(file.value)), ...search, launched].join(' '), head.raw), ...Array.getSomes(moved).flat()];
 });
 

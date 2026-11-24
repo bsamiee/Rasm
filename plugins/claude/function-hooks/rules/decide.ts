@@ -26,11 +26,7 @@ const BY_NAME = new Map(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const due = (reader: Pick<Request, 'session' | 'agent'>, notes: ReadonlyMap<string, string>) =>
-    Effect.map(
-        Effect.filter([...notes], ([subject]) => once(reader, subject)),
-        Array.map(([, note]) => note),
-    );
+const due = (reader: Pick<Request, 'session' | 'agent'>, notes: ReadonlyMap<string, string>) => Effect.filter([...notes], ([subject]) => once(reader, subject)).pipe(Effect.map(Array.map(([, note]) => note)));
 
 const judged = Effect.fnUntraced(function* (request: Request) {
     const host = yield* Host;

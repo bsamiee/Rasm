@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Predicate, Result, Schema, String } from 'effect';
+import { Array, Effect, Option, Result, Schema, String } from 'effect';
 import { KeyValueStore } from 'effect/persistence';
 import { Host, HostError } from '#/host';
 import type { Program } from '#/shell/programs';
@@ -112,16 +112,12 @@ const usageOf = Effect.fnUntraced(function* (program: string, row: Program, prim
         const { stdout } = yield* host.run([program, '--experimental-dump-help']);
         return infoUsage((yield* Effect.mapError(Schema.decodeEffect(ToolInfo)(stdout), HostError.of(program))).command);
     }
-    const exported = (name: string) =>
-        Effect.filterOrElse(
-            Effect.orElseSucceed(store.get(`${name}.json`), () => undefined),
-            Predicate.isNotUndefined,
-            () =>
-                Effect.map(
-                    Effect.tap(host.run(['carapace', name, 'export'], { env: { CARAPACE_BUILTINS: 'bash', CARAPACE_SHELL: 'bash', CARAPACE_BRIDGES: '' } }), ({ code, stdout: held }) => Effect.ignore(Effect.when(store.set(`${name}.json`, held), Effect.succeed(code === 0)))),
-                    ({ stdout: held }) => held,
-                ),
-        );
+    const exported = Effect.fnUntraced(function* (name: string) {
+        const stored = yield* Effect.orElseSucceed(store.get(`${name}.json`), () => undefined);
+        const { code, stdout: held } = stored === undefined ? yield* host.run(['carapace', name, 'export'], { env: { CARAPACE_BUILTINS: 'bash', CARAPACE_SHELL: 'bash', CARAPACE_BRIDGES: '' } }) : { code: undefined, stdout: stored };
+        yield* Effect.ignore(Effect.when(store.set(`${name}.json`, held), Effect.succeed(code === 0)));
+        return held;
+    });
     const own = yield* exported(row.completer ?? program);
     const stdout = row.completer === undefined && program !== primary && String.isEmpty(String.trim(own)) ? yield* exported(primary) : own;
     const declared = new Map(
@@ -157,25 +153,16 @@ const optionOf = ({ text }: Word, usage: Usage, row: Program): Option.Option<rea
 };
 
 const optionStep = (word: Word, scan: Scan, words: readonly Word[], row: Program): Option.Option<readonly [Partial<Arguments>, Scan]> =>
-    Option.flatMap(optionOf(word, scan.usage, row), ([flags, attached]) =>
-        Option.map(Option.match(attached, { onNone: () => Option.some(Option.none<Word>()), onSome: (at) => Option.map(slicedWord(word, at), Option.some) }), (value) => {
-            const flag = flags.at(-1);
-            const from = scan.at + 1;
-            const taken =
-                flag !== undefined && row.execs?.includes(flag.name) === true
-                    ? words.slice(
-                          from,
-                          Option.match(
-                              Array.findFirstIndex(words, ({ text }, index) => index >= from && (text === ';' || text === '+')),
-                              { onNone: () => words.length, onSome: (index) => index + 1 },
-                          ),
-                      )
-                    : words.slice(from, from + (flag?.arity ?? 0));
-            const supplied = Option.isSome(value) ? [] : taken;
-            const names = flags.map(({ name }) => name);
-            return [{ args: [{ names, words: [word, ...supplied], values: [...Option.toArray(value), ...supplied] }] }, { ...scan, at: from + supplied.length, ended: names.some((name) => name === row.module || row.restAfter?.includes(name) === true) }];
-        }),
-    );
+    Option.gen(function* () {
+        const [flags, attached] = yield* optionOf(word, scan.usage, row);
+        const value = yield* Option.match(attached, { onNone: () => Option.some(Option.none<Word>()), onSome: (at) => Option.map(slicedWord(word, at), Option.some) });
+        const flag = flags.at(-1);
+        const from = scan.at + 1;
+        const arity = flag !== undefined && row.execs?.includes(flag.name) === true ? Array.takeWhile(words.slice(from), ({ text }) => text !== ';' && text !== '+').length + 1 : (flag?.arity ?? 0);
+        const supplied = Option.isSome(value) ? [] : words.slice(from, from + arity);
+        const names = flags.map(({ name }) => name);
+        return [{ args: [{ names, words: [word, ...supplied], values: [...Option.toArray(value), ...supplied] }] }, { ...scan, at: from + supplied.length, ended: names.some((name) => name === row.module || row.restAfter?.includes(name) === true) }] as const;
+    });
 
 const operandStep = (word: Word, scan: Scan, words: readonly Word[], row: Program): readonly [Partial<Arguments>, Scan] => {
     const deeper = Array.filterMap(scan.wrapped, ([first, ...later]) => (first === word.text ? Result.succeed(later) : Result.failVoid));

@@ -139,10 +139,7 @@ const settled = (verdicts: ReturnType<Rule>) => (Effect.isEffect(verdicts) ? ver
 const all =
     (...rules: readonly Rule[]) =>
     (invocation: Invocation, call: Call) =>
-        Effect.map(
-            Effect.forEach(rules, (rule) => settled(rule(invocation, call))),
-            (verdicts) => verdicts.flat(),
-        );
+        Effect.forEach(rules, (rule) => settled(rule(invocation, call))).pipe(Effect.map(Array.flatten));
 
 const when =
     (applies: Predicate.Predicate<Invocation>, ...rules: readonly Rule[]): Rule =>
@@ -157,12 +154,9 @@ const absent =
 const perSubcommand =
     (table: Record.ReadonlyRecord<string, readonly Rule[]>): Rule =>
     (invocation, call) =>
-        Option.match(
-            Option.flatMap(Option.firstSomeOf([Array.head(invocation.path), Option.map(Array.head(invocation.operands), Struct.get('text'))]), (name) => Option.map(Record.get(table, name), (rules) => [name, rules] as const)),
-            {
-                onNone: () => [],
-                onSome: ([name, rules]) => all(...rules)({ ...invocation, path: [name, ...invocation.path.slice(1)] }, call),
-            },
+        Option.firstSomeOf([Array.head(invocation.path), Option.map(Array.head(invocation.operands), Struct.get('text'))]).pipe(
+            Option.flatMap((name) => Option.map(Record.get(table, name), (rules) => all(...rules)({ ...invocation, path: [name, ...invocation.path.slice(1)] }, call))),
+            Option.getOrElse(() => []),
         );
 
 const refuse =

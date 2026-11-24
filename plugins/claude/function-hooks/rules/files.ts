@@ -140,16 +140,11 @@ const perResult =
                 const [command, ...operands] = template.filter(({ text }) => text !== ';');
                 const placed = operands.filter(({ text }) => PLACEHOLDER.test(text));
                 const alike = command?.known === true && BATCHABLE.has(command.text) && (placed.length === 0 ? implied : placed.length === 1 && operands.at(-1)?.text === '{}');
-                return Option.match(
-                    Option.filter(
-                        Array.findFirst(words, (word) => Option.map(Record.get(batch, word.text), (spelling) => [word, spelling] as const)),
-                        () => alike,
-                    ),
-                    {
-                        onSome: ([word, spelling]) => edited(invocation, word, spelling, `${invocation.program} ${word.raw}`),
-                        onNone: () => (command === undefined || (invocation.has('--max-results', '-1') && invocation.values('--threads').includes('1')) ? [] : refusal(`${invocation.program} ${given.raw} ${command.raw} starts one process per search result, ${advice}`)),
-                    },
-                );
+                const batched = Array.findFirst(words, (word) => Option.map(Record.get(batch, word.text), (spelling) => [word, spelling] as const)).pipe(Option.filter(() => alike));
+                return Option.match(batched, {
+                    onSome: ([word, spelling]) => edited(invocation, word, spelling, `${invocation.program} ${word.raw}`),
+                    onNone: () => (command === undefined || (invocation.has('--max-results', '-1') && invocation.values('--threads').includes('1')) ? [] : refusal(`${invocation.program} ${given.raw} ${command.raw} starts one process per search result, ${advice}`)),
+                });
             });
 
 // --- [DELETIONS]
@@ -210,13 +205,8 @@ const fedRemoval =
         if (listing?.known === true) {
             return Effect.fromOption(call.host.resolve(listing.text, feeder.command.cwd)).pipe(
                 Effect.flatMap(call.host.fs.readFileString),
-                Effect.option,
-                Effect.map((content) =>
-                    Option.getOrElse(
-                        Option.map(content, (text) => text.split(nulled ? NUL : '\n').filter(String.isNonEmpty)),
-                        () => [],
-                    ),
-                ),
+                Effect.orElseSucceed(() => ''),
+                Effect.map((text) => text.split(nulled ? NUL : '\n').filter(String.isNonEmpty)),
                 Effect.map((paths) => (paths.length === 0 ? unlisted(`${subject} < ${listing.raw} lists no path, name each path to ${invocation.program}`) : edited(invocation, feeder.command, [...separated, ...paths.map((path) => quote(path))].join(' '), `${subject} < ${listing.raw}`))),
             );
         }
@@ -380,15 +370,10 @@ const unfiltered =
 const excludedStage: Rule = (invocation, call) => {
     const { earlier } = stages(invocation, call);
     const previous = earlier.at(-1)?.command;
+    const feeding = earlier.filter(({ command }) => command === previous);
     return previous === undefined || invocation.names.size > 1 || !Option.exists(Array.head(invocation.leading), ({ text }) => ONLY_IGNORED.test(text))
         ? []
-        : Effect.map(
-              Effect.forEach(
-                  earlier.filter(({ command }) => command === previous),
-                  (stage) => skipsIgnored(stage, call),
-              ),
-              (skipping) => (skipping.some(Boolean) ? erased(invocation, { start: previous.end, end: invocation.command.end }) : []),
-          );
+        : Effect.forEach(feeding, (stage) => skipsIgnored(stage, call)).pipe(Effect.map((skipping) => (skipping.some(Boolean) ? erased(invocation, { start: previous.end, end: invocation.command.end }) : [])));
 };
 
 const findAsFd: Rule = (invocation) => {
@@ -476,12 +461,7 @@ const substitutedInput: Rule = (invocation) => {
 const systemTemp = ({ analysis }: Call): readonly Verdict[] => {
     const own = analysis.invocations.filter(({ command }) => command.origin === 'call');
     const commands = Array.dedupe(own.map(({ command }) => command));
-    const outputs = own.flatMap(({ program, operands }) =>
-        Option.getOrElse(
-            Option.map(Record.get(WRITERS, program), (written) => written(operands)),
-            () => [],
-        ),
-    );
+    const outputs = own.flatMap(({ program, operands }) => Option.match(Record.get(WRITERS, program), { onNone: () => [], onSome: (written) => written(operands) }));
     const targets = [...commands.flatMap(({ redirects }) => Array.getSomes(redirects.filter(({ op }) => WRITES.has(op)).map(({ target }) => target))), ...outputs];
     const written = new Set(targets.filter(({ known, raw }) => known && relocated(raw) !== raw).map(({ text }) => text));
     const words = [...commands.flatMap(({ words: held, redirects }) => [...held, ...Array.getSomes(redirects.map(({ target }) => target))]), ...outputs.filter(({ prefix }) => prefix !== undefined)];

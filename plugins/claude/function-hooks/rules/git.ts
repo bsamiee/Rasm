@@ -119,11 +119,7 @@ const afterOf = (output: typeof Output.Type): Option.Option<string> =>
         ? Option.some(output.content)
         : Option.match(Option.fromNullOr(output.originalFile), {
               onNone: () => Option.some(output.newString),
-              onSome: (original) =>
-                  Option.map(
-                      Option.liftPredicate(original.indexOf(output.oldString), (at) => at >= 0),
-                      (at) => (output.replaceAll ? original.split(output.oldString).join(output.newString) : `${original.slice(0, at)}${output.newString}${original.slice(at + output.oldString.length)}`),
-                  ),
+              onSome: (original) => Option.liftPredicate(output.replaceAll ? original.split(output.oldString).join(output.newString) : original.replace(output.oldString, () => output.newString), () => original.includes(output.oldString)),
           });
 
 const blobOf = (oid: string) => Option.liftPredicate(oid, (held: string) => !ABSENT.test(held));
@@ -139,15 +135,12 @@ const appended = Effect.fnUntraced(function* (host: Host['Service'], ledger: str
     yield* Effect.mapError(Effect.andThen(host.fs.makeDirectory(ledger, { recursive: true }), host.fs.writeFileString(host.path.join(ledger, `${session}${LEDGER}`), lines.map((line) => `${line}\n`).join(''), { flag: 'a' })), HostError.of(ledger));
 });
 
-const snapshot = (host: Host['Service'], { gitdir, toplevel }: { readonly gitdir: string; readonly toplevel: string }) =>
-    Effect.scoped(
-        Effect.gen(function* () {
-            const index = yield* Effect.mapError(host.fs.makeTempFileScoped(), HostError.of('index'));
-            yield* Effect.ignore(host.fs.copyFile(host.path.join(gitdir, 'index'), index));
-            yield* host.run(['git', '-C', toplevel, 'add', '-A'], { env: { GIT_INDEX_FILE: index } });
-            return (yield* host.run(['git', '-C', toplevel, 'write-tree'], { env: { GIT_INDEX_FILE: index } })).stdout.trim();
-        }),
-    );
+const snapshot = Effect.fnUntraced(function* (host: Host['Service'], { gitdir, toplevel }: { readonly gitdir: string; readonly toplevel: string }) {
+    const index = yield* Effect.mapError(host.fs.makeTempFileScoped(), HostError.of('index'));
+    yield* Effect.ignore(host.fs.copyFile(host.path.join(gitdir, 'index'), index));
+    yield* host.run(['git', '-C', toplevel, 'add', '-A'], { env: { GIT_INDEX_FILE: index } });
+    return (yield* host.run(['git', '-C', toplevel, 'write-tree'], { env: { GIT_INDEX_FILE: index } })).stdout.trim();
+}, Effect.scoped);
 
 const derived = (links: readonly { readonly before?: string; readonly after?: string }[], from: string | undefined, to: string | undefined, seen: ReadonlySet<string | undefined> = new Set()): boolean =>
     from === to || (!seen.has(to) && links.some(({ before, after }) => after === to && derived(links, from, before, seen.union(new Set([to])))));
@@ -387,68 +380,51 @@ const forcedRefs: Rule = (invocation) =>
 const opened = Effect.fn('opened')(
     function* ({ session, agent, call, file, until }: typeof Calling.Type) {
         const host = yield* Host;
-        const place = yield* located(
-            host,
-            Option.getOrElse(Option.map(Option.fromUndefinedOr(file), host.path.dirname), () => host.root),
-        );
-        if (Option.isNone(place)) {
-            return;
-        }
-        const { ledger, prefix } = place.value;
-        const [tree, at] = yield* Effect.all([file === undefined ? Effect.asSome(snapshot(host, place.value)) : Effect.succeedNone, Clock.currentTimeMillis]);
-        const window = { call, at, pid: process.ppid, ...Option.match(tree, { onNone: () => ({}), onSome: (held) => ({ tree: held }) }), ...(file === undefined ? {} : { path: `${prefix}${host.path.basename(file)}` }), ...(until === undefined ? {} : { until }) };
-        yield* appended(host, ledger, session, [Entry.cases.Opened.make({ ...window, ...(agent === undefined ? {} : { agent }) })]);
+        const place = yield* Effect.fromOption(yield* located(host, file === undefined ? host.root : host.path.dirname(file)));
+        const [tree, at] = yield* Effect.all([file === undefined ? Effect.asSome(snapshot(host, place)) : Effect.succeedNone, Clock.currentTimeMillis]);
+        const window = { call, at, pid: process.ppid, ...Option.getOrUndefined(Option.bindTo(tree, 'tree')), ...(file === undefined ? {} : { path: `${place.prefix}${host.path.basename(file)}` }), ...(until === undefined ? {} : { until }) };
+        yield* appended(host, place.ledger, session, [Entry.cases.Opened.make({ ...window, ...(agent === undefined ? {} : { agent }) })]);
     },
+    Effect.catchNoSuchElement,
     (effect, { cwd }) => Effect.provideServiceEffect(effect, Host, Host.make(cwd)),
 );
 
 const closed = Effect.fn('closed')(
     function* ({ session, agent, call }: typeof Calling.Type) {
         const host = yield* Host;
-        const place = yield* located(host, host.root);
-        const own = Option.isSome(place) ? Array.findLast((yield* ledgersOf(host, place.value.ledger)).entries, ([owner, entry]) => owner === session && Predicate.isTagged(entry, 'Opened') && entry.call === call) : Option.none();
-        const start = Option.flatMap(own, ([, entry]) => (Predicate.isTagged(entry, 'Opened') ? Option.fromUndefinedOr(entry.tree === undefined ? undefined : { at: entry.at, tree: entry.tree }) : Option.none()));
-        if (Option.isNone(place) || Option.isNone(start)) {
-            return;
-        }
-        const { ledger, toplevel } = place.value;
-        const tree = yield* snapshot(host, place.value);
+        const place = yield* Effect.fromOption(yield* located(host, host.root));
+        const { ledger, toplevel } = place;
+        const start = yield* Effect.fromOption(Array.findLast((yield* ledgersOf(host, ledger)).entries, ([owner, entry]) => (owner === session && entry._tag === 'Opened' && entry.call === call ? Option.some(entry) : Option.none())));
+        const before = yield* Effect.fromNullishOr(start.tree);
+        const tree = yield* snapshot(host, place);
         const [at, { entries }] = yield* Effect.all([Clock.currentTimeMillis, ledgersOf(host, ledger)]);
         const living = (yield* windowsOf(entries, at)).filter(({ owner, entry }) => owner !== session || entry.agent !== agent);
-        const overlapping = living.filter(({ entry, end }) => entry.at <= at && end >= start.value.at);
+        const overlapping = living.filter(({ entry, end }) => entry.at <= at && end >= start.at);
         const blocked = new Set(overlapping.map(({ entry }) => entry.path));
-        const changes = blocked.has(undefined) ? [] : changesOf(yield* host.output(['git', '-C', toplevel, 'diff-tree', '-r', '-z', '--no-renames', start.value.tree, tree])).filter(({ path }) => !blocked.has(path));
+        const changes = blocked.has(undefined) ? [] : changesOf(yield* host.output(['git', '-C', toplevel, 'diff-tree', '-r', '-z', '--no-renames', before, tree])).filter(({ path }) => !blocked.has(path));
         const held = agent === undefined ? {} : { agent };
         const dead = living.filter(({ end }) => end === at);
         yield* Effect.forEach(dead, ({ owner, entry }) => appended(host, ledger, owner, [Entry.cases.Closed.make({ call: entry.call, at, ...(entry.agent === undefined ? {} : { agent: entry.agent }) })]), { discard: true });
-        yield* appended(host, ledger, session, [
-            ...changes.map(({ path, from, to }) => Entry.cases.Wrote.make({ path, ...held, ...Option.match(from, { onNone: () => ({}), onSome: (before) => ({ before }) }), ...Option.match(to, { onNone: () => ({}), onSome: (after) => ({ after }) }) })),
-            Entry.cases.Closed.make({ call, at, ...held }),
-        ]);
-        yield* swept(host, place.value);
+        yield* appended(host, ledger, session, [...changes.map(({ path, from, to }) => Entry.cases.Wrote.make({ path, ...held, ...Option.getOrUndefined(Option.bindTo(from, 'before')), ...Option.getOrUndefined(Option.bindTo(to, 'after')) })), Entry.cases.Closed.make({ call, at, ...held })]);
+        yield* swept(host, place);
     },
+    Effect.catchNoSuchElement,
     (effect, { cwd }) => Effect.provideServiceEffect(effect, Host, Host.make(cwd)),
 );
 
 const wrote = Effect.fn('wrote')(function* ({ session, agent, call, file, result }: typeof Writing.Type) {
     const host = yield* Host;
-    const place = yield* located(host, host.path.dirname(file));
-    if (Option.isNone(place)) {
-        return;
-    }
-    const { ledger, toplevel, prefix } = place.value;
+    const place = yield* Effect.fromOption(yield* located(host, host.path.dirname(file)));
+    const { ledger, toplevel, prefix } = place;
     const path = `${prefix}${host.path.basename(file)}`;
     const output = Schema.decodeUnknownOption(Output)(result);
     const held = agent === undefined ? {} : { agent };
     const hashed = (stdin: string) => Effect.map(host.run(['git', '-C', toplevel, 'hash-object', '--stdin', `--path=${path}`], { stdin }), ({ stdout }) => stdout.trim());
-    const written = yield* Option.match(Option.all({ decoded: output, after: Option.flatMap(output, afterOf) }), {
-        onNone: () => Effect.succeedNone,
-        onSome: ({ decoded, after }) => Effect.asSome(Effect.all({ before: Effect.transposeOption(Option.map(Option.fromNullOr(decoded.originalFile), hashed)), after: hashed(after) })),
-    });
+    const written = yield* Effect.transposeOption(Option.map(Option.all({ decoded: output, after: Option.flatMap(output, afterOf) }), ({ decoded, after }) => Effect.all({ before: Effect.transposeOption(Option.map(Option.fromNullOr(decoded.originalFile), hashed)), after: hashed(after) })));
     const at = yield* Clock.currentTimeMillis;
-    yield* appended(host, ledger, session, [...Option.toArray(Option.map(written, ({ before, after }) => Entry.cases.Wrote.make({ path, after, ...held, ...Option.match(before, { onNone: () => ({}), onSome: (hash) => ({ before: hash }) }) }))), Entry.cases.Closed.make({ call, at, ...held })]);
-    yield* swept(host, place.value);
-});
+    yield* appended(host, ledger, session, [...Option.toArray(Option.map(written, ({ before, after }) => Entry.cases.Wrote.make({ path, after, ...held, ...Option.getOrUndefined(Option.bindTo(before, 'before')) }))), Entry.cases.Closed.make({ call, at, ...held })]);
+    yield* swept(host, place);
+}, Effect.catchNoSuchElement);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

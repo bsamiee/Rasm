@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Predicate, Record } from 'effect';
+import { Array, Effect, Option } from 'effect';
 import type { Host } from '#/host';
 import { Verdict } from '#/rules/decision';
 import { deleted, edited, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, refusal, silent, unassign, when } from '#/rules/rule';
@@ -18,20 +18,13 @@ const LOGS = { '-log': 'ghidra.log', '-scriptlog': 'ghidra-script.log' };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const group = (pattern: RegExp, text: string, name: string) => Option.filter(Option.flatMap(Option.fromNullishOr(pattern.exec(text)?.groups), Record.get(name)), Predicate.isString);
+const group = (pattern: RegExp, text: string, name: string) => Option.fromNullishOr(pattern.exec(text)?.groups?.[name]);
 
-const projectBases = (host: Host['Service'], folder: string, stem: Option.Option<string>) =>
-    Option.match(group(PROJECT_PATH, folder, 'base'), {
-        onSome: (named) => Effect.succeed([named]),
-        onNone: () =>
-            Effect.map(
-                Effect.orElseSucceed(host.fs.readDirectory(folder), (): readonly string[] => []),
-                (files) =>
-                    Array.getSomes(files.map((file) => group(PROJECT_FILE, file, 'base')))
-                        .filter((base) => Option.isNone(stem) || Option.contains(stem, base))
-                        .map((base) => host.path.join(folder, base)),
-            ),
-    });
+const projectBases = Effect.fnUntraced(function* (host: Host['Service'], folder: string, stem: Option.Option<string>) {
+    const named = group(PROJECT_PATH, folder, 'base');
+    const files = Option.isSome(named) ? [] : yield* Effect.orElseSucceed(host.fs.readDirectory(folder), (): readonly string[] => []);
+    return [...Option.toArray(named), ...files.flatMap((file) => Option.toArray(Option.filter(group(PROJECT_FILE, file, 'base'), (base) => Option.isNone(stem) || Option.contains(stem, base)))).map((base) => host.path.join(folder, base))];
+});
 
 const lockDeletion = (...base: readonly string[]): Rule =>
     Effect.fnUntraced(function* (invocation, call) {

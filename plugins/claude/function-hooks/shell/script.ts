@@ -157,25 +157,18 @@ const piecesOf = (part: WordPart, scope: Scope, context: Context, quote?: readon
     Match.value(part).pipe(
         Match.withReturnType<readonly Part[]>(),
         Match.when({ type: 'Lit' }, ({ value }) =>
-            value
-                .matchAll(quote === undefined ? UNQUOTED_PIECE : QUOTED_PIECE)
-                .map(([raw]): Part => ({
-                    raw,
-                    text: raw.replaceAll(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE, '$<code>'),
-                    known: true,
-                    glob: quote === undefined && GLOB.test(raw) && !raw.startsWith('\\'),
-                    spread: false,
-                    ...(quote === undefined ? {} : { quote }),
-                }))
-                .toArray(),
+            (value.match(quote === undefined ? UNQUOTED_PIECE : QUOTED_PIECE) ?? []).map((raw): Part => ({
+                raw,
+                text: raw.replaceAll(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE, '$<code>'),
+                known: true,
+                glob: quote === undefined && GLOB.test(raw) && !raw.startsWith('\\'),
+                spread: false,
+                ...(quote === undefined ? {} : { quote }),
+            })),
         ),
         Match.when({ type: 'SglQuoted' }, ({ dollar, value }) => {
             const quoted = [dollar ? "$'" : "'", "'"] as const;
-            const characters = value
-                .matchAll(dollar ? ANSI_PIECE : CHARACTER)
-                .map(([raw]) => raw)
-                .toArray();
-            return (characters.length === 0 ? [''] : characters).map((raw) => ({ raw, text: dollar ? raw.replaceAll(ANSI_ESCAPE, ansiDecoded) : raw, known: true, glob: false, spread: false, quote: quoted }));
+            return (value.match(dollar ? ANSI_PIECE : CHARACTER) ?? ['']).map((raw) => ({ raw, text: dollar ? raw.replaceAll(ANSI_ESCAPE, ansiDecoded) : raw, known: true, glob: false, spread: false, quote: quoted }));
         }),
         Match.when({ type: 'DblQuoted' }, ({ dollar, parts }) => {
             const quoted = [dollar ? '$"' : '"', '"'] as const;
@@ -184,16 +177,11 @@ const piecesOf = (part: WordPart, scope: Scope, context: Context, quote?: readon
         }),
         Match.when({ type: 'ParamExp' }, (expansion) => {
             const raw = sliced(expansion, context);
-            const quoted = quote === undefined ? {} : { quote };
-            return Option.match(plainName(expansion), {
-                onNone: () => [{ raw, text: raw, known: false, glob: false, spread: false, ...quoted }],
-                onSome: (name) => {
-                    const value = lookup(scope, name, context);
-                    const text = Option.getOrElse(value, () => raw);
-                    const splits = quote === undefined && Option.isSome(value);
-                    return [{ raw, text, known: Option.isSome(value), glob: splits && GLOB.test(text), spread: splits && SPREADS.test(text), parameter: { name, offset: 0 }, ...quoted }];
-                },
-            });
+            const name = plainName(expansion);
+            const value = Option.flatMap(name, (held) => lookup(scope, held, context));
+            const text = Option.getOrElse(value, () => raw);
+            const splits = quote === undefined && Option.isSome(value);
+            return [{ raw, text, known: Option.isSome(value), glob: splits && GLOB.test(text), ...Option.match(name, { onNone: () => ({ spread: false as const }), onSome: (held) => ({ spread: splits && SPREADS.test(text), parameter: { name: held, offset: 0 } }) }), ...(quote === undefined ? {} : { quote }) }];
         }),
         Match.orElse((other) => {
             const raw = sliced(other, context);
@@ -417,19 +405,12 @@ const idle = ({ cmd }: Stmt): boolean => cmd?.type === 'CallExpr' && Option.exis
 
 const loop = (clause: BaseNode, [head, body]: readonly [unknown, unknown], polarity: Option.Option<boolean>, scope: Scope, context: Context, variable: Option.Option<string>): Walk => {
     const entry = bound(scope, Option.toArray(Option.map(variable, (name) => [name, Option.none<string>()] as const)));
+    const span = { ...spanOf(clause), until: Option.contains(polarity, true) };
     const walked = (start: Scope, dry: boolean) =>
         chained(
             start,
-            ...(
-                [
-                    [head, Option.isSome(polarity), Option.isSome(polarity)],
-                    [body, false, true],
-                ] as const
-            ).map(
-                ([part, condition, repeats]) =>
-                    (current: Scope) =>
-                        nested(part, current, repeats ? { ...context, dry, looping: true, loop: Option.some({ ...spanOf(clause), condition, until: Option.contains(polarity, true) }) } : { ...context, dry }),
-            ),
+            (current) => nested(head, current, Option.isSome(polarity) ? { ...context, dry, looping: true, loop: Option.some({ ...span, condition: true }) } : { ...context, dry }),
+            (current) => nested(body, current, { ...context, dry, looping: true, loop: Option.some({ ...span, condition: false }) }),
         );
     const widened = joined(entry, walked(entry, true)[0]);
     return [widened, context.dry ? NOTHING : concat([zshAssignments([], Option.toArray(variable), context), walked(widened, false)[1]])];

@@ -1,6 +1,6 @@
 import { devNull } from 'node:os';
 import process from 'node:process';
-import { Array, Effect, Filter, Option, Record } from 'effect';
+import { Array, Effect, Filter, Function, Option, Record, String } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
 import { Host } from '#/host';
 import { Decision, Verdict } from '#/rules/decision';
@@ -48,39 +48,27 @@ const EXIT_WAITERS: Partial<Record<NodeJS.Platform, (pid: string) => string>> = 
 // --- [RUNS]
 
 const viewedRun = (invocation: Invocation) => {
-    const [run] = invocation.operands;
     const viewed = invocation.path[0] === 'run' && invocation.path[1] === 'view' && !invocation.has('--log', '--log-failed', '--job', '--web', '--attempt');
-    return Option.map(
-        Option.filter(Option.fromNullishOr(run), ({ text }) => viewed && DIGITS.test(text)),
-        ({ text }) => ['gh run watch', text, '--exit-status', ...invocation.supplied('--repo').flatMap(({ raw }) => ['--repo', raw])].join(' '),
+    return Array.head(invocation.operands).pipe(
+        Option.filter(({ text }) => viewed && DIGITS.test(text)),
+        Option.map(({ text }) => ['gh run watch', text, '--exit-status', ...invocation.supplied('--repo').flatMap(({ raw }) => ['--repo', raw])].join(' ')),
     );
 };
 
 const fileless = ({ command }: Invocation): boolean => command.redirects.every(({ op, target }) => !WRITES.has(op) || Option.exists(target, ({ text }) => text === devNull));
 
-const polledRun: Rule = (invocation, { analysis, request }) =>
-    Option.match(
-        Option.filter(viewedRun(invocation), () => invocation.repeated),
-        {
-            onNone: () => [],
-            onSome: (watch) => {
-                const own = analysis.invocations.filter((other) => other.command.origin === 'call');
-                const follow = [...invocation.assigned.map(({ raw }) => raw), watch].join(' ');
-                const polls = own.every(
-                    (other) =>
-                        other.repeated &&
-                        fileless(other) &&
-                        (RUN_POLLS.has(other.program) ||
-                            Option.contains(
-                                Option.map(viewedRun(other), (viewed) => [...other.assigned.map(({ raw }) => raw), viewed].join(' ')),
-                                follow,
-                            )),
-                );
-                const background = request.kind === 'foreground' ? [Verdict.Background()] : [];
-                return invocation.command.origin === 'call' && polls ? [Verdict.Edit({ start: 0, end: invocation.command.source.length, text: Option.some(follow), subject: Option.some('gh run view loop') }), ...background] : refusal(`Loop polls gh run view, run ${follow}`);
-            },
-        },
+const polledRun: Rule = (invocation, { analysis, request }) => {
+    const follow = viewedRun(invocation).pipe(
+        Option.filter(() => invocation.repeated),
+        Option.map((watch) => [...invocation.assigned.map(({ raw }) => raw), watch].join(' ')),
     );
+    const polls = analysis.invocations.filter((other) => other.command.origin === 'call').every((other) => other.repeated && fileless(other) && (RUN_POLLS.has(other.program) || Option.exists(viewedRun(other), (viewed) => Option.contains(follow, [...other.assigned.map(({ raw }) => raw), viewed].join(' ')))));
+    const background = request.kind === 'foreground' ? [Verdict.Background()] : [];
+    return Option.match(follow, {
+        onNone: () => [],
+        onSome: (text) => (invocation.command.origin === 'call' && polls ? [Verdict.Edit({ start: 0, end: invocation.command.source.length, text: Option.some(text), subject: Option.some('gh run view loop') }), ...background] : refusal(`Loop polls gh run view, run ${text}`)),
+    });
+};
 
 const watchedRun: Rule = (invocation, { analysis, request }) => {
     const { command } = invocation;
@@ -126,15 +114,8 @@ const repainted: Rule = (invocation, { request }) => (request.kind === 'monitor'
 
 const silentSleep: Rule = (invocation) => {
     const texts = invocation.words.map(({ text }) => text);
-    const after = (flag: string) =>
-        Option.flatMap(
-            Array.findFirstIndex(texts, (text) => text === flag),
-            (at) => Array.get(texts, at + 1),
-        );
-    const format = Option.flatMap(
-        Array.findLastIndex(texts, (text) => text === '-f'),
-        (at) => Array.get(texts, at + 1),
-    );
+    const after = (flag: string) => Array.findFirst(texts, (text, at) => (text === flag ? Array.get(texts, at + 1) : Option.none()));
+    const format = Array.findLast(texts, (text, at) => (text === '-f' ? Array.get(texts, at + 1) : Option.none()));
     const target = Array.last(texts);
     const discarded = Option.contains(target, devNull) || (Option.contains(format, 'null') && Option.contains(target, '-'));
     const silent = texts.some((text) => PACED.has(text)) && Option.exists(after('-i'), (source) => SILENT_SOURCE.test(source)) && discarded;
@@ -180,82 +161,57 @@ const psFilter: Rule = (invocation, call) => {
 
 // --- [TASK_OUTPUT]
 
-const recordRoute = (file: string): Option.Option<string> =>
-    Option.map(
-        Array.findFirst(RECORDS, ([held]) => held.test(file)),
-        ([, route]) => route,
-    );
+const recordRoute = (file: string): Option.Option<string> => Array.findFirst(RECORDS, ([pattern, route]) => Option.liftPredicate(route, () => pattern.test(file)));
 
 const recorded = (file: string) => Option.match(recordRoute(file), { onNone: () => Decision.cases.Allow.make({}), onSome: (route) => Decision.cases.Deny.make({ reason: `${file} ${route}` }) });
 
-const writers = (host: Host['Service'], files: readonly string[]) =>
-    Effect.map(Effect.all([host.parents, Effect.forEach(files, (file) => Effect.orElseSucceed(host.output(['lsof', '-F', 'pa', file]), () => ''), { concurrency: 'unbounded' })]), ([parents, listings]) =>
-        listings.map((listing) => {
-            const holders = new Set(
-                listing
-                    .split(PROCESS_FIELD)
-                    .filter((held) => WRITE_ACCESS.test(held))
-                    .map((held) => held.split('\n', 1).join('')),
-            );
-            return [...holders].filter((pid) => parents.has(pid) && !holders.has(`${parents.get(pid)}`));
-        }),
-    );
+const writers = Effect.fnUntraced(function* (host: Host['Service'], files: readonly string[]) {
+    const [parents, listings] = yield* Effect.all([host.parents, Effect.forEach(files, (file) => Effect.orElseSucceed(host.output(['lsof', '-F', 'pa', file]), () => ''), { concurrency: 'unbounded' })]);
+    return listings.map((listing) => {
+        const holders = new Set(listing.split(PROCESS_FIELD).flatMap((held) => (WRITE_ACCESS.test(held) ? [Array.headNonEmpty(String.split(held, '\n'))] : [])));
+        return [...holders].filter((pid) => parents.has(pid) && !holders.has(`${parents.get(pid)}`));
+    });
+});
 
-const tailedTask: Rule = (invocation, call) => {
+const tailedTask: Rule = Effect.fnUntraced(function* (invocation, call) {
     const files = Array.getSomes(invocation.inputs.map(({ text }) => call.host.resolve(text, invocation.command.cwd))).filter((file) => taskIds(file).length > 0);
-    if (call.request.kind !== 'monitor' || files.length === 0 || files.length < invocation.inputs.length || (invocation.command.job && reaped(call)) || stages(invocation, call).later.some(closesInput)) {
+    const waiter = EXIT_WAITERS[process.platform];
+    if (waiter === undefined || call.request.kind !== 'monitor' || files.length === 0 || files.length < invocation.inputs.length || (invocation.command.job && reaped(call)) || stages(invocation, call).later.some(closesInput)) {
         return [];
     }
     const { start } = (invocation.outer[0] ?? invocation).head;
-    return Effect.all([writers(call.host, files), Effect.forEach(files, call.host.exists)]).pipe(
-        Effect.map(([held, found]) =>
-            Option.match(
-                Option.filter(Option.fromNullishOr(EXIT_WAITERS[process.platform]), () => found.every(Boolean)),
-                {
-                    onNone: () => [],
-                    onSome: (waiter) => (held.flat().length === 0 ? respell({ drops: ['-f', '-F', '--follow'] })(invocation) : [...inserted(invocation, start, '{ '), ...inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` & ${held.flat().map(waiter).join('; ')}; kill $!; }`)]),
-                },
-            ),
-        ),
-        Effect.orElseSucceed(() => []),
+    const pids = (yield* Effect.option(Effect.all([writers(call.host, files), Effect.forEach(files, call.host.exists)]))).pipe(
+        Option.filter(([, found]) => found.every(Boolean)),
+        Option.map(([held]) => held.flat()),
     );
-};
+    return Option.match(pids, {
+        onNone: () => [],
+        onSome: (held) => (Array.isReadonlyArrayEmpty(held) ? respell({ drops: ['-f', '-F', '--follow'] })(invocation) : [...inserted(invocation, start, '{ '), ...inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` & ${held.map(waiter).join('; ')}; kill $!; }`)]),
+    });
+});
 
-const stalled = (host: Host['Service'], file: string) =>
-    Effect.map(
-        Effect.orElseSucceed(host.output(['tail', '-n', `${STUCK_LINES}`, file]), () => ''),
-        (tail) => {
-            const lines = tail
-                .split('\n')
-                .filter((line) => line.trim() !== '')
-                .map((line) => line.replaceAll(/\d+/gu, '#'));
-            const [line, count] = Record.reduce(
-                Array.groupBy(lines, (held) => held),
-                ['', 0] as readonly [string, number],
-                (best, same, held) => (same.length > best[1] ? [held, same.length] : best),
-            );
-            return Option.liftPredicate({ key: `repeats ${line}`, text: `repeats "${line}"` }, () => count >= STUCK_REPEATS);
-        },
-    );
+const stalled = Effect.fnUntraced(function* (host: Host['Service'], file: string) {
+    const tail = yield* Effect.orElseSucceed(host.output(['tail', '-n', `${STUCK_LINES}`, file]), () => '');
+    const lines = tail.split('\n').flatMap((line) => (line.trim() === '' ? [] : [line.replaceAll(/\d+/gu, '#')]));
+    const [line, count] = Record.reduce(Array.groupBy(lines, Function.identity), ['', 0] as readonly [string, number], (best, same, held) => (same.length > best[1] ? [held, same.length] : best));
+    return Option.liftPredicate({ key: `repeats ${line}`, text: `repeats "${line}"` }, () => count >= STUCK_REPEATS);
+});
 
 const watched = Effect.fnUntraced(function* (files: readonly string[]) {
     const host = yield* Host;
     const held = yield* Effect.orElseSucceed(writers(host, files), () => files.map((): readonly string[] => []));
-    const stuck = yield* Effect.forEach(Array.zip(files, held), ([file, holders]) => (Array.isReadonlyArrayEmpty(holders) ? Effect.succeedNone : stalled(host, file)));
-    return files.map((file, at) => ({ file, live: Array.isReadonlyArrayNonEmpty(held[at] ?? []), ...Option.getOrUndefined(Option.map(stuck[at] ?? Option.none(), (found) => ({ stuck: found }))) }));
+    return yield* Effect.forEach(Array.zip(files, held), ([file, holders]) => Effect.map(Array.isReadonlyArrayEmpty(holders) ? Effect.succeedNone : stalled(host, file), (stuck) => ({ file, live: Array.isReadonlyArrayNonEmpty(holders), ...Option.getOrUndefined(Option.bindTo(stuck, 'stuck')) })));
 });
 
-const polledTask = Effect.fnUntraced(function* (call: Call) {
-    const { analysis, host, request } = call;
+const polledTask = Effect.fnUntraced(function* ({ analysis, host, request }: Call) {
     const own = analysis.invocations.filter(({ command }) => command.origin === 'call');
-    const files = Array.dedupe(analysis.invocations.flatMap((invocation) => Array.getSomes([...invocation.words, ...Array.getSomes(invocation.command.redirects.map(({ target }) => target))].filter(({ text }) => PATH_WORD.test(text)).map(({ text }) => host.resolve(text, invocation.command.cwd))))).filter(
+    const files = Array.dedupe(analysis.invocations.flatMap(({ words, command }) => [...words, ...Array.getSomes(command.redirects.map(({ target }) => target))].flatMap(({ text }) => (PATH_WORD.test(text) ? Option.toArray(host.resolve(text, command.cwd)) : [])))).filter(
         (file) => taskIds(file).length > 0 || Option.isSome(recordRoute(file)),
     );
-    const routed = Array.getSomes(files.map((file) => Option.map(recordRoute(file), (route) => ({ route, file }))));
-    const routes = Record.collect(
-        Array.groupBy(routed, ({ route }) => route),
-        (route, read) => `${read.map(({ file }) => file).join(' ')} ${route}`,
-    );
+    const routes = Map.groupBy(files, (file) => Option.getOrUndefined(recordRoute(file)))
+        .entries()
+        .flatMap(([route, read]) => (route === undefined ? [] : [`${read.join(' ')} ${route}`]))
+        .toArray();
     const ids = taskIds(files.join(' '));
     const waits = own.some(({ program, repeated, has }) => repeated || WAITERS.has(program) || (program === 'read' && has('-t')));
     if (routes.length > 0) {
@@ -264,20 +220,19 @@ const polledTask = Effect.fnUntraced(function* (call: Call) {
     if (ids.length === 0 || waits || request.kind === 'monitor') {
         return [];
     }
-    const judged = yield* once(request, `call ${request.call}`);
-    const reread = yield* Effect.filter(files, (file) => (judged ? Effect.map(once(request, `task ${file}`), (fresh) => !fresh) : Effect.succeed(false)));
-    const again = reread.length === 0 ? [] : yield* Effect.match(writers(host, reread), { onFailure: () => [], onSuccess: (held) => reread.filter((_file, at) => Array.isReadonlyArrayNonEmpty(held[at] ?? [])) });
-    return yield* Effect.forEach(again, (file) =>
-        Effect.map(stalled(host, file), (evidence) => {
-            const id = taskIds(file).join(' ');
-            return Verdict.Note({
-                text: Option.match(evidence, {
-                    onNone: () => `Task ${id} still runs and notifies when it ends, and Monitor \`tail -n +1 -F ${quote(file)} | grep --line-buffered -E '<pattern>'\` streams the lines you wait for`,
-                    onSome: ({ text }) => `Task ${id} ${text} and looks stuck, TaskStop ${id}, fix its cause, and rerun it bounded by a count or timeout`,
-                }),
-            });
-        }),
-    );
+    const reread = (yield* once(request, `call ${request.call}`)) ? yield* Effect.filter(files, (file) => Effect.map(once(request, `task ${file}`), (fresh) => !fresh)) : [];
+    const held = Array.isReadonlyArrayEmpty(reread) ? [] : yield* Effect.orElseSucceed(writers(host, reread), () => []);
+    const live = reread.filter((_file, at) => Array.isReadonlyArrayNonEmpty(held[at] ?? []));
+    const evidence = yield* Effect.forEach(live, (file) => stalled(host, file));
+    return Array.zipWith(live, evidence, (file, found) => {
+        const id = taskIds(file).join(' ');
+        return Verdict.Note({
+            text: Option.match(found, {
+                onNone: () => `Task ${id} still runs and notifies when it ends, and Monitor \`tail -n +1 -F ${quote(file)} | grep --line-buffered -E '<pattern>'\` streams the lines you wait for`,
+                onSome: ({ text }) => `Task ${id} ${text} and looks stuck, TaskStop ${id}, fix its cause, and rerun it bounded by a count or timeout`,
+            }),
+        });
+    });
 });
 
 // --- [JOBS]
@@ -290,17 +245,10 @@ const backgroundJob = (call: Call): readonly Verdict[] => {
     if (job === undefined || reaped(call)) {
         return [];
     }
-    const trailing =
-        more.length === 0 &&
-        job.origin === 'call' &&
-        new TextDecoder()
-            .decode(new TextEncoder().encode(request.command).subarray(job.end))
-            .split('\n')
-            .every((line) => BLANK_LINE.test(line));
-    if (!trailing) {
-        return refusal('& job outlives the call, set run_in_background');
-    }
-    return [Verdict.Edit({ start: job.start, end: job.end, text: Option.none(), subject: Option.none() }), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])];
+    const after = new TextDecoder().decode(new TextEncoder().encode(request.command).subarray(job.end));
+    return more.length === 0 && job.origin === 'call' && after.split('\n').every((line) => BLANK_LINE.test(line))
+        ? [Verdict.Edit({ start: job.start, end: job.end, text: Option.none(), subject: Option.none() }), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])]
+        : refusal('& job outlives the call, set run_in_background');
 };
 
 const pipedStatus = (call: Call): readonly Verdict[] => {
@@ -331,10 +279,7 @@ const waitLoop = ({ analysis, request }: Call): readonly Verdict[] => {
 
 const endlessLoop = ({ analysis }: Call): readonly Verdict[] => {
     const own = analysis.invocations.filter(({ command }) => command.origin === 'call');
-    const loops = Map.groupBy(
-        own.filter(({ command }) => Option.isSome(command.loop)),
-        ({ command }) => Option.match(command.loop, { onNone: () => -1, onSome: ({ start }) => start }),
-    );
+    const loops = Map.groupBy(own, ({ command }) => Option.getOrUndefined(command.loop)?.start);
     return [...loops.values()].flatMap((looped) => {
         const tested = looped.filter(({ command }) => Option.exists(command.loop, ({ condition }) => condition));
         const runs = looped.some(({ program }) => !CONSTANT.has(program) && !IDLE.has(program) && !WAITERS.has(program));
@@ -355,20 +300,14 @@ const idleCall = ({ analysis: { invocations } }: Call): readonly Verdict[] =>
 
 // --- [PARAMETERS]
 
-const zshParameter = ({ analysis: { zshAssigned }, host }: Call) => {
+const zshParameter = Effect.fnUntraced(function* ({ analysis: { zshAssigned }, host }: Call) {
     const names = Array.dedupe(zshAssigned.filter((name) => LOWERCASE.test(name)));
-    return names.length === 0
-        ? []
-        : Effect.orElseSucceed(
-              Effect.map(host.output(['zsh', '-fc', 'for name; print -r -- "$name $parameters[$name]"', 'zsh', ...names]), (lines) =>
-                  lines
-                      .split('\n')
-                      .map((line) => line.split(' '))
-                      .flatMap(([name, kind = '']) => (SPECIAL_KIND.test(kind) ? refusal(`zsh ${name} is ${kind}, rename the variable`) : [])),
-              ),
-              () => [],
-          );
-};
+    const kinds = Array.isReadonlyArrayEmpty(names) ? '' : yield* Effect.orElseSucceed(host.output(['zsh', '-fc', 'for name; print -r -- "$name $parameters[$name]"', 'zsh', ...names]), () => '');
+    return kinds.split('\n').flatMap((line) => {
+        const [name, kind = ''] = line.split(' ');
+        return SPECIAL_KIND.test(kind) ? refusal(`zsh ${name} is ${kind}, rename the variable`) : [];
+    });
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
