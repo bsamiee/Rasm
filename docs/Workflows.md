@@ -52,7 +52,6 @@ Jobs of workflow `CI` and the projects each runs:
 - Selenium Manager downloads stable Firefox and `geckodriver` for WebDriver suites, and the image holds the libraries Firefox loads
 - `pack--playwright` renders in job `browser`, extension UI in its image's Linux `system-ui`
 - Job `macos` runs affected `os:darwin` projects except `host:rhino` and `host:unreal`, as no Linux graph holds an Apple project and its runner holds no engine
-- Job `macos` leaves out root `rasm`, as job `linux` runs its other checks and each Swift project's tasks depend on its Swift targets
 - Job `macos` runs `nx conformance:check` again, as Apple projects and their targets enter only the macOS graph
 - Job `macos` runs `hk check` steps `swiftlint`, `swift-format`, `plutil`, and `xcprojformatter` from base to head, as hk defines them on macOS alone
 - Job `macos` runs `hk check` through `git` (`HK_LIBGIT2`), as libgit2 fails on a file a partial clone lacks where `git` lists names without it
@@ -83,7 +82,7 @@ Actions caches per workflow and machine:
 - Self-hosted Linux jobs keep `.cache/nx/workspace-data` between runs
 - Jobs `macos`, `windows`, and `deploy` restore the newest `.cache/nx/workspace-data` saved on their OS, by key prefix `nx-<OS>-`
 - Nx plugins check each entry of their `*.hash` file against its source files and recompute a stale one
-- Graph caches leave out `cache`, the task database, `task-cache.jsonl` of one run's tasks, and the `xcode-packages` clones
+- Graph caches leave out `cache`, the task database, and the `xcode-packages` clones
 - Graph cache paths name `workspace-data/*`, as an excluded folder inside a named folder still enters its archive
 - Graph caches save after the run passes or fails, keyed by the hash of every `*.hash` file, as those change only with plugin entries
 - Graph cache saves skip a hash the restored key ends with
@@ -104,7 +103,7 @@ Nx remote cache readers and the hash inputs that decide what machines share:
 - Pull request runs read with `NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN` and store nothing, and fork pull requests hold no secret and use local cache
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
-- Root project `rasm` takes tag `os:darwin`, Xcode targets, and Colima targets on macOS alone, and none of its tasks shares a key with Linux
+- Root project `rasm` takes Colima targets on macOS alone, and none of its tasks shares a key with Linux
 - .NET targets but format hash `CI`, as MSBuild sets properties under it
 - Vitest targets hash no `CI`, as their executor refuses `.only` and writes no missing snapshot on every machine
 - Playwright targets hash no `CI`, as each one runs `playwright test --forbid-only`, and `pack--playwright` hashes the platform its images render on
@@ -179,21 +178,20 @@ Workflow `Maintenance` and its job on instance `host`:
 - Workflow `Maintenance` runs weekly before the machine update hour
 - Job `host` keeps ignored files and prunes package stores, unused mise tools and Docker objects, and week-old build cache
 - Job `host` takes its instance's queue, and a prune never overlaps a job there as a machine timer can
+- Job `host` runs `check--cargo-deny-advisories` past the Nx cache, as an advisory can name a crate of an unchanged lock
 
 ## [10]-[TIMINGS]
 
 Sources of run, job, and task times and cache hits:
 - Nx ends each run with its duration, cache hit share, and critical path, in every job log
-- `@rasm/nx-distribution` appends one line per `nx` run to `task-cache.jsonl` of Nx workspace data
-- Record lines hold command, seconds, local and remote hits and misses by target, slowest misses, and each failed task
-- Runs on GitHub add their hit tally to the job summary and print one error annotation per failed task
-- Jobs `linux`, `browser`, `macos`, and `windows` upload `task-cache.jsonl` with their reports, holding earlier runs on a self-hosted runner
-- Jobs upload `project-graph.json` beside it, and a task machines hash apart differs in an input or in its project's configuration there
+- Nx appends a run report to the job summary of each top-level run on GitHub, and `@rasm/nx-distribution` annotates each failed or stopped task
 - Nx task database `*.db` of workspace data holds start, end, and status of every task in `task_history`, keyed to `task_details` by hash
-- `duckdb` reads the record through `read_json` and the task database through `ATTACH '<file>' (TYPE sqlite)`, times in milliseconds
-- Batch executors stamp each task with its own start and end, and slowest misses and the critical path of a batch hold task times
+- Jobs `linux`, `browser`, `macos`, and `windows` upload the task database with their reports, holding earlier runs on a self-hosted runner
+- Jobs upload `project-graph.json` beside it, and a task machines hash apart differs in an input or in its project's configuration there
+- `duckdb` reads the task database through `ATTACH '<file>' (TYPE sqlite)`, times in milliseconds
+- Batch executors stamp each task with its own start and end, and the critical path of a batch holds task times
 - Nx runs one batch at a time, starts no other task while it runs, and stores its results when it ends
-- `@rasm/nx-apple:run` runs a batch's invocations in order, as `xcodebuild` runs into one build folder queue behind each other and concurrent first package resolutions there can fail
+- Targets running `xcodebuild` set `parallelism: false`, as builds into one build folder queue behind each other and concurrent first package resolutions there can fail
 - First `nx` commands of a job create the project graph, so their time holds graph creation, longest after a plugin change
 - `gh api repos/<owner>/<repository>/actions/runs/<run>/jobs` returns start and end of each job and step, and `created_at` to `started_at` is queue time
 - Manual CI runs take input `uncached`, the jobs running every task of their `nx affected` step past the Nx cache over state their tools keep

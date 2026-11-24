@@ -62,7 +62,7 @@ Values come from the code, host, or package that already states them:
 - ALWAYS group project file items and dependency rows by responsibility and order each group consistently
 - ALWAYS close a dependency gap with a package, its configuration, a newer release, or a typed decode at the boundary, never a copy of its types
 - ALWAYS target the newest package, host, and language release, prereleases included, an older release from memory is a defect
-- ALWAYS pin versions in lock files and root catalogs alone, a missing dependency joins the project file or catalog declaring it, and entries stay
+- ALWAYS pin versions in locks, root catalogs, or root settings lines catalog rows read, a missing dependency joins its declaring file, entries stay
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
 
 ## [04]-[CODE_QUALITY]

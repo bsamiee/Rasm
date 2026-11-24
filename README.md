@@ -46,6 +46,8 @@ Rasm/
 ├── .oxlintrc.json            # TypeScript and JavaScript
 ├── .oxfmtrc.json             # TypeScript, JavaScript, and data files
 ├── pyproject.toml            # Python workspace and central package catalog
+├── pixi.toml                 # Python native libraries for sdist builds
+├── ruff.toml                 # Python
 ├── Workspace.slnx            # .NET workspace
 ├── global.json               # .NET
 ├── Directory.Packages.props  # .NET central package catalog
@@ -156,7 +158,7 @@ Projects inherit versions and settings from their ecosystem root:
 | :-----: | :---------- | :--------------------------------------------------------- | :-------------------------------------------------------- |
 |  [01]   | TypeScript  | `pnpm-workspace.yaml` `catalog`, manifests name `catalog:` | `tsconfig.base.json`, project `types`, `lib`, and `jsx`   |
 |  [02]   | Python      | `requires-python`, root group catalog, member lower bounds | Root `[tool.*]`, `[tool.uv]` and `[tool.ty]` per uv root  |
-|  [03]   | .NET        | `dotnet` row of mise, `Directory.Packages.props`           | Root and folder `Directory.Build.props`, folder sets kind |
+|  [03]   | .NET        | `dotnet` row of mise, root `Directory.*.props`             | Root and folder `Directory.Build.props`, folder sets kind |
 |  [04]   | Rust        | `rust-toolchain.toml`, `[workspace.dependencies]`          | `Cargo.toml` `[workspace.*]`, `.cargo/config.toml`        |
 |  [05]   | Swift       | `xcode-select`, root `Package.swift` `dependencies`        | `Package.swift` `swiftSettings`                           |
 |  [06]   | C++         | LLVM row of mise, `vcpkg.json` `builtin-baseline`          | `CMakeLists.txt` flags, `CMakePresets.json` presets       |
@@ -167,11 +169,12 @@ Roots split, nest, or hold more where a host or tool decides:
 - Pixi supplies native libraries for sdists, and `pixi run --locked python` runs Python with them on the library search path
 - Host SDKs come from packages, every OS builds, checks, and packs host projects, and only running a host needs it installed, Unreal Engine aside
 - Host projects target their host's runtime and carry every dependency except SDK assemblies the host supplies
-- Folder `Directory.Build.props` files name a host, and conditional `Update` rows of `Directory.Packages.props` hold its runtime line
+- Folder `Directory.Build.props` files name a host, and conditional `Update` rows of `Directory.Packages.props` read its runtime line
 - .NET runs but Rhino suites build Release unless they name `debug`, which reaches references and Yak packages, and assemblies embed their PDB
 - Swift modules, app code included, are root `Package.swift` targets, and Xcode app targets hold bundle, icon, and signing over their app module
 - Xcode app projects build through root `Rasm.xcworkspace`, as projects built apart each clone every package and compile it again
 - Root `Package.swift` builds and tests in that workspace through shared scheme `Rasm-Package`, which lists every target, in place of SwiftPM
+- Nx project `Rasm-Package` at `Rasm.xcworkspace` holds the root package's Swift and Xcode targets, and root project `rasm` holds none
 - Workspace `Package.resolved` links to the root one, which `swift package update` moves and `xcodebuild` reads and writes through the link
 - User default `IDEPackageOnlyUseVersionsFromResolvedFile` of mise `[bootstrap]` holds Xcode windows to resolved versions, as builds are
 - `.config/xcode.xcconfig` turns on the Xcode compilation cache, `Xcode.xcconfig` includes it, and its hits need an unchanged build folder path
@@ -189,9 +192,9 @@ Nx runs project-level work over a graph its plugins infer:
 - Inferred targets hold one configuration on every machine of a platform, as Nx hashes every target of a project into each of its tasks
 - Hash inputs name a tool by identity (compiler version, platform, installer URL) and no machine path, as host state differs between machines
 - `mise install` builds .NET and Swift analyzers before graphs, and a missing one leaves its projects out with a warning naming its build
-- Stale .NET analyzers fail the graph, and missing or stale Swift analyzers leave out Xcode targets alone
+- Stale analyzers fail the graph, and a missing Swift analyzer leaves out Xcode targets alone
 - `nx affected -t <target>` runs only the tasks whose inputs a change reaches, aggregate targets included
-- Tasks hash their executor's workspace project and its dependencies
+- Tasks hash their executor's workspace package and that package's direct workspace dependencies
 - Tools keep their own incremental state, and Nx caches results around it in one remote cache that pull request runs read alone
 - `nx sync` writes executor schemas and tsconfig `references`, and non-terminal runs outside CI stop on stale ones until it runs, never `--skip-sync`
 - `nx conformance:check` runs `nx.json` conformance rules over the graph and every target
@@ -201,7 +204,7 @@ Nx runs project-level work over a graph its plugins infer:
 - `build` compiles or packages a project into its declared outputs
 - `check` reports findings and `fix` applies fixes of checkers reading the project model
 - `test` runs a project's test runners
-- `serve` runs a project's development servers until the run ends, and Compose services it starts stay up
+- `serve` runs a project's development servers until the run ends
 - `preview` builds a project, then serves its build output as `serve` does
 - `upgrade` moves an ecosystem root's dependency requirements and locks to newer releases through its own tool
 - `clean` removes the outputs a project's targets declare through its tool's clean, and configuration `cache` empties the caches its tools keep
@@ -250,5 +253,5 @@ Products deliver through the same targets in every ecosystem, development builds
 - Stacks declare every container image a machine or CI job runs and build those no registry publishes, and `.github/` holds no Dockerfile or image build
 - App `hosting.config.ts` targets name Cloudflare or a machine with role `Apps`, and `nx install @rasm/infra` runs role `Apps` under `rasm.localhost`
 - Container engines run under systemd on machines and, on the owner's Mac, in a Colima VM `DOCKER_HOST` names
-- Tasks reading the engine depend on the root's `install--*` targets, and `install--colima` starts the Mac's VM and leaves it up
+- Tasks reading the Mac's engine depend on the root's `install--*` targets, and `install--colima` starts the VM and leaves it up
 - Colima keeps its VM in `.cache/colima`, `clean--colima` prunes images and trims its disk, and `nx clean -c cache` deletes it
