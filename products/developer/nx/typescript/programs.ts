@@ -52,11 +52,12 @@ const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
     return reads.map(([config, read]) => [config, Result.map(read, ({ entry, owned, external }) => ({ config, entry: opened.get(entry.file) ?? entry, members: members(owned), external: members(external) }))] as const);
 }, Effect.scoped);
 
-const resolved = (workspaceRoot: string, owners: ProjectRootMappings, solution: Effect.Success<ReturnType<typeof solved>>[number][1]) =>
+const resolved = (workspaceRoot: string, solution: Effect.Success<ReturnType<typeof solved>>[number][1]) =>
     Result.map(solution, ({ config, entry, members, external }) => {
         const folder = join(workspaceRoot, dirname(config));
         const local = (at: string) => normalizePath(relative(workspaceRoot, at));
         const holding = [entry, ...members].filter(({ parsed }) => parsed.fileNames.length > 0);
+        const declared = new Set(external.flatMap(({ parsed }) => parsed.fileNames).filter((at) => !/\.(?:d\.[cm]?ts|json)$/u.test(at)));
         const checked = entry.parsed.fileNames.length > 0 || (Array.isReadonlyArrayEmpty(holding) && Array.isReadonlyArrayEmpty(entry.parsed.projectReferences ?? [])) ? [entry] : holding;
         const configs = checked.map(({ file }) => relative(folder, file));
         const placed = holding.map(({ file, loaded, parsed: { options, projectReferences = [] } }) => {
@@ -75,7 +76,7 @@ const resolved = (workspaceRoot: string, owners: ProjectRootMappings, solution: 
             outputs: Array.dedupe(placed.flatMap(({ emitted }) => emitted)),
             informed: Array.dedupe(placed.flatMap(({ informed }) => informed)),
             chain: entry.chain.map(local).filter(within),
-            sources: Array.dedupe([...[entry, ...holding].flatMap(({ chain, parsed, loaded }) => [...[...chain, ...parsed.fileNames].map(local), ...loaded.map(local).filter((at) => (findProjectForPath(at, owners) ?? '.') === dirname(config))]), ...external.flatMap(({ chain }) => chain.map(local))]).filter(within),
+            sources: Array.dedupe([...[entry, ...holding].flatMap(({ chain, parsed, loaded }) => [...chain, ...parsed.fileNames, ...loaded.filter((at) => !declared.has(at))]), ...external.flatMap(({ chain }) => chain)].map(local)).filter(within),
         };
     });
 
@@ -118,7 +119,7 @@ const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler:
             onNonEmpty: (missed) =>
                 Effect.map(
                     solved(workspaceRoot, compiler, owners, missed),
-                    Array.map(([config, solution]) => [config, resolved(workspaceRoot, owners, solution)] as const),
+                    Array.map(([config, solution]) => [config, resolved(workspaceRoot, solution)] as const),
                 ),
         },
     );
@@ -135,7 +136,7 @@ const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler:
 });
 
 const compiled =
-    (root: string, stated: Stated, packages: readonly string[], upstream: string, linted: boolean, synced: boolean, manager: PackageManager, workspaceRoot: string) =>
+    (root: string, stated: Stated, packages: readonly string[], linted: boolean, synced: boolean, manager: PackageManager, workspaceRoot: string) =>
     ({ commands, configs, outputs, informed, sources }: Program): Option.Option<ProjectConfiguration> => {
         const token = tokened(root);
         const tsc = {
@@ -143,7 +144,7 @@ const compiled =
             options: { commands, cwd: root, parallel: false },
             dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'],
             cache: true,
-            inputs: [...Array.dedupe([posix.join(root, MANIFEST), ...sources].map(token)), upstream, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: [...packages] }],
+            inputs: [...Array.dedupe([posix.join(root, MANIFEST), ...sources].map(token)), `^{projectRoot}/${MANIFEST}`, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts}', transitive: true }, { externalDependencies: [...packages] }],
             ...(synced && { syncGenerators: ['@nx/js:typescript-sync'] }),
         } satisfies TargetConfiguration;
         const cleaned = (removed: string) => ({

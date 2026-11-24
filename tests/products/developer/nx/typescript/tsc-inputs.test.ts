@@ -1,16 +1,48 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, symlinkSync } from 'node:fs';
+import { mkdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { env } from 'node:process';
+import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-typescript';
-import { it, typescript } from '@rasm/testing/nx';
+import { it, taskGraph, typescript, type Workspace } from '@rasm/testing/nx';
+import { readNxJson } from 'nx/src/config/nx-json';
+import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';
-import { describe, expect, vi } from 'vitest';
+import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LIB = { 'package.json': '{"name":"root","workspaces":["libs/*"]}', 'package-lock.json': '', 'libs/lib/package.json': '{"name":"lib"}', 'libs/lib/decoy.ts': 'export {};\n' };
+const LAYERED = {
+    '.gitignore': 'dist\n',
+    'package.json': '{"name":"root","workspaces":["libs/*"]}',
+    'package-lock.json': '',
+    'libs/up/package.json': '{"name":"up"}',
+    'libs/up/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"composite":true,"outDir":"dist","module":"preserve"}}',
+    'libs/up/index.ts': 'export const up = (value: number): number => value + 1;\n',
+    'libs/up/notes.md': '# up\n',
+    'libs/side/package.json': '{"name":"side"}',
+    'libs/side/index.ts': 'export const side = 2;\n',
+    'libs/down/package.json': '{"name":"down","nx":{"implicitDependencies":["up"]}}',
+    'libs/down/tsconfig.json': '{"files":["index.ts"],"references":[{"path":"../up"}],"compilerOptions":{"noEmit":true,"module":"preserve"}}',
+    'libs/down/index.ts': "import { side } from '../side/index';\nimport { up } from '../up/index';\nexport const down: string = up(side);\n",
+};
+const TYPESCRIPT = { 'npm:typescript': { type: 'npm', name: 'npm:typescript', data: { packageName: 'typescript', version: '7.0.0' } } } as const;
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const compiled = (workspace: Workspace, folder: string, ...args: readonly string[]) => spawnSync(join(workspace.root, 'node_modules/.bin/tsc'), args, { cwd: join(workspace.root, folder), encoding: 'utf-8' }).stdout;
+
+const listed = (workspace: Workspace, folder: string, program: string) =>
+    compiled(workspace, folder, '-p', program, '--listFilesOnly')
+        .split('\n')
+        .filter((file) => file.length > 0)
+        .map((file) => relative(workspace.root, file))
+        .filter((file) => !(file.startsWith('..') || file.includes('node_modules')));
+
+const graphed = async (workspace: Workspace): Promise<ProjectGraph> => ({ ...(await workspace.graph({ createNodes })), externalNodes: TYPESCRIPT });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -74,19 +106,52 @@ describe('check--tsc hashes the files tsc reads', () => {
         workspace.install(typescript).write({ ...LIB, ...files });
         mkdirSync(join(workspace.root, 'node_modules/@scope'));
         symlinkSync(join(workspace.root, 'libs/preset'), join(workspace.root, 'node_modules/@scope/preset'), 'dir');
-        const graph = await workspace.graph({ createNodes });
-        const inspector = new HashPlanInspector({ ...graph, externalNodes: { 'npm:typescript': { type: 'npm', name: 'npm:typescript', data: { packageName: 'typescript', version: '7.0.0' } } } }, workspace.root);
+        const inspector = new HashPlanInspector(await graphed(workspace), workspace.root);
         await inspector.init();
 
-        const read = programs
-            .flatMap((program) => spawnSync(join(workspace.root, 'node_modules/.bin/tsc'), ['-p', program, '--listFilesOnly'], { cwd: join(workspace.root, 'libs/lib'), encoding: 'utf-8' }).stdout.split('\n'))
-            .filter((file) => file.length > 0)
-            .map((file) => relative(workspace.root, file))
-            .filter((file) => !(file.startsWith('..') || file.includes('node_modules')));
+        const read = programs.flatMap((program) => listed(workspace, 'libs/lib', program));
         const hashed = new Set(inspector.inspectTaskInputs({ project: 'lib', target: 'check--tsc' })['lib:check--tsc']?.files);
 
         expect(read.length).toBeGreaterThan(0);
         expect([...read, ...configs].filter((file) => !hashed.has(file))).toStrictEqual([]);
         expect(['libs/lib/decoy.ts', ...unread].filter((file) => hashed.has(file))).toStrictEqual([]);
+    });
+
+    it("hashes the declarations tsc reads in place of a referenced project's sources through its build outputs, each upstream manifest, and sources imported without a reference, and no other upstream file", async ({ workspace }) => {
+        workspace.install(typescript).write(LAYERED);
+        compiled(workspace, 'libs/up', '-b');
+        const inspector = new HashPlanInspector(await graphed(workspace), workspace.root);
+        await inspector.init();
+
+        const read = listed(workspace, 'libs/down', 'tsconfig.json');
+        const { files = [], depOutputs = [] } = inspector.inspectTaskInputs({ project: 'down', target: 'check--tsc' })['down:check--tsc'] ?? {};
+
+        expect(read).toContain('libs/side/index.ts');
+        expect(read.filter((file) => !files.includes(file))).toStrictEqual(['libs/up/dist/index.d.ts']);
+        expect(depOutputs).toContain('libs/up/dist/index.d.ts');
+        expect(['libs/up/tsconfig.json', 'libs/up/package.json'].filter((file) => !files.includes(file))).toStrictEqual([]);
+        expect(['libs/up/index.ts', 'libs/up/notes.md'].filter((file) => files.includes(file))).toStrictEqual([]);
+    });
+
+    it('keeps the check--tsc hash of a referencing project through an upstream body edit tsc emits identical declarations for, and changes it once the declarations change', async ({ workspace }) => {
+        workspace.install(typescript).write(LAYERED);
+        const state = async (edited: Readonly<Record<string, string>>) => {
+            compiled(workspace.write(edited), 'libs/up', '-b');
+            const graph = await graphed(workspace);
+            const tasks = taskGraph(graph, ['down'], ['check--tsc']);
+            const task = tasks.tasks['down:check--tsc'];
+            assert(task !== undefined, 'down:check--tsc is a task of the graph');
+            const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(task, tasks, env);
+            return { hash: value, declarations: readFileSync(join(workspace.root, 'libs/up/dist/index.d.ts'), 'utf-8'), built: readFileSync(join(workspace.root, 'libs/up/dist/tsconfig.tsbuildinfo'), 'utf-8'), diagnostics: compiled(workspace, 'libs/down', '-p', 'tsconfig.json') };
+        };
+        const before = await state({});
+
+        const body = await state({ 'libs/up/index.ts': 'export const up = (value: number): number => value + 2;\n' });
+        const signature = await state({ 'libs/up/index.ts': 'export const up = (value: number): string => String(value + 2);\n' });
+
+        expect(before.diagnostics).toContain('error TS2322');
+        expect(body.built).not.toBe(before.built);
+        expect({ ...body, built: before.built }).toStrictEqual(before);
+        expect({ declarations: signature.declarations === body.declarations, hash: signature.hash === body.hash, diagnostics: signature.diagnostics }).toStrictEqual({ declarations: false, hash: false, diagnostics: '' });
     });
 });

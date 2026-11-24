@@ -2,7 +2,7 @@ import { basename, dirname, join, posix } from 'node:path';
 import { type CreateNodes, createNodesFromFiles, detectPackageManager, hashArray, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { hashObject, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
-import { anchored, fingerprinted, Folder, inferring, namedInput, run, tagged, tokened } from '@rasm/nx-distribution/inference';
+import { anchored, fingerprinted, Folder, inferring, run, tagged, tokened } from '@rasm/nx-distribution/inference';
 import { Array, Combiner, Effect, FileSystem, Match, Option, Order, Predicate, Record, type Result, Schema } from 'effect';
 import { linted } from '#/eslint';
 import { compiled, CONFIG, programmed } from '#/programs';
@@ -57,7 +57,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
         const branch = yield* Match.value({ file, name: basename(file) }).pipe(
             Match.when({ file: MANIFEST }, () => Effect.asSome(workspace(workspaceRoot, manager, settings.knipConfig, row, described))),
             Match.when({ name: PROJECT }, () => Effect.succeedNone),
-            Match.when({ name: CONFIG }, () => Effect.map(looked(programs, file), compiled(root, described.stated, settings.compilerPackages, `^${namedInput(root, context)}`, described.manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, manager, workspaceRoot))),
+            Match.when({ name: CONFIG }, () => Effect.map(looked(programs, file), compiled(root, described.stated, settings.compilerPackages, described.manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, manager, workspaceRoot))),
             Match.when({ name: WORKER }, () => Effect.when(worker(context, manager, described.stated, file, configured), Effect.succeed(installed('cf', join(workspaceRoot, file))))),
             Match.orElse(() => Effect.succeed(tarball(manager, settings.outputPath, described, root, tagged(context.nxJsonConfiguration), workspaceRoot))),
         );
