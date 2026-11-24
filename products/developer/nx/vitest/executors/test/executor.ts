@@ -6,7 +6,7 @@ import process, { env } from 'node:process';
 import { normalizePath } from '@nx/devkit';
 import { type BatchExecutorTaskResult, findProjectForPath, hashObject } from '@nx/devkit/internal';
 import { batched, executor } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Clock, Effect, Exit, Formatter, flow, Option, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Clock, Effect, Exit, Formatter, Option, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
 import { loaded, MODE } from '#/plugin';
 
@@ -48,17 +48,10 @@ const reported = (module: TestModule) =>
     });
 
 const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Planned>) {
-    const [
-        {
-            options: { config, coverage, __unparsed__: words = [] },
-        },
-    ] = group;
+    const { config, coverage, attachmentsDir, __unparsed__: words = [] } = Array.headNonEmpty(group).options;
     const entry = resolve(root, config);
     const node = yield* loaded<{ readonly createVitest: (options: CliOptions) => Promise<Vitest>; readonly parseCLI: typeof parseCLI; readonly TestsNotFoundError: typeof TestsNotFoundError }>(config, entry, 'vitest/node');
-    const alone = Option.flatMap(
-        Option.liftPredicate(group, (all) => all.length === 1),
-        ([{ options }]) => Option.fromUndefinedOr(options.attachmentsDir),
-    );
+    const alone = Option.filter(Option.fromUndefinedOr(attachmentsDir), () => group.length === 1);
     const parsed = node.parseCLI(['vitest', 'run', ...words]).options;
     const stated: CliOptions = {
         allowOnly: false,
@@ -74,26 +67,14 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
     const homes = new Map(group.map(({ home, task }) => [home, task] as const));
     const owner = (at: string) => Option.fromNullOr(findProjectForPath(normalizePath(relative(root, at)), homes));
     const attachments = Record.fromIterableWith(group, ({ task, options }) => [task, options.attachmentsDir] as const);
-    vitest.projects
-        .flatMap((project) =>
-            owner(project.config.root).pipe(
-                Option.flatMap((task) => Option.fromUndefinedOr(attachments[task])),
-                Option.map((at) => [project, resolve(root, at)] as const),
-                Option.toArray,
-            ),
-        )
-        .forEach(([project, at]) => {
-            Object.assign(project.config, { attachmentsDir: at });
-        });
+    vitest.projects.forEach((project) => {
+        const held = Option.flatMapNullishOr(owner(project.config.root), (task) => attachments[task]);
+        Object.assign(project.config, Option.getOrUndefined(Option.map(held, (at) => ({ attachmentsDir: resolve(root, at) }))));
+    });
     const started = yield* Effect.exit(Effect.tryPromise({ try: () => vitest.start(), catch: (cause) => new Cause.UnknownError(cause, `vitest run over ${config} stops before it reports`) }));
     const modules = vitest.state.getTestModules();
     const unhandled = vitest.state.getUnhandledErrors().map((error) => ({ said: `unhandled error: ${Formatter.format(error)}`, by: Option.flatMap(Schema.decodeUnknownOption(Traced)(error), ({ VITEST_TEST_PATH }) => owner(VITEST_TEST_PATH)) }));
-    const [traced, stray] = Array.partition(unhandled, ({ said, by }) =>
-        Result.fromOption(
-            Option.map(by, (task) => ({ task, said })),
-            () => said,
-        ),
-    );
+    const [traced, stray] = Array.partition(unhandled, ({ said, by }) => Option.match(by, { onNone: () => Result.fail(said), onSome: (task) => Result.succeed({ task, said }) }));
     const faulted = Array.groupBy(traced, Struct.get('task'));
     const signalled = Option.filter(Option.fromNullishOr(process.exitCode), (code) => Number(code) !== 0 && Exit.isSuccess(started) && unhandled.length === 0 && modules.every((module) => module.ok()));
     const broken = [
@@ -121,39 +102,24 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
     });
 }, Effect.scoped);
 
-const settled = (group: Array.NonEmptyReadonlyArray<Planned>, run: Effect.Effect<readonly BatchExecutorTaskResult[], Error>) =>
-    Effect.map(Effect.all([Clock.currentTimeMillis, Effect.result(run), Clock.currentTimeMillis]), ([startTime, outcome, endTime]) =>
-        Result.match(outcome, {
-            onFailure: (error) => Array.map(group, ({ task }): BatchExecutorTaskResult => ({ task, result: { success: false, terminalOutput: error.message, startTime, endTime } })),
-            onSuccess: Array.map(({ task, result }): BatchExecutorTaskResult => ({ task, result: { startTime, endTime, ...result } })),
-        }),
-    );
+const settled = Effect.fnUntraced(function* (group: Array.NonEmptyReadonlyArray<Planned>, run: Effect.Effect<readonly BatchExecutorTaskResult[], Error>) {
+    const [startTime, outcome, endTime] = yield* Effect.all([Clock.currentTimeMillis, Effect.result(run), Clock.currentTimeMillis]);
+    return Result.match(outcome, {
+        onFailure: (error) => Array.map(group, ({ task }): BatchExecutorTaskResult => ({ task, result: { success: false, terminalOutput: error.message, startTime, endTime } })),
+        onSuccess: Array.map(({ task, result }): BatchExecutorTaskResult => ({ task, result: { startTime, endTime, ...result } })),
+    });
+});
 
 const forked = (root: string, group: Array.NonEmptyReadonlyArray<Planned>) => {
-    const [
-        {
-            options: { config },
-        },
-    ] = group;
+    const { config } = Array.headNonEmpty(group).options;
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `vitest run over ${config} stops before it reports`);
-    return settled(
-        group,
-        Effect.flatMap(
-            Effect.acquireUseRelease(
-                Effect.sync(() => fork(import.meta.filename, { cwd: dirname(resolve(root, config)), env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV }, serialization: 'advanced' })),
-                (child) =>
-                    Effect.raceFirst(
-                        Effect.andThen(
-                            Effect.sync(() => child.send({ root, group })),
-                            Effect.tryPromise({ try: (signal) => once(child, 'message', { signal }), catch: failed }),
-                        ),
-                        Effect.flatMap(Effect.tryPromise({ try: (signal) => once(child, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail)),
-                    ),
-                (child) => Effect.sync(() => child.kill()),
-            ),
-            ([message]) => Schema.decodeUnknownEffect(Settled)(message),
-        ),
+    const replied = Effect.acquireDisposable(Effect.sync(() => fork(import.meta.filename, { cwd: dirname(resolve(root, config)), env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV }, serialization: 'advanced' }))).pipe(
+        Effect.tap((child) => Effect.sync(() => child.send({ root, group }))),
+        Effect.flatMap((child) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(child, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(child, 'exit', { signal }), catch: failed }), failed))),
+        Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Settled)(message)),
+        Effect.scoped,
     );
+    return settled(group, replied);
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

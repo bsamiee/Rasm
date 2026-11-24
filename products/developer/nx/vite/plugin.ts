@@ -8,7 +8,7 @@ import { getLockFileName, getReadyCheckReadyWhen, hashObject, PluginCache, quote
 import { getRootTsConfigFileName } from '@nx/js';
 import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, FileSystem, flow, MutableRef, Option, Record, Schema } from 'effect';
+import { Array, Cause, Effect, FileSystem, MutableRef, Option, Record, Schema } from 'effect';
 import type { parseSync } from 'vite';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -47,13 +47,10 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     const at = join(workspaceRoot, file);
     const local = (to: string) => normalizePath(relative(workspaceRoot, to));
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load for vite build`);
-    const resolved = Effect.flatMap(
-        Effect.acquireUseRelease(
-            Effect.sync(() => new Worker(WORKER, { workerData: { at, outDir: Option.getOrUndefined(outDir) } })),
-            (worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail))),
-            (worker) => Effect.promise(() => worker.terminate()),
-        ),
-        ([message]) => Schema.decodeUnknownEffect(Resolution)(message),
+    const resolved = Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData: { at, outDir: Option.getOrUndefined(outDir) } }))).pipe(
+        Effect.flatMap((worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), failed))),
+        Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Resolution)(message)),
+        Effect.scoped,
     );
     const [{ root: base, library, buildable, signals, served, written, env, dependencies }, vite] = yield* Effect.all(
         [resolved, Effect.tryPromise({ try: (): Promise<{ readonly parseSync: typeof parseSync }> => import(pathToFileURL(createRequire(at).resolve('vite')).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no vite`) })],

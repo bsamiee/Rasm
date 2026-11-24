@@ -54,12 +54,11 @@ const directed = (to: string, reporters: readonly string[]) => {
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, routed: boolean, lock: string) {
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Playwright config`);
-    const listened = Effect.acquireUseRelease(
-        Effect.sync(() => new Worker(WORKER, { workerData: [join(workspaceRoot, file), routed] })),
-        (worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail))),
-        (worker) => Effect.promise(() => worker.terminate()),
+    const { edges, environment, scripts, routes, reported, commands, suites } = yield* Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData: [join(workspaceRoot, file), routed] }))).pipe(
+        Effect.flatMap((worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), failed))),
+        Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Loaded)(message)),
+        Effect.scoped,
     );
-    const { edges, environment, scripts, routes, reported, commands, suites } = yield* Effect.flatMap(listened, ([message]) => Schema.decodeUnknownEffect(Loaded)(message));
     const workspaced = (url: string) => Option.filter(Option.map(Option.liftPredicate(url, String.startsWith('file:')), flow(fileURLToPath, local)), within);
     const loaded = Array.dedupe([file, ...Array.getSomes(edges.map(([url]) => workspaced(url)))]);
     const { packages } = yield* packaged(Array.getSomes(edges.map(([, specifier, parent]) => Option.as(workspaced(parent), [specifier, parent] as const))));

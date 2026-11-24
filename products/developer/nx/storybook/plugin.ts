@@ -9,7 +9,7 @@ import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
 import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, flow, MutableRef, Option, Schema } from 'effect';
+import { Array, Cause, Effect, MutableRef, Option, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -38,12 +38,11 @@ const braced = (glob: string): string => {
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, lock: string) {
     const [root, main] = [dirname(dirname(file)), join(workspaceRoot, file)];
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Storybook main config`);
-    const listened = Effect.acquireUseRelease(
-        Effect.sync(() => new Worker(WORKER, { workerData: [main, workspaceRoot] })),
-        (worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail))),
-        (worker) => Effect.promise(() => worker.terminate()),
+    const { named, stories, loaded } = yield* Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData: [main, workspaceRoot] }))).pipe(
+        Effect.flatMap((worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), failed))),
+        Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Loaded)(message)),
+        Effect.scoped,
     );
-    const { named, stories, loaded } = yield* Effect.flatMap(listened, ([message]) => Schema.decodeUnknownEffect(Loaded)(message));
     const local = (url: string) => (url.startsWith('file:') ? Option.some(normalizePath(relative(workspaceRoot, fileURLToPath(url)))) : Option.none());
     const modules = Array.dedupe(Array.getSomes(loaded.map(([url]) => local(url)))).filter(within);
     const imported = Array.getSomes(loaded.map(([, specifier, parent]) => Option.as(Option.filter(local(parent), within), [specifier, parent] as const)));

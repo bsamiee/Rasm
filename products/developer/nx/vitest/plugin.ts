@@ -10,7 +10,7 @@ import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, findProjec
 import { getLockFileName, getRootTsConfigFileName } from '@nx/js';
 import { above, aggregated, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, FileSystem, flow, MutableRef, Option, Record, Schema } from 'effect';
+import { Array, Cause, Effect, FileSystem, MutableRef, Option, Record, Schema } from 'effect';
 import type { Vite } from 'vitest/node';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ const Surveyed = Schema.TaggedUnion({
 
 const loaded = <A>(file: string, entry: string, specifier: string) => Effect.tryPromise({ try: (): Promise<A> => import(pathToFileURL(createRequire(entry).resolve(specifier)).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no ${specifier}`) });
 
-const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: string, { root, reportsDirectory, covered, providers, attachmentsDir, reports, triggers, listed, dependencies, projects }: Extract<typeof Surveyed.Type, { readonly _tag: 'Suite' }>) {
+const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: string, { root, reportsDirectory, covered, providers, attachmentsDir, reports, triggers, listed, dependencies, projects }: typeof Surveyed.cases.Suite.Type) {
     const fs = yield* FileSystem.FileSystem;
     const entry = join(workspaceRoot, file);
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
@@ -72,7 +72,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
                 manifests.filter((at) => basename(at) === 'project.json' || member(at)),
                 (at) => fs.exists(join(workspaceRoot, at)),
             );
-            yield* Effect.when(Effect.fail(new Cause.UnknownError(base, `${file} declares a project under ${local(base)}, which no project root holds`)), Effect.succeed(listed && Option.isNone(manifest)));
+            yield* Effect.when(new Cause.UnknownError(base, `${file} declares a project under ${local(base)}, which no project root holds`), Effect.succeed(listed && Option.isNone(manifest)));
             return Option.map(manifest, (at) => ({ owner: dirname(at), project, manifests, setup: setup.map(local).filter(within), written, providers: hosted }));
         }),
     ).pipe(Effect.map(Array.getSomes));
@@ -111,19 +111,11 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, outputPath: string | undefined, stamp: (sources: readonly string[]) => Effect.Effect<string>) {
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Vitest config`);
-    const config = yield* Effect.flatMap(
-        Effect.acquireUseRelease(
-            Effect.sync(
-                () =>
-                    new Worker(WORKER, {
-                        workerData: { file, entry: join(workspaceRoot, file), name: PLUGIN, suite: matchesGlob(basename(file), SUITE), ...(outputPath !== undefined && { attachmentsDir: join(workspaceRoot, outputPath, ATTACHMENTS) }) },
-                        env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV },
-                    }),
-            ),
-            (worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail))),
-            (worker) => Effect.promise(() => worker.terminate()),
-        ),
-        ([message]) => Schema.decodeUnknownEffect(Surveyed)(message),
+    const workerData = { file, entry: join(workspaceRoot, file), name: PLUGIN, suite: matchesGlob(basename(file), SUITE), ...(outputPath !== undefined && { attachmentsDir: join(workspaceRoot, outputPath, ATTACHMENTS) }) };
+    const config = yield* Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData, env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV } }))).pipe(
+        Effect.flatMap((worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), failed))),
+        Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Surveyed)(message)),
+        Effect.scoped,
     );
     const report = yield* Surveyed.match(config, {
         Plain: ({ dependencies }): ReturnType<typeof surveyed> => Effect.succeed({ suites: [], triggers: [], shared: [], sources: dependencies.map((at) => normalizePath(relative(workspaceRoot, at))).filter(within) }),
