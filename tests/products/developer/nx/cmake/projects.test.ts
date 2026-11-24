@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { createDependencies, createNodes } from '@rasm/nx-cmake';
+import { refused } from '@rasm/testing/errors';
 import { it, pathed, unaggregated, unportable } from '@rasm/testing/nx';
 import { Predicate, Record } from 'effect';
 import { describe, expect, vi } from 'vitest';
@@ -106,6 +107,21 @@ describe('inferred projects', { timeout: 120_000 }, () => {
 
         expect(Object.keys(bare.nodes).toSorted()).toStrictEqual(['fixture_core', 'fixture_tool']);
         expect({ nodes: bare.nodes, dependencies: bare.dependencies }).toStrictEqual({ nodes: tooled.nodes, dependencies: tooled.dependencies });
+    });
+
+    it('refuses configure presets inheriting each other in a cycle, as cmake does', async ({ workspace }) => {
+        const cyclic = JSON.stringify({
+            version: 10,
+            configurePresets: [
+                { name: 'default', inherits: 'base', generator: 'Ninja' },
+                { name: 'base', inherits: 'default' },
+            ],
+            workflowPresets: [{ name: 'default', steps: [{ type: 'configure', name: 'default' }] }],
+        });
+
+        const read = workspace.write({ ...tree, 'CMakePresets.json': cyclic }).graph(cmake);
+
+        await expect(read).rejects.toSatisfy(refused(/CMakePresets\.json lists configure presets inheriting each other in a cycle/u));
     });
 
     it('infers nothing from a CMakePresets.json with no CMakeLists.txt beside it', async ({ workspace }) => {

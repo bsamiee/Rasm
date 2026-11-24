@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { normalizePath, readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
 import { runner } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Context, Effect, FileSystem, Function, Layer, Match, Option, Order, pipe, Record, Result, Schema, SemVer } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, Function, Graph, Layer, Match, Option, Order, pipe, Record, Result, Schema, SemVer } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -49,6 +49,12 @@ class Presets extends Schema.Opaque<Presets, unknown>()(
         }),
     ),
 ) {}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()(`${PLUGIN}/workspace/Linked`) {
+    static readonly layer = Layer.sync(Linked, () => new Map());
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -114,7 +120,22 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
     const root = posix.dirname(presets);
     const source = join(workspaceRoot, root);
     const { configurePresets, packagePresets: packages, workflowPresets } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
-    const chain = (name: string): readonly Presets['configurePresets'][number][] => configurePresets.flatMap((preset) => (preset.name === name ? [preset, ...Array.ensure(preset.inherits ?? []).flatMap(chain)] : []));
+    const inherited = configurePresets.flatMap(({ name, inherits = [] }) => Array.ensure(inherits).map((parent) => [name, parent] as const));
+    const inheriting = yield* Effect.succeed(
+        Graph.directed<Presets['configurePresets'][number], undefined>((mutable) => {
+            const placed = new Map(configurePresets.map((preset) => [preset.name, Graph.addNode(mutable, preset)] as const));
+            Array.getSomes(inherited.map(([child, parent]) => Option.all([Option.fromUndefinedOr(placed.get(child)), Option.fromUndefinedOr(placed.get(parent))]))).forEach(([from, to]) => {
+                Graph.addEdge(mutable, from, to, undefined);
+            });
+        }),
+    ).pipe(
+        Effect.filterOrFail(
+            (graph) => Graph.isAcyclic(graph),
+            (graph) => new Cause.UnknownError(graph, `${presets} lists configure presets inheriting each other in a cycle, which cmake refuses`),
+        ),
+    );
+    const chains = new Map(Array.fromIterable(Graph.entries(Graph.nodes(inheriting))).map(([at, preset]) => [preset.name, Array.fromIterable(Graph.values(Graph.dfs(inheriting, { start: [at] })))] as const));
+    const chain = (name: string): readonly Presets['configurePresets'][number][] => chains.get(name) ?? [];
     const macros = (configure: string, at: string) =>
         expanded(
             {
@@ -233,12 +254,6 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
     }));
     return { root, workflows, packages, members, inputs, exporter: normalizePath(relative(source, EXPORTER)) };
 });
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()(`${PLUGIN}/workspace/Linked`) {
-    static readonly layer = Layer.sync(Linked, () => new Map());
-}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

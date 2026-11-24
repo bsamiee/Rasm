@@ -35,6 +35,14 @@ describe('task order', () => {
         expect(dependencies[task]).toContainEqual({ id: first });
     });
 
+    it('lints the Dockerfiles with no producer or image build first', async ({ workspace }) => {
+        const graph = await workspace.write(SERVED).graph({ createNodes, createDependencies });
+
+        const { dependencies } = taskGraph(graph, ['infra'], ['check--buildx']);
+
+        expect(dependencies['infra:check--buildx']).toStrictEqual([]);
+    });
+
     it('keeps the service start running for the tasks that need it, and caches only the checks', async ({ workspace }) => {
         const graph = await workspace.write(SERVED).graph({ createNodes, createDependencies });
         const stated = { ...graph.nodes['infra']?.data.targets, ...graph.nodes['api']?.data.targets };

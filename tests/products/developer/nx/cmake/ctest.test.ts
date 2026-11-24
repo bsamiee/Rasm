@@ -70,10 +70,10 @@ describe('test--ctest', { timeout: 120_000 }, () => {
     });
 
     it.for([
-        { case: 'without configuration', configuration: undefined },
-        { case: 'under configuration coverage, writing no report', configuration: 'coverage' },
-    ])('passes for a member that adds no tests $case', async ({ configuration }, { workspace }) => {
-        const graph = await workspace.write(tree).graph(cmake, { coveragePath: '.artifacts/coverage/{projectName}' });
+        { case: 'without configuration', configuration: undefined, left: {} },
+        { case: 'under configuration coverage, removing the report an earlier run left', configuration: 'coverage', left: { '.artifacts/coverage/untested/lcov.info': 'SF:stale\n' } },
+    ])('passes for a member that adds no tests $case', async ({ configuration, left }, { workspace }) => {
+        const graph = await workspace.write({ ...tree, ...left }).graph(cmake, { coveragePath: '.artifacts/coverage/{projectName}' });
         await workspace.run(graph, 'untested', 'build--cmake', configuration);
 
         const { success } = await workspace.run(graph, 'untested', 'test--ctest', configuration);

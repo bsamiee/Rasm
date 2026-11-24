@@ -32,7 +32,7 @@ const READ = {
         '            dockerfile: images/site.Dockerfile',
         '',
     ].join('\n'),
-    'infra/compose.override.yaml': 'services:\n    api:\n        environment:\n            MODE: local\n',
+    'infra/compose.override.yaml': `services:\n    api:\n        environment:\n            MODE: \${MODE:-local}\n`,
     'infra/api.env': 'PORT=8080\n',
     'infra/images/site.Dockerfile': 'FROM scratch\n',
     'shared/store.yaml': 'include:\n    - cache.yaml\nservices:\n    store:\n        image: valkey/valkey:8\n',
@@ -46,23 +46,27 @@ const READ = {
 
 describe('task hashes', () => {
     it.for([
-        { task: 'infra:check--compose', edited: { 'shared/cache.yaml': 'services:\n    cache:\n        image: memcached:2\n' }, changes: true },
-        { task: 'infra:check--compose', edited: { 'infra/api.env': 'PORT=9090\n' }, changes: true },
-        { task: 'infra:check--buildx', edited: { 'infra/images/site.Dockerfile': 'FROM busybox\n' }, changes: true },
-        { task: 'infra:check--compose', edited: { 'docs/notes.md': 'More notes\n' }, changes: false },
-        { task: 'infra:build--compose', edited: { 'apps/api/Dockerfile': 'FROM busybox\n' }, changes: true },
-    ])('$task hash changes ($changes) after editing $edited', async ({ task, edited, changes }, { workspace }) => {
+        { task: 'infra:check--compose', edited: { 'shared/cache.yaml': 'services:\n    cache:\n        image: memcached:2\n' }, environment: {}, changes: true },
+        { task: 'infra:check--compose', edited: { 'infra/api.env': 'PORT=9090\n' }, environment: {}, changes: true },
+        { task: 'infra:check--compose', edited: {}, environment: { MODE: 'staged' }, changes: true },
+        { task: 'infra:check--compose', edited: {}, environment: { UNREAD: 'staged' }, changes: false },
+        { task: 'infra:check--buildx', edited: { 'infra/images/site.Dockerfile': 'FROM busybox\n' }, environment: {}, changes: true },
+        { task: 'infra:check--buildx', edited: { 'apps/api/.dockerignore': 'node_modules\n' }, environment: {}, changes: true },
+        { task: 'infra:check--buildx', edited: { 'infra/images/site.Dockerfile.dockerignore': '*.md\n' }, environment: {}, changes: true },
+        { task: 'infra:check--compose', edited: { 'docs/notes.md': 'More notes\n' }, environment: {}, changes: false },
+        { task: 'infra:build--compose', edited: { 'apps/api/Dockerfile': 'FROM busybox\n' }, environment: {}, changes: true },
+    ])('$task hash changes ($changes) after editing $edited under $environment', async ({ task, edited, environment, changes }, { workspace }) => {
         const [project = '', target = ''] = task.split(':');
-        const hashed = async (files: Readonly<Record<string, string>>) => {
+        const hashed = async (files: Readonly<Record<string, string>>, shell: NodeJS.ProcessEnv) => {
             const graph = await workspace.write(files).graph({ createNodes, createDependencies });
             const tasks = taskGraph(graph, [project], [target]);
             const found = tasks.tasks[task];
             assert(found !== undefined, `${task} is a task of the graph`);
-            return createTaskHasher(graph, readNxJson(workspace.root)).hashTask(found, tasks, env);
+            return createTaskHasher(graph, readNxJson(workspace.root)).hashTask(found, tasks, shell);
         };
-        const before = await hashed({ ...READ, 'apps/api/project.json': '{"name":"api"}', 'docs/notes.md': 'Notes\n' });
+        const before = await hashed({ ...READ, 'apps/api/project.json': '{"name":"api"}', 'docs/notes.md': 'Notes\n' }, env);
 
-        const after = await hashed(edited);
+        const after = await hashed(edited, { ...env, ...environment });
 
         expect(before.value === after.value).toBe(!changes);
     });

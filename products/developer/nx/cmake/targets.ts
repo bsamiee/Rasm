@@ -4,7 +4,7 @@ import { quoteShellArg } from '@nx/devkit/internal';
 import { aggregated, PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record, UndefinedOr } from 'effect';
-import { configured, ENVIRONMENT, PACKAGING, type Tree, WORKING, type Workflow } from '#/workspace';
+import { configured, ENVIRONMENT, PACKAGING, REGISTRY, type Tree, WORKING, type Workflow } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -28,6 +28,8 @@ const line = (argv: readonly string[]) => argv.map(shelled).join(' ');
 const memberInputs = (tree: Tree, member: Tree['members'][number], stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => [
     ...(stated ?? ['{projectRoot}/**/*']),
     ...tree.inputs.filter((file) => !tree.members.some(({ root }) => root !== tree.root && root !== member.root && !posix.relative(root, file).startsWith('..'))).map((file) => tokened(file)),
+    { runtime: 'cmake --version' },
+    ...(tree.inputs.some((file) => posix.basename(file) === REGISTRY.manifest) ? [{ runtime: 'vcpkg version' }] : []),
     PLATFORM,
 ];
 
@@ -65,12 +67,14 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
         ),
         posix.join(member.root, '**'),
     ].map((at) => posix.join(at, '.clang-tidy'));
-    const tidied = (workflow: Workflow) =>
-        Array.dedupe(
+    const tidied = (workflow: Workflow) => [
+        ...Array.dedupe(
             flagged(workflow, '--config-file=')
                 .flatMap(Option.match({ onNone: () => looked, onSome: (at) => [posix.normalize(at.replaceAll(WORKING, tree.root))] }))
                 .map((file) => tokened(file)),
-        );
+        ),
+        ...Array.dedupe(workflow.tidy.flatMap(({ launcher }) => Array.take(launcher.split(';'), 1))).map((program) => ({ runtime: `${line([program])} --version` })),
+    ];
     const planned = (workflow: Workflow, defines: Readonly<Record<string, string>> = {}) => {
         const shared = { cwd: tree.root, configure: configured(workflow.configure, { ...Record.fromIterableWith(workflow.tidy, ({ variable }) => [`${variable}_EXPORT_FIXES_DIR`, ''] as const), ...defines }) };
         const ran = (commands: readonly (readonly string[])[], outputs: readonly string[] = [], forwarded = commands.length - 1) => ({
@@ -108,8 +112,8 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
                 (held) => ({ ...held, lcov: posix.join(held.profiled, COVERAGE.report) }),
             ),
         );
-        const cleared = coverage.flatMap(({ profiled }) => [
-            ['cmake', '-E', 'rm', '-rf', profiles],
+        const cleared = coverage.flatMap(({ profiled, lcov }) => [
+            ['cmake', '-E', 'rm', '-rf', profiles, within(lcov)],
             ['cmake', '-E', 'make_directory', within(profiled)],
         ]);
         const profiling = coverage.flatMap(() => ['cmake', '-E', 'env', `LLVM_PROFILE_FILE=${WORKING}/${posix.join(profiles, COVERAGE.profile)}`]);

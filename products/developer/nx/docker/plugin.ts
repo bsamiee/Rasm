@@ -65,6 +65,9 @@ const Report = Schema.fromJsonString(
         ),
     }),
 );
+const Variables = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)).annotate({
+    description: 'The output of docker compose config --variables --format json, keyed by each variable the Compose model interpolates from the shell environment or .env',
+});
 const Including = Schema.Struct({
     include: Schema.Array(Schema.Union([Schema.String, Schema.Struct({ path: Schema.Union([Schema.String, Schema.Array(Schema.String)]) })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
     services: Schema.optionalKey(Schema.NullOr(Schema.Record(Schema.String, Schema.Struct({ extends: Schema.optionalKey(Schema.Union([Schema.String, Schema.Struct({ file: Schema.optionalKey(Schema.String) })])) })))),
@@ -118,7 +121,8 @@ const merged = Effect.fnUntraced(function* (workspaceRoot: string, file: string,
 });
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: string, files: Array.NonEmptyReadonlyArray<string>) {
-    const report = yield* Effect.flatMap(spawned(['docker', 'compose', 'config', '--format', 'json', '--no-interpolate'], { cwd: join(workspaceRoot, root), env: EVERY_PROFILE }), Schema.decodeEffect(Report));
+    const config = (...args: Array.NonEmptyReadonlyArray<string>) => spawned(['docker', 'compose', 'config', '--format', 'json', ...args], { cwd: join(workspaceRoot, root), env: EVERY_PROFILE });
+    const [report, variables] = yield* Effect.all([Effect.flatMap(config('--no-interpolate'), Schema.decodeEffect(Report)), Effect.flatMap(config('--variables'), Schema.decodeEffect(Variables))], { concurrency: 'unbounded' });
     const loaded = yield* Effect.reduce(
         files,
         (): ReadonlySet<string> => new Set(),
@@ -137,6 +141,8 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: strin
         file: Array.min(files, Order.String),
         sources: Array.sort(Array.dedupe([...[...loaded].filter((file) => !file.startsWith('..')), posix.join(root, '.env'), ...services.flatMap(({ env_file = [] }) => Array.getSomes(env_file.map(({ path }) => local(path)))), ...recipes.map(({ recipe }) => recipe)]), Order.String),
         profiles: Array.sort(Array.dedupe(services.flatMap(({ profiles = [] }) => profiles)), Order.String),
+        variables: Array.sort(Record.keys(variables), Order.String),
+        ignores: Array.dedupe(Array.getSomes(builds.flatMap(({ context, dockerfile = 'Dockerfile' }) => [local(context, '.dockerignore'), local(context, `${dockerfile}.dockerignore`)]))),
         built: builds.length > 0,
         servers: Record.map(
             Array.groupBy(recipes, ({ recipe }) => posix.dirname(recipe)),
@@ -157,7 +163,7 @@ const inferred = Effect.fnUntraced(function* (pass: Pass, root: string, matched:
     const project = yield* recall(pass, root, matched, (entry) => 'name' in entry, analyzed(pass.workspaceRoot, root, matched));
     (yield* Analyses).set(join(pass.workspaceRoot, root), project);
     const read = [...project.sources.map((file) => `{workspaceRoot}/${file}`), { externalDependencies: [] }];
-    const checked = { cache: true, inputs: read, options: { env: EVERY_PROFILE } };
+    const checked = { cache: true, inputs: [...read, ...project.variables.map((env) => ({ env })), { runtime: 'docker compose version --short' }], options: { env: EVERY_PROFILE } };
     const built = { dependsOn: [...PRODUCERS, ...pass.engines], inputs: ['default', '^default', ...read] };
     const started = { ...built, dependsOn: ['build--*', ...pass.engines] };
     const profiled = Array.isReadonlyArrayNonEmpty(project.profiles) && { configurations: Record.fromIterableWith(project.profiles, (profile) => [profile, { env: { COMPOSE_PROFILES: profile } }] as const) };
@@ -181,7 +187,13 @@ const inferred = Effect.fnUntraced(function* (pass: Pass, root: string, matched:
             ...serving[root],
             check: {
                 compose: compose(root, ['config', '--quiet'], `Validates every Compose service of ${project.name}, interpolation and env files included, with docker compose config`, checked),
-                ...(project.built && { buildx: compose(root, ['build', '--check'], `Lints every image ${project.name} builds, failing on any warning, with docker compose build --check`, { ...checked, dependsOn: built.dependsOn }) }),
+                ...(project.built && {
+                    buildx: compose(root, ['build', '--check'], `Lints every image ${project.name} builds, failing on any warning, with docker compose build --check`, {
+                        ...checked,
+                        dependsOn: [...pass.engines],
+                        inputs: [...checked.inputs, ...project.ignores.map((file) => `{workspaceRoot}/${file}`), { runtime: 'docker buildx version' }],
+                    }),
+                }),
             },
             install: { compose: compose(root, ['up', '--detach', '--wait', '--no-build', '--remove-orphans'], `Starts the services of ${project.name} from built images and waits until each is healthy with docker compose up`, { ...started, ...profiled }) },
             ...(project.built && {
