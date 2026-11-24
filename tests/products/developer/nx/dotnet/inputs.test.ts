@@ -136,9 +136,12 @@ describe('analyzer binary', () => {
     });
 
     it.for([
-        { edited: `${PLUGIN}/analyzer/dist/MsbuildAnalyzer.dll`, text: 'rebuilt', changed: true },
-        { edited: `${PLUGIN}/analyzer/Program.cs`, text: 'return 1;\n', changed: false },
-    ])('hashes the analyzer mise publishes into the package pack and the plugin suite, so editing $edited reruns both ($changed)', async ({ edited, text, changed }, { workspace }) => {
+        { edited: `${PLUGIN}/analyzer/dist/MsbuildAnalyzer.dll`, text: 'rebuilt', pack: true, suite: true },
+        { edited: `${PLUGIN}/analyzer/Program.cs`, text: 'return 1;\n', pack: false, suite: true },
+        { edited: `${PLUGIN}/analyzer/MsbuildAnalyzer.csproj`, text: '<Project Sdk="Microsoft.NET.Sdk">\n</Project>\n', pack: false, suite: true },
+        { edited: `${PLUGIN}/analyzer/packages.lock.json`, text: '{ "version": 2, "dependencies": {} }\n', pack: false, suite: true },
+        { edited: 'products/developer/roslyn/Rasm.Analyzers/Names.cs', text: 'namespace Rasm.Analyzers;\n\ninternal static class Edited;\n', pack: false, suite: false },
+    ])('hashes the analyzer dll mise publishes into the package pack, and the dll and the sources mise publishes it from into the plugin suite, so editing $edited reruns the pack ($pack) and the suite ($suite)', async ({ edited, text, pack, suite }, { workspace }) => {
         const tasks = [
             ['@rasm/nx-dotnet', 'pack--pnpm'],
             ['@rasm/test-nx-dotnet', 'test--vitest'],
@@ -151,6 +154,8 @@ describe('analyzer binary', () => {
                 ...stated(SUITE, 'test--vitest'),
                 [`${PLUGIN}/analyzer/MsbuildAnalyzer.csproj`]: PROJECT,
                 [`${PLUGIN}/analyzer/Program.cs`]: 'return 0;\n',
+                [`${PLUGIN}/analyzer/packages.lock.json`]: '{ "version": 2 }\n',
+                'products/developer/roslyn/Rasm.Analyzers/Names.cs': 'namespace Rasm.Analyzers;\n',
                 [`${PLUGIN}/analyzer/dist/MsbuildAnalyzer.dll`]: 'built',
                 ...report([node(`${PLUGIN}/analyzer/MsbuildAnalyzer.csproj`)]),
             })
@@ -159,6 +164,6 @@ describe('analyzer binary', () => {
 
         const after = await workspace.write({ [edited]: text }).graph({ createNodes, createDependencies });
 
-        await expect(Promise.all(tasks.map(async ([project, target], index) => (await hasher(workspace.root, after, target, project)({})) !== first[index]))).resolves.toStrictEqual([changed, changed]);
+        await expect(Promise.all(tasks.map(async ([project, target], index) => (await hasher(workspace.root, after, target, project)({})) !== first[index]))).resolves.toStrictEqual([pack, suite]);
     });
 });

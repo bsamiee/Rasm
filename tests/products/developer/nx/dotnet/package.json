@@ -20,7 +20,7 @@
             "test--vitest": {
                 "inputs": [
                     "...",
-                    "{workspaceRoot}/products/developer/nx/dotnet/analyzer/MsbuildAnalyzer.csproj",
+                    "{workspaceRoot}/products/developer/nx/dotnet/analyzer/{*.cs,MsbuildAnalyzer.csproj,packages.lock.json}",
                     {
                         "fileset": "{workspaceRoot}/products/developer/nx/dotnet/analyzer/dist/*",
                         "includeIgnored": true
