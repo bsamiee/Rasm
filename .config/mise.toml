@@ -143,7 +143,7 @@ sources = []
 
 [hooks]
 postinstall = [
-    '''node -e "const { execSync } = require('node:child_process'); const { existsSync, readFileSync } = require('node:fs'); const read = (command) => execSync(command, { encoding: 'utf8' }); execSync('rustup default ' + read('rustup show active-toolchain').split(' ')[0], { stdio: 'inherit' }); const built = JSON.parse(read('cargo metadata --format-version 1 --no-deps')).build_directory + '/.rustc_info.json'; existsSync(built) && !readFileSync(built, 'utf8').includes(read('rustc -vV').match(/commit-hash: (.+)/)[1]) && execSync('cargo clean', { stdio: 'inherit' }); JSON.parse(process.env.MISE_INSTALLED_TOOLS).some((tool) => tool.name === 'rust') && execSync('mise prune --tools rust', { stdio: 'inherit' })"''',
+    '''node -e "const { execSync } = require('node:child_process'); const { existsSync, readFileSync } = require('node:fs'); const read = (command) => execSync(command, { encoding: 'utf8' }); execSync('rustup default ' + read('rustup show active-toolchain').split(' ')[0], { stdio: 'inherit' }); const built = JSON.parse(read('cargo metadata --format-version 1 --no-deps')).build_directory + '/.rustc_info.json'; existsSync(built) && !readFileSync(built, 'utf8').includes(read('rustc -vV').match(/commit-hash: (.+)/)[1]) && execSync('cargo clean', { stdio: 'inherit' }); const pruned = ['rust', 'http:rustc-source']; JSON.parse(process.env.MISE_INSTALLED_TOOLS).some(({ name }) => pruned.includes(name)) && execSync('mise prune --yes --tools ' + pruned.join(' '), { stdio: 'inherit' })"''',
     "mise deps install",
 ]
 
