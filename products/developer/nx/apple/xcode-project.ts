@@ -194,7 +194,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
             published: {
                 executor: `${PLUGIN}:release-publish`,
                 dependsOn: ['pack--ditto', '^nx-release-publish'],
-                inputs: [{ dependentTasksOutputFiles: '**/*.dmg' }, { externalDependencies: [] }],
+                inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
                 options: { exports: archived.map(({ archive }) => ({ archive })) },
                 metadata: {
                     technologies: ['xcode'],

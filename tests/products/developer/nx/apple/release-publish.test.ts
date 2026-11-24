@@ -17,7 +17,7 @@ const relay = {
         name: 'Relay',
         targets: {
             'pack--ditto': { executor: 'nx:noop', outputs: ['{projectRoot}/build/Relay/*.dmg', '{projectRoot}/build/Relay/*.zip', '{projectRoot}/build/Relay/Relay.xcarchive'] },
-            'nx-release-publish': { executor: '@rasm/nx-apple:release-publish', dependsOn: ['pack--ditto'], inputs: [{ dependentTasksOutputFiles: '**/*.dmg' }] },
+            'nx-release-publish': { executor: '@rasm/nx-apple:release-publish', dependsOn: ['pack--ditto'], inputs: [{ dependentTasksOutputFiles: '**/*' }] },
         },
     }),
 };
@@ -57,7 +57,20 @@ describe('release-publish', () => {
         expect(log).toHaveBeenCalledWith(expect.anything(), `Would publish the Sparkle feed of Relay.dmg for ${expected?.tag} through generate_appcast and cf r2 objects put`);
     });
 
-    it('refuses where pack--ditto wrote no disk image, naming its declared outputs', async ({ workspace, tagged }) => {
+    it('skips the feed of an archive with a zip and no disk image beside it, as pack--ditto writes without notary credentials', async ({ workspace, tagged, log, onTestFinished }) => {
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+        });
+        vi.stubEnv('SPARKLE_ED_PRIVATE_KEY', 'key');
+        vi.stubEnv('SPARKLE_FEED_BUCKET', 'feeds');
+        const graph = await tagged({ ...relay, 'Relay/build/Relay/Relay.zip': 'archive' }, TAGS);
+
+        const { success } = await execute({ exports: [{ archive: 'Relay/build/Relay/Relay.xcarchive' }] }, workspace.context(graph, 'Relay', 'nx-release-publish'));
+
+        expect({ success, logged: log.mock.calls.map((call) => String(call.at(-1))) }).toStrictEqual({ success: true, logged: [expect.stringMatching(/^Skipped the Sparkle feed of Relay\/build\/Relay\/Relay\.xcarchive: no disk image sits beside it/u)] });
+    });
+
+    it('refuses where pack--ditto wrote nothing, naming its declared outputs', async ({ workspace, tagged }) => {
         const graph = await tagged(relay, TAGS);
 
         const published = execute({ exports: [{ archive: 'Relay/build/Relay/Relay.xcarchive' }] }, workspace.context(graph, 'Relay', 'nx-release-publish'));

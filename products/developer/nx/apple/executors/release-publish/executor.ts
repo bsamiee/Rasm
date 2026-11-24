@@ -26,7 +26,7 @@ const Assets = Schema.fromJsonString(Schema.Struct({ assets: Schema.Array(Schema
 
 const fed = Effect.fnUntraced(function* (root: string, archive: string, files: readonly string[], tag: string, dry: boolean, words: readonly string[]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const images = files.filter((file) => path.dirname(file) === path.dirname(archive));
+    const images = files.filter((file) => path.dirname(file) === path.dirname(archive) && path.extname(file) === '.dmg');
     if (!Array.isReadonlyArrayNonEmpty(images)) {
         return yield* Effect.logWarning(`Skipped the Sparkle feed of ${archive}: no disk image sits beside it, which pack--ditto writes where ${NOTARY.key}, ${NOTARY.keyId}, and ${NOTARY.issuer} are set`);
     }
