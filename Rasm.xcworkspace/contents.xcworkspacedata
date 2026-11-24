@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "group:products/apps/creative-cloud/multi-app/atelier/macos/Atelier.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:products/macos/relay/Relay.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:products/macos/watch-app/watch-app.xcodeproj">
+   </FileRef>
+</Workspace>

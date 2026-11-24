@@ -54,6 +54,7 @@ Rasm/
 ├── NuGet.config              # .NET
 ├── Package.swift             # Swift workspace and central package catalog
 ├── Xcode.xcconfig            # Swift
+├── Rasm.xcworkspace/         # Swift, one Xcode build folder and package clone for every app
 ├── Cargo.toml                # Rust workspace and central package catalog
 ├── rust-toolchain.toml       # Rust
 ├── .cargo/                   # Rust
@@ -167,6 +168,7 @@ Roots split, nest, or hold more where a host or tool decides:
 - Folder `Directory.Build.props` files name a host, and conditional `Update` rows of `Directory.Packages.props` hold its runtime line
 - .NET runs build Release unless they name configuration `debug`, which reaches references and Yak packages, and assemblies embed their PDB
 - Swift modules, app code included, are root `Package.swift` targets, and Xcode app targets hold bundle, icon, and signing over their app module
+- Xcode app projects build through root `Rasm.xcworkspace`, as projects built apart each clone every package and compile it again
 - C++ packages each declare their own `project()`, and toolchain, presets, CI, and release stay whole before any package exists
 - Unreal plug-ins sit beside the project enabling them, and name each C++ package they build with their engine's compiler in `.uplugin` `nx.packages`
 - SQL schemas reconcile the live database to owning types with no migration files, and drop or retype only what an owning type retires
