@@ -5,7 +5,7 @@ import { findAllProjectNodeDependencies, type TaskResult } from '@nx/devkit/inte
 import { batched, executor, Words } from '@rasm/nx-distribution/inference';
 import { Array, Clock, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream, Struct } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { Crate } from '#/workspace';
+import { Crate, Unification } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -27,6 +27,7 @@ class Cargo extends Schema.Opaque<Cargo, unknown>()(
         cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
         commands: Schema.NonEmptyArray(Command).annotate({ description: 'Cargo invocations in order, a task stopping at its first failure' }),
         package: Schema.optionalKey(Schema.String).annotate({ description: 'Package the task selects, passed to cargo as a package ID spec' }),
+        unification: Unification.annotate({ description: 'Cargo resolver.feature-unification of the workspace, a batch running each task of selected, which unifies features over every package one invocation selects, in a cargo process of its own' }),
         __unparsed__: Words,
         outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Paths the commands write, which the target's outputs name through {options.outputs.<n>}, each parent folder created before the run" }),
     }).annotate({
@@ -126,7 +127,7 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
 }, Effect.scoped);
 
 const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, Cargo>>, tasks: readonly Planned[]) => {
-    const keyed = ({ id }: Pick<Task, 'id'>) => [inputs[id]?.cwd, inputs[id]?.commands ?? [], inputs[id]?.__unparsed__] as const;
+    const keyed = ({ id }: Pick<Task, 'id'>) => [inputs[id]?.cwd, inputs[id]?.commands ?? [], inputs[id]?.__unparsed__, inputs[id]?.unification === 'selected' ? id : undefined] as const;
     const steps = Array.dedupe(tasks.map(keyed)).flatMap((key) => key[1].map((command, index) => ({ group: tasks.filter((task) => Equal.equals(keyed(task), key)), command, last: index === key[1].length - 1 })));
     return Stream.fromIterable(steps).pipe(
         Stream.mapAccumEffect(

@@ -9,8 +9,8 @@ import { ACTIONS, LOCK, MANIFEST, type Member, PLUGIN, Target, tokened, type Wor
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const DENIED = [
-    { tool: 'cargo-deny', checks: ['bans', 'licenses', 'sources'], extra: { cache: true } },
-    { tool: 'cargo-deny-advisories', checks: ['advisories'], extra: {} },
+    { tool: 'cargo-deny', checks: ['bans', 'licenses', 'sources'] },
+    { tool: 'cargo-deny-advisories', checks: ['advisories'] },
 ] as const;
 const MESSAGES = ['--message-format', 'json-diagnostic-rendered-ansi'] as const;
 const LOCKED = '--locked';
@@ -46,6 +46,7 @@ const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: Targ
         ...(stated ?? (folders.includes('') ? ['{projectRoot}/**/*'] : [posix.join('{projectRoot}', MANIFEST), ...[...folders.map((at) => posix.join(at, '**/*')), ...Array.fromNullishOr(crate.readme)].map((at) => tokened(posix.join(root, at)))])),
         tokened(posix.join(workspace.root, LOCK)),
         tokened(posix.join(workspace.root, MANIFEST)),
+        ...workspace.unified,
         ...workspace.configs,
         { runtime: 'rustc -vV' },
         ...workspace.compiler.map((env) => ({ env })),
@@ -53,7 +54,7 @@ const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: Targ
 };
 
 const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { crate, root, packages, linted }: Member): Verbs => {
-    const selected = { cwd: workspace.root, package: crate.name };
+    const selected = { cwd: workspace.root, package: crate.name, unification: workspace.unification };
     const kinds = [...(crate.targets.some(Target.example) ? [...(crate.targets.some(Target.library) ? ['--lib'] : []), '--bins', '--tests', '--benches'] : ['--all-targets']), '--all-features'];
     const plain = Option.isNone(workspace.nextest);
     const tested = crate.targets.some(({ test }) => test);
@@ -149,7 +150,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
                 cargo: cargoTarget(
                     'install',
                     `Installs the binaries of ${crate.name} into Cargo's install root with cargo install --path, building in the workspace target folder, in release unless a configuration names a profile`,
-                    { cwd: workspace.root, commands: installed([]) },
+                    { cwd: workspace.root, unification: workspace.unification, commands: installed([]) },
                     Array.match(workspace.profiles, { onEmpty: () => ({}), onNonEmpty: (named) => ({ configurations: Record.fromIterableWith(named, (profile) => [profile, { commands: installed(['--profile', profile]) }] as const) }) }),
                 ),
             }),
@@ -158,15 +159,15 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
 };
 
 const workspaceTargets = (workspace: Workspace): Verbs => {
-    const graph = [...Array.dedupe([...workspace.members.map((member) => member.manifest), posix.join(workspace.root, MANIFEST)]), posix.join(workspace.root, LOCK)].map(tokened);
+    const graph = [...[...Array.dedupe([...workspace.members.map((member) => member.manifest), posix.join(workspace.root, MANIFEST)]), posix.join(workspace.root, LOCK)].map(tokened), ...workspace.configs];
     const check = Record.fromIterableWith(
         Option.toArray(workspace.deny)
             .flatMap(({ files, tables }) => DENIED.map((row) => ({ ...row, files, selected: Array.intersection(row.checks, tables) })))
             .filter(({ selected }) => selected.length > 0),
-        ({ tool, extra, files, selected }): readonly [string, TargetConfiguration] => [
+        ({ tool, files, selected }): readonly [string, TargetConfiguration] => [
             tool,
             {
-                ...extra,
+                cache: true,
                 executor: 'nx:run-commands',
                 options: { cwd: workspace.root, command: ['cargo', 'deny', LOCKED, '--workspace', 'check', '--deny', 'warnings', ...selected].join(' ') },
                 inputs: [...graph, ...files.map(tokened), version('deny'), { externalDependencies: [] }],
@@ -193,7 +194,7 @@ const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, m
         cargoTarget(
             'package',
             `Packs ${crate.name} into a .crate archive with cargo package beside the workspace crates it depends on, without the verification build`,
-            { cwd: workspace.root, package: crate.name, commands: [{ args: ['package', '--no-verify', LOCKED], packages }] },
+            { cwd: workspace.root, package: crate.name, unification: workspace.unification, commands: [{ args: ['package', '--no-verify', LOCKED], packages }] },
             { cache: true, outputs: [tokened(posix.join(artifacts, 'package', `${crate.name}-${crate.version}.crate`))] },
         ),
     );

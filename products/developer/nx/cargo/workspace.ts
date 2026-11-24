@@ -28,6 +28,7 @@ const KEYS = {
     BUILD: ['TARGET', 'RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTDOC', 'RUSTFLAGS', 'RUSTDOCFLAGS'],
     TARGET: ['LINKER', 'RUSTFLAGS'],
     PROFILE: ['INHERITS', 'OPT_LEVEL', 'DEBUG', 'SPLIT_DEBUGINFO', 'STRIP', 'DEBUG_ASSERTIONS', 'OVERFLOW_CHECKS', 'LTO', 'PANIC', 'CODEGEN_UNITS', 'RPATH', 'TRIM_PATHS', 'CODEGEN_BACKEND'],
+    RESOLVER: ['FEATURE_UNIFICATION'],
 } as const;
 const NEXTEST = '.config/nextest.toml';
 const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem) => [`${stem}.toml`, `.${stem}.toml`, `.cargo/${stem}.toml`, `.config/${stem}.toml`]);
@@ -60,14 +61,16 @@ const Metadata = Schema.fromJsonString(
     }),
 );
 const Crate = Schema.Struct({ root: Schema.String, name: Schema.String }).annotate({ description: 'Workspace crate by its folder, relative to the Nx workspace root, and package name' });
+const Unification = Schema.Literals(['selected', 'workspace', 'package']).annotate({ description: 'Cargo resolver.feature-unification: features unify over the packages one invocation selects, over every workspace member, or per package' });
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Profiles = Schema.Struct({ profile: Schema.Record(Schema.String, Schema.Struct({ inherits: Schema.optionalKey(Schema.String), panic: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) });
 const Settings = Schema.Struct({
     env: Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Struct({ value: Schema.String, relative: Schema.optionalKey(Schema.Boolean) })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     unstable: Schema.Record(Schema.String, Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     build: Schema.Struct({ target: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+    resolver: Schema.Struct({ 'feature-unification': Schema.optionalKey(Unification) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
 }).annotate({
-    description: 'The [env], [unstable], and [build] tables of a Cargo configuration file, an [env] value with relative = true and a build.target spec file resolving against the folder holding its .cargo folder',
+    description: 'The [env], [unstable], [build], and [resolver] tables of a Cargo configuration file, an [env] value with relative = true and a build.target spec file resolving against the folder holding its .cargo folder',
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -97,15 +100,21 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
     const found = (stems: readonly string[]) => above(root).flatMap((at) => stems.map((stem) => posix.join(at, stem)).filter((file) => files.has(file)));
     const settings = found(SETTINGS);
-    const [{ profile }, host, denied, layers, exported] = yield* Effect.all(
+    const [{ profile }, host, denied, layers, exported, resolving, gated] = yield* Effect.all(
         [
             toml(Profiles, join(metadata.workspace_root, MANIFEST)),
             Effect.map(spawned(['rustc', '--print', 'host-tuple'], { cwd: metadata.workspace_root }), String.trim),
             Effect.transposeOption(Option.map(nearest(files, root, DENY.config), (file) => Effect.map(toml(Table, join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
             Effect.forEach(settings, (file) => toml(Settings, join(workspaceRoot, file)), { concurrency: 'unbounded' }),
             Config.option(Config.String('CARGO_BUILD_TARGET')),
+            Config.option(Config.Literals(Unification.literals, 'CARGO_RESOLVER_FEATURE_UNIFICATION')),
+            Config.option(Config.Boolean('CARGO_UNSTABLE_FEATURE_UNIFICATION')),
         ],
         { concurrency: 'unbounded' },
+    );
+    const enabled = Option.contains(
+        Option.orElse(gated, () => Array.findFirst(layers, ({ unstable }) => Record.get(unstable, 'feature-unification'))),
+        true,
     );
     const configured = Array.findFirst(Array.zip(settings, layers), ([file, { build }]) => Option.map(Option.fromUndefinedOr(build.target), (targets) => ({ targets: Array.ensure(targets), from: join(workspaceRoot, posix.dirname(posix.dirname(file))) })));
     const chosen = Option.orElse(
@@ -127,6 +136,10 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
         configs: found(CONFIG),
         clippy: Option.toArray(Option.map(clippy, (at) => normalizePath(relative(workspaceRoot, at)) || '.')),
         unstable: Array.dedupe(layers.flatMap(({ unstable }) => Record.keys(unstable))),
+        unification: Option.orElse(resolving, () => Array.findFirst(layers, ({ resolver }) => Option.fromUndefinedOr(resolver['feature-unification']))).pipe(
+            Option.filter(() => enabled),
+            Option.getOrElse((): typeof Unification.Type => 'selected'),
+        ),
         layouts,
         deny: Option.toArray(denied),
     };
@@ -151,7 +164,7 @@ const placed = (workspaceRoot: string) => ({ stored: (reading: Reading) => moved
 
 const variable = (key: string) => key.toUpperCase().replaceAll(/[-.]/gu, '_');
 
-const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, layouts, deny }: Reading, files: ReadonlySet<string>) => {
+const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, unification, layouts, deny }: Reading, files: ReadonlySet<string>) => {
     const within = (at: string) => normalizePath(relative(workspaceRoot, at)) || '.';
     const inside = (at: string) => Option.liftPredicate(within(at), (folder) => !(folder.startsWith('..') || isAbsolute(folder)));
     const root = within(metadata.workspace_root);
@@ -185,6 +198,8 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
             return [...included.map((at) => tokened(posix.join(at, '**/*'))), ...excluded.map((at) => `!${tokened(posix.join(at, '**/*'))}`)];
         }),
         configs: configs.map(tokened),
+        unification,
+        unified: unification === 'workspace' ? crates.map(({ manifest }) => tokened(manifest)) : [],
         compiler: [
             ...COMPILER,
             ...(
@@ -193,6 +208,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
                     [Array.dedupe([host, ...layouts.flatMap(({ folder }) => folder)]).map((triple) => `TARGET_${variable(triple)}`), KEYS.TARGET],
                     [[...PROFILES, ...profiles].map((name) => `PROFILE_${variable(name)}`), KEYS.PROFILE],
                     [['UNSTABLE'], unstable.map(variable)],
+                    [['RESOLVER'], KEYS.RESOLVER],
                 ] as const
             ).flatMap(([scopes, keys]) => Array.cartesianWith(scopes, keys, (scope, key) => `CARGO_${scope}_${key}`)),
         ],
@@ -221,4 +237,4 @@ const run = runner(Links.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ACTIONS, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, MANIFEST, type Member, NEXTEST, parsed, PLUGIN, placed, type Reading, resolved, run, Table, Target, tokened, toml, type Workspace, workspaces };
+export { ACTIONS, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, MANIFEST, type Member, NEXTEST, parsed, PLUGIN, placed, type Reading, resolved, run, Table, Target, tokened, toml, Unification, type Workspace, workspaces };

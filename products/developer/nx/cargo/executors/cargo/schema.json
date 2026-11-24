@@ -122,6 +122,11 @@
             "type": "string",
             "description": "Package the task selects, passed to cargo as a package ID spec"
         },
+        "unification": {
+            "type": "string",
+            "enum": ["selected", "workspace", "package"],
+            "description": "Cargo resolver.feature-unification of the workspace, a batch running each task of selected, which unifies features over every package one invocation selects, in a cargo process of its own"
+        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, appended after the configured arguments",
@@ -142,7 +147,7 @@
             }
         }
     },
-    "required": ["cwd", "commands"],
+    "required": ["cwd", "commands", "unification"],
     "additionalProperties": true,
     "title": "Cargo",
     "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by the compiler messages of its own package, or by the exit status where the command prints none"

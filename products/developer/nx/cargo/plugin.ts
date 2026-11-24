@@ -1,7 +1,7 @@
 import { dirname, join, posix } from 'node:path';
 import { arch, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { anchored, fingerprinted, inferring, manifested } from '@rasm/nx-distribution/inference';
 import { Array, Config, Effect, identity, Option, Record, String, Struct } from 'effect';
 import { crateInputs, Options, projectTargets, released } from '#/targets';
@@ -9,9 +9,9 @@ import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, ty
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FILES = combineGlobPatterns([MANIFEST, ...CONFIG, ...CLIPPY, NEXTEST, ...Object.values(DENY).flat()].map((file) => `**/${file}`));
+const CONFIGURED = [...CONFIG, ...CLIPPY, NEXTEST, ...Object.values(DENY).flat()].map((file) => `**/${file}`);
 const LAYOUT = ['src/{main,lib}.rs', '{src/bin,examples,tests,benches}/{*.rs,*/main.rs}', 'build.rs', '{README,README.md,README.txt}'] as const;
-const PLACED = ['CARGO_TARGET_DIR', 'CARGO_BUILD_TARGET_DIR', 'CARGO_BUILD_TARGET'] as const;
+const VARIABLES = ['CARGO_TARGET_DIR', 'CARGO_BUILD_TARGET_DIR', 'CARGO_BUILD_TARGET', 'CARGO_RESOLVER_FEATURE_UNIFICATION', 'CARGO_UNSTABLE_FEATURE_UNIFICATION'] as const;
 const OWN = fingerprinted(import.meta.dirname);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -44,20 +44,24 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, { cov
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes = [
-    FILES,
-    inferring(Options, run, function* (matched, settings, context) {
+    `**/${MANIFEST}`,
+    inferring(Options, run, function* (manifests, settings, context) {
         const { workspaceRoot } = context;
-        const files = new Set(matched);
         const listed = anchored(workspaceRoot);
-        const manifests = matched.filter((file) => posix.basename(file) === MANIFEST);
         const cache = new PluginCache<{ readonly digest: string; readonly readings: readonly Reading[] }>(join(workspaceDataDirectory, 'cargo.hash'));
         const { stored, loaded } = placed(workspaceRoot);
-        const [content, laid, targeted] = yield* Effect.all(
-            [Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched])), Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(posix.dirname), LAYOUT, posix.join))), Effect.forEach(PLACED, (name) => Config.String(name).pipe(Config.withDefault('')))],
+        const [content, configured, laid, stated] = yield* Effect.all(
+            [
+                Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...manifests, ...CONFIGURED])),
+                Effect.promise(() => globWithWorkspaceContext(workspaceRoot, CONFIGURED)),
+                Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(posix.dirname), LAYOUT, posix.join))),
+                Effect.forEach(VARIABLES, (name) => Config.String(name).pipe(Config.withDefault(''))),
+            ],
             { concurrency: 'unbounded' },
         );
-        const digest = hashArray([content, ...laid, ...targeted, platform, arch, yield* OWN]);
-        const hit = Option.filter(Option.fromNullishOr(cache.get(FILES)), (held) => held.digest === digest);
+        const files = new Set([...manifests, ...configured]);
+        const digest = hashArray([content, ...laid, ...stated, platform, arch, yield* OWN]);
+        const hit = Option.filter(Option.fromNullishOr(cache.get(MANIFEST)), (held) => held.digest === digest);
         const [readings, failures] = yield* Option.match(hit, {
             onNone: () => Effect.map(workspaces(workspaceRoot, manifests, files), (read) => Array.partition(read, identity)),
             onSome: (held) => Effect.succeed([held.readings.map(loaded), Array.empty<[string, Error]>()] as const),
@@ -65,7 +69,7 @@ const createNodes: CreateNodes = [
         yield* failures.length > 0 || Option.isSome(hit)
             ? Effect.void
             : Effect.sync(() => {
-                  cache.set(FILES, { digest, readings: readings.map(stored) });
+                  cache.set(MANIFEST, { digest, readings: readings.map(stored) });
                   cache.writeToDisk();
               });
         const resolutions = readings.map((reading) => resolved(workspaceRoot, reading, files));
