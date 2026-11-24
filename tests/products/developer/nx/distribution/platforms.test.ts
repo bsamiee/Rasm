@@ -35,14 +35,14 @@ describe('platforms a host runs on', () => {
     });
 
     it.for([
-        { case: 'on PATH', scripts: { blender: 'exit 0' }, installs: true },
-        { case: 'absent', scripts: {}, installs: false },
-    ])('infers install--blender where blender is $case', async ({ scripts, installs }, { workspace }) => {
+        { case: 'on PATH', scripts: { blender: 'exit 0' } },
+        { case: 'absent', scripts: {} },
+    ])('infers install--blender alike where blender is $case', async ({ scripts }, { workspace }) => {
         host.platform = 'darwin';
         pathed(join(workspace.root, '.bin'), scripts);
         const graph = await workspace.write({ 'tools/blender_manifest.toml': 'schema_version = "1.0.0"\nid = "marker_tools"\nversion = "1.2.3"\n' }).graph({ createNodes });
 
-        expect('install--blender' in (graph.nodes['marker_tools']?.data.targets ?? {})).toBe(installs);
+        expect('install--blender' in (graph.nodes['marker_tools']?.data.targets ?? {})).toBe(true);
     });
 
     it('installs an Adobe plug-in after its other builds and without packing it', async ({ workspace }) => {

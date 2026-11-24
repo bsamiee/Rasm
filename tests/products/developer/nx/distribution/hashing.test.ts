@@ -67,6 +67,7 @@ describe('task hashes', () => {
         { task: 'Game:build--unreal', edited: { 'Engine/Engine/Build/Build.version': '{ "MajorVersion": 5, "MinorVersion": 6, "PatchVersion": 1 }\n' }, changes: true },
         { task: 'Marker:build--unreal', edited: { 'Game/Game.uproject': '{ "FileVersion": 3, "EngineAssociation": "../Engine2", "Description": "Game", "Plugins": [{ "Name": "Marker", "Enabled": true }] }\n' }, changes: true },
         { task: 'Marker:build--unreal', edited: { 'Game/Game.uproject': '{ "FileVersion": 3, "EngineAssociation": "../Engine", "Description": "Shooter", "Plugins": [{ "Name": "Marker", "Enabled": true }] }\n' }, changes: false },
+        { task: 'Marker:test--unreal', edited: { 'Game/Source/Game/Game.cpp': '#include "Game.h"\n' }, changes: true },
     ])('$task hash changes ($changes) after editing $edited', async ({ task, base = {}, edited, changes }, { workspace }) => {
         shimmed(join(workspace.root, '.bin'), { uv: 'echo 0f1e2d' });
         const before = await hashed(workspace, await workspace.write({ ...files, ...base }).graph({ createNodes }), task);

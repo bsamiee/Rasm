@@ -101,7 +101,7 @@ Nx remote cache and Actions caches per workflow and machine:
 - Swift targets hash compiler version and platform, as `swift --version` adds the macOS version of its host, which a runner and a Mac differ in
 - Xcode targets hash the SwiftPM targets their linked package products reach alone, so other Swift changes leave an app's result cached
 - Nx sets no remote cache timeout and stops a run on a read answered other than 200 or 404 or left unconnected, and no setting overrides the stop
-- `@rasm/nx-distribution` reads the cache server with its token once before each `nx` run's tasks, outside any task
+- `@rasm/nx-distribution` reads the cache server with its token once before the tasks of each `nx` run that uses the remote cache, outside any task
 - Reads answered other than 200 or 404, refused, or past option `remoteCacheTimeout` print one warning and empty `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`
 - Nx stores nothing and reports no error for a write answered 403 or 409, and fails a task after 6 attempts of any other failed write
 

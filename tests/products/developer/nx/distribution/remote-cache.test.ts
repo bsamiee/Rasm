@@ -8,6 +8,7 @@ import { describe, expect, test, vi } from 'vitest';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const [server, token] = ['NX_SELF_HOSTED_REMOTE_CACHE_SERVER', 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN'] as const;
+const uncached = ['NX_SKIP_NX_CACHE', 'NX_DISABLE_NX_CACHE', 'NX_SKIP_REMOTE_CACHE', 'NX_DISABLE_REMOTE_CACHE'] as const;
 const context: PreTasksExecutionContext = { id: 'run-7f3a', workspaceRoot: '.', nxJsonConfiguration: {}, argv: ['node', 'nx', 'run-many', '--targets=build'] };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -17,6 +18,9 @@ const it = test
         const warn = vi.spyOn(console, 'warn').mockReturnValue(undefined);
         vi.stubEnv('NX_TASK_TARGET_PROJECT', undefined);
         vi.stubEnv('GITHUB_ACTIONS', undefined);
+        uncached.forEach((name) => {
+            vi.stubEnv(name, undefined);
+        });
         vi.stubEnv(token, 'held-token');
         onCleanup(() => {
             warn.mockRestore();
@@ -92,5 +96,29 @@ describe('remote cache read before a run', () => {
         await preTasksExecution({ remoteCacheTimeout: '10 seconds' }, context);
 
         expect([requests, env[server], warned.mock.calls]).toStrictEqual([[], address, []]);
+    });
+
+    it.for([
+        { case: 'NX_SKIP_NX_CACHE', variables: { NX_SKIP_NX_CACHE: 'true' }, flags: [] },
+        { case: 'NX_DISABLE_REMOTE_CACHE', variables: { NX_DISABLE_REMOTE_CACHE: 'true' }, flags: [] },
+        { case: '--skip-nx-cache', variables: {}, flags: ['--skip-nx-cache'] },
+        { case: '--skipRemoteCache', variables: {}, flags: ['--skipRemoteCache'] },
+    ])('sends no read for a run $case keeps off the cache', async ({ variables, flags }, { cache, warned }) => {
+        const { address, requests } = await cache(Function.constant(Option.some(500)));
+        Object.entries(variables).forEach(([name, value]) => {
+            vi.stubEnv(name, value);
+        });
+
+        await preTasksExecution({ remoteCacheTimeout: '10 seconds' }, { ...context, argv: [...context.argv, ...flags] });
+
+        expect([requests, env[server], warned.mock.calls]).toStrictEqual([[], address, []]);
+    });
+
+    it('reads where --skip-nx-cache follows -- as words for the executor', async ({ cache, warned }) => {
+        const { requests } = await cache(Function.constant(Option.some(404)));
+
+        await preTasksExecution({ remoteCacheTimeout: '10 seconds' }, { ...context, argv: [...context.argv, '--', '--skip-nx-cache'] });
+
+        expect([requests, warned.mock.calls]).toStrictEqual([['GET /v1/cache/run-7f3a'], []]);
     });
 });

@@ -60,12 +60,10 @@
         "effect": "catalog:",
         "jsonc-parser": "catalog:",
         "minimatch": "catalog:",
-        "which": "catalog:",
         "yaml": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",
-        "@types/which": "catalog:",
         "nx": "catalog:"
     },
     "peerDependencies": {

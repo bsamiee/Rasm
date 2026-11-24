@@ -1834,9 +1834,6 @@ importers:
       minimatch:
         specifier: 'catalog:'
         version: 11.0.9
-      which:
-        specifier: 'catalog:'
-        version: 7.0.0
       yaml:
         specifier: 'catalog:'
         version: 3.0.0-2
@@ -1844,9 +1841,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-      '@types/which':
-        specifier: 'catalog:'
-        version: 3.0.4
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.2

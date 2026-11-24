@@ -1,11 +1,11 @@
 import { join, posix } from 'node:path';
 import process, { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, type PostTasksExecution, type PostTasksExecutionContext, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type Task, type TaskResult } from '@nx/devkit';
 import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Config, DateTime, Duration, Effect, FileSystem, Formatter, Function, Option, Order, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Config, DateTime, Duration, Effect, FileSystem, Formatter, Function, Option, Order, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
-import which from 'which';
 import { type Fields, FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
 import { above, aggregated, anchored, EXEC, Folder, inferring, manifested, namedInput, run, type Stated, tagged, type Verbs } from '#/inference';
 
@@ -27,6 +27,7 @@ interface Declared {
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const SERVER = 'NX_SELF_HOSTED_REMOTE_CACHE_SERVER';
+const UNCACHED = { flags: ['skip-nx-cache', 'skipNxCache', 'skip-remote-cache', 'skipRemoteCache'], variables: ['NX_SKIP_NX_CACHE', 'NX_DISABLE_NX_CACHE', 'NX_SKIP_REMOTE_CACHE', 'NX_DISABLE_REMOTE_CACHE'] } as const;
 const RECORD = { file: 'task-cache.jsonl', bound: 1_048_576, slowest: 5 } as const;
 const OUTCOMES: Readonly<Record<TaskResult['status'], { readonly kind: 'local' | 'remote' | 'missed' | 'none'; readonly failed: boolean }>> = {
     'local-cache': { kind: 'local', failed: false },
@@ -54,10 +55,18 @@ const ROOT: Verbs = {
             executor: `${PLUGIN}:clean`,
             dependsOn: [{ projects: '*', target: 'clean--!(mise)', params: 'forward' }],
             options: { folders: [['ARTIFACTS_DIR']] },
-            configurations: { cache: { commands: [['mise', 'prune', '--yes']], folders: [['CACHE_DIR']] } },
+            configurations: {
+                cache: {
+                    commands: [
+                        ['mise', 'prune', '--yes'],
+                        ['nx', 'reset', '--only-cache'],
+                    ],
+                    folders: [['CACHE_DIR']],
+                },
+            },
             inputs: UNSTATED,
             metadata: {
-                description: `Empties the folder ARTIFACTS_DIR of ${MISE} names once every other clean target ran, and under configuration cache runs mise prune and empties the folder CACHE_DIR names but the entry holding Nx workspace data`,
+                description: `Empties the folder ARTIFACTS_DIR of ${MISE} names once every other clean target ran, and under configuration cache runs mise prune, empties the Nx task cache with nx reset --only-cache, and empties the folder CACHE_DIR names but the entry holding Nx workspace data`,
                 help: { command: 'mise prune --help', example: { options: { folders: [['ARTIFACTS_DIR']] } } },
             },
         },
@@ -82,7 +91,7 @@ class Options extends Schema.Opaque<Options, unknown>()(
         remoteCacheTimeout: Schema.optionalKey(Schema.DurationFromString),
     }).annotate({
         description:
-            'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN, Chrome: CHROME_WEB_STORE_TOKEN, an OAuth access token of scope chromewebstore beside CHROME_WEB_STORE_PUBLISHER naming the publisher), a publish whose variable is unset naming it and succeeding. remoteCacheTimeout: longest wait, as a number and a unit (5 seconds), for the answer to the one read each nx run no task started sends the remote cache server before its tasks, a read answered other than 200 or 404, refused, or unanswered that long printing one warning and emptying NX_SELF_HOSTED_REMOTE_CACHE_SERVER for that run, absent waits without bound',
+            'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN, Chrome: CHROME_WEB_STORE_TOKEN, an OAuth access token of scope chromewebstore beside CHROME_WEB_STORE_PUBLISHER naming the publisher), a publish whose variable is unset naming it and succeeding. remoteCacheTimeout: longest wait, as a number and a unit (5 seconds), for the answer to the one read each nx run no task started sends the remote cache server before its tasks, where neither --skip-nx-cache, --skip-remote-cache, nor their NX_SKIP_* and NX_DISABLE_* variables keep the run off that cache, a read answered other than 200 or 404, refused, or unanswered that long printing one warning and emptying NX_SELF_HOSTED_REMOTE_CACHE_SERVER for that run, absent waits without bound',
     }),
 ) {}
 
@@ -139,29 +148,18 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
         { concurrency: 'unbounded' },
     );
     const matched = Array.getSomes(held);
-    const local = Array.dedupe(matched.map(({ host }) => host)).filter(({ platforms = [platform] }) => platforms.includes(platform));
-    const installing = yield* Effect.filter(local, ({ install }) =>
-        UndefinedOr.match(install?.executable, {
-            onUndefined: () => Effect.succeed(true),
-            onDefined: (name) =>
-                Effect.map(
-                    Effect.promise(() => which(name, { nothrow: true })),
-                    Predicate.isNotNull,
-                ),
-        }),
-    );
+    const local = new Set(matched.map(({ host }) => host).filter(({ platforms = [platform] }) => platforms.includes(platform)));
     const one = Effect.fnUntraced(function* ({ file, host, fields }: (typeof matched)[number]) {
         const root = posix.join(file, posix.relative(host.manifest, '.'));
         const lock = Option.map(yield* Effect.findFirst(Array.cartesianWith(above(root), Array.fromNullishOr(host.build?.lock), posix.join), (at) => fs.exists(join(workspaceRoot, at))), (at) => ({ lock: at }));
-        const stamp = local.includes(host) && host.engine !== undefined ? yield* host.engine.stamp(join(workspaceRoot, file)) : Option.none<string>();
-        const engined = local.includes(host) && (host.engine === undefined || Option.isSome(stamp));
+        const stamp = local.has(host) && host.engine !== undefined ? yield* host.engine.stamp(join(workspaceRoot, file)) : Option.none<string>();
+        const engined = local.has(host) && (host.engine === undefined || Option.isSome(stamp));
         const stated = yield* manifested(workspaceRoot, root);
-        const withheld: readonly ((typeof WITHHELD)[number] | 'install')[] = [...(engined ? [] : WITHHELD), ...(installing.includes(host) ? [] : (['install'] as const))];
         const dependents = Option.getOrElse(
             Option.flatMap(Record.get(named, root), (name) => Option.map(Record.get(requiring, name), Array.map(Struct.get('name')))),
             Array.empty<string>,
         );
-        return { file, root, named: namedInput(root, context), fields, host: Struct.omit(host, withheld), engines: Option.toArray(stamp), stated, dependents, ...Option.getOrUndefined(lock) } satisfies Declared;
+        return { file, root, named: namedInput(root, context), fields, host: engined ? host : Struct.omit(host, WITHHELD), engines: Option.toArray(stamp), stated, dependents, ...Option.getOrUndefined(lock) } satisfies Declared;
     });
     const [declared, refused] = yield* Effect.partition(matched, (row) => Effect.mapError(one(row), (error): [string, Error] => [row.file, error]), { concurrency: 'unbounded' });
     return { declared, failures: [...undecoded, ...unread, ...refused] };
@@ -197,7 +195,7 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
             { externalDependencies: [] },
         ];
         const engined: NonNullable<TargetConfiguration['inputs']> = [...inputs, ...hosting.map((other) => UndefinedOr.match(other.host.engine, { onUndefined: () => `{workspaceRoot}/${other.file}`, onDefined: ({ fields }) => ({ json: `{workspaceRoot}/${other.file}`, fields: [...fields] }) }))];
-        const loaded: NonNullable<TargetConfiguration['inputs']> = [...inputs, ...hosting.map((other) => `{workspaceRoot}/${other.file}`)];
+        const loaded: NonNullable<TargetConfiguration['inputs']> = [...inputs, ...hosting.map((other) => ({ input: other.named, projects: other.fields.name }))];
         const required = Array.match(
             uses(item).filter((other) => !hosts(other).includes(item)),
             { onEmpty: () => [], onNonEmpty: (needed) => [{ projects: needed.map((other) => other.fields.name), target: 'install' }] },
@@ -405,19 +403,21 @@ const createNodes: CreateNodes = [
     }),
 ];
 
-const preTasksExecution: PreTasksExecution = (options, { id }) =>
+const preTasksExecution: PreTasksExecution = (options, { id, argv }) =>
     run(
         Effect.gen(function* () {
-            const [{ remoteCacheTimeout = Duration.infinity }, server, nested, token, annotated] = yield* Effect.all([
+            const [{ remoteCacheTimeout = Duration.infinity }, server, nested, token, annotated, uncached] = yield* Effect.all([
                 Schema.decodeEffect(Options)(options ?? {}),
                 Config.option(Config.String(SERVER)),
                 Config.option(Config.String('NX_TASK_TARGET_PROJECT')),
                 Config.option(Config.Redacted('NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN')),
                 Config.withDefault(Config.Boolean('GITHUB_ACTIONS'), false),
+                Config.all(UNCACHED.variables.map((name) => Config.withDefault(Config.Boolean(name), false))),
             ]);
+            const { values } = parseArgs({ args: argv.slice(2), strict: false, allowPositionals: true, allowNegative: true, options: Record.fromIterableWith(UNCACHED.flags, (flag) => [flag, { type: 'boolean' }] as const) });
             const authorized = Option.match(token, { onNone: () => Function.identity<HttpClientRequest.HttpClientRequest>, onSome: (held) => HttpClientRequest.bearerToken(held) });
             const [, refused] = yield* Effect.partition(
-                Option.toArray(server).filter((url) => String.isNonEmpty(url) && Option.isNone(nested)),
+                Option.toArray(server).filter((url) => String.isNonEmpty(url) && Option.isNone(nested) && !uncached.includes(true) && !UNCACHED.flags.some((flag) => values[flag] === true)),
                 (url) =>
                     HttpClient.execute(authorized(HttpClientRequest.get(`${url}/v1/cache/${id}`, { accept: 'application/octet-stream' }))).pipe(
                         Effect.flatMap(HttpClientResponse.filterStatus((status) => status === 200 || status === 404)),

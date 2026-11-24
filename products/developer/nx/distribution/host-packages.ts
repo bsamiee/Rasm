@@ -66,7 +66,7 @@ interface Host {
         readonly outputs?: (fields: Fields) => readonly string[];
         readonly pack?: (folder: Found, file: string, words: readonly string[]) => Step;
     };
-    readonly install?: { readonly command: string; readonly help?: string; readonly executable?: string; readonly platforms?: readonly string[]; readonly unpacked?: true; readonly run: (found: Found, words: readonly string[]) => Step };
+    readonly install?: { readonly command: string; readonly help?: string; readonly platforms?: readonly string[]; readonly unpacked?: true; readonly run: (found: Found, words: readonly string[]) => Step };
     readonly publish?: { readonly store: string; readonly command: string; readonly credential: string; readonly held: (found: Found, store: string, token: string) => Stored<boolean>; readonly push: (found: Found, store: string, token: string, words: readonly string[]) => Stored<Option.Option<string>> };
 }
 
@@ -270,7 +270,6 @@ const HOSTS: readonly Host[] = [
         install: {
             command: 'blender --command extension install-file',
             help: 'blender --command extension install-file --help',
-            executable: 'blender',
             run: ({ at, name }, words) =>
                 Effect.flatMap(spawned(['blender', '--command', 'extension', 'install-file', '--repo', 'user_default', '--enable', at, ...words], { stdout: 'pipe' }), (stdout) =>
                     new RegExp(`^STATUS (Installed|Reinstalled) "${RegExp.escape(name)}"$`, 'mu').test(stdout) ? Effect.void : Effect.fail(new Cause.UnknownError(stdout, `${at}: blender exited 0 without installing it: ${stdout.trim()}`)),
