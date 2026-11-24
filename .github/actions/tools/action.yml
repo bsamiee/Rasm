@@ -1,5 +1,5 @@
 name: Tools
-description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, places rustup and cargo homes inside the cached mise folder on GitHub-hosted runners, restores there the MSBuild analyzer and on macOS the Apple analyzer with mise freshness state by analyzer sources, saving a new entry where the mise file holding its row changed, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose postinstall hook installs project dependencies, on GitHub-hosted runners under mise profile ci, the tools hosted jobs run and pnpm packages alone, and exports mise env
+description: Installs the mise tools and project dependencies a job needs, restoring cached analyzers on GitHub-hosted runners, and exports mise env
 
 runs:
     using: composite
