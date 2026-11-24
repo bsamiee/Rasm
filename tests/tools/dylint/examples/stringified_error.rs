@@ -12,10 +12,10 @@
     )
 )]
 
-use core::fmt;
 use core::hint::black_box;
 use core::marker::PhantomData;
 use core::num::ParseIntError;
+use core::{assert_matches, debug_assert_matches, fmt};
 use std::collections::BTreeSet;
 use std::io;
 
@@ -135,6 +135,11 @@ fn fallback(error: &ParseIntError, label: &str) -> String {
 fn equal(error: &ParseIntError) -> bool { error.to_string() == "invalid digit found in string" } //~ stringified_error
 
 fn asserted(error: &ParseIntError) { assert_eq!(error.to_string(), "invalid digit found in string") } //~ stringified_error match the error's variant
+
+fn guarded(error: &ParseIntError) {
+    assert_matches!(Some(error), Some(cause) if cause.to_string() == "invalid digit found in string"); //~ stringified_error match the error's variant
+    debug_assert_matches!(Some(error), Some(cause) if cause.to_string().contains("digit")); //~ stringified_error match the error's variant
+}
 
 fn contained(error: &io::Error) -> bool { ToString::to_string(error).contains("denied") } //~ stringified_error
 
@@ -325,7 +330,7 @@ fn main() {
     black_box(&(ports, checks, boundaries, texts, refused(String::new()).attempts, fast(Mode::Fast), labeled(Mode::Fast, true), Failure::new(" ").message));
     black_box(&(futures::executor::block_on(confirmed(format!("Delete {text}?"))), checked(format!("Delete {text}?"), false)));
     black_box(error.as_ref().map(relayed_comparison));
-    black_box(error.as_ref().map(asserted));
+    black_box(error.as_ref().map(|error| (asserted(error), guarded(error))));
     black_box((padded(text, 8), error.as_ref().map(|error| (viewed_formatters(error), invoked_formatter(error)))));
     black_box((error.as_ref().map(|error| boundary(error, 0)), checked(format!("Delete {}?", attempt.count), false)));
     black_box(error.as_ref().map(|error| (closure_stored(error), closure_viewed(error), mixed_error(error))));

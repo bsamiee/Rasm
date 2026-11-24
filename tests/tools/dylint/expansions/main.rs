@@ -1,3 +1,5 @@
+#![feature(deref_patterns)]
+
 use core::future::ready;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -26,8 +28,8 @@ mod macro_matching;
 
 mod error_assertions {
     use core::error::Error;
-    use core::fmt;
     use core::hint::black_box;
+    use core::{assert_matches, debug_assert_matches, fmt};
 
     use anyhow::Context as _;
 
@@ -54,6 +56,15 @@ mod error_assertions {
         assert!(matches!(Some(&error), Some(cause) if cause.to_string().contains("formatting")));
         assert_eq!(error.to_string(), "an error occurred when formatting an argument");
         assert_ne!(error.to_string(), "");
+    }
+
+    #[test]
+    fn matched_error_text() {
+        let error = fmt::Error;
+        assert_matches!(Some(&error), Some(cause) if cause.to_string() == "an error occurred when formatting an argument");
+        assert_matches!(Some(&error), Some(cause) if cause.to_string().contains("formatting"), "the cause of {error:?}");
+        debug_assert_matches!(Some(&error), Some(cause) if !cause.to_string().is_empty() && cause.to_string().ends_with("argument"));
+        assert_matches!(error.to_string(), "an error occurred when formatting an argument");
     }
 
     #[test]

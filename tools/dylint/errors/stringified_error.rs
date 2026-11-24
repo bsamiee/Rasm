@@ -188,15 +188,14 @@ fn sink<'tcx>(cx: &LateContext<'tcx>, pass: &mut Pass<'tcx>, text: &'tcx Expr<'t
     fn operands(pass: &Pass<'_>, expr: &Expr<'_>) -> bool { matches!(expr.kind, ExprKind::Tup(_)) && macro_backtrace(expr.span).any(|call| pass.assertions.contains(&call.def_id)) }
 
     fn asserted(cx: &LateContext<'_>, pass: &Pass<'_>, comparison: &Expr<'_>) -> bool {
+        let relaying = |expr: &Expr<'_>| macro_backtrace(expr.span).any(|call| pass.assertions.contains(&call.def_id) || call.def_id.is_diag_item(cx, sym::matches_macro));
         if !pass.test_target && !in_test(cx.tcx, comparison.hir_id) {
             return false;
         }
         if operands(pass, comparison) || first_node_macro_backtrace(cx, comparison).any(|call| pass.assertions.contains(&call.def_id)) {
             return true;
         }
-        if matches!(comparison.kind, ExprKind::Let(_))
-            || matches!(comparison.kind, ExprKind::Match(..)) && !first_node_macro_backtrace(cx, comparison).any(|call| call.def_id.is_diag_item(cx, sym::matches_macro))
-        {
+        if matches!(comparison.kind, ExprKind::Let(_) | ExprKind::Match(..)) && !relaying(comparison) {
             return false;
         }
         let mut child = comparison.hir_id;
@@ -209,8 +208,7 @@ fn sink<'tcx>(cx: &LateContext<'tcx>, pass: &mut Pass<'tcx>, text: &'tcx Expr<'t
             let relayed = match node {
                 Node::Expr(Expr { kind: ExprKind::Binary(operator, ..), .. }) => matches!(operator.node, BinOpKind::And | BinOpKind::Or),
                 Node::Expr(Expr { kind: ExprKind::Unary(UnOp::Not, _) | ExprKind::DropTemps(_) | ExprKind::Block(..), .. }) => true,
-                Node::Expr(expr) if matches!(expr.kind, ExprKind::Match(..)) => first_node_macro_backtrace(cx, expr).any(|call| call.def_id.is_diag_item(cx, sym::matches_macro)),
-                Node::Expr(expr) if matches!(expr.kind, ExprKind::AddrOf(..) | ExprKind::Tup(_)) => macro_backtrace(expr.span).any(|call| pass.assertions.contains(&call.def_id)),
+                Node::Expr(expr) if matches!(expr.kind, ExprKind::Match(..) | ExprKind::AddrOf(..) | ExprKind::Tup(_)) => relaying(expr),
                 Node::Block(block) => block.expr.is_some_and(|tail| tail.hir_id == child),
                 Node::Arm(arm) => arm.guard.is_some_and(|guard| guard.hir_id == child),
                 _ => false,
