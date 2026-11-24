@@ -1,10 +1,10 @@
 import { posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { above, aggregated, PLATFORM, runner, type Verbs } from '@rasm/nx-distribution/inference';
+import { above, aggregated, PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Context, identity, Layer, Option, pipe, Record, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
+import { Array, identity, Option, pipe, Record, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -117,12 +117,6 @@ const Patterns = Schema.Struct({
     ),
 });
 const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns), cache_dir: Schema.optionalKey(Schema.String) }));
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Linked extends Context.Service<Linked, Map<string, readonly RawProjectGraphDependency[]>>()(`${PLUGIN}/targets/Linked`) {
-    static readonly layer = Layer.sync(Linked, () => new Map());
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -332,10 +326,6 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
     });
 };
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-const run = runner(Linked.layer);
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CHECKERS, CONFIGS, declared, Linked, Options, PIXI, PLUGIN, run, targets, UV };
+export { CHECKERS, CONFIGS, declared, Options, PIXI, PLUGIN, targets, UV };

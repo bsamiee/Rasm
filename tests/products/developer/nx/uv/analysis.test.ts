@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { createDependencies, createNodes } from '@rasm/nx-uv';
+import { createNodes } from '@rasm/nx-uv';
 import { refused } from '@rasm/testing/errors';
 import { it, pathed } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
@@ -23,20 +23,20 @@ const ADDED = {
 describe('uv workspace metadata', { timeout: 60_000 }, () => {
     it('answers from the cache while no file uv reads changes', async ({ workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
-        await workspace.graph({ createNodes, createDependencies });
+        await workspace.graph({ createNodes });
         pathed(join(workspace.root, '.bin'), {});
 
-        const graph = await workspace.graph({ createNodes, createDependencies });
+        const graph = await workspace.graph({ createNodes });
 
         expect(graph.nodes['library']?.data.root).toBe('nested/proj/library');
     });
 
     it('reads the workspace again once a lock below the Nx workspace root changes', async ({ workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
-        await workspace.graph({ createNodes, createDependencies });
+        await workspace.graph({ createNodes });
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(ADDED).root, 'nested/proj') });
 
-        const graph = await workspace.graph({ createNodes, createDependencies });
+        const graph = await workspace.graph({ createNodes });
 
         expect(graph.nodes['added']?.data.root).toBe('nested/proj/added');
     });
@@ -47,10 +47,10 @@ describe('uv workspace metadata', { timeout: 60_000 }, () => {
         { file: '.python-versions', content: '3.13\n' },
     ])('reads the workspace again once $file appears at the uv root', async ({ file, content }, { workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
-        await workspace.graph({ createNodes, createDependencies });
+        await workspace.graph({ createNodes });
         pathed(join(workspace.write({ [`nested/proj/${file}`]: content }).root, '.bin'), {});
 
-        const graphed = workspace.graph({ createNodes, createDependencies });
+        const graphed = workspace.graph({ createNodes });
 
         await expect(graphed).rejects.toSatisfy(refused(/^uv workspace metadata .*cannot start: /u));
     });
@@ -59,7 +59,7 @@ describe('uv workspace metadata', { timeout: 60_000 }, () => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
         workspace.write({ 'broken/pyproject.toml': '[project\nname = ', 'broken/uv.lock': 'version = 1\n' });
 
-        const graphed = workspace.graph({ createNodes, createDependencies });
+        const graphed = workspace.graph({ createNodes });
 
         await expect(graphed).rejects.toSatisfy(refused(/^uv workspace metadata .* exits 2: error: Failed to parse: `?pyproject\.toml/u));
         await expect(graphed).rejects.toHaveProperty(['partialProjectConfigurationsResult', 'projects', 'nested/proj/library', 'name'], 'library');

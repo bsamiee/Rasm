@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { createDependencies, createNodes } from '@rasm/nx-uv';
+import { createNodes } from '@rasm/nx-uv';
 import { it, unaggregated } from '@rasm/testing/nx';
 import { Array, Record, Struct } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
@@ -39,7 +39,7 @@ const sourced = (folder: string) => ({ 'pyproject.toml': `[project]\nname = "uv-
 
 const built = async (root: string, cache: FileMapCache | null) => {
     resetWorkspaceContext();
-    const plugin = new LoadedNxPlugin({ name: 'plugin-under-test', createNodes, createDependencies }, { plugin: 'plugin-under-test' });
+    const plugin = new LoadedNxPlugin({ name: 'plugin-under-test', createNodes }, { plugin: 'plugin-under-test' });
     const read = await retrieveProjectConfigurations({ specifiedPlugins: [plugin], defaultPlugins: [] }, root, readNxJson(root));
     const { fileMap, rustReferences } = await retrieveWorkspaceFiles(root, read.projectRootMap);
     return buildProjectGraphUsingProjectFileMap(read.projects, read.externalNodes, fileMap, rustReferences, cache, [plugin], read.sourceMaps);
@@ -54,7 +54,7 @@ describe('files Nx hands the plugin', { timeout: 60_000 }, () => {
         locked(workspace.write({ ...MEMBERS, 'pixi.toml': '[workspace]\nchannels = ["conda-forge"]\nplatforms = ["osx-arm64"]\n', ...Record.fromEntries(placed) }).root);
 
         const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
-        const graph = await workspace.graph({ createNodes, createDependencies });
+        const graph = await workspace.graph({ createNodes });
 
         expect(matched.toSorted()).toStrictEqual(['proj/application/pyproject.toml', 'proj/internal/pyproject.toml', 'proj/library/pyproject.toml', 'proj/virtual/pyproject.toml', 'pyproject.toml', 'uv.lock']);
         expect('upgrade--pixi' in (graph.nodes['uv-tutorial']?.data.targets ?? {})).toBe(true);
@@ -65,7 +65,7 @@ describe('uv workspace members', { timeout: 60_000 }, () => {
     it('gives each member the delivery targets its manifest allows', async ({ workspace }) => {
         locked(workspace.write(MEMBERS).root);
 
-        const graph = await workspace.graph({ createNodes, createDependencies });
+        const graph = await workspace.graph({ createNodes });
 
         expect(
             Record.map(graph.nodes, ({ data: { targets = {}, tags = [] } }) => ({
@@ -91,7 +91,7 @@ describe('uv workspace members', { timeout: 60_000 }, () => {
         { case: 'a dependency added after locking', edit: { 'nested/proj/proj/library/pyproject.toml': `[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["internal"]\n\n[tool.uv.sources]\ninternal = { workspace = true }\n${BUILT}` }, success: false },
     ])('checks the lock of a nested workspace from its own folder, given $case', async ({ edit, success }, { workspace }) => {
         locked(workspace.write(Record.mapKeys(MEMBERS, (file) => `nested/proj/${file}`)).root, 'nested/proj');
-        const graph = await workspace.write(edit).graph({ createNodes, createDependencies });
+        const graph = await workspace.write(edit).graph({ createNodes });
 
         const result = await workspace.run(graph, 'uv-tutorial', 'check--uv');
 
@@ -107,9 +107,17 @@ describe('uv workspace members', { timeout: 60_000 }, () => {
             }).root,
         );
 
-        const graph = await workspace.graph({ createNodes, createDependencies });
+        const graph = await workspace.graph({ createNodes });
 
         expect(graph.dependencies['uv-tutorial']?.map(({ target }) => target)).toStrictEqual(['library']);
+    });
+
+    it('links a member to a dependency a project.json renames', async ({ workspace }) => {
+        locked(workspace.write({ ...MEMBERS, 'proj/library/project.json': '{ "name": "renamed" }' }).root);
+
+        const graph = await workspace.graph({ createNodes });
+
+        expect(graph.dependencies['application']?.map(({ target }) => target)).toStrictEqual(['renamed']);
     });
 
     it.for([

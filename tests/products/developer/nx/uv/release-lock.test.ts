@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join, normalize } from 'node:path';
 import { type ProjectGraph, readCachedProjectGraph } from '@nx/devkit';
 import { FsTree } from '@nx/devkit/internal';
-import { createDependencies, createNodes } from '@rasm/nx-uv';
+import { createNodes } from '@rasm/nx-uv';
 import UvVersionActions, { afterAllProjectsVersioned } from '@rasm/nx-uv/release/version-actions';
 import { it } from '@rasm/testing/nx';
 import { assert, describe, expect, vi } from 'vitest';
@@ -32,7 +32,7 @@ const LINKED = {
 describe('readDependencies', { timeout: 60_000 }, () => {
     it('reports the members the manifest of a member names, as uv export lists them, and none a project.json alone declares', async ({ workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(LINKED).root });
-        const graph = await workspace.graph({ createNodes, createDependencies });
+        const graph = await workspace.graph({ createNodes });
         const node = graph.nodes['application'];
         assert(node !== undefined, 'application is a node of the graph');
         const tree = new FsTree(workspace.root, false);
@@ -103,7 +103,7 @@ describe(afterAllProjectsVersioned, { timeout: 60_000 }, () => {
         { case: 'skipLockFileUpdate', version: '1.1.0', options: { dryRun: false, rootVersionActionsOptions: { skipLockFileUpdate: true } }, changed: [] },
     ])('relocks the uv workspace of each Python project and reports the lock it changed, given $case', async ({ version, options, changed }, { workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(WORKSPACE).root });
-        vi.mocked(readCachedProjectGraph).mockReturnValue(await workspace.graph({ createNodes, createDependencies }));
+        vi.mocked(readCachedProjectGraph).mockReturnValue(await workspace.graph({ createNodes }));
         const before = readFileSync(join(workspace.root, 'uv.lock'), 'utf-8');
         workspace.write({ 'packages/my-lib/pyproject.toml': WORKSPACE['packages/my-lib/pyproject.toml'].replace('1.0.0', version) });
 

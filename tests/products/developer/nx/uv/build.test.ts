@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { join, matchesGlob } from 'node:path';
-import { createDependencies, createNodes } from '@rasm/nx-uv';
+import { createNodes } from '@rasm/nx-uv';
 import { it } from '@rasm/testing/nx';
 import { Predicate } from 'effect';
 import { describe, expect, vi } from 'vitest';
@@ -26,7 +26,7 @@ describe('build--uv', { timeout: 60_000 }, () => {
         { case: 'outputPath', options: { outputPath: '.artifacts/uv/{projectName}' }, folder: '.artifacts/uv/my-lib/' },
     ])('writes the sdist and wheel of a member only to the outputs it declares, with $case', async ({ options, folder }, { workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(MEMBER).root });
-        const graph = await workspace.graph({ createNodes, createDependencies }, options);
+        const graph = await workspace.graph({ createNodes }, options);
         const before = workspace.files('tmp');
 
         const result = await workspace.run(graph, 'my-lib', 'build--uv');
@@ -44,7 +44,7 @@ describe('build--uv', { timeout: 60_000 }, () => {
 
     it('hashes every source file uv packs into the sdist, and no file it leaves out', async ({ workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(MEMBER).root });
-        const graph = await workspace.graph({ createNodes, createDependencies });
+        const graph = await workspace.graph({ createNodes });
         const sources = workspace.files();
         await workspace.run(graph, 'my-lib', 'build--uv');
 

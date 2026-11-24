@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { createDependencies, createNodes } from '@rasm/nx-uv';
+import { createNodes } from '@rasm/nx-uv';
 import { it, unportable } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
 
@@ -12,7 +12,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const uv = { createNodes, createDependencies };
+const uv = { createNodes };
 const BUILT = '\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n';
 const PYTHON = {
     'python/pyproject.toml': '[project]\nname = "root"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[dependency-groups]\ndev = ["pytest>=8", "pytest-cov"]\n\n[tool.uv.workspace]\nmembers = ["libs/app", "libs/middle", "libs/deep/core"]\n',

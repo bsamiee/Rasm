@@ -1,5 +1,5 @@
 import { join, posix, relative } from 'node:path';
-import { DependencyType, normalizePath, type RawProjectGraphDependency } from '@nx/devkit';
+import { normalizePath } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { above } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Equivalence, FileSystem, Glob, Graph, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
@@ -164,10 +164,12 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
             locals: named([...reach([member.id])]),
             python: project?.['requires-python'],
             published: packaged && project !== undefined && !(project.dynamic.includes('classifiers') || project.classifiers.some((classifier) => classifier.startsWith('Private ::'))),
-            edges: (owned[member.root] ?? [])
-                .filter(([id]) => resolution[id]?.name === member.name)
-                .flatMap(([id]) => Array.getSomes((resolution[id]?.dependencies ?? []).map(resolved)))
-                .map(({ root: target }): RawProjectGraphDependency => ({ source: member.root, target, type: DependencyType.implicit })),
+            linked: Array.dedupe(
+                (owned[member.root] ?? [])
+                    .filter(([id]) => resolution[id]?.name === member.name)
+                    .flatMap(([id]) => Array.getSomes((resolution[id]?.dependencies ?? []).map(resolved)))
+                    .map(({ root }) => root),
+            ),
             checks: Array.filterMap(nested ? [] : Record.toEntries(CHECKERS), ([key, row]) => {
                 const group = Array.findFirst(groups, offering(key));
                 const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });

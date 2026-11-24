@@ -1,9 +1,9 @@
 import { join, posix } from 'node:path';
-import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { above, fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Effect, MutableRef, Option, Record, Schema } from 'effect';
-import { CONFIGS, Linked, Options, PLUGIN, run, targets, UV } from '#/targets';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, hashArray, type ProjectConfiguration } from '@nx/devkit';
+import { combineGlobPatterns, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { above, fingerprinted, inferring, manifested, run, spawned } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Effect, MutableRef, Option, type Record, Schema } from 'effect';
+import { CONFIGS, Options, PLUGIN, targets, UV } from '#/targets';
 import { LOCK, located, MANIFEST, Metadata, SCHEMA } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -19,7 +19,7 @@ const Quoted = Schema.fromJsonString(Schema.String);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<{ readonly digest: string; readonly reply: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly files: ReadonlySet<string> }, { workspaceRoot }: CreateNodesContext, settings: Options, lock: string) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<{ readonly digest: string; readonly reply: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly files: ReadonlySet<string> }, { workspaceRoot }: CreateNodesContext, lock: string) {
     const token = '{workspaceRoot}';
     const folder = posix.dirname(lock);
     const parents = new Set(above(posix.dirname(folder)));
@@ -40,22 +40,7 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCach
         },
     );
     const { members, failures } = yield* located(workspaceRoot, pass.files, lock, metadata);
-    yield* Array.match(failures, { onEmpty: () => Effect.void, onNonEmpty: (errors) => Effect.fail(new Cause.UnknownError(errors, `${lock}: ${errors.map(({ message }) => message).join('; ')}`)) });
-    const links = yield* Linked;
-    links.set(workspaceRoot, [...(links.get(workspaceRoot) ?? []), ...members.flatMap(({ edges }) => edges)]);
-    const projects = yield* Effect.forEach(members, (member) =>
-        Effect.map(manifested(workspaceRoot, member.root), (stated): [string, ProjectConfiguration] => [
-            member.root,
-            {
-                root: member.root,
-                name: member.name,
-                metadata: { technologies: ['python'] },
-                ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock } } } }),
-                targets: targets(member, settings, stated, workspaceRoot),
-            },
-        ]),
-    );
-    return { projects: Record.fromEntries(projects) };
+    return yield* Array.match(failures, { onEmpty: () => Effect.succeed(members), onNonEmpty: (errors) => Effect.fail(new Cause.UnknownError(errors, `${lock}: ${errors.map(({ message }) => message).join('; ')}`)) });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -65,26 +50,39 @@ const createNodes: CreateNodes = [
     inferring(Options, run, function* (matched, settings, context) {
         const found = yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, FOUND));
         const pass = { cache: new PluginCache<{ readonly digest: string; readonly reply: string }>(join(workspaceDataDirectory, 'uv.hash')), stored: MutableRef.make(false), files: new Set([...matched, ...found]) };
-        const locks = matched.filter((file) => posix.basename(file) === LOCK);
-        (yield* Linked).delete(context.workspaceRoot);
-        return yield* Effect.ensuring(
-            Effect.promise(() => createNodesFromFiles((lock) => run(inferred(pass, context, settings, lock)), locks, settings, context)),
+        const [read, refused] = yield* Effect.ensuring(
+            Effect.partition(
+                matched.filter((file) => posix.basename(file) === LOCK),
+                (lock) => Effect.mapError(inferred(pass, context, lock), (error): [string, Error] => [lock, error]),
+                { concurrency: 'unbounded' },
+            ),
             Effect.when(
                 Effect.sync(() => pass.cache.writeToDisk()),
                 Effect.sync(() => MutableRef.get(pass.stored)),
             ),
         );
+        const members = read.flat();
+        const roots = new Set(members.map(({ root }) => root));
+        const stated = yield* Effect.forEach(members, ({ root }) => manifested(context.workspaceRoot, root), { concurrency: 'unbounded' });
+        const results = Array.zipWith(members, stated, (member, manifest): [string, { readonly projects: Record<string, ProjectConfiguration> }] => [
+            member.lock,
+            {
+                projects: {
+                    [member.root]: {
+                        root: member.root,
+                        name: member.name,
+                        metadata: { technologies: ['python'] },
+                        ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } }),
+                        implicitDependencies: member.linked.filter((root) => roots.has(root)).map((root) => `directory:${root}`),
+                        targets: targets(member, settings, manifest, context.workspaceRoot),
+                    },
+                },
+            },
+        ]);
+        return yield* Array.match(refused, { onEmpty: () => Effect.succeed(results), onNonEmpty: (errors) => Effect.fail(new AggregateCreateNodesError(errors, results)) });
     }),
 ];
 
-const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) =>
-    run(
-        Effect.map(Linked, (links) => {
-            const names = createProjectRootMappingsFromProjectConfigurations(projects);
-            return Array.getSomes((links.get(workspaceRoot) ?? []).map((edge) => Option.map(Option.all({ source: Option.fromUndefinedOr(names.get(edge.source)), target: Option.fromUndefinedOr(names.get(edge.target)) }), (named) => ({ ...edge, ...named }))));
-        }),
-    );
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createDependencies, createNodes };
+export { createNodes };

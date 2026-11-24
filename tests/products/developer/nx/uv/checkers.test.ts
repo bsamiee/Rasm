@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { env } from 'node:process';
 import type { ProjectGraph } from '@nx/devkit';
 import { readNxJsonFromDisk } from '@nx/devkit/internal';
-import { createDependencies, createNodes } from '@rasm/nx-uv';
+import { createNodes } from '@rasm/nx-uv';
 import { it, taskGraph, type Workspace } from '@rasm/testing/nx';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { assert, describe, expect, vi } from 'vitest';
@@ -12,7 +12,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const uv = { createNodes, createDependencies };
+const uv = { createNodes };
 const BUILT = '\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n';
 const LIBRARY = {
     'proj/library/pyproject.toml': `[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n${BUILT}`,
