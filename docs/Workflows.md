@@ -25,7 +25,7 @@ Workflow `CI` and its jobs:
 - `nx-set-shas` stops at the first commit with a successful push run, and each walked commit costs one API request
 - `max-commits` (150) covers a streak of failed CI runs on `main`, as each run walks back to the last commit with a successful run
 - Pushes to `main` run one at a time from one queue (`queue: max`), where no waiting run gives way to a newer push
-- Manual runs each take a concurrency group of their own, so no push waits for one
+- Manual runs each take a concurrency group of their own and share runner instances with pushes, whose jobs wait behind theirs there
 - `nx-set-shas` fails a run past the token's 1000 requests an hour, which seven runs walking to `max-commits` reach
 - Job `affected` runs on instance `graph`, as every other job waits for it and instance `host` holds a job behind job `linux` of an earlier run
 - `nx-set-shas` falls back to the first commit where no successful run is in reach, and every task runs, as default `HEAD~1` checks one commit
@@ -89,14 +89,11 @@ Nx remote cache and Actions caches per workflow and machine:
 - Past the 10 GB repository limit GitHub evicts caches by oldest last access
 - Action `jdx/mise-action` saves a GitHub-hosted job's tools after install, keyed by platform, profile, `mise.toml`, `mise.lock`, profile files, and `rust-toolchain.toml`
 - GitHub-hosted jobs hold rustup and cargo homes inside the mise folder that action caches, so a restored cache holds the Rust toolchain
-- Tool cache keys leave out OS and machine mise files, as those state environment, bootstrap, and dependency rows alone
-- Jobs on macOS restore the Apple analyzer, its stamp, and mise freshness state by runner image, `mise.macos.toml`, and analyzer sources
+- Tool cache keys leave out `mise.toml` and the OS and machine mise files, as `mise.lock` pins every tool and those files change with hooks and rows no tool reads
+- Jobs on macOS restore the Apple analyzer, its stamp, and mise freshness state by `mise.macos.toml` and analyzer sources
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
-- Job `macos` restores the Xcode compilation cache and package clones by Xcode version, workspace `Package.resolved`, `Package.swift`, and `Xcode.xcconfig`
-- Job `macos` saves both folders where its key restored none, so a saved cache holds one run's builds and no run adds to one
-- Failed and cancelled runs of job `macos` save both folders under a key the next run starts from, as Nx stores a batch's results at its end alone
-- Job `macos` deletes every other Swift cache after a save, so one copy stays: the full one, else the newest from a failed run
-- Job `macos` caches no Swift build folder, as compilation cache hits need the build folder path alone to repeat
+- Job `macos` restores no Swift build folder or compilation cache, as an uncached run restoring one built the apps no faster
+- Job `macos` uploads the build logs Xcode writes, which hold each task and its compilation cache result
 - Runs read and write with `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`, and a pull request from a fork holds no secret and uses its local cache
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks

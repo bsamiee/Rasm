@@ -34,4 +34,4 @@ runs:
               bootstrap_args: --only tools
               cache: ${{ runner.environment == 'github-hosted' }}
               cache_save: ${{ github.ref == 'refs/heads/main' }}
-              cache_key: "{{cache_key_prefix}}-{{platform}}-{{mise_env}}-{{bootstrap_hash}}-p{{cache_period}}-${{ hashFiles('.config/mise.toml', '.config/mise.lock', '.config/mise.ci.toml', format('.config/mise.ci-{0}.toml', github.job), 'rust-toolchain.toml') }}"
+              cache_key: "{{cache_key_prefix}}-{{platform}}-{{mise_env}}-{{bootstrap_hash}}-p{{cache_period}}-${{ hashFiles('.config/mise.lock', '.config/mise.ci.toml', format('.config/mise.ci-{0}.toml', github.job), 'rust-toolchain.toml') }}"

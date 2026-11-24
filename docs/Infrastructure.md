@@ -137,7 +137,7 @@ GitHub Actions runners of role `Runner`:
 - Role `Runner` field `instances` names each runner service by label with systemd limits `systemctl set-property` sets once it starts
 - Systemd limits of instance `container` reach no job, as its jobs run in containers under Docker's cgroups
 - Runner `<machine>-<label>` installs in folder `actions-runner-<label>`, works in folder `actions-work-<label>`, and holds label `<label>` beside default labels
-- Instance `host` runs jobs on its machine and `container` in a container, one job of each at once
+- Instances `host` and `graph` run jobs on their machine and `container` in a container, one job of each at once, and `graph` runs job `affected` alone
 - Changes to runner version, label, limits, repository, or tailnet node reinstall a runner after `systemctl revert`
 - Reinstalls replace folder `actions-runner-<label>` alone, keeping checkouts, tools, and caches of the work folder, and a removed runner deletes both
 - Runner installs register through `config.sh --pat`, which takes a registration token from `GITHUB_TOKEN` at each attempt
