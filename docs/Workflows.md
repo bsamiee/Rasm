@@ -53,7 +53,7 @@ Workflow `CI` and its jobs:
 - Self-hosted checkouts fetch full history, as a kept checkout fetches new commits alone
 - Release checkouts fetch full history, as `nx release` reads lockfiles and root manifests at each commit after a tag, one request each in a partial clone
 - CI and Release checkouts on self-hosted runners keep ignored files (`clean: false`)
-- Self-hosted jobs run tasks on half their cores (`NX_PARALLEL`), as instances `host` and `container` share one machine
+- Jobs run Nx tasks on all their cores (`NX_PARALLEL`), as batch tools use every core at any setting and the setting shortens tasks Nx runs one worker each alone
 - Workflows name composite actions and reusable workflows by `$/` paths, read from the archive of the commit a run started from
 - Runners fail a job before its first step where a tracked symlink of that archive names an untracked file
 
