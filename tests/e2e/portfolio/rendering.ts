@@ -392,4 +392,4 @@ const cases: readonly Case[] = Record.toEntries(drawn).flatMap(([viewer, { path,
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { cases, content };
+export { type Case, cases, content };

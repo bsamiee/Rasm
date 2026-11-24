@@ -61,4 +61,4 @@ const render = Effect.fnUntraced(function* ({ target }: Render, written: File) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { application, execute, render };
+export { application, containment, execute, render, session };

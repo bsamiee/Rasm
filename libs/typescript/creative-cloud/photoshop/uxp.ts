@@ -116,4 +116,4 @@ const application = Effect.tryPromise({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { application, execute, notices, render };
+export { application, containment, execute, notices, render };

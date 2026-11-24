@@ -273,4 +273,4 @@ const media = (scenes: Array.NonEmptyReadonlyArray<Scene>) => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { config, type Extension, hosted, it, loaded, media, resource, routed };
+export { config, type Extension, hosted, it, loaded, media, resource, routed, type Scene };
