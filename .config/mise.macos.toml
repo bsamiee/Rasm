@@ -20,3 +20,6 @@ sources = ["Package*", "package.json", "Sources/**/*", "Tests/**/*"]
 
 [bootstrap.settings.macos.defaults."org.swift.swift-build"]
 CompilationCachingDiskSizeLimit = "4G"
+
+[bootstrap.settings.macos.defaults."com.apple.dt.Xcode"]
+IDEPackageOnlyUseVersionsFromResolvedFile = true
