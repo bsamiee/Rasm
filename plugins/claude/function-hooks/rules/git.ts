@@ -467,7 +467,7 @@ const GIT: Ruleset = {
                         apply: [when(({ has }) => !has('--cached') && (has('--apply') || !has('--check', '--stat', '--numstat', '--summary')), appliedPatch)],
                         restore: [when(({ has }) => !has('--staged') || has('--worktree'), restoredPaths)],
                         stash: [when(Predicate.not(nested('list', 'show')), refuse('hides work', 'leave the work in the tree'))],
-                        switch: [UNFORCED, refuse(...OVERWRITES, '-C')],
+                        switch: [UNFORCED, when((invocation) => scoped(invocation)[0].some(({ names }) => names.includes('-C') || names.includes('--force-create')), refuse(...OVERWRITES, '-C'))],
                         'checkout-index': [refuse(...OVERWRITES, '-f', '--force', '-a', '--all')],
                         'update-index': [refuse('hides edits from git status', 'leave the index flags alone', '--assume-unchanged', '--skip-worktree')],
                     }),

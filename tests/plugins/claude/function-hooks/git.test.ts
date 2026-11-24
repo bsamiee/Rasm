@@ -15,11 +15,14 @@ const REFUSED = [
     ['git -C {repo} checkout -- dirty', `git checkout ${FOREIGN} dirty`],
     ['cd {repo} && git restore dirty', `git restore ${FOREIGN} dirty`],
     ['git -C {repo} reset --hard', `git reset --hard ${OVERWRITES}`],
+    ['git -C {repo} switch -C probe', `git switch -C ${OVERWRITES}`],
     ['git -C {repo} stash', 'git stash hides work'],
     ['git -C {repo} clean -fd', "git clean deletes other sessions' untracked files"],
     ['git -C {session} reset -q --soft HEAD~1', 'git reset HEAD~1 moves HEAD, commit forward'],
     ['git -C {session} branch -D probe', `git branch -D ${BRANCHES}`],
     ['git -C {session} checkout -b probe', `git checkout -b ${BRANCHES}`],
+    ['git -C {session} switch topic', 'git switch topic moves the HEAD every session shares off HEAD'],
+    ['git -C {session} pull', 'git pull merges or rebases onto the HEAD every session shares, run git pull --ff-only'],
     ['git -C {session} -c core.hooksPath=/dev/null commit -m probe', 'git commit -c skips the commit hooks'],
     ['git -C {session} push origin :main', 'git push :main rewrites remote history'],
     ['git -C {session} rebase main', 'git rebase rewrites shared commits'],
@@ -28,6 +31,11 @@ const REFUSED = [
 ] as const;
 const ALLOWED = [
     'git -C {repo} checkout -- clean',
+    'git -C {repo} switch topic',
+    'git -C {repo} checkout --detach',
+    'git -C {repo} bisect start',
+    'git -C {repo} pull',
+    'git -C {repo} merge clash',
     'git -C {repo} restore --staged dirty',
     'git -C {repo} stash list',
     'git -C {repo} clean --dry-run',
@@ -53,8 +61,13 @@ const SHARED_REFUSED = [
     ['git pull --ff-only --no-ff', 'git pull merges or rebases onto the HEAD every session shares, run git pull --ff-only'],
     ['git merge clash', 'git merge clash conflicts with HEAD'],
     ['git merge topic clash', 'git merge topic clash names more than one branch'],
+    ['git pull --ff-only -r', 'git pull merges or rebases onto the HEAD every session shares, run git pull --ff-only'],
+    ['git pull --ff-only --rebase', 'git pull merges or rebases onto the HEAD every session shares, run git pull --ff-only'],
+    ['git pull --ff-only --ff', 'git pull merges or rebases onto the HEAD every session shares, run git pull --ff-only'],
+    ['git merge "$(printf topic)"', 'names more than one branch or one that expands later'],
+    ['git merge', 'git merge @{upstream} is no merge git merge-tree can check'],
 ] as const;
-const SHARED_ALLOWED = ['git switch main', 'git checkout main', 'git checkout', 'git bisect log', 'git pull --ff-only', 'git merge topic', 'git merge --abort'] as const;
+const SHARED_ALLOWED = ['git switch main', 'git checkout main', 'git checkout', 'git bisect log', 'git bisect view', 'git bisect visualize', 'git bisect help', 'git pull --ff-only', 'git merge topic', 'git merge --abort', 'git merge --quit', 'git merge --continue'] as const;
 const OWNERS = { a: { session: 'session-a' }, a1: { session: 'session-a', agent: 'a1' }, b: { session: 'session-b' } } as const;
 const STEPS = {
     mine: { edit: 'a', file: 'f', old: 'base', new: 'mine', text: 'mine\n' },
