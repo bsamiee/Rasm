@@ -2,7 +2,6 @@ using Darkroom.Chain;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
-using SixLabors.ImageSharp.Processing.Processors.Quantization;
 using Wacton.Unicolour;
 
 namespace Darkroom.Catalog;
@@ -33,8 +32,8 @@ internal sealed record Posterize(int Levels, float RetainHue, float DitherStreng
             .Map(static pass => Some(pass));
 }
 
-internal sealed record PaletteReduction(int Colors, PaletteDither Dithering, float DitherStrength) : IPixelStage<PaletteReduction> {
-    public static PaletteReduction Default { get; } = new(QuantizerConstants.MaxColors, PaletteDither.FloydSteinberg, 1f);
+internal sealed record PaletteReduction(Option<int> Colors, PaletteDither Dithering, float DitherStrength) : IPixelStage<PaletteReduction> {
+    public static PaletteReduction Default { get; } = new(None, PaletteDither.FloydSteinberg, 1f);
 
     public static Fin<Option<PixelPass>> Pass(PaletteReduction state, PassContext context) =>
         Some(state.Dithering.Reduced(state.Colors, state.DitherStrength));

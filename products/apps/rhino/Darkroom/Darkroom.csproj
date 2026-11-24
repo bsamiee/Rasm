@@ -60,7 +60,6 @@
         <PackageReference Include="Emgu.CV" />
         <PackageReference Include="Emgu.CV.runtime.mini.macos" />
         <PackageReference Include="Emgu.CV.runtime.mini.windows" />
-        <PackageReference Include="SixLabors.ImageSharp" />
         <PackageReference Include="TinyEXR.NET" />
     </ItemGroup>
 

@@ -140,7 +140,7 @@ public sealed partial class PaletteDither {
 
     private readonly IDither kernel;
 
-    public PixelPass Reduced(int colors, float strength) => Quantized(static options => new WuQuantizer(options), colors, strength);
+    public PixelPass Reduced(Option<int> colors, float strength) => Quantized(static options => new WuQuantizer(options), colors.IfNone(QuantizerConstants.MaxColors), strength);
 
     public PixelPass Mapped(ImmutableArray<Vector4> palette, float strength) =>
         palette.Select(static light => SixLabors.ImageSharp.Color.FromScaledVector(light)).ToArray() switch {
