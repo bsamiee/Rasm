@@ -15,17 +15,11 @@
     ],
     "type": "module",
     "sideEffects": false,
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
         ".": "./child-process.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
-        "imports": {
-            "#/*": "./dist/*.js"
-        },
         "exports": {
             ".": "./dist/child-process.js",
             "./package.json": "./package.json"
