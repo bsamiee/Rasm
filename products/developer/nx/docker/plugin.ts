@@ -1,9 +1,10 @@
+import { existsSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { join, posix, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesResultArray, detectPackageManager, hashArray, type TargetConfiguration, type TargetDependencyConfig } from '@nx/devkit';
-import { combineGlobPatterns, getLockFileName, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { getLockFileName, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, anchored, fingerprinted, manifested, recalled, run, stamped } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Effect, FileSystem, Option, Predicate, Record, Schema } from 'effect';
@@ -57,7 +58,7 @@ const engine = (workspaceRoot: string) =>
                 help: { command: 'colima delete --help', example: { args: [] } },
             },
         };
-        return [MISE, { projects: { [ROOT]: { root: ROOT, targets: aggregated({ install: { colima: install }, clean: { colima: clean } }, stated, 'colima', workspaceRoot) } } }] as const;
+        return [MANIFEST, { projects: { [ROOT]: { root: ROOT, targets: aggregated({ install: { colima: install }, clean: { colima: clean } }, stated, 'colima', workspaceRoot) } } }] as const;
     });
 
 const required = Effect.fnUntraced(function* (workspaceRoot: string, files: readonly string[]) {
@@ -99,7 +100,7 @@ const required = Effect.fnUntraced(function* (workspaceRoot: string, files: read
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes = [combineGlobPatterns([`**/${MANIFEST}`, MISE]), (files, _, { workspaceRoot }) => (process.platform === 'darwin' && files.includes(MISE) ? run(Effect.map(Effect.all([engine(workspaceRoot), required(workspaceRoot, files)]), ([started, drivers]) => [started, ...drivers])) : [])];
+const createNodes: CreateNodes = [`**/${MANIFEST}`, (files, _, { workspaceRoot }) => (process.platform === 'darwin' && existsSync(join(workspaceRoot, MISE)) ? run(Effect.map(Effect.all([engine(workspaceRoot), required(workspaceRoot, files)]), ([started, drivers]) => [started, ...drivers])) : [])];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
