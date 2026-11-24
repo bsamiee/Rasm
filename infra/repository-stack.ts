@@ -1,10 +1,10 @@
 import { workspaceRoot } from '@nx/devkit';
 import { getZeroTrustOrganizationOutput, getZoneOutput, R2Bucket, R2CustomDomain, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
 import { iam, projects, serviceaccount } from '@pulumi/gcp';
-import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, IssueLabels, Repository, RepositoryEnvironment, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
+import { ActionsEnvironmentVariable, IssueLabels, Repository, RepositoryEnvironment, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { VpsPostInstallScript } from '@pulumi/hostinger';
 import { type Input, interpolate, type Output, jsonStringify, secret } from '@pulumi/pulumi';
-import { Acl, DnsPreferences, TailnetSettings } from '@pulumi/tailscale';
+import { Acl, DnsPreferences, FederatedIdentity, TailnetSettings } from '@pulumi/tailscale';
 import { BranchConfig, Environment, Project, secretssync, Webhook } from '@pulumiverse/doppler';
 import { run } from '@rasm/process';
 import { Array, Effect, FileSystem, Path, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
@@ -72,7 +72,7 @@ const managed = <E extends string>(name: string, { description, project, secrets
 
 const repositoryStack = Effect.fnUntraced(function* (
     { repository: name, project, description, feed: updates }: Effect.Success<typeof identified>,
-    { CLOUDFLARE_ACCOUNT_ID: accountId, GITHUB_TOKEN: token, ...tailscale }: Readonly<Record<'CLOUDFLARE_ACCOUNT_ID' | 'GITHUB_TOKEN' | 'TAILSCALE_DEPLOY_CLIENT_ID' | 'TAILSCALE_DEPLOY_OAUTH_SECRET' | 'TAILSCALE_ENROLMENT_KEY', string>>,
+    { CLOUDFLARE_ACCOUNT_ID: accountId, GITHUB_TOKEN: token, TAILSCALE_ENROLMENT_OAUTH_SECRET: enrolling }: Readonly<Record<'CLOUDFLARE_ACCOUNT_ID' | 'GITHUB_TOKEN' | 'TAILSCALE_ENROLMENT_OAUTH_SECRET', string>>,
 ) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const forms = yield* Effect.flatMap(
@@ -103,7 +103,8 @@ const repositoryStack = Effect.fnUntraced(function* (
         attributeCondition: interpolate`assertion.repository_id == '${repoId}'`,
         oidc: { issuerUri: 'https://token.actions.githubusercontent.com' },
     });
-    const published = { release: { SPARKLE_FEED_BUCKET: bucket.name }, deploy: { TAILSCALE_CLIENT_ID: tailscale.TAILSCALE_DEPLOY_CLIENT_ID } };
+    const joining = new FederatedIdentity(`${name}-deploy`, { description: 'Deploy', issuer: 'https://token.actions.githubusercontent.com', subject: interpolate`repo:${fullName}:environment:${environments.deploy}`, scopes: ['auth_keys'], tags: [deployer] }, { dependsOn: tailnet });
+    const published = { release: { SPARKLE_FEED_BUCKET: bucket.name }, deploy: { TAILSCALE_CLIENT_ID: joining.id, TAILSCALE_AUDIENCE: joining.audience } };
     const federated = Record.map(identities, ({ accountId: id, displayName, roles, variables }, environment) => {
         const account = new serviceaccount.Account(`${cloud}-${id}`, { project: cloud, accountId: id, displayName }, { dependsOn: apis });
         return {
@@ -130,11 +131,12 @@ const repositoryStack = Effect.fnUntraced(function* (
         workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'write', canApprovePullRequestReviews: true }).defaultWorkflowPermissions,
         labels: new IssueLabels(`${name}-labels`, { repository, labels: forms.flatMap(({ description: stated, labels }) => labels.map((label) => ({ name: label, color: palette[label], description: stated }))) }).labels,
         tailnet: tailnet.id,
-        deployer: new ActionsEnvironmentSecret(`${name}-deploy-tailscale`, { repository, environment: environments.deploy, secretName: 'TAILSCALE_OAUTH_SECRET', value: secret(tailscale.TAILSCALE_DEPLOY_OAUTH_SECRET) }).secretName,
         updates: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true, httpsEnabled: true, usersApprovalOn: false, aclsExternallyManagedOn: true, aclsExternalLink: interpolate`https://github.com/${fullName}/blob/HEAD/${path.relative(workspaceRoot, import.meta.filename)}` }).devicesAutoUpdatesOn,
         magicDns: new DnsPreferences('tailnet', { magicDns: true }).magicDns,
-        enrolment: new VpsPostInstallScript(`${name}-enrolment`, { name: `${name} enrolment`, content: interpolate`#!/bin/sh\nset -eu\ncurl -fsSL https://tailscale.com/install.sh | sh\nrm -f /etc/apt/sources.list.d/tailscale.list\nsync\ntailscale up --auth-key=${secret(tailscale.TAILSCALE_ENROLMENT_KEY)} --ssh\n` })
-            .vpsPostInstallScriptId,
+        enrolment: new VpsPostInstallScript(`${name}-enrolment`, {
+            name: `${name} enrolment`,
+            content: interpolate`#!/bin/sh\nset -eu\ncurl -fsSL https://tailscale.com/install.sh | sh\nrm -f /etc/apt/sources.list.d/tailscale.list\nsync\ntailscale up --auth-key='${secret(enrolling)}?ephemeral=false&preauthorized=true' --advertise-tags=${tags.join(',')} --ssh\n`,
+        }).vpsPostInstallScriptId,
         assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
         access: new ZeroTrustOrganization('access', { accountId, name: organization.name, authDomain: organization.authDomain, strictServiceTokenAuth: true }, { protect: true, aliases: [{ name: organization.name }] }).authDomain,
         google: {

@@ -51,9 +51,8 @@ Machines, their reinstall, and images their stacks run:
 ## [03]-[TAILNET]
 
 Tailnet members, tags, and policy:
-- Job `deploy` joins as `tag:deploy` through the OAuth client of rows `TAILSCALE_DEPLOY_CLIENT_ID` and `TAILSCALE_DEPLOY_OAUTH_SECRET`, and machines hold `tag:server`
-- Stack `rasm` copies both rows to GitHub environment `deploy`, and row `TAILSCALE_ENROLMENT_KEY` into the script a new machine runs to join
-- Tailscale auth keys expire within 90 days, and a new machine enrolls with a new key set in row `TAILSCALE_ENROLMENT_KEY`
+- Job `deploy` joins as `tag:deploy` through a Tailscale federated identity trusting GitHub's token of environment `deploy`, so GitHub holds no Tailscale secret
+- New machines join as `tag:server` through OAuth client secret row `TAILSCALE_ENROLMENT_OAUTH_SECRET`, which never expires and creates one key per machine
 - Stacks reach each machine's Docker engine and shell as `root@<name>` over Tailscale SSH with no key
 - Machine and app stacks apply only from a computer on the tailnet
 - Tailnet policy grants every source every destination and port, SSH from members and `tag:deploy` to machine tags, and Funnel to members
