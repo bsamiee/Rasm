@@ -75,6 +75,7 @@ Nx remote cache and Actions caches per workflow and machine:
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
 - Test targets hash variable `CI`, as Vitest, Playwright, and MSBuild change behavior under it, so CI runs its own tests
+- Swift targets hash compiler version and platform, as `swift --version` adds the macOS version of its host, which a runner and a Mac differ in
 - Nx sets no remote cache timeout and stops a run on a read answered other than 200 or 404 or left unconnected, and no setting overrides the stop
 - `@rasm/nx-distribution` reads the cache server with its token once before each `nx` run's tasks, outside any task
 - Reads answered other than 200 or 404, refused, or past option `remoteCacheTimeout` print one warning and empty `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`

@@ -3,7 +3,7 @@ import { arch, platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
-import type { Verbs } from '@rasm/nx-distribution/inference';
+import { PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { type Array, Cause, Effect, FileSystem, Record, Schema } from 'effect';
 import type { Run } from '#/executors/run/executor';
@@ -28,7 +28,7 @@ const NOTARY = { key: 'ASC_API_KEY_P8', keyId: 'ASC_API_KEY_ID', issuer: 'ASC_AP
 const SIGNED = { development: 'Apple Development', distribution: 'Developer ID Application' } as const;
 const APPCAST = { key: 'SPARKLE_ED_PRIVATE_KEY', bucket: 'SPARKLE_FEED_BUCKET' } as const;
 const SWIFTPM = ['--force-resolved-versions', '--disable-index-store'] as const;
-const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'swift --version' }, { externalDependencies: [] }];
+const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'swift -print-target-info | plutil -extract compilerVersion raw -' }, PLATFORM, { externalDependencies: [] }];
 const ATTACH: TargetConfiguration = {
     executor: `${distribution.name}:attach`,
     dependsOn: ['pack--ditto'],
