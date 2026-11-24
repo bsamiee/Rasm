@@ -74,7 +74,6 @@ Composite actions and the mise profile jobs load:
 - Windows jobs install mise tools under `C:\mise`, as `cmd.exe` finds no command once `PATH` passes 8191 characters
 - GitHub-hosted runners alone load mise profile `ci`, which skips Python environments and Playwright browsers
 - Profile `ci` sets `enable_tools` to the tools hosted jobs' steps, Nx tasks, and graph creation run
-- Profile `ci` limits `pulumi` and `doppler` to Linux, as hosted job `deploy` alone runs them
 - Self-hosted jobs, job containers and job `affected` included, load no profile and install every tool
 
 ## [05]-[CACHE]
