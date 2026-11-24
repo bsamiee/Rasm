@@ -74,7 +74,7 @@ jobs:
             NX_BASE: &base ${{ needs.shas.outputs.base }}
             NX_HEAD: &head ${{ needs.shas.outputs.head }}
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
+            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ github.event_name == 'pull_request' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
         steps:
             - *checkout
             - &tools
@@ -84,13 +84,19 @@ jobs:
               uses: $/.github/actions/unreal
             - id: listed
               run: |-
-                  affected="$(nx show projects --affected --json)"
-                  deployed="$(nx show projects --affected --withTarget=deploy--pulumi --json)"
+                  listed() {
+                      projects="$(nx show projects --affected --withTarget="$2" --exclude="$3" --json)"
+                      printf "%s=%s\n" "$1" "${projects}"
+                  }
                   version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
-                  jq --raw-output --argjson affected "${affected}" --argjson deployed "${deployed}" --arg image "ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" '
-                      .nodes as $nodes | def tagged($tags): [$affected[] | select(any($nodes[.].data.tags[]?; IN($tags[])))] | tojson;
-                      "unreal=\(tagged(["host:unreal"]))", "browser=\(tagged(["host:browser"]))", "windows=\(tagged(["os:win32", "host:rhino"]))", "rhino=\(tagged(["host:rhino"]))",
-                      "infra=\([$deployed[] | select(. == "@rasm/infra")] | tojson)", "image=\($image)"' "${NX_WORKSPACE_DATA_DIRECTORY}/project-graph.json" >> "${GITHUB_OUTPUT}"
+                  {
+                      listed unreal check,test,build '*,!tag:host:unreal'
+                      listed browser check,test,build,pack '*,!tag:host:browser'
+                      listed windows test '*,!tag:os:win32,!tag:host:rhino'
+                      listed rhino test '*,!tag:host:rhino'
+                      listed infra deploy--pulumi '*,!@rasm/infra'
+                      printf "image=%s\n" "ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}"
+                  } >> "${GITHUB_OUTPUT}"
 
     linux:
         name: Linux
