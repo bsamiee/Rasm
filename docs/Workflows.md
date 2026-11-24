@@ -22,9 +22,10 @@ Workflow `CI` and its jobs:
 - Job `affected` runs `nrwl/nx-set-shas` once for every job but `unreal`, as a CI run finishing between jobs moves the base `nx-set-shas` finds
 - `nx-set-shas` walks first-parent ancestors of `HEAD~1` (`per-commit`), as its default list can pick a later commit for a re-run of an older run
 - `nx-set-shas` stops at the first commit with a successful push run, and each walked commit costs one API request
-- `max-commits` (150) covers a streak of failed CI runs on `main`, as each run takes every commit pushed while the previous one ran
-- Pushes to `main` run CI one at a time, so a walk to `max-commits` in each run stays under the token's 1000 requests an hour
-- Manual runs each take a concurrency group of their own, as they apply no deploy and read no base, so no push waits for one or displaces it
+- `max-commits` (150) covers a streak of failed CI runs on `main`, as each run walks back to the last commit with a successful run
+- Pushes and manual runs each take a concurrency group of their own, as overlapping runs find an older base and share tasks through the Nx cache
+- `nx-set-shas` fails a run past the token's 1000 requests an hour, which seven runs walking to `max-commits` reach
+- Job `affected` runs on instance `graph`, as every other job waits for it and instance `host` holds a job behind job `linux` of an earlier run
 - `nx-set-shas` falls back to the first commit where no successful run is in reach, and every task runs, as default `HEAD~1` checks one commit
 - Manual runs skip `nx-set-shas` and take the first commit as base, so every task runs
 - Job `linux` runs affected projects tagged `os:linux` or no `os:` on instance `host`, except `host:rhino`, `host:browser`, `host:unreal`
@@ -111,8 +112,8 @@ Workflow `Deploy` triggers and steps:
 - Pushes apply only where `@rasm/infra` is affected between the base and head of job `affected`
 - Failed deploys fail their CI run, so `nx-set-shas` keeps the base before it and the next push applies again
 - CI job `deploy` passes `secrets: inherit`, as a called job reads environment `deploy` secrets only where its caller passes them
-- Deploy jobs wait in one queue (`queue: max`), as a single pending job gives way to a newer one and drops a Doppler request
-- CI runs on `main` hold their concurrency group through job `deploy`, so a later push waits for the deploy
+- `Deploy` runs wait in one queue (`queue: max`), as a single pending run gives way to a newer one and drops a Doppler request
+- Job `newest` reads the commit `main` points at once a run leaves the queue, and job `deploy` applies that commit alone, as a newer push applies its own
 - Doppler config `deploy` changes start `Deploy` through a Doppler webhook sending GitHub a `repository_dispatch` event
 - `Deploy` runs daily, applying image tags that moved with no commit
 - Job `deploy` runs on a GitHub-hosted runner and reads Doppler `deploy`

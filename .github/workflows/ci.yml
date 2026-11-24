@@ -13,7 +13,7 @@ on:
                 options: [none, linux and browser, macos, all]
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
+    group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -31,7 +31,7 @@ defaults:
 jobs:
     affected:
         name: Affected projects
-        runs-on: [self-hosted, host]
+        runs-on: [self-hosted, graph]
         timeout-minutes: 30
         outputs:
             base: ${{ steps.shas.outputs.base || steps.root.outputs.sha }}
@@ -63,6 +63,7 @@ jobs:
               uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
               with:
                   fallback-sha: ${{ steps.root.outputs.sha }}
+                  workflow-id: ci.yml
                   lookup-strategy: per-commit
                   max-commits: 150
             - &tools

@@ -7,20 +7,37 @@ on:
     schedule:
         - cron: '0 8 * * *'
 
+concurrency:
+    group: deploy
+    cancel-in-progress: false
+    queue: max
+
 defaults:
     run:
         shell: bash
 
 jobs:
+    newest:
+        name: Newest commit
+        runs-on: ubuntu-26.04
+        timeout-minutes: 5
+        outputs:
+            sha: ${{ steps.main.outputs.sha }}
+        steps:
+            - id: main
+              run: |-
+                  sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+                  printf "sha=%s\n" "${sha}" >> "${GITHUB_OUTPUT}"
+              env:
+                  GH_TOKEN: ${{ github.token }}
+
     deploy:
         name: Deploy
+        needs: newest
+        if: ${{ needs.newest.outputs.sha == github.sha }}
         runs-on: ubuntu-26.04
         timeout-minutes: 120
         environment: deploy
-        concurrency:
-            group: deploy
-            cancel-in-progress: false
-            queue: max
         permissions:
             contents: read
             id-token: write
