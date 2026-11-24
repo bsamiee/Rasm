@@ -1,4 +1,4 @@
-import { Array, MutableRef, Option } from 'effect';
+import { Array, Equal, MutableRef } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -26,18 +26,12 @@ const slotted = (slot: string, element: HTMLElement) => {
     return element;
 };
 const picker = <A>(label: string, options: readonly (readonly [string, A])[]) => {
-    const shown = MutableRef.make(0);
+    const [shown, values] = [MutableRef.make(0), Array.map(options, ([, value]) => value)];
     const element = widget('sp-picker', { selectedIndex: MutableRef.get(shown) }, slotted('label', widget('sp-label', { textContent: label })), slotted('options', widget('sp-menu', {}, ...Array.map(options, ([textContent]) => widget('sp-menu-item', { textContent })))));
     return {
         element,
-        read: () => Option.map(Array.get(options, element.selectedIndex), ([, value]) => value),
-        show: (value: unknown) =>
-            Object.assign(element, {
-                selectedIndex: MutableRef.setAndGet(
-                    shown,
-                    options.findIndex(([, each]) => each === value),
-                ),
-            }),
+        read: () => Array.get(values, element.selectedIndex),
+        show: (value: unknown) => Object.assign(element, { selectedIndex: MutableRef.setAndGet(shown, values.findIndex(Equal.equals(value))) }),
         picked: (work: () => void) =>
             element.addEventListener('change', () => {
                 if (MutableRef.getAndSet(shown, element.selectedIndex) !== element.selectedIndex) {

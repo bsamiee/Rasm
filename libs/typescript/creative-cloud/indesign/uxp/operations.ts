@@ -2,7 +2,7 @@ import { HostError, Selector, Specifier } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import type { Application, CellStyle, CharacterStyle, Document, Event, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
-import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
+import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Number, Option, Predicate, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
 import type { FontSource } from '#/typesetting';
 import { Model } from '#/uxp/model';
 import { InDesignSettings } from '#/uxp/settings';
@@ -36,19 +36,8 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pic
         Match.when(Predicate.isString, identity<string>),
         Match.orElse(Formatter.format),
     );
-    const searched = model.owning(members.change);
-    const scopes = yield* Effect.forEach(
-        Array.ensure(located),
-        flow(
-            Option.liftPredicate(searched),
-            Effect.fromOption(() => Unmatched.of({ subject: `${mode} search target`, query: model.domObject(located) ? Option.some(located.toSpecifier()) : Option.none() })),
-        ),
-    );
-    yield* pipe(
-        Array.zip(members.preferences, [find, options, change]),
-        Array.filterMap(([target, fields]) => Result.fromOption(Option.all([Option.some(app[target]), fields] as const), Function.constVoid)),
-        Effect.forEach(([target, values]) => Effect.flatten(Model.write(target, values)), { discard: true }),
-    );
+    const scopes = yield* Effect.forEach(Array.ensure(located), (each) => (model.owning(members.change)(each) ? Effect.succeed(each) : Unmatched.of({ subject: `${mode} search target`, query: model.domObject(located) ? Option.some(located.toSpecifier()) : Option.none() })));
+    yield* Effect.forEach(Array.zip(members.preferences, [find, options, change]), ([target, fields]) => Effect.transposeOption(Option.map(fields, (values) => Effect.flatten(Model.write(app[target], values)))), { discard: true });
     const describe = (hit: Text | PageItem) => {
         const placed = model.text(hit) ? Option.filter(Array.head(hit.parentTextFrames), model.item) : Option.liftPredicate(hit, model.item);
         return {
@@ -63,13 +52,8 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pic
             const owner = model.owner(each);
             yield* Effect.transposeOption(Option.as(owner, Uxp.preserve(app, Record.getSomes({ activeDocument: owner }))));
             const refused = HostError.refused(`${mode} search of ${each.toSpecifier()}`);
-            const [hits, matches] = yield* Effect.try({
-                try: () => {
-                    const held = each[members.find]();
-                    return [held, Predicate.isNumber(held) ? [] : held.map(describe)] as const;
-                },
-                catch: refused,
-            });
+            const hits = yield* Effect.try({ try: () => each[members.find](), catch: refused });
+            const matches = yield* Effect.try({ try: () => (Predicate.isNumber(hits) ? [] : hits.map(describe)), catch: refused });
             const changes = yield* Effect.transposeOption(Option.as(change, Effect.try({ try: () => counted(each[members.change]()), catch: refused })));
             return { count: { matches: counted(hits), changes }, matches };
         }, Effect.scoped),
@@ -93,11 +77,11 @@ const overset = ({ stories }: Document): readonly string[] => Array.filterMap(Ar
 const savedPath = (document: Document) => Effect.flatMap(Effect.try({ try: () => document.saved, catch: HostError.refused(`saved of ${document.toSpecifier()}`) }), (saved) => (saved ? Model.file(document, 'fullName') : Effect.succeedNone));
 const overrides = (text: Pick<Text, 'textHasOverrides' | 'toSpecifier'>) =>
     Model.use(({ StyleType }) => Effect.try({ try: () => ({ paragraph: text.textHasOverrides(StyleType.PARAGRAPH_STYLE_TYPE), character: text.textHasOverrides(StyleType.CHARACTER_STYLE_TYPE) }), catch: HostError.refused(`overrides of ${text.toSpecifier()}`) }));
-const differing = (object: InDesignDOMObject<unknown>, properties: Record.ReadonlyRecord<string, unknown>, baseValue: (name: string) => unknown, except: Schema.Struct.Fields) =>
-    Effect.map(Effect.all([Model, Model.encoder]), ([{ declaration }, encoded]) => {
-        const { fields } = declaration(object.constructorName);
-        return Record.filter(properties, (value, name) => Option.exists(Record.get(fields, name), Struct.get('settable')) && !Object.hasOwn(except, name) && encoded(value) !== encoded(baseValue(name)));
-    });
+const differing = Effect.fnUntraced(function* (object: InDesignDOMObject<unknown>, properties: Record.ReadonlyRecord<string, unknown>, base: Record.ReadonlyRecord<string, unknown>, except: Schema.Struct.Fields) {
+    const [{ declaration }, encoded] = yield* Effect.all([Model, Model.encoder]);
+    const { fields } = declaration(object.constructorName);
+    return Record.filter(properties, (value, name) => Option.exists(Record.get(fields, name), Struct.get('settable')) && !Object.hasOwn(except, name) && encoded(value) !== encoded(base[name]));
+});
 const readings = Effect.fn('readings')(function* (found: InDesignDOMObject<unknown>, wanted: Option.Option<readonly string[]>) {
     const { declaration } = yield* Model;
     const missing = Option.getOrElse(wanted, Array.empty<string>).filter((name) => !Predicate.hasProperty(found, name));
@@ -107,7 +91,7 @@ const readings = Effect.fn('readings')(function* (found: InDesignDOMObject<unkno
         onSome: (names) => {
             const listed = Array.map(names, (name): readonly [string, Effect.Effect<unknown, HostError>] => {
                 const refused = HostError.refused(`${found.toSpecifier()} ${name}`);
-                return [name, Effect.andThen(Effect.transposeOption(Option.map(Model.unavailable(found.constructorName, name, Option.some(found), false), refused)), Effect.try({ try: (): unknown => Reflect.get(found, name), catch: refused }))];
+                return [name, Effect.andThen(Effect.transposeOption(Option.map(Model.unavailable(found, name, false), refused)), Effect.try({ try: (): unknown => Reflect.get(found, name), catch: refused }))];
             });
             return Effect.succeed(listed);
         },
@@ -158,12 +142,13 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
                 const opened = yield* Effect.option(Model.current);
                 const documents = yield* Effect.forEach(app.documents.everyItem().getElements(), (document) => savedPath(document).pipe(Effect.bindTo('fullName'), Effect.map(Struct.assign({ document }))));
                 const window = Option.liftThrowable(() => app.activeWindow.toSpecifier())();
-                const selection = yield* Effect.forEach(
-                    Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }),
-                    Effect.fnUntraced(function* (item: Application['selection'][number]) {
-                        const overridden = yield* Effect.transposeOption(Option.map(Option.liftPredicate(item, model.overridable), overrides));
-                        return { ...Model.referenceUnsafe(item), contents: Option.map(Schema.decodeUnknownOption(Contents)(item), Struct.get('contents')), parentStory: Option.map(Option.liftPredicate(item, model.storied), Struct.get('parentStory')), overrides: overridden };
-                    }),
+                const selection = yield* Effect.forEach(Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }), (item) =>
+                    Effect.map(Effect.transposeOption(Option.map(Option.liftPredicate(item, model.overridable), overrides)), (overridden) => ({
+                        ...Model.referenceUnsafe(item),
+                        contents: Option.map(Schema.decodeUnknownOption(Contents)(item), Struct.get('contents')),
+                        parentStory: Option.map(Option.liftPredicate(item, model.storied), Struct.get('parentStory')),
+                        overrides: overridden,
+                    })),
                 );
                 const panels = Array.getSomes(globalThis.Array.from({ length: app.panels.length }, (_, index) => Option.map(Option.filter(Option.fromUndefinedOr(app.panels.item(index)), Struct.get('visible')), Struct.get('name'))));
                 return yield* Model.picked(Inspection.View.cases.Application, app, () => ({
@@ -205,7 +190,7 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
                 const [own, above] = yield* Effect.all([Schema.decodeEffect(Specifier.Path)(style.toSpecifier()), Schema.decodeEffect(Specifier.Path)(container.toSpecifier())]);
                 const base: unknown = Predicate.isString(basedOn) ? yield* Model.resolve(Specifier.make({ steps: [...above.steps, ...Array.map(Array.takeRight(own.steps, 1), ({ kind }) => ({ separator: '/' as const, kind, selector: Selector.cases.Key.make({ key: 'name', value: basedOn }) }))] })) : basedOn;
                 const baseProperties = model.domObject(base) ? yield* Model.properties(base) : Record.empty<string, unknown>();
-                const differs = yield* differing(style, properties, (name): unknown => baseProperties[name], Inspection.Style.cases.ParagraphStyle.fields);
+                const differs = yield* differing(style, properties, baseProperties, Inspection.Style.cases.ParagraphStyle.fields);
                 const settings = yield* Effect.transposeOption(Option.map(Option.liftPredicate(style, model.paragraphStyle), InDesignSettings.read));
                 return yield* Model.picked(Inspection.Style, style, () => ({
                     group: Array.filterMap(ancestors, (ancestor) => (model.named(ancestor) && !model.document(ancestor) ? Result.succeed(ancestor.name) : Result.failVoid)),
@@ -231,24 +216,12 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
                 const [overridden, settings] = yield* Effect.all([overrides(text), InDesignSettings.read(text)]);
                 const ranges = slice.of(text.textStyleRanges.everyItem().getElements());
                 const run = Inspection.View.cases.Text.fields.runs.value;
-                const styles = yield* Effect.try({
-                    try: () =>
-                        Record.fromIterableWith(
-                            Array.flatMap(ranges, (range) => [range.appliedParagraphStyle, range.appliedCharacterStyle]),
-                            (style) => [style.toSpecifier(), style.properties] as const,
-                        ),
-                    catch: HostError.refused(`styles of ${text.toSpecifier()}`),
-                });
                 const runs = yield* Effect.forEach(
                     ranges,
                     Effect.fnUntraced(function* (range: TextStyleRange) {
                         const refused = HostError.refused(range.toSpecifier());
-                        const [properties, [paragraphStyle, characterStyle]] = yield* Effect.all([Model.properties(range), Effect.try({ try: () => [{ ...styles[range.appliedParagraphStyle.toSpecifier()] }, { ...styles[range.appliedCharacterStyle.toSpecifier()] }] as const, catch: refused })]);
-                        const inherited = (name: string): unknown => {
-                            const value: unknown = Reflect.get(characterStyle, name);
-                            return value === null || value === '' || model.nothing(value) ? Reflect.get(paragraphStyle, name) : value;
-                        };
-                        const [own, held] = yield* Effect.all([differing(range, properties, inherited, { ...run.fields, ...Inspection.View.cases.Text.fields }), InDesignSettings.read(range)]);
+                        const [properties, base] = yield* Effect.all([Model.properties(range), Effect.try({ try: () => ({ ...range.appliedParagraphStyle.properties, ...Record.filter(range.appliedCharacterStyle.properties, (value) => !(value === null || value === '' || model.nothing(value))) }), catch: refused })]);
+                        const [own, held] = yield* Effect.all([differing(range, properties, base, { ...run.fields, ...Inspection.View.cases.Text.fields }), InDesignSettings.read(range)]);
                         return yield* Effect.try({ try: () => ({ ...picked(run, range, ['designAxes', 'settings', 'differing']), designAxes: Result.try(() => range.designAxes), settings: held, differing: own }), catch: refused });
                     }),
                 );

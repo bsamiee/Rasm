@@ -24,7 +24,7 @@ const textTarget = Effect.fnUntraced(function* (path: string) {
     const target = text(found) || textDefault(found) || !textContainer(found) ? found : found.texts.item(0);
     return yield* text(target) || textDefault(target) ? Effect.succeed(target) : Unmatched.of({ subject: 'text', query: Option.some(path) });
 });
-const textRange = (target: Text | TextDefault) => Model.use(({ text }) => Effect.filterOrFail(Effect.succeed(target), text, () => Unmatched.of({ subject: 'text range', query: Option.some(target.toSpecifier()) })));
+const textRange = (target: Text | TextDefault) => Model.use(({ text }) => (text(target) ? Effect.succeed(target) : Unmatched.of({ subject: 'text range', query: Option.some(target.toSpecifier()) })));
 const kerningMethod = (method: 'Manual' | 'Metrics') => Model.use(({ app }) => Effect.try({ try: () => app.translateKeyString(`$ID/${method}`), catch: HostError.refused(`$ID/${method}`) }));
 const pointAfterBase = (text: Text) =>
     Effect.try({

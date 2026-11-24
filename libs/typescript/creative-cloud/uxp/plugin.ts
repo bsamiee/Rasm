@@ -86,22 +86,20 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
     );
     static readonly layer = (modules: Uxp['Service']) =>
         Layer.mergeAll(
-            Layer.effect(Clock.Clock)(
-                Effect.map(Clock.Clock, (base) => {
-                    const nanos = {
-                        currentTimeNanosUnsafe: (): bigint => Duration.toNanosUnsafe(base.currentTimeMillisUnsafe()),
-                        monotonicTimeNanosUnsafe: (): bigint => Duration.toNanosUnsafe(performance.now()),
-                    };
-                    return {
-                        ...nanos,
-                        currentTimeMillisUnsafe: base.currentTimeMillisUnsafe.bind(base),
-                        currentTimeMillis: base.currentTimeMillis,
-                        sleep: base.sleep.bind(base),
-                        currentTimeNanos: Effect.sync(nanos.currentTimeNanosUnsafe),
-                        monotonicTimeNanos: Effect.sync(nanos.monotonicTimeNanosUnsafe),
-                    };
-                }),
-            ),
+            Effect.map(Clock.Clock, (base) => {
+                const nanos = {
+                    currentTimeNanosUnsafe: (): bigint => Duration.toNanosUnsafe(base.currentTimeMillisUnsafe()),
+                    monotonicTimeNanosUnsafe: (): bigint => Duration.toNanosUnsafe(performance.now()),
+                };
+                return {
+                    ...nanos,
+                    currentTimeMillisUnsafe: base.currentTimeMillisUnsafe.bind(base),
+                    currentTimeMillis: base.currentTimeMillis,
+                    sleep: base.sleep.bind(base),
+                    currentTimeNanos: Effect.sync(nanos.currentTimeNanosUnsafe),
+                    monotonicTimeNanos: Effect.sync(nanos.monotonicTimeNanosUnsafe),
+                };
+            }).pipe(Layer.effect(Clock.Clock)),
             Layer.succeed(Uxp)(modules),
             Layer.succeed(Logger.LogToStderr)(true),
             Path.layer,
@@ -129,9 +127,12 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
     );
     static readonly required = (module: string) => {
         const refused = HostError.refused(`require('${module}')`);
-        return Effect.flatMap(Effect.mapError(Schema.decodeUnknownEffect(Requiring)(globalThis), refused), ({ require: resolved }) => Effect.try({ try: (): unknown => resolved(module), catch: refused }));
+        return Schema.decodeUnknownEffect(Requiring)(globalThis).pipe(
+            Effect.mapError(refused),
+            Effect.flatMap(({ require: resolved }) => Effect.try({ try: (): unknown => resolved(module), catch: refused })),
+        );
     };
-    static readonly application = Effect.flatMap(Effect.all([Uxp.use(({ uxp: modules }) => Schema.decodeUnknownEffect(Hosted)(modules.host)), Path.Path]), ([{ applicationPath }, path]) => path.toFileUrl(`${applicationPath}/`));
+    static readonly application = Uxp.use(({ uxp: modules }) => Schema.decodeUnknownEffect(Hosted)(modules.host)).pipe(Effect.flatMap(({ applicationPath }) => Path.Path.use((path) => path.toFileUrl(`${applicationPath}/`))));
     static readonly located = (held: Containment, specifier: Pick<Specifier, 'steps' | 'end'>): Effect.Effect<unknown, Unmatched> => {
         const found = walk(held, specifier);
         return Option.match(Schema.decodeUnknownOption(Unmatched.stated)(found), { onNone: () => Effect.succeed(found), onSome: Effect.fail });
@@ -176,8 +177,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
     static readonly restore = (target: object, saved: Record.ReadonlyRecord<string, unknown>) => Effect.validate(Record.toEntries(saved), ([key, value]) => Effect.try({ try: () => Object.assign(target, { [key]: value }), catch: HostError.refused(`restore of ${key}`) }), { discard: true }).pipe(Effect.orDie);
     static readonly preserve = <T extends object>(target: T, replacements: Partial<T>, keys: readonly string[] = Struct.keys(replacements)) => {
         const refused = HostError.refused(`preferences ${keys.join(', ')}`);
-        const current = (key: string): unknown => Reflect.get(target, key);
-        return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(keys, (key) => [key, current(key)] as const), catch: refused }), (saved) => Uxp.restore(target, saved)).pipe(Effect.tap(Effect.try({ try: () => Object.assign(target, replacements), catch: refused })));
+        return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(keys, (key): readonly [string, unknown] => [key, Reflect.get(target, key)]), catch: refused }), (saved) => Uxp.restore(target, saved)).pipe(Effect.tap(Effect.try({ try: () => Object.assign(target, replacements), catch: refused })));
     };
     static readonly script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
         Effect.gen(function* () {
@@ -295,11 +295,7 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
 const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
 const themed = Effect.fnUntraced(function* (root: HTMLElement) {
     const { host } = yield* Plugin;
-    yield* Stream.runForEach(Plugin.theme, (theme) =>
-        Effect.sync(() => {
-            Object.assign(root.style, { color: formatHex8(UxpManifest.fills[host.app][theme]) });
-        }),
-    );
+    yield* Stream.runForEach(Plugin.theme, (theme) => Effect.sync(() => Object.assign(root.style, { color: formatHex8(UxpManifest.fills[host.app][theme]) })));
 });
 const panel = Effect.fnUntraced(function* <E, F>(runtime: ManagedRuntime.ManagedRuntime<Uxp | Plugin, E>, body: Panel<F>) {
     const held = yield* ScopedRef.fromAcquire(Effect.void);

@@ -87,12 +87,10 @@ const alignment = (sided: Sides) =>
             ),
             encode: SchemaGetter.transformEffect(
                 Effect.fnUntraced(function* (aligned: Settings['alignment']) {
-                    const side = Match.valueTags(aligned, { Aligned: Struct.get('side'), Justified: Struct.get('last') });
+                    const { side, single } = Match.valueTags(aligned, { Aligned: (each) => ({ side: each.side, single: Option.none() }), Justified: (each) => ({ side: each.last, single: Option.some(each.single) }) });
                     const justification = yield* inverse(ALIGNMENTS, (row) => Predicate.isTagged(row, aligned._tag) && sided[row.edge] === side, aligned, `No justification member for ${aligned._tag} ${side}`);
-                    return yield* Match.valueTags(aligned, {
-                        Aligned: () => Effect.succeed({ justification }),
-                        Justified: ({ single }) => inverse(SINGLE_WORDS, (edge) => sided[edge] === single, aligned, `No singleWordJustification member for ${single}`).pipe(Effect.map((singleWordJustification) => ({ justification, singleWordJustification }))),
-                    });
+                    const singleWordJustification = yield* Effect.transposeOption(Option.map(single, (each) => inverse(SINGLE_WORDS, (edge) => sided[edge] === each, aligned, `No singleWordJustification member for ${each}`)));
+                    return { justification, ...Option.getOrUndefined(Option.map(singleWordJustification, (member) => ({ singleWordJustification: member }))) };
                 }),
             ),
         }),
@@ -104,12 +102,8 @@ const leading = (size: number) => {
             decode: SchemaGetter.transform((line) => ({ height: line.leading === 'AUTO' ? { _tag: 'Auto' as const, ratio: line.autoLeading } : { _tag: 'Fixed' as const, em: line.leading }, before: line.spaceBefore, after: line.spaceAfter })),
             encode: SchemaGetter.transformEffect(({ height, before, after }) =>
                 Effect.map(
-                    Match.valueTags(height, {
-                        Auto: ({ ratio }) => Effect.succeed({ leading: 'AUTO' as const, autoLeading: ratio }),
-                        Fixed: ({ em }) => Effect.succeed({ leading: em }),
-                        Extents: (extents) => Effect.fail(new SchemaIssue.InvalidValue({ message: `No leading member for ${extents._tag} ${extents.ratio}` }, extents)),
-                    }),
-                    (line) => ({ ...line, spaceBefore: before, spaceAfter: after }),
+                    Match.valueTags(height, { Auto: ({ ratio }) => Effect.succeed({ leading: 'AUTO' as const, autoLeading: ratio }), Fixed: ({ em }) => Effect.succeed({ leading: em }), Extents: ({ ratio }) => Effect.fail(new SchemaIssue.InvalidValue({ message: `No leading member for Extents ${ratio}` }, height)) }),
+                    Struct.assign({ spaceBefore: before, spaceAfter: after }),
                 ),
             ),
         }),
