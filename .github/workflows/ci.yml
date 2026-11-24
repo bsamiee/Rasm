@@ -30,24 +30,13 @@ defaults:
         shell: bash
 
 jobs:
-    affected:
-        name: Affected projects
+    shas:
+        name: Base commit
         runs-on: [self-hosted, graph]
         timeout-minutes: 30
         outputs:
             base: ${{ steps.shas.outputs.base || steps.root.outputs.sha }}
             head: ${{ steps.shas.outputs.head || github.sha }}
-            engines: ${{ steps.unreal.outputs.engines }}
-            unreal: ${{ steps.listed.outputs.unreal }}
-            browser: ${{ steps.listed.outputs.browser }}
-            windows: ${{ steps.listed.outputs.windows }}
-            rhino: ${{ steps.listed.outputs.rhino }}
-            image: ${{ steps.listed.outputs.image }}
-            infra: ${{ steps.listed.outputs.infra }}
-        env:
-            GH_TOKEN: &github ${{ github.token }}
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
         steps:
             - &checkout
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,7 +47,6 @@ jobs:
               run: |-
                   root="$(git rev-list --max-parents=0 HEAD)"
                   printf "sha=%s\n" "${root}" >> "${GITHUB_OUTPUT}"
-                  [[ "${GITHUB_EVENT_NAME}" != workflow_dispatch ]] || printf "%s\n" "NX_BASE=${root}" "NX_HEAD=${GITHUB_SHA}" >> "${GITHUB_ENV}"
             - id: shas
               if: ${{ github.event_name != 'workflow_dispatch' }}
               uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
@@ -67,6 +55,28 @@ jobs:
                   workflow-id: ci.yml
                   lookup-strategy: per-commit
                   max-commits: 150
+
+    affected:
+        name: Affected projects
+        needs: shas
+        runs-on: [self-hosted, graph]
+        timeout-minutes: 30
+        outputs:
+            engines: ${{ steps.unreal.outputs.engines }}
+            unreal: ${{ steps.listed.outputs.unreal }}
+            browser: ${{ steps.listed.outputs.browser }}
+            windows: ${{ steps.listed.outputs.windows }}
+            rhino: ${{ steps.listed.outputs.rhino }}
+            image: ${{ steps.listed.outputs.image }}
+            infra: ${{ steps.listed.outputs.infra }}
+        env:
+            GH_TOKEN: &github ${{ github.token }}
+            NX_BASE: &base ${{ needs.shas.outputs.base }}
+            NX_HEAD: &head ${{ needs.shas.outputs.head }}
+            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
+            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
+        steps:
+            - *checkout
             - &tools
               id: tools
               uses: $/.github/actions/tools
@@ -74,23 +84,22 @@ jobs:
               uses: $/.github/actions/unreal
             - id: listed
               run: |-
-                  unreal="$(nx show projects --affected --exclude='*,!tag:host:unreal' --json)"
-                  browser="$(nx show projects --affected --exclude='*,!tag:host:browser' --json)"
-                  windows="$(nx show projects --affected --exclude='*,!tag:os:win32,!tag:host:rhino' --json)"
-                  rhino="$(nx show projects --affected --exclude='*,!tag:host:rhino' --json)"
-                  infra="$(nx show projects --affected --projects=@rasm/infra --json)"
+                  affected="$(nx show projects --affected --json)"
                   version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
-                  printf "%s\n" "unreal=${unreal}" "browser=${browser}" "windows=${windows}" "rhino=${rhino}" "infra=${infra}" "image=ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" >> "${GITHUB_OUTPUT}"
+                  jq --raw-output --argjson affected "${affected}" --arg image "ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" '
+                      .nodes as $nodes | def tagged($tags): [$affected[] | select(any($nodes[.].data.tags[]?; IN($tags[])))] | tojson;
+                      "unreal=\(tagged(["host:unreal"]))", "browser=\(tagged(["host:browser"]))", "windows=\(tagged(["os:win32", "host:rhino"]))", "rhino=\(tagged(["host:rhino"]))",
+                      "infra=\([$affected[] | select(. == "@rasm/infra")] | tojson)", "image=\($image)"' "${NX_WORKSPACE_DATA_DIRECTORY}/project-graph.json" >> "${GITHUB_OUTPUT}"
 
     linux:
         name: Linux
-        needs: affected
+        needs: shas
         runs-on: [self-hosted, host]
         timeout-minutes: 120
         env:
             GH_TOKEN: *github
-            NX_BASE: &base ${{ needs.affected.outputs.base }}
-            NX_HEAD: &head ${{ needs.affected.outputs.head }}
+            NX_BASE: *base
+            NX_HEAD: *head
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
         steps:
@@ -100,9 +109,10 @@ jobs:
             - *tools
             - run: nx sync:check
             - run: nx conformance:check
-            - run: nx run-many --targets=codegen
+            - id: codegen
+              run: nx run-many --targets=codegen
             - run: hk check --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
-            - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+            - if: ${{ !cancelled() && steps.codegen.outcome == 'success' }}
               run: nx affected --targets=check,test,build --configuration=ci --exclude='tag:os:*,!tag:os:linux,tag:host:rhino,tag:host:browser,tag:host:unreal'
               env:
                   NX_SKIP_NX_CACHE: ${{ contains(inputs.uncached, 'linux') || inputs.uncached == 'all' }}
@@ -122,7 +132,7 @@ jobs:
 
     browser:
         name: Browser
-        needs: affected
+        needs: [shas, affected]
         if: ${{ needs.affected.outputs.browser != '[]' }}
         runs-on: [self-hosted, container]
         timeout-minutes: 120
@@ -153,7 +163,7 @@ jobs:
 
     macos:
         name: macOS
-        needs: affected
+        needs: shas
         runs-on: xcode-27
         timeout-minutes: 120
         env:
@@ -215,7 +225,7 @@ jobs:
 
     windows:
         name: Windows
-        needs: affected
+        needs: [shas, affected]
         if: ${{ needs.affected.outputs.windows != '[]' }}
         runs-on: windows-2025
         timeout-minutes: 120

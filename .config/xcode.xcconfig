@@ -1,3 +1,7 @@
 // --- [COMPILATION_CACHE] -----------------------------------------------------------------
 
 COMPILATION_CACHE_ENABLE_CACHING = YES
+
+// --- [BUILD_OPTIONS] ---------------------------------------------------------------------
+
+LM_SKIP_METADATA_EXTRACTION = YES
