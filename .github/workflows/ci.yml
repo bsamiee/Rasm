@@ -207,6 +207,12 @@ jobs:
               run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
               env:
                   NX_SKIP_NX_CACHE: ${{ inputs.uncached == 'macos' || inputs.uncached == 'all' }}
+            - if: ${{ always() && steps.tasks.outcome != 'skipped' }}
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: xcode-build-logs
+                  if-no-files-found: ignore
+                  path: ~/Library/Developer/Xcode/DerivedData/Rasm-*/Logs/Build/*.xcactivitylog
             - id: saved
               if: ${{ always() && steps.tasks.outcome != 'skipped' && github.ref == 'refs/heads/main' && steps.swift.outputs.cache-hit != 'true' }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
