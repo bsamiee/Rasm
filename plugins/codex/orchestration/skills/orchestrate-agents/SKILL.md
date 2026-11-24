@@ -24,6 +24,9 @@ Send an agent a bounded task with its own context. Keep decisions and file paths
 
 ## [03]-[HAND_OFF]
 
+- Spawns: each pass, round, and role is a new `spawn_agent`, and work that follows from a final answer goes to a new sub-agent in a new brief
+- Messages: a sub-agent tells `/root` through `send_message` when a finding changes the plan or another sub-agent's brief, then keeps working
+- Queue: findings for files a sub-agent is writing wait until it finishes, then go to a new sub-agent
 - Files: everything pasted into a brief, and everything a sub-agent prints back, stays resident in the parent's context for the rest of the session and is re-read on every later turn, so artifacts change hands as files
 - Briefs: where findings are bulky the brief names the file they go to and the return wanted beside that path (verdict, counts, concerns); a domain skill's own return form stands
 - Sequence: a later brief holds the interfaces and decisions from earlier units that it cannot know, never accumulated prior-unit summaries; a real session's dispatch hit 42k chars of which 99% was pasted history
@@ -33,3 +36,4 @@ Send an agent a bounded task with its own context. Keep decisions and file paths
 
 - Rounds: each correction goes to a new sub-agent with the report path and the open findings verbatim, as agents rarely see their own problem
 - Evidence: an evidence-free response earns one focused retry, by a new sub-agent whose brief names the evidence wanted
+- Interrupts: a running sub-agent whose brief became wrong gets `interrupt_agent`, and a new sub-agent takes the corrected brief
