@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
+import { basename, join, posix } from 'node:path';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-uv';
 import { it, unaggregated } from '@rasm/testing/nx';
@@ -24,6 +24,7 @@ const MEMBERS = {
     'proj/internal/pyproject.toml': `[project]\nname = "internal"\nversion = "0.1.0"\nrequires-python = ">=3.13"\nclassifiers = ["Private :: Do Not Upload"]\n${BUILT}`,
     'proj/virtual/pyproject.toml': '[project]\nname = "virtual"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n',
 };
+const VIRTUAL = { 'pyproject.toml': '[tool.uv.workspace]\nmembers = ["library"]\n', 'library/pyproject.toml': '[project]\nname = "library"\nversion = "0.1.0"\n' };
 const WORDS = {
     'proj/library/pyproject.toml': `[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["terms", "words"]\n\n[tool.uv.sources]\nterms = { workspace = true }\n${BUILT}`,
     'proj/terms/pyproject.toml': `[project]\nname = "terms"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n${BUILT}`,
@@ -58,6 +59,28 @@ describe('files Nx hands the plugin', { timeout: 60_000 }, () => {
 
         expect(matched).toStrictEqual(['uv.lock']);
         expect('upgrade--pixi' in (graph.nodes['uv-tutorial']?.data.targets ?? {})).toBe(true);
+    });
+});
+
+describe('uv roots without a project table', { timeout: 60_000 }, () => {
+    it.for([
+        { case: 'a nested folder, by the folder', folder: 'nested/proj', files: {}, name: 'proj' },
+        { case: 'the Nx workspace root, by the project.json beside it', folder: '.', files: { 'project.json': '{ "name": "named" }' }, name: 'named' },
+    ])('are a project owning the lock check and upgrade, named in $case', async ({ folder, files, name }, { workspace }) => {
+        locked(workspace.write({ ...Record.mapKeys(VIRTUAL, (file) => posix.join(folder, file)), ...files }).root, folder);
+
+        const graph = await workspace.graph({ createNodes });
+        const result = await workspace.run(graph, name, 'check--uv');
+
+        expect([graph.nodes[name]?.data.root, result.success, 'upgrade--uv' in (graph.nodes[name]?.data.targets ?? {})]).toStrictEqual([folder, true, true]);
+    });
+
+    it('are a project named by the folder at an Nx workspace root no other plugin names', async ({ workspace }) => {
+        locked(workspace.write(VIRTUAL).root);
+
+        const graph = await workspace.graph({ createNodes });
+
+        expect(Record.map(graph.nodes, ({ data: { root, targets = {} } }) => [root, 'check--uv' in targets])).toStrictEqual({ library: ['library', false], [basename(workspace.root)]: ['.', true] });
     });
 });
 

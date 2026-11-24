@@ -56,7 +56,7 @@ const createNodes: CreateNodes = [
                 projects: {
                     [member.root]: {
                         root: member.root,
-                        name: member.name,
+                        ...((member.listed || !anchor.holds(member.root)) && { name: member.name }),
                         metadata: { technologies: ['python'] },
                         ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } }),
                         implicitDependencies: member.linked.filter((root) => roots.has(root)).map((root) => `directory:${root}`),

@@ -35,7 +35,7 @@ describe('@rasm/nx-uv under Windows path separators', { timeout: 120_000 }, () =
 
         const graph = await workspace.graph(uv, { outputPath: '.artifacts/uv/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
 
-        expect(Object.fromEntries(Object.values(graph.nodes).map(({ name, data }) => [name, data.root]))).toStrictEqual({ app: 'python/libs/app', cli: 'other/cli', core: 'python/libs/deep/core', middle: 'python/libs/middle', root: 'python', sdk: 'other/sdk' });
+        expect(Object.fromEntries(Object.values(graph.nodes).map(({ name, data }) => [name, data.root]))).toStrictEqual({ app: 'python/libs/app', cli: 'other/cli', core: 'python/libs/deep/core', middle: 'python/libs/middle', other: 'other', root: 'python', sdk: 'other/sdk' });
         expect(unportable(graph)).toStrictEqual([]);
     });
 

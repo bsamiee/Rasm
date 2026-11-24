@@ -1,4 +1,4 @@
-import { join, posix, relative } from 'node:path';
+import { basename, join, posix, relative } from 'node:path';
 import { normalizePath } from '@nx/devkit';
 import { combineGlobPatterns, globWithWorkspaceContext } from '@nx/devkit/internal';
 import { above } from '@rasm/nx';
@@ -73,7 +73,8 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
         ([, root]) => root,
     );
     const workspace = rooted(metadata.workspace.path);
-    const members = metadata.members.map((member) => ({ ...member, root: rooted(member.path) }));
+    const listed = metadata.members.map(({ name, id, path }) => ({ name, id, root: rooted(path), listed: true }));
+    const members = listed.some(({ root }) => root === workspace) ? listed : [...listed, { name: basename(join(workspaceRoot, workspace)), id: metadata.workspace.id, root: workspace, listed: false }];
     const present = Array.cartesianWith(Array.dedupe([workspace, ...members.map(({ root }) => root), ...Record.values(sited)].flatMap(above)), CONFIGS, posix.join).filter((at) => files.has(at));
     const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [at, posix.extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
     const documented = new Map(read.map(([at, parsed]) => [at, Result.getOrElse(parsed, Record.empty)] as const));
@@ -121,6 +122,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
         const nested = members.some((other) => other.root !== member.root && (member.root === '.' || other.root.startsWith(`${member.root}/`)));
         return {
             name: member.name,
+            listed: member.listed,
             distribution: `${normalized(member.name).replaceAll('-', '_')}-${resolution[member.id]?.version ?? '*'}`,
             root: member.root,
             workspace,
@@ -139,7 +141,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
                     .flatMap(([id]) => Array.getSomes((resolution[id]?.dependencies ?? []).map(resolved)))
                     .map(({ root }) => root),
             ),
-            checks: Array.filterMap(nested ? [] : Record.toEntries(CHECKERS), ([key, row]) => {
+            checks: Array.filterMap(nested || !member.listed ? [] : Record.toEntries(CHECKERS), ([key, row]) => {
                 const group = Array.findFirst(groups, offering(key));
                 const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
                 const installed = reach([member.id, ...from]);
