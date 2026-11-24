@@ -2980,6 +2980,9 @@ importers:
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.66.0-alpha-2026-11-22
+      '@rasm/nx-distribution':
+        specifier: workspace:*
+        version: link:../../../../../products/developer/nx/distribution
       '@rasm/nx-playwright':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/playwright

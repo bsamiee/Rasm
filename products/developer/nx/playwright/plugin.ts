@@ -144,9 +144,10 @@ const targets = (home: string, { loaded: configs, scanned, packages, servers, re
         clean: {
             playwright: {
                 executor: `${distribution.name}:clean`,
-                options: { targets: removed, commands: [['playwright', 'clear-cache']], cwd: home },
+                options: { targets: removed, cwd: home },
+                configurations: { cache: { commands: [['playwright', 'clear-cache']] } },
                 inputs: ['default', '^default', { externalDependencies: ['@playwright/test'] }],
-                metadata: { description: `Removes the outputs ${removed.join(', ')} declare and the Playwright transform cache with playwright clear-cache`, help: { command: `${exec} playwright clear-cache --help`, example: { args: ['--config', '<file>'] } } },
+                metadata: { description: `Removes the outputs ${removed.join(', ')} declare, and under configuration cache empties the Playwright transform cache with playwright clear-cache`, help: { command: `${exec} playwright clear-cache --help`, example: { args: ['--config', '<file>'] } } },
             },
         },
     };

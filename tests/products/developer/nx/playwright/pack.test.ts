@@ -1,8 +1,11 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Clean, execute } from '@rasm/nx-distribution/executors/clean';
 import { createNodes } from '@rasm/nx-playwright';
-import { it as nx } from '@rasm/testing/nx';
-import { describe, expect, vi } from 'vitest';
+import { environment, it as nx } from '@rasm/testing/nx';
+import { Schema } from 'effect';
+import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
@@ -107,6 +110,33 @@ describe('pack--playwright of config projects whose own outputDir sits under out
             success,
             imaged: [...workspace.files('node_modules', 'tmp')].filter((file) => file.endsWith('tile.png')).map((file) => file.split('/').slice(0, 4).join('/')),
         }).toStrictEqual({ targets: ['pack--playwright'], success: true, imaged: ['.artifacts/playwright/e2e/media'] });
+    });
+});
+
+describe('clean--playwright', { timeout: 60_000 }, () => {
+    it('keeps the transform cache a passing run wrote under a plain clean and empties it under configuration cache', async ({ workspace, onTestFinished }) => {
+        const cache = mkdtempSync(join(tmpdir(), 'playwright-transform-'));
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+            rmSync(cache, { recursive: true, force: true });
+        });
+        vi.stubEnv('PLAYWRIGHT_TRANSFORM_CACHE_DIR', cache);
+        vi.stubEnv('PATH', environment(workspace.root).PATH);
+        const graph = await workspace.write({ 'apps/e2e/typed.spec.ts': "import { test } from '@playwright/test';\n\ntest('typed', () => {});\n", 'apps/e2e/playwright.config.js': config('media') }).graph({ createNodes });
+        const target = graph.nodes['e2e']?.data.targets?.['clean--playwright'];
+        const cleaned = async (configuration?: 'cache') => {
+            const stated: unknown = { commands: [], cwd: '.', folders: [], ...target?.options, ...(configuration === undefined ? {} : target?.configurations?.[configuration]) };
+            assert(Schema.is(Clean)(stated), 'clean--playwright states clean options');
+            await execute(stated, workspace.context(graph, 'e2e', 'clean--playwright', configuration));
+            return existsSync(cache) ? readdirSync(cache, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile()).length : 0;
+        };
+
+        const { success } = await workspace.run(graph, 'e2e', 'test--playwright');
+        const written = readdirSync(cache, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile()).length;
+        const kept = await cleaned();
+        const left = await cleaned('cache');
+
+        expect({ success, wrote: written > 0, kept: kept === written, left }).toStrictEqual({ success: true, wrote: true, kept: true, left: 0 });
     });
 });
 

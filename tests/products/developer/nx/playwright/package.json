@@ -6,6 +6,7 @@
     "devDependencies": {
         "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
+        "@rasm/nx-distribution": "workspace:*",
         "@rasm/nx-playwright": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
