@@ -127,7 +127,8 @@
         "changelog": {
             "projectChangelogs": {
                 "createRelease": "github",
-                "file": false
+                "file": false,
+                "renderOptions": { "authors": false }
             }
         },
         "git": {

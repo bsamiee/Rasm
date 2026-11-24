@@ -2,13 +2,16 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execPath } from 'node:process';
+import { fileURLToPath } from 'node:url';
+import { type NxJsonConfiguration, readJsonFile } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-distribution';
 import { execute as attach } from '@rasm/nx-distribution/executors/attach';
 import { Package, execute as pack } from '@rasm/nx-distribution/executors/package';
 import { execute as publish, Publish } from '@rasm/nx-distribution/executors/publish';
 import { environment, shimmed, targetOptions, it as workspaced } from '@rasm/testing/nx';
-import { Array, Effect, Option, Schema } from 'effect';
+import { Array, Effect, Option, Predicate, Schema, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
+import { ReleaseClient } from 'nx/release';
 import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('node:process'), async (actual) => {
@@ -58,6 +61,10 @@ const built = {
             'nx-release-publish': { executor: 'nx:run-commands', dependsOn: ['pack'], options: { command: 'test -f .artifacts/lib/lib-1.0.0.tgz' } },
         },
     }),
+};
+const changed = {
+    'lib/project.json': JSON.stringify({ name: 'lib', tags: ['release'] }),
+    'lib/package.json': JSON.stringify({ name: 'lib', version: '1.0.0' }),
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -148,6 +155,22 @@ describe('nx release publish of the release workflow', { timeout: 120_000 }, () 
         const { status, stderr } = spawnSync('bash', ['-c', step.value.run], { cwd: workspace.root, env: environment(workspace.root, { PROJECTS: 'lib' }), encoding: 'utf-8' });
 
         expect({ status, stderr }).toMatchObject({ status: 0 });
+    });
+});
+
+describe('nx release changelog of the workspace configuration', { timeout: 120_000 }, () => {
+    it('writes each project changelog with its commits and no section thanking their authors', async ({ workspace, released }) => {
+        const { release = {} } = readJsonFile<NxJsonConfiguration>(fileURLToPath(new URL('../../../../../nx.json', import.meta.url)));
+        const { git } = await released(changed, ['lib@1.0.0']);
+        workspace.write({ 'lib/index.js': 'export const parsed = true;\n' });
+        git('add', '.');
+        git('commit', '--quiet', '--message', 'fix: repair the parser');
+        const client = new ReleaseClient({ ...Struct.omit(release, ['git']), changelog: { projectChangelogs: { ...Option.getOrUndefined(Option.liftPredicate(release.changelog?.projectChangelogs, Predicate.isObject)), createRelease: false } } }, true);
+
+        const { projectChangelogs = {} } = await client.releaseChangelog({ version: '1.0.1', gitCommit: false, gitTag: false, stageChanges: false, forceChangelogGeneration: true });
+
+        const contents = projectChangelogs['lib']?.contents ?? '';
+        expect({ fixed: contents.includes('repair the parser'), thanked: contents.includes('Thank You') }).toStrictEqual({ fixed: true, thanked: false });
     });
 });
 
