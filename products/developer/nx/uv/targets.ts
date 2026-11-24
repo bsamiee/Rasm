@@ -193,6 +193,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             cache: true,
             inputs: [
                 ...row.sources.map((glob) => posix.join('{projectRoot}', '**', glob)),
+                posix.join('{projectRoot}', 'pyproject.toml'),
                 ...built,
                 ...stated.inputs,
                 ...row.variables.map((env) => ({ env })),

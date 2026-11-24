@@ -48,7 +48,7 @@ const built = async (root: string, cache: FileMapCache | null) => {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('files Nx hands the plugin', { timeout: 60_000 }, () => {
-    it('hold the locks and manifests alone, as a matched file edit is a project configuration change, while the uv root holding a pixi.toml keeps upgrade--pixi', async ({ workspace }) => {
+    it('hold the locks alone, as a matched file edit is a project configuration change, while the uv root holding a pixi.toml keeps upgrade--pixi', async ({ workspace }) => {
         const read = { 'uv.toml': '', '.python-version': '3.13\n', '.python-versions': '3.13\n', 'mypy.ini': '', '.mypy.ini': '', 'setup.cfg': '', 'ty.toml': '', 'pytest.toml': '', '.pytest.toml': '', 'pytest.ini': '', '.pytest.ini': '', 'tox.ini': '' };
         const placed = Array.cartesianWith(['', 'proj/library/'], Record.toEntries(read), (folder, [file, content]) => [`${folder}${file}`, content] as const);
         locked(workspace.write({ ...MEMBERS, 'pixi.toml': '[workspace]\nchannels = ["conda-forge"]\nplatforms = ["osx-arm64"]\n', ...Record.fromEntries(placed) }).root);
@@ -56,7 +56,7 @@ describe('files Nx hands the plugin', { timeout: 60_000 }, () => {
         const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
         const graph = await workspace.graph({ createNodes });
 
-        expect(matched.toSorted()).toStrictEqual(['proj/application/pyproject.toml', 'proj/internal/pyproject.toml', 'proj/library/pyproject.toml', 'proj/virtual/pyproject.toml', 'pyproject.toml', 'uv.lock']);
+        expect(matched).toStrictEqual(['uv.lock']);
         expect('upgrade--pixi' in (graph.nodes['uv-tutorial']?.data.targets ?? {})).toBe(true);
     });
 });

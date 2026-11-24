@@ -144,6 +144,15 @@ describe('checker targets', { timeout: 120_000 }, () => {
         expect(after.value).not.toBe(before.value);
     });
 
+    it('changes the ty hash of a member after an edit to its manifest, which ty reads through uv and no createNodes pattern matches', async ({ workspace }) => {
+        locked(workspace, workspaced(['ty']));
+        const before = await hashed(workspace, await workspace.graph(uv), 'library:check--ty');
+
+        const after = await hashed(workspace, await workspace.write({ 'proj/library/pyproject.toml': `${LIBRARY['proj/library/pyproject.toml']}\n[project.urls]\nSource = "https://example.invalid"\n` }).graph(uv), 'library:check--ty');
+
+        expect(after.value).not.toBe(before.value);
+    });
+
     it('changes the pytest hash of a member after an edit to a dependency of a workspace member its dependency group installs', async ({ workspace }) => {
         locked(workspace, { ...workspaced(['pytest>=8', 'helper'], ['helper']), ...WORDS, ...HELPER, ...TESTED });
         const before = await hashed(workspace, await workspace.graph(uv), 'library:test--pytest');

@@ -1,15 +1,14 @@
 import { join, posix } from 'node:path';
 import { AggregateCreateNodesError, type CreateNodes, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, emitPluginWorkerLog, globWithWorkspaceContext } from '@nx/devkit/internal';
+import { emitPluginWorkerLog, globWithWorkspaceContext } from '@nx/devkit/internal';
 import { anchored, fingerprinted, inferring, manifested, run, spawned } from '@rasm/nx';
 import { Array, Effect, FileSystem, Glob, Option, type Record, Schema, String } from 'effect';
 import which from 'which';
 import { Options, PLUGIN, targets } from '#/targets';
-import { LOCK, located, MANIFEST, Metadata, SCHEMA } from '#/workspace';
+import { LOCK, located, Metadata, SCHEMA } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FILES = combineGlobPatterns([LOCK, MANIFEST].map((file) => `**/${file}`));
 const OWN = fingerprinted(import.meta.dirname);
 const METADATA = ['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'] as const;
 const LISTED = ['uv', 'workspace', 'list'] as const;
@@ -37,18 +36,14 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, lock: string) {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes = [
-    FILES,
-    inferring(Options, run, function* (matched, settings, context, cached) {
+    `**/${LOCK}`,
+    inferring(Options, run, function* (locks, settings, context, cached) {
         const fs = yield* FileSystem.FileSystem;
         const found = yield* Effect.forEach(Array.fromNullishOr(yield* Effect.promise(() => which('uv', { nothrow: true }))), (at) => fs.realPath(at));
         const stats = yield* Effect.forEach(found, (at) => fs.stat(at));
         const binary = [...found, ...stats.flatMap(({ size, mtime }) => [`${size}`, ...Option.toArray(mtime).map(globalThis.String)])];
         const pass = yield* cached<Effect.Success<ReturnType<typeof read>>>('uv.hash', yield* OWN, () => Effect.succeed(binary));
-        const [models, refused] = yield* Effect.partition(
-            matched.filter((file) => posix.basename(file) === LOCK),
-            (lock) => Effect.mapError(pass.recall(lock, read(context.workspaceRoot, lock)), (error): [string, Error] => [lock, error]),
-            { concurrency: 'unbounded' },
-        );
+        const [models, refused] = yield* Effect.partition(locks, (lock) => Effect.mapError(pass.recall(lock, read(context.workspaceRoot, lock)), (error): [string, Error] => [lock, error]), { concurrency: 'unbounded' });
         const members = models.flatMap((model) => model.members);
         const patterns = Array.dedupe(members.flatMap(({ checks }) => checks.flatMap((check) => check.patterns)));
         const listed = yield* Array.match(patterns, { onEmpty: () => Effect.succeed([]), onNonEmpty: (globs) => Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, globs)) });
