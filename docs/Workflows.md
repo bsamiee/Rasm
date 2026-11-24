@@ -120,7 +120,7 @@ Nx remote cache readers and the hash inputs that decide what machines share:
 
 Workflow `Deploy` triggers and steps:
 - CI job `deploy` calls `Deploy` on pushes to `main`, failed test jobs included, as fixes apply past a failing test
-- Pushes apply only where `@rasm/infra` is affected between the base and head of job `shas`
+- Pushes apply only where a change between the base and head of job `shas` reaches an input of `deploy--pulumi` of `@rasm/infra`
 - Failed deploys fail their CI run, `nx-set-shas` keeps the base before it, and the next push applies again
 - CI job `deploy` waits for the self-hosted jobs of its run alone, as `mise bootstrap remote` can restart Docker under a job on that machine
 - Jobs `macos` and `windows` run on while a deploy replaces the cache server's container

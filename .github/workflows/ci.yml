@@ -85,11 +85,12 @@ jobs:
             - id: listed
               run: |-
                   affected="$(nx show projects --affected --json)"
+                  deployed="$(nx show projects --affected --targets=deploy--pulumi --json)"
                   version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
-                  jq --raw-output --argjson affected "${affected}" --arg image "ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" '
+                  jq --raw-output --argjson affected "${affected}" --argjson deployed "${deployed}" --arg image "ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" '
                       .nodes as $nodes | def tagged($tags): [$affected[] | select(any($nodes[.].data.tags[]?; IN($tags[])))] | tojson;
                       "unreal=\(tagged(["host:unreal"]))", "browser=\(tagged(["host:browser"]))", "windows=\(tagged(["os:win32", "host:rhino"]))", "rhino=\(tagged(["host:rhino"]))",
-                      "infra=\([$affected[] | select(. == "@rasm/infra")] | tojson)", "image=\($image)"' "${NX_WORKSPACE_DATA_DIRECTORY}/project-graph.json" >> "${GITHUB_OUTPUT}"
+                      "infra=\([$deployed[] | select(. == "@rasm/infra")] | tojson)", "image=\($image)"' "${NX_WORKSPACE_DATA_DIRECTORY}/project-graph.json" >> "${GITHUB_OUTPUT}"
 
     linux:
         name: Linux
