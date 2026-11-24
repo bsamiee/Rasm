@@ -5,7 +5,7 @@ import { dirname, relative, resolve } from 'node:path';
 import process, { env } from 'node:process';
 import { normalizePath } from '@nx/devkit';
 import { type BatchExecutorTaskResult, findProjectForPath, hashObject } from '@nx/devkit/internal';
-import { batched, executor } from '@rasm/nx-distribution/inference';
+import { batched, executor } from '@rasm/nx';
 import { Array, Cause, Clock, Effect, Exit, Formatter, Option, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
 import { loaded, MODE } from '#/plugin';

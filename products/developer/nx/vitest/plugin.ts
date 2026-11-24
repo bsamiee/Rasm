@@ -7,8 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson } from '@nx/devkit/internal';
-import { above, aggregated, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, run, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { above, type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, run, tokened, type Verbs, within } from '@rasm/nx';
 import { Array, Cause, Effect, FileSystem, Option, Record, Schema } from 'effect';
 import type { Vite } from 'vitest/node';
 
@@ -29,7 +28,7 @@ const OWN = fingerprinted(import.meta.dirname);
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Options extends Schema.Opaque<Options, unknown>()(
-    Schema.Struct({ outputPath: Folder, coveragePath: Folder }).annotate({
+    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
         description:
             'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder. coveragePath: workspace folder every run enabling coverage writes lcov.info to, {projectName} naming the project, absent leaves Vitest its coverage.reportsDirectory',
     }),
@@ -150,7 +149,7 @@ const targets = (file: string, { triggers, shared, suites }: Resolved, { root, p
         test,
         clean: {
             vitest: {
-                executor: `${distribution.name}:clean`,
+                executor: EXECUTORS.clean,
                 options: { targets: removed, commands: [['vitest', '--clearCache']], cwd: dirname(file) },
                 inputs: ['default', '^default', { externalDependencies: ['vitest'] }],
                 metadata: { description: `Removes the outputs ${removed.join(', ')} declare and every Vitest cache with vitest --clearCache`, help: { command: `${exec} vitest --help`, example: { args: ['--clearCache'] } } },
@@ -159,7 +158,7 @@ const targets = (file: string, { triggers, shared, suites }: Resolved, { root, p
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, context: CreateNodesContext, settings: Options, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, anchor: Anchor, context: CreateNodesContext, settings: Options, file: string) {
     const resolved = yield* pass.recall(file, read(context.workspaceRoot, file, settings.outputPath));
     const projects = yield* Effect.forEach(
         resolved.suites,
@@ -171,7 +170,7 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(ke
                 root: suite.root,
                 ...(suite.providers.length > 0 && { tags: ['host:browser'] }),
                 metadata: { technologies: ['vitest', ...suite.providers] },
-                targets: aggregated(targets(file, resolved, { ...suite, setup }, chain, `^${namedInput(suite.root, context)}`, settings, pass.exec), stated, 'vitest', context.workspaceRoot),
+                targets: aggregated(targets(file, resolved, { ...suite, setup }, chain, `^${namedInput(suite.root, context)}`, settings, pass.exec), stated, 'vitest', anchor),
             };
             return [suite.root, project] as const;
         }),
@@ -182,8 +181,8 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(ke
 const nodes = inferring(Options, run, function* (matched, settings, context, cached) {
     const files = Array.dedupe([...matched, ...(yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [`**/${SUITE}`])))]);
     const configs = files.filter((file) => matchesGlob(basename(file), SUITE) || !files.some((other) => dirname(other) === dirname(file) && matchesGlob(basename(other), SUITE)));
-    const pass = yield* cached<Resolved>('vitest.hash', hashArray([hashObject(settings), yield* OWN]));
-    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, settings, file)), configs, settings, context));
+    const [pass, anchor] = [yield* cached<Resolved>('vitest.hash', hashArray([hashObject(settings), yield* OWN])), anchored(context.workspaceRoot)];
+    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, anchor, context, settings, file)), configs, settings, context));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
