@@ -7,8 +7,6 @@ disable = ["msbuild-analyzer"]
 
 [settings]
 enable_tools = [
-    "cargo:resvg",
-    "cargo:usvg",
     "github:harehare/mq",
     "hk",
     "jscpd",

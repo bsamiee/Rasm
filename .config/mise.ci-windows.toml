@@ -2,14 +2,12 @@
 
 [settings]
 enable_tools = [
-    "cargo:resvg",
-    "cargo:usvg",
     "dotnet",
-    "imagemagick",
     "jscpd",
     "node",
     "pnpm",
     "rust",
+    "usvg",
     "uv",
     "yq",
 ]

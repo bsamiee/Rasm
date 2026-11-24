@@ -172,6 +172,10 @@ docker_plugin = 'plugins="$${DOCKER_CONFIG:-$$HOME/.docker}/cli-plugins" && mkdi
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 
+[tool_alias]
+resvg = "github:linebender/resvg"
+usvg  = "github:linebender/resvg"
+
 [tools]
 # --- [SHELL]
 
@@ -284,9 +288,11 @@ pulumi                                      = "latest"
 
 # --- [MEDIA]
 
-"cargo:resvg" = "latest"
-"cargo:usvg"  = "latest"
+"cargo:resvg" = { os = ["linux"], version = "latest" }
+"cargo:usvg"  = { os = ["linux"], version = "latest" }
 imagemagick   = "latest"
+resvg         = { os = ["macos", "windows"], version = "latest" }
+usvg          = { matching = "usvg", os = ["macos", "windows"], version = "latest" }
 
 [tools."github:NationalSecurityAgency/ghidra"]
 bin_path         = "support"

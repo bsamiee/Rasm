@@ -3958,6 +3958,23 @@ url = "https://github.com/astral-sh/python-build-standalone/releases/download/20
 checksum = "sha256:ecd90d78accb906e3d47f6cdb409a610da10475f94d15ebdd8cb2e0561b71df6"
 url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.15.2+20261110-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 
+[[tools.resvg]]
+version = "0.50.0"
+backend = "github:linebender/resvg"
+specifiers = ["latest"]
+
+[tools.resvg."platforms.macos-arm64"]
+checksum = "sha256:8155b569f2b93723ba3645b53536eead3b591c8faf62bdaafd3033ba37838837"
+checksum_source = "mise-versions"
+url = "https://github.com/linebender/resvg/releases/download/v0.50.0/resvg-macos-aarch64.zip"
+url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736385482"
+
+[tools.resvg."platforms.windows-x64"]
+checksum = "sha256:e4817e40ac63d3eb5c9e5762526cf6cc91f0cc108de38cd09dd60be765184efd"
+checksum_source = "mise-versions"
+url = "https://github.com/linebender/resvg/releases/download/v0.50.0/resvg-win-x86_64.zip"
+url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736382706"
+
 [[tools.ripgrep]]
 version = "15.2.0"
 backend = "aqua:BurntSushi/ripgrep"
@@ -4149,6 +4166,26 @@ checksum = "sha256:b6b2d9e6419216aaa0b8e74a5c81c48335cb193d6eb87f50a7d77468bce10
 checksum_source = "mise-versions"
 url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.3/tombi-cli-1.11.3-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/755626450"
+
+[[tools.usvg]]
+version = "0.50.0"
+backend = "github:linebender/resvg"
+specifiers = ["latest"]
+
+[tools.usvg.options]
+matching = "usvg"
+
+[tools.usvg."platforms.macos-arm64"]
+checksum = "sha256:88b35b7d0ae41b8fd0581cd2d9cdab180a0742e311aa09ade45ef083fc5e2f2c"
+checksum_source = "mise-versions"
+url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-macos-aarch64.zip"
+url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736385483"
+
+[tools.usvg."platforms.windows-x64"]
+checksum = "sha256:f0caa55fe05fc21e1b9c81d3520173e66ebb1609c06fc6a3537729d2ba9bfa8f"
+checksum_source = "mise-versions"
+url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-win-x86_64.zip"
+url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736382707"
 
 [[tools.uv]]
 version = "0.13.9"

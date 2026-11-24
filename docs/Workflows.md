@@ -77,8 +77,10 @@ Composite actions and the mise profiles each job loads:
 - Profile `ci-<job id>` sets `enable_tools` to the tools a job's steps and Nx tasks run, and a job with no such file installs every tool
 - Profiles list the tools graph creation spawns (`rust`, `uv`, `jscpd`), and `dotnet` where their job runs .NET projects
 - Profiles repeat those tools, as a later mise file replaces `enable_tools` whole
-- Profiles `ci-macos` and `ci-deploy` disable row `msbuild-analyzer`, and their graphs leave .NET projects out
-- Profile `ci-macos` holds `yq`, as `mise.macos.toml` reads the Rhino major through it
+- Profiles `ci-macos`, `ci-deploy`, and `ci-browser` disable row `msbuild-analyzer`, and their graphs leave .NET projects out
+- Profiles `ci-macos` and `ci-version` hold `yq`, as `mise.macos.toml` reads the Rhino major through it
+- Jobs `browser` of `CI` and `Release` share profile `ci-browser`, as a profile follows the job id
+- Profile `ci-windows` holds `usvg` for `Rasm.Rhino` icons and no `imagemagick`, as no Windows task builds a Rhino plug-in
 
 ## [05]-[CACHE]
 
@@ -94,7 +96,8 @@ Actions caches per workflow and machine:
 - Action `jdx/mise-action` saves a GitHub-hosted job's tools, keyed by platform, profile names, `mise.lock`, profile files, and `rust-toolchain.toml`
 - Tool cache keys leave out `mise.toml` and the OS and machine mise files, as `mise.lock` pins every tool and those files change with hooks and rows no tool reads
 - GitHub-hosted jobs hold rustup and cargo homes inside the mise folder that action caches, and a restored cache holds the Rust toolchain
-- Jobs on macOS restore the Apple analyzer, its stamp, and mise freshness state by `mise.macos.toml` and analyzer sources
+- GitHub-hosted jobs restore mise freshness state with the Apple analyzer and its stamp on macOS, by analyzer sources, and the MSBuild analyzer on Windows, by the files its build reads
+- Analyzer caches save a new entry where the mise file holding the analyzer row changed, as mise rebuilds where restored state names another command
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
 - Job `macos` restores no Swift build folder or compilation cache, as an uncached run restoring one built the apps no faster
 - Job `macos` uploads the build logs Xcode writes, which hold each task and its compilation cache result
