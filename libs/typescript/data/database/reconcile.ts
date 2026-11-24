@@ -1,4 +1,4 @@
-import { Array, Effect, Equal, Filter, Function, flow, Graph, HashSet, Match, Option, Order, Record, Result, Schema, Struct } from 'effect';
+import { Array, Effect, Equal, Filter, Function, flow, Graph, HashSet, Match, Option, Order, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { Digest } from 'effect/crypto';
 import { type SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
@@ -86,7 +86,7 @@ const tableDdl = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: 
             onSome: negated ? ([members, entry]) => sql`(${within(operand(name), entry, members)}) IS NOT TRUE` : ([members, entry]) => within(operand(name), entry, members),
         });
     const keyed = ({ column: name, casefold }: Relation['indexes'][number]['keys'][number], method: Relation['indexes'][number]['method']) => {
-        const opclass = Option.flatMap(named(name), ({ kind }) => Option.flatten(engine.opclass(method, kind)));
+        const opclass = Option.flatMap(named(name), ({ kind }) => engine.opclass?.(method, kind) ?? Option.none());
         return {
             text: spaced([casefold ? engine.casefold(sql, name) : operand(name), ...Option.toArray(opclass).map(Struct.get('name'))]),
             extensions: Option.match(opclass, { onNone: () => [], onSome: Struct.get('extensions') }),
@@ -157,38 +157,37 @@ const tableDdl = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: 
                 ])}`;
             return { name, parts, extensions: Array.dedupe(columns.flatMap(Struct.get('extensions'))), configuration: Option.none(), text, declared: Option.some(index) };
         });
-    const searched = Option.map(search, (searchable) => engine.fulltext(sql, owner, searchable));
+    const searched = Option.flatMap(search, (searchable) => Option.fromUndefinedOr(engine.fulltext?.(sql, owner, searchable)));
     const identity = { origin: Option.getOrElse(declared.renamedFrom, () => owner), generation: Array.countBy(catalog.retired, Equal.equals(owner)) };
     return {
         relation,
         identity,
         definitions,
         links: linked(quoted),
-        indexes: [...built, ...Option.toArray(searched).flatMap(({ indexes: found }) => found.map((index) => ({ ...index, text: (modifiers: readonly string[], on: Statement.Fragment = relation) => index.text(modifiers, on), declared: Option.none<Relation['indexes'][number]>() })))],
+        indexes: [...built, ...Option.toArray(searched).flatMap(({ indexes: found }) => found.map((index) => ({ ...index, declared: Option.none<Relation['indexes'][number]>() })))],
         virtual: Option.flatMap(searched, Struct.get('virtual')),
-        policy: Option.flatMap(tenant, ({ column, setting }) => Option.map(engine.policy(sql, owner, column.name, engine.type(column), setting), (rule) => ({ ...rule, text: (role: Statement.Fragment, on: Statement.Fragment = relation) => rule.text(on, role) }))),
+        policy: Option.flatMap(tenant, ({ column, setting }) => Option.fromUndefinedOr(engine.policy?.(sql, owner, column.name, engine.type(column), setting))),
         comments: [...engine.comment(sql, owner, identity).statements(relation, Option.none()), ...definitions.flatMap(({ name, comment }) => comment.statements(relation, Option.some(name)))],
         create: ({
             target = quoted,
             elements = [],
             autoincrement = false,
             inline = Function.constTrue,
-            claimed = Option.none(),
+            claimed = { identity, fields: [] },
         }: {
             readonly target?: (name: string) => Statement.Fragment;
             readonly elements?: readonly Statement.Fragment[];
             readonly autoincrement?: boolean;
             readonly inline?: (link: { readonly name: string }) => boolean;
-            readonly claimed?: Option.Option<{ readonly identity: Identity; readonly fields: readonly { readonly definition: { readonly name: string }; readonly identity: Identity }[] }>;
+            readonly claimed?: { readonly identity: Identity; readonly fields: readonly { readonly definition: { readonly name: string }; readonly identity: Identity }[] };
         } = {}) => {
-            const stamps = Record.fromIterableWith(Option.match(claimed, { onNone: () => [], onSome: Struct.get('fields') }), (field) => [field.definition.name, field.identity]);
-            const stamp = Option.match(claimed, { onNone: () => identity, onSome: Struct.get('identity') });
+            const stamps = Record.fromIterableWith(claimed.fields, (field) => [field.definition.name, field.identity]);
             const columns = definitions.map((definition) => definition.written(Option.getOrElse(Record.get(stamps, definition.name), () => definition.identity)));
             const primary = spaced(['PRIMARY KEY', sql.join('', false)(['(', spaced([list(key), ...(autoincrement ? ['AUTOINCREMENT'] : [])]), ')'])]);
             const constraints = linked(target)
                 .filter(inline)
                 .map(({ name, text }) => engine.constraint(sql, name, text));
-            const marked = engine.comment(sql, owner, stamp);
+            const marked = engine.comment(sql, owner, claimed.identity);
             return sql`${spaced([sql`CREATE TABLE ${target(owner)}${marked.inline} (${sql.csv([...columns, ...elements, primary, ...constraints])})${engine.suffix(sql, declared)}`, ...marked.trailing])}`;
         },
     };
@@ -207,8 +206,7 @@ const claim = <R extends Live, D extends { readonly name: string; readonly renam
         const pick = Array.findFirst(standing, (candidate) => !HashSet.has(claimed, candidate.row.name) && matches(candidate));
         return [Option.match(pick, { onNone: () => claimed, onSome: (candidate) => HashSet.add(claimed, candidate.row.name) }), pick] as const;
     };
-    const unclaimed = HashSet.empty<string>();
-    const [owners, owned] = Array.mapAccum(declared, unclaimed, (claimed, item) => {
+    const [owners, owned] = Array.mapAccum(declared, HashSet.empty<string>(), (claimed, item) => {
         const aliases = new Set([item.name, ...Option.toArray(item.renamedFrom)]);
         return take(claimed, (candidate) => candidate.generation === item.identity.generation && (aliases.has(candidate.row.name) || aliases.has(candidate.origin)));
     });
@@ -242,7 +240,7 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
     const entries = located.found.map(({ item: { table }, row, owned, identity, recorded }) => {
         const live = Option.match(row, { onNone: Array.empty<L['columns'][number]>, onSome: ({ columns }): readonly L['columns'][number][] => columns });
         const { found, retiring, claimed, renamed: renamedRows } = claim(live, table.declared.retired.columns, table.ddl.definitions);
-        const fields = found.map(({ item: definition, row: present, ...ownership }) => ({ definition, found: present, ...ownership }));
+        const fields = found.map((field) => Struct.renameKeys(field, { item: 'definition', row: 'found' }));
         const renames = renamedRows.map(({ row: current, item }) => ({ from: current.name, to: item.name }));
         const renamed = new Map(renames.map(({ from, to }) => [from, to]));
         const original = new Map(renames.map(({ from, to }) => [to, from]));
@@ -297,10 +295,7 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
             matched.filter(({ required }) => Array.isReadonlyArrayNonEmpty(required)).map(({ live }) => live.name),
             (name) => Effect.map(occupied(name), Struct.get('populated')),
         ),
-        referenced: (live: string) => {
-            const entry = referenced.get(live);
-            return entry === undefined ? { name: live, renamed: Function.identity<string> } : { name: entry.declared.name, renamed: entry.renamed };
-        },
+        referenced: (live: string) => UndefinedOr.match(referenced.get(live), { onUndefined: () => ({ name: live, renamed: Function.identity<string> }), onDefined: ({ declared, renamed }) => ({ name: declared.name, renamed }) }),
         plan: (
             parts: Record<'preamble' | 'opening' | 'statements' | 'concurrent', readonly Statement.Statement<object>[]> & {
                 readonly concurrently: Effect.Effect<void, SqlError.SqlError>;

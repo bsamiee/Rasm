@@ -19,13 +19,13 @@ interface Dialect {
     readonly generated: (sql: SqlClient.SqlClient, expression: Statement.Fragment) => Statement.Fragment;
     readonly constraint: (sql: SqlClient.SqlClient, name: string, text: Statement.Fragment) => Statement.Fragment;
     readonly casefold: (sql: SqlClient.SqlClient, name: string) => Statement.Fragment;
-    readonly opclass: (method: Relation['indexes'][number]['method'], kind: Kind) => Option.Option<Option.Option<{ readonly name: string; readonly extensions: readonly string[] }>>;
+    readonly opclass?: (method: Relation['indexes'][number]['method'], kind: Kind) => Option.Option<{ readonly name: string; readonly extensions: readonly string[] }>;
     readonly projected: (sql: SqlClient.SqlClient, expression: Statement.Fragment, name: string) => Statement.Fragment;
     readonly methods: readonly Relation['indexes'][number]['method'][];
     readonly covering: (sql: SqlClient.SqlClient, unique: boolean, include: readonly string[]) => { readonly keys: readonly Statement.Fragment[]; readonly clause: readonly Statement.Fragment[] };
     readonly suffix: (sql: SqlClient.SqlClient, relation: Relation) => Statement.Fragment;
     readonly rename: (sql: SqlClient.SqlClient, from: string, to: Statement.Fragment) => Statement.Statement<object>;
-    readonly fulltext: (
+    readonly fulltext?: (
         sql: SqlClient.SqlClient,
         owner: string,
         search: Option.Option.Value<Relation['search']>,
@@ -35,15 +35,15 @@ interface Dialect {
             readonly parts: readonly string[];
             readonly extensions: readonly string[];
             readonly configuration: Option.Option<{ readonly name: string; readonly configuration: string; readonly filters: readonly string[] }>;
-            readonly text: (modifiers: readonly string[], on: Statement.Fragment) => Statement.Statement<object>;
+            readonly text: (modifiers: readonly string[], on?: Statement.Fragment) => Statement.Statement<object>;
         }[];
         readonly virtual: Option.Option<{ readonly name: string; readonly create: Statement.Statement<object>; readonly triggers: readonly { readonly name: string; readonly create: Statement.Statement<object> }[]; readonly rebuild: Statement.Statement<object> }>;
     };
-    readonly policy: (sql: SqlClient.SqlClient, owner: string, name: string, type: string, setting: string) => Option.Option<{ readonly name: string; readonly parts: readonly string[]; readonly rule: Statement.Fragment; readonly text: (on: Statement.Fragment, role: Statement.Fragment) => Statement.Statement<object> }>;
+    readonly policy?: (sql: SqlClient.SqlClient, owner: string, name: string, type: string, setting: string) => { readonly name: string; readonly parts: readonly string[]; readonly rule: Statement.Fragment; readonly text: (role: Statement.Fragment, on?: Statement.Fragment) => Statement.Statement<object> };
     readonly comment: (sql: SqlClient.SqlClient, name: string, identity: Identity) => { readonly inline: Statement.Fragment; readonly trailing: readonly Statement.Fragment[]; readonly statements: (relation: Statement.Fragment, column: Option.Option<string>) => readonly Statement.Statement<object>[] };
     readonly refusals: (relation: Relation) => readonly ReconcileError['findings'][number][];
     readonly role?: (sql: SqlClient.SqlClient) => Effect.Effect<string, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError>;
-    readonly open: (sql: SqlClient.SqlClient) => Effect.Effect<unknown, SqlError.SqlError>;
+    readonly open?: (sql: SqlClient.SqlClient) => Effect.Effect<unknown, SqlError.SqlError>;
     readonly plan: (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>) => Effect.Effect<Effect.Success<ReturnType<ReturnType<typeof diff>['plan']>>, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError | ReconcileError>;
     readonly execute: (statements: Array.NonEmptyReadonlyArray<Statement.Statement<object>>) => Effect.Effect<unknown, SqlError.SqlError, SqlClient.SqlClient>;
     readonly transactional: boolean;
@@ -54,10 +54,10 @@ interface RowDialect {
     readonly texts: (sql: SqlClient.SqlClient, body: string) => Statement.Fragment;
     readonly insertion: (sql: SqlClient.SqlClient, body: string, order: Statement.Fragment) => Statement.Fragment;
     readonly read: (sql: SqlClient.SqlClient, entry: Column, scope: Statement.Fragment) => Statement.Fragment;
-    readonly upsert: (parts: ReturnType<typeof Rows.fragments>, body: string, set: readonly Column[]) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError, SqlClient.SqlClient>;
-    readonly ensure: (parts: ReturnType<typeof Rows.fragments>, body: string) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError, SqlClient.SqlClient>;
+    readonly upsert: (parts: Effect.Success<ReturnType<typeof Rows.fragments>>, body: string, set: readonly Column[]) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError, SqlClient.SqlClient>;
+    readonly ensure: (parts: Effect.Success<ReturnType<typeof Rows.fragments>>, body: string) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError, SqlClient.SqlClient>;
     readonly search: (
-        parts: ReturnType<typeof Rows.fragments>,
+        parts: Effect.Success<ReturnType<typeof Rows.fragments>>,
         searchable: Option.Option.Value<Relation['search']>,
         text: string,
         pattern: string,
@@ -77,7 +77,8 @@ class Engine extends Context.Service<Engine, Dialect>()('@rasm/database/engine')
 class Rows extends Context.Service<Rows, RowDialect>()('@rasm/database/engine/Rows') {
     static readonly flags = { inserted: '#inserted', previous: '#previous', rank: '#rank', highlight: '#highlight', position: '#position' } as const;
     static readonly atomic = <A extends object>(statements: Array.NonEmptyReadonlyArray<Statement.Statement<A>>) => Rows.use((rows) => rows.atomic(statements));
-    static readonly fragments = (sql: SqlClient.SqlClient, rows: RowDialect, { name, columns, key }: Pick<Relation, 'name' | 'columns' | 'key'>) => {
+    static readonly fragments = Effect.fnUntraced(function* ({ name, columns, key }: Pick<Relation, 'name' | 'columns' | 'key'>) {
+        const [sql, rows] = yield* Effect.all([SqlClient.SqlClient, Rows]);
         const all = Object.values(columns);
         const written = all.filter(({ projection }) => Option.isNone(projection));
         const [unqualified, owner] = [sql.literal(''), sql`${sql(name)}`];
@@ -93,7 +94,6 @@ class Rows extends Context.Service<Rows, RowDialect>()('@rasm/database/engine/Ro
             unqualified,
             order,
             ignore: sql`ON CONFLICT (${keys(unqualified)}) DO NOTHING`,
-            flags: Rows.flags,
             element,
             keys,
             reads: (scope: Statement.Fragment, ...extra: readonly (string | Statement.Fragment)[]) => sql.csv([...all.map((entry) => rows.read(sql, entry, scope)), ...extra]),
@@ -109,7 +109,7 @@ class Rows extends Context.Service<Rows, RowDialect>()('@rasm/database/engine/Ro
                     ),
                 ),
         };
-    };
+    });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

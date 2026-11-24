@@ -1,4 +1,4 @@
-import { Array, Cause, Data, type Duration, Effect, Formatter, Layer, Option, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Data, type Duration, Effect, Formatter, Function, Layer, Option, Struct, UndefinedOr } from 'effect';
 import { SqlClient, type SqlError, type Statement } from 'effect/sql';
 import { Engine } from '#/engine';
 import { ReconcileError } from '#/error';
@@ -58,7 +58,7 @@ const converge = Effect.fnUntraced(function* (catalog: Catalog, runtime: Option.
             Effect.fnUntraced(function* (error) {
                 const next = yield* steps;
                 const [failed, left] = [new Set(text(planned.statements)), new Set(text(next.statements))];
-                return yield* left.size < failed.size && left.isSubsetOf(failed) ? settled(next) : Effect.fail(error);
+                return yield* left.size < failed.size && left.isSubsetOf(failed) ? settled(next) : error;
             }),
         );
     return yield* engine.transactional ? client.withTransaction(Effect.tap(steps, (planned) => after(planned, engine))) : Effect.flatMap(steps, settled);
@@ -70,12 +70,12 @@ const start = Effect.fnUntraced(function* <M, N>(catalog: Catalog, migrator: Opt
         onSome: (layer) =>
             Effect.fromNullishOr(engine.role).pipe(
                 Effect.mapError(() => new Cause.IllegalArgumentError(`${client.driver} has no role to migrate as`)),
-                Effect.flatMap((role) => role(client)),
+                Effect.flatMap(Function.apply(client)),
                 Effect.flatMap((role) => Effect.provide(Catalog.reconcile(catalog, Option.some(role)), layer)),
             ),
     });
     yield* Object.values(undeclared).some(Array.isReadonlyArrayNonEmpty<unknown>) ? Effect.annotateLogs(Effect.logInfo('undeclared database objects'), undeclared) : Effect.void;
-    yield* engine.open(client);
+    yield* engine.open?.(client) ?? Effect.void;
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

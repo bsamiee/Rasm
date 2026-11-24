@@ -1,4 +1,4 @@
-import { Array, Data, Equal, Filter, Function, flow, Match, Option, Predicate, Record, Schema, SchemaAST, SchemaGetter, SchemaRepresentation, Struct } from 'effect';
+import { Array, Data, Equal, Filter, Function, flow, Match, Option, Predicate, pipe, Record, Schema, SchemaAST, SchemaGetter, SchemaRepresentation, Struct } from 'effect';
 import type { RelationOptions } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -84,16 +84,13 @@ class Column extends Data.Class<{
         const payloads =
             (nodes: readonly SchemaRepresentation.Representation[]) =>
             <P>({ id, payloadSchema }: Pick<SchemaRepresentation.FilterReviver<P>, 'id' | 'payloadSchema'>) =>
-                Array.flatMapNullishOr(
-                    nodes.flatMap(
-                        Match.type<SchemaRepresentation.Representation>().pipe(
-                            Match.tag('Reference', () => []),
-                            Match.orElse(({ checks }) => checks.flatMap(leaves)),
-                        ),
-                    ),
-                    Struct.get('representation'),
-                ).flatMap((check) => (check.id === id ? Option.toArray(Schema.decodeOption(Schema.toCodecJson(payloadSchema))(check.payload)) : []));
-        const textual = Option.exists(Array.head(values), Predicate.isTagged('String')) && decoded.some(Predicate.or(Predicate.isTagged('Number'), Predicate.isTagged('BigInt')));
+                pipe(
+                    nodes,
+                    Array.flatMap((node) => (node._tag === 'Reference' ? [] : node.checks.flatMap(leaves))),
+                    Array.flatMapNullishOr(Struct.get('representation')),
+                    Array.flatMap((check) => (check.id === id ? Option.toArray(Schema.decodeOption(Schema.toCodecJson(payloadSchema))(check.payload)) : [])),
+                );
+        const textual = Predicate.isTagged(values[0], 'String') && decoded.some(Predicate.or(Predicate.isTagged('Number'), Predicate.isTagged('BigInt')));
         const [stored, typed] = [payloads(values), payloads(decoded)];
         const numbers = textual ? typed : stored;
         const has = flow(stored, Array.isReadonlyArrayNonEmpty);
@@ -101,23 +98,22 @@ class Column extends Data.Class<{
             Array.fromNullishOr(exclusive === undefined || exclusive === true ? inclusive : exclusive).map((value) => Column.Bound.Compare({ op: exclusive === undefined ? (`${op}=` as const) : op, value, subject }));
         const ranges = (read: typeof stored, subject: 'value' | 'codePoints', revivers: readonly Pick<SchemaRepresentation.FilterReviver<Range>, 'id' | 'payloadSchema'>[]) =>
             revivers.flatMap(read).flatMap((range) => [...side(subject, '>', range.minimum ?? range.minCodePoints, range.exclusiveMinimum), ...side(subject, '<', range.maximum ?? range.maxCodePoints, range.exclusiveMaximum)]);
-        const storage = (node: SchemaRepresentation.Representation): readonly string[] =>
-            Option.match(Column.#members(node), {
-                onSome: Array.map((member) => typeof member),
-                onNone: () =>
-                    Match.value(node._tag).pipe(
-                        Match.when(Match.is('String', 'TemplateLiteral'), () => ['string']),
-                        Match.when('Number', () => ['number']),
-                        Match.when(Match.is('Declaration', 'Arrays'), () => ['blob']),
-                        Match.orElse((tag) => [tag]),
-                    ),
-            });
+        const encodings = values.flatMap(
+            Match.type<SchemaRepresentation.Representation>().pipe(
+                Match.tag('Literal', ({ literal }) => [typeof literal]),
+                Match.tag('Enum', ({ enums }) => enums.map(([, member]) => typeof member)),
+                Match.tag('String', 'TemplateLiteral', () => ['string']),
+                Match.tag('Number', () => ['number']),
+                Match.tag('Declaration', 'Arrays', () => ['blob']),
+                Match.orElse(({ _tag }): readonly string[] => [_tag]),
+            ),
+        );
         const boolean = decoded.some(Predicate.isTagged('Boolean'));
         const literals = boolean ? [] : Option.match(Option.all(values.map(Column.#members)), { onNone: () => [], onSome: Array.flatten });
         const numeric = Array.isReadonlyArrayNonEmpty(literals) && literals.every((member) => typeof member === 'number');
         const integer = Array.isReadonlyArrayNonEmpty(numbers(SchemaRepresentation.isIntReviver)) || (numeric && literals.every(Number.isInteger));
         const finite = Array.isReadonlyArrayNonEmpty(numbers(SchemaRepresentation.isFiniteReviver));
-        const number = Option.exists(Array.head(values), Predicate.isTagged('Number')) || (textual && decoded.some(Predicate.isTagged('Number')));
+        const number = Predicate.isTagged(values[0], 'Number') || (textual && decoded.some(Predicate.isTagged('Number')));
         const name = rename(field);
         const instant = { _tag: 'Declaration', representation: { id: Match.is(SchemaRepresentation.DateReviver.id, SchemaRepresentation.DateTimeUtcReviver.id) } } as const;
         const kind = Match.value({ node: values[0], decoded: decoded[0], boolean, numeric, number, integer, uuid: has(SchemaRepresentation.isUUIDReviver) }).pipe(
@@ -147,17 +143,16 @@ class Column extends Data.Class<{
                 ),
                 Match.when({ _tag: 'Arrays', elements: [], rest: [Match.any] }, ({ rest: [item] }) => Option.map(collected(item), (element) => Column.Collection.Array({ element }))),
                 Match.when({ _tag: 'Objects', propertySignatures: [], indexSignatures: [{ parameter: { _tag: 'String' } }] }, ({ indexSignatures: [{ type }] }) => Option.map(collected(type), (value) => Column.Collection.Map({ value }))),
-                Match.option,
-                Option.flatten,
+                Match.orElse(() => Option.none()),
             );
         return new Column({
             name,
             schema,
             kind,
-            collection: kind === 'json' && decoded.length === 1 ? Option.filter(Option.flatMap(Array.head(decoded), collected), Predicate.not(Column.Collection.$is('Scalar'))) : Option.none(),
+            collection: kind === 'json' && Predicate.isTupleOf(decoded, 1) ? Option.filter(collected(Array.headNonEmpty(decoded)), Predicate.not(Column.Collection.$is('Scalar'))) : Option.none(),
             textual,
             ascii: has(SchemaRepresentation.isAsciiReviver),
-            refusal: Match.value({ mixed: Array.dedupe(values.flatMap(storage)).length > 1, unbounded: number && !(finite || integer) }).pipe(
+            refusal: Match.value({ mixed: Array.dedupe(encodings).length > 1, unbounded: number && !(finite || integer) }).pipe(
                 Match.when({ mixed: true }, () => 'mixed' as const),
                 Match.when({ unbounded: true }, () => 'unbounded' as const),
                 Match.option,
@@ -183,7 +178,7 @@ class Column extends Data.Class<{
             ),
             renamedFrom: Option.map(Option.fromUndefinedOr(renamed?.[field]), rename),
             generation: Array.countBy(retired, Equal.equals(name)),
-            retype: Option.exists(Option.fromUndefinedOr(retype), Array.contains(field)),
+            retype: retype?.includes(field) === true,
         });
     };
 }

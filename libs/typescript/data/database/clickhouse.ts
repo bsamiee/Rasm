@@ -48,12 +48,12 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
     });
     static readonly #integer = (bounds: Column['bounds']) => {
         const [lower, upper] = Array.partition(
-            Array.filterMap(bounds.filter(Column.Bound.$is('Compare')), ({ op, value, subject }) => (subject === 'value' && !(value instanceof Date) ? Result.succeed({ lower: edges[op].lower, value: (typeof value === 'bigint' ? value : BigInt(edges[op].round(value))) + edges[op].step }) : Result.failVoid)),
-            Filter.fromPredicate(({ lower: side }) => side),
+            Array.filterMap(bounds.filter(Column.Bound.$is('Compare')), ({ op, value, subject }) => (subject === 'value' && !(value instanceof Date) ? Result.succeed({ op, value: (typeof value === 'bigint' ? value : BigInt(edges[op].round(value))) + edges[op].step }) : Result.failVoid)),
+            ({ op, value }) => (edges[op].lower ? Result.succeed(value) : Result.fail(value)),
         );
-        const low = Array.match(lower.map(Struct.get('value')), { onEmpty: () => -(2n ** (bits.unbounded - 1n)), onNonEmpty: Array.max(Order.BigInt) });
+        const low = Array.match(lower, { onEmpty: () => -(2n ** (bits.unbounded - 1n)), onNonEmpty: Array.max(Order.BigInt) });
         const signed = low < 0n ? 1n : 0n;
-        const high = Array.match(upper.map(Struct.get('value')), { onEmpty: () => 2n ** (bits.unbounded - signed) - 1n, onNonEmpty: Array.min(Order.BigInt) });
+        const high = Array.match(upper, { onEmpty: () => 2n ** (bits.unbounded - signed) - 1n, onNonEmpty: Array.min(Order.BigInt) });
         const widths = Array.unfold<bigint, bigint>(bits.narrowest, (size) => (size > bits.widest ? Option.none() : Option.some([size, size * 2n])));
         const width = Array.findFirst(widths, (candidate) => low >= -signed * 2n ** (candidate - signed) && high < 2n ** (candidate - signed));
         return `${signed === 0n ? 'UInt' : 'Int'}${Option.getOrElse(width, () => bits.widest)}`;
@@ -78,24 +78,15 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
     static readonly constraint: Dialect['constraint'] = (sql) => sql.literal('');
     static readonly casefold: Dialect['casefold'] = (sql, name) => sql`lowerUTF8(${sql(name)})`;
     static readonly methods: Dialect['methods'] = ['btree', ...Struct.keys(skips)];
-    static readonly opclass: Dialect['opclass'] = (method) => Option.liftPredicate(Option.none(), () => Clickhouse.methods.includes(method));
     static readonly projected: Dialect['projected'] = (sql, _, name) => sql`${sql(name)}`;
     static readonly covering: Dialect['covering'] = () => ({ keys: [], clause: [] });
     static readonly suffix: Dialect['suffix'] = (sql, { mergeTree: { version, expires } }) => {
         const settings = [...Option.toArray(version).map(() => "deduplicate_merge_projection_mode = 'rebuild'"), ...Option.toArray(expires).map(() => 'ttl_only_drop_parts = 1')];
-        return sql.join(
-            ' ',
-            false,
-        )([
-            ' ENGINE =',
-            Option.match(version, { onNone: () => sql.literal('MergeTree'), onSome: (column) => sql`ReplacingMergeTree(${sql(column)})` }),
-            ...Option.toArray(expires).flatMap((expiry) => [sql`PARTITION BY toDate(${sql(expiry.column)})`, ttl(sql, expiry)]),
-            ...Array.match(settings, { onEmpty: () => [], onNonEmpty: (all) => ['SETTINGS', all.join(', ')] }),
-        ]);
+        const merging = Option.match(version, { onNone: () => sql.literal('MergeTree'), onSome: (column) => sql`ReplacingMergeTree(${sql(column)})` });
+        const partitioned = Option.toArray(expires).flatMap((expiry) => [sql`PARTITION BY toDate(${sql(expiry.column)})`, ttl(sql, expiry)]);
+        return sql.join(' ', false)([' ENGINE =', merging, ...partitioned, ...(Array.isReadonlyArrayNonEmpty(settings) ? ['SETTINGS', settings.join(', ')] : [])]);
     };
     static readonly rename: Dialect['rename'] = (sql, from, to) => sql`RENAME TABLE ${sql(from)} TO ${to}`;
-    static readonly fulltext: Dialect['fulltext'] = () => ({ indexes: [], virtual: Option.none() });
-    static readonly policy: Dialect['policy'] = () => Option.none();
     static readonly comment: Dialect['comment'] = (sql, _, identity) => ({ inline: sql.literal(''), trailing: [sql`COMMENT ${sql.literal(quoted(Formatter.formatJson(identity)))}`], statements: () => [] });
 
     // --- [RECONCILIATION]
@@ -116,9 +107,11 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
             ...unsupported(owner, 'mergeTreeColumn', all, ({ name, kind, projection }) => (Option.contains(expiring, name) && kind !== 'instant') || (Option.contains(version, name) && kind !== 'integer' && kind !== 'instant') || (Record.has(codecs, name) && Option.isSome(projection))),
         ];
     };
-    static readonly open: Dialect['open'] = () => Effect.void;
     static readonly execute: Dialect['execute'] = (statements) =>
-        Effect.flatMap(ClickhouseClient.ClickhouseSettings, (settings) => Effect.all(statements, { discard: true }).pipe(Effect.provideService(ClickhouseClient.ClientMethod, 'command'), Effect.provideService(ClickhouseClient.ClickhouseSettings, { ...settings, alter_sync: '2', mutations_sync: '2' })));
+        Effect.all(statements, { discard: true }).pipe(
+            Effect.provideService(ClickhouseClient.ClientMethod, 'command'),
+            Effect.updateService(ClickhouseClient.ClickhouseSettings, (settings) => ({ ...settings, alter_sync: '2', mutations_sync: '2' })),
+        );
     static readonly transactional = false;
     static readonly plan: Dialect['plan'] = Effect.fnUntraced(
         function* (sql: SqlClient.SqlClient, catalog: Catalog) {
@@ -127,10 +120,7 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
             const resolved = diff(sql, Clickhouse, catalog, ddl, live.tables.map(Struct.assign({ references: [] })));
             const matched = yield* Effect.forEach(resolved.matched, (entry) => Effect.map(parts(sql, entry), (wanted) => aligned(entry, wanted)));
             const created = yield* Effect.forEach(resolved.created, ({ declared, ddl: table }) => Effect.map(parts(sql, { declared, ddl: table }), (wanted) => built(sql, table.relation, { declared, ddl: table, parts: wanted, stamp: tableStamp(declared, table.identity, wanted), fields: [], foreign: [] }, [])));
-            const [replaced, kept] = Array.partition(
-                matched,
-                Filter.fromPredicate(({ rebuild }) => rebuild),
-            );
+            const [replaced, kept] = Array.partition(matched, Filter.fromPredicate(Struct.get('rebuild')));
             const changes = kept.map((entry) => altered(sql, entry));
             return yield* resolved.plan({
                 findings: [],
@@ -152,12 +142,10 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
 
     static readonly layer = (config: Omit<ClickhouseClient.ClickhouseClientConfig, keyof Dialect['names']>, names: Dialect['names'] = Engine.names.snake) => Layer.merge(Layer.succeed(Engine, { ...Clickhouse, names }), ClickhouseClient.layer({ ...config, ...names }));
     static readonly layerConfig = (config: Config.Wrap<Omit<ClickhouseClient.ClickhouseClientConfig, keyof Dialect['names']>>, names: Dialect['names'] = Engine.names.snake) =>
-        Layer.merge(
-            Layer.succeed(Engine, { ...Clickhouse, names }),
-            Config.unwrap(config).pipe(
-                Config.map((settings) => ({ ...settings, ...names })),
-                ClickhouseClient.layerConfig,
-            ),
+        Config.unwrap(config).pipe(
+            Config.map((settings) => ({ ...settings, ...names })),
+            ClickhouseClient.layerConfig,
+            Layer.merge(Layer.succeed(Engine, { ...Clickhouse, names })),
         );
 }
 
@@ -215,7 +203,7 @@ const built = (sql: SqlClient.SqlClient, target: Statement.Fragment, { declared,
     ddl.create({
         target: () => target,
         elements: [...elements, ...[...wanted, ...foreign.map(({ kind, name, definition }) => ({ kind, name, body: sql.literal(definition) }))].map(({ kind, name, body }) => sql`${sql.literal(kind)} ${sql(name)} ${body}`)],
-        claimed: Option.some({ identity: stamp, fields }),
+        claimed: { identity: stamp, fields },
     }),
     ...Array.match(recoded(sql, declared, {}), { onEmpty: () => [], onNonEmpty: (all) => [sql`ALTER TABLE ${target} ${sql.csv(all)}`] }),
 ];

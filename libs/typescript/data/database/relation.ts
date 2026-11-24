@@ -106,16 +106,13 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
 const definition = <F extends Fields>(fields: F, options: RelationOptions<F>, rename: (name: string) => string) => {
     const key = Array.map(options.key ?? Array.make('id'), rename);
     const retired = (options.retired ?? []).map(rename);
-    const declared = (options.indexes ?? []).map((index) => {
-        const { columns, unique, include, where, method } = { unique: false, include: [], method: 'btree' as const, where: {}, ...index };
-        return {
-            keys: Array.map(columns, (entry) => (typeof entry === 'string' ? { column: rename(entry), casefold: false } : { column: rename(entry.casefold), casefold: true })),
-            unique,
-            include: include.map(rename),
-            where: Column.conditions(where, rename),
-            method,
-        };
-    });
+    const declared = (options.indexes ?? []).map(({ columns, unique = false, include = [], where = {}, method = 'btree' }) => ({
+        keys: Array.map(columns, (entry) => (typeof entry === 'string' ? { column: rename(entry), casefold: false } : { column: rename(entry.casefold), casefold: true })),
+        unique,
+        include: include.map(rename),
+        where: Column.conditions(where, rename),
+        method,
+    }));
     const linked = (options.references ?? []).map(({ columns: linking, table, onDelete = 'NO ACTION' }) => ({ columns: Array.map(linking, rename), target: rename(table.name), key: Array.map(table.key, rename), onDelete }));
     const orders = [key, ...declared.filter(({ method }) => method === 'btree').map((index) => Array.takeWhile(index.keys, ({ casefold }) => !casefold).map(({ column }) => column))];
     const covering = linked.filter((reference) => !orders.some((order) => Equal.equals(Array.take(order, reference.columns.length), reference.columns)));
@@ -147,7 +144,7 @@ const definition = <F extends Fields>(fields: F, options: RelationOptions<F>, re
 const wire = (entry: Column) => (entry.kind === 'blob' ? Schema.encodeTo(Schema.NullOr(Schema.Uint8ArrayFromHex))(entry.schema) : entry.schema);
 const list = (entry: Column) => Schema.fromJsonString(Schema.NonEmptyArray(wire(entry)));
 const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Relation, 'name' | 'columns' | 'key' | 'search'>) => {
-    const fragments = Effect.map(Effect.all([SqlClient.SqlClient, Rows]), ([sql, rows]) => Rows.fragments(sql, rows, relation));
+    const fragments = Rows.fragments(relation);
     const all = Object.values<Column>(relation.columns);
     const written = all.filter(({ projection }) => Option.isNone(projection));
     const keyed = written.filter(({ name }) => relation.key.includes(name)).map(Struct.get('name'));
