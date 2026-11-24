@@ -9,7 +9,7 @@ import manifest from '#/.claude-plugin/plugin.json' with { type: 'json' };
 import { HostError } from '#/host';
 import { decide, Engine } from '#/rules/decide';
 import { Decision, Request } from '#/rules/decision';
-import { Finished, ran, Writing, wrote } from '#/rules/git';
+import { Writing, wrote } from '#/rules/git';
 import { recorded, watched } from '#/rules/waits';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -30,7 +30,6 @@ const Router = HttpRouter.addAll([
     routed('decide', Request, Decision, decide),
     routed('read', Schema.Struct({ file: Schema.String }), Decision, ({ file }) => Effect.succeed(recorded(file))),
     routed('wrote', Writing, Schema.Struct({}), (body) => Effect.as(wrote(body), {})),
-    routed('ran', Finished, Schema.Struct({}), (body) => Effect.as(ran(body), {})),
     routed(
         'tasks',
         Schema.Struct({ files: Schema.Array(Schema.String) }),

@@ -1,5 +1,5 @@
 import { expect, layer } from '@effect/vitest';
-import { ran, wrote } from '@rasm/function-hooks/rules/git';
+import { wrote } from '@rasm/function-hooks/rules/git';
 import { Cause, Context, Effect, FileSystem, Layer, Match, Path } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Decider, decided, refusing } from '#/engine';
@@ -91,20 +91,31 @@ const KEPT = [
     ['an edit by the main agent of its own session, from a subagent', [STEPS.mine], 'git restore f', 'a1', `git restore ${FOREIGN} f,`],
     ['its own path beside a path another session edited, naming only that path', [STEPS.mine, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], 'git restore f g', 'a', `git restore ${FOREIGN} g,`],
 ] as const;
+const NOT_COMMITTED = 'git commit --amend rewrites HEAD, which this session did not commit';
 const AMENDED = [
-    ['its own commit', [{ commit: 'a' }]],
-    ['its own commit it amended before', [{ commit: 'a' }, { amend: 'a' }]],
+    ['its own commit', [{ hand: 'echo 1 > c && git add c' }, { by: 'a', command: 'git commit -q -m one' }]],
+    ['its own commit it amended before', [{ hand: 'echo 1 > c && git add c' }, { by: 'a', command: 'git commit -q -m one' }, { by: 'a', command: 'git commit --amend -q --no-edit' }]],
+    ['its own commit inside a chain that ends in success', [{ hand: 'echo 1 > c && git add c' }, { by: 'a', command: 'false; git commit -q -m one; true' }]],
 ] as const;
 const AMEND_KEPT = [
-    ['a commit by another session', [{ commit: 'b' }], 'git commit --amend rewrites HEAD, which this session did not commit'],
-    ['a commit made outside any session', [{ outside: true }], 'git commit --amend rewrites HEAD, which this session did not commit'],
-    ['a commit another session made on top of its own', [{ commit: 'a' }, { commit: 'b' }], 'git commit --amend rewrites HEAD, which this session did not commit'],
-    ['a commit made outside any session while its own commit failed', [{ race: 'a' }], 'git commit --amend rewrites HEAD, which this session did not commit'],
-    ['its own commit once pushed', [{ commit: 'a' }, { push: true }], 'git commit --amend rewrites HEAD, which origin/main already holds'],
+    ['a commit by another session', [{ hand: 'echo 1 > c && git add c' }, { by: 'b', command: 'git commit -q -m one' }], NOT_COMMITTED],
+    ['a commit by a subagent of its own session', [{ hand: 'echo 1 > c && git add c' }, { by: 'a1', command: 'git commit -q -m one' }], NOT_COMMITTED],
+    ['a commit made outside any session', [{ hand: 'echo 1 > c && git add c && git commit -q -m one' }], NOT_COMMITTED],
+    ['a commit another session made on top of its own', [{ hand: 'echo 1 > c && git add c' }, { by: 'a', command: 'git commit -q -m one' }, { hand: 'echo 2 > c && git add c' }, { by: 'b', command: 'git commit -q -m two' }], NOT_COMMITTED],
+    ['a hand commit on the same parent while its own commit failed in a chain that exits 0', [{ by: 'a', command: 'false; git commit -q -m race; true', meanwhile: 'echo 1 > c && git add c && git commit -q -m hand' }], NOT_COMMITTED],
+    ['its own revert', [{ hand: 'echo 1 > c && git add c && git commit -q -m one' }, { by: 'a', command: 'git revert --no-edit HEAD' }], NOT_COMMITTED],
+    ['its own cherry-pick', [{ hand: 'git switch -q -c side && echo 1 > c && git add c && git commit -q -m side && git switch -q main' }, { by: 'a', command: 'git cherry-pick side' }], NOT_COMMITTED],
+    ['its own merge', [{ hand: 'git switch -q -c side && echo 1 > c && git add c && git commit -q -m side && git switch -q main' }, { by: 'a', command: 'git merge --no-ff --no-edit side' }], NOT_COMMITTED],
+    ['its own commit once the reflog expired', [{ hand: 'echo 1 > c && git add c' }, { by: 'a', command: 'git commit -q -m one' }, { hand: 'git reflog expire --expire=now --all' }], NOT_COMMITTED],
+    ['its own commit once pushed', [{ hand: 'echo 1 > c && git add c' }, { by: 'a', command: 'git commit -q -m one' }, { push: true }], 'git commit --amend rewrites HEAD, which origin/main already holds'],
 ] as const;
+const STAMP = "GIT_REFLOG_ACTION='function-hooks session-a'";
 const REWRITTEN = [
-    ['git -C {session} commit --no-verify -m probe', 'git -C {session} commit -m probe'],
-    ['git -C {session} commit -nm probe', 'git -C {session} commit -m probe'],
+    ['git -C {session} commit -m probe', `${STAMP} git -C {session} commit -m probe`],
+    ['false; git -C {session} commit -m probe; true', `false; ${STAMP} git -C {session} commit -m probe; true`],
+    ['GIT_REFLOG_ACTION=borrowed git -C {session} commit -m probe', `${STAMP} git -C {session} commit -m probe`],
+    ['git -C {session} commit --no-verify -m probe', `${STAMP} git -C {session} commit -m probe`],
+    ['git -C {session} commit -nm probe', `${STAMP} git -C {session} commit -m probe`],
     ['git -C {session} push --force origin main', 'git -C {session} push origin main'],
     ['git -C {session} push origin +main', 'git -C {session} push origin main'],
 ] as const;
@@ -155,7 +166,6 @@ const scratch = Effect.fnUntraced(function* () {
     const succeeded = (command: string) => reached(shell(command), (code) => code === 0, `a passing ${command}`);
     const file = (name: string) => path.join(repo, name);
     const decidedAs = (command: string, by: keyof typeof OWNERS, call?: string) => decided(command, repo, { ...OWNERS[by], ...(call === undefined ? {} : { call }) });
-    const allowedAs = (command: string, by: keyof typeof OWNERS, call: string) => reached(decidedAs(command, by, call), ({ _tag }) => _tag === 'Allow', `an allowed ${command}`);
     yield* Effect.forEach(['f', 'g'], (name) => fs.writeFileString(file(name), 'base\n'), { discard: true });
     yield* succeeded('git init -q -b main && git add . && git commit -q -m base');
     return {
@@ -164,16 +174,11 @@ const scratch = Effect.fnUntraced(function* () {
         shell,
         succeeded,
         decidedAs,
-        allowedAs,
         written: (name: string, text: string) => fs.writeFileString(file(name), text),
         recorded: Effect.fnUntraced(function* (by: keyof typeof OWNERS, name: string, text: string, result: object) {
             const originalFile = (yield* fs.exists(file(name))) ? yield* fs.readFileString(file(name)) : null;
             yield* fs.writeFileString(file(name), text);
             yield* wrote({ ...OWNERS[by], result: { ...result, filePath: file(name), originalFile } });
-        }),
-        committedAs: Effect.fnUntraced(function* (command: string, by: keyof typeof OWNERS, call: string) {
-            yield* allowedAs(command, by, call);
-            yield* ran({ call, ...OWNERS[by], cwd: repo, failed: (yield* shell(command)) !== 0 });
         }),
         pushed: Effect.andThen(
             succeeded(`git init -q --bare ${remote} && git remote add origin ${remote} && git push -q origin main`),
@@ -196,20 +201,14 @@ const restoreStep = (held: Scratch) => (step: (typeof RESTORED | typeof KEPT)[nu
 
 const amendStep = (held: Scratch) => (step: (typeof AMENDED | typeof AMEND_KEPT)[number][1][number], at: number) =>
     Match.value(step).pipe(
-        Match.when({ commit: Match.string }, ({ commit }) => Effect.andThen(held.succeeded(`echo ${at} > c${at} && git add c${at}`), held.committedAs(`git commit -q -m c${at}`, commit, `call-${at}`))),
-        Match.when({ amend: Match.string }, ({ amend }) => held.committedAs('git commit --amend -q --no-edit', amend, `call-${at}`)),
-        Match.when({ outside: true }, () => held.succeeded(`echo ${at} > c${at} && git add c${at} && git commit -q -m c${at}`)),
-        Match.when({ race: Match.string }, ({ race }) =>
-            Effect.all(
-                [
-                    held.allowedAs('git commit -q -m race', race, `call-${at}`),
-                    held.succeeded(`echo ${at} > c${at} && git add c${at} && git commit -q -m outside`),
-                    reached(held.shell('git commit -q -m race'), (code) => code !== 0, 'a session commit that fails'),
-                    ran({ call: `call-${at}`, ...OWNERS[race], cwd: held.repo, failed: true }),
-                ],
-                { discard: true },
-            ),
+        Match.when({ by: Match.string }, (call) =>
+            Effect.gen(function* () {
+                const decision = yield* reached(held.decidedAs(call.command, call.by, `call-${at}`), ({ _tag }) => _tag === 'Allow' || _tag === 'Rewrite', `a ${call.command} that runs`);
+                yield* 'meanwhile' in call ? held.succeeded(call.meanwhile) : Effect.void;
+                yield* held.shell('command' in decision ? decision.command : call.command);
+            }),
         ),
+        Match.when({ hand: Match.string }, ({ hand }) => held.succeeded(hand)),
         Match.orElse(() => held.pushed),
     );
 
@@ -293,13 +292,13 @@ layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })
     );
 
     it.effect.each(AMENDED)(
-        'Amend after %s runs unchanged',
+        'Amend after %s runs under the session stamp',
         ([, steps]) =>
             Effect.scoped(
                 Effect.gen(function* () {
                     const held = yield* scratch();
                     yield* Effect.forEach(steps, amendStep(held), { discard: true });
-                    expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a')).toStrictEqual({ _tag: 'Allow' });
+                    expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a')).toStrictEqual({ _tag: 'Rewrite', command: `${STAMP} git commit --amend -q --no-edit`, background: false });
                 }),
             ),
         30_000,
@@ -322,8 +321,8 @@ layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })
         '%s becomes %s, which runs unchanged when decided again',
         Effect.fnUntraced(function* ([command, rewritten]) {
             const { session, filled } = yield* Folders;
-            expect(yield* decided(filled(command), session)).toMatchObject({ _tag: 'Rewrite', command: filled(rewritten), background: false });
-            expect(yield* decided(filled(rewritten), session)).toStrictEqual({ _tag: 'Allow' });
+            expect(yield* decided(filled(command), session, OWNERS.a)).toMatchObject({ _tag: 'Rewrite', command: filled(rewritten), background: false });
+            expect(yield* decided(filled(rewritten), session, OWNERS.a)).toStrictEqual({ _tag: 'Allow' });
         }),
         30_000,
     );

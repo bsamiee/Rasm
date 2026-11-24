@@ -8,7 +8,6 @@ interface Routes {
     readonly read: readonly [{ readonly file: string }, Decision];
     readonly tasks: readonly [{ readonly files: readonly string[] }, readonly { readonly file: string; readonly live: boolean; readonly stuck?: { readonly key: string; readonly text: string } }[]];
     readonly wrote: readonly [{ readonly session: string; readonly agent?: string; readonly result: unknown }, Record<never, never>];
-    readonly ran: readonly [{ readonly session: string; readonly agent?: string; readonly call: string; readonly cwd: string; readonly failed: boolean }, Record<never, never>];
 }
 type Phase = { readonly kind: 'starting'; readonly waiting: ((cause?: Error) => void)[] } | { readonly kind: 'listening' } | { readonly kind: 'failed'; readonly cause: Error };
 interface Server {
@@ -127,15 +126,11 @@ const asked = <R extends keyof Routes>($: EngineInterface, route: R, body: Route
 
 // --- [TASKS]
 
-const followed = async ($: EngineInterface, tool: string, caller: Omit<Routes['ran'][0], 'failed'>, { result, text = '', deny, isError }: { readonly result?: unknown; readonly text?: string | undefined; readonly deny?: unknown; readonly isError?: boolean | undefined }, signal: AbortSignal): Promise<void> => {
-    const { agent } = caller;
+const followed = async ($: EngineInterface, agent: string | undefined, { result, text = '' }: { readonly result?: unknown; readonly text?: string | undefined }): Promise<void> => {
     const id = typeof result === 'object' && result !== null && 'backgroundTaskId' in result && typeof result.backgroundTaskId === 'string' ? result.backgroundTaskId : undefined;
     const file = id === undefined ? undefined : text.split(/\s+/u).find((word) => word.endsWith(`/tasks/${id}.output`));
     if (id !== undefined && file !== undefined) {
         await update($, TASKS, (tasks) => ({ ...tasks, [id]: agent === undefined ? { file } : { file, agent } }));
-    }
-    if (id === undefined && tool === 'Bash') {
-        await asked($, 'ran', { ...caller, failed: deny !== undefined || isError === true }, signal);
     }
 };
 
@@ -194,14 +189,13 @@ const register: Register = (on) => {
         }
         const [cwd, session] = await Promise.all([$.session.cwd(), $.session.id()]);
         const kind = e.tool === 'Bash' && e.run_in_background === true ? 'background' : ({ Bash: 'foreground', Monitor: 'monitor' } as const)[e.tool];
-        const caller = { cwd, session, call: e.tool_use_id, ...(e.agentId !== undefined && { agent: e.agentId }) };
-        const decision = await asked($, 'decide', { command: e.command, kind, ...caller }, next.signal);
+        const decision = await asked($, 'decide', { command: e.command, cwd, kind, ...(e.agentId !== undefined && { agent: e.agentId }), session, call: e.tool_use_id }, next.signal);
         if (decision._tag === 'Deny') {
             return { deny: decision.reason };
         }
         if (decision._tag === 'Allow' || e.tool === 'Monitor') {
             const answer = await next(decision._tag === 'Allow' ? e : { ...e, command: decision.command });
-            await followed($, e.tool, caller, answer, next.signal);
+            await followed($, e.agentId, answer);
             return noted(answer, decision.note);
         }
         if (decision._tag === 'Monitor') {
@@ -214,7 +208,7 @@ const register: Register = (on) => {
         }
         const { timeout: _timeout, ...untimed } = e;
         const answer = await next(decision.background ? { ...untimed, command: decision.command, run_in_background: true } : { ...e, command: decision.command });
-        await followed($, e.tool, caller, answer, next.signal);
+        await followed($, e.agentId, answer);
         return noted(answer, decision.note);
     }).catch(async ($, e, next) => {
         if (next.called) {
