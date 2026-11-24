@@ -26,6 +26,7 @@
     "exports": {
         ".": "./plugin.ts",
         "./inference": "./inference.ts",
+        "./executor": "./executor.ts",
         "./release/version-actions": "./version-actions.ts",
         "./executors.json": "./executors.json",
         "./generators.json": "./generators.json",
@@ -42,6 +43,7 @@
         "exports": {
             ".": "./dist/plugin.js",
             "./inference": "./dist/inference.js",
+            "./executor": "./dist/executor.js",
             "./release/version-actions": "./dist/version-actions.js",
             "./executors.json": "./executors.json",
             "./generators.json": "./generators.json",

@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url';
-import type { ExecutorContext } from '@nx/devkit';
+import { released } from '@rasm/nx-distribution/executor';
 import { dried, executor, spawned, Words } from '@rasm/nx-distribution/inference';
 import cf from 'cf/package.json' with { type: 'json' };
-import { Array, Cause, Config, Effect, FileSystem, Function, Option, Path, Record, Result, Schema, SemVer, Stream } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Function, Option, Path, Record, Result, Schema, Stream } from 'effect';
 import { APPCAST, NOTARY } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -24,21 +24,6 @@ const Application = Schema.fromJsonString(Schema.Struct({ ApplicationPath: Schem
 const Assets = Schema.fromJsonString(Schema.Struct({ assets: Schema.Array(Schema.Struct({ name: Schema.String, url: Schema.URLFromString })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const released = Effect.fnUntraced(function* ({ root, projectName, nxJsonConfiguration: { release } }: ExecutorContext) {
-    const project = yield* Effect.fromNullishOr(projectName);
-    const independent = release?.projectsRelationship === 'independent';
-    const pattern = release?.releaseTag?.pattern ?? (independent ? '{projectName}@{version}' : 'v{version}');
-    const named = project
-        .replaceAll(':', '/')
-        .replaceAll(/[\p{Cc} ~^?*[\\]/gu, '-')
-        .replaceAll(/\/{2,}/gu, '/')
-        .replaceAll(/\.{2,}/gu, '.')
-        .replaceAll(/^\/+|\/+$/gu, '');
-    const matcher = new RegExp(`^${(independent ? pattern.replaceAll('{projectName}', named) : pattern).split('{version}').map(RegExp.escape).join('(.+)')}$`, 'u');
-    const tags = (yield* spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root })).split('\n').filter((tag) => Option.exists(Option.fromNullishOr(matcher.exec(tag)?.[1]), Function.flow(SemVer.parse, Result.isSuccess)));
-    return tags.length > 1 ? yield* new Cause.UnknownError(tags, `HEAD holds [${tags.join(', ')}], each matching ${pattern} for ${project}, in place of the one tag nx release makes per project`) : Array.head(tags);
-});
 
 const fed = Effect.fnUntraced(function* (root: string, archive: string, folder: string, tag: string, dry: boolean, words: readonly string[]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
