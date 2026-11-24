@@ -3,7 +3,7 @@ import { dirname, join, posix, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
 import { type CreateNodesContext, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { getLockFileName, hashFile, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { getCatalogManager, getLockFileName, hashFile, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, EXEC, manifested, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, FileSystem, Option, Record, Schema, UndefinedOr } from 'effect';
@@ -15,11 +15,11 @@ const WORKER = 'cloudflare.config.ts';
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const UNPACKAGED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 const MANAGERS = {
-    npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], catalogs: [], lock: ['install', 'dedupe'], prune: ['cache', 'verify'], stored: [] },
-    pnpm: { argv: ['pnpm', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], catalogs: ['pnpm-workspace.yaml'], lock: ['dedupe'], prune: ['store', 'prune'], stored: ['store', 'path'] },
-    yarn: { argv: ['yarn', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], catalogs: ['.yarnrc.yml'], lock: ['install', 'dedupe'], prune: ['cache', 'clean'], stored: [] },
-    bun: { argv: ['bun', 'pm', 'pack'], to: (at: string) => ['--destination', at], catalogs: [], lock: ['install', 'dedupe'], prune: ['pm', 'cache', 'rm'], stored: [] },
-} as const satisfies Record<PackageManager, { readonly argv: readonly string[]; readonly to: (at: string) => readonly string[]; readonly catalogs: readonly string[]; readonly lock: readonly string[]; readonly prune: readonly string[]; readonly stored: readonly string[] }>;
+    npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], lock: ['install', 'dedupe'], prune: ['cache', 'verify'], stored: [] },
+    pnpm: { argv: ['pnpm', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], lock: ['dedupe'], prune: ['store', 'prune'], stored: ['store', 'path'] },
+    yarn: { argv: ['yarn', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], lock: ['install', 'dedupe'], prune: ['cache', 'clean'], stored: [] },
+    bun: { argv: ['bun', 'pm', 'pack'], to: (at: string) => ['--destination', at], lock: ['install', 'dedupe'], prune: ['pm', 'cache', 'rm'], stored: [] },
+} as const satisfies Record<PackageManager, { readonly argv: readonly string[]; readonly to: (at: string) => readonly string[]; readonly lock: readonly string[]; readonly prune: readonly string[]; readonly stored: readonly string[] }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -51,7 +51,8 @@ const projected = (root: string, technology: string, verbs: Verbs, stated: State
 const installed = (name: string, from: string) => UndefinedOr.liftThrowable(findPackageJSON)(name, pathToFileURL(from)) !== undefined;
 
 const tarball = (manager: PackageManager, outputPath: string | undefined, { manifest: { version, os }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }, root: string, released: readonly string[], workspaceRoot: string) => {
-    const { argv, to, catalogs } = MANAGERS[manager];
+    const { argv, to } = MANAGERS[manager];
+    const catalogs = getCatalogManager(workspaceRoot)?.getCatalogDefinitionFilePaths() ?? [];
     const packed = `pack--${manager}`;
     const verbs: Verbs = {
         pack: {
@@ -60,7 +61,16 @@ const tarball = (manager: PackageManager, outputPath: string | undefined, { mani
                 options: UndefinedOr.match(outputPath, { onUndefined: () => ({ argv }), onDefined: (at) => ({ argv: [...argv, ...to(posix.relative(root, at))], outputPath: at }) }),
                 dependsOn: ['build--*'],
                 cache: true,
-                inputs: ['default', '^{projectRoot}/package.json', Array.match(catalogs, { onEmpty: () => ({ json: posix.join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }), onNonEmpty: ([file]) => posix.join('{workspaceRoot}', file) }), { dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+                inputs: [
+                    'default',
+                    '^{projectRoot}/package.json',
+                    ...Array.match(
+                        catalogs.filter((file) => file !== MANIFEST),
+                        { onEmpty: () => [{ json: posix.join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }], onNonEmpty: (files) => files.map((file) => posix.join('{workspaceRoot}', file)) },
+                    ),
+                    { dependentTasksOutputFiles: '**/*' },
+                    { externalDependencies: [] },
+                ],
                 outputs: [tokened(root)(posix.join(outputPath ?? root, '*.tgz'))],
                 metadata: { description: `Packs the package into one tarball named for it with ${argv.join(' ')}`, help: { command: `${argv.join(' ')} --help`, example: { args: ['--json'] } } },
             },
@@ -97,7 +107,7 @@ const plugins = Effect.fnUntraced(function* (row: string, manifest: string) {
 });
 
 const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: PackageManager, knipConfig: string | undefined, row: string, { manifest: { jscpd }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }) {
-    const { catalogs, prune } = MANAGERS[manager];
+    const { prune } = MANAGERS[manager];
     const lock = getLockFileName(manager);
     const knip = ['knip', ...(UndefinedOr.map(knipConfig, (at) => ['--config', at]) ?? [])].map(quoteShellArg).join(' ');
     const configured = Option.orElse(yield* Effect.findFirst(['.jscpd.json', '.config/jscpd.json', '.config/.jscpd.json'], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => Option.liftPredicate(MANIFEST, () => jscpd !== undefined));
@@ -128,7 +138,7 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
             upgrade: {
                 [manager]: {
                     executor: `${PLUGIN}:upgrade`,
-                    options: { catalogs },
+                    options: { catalogs: getCatalogManager(workspaceRoot)?.getCatalogDefinitionFilePaths() ?? [] },
                     inputs: [{ externalDependencies: [] }],
                     metadata: { description: `Moves every exact version of the catalogs and package manifests to the newest dist-tag head published since, then installs and deduplicates the lockfile with ${manager}`, help: { command: `${EXEC[manager]} nx run --help`, example: { options: { dryRun: true } } } },
                 },
