@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { Build, execute } from '@rasm/nx-dotnet/executors/build';
 import { it, outputs, targetOptions } from '@rasm/testing/nx';
+import { Array, Result } from 'effect';
 import { expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -16,7 +17,7 @@ const project = (stated: string, references: readonly string[] = []) =>
 it.for([
     { kind: 'a plain folder', folder: 'libs/Core' },
     { kind: 'a folder holding XML punctuation', folder: "libs/Core & Kit's" },
-])('builds a project in a configuration its reference in $kind lacks, writing within the declared outputs of both and the reference in its own default', { timeout: 300_000 }, async ({ folder }, { workspace }) => {
+])('builds a project in a configuration its reference in $kind lacks, writing the build within the declared outputs of both, the intermediate folders alone outside them, and the reference in its own default', { timeout: 300_000 }, async ({ folder }, { workspace }) => {
     const graph = await workspace
         .write({
             [`${folder}/Core.csproj`]: project(''),
@@ -32,10 +33,11 @@ it.for([
     const { success } = await execute(await targetOptions(Build, graph, 'App', 'build--dotnet', 'interface'), workspace.context(graph, 'App', 'build--dotnet', 'interface'));
 
     const written = [...workspace.files().difference(before)];
-    expect({ success, outside: written.filter((file) => !declared.some((output) => file.startsWith(`${output}/`))), configurations: new Set(written.map((file) => file.split('/').slice(0, 4).join('/'))) }).toStrictEqual({
+    const [inside, outside] = Array.partition(written, (file) => (declared.some((output) => file.startsWith(`${output}/`)) ? Result.succeed(file) : Result.fail(file)));
+    expect({ success, inside: new Set(inside.map((file) => file.split('/').slice(0, 4).join('/'))), outside: new Set(outside.map((file) => file.split('/').slice(0, 4).join('/'))) }).toStrictEqual({
         success: true,
-        outside: [],
-        configurations: new Set(['apps/App/bin/Interface', 'apps/App/obj/Interface', `${folder}/bin/Debug`, `${folder}/obj/Debug`]),
+        inside: new Set(['apps/App/bin/Interface', `${folder}/bin/Debug`]),
+        outside: new Set(['apps/App/obj/Interface', `${folder}/obj/Debug`]),
     });
 });
 

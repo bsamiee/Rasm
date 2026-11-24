@@ -27,7 +27,7 @@ const FILES = {
 
 const Evaluated = Schema.fromJsonString(
     Schema.Struct({
-        Properties: Schema.Struct({ MSBuildProjectName: Schema.String, PackageId: Schema.String, IsPackable: Schema.String, IsPublishable: Schema.String, IsTestProject: Schema.String, TargetPlatformIdentifier: Schema.String, OutputPath: Schema.String, IntermediateOutputPath: Schema.String, PublishDir: Schema.String }),
+        Properties: Schema.Struct({ MSBuildProjectName: Schema.String, PackageId: Schema.String, IsPackable: Schema.String, IsPublishable: Schema.String, IsTestProject: Schema.String, TargetPlatformIdentifier: Schema.String, OutputPath: Schema.String, PublishDir: Schema.String }),
         Items: Schema.Struct({ ProjectReference: Schema.optionalKey(Schema.Array(Schema.Struct({ FullPath: Schema.String }))) }),
     }),
 );
@@ -36,9 +36,7 @@ const Evaluated = Schema.fromJsonString(
 
 const evaluated = (root: string, project: string, configuration: string) =>
     Option.getOrThrow(
-        Schema.decodeOption(Evaluated)(
-            execFileSync('dotnet', ['msbuild', project, `-p:Configuration=${configuration}`, '-getProperty:MSBuildProjectName,PackageId,IsPackable,IsPublishable,IsTestProject,TargetPlatformIdentifier,OutputPath,IntermediateOutputPath,PublishDir', '-getItem:ProjectReference'], { cwd: root, encoding: 'utf-8' }),
-        ),
+        Schema.decodeOption(Evaluated)(execFileSync('dotnet', ['msbuild', project, `-p:Configuration=${configuration}`, '-getProperty:MSBuildProjectName,PackageId,IsPackable,IsPublishable,IsTestProject,TargetPlatformIdentifier,OutputPath,PublishDir', '-getItem:ProjectReference'], { cwd: root, encoding: 'utf-8' })),
     );
 
 const roles = (root: string, graph: ProjectGraph) =>
@@ -77,10 +75,10 @@ describe('MsbuildAnalyzer evaluation of a workspace', { timeout: 300_000 }, () =
         expect(compared.map(({ inferred }) => inferred)).toStrictEqual(compared.map(({ expected }) => expected));
     });
 
-    it('declares as build--dotnet outputs the output, intermediate, and publish folders MSBuild evaluates for each configuration', ({ analyzed: { root, graph } }) => {
+    it('declares as build--dotnet outputs the output and publish folders MSBuild evaluates for each configuration, leaving the intermediate folder to MSBuild as machine state', ({ analyzed: { root, graph } }) => {
         const folders = (configuration: string) => {
             const { Properties: stated } = evaluated(root, 'apps/Tool/Tool.csproj', configuration);
-            return [stated.OutputPath, stated.IntermediateOutputPath, stated.PublishDir].map((folder) => posix.join('apps/Tool', folder.replaceAll('\\', '/')).replace(/\/$/u, ''));
+            return [stated.OutputPath, stated.PublishDir].map((folder) => posix.join('apps/Tool', folder.replaceAll('\\', '/')).replace(/\/$/u, ''));
         };
 
         expect([new Set(outputs(graph, 'Tool', 'build--dotnet')), new Set(outputs(graph, 'Tool', 'build--dotnet', 'release'))]).toStrictEqual([new Set(folders('Debug')), new Set(folders('Release'))]);

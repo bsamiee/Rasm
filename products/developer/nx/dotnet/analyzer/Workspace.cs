@@ -93,7 +93,7 @@ internal static partial class Workspace {
         string Placed(string output) => Relative(root, Path.GetFullPath(Path.Combine(folder, output)));
         Mode Described(string configuration, Seq<ProjectInstance> held) => new(
             configuration,
-            [.. held.Bind(static instance => Seq(instance.GetPropertyValue("OutputPath"), instance.GetPropertyValue("IntermediateOutputPath"))).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
+            [.. held.Map(static instance => instance.GetPropertyValue("OutputPath")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
             [.. held.Filter(static instance => Flag(instance, "IsPublishable")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
             [.. held.Choose(static instance => toSeq(instance.GetPropertyValue("ErrorLog").Split([';', ','], StringSplitOptions.RemoveEmptyEntries)).Head).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
             [.. held

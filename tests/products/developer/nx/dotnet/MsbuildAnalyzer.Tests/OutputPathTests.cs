@@ -41,11 +41,11 @@ public sealed class OutputPathTests(OutputPathWorkspace analyzed) : IClassFixtur
     [InlineData("apps/Tool/Tool.csproj", "apps/Tool/")]
     [InlineData("central/src/Core/Core.csproj", "central/")]
     [InlineData("layout/src/Api/Api.csproj", "layout/")]
-    public void ReleaseFoldersHoldThePublishedAssemblyEveryReleaseWriteAndThePackageButNoDebugWrite(string project, string area) {
+    public void ReleaseFoldersHoldThePublishedAssemblyEveryReleaseWriteOutsideTheIntermediateFolderAndThePackageButNoDebugWrite(string project, string area) {
         JsonElement release = analyzed.Node(project).Mode("Release");
         string?[] published = release.Strings("published");
         string?[] outputs = [.. release.Strings("outputs"), .. published];
-        string[] built = [.. analyzed.Built.Where(file => file.StartsWith(area, StringComparison.Ordinal))];
+        string[] built = [.. analyzed.Built.Where(file => file.StartsWith(area, StringComparison.Ordinal) && !file.Contains("/obj/", StringComparison.Ordinal))];
         string[] packed = [.. analyzed.Packed.Where(file => file.StartsWith(area, StringComparison.Ordinal) && file.EndsWith(".nupkg", StringComparison.Ordinal))];
 
         Assert.Contains(built, file => file.EndsWith(".dll", StringComparison.Ordinal) && published.Any(folder => file.StartsWith($"{folder}/", StringComparison.Ordinal)));
@@ -69,7 +69,7 @@ public sealed class OutputPathTests(OutputPathWorkspace analyzed) : IClassFixtur
 
     [Fact]
     public void EveryTargetFrameworkAddsItsOwnFolders() =>
-        Assert.Equal(["apps/Multi/bin/Debug/net10.0", "apps/Multi/bin/Debug/net9.0", "apps/Multi/obj/Debug/net10.0", "apps/Multi/obj/Debug/net9.0"], analyzed.Node("apps/Multi/Multi.csproj").Strings("evaluated", "outputs"));
+        Assert.Equal(["apps/Multi/bin/Debug/net10.0", "apps/Multi/bin/Debug/net9.0"], analyzed.Node("apps/Multi/Multi.csproj").Strings("evaluated", "outputs"));
 
     [Fact]
     public void UnpublishableProjectReportsNoPublishFolder() =>

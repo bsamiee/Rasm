@@ -25,7 +25,7 @@ it('states posix roots, inputs, outputs, and edges for nested and parent-relativ
                     inputs: ['build/Shared.props'],
                     bases: ['src/apps/App/bin', 'src/apps/App/obj'],
                     references: [{ root: 'libs/Core', declared: 'src/apps/App/App.csproj' }],
-                    evaluated: mode('Debug', { outputs: ['src/apps/App/bin/Debug', 'artifacts/obj/App'], packed: 'artifacts/package/debug' }),
+                    evaluated: mode('Debug', { outputs: ['src/apps/App/bin/Debug'], packed: 'artifacts/package/debug' }),
                 }),
                 node('src/apps/App.Tests/App.Tests.csproj', { test: true, referenced: ['coverlet.MTP'], results: ['src/apps/App.Tests/TestResults', 'artifacts/test/App.Tests'], references: [{ root: 'src/apps/App', declared: 'src/apps/App.Tests/App.Tests.csproj' }] }),
                 node('libs/Core/Core.csproj', { releases: { shipped: 'libs/Core/AnalyzerReleases.Shipped.md', unshipped: 'libs/Core/AnalyzerReleases.Unshipped.md' } }),
