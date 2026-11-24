@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-uv';
 import { it, unaggregated } from '@rasm/testing/nx';
 import { Record, Struct } from 'effect';
@@ -45,6 +46,17 @@ const built = async (root: string, cache: FileMapCache | null) => {
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+describe('files Nx hands the plugin', { timeout: 60_000 }, () => {
+    it('leave out pixi.toml, whose edit is no project configuration change, while the uv root holding one keeps upgrade--pixi', async ({ workspace }) => {
+        locked(workspace.write({ ...MEMBERS, 'pixi.toml': '[workspace]\nchannels = ["conda-forge"]\nplatforms = ["osx-arm64"]\n' }).root);
+
+        const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
+        const graph = await workspace.graph({ createNodes, createDependencies });
+
+        expect([matched.includes('pixi.toml'), matched.includes('uv.lock'), 'upgrade--pixi' in (graph.nodes['uv-tutorial']?.data.targets ?? {})]).toStrictEqual([false, true, true]);
+    });
+});
 
 describe('uv workspace members', { timeout: 60_000 }, () => {
     it('gives each member the delivery targets its manifest allows', async ({ workspace }) => {

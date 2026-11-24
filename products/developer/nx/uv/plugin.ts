@@ -1,15 +1,15 @@
 import { join, posix } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { above, fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, MutableRef, Option, Record, Schema } from 'effect';
-import { CONFIGS, Linked, Options, PLUGIN, run, targets, UV } from '#/targets';
+import { CONFIGS, Linked, Options, PIXI, PLUGIN, run, targets, UV } from '#/targets';
 import { LOCK, located, MANIFEST, Metadata, SCHEMA } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const READ: readonly string[] = [LOCK, MANIFEST, UV.settings, ...UV.pins];
-const FILES = combineGlobPatterns(Array.dedupe([...READ, ...CONFIGS]).map((file) => `**/${file}`));
+const FILES = combineGlobPatterns(Array.dedupe([...READ, ...CONFIGS.filter((file) => file !== PIXI)]).map((file) => `**/${file}`));
 const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -63,7 +63,8 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCach
 const createNodes: CreateNodes = [
     FILES,
     inferring(Options, run, function* (matched, settings, context) {
-        const pass = { cache: new PluginCache<{ readonly digest: string; readonly reply: string }>(join(workspaceDataDirectory, 'uv.hash')), stored: MutableRef.make(false), files: new Set(matched) };
+        const environments = yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [`**/${PIXI}`]));
+        const pass = { cache: new PluginCache<{ readonly digest: string; readonly reply: string }>(join(workspaceDataDirectory, 'uv.hash')), stored: MutableRef.make(false), files: new Set([...matched, ...environments]) };
         const locks = matched.filter((file) => posix.basename(file) === LOCK);
         (yield* Linked).delete(context.workspaceRoot);
         return yield* Effect.ensuring(
