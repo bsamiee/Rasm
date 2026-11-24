@@ -102,7 +102,7 @@ describe('batched test--vitest tasks', { timeout: 60_000 }, () => {
                 'packages/a/note.txt': 'a',
                 'packages/a/a.test.ts': "import { expect, test } from 'vitest';\n\ntest('holds', async ({ annotate }) => { await annotate('kept', { path: 'note.txt' }); expect(1).toBe(1); });\n",
                 'packages/b/package.json': '{"name":"b","type":"module"}',
-                'packages/b/b.test.ts': "import { expect, test } from 'vitest';\n\ntest('breaks', () => expect(1).toBe(2));\n",
+                'packages/b/b.test.ts': "import { expect, test } from 'vitest';\n\ntest('breaks', () => { void Promise.reject(new Error('stray')); expect(1).toBe(2); });\n",
             })
             .graph({ createNodes }, { outputPath: '.artifacts/vitest/{projectName}' });
         const names = ['a', 'b'];
@@ -119,7 +119,7 @@ describe('batched test--vitest tasks', { timeout: 60_000 }, () => {
             ['a:test--vitest', true],
             ['b:test--vitest', false],
         ]);
-        expect(results[1]?.result.terminalOutput).toContain('FAIL b b.test.ts > breaks');
+        expect([results[0]?.result.terminalOutput.includes('stray'), results[1]?.result.terminalOutput.includes('FAIL b b.test.ts > breaks'), results[1]?.result.terminalOutput.includes('unhandled error')]).toStrictEqual([false, true, true]);
         expect(readFileSync(join(workspace.root, 'runs.log'), 'utf-8')).toBe('run\n');
         expect([...workspace.files()].flatMap((file) => (file.startsWith('.artifacts/') ? [dirname(file)] : []))).toStrictEqual(['.artifacts/vitest/a/attachments']);
     });

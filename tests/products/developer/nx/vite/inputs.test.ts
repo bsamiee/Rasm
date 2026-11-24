@@ -83,7 +83,7 @@ describe('what build--vite hashes', { timeout: 60_000 }, () => {
         expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: changes });
     });
 
-    it('builds after the vite and tsc builds of each dependency and never after its storybook build', async ({ workspace }) => {
+    it('builds after the vite build of each dependency and never after its tsc or storybook build', async ({ workspace }) => {
         const graph = await workspace
             .write({
                 'apps/web/package.json': '{"name":"web","type":"module","nx":{"implicitDependencies":["shared"]}}',
@@ -93,7 +93,7 @@ describe('what build--vite hashes', { timeout: 60_000 }, () => {
 
         const { dependencies } = taskGraph(graph, ['web'], ['build--vite']);
 
-        expect(dependencies['web:build--vite']?.map(({ id }) => id).toSorted()).toStrictEqual(['shared:build--tsc', 'shared:build--vite']);
+        expect(dependencies['web:build--vite']?.map(({ id }) => id).toSorted()).toStrictEqual(['shared:build--vite']);
     });
 });
 

@@ -108,7 +108,7 @@ const targets = (file: string, { folders, signals, served, loaded, packages, lin
         vite: Option.map(Option.fromUndefinedOr(folders), (written) => ({
             command: ['vite', 'build', ...Option.match(outDir, { onNone: () => [], onSome: (at) => ['--outDir', at, '--emptyOutDir'] })].map(quoteShellArg).join(' '),
             ...needs,
-            dependsOn: [...needs.dependsOn, '^build--vite', '^build--tsc'],
+            dependsOn: [...needs.dependsOn, '^build--vite'],
             cache: true,
             outputs: written.map(tokened(posix.dirname(file))),
             metadata: { description: 'Builds every environment of the Vite config with vite build', help: { command: `${exec} vite build --help`, example: { args: ['--mode', 'production'] } } },

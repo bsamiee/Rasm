@@ -97,7 +97,8 @@ Nx remote cache and Actions caches per workflow and machine:
 - Runs read and write with `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`, and a pull request from a fork holds no secret and uses its local cache
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
-- Test targets hash variable `CI`, as Vitest, Playwright, and MSBuild change behavior under it, so CI runs its own tests
+- Playwright and .NET test targets hash variable `CI`, as Playwright and MSBuild change behavior under it, so CI runs those tests itself
+- Vitest targets hash no `CI`, as their executor refuses `.only` and writes no missing snapshot on every machine
 - Swift targets hash compiler version and platform, as `swift --version` adds the macOS version of its host, which a runner and a Mac differ in
 - Xcode targets hash the SwiftPM targets their linked package products reach alone, so other Swift changes leave an app's result cached
 - Nx sets no remote cache timeout and stops a run on a read answered other than 200 or 404 or left unconnected, and no setting overrides the stop

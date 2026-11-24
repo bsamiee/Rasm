@@ -124,4 +124,20 @@ describe('test--vitest hashes the files a run loads outside its project', () => 
 
         await expect(hashed(graph, workspace.root, 'a')).resolves.toContain('vitest.config.ts');
     });
+
+    it('leaves out of a suite the module a plugin of another suite loads from inside that suite', async ({ workspace }) => {
+        const graph = await workspace
+            .write({
+                ...ROOT,
+                'vitest.config.ts': "export default { test: { projects: [{ test: { name: 'a', root: 'packages/a' } }, { test: { name: 'b', root: 'packages/b' }, plugins: [{ name: 'loads', config: async () => { await import('./packages/b/loaded.ts'); } }] }] } };\n",
+                'packages/a/package.json': '{"name":"a"}',
+                'packages/b/package.json': '{"name":"b"}',
+                'packages/b/loaded.ts': 'export {};\n',
+            })
+            .graph({ createNodes });
+
+        const [a, b] = await Promise.all([hashed(graph, workspace.root, 'a'), hashed(graph, workspace.root, 'b')]);
+
+        expect([a.includes('vitest.config.ts'), a.includes('packages/b/loaded.ts'), b.includes('packages/b/loaded.ts')]).toStrictEqual([true, false, true]);
+    });
 });

@@ -31,6 +31,7 @@ class Test extends Schema.Opaque<Test, unknown>()(
         description: "Runs vitest run once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, and decides each task from the test modules of its own projects",
     }),
 ) {}
+const Traced = Schema.Struct({ VITEST_TEST_PATH: Schema.String }).annotate({ description: 'The test file path Vitest stamps on an unhandled error a test module raised' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -68,6 +69,8 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
         ([{ options }]) => Option.fromUndefinedOr(options.attachmentsDir),
     );
     const stated: CliOptions = {
+        allowOnly: false,
+        update: 'none',
         ...node.parseCLI(['vitest', 'run', ...words]).options,
         config: entry,
         watch: false,
@@ -109,10 +112,17 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
     );
     const started = yield* Effect.exit(Effect.tryPromise({ try: () => vitest.start(), catch: (cause) => new Cause.UnknownError(cause, `vitest run over ${config} stops before it reports`) }));
     const modules = vitest.state.getTestModules();
-    const unhandled = vitest.state.getUnhandledErrors().map((error) => `unhandled error: ${Formatter.format(error)}`);
+    const unhandled = vitest.state.getUnhandledErrors().map((error) => ({ said: `unhandled error: ${Formatter.format(error)}`, by: Option.flatMap(Schema.decodeUnknownOption(Traced)(error), ({ VITEST_TEST_PATH }) => owner(VITEST_TEST_PATH)) }));
+    const [traced, stray] = Array.partition(unhandled, ({ said, by }) =>
+        Result.fromOption(
+            Option.map(by, (task) => ({ task, said })),
+            () => said,
+        ),
+    );
+    const faulted = Array.groupBy(traced, Struct.get('task'));
     const signalled = Option.filter(Option.fromNullishOr(process.exitCode), (code) => Number(code) !== 0 && Exit.isSuccess(started) && unhandled.length === 0 && modules.every((module) => module.ok()));
     const broken = [
-        ...unhandled,
+        ...stray,
         ...(Exit.isFailure(started) && !Option.exists(Cause.findErrorOption(started.cause), (error) => error.cause instanceof node.TestsNotFoundError) ? [`vitest run over ${config} stops before it reports: ${Cause.pretty(started.cause)}`] : []),
         ...Option.toArray(Option.map(signalled, (code) => `vitest run over ${config} sets exit code ${code} with every test module passing, as a run-level check such as a coverage threshold or the import duration limit failed`)),
     ];
@@ -128,10 +138,11 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
     return Array.map(group, ({ task }): BatchExecutorTaskResult => {
         const own = (held[task] ?? []).map(Struct.get('module'));
         const spans = (held[task] ?? []).flatMap(({ span }) => Option.toArray(span));
-        const said = [...own.flatMap(reported), ...(own.length === 0 ? [`no test module of ${task} ran`] : []), ...broken];
+        const faults = [...(faulted[task] ?? []).map(Struct.get('said')), ...broken];
+        const said = [...own.flatMap(reported), ...(own.length === 0 ? [`no test module of ${task} ran`] : []), ...faults];
         const passed = own.length > 0 ? own.every((module) => module.ok()) : Predicate.isTruthy(vitest.config.passWithNoTests);
         const timed = Array.match(spans, { onEmpty: () => ({}), onNonEmpty: (ran) => ({ startTime: Math.min(...ran.map(([from]) => from)), endTime: Math.max(...ran.map(([, to]) => to)) }) });
-        return { task, result: { success: passed && broken.length === 0, terminalOutput: said.join('\n'), ...timed } };
+        return { task, result: { success: passed && faults.length === 0, terminalOutput: said.join('\n'), ...timed } };
     });
 }, Effect.scoped);
 
