@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
+import { refused } from '@rasm/testing/errors';
 import { it, pathed } from '@rasm/testing/nx';
 import { describe, expect, type MockInstance, onTestFinished, vi } from 'vitest';
 import { node, report } from '#/analyzer';
@@ -54,6 +55,8 @@ const reporting = () => {
 
 const warnings = (logged: MockInstance<typeof console.warn>) => logged.mock.calls.map((call) => call.join(' ')).filter((line) => line.includes('MsbuildAnalyzer'));
 
+const predates = (files: readonly string[]) => refused(new RegExp(`MsbuildAnalyzer\\.dll predates ${files.map((file) => `\\S*/${RegExp.escape(file)}`).join(', ')}, dotnet publish \\S+/analyzer/MsbuildAnalyzer\\.csproj builds it$`, 'u'));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('analyzer build', () => {
@@ -66,41 +69,48 @@ describe('analyzer build', () => {
     });
 
     it.for([
-        { kind: 'its sources match the checksums it was published with', edited: {}, removed: [] },
         { kind: 'a source changed after it was published', edited: { 'analyzer/Catalog.cs': 'namespace MsbuildAnalyzer;\n\ninternal static class Edited;\n' }, removed: [] },
         { kind: 'a source it was published with is gone', edited: {}, removed: ['analyzer/Catalog.cs'] },
         { kind: 'both sources changed after it was published', edited: { 'analyzer/Catalog.cs': 'namespace Edited;\n', 'analyzer/MsbuildAnalyzer.csproj': '<Project />\n' }, removed: [] },
-    ])('infers the reported projects only where shasum -c refuses no source, naming exactly the sources it refuses, as $kind', async ({ edited, removed }, { workspace }) => {
-        const { logged } = reporting();
+    ])('refuses the graph naming exactly the sources shasum -c refuses and the command that rebuilds it, as $kind', async ({ edited, removed }, { workspace }) => {
+        reporting();
         packaged({ 'analyzer/MsbuildAnalyzer.csproj': LIBRARY, 'analyzer/Catalog.cs': 'namespace MsbuildAnalyzer;\n', 'analyzer/dist/MsbuildAnalyzer.dll': 'built' });
         packaged({ 'analyzer/dist/MsbuildAnalyzer.sha256': shasum('MsbuildAnalyzer.csproj', 'Catalog.cs').stdout.replaceAll(/^\w+/gmu, (digest) => digest.toUpperCase()) });
         packaged(edited);
         removed.forEach((file) => rmSync(join(analyzer, file)));
-        const refused = [...shasum('-c', 'dist/MsbuildAnalyzer.sha256').stdout.matchAll(/^(?<file>.+): FAILED/gmu)].map((match) => match.groups?.['file']);
+        const failed = [...shasum('-c', 'dist/MsbuildAnalyzer.sha256').stdout.matchAll(/^(?<file>.+): FAILED/gmu)].map((match) => `analyzer/${match.groups?.['file']}`);
 
-        const graph = await workspace.write({ 'apps/App/App.csproj': LIBRARY, ...REPORT }).graph({ createNodes, createDependencies });
+        const graph = workspace.write({ 'apps/App/App.csproj': LIBRARY, ...REPORT }).graph({ createNodes, createDependencies });
 
-        const named = warnings(logged)
-            .flatMap((line) => [...(/MsbuildAnalyzer\.dll predates (?<files>.+), dotnet publish /u.exec(line)?.groups?.['files']?.split(', ') ?? [])])
-            .map((file) => file.slice(file.lastIndexOf('/analyzer/') + '/analyzer/'.length));
-        expect([Object.keys(graph.nodes), new Set(named)]).toStrictEqual([refused.length === 0 ? ['App'] : [], new Set(refused)]);
+        await expect(graph).rejects.toSatisfy(predates(failed));
     });
 
     it.for([
-        { kind: 'no file its build read changed', edited: {}, refused: [] },
-        { kind: 'a root MSBuild file its evaluation imports changed', edited: { 'Directory.Build.props': PUBLISHED['Directory.Build.props'].replace('</PropertyGroup>', '  <Deterministic>true</Deterministic>\n  </PropertyGroup>') }, refused: ['Directory.Build.props'] },
-        { kind: 'a source of a project it references changed', edited: { 'roslyn/Rules/Shapes.cs': 'namespace Rules;\n\npublic static class Edited;\n' }, refused: ['roslyn/Rules/Shapes.cs'] },
-    ])('infers the reported projects only while every file a real dotnet publish of the analyzer read is unchanged, naming exactly the changed files, as $kind', { timeout: 300_000 }, async ({ edited, refused }, { workspace }) => {
+        { kind: 'no file its build read changed', appended: [] },
+        { kind: 'root MSBuild files its evaluation imports and a source of the Roslyn project it references changed', appended: ['Directory.Build.props', 'Directory.Build.targets', 'roslyn/Rules/Shapes.cs'] },
+    ])('infers the reported projects with no warning after a real dotnet publish of the analyzer, as $kind', { timeout: 300_000 }, async ({ appended }, { workspace }) => {
         packaged(PUBLISHED);
         execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--disable-build-servers'], { cwd: analyzer, stdio: 'ignore' });
-        packaged(edited);
+        appended.forEach((file) => appendFileSync(join(analyzer, file), '\n'));
         const { logged } = reporting();
 
         const graph = await workspace.write({ 'apps/App/App.csproj': LIBRARY, ...REPORT }).graph({ createNodes, createDependencies });
 
-        const named = warnings(logged)
-            .flatMap((line) => [...(/MsbuildAnalyzer\.dll predates (?<files>.+), dotnet publish /u.exec(line)?.groups?.['files']?.split(', ') ?? [])])
-            .map((file) => file.slice(file.lastIndexOf(`/${basename(analyzer)}/`) + basename(analyzer).length + 2));
-        expect([Object.keys(graph.nodes), new Set(named)]).toStrictEqual([refused.length === 0 ? ['App'] : [], new Set(refused)]);
+        expect([Object.keys(graph.nodes), warnings(logged)]).toStrictEqual([['App'], []]);
+    });
+
+    it.for([
+        { kind: 'a source it compiles changed', appended: 'analyzer/Program.cs' },
+        { kind: 'its project file changed', appended: 'analyzer/MsbuildAnalyzer.csproj' },
+        { kind: 'its lock file changed', appended: 'analyzer/packages.lock.json' },
+    ])('refuses the graph after a real dotnet publish of the analyzer, naming exactly the changed file and the command that rebuilds it, as $kind', { timeout: 300_000 }, async ({ appended }, { workspace }) => {
+        packaged(PUBLISHED);
+        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--disable-build-servers'], { cwd: analyzer, stdio: 'ignore' });
+        appendFileSync(join(analyzer, appended), '\n');
+        reporting();
+
+        const graph = workspace.write({ 'apps/App/App.csproj': LIBRARY, ...REPORT }).graph({ createNodes, createDependencies });
+
+        await expect(graph).rejects.toSatisfy(predates([appended]));
     });
 });

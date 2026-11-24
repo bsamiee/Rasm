@@ -14,10 +14,6 @@
         <PublishDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'dist'))</PublishDir>
     </PropertyGroup>
 
-    <PropertyGroup Label="Source Checksums">
-        <MSBuildProvideImportedProjects>true</MSBuildProvideImportedProjects>
-    </PropertyGroup>
-
     <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Package Management">
@@ -44,21 +40,17 @@
         <PackageReference Include="Microsoft.Extensions.DependencyModel" ExcludeAssets="runtime" />
     </ItemGroup>
 
+    <ItemGroup Label="Source Checksums">
+        <SourceChecksum Include="$(MSBuildProjectFile);@(Compile);$([MSBuild]::ValueOrDefault('$(NuGetLockFilePath)', 'packages.lock.json'))" />
+    </ItemGroup>
+
     <!-- [TARGETS] ─────────────────────────────────────────────────────────────────── -->
 
-    <Target Name="PublishSourceChecksums" AfterTargets="ComputeFilesToPublish" DependsOnTargets="SourceFilesProjectOutputGroup">
-        <MSBuild Projects="@(ProjectReference)" Targets="SourceFilesProjectOutputGroup">
-            <Output TaskParameter="TargetOutputs" ItemName="_SourceChecksum" />
-        </MSBuild>
-        <ItemGroup>
-            <_SourceChecksum Include="@(MSBuildImportedProject);@(SourceFilesProjectOutputGroupOutput);$([MSBuild]::ValueOrDefault('$(NuGetLockFilePath)', 'packages.lock.json'))" />
-            <_SourceChecksum Remove="$([MSBuild]::NormalizeDirectory('$(NetCoreRoot)'))**;$([MSBuild]::NormalizeDirectory('$(NuGetPackageRoot)'))**;$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)'))**" />
-            <_SourceChecksum Update="@(_SourceChecksum)" Listed="$([MSBuild]::MakeRelative($(MSBuildProjectDirectory), %(FullPath)))" />
-        </ItemGroup>
-        <GetFileHash Files="@(_SourceChecksum)" Algorithm="SHA256">
-            <Output TaskParameter="Items" ItemName="_SourceChecksumHash" />
+    <Target Name="PublishSourceChecksums" AfterTargets="ComputeFilesToPublish">
+        <GetFileHash Files="@(SourceChecksum)" Algorithm="SHA256">
+            <Output TaskParameter="Items" ItemName="_SourceChecksum" />
         </GetFileHash>
-        <WriteLinesToFile File="$(IntermediateOutputPath)$(AssemblyName).sha256" Lines="@(_SourceChecksumHash->'%(FileHash)  %(Listed)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <WriteLinesToFile File="$(IntermediateOutputPath)$(AssemblyName).sha256" Lines="@(_SourceChecksum->'%(FileHash)  %(Identity)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
         <ItemGroup>
             <ResolvedFileToPublish Include="$(IntermediateOutputPath)$(AssemblyName).sha256" RelativePath="$(AssemblyName).sha256" CopyToPublishDirectory="PreserveNewest" />
             <FileWrites Include="$(IntermediateOutputPath)$(AssemblyName).sha256" />

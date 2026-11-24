@@ -65,26 +65,10 @@ const published = (workspaceRoot: string) => `${line(['dotnet', 'publish', relat
 const ready = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
     const [host, present, sourced, sums] = yield* Effect.all([Effect.promise(() => which('dotnet', { nothrow: true })), fs.exists(ANALYZER), fs.exists(SOURCE), Effect.option(fs.readFileString(SUMS))], { concurrency: 'unbounded' });
-    const stale = yield* Option.match(sums, {
-        onNone: () => Effect.succeed([SUMS]),
-        onSome: (text) =>
-            Effect.filter(
-                text
-                    .split('\n')
-                    .filter(String.isNonEmpty)
-                    .map((row) => [join(dirname(SOURCE), row.slice(row.indexOf(' ')).trim()), row.slice(0, row.indexOf(' ')).toLowerCase()] as const),
-                ([file, digest]) => Effect.match(fs.readFile(file), { onFailure: () => true, onSuccess: (bytes) => hash('sha256', bytes) !== digest }),
-                { concurrency: 'unbounded' },
-            ).pipe(Effect.map(Array.map(([file]) => file))),
-    });
     const resolved = Result.fromNullishOr(host, () => 'no folder of PATH holds dotnet').pipe(
         Result.filterOrFail(
             () => present,
             () => `${relative(workspaceRoot, ANALYZER)} is absent, ${published(workspaceRoot)}`,
-        ),
-        Result.filterOrFail(
-            () => !sourced || stale.length === 0,
-            () => `${relative(workspaceRoot, ANALYZER)} predates ${stale.map((file) => relative(workspaceRoot, file)).join(', ')}, ${published(workspaceRoot)}`,
         ),
     );
     yield* Option.match(
@@ -94,7 +78,24 @@ const ready = Effect.fnUntraced(function* (workspaceRoot: string, matched: reado
             onSome: (reason) => Effect.sync(() => emitPluginWorkerLog('warn', `No MSBuild project of the workspace enters the graph, as ${reason}`)),
         },
     );
-    return Result.getSuccess(resolved);
+    const stale = yield* Result.isSuccess(resolved) && sourced
+        ? Option.match(sums, {
+              onNone: () => Effect.succeed([SUMS]),
+              onSome: (text) =>
+                  Effect.filter(
+                      text
+                          .split('\n')
+                          .filter(String.isNonEmpty)
+                          .map((row) => [join(dirname(SOURCE), row.slice(row.indexOf(' ')).trim()), row.slice(0, row.indexOf(' ')).toLowerCase()] as const),
+                      ([file, digest]) => Effect.match(fs.readFile(file), { onFailure: () => true, onSuccess: (bytes) => hash('sha256', bytes) !== digest }),
+                      { concurrency: 'unbounded' },
+                  ).pipe(Effect.map(Array.map(([file]) => file))),
+          })
+        : Effect.succeed(Array.empty<string>());
+    return yield* Array.match(stale, {
+        onEmpty: () => Effect.succeed(Result.getSuccess(resolved)),
+        onNonEmpty: (files) => Effect.fail(new Cause.UnknownError(files, `${relative(workspaceRoot, ANALYZER)} predates ${files.map((file) => relative(workspaceRoot, file)).join(', ')}, ${published(workspaceRoot)}`)),
+    });
 });
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {

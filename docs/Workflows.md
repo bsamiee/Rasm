@@ -99,7 +99,7 @@ Actions caches per workflow and machine:
 - Tool cache keys leave out `mise.toml` and the OS and machine mise files, as `mise.lock` pins every tool and those files change with hooks and rows no tool reads
 - GitHub-hosted jobs hold rustup and cargo homes inside the mise folder that action caches, and a restored cache holds the Rust toolchain
 - Jobs on macOS restore the Apple analyzer, its stamp, and mise freshness state by analyzer sources
-- Jobs on Windows restore the MSBuild analyzer and mise freshness state by the files its build reads
+- Jobs on Windows restore the MSBuild analyzer and mise freshness state by analyzer sources and `mise.lock`
 - Analyzer caches save a new entry where the mise file holding the analyzer row changed, as mise rebuilds where restored state names another command
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
 - Job `macos` restores no Swift build folder, as compilation cache hits need its path alone to repeat
