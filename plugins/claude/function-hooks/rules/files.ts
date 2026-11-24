@@ -278,7 +278,7 @@ const inlineCode: Rule = Effect.fnUntraced(function* (invocation, { analysis, ho
             Match.value({ json: unscripted && JSON_PARSE.test(source), inPlace: invocation.has(...(row.rewrites ?? [])), effects: unscripted && row.effects?.test(source) === true }).pipe(
                 Match.when({ json: true }, () => refusal(`${program} ${where} parses JSON, use jq`)),
                 Match.when({ inPlace: true }, () => refusal(`${program} ${where} edits files in place, edit them with sd where one pattern covers every change, else with your file edit tool`)),
-                Match.when({ effects: true }, () => refusal(`${program} ${where} writes files or runs commands, run each command directly and edit files with sd or your file edit tool`)),
+                Match.when({ effects: true }, () => refusal(`${program} ${where} runs commands or deletes files where the hook cannot judge them, run each as its own shell command`)),
                 Match.orElse(() => []),
             ),
     });

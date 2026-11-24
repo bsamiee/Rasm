@@ -22,6 +22,7 @@ const REFUSED = [
     ['git -C {session} push origin :main', 'git push :main rewrites remote history'],
     ['git -C {session} rebase main', 'git rebase rewrites shared commits'],
     ['cd {session} && patch -p1 < fix.diff', 'patch applies a diff outside git, run git apply'],
+    ['git -C {repo} worktree add -b probe {session}/tree', '-b adds a branch and a second checkout, work in place, or drop -b to export the commit into the folder'],
 ] as const;
 const ALLOWED = [
     'git -C {repo} checkout -- clean',
@@ -32,6 +33,8 @@ const ALLOWED = [
     'git -C {repo} reset --soft HEAD~1',
     'git -C {session} branch -r',
     'git -C {session} rebase --abort',
+    'git -C {session} revert --no-edit HEAD',
+    'git -C {session} branch probe',
     'patch -d {repo} -p1 < fix.diff',
 ] as const;
 const REWRITTEN = [

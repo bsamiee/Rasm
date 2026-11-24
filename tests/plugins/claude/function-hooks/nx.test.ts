@@ -25,6 +25,9 @@ const FILES = {
         targets: {
             test: { executor: 'nx:noop', dependsOn: [{ target: 'test--*', params: 'forward' }] },
             'test--vitest': { command: 'vitest run', cache: true, metadata: HELP('pnpm exec vitest run --help') },
+            check: { executor: 'nx:noop', dependsOn: [{ target: 'check--*', params: 'forward' }] },
+            'check--uv': { command: 'uv lock --check', cache: true, metadata: HELP('uv lock --help') },
+            'check--knip': { command: 'knip', cache: true, metadata: HELP('pnpm exec knip --help') },
             clean: { executor: 'nx:noop', dependsOn: [{ target: 'clean--*', params: 'forward' }] },
             'clean--tsc': { command: 'tsc --build --clean', metadata: HELP('pnpm exec tsc --build --help') },
             'clean--vitest': { command: 'vitest --clearCache', metadata: HELP('pnpm exec vitest --help') },
@@ -47,11 +50,14 @@ const REWRITTEN = [
     ['timeout 600 nx test suite', 'suite', 'nx test suite'],
     ['timeout 600 vitest run', 'suite', 'nx test suite'],
     ['playwright test -c e2e --grep toast', '.', 'nx run e2e:test--playwright -- --grep toast'],
+    ['uv lock --check', 'suite', 'nx run suite:check--uv'],
 ] as const;
 const ALLOWED = [
     ['vitest run', 'notes'],
     ['timeout 30 nx serve suite', 'suite'],
     ['playwright show-report', 'e2e'],
+    ['nx run suite:test--vitest --skip-nx-cache', 'suite'],
+    ['NX_SKIP_NX_CACHE=true nx run suite:test--vitest', 'suite'],
 ] as const;
 const REFUSED_READS = [
     ['/tmp/claude-501/x/tasks/a46c9759cea20d51a.output', "is a running agent's output"],

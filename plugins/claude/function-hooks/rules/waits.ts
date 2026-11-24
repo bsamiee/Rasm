@@ -1,6 +1,6 @@
 import { devNull } from 'node:os';
 import process from 'node:process';
-import { Array, Clock, Duration, Effect, Filter, Option, Record } from 'effect';
+import { Array, Effect, Filter, Option, Record } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
 import { Host } from '#/host';
 import { Decision, Verdict } from '#/rules/decision';
@@ -38,7 +38,6 @@ const RECORDS = [
 ] as const;
 const STUCK_LINES = 10;
 const STUCK_REPEATS = 5;
-const QUIET = Duration.minutes(10);
 const EXIT_WAITERS: Partial<Record<NodeJS.Platform, (pid: string) => string>> = {
     darwin: (pid) => `caffeinate -w ${pid}`,
     linux: (pid) => `tail --pid=${pid} -f /dev/null`,
@@ -222,23 +221,22 @@ const tailedTask: Rule = (invocation, call) => {
     );
 };
 
-const stalled = Effect.fnUntraced(function* (host: Host['Service'], file: string) {
-    const [tail, info, now] = yield* Effect.all([Effect.orElseSucceed(host.output(['tail', '-n', `${STUCK_LINES}`, file]), () => ''), Effect.option(host.fs.stat(file)), Clock.currentTimeMillis]);
-    const lines = tail
-        .split('\n')
-        .filter((line) => line.trim() !== '')
-        .map((line) => line.replaceAll(/\d+/gu, '#'));
-    const [line, count] = Record.reduce(
-        Array.groupBy(lines, (held) => held),
-        ['', 0] as readonly [string, number],
-        (best, same, held) => (same.length > best[1] ? [held, same.length] : best),
+const stalled = (host: Host['Service'], file: string) =>
+    Effect.map(
+        Effect.orElseSucceed(host.output(['tail', '-n', `${STUCK_LINES}`, file]), () => ''),
+        (tail) => {
+            const lines = tail
+                .split('\n')
+                .filter((line) => line.trim() !== '')
+                .map((line) => line.replaceAll(/\d+/gu, '#'));
+            const [line, count] = Record.reduce(
+                Array.groupBy(lines, (held) => held),
+                ['', 0] as readonly [string, number],
+                (best, same, held) => (same.length > best[1] ? [held, same.length] : best),
+            );
+            return Option.liftPredicate({ key: `repeats ${line}`, text: `repeats "${line}"` }, () => count >= STUCK_REPEATS);
+        },
     );
-    const quiet = Option.getOrElse(
-        Option.flatMap(info, ({ mtime }) => Option.map(mtime, (date) => Duration.millis(now - date.getTime()))),
-        () => Duration.zero,
-    );
-    return Option.firstSomeOf([Option.liftPredicate({ key: `repeats ${line}`, text: `repeats "${line}"` }, () => count >= STUCK_REPEATS), Option.liftPredicate({ key: 'quiet', text: `wrote nothing for ${Duration.format(quiet)}` }, () => Duration.isGreaterThan(quiet, QUIET))]);
-});
 
 const watched = Effect.fnUntraced(function* (files: readonly string[]) {
     const host = yield* Host;

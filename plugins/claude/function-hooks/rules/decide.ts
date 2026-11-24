@@ -77,7 +77,7 @@ const decide = Effect.fn('decide')(
         const noted = notes.length === 0 ? {} : { note: notes.join('. ') };
         const decision = Decision.match(reached, {
             Allow: () => Decision.cases.Allow.make(noted),
-            Deny: (denied) => denied,
+            Deny: ({ reason }) => Decision.cases.Deny.make({ reason: `${reason}. The call was refused whole, so none of it ran` }),
             Rewrite: ({ command, background }) => Decision.cases.Rewrite.make({ command, background, ...noted }),
             Monitor: ({ command }) => Decision.cases.Monitor.make({ command, ...noted }),
         });

@@ -16,7 +16,6 @@ const ALIASES = ['aliases hide subcommands', 'run them directly'] as const;
 const TAG = /^[+:]?refs\/tags\//u;
 const ALIAS = /^alias\./u;
 const BRANCH_WRITES = ['--delete', '-D', '-M', '--force', '--copy', '-C', '--move'];
-const BRANCH_READS = ['--list', '--all', '--remotes', '--verbose', '--show-current', '--contains', '--no-contains', '--merged', '--no-merged', '--points-at', '-u'];
 const RESET_DISCARDS = ['--hard', '--merge', '--keep'];
 const UNWINDS = ['--abort', '--quit'];
 
@@ -118,8 +117,9 @@ const exportedTree: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     if (!nested('add')(invocation) || folder === undefined) {
         return [];
     }
-    if (invocation.has('-b', '-B', '--orphan')) {
-        return refusal(`${commandOf(invocation)} ${BRANCHES.join(', ')}`);
+    const branched = ['-b', '-B', '--orphan'].find((flag) => invocation.has(flag));
+    if (branched !== undefined) {
+        return refusal(`${commandOf(invocation)} ${branched} adds a branch and a second checkout, work in place, or drop ${branched} to export the commit into the folder`);
     }
     const temporary = Option.getOrElse(yield* host.environment('TMPDIR'), () => '/tmp');
     const target = Option.getOrUndefined(Option.filter(host.resolve(relocated(folder.text, temporary), repositoryOf(host, invocation)), () => folder.known));
@@ -135,11 +135,9 @@ const exportedTree: Rule = Effect.fnUntraced(function* (invocation, { host }) {
 
 const branchWrites: Rule = (invocation) => {
     const named = new Set(scoped(invocation)[0].flatMap(({ names }) => names));
-    const written = BRANCH_WRITES.find((name) => named.has(name));
-    if (written !== undefined) {
-        return refusal(`${commandOf(invocation)} ${written} ${BRANCHES.join(', ')}`);
-    }
-    return invocation.operands.length > 0 && !BRANCH_READS.some((name) => named.has(name)) ? refusal(`${commandOf(invocation)} ${BRANCHES.join(', ')}`) : [];
+    return BRANCH_WRITES.filter((name) => named.has(name))
+        .slice(0, 1)
+        .flatMap((written) => refusal(`${commandOf(invocation)} ${written} ${BRANCHES.join(', ')}`));
 };
 
 const tagsAlone: Predicate.Predicate<Invocation> = ({ operands: [, ...refs] }) => Array.isReadonlyArrayNonEmpty(refs) && refs.every(({ text }) => TAG.test(text));
@@ -191,7 +189,6 @@ const GIT: Ruleset = {
                             rebase: [when(({ has }) => !has(...UNWINDS), refuse('rewrites shared commits', 'merge or commit forward'))],
                             reflog: [when(nested('delete', 'drop', 'expire'), refuse('deletes entries', 'leave the reflog intact'))],
                             reset: [when(({ has }) => !has(...RESET_DISCARDS), resetTarget)],
-                            revert: [when(({ has }) => !has(...UNWINDS), refuse('reverses committed history', 'commit a forward fix'))],
                             switch: [refuse(...BRANCHES, '--create', '--orphan')],
                         }),
                     ),

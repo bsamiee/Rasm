@@ -1,5 +1,5 @@
 import { expect, layer } from '@effect/vitest';
-import { Effect, FileSystem, Path, Stream } from 'effect';
+import { DateTime, Effect, FileSystem, Path, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Decider, decided, refusing } from '#/engine';
 
@@ -95,6 +95,30 @@ layer(Decider, { excludeTestServices: true })('waits', (it) => {
             const [first, second] = yield* Effect.all([decided(`cat ${output}`, folder, { session: 'writer' }), decided(`cat ${output}`, folder, { session: 'writer' })]);
             expect(first).toStrictEqual({ _tag: 'Allow' });
             expect(second).toSatisfy((decision: typeof first) => decision._tag === 'Allow' && decision.note?.includes('Task b7k2 still runs and notifies when it ends') === true, 'Allow noting Task b7k2 still runs');
+        }),
+        30_000,
+    );
+
+    it.effect(
+        'Second read of a task output a live writer left silent for 20 minutes notes the task still runs, as silence is how a wait looks',
+        Effect.fnUntraced(function* () {
+            const [fs, { folder, output }] = yield* Effect.all([FileSystem.FileSystem, held('writer')]);
+            yield* fs.writeFileString(output, 'Refreshing run status every 3 seconds.\n');
+            const silent = DateTime.toEpochMillis(DateTime.subtract(yield* DateTime.now, { minutes: 20 }));
+            yield* fs.utimes(output, silent, silent);
+            const [, second] = yield* Effect.all([decided(`cat ${output}`, folder, { session: 'silent' }), decided(`cat ${output}`, folder, { session: 'silent' })]);
+            expect(second).toSatisfy((decision: typeof second) => decision._tag === 'Allow' && decision.note?.includes('Task b7k2 still runs and notifies when it ends') === true, 'Allow noting Task b7k2 still runs');
+        }),
+        30_000,
+    );
+
+    it.effect(
+        'Second read of a task output whose live writer repeats one line notes it looks stuck',
+        Effect.fnUntraced(function* () {
+            const [fs, { folder, output }] = yield* Effect.all([FileSystem.FileSystem, held('writer')]);
+            yield* fs.writeFileString(output, ['retry 1', 'retry 2', 'retry 3', 'retry 4', 'retry 5', 'retry 6'].join('\n'));
+            const [, second] = yield* Effect.all([decided(`cat ${output}`, folder, { session: 'looping' }), decided(`cat ${output}`, folder, { session: 'looping' })]);
+            expect(second).toSatisfy((decision: typeof second) => decision._tag === 'Allow' && decision.note?.includes('Task b7k2 repeats "retry #" and looks stuck, TaskStop b7k2') === true, 'Allow noting Task b7k2 looks stuck');
         }),
         30_000,
     );

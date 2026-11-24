@@ -2,10 +2,9 @@ import { availableParallelism, devNull } from 'node:os';
 import type { ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Function, Glob, Match, Option, Predicate, Record, Result, Schema, String, Struct } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
-import type { Host, HostError } from '#/host';
 import { Verdict } from '#/rules/decision';
 import { all, type Call, commandOf, cut, edited, ensure, erased, feedsJq, holds, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, unassign, when, whole } from '#/rules/rule';
-import { analyzed, type Invocation, type Parser, WRITES } from '#/shell/invocation';
+import { analyzed, type Invocation, WRITES } from '#/shell/invocation';
 import { parsed, type Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -138,7 +137,7 @@ const runnersOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, in
         const aggregate = aggregateOf(targets, target);
         const covered = selected.every((file) => executed[slot]?.has(file) === true);
         const fits = !narrowed && covered && helped !== undefined && programOf(helped, call) === programOf(invocation, call) && stated.every((word, at) => words[at] === word) && words.slice(stated.length).every((word) => word === aggregate);
-        return fits ? [{ node, target, aggregate, cached: targets[target]?.cache === true, noop: targets[target]?.executor === 'nx:noop' }] : [];
+        return fits ? [{ node, target, aggregate, cached: targets[target]?.cache === true, sole: members(targets, aggregate).length <= 1, noop: targets[target]?.executor === 'nx:noop' }] : [];
     });
     const flagged = Record.toEntries(invocation.row.nx?.targets ?? {});
     const asked = flagged.filter(([flag]) => invocation.has(flag)).map(([, aggregate]) => aggregate);
@@ -162,13 +161,8 @@ const routed = (invocation: Invocation, [first, ...others]: Array.NonEmptyReadon
     if (foreign.words.length > 0) {
         return foreign.located ? refusal(`${commandOf(invocation)} ${foreign.words.join(' ')} names a path the target folder reads elsewhere, run ${forwarded} with paths from that folder`) : whole(invocation, forwarded, invocation.program, launcherStart(invocation));
     }
-    const named = Match.value({ widened, many: others.length > 0, cached: first.cached }).pipe(
-        Match.when({ widened: true }, () => tool),
-        Match.when({ cached: false }, () => tool),
-        Match.when({ many: true }, () => `nx run-many -t ${first.aggregate}${projects}`),
-        Match.orElse(() => `nx ${first.aggregate} ${quote(first.node.name)}`),
-    );
-    return whole(invocation, named, invocation.program, launcherStart(invocation));
+    const aggregated = others.length > 0 ? `nx run-many -t ${first.aggregate}${projects}` : `nx ${first.aggregate} ${quote(first.node.name)}`;
+    return whole(invocation, !widened && first.cached && first.sole ? aggregated : tool, invocation.program, launcherStart(invocation));
 };
 
 const nxTarget: Rule = Effect.fnUntraced(function* (invocation, call) {
@@ -246,21 +240,6 @@ const hiddenErrors: Rule = (invocation, call) => {
     return [...nulled, ...redirected(invocation, RedirOperator.RdrAll, undefined, '/dev/null'), ...(merged ? redirected(invocation, RedirOperator.DplOut, '2', '1') : [])].flatMap((redirect) => cut(invocation, [redirect]));
 };
 
-const editedExecutor = Effect.fnUntraced(function* ({ host }: Call, graph: Graph, pairs: readonly (readonly [ProjectGraphProjectNode, string])[]) {
-    const executors = pairs.flatMap(([node, target]) => [target, ...members(targetsOf(node), target)].flatMap((name) => Option.toArray(Option.fromNullishOr(targetsOf(node)[name]?.executor))));
-    const roots = Array.dedupe(Array.getSomes(executors.map((executor) => Option.map(Record.get(graph.nodes, executor.slice(0, executor.lastIndexOf(':'))), ({ data }) => data.root))));
-    const changed = Array.isReadonlyArrayNonEmpty(roots) ? yield* Effect.option(host.output(['git', 'status', '--porcelain', '--', ...roots])) : Option.some('');
-    return Option.match(changed, { onNone: () => true, onSome: (changes) => changes.trim() !== '' });
-});
-
-const skippedCache: Rule = Effect.fnUntraced(function* (invocation, call) {
-    const graph = yield* call.host.graph;
-    if (!invocation.has('--skip-nx-cache') || Option.isNone(graph)) {
-        return [];
-    }
-    return (yield* editedExecutor(call, graph.value, askedTargets(invocation, graph.value))) ? [] : respell({ drops: ['--skip-nx-cache'], notify: true })(invocation);
-});
-
 const forLoop = Effect.fnUntraced(function* ({ request }: Call) {
     const stmts = yield* Effect.option(parsed(request.command, 'bash'));
     const [stmt, ...more] = Option.getOrElse(stmts, () => []);
@@ -275,21 +254,25 @@ const forLoop = Effect.fnUntraced(function* ({ request }: Call) {
     return Option.filter(Option.fromNullishOr(variable === undefined ? undefined : { variable, items: literal, reference: new RegExp(`^\\$\\{?${variable}\\}?(?::(?<target>[\\w:-]+))?$`, 'u') }), () => literal.length > 0 && literal.length === items.length);
 });
 
-const loopedRun = (refused: string, form: (invocation: Invocation, loop: Loop, call: Call) => Effect.Effect<Option.Option<string>, HostError, Host | Parser>): Rule =>
-    Effect.fnUntraced(function* (invocation, call) {
+const loopedRun =
+    (form: (invocation: Invocation, loop: Loop) => Option.Option<string>): Rule =>
+    (invocation, call) => {
         const { command, operands } = invocation;
-        if (!invocation.repeated || Option.isNone(command.cwd) || Option.exists(Array.head(operands), ({ text }) => LOOP_READS.has(text))) {
+        if (!invocation.repeated || command.origin !== 'call' || Option.exists(Array.head(operands), ({ text }) => LOOP_READS.has(text))) {
             return [];
         }
-        const loop = Option.filter(yield* forLoop(call), () => command.origin === 'call');
-        const text = yield* Option.match(loop, { onNone: () => Effect.succeedNone, onSome: (held) => form(invocation, held, call) });
-        return Option.match(Option.all({ text, loop }), {
-            onNone: () => refusal(refused),
-            onSome: (rewritten) => [Verdict.Edit({ start: 0, end: command.source.length, text: Option.some(rewritten.text), subject: Option.some(`for ${rewritten.loop.variable} loop`) })],
-        });
-    });
+        return Effect.map(forLoop(call), (loop) =>
+            Option.match(
+                Option.flatMap(loop, (held) => Option.map(form(invocation, held), (text) => ({ text, variable: held.variable }))),
+                {
+                    onNone: () => [],
+                    onSome: ({ text, variable }) => [Verdict.Edit({ start: 0, end: command.source.length, text: Option.some(text), subject: Option.some(`for ${variable} loop`) })],
+                },
+            ),
+        );
+    };
 
-const runMany = Effect.fnUntraced(function* (invocation: Invocation, { items, reference }: Loop, call: Call) {
+const runMany = (invocation: Invocation, { items, reference }: Loop) => {
     const { operands, path } = invocation;
     const [first, second] = operands.map(({ text }) => text);
     const run = path[0] === 'run' || first === 'run';
@@ -302,14 +285,12 @@ const runMany = Effect.fnUntraced(function* (invocation: Invocation, { items, re
         Match.when({ at: 0, run: false, target: undefined }, () => Option.map(Option.fromNullishOr(second), (held) => ({ targets: items, projects: [held] }))),
         Match.orElse(() => Option.none()),
     );
-    const graph = yield* call.host.graph;
-    const kept = Option.isSome(pair) && Option.isSome(graph) && invocation.has('--skip-nx-cache') ? yield* editedExecutor(call, graph.value, Array.cartesian(Array.getSomes(pair.value.projects.map((name) => Record.get(graph.value.nodes, name))), pair.value.targets)) : false;
-    const flags = invocation.args.filter(({ names }) => names.length > 0 && (kept || !names.includes('--skip-nx-cache'))).map(({ words }) => spelled(words));
+    const flags = invocation.args.filter(({ names }) => names.length > 0).map(({ words }) => spelled(words));
     const tail = invocation.tail.length > 0 ? ['--', spelled(invocation.tail)] : [];
     return Option.map(pair, ({ targets, projects }) => ['nx run-many -t', targets.join(','), '-p', projects.map((name) => quote(name)).join(','), ...flags, ...tail].join(' '));
-});
+};
 
-const repeated = (invocation: Invocation, { items, reference }: Loop) => Effect.succeed(Option.liftPredicate([spelled(invocation.words), `--repeats ${items.length - 1}`].join(' '), () => !invocation.has('--repeats') && invocation.words.every(({ raw }) => !reference.test(raw.replaceAll('"', '')))));
+const repeated = (invocation: Invocation, { items, reference }: Loop) => Option.liftPredicate([spelled(invocation.words), `--repeats ${items.length - 1}`].join(' '), () => !invocation.has('--repeats') && invocation.words.every(({ raw }) => !reference.test(raw.replaceAll('"', ''))));
 
 const optionWords = (text: string) =>
     text
@@ -586,8 +567,7 @@ const TASKS: Ruleset = {
                         },
                     ],
                 }),
-                when((invocation) => !invocation.has('--graph'), loopedRun('Loop reruns nx tasks, use one nx run-many', runMany)),
-                skippedCache,
+                when((invocation) => !invocation.has('--graph'), loopedRun(runMany)),
                 boundedTasks,
                 (invocation) => {
                     const dropped = respell({ drops: ['--skip-sync'] })(invocation);
@@ -663,7 +643,7 @@ const TASKS: Ruleset = {
         vitest: {
             flags: ['--exclude=', '--mode=', '--repeats=', '-r, --root=', '--dir=', '--config='],
             nx: { ignores: ['--run'], narrows: true },
-            rules: [loopedRun('Loop reruns vitest, use --repeats', repeated)],
+            rules: [loopedRun(repeated)],
         },
         playwright: {
             flags: [

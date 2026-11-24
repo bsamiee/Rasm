@@ -12,13 +12,14 @@ const FILES = {
 } as const;
 const WIPE = 'empties the scratchpad the session and every subagent share';
 const PER_RESULT = 'starts one process per search result';
+const UNJUDGED = 'runs commands or deletes files where the hook cannot judge them, run each as its own shell command';
 const REFUSED = [
     [`python3 -c 'import json,sys; print(json.load(sys.stdin)["a"])' < a.json`, 'python3 inline code parses JSON'],
-    [`python3 - <<'EOF'\nopen("o.txt", "w").write("x")\nEOF`, 'python3 inline code writes files or runs commands'],
-    [`node -e "require('fs').writeFileSync('o.txt', 'x')"`, 'node inline code writes files or runs commands'],
+    [`python3 - <<'EOF'\nimport subprocess\nsubprocess.run(["git", "status"])\nEOF`, `python3 inline code ${UNJUDGED}`],
+    [`node -e "require('child_process').execSync('ls')"`, `node inline code ${UNJUDGED}`],
+    [`awk '{system("rm " $1)}' a.txt`, `awk inline code ${UNJUDGED}`],
     ['bash probe.sh', 'python3 inline code parses JSON'],
     [`cat > written.sh <<'EOF'\npython3 -c 'import json,sys; print(json.loads(sys.argv[1]))' '{}'\nEOF\nbash written.sh`, 'python3 inline code parses JSON'],
-    [`awk '{print > "out.txt"}' a.txt`, 'awk inline code writes files or runs commands'],
     [`osascript -e 'delay 240'`, 'A bare timer waits on nothing'],
     [`rm -rf ${SCRATCHPAD}/*`, WIPE],
     [`fd --hidden -t f . ${SCRATCHPAD} -X rm`, WIPE],
@@ -31,10 +32,14 @@ const REFUSED = [
     [String.raw`find . -name '*.log' -exec wc -l {} \;`, `find -exec wc ${PER_RESULT}`],
     ['fd --hidden -d 3 react /', 'fd root / too wide'],
     ['sd -F gamma delta notes.txt', 'sd pattern matches nothing in notes.txt'],
+    [String.raw`printf 'x\n' > other.txt && sd -F gamma delta notes.txt`, 'sd pattern matches nothing in notes.txt, read the current text. The call was refused whole, so none of it ran'],
     ['sd -s beta delta notes.txt', 'sd -s is no sd option'],
 ] as const;
 const ALLOWED = [
     'python3 probe.py',
+    `python3 - <<'EOF'\nopen("/private/tmp/claude-501/o.txt", "w").write("x")\nEOF`,
+    `node -e "require('fs').writeFileSync('o.txt', 'x')"`,
+    `awk '{print > "out.txt"}' a.txt`,
     "awk -F',' '{print $2}' a.csv",
     "awk -F: '{print $1,$3}' a.colon",
     "awk '/start/,/end/' a.txt",

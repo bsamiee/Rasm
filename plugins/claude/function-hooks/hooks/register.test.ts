@@ -36,7 +36,6 @@ const DECIDED = { session: ENDING.sessionId, call: expect.any(String) } as const
 const OUTPUT = '/tmp/claude-501/x/tasks/b7k2.output';
 const BACKGROUND = { result: { result: { stdout: '', stderr: '', interrupted: false, backgroundTaskId: 'b7k2' }, text: `Command running in background with ID: b7k2. Output is being written to: ${OUTPUT}` } } as const;
 const REPEATING = { file: OUTPUT, live: true, stuck: { key: 'repeats retry #', text: 'repeats "retry #"' } } as const;
-const QUIET = { file: OUTPUT, live: true, stuck: { key: 'quiet', text: 'wrote nothing for 12m' } } as const;
 const RUNNING = { file: OUTPUT, live: true } as const;
 const SCAN_MS = 300_000;
 const DATA = { CLAUDE_PLUGIN_DATA: '/data/function-hooks' } as const;
@@ -184,13 +183,13 @@ test('Watchdog wakes the agent that owns a background task repeating one line, a
 });
 
 test('Watchdog tells the owner once per stuck spell, again after the task moves and stalls anew', async ($, on) => {
-    const spells = [RUNNING, QUIET, QUIET, QUIET, RUNNING, QUIET] as const;
+    const spells = [RUNNING, REPEATING, REPEATING, REPEATING, RUNNING, REPEATING] as const;
     const world = worldOf(on, () => answered(ALLOWED), { watched: spells.values(), agents: [agentOf('completed')], ...BACKGROUND });
     await $.session.start(SESSION);
     await $.tool.call({ tool: 'Bash', command: 'nx serve web', run_in_background: true, agentId: 'a1' });
     const counts = await spells.reduce<Promise<readonly number[]>>(async (scanned) => [...(await scanned), await world.scanned()], Promise.resolve([]));
     expect(counts).toEqual([0, 1, 1, 1, 1, 2]);
-    expect(world.told[0]).toEqual(['a1', expect.stringContaining('b7k2 wrote nothing for 12m')]);
+    expect(world.told[0]).toEqual(['a1', expect.stringContaining('b7k2 repeats "retry #"')]);
 });
 
 test('Watchdog prompts the main conversation about its stuck task only while the conversation is idle, once', async ($, on) => {

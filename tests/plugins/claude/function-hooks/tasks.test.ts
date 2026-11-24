@@ -11,17 +11,16 @@ const REFUSED = [
     ['nx reset', 'nx reset stops the daemon and deletes the workspace data every session shares, run nx reset --only-cache'],
     ['nx reset --only-cloud', 'nx reset stops the daemon and deletes the workspace data every session shares, run nx reset --only-cache'],
     ['nx reset --only-workspace-data', 'nx reset deletes the workspace data every session shares, run nx reset --only-cache'],
-    ['for p in web api; do nx test $p > $p.log; done', 'Loop reruns nx tasks, use one nx run-many'],
-    ['for i in 1 2 3; do vitest run 2>&1 | rg Tests; done', 'Loop reruns vitest, use --repeats'],
     ['pnpm patch effect', 'pnpm patch copies a package into the tree'],
     ['pytest --config-file other.toml', 'Pytest must use project configuration and benchmark storage'],
 ] as const;
-const ALLOWED = ['nx reset --only-cache', 'timeout 20 nx graph', 'make -j4'] as const;
+const ALLOWED = ['nx reset --only-cache', 'timeout 20 nx graph', 'make -j4', 'for i in 1 2; do nx run-many -t test -p web; done', 'for p in web api; do nx test $p > $p.log; done', 'for f in a.test.ts b.test.ts; do vitest run $f; done'] as const;
 const REWRITTEN = [
     ['seq 3 | xargs -P 0 echo', `seq 3 | xargs -P ${CORES} echo`],
     ['make -j all', `make -j${CORES} all`],
     [String.raw`printf 'naïve → ✓\n' > n.txt; make -j all`, `printf 'naïve → ✓\\n' > n.txt; make -j${CORES} all`],
     ['for p in web api; do nx test $p; done', 'nx run-many -t test -p web,api'],
+    ['for p in web api; do nx test $p --skip-nx-cache; done', 'nx run-many -t test -p web,api --skip-nx-cache'],
     ['for i in 1 2 3; do vitest run; done', 'vitest run --repeats 2'],
     ['nx daemon --stop; nx show projects', 'nx show projects'],
     ['timeout 120 nx show projects', 'nx show projects'],
