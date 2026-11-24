@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
 import { type CreateNodesContext, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { getLockFileName, hashFile, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, EXEC, manifested, namedInput, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { aggregated, EXEC, manifested, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, FileSystem, Option, Record, Schema, UndefinedOr } from 'effect';
 
@@ -195,9 +195,8 @@ const worker = Effect.fnUntraced(function* (context: CreateNodesContext, manager
                 cf: {
                     command: typed ? 'cf workers types --include-runtime=false' : 'cf workers types',
                     options: { cwd: root },
-                    dependsOn: ['^codegen--*'],
                     cache: true,
-                    inputs: ['default', `^${namedInput(root, context)}`, ...sources.filter((dependency) => dependency !== lock && !dependency.startsWith(`${root}/`)).map((dependency) => posix.join('{workspaceRoot}', dependency)), { externalDependencies: ['cf'] }],
+                    inputs: [...sources.filter((dependency) => dependency !== lock).map(tokened(root)), { externalDependencies: ['cf'] }],
                     outputs: ['{projectRoot}/.cloudflare/types'],
                     metadata: {
                         description: typed ? `Generates the Worker binding types from ${WORKER} with cf workers types, runtime types coming from @cloudflare/workers-types` : `Generates the Worker binding and runtime types from ${WORKER} with cf workers types`,
