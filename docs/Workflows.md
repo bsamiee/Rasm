@@ -94,6 +94,7 @@ Nx remote cache and Actions caches per workflow and machine:
 - Job `macos` restores the Xcode compilation cache and package clones by Xcode version, workspace `Package.resolved`, `Package.swift`, and `Xcode.xcconfig`
 - Job `macos` saves both folders where its key restored none, so a saved cache holds one run's builds and no run adds to one
 - Failed and cancelled runs of job `macos` save both folders under a key the next run starts from, as Nx stores a batch's results at its end alone
+- Job `macos` deletes every other Swift cache after a save, so one copy stays: the full one, else the newest from a failed run
 - Job `macos` caches no Swift build folder, as compilation cache hits need the build folder path alone to repeat
 - Runs read and write with `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`, and a pull request from a fork holds no secret and uses its local cache
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row

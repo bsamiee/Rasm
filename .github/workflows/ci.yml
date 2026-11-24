@@ -154,6 +154,9 @@ jobs:
         needs: affected
         runs-on: xcode-27
         timeout-minutes: 120
+        permissions:
+            contents: read
+            actions: write
         env:
             GH_TOKEN: *github
             NX_BASE: *base
@@ -202,11 +205,19 @@ jobs:
               run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
               env:
                   NX_SKIP_NX_CACHE: ${{ inputs.uncached == 'macos' || inputs.uncached == 'all' }}
-            - if: ${{ always() && steps.tasks.outcome != 'skipped' && github.ref == 'refs/heads/main' && steps.swift.outputs.cache-hit != 'true' }}
+            - id: saved
+              if: ${{ always() && steps.tasks.outcome != 'skipped' && github.ref == 'refs/heads/main' && steps.swift.outputs.cache-hit != 'true' }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: *swift
-                  key: ${{ steps.swift.outputs.cache-primary-key }}${{ steps.tasks.outcome != 'success' && format('-partial-{0}', github.run_id) || '' }}
+                  key: &saved ${{ steps.swift.outputs.cache-primary-key }}${{ steps.tasks.outcome != 'success' && format('-partial-{0}', github.run_id) || '' }}
+            - if: ${{ always() && steps.saved.outcome == 'success' }}
+              run: |-
+                  gh cache list --key swift- --limit 100 --json key --jq '.[].key' | while read -r key; do
+                      [[ "${key}" == "${SAVED}" ]] || gh cache delete "${key}"
+                  done
+              env:
+                  SAVED: *saved
             - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
               run: hk check --step swiftlint --step swift-format --step plutil --step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
               env:
