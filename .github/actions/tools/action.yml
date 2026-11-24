@@ -25,7 +25,7 @@ runs:
                   products/developer/nx/apple/analyzer/.build/out/Products/Release/nx-apple-analyzer
                   products/developer/nx/apple/analyzer/.build/out/Products/Release/nx-apple-analyzer.hash
                   ~/.local/state/mise/deps
-              key: nx-apple-analyzer-${{ env.ImageVersion }}-${{ hashFiles('.config/mise.macos.toml', 'products/developer/nx/apple/analyzer/Package*', 'products/developer/nx/apple/analyzer/package.json', 'products/developer/nx/apple/analyzer/Sources/**', 'products/developer/nx/apple/analyzer/Tests/**') }}
+              key: nx-apple-analyzer-${{ hashFiles('.config/mise.macos.toml', 'products/developer/nx/apple/analyzer/Package*', 'products/developer/nx/apple/analyzer/package.json', 'products/developer/nx/apple/analyzer/Sources/**', 'products/developer/nx/apple/analyzer/Tests/**') }}
         - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
           with:
               mise_dir: ${{ runner.os == 'Windows' && 'C:\mise' || '' }}
