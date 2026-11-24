@@ -11,6 +11,8 @@ import { execute as publish, Publish } from '@rasm/nx-distribution/executors/pub
 import { environment, shimmed, targetOptions, it as workspaced } from '@rasm/testing/nx';
 import { Array, Effect, Option, Predicate, Schema, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
+import { getLatestGitTagForPattern } from 'nx/src/command-line/release/utils/git';
+import { RepoGitTags } from 'nx/src/command-line/release/utils/repository-git-tags';
 import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('node:process'), async (actual) => {
@@ -110,6 +112,20 @@ describe('attach--gh', () => {
         await attach({}, workspace.context(graph, 'marker', 'attach--gh'));
 
         expect(recorded('gh.txt')).toStrictEqual(uploaded);
+    });
+
+    it.for([
+        { case: 'two releases tagged oldest first', tags: ['marker@1.2.3', 'marker@1.2.4'] },
+        { case: 'two releases tagged newest first', tags: ['marker@1.2.4', 'marker@1.2.3'] },
+        { case: 'a prerelease tagged before its release', tags: ['marker@1.2.4-beta.1', 'marker@1.2.4'] },
+        { case: 'a release tagged before its prerelease', tags: ['marker@1.2.4', 'marker@1.2.4-beta.1'] },
+    ])('uploads to the tag Nx resolves where HEAD holds $case', async ({ tags }, { workspace, released }) => {
+        const { graph, recorded } = await released(rhino, tags);
+        const resolved = await getLatestGitTagForPattern('{projectName}@{version}', { projectName: 'marker' }, (when) => RepoGitTags.create().resolveTags(when), { requireSemver: true, strictPreid: false });
+
+        await attach({}, workspace.context(graph, 'marker', 'attach--gh'));
+
+        expect(recorded('gh.txt')).toStrictEqual(['release', 'upload', resolved?.tag, 'rhino/marker-1.2.4-rh8-any.yak', '--clobber']);
     });
 
     it('creates the release of a tag gh finds no release for, with the packed files', async ({ workspace, released }) => {

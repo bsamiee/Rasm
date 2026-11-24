@@ -4,6 +4,7 @@ import { Array, Cause, Config, Effect, Function, Option, Record, Schema, String,
 import { minimatch } from 'minimatch';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { getLatestGitTagForPattern, sanitizeProjectNameForGitTag } from 'nx/src/command-line/release/utils/git';
+import { RepoGitTags } from 'nx/src/command-line/release/utils/repository-git-tags';
 import { getFilesForOutputsBatch } from 'nx/src/native';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
 import { spawned } from '#/inference';
@@ -56,7 +57,8 @@ const released = Effect.fnUntraced(function* ({ root, projectName, projectGraph,
     const files = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(projectGraph));
     const { error, nxReleaseConfig } = yield* Effect.promise(() => createNxReleaseConfig(projectGraph, files, nxJsonConfiguration.release));
     const group = yield* error === null ? Effect.succeed(Array.findFirst(Record.toEntries(nxReleaseConfig?.groups ?? {}), ([, { projects }]) => projects.includes(project))) : Effect.fail(new Cause.UnknownError(error, `nx.json release refuses its configuration with ${error.code}`));
-    const tags = (yield* spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root, stdout: 'pipe' })).split('\n').filter(String.isNonEmpty);
+    const [head, ordered] = yield* Effect.all([spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root, stdout: 'pipe' }), Effect.promise(() => RepoGitTags.create().resolveTags())]);
+    const tags = Array.intersection(ordered, head.split('\n'));
     const held = yield* Effect.transposeOption(Option.map(group, ([name, { releaseTag }]) => Effect.promise(() => getLatestGitTagForPattern(releaseTag.pattern, { projectName: sanitizeProjectNameForGitTag(project), releaseGroupName: name }, Function.constant(Promise.resolve(tags)), releaseTag))));
     return Option.flatMap(held, (found) => Option.fromNullishOr(found?.tag));
 });
