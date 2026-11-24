@@ -80,6 +80,8 @@ Rasm/
 - Tool behavior comes from its source and docs at the installed version, and configuration sets only what departs from it
 - Tools read configuration from `.config/` where a setting names its path, else from their fixed path, and checkers report every finding as an error
 - Each ecosystem pins every version, root tooling included, in its root catalog and lock, and targets build from the committed lock
+- State sits in the folder its lifetime matches, inside the folder a cache saves or outside the folder a reinstall replaces
+- Changes start from reading the file and log line their claim cites, as docs and reviews state facts those files contradict
 - `hk check <paths>` and `hk fix <paths>` run `.config/hk.pkl` steps over named paths and its `commit-msg` hook over commit messages, and hk and Nx never call each other
 
 ## [03]-[FLOW]
@@ -174,9 +176,11 @@ Roots split, nest, or hold more where a host or tool decides:
 Nx runs project-level work over a graph its plugins infer:
 - Plugins use what Nx and its official plugins provide, and behavior an `nx.json` field or plugin option can state stays out of plugin code
 - Plugins infer every project, target, and dependency from manifests and tool output, and manifest `nx` tables add only facts no tool reports
-- `mise install` builds the .NET and Swift analyzers, and a graph without one leaves its projects out with a warning naming the build command
+- Inferred targets hold one configuration on every machine of a platform, as Nx hashes every target of a project into each of its tasks
+- Hash inputs name a tool by identity (compiler version, platform, installer URL) and no machine path, as host state differs between machines
+- `mise install` builds the .NET and Swift analyzers before any graph, and a graph lacking one leaves its projects out with a warning naming its build
 - `nx affected -t <target>` runs only the tasks a change reaches, as each target's inputs name exactly what its tools read, aggregate targets included
-- Tools keep their own incremental state, and Nx caches results around it in one remote cache every runner shares, with no machine path in hashes
+- Tools keep their own incremental state, and Nx caches results around it in one remote cache every runner and the owner's Mac read and write
 - `nx sync` writes executor schemas and tsconfig `references`, and non-terminal runs outside CI stop on stale ones until it runs, never `--skip-sync`
 - `nx conformance:check` runs `nx.json` conformance rules over the graph and every target
 
@@ -207,7 +211,6 @@ Suites sit in `tests/` except where their tool fixes the place:
 Rhino suites boot Rhino once per test process, one run per machine, as concurrent processes on one Cloud Zoo license each raise a prompt:
 - Local runs on a machine with Rhino open views, or none under `nx test <project> -c headless`, in a scratch profile seeded with license files
 - CI tests Rhino suites headless on Windows runners through Rhino.Inside, over the newest release of their pinned major
-- Windows runners install Rhino only where a Rhino task misses the cache
 
 ## [08]-[DELIVERY]
 

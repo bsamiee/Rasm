@@ -32,7 +32,7 @@ Nx facts that decide the layout:
 - Each inferred target runs the inline projects rooted in its Nx project
 - Projects holding an enabled browser take tag `host:browser` and their provider's name (`playwright`) as a technology beside `vitest`
 - One `nx` run batches every target of one config into one `vitest run` with one worker pool, and its own projects' test modules decide each target
-- Inferred targets take root `vitest.config.ts` as an input, and editing shared options invalidates every cached result
+- Inferred targets hash each file root `vitest.config.ts` loads, a linked package's modules included, and editing shared options invalidates every cached result
 
 Root `vitest.config.ts` derives its inline projects from the tree:
 - Workspace packages with `vitest` in `devDependencies` and not in `peerDependencies` are one project each, rooted there and named by manifest `name`
@@ -129,7 +129,8 @@ Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)`
 - `test--playwright` runs after `build--*` of its suite's dependencies and each reused `webServer` task, and a suite naming a product loads its build
 - `loaded` launches one persistent Chromium context per worker and loads its suite's extension into it for each test over CDP
 - `loaded` takes the one unpacked Manifest V3 extension among build outputs of its suite's dependencies
-- `loaded` hands a test its extension once the service worker is `activated`, as Chrome drops an action pressed before the worker registers its listeners, and fails a test whose worker turns `redundant`
+- `loaded` hands a test its extension once the service worker is `activated`, as Chrome drops an action pressed before the worker registers listeners
+- `loaded` fails a test whose service worker turns `redundant`
 - `attach--gh` of a host package depends on `pack--*` of each workspace package depending on it and uploads the visible files they write
 - Fixture `axe` of `it` scans the page through `AxeBuilder` at WCAG A and AA tags through 2.2
 - Served product suites start its Node bundle on an allocated port per worker, and a test writing state empties its database and storage first

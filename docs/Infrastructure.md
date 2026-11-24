@@ -2,7 +2,15 @@
 
 Machines, accounts, and services the `infra/` stacks declare.
 
-## [01]-[PLACES]
+## [01]-[PRINCIPLES]
+
+Rules every stack and machine follows:
+- Stacks apply from commits `main` holds, as each `Deploy` trigger applies the program at the tip of `main` over a local apply
+- Secrets are made once and read by the stacks passing them to services, so an apply rotates no secret
+- Stacks write no Doppler row, as a written row reaches `deploy` through its references and starts `Deploy` again
+- Jobs and machines join services through identity federation or a credential with no expiry, so no credential waits on a renewal by hand
+
+## [02]-[PLACES]
 
 Each place holding state changes through one action:
 
@@ -14,12 +22,33 @@ Each place holding state changes through one action:
 |  [04]   | Google Cloud project `rasm-release`  | `infra/repository-stack.ts`                                    | Workflow `Deploy` |
 |  [05]   | Machines                             | Table `hosts` of `infra/platform-stack.ts`, mise `[bootstrap]` | Workflow `Deploy` |
 
-## [02]-[MACHINES]
+## [03]-[SECRETS]
+
+Doppler configs and their readers:
+- Config `ci` syncs to repository Actions secrets and `release` to GitHub environment `release`, each deleting names removed from Doppler
+- GitHub environment `deploy` holds read-only Doppler service token `DOPPLER_TOKEN` of `deploy`, set by hand and held in row `DOPPLER_DEPLOY_TOKEN`
+- Doppler `deploy` rows take the variable name their provider reads, and each stack's Pulumi process receives them as its environment
+- Deploys read Doppler `deploy`, and `nx install @rasm/infra` reads sign-in secrets and object storage keys from Doppler `dev`
+- Rows one config holds and another reads are references there (`${ci.<NAME>}`), which change with their source
+- Row `AUTHELIA_OWNER_PASSWORD_HASH` holds the bcrypt hash of row `AUTHELIA_OWNER_PASSWORD`, the form the sign-in service reads
+- Doppler `deploy` and 1Password hold `<NAME>_ROOT_PASSWORD`, `<NAME>_SSH_PRIVATE_KEY`, and `<NAME>_SSH_PUBLIC_KEY`, and no code reads them
+- Row `DOPPLER_IAC_TOKEN` reaches stacks as `DOPPLER_TOKEN`, and row `GITHUB_TOKEN` authorizes GitHub's provider, deploy webhook, and runners
+
+## [04]-[STACKS]
+
+Pulumi state and operations of each stack:
+- Pulumi state sits in Pulumi Cloud for `deploy` and in local backend `file://~` for `install`
+- Operation `up` alone creates a missing stack, as `preview` and `destroy` select an existing one
+- Operation `destroy` walks stacks in reverse order over stack state alone, refreshing nothing and running no program, as a lost machine answers neither
+- Stack `rasm` declares `Rasm` and each adopted repository with its Doppler project, environments, and branch configs
+- Adopted repositories naming existing resources take option `import` for one deploy, as a kept import ID turns a rename into a replacement
+
+## [05]-[MACHINES]
 
 Machines, their reinstall, and images their stacks run:
 - Table `hosts` keys machines by DNS name, names state no role, provider, or location, and each service a role runs takes a DNS alias
 - Each machine holds DNS record `<name>.<zone>`, tailnet name `<name>`, and a Pulumi stack named by its DNS name
-- Stack `rasm` holds a Hostinger post-install script joining reinstalled machines to the tailnet with Tailscale SSH under their tags
+- Stack `rasm` holds a Hostinger post-install script joining reinstalled machines to the tailnet with Tailscale SSH
 - `set-hostname` restores a machine's hostname after its tailnet join and resets it with no shutdown, and post-install scripts flush writes first
 - `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine and erases its hostname
 - Reinstalls follow `tscli delete device`, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote` follows
@@ -48,18 +77,19 @@ Machines, their reinstall, and images their stacks run:
 - Pulled images take name `<tag>@<digest>` from registry digests each deploy reads, and a moved tag replaces its image, then its containers
 - Docker removes no image name a container uses, its provider pulls no name a machine holds, and stacks name no image by tag alone
 
-## [03]-[TAILNET]
+## [06]-[TAILNET]
 
 Tailnet members, tags, and policy:
-- Job `deploy` joins as `tag:deploy` through a Tailscale federated identity trusting GitHub's token of environment `deploy`, so GitHub holds no Tailscale secret
-- New machines join as `tag:server` through OAuth client secret row `TAILSCALE_ENROLMENT_OAUTH_SECRET`, which never expires and creates one key per machine
+- Job `deploy` joins as `tag:deploy` through a Tailscale federated identity trusting GitHub's token of environment `deploy`
+- Stack `rasm` writes the federated identity's ID and audience to environment `deploy` as variables, and GitHub holds no Tailscale secret
+- New machines join under their `hosts` tags through OAuth client secret row `TAILSCALE_ENROLMENT_OAUTH_SECRET`, which creates one key per machine
 - Stacks reach each machine's Docker engine and shell as `root@<name>` over Tailscale SSH with no key
 - Machine and app stacks apply only from a computer on the tailnet
 - Tailnet policy grants every source every destination and port, SSH from members and `tag:deploy` to machine tags, and Funnel to members
 - Tailnet policy is marked externally managed with a link to its stack file, and its admin console warns before an edit a deploy reverts
 - Tailnet settings enable device auto-updates, HTTPS, and MagicDNS, and disable user approval
 
-## [04]-[NETWORK]
+## [07]-[NETWORK]
 
 Routes from public names to containers:
 - Traefik proxies publish ports 80 and 443 on every address, redirect 80 to 443, and issue ACME certificates by TLS challenge
@@ -75,18 +105,17 @@ Routes from public names to containers:
 - Stacks and `[bootstrap]` declare no firewall
 - Containers a CI job starts without an address publish on every address
 
-## [05]-[CACHE_SERVER]
+## [08]-[CACHE_SERVER]
 
 Nx cache server of role `Cache`:
 - Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes one token that reads and writes
 - Runners reach the server over public HTTPS through its proxy
-- Cache stacks read the token and object storage root keys from Doppler `deploy` and write no Doppler row
-- Doppler `ci` holds server URL and token, `dev` references both and holds object storage root keys, and `deploy` references what stacks read
+- Doppler `ci` holds server URL and token, which `dev` and `deploy` reference
 - Cache objects expire role field `kept` after their write, and a read refreshes none
 - Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a run once a cache write fails six times
 - Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop
 
-## [06]-[HISTORY_SERVER]
+## [09]-[HISTORY_SERVER]
 
 Atuin sync server of role `History`:
 - Atuin server `atuinsh/atuin` answers at HTTPS name `<name>.<zone>` of role field `name`, as clients off the tailnet sync through it
@@ -99,7 +128,7 @@ Atuin sync server of role `History`:
 - Clients hold every record of their account, and a rebuilt server refills from the next client to log in again and sync
 - Clients signed in before a rebuild run `atuin logout` first, as `atuin login` with a saved session skips authentication
 
-## [07]-[RUNNERS]
+## [10]-[RUNNERS]
 
 GitHub Actions runners of role `Runner`:
 - Role `Runner` field `instances` names each runner service by label with systemd limits `systemctl set-property` sets once it starts
@@ -107,32 +136,13 @@ GitHub Actions runners of role `Runner`:
 - Runner `<machine>-<label>` installs in folder `actions-runner-<label>`, works in folder `actions-work-<label>`, and holds label `<label>` beside default labels
 - Instance `host` runs jobs on its machine and `container` in a container, one job of each at once
 - Changes to runner version, label, limits, repository, or tailnet node reinstall a runner after `systemctl revert`
-- Reinstalls replace folder `actions-runner-<label>` alone, so checkouts, tools, and caches of its work folder stay, and a removed runner deletes both
+- Reinstalls replace folder `actions-runner-<label>` alone, keeping checkouts, tools, and caches of the work folder, and a removed runner deletes both
 - Runner installs register through `config.sh --pat`, which takes a registration token from `GITHUB_TOKEN` at each attempt
 - Runner removals run `config.sh remove --pat` with the token of their last install, and a revoked token leaves an offline registration
 - Runners keep tools, ignored files, and each Unreal image between runs, as jobs name an image by tag and `docker image prune` removes untagged ones
 - `needrestart` leaves `actions.runner.*` services running after a library update
 
-## [08]-[SECRETS]
-
-Doppler configs and their readers:
-- Config `ci` syncs to repository Actions secrets and `release` to GitHub environment `release`, each deleting names removed from Doppler
-- GitHub environment `deploy` holds a read-only Doppler service token of `deploy` as `DOPPLER_TOKEN`, set by hand once and held in 1Password
-- Doppler `deploy` rows take the variable name their provider reads, and each stack's Pulumi process receives them as its environment
-- Stacks create no secret: each is made once, held in Doppler and 1Password, and read by the stack that passes it to its service
-- Deploys read Doppler `deploy`, and `nx install @rasm/infra` reads sign-in secrets and object storage keys from Doppler `dev`
-- Row `AUTHELIA_OWNER_PASSWORD_HASH` holds the bcrypt hash of row `AUTHELIA_OWNER_PASSWORD`, the form the sign-in service reads
-- Rows of `deploy` referencing `ci` or `dev` change with their source, which starts `Deploy` to apply the new value
-- Doppler `deploy` and 1Password hold `<NAME>_ROOT_PASSWORD`, `<NAME>_SSH_PRIVATE_KEY`, and `<NAME>_SSH_PUBLIC_KEY`, and no code reads them
-- Stacks write no `deploy` row, as a change to `deploy` starts workflow `Deploy`
-- Row `DOPPLER_IAC_TOKEN` reaches stacks as `DOPPLER_TOKEN`, and row `GITHUB_TOKEN` authorizes GitHub's provider, deploy webhook, and runners
-- Pulumi state sits in Pulumi Cloud for `deploy` and in local backend `file://~` for `install`
-- Operation `up` alone creates a missing stack, as `preview` and `destroy` select an existing one
-- Operation `destroy` walks stacks in reverse order over stack state alone, refreshing nothing and running no program, as a lost machine answers neither
-- Stack `rasm` declares `Rasm` and each adopted repository with its Doppler project, environments, and branch configs
-- Adopted repositories naming existing resources take option `import` for one deploy, as a kept import ID turns a rename into a replacement
-
-## [09]-[GOOGLE_CLOUD]
+## [11]-[GOOGLE_CLOUD]
 
 Google Cloud project `rasm-release`, its identities, and GitHub variables naming them:
 - Stack `rasm` declares project APIs, workload identity pool `github`, and provider `github` trusting OIDC tokens of the repository ID alone
@@ -144,7 +154,7 @@ Google Cloud project `rasm-release`, its identities, and GitHub variables naming
 - Chrome Web Store dashboard Settings list `chrome-web-store` under Service account, with access to every publisher item
 - Service accounts hold no key, and Chrome Web Store API answers 403 alike for an item its publisher lacks and a refused identity
 
-## [10]-[UPDATES]
+## [12]-[UPDATES]
 
 Package updates and reboots of each machine:
 - Machines install Ubuntu `*-updates` and Docker packages daily on a timer `.config/mise.machine.toml` sets
