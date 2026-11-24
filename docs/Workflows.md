@@ -47,7 +47,10 @@ Workflow `CI` and its jobs:
 - Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine a tracked `.uproject` names
 - Unreal projects hold no target on a runner outside their engine image
 - Unreal image pulls sign in to GHCR as the repository owner, the account `EPIC_GHCR_TOKEN` belongs to
-- CI, Deploy, and Release checkouts fetch full history, as `nx affected` and `nx release` compare commits a partial clone fetches one at a time
+- Jobs `macos` and `windows` clone every commit without file contents and fetch the files of their own commit alone (`filter: blob:none`)
+- `nx affected` compares file names between base and head, and reads lockfiles and root manifests changed between them at base, one request each
+- Self-hosted checkouts fetch full history, as a kept checkout fetches new commits alone
+- Release checkouts fetch full history, as `nx release` reads lockfiles and root manifests at each commit after a tag, one request each in a partial clone
 - CI and Release checkouts on self-hosted runners keep ignored files (`clean: false`)
 - Self-hosted jobs run tasks on half their cores (`NX_PARALLEL`), as instances `host` and `container` share one machine
 - Workflows name composite actions and reusable workflows by `$/` paths, read from the archive of the commit a run started from
