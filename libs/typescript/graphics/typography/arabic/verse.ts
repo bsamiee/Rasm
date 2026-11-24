@@ -26,6 +26,8 @@ class Verse extends Schema.Class<Verse, { readonly brand: unique symbol }>('Vers
     }).annotate({ description: 'Arabic-script verse set as centered hemistich column pairs, even hemistichs at the start side, or one hemistich per row at cycling sides' });
     static readonly of = (hemistichs: Array.NonEmptyReadonlyArray<Parameters<typeof Justification.of>[0]>, measure: number) => {
         const widest = Math.max(...Array.map(hemistichs, Justification.natural));
+        const alignment = Settings.fields.alignment.schema.cases.Justified.make({});
+        const justified = Array.map(hemistichs, (runs) => Array.map(runs, (run) => ({ ...run, settings: Settings.make({ ...run.settings, alignment }) })));
         return flow(
             Verse.Setting.match({
                 Columns: ({ gap }) => {
@@ -40,17 +42,7 @@ class Verse extends Schema.Class<Verse, { readonly brand: unique symbol }>('Vers
                     return { width: fitted, at: (index: number) => ({ row: index, indents: indents[Array.getUnsafe(sides, index % sides.length)] }) };
                 },
             }),
-            ({ width, at }) =>
-                Verse.make({
-                    width,
-                    hemistichs: Array.map(hemistichs, (runs, index) => ({
-                        line: Justification.of(
-                            Array.map(runs, (run) => ({ ...run, settings: Settings.make({ ...run.settings, alignment: Settings.fields.alignment.schema.cases.Justified.make({}) }) })),
-                            width,
-                        ),
-                        ...at(index),
-                    })),
-                }),
+            ({ width, at }) => Verse.make({ width, hemistichs: Array.map(justified, (runs, index) => ({ line: Justification.of(runs, width), ...at(index) })) }),
         );
     };
 }

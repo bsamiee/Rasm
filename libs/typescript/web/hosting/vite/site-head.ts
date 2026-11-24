@@ -82,12 +82,7 @@ const headAssets = Effect.fnUntraced(function* ({ root, base }: ResolvedConfig, 
     const webManifest = 'manifest.webmanifest';
     const href = `${base}${webManifest}`;
     const icons = yield* Effect.all(
-        Record.map(
-            { ...generated.favicon, ...generated.apple, ...generated.transparent, ...generated.maskable },
-            Effect.fnUntraced(function* ({ name, mimeType, buffer }) {
-                return { name, mimeType, source: yield* Effect.tryPromise({ try: buffer, catch: HostingError.of('Build', `icon ${name} of ${MARK}`) }) };
-            }),
-        ),
+        Record.map({ ...generated.favicon, ...generated.apple, ...generated.transparent, ...generated.maskable }, ({ name, mimeType, buffer }) => Effect.map(Effect.tryPromise({ try: buffer, catch: HostingError.of('Build', `icon ${name} of ${MARK}`) }), (source) => ({ name, mimeType, source }))),
         { concurrency: 'unbounded' },
     );
     const links = Array.filterMap(Object.values({ ...generated.favicon, ...generated.apple }), ({ linkObject }) => (linkObject === undefined ? Result.failVoid : Result.succeed(headTag('link', Struct.omit(linkObject, ['id'])))));
@@ -95,20 +90,11 @@ const headAssets = Effect.fnUntraced(function* ({ root, base }: ResolvedConfig, 
         chrome === darkChrome
             ? [headTag('meta', { name: 'theme-color', content: chrome }), headTag('meta', { name: 'color-scheme', content: 'only light' })]
             : [headTag('meta', { name: 'theme-color', content: chrome, media: '(prefers-color-scheme: light)' }), headTag('meta', { name: 'theme-color', content: darkChrome, media: '(prefers-color-scheme: dark)' }), headTag('meta', { name: 'color-scheme', content: 'light dark' })];
-    const listed =
-        manifest === undefined
-            ? { assets: {}, tags: [] }
-            : {
-                  assets: {
-                      [href]: {
-                          name: webManifest,
-                          mimeType: 'application/manifest+json',
-                          source: Buffer.from(yield* Effect.orDie(Schema.encodeEffect(WebManifest)({ short_name: manifest.name, display: 'standalone', start_url: base, theme_color: chrome, background_color: chrome, ...manifest, ...generateManifestIconsEntry('object', generated) }))),
-                      },
-                  },
-                  tags: [headTag('link', { rel: 'manifest', href })],
-              };
-    return { assets: { ...icons, ...listed.assets }, tags: [...links, ...listed.tags, ...themed] };
+    const stated = yield* Effect.transposeOption(
+        Option.map(Option.fromUndefinedOr(manifest), (held) => Effect.orDie(Schema.encodeEffect(WebManifest)({ short_name: held.name, display: 'standalone', start_url: base, theme_color: chrome, background_color: chrome, ...held, ...generateManifestIconsEntry('object', generated) }))),
+    );
+    const listed = Option.map(stated, (text) => ({ [href]: { name: webManifest, mimeType: 'application/manifest+json', source: Buffer.from(text) } }));
+    return { assets: { ...icons, ...Option.getOrUndefined(listed) }, tags: [...links, ...Option.toArray(Option.as(listed, headTag('link', { rel: 'manifest', href }))), ...themed] };
 }, Effect.provide(layer));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -130,16 +116,8 @@ const siteHead = (stated: Head): Plugin => {
         configureServer: ({ config: resolved, middlewares, watcher }) => {
             watcher.add(files(resolved));
             middlewares.use((request, response, next) => {
-                Effect.runFork(
-                    Effect.matchCause(built, {
-                        onFailure: flow(Cause.squash, next),
-                        onSuccess: ({ assets }) =>
-                            Option.match(
-                                Option.flatMap(Option.fromNullishOr(request.url), (url) => Record.get(assets, url)),
-                                { onNone: () => next(), onSome: ({ mimeType, source }) => response.setHeader('Content-Type', mimeType).end(source) },
-                            ),
-                    }),
-                );
+                const served = Effect.map(built, ({ assets }) => Option.flatMap(Option.fromNullishOr(request.url), (url) => Record.get(assets, url)));
+                Effect.runFork(Effect.matchCause(served, { onFailure: flow(Cause.squash, next), onSuccess: Option.match({ onNone: () => next(), onSome: ({ mimeType, source }) => response.setHeader('Content-Type', mimeType).end(source) }) }));
             });
         },
         hotUpdate(this: { readonly environment: DevEnvironment }, { file, modules }) {

@@ -1,4 +1,4 @@
-import { Array, Data, Function, flow, Number, Option, Order, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Data, flow, Number, Option, Order, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { Feature, type Font } from 'harfbuzzjs';
 import { Script } from 'icu';
 import { joins } from '#/arabic/joining';
@@ -81,15 +81,7 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         const direction = Option.getOrElse(first.settings.direction, () => baseDirection(text));
         const unjustified: Array.NonEmptyReadonlyArray<Measured> = Array.map(runs, prepared);
         const justifying = alignment === 'justified' || width < lineWidth(unjustified);
-        const ranks = Array.dedupe(
-            Array.sort(
-                runs.flatMap(({ settings }) => {
-                    const { word, alternates: alternated, letter, glyph, scripts } = settings.justification;
-                    return [word, alternated, letter, glyph, ...Object.values(scripts), ...kashidaRanks(settings)];
-                }),
-                Order.Number,
-            ),
-        );
+        const ranks = Array.dedupe(runs.flatMap(({ settings }) => [...Object.values(Struct.omit(settings.justification, ['scripts'])), ...Object.values(settings.justification.scripts), ...kashidaRanks(settings)]).toSorted(Order.Number));
         const distributed = justifying ? ranks.reduce((line, rank) => distribute(line, rank, width), unjustified) : unjustified;
         const finished = Array.map(distributed, finish);
         const advance = Math.sumPrecise(finished.map(({ shaped }) => shaped.advance));
@@ -134,18 +126,14 @@ const bases = (face: Face, shaped: ShapedText) => {
     const lettered = letters(text);
     const joined = words(text).flatMap((word) => joins(text, word));
     const joinAt = (cluster: number) => Array.findFirstIndex(joined, (join) => join.contains(cluster));
-    const placed = Array.filterMap(shaped.glyphs, (each, at) => (isLetter(text, each) ? Result.succeed({ at, cluster: each.cluster }) : Result.failVoid));
+    const placed = Array.filterMap(shaped.glyphs, (each, at) => (isLetter(text, each) ? Result.succeed({ at, cluster: each.cluster, xAdvance: each.xAdvance }) : Result.failVoid));
+    const spaces = shaped.glyphs.filter(({ cluster }) => isWordSpace(text, cluster));
+    const spaced = Array.groupBy(spaces, ({ cluster }) => scriptAt(lettered, cluster));
     return {
-        words: Record.map(
-            Array.groupBy(
-                shaped.glyphs.filter(({ cluster }) => isWordSpace(text, cluster)),
-                ({ cluster }) => scriptAt(lettered, cluster),
-            ),
-            (spaces) => Math.sumPrecise(spaces.map(Struct.get('xAdvance'))),
-        ),
+        words: Record.map(spaced, (group) => Math.sumPrecise(group.map(Struct.get('xAdvance')))),
         slots: new Set(Array.filterMap(Array.window(placed, 2), ([before, after]) => (Option.exists(joinAt(before.cluster), (join) => Option.contains(joinAt(after.cluster), join)) ? Result.failVoid : Result.succeed(before.at)))),
         space: Option.getOrElse(face.advance(wordSpace), () => 0),
-        glyph: Math.sumPrecise(shaped.glyphs.filter((glyph) => isLetter(text, glyph)).map(Struct.get('xAdvance'))),
+        glyph: Math.sumPrecise(placed.map(Struct.get('xAdvance'))),
     };
 };
 const widths = ({ base, settings: { spacing }, amounts }: Measured) => ({
@@ -169,54 +157,40 @@ const prepared = (styled: Styled): Measured => {
 // --- [DISTRIBUTION]
 
 const alternates = (measured: Measured, rank: number): readonly Omit<Mechanism, 'index'>[] =>
-    Option.match(
-        Option.filter(alternate(measured.settings), () => measured.settings.justification.alternates === rank),
-        {
-            onNone: () => [],
-            onSome: (value) => [
-                {
-                    capacity: Option.match(measured.featured(new Feature(JUSTIFICATION_ALTERNATES, value), globalThis.Number.POSITIVE_INFINITY), { onNone: () => 0, onSome: Struct.get('gain') }),
-                    continuous: false,
-                    take: (current, amount) => Option.match(current.featured(new Feature(JUSTIFICATION_ALTERNATES, value), amount), { onNone: () => current, onSome: ({ next, gain }) => next.gained('alternates', gain) }),
-                },
-            ],
-        },
+    alternate(measured.settings).pipe(
+        Option.filter(() => measured.settings.justification.alternates === rank),
+        Option.map((value) => new Feature(JUSTIFICATION_ALTERNATES, value)),
+        Option.map((feature) => ({
+            capacity: Option.match(measured.featured(feature, globalThis.Number.POSITIVE_INFINITY), { onNone: () => 0, onSome: Struct.get('gain') }),
+            continuous: false,
+            take: (current: Measured, amount: number) => Option.match(current.featured(feature, amount), { onNone: () => current, onSome: ({ next, gain }) => next.gained('alternates', gain) }),
+        })),
+        Option.toArray,
     );
-const spacings = (measured: Measured, rank: number, stretching: boolean): readonly Omit<Mechanism, 'index'>[] => {
-    const {
-        base,
-        settings: { spacing, justification: ranked },
-    } = measured;
+const spacings = ({ base, settings }: Measured, rank: number, stretching: boolean): readonly Omit<Mechanism, 'index'>[] => {
+    const { spacing, justification: ranked } = settings;
     const sign = stretching ? 1 : -1;
-    const continuous = (at: number, { min, desired, max }: Settings['spacing']['word'], width: number, update: (amounts: Measured['amounts'], amount: number) => Measured['amounts']): readonly Omit<Mechanism, 'index'>[] =>
-        at === rank ? [{ capacity: width * (stretching ? max - desired : desired - min), continuous: true, take: (current, amount) => new Measured({ ...current, amounts: update(current.amounts, sign * amount) }) }] : [];
     return [
-        ...Record.collect(base.words, (script, total) =>
-            continuous(
-                Option.getOrElse(Record.get(ranked.scripts, script), () => ranked.word),
-                spacing.word,
-                total,
-                (amounts, amount) => ({
-                    ...amounts,
-                    words: { ...amounts.words, [script]: (amounts.words[script] ?? 0) + amount },
-                }),
-            ),
-        ),
-        ...Record.collect({ letter: base.slots.size * base.space, glyph: base.glyph }, (key, width) => continuous(ranked[key], spacing[key], width, (amounts, amount) => ({ ...amounts, [key]: amounts[key] + amount }))),
-    ].flat();
+        ...Record.collect(base.words, (script, width) => ({
+            at: Option.getOrElse(Record.get(ranked.scripts, script), () => ranked.word),
+            range: spacing.word,
+            width,
+            added: (amounts: Measured['amounts'], amount: number) => ({ ...amounts, words: { ...amounts.words, [script]: (amounts.words[script] ?? 0) + amount } }),
+        })),
+        ...Record.collect({ letter: base.slots.size * base.space, glyph: base.glyph }, (key, width) => ({ at: ranked[key], range: spacing[key], width, added: (amounts: Measured['amounts'], amount: number) => ({ ...amounts, [key]: amounts[key] + amount }) })),
+    ]
+        .filter(({ at }) => at === rank)
+        .map(({ range, width, added }) => ({ capacity: width * (stretching ? range.max - range.desired : range.desired - range.min), continuous: true, take: (current: Measured, amount: number) => new Measured({ ...current, amounts: added(current.amounts, sign * amount) }) }));
 };
 const mechanisms = (line: Array.NonEmptyReadonlyArray<Measured>, rank: number, stretching: boolean): readonly Mechanism[] =>
-    line.flatMap((measured, index) => [...spacings(measured, rank, stretching), ...(stretching ? [...alternates(measured, rank), ...kashidaMechanisms(measured, rank).map((kashida) => ({ ...kashida, continuous: false }))] : [])].map((mechanism) => ({ ...mechanism, index })));
+    line.flatMap((measured, index) => [...spacings(measured, rank, stretching), ...(stretching ? [...alternates(measured, rank), ...kashidaMechanisms(measured, rank)] : [])].map((mechanism) => ({ ...mechanism, index })));
 const applied = (line: Array.NonEmptyReadonlyArray<Measured>, { index, take }: Mechanism, amount: number) => Array.map(line, (measured, at) => (at === index ? take(measured, amount) : measured));
 const distribute = (line: Array.NonEmptyReadonlyArray<Measured>, rank: number, width: number) => {
     const slack = width - lineWidth(line);
     const group = mechanisms(line, rank, slack >= 0).filter((mechanism) => mechanism.capacity > 0);
     const total = Math.sumPrecise(group.map(Struct.get('capacity')));
     const target = Math.min(Math.abs(slack), total);
-    const [continuous, discrete] = Array.partition(
-        group,
-        Result.liftPredicate((mechanism: Mechanism) => mechanism.continuous, Function.identity),
-    );
+    const [continuous, discrete] = Array.partition(group, (mechanism) => (mechanism.continuous ? Result.succeed(mechanism) : Result.fail(mechanism)));
     const placed = discrete.reduce((current, mechanism) => applied(current, mechanism, (target * mechanism.capacity) / total), line);
     const rest = Math.max(0, target - Math.abs(lineWidth(placed) + slack - width));
     const shared = Math.sumPrecise(continuous.map(Struct.get('capacity')));
@@ -226,19 +200,11 @@ const distribute = (line: Array.NonEmptyReadonlyArray<Measured>, rank: number, w
 // --- [FINISHING]
 
 const finish = (measured: Measured) => {
-    const {
-        base: original,
-        settings: { spacing },
-    } = measured;
+    const [original, spacing] = [measured.base, measured.settings.spacing];
     const { words: spaces, letter: letterWidth, glyph: glyphWidth } = widths(measured);
     const widening = Option.getOrElse(Number.divide(glyphWidth, original.glyph), () => spacing.glyph.desired);
-    const set = Option.match(
-        Option.filter(
-            Array.findFirst(measured.face.axes, ({ tag }) => tag === 'wdth'),
-            () => widening !== 1,
-        ),
-        { onNone: () => measured, onSome: ({ value }) => measured.reshaped(measured.run, measured.scales, measured.face.instance({ wdth: value * widening })) },
-    );
+    const wdth = Array.findFirst(measured.face.axes, ({ tag }) => widening !== 1 && tag === 'wdth');
+    const set = Option.match(wdth, { onNone: () => measured, onSome: ({ value }) => measured.reshaped(measured.run, measured.scales, measured.face.instance({ wdth: value * widening })) });
     const { base } = set;
     const scale = Option.getOrElse(Number.divide(glyphWidth, base.glyph), () => 1);
     const wordRatio = (script: string) => Option.getOrElse(Option.flatMap(Record.get(spaces, script), Number.divide(Option.getOrElse(Record.get(base.words, script), () => 0))), () => spacing.word.desired);

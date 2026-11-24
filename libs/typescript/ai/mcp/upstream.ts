@@ -1,5 +1,5 @@
 import manifest from '@rasm/mcp/package.json' with { type: 'json' };
-import { Array, Cause, Context, Data, type Duration, Effect, FiberMap, Function, flow, Match, Option, Order, Pool, Predicate, Queue, Record, Ref, Result, Schedule, Schema, Stream, Struct, Tuple } from 'effect';
+import { Array, Cause, Context, Data, type Duration, Effect, FiberMap, Function, flow, Match, Option, Order, Pool, Predicate, pipe, Queue, Record, Ref, Result, Schedule, Schema, Stream, Struct, Tuple } from 'effect';
 import { McpClient, McpClientError, McpProtocol, McpSchema, McpServer } from 'effect/ai';
 import { SecureRandom } from 'effect/crypto';
 import type { HttpClient } from 'effect/http';
@@ -20,9 +20,7 @@ interface Kind<A> {
     readonly key: (item: A) => string;
     readonly same: (self: A, that: A) => boolean;
     readonly registered: () => readonly (readonly [string, Context.Context<never>])[];
-    readonly add: (routing: {
-        readonly forward: <B, E, R>(at: string, given: Record.ReadonlyRecord<string, unknown>, use: (source: Upstream) => Effect.Effect<B, E, R>) => Effect.Effect<B, E | McpSchema.InternalError | McpSchema.InvalidParams, R>;
-    }) => (item: A, annotations: Context.Context<never>) => Effect.Effect<void>;
+    readonly add: (forward: <B, E, R>(at: string, given: Record.ReadonlyRecord<string, unknown>, use: (source: Upstream) => Effect.Effect<B, E, R>) => Effect.Effect<B, E | McpSchema.InternalError | McpSchema.InvalidParams, R>, item: A, annotations: Context.Context<never>) => Effect.Effect<void>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -53,87 +51,56 @@ class Upstream extends Data.Class<
                 key: Struct.get('name'),
                 same: Schema.toEquivalence(McpSchema.Tool),
                 registered: () => Array.map(server.tools, ({ tool, annotations }) => [tool.name, annotations] as const),
-                add:
-                    ({ forward }) =>
-                    (tool, annotations) =>
-                        server.addTool({ tool, annotations, handle: (given: Record.ReadonlyRecord<string, unknown>) => forward(tool.name, given, (source) => source.call(tool.name, given)) }),
+                add: (forward, tool, annotations) => server.addTool({ tool, annotations, handle: (given: Record.ReadonlyRecord<string, unknown>) => forward(tool.name, given, (source) => source.call(tool.name, given)) }),
             }),
             kind<McpSchema.Resource>(route, {
                 items: Struct.get('resources'),
                 key: Struct.get('uri'),
                 same: Schema.toEquivalence(McpSchema.Resource),
                 registered: () => Array.map(server.resources, ({ resource, annotations }) => [resource.uri, annotations] as const),
-                add:
-                    ({ forward }) =>
-                    (resource, annotations) =>
-                        server.addResource({ resource, annotations, handle: Server.orInternalError(forward(resource.uri, { uri: resource.uri }, (source) => source.read(resource.uri))) }),
+                add: (forward, resource, annotations) => server.addResource({ resource, annotations, handle: Server.orInternalError(forward(resource.uri, { uri: resource.uri }, (source) => source.read(resource.uri))) }),
             }),
             kind<McpSchema.ResourceTemplate>(route, {
                 items: Struct.get('templates'),
                 key: Struct.get('uriTemplate'),
                 same: Schema.toEquivalence(McpSchema.ResourceTemplate),
                 registered: () => Array.map(server.resourceTemplates, ({ template, annotations }) => [template.uriTemplate, annotations] as const),
-                add:
-                    ({ forward }) =>
-                    (template, annotations) => {
-                        const { routerPath, names } = compiled(template.uriTemplate);
-                        return server.addResourceTemplate({
-                            template,
-                            annotations,
-                            routerPath,
-                            completions: Record.fromIterableWith(names, (name) => [
-                                name,
-                                (value, context) => Server.orInternalError(forward(template.uriTemplate, { uri: template.uriTemplate }, (source) => source.complete({ ref: { type: 'ref/resource', uri: template.uriTemplate }, argument: { name, value }, context }))),
-                            ]),
-                            handle: (uri) => forward(template.uriTemplate, { uri }, (source) => source.read(uri)),
-                        });
-                    },
+                add: (forward, template, annotations) => {
+                    const { routerPath, names } = compiled(template.uriTemplate);
+                    return server.addResourceTemplate({
+                        template,
+                        annotations,
+                        routerPath,
+                        completions: Record.fromIterableWith(names, (name) => [name, (value, context) => Server.orInternalError(forward(template.uriTemplate, { uri: template.uriTemplate }, (source) => source.complete({ ref: { type: 'ref/resource', uri: template.uriTemplate }, argument: { name, value }, context })))]),
+                        handle: (uri) => forward(template.uriTemplate, { uri }, (source) => source.read(uri)),
+                    });
+                },
             }),
             kind<McpSchema.Prompt>(route, {
                 items: Struct.get('prompts'),
                 key: Struct.get('name'),
                 same: Schema.toEquivalence(McpSchema.Prompt),
                 registered: () => Array.map(server.prompts, ({ prompt, annotations }) => [prompt.name, annotations] as const),
-                add:
-                    ({ forward }) =>
-                    (prompt, annotations) =>
-                        server.addPrompt({
-                            prompt,
-                            annotations,
-                            completions: Record.fromIterableWith(prompt.arguments ?? [], ({ name }) => [name, (value, context) => Server.orInternalError(forward(prompt.name, { name: prompt.name }, (source) => source.complete({ ref: { type: 'ref/prompt', name: prompt.name }, argument: { name, value }, context })))]),
-                            handle: (given) => forward(prompt.name, given, (source) => source.get(prompt.name, given)),
-                        }),
+                add: (forward, prompt, annotations) =>
+                    server.addPrompt({
+                        prompt,
+                        annotations,
+                        completions: Record.fromIterableWith(prompt.arguments ?? [], ({ name }) => [name, (value, context) => Server.orInternalError(forward(prompt.name, { name: prompt.name }, (source) => source.complete({ ref: { type: 'ref/prompt', name: prompt.name }, argument: { name, value }, context })))]),
+                        handle: (given) => forward(prompt.name, given, (source) => source.get(prompt.name, given)),
+                    }),
             }),
         ]);
         const [noticed, following] = yield* Effect.all([Queue.unbounded<Stream.Success<Upstream['notices']> & { readonly peer: string }>(), FiberMap.make<string>()]);
-        const follow = (current: readonly Upstream[]) => {
+        const registered = (current: readonly Upstream[]) => {
             const peers = Record.fromIterableWith(current, ({ peer, notices }) => [Link.key(peer), notices] as const);
-            return Effect.andThen(
-                Effect.forEach(Array.fromIterable(following), ([peer]) => (Record.has(peers, peer) ? Effect.void : FiberMap.remove(following, peer)), { discard: true }),
-                Effect.forEach(
-                    Record.toEntries(peers),
-                    ([peer, notices]) =>
-                        FiberMap.run(
-                            following,
-                            peer,
-                            Stream.runForEach(notices, (notice) => Queue.offer(noticed, { peer, ...notice })),
-                            { onlyIfMissing: true },
-                        ),
-                    { discard: true },
-                ),
+            return Effect.forEach(kinds, (reconcile) => reconcile(current), { discard: true }).pipe(
+                Effect.andThen(relist),
+                Effect.andThen(Effect.forEach(Array.fromIterable(following), ([peer]) => (Record.has(peers, peer) ? Effect.void : FiberMap.remove(following, peer)), { discard: true })),
+                Effect.andThen(Effect.forEach(Record.toEntries(peers), ([peer, notices]) => Stream.runForEach(notices, (notice) => Queue.offer(noticed, { peer, ...notice })).pipe(FiberMap.run(following, peer, { onlyIfMissing: true })), { discard: true })),
+                Effect.catchCause((cause) => Effect.logError('Upstream registration failed', cause)),
             );
         };
-        const registered = (current: readonly Upstream[]) =>
-            Effect.andThen(
-                Effect.forEach(kinds, (reconcile) => reconcile(current), { discard: true }),
-                relist,
-            );
-        yield* Stream.zipLatestAll(...Array.map(sources, (source) => Stream.concat(Stream.succeed(Array.empty<Upstream>()), source))).pipe(
-            Stream.map(Array.flatten),
-            Stream.runForEach((current) => Effect.catchCause(Effect.andThen(registered(current), follow(current)), (cause) => Effect.logError('Upstream registration failed', cause))),
-            Effect.provideContext(services),
-            Effect.forkScoped,
-        );
+        yield* Stream.zipLatestAll(...Array.map(sources, (source) => Stream.concat(Stream.succeed(Array.empty<Upstream>()), source))).pipe(Stream.map(Array.flatten), Stream.runForEach(registered), Effect.provideContext(services), Effect.forkScoped);
         yield* events({ text: ({ peer, name, target, detail }) => [peer, name, ...Option.toArray(target), ...Option.toArray(Option.map(detail, (json) => JSON.stringify(json)))].join(' '), stream: Stream.fromQueue(noticed) });
     });
     static readonly linked = (links: Pick<Effect.Success<ReturnType<typeof Link.listen<never>>>, 'changes' | 'call'>) => {
@@ -156,11 +123,9 @@ class Upstream extends Data.Class<
             });
         });
         return Stream.mapEffect(links.changes, (peers) =>
-            Effect.flatMap(Effect.partition(peers, offered, { concurrency: 'unbounded' }), ([served, refused]) =>
-                Effect.as(
-                    Effect.forEach(refused, (cause) => Effect.logError('Linked extension listed no tools', cause), { discard: true }),
-                    served,
-                ),
+            Effect.partition(peers, offered, { concurrency: 'unbounded' }).pipe(
+                Effect.tap(([, refused]) => Effect.forEach(refused, (cause) => Effect.logError('Linked extension listed no tools', cause), { discard: true })),
+                Effect.map(([served]) => served),
             ),
         );
     };
@@ -196,19 +161,10 @@ class Upstream extends Data.Class<
                 const connection = yield* Pool.get(connections);
                 return yield* Effect.tapError(use(connection), (error) => (Option.isSome(lost(error)) ? Pool.invalidate(connections, connection) : Effect.void));
             }, Effect.scoped);
-            const run = <A, E2>(use: (connection: Parameters<typeof listed>[0]) => Effect.Effect<A, E2, SecureRandom.SecureRandom>) =>
-                Effect.catchIf(attempt(use), flow(lost, Option.contains(true)), Function.constant(attempt(use))).pipe(Effect.updateContext((request: Context.Context<never>) => Context.merge(services, request)));
+            const run = <A, E2>(use: (connection: Parameters<typeof listed>[0]) => Effect.Effect<A, E2, SecureRandom.SecureRandom>) => Effect.retry(attempt(use), { times: 1, while: flow(lost, Option.contains(true)) }).pipe(Effect.updateContext((request: Context.Context<never>) => Context.merge(services, request)));
             const served = (listing: Listing) => {
-                const [tools, prompts] = [
-                    Record.fromIterableBy(
-                        Array.filter(listing.tools, ({ name }) => admits(name, filters.tools)),
-                        (tool) => named(tool.name),
-                    ),
-                    Record.fromIterableBy(
-                        Array.filter(listing.prompts, ({ name }) => admits(name, filters.prompts)),
-                        (prompt) => named(prompt.name),
-                    ),
-                ];
+                const tools = Record.fromEntries(Array.filterMap(listing.tools, (tool) => (admits(tool.name, filters.tools) ? Result.succeed([named(tool.name), tool] as const) : Result.failVoid)));
+                const prompts = Record.fromEntries(Array.filterMap(listing.prompts, (prompt) => (admits(prompt.name, filters.prompts) ? Result.succeed([named(prompt.name), prompt] as const) : Result.failVoid)));
                 const found = <A>(rows: Record.ReadonlyRecord<string, A>, name: string) => Effect.fromOption(Record.get(rows, name), () => McpSchema.InvalidParams.make({ message: `${Link.key(peer)} lists no ${name}` }));
                 return new Upstream({
                     peer,
@@ -299,34 +255,30 @@ const ask = Effect.fnUntraced(function* <S extends Schema.Top>(transport: McpCli
 });
 const kind = Effect.fnUntraced(function* <A>(route: Route, { items, key, same, registered, add }: Kind<A>) {
     const [shown, routes] = yield* Effect.all([Ref.make<Record.ReadonlyRecord<string, { readonly item: A; readonly annotations: Context.Context<never> }>>({}), Ref.make<Record.ReadonlyRecord<string, Array.NonEmptyReadonlyArray<Upstream>>>({})]);
-    const register = add({
-        forward: Effect.fnUntraced(function* <B, E, R>(at: string, given: Record.ReadonlyRecord<string, unknown>, use: (source: Upstream) => Effect.Effect<B, E, R>) {
-            const rows = yield* Effect.fromOption(Record.get(yield* Ref.get(routes), at), () => McpSchema.InternalError.make({ message: `${at} has no reachable upstream` }));
-            const peers = Array.map(rows, Struct.get('peer'));
-            const chosen = yield* Array.isReadonlyArrayNonEmpty(Array.tailNonEmpty(peers)) ? route(peers, given) : Effect.succeed(Array.headNonEmpty(peers));
-            const source = yield* Effect.fromOption(
-                Array.findFirst(rows, ({ peer }) => Link.key(peer) === Link.key(chosen)),
-                () => McpSchema.InvalidParams.make({ message: `${Link.key(chosen)} serves no ${at}, ${Array.map(peers, Link.key).join(', ')} do` }),
-            );
-            return yield* use(source);
-        }),
+    const forward = Effect.fnUntraced(function* <B, E, R>(at: string, given: Record.ReadonlyRecord<string, unknown>, use: (source: Upstream) => Effect.Effect<B, E, R>) {
+        const rows = yield* Effect.fromOption(Record.get(yield* Ref.get(routes), at), () => McpSchema.InternalError.make({ message: `${at} has no reachable upstream` }));
+        const peers = Array.map(rows, Struct.get('peer'));
+        const chosen = yield* Array.isReadonlyArrayNonEmpty(Array.tailNonEmpty(peers)) ? route(peers, given) : Effect.succeed(Array.headNonEmpty(peers));
+        const source = yield* Effect.fromOption(
+            Array.findFirst(rows, ({ peer }) => Link.key(peer) === Link.key(chosen)),
+            () => McpSchema.InvalidParams.make({ message: `${Link.key(chosen)} serves no ${at}, ${Array.map(peers, Link.key).join(', ')} do` }),
+        );
+        return yield* use(source);
     });
     return Effect.fnUntraced(function* (sources: readonly Upstream[]) {
         const previous = yield* Ref.get(shown);
         const owned = new Set(Array.filterMap(registered(), ([at, annotations]) => (previous[at]?.annotations === annotations ? Result.failVoid : Result.succeed(at))));
-        const [byKey, shadowed] = Record.partition(
-            Array.groupBy(
-                Array.flatMap(sources, (source) => Array.cartesian([source], items(source))),
-                ([, item]) => key(item),
-            ),
-            (rows, at) => (owned.has(at) ? Result.fail(rows) : Result.succeed(rows)),
+        const [byKey, shadowed] = pipe(
+            Array.flatMap(sources, (source) => Array.cartesian([source], items(source))),
+            Array.groupBy(([, item]) => key(item)),
+            Record.partition((rows, at) => (owned.has(at) ? Result.fail(rows) : Result.succeed(rows))),
         );
         yield* Record.isEmptyRecord(shadowed) ? Effect.void : Effect.logError(`Upstream ${Record.keys(shadowed).join(', ')} share a key with the server's own registrations and stay unregistered`);
         const fresh = Record.filterMap(byKey, ([[source, item]], at) =>
             Option.containsWith(same)(Option.map(Record.get(previous, at), Struct.get('item')), item) ? Result.failVoid : Result.succeed({ item, annotations: Context.merge(source.annotations, Context.make(Server.Visible, Effect.map(Ref.get(routes), Record.has(at)))) }),
         );
         yield* Effect.all([Ref.set(routes, Record.map(byKey, Array.map(Tuple.get(0)))), Ref.update(shown, (kept) => ({ ...kept, ...fresh }))]);
-        yield* Effect.forEach(Object.values(fresh), ({ item, annotations }) => register(item, annotations), { discard: true });
+        yield* Effect.forEach(Object.values(fresh), ({ item, annotations }) => add(forward, item, annotations), { discard: true });
     });
 });
 

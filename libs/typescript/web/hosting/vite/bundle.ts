@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import type { CloudflareConfig } from '@cloudflare/vite-plugin';
 import { layer } from '@effect/platform-node/NodeServices';
 import { bindings } from 'cf/config';
-import { Array, Effect, FileSystem, Function, Option, Record, Result } from 'effect';
+import { Array, Effect, FileSystem, Function, Record, Result } from 'effect';
 import { CorePaths } from 'miniflare';
 import type { Plugin } from 'vite';
 import { App, type Binding } from '#/app/app';
@@ -45,8 +45,7 @@ const nodeBundle = (entry: string): Plugin => ({
     buildApp: {
         order: 'post',
         handler: (builder) =>
-            Option.fromNullishOr(builder.environments[App.bundle.environment]).pipe(
-                Effect.fromOption,
+            Effect.fromNullishOr(builder.environments[App.bundle.environment]).pipe(
                 Effect.flatMap((target) => Effect.tryPromise({ try: () => builder.build(target), catch: HostingError.of('Build', `${App.bundle.environment} environment of ${entry}`) })),
                 Effect.asVoid,
                 Effect.runPromise,

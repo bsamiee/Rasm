@@ -4,23 +4,13 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type AppleEventValue =
-    | null
-    | boolean
-    | number
-    | string
-    | readonly AppleEventValue[]
-    | TypedRecord
-    | Specifier
-    | { readonly _tag: 'type'; readonly name: string }
-    | { readonly _tag: 'enumerator'; readonly name: string }
-    | { readonly _tag: 'date'; readonly date: string }
-    | { readonly _tag: 'file'; readonly url: string }
-    | { readonly _tag: 'opaque'; readonly type: string; readonly data: string; readonly value?: string }
-    | { readonly _tag?: never; readonly [term: string]: AppleEventValue };
+type AppleEventValue = null | boolean | number | string | readonly AppleEventValue[] | TypedRecord | Specifier | typeof Descriptor.Type | { readonly _tag?: never; readonly [term: string]: AppleEventValue };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const open = <const Fields extends Schema.Struct.Fields>(fields: Fields) => Schema.StructWithRest(Schema.Struct(fields), [Schema.Record(Schema.String.check(Schema.makeFilter((key: string) => !Object.hasOwn(fields, key))), Schema.Json)]);
+const keyed = <const Key extends string, S extends Schema.Top>(key: Key, schema: S) => Schema.Struct({ _tag: Schema.tagDefaultOmit(key), ...Struct.Record([key], schema) });
+const defaulted = <S extends Schema.Constraint & Schema.WithoutConstructorDefault>(schema: S, value: S['Encoded'] & S['~type.make.in']) => Schema.withConstructorDefault<Schema.withDecodingDefaultKey<S>>(Effect.succeed(value))(Schema.withDecodingDefaultKey<S>(Effect.succeed(value))(schema));
 const Nested = Schema.suspend((): Schema.Codec<AppleEventValue> => AppleEventValue);
 const Code = Schema.String.annotate({ description: 'Four-character descriptor type' });
 class TypedRecord extends Schema.Opaque<TypedRecord, unknown>()(Schema.TaggedStruct('record', { type: Code, fields: Schema.Record(Schema.String, Nested).annotate({ description: 'Values by property name or code' }) }).annotate({ description: 'Record with custom descriptor type' })) {}
@@ -32,6 +22,13 @@ class Specifier extends Schema.Opaque<Specifier, unknown>()(
         from: Schema.optionalKey(Nested.annotate({ description: 'Container specifier, null or absent for application' })),
     }).annotate({ description: 'Object specifier' }),
 ) {}
+const Descriptor = Schema.Union([
+    Schema.TaggedStruct('type', { name: Schema.String }).annotate({ description: 'Class or property by name or code' }),
+    Schema.TaggedStruct('enumerator', { name: Schema.String }).annotate({ description: 'Enumerator by name or code' }),
+    Schema.TaggedStruct('date', { date: Schema.String.annotate({ description: 'ISO 8601 date' }) }),
+    Schema.TaggedStruct('file', { url: Schema.String }),
+    Schema.TaggedStruct('opaque', { type: Code, data: Schema.String.annotate({ description: 'Descriptor bytes in base64' }), value: Schema.optionalKey(Schema.String) }).annotate({ description: 'Descriptor no other case decodes, sent back unchanged' }),
+]);
 const AppleEventValue: Schema.Codec<AppleEventValue> = Schema.Union([
     Schema.Null,
     Schema.Boolean,
@@ -40,13 +37,7 @@ const AppleEventValue: Schema.Codec<AppleEventValue> = Schema.Union([
     Schema.Array(Nested),
     TypedRecord,
     Specifier,
-    Schema.Union([
-        Schema.TaggedStruct('type', { name: Schema.String }).annotate({ description: 'Class or property by name or code' }),
-        Schema.TaggedStruct('enumerator', { name: Schema.String }).annotate({ description: 'Enumerator by name or code' }),
-        Schema.TaggedStruct('date', { date: Schema.String.annotate({ description: 'ISO 8601 date' }) }),
-        Schema.TaggedStruct('file', { url: Schema.String }),
-        Schema.TaggedStruct('opaque', { type: Code, data: Schema.String.annotate({ description: 'Descriptor bytes in base64' }), value: Schema.optionalKey(Schema.String) }).annotate({ description: 'Descriptor no other case decodes, sent back unchanged' }),
-    ]),
+    Descriptor,
     Schema.StructWithRest(Schema.Struct({ _tag: Schema.optionalKey(Schema.Never) }), [Schema.Record(Schema.String, Nested)]).annotate({ description: 'Plain record by property name or code' }),
 ]);
 const TermKind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'value-type', 'enumeration']).annotate({ description: 'Scripting definition element kind' });
@@ -58,12 +49,8 @@ const Command = Term.mapFields(
 );
 class Execute extends Schema.Class<Execute, { readonly brand: unique symbol }>('Execute')({
     command: Schema.optionalKey(Schema.String.annotate({ description: 'Dictionary command name or code, get and set included, absent for the script command of the dictionary' })),
-    arguments: Schema.Record(Schema.String, AppleEventValue)
-        .annotate({ description: 'Parameters by name or code, direct for direct parameter, accepts reply values' })
-        .pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.succeed({}))),
-    artifacts: Schema.Array(Schema.URLFromString)
-        .annotate({ description: 'Files command writes, returned with reply' })
-        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
+    arguments: defaulted(Schema.Record(Schema.String, AppleEventValue).annotate({ description: 'Parameters by name or code, direct for direct parameter, accepts reply values' }), {}),
+    artifacts: defaulted(Schema.Array(Schema.URLFromString).annotate({ description: 'Files command writes, returned with reply' }), []),
 }) {
     static readonly Artifact = Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8Array });
     static readonly Result = Schema.Struct({
@@ -79,10 +66,6 @@ class Terms extends Schema.Class<Terms, { readonly brand: unique symbol }>('Term
     },
     { description: 'Every declaration by kind, name, and code, commands with their parameters, and the script command' },
 ) {}
-
-const open = <const Fields extends Schema.Struct.Fields>(fields: Fields) => Schema.StructWithRest(Schema.Struct(fields), [Schema.Record(Schema.String.check(Schema.makeFilter((key: string) => !Object.hasOwn(fields, key))), Schema.Json)]);
-const keyed = <const Key extends string, S extends Schema.Top>(key: Key, schema: S) => Schema.Struct({ _tag: Schema.tagDefaultOmit(key), ...Struct.Record([key], schema) });
-const defaulted = <S extends Schema.Constraint & Schema.WithoutConstructorDefault>(schema: S, value: S['Encoded'] & S['~type.make.in']) => Schema.withConstructorDefault<Schema.withDecodingDefaultKey<S>>(Effect.succeed(value))(Schema.withDecodingDefaultKey<S>(Effect.succeed(value))(schema));
 const Pid = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Running process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID' });
 const LongestSide = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Limit in pixels' });

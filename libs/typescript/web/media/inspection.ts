@@ -54,23 +54,9 @@ const video = Effect.fnUntraced(function* (file: File) {
             }),
     );
     return yield* Effect.callback<Inspection, MediaError>((resume, signal) => {
-        const listener: EventListenerObject = {
-            handleEvent(event) {
-                switch (event.type) {
-                    case 'error': {
-                        resume(unreadable(element.error));
-                        break;
-                    }
-                    default: {
-                        resume(element.videoWidth > 0 && element.videoHeight > 0 ? Effect.succeed(Video({ width: element.videoWidth, height: element.videoHeight, duration: Duration.seconds(element.duration) })) : unreadable());
-                        break;
-                    }
-                }
-            },
-        };
         const options = { once: true, signal };
-        element.addEventListener('loadedmetadata', listener, options);
-        element.addEventListener('error', listener, options);
+        element.addEventListener('loadedmetadata', () => resume(element.videoWidth > 0 && element.videoHeight > 0 ? Effect.succeed(Video({ width: element.videoWidth, height: element.videoHeight, duration: Duration.seconds(element.duration) })) : unreadable()), options);
+        element.addEventListener('error', () => resume(unreadable(element.error)), options);
         element.src = url;
     });
 }, Effect.scoped);

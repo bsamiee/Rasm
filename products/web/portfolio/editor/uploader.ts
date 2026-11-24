@@ -2,7 +2,7 @@ import { MediaError, processUploads, selectUploadState } from '@rasm/media';
 import { Presignable } from '@rasm/object-storage';
 import AwsS3 from '@uppy/aws-s3';
 import Uppy, { type Body, type Meta, type UppyEventMap, type UppyFile } from '@uppy/core';
-import { Array, ByteSize, Data, Effect, Equal, Equivalence, Function, Layer, Match, Optic, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, ByteSize, Data, Effect, Equivalence, Function, Layer, Match, Optic, Record, Result, Schema, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { HttpApiClient } from 'effect/http-api';
@@ -79,13 +79,7 @@ const prepare = Effect.fnUntraced(
             { concurrency: 'unbounded', discard: true },
         );
         const placements = Destination.$is('Entry')(destination) && !Asset.guards.pdf(asset) ? Placement.fromAsset(asset) : [];
-        const compositions = yield* Effect.forEach(
-            placements,
-            Effect.fnUntraced(function* (placement) {
-                const id = yield* random.uuidV7();
-                return Composition.make({ id: Composition.fields.id.make(id), items: [placement] });
-            }),
-        );
+        const compositions = yield* Effect.forEach(placements, (placement) => Effect.map(random.uuidV7(), (id) => Composition.make({ id: Composition.fields.id.make(id), items: [placement] })));
         return { prepared: { asset, compositions, attempt, key: attempt } };
     },
     (effect, { type }) =>
@@ -112,16 +106,8 @@ const placed = Effect.fnUntraced(
         yield* api.assets.complete({ params: { id: asset.id, attempt } });
         const uploader = registry.get(uppy);
         const queued = uploader.getFiles();
-        const following = new Set(
-            queued
-                .values()
-                .drop(queued.findIndex(Function.flow(Struct.get('id'), Equal.equals(file.id))) + 1)
-                .map(Struct.get('meta'))
-                .map(Struct.get('prepared'))
-                .filter(Predicate.isNotUndefined)
-                .flatMap(Struct.get('compositions'))
-                .map(Struct.get('id')),
-        );
+        const later = queued.values().drop(queued.findIndex(({ id }) => id === file.id) + 1);
+        const following = new Set(later.flatMap(({ meta }) => meta.prepared?.compositions ?? []).map(Struct.get('id')));
         const preceding = ({ id }: Composition) => !following.has(id);
         const stored = assets.modify(Record.set(asset.id, asset));
         registry.update(

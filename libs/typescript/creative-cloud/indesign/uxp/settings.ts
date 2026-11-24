@@ -91,11 +91,7 @@ const alignment = (sided: Sides) =>
                     const justification = yield* inverse(ALIGNMENTS, (row) => Predicate.isTagged(row, aligned._tag) && sided[row.edge] === side, aligned, `No justification member for ${aligned._tag} ${side}`);
                     return yield* Match.valueTags(aligned, {
                         Aligned: () => Effect.succeed({ justification }),
-                        Justified: ({ single }) =>
-                            Effect.map(
-                                inverse(SINGLE_WORDS, (edge) => sided[edge] === single, aligned, `No singleWordJustification member for ${single}`),
-                                (singleWordJustification) => ({ justification, singleWordJustification }),
-                            ),
+                        Justified: ({ single }) => inverse(SINGLE_WORDS, (edge) => sided[edge] === single, aligned, `No singleWordJustification member for ${single}`).pipe(Effect.map((singleWordJustification) => ({ justification, singleWordJustification }))),
                     });
                 }),
             ),
@@ -122,12 +118,7 @@ const leading = (size: number) => {
 const numberingSystem = Schema.Struct({ digitsType: Schema.Literals(Struct.keys(NUMBERING)) }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.numberingSystem), {
         decode: SchemaGetter.transform(({ digitsType }) => Option.flatMap(Option.fromNullOr(NUMBERING[digitsType]), Digits.of)),
-        encode: SchemaGetter.transformEffect((system) =>
-            Effect.map(
-                inverse(NUMBERING, (digits) => digits === Option.getOrNull(Option.map(system, Struct.get('system'))), system, `No digitsType member for ${Option.getOrNull(Option.map(system, Struct.get('system')))}`),
-                (digitsType) => ({ digitsType }),
-            ),
-        ),
+        encode: SchemaGetter.transformEffect((system) => inverse(NUMBERING, (digits) => digits === Option.getOrNull(Option.map(system, Struct.get('system'))), system, `No digitsType member for ${Option.getOrNull(Option.map(system, Struct.get('system')))}`).pipe(Effect.map((digitsType) => ({ digitsType })))),
     }),
 );
 const kashidaWidth = Schema.Literals(Object.values(KASHIDA_WIDTHS)).annotate({ description: 'Fixed elongation read as the point interval [width, width]' });
@@ -157,10 +148,7 @@ const features = Schema.Struct({ otfStylisticSets: Schema.Int, ...Record.map(FEA
         ),
         encode: SchemaGetter.transform((chosen) => {
             const flagged = (tag: string) => Option.exists(Record.get(chosen, tag), Number.isGreaterThan(0));
-            const capitalization = Option.getOrElse(
-                Array.findFirst(Struct.keys(CAPITALIZATIONS), (member) => Array.isReadonlyArrayNonEmpty(CAPITALIZATIONS[member]) && CAPITALIZATIONS[member].every(flagged)),
-                () => 'NORMAL' as const,
-            );
+            const capitalization = Array.findFirst(Struct.keys(CAPITALIZATIONS), (member) => Array.isReadonlyArrayNonEmpty(CAPITALIZATIONS[member]) && CAPITALIZATIONS[member].every(flagged)).pipe(Option.getOrElse(() => 'NORMAL' as const));
             const memberTags = new Set<string>([...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]]);
             return { otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (flagged(tag) ? 2 ** bit : 0))), ...Record.map(FEATURE_FLAGS, flagged), capitalization, opentypeFeatures: Record.toEntries(Record.filter(chosen, (_, tag) => !memberTags.has(tag))) };
         }),
@@ -168,12 +156,7 @@ const features = Schema.Struct({ otfStylisticSets: Schema.Int, ...Record.map(FEA
 );
 const spacing = Schema.Struct(Struct.Record(Array.flatMap(Object.values(SPACING), Record.values), percent)).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.spacing), {
-        decode: SchemaGetter.transform((members) =>
-            Record.map(
-                SPACING,
-                Record.map((member) => members[member]),
-            ),
-        ),
+        decode: SchemaGetter.transform((members) => Record.map(SPACING, (bounds) => Record.map(bounds, (member) => members[member]))),
         encode: SchemaGetter.transform((values) => Record.collect(SPACING, (axis, bounds) => Struct.renameKeys(values[axis], bounds)).reduce((all, each) => Record.union(all, each, identity))),
     }),
 );
@@ -210,11 +193,7 @@ class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inverse = <K extends string, V>(table: Readonly<Record<K, V>>, wanted: (row: V) => boolean, actual: unknown, message: string) =>
-    Effect.fromOption(
-        Array.findFirst(Struct.keys(table), (key) => wanted(table[key])),
-        () => new SchemaIssue.InvalidValue({ message }, actual),
-    );
+const inverse = <K extends string, V>(table: Readonly<Record<K, V>>, wanted: (row: V) => boolean, actual: unknown, message: string) => Array.findFirst(Struct.keys(table), (key) => wanted(table[key])).pipe(Effect.fromOption(() => new SchemaIssue.InvalidValue({ message }, actual)));
 const sides = (paragraph: Placement['paragraphDirection'], spine: (typeof SPINES)[keyof typeof SPINES]) => {
     const toward = (edge: 'left' | 'right'): Exclude<ReturnType<Settings['lineAlignment']>, 'center' | 'justified'> => (edge === PARAGRAPH_STARTS[paragraph] ? 'start' : 'end');
     return { left: toward('left'), center: 'center', right: toward('right'), justified: 'justified', spine: toward(spine), fore: toward(spine === 'left' ? 'right' : 'left') } as const;
@@ -236,8 +215,7 @@ const placement = Effect.fnUntraced(function* (target: Placed) {
 const held = Effect.fnUntraced(function* (target: Placed, placed: Placement) {
     const { picked } = yield* Model;
     const { schema } = sections(placed);
-    const pick = (row: Schema.Top) => picked(row, target);
-    return Settings.make(yield* Model.read(schema, `settings of ${target.toSpecifier()}`, () => Record.map(schema.fields, pick)));
+    return Settings.make(yield* Model.read(schema, `settings of ${target.toSpecifier()}`, () => Record.map(schema.fields, (row: Schema.Top) => picked(row, target))));
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -9,7 +9,7 @@ import { basename, delimiter, dirname, join, relative } from 'node:path';
 import { chdir, cwd, env } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, readJsonFile, readProjectsConfigurationFromProjectGraph } from '@nx/devkit';
-import { Array, Cause, type Duration, Effect, Function, Match, Option, Predicate, Record, Schema } from 'effect';
+import { Array, Cause, type Duration, Effect, Function, Match, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, resolveNxTokensInOptions, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
 import { runCommands } from 'nx/src/executors/run-commands/run-commands.impl';
@@ -106,16 +106,8 @@ const remote = Effect.fnUntraced(function* (token: string, answer: (asked: Asked
             });
         });
     });
-    yield* Effect.acquireRelease(
-        Effect.callback((resume) => {
-            server.listen(0, '127.0.0.1', () => resume(Effect.void));
-        }),
-        () =>
-            Effect.promise(() => {
-                server.closeAllConnections();
-                return server[Symbol.asyncDispose]();
-            }),
-    );
+    yield* Effect.promise(() => once(server.listen(0, '127.0.0.1'), 'listening')).pipe(Effect.as(server), Effect.acquireDisposable);
+    yield* Effect.addFinalizer(() => Effect.sync(() => server.closeAllConnections()));
     const { port } = yield* Schema.decodeUnknownEffect(Listening)(server.address());
     return { address: `http://127.0.0.1:${port}`, requests };
 }, Effect.orDie);
@@ -135,13 +127,8 @@ const graphed = Effect.fnUntraced(function* <T>(root: string, { createNodes, cre
 });
 
 const configured = Effect.fnUntraced(function* (graph: ProjectGraph, project: string, target: string, configuration: string | undefined) {
-    const { node, stated } = yield* Effect.fromOption(
-        Option.fromNullishOr(graph.nodes[project]).pipe(
-            Option.bindTo('node'),
-            Option.bind('stated', ({ node: { data } }) => Option.fromNullishOr(data.targets?.[target])),
-        ),
-        () => new Cause.NoSuchElementError(`${project} has no target ${target} in the graph`),
-    );
+    const found = Option.flatMapNullishOr(Option.fromNullishOr(graph.nodes[project]), (node) => UndefinedOr.map(node.data.targets?.[target], (stated) => ({ node, stated })));
+    const { node, stated } = yield* Effect.fromOption(found, () => new Cause.NoSuchElementError(`${project} has no target ${target} in the graph`));
     const { options = {}, configurations = {} } = yield* Schema.decodeEffect(Configured)(stated);
     return { node, stated, options: { ...options, ...(configuration === undefined ? {} : configurations[configuration]) } };
 });
@@ -170,7 +157,7 @@ const targetOptions = <A>(schema: Schema.Decoder<A>, graph: ProjectGraph, projec
 
 const listen = (port = 0) => {
     const server = createServer().listen(port, '127.0.0.1');
-    const close = () => Effect.runPromise(server.listening ? Effect.promise(() => server[Symbol.asyncDispose]()) : Effect.void);
+    const close = () => (server.listening ? server[Symbol.asyncDispose]() : Promise.resolve());
     onTestFinished(close);
     return Effect.promise(() => once(server, 'listening')).pipe(
         Effect.flatMap(() => Schema.decodeUnknownEffect(Listening)(server.address())),
@@ -185,17 +172,16 @@ const spanned = (from: number, to: number): unknown => {
 };
 
 const unaggregated = (graph: ProjectGraph) =>
-    Object.values(graph.nodes).flatMap(({ name, data: { targets = {} } }) =>
-        Record.collect(
-            Record.filter(targets, (_, target) => target.includes('--')),
-            (target, { inputs = [] }) => {
-                const verb = target.slice(0, target.indexOf('--'));
-                const runs = (targets[verb]?.dependsOn ?? []).some((on) => Predicate.isObject(on) && on.target === `${verb}--*` && on.params === 'forward');
-                const unhashed = inputs.filter((input) => Predicate.isString(input) && !(targets[verb]?.inputs ?? []).includes(input));
-                return { project: name, target, runs, unhashed };
-            },
-        ).filter(({ runs, unhashed }) => !runs || unhashed.length > 0),
-    );
+    Object.values(graph.nodes)
+        .flatMap(({ name: project, data: { targets = {} } }) => Record.collect(targets, (target, { inputs = [] }) => ({ project, target, inputs, targets, verb: target.slice(0, target.indexOf('--')) })))
+        .filter(({ target }) => target.includes('--'))
+        .map(({ project, target, inputs, targets, verb }) => ({
+            project,
+            target,
+            runs: (targets[verb]?.dependsOn ?? []).some((on) => Predicate.isObject(on) && on.target === `${verb}--*` && on.params === 'forward'),
+            unhashed: inputs.filter((input) => Predicate.isString(input) && !(targets[verb]?.inputs ?? []).includes(input)),
+        }))
+        .filter(({ runs, unhashed }) => !runs || unhashed.length > 0);
 
 const unportable = (graph: ProjectGraph) => {
     const stated = Object.values(graph.nodes).flatMap(({ name, data: { root, targets = {} } }) => [
@@ -230,23 +216,14 @@ class Workspace {
     install(...manifests: readonly (string | readonly [name: string, manifest: string])[]) {
         const [modules, bins] = [join(this.root, 'node_modules'), join(this.root, 'node_modules/.bin')];
         mkdirSync(bins, { recursive: true });
-        Effect.runSync(
-            Effect.forEach(
-                manifests,
-                Effect.fnUntraced(function* (entry) {
-                    const [named, manifest] = Predicate.isString(entry) ? [Option.none<string>(), fileURLToPath(entry)] : [Option.some(entry[0]), fileURLToPath(entry[1])];
-                    const { name: published, bin = {} } = yield* Schema.decodeUnknownEffect(Manifest)(readJsonFile(manifest));
-                    const at = join(
-                        modules,
-                        Option.getOrElse(named, () => published),
-                    );
-                    mkdirSync(dirname(at), { recursive: true });
-                    symlinkSync(dirname(manifest), at, 'dir');
-                    Record.toEntries(Predicate.isString(bin) ? { [basename(published)]: bin } : bin).forEach(([command, path]) => symlinkSync(relative(bins, join(at, path)), join(bins, command)));
-                }),
-                { discard: true },
-            ),
-        );
+        manifests.forEach((entry) => {
+            const [named, manifest] = Predicate.isString(entry) ? [undefined, fileURLToPath(entry)] : [entry[0], fileURLToPath(entry[1])];
+            const { name: published, bin = {} } = Effect.runSync(Schema.decodeUnknownEffect(Manifest)(readJsonFile(manifest)));
+            const at = join(modules, named ?? published);
+            mkdirSync(dirname(at), { recursive: true });
+            symlinkSync(dirname(manifest), at, 'dir');
+            Record.toEntries(Predicate.isString(bin) ? { [basename(published)]: bin } : bin).forEach(([command, path]) => symlinkSync(relative(bins, join(at, path)), join(bins, command)));
+        });
         return this;
     }
     files(...ignored: readonly string[]) {
@@ -267,10 +244,7 @@ class Workspace {
         return new Set(getFilesForOutputsBatch(this.root, [outputs(graph, project, target, configuration)]).flat());
     }
     ready(graph: ProjectGraph, project: string, target: string, overrides: Record.ReadonlyRecord<string, unknown> = {}) {
-        return Option.match(Option.fromNullishOr(taskGraph(graph, [project], [target], undefined, overrides).tasks[`${project}:${target}`]), {
-            onNone: () => null,
-            onSome: (task) => getReadyWhen(task, graph, readProjectsConfigurationFromProjectGraph(graph).projects, this.root, env),
-        });
+        return UndefinedOr.map(taskGraph(graph, [project], [target], undefined, overrides).tasks[`${project}:${target}`], (task) => getReadyWhen(task, graph, readProjectsConfigurationFromProjectGraph(graph).projects, this.root, env)) ?? null;
     }
     poll(graph: ProjectGraph, project: string, target: string, overrides: Record.ReadonlyRecord<string, unknown> = {}) {
         const probe = this.ready(graph, project, target, overrides);
@@ -279,13 +253,7 @@ class Workspace {
         onTestFinished(() => {
             check.kill();
         });
-        return (wait: Duration.Input) =>
-            Effect.runPromise(
-                Effect.timeoutOption(
-                    Effect.promise(() => exit),
-                    wait,
-                ),
-            );
+        return (wait: Duration.Input) => Effect.promise(() => exit).pipe(Effect.timeoutOption(wait), Effect.runPromise);
     }
 
     // --- [EXECUTION]

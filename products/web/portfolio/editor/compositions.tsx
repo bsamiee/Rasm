@@ -82,11 +82,9 @@ const Compositions = ({
 }) => {
     const setDraft = useAtomSet(draft);
     const [choosing, setChoosing] = useState(false);
-    const item = Option.getOrUndefined(
-        Option.orElse(
-            Array.findFirst(entry.compositions, (candidate) => Option.contains(selected, candidate.id)),
-            () => Array.head(entry.compositions),
-        ),
+    const item = Array.findFirst(entry.compositions, (candidate) => Option.contains(selected, candidate.id)).pipe(
+        Option.orElse(() => Array.head(entry.compositions)),
+        Option.getOrUndefined,
     );
     return (
         <>

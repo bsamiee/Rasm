@@ -1,6 +1,6 @@
 import 'pdfjs-dist';
 import { useDrag, usePinch } from '@use-gesture/react';
-import { Array, Cause, Data, Duration, Effect, Filter, flow, Function, HashSet, identity, Match, Option, Predicate, Queue, Record, Result, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Data, Duration, Effect, flow, Function, HashSet, identity, Match, Option, Predicate, Queue, Record, Result, Schema, Stream, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
 import type { DEFAULT_SCALE, DEFAULT_SCALE_VALUE, MAX_SCALE, MIN_SCALE, TextLayerMode } from 'pdfjs-dist/types/web/ui_utils.js';
@@ -46,19 +46,16 @@ const useViewer = (document: NonNullable<Parameters<PDFViewer['setDocument']>[0]
     const pinching = Option.all([live, Option.fromNullishOr(pinch)]);
     const panning = Option.filter(live, () => pan);
     useEffect(() => {
-        const controller = new AbortController();
         const publish = (result: AsyncResult.AsyncResult<PdfViewer, MediaError>) => Effect.sync(() => setState(result));
-        if (container !== null) {
-            Effect.runFork(
-                PdfViewer.mount(container, document, initial()).pipe(
-                    Stream.runForEach(flow(AsyncResult.success, publish)),
-                    Effect.catchCause(flow(AsyncResult.failure<PdfViewer, MediaError>, publish)),
-                    Effect.onInterrupt(() => publish(AsyncResult.initial())),
-                ),
-                { signal: controller.signal },
-            );
-        }
-        return () => controller.abort();
+        const interrupt = Option.map(Option.fromNullOr(container), (element) =>
+            PdfViewer.mount(element, document, initial()).pipe(
+                Stream.runForEach(flow(AsyncResult.success, publish)),
+                Effect.catchCause(flow(AsyncResult.failure<PdfViewer, MediaError>, publish)),
+                Effect.onInterrupt(() => publish(AsyncResult.initial())),
+                Effect.runCallback,
+            ),
+        );
+        return Option.getOrUndefined(interrupt);
     }, [container, document]);
     usePinch(({ offset: [target], origin }) => Option.map(pinching, ([{ pdfViewer }, { drawingDelay }]) => pdfViewer.updateScale({ scaleFactor: target / pdfViewer.currentScale, origin: [...origin], drawingDelay: Duration.toMillis(drawingDelay) })), {
         target: { current: container },
@@ -193,25 +190,16 @@ class PdfViewer extends Data.Class<View & Status & { readonly pdfViewer: PDFView
             const updates = yield* Effect.acquireRelease(Queue.make<(status: Status) => Status, MediaError | Cause.Done>(), Queue.shutdown);
             const viewed = () => Queue.offerUnsafe(updates, identity);
             const found = (event: unknown) => Option.map(Schema.decodeUnknownOption(Found)(event), (update) => Queue.offerUnsafe(updates, Struct.assign(update)));
-            const rendered = (event: unknown) => Option.map(Schema.decodeUnknownOption(Rendered)(event), ({ pageNumber, error }) => Queue.offerUnsafe(updates, Struct.evolve({ failedPages: Predicate.isNullish(error) ? HashSet.remove(pageNumber) : HashSet.add(pageNumber) })));
             eventBus.on('pagesinit', () => Result.match(Result.try({ try: initialized, catch: MediaError.of('Unsupported', 'PDF viewer view') }), { onSuccess: viewed, onFailure: (error) => Queue.failCauseUnsafe(updates, Cause.fail(error)) }), { signal });
             ['pagechanging', 'scalechanging', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged'].forEach((name) => eventBus.on(name, viewed, { signal }));
             ['updatefindmatchescount', 'updatefindcontrolstate'].forEach((name) => eventBus.on(name, found, { signal }));
-            eventBus.on('pagerendered', rendered, { signal });
+            eventBus.on('pagerendered', (event: unknown) => Option.map(Schema.decodeUnknownOption(Rendered)(event), ({ pageNumber, error }) => Queue.offerUnsafe(updates, Struct.evolve({ failedPages: Predicate.isNullish(error) ? HashSet.remove(pageNumber) : HashSet.add(pageNumber) }))), { signal });
             linkService.setViewer(pdfViewer);
             linkService.setDocument(document);
             pdfViewer.setDocument(document);
             return Stream.fromQueue(updates).pipe(
-                Stream.scan(
-                    (): Status => ({ matchesCount: { current: 0, total: 0 }, failedPages: HashSet.empty() }),
-                    (status, update) => update(status),
-                ),
-                Stream.filterMap(
-                    flow(
-                        Filter.fromPredicateOption((status: Status) => Option.map(Schema.decodeUnknownOption(View)(pdfViewer), Struct.assign({ ...status, pdfViewer }))),
-                        Result.map((state) => new PdfViewer(state)),
-                    ),
-                ),
+                Stream.scan(Function.constant<Status>({ matchesCount: { current: 0, total: 0 }, failedPages: HashSet.empty() }), (status, update) => update(status)),
+                Stream.filterMap((status) => Result.map(Schema.decodeUnknownResult(View)(pdfViewer), (shown) => new PdfViewer({ ...shown, ...status, pdfViewer }))),
             );
         }),
         Stream.unwrap,

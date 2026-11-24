@@ -2,7 +2,7 @@ import { d1Engine } from '@rasm/database/d1';
 import { r2Storage } from '@rasm/object-storage/r2';
 import { layer } from '@rasm/telemetry';
 import { env, tracing } from 'cloudflare:workers';
-import { Config, ConfigProvider, Context, DateTime, Effect, Exit, Formatter, Layer, MutableRef, Option, Predicate, Record, Redacted, Scheduler, Schema, Scope, Struct, Tracer } from 'effect';
+import { Config, ConfigProvider, Context, DateTime, Duration, Effect, Exit, Formatter, Layer, Predicate, Record, Redacted, Scheduler, Schema, Scope, Struct, Tracer } from 'effect';
 import { FetchHttpClient, HttpEffect, HttpRouter, HttpServer, type HttpServerRequest } from 'effect/http';
 import { App, type Binding } from '#/app/app';
 import { hosted, type Routes, type Served } from '#/server/hosted';
@@ -78,21 +78,12 @@ const held = <K extends keyof typeof Held>(kind: K, variable: string) => Schema.
 const Worker = Object.assign(
     <R, E, K, const A extends readonly unknown[]>(provided: Layer.Layer<R, E>, ...kinds: { readonly [I in keyof A]: Kind<R, A[I], K> }) => {
         const isolate = Layer.provideMerge(Layer.mergeAll(Layer.empty, ...kinds.map((kind) => kind.layer)), Layer.provideMerge(provided, Execution.isolate));
-        const shared = MutableRef.make(Option.none<Context.Context<Layer.Success<typeof isolate>>>());
-        const built = Effect.gen(function* () {
-            const scope = yield* Scope.make();
-            const context = yield* Effect.onError(Layer.buildWithScope(isolate, scope), (cause) => Scope.close(scope, Exit.failCause(cause)));
-            const kept = Option.getOrElse(
-                MutableRef.updateAndGet(
-                    shared,
-                    Option.orElseSome(() => context),
-                ),
-                () => context,
-            );
-            yield* kept === context ? Effect.void : Scope.close(scope, Exit.void);
-            return kept;
-        });
-        const ready = () => Effect.runPromise(Option.match(MutableRef.get(shared), { onSome: Effect.succeed, onNone: () => built }));
+        const built = Scope.make().pipe(
+            Effect.flatMap((scope) => Effect.onError(Layer.buildWithScope(isolate, scope), (cause) => Scope.close(scope, Exit.failCause(cause)))),
+            Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
+            Effect.runSync,
+        );
+        const ready = () => Effect.runPromise(built);
         return kinds.reduce<ExportedHandler<Cloudflare.Env>>((handlers, kind) => Object.assign(handlers, kind.handlers(ready)), {});
     },
     {
@@ -131,28 +122,25 @@ const Worker = Object.assign(
     },
 );
 
-const serve = <const E extends Record.ReadonlyRecord<string, Binding>, A, Err, R extends Served | HttpRouter.Request<'Requires', Execution>>(app: App<E>, routes: Routes<E, A, Err, R>) =>
-    Worker(
-        Execution.telemetry({ serviceName: app.name }),
-        Worker.fetch(
-            Effect.all([Config.Literals(Struct.keys(App.modes), App.bundle.mode), held('assets', App.bundle.fetcher)]).pipe(
-                Effect.map(([mode, assets]) =>
-                    hosted(
-                        app,
-                        {
-                            sqlite: (variable) => Effect.map(held('sqlite', variable), (db) => d1Engine({ db })),
-                            bucket: (variable) => Effect.map(held('bucket', variable), (bucket) => r2Storage({ bucket, name: App.resource(app, mode, variable) })),
-                            postgres: (variable) => Effect.map(held('postgres', variable), ({ connectionString }) => Redacted.make(connectionString)),
-                        },
-                        routes,
-                        assets,
-                    ),
-                ),
-                Layer.unwrap,
-                Layer.provide(HttpServer.layerServices),
+const serve = <const E extends Record.ReadonlyRecord<string, Binding>, A, Err, R extends Served | HttpRouter.Request<'Requires', Execution>>(app: App<E>, routes: Routes<E, A, Err, R>) => {
+    const routed = Effect.all([Config.Literals(Struct.keys(App.modes), App.bundle.mode), held('assets', App.bundle.fetcher)]).pipe(
+        Effect.map(([mode, assets]) =>
+            hosted(
+                app,
+                {
+                    sqlite: (variable) => Effect.map(held('sqlite', variable), (db) => d1Engine({ db })),
+                    bucket: (variable) => Effect.map(held('bucket', variable), (bucket) => r2Storage({ bucket, name: App.resource(app, mode, variable) })),
+                    postgres: (variable) => Effect.map(held('postgres', variable), ({ connectionString }) => Redacted.make(connectionString)),
+                },
+                routes,
+                assets,
             ),
         ),
+        Layer.unwrap,
+        Layer.provide(HttpServer.layerServices),
     );
+    return Worker(Execution.telemetry({ serviceName: app.name }), Worker.fetch(routed));
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

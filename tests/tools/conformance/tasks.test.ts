@@ -2,7 +2,6 @@ import { homedir, tmpdir, userInfo } from 'node:os';
 import type { ProjectNodesWithFiles } from '@nx/conformance/testing';
 import type { TargetConfiguration } from '@nx/devkit';
 import rule from '@rasm/conformance/tasks';
-import { Effect } from 'effect';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { project, reported, violations } from '#/workspace';
 
@@ -12,7 +11,7 @@ const run = ({ options = {}, ...target }: Omit<TargetConfiguration<Readonly<Reco
 
 const cleaned = (name: string, targets: Readonly<Record<string, TargetConfiguration>>, files: readonly string[] = []) => project(name, { targets: { clean: { executor: 'nx:noop' }, ...targets } }, files);
 
-const checked = (...projects: readonly ProjectNodesWithFiles[]) => Effect.runPromise(violations(rule, { clean: 'clean' }, { projects, files: { '.gitignore': '.artifacts/\ndist/\n' } }));
+const checked = (...projects: readonly ProjectNodesWithFiles[]) => violations(rule, { clean: 'clean' }, { projects, files: { '.gitignore': '.artifacts/\ndist/\n' } });
 
 const stubbed = (variable: string, value: string) => {
     vi.stubEnv(variable, value);

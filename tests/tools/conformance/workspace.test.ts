@@ -1,6 +1,6 @@
 import type { ProjectNodesWithFiles } from '@nx/conformance/testing';
 import rule from '@rasm/conformance/workspace';
-import { Effect, Record } from 'effect';
+import { Record } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { project, reported, violations } from '#/workspace';
 
@@ -8,7 +8,7 @@ import { project, reported, violations } from '#/workspace';
 
 const installed = (packages: Record.ReadonlyRecord<string, string>) => Record.mapEntries(packages, (version, key) => [`npm:${key}`, { type: 'npm' as const, name: `npm:${key}` as const, data: { packageName: key.replace(/@[^@/]+$/u, ''), version } }]);
 
-const checked = (nxJson: Readonly<Record<string, unknown>>, packages: Record.ReadonlyRecord<string, string>, ...projects: readonly ProjectNodesWithFiles[]) => Effect.runPromise(violations(rule, undefined, { nxJson, externalNodes: installed(packages), projects }));
+const checked = (nxJson: Readonly<Record<string, unknown>>, packages: Record.ReadonlyRecord<string, string>, ...projects: readonly ProjectNodesWithFiles[]) => violations(rule, undefined, { nxJson, externalNodes: installed(packages), projects });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

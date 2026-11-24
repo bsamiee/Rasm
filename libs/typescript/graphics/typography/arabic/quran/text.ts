@@ -33,16 +33,8 @@ class Ayah extends Schema.Class<Ayah, { readonly brand: unique symbol }>('Ayah')
     marked(separator: string, face: Pick<Face, 'draws'>, settings: Pick<Settings, 'digits'>): Effect.Effect<string, Unmatched> {
         const mark = settings.digits(ayahMark(this.number));
         const forms = [mark, `\u{FD3F}${mark.slice(AYAH_MARK.length)}\u{FD3E}`];
-        return Effect.map(
-            Effect.fromOption(
-                Array.findFirst(forms, (form) => face.draws(form)),
-                () => Unmatched.of({ subject: 'ayah mark the face draws', query: Option.some(String(this.number)), candidates: forms }),
-            ),
-            (form) =>
-                Array.append(Option.toArray(this.basmalah), `${this.text}\u{A0}${form}`)
-                    .map((line) => `${line}${separator}`)
-                    .join(''),
-        );
+        const drawn = Array.findFirst(forms, (form) => face.draws(form));
+        return Effect.fromOption(drawn, () => Unmatched.of({ subject: 'ayah mark the face draws', query: Option.some(String(this.number)), candidates: forms })).pipe(Effect.map((form) => [...Option.toArray(this.basmalah), `${this.text}\u{A0}${form}`].map((line) => `${line}${separator}`).join('')));
     }
 }
 class Surah extends Schema.Class<Surah, { readonly brand: unique symbol }>('Surah')({
@@ -84,11 +76,11 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         yield* Array.match(Array.difference(ayahsBySurah.keys(), numbers), { onEmpty: () => Effect.void, onNonEmpty: (keys) => Unmatched.of({ subject: 'surah', query: Option.some(keys.join(', ')), candidates: numbers.map(String) }) });
         return yield* Schema.decodeEffect(Quran)({
             ...Record.getSomes({ riwayah }),
-            surahs: Array.sortWith(
-                named.map(({ number, name }) => ({ number, names: titled(number, [name], tables), ayahs: Array.dedupeAdjacentWith(Array.sortWith(Array.map(ayahsBySurah.get(number) ?? [], Struct.omit(['surah'])), Struct.get('number'), Order.Number), sameNumber) })),
-                Struct.get('number'),
-                Order.Number,
-            ),
+            surahs: Array.sortWith(named, Struct.get('number'), Order.Number).map(({ number, name }) => ({
+                number,
+                names: titled(number, [name], tables),
+                ayahs: Array.dedupeAdjacentWith(Array.sortWith(Array.map(ayahsBySurah.get(number) ?? [], Struct.omit(['surah'])), Struct.get('number'), Order.Number), sameNumber),
+            })),
         });
     });
     static readonly Render = Schema.Struct({
@@ -120,26 +112,18 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
     }
     ayah(reference: SurahAyah): Effect.Effect<Ayah, Unmatched> {
         const [surah, number] = reference;
-        return Effect.fromOption(
-            Option.flatMap(
-                Array.findFirst(this.surahs, (candidate) => candidate.number === surah),
-                ({ ayahs }) => Array.findFirst(ayahs, (ayah) => ayah.number === number),
-            ),
-            () => Unmatched.of({ subject: 'ayah text', query: Option.some(formatSurahAyah(reference)) }),
-        );
+        const found = Array.findFirst(this.surahs, (candidate) => candidate.number === surah).pipe(Option.flatMap(({ ayahs }) => Array.findFirst(ayahs, (ayah) => ayah.number === number)));
+        return Effect.fromOption(found, () => Unmatched.of({ subject: 'ayah text', query: Option.some(formatSurahAyah(reference)) }));
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sameNumber: Equivalence.Equivalence<{ readonly number: number }> = Equivalence.mapInput(Equivalence.Number, Struct.get('number'));
-const titled = (number: number, names: Array.NonEmptyReadonlyArray<string>, tables: readonly SurahNames[]) =>
-    Array.dedupe(
-        Array.appendAll(
-            names,
-            tables.flatMap((table) => Option.getOrElse(Array.get(table, number), Array.empty)),
-        ),
-    );
+const titled = (number: number, names: Array.NonEmptyReadonlyArray<string>, tables: readonly SurahNames[]) => {
+    const listed = tables.flatMap((table) => Option.getOrElse(Array.get(table, number), Array.empty));
+    return Array.dedupe(Array.appendAll(names, listed));
+};
 const uncounted =
     (data: RiwayaData) =>
     ({ number, ayahs }: Surah): readonly string[] =>

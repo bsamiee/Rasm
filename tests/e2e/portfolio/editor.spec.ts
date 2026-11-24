@@ -143,7 +143,7 @@ it('keeps edits when another tab saved a newer draft, and saves them over it on 
     await owner.goto(EDITING);
     await editing(owner).getByRole('button', { name: 'New project' }).click();
     await editing(owner).getByRole('textbox', { name: 'Title' }).fill('Harbour Library');
-    expect(await request.put('/api/draft', { headers: { ...OWNER, ...SAME_ORIGIN, ...UNREVISED }, data: { name: 'Second tab' } }).then((response) => response.status())).toBe(204);
+    expect(await request.put('/api/draft', { headers: { ...OWNED, ...UNREVISED }, data: { name: 'Second tab' } }).then((response) => response.status())).toBe(204);
     await editing(owner).getByRole('button', { name: 'Save draft' }).click();
     await expect(editing(owner).getByRole('alert')).toContainText('Draft revision 1 saved in another tab');
     await expect(editing(owner).getByRole('textbox', { name: 'Title' })).toHaveValue('Harbour Library');

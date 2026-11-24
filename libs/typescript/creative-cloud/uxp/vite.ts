@@ -60,23 +60,10 @@ const uxp = ({ mark = fileURLToPath(import.meta.resolve('#/icons/mark.svg')) }: 
             {
                 name: 'uxp',
                 config: ({ root = '' }) =>
-                    Effect.runPromise(
-                        Effect.map(
-                            Effect.promise(() => import('@exodus/bytes/encoding-lite.js')),
-                            (lite) => ({
-                                build: {
-                                    rolldownOptions: {
-                                        input: resolve(root, ENTRY),
-                                        transform: {
-                                            inject: Record.fromIterableWith(
-                                                Object.keys(lite).filter((name) => name in globalThis),
-                                                (name) => [name, [encoding, name] satisfies [string, string]],
-                                            ),
-                                        },
-                                    },
-                                },
-                            }),
-                        ),
+                    Effect.promise(() => import('@exodus/bytes/encoding-lite.js')).pipe(
+                        Effect.map((lite) => Array.filter(Object.keys(lite), (name) => name in globalThis)),
+                        Effect.map((names) => ({ build: { rolldownOptions: { input: resolve(root, ENTRY), transform: { inject: Record.fromIterableWith(names, (name) => [name, [encoding, name] satisfies [string, string]]) } } } })),
+                        Effect.runPromise,
                     ),
                 resolveId: {
                     order: 'pre',

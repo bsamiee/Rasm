@@ -31,14 +31,11 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pic
         { discard: true },
     );
     const counted = Match.type<number | readonly unknown[]>().pipe(Match.when(Predicate.isNumber, identity<number>), Match.orElse(Array.length));
-    const spelled = (contents: unknown) =>
-        Array.map(Array.ensure(contents), (each) =>
-            Match.value(each).pipe(
-                Match.when(enumerator, (special) => `<${special.toString()}>`),
-                Match.when(Predicate.isString, identity<string>),
-                Match.orElse(Formatter.format),
-            ),
-        ).join('');
+    const spelled = Match.type<unknown>().pipe(
+        Match.when(enumerator, (special) => `<${special.toString()}>`),
+        Match.when(Predicate.isString, identity<string>),
+        Match.orElse(Formatter.format),
+    );
     const searched = model.owning(members.change);
     const scopes = yield* Effect.forEach(
         Array.ensure(located),
@@ -56,7 +53,7 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pic
         const placed = model.text(hit) ? Option.filter(Array.head(hit.parentTextFrames), model.item) : Option.liftPredicate(hit, model.item);
         return {
             specifier: hit.toSpecifier(),
-            text: model.text(hit) ? Option.some(spelled(hit.contents)) : Option.none(),
+            text: model.text(hit) ? Option.some(Array.ensure<unknown>(hit.contents).map(spelled).join('')) : Option.none(),
             page: Option.map(Option.flatMapNullishOr(placed, Struct.get('parentPage')), Struct.get('name')),
         };
     };
@@ -106,30 +103,21 @@ const readings = Effect.fn('readings')(function* (found: InDesignDOMObject<unkno
     const missing = Option.getOrElse(wanted, Array.empty<string>).filter((name) => !Predicate.hasProperty(found, name));
     yield* Array.isReadonlyArrayEmpty(missing) ? Effect.void : Unmatched.of({ subject: `field of ${found.toSpecifier()}`, query: Option.some(missing.join(', ')), candidates: Record.keys(declaration(found.constructorName).fields) });
     const entries = yield* Option.match(wanted, {
-        onNone: () =>
-            Effect.map(
-                Model.properties(found),
-                Record.collect((name, held): readonly [string, Effect.Effect<unknown, HostError>] => [name, Effect.succeed(held)]),
-            ),
-        onSome: (names) =>
-            Effect.succeed(
-                Array.map(names, (name): readonly [string, Effect.Effect<unknown, HostError>] => {
-                    const refused = HostError.refused(`${found.toSpecifier()} ${name}`);
-                    return [name, Effect.andThen(Effect.transposeOption(Option.map(Model.unavailable(found.constructorName, name, Option.some(found), false), refused)), Effect.try({ try: (): unknown => Reflect.get(found, name), catch: refused }))];
-                }),
-            ),
+        onNone: () => Model.properties(found).pipe(Effect.map(Record.collect((name, held): readonly [string, Effect.Effect<unknown, HostError>] => [name, Effect.succeed(held)]))),
+        onSome: (names) => {
+            const listed = Array.map(names, (name): readonly [string, Effect.Effect<unknown, HostError>] => {
+                const refused = HostError.refused(`${found.toSpecifier()} ${name}`);
+                return [name, Effect.andThen(Effect.transposeOption(Option.map(Model.unavailable(found.constructorName, name, Option.some(found), false), refused)), Effect.try({ try: (): unknown => Reflect.get(found, name), catch: refused }))];
+            });
+            return Effect.succeed(listed);
+        },
     });
-    return yield* Effect.forEach(
-        entries,
-        Effect.fnUntraced(function* ([name, read]) {
-            const value = yield* Effect.result(
-                Effect.gen(function* () {
-                    const held = yield* read;
-                    return Predicate.isPromise(held) ? Option.getOrNull(yield* Model.file(found, name)) : (held ?? null);
-                }),
-            );
-            return { name, value };
-        }),
+    return yield* Effect.forEach(entries, ([name, read]) =>
+        read.pipe(
+            Effect.flatMap((held) => (Predicate.isPromise(held) ? Effect.map(Model.file(found, name), Option.getOrNull) : Effect.succeed(held ?? null))),
+            Effect.result,
+            Effect.map((value) => ({ name, value })),
+        ),
     );
 });
 const fontView = Effect.fnUntraced(function* (face: Font) {
@@ -146,150 +134,131 @@ const fontView = Effect.fnUntraced(function* (face: Font) {
                 .map((each) => each.toSpecifier()),
         catch: HostError.refused(`uses of ${face.name}`),
     });
-    const installed = yield* Effect.when(
-        Effect.try({
-            try: () => {
-                const every = model.app.fonts.everyItem();
-                return {
-                    ...model.picked(Inspection.View.cases.Font.fields.installed, face, ['styles', 'axes', 'features']),
-                    styles: Array.dedupe(Array.filterMap(Array.zip(every.fontFamily, every.fontStyleName), ([family, named]) => (family === face.fontFamily ? Result.succeed(named) : Result.failVoid))),
-                    axes: Option.map(
-                        Option.liftThrowable(() => Array.zip(face.designAxesName, face.designAxesValues))(),
-                        Array.map(([name, value]) => ({ name, value })),
-                    ),
-                    features: model
-                        .members(model.OpenTypeFeature)
-                        .filter((feature) => face.checkOpenTypeFeature(feature))
-                        .map((feature) => feature.toString()),
-                };
-            },
-            catch: HostError.refused(`styles and features of ${face.name}`),
-        }),
-        Effect.succeed(face.status.equals(model.FontStatus.INSTALLED)),
-    );
+    const installed = yield* Effect.try({
+        try: () => {
+            const every = model.app.fonts.everyItem();
+            return {
+                ...model.picked(Inspection.View.cases.Font.fields.installed, face, ['styles', 'axes', 'features']),
+                styles: Array.dedupe(Array.filterMap(Array.zip(every.fontFamily, every.fontStyleName), ([family, named]) => (family === face.fontFamily ? Result.succeed(named) : Result.failVoid))),
+                axes: Option.liftThrowable(() => Array.zip(face.designAxesName, face.designAxesValues).map(([name, value]) => ({ name, value })))(),
+                features: Array.filterMap(model.members(model.OpenTypeFeature), (feature) => (face.checkOpenTypeFeature(feature) ? Result.succeed(feature.toString()) : Result.failVoid)),
+            };
+        },
+        catch: HostError.refused(`styles and features of ${face.name}`),
+    }).pipe(Effect.when(Effect.succeed(face.status.equals(model.FontStatus.INSTALLED))));
     const uses = [...Array.flatMap(searched, ({ matches }) => Array.map(matches, Struct.get('specifier'))), ...styled];
     return yield* Model.picked(Inspection.View.cases.Font, face, () => ({ uses, installed }));
 });
 const view = (model: Model['Service'], found: unknown, slice: Slice) => {
     const { picked } = model;
-    return Effect.transposeOption(
-        Match.value(found).pipe(
-            Match.when(
-                model.application,
-                Effect.fnUntraced(function* (app: Application) {
-                    const opened = yield* Effect.option(Model.current);
-                    const documents = yield* Effect.forEach(app.documents.everyItem().getElements(), (document) => savedPath(document).pipe(Effect.bindTo('fullName'), Effect.map(Struct.assign({ document }))));
-                    const window = Option.liftThrowable(() => app.activeWindow.toSpecifier())();
-                    const selection = yield* Effect.forEach(
-                        Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }),
-                        Effect.fnUntraced(function* (item: Application['selection'][number]) {
-                            const overridden = yield* Effect.transposeOption(Option.map(Option.liftPredicate(item, model.overridable), overrides));
-                            return { ...Model.referenceUnsafe(item), contents: Option.map(Schema.decodeUnknownOption(Contents)(item), Struct.get('contents')), parentStory: Option.map(Option.liftPredicate(item, model.storied), Struct.get('parentStory')), overrides: overridden };
-                        }),
-                    );
-                    const panels = Array.getSomes(globalThis.Array.from({ length: app.panels.length }, (_, index) => Option.map(Option.filter(Option.fromUndefinedOr(app.panels.item(index)), Struct.get('visible')), Struct.get('name'))));
-                    return yield* Model.picked(
-                        Inspection.View.cases.Application,
-                        app,
-                        flow(
-                            () => ({ panels, documents, current: opened }),
-                            Struct.evolve({
-                                documents: Array.map(({ document, fullName }) => ({ ...picked(Inspection.View.cases.Application.fields.documents.value, document, ['fullName']), fullName })),
-                                current: Option.map((document) => ({ document: document.toSpecifier(), window, selection, overset: overset(document), undo: { mode: app.activeScriptUndoMode, name: document.undoName, history: document.undoHistory } })),
-                            }),
-                        ),
-                    );
-                }),
-            ),
-            Match.when(
-                model.document,
-                Effect.fnUntraced(function* (document: Document) {
-                    const [fullName, settings] = yield* Effect.all([savedPath(document), InDesignSettings.read(document.textDefaults)]);
-                    return yield* Model.picked(Inspection.View.cases.Document, document, () => ({
-                        fullName,
-                        overset: overset(document),
-                        links: Record.map(Array.groupBy(document.links.everyItem().status, globalThis.String), Array.length),
-                        textDefaults: { ...picked(Inspection.View.cases.Document.fields.textDefaults, document.textDefaults, ['settings']), settings },
-                    }));
-                }),
-            ),
-            Match.when(model.page, (page) => Effect.flatMap(Model.extent(page), (extent) => Model.picked(Inspection.View.cases.Page, page, Function.constant({ extent })))),
-            Match.whenOr(
-                model.spread,
-                model.masterSpread,
-                Effect.fnUntraced(function* (spread: Spread | MasterSpread) {
-                    const pages = yield* Effect.forEach(spread.pages.everyItem().getElements(), (page) => Model.extent(page).pipe(Effect.bindTo('extent'), Effect.map(Struct.assign({ page }))));
-                    return yield* Model.picked(Inspection.Spread, spread, flow(Function.constant({ pages }), Struct.evolve({ pages: Array.map(({ page, extent }) => ({ ...picked(Inspection.Spread.cases.Spread.fields.pages.value, page, ['extent']), extent })) })));
-                }),
-            ),
-            Match.when(model.layer, (layer) => Model.picked(Inspection.View.cases.Layer, layer)),
-            Match.when(
-                model.style,
-                Effect.fnUntraced(function* (style: ParagraphStyle | CharacterStyle | ObjectStyle | TableStyle | CellStyle) {
-                    const ancestors = model.ancestors(style.parent);
-                    const properties = yield* Model.properties(style);
-                    const { basedOn } = properties;
-                    const container = Option.getOrElse(Array.findFirst(ancestors, model.document), (): Application => model.app);
-                    const [own, above] = yield* Effect.all([Schema.decodeEffect(Specifier.Path)(style.toSpecifier()), Schema.decodeEffect(Specifier.Path)(container.toSpecifier())]);
-                    const base: unknown = Predicate.isString(basedOn) ? yield* Model.resolve(Specifier.make({ steps: [...above.steps, ...Array.map(Array.takeRight(own.steps, 1), ({ kind }) => ({ separator: '/' as const, kind, selector: Selector.cases.Key.make({ key: 'name', value: basedOn }) }))] })) : basedOn;
-                    const baseProperties = model.domObject(base) ? yield* Model.properties(base) : Record.empty<string, unknown>();
-                    const differs = yield* differing(style, properties, (name): unknown => baseProperties[name], Inspection.Style.cases.ParagraphStyle.fields);
-                    const settings = yield* Effect.transposeOption(Option.map(Option.liftPredicate(style, model.paragraphStyle), InDesignSettings.read));
-                    return yield* Model.picked(
-                        Inspection.Style,
-                        style,
-                        flow(() => ({ group: ancestors, basedOn: model.ancestors(basedOn, 'basedOn'), differing: differs, settings }), Struct.evolve({ group: Array.filterMap((ancestor) => (model.named(ancestor) && !model.document(ancestor) ? Result.succeed(ancestor.name) : Result.failVoid)) })),
-                    );
-                }),
-            ),
-            Match.when(model.swatch, (swatch) => Model.picked(Inspection.Swatch, swatch)),
-            Match.when(model.link, (linked) => Model.picked(Inspection.View.cases.Link, linked)),
-            Match.when(model.story, (story) =>
-                Model.picked(
-                    Inspection.View.cases.Story,
-                    story,
-                    flow(
-                        () => ({ overset: story.textContainers, styles: story.paragraphs.everyItem().appliedParagraphStyle }),
-                        Struct.evolve({ overset: (containers) => story.length - Number.sumAll(Array.map(containers, flow(Struct.get('characters'), Struct.get('length')))), styles: flow(Array.map(Struct.get('name')), Array.dedupe) }),
-                    ),
-                ),
-            ),
-            Match.whenOr(
-                model.text,
-                model.frame,
-                Effect.fnUntraced(function* (source: Text | TextFrame | TextPath) {
-                    const text = model.frame(source) ? source.texts.item(0) : source;
-                    const [overridden, settings] = yield* Effect.all([overrides(text), InDesignSettings.read(text)]);
-                    const ranges = slice.of(text.textStyleRanges.everyItem().getElements());
-                    const run = Inspection.View.cases.Text.fields.runs.value;
-                    const styles = yield* Effect.try({
-                        try: () =>
-                            Record.fromIterableWith(
-                                Array.flatMap(ranges, (range) => [range.appliedParagraphStyle, range.appliedCharacterStyle]),
-                                (style) => [style.toSpecifier(), style.properties] as const,
-                            ),
-                        catch: HostError.refused(`styles of ${text.toSpecifier()}`),
-                    });
-                    const runs = yield* Effect.forEach(
-                        ranges,
-                        Effect.fnUntraced(function* (range: TextStyleRange) {
-                            const refused = HostError.refused(range.toSpecifier());
-                            const [properties, [paragraphStyle, characterStyle]] = yield* Effect.all([Model.properties(range), Effect.try({ try: () => [{ ...styles[range.appliedParagraphStyle.toSpecifier()] }, { ...styles[range.appliedCharacterStyle.toSpecifier()] }] as const, catch: refused })]);
-                            const inherited = (name: string): unknown => {
-                                const value: unknown = Reflect.get(characterStyle, name);
-                                return value === null || value === '' || model.nothing(value) ? Reflect.get(paragraphStyle, name) : value;
-                            };
-                            const [own, held] = yield* Effect.all([differing(range, properties, inherited, { ...run.fields, ...Inspection.View.cases.Text.fields }), InDesignSettings.read(range)]);
-                            return yield* Effect.try({ try: () => ({ ...picked(run, range, ['designAxes', 'settings', 'differing']), designAxes: Result.try(flow(Function.constant(range), Struct.get('designAxes'))), settings: held, differing: own }), catch: refused });
-                        }),
-                    );
-                    return yield* Model.picked(Inspection.View.cases.Text, text, () => ({ overrides: overridden, runs, settings }));
-                }),
-            ),
-            Match.when(model.font, fontView),
-            Match.when(model.preflightProcess, (process) => Model.picked(Inspection.View.cases.PreflightProcess, process, () => ({ aggregatedResults: aggregated(process) }))),
-            Match.option,
+    return Match.value(found).pipe(
+        Match.when(
+            model.application,
+            Effect.fnUntraced(function* (app: Application) {
+                const opened = yield* Effect.option(Model.current);
+                const documents = yield* Effect.forEach(app.documents.everyItem().getElements(), (document) => savedPath(document).pipe(Effect.bindTo('fullName'), Effect.map(Struct.assign({ document }))));
+                const window = Option.liftThrowable(() => app.activeWindow.toSpecifier())();
+                const selection = yield* Effect.forEach(
+                    Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }),
+                    Effect.fnUntraced(function* (item: Application['selection'][number]) {
+                        const overridden = yield* Effect.transposeOption(Option.map(Option.liftPredicate(item, model.overridable), overrides));
+                        return { ...Model.referenceUnsafe(item), contents: Option.map(Schema.decodeUnknownOption(Contents)(item), Struct.get('contents')), parentStory: Option.map(Option.liftPredicate(item, model.storied), Struct.get('parentStory')), overrides: overridden };
+                    }),
+                );
+                const panels = Array.getSomes(globalThis.Array.from({ length: app.panels.length }, (_, index) => Option.map(Option.filter(Option.fromUndefinedOr(app.panels.item(index)), Struct.get('visible')), Struct.get('name'))));
+                return yield* Model.picked(Inspection.View.cases.Application, app, () => ({
+                    panels,
+                    documents: Array.map(documents, ({ document, fullName }) => ({ ...picked(Inspection.View.cases.Application.fields.documents.value, document, ['fullName']), fullName })),
+                    current: Option.map(opened, (document) => ({ document: document.toSpecifier(), window, selection, overset: overset(document), undo: { mode: app.activeScriptUndoMode, name: document.undoName, history: document.undoHistory } })),
+                }));
+            }),
         ),
+        Match.when(
+            model.document,
+            Effect.fnUntraced(function* (document: Document) {
+                const [fullName, settings] = yield* Effect.all([savedPath(document), InDesignSettings.read(document.textDefaults)]);
+                return yield* Model.picked(Inspection.View.cases.Document, document, () => ({
+                    fullName,
+                    overset: overset(document),
+                    links: Record.map(Array.groupBy(document.links.everyItem().status, globalThis.String), Array.length),
+                    textDefaults: { ...picked(Inspection.View.cases.Document.fields.textDefaults, document.textDefaults, ['settings']), settings },
+                }));
+            }),
+        ),
+        Match.when(model.page, (page) => Effect.flatMap(Model.extent(page), (extent) => Model.picked(Inspection.View.cases.Page, page, Function.constant({ extent })))),
+        Match.whenOr(
+            model.spread,
+            model.masterSpread,
+            Effect.fnUntraced(function* (spread: Spread | MasterSpread) {
+                const pages = yield* Effect.forEach(spread.pages.everyItem().getElements(), (page) => Model.extent(page).pipe(Effect.bindTo('extent'), Effect.map(Struct.assign({ page }))));
+                return yield* Model.picked(Inspection.Spread, spread, () => ({ pages: Array.map(pages, ({ page, extent }) => ({ ...picked(Inspection.Spread.cases.Spread.fields.pages.value, page, ['extent']), extent })) }));
+            }),
+        ),
+        Match.when(model.layer, (layer) => Model.picked(Inspection.View.cases.Layer, layer)),
+        Match.when(
+            model.style,
+            Effect.fnUntraced(function* (style: ParagraphStyle | CharacterStyle | ObjectStyle | TableStyle | CellStyle) {
+                const ancestors = model.ancestors(style.parent);
+                const properties = yield* Model.properties(style);
+                const { basedOn } = properties;
+                const container = Option.getOrElse(Array.findFirst(ancestors, model.document), (): Application => model.app);
+                const [own, above] = yield* Effect.all([Schema.decodeEffect(Specifier.Path)(style.toSpecifier()), Schema.decodeEffect(Specifier.Path)(container.toSpecifier())]);
+                const base: unknown = Predicate.isString(basedOn) ? yield* Model.resolve(Specifier.make({ steps: [...above.steps, ...Array.map(Array.takeRight(own.steps, 1), ({ kind }) => ({ separator: '/' as const, kind, selector: Selector.cases.Key.make({ key: 'name', value: basedOn }) }))] })) : basedOn;
+                const baseProperties = model.domObject(base) ? yield* Model.properties(base) : Record.empty<string, unknown>();
+                const differs = yield* differing(style, properties, (name): unknown => baseProperties[name], Inspection.Style.cases.ParagraphStyle.fields);
+                const settings = yield* Effect.transposeOption(Option.map(Option.liftPredicate(style, model.paragraphStyle), InDesignSettings.read));
+                return yield* Model.picked(Inspection.Style, style, () => ({
+                    group: Array.filterMap(ancestors, (ancestor) => (model.named(ancestor) && !model.document(ancestor) ? Result.succeed(ancestor.name) : Result.failVoid)),
+                    basedOn: model.ancestors(basedOn, 'basedOn'),
+                    differing: differs,
+                    settings,
+                }));
+            }),
+        ),
+        Match.when(model.swatch, (swatch) => Model.picked(Inspection.Swatch, swatch)),
+        Match.when(model.link, (linked) => Model.picked(Inspection.View.cases.Link, linked)),
+        Match.when(model.story, (story) =>
+            Model.picked(Inspection.View.cases.Story, story, () => ({
+                overset: story.length - Number.sumAll(Array.map(story.textContainers, ({ characters }) => characters.length)),
+                styles: Array.dedupe(Array.map(story.paragraphs.everyItem().appliedParagraphStyle, ({ name }) => name)),
+            })),
+        ),
+        Match.whenOr(
+            model.text,
+            model.frame,
+            Effect.fnUntraced(function* (source: Text | TextFrame | TextPath) {
+                const text = model.frame(source) ? source.texts.item(0) : source;
+                const [overridden, settings] = yield* Effect.all([overrides(text), InDesignSettings.read(text)]);
+                const ranges = slice.of(text.textStyleRanges.everyItem().getElements());
+                const run = Inspection.View.cases.Text.fields.runs.value;
+                const styles = yield* Effect.try({
+                    try: () =>
+                        Record.fromIterableWith(
+                            Array.flatMap(ranges, (range) => [range.appliedParagraphStyle, range.appliedCharacterStyle]),
+                            (style) => [style.toSpecifier(), style.properties] as const,
+                        ),
+                    catch: HostError.refused(`styles of ${text.toSpecifier()}`),
+                });
+                const runs = yield* Effect.forEach(
+                    ranges,
+                    Effect.fnUntraced(function* (range: TextStyleRange) {
+                        const refused = HostError.refused(range.toSpecifier());
+                        const [properties, [paragraphStyle, characterStyle]] = yield* Effect.all([Model.properties(range), Effect.try({ try: () => [{ ...styles[range.appliedParagraphStyle.toSpecifier()] }, { ...styles[range.appliedCharacterStyle.toSpecifier()] }] as const, catch: refused })]);
+                        const inherited = (name: string): unknown => {
+                            const value: unknown = Reflect.get(characterStyle, name);
+                            return value === null || value === '' || model.nothing(value) ? Reflect.get(paragraphStyle, name) : value;
+                        };
+                        const [own, held] = yield* Effect.all([differing(range, properties, inherited, { ...run.fields, ...Inspection.View.cases.Text.fields }), InDesignSettings.read(range)]);
+                        return yield* Effect.try({ try: () => ({ ...picked(run, range, ['designAxes', 'settings', 'differing']), designAxes: Result.try(() => range.designAxes), settings: held, differing: own }), catch: refused });
+                    }),
+                );
+                return yield* Model.picked(Inspection.View.cases.Text, text, () => ({ overrides: overridden, runs, settings }));
+            }),
+        ),
+        Match.when(model.font, fontView),
+        Match.when(model.preflightProcess, (process) => Model.picked(Inspection.View.cases.PreflightProcess, process, () => ({ aggregatedResults: aggregated(process) }))),
+        Match.option,
+        Effect.transposeOption,
     );
 };
 
@@ -305,17 +274,10 @@ const checked = Effect.fn('checked')(function* (document: Document, named: Optio
     const chosen = yield* Predicate.isString(requested) ? Unmatched.single(profiles, 'preflight profile', Option.some(requested), (each) => [each.name]) : Effect.succeed(requested);
     const refused = HostError.refused(`preflight of ${document.toSpecifier()} under ${chosen.name}`);
     const finished = Option.isNone(named) ? Option.flatMap(live, flow(aggregated, Result.getSuccess)) : Option.none();
-    const waited = Effect.acquireUseRelease(
-        Effect.try({ try: () => app.preflightProcesses.add(document, chosen), catch: refused }),
-        (process) =>
-            Effect.try({
-                try: () => {
-                    process.waitForProcess();
-                    return aggregated(process);
-                },
-                catch: refused,
-            }).pipe(Effect.flatMap(flow(Result.mapError(refused), Effect.fromResult))),
-        (process) => Effect.try({ try: () => process.remove(), catch: refused }).pipe(Effect.orDie),
+    const waited = Effect.acquireRelease(Effect.try({ try: () => app.preflightProcesses.add(document, chosen), catch: refused }), (process) => Effect.orDie(Effect.try({ try: () => process.remove(), catch: refused }))).pipe(
+        Effect.tap((process) => Effect.try({ try: () => process.waitForProcess(), catch: refused })),
+        Effect.flatMap((process) => Effect.fromResult(Result.mapError(aggregated(process), refused))),
+        Effect.scoped,
     );
     return yield* Effect.all({ targetObject: Model.reference(document), appliedProfile: Model.reference(chosen), aggregatedResults: Option.match(finished, { onSome: Effect.succeed, onNone: () => waited }) });
 });
@@ -369,7 +331,7 @@ const call = Effect.fn('call')(function* (payload: Call) {
         payload.label,
         Effect.try({ try: (): unknown => Reflect.apply(invoked, receiver, positioned), catch: refused }).pipe(
             Effect.tap((returned) => Effect.transposeOption(Option.map(properties, Function.apply(returned)))),
-            Effect.flatMap((returned) => Model.read(Called, payload.label, flow(Function.constant({ ...before, result: Option.fromUndefinedOr(returned) }), Struct.evolve({ valid: flow(Function.constant(found), Struct.get('isValid')) })))),
+            Effect.flatMap((returned) => Model.read(Called, payload.label, () => ({ ...before, result: Option.fromUndefinedOr(returned), valid: found.isValid }))),
         ),
     );
 });
@@ -384,10 +346,7 @@ const font = Effect.fn('font')(function* ({ name, text, file }: FontSource) {
     const source = face.status.equals(model.FontStatus.INSTALLED)
         ? yield* Effect.try({ try: () => fs.lstatSync(face.location), catch: HostError.refused(face.location) }).pipe(
               Effect.as(Option.some({ file: face.location, postscriptName: Option.some(face.postscriptName) })),
-              Effect.catchIf(
-                  (error) => Schema.is(Uxp.Missing)(error.cause),
-                  () => subset,
-              ),
+              Effect.catchIf((error) => Schema.is(Uxp.Missing)(error.cause), Function.constant(subset)),
           )
         : Option.none();
     return { font: yield* fontView(face), source };
@@ -435,23 +394,18 @@ const render = Effect.fn('render')(function* (target: Specifier, path: string) {
     yield* Uxp.preserve(app.pngExportPreferences, defaults);
     yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: HostError.refused(`PNG export of ${target.path} to ${path}`) });
 }, Effect.scoped);
-const session = Effect.flatMap(Model, ({ app, MeasurementUnits, UserInteractionLevels }) => Uxp.preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
+const session = Model.use(({ app, MeasurementUnits, UserInteractionLevels }) => Uxp.preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
 const listened = (events: readonly string[], name: string, handler: (event: Event) => void) =>
-    Model.use(({ app }) =>
-        Effect.forEach(
-            events,
-            (event) =>
-                Effect.sync(() => {
-                    const named = `${name}:${event}`;
-                    const stale = app.eventListeners.itemByName(named);
-                    if (stale.isValid) {
-                        stale.remove();
-                    }
-                    Object.assign(app.addEventListener(event, handler), { name: named });
-                }),
-            { discard: true },
-        ),
-    );
+    Model.useSync(({ app }) => {
+        events.forEach((event) => {
+            const named = `${name}:${event}`;
+            const stale = app.eventListeners.itemByName(named);
+            if (stale.isValid) {
+                stale.remove();
+            }
+            Object.assign(app.addEventListener(event, handler), { name: named });
+        });
+    });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

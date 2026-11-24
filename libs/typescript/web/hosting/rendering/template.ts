@@ -19,10 +19,8 @@ class Template extends Context.Service<Template, Effect.Effect<{ readonly lang: 
                     ({ status }) => HostingError.of('Template', `answer ${status}`)(),
                 ),
                 Effect.flatMap((response) => Effect.tryPromise({ try: () => response.text(), catch: HostingError.of('Template', 'read') })),
-                Effect.flatMap((html) => {
-                    const document = load(html);
-                    return Effect.fromOption(Option.all({ lang: Option.fromUndefinedOr(document('html').attr('lang')), head: Option.fromNullOr(document('head').html()) })).pipe(Effect.mapError(HostingError.of('Template', 'language and head')));
-                }),
+                Effect.map((html) => load(html)),
+                Effect.flatMap((document) => Effect.mapError(Effect.fromOption(Option.all({ lang: Option.fromUndefinedOr(document('html').attr('lang')), head: Option.fromNullOr(document('head').html()) })), HostingError.of('Template', 'language and head'))),
                 Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
             ),
         );
@@ -30,19 +28,14 @@ class Template extends Context.Service<Template, Effect.Effect<{ readonly lang: 
         const [document, context, json, random] = yield* Effect.all([Effect.flatten(Template), Effect.context<never>(), Effect.orDie(Schema.encodeEffect(shell.data.json)(value)), SecureRandom.SecureRandom]);
         const nonce = Base64.encode(yield* random.randomBytes(16));
         const rendered = yield* Effect.promise((signal) => renderToReadableStream(shell.page(value, json, document), { signal, nonce, onError: (error) => Effect.runSyncWith(context)(Effect.logError(Cause.die(error))) }));
-        return HttpServerResponse.stream(Stream.fromReadableStream<Uint8Array, HostingError>({ evaluate: Function.constant(rendered), onError: HostingError.of('Template', 'render') }), { contentType: 'text/html; charset=utf-8' }).pipe(
-            UndefinedOr.match(shell.policy, {
-                onUndefined: () => Function.identity,
-                onDefined: (policy) =>
-                    HttpServerResponse.setHeader(
-                        'Content-Security-Policy',
-                        Record.collect(
-                            [sources, { 'script-src': [`'nonce-${nonce}'`] }].reduce((stated, added) => Record.union(stated, added, (held: readonly string[], more: readonly string[]) => Array.appendAll(held, more)), policy),
-                            (directive, allowed) => `${directive} ${Array.dedupe(allowed).join(' ')}`,
-                        ).join('; '),
-                    ),
-            }),
-        );
+        const page = HttpServerResponse.stream(Stream.fromReadableStream<Uint8Array, HostingError>({ evaluate: Function.constant(rendered), onError: HostingError.of('Template', 'render') }), { contentType: 'text/html; charset=utf-8' });
+        return UndefinedOr.match(shell.policy, {
+            onUndefined: () => page,
+            onDefined: (policy) => {
+                const merged = [sources, { 'script-src': [`'nonce-${nonce}'`] }].reduce((stated, added) => Record.union(stated, added, (held: readonly string[], more: readonly string[]) => Array.appendAll(held, more)), policy);
+                return HttpServerResponse.setHeader(page, 'Content-Security-Policy', Record.collect(merged, (directive, allowed) => `${directive} ${Array.dedupe(allowed).join(' ')}`).join('; '));
+            },
+        });
     });
 }
 

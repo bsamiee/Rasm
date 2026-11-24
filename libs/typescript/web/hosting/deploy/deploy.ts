@@ -26,7 +26,7 @@ import {
 } from '@pulumi/cloudflare';
 import { local } from '@pulumi/command';
 import { type CustomResourceOptions, jsonStringify, type Output, output, type Resource, secret } from '@pulumi/pulumi';
-import { Array, Cause, Config, Duration, Effect, flow, Match, Option, Predicate, Record, Redacted, Result, Schema, String, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Duration, Effect, flow, Match, Predicate, Record, Redacted, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { App, type Binding } from '#/app/app';
 import { Access, Identity } from '#/app/identity';
 
@@ -88,10 +88,7 @@ const deployed = Effect.fnUntraced(function* (
             subdomain: { enabled: config.workersDev, previewsEnabled: config.previewUrls },
             observability: UndefinedOr.map(config.observability, Struct.pick(['enabled', 'headSamplingRate', 'issues', 'logs', 'traces'])),
             logpush: config.logpush,
-            tailConsumers: UndefinedOr.map(
-                config.tailConsumers,
-                Array.map(({ worker: consumer }) => ({ name: consumer })),
-            ),
+            tailConsumers: config.tailConsumers?.map(({ worker: consumer }) => ({ name: consumer })),
         },
         options,
     );
@@ -185,9 +182,9 @@ const deploy = {
             [App.bundle.mode]: { type: 'plain_text', text: mode },
             ...Record.fromEntries(pooled),
             ...signing,
-            ...Option.match(Option.liftPredicate(app.allowed, Array.isReadonlyArrayNonEmpty), {
-                onNone: () => ({}),
-                onSome: (addresses) => {
+            ...Array.match(app.allowed, {
+                onEmpty: () => ({}),
+                onNonEmpty: (addresses) => {
                     const policy = new ZeroTrustAccessPolicy(name, { accountId, name, decision: 'allow', includes: addresses.map((email) => ({ email: { email } })) }, options);
                     const destinations = hosts.apply(Array.map((host) => ({ type: 'public', uri: `${host}${Identity.paths.signin}` })));
                     const guarded = new ZeroTrustAccessApplication(name, { accountId, name, type: 'self_hosted', destinations, policies: [{ id: policy.id, precedence: 1 }], httpOnlyCookieAttribute: true, sameSiteCookieAttribute: 'lax' }, options);

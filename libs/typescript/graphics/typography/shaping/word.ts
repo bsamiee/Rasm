@@ -33,17 +33,13 @@ class Span extends Schema.Class<Span, { readonly brand: unique symbol }>('Span')
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const words = (text: string): readonly Span[] =>
-    Array.filterMap(
-        Array.window(
-            Array.unfold(LINES.segment(text), (breaks) => Option.map(Option.liftPredicate(breaks.next(), Number.isGreaterThanOrEqualTo(0)), (at) => [at, breaks] as const)),
-            2,
-        ),
-        ([start, next]) => {
-            const content = text.slice(start, next).trimEnd();
-            return content === '' ? Result.failVoid : Result.succeed(Span.make({ start, end: start + content.length }));
-        },
-    );
+const words = (text: string): readonly Span[] => {
+    const breaks = Array.unfold(LINES.segment(text), (segments) => Option.map(Option.liftPredicate(segments.next(), Number.isGreaterThanOrEqualTo(0)), (at) => [at, segments] as const));
+    return Array.filterMap(Array.window(breaks, 2), ([start, next]) => {
+        const content = text.slice(start, next).trimEnd();
+        return content === '' ? Result.failVoid : Result.succeed(Span.make({ start, end: start + content.length }));
+    });
+};
 const expandToWords = (text: string, first: number, last: number): readonly [number, number] =>
     words(text)
         .filter(({ start, end }) => start < last && first < end)

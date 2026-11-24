@@ -19,7 +19,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        ".": "./child-process.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -27,7 +27,7 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            ".": "./dist/child-process.js",
             "./package.json": "./package.json"
         },
         "access": "public"

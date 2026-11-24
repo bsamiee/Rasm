@@ -1,3 +1,4 @@
+import { Record } from 'effect';
 import type { Published } from '#/served';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -106,15 +107,8 @@ const aligned = () =>
 
 const scaled = () => {
     const measured = [...document.querySelectorAll<HTMLElement>('[aria-label="Harbour Library compositions"] .composition')].slice(0, 9).map((composition) => ({ scale: composition.dataset['scale'], align: composition.dataset['align'], width: composition.firstElementChild?.getBoundingClientRect().width ?? 0 }));
-    return Object.fromEntries(
-        ['left', 'center', 'right'].map((align) => [
-            align,
-            measured
-                .filter((composition) => composition.align === align)
-                .toSorted((narrow, wide) => narrow.width - wide.width)
-                .map(({ scale }) => scale),
-        ]),
-    );
+    const narrowing = measured.toSorted((narrow, wide) => narrow.width - wide.width);
+    return Object.fromEntries(['left', 'center', 'right'].map((align) => [align, narrowing.filter((composition) => composition.align === align).map(({ scale }) => scale)]));
 };
 
 const paired = () => {
@@ -133,15 +127,12 @@ const shown = () => {
     const viewport = carousel?.querySelector('fieldset')?.parentElement?.parentElement;
     viewport?.scrollIntoView({ block: 'center', behavior: 'instant' });
     const box = viewport?.getBoundingClientRect();
+    const middle = box === undefined ? null : document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
     return box === undefined
         ? null
         : {
               within: [...(carousel?.querySelectorAll('fieldset') ?? [])].filter((slide) => slide.getBoundingClientRect().right > box.left + 1 && slide.getBoundingClientRect().left < box.right - 1).map((slide) => slide.getAttribute('aria-label')),
-              centre:
-                  document
-                      .elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
-                      ?.closest('fieldset')
-                      ?.getAttribute('aria-label') ?? null,
+              centre: middle?.closest('fieldset')?.getAttribute('aria-label') ?? null,
               spill: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           };
 };
@@ -153,16 +144,13 @@ const advanced = () => {
     viewport?.scrollIntoView({ block: 'center', behavior: 'instant' });
     (selected() === '1 of 10' ? carousel?.querySelector<HTMLElement>('[aria-label="Next composition"]') : null)?.click();
     const box = viewport?.getBoundingClientRect();
+    const middle = box === undefined ? null : document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
     return box === undefined
         ? null
         : {
               selected: selected(),
               within: [...(carousel?.querySelectorAll('fieldset') ?? [])].filter((slide) => slide.getBoundingClientRect().right > box.left + 1 && slide.getBoundingClientRect().left < box.right - 1).map((slide) => slide.getAttribute('aria-label')),
-              centre:
-                  document
-                      .elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
-                      ?.closest('fieldset')
-                      ?.getAttribute('aria-label') ?? null,
+              centre: middle?.closest('fieldset')?.getAttribute('aria-label') ?? null,
               spill: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           };
 };
@@ -189,16 +177,13 @@ const listed = () => {
     list?.scrollTo({ top: list.scrollHeight, behavior: 'instant' });
     const last = [...(list?.querySelectorAll('[role="row"]') ?? [])].at(-1);
     const close = modal?.querySelector('[aria-label="Close overview"]')?.getBoundingClientRect();
+    const reached = close === undefined ? null : document.elementFromPoint(close.left + close.width / 2, close.top + close.height / 2);
     return list === null || list === undefined || close === undefined
         ? null
         : {
               scrolled: list.scrollTop > 0,
               last: last?.querySelector('.eyebrow')?.textContent ?? null,
-              close:
-                  document
-                      .elementFromPoint(close.left + close.width / 2, close.top + close.height / 2)
-                      ?.closest('button')
-                      ?.getAttribute('aria-label') ?? null,
+              close: reached?.closest('button')?.getAttribute('aria-label') ?? null,
               focused: list.contains(document.activeElement),
           };
 };
@@ -403,8 +388,8 @@ const drawn = {
     },
 } as const;
 
-const cases: readonly Case[] = (['visitor', 'owner'] as const).flatMap((viewer) => drawn[viewer].rows.map((row) => ({ ...row, viewer, path: drawn[viewer].path })));
+const cases: readonly Case[] = Record.toEntries(drawn).flatMap(([viewer, { path, rows }]) => rows.map((row) => ({ ...row, viewer, path })));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Case, cases, content };
+export { cases, content };

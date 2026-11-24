@@ -1,6 +1,6 @@
 import { SeverityNumber } from '@opentelemetry/api';
 import { ATTR_CODE_FUNCTION_NAME, ATTR_CODE_STACKTRACE, ATTR_EXCEPTION_MESSAGE, ATTR_EXCEPTION_STACKTRACE, ATTR_EXCEPTION_TYPE, ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import { Array, Cause, Config, Context, Effect, ErrorReporter, type Fiber, flow, Formatter, Iterable, Layer, Logger, LogLevel, Match, Metric, Option, Order, Predicate, Record, References, Schema, String, Struct, Tracer, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, ErrorReporter, type Fiber, Formatter, Iterable, Layer, Logger, LogLevel, Match, Metric, Option, Order, Predicate, Record, References, Schema, String, Struct, Tracer, UndefinedOr } from 'effect';
 import { Otlp, OtlpSerialization } from 'effect/observability';
 
 // --- [TABLES] --------------------------------------------------------------------------
@@ -31,10 +31,7 @@ const formatLogRecord = (resource?: Record.ReadonlyRecord<string, unknown>) =>
             severity_text: String.toUpperCase(logLevel),
             severity_number: severityNumber(logLevel),
             body: (Array.isReadonlyArrayNonEmpty(text) ? text : Array.map(errors, Struct.get('message'))).join(' '),
-            ...UndefinedOr.map(
-                Option.getOrElse(scope(fiber), () => resource?.[ATTR_SERVICE_NAME]),
-                (name) => ({ scope: name }),
-            ),
+            ...UndefinedOr.map(Option.getOrUndefined(scope(fiber)) ?? resource?.[ATTR_SERVICE_NAME], (name) => ({ scope: name })),
             ...UndefinedOr.map(Context.getOrUndefined(fiber.context, Tracer.ParentSpan), (span) => ({ trace_id: span.traceId, span_id: span.spanId, trace_flags: span.sampled ? '01' : '00' })),
             attributes: {
                 ...fiber.getRef(References.CurrentLogAnnotations),
@@ -49,39 +46,16 @@ const errorReporter = ErrorReporter.make(({ error, severity, attributes, fiber }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const layerWithoutDefaultLogger = Layer.effect(
-    Logger.CurrentLoggers,
-    Effect.map(Logger.CurrentLoggers, (loggers) => new Set(Iterable.filter(loggers, (logger) => logger !== Logger.defaultLogger))),
-);
+const layerWithoutDefaultLogger = Effect.map(Logger.CurrentLoggers, (loggers) => new Set(Iterable.filter(loggers, (logger) => logger !== Logger.defaultLogger))).pipe(Layer.effect(Logger.CurrentLoggers));
 const layerMinimumLogLevels = (minimum: LogLevel.LogLevel, scopes: Record.ReadonlyRecord<string, LogLevel.LogLevel>) => {
     const overrides = Array.sortWith(Record.toEntries(scopes), ([prefix]) => prefix.length, Order.flip(Order.Number));
     const floor = (fiber: Fiber.Fiber<unknown, unknown>) =>
-        Option.match(
-            Option.flatMap(scope(fiber), (name) => Array.findFirst(overrides, ([prefix]) => String.startsWith(prefix)(name))),
-            { onNone: () => minimum, onSome: ([, level]) => level },
+        scope(fiber).pipe(
+            Option.flatMap((name) => Array.findFirst(overrides, ([prefix, level]) => (name.startsWith(prefix) ? Option.some(level) : Option.none()))),
+            Option.getOrElse(() => minimum),
         );
-    return Layer.merge(
-        Layer.succeed(References.MinimumLogLevel, Array.min([minimum, ...Object.values(scopes)], LogLevel.Order)),
-        Array.isReadonlyArrayEmpty(overrides)
-            ? Layer.empty
-            : Layer.effect(
-                  Logger.CurrentLoggers,
-                  Effect.map(
-                      Logger.CurrentLoggers,
-                      (loggers) =>
-                          new Set(
-                              Iterable.map(loggers, (logger) =>
-                                  Logger.make(
-                                      flow(
-                                          Option.liftPredicate((entry: Logger.Options<unknown>) => LogLevel.isGreaterThanOrEqualTo(entry.logLevel, floor(entry.fiber))),
-                                          Option.map((entry): unknown => logger.log(entry)),
-                                      ),
-                                  ),
-                              ),
-                          ),
-                  ),
-              ),
-    );
+    const filtered = Effect.map(Logger.CurrentLoggers, (loggers) => new Set(Iterable.map(loggers, (logger) => Logger.make((entry: Logger.Options<unknown>): unknown => (LogLevel.isGreaterThanOrEqualTo(entry.logLevel, floor(entry.fiber)) ? logger.log(entry) : undefined)))));
+    return Layer.merge(Layer.succeed(References.MinimumLogLevel, Array.min([minimum, ...Object.values(scopes)], LogLevel.Order)), Array.isReadonlyArrayEmpty(overrides) ? Layer.empty : Layer.effect(Logger.CurrentLoggers, filtered));
 };
 const layerOtlp = (resource?: NonNullable<Parameters<typeof Otlp.layerFromConfig>[0]>['resource']) =>
     Effect.all([exporters, Config.Literals(Struct.keys(SERIALIZATIONS), 'OTEL_EXPORTER_OTLP_PROTOCOL').pipe(Config.withDefault('http/protobuf'))]).pipe(

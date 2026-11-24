@@ -64,10 +64,6 @@ const Baggage = Context.Reference('@rasm/telemetry/node/Baggage', { defaultValue
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const decoded =
-    <A>(codec: Schema.ConstraintCodec<A, unknown>) =>
-    (variable: string) =>
-        Config.schema(codec, variable);
 const interrupted = <A, E>(exit: Exit.Exit<A, E>) => Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause);
 const propagator = new CompositePropagator({ propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()] });
 const lineage: (span: Tracer.AnySpan) => Context.Context<never> = Match.valueTags({ ExternalSpan: Struct.get('annotations'), Span: (local) => Option.match(local.parent, { onNone: () => local.annotations, onSome: lineage }) });
@@ -96,171 +92,108 @@ const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger
     );
     return Logger.make((entry: Logger.Options<Message>) => {
         const line = `${self.log(entry)}\n`;
-        return Option.match(
-            Option.filter(MutableRef.get(opened), () => entry.logLevel === 'Fatal'),
-            { onNone: () => stream.write(line), onSome: (path) => appendFileSync(path, line) },
-        );
+        return Option.match(entry.logLevel === 'Fatal' ? MutableRef.get(opened) : Option.none(), { onNone: () => stream.write(line), onSome: (path) => appendFileSync(path, line) });
     });
 });
 const stderrWarnings = Logger.make((entry: Logger.Options<unknown>) => (LogLevel.isGreaterThanOrEqualTo(entry.logLevel, 'Warn') ? Logger.defaultLogger.log(entry) : undefined));
 const metricReader = Effect.gen(function* () {
     const { protocol, timing } = yield* metricReading;
-    const [{ OTLPMetricExporter }, { PeriodicExportingMetricReader }, producer] = yield* Effect.all([
-        metricExporters[protocol],
-        Effect.promise(() => import('@opentelemetry/sdk-metrics')),
-        Effect.flatMap(
-            Effect.promise(() => import('@effect/opentelemetry/OtelMetrics')),
-            ({ makeProducer }) => makeProducer(),
-        ),
-    ]);
-    return new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter(), metricProducers: [producer], ...Record.getSomes(timing) });
+    const { OTLPMetricExporter } = yield* metricExporters[protocol];
+    const { PeriodicExportingMetricReader } = yield* Effect.promise(() => import('@opentelemetry/sdk-metrics'));
+    const { makeProducer } = yield* Effect.promise(() => import('@effect/opentelemetry/OtelMetrics'));
+    return new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter(), metricProducers: [yield* makeProducer()], ...Record.getSomes(timing) });
 }).pipe(Effect.provide(layerEmpty));
 const started = Effect.fnUntraced(function* (named: Config.Success<typeof exporters>, resource: Parameters<typeof configToAttributes>[0], instrumentations?: Function.LazyArg<Instrumentation[]>) {
     const local = yield* Effect.context<never>();
-    const [{ startNodeSdk }, instrumented] = yield* Effect.all([
-        Effect.promise(() => import('@opentelemetry/sdk-node')),
-        UndefinedOr.match(instrumentations, {
-            onDefined: Effect.sync,
-            onUndefined: () =>
-                Effect.map(Effect.all([Effect.promise(() => import('@opentelemetry/instrumentation-runtime-node')), Effect.promise(() => import('@opentelemetry/instrumentation-host-metrics'))]), ([runtime, host]): Instrumentation[] => [new runtime.RuntimeNodeInstrumentation(), new host.HostMetricsInstrumentation()]),
-        }),
-    ]);
-    const diagnostics = Record.map(
-        DIAGNOSTICS,
-        (severity) =>
-            (message: string, ...details: unknown[]) =>
-                Effect.runSyncWith(local)(Effect.logWithLevel(severity)(message, ...details)),
-    );
+    const { startNodeSdk } = yield* Effect.promise(() => import('@opentelemetry/sdk-node'));
+    const instrumented = yield* UndefinedOr.match(instrumentations, {
+        onDefined: Effect.sync,
+        onUndefined: () =>
+            Effect.map(Effect.all([Effect.promise(() => import('@opentelemetry/instrumentation-runtime-node')), Effect.promise(() => import('@opentelemetry/instrumentation-host-metrics'))]), ([runtime, host]): Instrumentation[] => [new runtime.RuntimeNodeInstrumentation(), new host.HostMetricsInstrumentation()]),
+    });
+    const diagnostics = Record.map(DIAGNOSTICS, (severity) => flow(Effect.logWithLevel(severity), Effect.runSyncWith(local)<void, never>));
     const level = diagLogLevelFromString(getStringFromEnv('OTEL_LOG_LEVEL')) ?? DiagLogLevel.WARN;
     const metrics = yield* Match.value(named.metrics).pipe(
         Match.when(Array.isReadonlyArrayEmpty, () => Effect.succeed({ metricReaders: [] })),
         Match.when(Array.contains('otlp'), () => Effect.map(metricReader, (reader) => ({ metricReaders: [reader] }))),
         Match.orElse(() => Effect.succeed({})),
     );
-    return yield* Effect.acquireRelease(
-        Effect.sync(() =>
-            startNodeSdk({
-                logLevel: DiagLogLevel[Math.min(level, DiagLogLevel.WARN)],
-                resourceAttributes: configToAttributes(resource),
-                instrumentations: instrumented,
-                ...metrics,
-                ...(Array.isReadonlyArrayEmpty(named.traces) ? { spanProcessors: [] } : {}),
-                ...(Array.isReadonlyArrayEmpty(named.logs) ? { logRecordProcessors: [] } : {}),
-            }),
-        ).pipe(Effect.tap(() => Effect.sync(() => diag.setLogger(diagnostics, { logLevel: level, suppressOverrideMessage: true })))),
-        (sdk) => Effect.tryPromise({ try: () => sdk.shutdown(), catch: TelemetryError.of('Unavailable', 'OpenTelemetry SDK shutdown') }).pipe(Effect.ignore({ log: 'Warn' }), Effect.andThen(Effect.sync(() => diag.disable()))),
+    const options = {
+        logLevel: DiagLogLevel[Math.min(level, DiagLogLevel.WARN)],
+        resourceAttributes: configToAttributes(resource),
+        instrumentations: instrumented,
+        ...metrics,
+        ...(Array.isReadonlyArrayEmpty(named.traces) ? { spanProcessors: [] } : {}),
+        ...(Array.isReadonlyArrayEmpty(named.logs) ? { logRecordProcessors: [] } : {}),
+    };
+    return yield* Effect.acquireRelease(Effect.sync(() => startNodeSdk(options)).pipe(Effect.tap(() => Effect.sync(() => diag.setLogger(diagnostics, { logLevel: level, suppressOverrideMessage: true })))), (sdk) =>
+        Effect.tryPromise({ try: () => sdk.shutdown(), catch: TelemetryError.of('Unavailable', 'OpenTelemetry SDK shutdown') }).pipe(Effect.ignore({ log: 'Warn' }), Effect.andThen(Effect.sync(() => diag.disable()))),
     );
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const layerFromEnvironment = Layer.unwrap(
-    Effect.sync(() => {
-        const context = propagator.extract(ROOT_CONTEXT, undefined, new EnvironmentGetter());
-        return Layer.merge(UndefinedOr.match(trace.getSpanContext(context), { onUndefined: () => Layer.empty, onDefined: flow(makeExternalSpan, Layer.parentSpan) }), Layer.succeed(Baggage, propagation.getBaggage(context)));
-    }),
+const layerFromEnvironment = Effect.sync(() => propagator.extract(ROOT_CONTEXT, undefined, new EnvironmentGetter())).pipe(
+    Effect.map((context) => Layer.merge(UndefinedOr.match(trace.getSpanContext(context), { onUndefined: () => Layer.empty, onDefined: flow(makeExternalSpan, Layer.parentSpan) }), Layer.succeed(Baggage, propagation.getBaggage(context)))),
+    Layer.unwrap,
 );
 const layerNodeSdk = Effect.fnUntraced(function* (resource: Parameters<typeof started>[1], instrumentations?: Function.LazyArg<Instrumentation[]>) {
     const named = yield* exporters;
-    return Object.values(named).every(Array.isReadonlyArrayEmpty)
-        ? Layer.empty
-        : Layer.mergeAll(
-              Array.isReadonlyArrayEmpty(named.traces) ? Layer.empty : layerGlobal,
-              Array.isReadonlyArrayEmpty(named.metrics) ? Layer.empty : Metric.enableRuntimeMetricsLayer,
-              Layer.unwrap(
-                  Effect.map(Effect.all([Effect.promise(() => import('@opentelemetry/sdk-logs')), Effect.promise(() => import('@effect/opentelemetry/OtelLogger'))]), ([{ LoggerProvider }, { layer, OtelLoggerProvider }]) =>
-                      Option.match(Option.liftPredicate(logs.getLoggerProvider(), Schema.is(Schema.instanceOf(LoggerProvider))), { onNone: () => Layer.empty, onSome: (provider) => Layer.provide(layer({}), Layer.succeed(OtelLoggerProvider, provider)) }),
-                  ),
-              ),
-          ).pipe(Layer.provide(Layer.effectDiscard(started(named, resource, instrumentations))));
+    const logged = Effect.all([Effect.promise(() => import('@opentelemetry/sdk-logs')), Effect.promise(() => import('@effect/opentelemetry/OtelLogger'))]).pipe(
+        Effect.map(([{ LoggerProvider }, { layer, OtelLoggerProvider }]) => Option.match(Option.liftPredicate(logs.getLoggerProvider(), Schema.is(Schema.instanceOf(LoggerProvider))), { onNone: () => Layer.empty, onSome: (provider) => Layer.provide(layer({}), Layer.succeed(OtelLoggerProvider, provider)) })),
+        Layer.unwrap,
+    );
+    const bridged = Layer.mergeAll(Array.isReadonlyArrayEmpty(named.traces) ? Layer.empty : layerGlobal, Array.isReadonlyArrayEmpty(named.metrics) ? Layer.empty : Metric.enableRuntimeMetricsLayer, logged);
+    return Object.values(named).every(Array.isReadonlyArrayEmpty) ? Layer.empty : Layer.provide(bridged, Layer.effectDiscard(started(named, resource, instrumentations)));
 }, Layer.unwrap);
-const layerUncaughtExceptionMonitor = Layer.effectDiscard(
-    Effect.gen(function* () {
-        const services = yield* Effect.context<never>();
-        const crashed = (...[error, origin]: ProcessEventMap['uncaughtExceptionMonitor']) => Effect.runSyncWith(services)(Effect.annotateLogs(Effect.logFatal(Cause.die(error)), { origin }));
-        yield* Effect.acquireRelease(
-            Effect.sync(() => process.on('uncaughtExceptionMonitor', crashed)),
-            () => Effect.sync(() => process.removeListener('uncaughtExceptionMonitor', crashed)),
-        );
-    }),
-);
-const layerErrorReported = Layer.effectDiscard(
-    Effect.addFinalizer((exit) =>
-        Exit.isFailure(exit) && !interrupted(exit)
-            ? Effect.andThen(
-                  Effect.logError(exit.cause),
-                  Effect.sync(() => Option.map(Option.liftPredicate(Cause.squash(exit.cause), Predicate.isObject), (error) => Object.assign(error, { [Runtime.errorReported]: false }))),
-              )
-            : Effect.void,
-    ),
-);
+const layerUncaughtExceptionMonitor = Effect.gen(function* () {
+    const services = yield* Effect.context<never>();
+    const crashed = (...[error, origin]: ProcessEventMap['uncaughtExceptionMonitor']) => Effect.runSyncWith(services)(Effect.annotateLogs(Effect.logFatal(Cause.die(error)), { origin }));
+    yield* Effect.acquireRelease(
+        Effect.sync(() => process.on('uncaughtExceptionMonitor', crashed)),
+        () => Effect.sync(() => process.removeListener('uncaughtExceptionMonitor', crashed)),
+    );
+}).pipe(Layer.effectDiscard);
+const layerErrorReported = Effect.addFinalizer((exit) =>
+    Exit.isFailure(exit) && !interrupted(exit) ? Effect.logError(exit.cause).pipe(Effect.andThen(Effect.sync(() => Option.map(Option.liftPredicate(Cause.squash(exit.cause), Predicate.isObject), (error) => Object.assign(error, { [Runtime.errorReported]: false }))))) : Effect.void,
+).pipe(Layer.effectDiscard);
 const layerNode = ({ resource, file, instrumentations }: { readonly resource: Parameters<typeof layerNodeSdk>[0]; readonly file?: readonly [filename: string, options: OptionsWithoutRotate<Interval, FileSize, FileSize>]; readonly instrumentations?: Function.LazyArg<Instrumentation[]> }) => {
     const json = Logger.map(formatLogRecord({ [ATTR_SERVICE_NAME]: resource.serviceName, [ATTR_SERVICE_VERSION]: resource.serviceVersion, [ATTR_PROCESS_PID]: process.pid }), Formatter.formatJson);
     return Layer.merge(layerUncaughtExceptionMonitor, layerErrorReported).pipe(
         Layer.provideMerge(layerNodeSdk(resource, instrumentations)),
-        Layer.provideMerge(
-            Layer.mergeAll(
-                Logger.layer(file === undefined ? [Logger.withConsoleError(json)] : [toRotatingFile(json, ...file), stderrWarnings], { mergeWithExisting: true }).pipe(Layer.provide(layerWithoutDefaultLogger)),
-                ErrorReporter.layer([errorReporter], { mergeWithExisting: true }),
-                Layer.succeed(Logger.LogToStderr, true),
-                layerFromEnvironment,
-            ),
-        ),
+        Layer.provideMerge([
+            Logger.layer(file === undefined ? [Logger.withConsoleError(json)] : [toRotatingFile(json, ...file), stderrWarnings], { mergeWithExisting: true }).pipe(Layer.provide(layerWithoutDefaultLogger)),
+            ErrorReporter.layer([errorReporter], { mergeWithExisting: true }),
+            Layer.succeed(Logger.LogToStderr, true),
+            layerFromEnvironment,
+        ]),
     );
 };
-const layerNodeFromConfig = Effect.fnUntraced(function* ({
-    resource,
-    target,
-    level,
-    file: log = join(envPaths(resource.serviceName, { suffix: '' }).log, `${resource.serviceName}.log`),
-}: {
-    readonly resource: Parameters<typeof layerNode>[0]['resource'];
-    readonly target: 'file' | 'stderr';
-    readonly level?: LogLevel.LogLevel;
-    readonly file?: string;
-}) {
-    const refused = yield* Ref.make<readonly (readonly [setting: { readonly variable: string; readonly value: string }, error: Config.ConfigError])[]>([]);
+const layerNodeFromConfig = Effect.fnUntraced(function* ({ resource, target, level, file }: { readonly resource: Parameters<typeof layerNode>[0]['resource']; readonly target: typeof Target.Type; readonly level?: LogLevel.LogLevel; readonly file?: string }) {
+    const refused = yield* Ref.make<readonly (readonly [variable: string, error: Config.ConfigError])[]>([]);
     const prefix = String.constantCase(resource.serviceName);
-    const read = <A>(variable: string, config: (variable: string) => Config.Config<A>) =>
-        Effect.catch(
-            Config.nested(Config.option(config(variable)), prefix),
-            Effect.fnUntraced(function* (error) {
-                const value = yield* Config.nested(Config.String(variable), prefix);
-                yield* Ref.update(refused, Array.append([{ variable: `${prefix}_${variable}`, value }, error] as const));
-                return Option.none<A>();
-            }),
-        );
+    const read = <A>(variable: string, config: Config.Config<A>) => Effect.catch(config.pipe(Config.option, Config.nested(variable), Config.nested(prefix)), (error) => Effect.as(Ref.update(refused, Array.append([variable, error] as const)), Option.none<A>()));
     const stated = yield* Effect.all({
-        level: read('LOG_LEVEL', decoded(Level)),
-        filter: read('LOG_FILTER', (variable) => Config.Record(Schema.String, Level, variable, { trim: true })),
-        target: read('LOG_TARGET', decoded(Target)),
-        size: read('LOG_SIZE', decoded(Rotation.fields.size)),
-        interval: read('LOG_AGE', decoded(Rotation.fields.interval)),
-        maxFiles: read('LOG_FILES', decoded(Rotation.fields.maxFiles)),
+        level: read('LOG_LEVEL', Config.schema(Level)),
+        filter: read('LOG_FILTER', Config.Record(Schema.String, Level, { trim: true })),
+        target: read('LOG_TARGET', Config.schema(Target)),
+        size: read('LOG_SIZE', Config.schema(Rotation.fields.size)),
+        interval: read('LOG_AGE', Config.schema(Rotation.fields.interval)),
+        maxFiles: read('LOG_FILES', Config.schema(Rotation.fields.maxFiles)),
     });
     const rotation = {
         ...Option.getOrUndefined(Option.map(stated.size, (size) => ({ size }))),
         ...Option.getOrUndefined(Option.map(stated.interval, (interval) => ({ interval }))),
         ...Option.getOrUndefined(Option.map(stated.maxFiles, (maxFiles) => ({ maxFiles }))),
     };
-    const file = [basename(log), { path: dirname(log), ...rotation }] as const;
-    const minimum = Option.getOrElse(
-        Option.orElse(Option.fromUndefinedOr(level), () => stated.level),
-        () => 'Info' as const,
-    );
+    const log = file ?? join(envPaths(resource.serviceName, { suffix: '' }).log, `${resource.serviceName}.log`);
+    const rotated = [basename(log), { path: dirname(log), ...rotation }] as const;
     return Ref.get(refused).pipe(
-        Effect.flatMap(Effect.forEach(([setting, error]) => Effect.annotateLogs(Effect.logWarning('Setting refused, default stands', Cause.fail(error)), setting), { discard: true })),
+        Effect.flatMap(Effect.forEach(([variable, error]) => Effect.flatMap(Config.nested(Config.String(variable), prefix), (value) => Effect.annotateLogs(Effect.logWarning('Setting refused, default stands', Cause.fail(error)), { variable: `${prefix}_${variable}`, value })), { discard: true })),
         Effect.andThen(Effect.addFinalizer((exit) => (interrupted(exit) ? Effect.logInfo('Process interrupted') : Effect.void))),
         Layer.effectDiscard,
-        Layer.provideMerge(
-            Layer.provideMerge(
-                layerMinimumLogLevels(
-                    minimum,
-                    Option.getOrElse(stated.filter, () => ({})),
-                ),
-                layerNode({ resource, ...(Option.getOrElse(stated.target, () => target) === 'stderr' ? {} : { file }) }),
-            ),
-        ),
+        Layer.provideMerge(layerMinimumLogLevels(level ?? Option.getOrElse(stated.level, () => 'Info' as const), Option.getOrElse(stated.filter, Record.empty<string, LogLevel.LogLevel>))),
+        Layer.provideMerge(layerNode({ resource, ...(Option.getOrElse(stated.target, () => target) === 'stderr' ? {} : { file: rotated }) })),
     );
 }, Layer.unwrap);
 const teardown: Runtime.Teardown = (exit, onExit) => (interrupted(exit) ? onExit(0) : Runtime.defaultTeardown(exit, onExit));

@@ -1,4 +1,4 @@
-import { Array, Effect, Function, Number, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { Array, Effect, Function, Number, Option, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Buffer, BufferFlag, ClusterLevel, Direction, Feature, GlyphClass, GlyphFlag, otTagToLanguage, otTagToScript, shape } from 'harfbuzzjs';
 import { Settings, Tag } from '#/settings';
 import type { Face } from '#/shaping/face';
@@ -46,12 +46,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
     });
     static readonly enclosing = (boxes: readonly Record.ReadonlyRecord<'minX' | 'minY' | 'maxX' | 'maxY', number>[]) =>
-        Option.map(Option.liftPredicate(boxes, Array.isReadonlyArrayNonEmpty), (enclosed) => ({
-            minX: Math.min(...enclosed.map(Struct.get('minX'))),
-            minY: Math.min(...enclosed.map(Struct.get('minY'))),
-            maxX: Math.max(...enclosed.map(Struct.get('maxX'))),
-            maxY: Math.max(...enclosed.map(Struct.get('maxY'))),
-        }));
+        Option.map(Option.liftPredicate(boxes, Array.isReadonlyArrayNonEmpty), (enclosed) => enclosed.reduce((box, each) => ({ minX: Math.min(box.minX, each.minX), minY: Math.min(box.minY, each.minY), maxX: Math.max(box.maxX, each.maxX), maxY: Math.max(box.maxY, each.maxY) })));
     static readonly converted = (run: typeof ShapedText.Run.Type, settings: Settings) => {
         const offset = (at: number) => (at > run.text.length ? at : settings.digits(run.text.slice(0, at)).length);
         return {
@@ -85,11 +80,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
             class: Array.getUnsafe(GlyphClasses.literals, font.face.getGlyphClass(codepoint)),
             flags: GlyphFlags.literals.filter((flag) => (glyphFlags & GlyphFlag[flag]) !== 0),
         }));
-        const bases = Array.sortWith(
-            shaped.filter((glyph) => glyph.class !== 'MARK'),
-            Struct.get('cluster'),
-            Order.flip(Order.Number),
-        );
+        const bases = shaped.filter((glyph) => glyph.class !== 'MARK').toSorted((left, right) => right.cluster - left.cluster);
         const center = ({ yOffset, extents }: Pick<ShapedText['glyphs'][number], 'yOffset' | 'extents'>) => Option.map(extents, ({ yBearing, height }) => yOffset + yBearing + height / 2);
         return ShapedText.make({
             text,
@@ -98,20 +89,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
                     ? {
                           ...glyph,
                           xOffset: glyph.xOffset + settings.marks.x,
-                          yOffset:
-                              glyph.yOffset +
-                              (Option.exists(
-                                  Option.all([
-                                      center(glyph),
-                                      Option.flatMap(
-                                          Array.findFirst(bases, ({ cluster }) => cluster <= glyph.cluster),
-                                          center,
-                                      ),
-                                  ]),
-                                  ([own, base]) => own < base,
-                              )
-                                  ? -settings.marks.y
-                                  : settings.marks.y),
+                          yOffset: glyph.yOffset + (Option.exists(Option.all([center(glyph), Array.findFirst(bases, ({ cluster }) => cluster <= glyph.cluster).pipe(Option.flatMap(center))]), ([own, base]) => own < base) ? -settings.marks.y : settings.marks.y),
                       }
                     : glyph,
             ),
@@ -123,16 +101,14 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
         return Math.hypot(Math.sumPrecise(this.glyphs.map(Struct.get('xAdvance'))), Math.sumPrecise(this.glyphs.map(Struct.get('yAdvance'))));
     }
     get extents() {
-        const [, boxes] = Array.mapAccum(this.glyphs, { x: 0, y: 0 }, (pen, { xAdvance, yAdvance, xOffset, yOffset, extents }) => [
-            { x: pen.x + xAdvance, y: pen.y + yAdvance },
-            Option.map(
-                Option.filter(extents, ({ width, height }) => width !== 0 || height !== 0),
-                ({ xBearing, yBearing, width, height }) => {
-                    const [left, top] = [pen.x + xOffset + xBearing, pen.y + yOffset + yBearing];
-                    return { minX: Math.min(left, left + width), minY: top + height, maxX: Math.max(left, left + width), maxY: top };
-                },
-            ),
-        ]);
+        const [, boxes] = Array.mapAccum(this.glyphs, { x: 0, y: 0 }, (pen, { xAdvance, yAdvance, xOffset, yOffset, extents }) => {
+            const inked = Option.filter(extents, ({ width, height }) => width !== 0 || height !== 0);
+            const box = Option.map(inked, ({ xBearing, yBearing, width, height }) => {
+                const [left, top] = [pen.x + xOffset + xBearing, pen.y + yOffset + yBearing];
+                return { minX: Math.min(left, left + width), minY: top + height, maxX: Math.max(left, left + width), maxY: top };
+            });
+            return [{ x: pen.x + xAdvance, y: pen.y + yAdvance }, box];
+        });
         return ShapedText.enclosing(Array.getSomes(boxes));
     }
 

@@ -49,16 +49,15 @@ class Identity extends Context.Service<Identity, Effect.Effect<Option.Option<Use
     static readonly back = Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
         const [url, returned] = yield* Effect.all([Effect.orDie(Effect.fromOption(HttpServerRequest.toURL(request))), Effect.option(HttpServerRequest.schemaSearchParams(ReturnTo))]);
-        return HttpServerResponse.redirect(
-            returned.pipe(
-                Option.flatMap(({ return_to }) => Option.fromNullOr(URL.parse(return_to, url.origin))),
-                Option.filter(({ origin }) => origin === url.origin),
-                Option.getOrElse(() => new URL('/', url.origin)),
-            ),
+        const target = returned.pipe(
+            Option.flatMapNullishOr(({ return_to }) => URL.parse(return_to, url.origin)),
+            Option.filter(({ origin }) => origin === url.origin),
+            Option.getOrElse(() => new URL('/', url.origin)),
         );
+        return HttpServerResponse.redirect(target);
     });
     static readonly readers = {
-        Cloudflare: ({ teamDomain, audience }: Extract<Access['source'], { readonly _tag: 'Cloudflare' }>) =>
+        Cloudflare: ({ teamDomain, audience }: typeof Access.fields.source.cases.Cloudflare.Type) =>
             Effect.map(
                 Layer.build(
                     Layer.mergeAll(Jwks.layerRemote({ url: new URL(Access.cloudflare.certs, teamDomain).href }).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { redirect: 'manual' }))), Signature.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto))),
@@ -70,7 +69,7 @@ class Identity extends Context.Service<Identity, Effect.Effect<Option.Option<Use
                         Effect.provideContext(keys),
                     ),
             ),
-        Forwarded: (names: Extract<Access['source'], { readonly _tag: 'Forwarded' }>) => Effect.succeed((request: HttpServerRequest.HttpServerRequest) => Schema.decodeEffect(User.pipe(Schema.encodeKeys(Struct.pick(names, ['id', 'email']))))(request.headers)),
+        Forwarded: (names: typeof Access.fields.source.cases.Forwarded.Type) => Effect.succeed((request: HttpServerRequest.HttpServerRequest) => Schema.decodeEffect(User.pipe(Schema.encodeKeys(Struct.pick(names, ['id', 'email']))))(request.headers)),
     };
     static readonly source = Effect.map(
         Config.option(Config.schema(Access.json, Access.variable)),

@@ -194,15 +194,7 @@ const complete = HttpApiBuilder.handler(
     Effect.fn('complete')(
         function* ({ params: { id, attempt } }) {
             const expected = (yield* declared({ key: null, attempt })).filter(({ assetId }) => assetId === id);
-            const held = yield* Effect.forEach(
-                expected,
-                (object) =>
-                    Effect.map(
-                        ObjectStorage.use((storage) => storage.stat(object.key)),
-                        (stat) => ({ object, stat }),
-                    ),
-                { concurrency: 'unbounded' },
-            );
+            const held = yield* Effect.forEach(expected, (object) => ObjectStorage.use((storage) => storage.stat(object.key)).pipe(Effect.map((stat) => ({ object, stat }))), { concurrency: 'unbounded' });
             const missing = held.filter(({ stat }) => Option.isNone(stat)).map(({ object }) => object.key);
             yield* Array.isReadonlyArrayNonEmpty(missing) ? UploadRefused.make({ reason: { _tag: 'Missing', keys: missing } }) : Effect.void;
             const differing = held.find(({ object, stat }) => Option.exists(stat, ({ size, mime }) => ByteSize.toNumberUnsafe(size) !== object.size || mime !== object.mime));
@@ -218,9 +210,7 @@ const read = HttpApiBuilder.handler(
     'read',
     Effect.fn('read')(function* ({ params }) {
         const { objectKey, mime, name, published } = yield* readAsset(params);
-        if (!published) {
-            yield* Effect.catchTag(OwnerAccount.authorize, 'Forbidden', () => HttpApiError.NotFound.make());
-        }
+        yield* published ? Effect.void : Effect.catchTag(OwnerAccount.authorize, 'Forbidden', () => HttpApiError.NotFound.make());
         return yield* ObjectStorage.serve({ key: objectKey, mime, ...Record.getSomes({ filename: name }), ...(published && { cacheControl: `private, max-age=${Duration.toSeconds(Duration.days(1))}` }) }, { disposition: 'inline', securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }) });
     }),
 );

@@ -50,11 +50,7 @@ const Messages = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Struc
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const routed = (plugin: string, projectName: string) =>
-    Option.map(
-        Array.findFirst(readNxJsonFromDisk().plugins ?? [], (row) => Option.filter(Schema.decodeUnknownOption(Routed)(row), (decoded) => decoded.plugin === plugin)),
-        ({ options }) => join(workspaceRoot, interpolate(options.outputPath, { projectName })),
-    );
+const routed = (plugin: string, projectName: string) => Array.findFirst(readNxJsonFromDisk().plugins ?? [], (row) => Option.filter(Schema.decodeUnknownOption(Routed)(row), (decoded) => decoded.plugin === plugin)).pipe(Option.map(({ options }) => join(workspaceRoot, interpolate(options.outputPath, { projectName }))));
 
 const focused = (windowId: number) => browser.tabs.query({ active: true, windowId }).then(([tab]) => tab?.id ?? browser.tabs.TAB_ID_NONE);
 
@@ -87,24 +83,13 @@ const attached = Effect.fnUntraced(function* (context: BrowserContext) {
     );
     const id = new URL(worker.url()).host;
     const browser = yield* Effect.flatMap(Effect.fromNullishOr(context.browser()), (held) => Effect.promise(() => held.newBrowserCDPSession()));
-    const targets = (type: 'tab' | 'service_worker') =>
-        Effect.map(
-            Effect.promise(() => browser.send('Target.getTargets', { filter: [{ type }] })),
-            ({ targetInfos }) => targetInfos,
-        );
-    const inspected = (page: Page) =>
-        Effect.tap(
-            Effect.promise(() => context.newCDPSession(page)),
-            (session) => Effect.promise(() => session.send('ServiceWorker.enable')),
-        );
+    const targets = (type: 'tab' | 'service_worker') => Effect.promise(() => browser.send('Target.getTargets', { filter: [{ type }] })).pipe(Effect.map(({ targetInfos }) => targetInfos));
+    const inspected = (page: Page) => Effect.promise(() => context.newCDPSession(page)).pipe(Effect.tap((session) => Effect.promise(() => session.send('ServiceWorker.enable'))));
     const tabbed = Effect.fnUntraced(function* (page: Page) {
         const session = yield* inspected(page);
         const { targetInfo } = yield* Effect.promise(() => session.send('Target.getTargetInfo'));
         const tabs = Array.filter(yield* targets('tab'), ({ url }) => url === targetInfo.url);
-        return yield* Effect.fromOption(
-            Option.filter(Array.head(tabs), () => tabs.length === 1),
-            () => new Cause.UnknownError(tabs, `${targetInfo.url} names ${tabs.length} tabs, and the extension reads and acts on the one tab a page URL names`),
-        );
+        return yield* Option.filter(Array.head(tabs), () => tabs.length === 1).pipe(Effect.fromOption(() => new Cause.UnknownError(tabs, `${targetInfo.url} names ${tabs.length} tabs, and the extension reads and acts on the one tab a page URL names`)));
     });
     const act = Effect.fnUntraced(function* (page: Page) {
         const { targetId } = yield* tabbed(page);
@@ -131,10 +116,7 @@ const attached = Effect.fnUntraced(function* (context: BrowserContext) {
             worlds.push({ contextId, origin });
         });
         yield* Effect.promise(() => session.send('Runtime.enable'));
-        const { contextId } = yield* Effect.fromOption(
-            Array.findLast(worlds, ({ origin }) => origin === `chrome-extension://${id}`),
-            () => new Cause.UnknownError(worlds, `${page.url()} holds no isolated world of ${id}, which the extension's first script injection into the page creates`),
-        );
+        const { contextId } = yield* Array.findLast(worlds, ({ origin }) => origin === `chrome-extension://${id}`).pipe(Effect.fromOption(() => new Cause.UnknownError(worlds, `${page.url()} holds no isolated world of ${id}, which the extension's first script injection into the page creates`)));
         const { result, exceptionDetails } = yield* Effect.promise(() => session.send('Runtime.evaluate', { contextId, expression, returnByValue: true, awaitPromise: true }));
         return yield* UndefinedOr.match(exceptionDetails, { onUndefined: () => Effect.succeed<unknown>(result.value), onDefined: (thrown) => Effect.fail(new Cause.UnknownError(thrown, `${expression} throws in the isolated world of ${id}: ${thrown.text}`)) });
     });
@@ -161,11 +143,7 @@ const moving = (element: Element) => element.getAnimations({ subtree: true }).fi
 
 const paused = (element: Element) => element.getAnimations({ subtree: true }).forEach((animation) => animation.pause());
 
-const still = (page: Page) => (role: Parameters<Page['getByRole']>[0]) =>
-    Effect.andThen(
-        Effect.promise(() => expect.poll(() => page.getByRole(role).evaluate(moving)).toBe(0)),
-        Effect.promise(() => page.getByRole(role).evaluate(paused)),
-    );
+const still = (page: Page) => (role: Parameters<Page['getByRole']>[0]) => Effect.promise(() => expect.poll(() => page.getByRole(role).evaluate(moving)).toBe(0)).pipe(Effect.andThen(Effect.promise(() => page.getByRole(role).evaluate(paused))));
 
 const themed = (mark: string) => {
     const image = Object.assign(new Image(), { src: mark });
@@ -186,17 +164,11 @@ const scene = Effect.fnUntraced(function* ({ name, url, body, colorScheme, shows
             .route(at, (route) => route.fulfill({ contentType: 'text/html', body: html }))
             .then(() => page.goto(at))
             .then(Function.constVoid);
+    yield* Effect.promise(() => files(context));
     yield* Effect.promise(() => page.setViewportSize({ width: SCREENSHOT.width / deviceScaleFactor, height: SCREENSHOT.height / deviceScaleFactor }));
     yield* Effect.promise(() => page.emulateMedia(colorScheme === undefined ? {} : { colorScheme }));
     yield* Effect.promise(() => (body === undefined ? page.goto(url).then(Function.constVoid) : open(url, body)));
-    yield* UndefinedOr.match(shows, {
-        onUndefined: () => Effect.void,
-        onDefined: (role) =>
-            Effect.andThen(
-                Effect.promise(() => extension.act(page)),
-                Effect.promise(() => expect(page.getByRole(role)).toBeVisible()),
-            ),
-    });
+    yield* UndefinedOr.match(shows, { onUndefined: () => Effect.void, onDefined: (role) => Effect.promise(() => extension.act(page)).pipe(Effect.andThen(Effect.promise(() => expect(page.getByRole(role)).toBeVisible()))) });
     yield* UndefinedOr.match(after, { onUndefined: () => Effect.void, onDefined: (step) => Effect.promise(() => step({ page, extension, open })) });
     yield* UndefinedOr.match(shows, { onUndefined: () => Effect.void, onDefined: still(page) });
     yield* Effect.promise(() => page.waitForFunction(rendered));
@@ -204,11 +176,9 @@ const scene = Effect.fnUntraced(function* ({ name, url, body, colorScheme, shows
 });
 
 const tile = Effect.fnUntraced(function* ({ name, width, height, axis, gap, mark, type }: (typeof TILES)[number], { context, built, deviceScaleFactor }: { readonly context: BrowserContext; readonly built: { readonly folder: string; readonly root: string }; readonly deviceScaleFactor: number }, info: TestInfo) {
+    yield* Effect.promise(() => files(context));
     const brand = yield* branded(built);
-    const page = yield* Effect.acquireRelease(
-        Effect.promise(() => context.newPage()),
-        (held) => Effect.promise(() => held.close()),
-    );
+    const page = yield* Effect.acquireDisposable(Effect.promise(() => context.newPage()));
     yield* Effect.promise(() => page.setViewportSize({ width: width / deviceScaleFactor, height: height / deviceScaleFactor }));
     yield* Effect.promise(() =>
         page.setContent(
@@ -262,10 +232,7 @@ const loaded = test.extend<{ readonly extension: Extension }, { readonly built: 
                 const targets = nodes.flatMap((node) => Array.map(Record.keys(node.data.targets ?? {}), (target) => [node, target] as const));
                 const outputs = targets.flatMap(([node, target]) => getOutputsForTargetAndConfiguration({ project: node.name, target }, {}, node).map((at) => ({ folder: join(workspaceRoot, at), root: join(workspaceRoot, node.data.root) })));
                 const builds = Array.dedupeWith(outputs, (one, other) => one.folder === other.folder).filter(({ folder }) => Option.isSome(Option.flatMap(Option.liftPredicate(join(folder, 'manifest.json'), existsSync), (file) => Schema.decodeOption(Unpacked)(readFileSync(file, 'utf-8')))));
-                const built = yield* Effect.fromOption(
-                    Option.filter(Array.head(builds), () => builds.length === 1),
-                    () => new Cause.UnknownError(builds, `${name} depends on ${builds.length} projects whose builds write an unpacked Manifest V3 extension, and a suite loads exactly one`),
-                );
+                const built = yield* Option.filter(Array.head(builds), () => builds.length === 1).pipe(Effect.fromOption(() => new Cause.UnknownError(builds, `${name} depends on ${builds.length} projects whose builds write an unpacked Manifest V3 extension, and a suite loads exactly one`)));
                 yield* Effect.promise(() => use(built));
             }).pipe(Effect.runPromise),
         { scope: 'worker' },
@@ -274,20 +241,9 @@ const loaded = test.extend<{ readonly extension: Extension }, { readonly built: 
         ({ headless, launchOptions }, use, { project }) =>
             Effect.gen(function* () {
                 const { viewport, deviceScaleFactor, colorScheme, locale, timezoneId, contextOptions } = project.use;
-                const context = yield* Effect.acquireRelease(
-                    Effect.promise(() =>
-                        chromium.launchPersistentContext('', {
-                            ...launchOptions,
-                            ...Record.filter({ viewport, deviceScaleFactor, colorScheme, locale, timezoneId }, Predicate.isNotUndefined),
-                            ...contextOptions,
-                            headless,
-                            channel: 'chromium',
-                            ignoreDefaultArgs: ['--disable-extensions'],
-                            args: [...(launchOptions.args ?? []), '--enable-unsafe-extension-debugging'],
-                        }),
-                    ),
-                    (held) => Effect.promise(() => held.close()),
-                );
+                const stated = Record.filter({ viewport, deviceScaleFactor, colorScheme, locale, timezoneId }, Predicate.isNotUndefined);
+                const args = [...(launchOptions.args ?? []), '--enable-unsafe-extension-debugging'];
+                const context = yield* Effect.acquireDisposable(Effect.promise(() => chromium.launchPersistentContext('', { ...launchOptions, ...stated, ...contextOptions, headless, channel: 'chromium', ignoreDefaultArgs: ['--disable-extensions'], args })));
                 yield* Effect.promise(() => use(context));
             }).pipe(Effect.scoped, Effect.runPromise),
         { scope: 'worker' },
@@ -311,31 +267,10 @@ const loaded = test.extend<{ readonly extension: Extension }, { readonly built: 
 });
 
 const media = (scenes: Array.NonEmptyReadonlyArray<Scene>) => {
-    scenes.forEach((row, index) =>
-        loaded(`captures screenshot ${index + 1}, ${row.name}, at ${row.url}`, ({ page, context, extension, deviceScaleFactor }, info) =>
-            Effect.runPromise(
-                Effect.andThen(
-                    Effect.promise(() => files(context)),
-                    scene(row, index, { page, context, extension, deviceScaleFactor: deviceScaleFactor ?? 1 }, info),
-                ),
-            ),
-        ),
-    );
-    TILES.forEach((row) =>
-        loaded(`draws the ${row.width}x${row.height} ${row.name} from the icon and name of the built manifest`, ({ context, built, deviceScaleFactor }, info) =>
-            Effect.runPromise(
-                Effect.provide(
-                    Effect.andThen(
-                        Effect.promise(() => files(context)),
-                        tile(row, { context, built, deviceScaleFactor: deviceScaleFactor ?? 1 }, info),
-                    ),
-                    layer,
-                ),
-            ),
-        ),
-    );
+    scenes.forEach((row, index) => loaded(`captures screenshot ${index + 1}, ${row.name}, at ${row.url}`, ({ page, context, extension, deviceScaleFactor }, info) => Effect.runPromise(scene(row, index, { page, context, extension, deviceScaleFactor: deviceScaleFactor ?? 1 }, info))));
+    TILES.forEach((row) => loaded(`draws the ${row.width}x${row.height} ${row.name} from the icon and name of the built manifest`, ({ context, built, deviceScaleFactor }, info) => tile(row, { context, built, deviceScaleFactor: deviceScaleFactor ?? 1 }, info).pipe(Effect.provide(layer), Effect.runPromise)));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { config, type Extension, hosted, it, loaded, media, resource, routed, type Scene };
+export { config, type Extension, hosted, it, loaded, media, resource, routed };

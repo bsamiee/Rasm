@@ -29,7 +29,6 @@ import {
     Path,
     PlatformError,
     Predicate,
-    pipe,
     Queue,
     Record,
     Result,
@@ -108,27 +107,25 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             Path.layer,
             Socket.layerWebSocketConstructorGlobal,
         );
-    static readonly thrown = Effect.map(
-        Effect.acquireRelease(
-            Effect.sync(() => {
-                const prepare: unknown = Reflect.get(Error, 'prepareStackTrace');
-                const lines = new WeakMap<object, number>();
-                Error.prepareStackTrace = (error, frames) => {
-                    const [line] = frames.filter((frame) => frame.getScriptNameOrSourceURL() === UxpManifest.body).flatMap((frame) => frame.getLineNumber() ?? []);
-                    if (line !== undefined) {
-                        lines.set(error, line);
-                    }
-                    return Schema.is(Callable)(prepare) ? prepare(error, frames) : [String(error), ...frames.map((frame) => `    at ${frame.getFunctionName() ?? '<anonymous>'} (${frame.getScriptNameOrSourceURL()}:${frame.getLineNumber()}:${frame.getColumnNumber()})`)].join('\n');
-                };
-                return { prepare, lines };
-            }),
-            ({ prepare }) => Effect.sync(() => Reflect.set(Error, 'prepareStackTrace', prepare)),
-        ),
-        ({ lines }) =>
-            (cause: unknown): HostError => {
-                const line = Predicate.hasProperty(cause, 'stack') && Predicate.isString(cause.stack) ? Option.fromUndefinedOr(lines.get(cause)) : Option.none();
-                return HostError.thrown(Inspectable.toStringUnknown(Option.match(Schema.decodeUnknownOption(Thrown)(cause), { onNone: () => cause, onSome: Struct.get('message') }), 0), line)(cause);
-            },
+    static readonly thrown = Effect.acquireRelease(
+        Effect.sync(() => {
+            const prepare: unknown = Reflect.get(Error, 'prepareStackTrace');
+            const lines = new WeakMap<object, number>();
+            Error.prepareStackTrace = (error, frames) => {
+                const [line] = frames.filter((frame) => frame.getScriptNameOrSourceURL() === UxpManifest.body).flatMap((frame) => frame.getLineNumber() ?? []);
+                if (line !== undefined) {
+                    lines.set(error, line);
+                }
+                return Schema.is(Callable)(prepare) ? prepare(error, frames) : [String(error), ...frames.map((frame) => `    at ${frame.getFunctionName() ?? '<anonymous>'} (${frame.getScriptNameOrSourceURL()}:${frame.getLineNumber()}:${frame.getColumnNumber()})`)].join('\n');
+            };
+            return { prepare, lines };
+        }),
+        ({ prepare }) => Effect.sync(() => Reflect.set(Error, 'prepareStackTrace', prepare)),
+    ).pipe(
+        Effect.map(({ lines }) => (cause: unknown): HostError => {
+            const line = Predicate.hasProperty(cause, 'stack') && Predicate.isString(cause.stack) ? Option.fromUndefinedOr(lines.get(cause)) : Option.none();
+            return HostError.thrown(Inspectable.toStringUnknown(Option.match(Schema.decodeUnknownOption(Thrown)(cause), { onNone: () => cause, onSome: Struct.get('message') }), 0), line)(cause);
+        }),
     );
     static readonly required = (module: string) => {
         const refused = HostError.refused(`require('${module}')`);
@@ -159,12 +156,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         );
         const { ran, settled } = yield* Uxp.evaluate({ resolve }, code);
         const result = yield* settled(yield* stepped(ran));
-        return yield* Effect.transposeOption(
-            Option.map(
-                Option.fromUndefinedOr(result),
-                flow((each: unknown) => encode(each, { reference: (object) => reference(held, object) }), Schema.decodeUnknownEffect(Schema.Json)),
-            ),
-        );
+        return yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(result), (each) => Schema.decodeUnknownEffect(Schema.Json)(encode(each, { reference: (object) => reference(held, object) }))));
     }, Effect.scoped);
     static readonly rendered = Effect.fnUntraced(function* <E, R>(write: (file: File) => Effect.Effect<void, E, R>, name: string) {
         const { uxp: host, fs: files } = yield* Uxp;
@@ -172,10 +164,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         const file = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => folder.createFile(name, { overwrite: true }), catch: HostError.refused(`${name} in ${folder.nativePath}`) }), (entry) =>
             Effect.try({ try: () => files.lstatSync(entry.nativePath), catch: HostError.refused(`stat of ${entry.nativePath}`) }).pipe(
                 Effect.andThen(Effect.tryPromise({ try: () => entry.delete(), catch: HostError.refused(`delete of ${entry.nativePath}`) })),
-                Effect.catchIf(
-                    (error) => Schema.is(Uxp.Missing)(error.cause),
-                    () => Effect.void,
-                ),
+                Effect.catchIf((error) => Schema.is(Uxp.Missing)(error.cause), Function.constant(Effect.void)),
                 Effect.orDie,
             ),
         );
@@ -184,13 +173,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         const size = yield* Effect.try({ try: () => imageSize(image), catch: HostError.refused(`image size of ${file.nativePath}`) });
         return { image, ...(yield* Schema.decodeEffect(Measured)(size)) };
     }, Effect.scoped);
-    static readonly restore = (target: object, saved: Record.ReadonlyRecord<string, unknown>) =>
-        pipe(
-            saved,
-            Record.toEntries,
-            Effect.validate(([key, value]) => Effect.try({ try: () => Object.assign(target, { [key]: value }), catch: HostError.refused(`restore of ${key}`) }), { discard: true }),
-            Effect.orDie,
-        );
+    static readonly restore = (target: object, saved: Record.ReadonlyRecord<string, unknown>) => Effect.validate(Record.toEntries(saved), ([key, value]) => Effect.try({ try: () => Object.assign(target, { [key]: value }), catch: HostError.refused(`restore of ${key}`) }), { discard: true }).pipe(Effect.orDie);
     static readonly preserve = <T extends object>(target: T, replacements: Partial<T>, keys: readonly string[] = Struct.keys(replacements)) => {
         const refused = HostError.refused(`preferences ${keys.join(', ')}`);
         const current = (key: string): unknown => Reflect.get(target, key);
@@ -220,22 +203,21 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
     };
 }
 class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonly host: Pick<UxpManifest['host'], 'app'> }>()('@rasm/uxp/plugin') {
-    static readonly theme = Stream.callback<unknown, Schema.SchemaError>((queue) => {
-        const listener = (current: unknown): void => {
-            Queue.offerUnsafe(queue, current);
-        };
-        return Effect.flatMap(
-            Effect.suspend(() => Schema.decodeUnknownEffect(Themed)(document)),
-            ({ theme }) =>
-                Effect.acquireRelease(
-                    Effect.sync(() => {
-                        theme.onUpdated.addListener(listener);
-                        listener(theme.getCurrent());
-                    }),
-                    Function.constant(Effect.sync(() => theme.onUpdated.removeListener(listener))),
-                ),
-        );
-    }).pipe(Stream.mapEffect((theme) => Schema.decodeUnknownEffect(UxpManifest.Theme)(theme)));
+    static readonly theme = Stream.callback<unknown, Schema.SchemaError>(
+        Effect.fnUntraced(function* (queue) {
+            const listener = (current: unknown): void => {
+                Queue.offerUnsafe(queue, current);
+            };
+            const { theme } = yield* Schema.decodeUnknownEffect(Themed)(document);
+            yield* Effect.acquireRelease(
+                Effect.sync(() => {
+                    theme.onUpdated.addListener(listener);
+                    listener(theme.getCurrent());
+                }),
+                Function.constant(Effect.sync(() => theme.onUpdated.removeListener(listener))),
+            );
+        }),
+    ).pipe(Stream.mapEffect((theme) => Schema.decodeUnknownEffect(UxpManifest.Theme)(theme)));
     static readonly serve = <E, F>({
         link,
         commands = {},
@@ -255,18 +237,9 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
             const root = Effect.all([Effect.tryPromise({ try: () => uxp.storage.localFileSystem.getPluginFolder(), catch: refused }), Path.Path]).pipe(Effect.flatMap(([{ nativePath }, path]) => Effect.mapError(path.toFileUrl(nativePath), refused)));
             const linked = link === undefined ? Layer.empty : Layer.launch(link(manifest.id, root)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
             const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(Plugin)(manifest)), Layer.provideMerge(Layer.provide(layer({ serviceName: manifest.id }), FetchHttpClient.layer)), Layer.provideMerge(hosted)));
-            const [handled, shown] = yield* Effect.all([
-                Effect.all(
-                    Record.map(
-                        commands,
-                        Effect.fnUntraced(function* (command) {
-                            const running = yield* FiberHandle.make<unknown, F>();
-                            return { run: () => runtime.runPromise(Effect.flatMap(FiberHandle.run(running, reported(command)), Fiber.join)), cancel: () => runtime.runPromise(FiberHandle.clear(running)) };
-                        }),
-                    ),
-                ),
-                Effect.all(Record.map(panels, (each) => panel(runtime, each))),
-            ]).pipe(Scope.provide(runtime.scope));
+            const held = Record.map(commands, (command) => Effect.map(FiberHandle.make<unknown, F>(), (running) => ({ run: () => runtime.runPromise(Effect.flatMap(FiberHandle.run(running, reported(command)), Fiber.join)), cancel: () => runtime.runPromise(FiberHandle.clear(running)) })));
+            const handled = yield* Effect.all(held).pipe(Scope.provide(runtime.scope));
+            const shown = yield* Effect.all(Record.map(panels, (each) => panel(runtime, each))).pipe(Scope.provide(runtime.scope));
             const rejected = ({ reason }: PromiseRejectionEvent): void => {
                 runtime.runFork(Effect.logError('Unhandled rejection', Cause.die(reason)));
             };

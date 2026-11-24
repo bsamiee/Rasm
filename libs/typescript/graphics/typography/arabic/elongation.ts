@@ -1,4 +1,4 @@
-import { Effect, Match, Option, Schema, Struct } from 'effect';
+import { Effect, Option, Schema, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -27,16 +27,7 @@ const Elongated = {
     limit: Schema.OptionFromOptionalKey(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).annotate({ description: 'Most kashida places per run at the text stage, per run and rank at the line stage, every fitting place when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
 };
 const Elongation = Schema.TaggedUnion({ None: {}, Tatweel: Elongated, Stretched: Elongated })
-    .check(
-        Schema.makeFilter(
-            (kashida) =>
-                Match.value(kashida).pipe(
-                    Match.tag('None', () => true),
-                    Match.orElse(({ lower, upper }) => lower <= upper),
-                ),
-            { description: 'lower <= upper' },
-        ),
-    )
+    .check(Schema.makeFilter((kashida) => kashida._tag === 'None' || kashida.lower <= kashida.upper, { description: 'lower <= upper' }))
     .annotate({ description: 'Arabic-script elongation by tatweel characters, or by jalt alternates then tatweels' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

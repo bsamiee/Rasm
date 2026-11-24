@@ -10,15 +10,12 @@ class TextColumn extends Schema.Class<TextColumn, { readonly brand: unique symbo
 }) {
     static readonly of = (paragraphs: readonly { readonly lines: readonly Pick<ShapedText, 'extents'>[]; readonly settings: Pick<Settings, 'leading' | 'lineHeight'> }[]) => {
         const [bottom, baselines] = Array.mapAccum(paragraphs, Option.none<{ readonly baseline: number; readonly descent: number; readonly space: number }>(), (above, { lines, settings }) => {
-            const [last, placed] = Array.mapAccum(
-                lines,
-                Option.map(above, (edge) => ({ ...edge, space: edge.space + settings.leading.before })),
-                (previous, { extents }) => {
-                    const [ascent, descent] = Option.match(extents, { onNone: () => [0, 0] as const, onSome: ({ maxY, minY }) => [maxY, -minY] as const });
-                    const baseline = Option.match(previous, { onNone: () => ascent, onSome: (edge) => edge.baseline + edge.space + settings.lineHeight(1, { descent: edge.descent, ascent }) });
-                    return [Option.some({ baseline, descent, space: 0 }), baseline] as const;
-                },
-            );
+            const entering = Option.map(above, (edge) => ({ ...edge, space: edge.space + settings.leading.before }));
+            const [last, placed] = Array.mapAccum(lines, entering, (previous, { extents }) => {
+                const [ascent, descent] = Option.match(extents, { onNone: () => [0, 0] as const, onSome: ({ maxY, minY }) => [maxY, -minY] as const });
+                const baseline = Option.match(previous, { onNone: () => ascent, onSome: (edge) => edge.baseline + edge.space + settings.lineHeight(1, { descent: edge.descent, ascent }) });
+                return [Option.some({ baseline, descent, space: 0 }), baseline] as const;
+            });
             return [Option.map(last, (edge) => ({ ...edge, space: edge.space + settings.leading.after })), placed] as const;
         });
         return TextColumn.make({ baselines, height: Option.match(bottom, { onNone: () => 0, onSome: ({ baseline, descent }) => baseline + descent }) });

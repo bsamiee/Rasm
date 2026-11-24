@@ -3,18 +3,13 @@ import { FetchHttpClient, HttpEffect, type HttpServerRequest, type HttpServerRes
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const transport = <E>(app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, HttpServerRequest.HttpServerRequest | Scope.Scope>) =>
-    FetchHttpClient.layer.pipe(
-        Layer.provide(
-            Layer.effect(
-                FetchHttpClient.Fetch,
-                Effect.map(Effect.context<never>(), (context) => {
-                    const served = HttpEffect.toWebHandlerWith<never, HttpServerRequest.HttpServerRequest | Scope.Scope>(context)(app);
-                    return (input, init) => served(new Request(input, init));
-                }),
-            ),
-        ),
-    );
+const transport = <E>(app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, HttpServerRequest.HttpServerRequest | Scope.Scope>) => {
+    const fetching = Effect.map(Effect.context<never>(), (context) => {
+        const served = HttpEffect.toWebHandlerWith<never, HttpServerRequest.HttpServerRequest | Scope.Scope>(context)(app);
+        return (...request: Parameters<typeof fetch>) => served(new Request(...request));
+    });
+    return Layer.provide(FetchHttpClient.layer, Layer.effect(FetchHttpClient.Fetch, fetching));
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -29,6 +29,7 @@ class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('
         const drawn = Option.filter(({ thickness }: Stroke) => thickness !== 0);
         const stroke = ([offset, width]: readonly [MetricsTag, MetricsTag]) => drawn(Option.map(Option.all({ position: metric(offset), thickness: metric(width) }), ({ position, thickness }) => ({ position: position - thickness / 2, thickness })));
         const shift = (position: 'SUPERSCRIPT' | 'SUBSCRIPT') => Option.all(Record.map({ size: 'SIZE', offset: 'OFFSET' } as const, (part) => Option.all(Record.map({ x: 'X', y: 'Y' } as const, (axis) => metric(MetricsTag[`${position}_EM_${axis}_${part}`])))));
+        const slant = Array.findFirst(axes, ({ tag }) => tag === 'slnt');
         return Metrics.make({
             extents: {
                 horizontal: Record.map(font.hExtents(), em),
@@ -41,10 +42,7 @@ class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('
             superscript: shift('SUPERSCRIPT'),
             subscript: shift('SUBSCRIPT'),
             bounds: Record.map(Struct.renameKeys(tables.head, { xMin: 'minX', yMin: 'minY', xMax: 'maxX', yMax: 'maxY' }), em),
-            italicAngle: Option.match(
-                Array.findFirst(axes, ({ tag }) => tag === 'slnt'),
-                { onNone: () => tables.post.italicAngle, onSome: Struct.get('value') },
-            ),
+            italicAngle: Option.match(slant, { onNone: () => tables.post.italicAngle, onSome: Struct.get('value') }),
         });
     };
 

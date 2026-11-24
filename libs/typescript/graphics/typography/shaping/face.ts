@@ -70,11 +70,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         const rows = members.flatMap(Struct.get('rows'));
         const namedRow = Option.flatMap(selection, (wanted) => Array.findFirst(rows, flow(Struct.get('keys'), Array.containsWith(Unmatched.named)(wanted))));
         const { member: chosen, variations: selectedVariations } = yield* Option.match(selection, {
-            onNone: () =>
-                Effect.map(
-                    Unmatched.single(members, 'face in collection', Option.none(), ({ base, index }) => [Option.getOrElse(base.names.postscriptName, Function.constant(`face ${index}`))]),
-                    (member) => ({ member, variations: member.base.variations }),
-                ),
+            onNone: () => Unmatched.single(members, 'face in collection', Option.none(), ({ base, index }) => [Option.getOrElse(base.names.postscriptName, Function.constant(`face ${index}`))]).pipe(Effect.map((member) => ({ member, variations: member.base.variations }))),
             onSome: (wanted) =>
                 Effect.fromOption(namedRow).pipe(
                     Effect.catch(() => Member.generated(members, wanted)),
@@ -93,17 +89,9 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             hidden: (flags & AxisFlags.HIDDEN) !== 0,
         }));
         const rounded = Record.fromIterableWith(axes, ({ tag, value }) => [tag, Names.spelled(value)]);
-        const changed = Record.fromIterableWith(
-            axes.filter(({ value, default: fallback }) => Names.spelled(value) !== Names.spelled(fallback)),
-            ({ tag, value }) => [tag, value],
-        );
-        const identity = Option.match(
-            Array.findFirst([...Option.toArray(namedRow), chosen.base, ...chosen.namedInstances], (row) => Equal.equals(Record.map(row.variations, Names.spelled), rounded)),
-            {
-                onNone: () => ({ postscriptName: chosen.names.generated(changed), fullName: Option.none<string>(), style: Option.none<string>() }),
-                onSome: Struct.get('names'),
-            },
-        );
+        const moved = axes.filter(({ value, default: fallback }) => Names.spelled(value) !== Names.spelled(fallback));
+        const matched = Array.findFirst([...Option.toArray(namedRow), chosen.base, ...chosen.namedInstances], (row) => Equal.equals(Record.map(row.variations, Names.spelled), rounded));
+        const identity = Option.match(matched, { onNone: () => ({ postscriptName: chosen.names.generated(Record.fromIterableWith(moved, ({ tag, value }) => [tag, value])), fullName: Option.none<string>(), style: Option.none<string>() }), onSome: Struct.get('names') });
         const font = new Font(chosen.handle);
         font.setVariations(axes.map(({ tag, value }) => new Variation(tag, value)));
         return Face.make({

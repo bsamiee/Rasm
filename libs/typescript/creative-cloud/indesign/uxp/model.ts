@@ -183,14 +183,8 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
     static readonly object = Effect.fnUntraced(function* (kind: string, name: string, target: unknown) {
         const model = yield* Model;
         const document = yield* Option.match(model.owner(target), { onSome: Effect.succeedSome, onNone: () => Effect.option(Model.current) });
-        const fields = Option.getOrElse(
-            Option.map(document, ({ constructorName }) => model.declaration(constructorName).fields),
-            Record.empty,
-        );
-        const field = Option.orElse(
-            Record.findFirst(fields, ({ array }) => Option.contains(array, kind)),
-            () => Record.findFirst(fields, ({ collection }) => Option.contains(collection, kind)),
-        );
+        const fields = Option.match(document, { onNone: Record.empty, onSome: ({ constructorName }) => model.declaration(constructorName).fields });
+        const field = Record.findFirst(fields, ({ array }) => Option.contains(array, kind)).pipe(Option.orElse(() => Record.findFirst(fields, ({ collection }) => Option.contains(collection, kind))));
         const listed = Option.map(Option.all([document, field]), ([held, [named]]): readonly unknown[] => {
             const members: unknown = Reflect.get(held, named);
             return model.collection(members) ? members.everyItem().getElements() : Array.ensure(members);
@@ -259,37 +253,19 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
             const value = (field: string): unknown => Option.getOrUndefined(Option.map(container, (at): unknown => Reflect.get(at, field)));
             const sibling = Option.map(Array.head(siblings), Struct.get('constructorName'));
             const related = fields.flatMap(([field, { array }]) => (Option.isSome(sibling) && Equal.equals(array, sibling) ? Array.ensure<unknown>(value(field)) : [])).filter(model.named);
-            const collections = Array.getSomes(
-                fields
-                    .filter(([, { collection }]) => Option.isSome(collection))
-                    .map(([field]) => value(field))
-                    .filter(model.collection)
-                    .map((items) => Option.fromNullishOr(items.everyItem())),
-            );
+            const held = Array.filterMap(fields, ([field, { collection }]) => (Option.isSome(collection) ? Result.succeed(value(field)) : Result.failVoid)).filter(model.collection);
+            const collections = Array.flatMapNullishOr(held, (items) => items.everyItem());
             const candidates = Array.dedupe(Array.map([...siblings, ...related.filter((each) => Option.contains(specifier.name, each.name))], (each) => each.toSpecifier()));
-            return Option.match(
-                Array.findFirst(collections, (every) => every.toSpecifier() === written),
-                {
-                    onSome: (every) => Effect.succeed(every.getElements()),
-                    onNone: () =>
-                        Effect.fail(
-                            Option.exists(specifier.selector, Selector.guards.Index)
-                                ? Unmatched.of({ subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: Option.some(written) })
-                                : Unmatched.of({ subject: 'object', query: Option.some(written), candidates }),
-                        ),
-                },
-            );
+            const unmatched = Option.exists(specifier.selector, Selector.guards.Index) ? { subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: Option.some(written) } : { subject: 'object', query: Option.some(written), candidates };
+            return Array.findFirst(collections, (every) => (every.toSpecifier() === written ? Option.some(every.getElements()) : Option.none())).pipe(Effect.fromOption(() => Unmatched.of(unmatched)));
         });
         const absent = specifier.end === undefined ? nearest : Effect.fail(Unmatched.of({ subject: 'range', query: Option.some(written) }));
         return yield* Option.match(located(written), { onSome: (resolved) => Effect.succeed(specifier.root || Option.isSome(specifier.selector) || specifier.property ? resolved : Array.ensure(resolved)), onNone: () => absent });
     });
-    static readonly located = (specifier: Specifier) =>
-        Model.use(
-            Effect.fnUntraced(function* (model: Model['Service']) {
-                const found = yield* Model.resolve(specifier);
-                return model.domObject(found) ? found : yield* Unmatched.of({ subject: 'object', query: Option.some(specifier.path) });
-            }),
-        );
+    static readonly located = Effect.fnUntraced(function* (specifier: Specifier) {
+        const [model, found] = yield* Effect.all([Model, Model.resolve(specifier)]);
+        return model.domObject(found) ? found : yield* Unmatched.of({ subject: 'object', query: Option.some(specifier.path) });
+    });
     static readonly referenceUnsafe = (object: InDesignDOMObject<unknown>): Reference => {
         const valid = object.isValid;
         return Reference.make({ type: object.constructorName, specifier: object.toSpecifier(), name: valid ? Option.liftPredicate(Reflect.get(object, 'name'), Predicate.isString) : Option.none(), valid });
@@ -300,18 +276,16 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         const host = {
             enumerator: (value: object) => (enumerator(value) ? String(value) : undefined),
             collection: (value: object) =>
-                Option.getOrUndefined(
-                    Option.map(Option.liftPredicate(value, collection), (items) => {
-                        const { specifier, ...held } = Model.collected(items);
-                        return { ...held, ...Record.getSomes({ specifier }) };
-                    }),
+                Option.liftPredicate(value, collection).pipe(
+                    Option.map(Model.collected),
+                    Option.map(({ specifier, ...held }) => ({ ...held, ...Record.getSomes({ specifier }) })),
+                    Option.getOrUndefined,
                 ),
             reference: (value: object) =>
-                Option.getOrUndefined(
-                    Option.map(Option.liftPredicate(value, domObject), (object) => {
-                        const { name, ...held } = Model.referenceUnsafe(object);
-                        return { ...held, ...Record.getSomes({ name }) };
-                    }),
+                Option.liftPredicate(value, domObject).pipe(
+                    Option.map(Model.referenceUnsafe),
+                    Option.map(({ name, ...held }) => ({ ...held, ...Record.getSomes({ name }) })),
+                    Option.getOrUndefined,
                 ),
             replace: Match.type<unknown>().pipe(
                 Match.when(Option.isOption, Option.getOrUndefined),

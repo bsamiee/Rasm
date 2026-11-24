@@ -81,11 +81,7 @@ const HOST: FileSystemCallbacks = {
                 },
             },
         ),
-    readFile: (path) =>
-        Option.match(
-            Option.filter(stated(path), (stats) => stats.isFile()),
-            { onNone: () => serverFS.useOS, onSome: () => readFileSync(path, 'utf-8') },
-        ),
+    readFile: (path) => (Option.exists(stated(path), (stats) => stats.isFile()) ? readFileSync(path, 'utf-8') : serverFS.useOS),
     realpath: serverFS.identity,
     stat: serverFS.fakeStat,
     writeFile: serverFS.error,
@@ -101,10 +97,7 @@ const bounded = (description: Option.Option<string>) => {
 };
 const tagged = (checker: Checker, symbol: TypeScriptSymbol) => ({
     description: Option.liftPredicate(checker.getDocumentationCommentOfSymbol(symbol), (text) => text !== ''),
-    version: Option.flatMap(
-        Array.findFirst(checker.getJsDocTagsOfSymbol(symbol), ({ name }) => Array.contains(VERSIONS, name)),
-        ({ text }) => Option.fromUndefinedOr(text),
-    ),
+    version: Array.findFirst(checker.getJsDocTagsOfSymbol(symbol), ({ name }) => Array.contains(VERSIONS, name)).pipe(Option.flatMapNullishOr(({ text }) => text)),
 });
 const optional = (parameter: TypeScriptSymbol) => Option.exists(Option.fromUndefinedOr(parameter.valueDeclaration?.resolve()), (node) => isParameterDeclaration(node) && (node.questionToken ?? node.initializer ?? node.dotDotDotToken) !== undefined);
 const method = (checker: Checker, symbol: TypeScriptSymbol, statics: boolean) => (signature: Signature) =>
@@ -155,12 +148,7 @@ const classified = (checker: Checker, base: Option.Option<Type>) =>
 const bases = (checker: Checker, symbol: TypeScriptSymbol) => Array.getSomes(Array.map(checker.getDeclaredTypeOfSymbol(symbol).getBaseTypes() ?? [], (parent) => Option.map(Option.fromUndefinedOr(parent.getSymbol()), Struct.get('name'))));
 const enumerated = (checker: Checker, symbol: TypeScriptSymbol, base: Option.Option<Type>) => {
     const omitted = new Set(Option.match(base, { onNone: Array.empty<string>, onSome: (type) => Array.map(type.getProperties(), Struct.get('name')) }));
-    const listed = flagged(symbol, SymbolFlags.Enum)
-        ? checker.getExportsOfModule(symbol)
-        : checker
-              .getTypeOfSymbol(symbol)
-              .getProperties()
-              .filter(({ name }) => !omitted.has(name));
+    const listed = flagged(symbol, SymbolFlags.Enum) ? checker.getExportsOfModule(symbol) : Array.filter(checker.getTypeOfSymbol(symbol).getProperties(), ({ name }) => !omitted.has(name));
     return Declaration.cases.Enumeration.make({
         name: symbol.name,
         ...tagged(checker, symbol),
@@ -199,11 +187,9 @@ const shaped = (checker: Checker, kept: Record.ReadonlyRecord<string, { readonly
         const read = checker.getTypeOfSymbol(symbol);
         return {
             settable: !checker.isReadonlySymbol(symbol),
-            collection: Option.flatMap(Option.fromUndefinedOr(read.getSymbol()), (type) =>
-                Option.flatMap(
-                    Array.findFirst(checker.getJsDocTagsOfSymbol(type), ({ name }) => name === 'collection'),
-                    ({ text }) => Option.fromUndefinedOr(text),
-                ),
+            collection: Option.fromUndefinedOr(read.getSymbol()).pipe(
+                Option.flatMap((type) => Array.findFirst(checker.getJsDocTagsOfSymbol(type), ({ name }) => name === 'collection')),
+                Option.flatMapNullishOr(({ text }) => text),
             ),
             array: read.isTypeReference() && checker.isArrayType(read) ? Option.flatMap(Array.head(checker.getTypeArguments(read)), owned) : Option.none(),
             classes: Option.match(written(symbol), { onNone: Array.empty<string>, onSome: naming }),
@@ -213,10 +199,7 @@ const shaped = (checker: Checker, kept: Record.ReadonlyRecord<string, { readonly
     const parameters = (symbol: TypeScriptSymbol) => Option.match(Array.head(checker.getTypeOfSymbol(symbol).getCallSignatures()), { onNone: Array.empty<readonly string[]>, onSome: (signature) => Array.map(signature.getParameters(), (parameter) => naming(checker.getTypeOfSymbol(parameter))) });
     return {
         classes: Record.filterMap(kept, ({ symbol, enumerations }) => {
-            const [fields, methods] = Array.partition(
-                checker.getDeclaredTypeOfSymbol(symbol).getProperties(),
-                Result.liftPredicate((each: TypeScriptSymbol) => !flagged(each, SymbolFlags.Method), Function.identity),
-            );
+            const [fields, methods] = Array.partition(checker.getDeclaredTypeOfSymbol(symbol).getProperties(), (each) => (flagged(each, SymbolFlags.Method) ? Result.fail(each) : Result.succeed(each)));
             return enumerations ? Result.failVoid : Result.succeed({ fields: Record.fromIterableWith(fields, (each) => [each.name, field(each)] as const), methods: Record.fromIterableWith(methods, (each) => [each.name, parameters(each)] as const) });
         }),
         enumerations: Record.keys(Record.filter(kept, Struct.get('enumerations'))),
@@ -257,10 +240,7 @@ const listing = (checker: Checker, files: readonly TypeScriptSymbol[], base: Opt
         Array.flatMap(files, (symbol) => exported(checker, symbol)),
         (symbol) => [symbol.name, symbol] as const,
     );
-    const enumeration = Option.map(
-        Option.flatMap(base, (name) => Record.get(table, name)),
-        (symbol) => checker.getTypeOfSymbol(symbol),
-    );
+    const enumeration = Option.flatMap(base, (name) => Record.get(table, name)).pipe(Option.map((symbol) => checker.getTypeOfSymbol(symbol)));
     const listed = Record.filterMap(table, classified(checker, enumeration));
     const names = new Set(Record.keys(Record.filter(listed, Struct.get('enumerations'))));
     return { enumeration, kept: Record.filter(listed, ({ symbol, enumerations }) => enumerations || !bases(checker, symbol).some((name) => names.has(name))) };
@@ -326,11 +306,7 @@ const classdef = (constructible: Predicate.Predicate<Classdef>) => (definition: 
 };
 const classdefs = ({ dictionary }: Omv) => Array.map(dictionary.package.classdef, classdef(dictionary.package.classdef.some(grouped('constructor')) ? grouped('constructor') : Predicate.not(grouped('instance'))));
 const paged = <P>(pages: Record.ReadonlyRecord<string, P>) => Declaration.catalog(pages, Function.identity, Declaration.guards.Enumeration);
-const omv = (texts: Array.NonEmptyReadonlyArray<string>) =>
-    Effect.map(
-        Effect.forEach(texts, (text) => Schema.decodeUnknownEffect(Omv)(PARSER.parse(text))),
-        (decoded) => paged(Record.fromEntries(Array.flatMap(decoded, classdefs))),
-    );
+const omv = (texts: Array.NonEmptyReadonlyArray<string>) => Effect.forEach(texts, (text) => Schema.decodeUnknownEffect(Omv)(PARSER.parse(text))).pipe(Effect.map((decoded) => paged(Record.fromEntries(Array.flatMap(decoded, classdefs)))));
 const entry = ({ name, properties, methods }: Entry) => {
     const [callable, constructors] = Array.partition(methods ?? [], Result.liftPredicate(Schema.is(Callable), Function.identity));
     return [
@@ -362,24 +338,15 @@ const documented = (each: Documented['methods'][number]) =>
         parameters: Array.map(each.parameters, (argued) => Declaration.Parameter.make({ name: argued.Name, description: nonEmpty(argued.Description), type: nonEmpty(argued.Type) })),
     });
 const documents = <E>(rows: Stream.Stream<Uint8Array, E>) =>
-    Effect.map(Stream.runCollect(Stream.pipeThroughChannel(rows, Ndjson.decodeSchema(Documented)())), (pages) =>
-        paged(
-            Record.fromIterableWith(
-                pages.filter(({ properties, methods }) => Array.isReadonlyArrayNonEmpty(properties) || Array.isReadonlyArrayNonEmpty(methods)),
-                ({ name, description, properties, methods }) =>
-                    [
-                        name,
-                        Declaration.cases.Class.make({
-                            name,
-                            description: Option.fromNullOr(description),
-                            parents: [],
-                            constructible: false,
-                            fields: Array.map(properties, (each) => Declaration.Field.make({ name: each.Name, description: nonEmpty(each.Description), type: nonEmpty(each.Type), version: nonEmpty(each['Min Version']), readonly: each.Access })),
-                            methods: Array.map(methods, documented),
-                        }),
-                    ] as const,
-            ),
-        ),
+    rows.pipe(
+        Stream.pipeThroughChannel(Ndjson.decodeSchema(Documented)()),
+        Stream.filter(({ properties, methods }) => Array.isReadonlyArrayNonEmpty(properties) || Array.isReadonlyArrayNonEmpty(methods)),
+        Stream.map(({ name, description, properties, methods }) => {
+            const fields = Array.map(properties, (each) => Declaration.Field.make({ name: each.Name, description: nonEmpty(each.Description), type: nonEmpty(each.Type), version: nonEmpty(each['Min Version']), readonly: each.Access }));
+            return [name, Declaration.cases.Class.make({ name, description: Option.fromNullOr(description), parents: [], constructible: false, fields, methods: Array.map(methods, documented) })] as const;
+        }),
+        Stream.runCollect,
+        Effect.map((entries) => paged(Record.fromEntries(entries))),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import { layer } from '@effect/sql-sqlite-node/SqliteClient';
 import { parse } from '@plist/parse';
 import { ExitError, run } from '@rasm/process';
-import { Array, Context, Effect, FileSystem, Option, Order, Path, Schema, String, Struct } from 'effect';
+import { Array, Context, Effect, FileSystem, Option, Order, Path, Result, Schema, String, Struct } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/sql';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -77,19 +77,9 @@ class Application extends Schema.Class<Application, { readonly brand: unique sym
             }),
             { concurrency: 'unbounded' },
         );
-        const grouped = Array.groupBy(
-            Array.sort(
-                Array.dedupeWith(read, (left, right) => left.url.href === right.url.href),
-                Application.Order,
-            ),
-            Struct.get('product'),
-        );
-        return Array.flatten(
-            Array.sort(
-                Object.values(grouped),
-                Order.mapInput(Order.String, (rows: Array.NonEmptyReadonlyArray<Application>) => Array.headNonEmpty(rows).name),
-            ),
-        );
+        const unique = Array.dedupeWith(read, (left, right) => left.url.href === right.url.href);
+        const grouped = Object.values(Array.groupBy(Array.sort(unique, Application.Order), Struct.get('product')));
+        return Array.flatten(Array.sortWith(grouped, (rows) => Array.headNonEmpty(rows).name, Order.String));
     });
 }
 
@@ -123,19 +113,13 @@ const registered =
     ({ code, directory, launch, build }: Registered) => {
         const parts = launch.replace(INSTALL_DIRECTORY, directory).split('/');
         const { product = code, suffix } = CODE.exec(code)?.groups ?? {};
-        const channel = Option.getOrElse(
-            Array.findFirst(CHANNELS, (each) => String.toUpperCase(each) === suffix),
-            () => CHANNELS[0],
-        );
+        const channel = Array.findFirst(CHANNELS, (each) => String.toUpperCase(each) === suffix).pipe(Option.getOrElse(() => CHANNELS[0]));
         return Option.toArray(Option.map(Array.findFirstIndex(parts, String.endsWith('.app')), (at) => ({ bundle: parts.slice(0, at + 1).join('/'), name: path.basename(directory), product: Option.some(product), channel, build: Option.fromNullOr(build) })));
     };
 const receipted = (path: Path.Path) =>
     Effect.fnUntraced(function* (id: string) {
         const [receipt, { stdout }] = yield* Effect.all([run(['pkgutil', '--pkg-info-plist', id]).pipe(Effect.flatMap(({ stdout: plist }) => Schema.decodeUnknownEffect(Receipt)(parse(plist)))), run(['pkgutil', '--only-dirs', '--files', id])]);
-        return Array.map(
-            Array.filter(lines(stdout), (entry) => receipt['install-location'].startsWith('Applications/') && !entry.includes('/') && entry.endsWith('.app')),
-            (app) => path.join(receipt.volume, receipt['install-location'], app),
-        );
+        return Array.filterMap(lines(stdout), (entry) => (receipt['install-location'].startsWith('Applications/') && !entry.includes('/') && entry.endsWith('.app') ? Result.succeed(path.join(receipt.volume, receipt['install-location'], entry)) : Result.failVoid));
     });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

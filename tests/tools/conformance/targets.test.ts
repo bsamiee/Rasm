@@ -1,7 +1,6 @@
 import type { ProjectNodesWithFiles } from '@nx/conformance/testing';
 import type { TargetConfiguration } from '@nx/devkit';
 import rule from '@rasm/conformance/targets';
-import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { project, reported, violations } from '#/workspace';
 
@@ -11,7 +10,7 @@ const run = (target: Omit<TargetConfiguration, 'executor' | 'options'> = {}): Ta
 
 const aggregate = (name: string, inputs?: TargetConfiguration['inputs']): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [{ target: `${name}--*`, params: 'forward' }], ...(inputs === undefined ? {} : { inputs }) });
 
-const checked = (...projects: readonly ProjectNodesWithFiles[]) => Effect.runPromise(violations(rule, { separator: '--' }, { projects }));
+const checked = (...projects: readonly ProjectNodesWithFiles[]) => violations(rule, { separator: '--' }, { projects });
 
 const app = project('app', { targets: { codegen: aggregate('codegen'), 'codegen--cf': run(), clean: aggregate('clean'), 'clean--colima': run(), test: aggregate('test'), 'test--vitest': run() } });
 
@@ -22,7 +21,11 @@ describe('targets', () => {
         const lib = project('lib', {
             targets: {
                 build: aggregate('build', ['default', { externalDependencies: ['typescript'] }, { dependentTasksOutputFiles: '**/*.d.ts', transitive: true }]),
-                'build--tsc': run({ inputs: ['default', { externalDependencies: ['typescript'] }, { dependentTasksOutputFiles: '**/*.d.ts' }], dependsOn: ['^build--*', 'codegen--*', { projects: '*', target: 'clean--colima' }, 'app:codegen--cf', '^install--colima', { dependencies: true, target: 'install--colima' }], configurations: { watch: { command: 'tsc --watch' } } }),
+                'build--tsc': run({
+                    inputs: ['default', { externalDependencies: ['typescript'] }, { dependentTasksOutputFiles: '**/*.d.ts' }],
+                    dependsOn: ['^build--*', 'codegen--*', { projects: '*', target: 'clean--colima' }, 'app:codegen--cf', '^install--colima', { dependencies: true, target: 'install--colima' }],
+                    configurations: { watch: { command: 'tsc --watch' } },
+                }),
                 check: { executor: 'nx:noop', dependsOn: [{ target: 'check--*', params: 'forward', projects: ['lib'] }] },
                 'check--tsc': run({ dependsOn: ['build--tsc'] }),
             },
@@ -37,11 +40,7 @@ describe('targets', () => {
     });
 
     it('reports dependsOn entries naming a target their own project, their named projects, or every project lacks', async () => {
-        const rows = [
-            'lib | lib:test--vitest dependsOn "install--colima" names no target',
-            'lib | lib:test--vitest dependsOn "missing--*" names no target',
-            'lib | lib:test--vitest dependsOn {"projects":["app"],"target":"build--tsc"} names no target',
-        ];
+        const rows = ['lib | lib:test--vitest dependsOn "install--colima" names no target', 'lib | lib:test--vitest dependsOn "missing--*" names no target', 'lib | lib:test--vitest dependsOn {"projects":["app"],"target":"build--tsc"} names no target'];
         const lib = project('lib', {
             targets: {
                 test: aggregate('test'),

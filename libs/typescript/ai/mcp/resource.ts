@@ -15,7 +15,6 @@ interface Entry<A> {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const encodeJsonText = Schema.encodeEffect(Schema.fromJsonString(Schema.Json));
-const updatedUris = <A>(last: HashMap.HashMap<string, Entry<A>>, current: HashMap.HashMap<string, Entry<A>>) => Array.flatMap([...last], ([key, entry]) => (Option.contains(Option.map(HashMap.get(current, key), Struct.get('value')), entry.value) ? [] : [...entry.uris]));
 const make = Effect.fnUntraced(function* <A, I, R, D extends Partial<Record<'uri' | 'mimeType' | 'description', string | undefined>>>({ schema, changes, uri, mimeType, description, ...descriptor }: D & { readonly schema: Schema.Codec<A, I>; readonly changes: Stream.Stream<unknown, never, R> }) {
     const [server, store] = yield* Effect.all([McpServer.McpServer, SubscriptionRef.make(HashMap.empty<string, Entry<A>>())]);
     const codec = Schema.toCodecJson(schema);
@@ -53,7 +52,7 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends Partial<Record<'uri
         Effect.forkScoped,
     );
     yield* SubscriptionRef.changes(store).pipe(
-        Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, next) => [next, updatedUris(last, next)]),
+        Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, next) => [next, Array.flatMap([...last], ([key, entry]) => (Option.contains(Option.map(HashMap.get(next, key), Struct.get('value')), entry.value) ? [] : [...entry.uris]))]),
         Stream.runForEach(updated),
         Effect.forkScoped,
     );

@@ -1,4 +1,4 @@
-import { Array, Data, Option, Order, pipe, Struct } from 'effect';
+import { Array, Data, Option, Order, Struct, UndefinedOr } from 'effect';
 import type { SvgPathCommand } from 'harfbuzzjs';
 import type { ShapedText } from '#/shaping/shaped-text';
 
@@ -35,44 +35,23 @@ class Profile extends Data.Class<{
         return [...Map.groupBy(drawn, Struct.get('contour')).values()].map((strokes) => strokes.flatMap(Struct.get('segments')));
     };
     static readonly of = (shaped: ShapedText, unitsPerEm: number, outline: (glyph: number) => ReturnType<typeof Profile.outline>) => {
-        const [, placed] = Array.mapAccum(
-            shaped.glyphs,
-            ORIGIN,
-            ({ x, y }, { glyph, xAdvance, yAdvance, xOffset, yOffset, scale }) =>
-                [
-                    { x: x + xAdvance, y: y + yAdvance },
-                    outline(glyph)
-                        .flat()
-                        .map((segment) => moved(segment, { x: (x + xOffset) * unitsPerEm, y: (y + yOffset) * unitsPerEm }, scale)),
-                ] as const,
-        );
-        const bands = [...Map.groupBy(placed.flat().flatMap(crossings), Struct.get('band'))];
+        const [, placed] = Array.mapAccum(shaped.glyphs, ORIGIN, ({ x, y }, { glyph, xAdvance, yAdvance, xOffset, yOffset, scale }) => {
+            const by = { x: (x + xOffset) * unitsPerEm, y: (y + yOffset) * unitsPerEm };
+            return [{ x: x + xAdvance, y: y + yAdvance }, outline(glyph).flatMap((contour) => contour.flatMap((segment) => crossings(moved(segment, by, scale))))];
+        });
+        const bands = [...Map.groupBy(placed.flat(), Struct.get('band'))];
         return new Profile({ left: new Map(bands.map(([band, rows]) => [band, Math.min(...rows.map(Struct.get('left')))])), right: new Map(bands.map(([band, rows]) => [band, Math.max(...rows.map(Struct.get('right')))])), advance: shaped.advance * unitsPerEm });
     };
     static readonly gap = (before: Profile, after: Profile, rise = 0, limit = Number.POSITIVE_INFINITY) => {
-        const right = Array.fromIterable(before.right);
-        return pipe(
-            Array.getSomes(
-                Array.range(-rise, rise).map((shift) =>
-                    Option.map(
-                        minClearance(
-                            right.map(([height, x]) => [height + shift, x] as const),
-                            after.left,
-                        ),
-                        (clearance) => ({ gap: Math.min(before.advance + clearance, limit), shift }),
-                    ),
-                ),
-            ),
-            Option.liftPredicate(Array.isArrayNonEmpty),
-            Option.map(Array.max(BY_FIT)),
-        );
+        const fits = Array.getSomes(Array.range(-rise, rise).map((shift) => Option.map(minClearance(before.right, after.left, shift), (clearance) => ({ gap: Math.min(before.advance + clearance, limit), shift }))));
+        return Option.map(Option.liftPredicate(fits, Array.isArrayNonEmpty), Array.max(BY_FIT));
     };
 
     bounded({ slant, top, foot }: { readonly slant: number; readonly top: number; readonly foot: number }) {
         const line = Array.range(Math.floor(foot), Math.ceil(top))
             .filter((height) => foot <= height && height < top)
             .map((height) => [height, (slant * (height - foot)) / (top - foot)] as const);
-        return Option.match(minClearance(line, this.left), {
+        return Option.match(minClearance(line, this.left, 0), {
             onNone: () => this,
             onSome: (offset) => new Profile({ ...this, left: new Map([...this.left, ...line.map(([height, shift]) => [height, offset + shift] as const)]) }),
         });
@@ -86,8 +65,10 @@ const moved = ([from, to]: readonly [Point, Point], by: Point, scale: number) =>
         { x: from.x * scale + by.x, y: from.y + by.y },
         { x: to.x * scale + by.x, y: to.y + by.y },
     ] as const;
-const minClearance = (right: Iterable<readonly [number, number]>, left: Profile['left']) =>
-    pipe(Array.getSomes(Array.map(Array.fromIterable(right), ([height, x]) => Option.map(Option.fromUndefinedOr(left.get(height)), (edge) => edge - x))), Option.liftPredicate(Array.isArrayNonEmpty), Option.map(Array.min(Order.Number)));
+const minClearance = (right: Iterable<readonly [number, number]>, left: Profile['left'], shift: number) => {
+    const clearances = Array.flatMapNullishOr(Array.fromIterable(right), ([height, x]) => UndefinedOr.map(left.get(height + shift), (edge) => edge - x));
+    return Option.map(Option.liftPredicate(clearances, Array.isArrayNonEmpty), Array.min(Order.Number));
+};
 const deviation = (curve: readonly Point[]) => {
     const wangDivisor = 8;
     const bendPoints = 3;

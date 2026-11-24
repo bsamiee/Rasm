@@ -1,7 +1,7 @@
 import process from 'node:process';
 import { spawn } from '@rasm/process';
 import { child } from '@rasm/rpc';
-import { Cause, Context, Effect, Fiber, FileSystem, Formatter, Layer, Path, Result, Schema, SchemaIssue, Sink, Stream, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Effect, Fiber, FileSystem, Formatter, Layer, Path, Schema, SchemaIssue, Sink, Stream, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { RpcClient } from 'effect/rpc';
 import { parse } from 'plist';
@@ -16,27 +16,18 @@ const Bundle = Schema.Struct({ CFBundleExecutable: Schema.String, CFBundleIdenti
 class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/applications/node/ApplicationServer', {
     make: Effect.fnUntraced(function* (handle: ChildProcessSpawner.ChildProcessHandle) {
         const client = yield* RpcClient.make(Automation);
-        const watched = Effect.fnUntraced(function* <A, E>(subject: string, changes: Stream.Stream<A, E>) {
-            const [first, rest] = yield* Stream.peel(changes, Sink.head());
-            const latest = yield* SubscriptionRef.make(yield* Effect.fromOption(first, () => new Cause.NoSuchElementError(`${subject} ended before its first value`)));
-            return [latest, yield* Effect.forkScoped(Stream.runForEach(rest, (value) => SubscriptionRef.set(latest, value)))] as const;
-        });
-        const [installations, discovering] = yield* watched('installations', client.installations({}));
+        const [first, rest] = yield* Stream.peel(client.installations({}), Sink.head());
+        const installations = yield* SubscriptionRef.make(yield* Effect.fromOption(first, () => new Cause.NoSuchElementError('installations ended before its first value')));
+        const discovering = yield* Effect.forkScoped(Stream.runForEach(rest, (value) => SubscriptionRef.set(installations, value)));
         return {
             ...client,
             launched: (launch: Parameters<typeof client.launch>[0]) =>
                 client.launch(launch).pipe(
-                    Stream.filterMapEffect(
-                        Launching.matchOrElse(
-                            {
-                                failed: ({ failed }) => Effect.fail(new Cause.UnknownError(failed, [`${failed.subject} ${failed.reason}`, ...(failed.message === undefined ? [] : [failed.message])].join(': '))),
-                                launched: ({ launched }) => Effect.succeed(Result.succeed(launched)),
-                            },
-                            () => Effect.succeed(Result.failVoid),
-                        ),
-                    ),
+                    Stream.mapEffect(Launching.matchOrElse({ failed: ({ failed }) => new Cause.UnknownError(failed, [`${failed.subject} ${failed.reason}`, ...Array.fromNullishOr(failed.message)].join(': ')) }, Effect.succeed)),
+                    Stream.filter(Launching.guards.launched),
                     Stream.runLast,
                     Effect.flatMap(Effect.fromOption),
+                    Effect.map(({ launched }) => launched),
                 ),
             installations,
             installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult),

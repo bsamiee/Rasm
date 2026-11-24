@@ -61,16 +61,7 @@ const StickyBar = ({ children }: { readonly children: ReactNode }) => {
                 <nav aria-label="Work index">
                     <label>
                         <span className="eyebrow">Index</span>
-                        <select
-                            className="control"
-                            onChange={(event) =>
-                                Option.match(
-                                    Array.findFirst(entries, ({ id }) => id === event.target.value),
-                                    { onNone: Function.constVoid, onSome: jump },
-                                )
-                            }
-                            value={Option.getOrElse(active, () => '')}
-                        >
+                        <select className="control" onChange={(event) => Array.findFirst(entries, ({ id }) => id === event.target.value).pipe(Option.match({ onNone: Function.constVoid, onSome: jump }))} value={Option.getOrElse(active, () => '')}>
                             <option disabled value="">
                                 Select work
                             </option>

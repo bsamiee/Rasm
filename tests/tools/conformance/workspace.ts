@@ -1,8 +1,7 @@
 import type { ConformanceRule, ConformanceViolation, WritableConformanceTree } from '@nx/conformance';
 import { createReadOnlyTree, createStubbedProjectGraphAndFileMapCache, type ProjectNodesWithFiles } from '@nx/conformance/testing';
-import { type ProjectConfiguration, type ProjectGraphExternalNode, writeJson } from '@nx/devkit';
+import type { ProjectConfiguration, ProjectGraphExternalNode } from '@nx/devkit';
 import { Array, Effect, Order } from 'effect';
-import { onTestFinished } from 'vitest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -20,21 +19,19 @@ const project = (name: string, data: Omit<ProjectConfiguration, 'root'> & { read
     projectFiles: files.map((file, at) => ({ projectRootRelativeFile: file, depsItCreates: at === 0 ? [...depends] : [] })),
 });
 
-const violations = Effect.fn('violations')(function* <Options>(rule: ConformanceRule<Options>, ruleOptions: Options, { projects = [], nxJson, files = {}, externalNodes = {} }: Workspace = {}) {
-    const services = yield* Effect.context<never>();
-    const written = (writable: WritableConformanceTree) =>
-        Effect.runPromiseWith(services)(
-            Effect.sync(() => {
-                Object.entries(files).forEach(([file, content]) => writable.write(file, content));
-                Array.fromNullishOr(nxJson).forEach((settings) => writeJson(writable, 'nx.json', settings));
-            }),
+const violations = <Options>(rule: ConformanceRule<Options>, ruleOptions: Options, { projects = [], nxJson, files = {}, externalNodes = {} }: Workspace = {}) =>
+    Effect.gen(function* () {
+        const stated = [...Object.entries(files), ...Array.fromNullishOr(nxJson).map((settings) => ['nx.json', JSON.stringify(settings)] as const)];
+        const services = yield* Effect.context<never>();
+        const written = (writable: WritableConformanceTree) => Effect.runPromiseWith(services)(Effect.sync(() => stated.forEach(([file, content]) => writable.write(file, content))));
+        const { tree } = yield* Effect.acquireRelease(
+            Effect.promise(() => createReadOnlyTree(written)),
+            ({ cleanup }) => Effect.sync(cleanup),
         );
-    const { tree, cleanup } = yield* Effect.promise(() => createReadOnlyTree(written));
-    onTestFinished(cleanup);
-    const { projectGraph, fileMapCache } = yield* Effect.promise(() => createStubbedProjectGraphAndFileMapCache(tree, [...projects]));
-    const { details } = yield* Effect.promise(() => rule.implementation({ tree, projectGraph: { ...projectGraph, externalNodes: { ...projectGraph.externalNodes, ...externalNodes } }, fileMapCache, ruleOptions }));
-    return details.violations;
-});
+        const { projectGraph, fileMapCache } = yield* Effect.promise(() => createStubbedProjectGraphAndFileMapCache(tree, [...projects]));
+        const { details } = yield* Effect.promise(() => rule.implementation({ tree, projectGraph: { ...projectGraph, externalNodes: { ...projectGraph.externalNodes, ...externalNodes } }, fileMapCache, ruleOptions }));
+        return details.violations;
+    }).pipe(Effect.scoped, Effect.runPromise);
 
 const reported = (found: readonly ConformanceViolation[], rows: readonly string[]) =>
     Array.sort(

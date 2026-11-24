@@ -86,23 +86,21 @@ const selections = Atom.make<Readonly<Partial<Record<Entry['id'], Composition['i
 const settle = (registry: AtomRegistry.AtomRegistry, from: Option.Option<Place>) => {
     const destination = read(location.hash);
     const arrived = project(destination);
-    Option.match(
-        Option.flatMap(arrived, (id) => registry.get(chapterSection(id))),
-        {
-            onSome: (chapter) => {
-                history.scrollRestoration = 'manual';
-                if (!Equal.equals(arrived, project(from))) {
-                    chapter.scrollIntoView(instant);
-                }
-            },
-            onNone: () => {
-                if (!Option.exists(destination, Place.$is('Anchor'))) {
-                    visit(work, 'replace');
-                    Option.match(registry.get(workSection), { onNone: Function.constVoid, onSome: (section) => section.scrollIntoView(instant) });
-                }
-            },
+    const mounted = Option.flatMap(arrived, (id) => registry.get(chapterSection(id)));
+    Option.match(mounted, {
+        onSome: (chapter) => {
+            history.scrollRestoration = 'manual';
+            if (!Equal.equals(arrived, project(from))) {
+                chapter.scrollIntoView(instant);
+            }
         },
-    );
+        onNone: () => {
+            if (!Option.exists(destination, Place.$is('Anchor'))) {
+                visit(work, 'replace');
+                Option.match(registry.get(workSection), { onNone: Function.constVoid, onSome: (section) => section.scrollIntoView(instant) });
+            }
+        },
+    });
 };
 const fragment = Atom.make((get) => {
     const listeners = new AbortController();
@@ -127,12 +125,9 @@ const entries = Atom.make((get) => new Map(get(shown).entries.map((entry) => [en
 const position = Atom.make((get) => Option.filter(Option.filter(read(get(fragment)), Place.$is('Project')), ({ project: id }) => get(entries).has(id)));
 const activeEntry = Atom.make((get) => Option.map(get(position), Struct.get('project'))).pipe(Atom.withServerValue(() => Option.none()));
 const shownComposition = (entry: Entry | undefined, stated: Composition['id'] | undefined) =>
-    Option.map(
-        Option.orElse(
-            Array.findFirst(entry?.compositions ?? [], ({ id }) => id === stated),
-            () => Array.head(entry?.compositions ?? []),
-        ),
-        Struct.get('id'),
+    Array.findFirst(entry?.compositions ?? [], ({ id }) => id === stated).pipe(
+        Option.orElse(() => Array.head(entry?.compositions ?? [])),
+        Option.map(Struct.get('id')),
     );
 const selectedComposition = Atom.family((id: Entry['id']) =>
     Atom.make((get) => shownComposition(get(entries).get(id), Option.getOrUndefined(Option.filter(get(position), ({ project: current }) => current === id))?.composition ?? get(selections)[id])).pipe(Atom.withServerValue((get) => shownComposition(get(entries).get(id), undefined))),
@@ -152,21 +147,11 @@ const jumpToEntry = Atom.writable(Function.constVoid, (context, { id }: Entry) =
     });
 });
 const track = (registry: AtomRegistry.AtomRegistry, section: HTMLElement, held: ReadonlySet<Element>) => {
-    const pinned = Option.exists(
-        Option.flatMap(registry.get(position), ({ project: id }) => registry.get(chapterSection(id))),
-        (chapter) => chapter.getBoundingClientRect().top < globalThis.innerHeight && Math.ceil(globalThis.scrollY + globalThis.innerHeight) >= document.documentElement.scrollHeight,
-    );
+    const current = Option.flatMap(registry.get(position), ({ project: id }) => registry.get(chapterSection(id)));
+    const pinned = Option.exists(current, (chapter) => chapter.getBoundingClientRect().top < globalThis.innerHeight && Math.ceil(globalThis.scrollY + globalThis.innerHeight) >= document.documentElement.scrollHeight);
     if (registry.get(editor) !== 'open' && !pinned) {
-        visit(
-            Option.match(
-                Array.findLast(registry.get(shown).entries, (entry) => Option.exists(registry.get(chapterSection(entry.id)), (chapter) => held.has(chapter))),
-                {
-                    onNone: () => (section.getBoundingClientRect().top > line() ? top : work),
-                    onSome: (entry) => Place.Project({ project: entry.id, composition: Option.getOrUndefined(registry.get(selectedComposition(entry.id))) }),
-                },
-            ),
-            'replace',
-        );
+        const reached = Array.findLast(registry.get(shown).entries, (entry) => Option.exists(registry.get(chapterSection(entry.id)), (chapter) => held.has(chapter)));
+        visit(Option.match(reached, { onNone: () => (section.getBoundingClientRect().top > line() ? top : work), onSome: (entry) => Place.Project({ project: entry.id, composition: Option.getOrUndefined(registry.get(selectedComposition(entry.id))) }) }), 'replace');
     }
 };
 const follow =

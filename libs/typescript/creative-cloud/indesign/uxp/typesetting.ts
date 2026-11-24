@@ -63,12 +63,7 @@ const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
         },
         catch: refused,
     }).pipe(
-        Effect.tap(
-            flow(
-                Struct.get('members'),
-                Effect.forEach(([target, values]) => Effect.flatten(Model.write(target, values)), { discard: true }),
-            ),
-        ),
+        Effect.tap(({ members }) => Effect.forEach(members, ([target, values]) => Effect.flatten(Model.write(target, values)), { discard: true })),
         Effect.map(Struct.get('kept')),
     );
     return yield* Model.written(payload.label, text, Effect.andThen(restored, kerned));

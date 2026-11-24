@@ -49,19 +49,13 @@ class Kerning extends Schema.Class<Kerning, { readonly brand: unique symbol }>('
         );
         return Array.window(spans, 2)
             .filter(([before, after]) => !LONE_PUNCTUATION.test(after.span.slice(text)) && SEPARATOR.test(text.slice(before.span.end, after.span.start)))
-            .map(([{ span: before }, after]) => {
+            .flatMap(([{ span: before }, after]) => {
                 const letters = { following: Array.take(joiningGroups(after.rest.slice(text)), 2), preceding: Array.takeRight(joiningGroups(before.slice(text)), 1) };
                 const { boundary, correction } = Array.findFirst(this.rows, ({ side, groups }) => letters[side].some(({ group }) => groups.includes(group))).pipe(Option.getOrElse(() => this.fallback));
                 const preceding = profile(before.slice(text));
                 const bounded = preceding.bounded({ slant: boundary.slant * unitsPerEm, top: Option.getOrElse(boundary.top, () => ascender) * unitsPerEm, foot: Option.getOrElse(boundary.foot, () => descender) * unitsPerEm });
-                return {
-                    index: after.span.start,
-                    length: after.span.length,
-                    ...Option.match(Profile.gap(profile(after.span.slice(text)), bounded, Math.round(this.rise * unitsPerEm), preceding.advance), {
-                        onNone: () => ({ kerning: 0, baselineShift: 0 }),
-                        onSome: ({ gap, shift }) => ({ kerning: -Math.max(gap / unitsPerEm + correction, 0), baselineShift: shift / unitsPerEm }),
-                    }),
-                };
+                const fit = Profile.gap(profile(after.span.slice(text)), bounded, Math.round(this.rise * unitsPerEm), preceding.advance);
+                return Option.toArray(Option.map(fit, ({ gap, shift }) => ({ index: after.span.start, length: after.span.length, kerning: -Math.max(gap / unitsPerEm + correction, 0), baselineShift: shift / unitsPerEm })));
             })
             .filter(({ kerning, baselineShift }) => kerning !== 0 || baselineShift !== 0);
     }
