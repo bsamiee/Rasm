@@ -256,7 +256,7 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
                         dependsOn: [packer, ...Array.match(item.dependents, { onEmpty: () => [], onNonEmpty: (dependents) => [{ projects: [...dependents], target: 'pack--*' }] })],
                         inputs: RELEASED,
                         metadata: {
-                            description: `Uploads the files ${packer} wrote, with the visible files the pack targets of each package requiring the project wrote, to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload`,
+                            description: `Uploads the files ${packer} wrote, with the visible files the pack targets of each package requiring the project wrote, to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload, creating that release with gh release create where none exists`,
                             help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
                         },
                     },

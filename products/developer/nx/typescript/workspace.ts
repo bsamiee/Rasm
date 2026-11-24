@@ -81,7 +81,10 @@ const tarball = (manager: PackageManager, outputPath: string | undefined, { mani
                 executor: `${distribution.name}:attach`,
                 dependsOn: [packed],
                 inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-                metadata: { description: `Uploads the files ${packed} wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload`, help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+                metadata: {
+                    description: `Uploads the files ${packed} wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload, creating that release with gh release create where none exists`,
+                    help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
+                },
             },
         },
     };

@@ -34,7 +34,10 @@ const ATTACH: TargetConfiguration = {
     executor: `${distribution.name}:attach`,
     dependsOn: ['pack--ditto'],
     inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-    metadata: { description: 'Uploads the files pack--ditto wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload', help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+    metadata: {
+        description: 'Uploads the files pack--ditto wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload, creating that release with gh release create where none exists',
+        help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
+    },
 };
 
 // --- [MODELS] --------------------------------------------------------------------------

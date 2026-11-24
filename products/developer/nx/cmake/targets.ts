@@ -202,7 +202,10 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
                         executor: `${distribution.name}:attach`,
                         dependsOn: ['pack--cpack'],
                         inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-                        metadata: { description: "Uploads the files pack--cpack wrote to the GitHub release of the version the project's manifest states with gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+                        metadata: {
+                            description: "Uploads the files pack--cpack wrote to the GitHub release of the version the project's manifest states with gh release upload, creating that release with gh release create where none exists",
+                            help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
+                        },
                     },
                 }),
             },

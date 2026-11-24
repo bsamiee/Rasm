@@ -311,7 +311,10 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                     executor: `${distribution.name}:attach`,
                     dependsOn: ['build--uv'],
                     inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-                    metadata: { description: "Uploads the files build--uv wrote to the GitHub release of the version the project's manifest states with gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+                    metadata: {
+                        description: "Uploads the files build--uv wrote to the GitHub release of the version the project's manifest states with gh release upload, creating that release with gh release create where none exists",
+                        help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
+                    },
                 },
             }),
         },
