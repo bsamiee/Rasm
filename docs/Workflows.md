@@ -100,8 +100,9 @@ Actions caches per workflow and machine:
 - Jobs on Windows restore the MSBuild analyzer and mise freshness state by the files its build reads
 - Analyzer caches save a new entry where the mise file holding the analyzer row changed, as mise rebuilds where restored state names another command
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
-- Job `macos` restores no Swift build folder or compilation cache, as an uncached run restoring one built the apps no faster
-- Job `macos` uploads the build logs Xcode writes, which hold each task and its compilation cache result
+- Job `macos` restores no Swift build folder, as compilation cache hits need its path alone to repeat
+- Job `macos` uploads the build logs Xcode writes, each ending in a metrics record of cache hits per cacheable task
+- Xcode logs one `Cache hit` per compile job and one `SwiftCompile` per file, so a hit rate comes from the metrics record alone
 - Past the 10 GB repository limit GitHub evicts caches by oldest last access
 
 ## [06]-[REMOTE_CACHE]
@@ -192,7 +193,8 @@ Sources of run, job, and task times and cache hits:
 - `duckdb` reads the record through `read_json` and the task database through `ATTACH '<file>' (TYPE sqlite)`, times in milliseconds
 - Batch executors stamp each task with its own start and end, and slowest misses and the critical path of a batch hold task times
 - Nx runs one batch at a time, starts no other task while it runs, and stores its results when it ends
-- `@rasm/nx-apple:run` runs a batch's invocations in order
+- `@rasm/nx-apple:run` runs a batch's invocations in order, as concurrent `xcodebuild` runs into one build folder fail on its locked build database
+- First `nx` commands of a job create the project graph, so their time holds graph creation, longest after a plugin change
 - `gh api repos/<owner>/<repository>/actions/runs/<run>/jobs` returns start and end of each job and step, and `created_at` to `started_at` is queue time
 - Manual CI runs take input `uncached`, the jobs running every task of their `nx affected` step past the Nx cache over state their tools keep
 - `NX_PERF_LOGGING=true` prints each task's time and graph creation times, and `NX_PROFILE=<file>` writes a trace of a run's tasks
