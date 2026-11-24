@@ -1,4 +1,6 @@
+import { join } from 'node:path';
 import { platform } from 'node:process';
+import { pathToFileURL } from 'node:url';
 import { createNodes } from '@rasm/nx-docker';
 import { it, taskGraph } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
@@ -9,8 +11,8 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const HOSTED = { 'project.json': '{"name":"workspace"}', '.config/mise.toml': '[tools]\n' };
 const CLIENT = { 'node_modules/@testcontainers/postgresql/package.json': '{"name":"@testcontainers/postgresql","dependencies":{"testcontainers":"12.2.2"}}' };
-const SUITE = (folder: string, required: object) => ({
-    [`${folder}/project.json`]: `{"name":"${folder}","targets":{"test--vitest":{"command":"true"},"install--pulumi":{"command":"true"}}}`,
+const SUITE = (folder: string, required: object, targets: readonly string[] = ['test--vitest', 'install--pulumi']) => ({
+    [`${folder}/project.json`]: JSON.stringify({ name: folder, targets: Object.fromEntries(targets.map((target) => [target, { command: 'true' }])) }),
     [`${folder}/package.json`]: JSON.stringify({ name: folder, ...required }),
 });
 
@@ -37,6 +39,21 @@ describe.runIf(platform === 'darwin')('engine on macOS', () => {
         const { dependencies } = taskGraph(graph, ['suite'], [target]);
 
         expect(dependencies[`suite:${target}`]?.some(({ id }) => id === 'workspace:install--colima')).toBe(started);
+    });
+
+    it('gives the engine edge to the target of each client a package reaches, through a workspace package included, and adds no target', async ({ workspace }) => {
+        workspace.write({ ...HOSTED, ...SUITE('harness', { dependencies: { testcontainers: '12.2.2' } }, ['test--vitest']), ...SUITE('library', { devDependencies: { harness: 'workspace:*' } }, ['test--vitest']), ...SUITE('unrelated', { dependencies: { effect: '4.1.5' } }, ['test--vitest']) });
+        const graph = await workspace.install(['harness', pathToFileURL(join(workspace.root, 'harness/package.json')).href]).graph({ createNodes });
+
+        const { dependencies } = taskGraph(graph, Object.keys(graph.nodes), ['test--vitest', 'install--pulumi', 'install--colima', 'clean--colima']);
+
+        expect(dependencies).toStrictEqual({
+            'workspace:install--colima': [],
+            'workspace:clean--colima': [{ id: 'workspace:install--colima' }],
+            'harness:test--vitest': [{ id: 'workspace:install--colima' }],
+            'library:test--vitest': [{ id: 'workspace:install--colima' }],
+            'unrelated:test--vitest': [],
+        });
     });
 
     it('infers no engine in a workspace mise does not configure', async ({ workspace }) => {
