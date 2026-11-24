@@ -111,7 +111,8 @@ func read(_ path: FilePath) throws(AnalyzerError) -> Data {
 
 func joined(_ base: FilePath, _ relative: String) -> FilePath {
     let expanded = FilePath(NSString(string: relative).expandingTildeInPath)
-    return expanded.isAbsolute ? expanded : base.appending(relative).lexicallyNormalized()
+    let path = expanded.isAbsolute ? expanded : base.appending(relative).lexicallyNormalized()
+    return path.isEmpty ? "." : path
 }
 
 func checked(_ container: Container, _ references: [Reference]) throws(AnalyzerError) -> Container {

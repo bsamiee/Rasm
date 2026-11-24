@@ -21,6 +21,7 @@ const SHELL = 'x; touch pwned';
 const PLIST = '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict/></plist>\n';
 const VERSIONED = '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict><key>CFBundleShortVersionString</key><string>1.0.0</string></dict></plist>\n';
 const REFERENCE = '<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A10000000000000000000002" BuildableName="Viewer.app" BlueprintName="Viewer" ReferencedContainer="container:Viewer.xcodeproj"/>';
+const PACKAGED = (target: string) => `<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="${target}" BuildableName="${target}" BlueprintName="${target}" ReferencedContainer="container:"/>`;
 const PACKAGES = {
     'Package.swift': `${TOOLS}let package = Package(\n    name: "Fixture",\n    platforms: [.macOS(.v27)],\n    products: [.library(name: "Middle", targets: ["Middle"])],\n    targets: [\n        .target(name: "Core", path: "libs/Core"),\n        .target(name: "Middle", dependencies: ["Core"], path: "libs/Middle"),\n        .target(name: "Loose", path: "libs/Loose"),\n        .executableTarget(name: "Tool", dependencies: ["Middle"], path: "apps/Tool"),\n        .testTarget(name: "CoreTests", dependencies: ["Core"], path: "libs/tests/CoreTests"),\n    ]\n)\n`,
     'libs/Core/Core.swift': 'public func one() -> Int { 1 }\n',
@@ -75,7 +76,10 @@ const XCODE = {
     'apps/Viewer/Support/Viewer.entitlements': PLIST,
     'apps/Viewer/Support/Viewer-Release.entitlements': PLIST,
     'apps/Viewer/Sources/ViewerApp.swift': 'import SwiftUI\n\n@main\nstruct ViewerApp: App {\n    var body: some Scene {\n        WindowGroup { Text("viewer") }\n    }\n}\n',
+    'Fixture.xcworkspace/contents.xcworkspacedata': '<?xml version="1.0" encoding="UTF-8"?>\n<Workspace version="1.0"><FileRef location="group:"/><FileRef location="group:apps/Viewer/Viewer.xcodeproj"/></Workspace>\n',
+    'Fixture.xcworkspace/xcshareddata/xcschemes/Fixture-Package.xcscheme': `<?xml version="1.0" encoding="UTF-8"?>\n<Scheme LastUpgradeVersion="2720" version="1.7">\n    <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">\n        <BuildActionEntries>\n${['Core', 'Middle', 'Loose', 'Tool'].map((target) => `            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">\n                ${PACKAGED(target)}\n            </BuildActionEntry>\n`).join('')}        </BuildActionEntries>\n    </BuildAction>\n    <TestAction buildConfiguration="Debug">\n        <Testables>\n            <TestableReference skipped="NO">\n                ${PACKAGED('CoreTests')}\n            </TestableReference>\n        </Testables>\n    </TestAction>\n</Scheme>\n`,
 };
+const MODULES = ['Core', 'Loose', 'Middle', 'Tool'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -85,6 +89,8 @@ const Settings = Schema.fromJsonString(Schema.Array(Schema.Struct({ buildSetting
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const settings = (root: string, argv: readonly string[]) => Effect.runSync(Schema.decodeEffect(Settings)(execFileSync('xcodebuild', ['-showBuildSettings', '-json', ...argv], { cwd: root, encoding: 'utf-8', env: { ...env, CFFIXED_USER_HOME: root } })));
+
+const invoked = (action: string) => [['xcodebuild', action, '-workspace', 'Fixture.xcworkspace', '-skipMacroValidation', '-skipPackagePluginValidation', '-onlyUsePackageVersionsFromResolvedFile', '-scheme', 'Fixture-Package']];
 
 const compiledBy =
     (folder: string) =>
@@ -206,6 +212,37 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
         const { success } = await execute({ ...inferred, __unparsed__: [`LOCAL_APPS_DIR=${applications}`] }, workspace.context(graph, 'Viewer', 'install--xcodebuild'));
 
         expect({ success, installed: readdirSync(applications) }).toStrictEqual({ success: true, installed: ['Viewer.app'] });
+    });
+});
+
+describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
+    it('builds and tests the package through its workspace scheme in place of swift build and swift test, each module running its build and check, and the test where a test target reaches it', async ({ fixture: { graph } }) => {
+        const targets = ['build--xcodebuild', 'check--xcodebuild', 'test--xcodebuild'] as const;
+        const [build, test] = await Promise.all([targetOptions(Run, graph, 'Fixture', 'build--xcodebuild'), targetOptions(Run, graph, 'Fixture', 'test--xcodebuild')]);
+        const forwards = [...Array.cartesian(MODULES, ['build--xcodebuild', 'check--xcodebuild'] as const), ['Core', 'test--xcodebuild'] as const];
+
+        expect({
+            compiled: Array.intersection(['build--swift-build', 'check--swift-build', 'test--swift', ...targets], Record.keys(graph.nodes['Fixture']?.data.targets ?? {})),
+            runs: [build.runs, test.runs],
+            forwarded: forwards.map(([module, target]) => graph.nodes[module]?.data.targets?.[target]?.dependsOn),
+            tested: MODULES.filter((module) => 'test--xcodebuild' in (graph.nodes[module]?.data.targets ?? {})),
+        }).toStrictEqual({
+            compiled: targets,
+            runs: [invoked('build'), invoked('test')],
+            forwarded: forwards.map(([, target]) => [{ projects: ['Fixture'], target }]),
+            tested: ['Core'],
+        });
+    });
+
+    it('passes every test the scheme lists through the run executor', async ({ fixture: { root, graph, workspace }, onTestFinished }) => {
+        vi.stubEnv('CFFIXED_USER_HOME', root);
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+        });
+
+        const { success } = await execute(await targetOptions(Run, graph, 'Fixture', 'test--xcodebuild'), workspace.context(graph, 'Fixture', 'test--xcodebuild'));
+
+        expect(success).toBe(true);
     });
 });
 

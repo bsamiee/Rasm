@@ -3,7 +3,7 @@ import process from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, inferring, manifested, produced, runner, spawned, stamped, type Verbs, within } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Config, Context, Effect, FileSystem, identity, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Cause, Config, Context, Effect, FileSystem, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import which from 'which';
 import { Described, ENTITLEMENTS, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, RESOLVED, Shipped, sources } from '#/swift-package';
 import { analyzer, CORE, core, Options, type Part, PLUGIN, tokened } from '#/targets';
@@ -22,10 +22,6 @@ interface Graph {
 const READ = [MANIFEST, INFO, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcworkspace/contents.xcworkspacedata', '*.xcscheme', '*.xcconfig'].map((file) => `**/${file}`);
 const FILES = combineGlobPatterns([...READ, ...['*.xcodeproj/project.pbxproj', '*.xctestplan', '*.entitlements', '*.plist'].map((file) => `**/${file}`)]);
 const HOST: NodeJS.Platform = 'darwin';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Host = Schema.fromJsonString(Schema.Struct({ target: Schema.Struct({ platform: Schema.String }) }));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -53,7 +49,6 @@ const analyze = Effect.fnUntraced(function* (
     const unsupported = files.filter((file) => basename(file) === 'project.pbxproj' && !paths.has(join(dirname(file), 'project.xcproj')));
     const markers = new Map(containers.map((file) => [dirname(file), file] as const));
     const marker = (container: string) => markers.get(container) ?? container;
-    const host = yield* Effect.transposeOption(Option.map(info, (text) => Effect.map(Schema.decodeEffect(Host)(text), ({ target: { platform } }) => platform)));
     const readable = Option.isSome(info) ? manifests : [];
     const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.flatMap(spawned(['swift', 'package', '--package-path', dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json'], { cwd: workspaceRoot }), Schema.decodeEffect(Described))), {
         concurrency: 'unbounded',
@@ -110,16 +105,15 @@ const analyze = Effect.fnUntraced(function* (
     ];
     yield* Effect.forEach(unread, (warning) => Effect.sync(() => emitPluginWorkerLog('warn', warning)));
     const packaged = (at: string) => Option.map(local(at), ({ manifest }) => manifest.name);
-    const destinations = (folders: readonly string[]) => Array.dedupe(folders.flatMap((folder) => Array.match(Option.match(local(folder), { onNone: () => [], onSome: ({ manifest }) => manifest.platforms.map(Struct.get('name')) }), { onEmpty: () => Option.toArray(host), onNonEmpty: identity })));
     const nested = packages.flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: `${join(owner.root, module.path)}/` }))).flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${dirname(other)}/`.startsWith(folder)).map((inner) => ({ owner, inner })));
     yield* Effect.forEach(nested, ({ owner, inner }) => Effect.sync(() => emitPluginWorkerLog('warn', `${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`)));
     const linkedSources = (container: Analyzed['containers'][number]) => Array.getSomes(container.projects.map((at) => Option.map(local(at), (swiftPackage) => sources(swiftPackage, described, Record.get(container.products, at))))).flat();
-    const parts: readonly Part[] = [
-        ...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described, stamp)),
-        ...analyzed.containers.map((container) =>
-            xcodeParts(options, marker(container.path), container, Array.dedupe([...container.inputs.flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]), built(container.path), destinations, packaged, relative(workspaceRoot, workspaceDataDirectory)),
-        ),
-    ];
+    const xcode = analyzed.containers.map((container) => ({
+        schemes: container.schemes,
+        part: xcodeParts(options, marker(container.path), container, Array.dedupe([...container.inputs.flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]), built(container.path), packaged, relative(workspaceRoot, workspaceDataDirectory)),
+    }));
+    const covered = new Map(xcode.flatMap(({ schemes, part }) => Array.getSomes(schemes.flatMap(Struct.get('containers')).map(local)).map((swiftPackage) => [swiftPackage, part] as const)));
+    const parts: readonly Part[] = [...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described, stamp, Option.fromUndefinedOr(covered.get(swiftPackage)))), ...xcode.map(Struct.get('part'))];
     const [settled, conflicts] = Record.partition(Array.groupBy(parts, Struct.get('root')), (group) => (new Set(group.map(Struct.get('name'))).size > 1 ? Result.fail(group) : Result.succeed(group)));
     const merged = Record.collect(settled, (root, group) => {
         const { name, file, technologies } = Array.headNonEmpty(group);

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion="2720" version="1.7">
+    <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
+        <BuildActionEntries>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Encoding" BuildableName="Encoding" BlueprintName="Encoding" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Results" BuildableName="Results" BlueprintName="Results" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="JSONRPC" BuildableName="JSONRPC" BlueprintName="JSONRPC" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Files" BuildableName="Files" BlueprintName="Files" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Processes" BuildableName="Processes" BlueprintName="Processes" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Telemetry" BuildableName="Telemetry" BlueprintName="Telemetry" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Fonts" BuildableName="Fonts" BlueprintName="Fonts" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Updater" BuildableName="Updater" BlueprintName="Updater" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AppleEvents" BuildableName="AppleEvents" BlueprintName="AppleEvents" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Applications" BuildableName="Applications" BlueprintName="Applications" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="CurrentProcess" BuildableName="CurrentProcess" BlueprintName="CurrentProcess" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ScreenCapture" BuildableName="ScreenCapture" BlueprintName="ScreenCapture" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ApplicationServer" BuildableName="ApplicationServer" BlueprintName="ApplicationServer" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Atelier" BuildableName="Atelier" BlueprintName="Atelier" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Relay" BuildableName="Relay" BlueprintName="Relay" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="watch-app" BuildableName="watch-app" BlueprintName="watch-app" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+        </BuildActionEntries>
+    </BuildAction>
+    <TestAction buildConfiguration="Debug">
+        <Testables>
+            <TestableReference skipped="NO">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="EncodingTests" BuildableName="EncodingTests" BlueprintName="EncodingTests" ReferencedContainer="container:"/>
+            </TestableReference>
+            <TestableReference skipped="NO">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ResultsTests" BuildableName="ResultsTests" BlueprintName="ResultsTests" ReferencedContainer="container:"/>
+            </TestableReference>
+            <TestableReference skipped="NO">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="JSONRPCTests" BuildableName="JSONRPCTests" BlueprintName="JSONRPCTests" ReferencedContainer="container:"/>
+            </TestableReference>
+            <TestableReference skipped="NO">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ProcessesTests" BuildableName="ProcessesTests" BlueprintName="ProcessesTests" ReferencedContainer="container:"/>
+            </TestableReference>
+            <TestableReference skipped="NO">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AppleEventsTests" BuildableName="AppleEventsTests" BlueprintName="AppleEventsTests" ReferencedContainer="container:"/>
+            </TestableReference>
+            <TestableReference skipped="NO">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ApplicationsTests" BuildableName="ApplicationsTests" BlueprintName="ApplicationsTests" ReferencedContainer="container:"/>
+            </TestableReference>
+            <TestableReference skipped="NO">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ApplicationServerTests" BuildableName="ApplicationServerTests" BlueprintName="ApplicationServerTests" ReferencedContainer="container:"/>
+            </TestableReference>
+            <TestableReference skipped="NO">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="watch-appTests" BuildableName="watch-appTests" BlueprintName="watch-appTests" ReferencedContainer="container:"/>
+            </TestableReference>
+        </Testables>
+    </TestAction>
+</Scheme>

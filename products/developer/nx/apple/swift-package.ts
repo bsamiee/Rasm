@@ -35,7 +35,6 @@ class Described extends Schema.Opaque<Described, unknown>()(
     Schema.fromJsonString(
         Schema.Struct({
             name: Schema.String,
-            platforms: Schema.Array(Schema.Struct({ name: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
             dependencies: Schema.Array(Schema.Struct({ path: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
             targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, target_dependencies: Listed, product_dependencies: Listed, resources: Schema.Array(Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })),
             products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String), type: Schema.Record(Schema.String, Schema.Unknown) })),
@@ -76,7 +75,7 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
     ];
 };
 
-const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>, stamp: Option.Option<Readonly<Record<'root' | 'name' | 'hash', string>>>): readonly Part[] => {
+const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>, stamp: Option.Option<Readonly<Record<'root' | 'name' | 'hash', string>>>, scheme: Option.Option<Pick<Part, 'name' | 'tools'>>): readonly Part[] => {
     const { file, root, plists, entitled, manifest, bins, whole, shipped } = local;
     const stamped = Option.filter(stamp, (held) => held.root === root);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
@@ -129,8 +128,10 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
     const executables = new Set(manifest.targets.filter(({ type }) => Schema.is(Executable)(type)).map(({ name }) => name));
     const products = new Map(manifest.products.flatMap(({ name, targets }) => targets.filter((owner) => executables.has(owner)).map((owner) => [owner, name] as const)));
     const forwardedInputs = ['default', '^default', ...[MANIFEST, RESOLVED].map((at) => join('{workspaceRoot}', root, at)), ...INPUTS];
+    const [compiler, verbs] = Option.match(scheme, { onNone: () => [manifest.name, work] as const, onSome: ({ name, tools }) => [name, tools] as const });
+    const compiled = (module: string) => Record.filter(verbs, (_, verb) => verb in work && (verb !== 'test' || tested.has(module)));
     const owned: Verbs = {
-        ...work,
+        ...(Option.isNone(scheme) && work),
         upgrade: {
             'swift-package': {
                 executor: `${PLUGIN}:upgrade`,
@@ -150,14 +151,12 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
         metadata: { technologies: ['swift'], description: `Removes the build folder of ${manifest.name} with swift package clean`, help: { command: 'swift package clean --help', example: {} } },
     };
     const forwarded = (module: string): Verbs =>
-        Record.map(
-            Record.filter(work, (_, verb) => verb !== 'test' || tested.has(module)),
-            (tools, verb) =>
-                Record.map(tools, (_, tool): TargetConfiguration => ({
-                    dependsOn: [{ projects: [manifest.name], target: `${verb}--${tool}` }],
-                    inputs: forwardedInputs,
-                    metadata: { technologies: ['swift'], description: `Runs ${verb}--${tool} of ${manifest.name} with nx run`, help: { command: `nx run ${manifest.name}:${verb}--${tool} --help`, example: { args: ['--verbose'] } } },
-                })),
+        Record.map(compiled(module), (tools, verb) =>
+            Record.map(tools, (_, tool): TargetConfiguration => ({
+                dependsOn: [{ projects: [compiler], target: `${verb}--${tool}` }],
+                inputs: forwardedInputs,
+                metadata: { technologies: ['swift'], description: `Runs ${verb}--${tool} of ${compiler} with nx run`, help: { command: `nx run ${compiler}:${verb}--${tool} --help`, example: { args: ['--verbose'] } } },
+            })),
         );
     const relayed: TargetConfiguration<Readonly<Record<string, unknown>>> = {
         dependsOn: [{ projects: [manifest.name], target: 'clean--swift-package' }],

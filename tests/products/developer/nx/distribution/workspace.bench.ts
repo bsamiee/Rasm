@@ -8,7 +8,7 @@ import { describe, it } from 'vitest';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const NX = fileURLToPath(import.meta.resolve('nx/bin/nx'));
-const LEAVES = ['@rasm/telemetry:build--tsc', 'rasm_dependency_graph:check--clippy', 'Rasm.Telemetry.Api:build--dotnet', 'rasm-telemetry:check--mypy', 'rasm:build--swift-build'] as const;
+const LEAVES = ['@rasm/telemetry:build--tsc', 'rasm_dependency_graph:check--clippy', 'Rasm.Telemetry.Api:build--dotnet', 'rasm-telemetry:check--mypy', 'watch-app:build--xcodebuild'] as const;
 const MODES = { cached: [], uncached: ['--skip-nx-cache'] } as const;
 const RUNS = Array.cartesianWith(LEAVES, Record.toEntries(MODES), (task, [mode, flags]) => ({ task, mode, flags }));
 

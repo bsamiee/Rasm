@@ -31,14 +31,14 @@ class Analyzed extends Schema.Opaque<Analyzed, unknown>()(Schema.fromJsonString(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const xcodeParts = (options: Options, file: string, container: Analyzed['containers'][number], inputs: readonly string[], built: string, destinations: (roots: readonly string[]) => readonly string[], packaged: (at: string) => Option.Option<string>, data: string): Part => {
+const xcodeParts = (options: Options, file: string, container: Analyzed['containers'][number], inputs: readonly string[], built: string, packaged: (at: string) => Option.Option<string>, data: string): Part => {
     const workspace = extname(built) === '.xcworkspace';
     const lock = join(built, workspace ? 'xcshareddata/swiftpm/Package.resolved' : 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved');
     const flags = [workspace ? '-workspace' : '-project', built, '-skipMacroValidation', '-skipPackagePluginValidation'];
     const name = basename(container.path, extname(container.path));
     const cloned = join(data, 'xcode-packages', container.path);
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
-    const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every((at) => Option.isSome(packaged(at))) }));
+    const schemes = container.schemes.filter(({ containers }) => containers.length > 0);
     const locals = Array.dedupe(Array.getSomes(container.projects.map(packaged)));
     const seed = Array.head(Array.getSomes(container.projects.map((at) => Option.as(packaged(at), join(at, RESOLVED)))));
     const archives = Array.getSomes(schemes.map(({ name: scheme, archive }) => Option.map(Option.fromUndefinedOr(archive), (held) => ({ scheme, ...held }))));
@@ -47,19 +47,17 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
             Option.map(Option.fromUndefinedOr(options.outputPath), (at) => ({ folder: join(at, scheme), archive: join(at, scheme, `${scheme}.xcarchive`), run: invoke('archive', scheme, ['-archivePath', join(at, scheme, `${scheme}.xcarchive`), '-configuration', configuration]) })),
         ),
     );
-    const referenced = container.buildFiles
-        .filter((at) => relative(dirname(container.path), at).startsWith('..'))
-        .flatMap((at) => tokened(at))
-        .flatMap((input) => [input, join(input, '**/*')]);
-    const read = Array.dedupe([join('{projectRoot}', '**/*'), ...inputs, ...referenced, ...tokened(lock), ...INPUTS]);
+    const referenced = container.buildFiles.filter((at) => relative(dirname(container.path), at).startsWith('..')).flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
+    const listing = extname(container.path) === '.xcworkspace';
+    const read = Array.dedupe([join(listing ? join('{workspaceRoot}', container.path) : '{projectRoot}', '**/*'), ...inputs, ...referenced, ...tokened(lock), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'test -z "$XCODE_XCCONFIG_FILE" || cat "$XCODE_XCCONFIG_FILE"' }, ...INPUTS]);
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
-    const runs = schemes.filter(({ tests, packages }) => tests && !packages).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
+    const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
     const derived = Option.orElse(Option.fromUndefinedOr(options.derivedDataPath), () => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, 'DerivedData')));
     const report = Option.all({ file: Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info')), folder: derived }).pipe(
         Option.map(({ file: at, folder }) => ({ profiles: [join(folder, 'Build/ProfileData/*/Coverage.profdata')], results: [join(folder, 'Logs/Test/*.xcresult')], file: at })),
     );
     const covered = Option.toArray(Option.map(report, ({ file: at }) => at));
-    const builds: Run['runs'] = schemes.flatMap((scheme) => (scheme.packages ? destinations(scheme.containers).map((platform) => ['-destination', `generic/platform=${platform}`]) : [[]]).map((destination) => invoke('build', scheme.name, destination)));
+    const builds: Run['runs'] = schemes.map((scheme) => invoke('build', scheme.name, []));
     const installs = archives.map(({ scheme, configuration }) => invoke('install', scheme, ['-configuration', configuration, 'DSTROOT=$(LOCAL_APPS_DIR)', 'INSTALL_PATH=/']));
     const launches = Array.dedupe(Array.getSomes(schemes.map(({ launch }) => Option.fromUndefinedOr(launch))));
     const modes = (planned: Run['runs']): Partial<TargetConfiguration> => ({
@@ -77,8 +75,12 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
             build: {
                 xcodebuild: sequenced(
                     builds,
-                    { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild build, pack--ditto archiving the schemes with installed products', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
-                    { cache: true, dependsOn: ['^build--*'], inputs: read, ...modes(builds) },
+                    {
+                        technologies: ['xcode'],
+                        description: 'Builds each shared scheme with xcodebuild build for the destination xcodebuild picks on this Mac, as app builds do, so a package scheme reuses the modules app builds compiled, pack--ditto archiving the schemes with installed products',
+                        help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
+                    },
+                    { cache: true, ...(!listing && { dependsOn: ['^build--*'] }), inputs: read, ...modes(builds) },
                 ),
             },
             check: { xcodebuild: { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Type-checks each shared scheme with xcodebuild build', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } } } },
@@ -86,12 +88,12 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                 xcodebuild: sequenced(
                     [
                         ['rm', '-rf', join(cloned, 'workspace-state.json'), join(cloned, 'checkouts'), ...(Option.isNone(seed) ? [lock] : [])],
-                        ...Option.toArray(Option.map(seed, (from) => ['cp', from, lock] as const)),
+                        ...Option.toArray(Option.map(seed, (from) => ['ln', '-sf', relative(dirname(lock), from), lock] as const)),
                         ...schemes.slice(0, 1).map((scheme) => ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', cloned, '-scheme', scheme.name] as const),
                     ],
                     {
                         technologies: ['xcode'],
-                        description: `Removes the checkouts and state of ${name}'s upgrade package folder, keeping its git mirrors, and replaces ${name}'s Package.resolved with the one of the local package it names, after upgrade--swift-package of that package moves it, or removes it where ${name} names none, then resolves its package references with xcodebuild -resolvePackageDependencies, which keeps each pin their requirements allow and so resolves the versions the local package resolved, else the newest releases their requirements allow`,
+                        description: `Removes the checkouts and state of ${name}'s upgrade package folder, keeping its git mirrors, links ${name}'s Package.resolved to the one of the local package it names, which upgrade--swift-package of that package moves, or removes it where ${name} names none, then resolves its package references with xcodebuild -resolvePackageDependencies, which keeps each pin their requirements allow and so resolves the versions the local package resolved, else the newest releases their requirements allow`,
                         help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
                     },
                     { inputs: read, ...(locals.length > 0 && { dependsOn: [{ projects: locals, target: 'upgrade--swift-package', params: 'forward' }] }) },
@@ -103,6 +105,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                 ditto: {
                     executor: `${PLUGIN}:package`,
                     cache: true,
+                    dependsOn: ['^build--*'],
                     inputs: [...read, { env: NOTARY.keyId }],
                     options: { exports: archived.map(({ archive, folder, run }) => ({ archive, folder, run })) },
                     outputs: archived.flatMap(({ folder, archive }) => ['*.dmg', '*.zip', basename(archive)].map((entry) => (relative(dirname(container.path), folder).startsWith('..') ? join('{workspaceRoot}', folder, entry) : join('{projectRoot}', relative(dirname(container.path), folder), entry)))),
@@ -169,7 +172,10 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                         },
                         configurations: {
                             cache: {
-                                commands: schemes.slice(0, 1).map((scheme) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme.name, ['-json'])]),
+                                commands: Array.take(
+                                    Array.filter(schemes, ({ containers }) => containers.some((at) => Option.isNone(packaged(at)))),
+                                    1,
+                                ).map((scheme) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme.name, ['-json'])]),
                             },
                         },
                         metadata: {

@@ -54,7 +54,7 @@ Rasm/
 ├── NuGet.config              # .NET
 ├── Package.swift             # Swift workspace and central package catalog
 ├── Xcode.xcconfig            # Swift
-├── Rasm.xcworkspace/         # Swift, one Xcode build folder and package clone for every app
+├── Rasm.xcworkspace/         # Swift, one Xcode build folder and package clone for every app and root package
 ├── Cargo.toml                # Rust workspace and central package catalog
 ├── rust-toolchain.toml       # Rust
 ├── .cargo/                   # Rust
@@ -141,7 +141,7 @@ flowchart LR
 
 mise installs every tool, `[env]` holds process variables, and `[bootstrap]` holds what a machine's OS keeps across boots:
 - `mise bootstrap` configures a machine for the workspace after a clone
-- `mise install` installs every tool and project dependency, and a new Rust toolchain prunes the old one
+- `mise install` installs every tool and project dependency, sets the rustup default to the pinned toolchain, and prunes the one a new toolchain replaces
 - `.config/mise.toml` `[tools]` rows stay at `latest` where a backend lists releases, and a `version_regex` excludes development builds
 - Platform rows sit in the `.config/mise.<os>.toml` mise loads, as only a file limits a row to one OS
 - Doppler project `rasm` and 1Password hold every secret, a registry token as a `rasm/release` row named as the variable its publish target reads
@@ -169,8 +169,11 @@ Roots split, nest, or hold more where a host or tool decides:
 - .NET runs build Release unless they name configuration `debug`, which reaches references and Yak packages, and assemblies embed their PDB
 - Swift modules, app code included, are root `Package.swift` targets, and Xcode app targets hold bundle, icon, and signing over their app module
 - Xcode app projects build through root `Rasm.xcworkspace`, as projects built apart each clone every package and compile it again
+- Root `Package.swift` builds and tests in that workspace through shared scheme `Rasm-Package`, which lists every target, in place of SwiftPM
+- Workspace `Package.resolved` links to the root one, which `swift package update` moves and `xcodebuild` reads and writes through the link
 - User default `IDEPackageOnlyUseVersionsFromResolvedFile` of mise `[bootstrap]` holds Xcode windows to resolved versions, as builds are
-- `Xcode.xcconfig` turns on the Xcode compilation cache for every target, packages included, and its hits need an unchanged build folder path
+- `.config/xcode.xcconfig` turns on the Xcode compilation cache, `Xcode.xcconfig` includes it, and its hits need an unchanged build folder path
+- Mise variable `XCODE_XCCONFIG_FILE` applies it to every target `xcodebuild` builds, as a package scheme otherwise compiles every module apart
 - User default `CompilationCachingDiskSizeLimit` of mise `[bootstrap]` caps that cache, as Xcode otherwise lets it reach half the free disk
 - C++ packages each declare their own `project()`, and toolchain, presets, CI, and release stay whole before any package exists
 - Unreal plug-ins sit beside the project enabling them, and name each C++ package they build with their engine's compiler in `.uplugin` `nx.packages`
