@@ -44,7 +44,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
     const standalone = yield* Effect.findFirst(listed.has(MANIFEST) ? ['src', 'lib'] : [], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at))));
     const lints = installed('eslint', join(workspaceRoot, MANIFEST))
         ? yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), manager, [...held.values().map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))], row)
-        : new Map<string, TargetConfiguration>();
+        : new Map<string, { readonly target: TargetConfiguration; readonly typed: boolean }>();
     const rooted = getRootTsConfigFileName();
     const chained = (root: string) => Array.fromOption(Option.flatMap(Option.fromUndefinedOr(programs.get(posix.join(root, CONFIG))), Option.getSuccess)).flatMap(({ chain }) => chain.filter((at) => posix.relative(root, at).startsWith('..') && at !== rooted).map(tokened(root)));
     const read = Effect.fnUntraced(function* (file: string) {
@@ -52,7 +52,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
         const described = yield* looked(manifests, root);
         const linting = Option.map(
             Option.filter(Option.fromUndefinedOr(lints.get(root)), () => anchors.has(file) || root === '.'),
-            (eslint) => projected(root, 'eslint', { check: { eslint: { ...eslint, inputs: [...(eslint.inputs ?? []), ...chained(root)] } } }, described.stated),
+            ({ target, typed }) => projected(root, 'eslint', { check: { eslint: { ...target, inputs: [...(target.inputs ?? []), ...(typed ? chained(root) : [])] } } }, described.stated),
         );
         const branch = yield* Match.value({ file, name: basename(file) }).pipe(
             Match.when({ file: MANIFEST }, () => Effect.asSome(workspace(workspaceRoot, manager, settings.knipConfig, row, described))),

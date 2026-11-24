@@ -104,12 +104,26 @@ describe('eslint check inference', () => {
         expect(cached.nodes['app']?.data.targets?.['check--eslint']).toStrictEqual(fresh.nodes['app']?.data.targets?.['check--eslint']);
     });
 
-    it('hashes the files the project tsconfig extends outside the project, except the root tsconfig and installed presets', async ({ workspace }) => {
+    it.for([
+        { config: "export default [{ files: ['**/*.json'] }];\n", upstream: false },
+        { config: "export default [{ files: ['**/*.ts'] }];\n", upstream: false },
+        { config: "export default [{ files: ['**/*.ts'], languageOptions: { parserOptions: { projectService: true } } }];\n", upstream: true },
+        { config: "export default [{ files: ['**/*.ts'], settings: { 'import/resolver': { typescript: true } } }];\n", upstream: true },
+    ])('hashes the upstream sources for check--eslint when a linted file reads them: $upstream', async ({ config, upstream }, { workspace }) => {
+        const graph = await workspace
+            .install(typescript, import.meta.resolve('eslint/package.json'))
+            .write({ ...ROOT, 'eslint.config.mjs': config, 'apps/app/project.json': '{"name":"app"}', 'apps/app/package.json': '{"name":"app"}', 'apps/app/index.ts': 'export {};' })
+            .graph({ createNodes });
+
+        expect(graph.nodes['app']?.data.targets?.['check--eslint']?.inputs?.includes('^default')).toBe(upstream);
+    });
+
+    it('hashes the files a type-aware project tsconfig extends outside the project, except the root tsconfig and installed presets', async ({ workspace }) => {
         const graph = await workspace
             .install(typescript, import.meta.resolve('eslint/package.json'))
             .write({
                 ...ROOT,
-                'eslint.config.mjs': "export default [{ files: ['**/*.ts'] }];\n",
+                'eslint.config.mjs': "export default [{ files: ['**/*.ts'], languageOptions: { parserOptions: { projectService: true } } }];\n",
                 'tsconfig.base.json': '{"extends":"./tsconfig.root.json"}',
                 'tsconfig.root.json': '{}',
                 'tsconfig.shared.json': '{}',

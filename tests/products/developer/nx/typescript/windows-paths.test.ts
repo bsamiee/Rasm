@@ -13,14 +13,13 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 describe('inference under Windows path separators', { timeout: 60_000 }, () => {
     it('hands Nx posix roots, inputs, outputs, and working folders', async ({ workspace }) => {
         const graph = await workspace
-            .install(typescript, import.meta.resolve('eslint/package.json'))
+            .install(typescript, import.meta.resolve('eslint/package.json'), new URL('../package.json', import.meta.resolve('knip')).href)
             .write({
                 'package.json': '{"name":"root","workspaces":["libs/*"]}',
                 'package-lock.json': '',
                 'eslint.config.mjs': "import { files } from './tools/lint/files.mjs';\n\nexport default [{ files }];\n",
                 'tools/lint/files.mjs': "export const files = ['**/*.ts'];\n",
                 'tsconfig.base.json': '{"compilerOptions":{"strict":true}}',
-                'node_modules/knip/package.json': '{"name":"knip"}',
                 'libs/shared/units.ts': 'export {};',
                 'libs/other/tsconfig.json': '{"files":[],"compilerOptions":{"composite":true}}',
                 'libs/lib/package.json': '{"name":"lib","version":"1.0.0"}',

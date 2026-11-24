@@ -3,7 +3,7 @@ import { dirname, join, posix, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
 import { type CreateNodesContext, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { getLockFileName, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { getLockFileName, hashFile, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, EXEC, manifested, namedInput, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, FileSystem, Option, Record, Schema, UndefinedOr } from 'effect';
@@ -27,6 +27,10 @@ const Manifest = Schema.fromJsonString(Schema.Struct({ version: Schema.optionalK
     description: "The version, os, and jscpd rows of a project's package.json, jscpd reading its configuration from the jscpd row",
 });
 const Exported = Schema.fromJsonString(Schema.Struct({ exports: Schema.Struct({ '.': Schema.Struct({ import: Schema.String }) }) })).annotate({ description: 'The import entry of the root export of @cloudflare/config, the package cf loads cloudflare.config.ts through' });
+const Plugged = Schema.Struct({ Plugins: Schema.Record(Schema.String, Schema.Struct({ config: Schema.optionalKey(Schema.Unknown), isRootOnly: Schema.optionalKey(Schema.Boolean) })) }).annotate({
+    description: 'The plugin map knip/dist/plugins.js exports: the config globs of each plugin, relative to every workspace or to the root alone under isRootOnly, a function standing for globs knip computes from a manifest',
+});
+const Globs = Schema.Array(Schema.String);
 const Scanned = Schema.fromJsonString(Schema.Struct({ pattern: Schema.NullOr(Schema.String), ignore: Schema.Array(Schema.String) })).annotate({
     description: 'The pattern and ignore rows of the merged configuration jscpd --debug prints: the glob of the files jscpd scans, null scanning every file, and the globs under the workspace it skips',
 });
@@ -78,6 +82,20 @@ const tarball = (manager: PackageManager, outputPath: string | undefined, { mani
     });
 };
 
+const plugins = Effect.fnUntraced(function* (row: string, manifest: string) {
+    const [cache, key] = [new PluginCache<{ readonly configs: readonly string[] }>(join(workspaceDataDirectory, 'typescript-knip.hash')), hashArray([row, manifest, hashFile(manifest)])];
+    return yield* Option.match(Option.fromUndefinedOr(cache.get(key)), {
+        onSome: ({ configs }) => Effect.succeed(configs),
+        onNone: Effect.fnUntraced(function* () {
+            const { Plugins } = yield* Effect.flatMap(Effect.tryPromise({ try: (): Promise<unknown> => import(new URL('dist/plugins.js', pathToFileURL(manifest)).href), catch: (cause) => new Cause.UnknownError(cause, `${manifest} holds no knip plugin map at dist/plugins.js`) }), Schema.decodeUnknownEffect(Plugged));
+            const configs = Array.dedupe(Object.values(Plugins).flatMap(({ config, isRootOnly = false }) => Array.cartesianWith([isRootOnly ? '{workspaceRoot}' : '{workspaceRoot}/**'], Schema.is(Globs)(config) ? config : [], posix.join)));
+            cache.set(key, { configs });
+            cache.writeToDisk();
+            return configs;
+        }),
+    });
+});
+
 const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: PackageManager, knipConfig: string | undefined, row: string, { manifest: { jscpd }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }) {
     const { catalogs, prune } = MANAGERS[manager];
     const lock = getLockFileName(manager);
@@ -93,8 +111,9 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
                     Option.match({
                         onSome: Effect.succeed,
                         onNone: Effect.fnUntraced(function* () {
-                            const [scanned, stamp] = yield* Effect.all([Effect.flatMap(spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }), Schema.decodeEffect(Scanned)), stamped(workspaceRoot)([config, lock])]);
-                            const entry = { sources: [config, lock], stamp, ...scanned };
+                            const sources = [config, ...(installed('jscpd', join(workspaceRoot, MANIFEST)) ? [lock] : [])];
+                            const [scanned, stamp] = yield* Effect.all([Effect.flatMap(spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }), Schema.decodeEffect(Scanned)), stamped(workspaceRoot)(sources)]);
+                            const entry = { sources, stamp, ...scanned };
                             cache.set(key, entry);
                             cache.writeToDisk();
                             return entry;
@@ -109,17 +128,16 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
             }),
         ),
     );
-    const checks: Record<string, TargetConfiguration> = {
-        ...Record.getSomes({ jscpd: duplicated }),
-        ...(installed('knip', join(workspaceRoot, MANIFEST)) && {
-            knip: {
-                command: knip,
-                inputs: [posix.join('{workspaceRoot}', '**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts,json,jsonc,json5,yml,yaml,toml}'), posix.join('{workspaceRoot}', lock), { externalDependencies: ['knip'] }],
-                configurations: { ci: { args: '--reporter symbols --reporter github-actions' } },
-                metadata: { description: `Reports unused files, exports, and dependencies of every workspace package with ${knip}, adding GitHub annotations under the ci configuration`, help: { command: `${EXEC[manager]} knip --help`, example: { args: ['--production'] } } },
-            },
-        }),
-    };
+    const plugged = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(UndefinedOr.liftThrowable(findPackageJSON)('knip', pathToFileURL(join(workspaceRoot, MANIFEST)))), (manifest) => plugins(row, manifest)));
+    const checks = Record.getSomes<string, TargetConfiguration>({
+        jscpd: duplicated,
+        knip: Option.map(plugged, (configs) => ({
+            command: knip,
+            inputs: [posix.join('{workspaceRoot}', '**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts,json,jsonc,json5}'), ...configs, posix.join('{workspaceRoot}', lock), { externalDependencies: ['knip'] }],
+            configurations: { ci: { args: '--reporter symbols --reporter github-actions' } },
+            metadata: { description: `Reports unused files, exports, and dependencies of every workspace package with ${knip}, adding GitHub annotations under the ci configuration`, help: { command: `${EXEC[manager]} knip --help`, example: { args: ['--production'] } } },
+        })),
+    });
     return projected(
         '.',
         manager,

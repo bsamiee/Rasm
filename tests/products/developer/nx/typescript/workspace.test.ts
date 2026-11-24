@@ -12,7 +12,6 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ROOT = { 'package.json': '{"name":"root","type":"module","workspaces":["libs/*"]}', 'package-lock.json': '' };
-const KNIP = { 'node_modules/knip/package.json': '{"name":"knip","type":"module","exports":"./index.js"}', 'node_modules/knip/index.js': 'export {};' };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -48,22 +47,24 @@ describe('workspace root checks', () => {
         await expect(workspace.write({ ...ROOT, '.jscpd.json': '{}' }).graph({ createNodes })).rejects.toSatisfy(refused(refusal));
     });
 
-    it.for([{ manager: 'yarn', lock: 'yarn.lock', files: ['.config/knip.json', '.github/workflows/ci.yml', 'libs/lib/index.ts', 'libs/lib/package.json', 'libs/lib/tsconfig.json', 'package.json', 'yarn.lock'] }])(
-        'hashes the sources, manifests, configurations, and $manager lockfile knip reads for check--knip, leaving documents and stylesheets out',
+    it.for([{ manager: 'yarn', lock: 'yarn.lock', files: ['.config/knip.json', '.config/mise.toml', '.github/workflows/ci.yml', 'libs/lib/index.ts', 'libs/lib/package.json', 'libs/lib/tsconfig.json', 'package.json', 'yarn.lock'] }])(
+        'hashes the sources, manifests, configurations, and $manager lockfile knip reads for check--knip, leaving out documents, stylesheets, and manifests no knip plugin reads',
         async ({ lock, files }, { workspace }) => {
             const graph = await workspace
-                .install(typescript)
+                .install(typescript, new URL('../package.json', import.meta.resolve('knip')).href)
                 .write({
                     'package.json': '{"name":"root","type":"module","workspaces":["libs/*"]}',
                     [lock]: '',
-                    ...KNIP,
                     '.config/knip.json': '{"ignoreBinaries":["uv"]}',
                     '.github/workflows/ci.yml': 'on: push\n',
+                    '.config/mise.toml': '[tools]\n',
                     'libs/lib/package.json': '{"name":"lib"}',
                     'libs/lib/tsconfig.json': '{"include":["*.ts"]}',
                     'libs/lib/index.ts': 'export {};',
                     'libs/lib/README.md': '# lib',
                     'site/page.css': 'a { color: black; }',
+                    'crates/core/Cargo.toml': '[package]\nname = "core"\n',
+                    'libs/lib/pyproject.toml': '[project]\nname = "lib"\n',
                 })
                 .graph({ createNodes }, { knipConfig: '.config/knip.json' });
 
