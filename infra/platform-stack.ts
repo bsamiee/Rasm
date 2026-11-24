@@ -197,7 +197,7 @@ const bucketed = (name: string, storage: ReturnType<typeof stored>, buckets: Eff
     return { AWS_ENDPOINT_URL_S3: storage.within, AWS_REGION: storage.region, AWS_ACCESS_KEY_ID: all([account.accessKey, ...created.flatMap(({ configured }) => configured)]).apply(([id]) => id), AWS_SECRET_ACCESS_KEY: account.secretKey };
 };
 
-const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, storage: ReturnType<typeof stored>, token: Input<string>) => {
+const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, storage: ReturnType<typeof stored>, tokens: Readonly<Record<'SERVICE_ACCESS_TOKEN' | 'READ_ONLY_ACCESS_TOKEN', Input<string>>>) => {
     const { port, health } = { port: 3000, health: '/health' };
     const scoped = bucketed(name, storage, { [name]: { kept: false, abort: kept, expire: { '': kept }, cors: [] } });
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: health });
@@ -214,7 +214,7 @@ COPY --from=2 /nx-cache-aws /
 ENTRYPOINT ["/nx-cache-aws"]
 `,
     );
-    const envs = Record.collect({ S3_BUCKET_NAME: name, S3_ENDPOINT_URL: scoped.AWS_ENDPOINT_URL_S3, ...scoped, SERVICE_ACCESS_TOKEN: token }, (variable, value) => interpolate`${variable}=${value}`);
+    const envs = Record.collect({ S3_BUCKET_NAME: name, S3_ENDPOINT_URL: scoped.AWS_ENDPOINT_URL_S3, ...scoped, ...tokens }, (variable, value) => interpolate`${variable}=${value}`);
     const serving = machine.contained(name, ['CMD', '/busybox/wget', '--quiet', '--spider', `http://127.0.0.1:${port}${health}`], { image, init: true, envs, labels }, { dependsOn: [proxied(machine), ...named] });
     return { [name]: serving.urn.apply(() => `https://${address}`) };
 };
@@ -281,14 +281,18 @@ const installed = (rows: Parameters<typeof stored>[1] & Parameters<typeof hosted
         return hosted(machine, local, stored(machine, rows), rows);
     });
 
-const provisioned = (host: keyof typeof hosts, { owner, repository, engines }: Effect.Success<typeof identified>, rows: Parameters<typeof installed>[0] & Readonly<Record<'EPIC_GHCR_TOKEN' | 'GITHUB_TOKEN' | 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN' | 'ATUIN_PASSWORD', string>>) =>
+const provisioned = (
+    host: keyof typeof hosts,
+    { owner, repository, engines }: Effect.Success<typeof identified>,
+    rows: Parameters<typeof installed>[0] & Readonly<Record<'EPIC_GHCR_TOKEN' | 'GITHUB_TOKEN' | 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN' | 'NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN' | 'ATUIN_PASSWORD', string>>,
+) =>
     Effect.sync(() => {
         const registries = [{ address: 'ghcr.io', username: owner, password: rows.EPIC_GHCR_TOKEN }];
         const machine = Machine.on(host, Option.none(), registries);
         const storage = Function.memoize((held: Machine) => stored(held, rows));
         const served = machine.roles.map(
             Role.$match({
-                Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, storage(machine), secret(rows.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN)),
+                Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, storage(machine), { SERVICE_ACCESS_TOKEN: secret(rows.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN), READ_ONLY_ACCESS_TOKEN: secret(rows.NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN) }),
                 Apps: (settings) => hosted(machine, settings, storage(machine), rows),
                 History: (settings) => synced(machine, settings, owner, secret(rows.ATUIN_PASSWORD)),
                 Runner: ({ instances }) => {
