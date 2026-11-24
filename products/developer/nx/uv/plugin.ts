@@ -3,12 +3,12 @@ import { type CreateDependencies, type CreateNodes, type CreateNodesContext, cre
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { above, fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, MutableRef, Option, Record, Schema } from 'effect';
-import { CONFIGS, Linked, Options, PLUGIN, run, targets } from '#/targets';
+import { CONFIGS, Linked, Options, PLUGIN, run, targets, UV } from '#/targets';
 import { LOCK, located, MANIFEST, Metadata, SCHEMA } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const READ = [LOCK, MANIFEST, 'uv.toml', '.python-version'];
+const READ: readonly string[] = [LOCK, MANIFEST, ...UV.configs];
 const FILES = combineGlobPatterns(Array.dedupe([...READ, ...CONFIGS]).map((file) => `**/${file}`));
 const OWN = fingerprinted(import.meta.dirname);
 

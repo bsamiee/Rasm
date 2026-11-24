@@ -22,7 +22,6 @@ const CHECKERS = {
         origin: identity<string>,
         isolated: false,
         command: (at: string) => ['ty', 'check', at],
-        mypy: undefined,
         coverage: undefined,
         description: 'Type-checks the member with ty check',
         help: 'ty check --help',
@@ -39,8 +38,7 @@ const CHECKERS = {
         folder: (_: string, base: string) => base,
         origin: identity<string>,
         isolated: false,
-        command: (at: string, _config?: string, version?: string) => ['mypy', at, ...flagged('--python-version', version)],
-        mypy: [],
+        command: (at: string, _config: string | undefined, version: string | undefined, cache: string) => ['mypy', at, ...flagged('--python-version', version), '--cache-dir', cache],
         coverage: undefined,
         description: 'Type-checks the member with mypy and the plugins its configuration loads',
         help: 'mypy --help',
@@ -58,7 +56,6 @@ const CHECKERS = {
         origin: (_: string, root: string) => root,
         isolated: false,
         command: (at: string, config?: string, version?: string) => ['refurb', ...(config === undefined ? [] : ['--config-file', config]), ...flagged('--python-version', version), at],
-        mypy: ['--'],
         coverage: undefined,
         description: 'Reports the findings of the member with refurb over a mypy build',
         help: 'refurb --help',
@@ -76,7 +73,6 @@ const CHECKERS = {
         origin: (_: string, root: string) => root,
         isolated: false,
         command: (at: string, config?: string) => ['vulture', at, ...(config === undefined ? [] : ['--config', config])],
-        mypy: undefined,
         coverage: undefined,
         description: 'Reports the functions, classes, methods, and attributes of the member that nothing reads with vulture',
         help: 'vulture --help',
@@ -94,7 +90,6 @@ const CHECKERS = {
         folder: identity<string>,
         origin: (_: string, root: string) => root,
         command: (at: string) => ['pytest', at],
-        mypy: undefined,
         coverage: 'pytest-cov',
         description: 'Runs the member tests with pytest',
         help: 'pytest --help',
@@ -103,7 +98,7 @@ const CHECKERS = {
 } as const;
 const PIXI = 'pixi.toml';
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
-const UV = { runtime: 'uv self version --short' } as const;
+const UV = { version: { runtime: 'uv self version --short' }, configs: ['uv.toml', '.python-version', '.python-versions'] } as const;
 const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)), PIXI]);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -166,13 +161,11 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
     const environed = Option.map(Option.fromUndefinedOr(environmentPath), (template) => template.replaceAll('{projectName}', member.name));
     const built = [posix.relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${posix.join('{projectRoot}', held, '**', '*')}`);
     const hashed = { platform: PLATFORM, python: { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) } };
+    const resolved = [...UV.configs.map((file) => posix.join('{workspaceRoot}', member.workspace, file)), posix.join('{workspaceRoot}', member.lock)];
     const checked = member.checks.map((stated) => {
         const row = CHECKERS[stated.key];
         const cwd = row.folder(member.workspace, member.base);
-        const { cache = '.mypy_cache', config } = Option.getOrElse(
-            Array.findFirst(member.checks, ({ key }) => key === 'mypy'),
-            () => stated,
-        );
+        const config = UndefinedOr.map(stated.config, (file) => posix.relative(cwd, file));
         const environment = Option.filter(environed, () => row.isolated);
         const argv = [
             'uv',
@@ -187,10 +180,10 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             ...flagged('--group', stated.group),
             ...row.command(
                 posix.relative(cwd, member.root) || '.',
-                UndefinedOr.map(stated.config, (file) => posix.relative(cwd, file)),
+                config,
                 UndefinedOr.map(member.python, (range) => /(?:>=|==|~=)\s*(?<floor>\d+\.\d+)/u.exec(range)?.groups?.['floor']),
+                posix.join((stated.cache ?? '.mypy_cache').replace('$MYPY_CONFIG_FILE_DIR', posix.dirname(config ?? '.')), member.root, stated.key),
             ),
-            ...(row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', posix.join(cache.replace('$MYPY_CONFIG_FILE_DIR', posix.relative(cwd, config === undefined ? cwd : posix.dirname(config)) || '.'), member.root, stated.key)]),
         ];
         const reported = coveragePath ?? cwd;
         const selected = Option.match(environment, { onNone: () => ({}), onSome: (at) => ({ UV_PROJECT_ENVIRONMENT: posix.relative(cwd, at) }) });
@@ -210,8 +203,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                 ...row.variables.map((env) => ({ env })),
                 ...row.hashes.map((hash) => hashed[hash]),
                 ...(row.imports ? ['^default'] : []),
-                posix.join('{workspaceRoot}', member.workspace, '.python-version'),
-                posix.join('{workspaceRoot}', member.lock),
+                ...resolved,
                 ...Array.match(row.imports ? stated.projects.filter((name) => name !== member.name) : [], { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects }] }),
                 { externalDependencies: [] },
             ],
@@ -220,7 +212,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
         };
         return { verb: row.verb, key: stated.key, target };
     });
-    const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests, posix.join('{workspaceRoot}', member.lock), ...['uv.toml', '.python-version'].map((file) => posix.join('{projectRoot}', file)), { externalDependencies: [] }];
+    const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests, ...resolved, { externalDependencies: [] }];
     const rooted: Verbs =
         member.root === member.workspace
             ? {
@@ -229,7 +221,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                           command: 'uv lock --check',
                           options: { cwd: member.root },
                           cache: true,
-                          inputs: [...locking, UV, { env: 'UV_PREVIEW_FEATURES' }],
+                          inputs: [...locking, UV.version, { env: 'UV_PREVIEW_FEATURES' }],
                           metadata: { description: 'Checks that uv.lock holds every change the manifests state with uv lock --check, writing nothing', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
                       },
                   },
@@ -266,7 +258,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                             command: line(['uv', 'build', '--package', member.name, '--no-sources', ...Option.match(distributions, { onNone: () => [], onSome: (at) => ['--out-dir', posix.relative(member.workspace, at), '--clear', '--no-create-gitignore'] })]),
                             options: { cwd: member.workspace },
                             cache: true,
-                            inputs: [...member.sources, ...built, UV, { externalDependencies: [] }],
+                            inputs: [...member.sources, ...built, UV.version, { externalDependencies: [] }],
                             outputs: Option.match(distributions, {
                                 onNone: () => [...['.tar.gz', '-*.whl'].map((suffix) => posix.join('{workspaceRoot}', folder, `${member.distribution}${suffix}`)), posix.join('{workspaceRoot}', folder, '.gitignore')],
                                 onSome: (at) => [posix.join('{workspaceRoot}', at)],
@@ -337,4 +329,4 @@ const run = runner(Linked.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CHECKERS, CONFIGS, declared, Linked, Options, PIXI, PLUGIN, run, targets };
+export { CHECKERS, CONFIGS, declared, Linked, Options, PIXI, PLUGIN, run, targets, UV };

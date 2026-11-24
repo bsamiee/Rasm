@@ -19,6 +19,7 @@ uv roots and the Python each one resolves:
 |  [03]   | `products/apps/blender/darkroom/pyproject.toml` | Blender's minor | Darkroom, `package = false`, Blender libraries        |
 
 Rules each root follows:
+- Roots state their Python in `requires-python` alone, and no root holds the `.python-version` or `.python-versions` file uv reads where one exists
 - Members pinned to Blender's minor under the root empty its `requires-python` range, and `uv lock` fails
 - Blender roots source shared libraries supporting Blender's minor through `{ workspace = "<path>" }`, with their own root's sources
 - Members without `[build-system]` are virtual: uv installs their dependencies and never builds them

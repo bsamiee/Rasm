@@ -33,6 +33,7 @@ Options and runs of mypy and refurb:
 - `disable_error_code` names `import-not-found` in place of its parent code `import`, and `import-untyped` guards each `py.typed`
 - `nx-uv` runs mypy and refurb from each member root, or from its parent where the member root holds `__init__.py`
 - `refurb` passes `--explicit-package-bases --namespace-packages` on every run
+- `nx-uv` passes mypy `--cache-dir <cache_dir>/<member root>/mypy`, one cache per member under root `.cache/mypy`
 - `refurb` runs mypy in fine-grained mode, which reads and writes no cache, and each refurb run repeats a full mypy build
 - `python_version` is global in mypy, and nx-uv passes the lowest version of each member's `requires-python` to mypy and refurb
 

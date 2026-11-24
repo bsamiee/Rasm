@@ -74,6 +74,32 @@ describe('checker targets', { timeout: 120_000 }, () => {
         expect(before.value === after.value).toBe(!changes);
     });
 
+    it.for([
+        { file: 'uv.toml', content: 'compile-bytecode = false\n' },
+        { file: '.python-version', content: '3.13\n' },
+        { file: '.python-versions', content: '3.13\n' },
+    ])('changes the hash of a checker and of the lock check after $file appears at the uv root', async ({ file, content }, { workspace }) => {
+        locked(workspace, { ...workspaced(['vulture']), ...APPLICATION });
+        const graph = await workspace.graph(uv);
+        const before = await Promise.all(['application:check--vulture', 'uv-tutorial:check--uv'].map((task) => hashed(workspace, graph, task)));
+
+        const edited = await workspace.write({ [file]: content }).graph(uv);
+
+        const after = await Promise.all(['application:check--vulture', 'uv-tutorial:check--uv'].map((task) => hashed(workspace, edited, task)));
+        expect(after.map(({ value }, index) => value === before[index]?.value)).toStrictEqual([false, false]);
+    });
+
+    it('runs refurb with no mypy cache folder under the member, as the mypy build refurb runs reads and writes none', async ({ workspace }) => {
+        locked(workspace, workspaced(['refurb']));
+        const graph = await workspace.graph(uv);
+        const before = workspace.files('.venv', 'tmp');
+
+        const result = await workspace.run(graph, 'library', 'check--refurb');
+
+        expect(result.success).toBe(true);
+        expect([...workspace.files('.venv', 'tmp').difference(before)].filter((file) => file.startsWith('proj/library/.mypy_cache/proj/library/'))).toStrictEqual([]);
+    });
+
     it('changes the pytest hash of a member once PYTEST_ADDOPTS selects other tests', async ({ workspace, onTestFinished }) => {
         locked(workspace, { ...workspaced(['pytest>=8']), ...TESTED });
         const graph = await workspace.graph(uv);

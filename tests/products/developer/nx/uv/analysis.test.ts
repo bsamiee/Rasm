@@ -41,6 +41,20 @@ describe('uv workspace metadata', { timeout: 60_000 }, () => {
         expect(graph.nodes['added']?.data.root).toBe('nested/proj/added');
     });
 
+    it.for([
+        { file: 'uv.toml', content: 'compile-bytecode = false\n' },
+        { file: '.python-version', content: '3.13\n' },
+        { file: '.python-versions', content: '3.13\n' },
+    ])('reads the workspace again once $file appears at the uv root', async ({ file, content }, { workspace }) => {
+        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
+        await workspace.graph({ createNodes, createDependencies });
+        pathed(join(workspace.write({ [`nested/proj/${file}`]: content }).root, '.bin'), {});
+
+        const graphed = workspace.graph({ createNodes, createDependencies });
+
+        await expect(graphed).rejects.toSatisfy(refused(/^uv workspace metadata .*cannot start: /u));
+    });
+
     it('keeps the projects of every other lock while one lock fails', async ({ workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
         workspace.write({ 'broken/pyproject.toml': '[project\nname = ', 'broken/uv.lock': 'version = 1\n' });
