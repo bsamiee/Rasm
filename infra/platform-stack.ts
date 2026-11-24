@@ -296,12 +296,21 @@ const provisioned = (
                 Apps: (settings) => hosted(machine, settings, storage(machine), rows),
                 History: (settings) => synced(machine, settings, owner, secret(rows.ATUIN_PASSWORD)),
                 Runner: ({ instances }) => {
-                    const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner' } as const;
+                    const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner', drained: Duration.hours(2) } as const;
                     const browsers = `ghcr.io/${owner}/${repository}/playwright`.toLowerCase();
                     const [, registered] = Array.mapAccum(Record.toEntries(instances), Option.none<remote.Command>(), (before, [label, limits]) => {
                         const [folder, work] = [`/home/${runner.user}/actions-runner-${label}`, `/home/${runner.user}/actions-work-${label}`];
                         const archive = `/tmp/actions-runner-${label}.tar.gz`;
-                        const removed = `token=$(cat); if cd "${folder}" 2>/dev/null; then systemctl revert "$(cat .service)"; ./svc.sh stop; ./svc.sh uninstall; sudo -u ${runner.user} ./config.sh remove --pat "$token"; fi; rm -rf "${folder}"`;
+                        const removed = `token=$(cat); if cd "${folder}" 2>/dev/null; then ./svc.sh stop; systemctl revert "$(cat .service)"; ./svc.sh uninstall; sudo -u ${runner.user} ./config.sh remove --pat "$token"; fi; rm -rf "${folder}"`;
+                        const drain = `#!/bin/bash
+runner="https://api.github.com/repos/${owner}/${repository}/actions/runners/$(jq .agentId "${folder}/.runner")"
+call() { curl -fsS --retry 3 --retry-all-errors -H "Authorization: Bearer $(cat "${folder}/.token")" "$@"; }
+case "$1" in
+start) call -X PUT -d '{"labels":["${label}"]}' "$runner/labels" >/dev/null ;;
+stop)
+    call -X DELETE "$runner/labels" >/dev/null || echo "GitHub kept label ${label}, so the stop waits for the local worker"
+    while busy=$(call "$runner" | jq .busy); [ "$busy" = true ] || { [ -z "$busy" ] && pgrep -f "${folder}/bin/Runner.Worker" >/dev/null; }; do sleep 10; done ;;
+esac`;
                         const installation = [
                             removed,
                             'set -eu',
@@ -311,19 +320,28 @@ const provisioned = (
                             `sudo -u ${runner.user} tar xzf "${archive}" && rm "${archive}"`,
                             './bin/installdependencies.sh',
                             `sudo -u ${runner.user} ./config.sh --unattended --replace --url "https://github.com/${owner}/${repository}" --name "${machine.name}-${label}" --labels "${label}" --work "${work}" --pat "$token"`,
+                            `(umask 077 && printf '%s' "$token" > .token)`,
+                            `install -m 700 /dev/stdin drain <<'EOF'\n${drain}\nEOF`,
                             `./svc.sh install ${runner.user}`,
+                            `systemctl edit --stdin --drop-in=instance "$(cat .service)" <<'EOF'`,
+                            '[Unit]',
+                            'After=docker.service',
+                            '[Service]',
+                            `ExecStartPre=+${folder}/drain start`,
+                            `ExecStop=+${folder}/drain stop`,
+                            'Restart=on-failure',
+                            'RestartSec=30s',
+                            `TimeoutStopSec=${Duration.toSeconds(runner.drained)}s`,
+                            ...Record.collect(limits, (option, value) => `${option}=${value}`),
+                            'EOF',
                             './svc.sh start',
-                            ...Array.match(
-                                Record.collect(limits, (option, value) => `"${option}=${value}"`),
-                                { onEmpty: Array.empty, onNonEmpty: (options) => [`systemctl set-property "$(cat .service)" ${options.join(' ')}`] },
-                            ),
                         ].join('\n');
                         const connection = { host: machine.name };
                         const kept = new remote.Command(`${machine.name}-work-${label}`, { connection, delete: `rm -rf "${work}"` });
                         const instance = new remote.Command(
                             `${machine.name}-runner-${label}`,
                             { connection, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: secret(rows.GITHUB_TOKEN), triggers: [tailnet(machine).nodeId] },
-                            { dependsOn: [...Option.toArray(before), kept], deleteBeforeReplace: true },
+                            { dependsOn: [...Option.toArray(before), kept], deleteBeforeReplace: true, customTimeouts: Struct.Record(['create', 'update', 'delete'], `${Duration.toMinutes(Duration.sum(runner.drained, Duration.minutes(15)))}m`) },
                         );
                         return [Option.some(instance), [label, instance.id] as const];
                     });
