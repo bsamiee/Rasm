@@ -51,7 +51,7 @@ Machines, their reinstall, and images their stacks run:
 - Stack `rasm` holds a Hostinger post-install script joining reinstalled machines to the tailnet with Tailscale SSH
 - `set-hostname` restores a machine's hostname after its tailnet join and resets it with no shutdown, and post-install scripts flush writes first
 - Hostinger VPS use under 60% of its vCPUs earns CPU credits and use above spends them
-- An empty credit balance limits a machine to 30% of its vCPUs until a fifth of the balance returns
+- Hostinger limits a machine with no credits to 30% of its vCPUs until a fifth of its balance returns
 - Hostinger shows no credit balance, and a limited machine reports the lost time as steal in `/proc/stat`
 - `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine and erases its hostname
 - Reinstalls follow `tscli delete device`, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote` follows
