@@ -112,11 +112,11 @@ VCPKG_FORCE_SYSTEM_BINARIES  = "1"
 
 [deps.blender]
 dir = "libs/python/blender"
-run = "uv sync --locked --all-packages"
+run = "uv sync --locked --no-active --all-packages"
 
 [deps.darkroom]
 dir = "products/apps/blender/darkroom"
-run = "uv sync --locked"
+run = "uv sync --locked --no-active"
 
 [deps.msbuild-analyzer]
 dir     = "products/developer/nx/dotnet/analyzer"

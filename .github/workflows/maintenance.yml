@@ -29,7 +29,7 @@ jobs:
             - &tools
               uses: $/.github/actions/tools
             - run: pnpm store prune
-            - run: uv cache prune --ci
+            - run: uv cache prune
             - &prune
               run: mise prune --yes
             - run: docker container prune --force --filter until=1h
