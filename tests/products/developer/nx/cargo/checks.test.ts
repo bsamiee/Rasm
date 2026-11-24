@@ -27,6 +27,7 @@ const ABORTING = '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n\n[profil
 describe('check--clippy', { timeout: 120_000 }, () => {
     it.for([
         { case: 'a crate holding only a binary', project: 'app', files: {}, passed: true },
+        { case: 'a library beside an example target that cannot compile', project: 'kit', files: { 'crates/kit/examples/fixture.rs': 'compile_error!("a lint fixture");\n' }, passed: true },
         { case: 'an unwind-only library, no abort profile', project: 'kit', files: { 'crates/kit/src/lib.rs': '#[cfg(panic = "abort")]\ncompile_error!("unwinding required");\n\npub fn one() -> u32 {\n    1\n}\n' }, passed: true },
         { case: 'an unwind-only library, an abort profile', project: 'kit', files: { 'Cargo.toml': ABORTING, 'crates/kit/src/lib.rs': '#[cfg(panic = "abort")]\ncompile_error!("unwinding required");\n\npub fn one() -> u32 {\n    1\n}\n' }, passed: false },
     ])('reports ($passed) $case', async ({ project, files, passed }, { workspace }) => {

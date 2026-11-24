@@ -1,10 +1,10 @@
-import { dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@decimalturn/toml-patch';
 import { normalizePath, readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
 import { above, runner, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -37,6 +37,7 @@ const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem
 class Target extends Schema.Opaque<Target, unknown>()(Schema.Struct({ kind: Schema.Array(Schema.String), crate_types: Schema.Array(Schema.String), name: Schema.String, src_path: Schema.String, test: Schema.Boolean, doctest: Schema.Boolean })) {
     static readonly own = ({ kind, crate_types }: Target) => Array.makeEquivalence(Equivalence.String)(kind, crate_types);
     static readonly binary = ({ kind }: Target) => kind.includes('bin');
+    static readonly example = ({ kind }: Target) => kind.includes('example');
     static readonly library = (candidate: Target) => Target.own(candidate) && !Target.binary(candidate);
 }
 const Package = Schema.Struct({
@@ -64,7 +65,10 @@ const Profiles = Schema.Struct({ profile: Schema.Record(Schema.String, Schema.St
 const Settings = Schema.Struct({
     env: Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Struct({ value: Schema.String, relative: Schema.optionalKey(Schema.Boolean) })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     unstable: Schema.Record(Schema.String, Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-}).annotate({ description: 'The [env] and [unstable] tables of a Cargo configuration file, an [env] value with relative = true resolving against the folder holding its .cargo folder' });
+    build: Schema.Struct({ target: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+}).annotate({
+    description: 'The [env], [unstable], and [build] tables of a Cargo configuration file, an [env] value with relative = true and a build.target spec file resolving against the folder holding its .cargo folder',
+});
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -93,13 +97,24 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
     const found = (stems: readonly string[]) => above(root).flatMap((at) => stems.map((stem) => posix.join(at, stem)).filter((file) => files.has(file)));
     const settings = found(SETTINGS);
-    const [{ profile }, [host, names], denied, layers] = yield* Effect.all(
+    const [{ profile }, host, denied, layers, exported] = yield* Effect.all(
         [
             toml(Profiles, join(metadata.workspace_root, MANIFEST)),
-            Effect.map(spawned(['rustc', '--print', 'host-tuple', '--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root }), (stdout) => Array.unprepend(String.split(stdout, '\n'))),
+            Effect.map(spawned(['rustc', '--print', 'host-tuple'], { cwd: metadata.workspace_root }), String.trim),
             Effect.transposeOption(Option.map(nearest(files, root, DENY.config), (file) => Effect.map(toml(Table, join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
             Effect.forEach(settings, (file) => toml(Settings, join(workspaceRoot, file)), { concurrency: 'unbounded' }),
+            Config.option(Config.String('CARGO_BUILD_TARGET')),
         ],
+        { concurrency: 'unbounded' },
+    );
+    const configured = Array.findFirst(Array.zip(settings, layers), ([file, { build }]) => Option.map(Option.fromUndefinedOr(build.target), (targets) => ({ targets: Array.ensure(targets), from: join(workspaceRoot, posix.dirname(posix.dirname(file))) })));
+    const chosen = Option.orElse(
+        Option.map(exported, (target) => ({ targets: [target], from: metadata.workspace_root })),
+        () => configured,
+    );
+    const layouts = yield* Effect.forEach(
+        Option.match(chosen, { onNone: () => [{ argument: [], folder: [] }], onSome: ({ targets, from }) => targets.map((target) => (target.endsWith('.json') ? { argument: ['--target', resolve(from, target)], folder: [basename(target, '.json')] } : { argument: ['--target', target], folder: [target] })) }),
+        ({ argument, folder }) => Effect.map(spawned(['rustc', ...argument, '--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root }), (stdout) => ({ folder, uplifted: Record.fromEntries(Array.zip(types, String.split(stdout, '\n'))) })),
         { concurrency: 'unbounded' },
     );
     const clippy = Array.findFirst(Array.zip(settings, layers), ([file, { env }]) =>
@@ -112,7 +127,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
         configs: found(CONFIG),
         clippy: Option.toArray(Option.map(clippy, (at) => normalizePath(relative(workspaceRoot, at)) || '.')),
         unstable: Array.dedupe(layers.flatMap(({ unstable }) => Record.keys(unstable))),
-        uplifted: Record.fromEntries(Array.zip(types, names)),
+        layouts,
         deny: Option.toArray(denied),
     };
 });
@@ -136,7 +151,7 @@ const placed = (workspaceRoot: string) => ({ stored: (reading: Reading) => moved
 
 const variable = (key: string) => key.toUpperCase().replaceAll(/[-.]/gu, '_');
 
-const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, uplifted, deny }: Reading, files: ReadonlySet<string>) => {
+const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, layouts, deny }: Reading, files: ReadonlySet<string>) => {
     const within = (at: string) => normalizePath(relative(workspaceRoot, at)) || '.';
     const inside = (at: string) => Option.liftPredicate(within(at), (folder) => !(folder.startsWith('..') || isAbsolute(folder)));
     const root = within(metadata.workspace_root);
@@ -175,7 +190,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
             ...(
                 [
                     [['BUILD'], KEYS.BUILD],
-                    [[`TARGET_${variable(host)}`], KEYS.TARGET],
+                    [Array.dedupe([host, ...layouts.flatMap(({ folder }) => folder)]).map((triple) => `TARGET_${variable(triple)}`), KEYS.TARGET],
                     [[...PROFILES, ...profiles].map((name) => `PROFILE_${variable(name)}`), KEYS.PROFILE],
                     [['UNSTABLE'], unstable.map(variable)],
                 ] as const
@@ -186,7 +201,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
         strategies: Array.dedupeWith(['release', ...profiles], (left, right) => strategy(left) === strategy(right)).filter((name) => strategy(name) !== strategy('dev')),
         deny: Array.head(deny),
         placed: inside(metadata.target_directory),
-        uplifted: (target: Target) => Array.getSomes(target.crate_types.map((type) => Option.map(Record.get(uplifted, type), (file) => file.replace(CRATE, target.name)))),
+        uplifted: (target: Target) => layouts.flatMap(({ folder, uplifted }) => Array.getSomes(target.crate_types.map((type) => Option.map(Record.get(uplifted, type), (file) => ({ folder, file: file.replace(CRATE, target.name) }))))),
     };
 };
 

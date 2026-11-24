@@ -18,7 +18,16 @@
             "test--vitest": {
                 "inputs": [
                     "...",
-                    "{workspaceRoot}/rust-toolchain.toml"
+                    "{workspaceRoot}/rust-toolchain.toml",
+                    {
+                        "runtime": "rustc -vV"
+                    },
+                    {
+                        "runtime": "cargo nextest --version"
+                    },
+                    {
+                        "env": "RUSTUP_TOOLCHAIN"
+                    }
                 ]
             }
         }

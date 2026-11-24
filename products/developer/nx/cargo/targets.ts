@@ -54,12 +54,12 @@ const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: Targ
 
 const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { crate, root, packages, linted }: Member): Verbs => {
     const selected = { cwd: workspace.root, package: crate.name };
-    const kinds = ['--all-targets', '--all-features'];
+    const kinds = [...(crate.targets.some(Target.example) ? [...(crate.targets.some(Target.library) ? ['--lib'] : []), '--bins', '--tests', '--benches'] : ['--all-targets']), '--all-features'];
     const plain = Option.isNone(workspace.nextest);
     const tested = crate.targets.some(({ test }) => test);
     const documented = crate.targets.some(({ doctest }) => doctest);
     const products = crate.targets.filter(Target.own).flatMap(workspace.uplifted);
-    const outputs = (folder: string) => Option.toArray(workspace.placed).flatMap((artifacts) => products.map((file) => tokened(posix.join(artifacts, folder, file))));
+    const outputs = (profile: string) => Option.toArray(workspace.placed).flatMap((artifacts) => products.map(({ folder, file }) => tokened(posix.join(artifacts, ...folder, profile, file))));
     const debug = outputs('debug');
     const profiles = ['release', ...workspace.profiles];
     const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, LOCKED, '--keep-going', ...MESSAGES] }];
