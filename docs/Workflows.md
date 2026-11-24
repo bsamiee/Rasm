@@ -134,3 +134,19 @@ Workflow `Maintenance` jobs per runner instance:
 - Job `container` checks out clean and removes every ignored file of its work folder, package store included
 - Job `host` keeps ignored files and prunes package stores, the cargo build folder, unused mise tools and Docker objects, and week-old build cache
 - Jobs `container` and `host` each take their instance's queue, and a reset or prune never overlaps a job there as a machine timer can
+
+## [06]-[TIMINGS]
+
+Sources of run, job, and task times and cache hits:
+- Nx ends each run with its duration, cache hit share, and critical path, in every job log
+- `@rasm/nx-distribution` appends one line per `nx` run to `task-cache.jsonl` of Nx workspace data
+- Record lines hold command, seconds, local and remote hits and misses by target, slowest misses, and each failed task
+- Runs on GitHub add their hit tally to the job summary and print one error annotation per failed task
+- Jobs `linux`, `browser`, `macos`, and `windows` upload `task-cache.jsonl` with their reports, holding earlier runs on a self-hosted runner
+- Nx task database `*.db` of workspace data holds start, end, and status of every task in `task_history`, keyed to `task_details` by hash
+- `duckdb` reads the record through `read_json` and the task database through `ATTACH '<file>' (TYPE sqlite)`, times in milliseconds
+- Batch executors stamp each task with its own start and end, so slowest misses and the critical path of a batch hold task times
+- `gh api repos/<owner>/<repository>/actions/runs/<run>/jobs` returns start and end of each job and step, and `created_at` to `started_at` is queue time
+- `NX_PERF_LOGGING=true` prints each task's time and graph creation times, and `NX_PROFILE=<file>` writes a trace of a run's tasks
+- `vitest bench workspace.bench.ts --reporter=verbose` in `tests/products/developer/nx/distribution` times graph creation and one task per ecosystem
+- Task benchmarks time a cache restore, what every run pays, and a run past the cache over kept tool state, the least a change costs

@@ -9,6 +9,7 @@
 - Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project unless requested
 - Settings differing by project, platform, or build mode use the tool's own switch (profile, condition, glob, per-OS file), never a script or flag
 - Tasks and sessions delete scratch files written to reach a result (downloads, extractions, captures, conversions) once the result is recorded
+- Pushes to `main` hold one finished unit of work after `nx affected --base=origin/main --targets=check,test,build` passes, never one push per commit
 
 ## [01]-[TOOLING]
 

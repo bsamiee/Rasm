@@ -104,6 +104,7 @@ jobs:
                       .artifacts/dotnet/test
                       .artifacts/playwright
                       .artifacts/vitest
+                      .cache/nx/workspace-data/task-cache.jsonl
 
     browser:
         name: Browser
