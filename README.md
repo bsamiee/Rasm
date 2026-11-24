@@ -141,7 +141,7 @@ flowchart LR
 
 mise installs every tool, `[env]` holds process variables, and `[bootstrap]` holds what a machine's OS keeps across boots:
 - `mise bootstrap` configures a machine for the workspace after a clone
-- `mise install` installs every tool and project dependency, sets the rustup default to the pinned toolchain, and prunes the one a new toolchain replaces
+- `mise install` installs every tool and project dependency and sets the rustup default to the pinned toolchain
 - `.config/mise.toml` `[tools]` rows stay at `latest` where a backend lists releases, and a `version_regex` excludes development builds
 - Platform rows sit in the `.config/mise.<os>.toml` mise loads, as only a file limits a row to one OS
 - Doppler project `rasm` and 1Password hold every secret, a registry token as a `rasm/release` row named as the variable its publish target reads
@@ -173,7 +173,7 @@ Roots split, nest, or hold more where a host or tool decides:
 - Workspace `Package.resolved` links to the root one, which `swift package update` moves and `xcodebuild` reads and writes through the link
 - User default `IDEPackageOnlyUseVersionsFromResolvedFile` of mise `[bootstrap]` holds Xcode windows to resolved versions, as builds are
 - `.config/xcode.xcconfig` turns on the Xcode compilation cache, `Xcode.xcconfig` includes it, and its hits need an unchanged build folder path
-- Mise variable `XCODE_XCCONFIG_FILE` applies it to every target `xcodebuild` builds, as a package scheme otherwise compiles every module apart
+- Mise variable `XCODE_XCCONFIG_FILE` applies it to every target `xcodebuild` builds, as a package scheme otherwise compiles every module again
 - User default `CompilationCachingDiskSizeLimit` of mise `[bootstrap]` caps that cache, as Xcode otherwise lets it reach half the free disk
 - C++ packages each declare their own `project()`, and toolchain, presets, CI, and release stay whole before any package exists
 - Unreal plug-ins sit beside the project enabling them, and name each C++ package they build with their engine's compiler in `.uplugin` `nx.packages`
@@ -186,9 +186,9 @@ Nx runs project-level work over a graph its plugins infer:
 - Plugins infer every project, target, and dependency from manifests and tool output, and manifest `nx` tables add only facts no tool reports
 - Inferred targets hold one configuration on every machine of a platform, as Nx hashes every target of a project into each of its tasks
 - Hash inputs name a tool by identity (compiler version, platform, installer URL) and no machine path, as host state differs between machines
-- `mise install` builds the .NET and Swift analyzers before any graph, and a graph lacking one leaves its projects out with a warning naming its build
+- `mise install` builds .NET and Swift analyzers before graphs, and a missing analyzer or stale .NET one leaves its projects out with a warning naming its build
 - `nx affected -t <target>` runs only the tasks a change reaches, as each target's inputs name exactly what its tools read, aggregate targets included
-- Tools keep their own incremental state, and Nx caches results around it in one remote cache every runner and the owner's Mac read and write
+- Tools keep their own incremental state, and Nx caches results around it in one remote cache CI jobs and the owner's Mac read and write
 - `nx sync` writes executor schemas and tsconfig `references`, and non-terminal runs outside CI stop on stale ones until it runs, never `--skip-sync`
 - `nx conformance:check` runs `nx.json` conformance rules over the graph and every target
 

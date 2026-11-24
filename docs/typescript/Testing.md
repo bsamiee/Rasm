@@ -12,7 +12,7 @@ Rules every TypeScript suite follows:
 - Effect code swaps a service through a test layer
 - Scripts, agents, and CI run `vitest run`, as `vitest` alone watches files in an interactive terminal
 - Tests stay out of published output through their own package or a folder no emitting program includes
-- `allowOnly` defaults to `!process.env.CI`, runs outside CI alone write new snapshots, and a `.only` test or a missing snapshot fails a CI run
+- `test--vitest` sets `allowOnly: false` and `update: 'none'` on every machine unless words after `--` set them, and a `.only` test or a missing snapshot fails
 
 ## [02]-[CONFIG_LAYOUT]
 
@@ -32,7 +32,8 @@ Nx facts that decide the layout:
 - Each inferred target runs the inline projects rooted in its Nx project
 - Projects holding an enabled browser take tag `host:browser` and their provider's name (`playwright`) as a technology beside `vitest`
 - One `nx` run batches every target of one config into one `vitest run` with one worker pool, and its own projects' test modules decide each target
-- Inferred targets hash each file root `vitest.config.ts` loads, a linked package's modules included, and editing shared options invalidates every cached result
+- Inferred targets hash files root `vitest.config.ts` loads inside their suite's folder or outside every suite's folder
+- Edits to shared options invalidate every cached result
 
 Root `vitest.config.ts` derives its inline projects from the tree:
 - Workspace packages with `vitest` in `devDependencies` and not in `peerDependencies` are one project each, rooted there and named by manifest `name`
@@ -120,7 +121,7 @@ test('decode', async ({ bench }) => {
 
 Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)` of `@rasm/testing/playwright`:
 - `@rasm/nx-playwright` infers tag `host:browser` and `test--playwright` per Playwright config
-- `test--playwright` sends reports and `test-results` to `outputPath` through `--output` and `PLAYWRIGHT_<REPORTER>_OUTPUT_DIR`, over folders a config states
+- `test--playwright` sends `test-results` and html, blob, and perfetto reports to `outputPath` through `--output` and `PLAYWRIGHT_<REPORTER>_OUTPUT_DIR`, over folders a config states
 - Project `test` runs `*.spec.ts` and `*.test.ts` files, and project `media` runs `*.media.ts` files outside the default `testMatch`
 - Project `media` writes to `<outputPath>/media` at a fixed scale factor, color scheme, locale, and zone, with traces and failure screenshots off
 - `media(scenes)` registers a Chrome Web Store screenshot per scene and both promo tiles from the built manifest, `icons/mark.svg`, and `config.brand`

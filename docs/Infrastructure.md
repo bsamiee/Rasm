@@ -5,10 +5,10 @@ Machines, accounts, and services the `infra/` stacks declare.
 ## [01]-[PRINCIPLES]
 
 Rules every stack and machine follows:
-- Stacks apply from commits `main` holds, as each `Deploy` trigger applies the program at the tip of `main` over a local apply
-- Secrets are made once and read by the stacks passing them to services, so an apply rotates no secret
+- Stacks apply from commits `main` holds, as each `Deploy` trigger checks out a commit of `main` in place of a local apply
+- Secrets are made once and read by the stacks passing them to services, and an apply rotates no secret
 - Stacks write no Doppler row, as a written row reaches `deploy` through its references and starts `Deploy` again
-- Jobs and machines join services through identity federation or a credential with no expiry, so no credential waits on a renewal by hand
+- Jobs and machines join services through identity federation or a credential with no expiry, and no credential waits on a renewal by hand
 
 ## [02]-[PLACES]
 
@@ -45,43 +45,46 @@ Pulumi state and operations of each stack:
 
 ## [05]-[MACHINES]
 
-Machines, their reinstall, and images their stacks run:
+Machines, their roles, and their reinstall:
 - Table `hosts` keys machines by DNS name, names state no role, provider, or location, and each service a role runs takes a DNS alias
 - Each machine holds DNS record `<name>.<zone>`, tailnet name `<name>`, and a Pulumi stack named by its DNS name
-- Stack `rasm` holds a Hostinger post-install script joining reinstalled machines to the tailnet with Tailscale SSH
-- `set-hostname` restores a machine's hostname after its tailnet join and resets it with no shutdown, and post-install scripts flush writes first
-- Hostinger VPS use under 60% of its vCPUs earns CPU credits and use above spends them
-- Hostinger limits a machine with no credits to 30% of its vCPUs until a fifth of its balance returns
-- Hostinger shows no credit balance, and steal in `/proc/stat` counts CPU time the hypervisor gives other machines, so steal shows no credit limit
-- `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine and erases its hostname
-- Reinstalls follow `tscli delete device`, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote` follows
-- Reinstalls of a storage machine follow `node stacks.ts deploy --operation=destroy --stack=<name>`, as its provider cannot refresh a lost store
-- Storage volumes lost unplanned leave their MinIO service account in stack state, which `pulumi state delete <urn>` retires before a deploy
-- Locally built images lost from their machine stay in stack state until a deploy replaces their `docker-build:Image` resource
-- Host rows leave table `hosts` after `node stacks.ts deploy --operation=destroy --stack=<name>`, as a removed row leaves its stack unvisited
-- `[bootstrap]` lengthens the Hostinger image's `99lock-timeout`, as a reinstalled machine's runner install meets its first unattended upgrade
-- `[bootstrap]` writes the Hostinger image's `/etc/fstab` whole, as a file entry edits no line of a file mise does not own
-- Root filesystems mount with `nodiscard`, as online discard held the disk busy for hours, and Hostinger's guest agent runs `fstrim` daily beside weekly `fstrim.timer`
-- Reach machines off the tailnet through their provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
 - `[bootstrap.remote]` loads `machine`, and a host row with a role names `machine` and its role file, as `mise bootstrap remote` sends no miserc
 - `mise bootstrap remote` sends folder `.config` and applies its parts as `root@<name>` over Tailscale SSH
 - Role `Cache` runs the Nx cache server with its proxy and object storage
 - Role `History` runs the Atuin sync server with its proxy
 - Role `Runner` runs a runner service per instance and pulls and tags an Unreal image per engine release a tracked `.uproject` names
 - Role `Runner` builds and pushes `ghcr.io/<owner>/<repository>/playwright:<version>`, locked Playwright Chromium over `node:slim`
+- Role `Apps` runs the proxy, sign-in, and object storage of hosted apps, on one machine per zone, as a zone holds each public name once
+- Hostinger VPS use under 60% of its vCPUs earns CPU credits and use above spends them
+- Hostinger limits a machine with no credits to 30% of its vCPUs until a fifth of its balance returns
+- Hostinger shows no credit balance, and steal in `/proc/stat` counts CPU time the hypervisor gives other machines, never a credit limit
+- `[bootstrap]` lengthens the Hostinger image's `99lock-timeout`, as a reinstalled machine's runner install meets its first unattended upgrade
+- `[bootstrap]` writes the Hostinger image's `/etc/fstab` whole, as a file entry edits no line of a file mise does not own
+- Root filesystems mount with `nodiscard`, as online discard held the disk busy for hours, and Hostinger's guest agent runs `fstrim` daily beside weekly `fstrim.timer`
+- Stack `rasm` holds a Hostinger post-install script joining reinstalled machines to the tailnet with Tailscale SSH
+- `set-hostname` restores a machine's hostname after its tailnet join and resets it with no shutdown, and post-install scripts flush writes first
+- `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine and erases its hostname
+- Reinstalls follow `tscli delete device`, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote` follows
+- Reinstalls of a storage machine follow `node stacks.ts deploy --operation=destroy --stack=<name>`, as its provider cannot refresh a lost store
+- Storage volumes lost unplanned leave their MinIO service account in stack state, which `pulumi state delete <urn>` retires before a deploy
+- Host rows leave table `hosts` after `node stacks.ts deploy --operation=destroy --stack=<name>`, as a removed row leaves its stack unvisited
+- Reach machines off the tailnet through their provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
+
+## [06]-[IMAGES]
+
+Images stacks build, push, and pull:
+- Docker engines build stack images from inline Dockerfiles with build checks as errors, load local images, and push registry images
+- Builds run in a BuildKit container the build provider creates per client, and previews build no image
 - Playwright images rebuild on a changed Playwright version or Dockerfile alone, and read and write layer cache at tag `cache`
 - Playwright images add `curl`, a C compiler, and ICU, as action `tools` downloads mise, builds cargo tools, and runs `dotnet` inside them
 - Playwright images give user `node` home `/github/home`, the `HOME` Actions sets in job containers, as rustup reports a home differing from its user's
 - Pushed images hold their source label as a manifest annotation, as GHCR links a package by annotation alone and a linked package inherits access
-- Role `Apps` runs the proxy, sign-in, and object storage of hosted apps, on one machine per zone, as a zone holds each public name once
-- Docker engines build stack images from inline Dockerfiles with build checks as errors, load local images, and push registry images
 - Pushed images hold their registry credentials, as a changed `registries` setting replaces the build provider and images ignore a changed password
-- Previews build no image
-- Builds run in a BuildKit container the build provider creates per client, which job `deploy` removes with its build cache
+- Locally built images lost from their machine stay in stack state until a deploy replaces their `docker-build:Image` resource
 - Pulled images take name `<tag>@<digest>` from registry digests each deploy reads, and a moved tag replaces its image, then its containers
 - Docker removes no image name a container uses, its provider pulls no name a machine holds, and stacks name no image by tag alone
 
-## [06]-[TAILNET]
+## [07]-[TAILNET]
 
 Tailnet members, tags, and policy:
 - Job `deploy` joins as `tag:deploy` through a Tailscale federated identity trusting GitHub's token of environment `deploy`
@@ -93,7 +96,7 @@ Tailnet members, tags, and policy:
 - Tailnet policy is marked externally managed with a link to its stack file, and its admin console warns before an edit a deploy reverts
 - Tailnet settings enable device auto-updates, HTTPS, and MagicDNS, and disable user approval
 
-## [07]-[NETWORK]
+## [08]-[NETWORK]
 
 Routes from public names to containers:
 - Traefik proxies publish ports 80 and 443 on every address, redirect 80 to 443, and issue ACME certificates by TLS challenge
@@ -109,17 +112,17 @@ Routes from public names to containers:
 - Stacks and `[bootstrap]` declare no firewall
 - Containers a CI job starts without an address publish on every address
 
-## [08]-[CACHE_SERVER]
+## [09]-[CACHE_SERVER]
 
 Nx cache server of role `Cache`:
 - Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes one token that reads and writes
 - Runners reach the server over public HTTPS through its proxy
 - Doppler `ci` holds server URL and token, which `dev` and `deploy` reference
 - Cache objects expire role field `kept` after their write, and a read refreshes none
-- Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a run once a cache write fails six times
+- Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a task once its cache write fails six times
 - Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop
 
-## [09]-[HISTORY_SERVER]
+## [10]-[HISTORY_SERVER]
 
 Atuin sync server of role `History`:
 - Atuin server `atuinsh/atuin` answers at HTTPS name `<name>.<zone>` of role field `name`, as clients off the tailnet sync through it
@@ -132,13 +135,13 @@ Atuin sync server of role `History`:
 - Clients hold every record of their account, and a rebuilt server refills from the next client to log in again and sync
 - Clients signed in before a rebuild run `atuin logout` first, as `atuin login` with a saved session skips authentication
 
-## [10]-[RUNNERS]
+## [11]-[RUNNERS]
 
 GitHub Actions runners of role `Runner`:
 - Role `Runner` field `instances` names each runner service by label with systemd limits `systemctl set-property` sets once it starts
 - Systemd limits of instance `container` reach no job, as its jobs run in containers under Docker's cgroups
 - Runner `<machine>-<label>` installs in folder `actions-runner-<label>`, works in folder `actions-work-<label>`, and holds label `<label>` beside default labels
-- Instances `host` and `graph` run jobs on their machine and `container` in a container, one job of each at once, and `graph` runs job `affected` alone
+- Instances `host` and `graph` run jobs on their machine and `container` in a container, one job of each at once, and `graph` runs jobs `shas` and `affected` alone
 - Changes to runner version, limits, repository, or tailnet node reinstall a runner after `systemctl revert`
 - Reinstalls replace folder `actions-runner-<label>` alone and keep the work folder's checkouts, tools, and caches, which only a label leaving `instances` deletes
 - Runner installs register through `config.sh --pat`, which takes a registration token from `GITHUB_TOKEN` at each attempt
@@ -146,7 +149,7 @@ GitHub Actions runners of role `Runner`:
 - Runners keep tools, ignored files, and each Unreal image between runs, as jobs name an image by tag and `docker image prune` removes untagged ones
 - `needrestart` leaves `actions.runner.*` services running after a library update
 
-## [11]-[GOOGLE_CLOUD]
+## [12]-[GOOGLE_CLOUD]
 
 Google Cloud project `rasm-release`, its identities, and GitHub variables naming them:
 - Stack `rasm` declares project APIs, workload identity pool `github`, and provider `github` trusting OIDC tokens of the repository ID alone
@@ -158,7 +161,7 @@ Google Cloud project `rasm-release`, its identities, and GitHub variables naming
 - Chrome Web Store dashboard Settings list `chrome-web-store` under Service account, with access to every publisher item
 - Service accounts hold no key, and Chrome Web Store API answers 403 alike for an item its publisher lacks and a refused identity
 
-## [12]-[UPDATES]
+## [13]-[UPDATES]
 
 Package updates and reboots of each machine:
 - Machines install Ubuntu `*-updates` and Docker packages daily on a timer `.config/mise.machine.toml` sets
