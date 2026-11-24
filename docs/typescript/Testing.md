@@ -129,7 +129,7 @@ Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)`
 - `media(scenes)` registers a Chrome Web Store screenshot per scene and both promo tiles from the built manifest, `icons/mark.svg`, and `config.brand`
 - Projects matching files with an `outputDir` under `outputPath` run in `pack--playwright` after `test--playwright`, the rest in `test--playwright`
 - `pack--playwright` runs reporter `list` and outputs each `outputDir`, and `attach--gh` gets no earlier file, as Playwright empties them first
-- `test--playwright` runs after `build--*` of its suite's dependencies and each reused `webServer` task, and a suite naming a product loads its build
+- `test--playwright` runs after `build--vite` of its suite's dependencies and each reused `webServer` task, and a suite naming a product loads its build
 - `loaded` launches one persistent Chromium context per worker and loads its suite's extension into it for each test over CDP
 - `loaded` takes the one unpacked Manifest V3 extension among build outputs of its suite's dependencies
 - `loaded` hands a test its extension once the service worker is `activated`, as Chrome drops an action pressed before the worker registers listeners

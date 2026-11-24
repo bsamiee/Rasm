@@ -43,7 +43,6 @@
         "storybook": "catalog:"
     },
     "peerDependencies": {
-        "@nx/storybook": "catalog:peers",
         "@nx/web": "catalog:peers",
         "nx": "catalog:peers",
         "storybook": "catalog:peers"

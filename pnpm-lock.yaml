@@ -102,9 +102,6 @@ catalogs:
     '@nx/js':
       specifier: 24.1.0-beta.2
       version: 24.1.0-beta.2
-    '@nx/storybook':
-      specifier: 24.1.0-beta.2
-      version: 24.1.0-beta.2
     '@nx/vite':
       specifier: 24.1.0-beta.2
       version: 24.1.0-beta.2
@@ -526,9 +523,6 @@ catalogs:
       specifier: 3.0.0-2
       version: 3.0.0-2
   peers:
-    '@nx/storybook':
-      specifier: '>=24.1.0-0'
-      version: 24.1.0-beta.2
     '@playwright/test':
       specifier: ^1.66.0-0
       version: 1.66.0-alpha-2026-11-22
@@ -574,9 +568,6 @@ importers:
       '@nx/js':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)
-      '@nx/storybook':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.2(70403707a2f3e9d08a4f8fac1cf642c7)
       '@nx/vite':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.2)(supports-color@10.2.2)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.1)
@@ -1947,9 +1938,6 @@ importers:
       '@nx/js':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)
-      '@nx/storybook':
-        specifier: catalog:peers
-        version: 24.1.0-beta.2(70403707a2f3e9d08a4f8fac1cf642c7)
       '@rasm/nx-distribution':
         specifier: workspace:*
         version: link:../distribution
@@ -3046,9 +3034,6 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
-      '@nx/storybook':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.2(70403707a2f3e9d08a4f8fac1cf642c7)
       '@nx/web':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2))(@nx/vite@24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.2)(supports-color@10.2.2)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.1))(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)
@@ -4978,18 +4963,6 @@ packages:
     resolution: {integrity: sha512-2rYARh+ZE/DXCsO4DVbpJLbNEJMh/cBNlZt2FL4kmxQ2axe88Hfuo3gXBZ7OMweqwdH8IMn4LmGiKCcER/qggg==}
     cpu: [x64]
     os: [win32]
-
-  '@nx/storybook@24.1.0-beta.2':
-    resolution: {integrity: sha512-QYIEECEMCpaG/tRw5Ig1InURfHtidI4Hih9CLu0xZo53hHVWAaqnlnpXZtmbsoDRQPG4Wcizk/Wlo9Lw7N2Bsw==}
-    peerDependencies:
-      '@nx/cypress': 24.1.0-beta.2
-      '@nx/web': 24.1.0-beta.2
-      storybook: '>=8.0.0 <11.0.0'
-    peerDependenciesMeta:
-      '@nx/cypress':
-        optional: true
-      '@nx/web':
-        optional: true
 
   '@nx/vite@24.1.0-beta.2':
     resolution: {integrity: sha512-NkGobXb8kUaAMU4zcDZm1+QpPGuqTWZdX9zgoTYBr/FwACiA09ZlMJ+R32sRzv9idxNwoCsk1AyH+o+2EVZYLQ==}
@@ -11420,6 +11393,7 @@ snapshots:
       - nx
       - supports-color
       - verdaccio
+    optional: true
 
   '@nx/js@24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)':
     dependencies:
@@ -11488,30 +11462,6 @@ snapshots:
 
   '@nx/nx-win32-x64-msvc@24.1.0-beta.2':
     optional: true
-
-  '@nx/storybook@24.1.0-beta.2(70403707a2f3e9d08a4f8fac1cf642c7)':
-    dependencies:
-      '@nx/devkit': 24.1.0-beta.2(nx@24.1.0-beta.2)
-      '@nx/eslint': 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)
-      '@nx/js': 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)
-      '@phenomnomnominal/tsquery': 6.2.0(@typescript/typescript6@6.0.2)
-      semver: 7.8.6
-      storybook: 11.0.0-beta.3(@types/react@19.3.0)(react@19.3.1)
-      tslib: 2.9.1
-    optionalDependencies:
-      '@nx/web': 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2))(@nx/vite@24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.2)(supports-color@10.2.2)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.1))(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)
-    transitivePeerDependencies:
-      - '@babel/traverse'
-      - '@nx/jest'
-      - '@swc-node/register'
-      - '@swc/cli'
-      - '@swc/core'
-      - '@zkochan/js-yaml'
-      - eslint
-      - nx
-      - supports-color
-      - typescript
-      - verdaccio
 
   '@nx/vite@24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.2)(supports-color@10.2.2)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.1)':
     dependencies:

@@ -492,7 +492,6 @@ catalog:
     '@nx/eslint-plugin': 24.1.0-beta.2 # `nx-plugin-checks` rule over plugin package, executor, generator, and migration manifests
     '@nx/js': 24.1.0-beta.2 # tsconfig `extends` chains the config-reading plugins hash
     '@nx/plugin': 24.1.0-beta.2 # Generators and checks for plugins, executors, generators, and migrations
-    '@nx/storybook': 24.1.0-beta.2 # Ready-check module the inferred Storybook dev target waits on
     '@nx/vite': 24.1.0-beta.2 # `nxReadySignal` Vite plugin a served config holds
     '@nx/web': 24.1.0-beta.2 # `file-server` executor serving a built Storybook
     '@nx/workspace': 24.1.0-beta.2 # `move`, `remove`, and `infer-targets` generators
@@ -615,7 +614,6 @@ catalogs:
         '@effect/sql-pg': ^4.1.4
         '@effect/sql-sqlite-node': ^4.1.4
         '@nx/devkit': '>=24.1.0-0'
-        '@nx/storybook': '>=24.1.0-0'
         '@nx/web': '>=24.1.0-0' # Nx resolves the executor from the workspace's own `@nx/web`, released in step with its `nx`
         '@opentelemetry/api': ^1.10.0
         '@opentelemetry/api-logs': '>=0.203.0 <0.300.0'

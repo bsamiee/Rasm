@@ -4,7 +4,7 @@ import { dirname, join, posix, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, normalizePath } from '@nx/devkit';
-import { getLockFileName, getReadyCheckReadyWhen, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { getLockFileName, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
 import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
@@ -105,7 +105,7 @@ const targets = (root: string, { packages, linked, loaded, globs, runner }: Reso
                 command: 'storybook dev',
                 ...needs,
                 continuous: true,
-                readyWhen: getReadyCheckReadyWhen('@nx/storybook/ready-check'),
+                readyWhen: { logMatches: 'Storybook ready!' },
                 metadata: { description: 'Serves the project stories with storybook dev', help: { command: `${exec} storybook dev --help`, example: { args: ['--port=<port>'] } } },
             },
         },

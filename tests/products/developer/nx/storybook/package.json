@@ -5,7 +5,6 @@
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",
-        "@nx/storybook": "catalog:",
         "@nx/web": "catalog:",
         "@rasm/nx-storybook": "workspace:*",
         "@rasm/testing": "workspace:*",
