@@ -286,7 +286,7 @@ jobs:
 
     deploy:
         name: Deploy
-        needs: [affected, linux, browser, macos, files, windows, unreal]
+        needs: [affected, linux, browser, files, unreal]
         if: ${{ !cancelled() && github.event_name == 'push' && needs.affected.result == 'success' && needs.affected.outputs.infra != '[]' }}
         permissions:
             contents: read

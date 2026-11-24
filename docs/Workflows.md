@@ -49,6 +49,7 @@ Workflow `CI` and its jobs:
 - Self-hosted jobs run tasks on half their cores (`NX_PARALLEL`), as instances `host` and `container` share one machine
 - Action `tools` removes untracked files and bootstraps mise tools alone, and mise hook `postinstall` installs project dependencies
 - GitHub-hosted runners and job containers load mise profile `ci`, installing pnpm packages alone, as Python tasks run on instance `host`
+- Job `affected` loads profile `ci` too, as graph creation reads no Python environment and every other job waits for this job
 - Profile `ci-<job id>` sets `enable_tools` to the tools a job's steps and Nx tasks run, and a job with no such file installs every tool
 - Profiles list the tools graph creation spawns: `cargo`, `dotnet`, `uv`, and `jscpd`
 - Profiles repeat those tools, as a later mise file replaces `enable_tools` whole
@@ -84,8 +85,9 @@ Nx remote cache and Actions caches per workflow and machine:
 ## [03]-[DEPLOY]
 
 Workflow `Deploy` triggers and steps:
-- CI job `deploy` calls `Deploy` on pushes to `main` after every other job, failed test jobs included, as fixes apply past a failing test
-- CI job `deploy` waits for every other job of its run, as `mise bootstrap remote` can restart Docker under a running self-hosted job
+- CI job `deploy` calls `Deploy` on pushes to `main` after every self-hosted job, failed test jobs included, as fixes apply past a failing test
+- CI job `deploy` waits for the self-hosted jobs of its run alone, as `mise bootstrap remote` can restart Docker under a job on that machine
+- Jobs `macos` and `windows` can still read the cache server while a deploy replaces its container, which a changed definition alone causes
 - Called runs check out the commit CI tested, and scheduled and dispatched runs check out the tip of `main`
 - Pushes apply only where `@rasm/infra` is affected between the base and head of job `affected`
 - Failed deploys fail their CI run, so `nx-set-shas` keeps the base before it and the next push applies again
@@ -145,7 +147,7 @@ Sources of run, job, and task times and cache hits:
 - Record lines hold command, seconds, local and remote hits and misses by target, slowest misses, and each failed task
 - Runs on GitHub add their hit tally to the job summary and print one error annotation per failed task
 - Jobs `linux`, `browser`, `macos`, and `windows` upload `task-cache.jsonl` with their reports, holding earlier runs on a self-hosted runner
-- Jobs upload `project-graph.json` beside it, and a task two machines hash apart differs in an input or in its project's configuration there
+- Jobs upload `project-graph.json` beside it, and a task machines hash apart differs in an input or in its project's configuration there
 - Nx hashes every target of a project into each of its tasks, so a target inferred from an installed tool or a core count splits the cache by machine
 - Nx task database `*.db` of workspace data holds start, end, and status of every task in `task_history`, keyed to `task_details` by hash
 - `duckdb` reads the record through `read_json` and the task database through `ATTACH '<file>' (TYPE sqlite)`, times in milliseconds
