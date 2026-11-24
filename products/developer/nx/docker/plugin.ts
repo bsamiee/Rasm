@@ -1,5 +1,4 @@
 import { findPackageJSON } from 'node:module';
-import { availableParallelism } from 'node:os';
 import { isAbsolute, join, posix, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -24,7 +23,6 @@ import { aggregated, anchored, fingerprinted, manifested, produced, runner, spaw
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Context, Effect, Equal, FileSystem, Layer, MutableRef, Option, Order, type PlatformError, Predicate, Record, Schema } from 'effect';
 import { Yaml } from 'effect/encoding';
-import which from 'which';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -209,9 +207,9 @@ const inferred = Effect.fnUntraced(function* (pass: Pass, root: string, matched:
 
 const engine = (workspaceRoot: string, file: string, cleaned: boolean) =>
     Effect.map(manifested(workspaceRoot, ROOT), (stated) => {
-        const started = ['colima', 'start', '--activate=false', '--ssh-config=false', '--mount', 'none', '--port-forwarder', 'grpc', '--cpus', `${Math.floor(availableParallelism() / 2)}`, '--memory', '8', '--disk', '20'];
+        const started = ['colima', 'start', '--activate=false', '--ssh-config=false', '--mount', 'none', '--port-forwarder', 'grpc', '--memory', '8', '--disk', '20'];
         const install: TargetConfiguration = {
-            command: `mkdir -p "\${COLIMA_HOME:-$HOME/.colima}" && ${started.map(quoteShellArg).join(' ')}`,
+            command: `mkdir -p "\${COLIMA_HOME:-$HOME/.colima}" && ${started.map(quoteShellArg).join(' ')} --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"`,
             inputs: [{ externalDependencies: [] }],
             metadata: {
                 description:
@@ -293,14 +291,7 @@ const createNodes: CreateNodes = [
             Effect.ensuring(
                 Effect.gen(function* () {
                     const rooted = anchored(context.workspaceRoot);
-                    const hosting = yield* Effect.filter(
-                        files.filter((file) => file === MISE && process.platform !== 'linux'),
-                        () =>
-                            Effect.map(
-                                Effect.promise(() => which('colima', { nothrow: true })),
-                                Predicate.isNotNull,
-                            ),
-                    );
+                    const hosting = files.filter((file) => file === MISE && process.platform === 'darwin');
                     const pass: Pass = { workspaceRoot: context.workspaceRoot, cache, stored, rooted, engines: Array.match(hosting, { onEmpty: () => [], onNonEmpty: () => [ENGINE] }) };
                     const folders = new Map(
                         Record.collect(

@@ -145,6 +145,8 @@ Sources of run, job, and task times and cache hits:
 - Record lines hold command, seconds, local and remote hits and misses by target, slowest misses, and each failed task
 - Runs on GitHub add their hit tally to the job summary and print one error annotation per failed task
 - Jobs `linux`, `browser`, `macos`, and `windows` upload `task-cache.jsonl` with their reports, holding earlier runs on a self-hosted runner
+- Jobs upload `project-graph.json` beside it, and a task two machines hash apart differs in an input or in its project's configuration there
+- Nx hashes every target of a project into each of its tasks, so a target inferred from an installed tool or a core count splits the cache by machine
 - Nx task database `*.db` of workspace data holds start, end, and status of every task in `task_history`, keyed to `task_details` by hash
 - `duckdb` reads the record through `read_json` and the task database through `ATTACH '<file>' (TYPE sqlite)`, times in milliseconds
 - Batch executors stamp each task with its own start and end, so slowest misses and the critical path of a batch hold task times
