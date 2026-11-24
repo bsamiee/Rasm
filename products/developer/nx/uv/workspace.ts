@@ -1,7 +1,7 @@
 import { join, posix, relative } from 'node:path';
 import { normalizePath } from '@nx/devkit';
 import { combineGlobPatterns, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { above } from '@rasm/nx-distribution/inference';
+import { above } from '@rasm/nx';
 import { Array, Cause, Effect, Equivalence, FileSystem, Graph, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
 import { CHECKERS, CONFIGS, declared, PIXI } from '#/targets';

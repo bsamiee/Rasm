@@ -1,7 +1,7 @@
 import { join, posix } from 'node:path';
 import { AggregateCreateNodesError, type CreateNodes, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, emitPluginWorkerLog, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { fingerprinted, inferring, manifested, run, spawned } from '@rasm/nx-distribution/inference';
+import { anchored, fingerprinted, inferring, manifested, run, spawned } from '@rasm/nx';
 import { Array, Effect, FileSystem, Glob, Option, type Record, Schema, String } from 'effect';
 import which from 'which';
 import { Options, PLUGIN, targets } from '#/targets';
@@ -53,7 +53,7 @@ const createNodes: CreateNodes = [
         const patterns = Array.dedupe(members.flatMap(({ checks }) => checks.flatMap((check) => check.patterns)));
         const listed = yield* Array.match(patterns, { onEmpty: () => Effect.succeed([]), onNonEmpty: (globs) => Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, globs)) });
         const held = new Set(patterns.filter((pattern) => listed.some((file) => Glob.match(Glob.make(pattern, { dot: true }), file))));
-        const roots = new Set(members.map(({ root }) => root));
+        const [roots, anchor] = [new Set(members.map(({ root }) => root)), anchored(context.workspaceRoot)];
         const stated = yield* Effect.forEach(members, ({ root }) => manifested(context.workspaceRoot, root), { concurrency: 'unbounded' });
         const results = Array.zipWith(members, stated, (member, manifest): [string, { readonly projects: Record<string, ProjectConfiguration> }] => [
             member.lock,
@@ -65,7 +65,7 @@ const createNodes: CreateNodes = [
                         metadata: { technologies: ['python'] },
                         ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } }),
                         implicitDependencies: member.linked.filter((root) => roots.has(root)).map((root) => `directory:${root}`),
-                        targets: targets({ ...member, checks: member.checks.filter((check) => !held.isDisjointFrom(new Set(check.patterns))) }, settings, manifest, context.workspaceRoot),
+                        targets: targets({ ...member, checks: member.checks.filter((check) => !held.isDisjointFrom(new Set(check.patterns))) }, settings, manifest, anchor),
                     },
                 },
             },

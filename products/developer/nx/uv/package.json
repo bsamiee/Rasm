@@ -37,7 +37,7 @@
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
         "@nx/devkit": "catalog:",
-        "@rasm/nx-distribution": "workspace:*",
+        "@rasm/nx": "workspace:*",
         "@renovatebot/pep440": "catalog:",
         "effect": "catalog:",
         "which": "catalog:"

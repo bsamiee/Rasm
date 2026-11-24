@@ -2,8 +2,7 @@ import { posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { above, aggregated, PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { type Anchor, above, aggregated, EXECUTORS, PLATFORM, type Verbs } from '@rasm/nx';
 import { Array, identity, Option, pipe, Record, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
@@ -149,7 +148,7 @@ const declared = (documented: ReadonlyMap<string, unknown>, folders: { readonly 
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
-const targets = (member: Member, { outputPath, coveragePath, environmentPath }: Options, manifest: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, workspaceRoot: string): Record<string, TargetConfiguration> => {
+const targets = (member: Member, { outputPath, coveragePath, environmentPath }: Options, manifest: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, anchor: Anchor): Record<string, TargetConfiguration> => {
     const distributions = Option.map(Option.fromUndefinedOr(outputPath), (template) => template.replaceAll('{projectName}', member.name));
     const folder = Option.getOrElse(distributions, () => posix.join(member.workspace, 'dist'));
     const environed = Option.map(Option.fromUndefinedOr(environmentPath), (template) => template.replaceAll('{projectName}', member.name));
@@ -229,7 +228,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                   },
                   upgrade: {
                       uv: {
-                          executor: `${distribution.name}:upgrade`,
+                          executor: EXECUTORS.upgrade,
                           options: { cwd: member.root, commands: [{ apply: ['uv', 'lock', '--upgrade'], preview: ['uv', 'lock', '--upgrade', '--dry-run'] }, { apply: ['uv', 'cache', 'prune', '--force'] }] },
                           inputs: locking,
                           metadata: {
@@ -239,7 +238,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                       },
                       ...(member.pixi && {
                           pixi: {
-                              executor: `${distribution.name}:upgrade`,
+                              executor: EXECUTORS.upgrade,
                               options: { cwd: member.root, commands: [{ apply: ['pixi', 'update'], preview: ['pixi', 'update', '--dry-run'] }] },
                               inputs: [...[PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => posix.join('{projectRoot}', file)), { externalDependencies: [] }],
                               metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock with pixi update', help: { command: 'pixi update --help', example: { options: { dryRun: true } } } },
@@ -293,7 +292,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             onEmpty: () => ({}),
             onNonEmpty: (labels) => ({
                 uv: {
-                    executor: `${distribution.name}:clean`,
+                    executor: EXECUTORS.clean,
                     options: { targets: labels },
                     inputs: ['default', '^default', posix.join('{workspaceRoot}', member.lock), { externalDependencies: [] }],
                     metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: 'nx run --help', example: { options: { targets: labels } } } },
@@ -303,7 +302,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
         attach: {
             ...(member.packaged && {
                 gh: {
-                    executor: `${distribution.name}:attach`,
+                    executor: EXECUTORS.attach,
                     dependsOn: ['build--uv'],
                     inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
                     metadata: {
@@ -314,10 +313,10 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             }),
         },
     };
-    return aggregated(verbs, manifest, 'python', workspaceRoot, {
+    return aggregated(verbs, manifest, 'python', anchor, {
         ...(member.published && {
             'nx-release-publish': {
-                executor: `${distribution.name}:publish`,
+                executor: EXECUTORS.publish,
                 options: { publish: ['uv', 'publish', ...flagged('--index', member.index)], preview: ['--dry-run'], credential: ['ACTIONS_ID_TOKEN_REQUEST_URL', 'UV_PUBLISH_TOKEN'] },
                 dependsOn: ['build--uv', '^nx-release-publish'],
                 inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],

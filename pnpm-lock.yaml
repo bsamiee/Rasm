@@ -2064,9 +2064,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
-      '@rasm/nx-distribution':
+      '@rasm/nx':
         specifier: workspace:*
-        version: link:../distribution
+        version: link:../../../../libs/typescript/developer/nx
       '@renovatebot/pep440':
         specifier: 'catalog:'
         version: 6.0.0
