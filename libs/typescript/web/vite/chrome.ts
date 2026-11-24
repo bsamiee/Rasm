@@ -32,18 +32,16 @@ const emitted = Effect.fnUntraced(function* (directory: string, source: string, 
     const fs = yield* FileSystem.FileSystem;
     const [locales, drawn, { config }] = yield* Effect.all([fs.readDirectory(join(directory, '_locales')), fs.readDirectory(join(directory, 'icons')), Effect.flatMap(fs.readFileString(join(directory, 'package.json')), Schema.decodeEffect(Brand))]);
     const color = yield* Effect.fromOption(Option.fromNullishOr(rgb(config.brand)), () => new Cause.NoSuchElementError(`package.json config.brand ${config.brand} is no CSS color`));
-    const drawings = Array.prepend(
-        drawn.filter((name) => GRID.test(name)).map((name) => join(directory, 'icons', name)),
-        join(directory, 'icons', 'mark.svg'),
-    );
-    return yield* Effect.all(
+    const grid = drawn.filter((name) => GRID.test(name));
+    const drawings = Array.map(Array.prepend(grid, 'mark.svg'), (name) => join(directory, 'icons', name));
+    const assets = yield* Effect.all(
         [
-            Effect.succeed({ fileName: 'manifest.json', source }),
             ...locales.map((locale) => Effect.map(fs.readFile(join(directory, '_locales', locale, 'messages.json')), (file) => ({ fileName: `_locales/${locale}/messages.json`, source: file }))),
             ...Record.collect(icons, (width, fileName) => Effect.map(paint(drawings, { color }, { width: Number(width), padding: Number(width) === STORE.width ? STORE.padding : undefined }), (file) => ({ fileName, source: file }))),
         ],
         { concurrency: 'unbounded' },
     );
+    return [{ fileName: 'manifest.json', source }, ...assets];
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

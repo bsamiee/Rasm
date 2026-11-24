@@ -11,7 +11,7 @@ import { routed } from '@rasm/testing/playwright';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { Cause, DateTime, Effect, Layer, Redacted, Schedule, Schema } from 'effect';
 import { HttpBody, HttpClient, HttpClientRequest } from 'effect/http';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { ChildProcess } from 'effect/process';
 import { SqlClient, SqlSchema } from 'effect/sql';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -45,22 +45,12 @@ const added = Effect.fnUntraced(function* <A, E, R>(post: Effect.Effect<A, E, R>
 
 const receiver = Layer.unwrap(
     Effect.gen(function* () {
-        const [spawner, bundle] = yield* Effect.all([ChildProcessSpawner.ChildProcessSpawner, Effect.fromOption(routed('@rasm/nx-vite', '@rasm/hooks'), () => new Cause.UnknownError('@rasm/hooks', 'nx.json states no Vite outputPath to run @rasm/hooks from'))]);
-        const [database, port] = yield* Effect.all([
-            Effect.acquireRelease(
-                Effect.promise(() => new PostgreSqlContainer('postgres:19.0-alpine3.24').start()),
-                (started) => Effect.promise(() => started.stop()),
-            ),
-            allocated,
-        ]);
-        const server = yield* spawner.spawn(
-            ChildProcess.make(process.execPath, [join(bundle, App.bundle.environment, `${App.bundle.entry}.js`)], { env: { [App.bundle.portVariable]: `${port}`, POSTGRES_URL: database.getConnectionUri(), TAILSCALE_WEBHOOK_SECRET: sender.secret }, extendEnv: true, stdout: 'ignore', stderr: 'ignore' }),
-        );
+        const bundle = yield* Effect.fromOption(routed('@rasm/nx-vite', '@rasm/hooks'), () => new Cause.UnknownError('@rasm/hooks', 'nx.json states no Vite outputPath to run @rasm/hooks from'));
+        const [database, port] = yield* Effect.all([Effect.acquireDisposable(Effect.promise(() => new PostgreSqlContainer('postgres:19.0-alpine3.24').start())), allocated]);
+        const server = yield* ChildProcess.make(process.execPath, [join(bundle, App.bundle.environment, `${App.bundle.entry}.js`)], { env: { [App.bundle.portVariable]: `${port}`, POSTGRES_URL: database.getConnectionUri(), TAILSCALE_WEBHOOK_SECRET: sender.secret }, extendEnv: true, stdout: 'ignore', stderr: 'ignore' });
         const client = HttpClient.mapRequest(yield* HttpClient.HttpClient, HttpClientRequest.prependUrl(`http://127.0.0.1:${port}`));
-        yield* Effect.raceFirst(
-            Effect.retry(Effect.timeout(HttpClient.filterStatusOk(client).get(App.bundle.readiness), '1 second'), { schedule: Schedule.spaced('100 millis') }),
-            Effect.flatMap(server.exitCode, (code) => Effect.fail(new Cause.UnknownError(code, `@rasm/hooks exits ${code} before it answers ${App.bundle.readiness}`))),
-        );
+        const exited = Effect.flatMap(server.exitCode, (code) => new Cause.UnknownError(code, `@rasm/hooks exits ${code} before it answers ${App.bundle.readiness}`));
+        yield* Effect.timeout(HttpClient.filterStatusOk(client).get(App.bundle.readiness), '1 second').pipe(Effect.retry({ schedule: Schedule.spaced('100 millis') }), Effect.raceFirst(exited));
         return Layer.merge(Layer.succeed(HttpClient.HttpClient, client), PgClient.layer({ url: Redacted.make(database.getConnectionUri()) }));
     }),
 ).pipe(Layer.provide([layerUndici, services]));

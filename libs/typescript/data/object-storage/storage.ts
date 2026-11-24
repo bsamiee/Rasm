@@ -1,5 +1,5 @@
 import { AwsClient } from 'aws4fetch';
-import { ByteSize, Cause, Config, Context, Effect, Formatter, flow, Option, Redacted, Schema } from 'effect';
+import { ByteSize, Cause, Config, Context, Effect, Formatter, Option, Redacted, Schema } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import type { ObjectStore } from 'partial-content';
 import { type ServeContext, type ServeObjectOptions, serveObject } from 'partial-content/web';
@@ -56,25 +56,24 @@ class ObjectStorage extends Context.Service<ObjectStorage>()('@rasm/object-stora
         return {
             ...held,
             endpoint: resolved,
-            sign: ({ size, mime }: { readonly size: ByteSize.ByteSize; readonly mime: string }) => {
-                const created = { 'If-None-Match': '*' };
-                return flow(
-                    Presignable.matchOrElse(
+            sign: ({ size, mime }: { readonly size: ByteSize.ByteSize; readonly mime: string }) =>
+                Effect.fnUntraced(function* (target: typeof Presignable.Type) {
+                    const created = { 'If-None-Match': '*' };
+                    const added = Presignable.matchOrElse(
+                        target,
                         {
-                            UploadPart: ({ uploadId, partNumber, ...target }) => ({ ...target, query: { partNumber: `${partNumber}`, uploadId }, headers: {}, signed: {} }),
-                            PutObject: (target) => ({ ...target, query: {}, headers: { 'Content-Type': mime, ...created }, signed: { 'Content-Length': `${ByteSize.toNumberUnsafe(size)}` } }),
-                            CompleteMultipartUpload: ({ uploadId, ...target }) => ({ ...target, query: { uploadId }, headers: created, signed: {} }),
-                            CreateMultipartUpload: (target) => ({ ...target, query: { uploads: '' }, headers: { 'Content-Type': mime }, signed: {} }),
+                            UploadPart: ({ uploadId, partNumber }) => ({ query: { partNumber: `${partNumber}`, uploadId } }),
+                            PutObject: () => ({ headers: { 'Content-Type': mime, ...created }, signed: { 'Content-Length': `${ByteSize.toNumberUnsafe(size)}` } }),
+                            CompleteMultipartUpload: ({ uploadId }) => ({ query: { uploadId }, headers: created }),
+                            CreateMultipartUpload: () => ({ query: { uploads: '' }, headers: { 'Content-Type': mime } }),
                         },
-                        ({ uploadId, ...target }) => ({ ...target, query: { uploadId }, headers: {}, signed: {} }),
-                    ),
-                    Effect.fnUntraced(function* ({ method, key, query, headers, signed }) {
-                        const at = yield* resolved;
-                        const { url } = yield* sent(key, () => signer.sign(Object.assign(new URL(`${bucket}/${key}`, at.href.replace(/\/?$/u, '/')), { search: new URLSearchParams(query).toString() }), { method, headers: { ...headers, ...signed }, aws: { signQuery: true, allHeaders: true } }));
-                        return { url, headers };
-                    }),
-                );
-            },
+                        ({ uploadId }) => ({ query: { uploadId } }),
+                    );
+                    const { query, headers, signed } = { query: {}, headers: {}, signed: {}, ...added };
+                    const at = yield* resolved;
+                    const { url } = yield* sent(target.key, () => signer.sign(Object.assign(new URL(`${bucket}/${target.key}`, at.href.replace(/\/?$/u, '/')), { search: new URLSearchParams(query).toString() }), { method: target.method, headers: { ...headers, ...signed }, aws: { signQuery: true, allHeaders: true } }));
+                    return { url, headers };
+                }),
         };
     }),
 }) {

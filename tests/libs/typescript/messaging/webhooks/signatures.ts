@@ -55,26 +55,17 @@ const references = {
     },
 };
 const signatures = (crypto: Crypto) => {
-    it.effect(
-        'signs the known-answer vector of each scheme row, verifies it among other signatures, and refuses another body, a cut signature, another label, another key, and no signature',
-        Effect.fnUntraced(function* () {
-            const results = yield* Effect.all(
-                Record.map(
-                    vectors,
-                    Effect.fnUntraced(function* ({ scheme, secret, foreign, id, at, bytes, signed, crowded }) {
-                        const [webhook, stranger] = yield* Effect.all([made(scheme, secret), made(scheme, foreign)]);
-                        yield* TestClock.setTime(Duration.toMillis(Duration.seconds(at)));
-                        const [headers, forged] = yield* Effect.all([webhook.sign(id, bytes), stranger.sign(id, bytes)]);
-                        const rewritten = Record.map({ crowded: crowded(signed), cut: crowded(signed.replace(tail, '')), relabelled: signed.replace(label, 'v9') }, (text) => Headers.set(headers, scheme.signature, text));
-                        const presented = yield* Effect.all(Record.map({ signed: headers, ...rewritten, forged, unsigned: Headers.remove(headers, scheme.signature) }, (changed) => outcome(webhook.verify(changed, bytes))));
-                        return { header: Headers.get(headers, scheme.signature), body: yield* outcome(webhook.verify(headers, bytes.subarray(1))), ...presented };
-                    }),
-                ),
-            );
-            assert.deepStrictEqual(
-                results,
-                Record.map(vectors, ({ signed, accepted }) => ({ header: Option.some(signed), body: 'Mismatch', signed: accepted, crowded: accepted, cut: 'Mismatch', relabelled: 'Mismatch', forged: 'Mismatch', unsigned: 'Unsigned' })),
-            );
+    it.effect.each(Record.keys(vectors))(
+        'signs the known-answer vector of scheme row %s, verifies it among other signatures, and refuses another body, a cut signature, another label, another key, and no signature',
+        Effect.fnUntraced(function* (row) {
+            const { scheme, secret, foreign, id, at, bytes, signed, crowded, accepted } = vectors[row];
+            const [webhook, stranger] = yield* Effect.all([made(scheme, secret), made(scheme, foreign)]);
+            yield* TestClock.setTime(Duration.toMillis(Duration.seconds(at)));
+            const [headers, forged] = yield* Effect.all([webhook.sign(id, bytes), stranger.sign(id, bytes)]);
+            const rewritten = Record.map({ crowded: crowded(signed), cut: crowded(signed.replace(tail, '')), relabelled: signed.replace(label, 'v9') }, (text) => Headers.set(headers, scheme.signature, text));
+            const presented = yield* Effect.all(Record.map({ signed: headers, ...rewritten, forged, unsigned: Headers.remove(headers, scheme.signature) }, (changed) => outcome(webhook.verify(changed, bytes))));
+            const verified = { header: Headers.get(headers, scheme.signature), body: yield* outcome(webhook.verify(headers, bytes.subarray(1))), ...presented };
+            assert.deepStrictEqual(verified, { header: Option.some(signed), body: 'Mismatch', signed: accepted, crowded: accepted, cut: 'Mismatch', relabelled: 'Mismatch', forged: 'Mismatch', unsigned: 'Unsigned' });
         }, Effect.provide(crypto)),
     );
     it.effect.each([

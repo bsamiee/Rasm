@@ -39,11 +39,9 @@ browser.action.onClicked.addListener(({ id: tabId = browser.tabs.TAB_ID_NONE, ur
     Effect.gen(function* () {
         const link = yield* Effect.mapError(Effect.fromNullishOr(url), (cause) => CopyError.make({ reason: 'unreadable', tabId, cause }));
         yield* Effect.tryPromise({ try: () => navigator.clipboard.writeText(link), catch: (cause) => CopyError.make({ reason: 'uncopied', tabId, cause }) });
-        const [zoom, { os }] = yield* Effect.all([Effect.promise(() => browser.tabs.getZoom(tabId)), Effect.promise(() => browser.runtime.getPlatformInfo())], { concurrency: 'unbounded' });
-        const offered = Option.as(
-            Option.filter(Option.fromNullishOr(URL.parse(link)), ({ protocol }) => protocol === 'http:' || protocol === 'https:'),
-            { share: { url: link, label: browser.i18n.getMessage('share'), glyph: GLYPHS[os] ?? shareElsewhere } },
-        );
+        const [zoom, { os }] = yield* Effect.promise(() => Promise.all([browser.tabs.getZoom(tabId), browser.runtime.getPlatformInfo()]));
+        const web = Option.filter(Option.fromNullishOr(URL.parse(link)), ({ protocol }) => protocol === 'http:' || protocol === 'https:');
+        const offered = Option.as(web, { share: { url: link, label: browser.i18n.getMessage('share'), glyph: GLYPHS[os] ?? shareElsewhere } });
         return yield* Effect.tryPromise({
             try: () => browser.scripting.executeScript({ target: { tabId }, func: toast, args: [{ css: stylesheet, text: browser.i18n.getMessage('copied'), lang: browser.i18n.getUILanguage(), dir: browser.i18n.getMessage('@@bidi_dir'), zoom, ...Option.getOrUndefined(offered) }], injectImmediately: true }),
             catch: (cause) => CopyError.make({ reason: 'unconfirmed', tabId, cause }),

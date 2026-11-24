@@ -13,16 +13,10 @@ const lines = (issue: SchemaIssue.Issue) => standardFormatter(issue).issues.map(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Issues = Object.assign(lines, {
-    Fields: ({ issue, name, children }: { readonly issue: Option.Option<SchemaIssue.Issue>; readonly name?: (path: readonly PropertyKey[]) => string; readonly children: ReactNode }) => (
-        <FormValidationContext
-            value={Record.map(
-                Array.groupBy(Option.toArray(issue).flatMap(lines), ({ path }) => name?.(path) ?? path.map(String).join('.')),
-                Array.map(Struct.get('message')),
-            )}
-        >
-            {children}
-        </FormValidationContext>
-    ),
+    Fields: ({ issue, name, children }: { readonly issue: Option.Option<SchemaIssue.Issue>; readonly name?: (path: readonly PropertyKey[]) => string; readonly children: ReactNode }) => {
+        const named = Array.groupBy(Option.toArray(issue).flatMap(lines), ({ path }) => name?.(path) ?? path.map(String).join('.'));
+        return <FormValidationContext value={Record.map(named, Array.map(Struct.get('message')))}>{children}</FormValidationContext>;
+    },
     List: ({ issue, text, onField }: { readonly issue: SchemaIssue.Issue; readonly text?: (line: ReturnType<typeof lines>[number]) => string; readonly onField?: ((path: readonly PropertyKey[]) => void) | undefined }) => (
         <ul>
             {pipe(

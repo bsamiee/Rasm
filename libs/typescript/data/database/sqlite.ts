@@ -192,10 +192,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             });
             const links = HashSet.fromIterable(linked.map(Struct.pick(['target', 'columns', 'onDelete'])));
             const declaredColumns = HashSet.fromIterable(entry.ddl.links.map(Struct.get('columns')));
-            const fields = Array.filterMap(
-                entry.fields,
-                Filter.fromPredicateOption(({ found, ...field }) => found.pipe(Option.bindTo('found'), Option.map(Struct.assign(field)))),
-            );
+            const fields = Array.filterMap(entry.fields, ({ found, ...field }) => Result.map(Result.fromOption(found, Function.constVoid), (held) => ({ ...field, found: held })));
             const wanted = entry.ddl.indexes.map((index) => ({ ...index, created: index.text([]), prior: entry.prior(index.parts) }));
             const wantedNames = new Set(wanted.map(Struct.get('name')));
             const indexesByName = Map.groupBy(
@@ -246,16 +243,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const graph = Graph.fromSnapshot({
             type: 'directed',
             nodes: tables.map((data, index) => ({ index, data })),
-            edges: tables
-                .flatMap((entry, target) =>
-                    Array.filterMap(entry.linked, (link) =>
-                        Result.fromOption(
-                            Option.map(Option.fromUndefinedOr(positions.get(link.target)), (source) => ({ source, target, data: link })),
-                            Function.constVoid,
-                        ),
-                    ),
-                )
-                .map((edge, index) => ({ ...edge, index })),
+            edges: tables.flatMap((entry, target) => Array.filterMap(entry.linked, (link) => Result.map(Result.fromNullishOr(positions.get(link.target), Function.constVoid), (source) => ({ source, target, data: link })))).map((edge, index) => ({ ...edge, index })),
         });
         const reached = new Set(Graph.values(Graph.dfs(graph, { start: Graph.findNodes(graph, Struct.get('rebuild')) })));
         const rebuilds = tables.filter((entry) => reached.has(entry));

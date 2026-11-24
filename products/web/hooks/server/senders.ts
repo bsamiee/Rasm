@@ -17,12 +17,7 @@ const senders = {
             const labels = Record.mapKeys<string, unknown, string>({ ...fields, ...data }, (field) => `${name}.${field}`);
             yield* Effect.annotateLogs(logged(occurred)('Webhook event'), { 'webhook.sender': name, 'webhook.id': id, ...labels });
         });
-        const accept = yield* webhook.queued({ name }, ({ id, event }) =>
-            Effect.withSpan(
-                Effect.forEach(event, (occurred) => record(id, occurred), { discard: true }),
-                `${name} delivery`,
-            ),
-        );
+        const accept = yield* webhook.queued({ name }, ({ id, event }) => Effect.forEach(event, (occurred) => record(id, occurred), { discard: true }).pipe(Effect.withSpan(`${name} delivery`)));
         return HttpRouter.route('POST', `/${name}`, webhook.receive(accept));
     }),
 } as const;
@@ -42,12 +37,7 @@ const routes: Layer.Layer<
     | HttpRouter.Request<'Error', CryptoError.CryptoError>
     | HttpRouter.Request<'Error', HttpServerError.HttpServerError>
     | HttpRouter.Request<'Error', PersistedQueue.PersistedQueueError>
-> = HttpRouter.use((router) =>
-    Effect.flatMap(
-        Effect.forEach(Record.toEntries(senders), ([name, sender]) => Effect.flatMap(Config.Redacted(`${String.toUpperCase(name)}_WEBHOOK_SECRET`), (secret) => sender(name, secret))),
-        (served) => router.addAll(served),
-    ),
-);
+> = HttpRouter.addAll(Effect.forEach(Record.toEntries(senders), ([name, sender]) => Effect.flatMap(Config.Redacted(`${String.toUpperCase(name)}_WEBHOOK_SECRET`), (secret) => sender(name, secret))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

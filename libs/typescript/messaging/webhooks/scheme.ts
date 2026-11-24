@@ -25,7 +25,7 @@ const keying = {
     verifying: Effect.fnUntraced(function* (bytes: Uint8Array) {
         const [signer, key] = yield* Effect.all([Signature.Signature, Signature.publicKey(Signature.ed25519, bytes)]);
         return {
-            sign: (): Effect.Effect<Uint8Array, CryptoError.CryptoError | Cause.IllegalArgumentError> => Effect.fail(new Cause.IllegalArgumentError('Received a public key to sign with, accepted a shared secret or a private key')),
+            sign: (): Effect.Effect<Uint8Array, CryptoError.CryptoError | Cause.IllegalArgumentError> => new Cause.IllegalArgumentError('Received a public key to sign with, accepted a shared secret or a private key'),
             verify: (signature: Uint8Array, content: Uint8Array) => signer.verify(key, signature, content),
         };
     }),
@@ -92,10 +92,7 @@ class Scheme extends Data.Class<{
 
     static readonly key = Effect.fnUntraced(function* ({ keys, material }: Scheme, secret: Redacted.Redacted) {
         const text = Redacted.value(secret);
-        const [prefix, { label, key }] = Option.getOrElse(
-            Array.findFirst(Record.toEntries(keys), ([opening]) => opening !== '' && text.startsWith(opening)),
-            () => ['', keys['']] as const,
-        );
+        const [prefix, { label, key }] = Array.findFirst(Record.toEntries(keys), ([opening]) => opening !== '' && text.startsWith(opening)).pipe(Option.getOrElse(() => ['', keys['']] as const));
         const built = yield* key(yield* Effect.fromResult(material(text.slice(prefix.length))));
         return { label, verify: built.verify, sign: (content: Uint8Array) => Effect.map(built.sign(content), (bytes) => ({ label, bytes })) };
     });

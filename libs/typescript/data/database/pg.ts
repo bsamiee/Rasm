@@ -123,15 +123,7 @@ class PgTable extends PgObject.extend<PgTable>('PgTable')({
                 .filter(({ columns }) => Equal.equals(columns, [column]))
                 .map(({ definition }) => {
                     const parsed = parseSync(`ALTER TABLE _ ADD ${definition}`);
-                    traverse(parsed, {
-                        ColumnRef: (ref) =>
-                            Option.contains(
-                                Option.flatMap(Schema.decodeUnknownOption(ColumnRef)(ref.node), ({ fields }) => Array.last(fields)),
-                                { String: { sval: column } },
-                            )
-                                ? ref.replaceWith(PgTable.#reference)
-                                : undefined,
-                    });
+                    traverse(parsed, { ColumnRef: (ref) => (Option.exists(Schema.decodeUnknownOption(ColumnRef)(ref.node), ({ fields }) => Option.contains(Array.last(fields), { String: { sval: column } })) ? ref.replaceWith(PgTable.#reference) : undefined) });
                     return deparseSync(parsed);
                 }),
         );
@@ -335,14 +327,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         return {
             pairs,
             regenerated,
-            expressed: Array.getSomes(
-                expressed.map(({ definition: { name }, wants, now }) =>
-                    Option.map(
-                        Option.filter(wants.expression, () => now.differs(wants).expression),
-                        (expression) => ({ name, expression }),
-                    ),
-                ),
-            ),
+            expressed: Array.getSomes(expressed.map(({ definition: { name }, wants, now }) => Option.filter(wants.expression, () => now.differs(wants).expression).pipe(Option.map((expression) => ({ name, expression }))))),
             dependents: live.columns.filter((row) => Option.isSome(row.generated) && !rebuilt.has(row.name) && !moved.isDisjointFrom(new Set(row.sources))),
         };
     };

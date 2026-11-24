@@ -21,11 +21,7 @@ const Choice = <T extends { readonly id: string; readonly label: string; readonl
         readonly onChange: (choice: T) => void;
         readonly radios: number;
     }) => {
-    const choose = (key: Key | null) =>
-        Option.match(
-            Array.findFirst(options, ({ id }) => id === key),
-            { onNone: Function.constVoid, onSome: onChange },
-        );
+    const choose = (key: Key | null) => Array.findFirst(options, ({ id }) => id === key).pipe(Option.match({ onNone: Function.constVoid, onSome: onChange }));
     return options.length <= radios ? (
         <RadioGroup {...props} onChange={choose}>
             <Label>{label}</Label>

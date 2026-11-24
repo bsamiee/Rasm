@@ -1,4 +1,4 @@
-import { Array, DateTime, Duration, Effect, Option, pipe, type Redacted, type Schedule, Schema } from 'effect';
+import { Array, DateTime, Duration, Effect, Option, type Redacted, type Schedule, Schema } from 'effect';
 import { Digest } from 'effect/crypto';
 import { type Headers, HttpClient, type HttpClientError, HttpClientRequest, type HttpClientResponse, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { PersistedQueue } from 'effect/persistence';
@@ -22,10 +22,8 @@ const Webhook = Effect.fn('Webhook')(function* <S extends Schema.Top>({ scheme, 
     const refused = (reason: WebhookError['reason']) => WebhookError.of(reason, scheme.signature)();
     const verify = Effect.fn('verify')(function* (headers: Headers.Headers, body: Uint8Array) {
         const [{ id, timestamp, content, signatures }, now] = yield* Effect.all([Scheme.read(scheme, headers, body), DateTime.now]);
-        const matches = yield* Effect.forEach(Array.cartesian(keys, signatures), ([key, { label, bytes }]) => (key.label === label ? key.verify(bytes, content) : Effect.succeed(false)));
-        yield* Effect.filterOrFail(Effect.succeed(matches), Array.contains(true), () => refused({ _tag: 'Mismatch' }));
-        yield* pipe(
-            timestamp,
+        yield* Effect.forEach(Array.cartesian(keys, signatures), ([key, { label, bytes }]) => (key.label === label ? key.verify(bytes, content) : Effect.succeed(false))).pipe(Effect.filterOrFail(Array.contains(true), () => refused({ _tag: 'Mismatch' })));
+        yield* timestamp.pipe(
             Option.map((signed) => Duration.abs(DateTime.distance(now, signed))),
             Option.filter(Duration.isGreaterThan(tolerance)),
             Option.map((skew) => Effect.fail(refused({ _tag: 'Stale', skew }))),

@@ -36,11 +36,7 @@ const constant = ({ kind }: Column, value: string | number) =>
         Match.whenOr('integer', 'real', 'boolean', () => `${value}`),
         Match.orElse(() => literal(`${value}`)),
     );
-const digest = (text: string) =>
-    Effect.provide(
-        Digest.Digest.use((service) => service.digestHex(Digest.sha256, encoder.encode(text))),
-        Digest.layerWebCrypto,
-    );
+const digest = (text: string) => Digest.Digest.use((service) => service.digestHex(Digest.sha256, encoder.encode(text))).pipe(Effect.provide(Digest.layerWebCrypto));
 const replacement = (table: string) => `${table}__rebuild`;
 const identifier = (parts: readonly string[]) => {
     const bytes = 63;
@@ -48,11 +44,9 @@ const identifier = (parts: readonly string[]) => {
     const base = 257;
     const modulus = 2_147_483_647;
     const name = parts.join('_');
-    const suffix = `_${encoder
-        .encode(name)
-        .reduce((hash, byte) => (hash * base + byte) % modulus, 0)
-        .toString(radix)}`;
-    return encoder.encode(name).length <= bytes ? name : `${name.slice(0, encoder.encodeInto(name, new Uint8Array(bytes - suffix.length)).read)}${suffix}`;
+    const encoded = encoder.encode(name);
+    const suffix = `_${encoded.reduce((hash, byte) => (hash * base + byte) % modulus, 0).toString(radix)}`;
+    return encoded.length <= bytes ? name : `${name.slice(0, encoder.encodeInto(name, new Uint8Array(bytes - suffix.length)).read)}${suffix}`;
 };
 
 // --- [REFUSALS]
@@ -104,40 +98,30 @@ const tableDdl = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: 
             const [type, defaulted, name] = [engine.type(entry), Option.map(entry.default, (value) => engine.constant(entry, value)), quoted(entry.name)];
             const checked = (subject: Statement.Fragment) =>
                 Column.Bound.$match({
-                    Compare: ({ op, value, subject: measured }) =>
-                        spaced([
-                            measured === 'codePoints' ? engine.codePoints(sql, subject) : subject,
-                            op,
-                            Match.value(value).pipe(
-                                Match.when(Match.number, String),
-                                Match.when(Match.date, (instant) => literal(instant.toISOString())),
-                                Match.orElse((wide) => engine.constant(entry, wide.toString())),
-                            ),
-                        ]),
+                    Compare: ({ op, value, subject: measured }) => {
+                        const limit = Match.value(value).pipe(
+                            Match.when(Match.number, String),
+                            Match.when(Match.date, (instant) => literal(instant.toISOString())),
+                            Match.orElse((wide) => engine.constant(entry, wide.toString())),
+                        );
+                        return spaced([measured === 'codePoints' ? engine.codePoints(sql, subject) : subject, op, limit]);
+                    },
                     MultipleOf: ({ divisor }) => spaced([subject, '%', `${divisor}`, '= 0']),
                     Cased: ({ case: casing }) => engine.cased(sql, subject, entry.kind, casing),
                 });
-            const rule = (subject: Statement.Fragment) =>
-                Option.map(
-                    Option.liftPredicate(
-                        [
-                            ...(Array.isReadonlyArrayNonEmpty(entry.literals)
-                                ? [
-                                      within(
-                                          subject,
-                                          entry,
-                                          entry.literals.map((value) => (typeof value === 'number' ? value : `${value}`)),
-                                      ),
-                                  ]
-                                : []),
-                            ...(entry.kind === 'integer' && !entry.textual ? [sql`${subject} BETWEEN ${sql.literal((-Number.MAX_SAFE_INTEGER).toString())} AND ${sql.literal(Number.MAX_SAFE_INTEGER.toString())}`] : []),
-                            ...entry.bounds.map(checked(subject)),
-                            ...engine.domain(sql, subject, entry.kind),
-                        ],
-                        (all) => Option.isNone(entry.projection) && Array.isReadonlyArrayNonEmpty(all),
-                    ),
+            const members = entry.literals.map((value) => (typeof value === 'number' ? value : `${value}`));
+            const rule = (subject: Statement.Fragment) => {
+                const all = [
+                    ...(Array.isReadonlyArrayNonEmpty(members) ? [within(subject, entry, members)] : []),
+                    ...(entry.kind === 'integer' && !entry.textual ? [sql`${subject} BETWEEN ${sql.literal((-Number.MAX_SAFE_INTEGER).toString())} AND ${sql.literal(Number.MAX_SAFE_INTEGER.toString())}`] : []),
+                    ...entry.bounds.map(checked(subject)),
+                    ...engine.domain(sql, subject, entry.kind),
+                ];
+                return Option.map(
+                    Option.liftPredicate(all, () => Option.isNone(entry.projection) && Array.isReadonlyArrayNonEmpty(all)),
                     flow(conjunction, (condition) => ({ condition, text: spaced(['CHECK', sql`(${condition})`]) })),
                 );
+            };
             const [checkName, check] = [label([entry.name, 'check']), rule(name)];
             const parts = [type, ...Option.toArray(projection(entry)).map((expression) => engine.generated(sql, expression)), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(defaulted).map((value) => `DEFAULT ${value}`)];
             const identity = { origin: Option.getOrElse(entry.renamedFrom, () => entry.name), generation: entry.generation };

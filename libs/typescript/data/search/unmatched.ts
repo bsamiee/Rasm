@@ -52,26 +52,21 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
     static readonly matching: {
         <A>(subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): (candidates: Iterable<A>) => Effect.Effect<readonly A[], Unmatched>;
         <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): Effect.Effect<readonly A[], Unmatched>;
-    } = Function.dual(
-        (args) => !Predicate.isString(args[0]),
-        <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>) => {
-            const all = Array.fromIterable(candidates);
-            return Option.match(query, {
-                onNone: () => Effect.succeed(all),
-                onSome: (wanted) => Effect.succeed(all.filter((candidate) => Array.containsWith(Unmatched.named)(names(candidate), wanted))).pipe(Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => Unmatched.of({ subject, query, candidates: Unmatched.#candidateNames(all, names) }))),
-            });
-        },
-    );
+    } = Function.dual(4, <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>) => {
+        const all = Array.fromIterable(candidates);
+        return Option.match(query, {
+            onNone: () => Effect.succeed(all),
+            onSome: (wanted) => Effect.succeed(all.filter((candidate) => Array.containsWith(Unmatched.named)(names(candidate), wanted))).pipe(Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => Unmatched.of({ subject, query, candidates: Unmatched.#candidateNames(all, names) }))),
+        });
+    });
     static readonly single: {
         <A>(subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): (candidates: Iterable<A>) => Effect.Effect<A, Unmatched>;
         <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): Effect.Effect<A, Unmatched>;
-    } = Function.dual(
-        (args) => !Predicate.isString(args[0]),
-        <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>) =>
-            Unmatched.matching(candidates, subject, query, names).pipe(
-                Effect.filterOrFail(Predicate.isTupleOf(1), (matched) => Unmatched.of({ subject: Array.isReadonlyArrayEmpty(matched) ? subject : `single ${subject}`, query, candidates: Unmatched.#candidateNames(matched, names) })),
-                Effect.map(Array.headNonEmpty),
-            ),
+    } = Function.dual(4, <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>) =>
+        Unmatched.matching(candidates, subject, query, names).pipe(
+            Effect.filterOrFail(Predicate.isTupleOf(1), (matched) => Unmatched.of({ subject: Array.isReadonlyArrayEmpty(matched) ? subject : `single ${subject}`, query, candidates: Unmatched.#candidateNames(matched, names) })),
+            Effect.map(Array.headNonEmpty),
+        ),
     );
 }
 

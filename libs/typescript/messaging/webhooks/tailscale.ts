@@ -20,13 +20,12 @@ const documented = [
 ] as const;
 const Event = Schema.Union([...documented, Schema.Struct({ _tag: Schema.tagDefaultOmit('Other'), ...envelope, type: Schema.String, data: Schema.OptionFromOptionalNullOr(Schema.Record(Schema.String, Schema.Json)) })]).pipe(Schema.toTaggedUnion('_tag'));
 const Batch = Schema.Array(Event);
-const Kind = Schema.Literals(documented.flatMap((member) => member.fields.type.literals));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const TailscaleEvent = Object.assign(Event, {
     Batch,
-    Kind,
+    Kind: Schema.Literals(documented.flatMap((member) => member.fields.type.literals)),
     webhook: (secrets: Array.NonEmptyReadonlyArray<Redacted.Redacted>, tolerance: Duration.Input = '5 minutes') => Webhook({ scheme: Scheme.tailscale, payload: Batch, secrets, tolerance }),
 });
 

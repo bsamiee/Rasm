@@ -1,4 +1,4 @@
-import { Array, Data, Duration, Effect, Equal, Filter, Function, Option, Record, Schema, Struct } from 'effect';
+import { Array, Data, Duration, Effect, Equal, Function, Option, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import { Column, type Fields, type Where } from '#/column';
 import { Rows } from '#/engine';
@@ -162,28 +162,19 @@ const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Rela
                 kept: Schema.Array(Schema.String),
             }),
             Result: Schema.Struct({ row: schema, inserted: Schema.BooleanFromBit }),
-            execute: ({ rows, kept }) =>
-                Effect.flatMap(fragments, (parts) =>
-                    parts.rows.upsert(
-                        parts,
-                        rows,
-                        written.filter(({ name }) => !(relation.key.includes(name) || kept.includes(name))),
-                    ),
-                ).pipe(Effect.map(Array.map(({ [Rows.flags.inserted]: inserted, ...row }) => ({ row, inserted })))),
+            execute: ({ rows, kept }) => {
+                const updated = written.filter(({ name }) => !(relation.key.includes(name) || kept.includes(name)));
+                return Effect.flatMap(fragments, (parts) => parts.rows.upsert(parts, rows, updated)).pipe(Effect.map(Array.map(({ [Rows.flags.inserted]: inserted, ...row }) => ({ row, inserted }))));
+            },
         }),
         select: SqlSchema.findAll({
             Request: Schema.Struct({ where: Selection, order: Schema.Array(Schema.Union([Schema.String, Schema.Struct({ descending: Schema.String })])), limit: Schema.Option(Schema.Natural), per: Schema.Option(Schema.String) }),
             Result: schema,
             execute: ({ where, order, limit, per }) =>
                 Effect.flatMap(fragments, ({ sql, owner, prefix, unqualified, reads, keys, where: matching }) => {
-                    const ordering = (scope: Statement.Fragment) =>
-                        sql.csv([
-                            ...Array.filterMap(
-                                order,
-                                Filter.fromPredicateOption((entry) => Option.map(Record.get(relation.columns, typeof entry === 'string' ? entry : entry.descending), ({ name }) => sql.join(' ', false)([sql`${scope}${sql(name)}`, ...(typeof entry === 'string' ? [] : ['DESC'])]))),
-                            ),
-                            keys(scope),
-                        ]);
+                    const sorted = order.map((entry) => (typeof entry === 'string' ? { field: entry, direction: [] } : { field: entry.descending, direction: ['DESC'] }));
+                    const columns = Array.filterMap(sorted, ({ field, direction }) => Result.map(Result.fromOption(Record.get(relation.columns, field), Function.constVoid), ({ name }) => ({ name, direction })));
+                    const ordering = (scope: Statement.Fragment) => sql.csv([...columns.map(({ name, direction }) => sql.join(' ', false)([sql`${scope}${sql(name)}`, ...direction])), keys(scope)]);
                     const [outer, filter] = [sql.literal('t.'), matching(where)];
                     const filtered = sql`SELECT ${reads(unqualified)} FROM ${owner} WHERE ${filter} ORDER BY ${ordering(prefix)}`;
                     return Option.match(Option.all({ count: limit, by: Option.flatMap(per, (field) => Record.get(relation.columns, field)) }), {

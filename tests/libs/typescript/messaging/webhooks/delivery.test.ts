@@ -56,10 +56,7 @@ it.effect.each([
     'sends a delivery answered $status $attempts times after its retry-after delays, delivered: $delivered',
     Effect.fnUntraced(function* ({ status, attempts, delivered }) {
         const [webhook, answered] = yield* Effect.all([made(Scheme.standard, standard.secret), Ref.make(0)]);
-        const endpoint = Effect.as(
-            Ref.update(answered, (count) => count + 1),
-            HttpServerResponse.empty({ status, headers: { location: url, 'retry-after': '120' } }),
-        );
+        const endpoint = Ref.update(answered, (count) => count + 1).pipe(Effect.as(HttpServerResponse.empty({ status, headers: { location: url, 'retry-after': '120' } })));
         const sending = yield* Effect.forkChild(Effect.exit(webhook.deliver(url, { id: standard.id, event: { test: 1 } }, Schedule.recurs(2))).pipe(Effect.provide(transport(endpoint))));
         yield* TestClock.adjust('239 seconds');
         const early = yield* Ref.get(answered);
@@ -83,14 +80,7 @@ it.effect(
         }).pipe(Effect.provide(transport(webhook.receive((incoming) => Queue.offer(deliveries, incoming)))));
         const received = yield* Queue.takeAll(deliveries);
         assert.deepStrictEqual(
-            [
-                Record.map(
-                    events,
-                    Array.map(({ _tag }) => _tag),
-                ),
-                statuses,
-                Array.map(received, ({ id, event }) => [digest.test(id), event.length]),
-            ],
+            [Record.map(events, (rows) => Array.map(rows, ({ _tag }) => _tag)), statuses, Array.map(received, ({ id, event }) => [digest.test(id), event.length])],
             [
                 Record.map(documented, (rows, tag) => Array.map(rows, Function.constant(tag))),
                 { accepted: 204, forged: 401, unsigned: 401, unbounded: 401, unparsed: 400 },
