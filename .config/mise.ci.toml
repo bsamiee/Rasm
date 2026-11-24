@@ -32,3 +32,9 @@ enable_tools = [
     "uv",
     "yq",
 ]
+
+# --- [TOOLS] ----------------------------------------------------------------------------
+
+[tools]
+doppler = { os = ["linux"], version = "latest" }
+pulumi  = { os = ["linux"], version = "latest" }
