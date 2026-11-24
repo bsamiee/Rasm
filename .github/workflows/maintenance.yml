@@ -18,15 +18,20 @@ jobs:
         name: Host runner
         runs-on: [self-hosted, host]
         timeout-minutes: 60
+        outputs:
+            image: ${{ steps.image.outputs.image }}
         steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - &checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
                   clean: false
-            - uses: $/.github/actions/tools
+            - &tools
+              uses: $/.github/actions/tools
             - run: pnpm store prune
             - run: uv cache prune --ci
-            - run: mise prune --yes
+            - &prune
+              run: mise prune --yes
             - run: docker container prune --force --filter until=1h
             - run: docker volume prune --force
             - run: docker image prune --force
@@ -35,3 +40,22 @@ jobs:
             - run: nx run rasm:check--cargo-deny-advisories
               env:
                   NX_SKIP_NX_CACHE: 'true'
+            - id: image
+              run: |-
+                  version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
+                  printf "image=%s\n" "ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" >> "${GITHUB_OUTPUT}"
+
+    container:
+        name: Container runner
+        needs: host
+        runs-on: [self-hosted, container]
+        timeout-minutes: 60
+        container:
+            image: ${{ needs.host.outputs.image }}
+            credentials:
+                username: ${{ github.actor }}
+                password: ${{ github.token }}
+        steps:
+            - *checkout
+            - *tools
+            - *prune
