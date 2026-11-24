@@ -178,9 +178,17 @@ jobs:
                       !.cache/nx/workspace-data/task-cache.jsonl
                       !.cache/nx/workspace-data/xcode-packages
                   key: nx-${{ runner.os }}-
-            - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+            - id: xcode
+              uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
                   xcode-version: latest-stable
+            - id: swift
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: &swift |-
+                      ~/Library/Developer/Xcode/DerivedData/CompilationCache.noindex
+                      ~/Library/Developer/Xcode/DerivedData/Rasm-*/SourcePackages
+                  key: &compiled swift-${{ steps.xcode.outputs.version }}-${{ hashFiles('Rasm.xcworkspace/xcshareddata/swiftpm/Package.resolved', 'Package.swift', 'Xcode.xcconfig') }}
             - *tools
             - if: ${{ env.APPLE_DEVELOPMENT_P12 != '' }}
               uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
@@ -188,9 +196,15 @@ jobs:
                   p12-file-base64: ${{ env.APPLE_DEVELOPMENT_P12 }}
                   p12-password: ${{ env.APPLE_DEVELOPMENT_P12_PASSWORD }}
             - run: nx conformance:check
-            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
+            - id: tasks
+              run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
               env:
                   NX_SKIP_NX_CACHE: ${{ inputs.uncached == 'macos' || inputs.uncached == 'all' }}
+            - if: ${{ steps.tasks.outcome == 'success' && github.ref == 'refs/heads/main' && steps.swift.outputs.cache-hit != 'true' }}
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: *swift
+                  key: *compiled
             - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
               run: hk check --step swiftlint --step swift-format --step plutil --step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
               env:
