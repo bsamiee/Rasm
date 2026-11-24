@@ -96,7 +96,7 @@ const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
     );
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: string, files: ReadonlySet<string>) {
-    const metadata = yield* Effect.flatMap(spawned(['cargo', 'metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot }), Schema.decodeEffect(Metadata));
+    const metadata = yield* Effect.flatMap(spawned(['cargo', 'metadata', '--format-version', '1', '--no-deps'], { cwd: join(workspaceRoot, posix.dirname(manifest)) }), Schema.decodeEffect(Metadata));
     const root = normalizePath(relative(workspaceRoot, metadata.workspace_root)) || '.';
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
     const found = (stems: readonly string[]) => above(root).flatMap((at) => stems.map((stem) => posix.join(at, stem)).filter((file) => files.has(file)));

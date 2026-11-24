@@ -7,7 +7,7 @@ import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
 import { refused } from '@rasm/testing/errors';
 import { it, outputs, pathed, taskGraph, unaggregated, unportable, type Workspace } from '@rasm/testing/nx';
-import { Effect, Schema } from 'effect';
+import { Effect, Predicate, Schema } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { assert, describe, expect, vi } from 'vitest';
@@ -67,6 +67,17 @@ describe('inferred projects', { timeout: 120_000 }, () => {
         const pending = workspace.write({ ...crates, 'crates/broken/Cargo.toml': '[package\nname = ' }).graph(cargo);
 
         await expect(pending).rejects.toSatisfy(refused(/crates\/broken\/Cargo\.toml:1:\d+/u));
+    });
+
+    it.for([
+        { case: 'a string over a table', outer: 'CLIPPY_CONF_DIR = { value = "ws/other", relative = true }', inner: 'CLIPPY_CONF_DIR = "other"', found: 'string, but found table' },
+        { case: 'a table over a string', outer: 'CLIPPY_CONF_DIR = "ws/other"', inner: 'CLIPPY_CONF_DIR = { value = "other", relative = true }', found: 'table, but found string' },
+    ])('refuses a nested workspace whose Cargo configuration layers state an [env] row as $case, as cargo does', async ({ outer, inner, found }, { workspace }) => {
+        const pending = workspace
+            .write({ '.cargo/config.toml': `[env]\n${outer}\n`, 'ws/.cargo/config.toml': `[env]\n${inner}\n`, 'ws/Cargo.toml': '[package]\nname = "nested"\nversion = "0.1.0"\nedition = "2024"\n', 'ws/src/lib.rs': 'pub fn one() -> u32 {\n    1\n}\n', 'ws/other/clippy.toml': 'too-many-arguments-threshold = 1\n' })
+            .graph(cargo);
+
+        await expect(pending).rejects.toSatisfy(refused(new RegExp(`failed to merge key \`CLIPPY_CONF_DIR\`[\\s\\S]*expected ${found}`, 'u')));
     });
 
     it('states each tool input in the verb running it, and every root, input, output, and folder as a workspace-relative posix path', async ({ workspace }) => {
@@ -138,6 +149,26 @@ describe('task hashes', { timeout: 120_000 }, () => {
         const edited = await hashed(workspace, await workspace.write({ [read]: 'too-many-arguments-threshold = 1\n' }).graph(cargo), 'cli:check--clippy');
 
         expect([unread.value === before.value, edited.value === unread.value]).toStrictEqual([true, false]);
+    });
+
+    it('lists the clippy.toml a relative process CLIPPY_CONF_DIR names from the root of the nested Cargo workspace clippy runs in', async ({ workspace, onTestFinished }) => {
+        vi.stubEnv('CLIPPY_CONF_DIR', 'other');
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+        });
+
+        const graph = await workspace
+            .write({
+                'other/clippy.toml': 'too-many-arguments-threshold = 7\n',
+                'ws/Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n',
+                'ws/other/clippy.toml': 'too-many-arguments-threshold = 1\n',
+                'ws/crates/c/Cargo.toml': '[package]\nname = "c"\nversion = "0.1.0"\nedition = "2024"\n',
+                'ws/crates/c/src/lib.rs': 'pub fn two(a: u32, b: u32) -> u32 {\n    a + b\n}\n',
+                'ws/crates/c/other/clippy.toml': 'too-many-arguments-threshold = 7\n',
+            })
+            .graph(cargo);
+
+        expect(graph.nodes['c']?.data.targets?.['check--clippy']?.inputs?.filter((input) => Predicate.isString(input) && input.endsWith('clippy.toml'))).toStrictEqual(['{workspaceRoot}/ws/other/clippy.toml']);
     });
 
     it.for([
