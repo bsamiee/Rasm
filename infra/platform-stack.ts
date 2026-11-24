@@ -16,7 +16,7 @@ import type { identified } from '#/repository-stack';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Role = Data.TaggedEnum<{
-    Cache: { readonly name: string; readonly kept: Duration.Duration };
+    Cache: { readonly name: string; readonly kept: Duration.Duration; readonly abort: Duration.Duration };
     Runner: { readonly instances: Readonly<Record<string, Readonly<Record<string, string>>>> };
     Apps: { readonly owner: string };
     History: { readonly name: string };
@@ -39,7 +39,7 @@ const hosts = {
         address: '45.90.223.193',
         tags: ['tag:server'],
         roles: [
-            { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(4) },
+            { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(4), abort: Duration.days(1) },
             { _tag: 'Runner', instances: { host: { MemoryMax: '20G' }, container: {}, graph: {} } },
         ],
     },
@@ -197,9 +197,9 @@ const bucketed = (name: string, storage: ReturnType<typeof stored>, buckets: Eff
     return { AWS_ENDPOINT_URL_S3: storage.within, AWS_REGION: storage.region, AWS_ACCESS_KEY_ID: all([account.accessKey, ...created.flatMap(({ configured }) => configured)]).apply(([id]) => id), AWS_SECRET_ACCESS_KEY: account.secretKey };
 };
 
-const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, storage: ReturnType<typeof stored>, tokens: Readonly<Record<'SERVICE_ACCESS_TOKEN' | 'READ_ONLY_ACCESS_TOKEN', Input<string>>>) => {
+const cached = (machine: Machine, { name, kept, abort }: Data.TaggedEnum.Value<Role, 'Cache'>, storage: ReturnType<typeof stored>, tokens: Readonly<Record<'SERVICE_ACCESS_TOKEN' | 'READ_ONLY_ACCESS_TOKEN', Input<string>>>) => {
     const { port, health } = { port: 3000, health: '/health' };
-    const scoped = bucketed(name, storage, { [name]: { kept: false, abort: kept, expire: { '': kept }, cors: [] } });
+    const scoped = bucketed(name, storage, { [name]: { kept: false, abort, expire: { '': kept }, cors: [] } });
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: health });
     const image = machine.imaged(
         name,

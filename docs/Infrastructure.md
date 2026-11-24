@@ -123,6 +123,7 @@ Nx cache server of role `Cache`:
 - Runners reach the server over public HTTPS through its proxy
 - Doppler `ci` holds server URL and both tokens, `dev` references URL and read-write token, and `deploy` both tokens
 - Cache objects expire role field `kept` after their write, and a read refreshes none, so an unchanged task runs again once per `kept`
+- Incomplete cache uploads abort role field `abort` after they start, as no upload outlasts a job
 - Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a task once its cache write fails six times
 - Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop
 
