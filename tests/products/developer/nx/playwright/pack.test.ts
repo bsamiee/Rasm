@@ -43,7 +43,7 @@ describe('pack--playwright of config projects whose own outputDir sits under out
             cachedByPack: [expect.stringMatching(/^\.artifacts\/playwright\/e2e\/media\/[^/]+\/tile\.png$/u)],
             cachedByTest: [],
         });
-        expect(targets['pack--playwright']).toMatchObject({ dependsOn: ['test--playwright'], cache: true, inputs: targets['test--playwright']?.inputs });
+        expect(targets['pack--playwright']).toMatchObject({ dependsOn: [...(targets['test--playwright']?.dependsOn ?? []), 'test--playwright'], cache: true, inputs: targets['test--playwright']?.inputs });
     });
 
     it('declares outputs apart from test--playwright that hold every file its run writes, leaving the files test--playwright wrote as they were', async ({ workspace }) => {
@@ -124,5 +124,13 @@ describe('declared outputs of test--playwright', { timeout: 60_000 }, () => {
 
         const written = workspace.files('node_modules', 'tmp').difference(before);
         expect({ success, wrote: written.size > 0, undeclared: [...written.difference(workspace.cached(graph, 'e2e', 'test--playwright'))] }).toStrictEqual({ success: true, wrote: true, undeclared: [] });
+    });
+
+    it('routes no folder under outputPath to the json and junit reporters, which print to stdout when no file name reaches them', async ({ workspace }) => {
+        const graph = await workspace.write({ 'apps/e2e/playwright.config.js': config('media', "[['html', { open: 'never' }], ['json'], ['junit']]") }).graph({ createNodes }, routed);
+        const target = graph.nodes['e2e']?.data.targets?.['test--playwright'];
+
+        expect(target).toHaveProperty('options.env', { PLAYWRIGHT_HTML_OUTPUT_DIR: '../../.artifacts/playwright/e2e/html' });
+        expect(target?.outputs).toStrictEqual(['{workspaceRoot}/.artifacts/playwright/{projectName}/test-results', '{workspaceRoot}/.artifacts/playwright/{projectName}/html']);
     });
 });

@@ -64,4 +64,18 @@ describe('checker targets', { timeout: 120_000 }, () => {
 
         expect(before.value === after.value).toBe(!changes);
     });
+
+    it('changes the pytest hash of a member once PYTEST_ADDOPTS selects other tests', async ({ workspace, onTestFinished }) => {
+        locked(workspace, { ...workspaced(['pytest>=8']), ...TESTED });
+        const graph = await workspace.graph(uv);
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+        });
+        const before = await hashed(workspace, graph, 'library:test--pytest');
+        vi.stubEnv('PYTEST_ADDOPTS', '-k smoke');
+
+        const after = await hashed(workspace, graph, 'library:test--pytest');
+
+        expect(after.value).not.toBe(before.value);
+    });
 });

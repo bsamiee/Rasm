@@ -1,17 +1,18 @@
 import { createRequire, registerHooks } from 'node:module';
 import { resolve } from 'node:path';
+import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { parentPort, workerData } from 'node:worker_threads';
 import { Array, Effect, Option, Predicate, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const ROUTED: ReadonlySet<string> = new Set(['html', 'blob', 'json', 'junit', 'perfetto']);
+const ROUTED: ReadonlySet<string> = new Set(['html', 'blob', 'perfetto']);
 const REPORTS: Readonly<Record<string, string>> = { html: 'playwright-report', blob: 'blob-report', perfetto: 'test-results', coverage: 'coverage' };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Task = Schema.Tuple([Schema.String, Schema.Boolean]).annotate({ description: 'The absolute path of a Playwright config and whether its run routes the built-in reporters reading PLAYWRIGHT_<NAME>_OUTPUT_DIR under outputPath' });
+const Task = Schema.Tuple([Schema.String, Schema.Boolean]).annotate({ description: 'The absolute path of a Playwright config and whether its run routes under outputPath the built-in reporters whose default file name lets PLAYWRIGHT_<NAME>_OUTPUT_DIR alone place their files, which json and junit lack' });
 const Loader = Schema.Struct({
     configLoader: Schema.Struct({ loadConfigFromFile: Schema.declare((input: unknown): input is (file: string) => Promise<unknown> => Predicate.isFunction(input)) }),
     resolveReporterOutputPath: Schema.declare((input: unknown): input is (defaultValue: string, configDir: string, configValue: string | undefined) => string => Predicate.isFunction(input)),
@@ -47,7 +48,22 @@ const read = Effect.fnUntraced(function* (entry: string, routed: boolean) {
         Effect.forEach(['playwright/lib/common', 'playwright/lib/util', 'playwright/lib/runner'], (at) => Effect.promise((): Promise<unknown> => import(pathToFileURL(playwright.resolve(at)).href))),
         (modules) => Schema.decodeUnknownEffect(Loader)(Object.assign({}, ...modules)),
     );
-    const edges: (readonly [url: string, specifier: string, parent: string])[] = [];
+    const [edges, environment]: [(readonly [url: string, specifier: string, parent: string])[], Set<string>] = [[], new Set()];
+    const noted = (key: string | symbol) => {
+        if (Predicate.isString(key)) {
+            environment.add(key);
+        }
+        return key;
+    };
+    yield* Effect.sync(() => {
+        process.env = new Proxy(process.env, {
+            get: (held, key): unknown => Reflect.get(held, noted(key)),
+            has: (held, key) => Reflect.has(held, noted(key)),
+            getOwnPropertyDescriptor: (held, key) => Reflect.getOwnPropertyDescriptor(held, noted(key)),
+            ownKeys: (held) => Reflect.ownKeys(held).map(noted),
+            set: (held, key, value) => Reflect.set(held, key, value),
+        });
+    });
     const full = yield* Effect.acquireUseRelease(
         Effect.sync(() =>
             registerHooks({
@@ -84,6 +100,7 @@ const read = Effect.fnUntraced(function* (entry: string, routed: boolean) {
     });
     return {
         edges,
+        environment: [...environment],
         scripts: [...globalSetups, ...globalTeardowns],
         routes: reports.filter(({ routes }) => routes).map(({ name }) => name),
         reported: reports.flatMap(({ written }) => written),

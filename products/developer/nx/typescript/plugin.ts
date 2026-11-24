@@ -55,7 +55,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
             (eslint) => projected(root, 'eslint', { check: { eslint: { ...eslint, inputs: [...(eslint.inputs ?? []), ...chained(root)] } } }, described.stated),
         );
         const branch = yield* Match.value({ file, name: basename(file) }).pipe(
-            Match.when({ file: MANIFEST }, () => Effect.asSome(workspace(workspaceRoot, manager, settings.knipConfig, described))),
+            Match.when({ file: MANIFEST }, () => Effect.asSome(workspace(workspaceRoot, manager, settings.knipConfig, row, described))),
             Match.when({ name: PROJECT }, () => Effect.succeedNone),
             Match.when({ name: CONFIG }, () => Effect.map(looked(programs, file), compiled(root, described.stated, settings.compilerPackages, `^${namedInput(root, context)}`, described.manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, manager))),
             Match.when({ name: WORKER }, () => Effect.when(worker(context, manager, described.stated, file, configured), Effect.succeed(installed('cf', join(workspaceRoot, file))))),

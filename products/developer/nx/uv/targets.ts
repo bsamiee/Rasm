@@ -84,7 +84,7 @@ const CHECKERS = {
     },
     pytest: {
         verb: 'test',
-        variables: [],
+        variables: ['PYTEST_ADDOPTS', 'PYTEST_PLUGINS', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD'],
         hashes: ['platform', 'python'],
         imports: true,
         files: [['pytest.toml', 'pytest'], ['.pytest.toml', 'pytest'], ['pytest.ini'], ['.pytest.ini'], ['pyproject.toml', 'tool', 'pytest'], ['tox.ini', 'pytest'], ['setup.cfg', 'tool:pytest']],

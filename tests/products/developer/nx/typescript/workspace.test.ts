@@ -36,6 +36,12 @@ describe('workspace root checks', () => {
         await expect(hashed(graph, workspace.root, 'check--jscpd', 'jscpd')).resolves.toContain(read);
     });
 
+    it('leaves out of the check--jscpd hash the files the jscpd ignore row skips', async ({ workspace }) => {
+        const graph = await workspace.write({ ...ROOT, '.jscpd.json': '{"pattern":"**/*.ts","ignore":["libs/generated/**"]}', 'libs/lib/index.ts': 'export {};', 'libs/generated/index.ts': 'export {};' }).graph({ createNodes });
+
+        await expect(hashed(graph, workspace.root, 'check--jscpd', 'jscpd')).resolves.toStrictEqual(['.jscpd.json', 'libs/lib/index.ts']);
+    });
+
     it.for(refusing('jscpd'))('refuses the graph with the command and $case of jscpd', async ({ scripts, refusal }, { workspace }) => {
         pathed(join(workspace.root, '.bin'), scripts);
 

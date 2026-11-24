@@ -54,6 +54,7 @@ describe('what test--playwright hashes', { timeout: 60_000 }, () => {
         { case: 'the global setup script outside the project', edit: { 'tools/pw/setup.js': 'module.exports = async () => {\n    await Promise.resolve();\n};\n' }, changes: true },
         { case: 'a workspace file the config requires from outside the project', edit: { 'tools/pw/base.js': 'module.exports = { changed: true };\n' }, changes: true },
         { case: 'the source of a workspace package the config requires', edit: { 'libs/shared/index.js': 'module.exports = { changed: true };\n' }, changes: true },
+        { case: 'a file of that workspace package the config never loads', edit: { 'libs/shared/README.md': '# shared\n' }, changes: false },
         { case: 'the compilerOptions of a tsconfig outside the project its extends chain reaches', edit: { 'tsconfig.shared.json': '{"extends":"./tsconfig.base.json","compilerOptions":{"strict":false}}' }, changes: true },
         { case: 'the include list of that tsconfig, which Playwright never reads', edit: { 'tsconfig.shared.json': '{"extends":"./tsconfig.base.json","compilerOptions":{"strict":true},"include":["src"]}' }, changes: false },
         { case: 'a docs file no project owns', edit: { 'docs/guide.md': '# Guide\n\nMore.\n' }, changes: false },

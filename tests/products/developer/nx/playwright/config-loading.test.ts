@@ -75,6 +75,18 @@ describe('inferred Playwright targets across graph passes', { timeout: 60_000 },
         expect(graph.nodes['e2e']?.data.targets?.['test--playwright']?.dependsOn?.filter(Predicate.isObject)).toStrictEqual([{ projects: ['app1'], target: 'dev', waitFor: 'ready' }]);
     });
 
+    it('reuses the config while only environment it never reads changes, as NX_HEAD does in every CI job', async ({ workspace, onTestFinished }) => {
+        const counter = `${workspace.root}.loads`;
+        onTestFinished(() => rmSync(counter, { force: true }));
+        vi.stubEnv('NX_HEAD', 'one');
+        await workspace.write({ 'apps/e2e/playwright.config.js': `require('node:fs').appendFileSync(${JSON.stringify(counter)}, 'x');\nmodule.exports = { webServer: { command: 'nx run app1:' + process.env.PW_TARGET, reuseExistingServer: true } };\n` }).graph({ createNodes });
+        vi.stubEnv('NX_HEAD', 'two');
+
+        await workspace.graph({ createNodes });
+
+        expect(readFileSync(counter, 'utf-8')).toBe('x');
+    });
+
     it('loads the config and writes its cache once while edits reach neither a file it loads nor the test files its projects list, and again after either does', async ({ workspace, onTestFinished }) => {
         const [counter, cache] = [`${workspace.root}.loads`, join(workspace.root, 'tmp/project-graph-cache/playwright.hash')];
         onTestFinished(() => rmSync(counter, { force: true }));

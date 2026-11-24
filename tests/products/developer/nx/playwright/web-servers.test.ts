@@ -39,7 +39,6 @@ describe('test--playwright dependencies on webServer tasks', { timeout: 60_000 }
             .write(
                 projects({
                     npx: "{ command: 'npx nx run app1:serve', reuseExistingServer: true }",
-                    configured: "{ command: 'npx nx run app1:serve:production', reuseExistingServer: true }",
                     bare: "{ command: 'nx run api:dev', reuseExistingServer: true }",
                     pnpm: "{ command: 'pnpm exec nx run app1:serve', reuseExistingServer: true }",
                     bunx: "{ command: 'bunx nx serve app1', reuseExistingServer: true }",
@@ -53,7 +52,6 @@ describe('test--playwright dependencies on webServer tasks', { timeout: 60_000 }
 
         expect(waits(graph)).toStrictEqual({
             npx: ['app1:serve:ready'],
-            configured: ['app1:serve:ready'],
             bare: ['api:dev:ready'],
             pnpm: ['app1:serve:ready'],
             bunx: ['app1:serve:ready'],
@@ -94,7 +92,20 @@ describe('test--playwright dependencies on webServer tasks', { timeout: 60_000 }
         expect(waits(graph)).toStrictEqual({ listed: ['api1:serve:ready', 'api2:dev:ready', 'app1:serve:ready'] });
     });
 
-    it('warns, naming the command and config, about a reused row whose nx command names no task it can read', async ({ workspace, onTestFinished }) => {
+    it('keeps pack--playwright waiting on the reused server after test--playwright, as Nx stops a continuous task no remaining task names', async ({ workspace }) => {
+        const graph = await workspace
+            .write({
+                'apps/e2e/project.json': '{"name":"e2e"}',
+                'apps/e2e/smoke.spec.js': 'module.exports = {};\n',
+                'apps/e2e/store.media.js': 'module.exports = {};\n',
+                'apps/e2e/playwright.config.js': "module.exports = { webServer: { command: 'nx run app1:serve', reuseExistingServer: true }, projects: [{ name: 'suite', testIgnore: '**/*.media.js' }, { name: 'media', testMatch: '**/*.media.js', outputDir: '../../.artifacts/playwright/e2e/media' }] };\n",
+            })
+            .graph({ createNodes }, { outputPath: '.artifacts/playwright/{projectName}' });
+
+        expect(graph.nodes['e2e']?.data.targets?.['pack--playwright']?.dependsOn?.filter(Predicate.isObject)).toStrictEqual([{ projects: ['app1'], target: 'serve', waitFor: 'ready' }]);
+    });
+
+    it('warns, naming the command and config, about a reused row whose nx command names no task or a configuration dependsOn cannot state', async ({ workspace, onTestFinished }) => {
         const warn = vi.spyOn(console, 'warn').mockReturnValue(undefined);
         onTestFinished(() => warn.mockRestore());
         const graph = await workspace
@@ -102,12 +113,17 @@ describe('test--playwright dependencies on webServer tasks', { timeout: 60_000 }
                 projects({
                     flagged: "{ command: 'npx nx run app1:serve --port=4200', reuseExistingServer: true }",
                     versioned: "{ command: 'npx nx@latest serve app1', reuseExistingServer: true }",
+                    configured: "{ command: 'npx nx run app1:serve:production', reuseExistingServer: true }",
                     foreign: "{ command: 'npm run start', reuseExistingServer: true }",
                 }),
             )
             .graph({ createNodes });
 
-        expect(waits(graph)).toStrictEqual({ flagged: [], versioned: [], foreign: [] });
-        expect(warn.mock.calls.flat().toSorted(Order.String)).toStrictEqual([expect.stringMatching(/"npx nx run app1:serve --port=4200" in apps\/flagged\/playwright\.config\.js/u), expect.stringMatching(/"npx nx@latest serve app1" in apps\/versioned\/playwright\.config\.js/u)]);
+        expect(waits(graph)).toStrictEqual({ flagged: [], versioned: [], configured: [], foreign: [] });
+        expect(warn.mock.calls.flat().toSorted(Order.String)).toStrictEqual([
+            expect.stringMatching(/"npx nx run app1:serve --port=4200" in apps\/flagged\/playwright\.config\.js/u),
+            expect.stringMatching(/"npx nx run app1:serve:production" in apps\/configured\/playwright\.config\.js/u),
+            expect.stringMatching(/"npx nx@latest serve app1" in apps\/versioned\/playwright\.config\.js/u),
+        ]);
     });
 });

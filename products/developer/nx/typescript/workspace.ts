@@ -2,7 +2,7 @@ import { createRequire, findPackageJSON } from 'node:module';
 import { dirname, join, posix, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
-import { type CreateNodesContext, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { type CreateNodesContext, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { getLockFileName, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, EXEC, manifested, namedInput, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
@@ -27,7 +27,9 @@ const Manifest = Schema.fromJsonString(Schema.Struct({ version: Schema.optionalK
     description: "The version, os, and jscpd rows of a project's package.json, jscpd reading its configuration from the jscpd row",
 });
 const Exported = Schema.fromJsonString(Schema.Struct({ exports: Schema.Struct({ '.': Schema.Struct({ import: Schema.String }) }) })).annotate({ description: 'The import entry of the root export of @cloudflare/config, the package cf loads cloudflare.config.ts through' });
-const Scanned = Schema.fromJsonString(Schema.Struct({ pattern: Schema.NullOr(Schema.String) })).annotate({ description: 'The pattern row of the merged configuration jscpd --debug prints, the glob of the files jscpd scans, null scanning every file' });
+const Scanned = Schema.fromJsonString(Schema.Struct({ pattern: Schema.NullOr(Schema.String), ignore: Schema.Array(Schema.String) })).annotate({
+    description: 'The pattern and ignore rows of the merged configuration jscpd --debug prints: the glob of the files jscpd scans, null scanning every file, and the globs under the workspace it skips',
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -76,7 +78,7 @@ const tarball = (manager: PackageManager, outputPath: string | undefined, { mani
     });
 };
 
-const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: PackageManager, knipConfig: string | undefined, { manifest: { jscpd }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }) {
+const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: PackageManager, knipConfig: string | undefined, row: string, { manifest: { jscpd }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }) {
     const { catalogs, prune } = MANAGERS[manager];
     const lock = getLockFileName(manager);
     const knip = ['knip', ...UndefinedOr.match(knipConfig, { onUndefined: () => [], onDefined: (at) => ['--config', at] })].map(quoteShellArg).join(' ');
@@ -85,15 +87,15 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
         Option.map(
             configured,
             Effect.fnUntraced(function* (config) {
-                const cache = new PluginCache<{ readonly sources: readonly string[]; readonly stamp: string; readonly pattern: string | null }>(join(workspaceDataDirectory, 'typescript-jscpd.hash'));
-                const { pattern } = yield* Effect.flatMap(
-                    recalled(cache, config, stamped(workspaceRoot)),
+                const [cache, key] = [new PluginCache<{ readonly sources: readonly string[]; readonly stamp: string } & typeof Scanned.Type>(join(workspaceDataDirectory, 'typescript-jscpd.hash')), hashArray([row, config])];
+                const { pattern, ignore } = yield* Effect.flatMap(
+                    recalled(cache, key, stamped(workspaceRoot)),
                     Option.match({
                         onSome: Effect.succeed,
                         onNone: Effect.fnUntraced(function* () {
-                            const [{ pattern: scanned }, stamp] = yield* Effect.all([Effect.flatMap(spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }), Schema.decodeEffect(Scanned)), stamped(workspaceRoot)([config, lock])]);
-                            const entry = { sources: [config, lock], stamp, pattern: scanned };
-                            cache.set(config, entry);
+                            const [scanned, stamp] = yield* Effect.all([Effect.flatMap(spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }), Schema.decodeEffect(Scanned)), stamped(workspaceRoot)([config, lock])]);
+                            const entry = { sources: [config, lock], stamp, ...scanned };
+                            cache.set(key, entry);
                             cache.writeToDisk();
                             return entry;
                         }),
@@ -101,7 +103,7 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
                 );
                 return {
                     command: 'jscpd .',
-                    inputs: [posix.join('{workspaceRoot}', pattern ?? '**/*'), posix.join('{workspaceRoot}', config), { runtime: 'jscpd --version' }, { externalDependencies: [] }],
+                    inputs: [posix.join('{workspaceRoot}', pattern ?? '**/*'), ...ignore.map((glob) => `!${posix.join('{workspaceRoot}', glob)}`), posix.join('{workspaceRoot}', config), { runtime: 'jscpd --version' }, { externalDependencies: [] }],
                     metadata: { description: `Reports code duplicated across the workspace files ${config} selects with jscpd`, help: { command: 'jscpd --help', example: { args: ['--changed'] } } },
                 };
             }),
