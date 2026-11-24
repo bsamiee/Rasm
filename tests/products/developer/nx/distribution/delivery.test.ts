@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execPath } from 'node:process';
@@ -6,8 +6,9 @@ import { createNodes } from '@rasm/nx-distribution';
 import { execute as attach } from '@rasm/nx-distribution/executors/attach';
 import { Package, execute as pack } from '@rasm/nx-distribution/executors/package';
 import { execute as publish, Publish } from '@rasm/nx-distribution/executors/publish';
-import { shimmed, targetOptions, it as workspaced } from '@rasm/testing/nx';
-import { Schema } from 'effect';
+import { environment, shimmed, targetOptions, it as workspaced } from '@rasm/testing/nx';
+import { Array, Effect, Option, Schema } from 'effect';
+import { Yaml } from 'effect/encoding';
 import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('node:process'), async (actual) => {
@@ -49,6 +50,19 @@ const registry = {
         },
     }),
 };
+const built = {
+    'lib/project.json': JSON.stringify({
+        name: 'lib',
+        targets: {
+            pack: { executor: 'nx:run-commands', outputs: ['{workspaceRoot}/.artifacts/lib'], options: { command: 'mkdir -p .artifacts/lib && touch .artifacts/lib/lib-1.0.0.tgz' } },
+            'nx-release-publish': { executor: 'nx:run-commands', dependsOn: ['pack'], options: { command: 'test -f .artifacts/lib/lib-1.0.0.tgz' } },
+        },
+    }),
+};
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Workflow = Schema.Struct({ jobs: Schema.Record(Schema.String, Schema.Struct({ steps: Schema.Array(Schema.Struct({ run: Schema.optionalKey(Schema.String) })) })) });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -117,6 +131,23 @@ describe('attach--gh', () => {
         const { graph } = await released({ 'rhino/manifest.yml': rhino['rhino/manifest.yml'] }, ['marker@1.2.4']);
 
         await expect(attach({}, workspace.context(graph, 'marker', 'attach--gh'))).rejects.toThrow('marker holds no file its dependentTasksOutputFiles input of attach--gh matches under [rhino/*.yak]');
+    });
+});
+
+describe('nx release publish of the release workflow', { timeout: 120_000 }, () => {
+    it('runs the build a tagged project publishes from, as a job apart from that build finds no file', async ({ workspace, released }) => {
+        const { jobs } = await Effect.runPromise(Schema.decodeUnknownEffect(Workflow)(Yaml.parse(readFileSync(new URL('../../../../../.github/workflows/release.yml', import.meta.url), 'utf-8'))));
+        const step = Array.findFirst(
+            Object.values(jobs).flatMap(({ steps }) => steps),
+            ({ run }) => run?.startsWith('nx release publish') === true,
+        );
+        assert(Option.isSome(step) && step.value.run !== undefined, 'the release workflow runs nx release publish');
+        workspace.install(import.meta.resolve('nx/package.json'));
+        await released(built, ['lib@1.0.0']);
+
+        const { status, stderr } = spawnSync('bash', ['-c', step.value.run], { cwd: workspace.root, env: environment(workspace.root, { PROJECTS: 'lib' }), encoding: 'utf-8' });
+
+        expect({ status, stderr }).toMatchObject({ status: 0 });
     });
 });
 

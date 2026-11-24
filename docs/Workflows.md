@@ -170,7 +170,7 @@ Workflow `Release` credentials and jobs:
 - `Release` reads no Nx remote cache, as a pack or build another machine cached reaches what a release publishes the same way
 - Job `version` holds `contents: write` for tags and releases
 - Job `deliver` holds `contents: write` for release files, and `id-token: write` for the OIDC tokens of npm trusted publishing and Google Cloud
-- Job `deliver` runs `nx release publish` over the tagged projects
+- Job `deliver` runs `nx release publish` without `--projects`, which drops publish task dependencies, and each publish target skips an untagged project
 - Before `nx release publish`, job `deliver` requests a `chromewebstore` token as `chrome-web-store` and passes it as `CHROME_WEB_STORE_TOKEN`
 
 ## [09]-[MAINTENANCE]

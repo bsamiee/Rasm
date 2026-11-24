@@ -140,9 +140,8 @@ jobs:
                   create_credentials_file: false
                   export_environment_variables: false
             - if: *publishing
-              run: nx release publish --projects="${PROJECTS}"
+              run: nx release publish
               env:
-                  PROJECTS: ${{ needs.version.outputs.projects }}
                   PNPM_CONFIG__AUTH: '{"https://registry.npmjs.org":{"@":{"authToken":"${NODE_AUTH_TOKEN}"}}}'
                   NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
                   UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
