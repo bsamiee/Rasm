@@ -30,6 +30,8 @@ const hashed = (workspace: Workspace, graph: ProjectGraph) => {
     return createTaskHasher(graph, readNxJsonFromDisk(workspace.root)).hashTask(found, tasks, env);
 };
 
+const appended = (workspace: Workspace, file: string) => Effect.promise(async () => hashed(workspace, await workspace.write({ [file]: `${readFileSync(join(workspace.root, file), 'utf-8')}\n` }).graph({ createNodes })));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('build--uv', { timeout: 60_000 }, () => {
@@ -66,9 +68,9 @@ describe('build--uv', { timeout: 60_000 }, () => {
             .toSorted();
         const built = await hashed(workspace, graph);
 
-        const edited = await Effect.runPromise(Effect.forEach(packed, (file) => Effect.promise(async () => hashed(workspace, await workspace.write({ [file]: `${readFileSync(join(workspace.root, file), 'utf-8')}\n` }).graph({ createNodes })))));
+        const edited = await Effect.runPromise(Effect.forEach(packed, (file) => appended(workspace, file)));
 
         expect(packed).toStrictEqual(['proj/my-lib/README.md', 'proj/my-lib/pyproject.toml', 'proj/my-lib/src/my_lib/__init__.py']);
-        expect(Array.window([built, ...edited], 2).map(([before, after]) => before?.value !== after?.value)).toStrictEqual([true, true, true]);
+        expect(Array.window([built, ...edited], 2).map(([before, after]) => before.value !== after.value)).toStrictEqual([true, true, true]);
     });
 });
