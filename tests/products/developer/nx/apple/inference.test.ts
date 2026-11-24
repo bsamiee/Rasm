@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import { join, matchesGlob, relative, resolve } from 'node:path';
 import { env } from 'node:process';
-import { isDeepStrictEqual } from 'node:util';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
 import { Install } from '@rasm/nx-apple/executors/install';
 import { execute, Run } from '@rasm/nx-apple/executors/run';
@@ -249,26 +248,33 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
 });
 
 describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
-    it('builds and tests the package through its workspace scheme in place of swift build and swift test, each module running its build and check, the test where a test target reaches it, and the pack after its build, hashing the Package.resolved the workspace one links to', async ({ fixture: { graph } }) => {
+    it('builds and tests the package through its workspace scheme in place of swift build and swift test, hashing the Package.resolved the workspace one links to', async ({ fixture: { graph } }) => {
         const targets = ['build--xcodebuild', 'check--xcodebuild', 'test--xcodebuild'] as const;
         const [build, test] = await Promise.all([targetOptions(Run, graph, 'Fixture-Package', 'build--xcodebuild'), targetOptions(Run, graph, 'Fixture-Package', 'test--xcodebuild')]);
-        const forwards = [...Array.cartesian(MODULES, ['build--xcodebuild', 'check--xcodebuild'] as const), ['Core', 'test--xcodebuild'] as const];
 
         expect({
             compiled: Array.intersection(['build--swift-build', 'check--swift-build', 'test--swift', ...targets], Record.keys(graph.nodes['Fixture-Package']?.data.targets ?? {})),
             runs: [build.runs, test.runs],
-            forwarded: forwards.map(([module, target]) => graph.nodes[module]?.data.targets?.[target]?.dependsOn),
-            tested: MODULES.filter((module) => 'test--xcodebuild' in (graph.nodes[module]?.data.targets ?? {})),
-            packed: graph.nodes['Tool']?.data.targets?.['pack--ditto']?.dependsOn,
             locked: targets.map((target) => graph.nodes['Fixture-Package']?.data.targets?.[target]?.inputs?.includes('{workspaceRoot}/Package.resolved')),
-        }).toStrictEqual({
-            compiled: targets,
-            runs: [invoked('build'), invoked('test')],
-            forwarded: forwards.map(([, target]) => [{ projects: ['Fixture-Package'], target }]),
-            tested: ['Core'],
-            packed: ['build--xcodebuild'],
-            locked: [true, true, true],
+        }).toStrictEqual({ compiled: targets, runs: [invoked('build'), invoked('test')], locked: [true, true, true] });
+    });
+
+    it('selects the build, check, and test of the scheme by the folder of every module an edit touches, a module no test target reaches included', ({ fixture: { graph } }) => {
+        const folders = MODULES.map((module) => `{workspaceRoot}/${graph.nodes[module]?.data.root}/**/*`);
+
+        expect(Record.fromIterableWith(['build--xcodebuild', 'check--xcodebuild', 'test--xcodebuild'], (target) => [target, Array.intersection(folders, (graph.nodes['Fixture-Package']?.data.targets?.[target]?.inputs ?? []).filter(Predicate.isString))])).toStrictEqual({
+            'build--xcodebuild': ['{workspaceRoot}/libs/Core/**/*', '{workspaceRoot}/libs/Loose/**/*', '{workspaceRoot}/libs/Middle/**/*', '{workspaceRoot}/apps/Tool/**/*'],
+            'check--xcodebuild': ['{workspaceRoot}/libs/Core/**/*', '{workspaceRoot}/libs/Loose/**/*', '{workspaceRoot}/libs/Middle/**/*', '{workspaceRoot}/apps/Tool/**/*'],
+            'test--xcodebuild': ['{workspaceRoot}/libs/Core/**/*', '{workspaceRoot}/libs/Loose/**/*', '{workspaceRoot}/libs/Middle/**/*', '{workspaceRoot}/apps/Tool/**/*'],
         });
+    });
+
+    it('gives an executable module its install, its pack, the attach of the pack, and a clean of the pack output, and a library module no target', ({ fixture: { graph } }) => {
+        expect({ Tool: Record.keys(graph.nodes['Tool']?.data.targets ?? {}).toSorted(), Core: Record.keys(graph.nodes['Core']?.data.targets ?? {}) }).toStrictEqual({
+            Tool: ['attach', 'attach--gh', 'clean', 'clean--swift-package', 'install', 'install--swift-package', 'pack', 'pack--ditto'],
+            Core: [],
+        });
+        expect(graph.nodes['Tool']?.data.targets?.['clean--swift-package']).toHaveProperty('options', { commands: [], cwd: '.', targets: ['pack--ditto'] });
     });
 
     it('places the package in one project named after the scheme building it at the workspace folder, holding its own targets, the edges of its test targets, and its manifest and pins as inputs, so no project sits at the workspace root', ({ fixture: { graph } }) => {
@@ -298,16 +304,6 @@ describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
             'Fixture-Package': [{ projects: ['Fixture-Package'], target: 'upgrade--swift-package', params: 'forward' }],
             Viewer: [{ projects: ['Fixture-Package'], target: 'upgrade--swift-package', params: 'forward' }],
         });
-    });
-
-    it('gives each module target forwarding to the scheme the help of the target it runs, in the project the graph holds', ({ fixture: { graph } }) => {
-        const forwarded = [...Array.cartesian(MODULES, ['build--xcodebuild', 'check--xcodebuild', 'clean--swift-package'] as const), ['Core', 'test--xcodebuild'] as const].map(([module, target]) => {
-            const { dependsOn: [dependency] = [], metadata } = graph.nodes[module]?.data.targets?.[target] ?? {};
-            const runs = typeof dependency === 'object' ? graph.nodes[Array.ensure(dependency.projects ?? [])[0] ?? '']?.data.targets?.[dependency.target]?.metadata?.help : undefined;
-            return { forwarder: `${module}:${target}`, help: metadata?.help, runs };
-        });
-
-        expect(forwarded.filter(({ help, runs }) => runs === undefined || !isDeepStrictEqual(help, runs)).map(({ forwarder }) => forwarder)).toStrictEqual([]);
     });
 
     it('passes every test the scheme lists through the run executor', async ({ fixture: { root, graph, workspace }, onTestFinished }) => {

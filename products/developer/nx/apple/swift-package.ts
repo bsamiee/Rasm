@@ -1,5 +1,5 @@
 import { dirname, join, matchesGlob, relative } from 'node:path';
-import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
 import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Effect, Graph, Option, Record, Schema } from 'effect';
@@ -79,7 +79,6 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
     const { file, root, plists, entitled, manifest, bins, whole, shipped } = local;
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const modules = manifest.targets.filter(({ name, type }) => !Schema.is(Tests)(type) && name !== manifest.name);
-    const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
     const inputs = [...sources(local, described, Option.none()), ...INPUTS];
     const build = ['swift', 'build', '--package-path', root, ...SWIFTPM] as const;
     const test = ['swift', 'test', '--package-path', root, ...SWIFTPM] as const;
@@ -126,10 +125,8 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
     };
     const executables = new Set(manifest.targets.filter(({ type }) => Schema.is(Executable)(type)).map(({ name }) => name));
     const products = new Map(manifest.products.flatMap(({ name, targets }) => targets.filter((owner) => executables.has(owner)).map((owner) => [owner, name] as const)));
-    const forwardedInputs = ['default', '^default', ...[MANIFEST, RESOLVED].map((at) => join('{workspaceRoot}', root, at)), ...INPUTS];
     const scheme = Option.fromUndefinedOr(owners.get(local));
-    const [compiler, home, verbs] = Option.match(scheme, { onNone: () => [manifest.name, root, work] as const, onSome: ({ name, root: at, tools }) => [name, at, tools] as const });
-    const compiled = (module: string) => Record.filter(verbs, (_, verb) => verb in work && (verb !== 'test' || tested.has(module)));
+    const [compiler, home] = Option.match(scheme, { onNone: () => [manifest.name, root] as const, onSome: ({ name, root: at }) => [name, at] as const });
     const owned: Verbs = {
         ...(Option.isNone(scheme) && work),
         upgrade: {
@@ -145,25 +142,10 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
             },
         },
     };
-    const cleaning: TargetConfiguration<Readonly<Record<string, unknown>>> = {
-        inputs,
-        options: { commands: [['swift', 'package', '--package-path', root, 'clean']], cwd: '.' },
-        metadata: { technologies: ['swift'], description: `Removes the build folder of ${manifest.name} with swift package clean`, help: { command: 'swift package clean --help', example: {} } },
-    };
-    const forwarded = (module: string): Verbs =>
-        Record.map(compiled(module), (tools, verb) =>
-            Record.map(tools, (held, tool): TargetConfiguration => ({
-                dependsOn: [{ projects: [compiler], target: `${verb}--${tool}` }],
-                inputs: forwardedInputs,
-                metadata: { ...held.metadata, technologies: ['swift'], description: `Runs ${verb}--${tool} of the project compiling ${module} with nx run` },
-            })),
-        );
-    const relayed: TargetConfiguration<Readonly<Record<string, unknown>>> = {
-        dependsOn: [{ projects: [compiler], target: 'clean--swift-package' }],
-        inputs: forwardedInputs,
-        metadata: { ...cleaning.metadata, description: 'Runs clean--swift-package of the package holding this module with nx run' },
-    };
-    return [{ module: manifest.name, name: compiler, at: home, own: owned, clean: cleaning }, ...modules.map((module) => ({ module: module.name, name: module.name, at: join(root, module.path), own: forwarded(module.name), clean: relayed }))].map(({ module, name, at, own, clean }): Part => {
+    return [
+        { module: manifest.name, name: compiler, at: home, own: owned, swept: [['swift', 'package', '--package-path', root, 'clean']], description: `Removes the build folder of ${manifest.name} with swift package clean, then the outputs its targets declare` },
+        ...modules.map((module) => ({ module: module.name, name: module.name, at: join(root, module.path), own: Record.empty<string, Verbs[string]>(), swept: [], description: `Removes the outputs the targets of ${module.name} declare` })),
+    ].map(({ module, name, at, own, swept, description }): Part => {
         const product = Option.fromUndefinedOr(products.get(module));
         const signing = Option.getOrUndefined(Option.map(Option.all([product, Option.fromUndefinedOr(entitled.get(module))]), ([, entitlements]) => ({ entitlements })));
         const zipped = Option.map(Option.all({ held: product, plist: Option.fromUndefinedOr(plists.get(module)) }), ({ held, plist }) => ({ held, plist, folder: options.outputPath === undefined ? bins.release : join(options.outputPath, held) }));
@@ -203,7 +185,12 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
             name,
             file,
             technologies: ['swift'],
-            tools: { ...tools, clean: { 'swift-package': { ...clean, executor: `${distribution.name}:clean`, options: { ...clean.options, targets: removed } } } },
+            tools: {
+                ...tools,
+                ...(swept.length + removed.length > 0 && {
+                    clean: { 'swift-package': { executor: `${distribution.name}:clean`, inputs, options: { commands: swept, cwd: '.', targets: removed }, metadata: { technologies: ['swift'], description, help: { command: 'swift package clean --help', example: {} } } } },
+                }),
+            },
             ...Option.getOrUndefined(Option.map(zipped, ({ plist }) => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(at, plist) } } } }))),
         };
     });
