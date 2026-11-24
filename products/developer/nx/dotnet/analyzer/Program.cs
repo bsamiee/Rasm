@@ -13,6 +13,9 @@ internal sealed record Outcome(bool Succeeded, DateTimeOffset Started, DateTimeO
 // --- [COMPOSITION] ----------------------------------------------------------------------
 
 internal static class Program {
+    private const string PropertyTracking = "MsBuildLogPropertyTracking";
+    private const int EnvironmentVariableRead = 1 << 2;
+    private const int UninitializedPropertyRead = 1 << 3;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true };
 
     public static int Main(string[] args) =>
@@ -20,7 +23,9 @@ internal static class Program {
             ["upgrade", var solution] => Upgraded(solution, dry: false),
             ["upgrade", var solution, "--dry-run"] => Upgraded(solution, dry: true),
             ["results", var root, var log] => Registered(Path.GetFullPath(root), () => IO.lift(() => Results(Path.GetFullPath(log)))),
-            [var root] => Registered(Path.GetFullPath(root), () => IO.lift(() => Write(Path.GetFullPath(root)))),
+            [var root] => from _ in IO.lift(static () => Environment.SetEnvironmentVariable(PropertyTracking, string.Create(CultureInfo.InvariantCulture, $"{EnvironmentVariableRead | UninitializedPropertyRead}")))
+                          from code in Registered(Path.GetFullPath(root), () => IO.lift(() => Write(Path.GetFullPath(root))))
+                          select code,
             _ => IO.fail<int>(Error.New("Usage: MsbuildAnalyzer <workspace-root>, with workspace-relative files on stdin, one per line, or MsbuildAnalyzer upgrade <solution> [--dry-run], or MsbuildAnalyzer results <workspace-root> <binlog>")),
         }).RunSafe().IfFail(static error => {
             Console.Error.WriteLine(error.Message);

@@ -38,7 +38,7 @@ const node = (file: string, stated: Readonly<Record<string, unknown>> = {}) => (
     ...stated,
 });
 
-const report = (nodes: readonly Readonly<Record<string, unknown>>[]) => ({ [STUB.report]: JSON.stringify({ nodes, failures: [], evaluated: [] }) });
+const report = (nodes: readonly Readonly<Record<string, unknown>>[]) => ({ [STUB.report]: JSON.stringify({ nodes, failures: [], evaluated: [], probed: [], variables: [] }) });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

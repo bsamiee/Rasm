@@ -1,6 +1,6 @@
 import { hash } from 'node:crypto';
 import { basename, dirname, extname, format, join, parse, posix, relative } from 'node:path';
-import { platform } from 'node:process';
+import { env, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, normalizePath, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
@@ -21,8 +21,8 @@ const SUMS = format({ dir: dirname(ANALYZER), name: parse(ANALYZER).name, ext: '
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Report extends Schema.Opaque<Report, unknown>()(Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String) })) {
-    static readonly empty: Report = { nodes: [], failures: [], evaluated: [] };
+class Report extends Schema.Opaque<Report, unknown>()(Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String), probed: Schema.Array(Schema.String), variables: Schema.Array(Schema.String) })) {
+    static readonly empty: Report = { nodes: [], failures: [], evaluated: [], probed: [], variables: [] };
 }
 const Reported = Schema.fromJsonString(Report);
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
@@ -41,16 +41,23 @@ const external = ({ id, version }: Node['packages'][number]) => `nuget:${id}@${v
 
 const own = fingerprinted(import.meta.dirname);
 
-const stamped = Effect.fnUntraced(function* (workspaceRoot: string, host: Option.Option<string>, { evaluated, nodes }: Report) {
+const stamped = Effect.fnUntraced(function* (workspaceRoot: string, host: Option.Option<string>, { evaluated, nodes, probed, variables }: Report) {
     const fs = yield* FileSystem.FileSystem;
     const read = Array.match([...evaluated, ...nodes.flatMap(({ locks }) => locks)], { onEmpty: () => Effect.succeed(hashArray([])), onNonEmpty: (globs) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, globs)) });
     const installed = Effect.fromOption(host).pipe(
         Effect.flatMap(fs.realPath),
         Effect.flatMap((real) => Effect.map(fs.readDirectory(join(dirname(real), 'sdk')), (versions) => [real, ...versions.toSorted()])),
     );
-    const [tracked, sdks] = yield* Effect.all([read, Effect.option(installed)], { concurrency: 'unbounded' });
+    const [tracked, sdks, present] = yield* Effect.all([read, Effect.option(installed), Effect.forEach(probed, fs.exists, { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
     const files = Array.dedupe([ANALYZER, ...nodes.flatMap(({ restored }) => restored.map((at) => join(workspaceRoot, at))), ...nodes.flatMap(({ external: held }) => held)]);
-    return hashArray([tracked, ...Option.getOrElse(sdks, Array.empty<string>), ...files.flatMap((file) => [relative(workspaceRoot, file), ...Array.fromNullishOr(hashFile(file))])]);
+    const set = Record.fromEntries(Object.entries(env).map(([name, value]) => [name.toLowerCase(), value ?? ''] as const));
+    return hashArray([
+        tracked,
+        ...Option.getOrElse(sdks, Array.empty<string>),
+        ...files.flatMap((file) => [relative(workspaceRoot, file), ...Array.fromNullishOr(hashFile(file))]),
+        ...Array.zipWith(probed, present, (at, exists) => `${at} ${exists}`),
+        ...variables.map((name) => `${name}=${set[name.toLowerCase()] ?? ''}`),
+    ]);
 });
 
 const published = (workspaceRoot: string) => `${line(['dotnet', 'publish', relative(workspaceRoot, SOURCE)])} builds it`;
@@ -163,11 +170,12 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
     const slot = join(workspaceDataDirectory, 'dotnet.hash');
     const key = hashArray([hashObject(settings), hashed, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched]))]);
     const host = yield* ready(workspaceRoot, matched);
-    const cached = yield* Effect.findFirst(Option.isSome(host) ? Array.fromNullishOr(new PluginCache<{ readonly report: Report; readonly stamp: string }>(slot).get(key)) : [], (stored) => Effect.map(stamped(workspaceRoot, host, stored.report), Equal.equals(stored.stamp)));
+    const entries = Option.isSome(host) ? (new PluginCache<readonly { readonly report: Report; readonly stamp: string }[]>(slot).get(key) ?? []) : [];
+    const cached = yield* Effect.findFirst(entries, (entry) => Effect.map(stamped(workspaceRoot, host, entry.report), Equal.equals(entry.stamp)));
     const fresh = Option.isNone(cached) && Option.isSome(host);
     const read = yield* Effect.result(Option.match(cached, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => (fresh ? analyzed(workspaceRoot, matched) : Effect.succeed(Report.empty)) }));
     const report = Result.getOrElse(read, () => Report.empty);
-    yield* fresh && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, host, report), (stamp) => Effect.sync(() => new PluginCache(slot, { [key]: { report, stamp } }).writeToDisk())) : Effect.void;
+    yield* fresh && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, host, report), (stamp) => Effect.sync(() => new PluginCache(slot, { [key]: [{ report, stamp }, ...Array.take(entries, 1)] }).writeToDisk())) : Effect.void;
     const publisher = Array.findFirst(report.nodes, ({ evaluated }) => [...evaluated.outputs, ...evaluated.published].includes(normalizePath(relative(workspaceRoot, dirname(ANALYZER)))));
     yield* Ref.set(edges, [...related(report), ...Option.toArray(Option.map(publisher, (node): RawProjectGraphDependency => ({ source: normalizePath(relative(workspaceRoot, dirname(dirname(SOURCE)))), target: dirname(node.file), type: DependencyType.implicit })))]);
     yield* Effect.forEach(
