@@ -17,13 +17,13 @@ const app = project('app', { targets: { codegen: aggregate('codegen'), 'codegen-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('targets', () => {
-    it('accepts valid options, dependsOn entries Nx resolves, a ^ entry naming a target no project of this graph holds, and nx:noop aggregates stating exactly the inputs of their tool targets', async () => {
+    it('accepts valid options, dependsOn entries Nx resolves, a ^ entry or a project pattern naming a target no project of this graph holds, and nx:noop aggregates stating exactly the inputs of their tool targets', async () => {
         const lib = project('lib', {
             targets: {
                 build: aggregate('build', ['default', { externalDependencies: ['typescript'] }, { dependentTasksOutputFiles: '**/*.d.ts', transitive: true }]),
                 'build--tsc': run({
                     inputs: ['default', { externalDependencies: ['typescript'] }, { dependentTasksOutputFiles: '**/*.d.ts' }],
-                    dependsOn: ['^build--*', 'codegen--*', { projects: '*', target: 'clean--colima' }, 'app:codegen--cf', '^install--colima', { dependencies: true, target: 'install--colima' }],
+                    dependsOn: ['^build--*', 'codegen--*', { projects: '*', target: 'clean--colima' }, 'app:codegen--cf', '^install--colima', { dependencies: true, target: 'install--colima' }, { projects: '*', target: 'install--colima' }],
                     configurations: { watch: { command: 'tsc --watch' } },
                 }),
                 check: { executor: 'nx:noop', dependsOn: [{ target: 'check--*', params: 'forward', projects: ['lib'] }] },
