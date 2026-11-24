@@ -1,9 +1,14 @@
 import { execFileSync } from 'node:child_process';
-import { join, matchesGlob } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { env } from 'node:process';
+import type { ProjectGraph } from '@nx/devkit';
+import { readNxJsonFromDisk } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-uv';
-import { it } from '@rasm/testing/nx';
-import { Predicate } from 'effect';
-import { describe, expect, vi } from 'vitest';
+import { it, taskGraph, type Workspace } from '@rasm/testing/nx';
+import { Array, Effect } from 'effect';
+import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
+import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
@@ -14,8 +19,15 @@ const MEMBER = {
     'proj/my-lib/pyproject.toml': '[project]\nname = "my-lib"\nversion = "0.1.0"\nrequires-python = ">=3.13"\nreadme = "README.md"\n\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n',
     'proj/my-lib/README.md': '# my-lib\n',
     'proj/my-lib/src/my_lib/__init__.py': 'def one() -> int:\n    return 1\n',
-    'proj/my-lib/src/my_lib/__pycache__/stale.cpython-313.pyc': '',
-    'proj/my-lib/notes.txt': 'not packed\n',
+};
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const hashed = (workspace: Workspace, graph: ProjectGraph) => {
+    const tasks = taskGraph(graph, ['my-lib'], ['build--uv']);
+    const found = tasks.tasks['my-lib:build--uv'];
+    assert(found !== undefined, 'my-lib:build--uv is a task of the graph');
+    return createTaskHasher(graph, readNxJsonFromDisk(workspace.root)).hashTask(found, tasks, env);
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -42,20 +54,21 @@ describe('build--uv', { timeout: 60_000 }, () => {
         expect([...written.difference(workspace.cached(graph, 'my-lib', 'build--uv'))]).toStrictEqual([]);
     });
 
-    it('hashes every source file uv packs into the sdist, and no file it leaves out', async ({ workspace }) => {
+    it('changes the build hash of a member after an edit to each source file uv packs into its sdist', async ({ workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(MEMBER).root });
         const graph = await workspace.graph({ createNodes });
         const sources = workspace.files();
         await workspace.run(graph, 'my-lib', 'build--uv');
-
         const packed = execFileSync('tar', ['-tzf', join(workspace.root, 'dist/my_lib-0.1.0.tar.gz')], { encoding: 'utf-8' })
             .split('\n')
             .map((entry) => entry.replace('my_lib-0.1.0/', 'proj/my-lib/'))
-            .filter((file) => sources.has(file));
-        const globs = (graph.nodes['my-lib']?.data.targets?.['build--uv']?.inputs ?? []).filter(Predicate.isString).map((glob) => glob.replace('{projectRoot}', 'proj/my-lib').replace('{workspaceRoot}/', ''));
-        const hashed = (file: string) => globs.some((glob) => !glob.startsWith('!') && matchesGlob(file, glob)) && !globs.some((glob) => glob.startsWith('!') && matchesGlob(file, glob.slice(1)));
-        expect(packed.toSorted()).toStrictEqual(['proj/my-lib/README.md', 'proj/my-lib/pyproject.toml', 'proj/my-lib/src/my_lib/__init__.py']);
-        expect(packed.filter((file) => !hashed(file))).toStrictEqual([]);
-        expect(['proj/my-lib/notes.txt', 'proj/my-lib/src/my_lib/__pycache__/stale.cpython-313.pyc'].filter(hashed)).toStrictEqual([]);
+            .filter((file) => sources.has(file))
+            .toSorted();
+        const built = await hashed(workspace, graph);
+
+        const edited = await Effect.runPromise(Effect.forEach(packed, (file) => Effect.promise(async () => hashed(workspace, await workspace.write({ [file]: `${readFileSync(join(workspace.root, file), 'utf-8')}\n` }).graph({ createNodes })))));
+
+        expect(packed).toStrictEqual(['proj/my-lib/README.md', 'proj/my-lib/pyproject.toml', 'proj/my-lib/src/my_lib/__init__.py']);
+        expect(Array.window([built, ...edited], 2).map(([before, after]) => before?.value !== after?.value)).toStrictEqual([true, true, true]);
     });
 });

@@ -28,25 +28,6 @@ const Declared = Schema.Struct({
         'entry-points': Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.String)).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     }),
 });
-const Filed = Schema.Struct({ file: Schema.String });
-const Globs = Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
-const Backend = Schema.Struct({
-    'build-system': Schema.Struct({ 'build-backend': Schema.Literal('uv_build') }),
-    project: Schema.Struct({ name: Schema.String, readme: Schema.optionalKey(Schema.Unknown), license: Schema.optionalKey(Schema.Unknown), 'license-files': Globs }),
-    tool: Schema.Struct({
-        uv: Schema.Struct({
-            'build-backend': Schema.Struct({
-                'module-root': Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed('src'))),
-                'module-name': Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
-                namespace: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
-                'source-include': Globs,
-                'source-exclude': Globs,
-                'default-excludes': Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(true))),
-                data: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-            }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-        }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-    }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-}).annotate({ description: "pyproject.toml tables naming files uv_build packs into a member's source distribution, each absent setting at its documented uv default" });
 const Indexed = Schema.Struct({ tool: Schema.Struct({ uv: Schema.Struct({ index: Schema.Array(Schema.Struct({ name: Schema.optionalKey(Schema.String), 'publish-url': Schema.optionalKey(Schema.String) })) }) }) });
 const Pixi = Schema.Struct({ tool: Schema.Struct({ pixi: Schema.Record(Schema.String, Schema.Unknown) }) });
 const Local = Schema.Literals(['editable', 'virtual', 'directory', 'path']);
@@ -71,19 +52,6 @@ class Metadata extends Schema.Opaque<Metadata, unknown>()(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const normalized = (name: string) => name.toLowerCase().replaceAll(/[-_.]+/gu, '-');
-
-const packed = (stated: unknown): readonly string[] =>
-    Option.match(Schema.decodeUnknownOption(Backend)(stated), {
-        onNone: () => [posix.join('{projectRoot}', '**', '*')],
-        onSome: ({ project, tool }) => {
-            const backend = tool.uv['build-backend'];
-            const modules = Array.ensure(backend['module-name'] ?? normalized(project.name).replace(backend.namespace ? /-/gu : /-(?!stubs$)/gu, '_')).map((name) => posix.join(backend['module-root'], ...name.split('.'), '**'));
-            const files = [...(Predicate.isString(project.readme) ? [project.readme] : []), ...Array.getSomes([project.readme, project.license].map((held) => Schema.decodeUnknownOption(Filed)(held))).map(({ file }) => file)];
-            const data = Object.values(backend.data).map((folder) => posix.join(folder, '**'));
-            const excluded = [...(backend['default-excludes'] ? ['__pycache__', '*.pyc', '*.pyo'] : []), ...backend['source-exclude']].map((pattern) => (pattern.startsWith('/') ? pattern.slice(1) : posix.join('**', pattern)));
-            return [...[MANIFEST, ...modules, ...backend['source-include'], ...files, ...project['license-files'], ...data].map((glob) => posix.join('{projectRoot}', glob)), ...excluded.flatMap((glob) => [glob, posix.join(glob, '**')]).map((glob) => `!${posix.join('{projectRoot}', glob)}`)];
-        },
-    });
 
 const located = Effect.fnUntraced(function* (workspaceRoot: string, files: ReadonlySet<string>, lock: string, metadata: Metadata) {
     const fs = yield* FileSystem.FileSystem;
@@ -157,7 +125,6 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
             lock,
             packaged,
             manifests,
-            sources: [...packed(stated(member.root)), posix.join('{workspaceRoot}', workspace, MANIFEST)],
             index,
             pixi,
             scripted: packaged && project !== undefined && !Record.isEmptyRecord(project.scripts),

@@ -98,15 +98,16 @@ describe('checker targets', { timeout: 120_000 }, () => {
         { file: 'uv.toml', content: 'compile-bytecode = false\n' },
         { file: '.python-version', content: '3.13\n' },
         { file: '.python-versions', content: '3.13\n' },
-    ])('changes the hash of a checker and of the lock check after $file appears at the uv root', async ({ file, content }, { workspace }) => {
+    ])('changes the hash of a checker, of the lock check, and of a build after $file appears at the uv root', async ({ file, content }, { workspace }) => {
         locked(workspace, { ...workspaced(['vulture']), ...APPLICATION });
+        const tasks = ['application:check--vulture', 'uv-tutorial:check--uv', 'application:build--uv'];
         const graph = await workspace.graph(uv);
-        const before = await Promise.all(['application:check--vulture', 'uv-tutorial:check--uv'].map((task) => hashed(workspace, graph, task)));
+        const before = await Promise.all(tasks.map((task) => hashed(workspace, graph, task)));
 
         const edited = await workspace.write({ [file]: content }).graph(uv);
 
-        const after = await Promise.all(['application:check--vulture', 'uv-tutorial:check--uv'].map((task) => hashed(workspace, edited, task)));
-        expect(after.map(({ value }, index) => value === before[index]?.value)).toStrictEqual([false, false]);
+        const after = await Promise.all(tasks.map((task) => hashed(workspace, edited, task)));
+        expect(after.map(({ value }, index) => value === before[index]?.value)).toStrictEqual([false, false, false]);
     });
 
     it('keeps the mypy hash of a member after a .python-version in the member root, whose minor uv run never picks', async ({ workspace }) => {

@@ -155,7 +155,8 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
     const environed = Option.map(Option.fromUndefinedOr(environmentPath), (template) => template.replaceAll('{projectName}', member.name));
     const built = [posix.relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${posix.join('{projectRoot}', held, '**', '*')}`);
     const hashed = { platform: PLATFORM, python: { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) } };
-    const project = [...[...UV.pins, UV.settings].map((file) => posix.join('{workspaceRoot}', member.workspace, file)), posix.join('{workspaceRoot}', member.lock)];
+    const settings = [...UV.pins, UV.settings].map((file) => posix.join('{workspaceRoot}', member.workspace, file));
+    const project = [...settings, posix.join('{workspaceRoot}', member.lock)];
     const checked = member.checks.map((stated) => {
         const row = CHECKERS[stated.key];
         const { cwd } = stated;
@@ -259,7 +260,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                             command: line(['uv', 'build', '--package', member.name, '--no-sources', ...Option.match(distributions, { onNone: () => [], onSome: (at) => ['--out-dir', posix.relative(member.workspace, at), '--clear', '--no-create-gitignore'] })]),
                             options: { cwd: member.workspace },
                             cache: true,
-                            inputs: [...member.sources, ...built, UV.version, { externalDependencies: [] }],
+                            inputs: ['default', ...built, posix.join('{workspaceRoot}', member.workspace, 'pyproject.toml'), ...settings, UV.version, { externalDependencies: [] }],
                             outputs: Option.match(distributions, {
                                 onNone: () => [...['.tar.gz', '-*.whl'].map((suffix) => posix.join('{workspaceRoot}', folder, `${member.distribution}${suffix}`)), posix.join('{workspaceRoot}', folder, '.gitignore')],
                                 onSome: (at) => [posix.join('{workspaceRoot}', at)],
@@ -273,7 +274,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                         uv: {
                             command: `${line(['uv', 'export', '--locked', '--package', member.name, '--no-default-groups', '--no-emit-local', '--no-hashes', '--quiet'])} | ${line(['uv', 'tool', 'install', '--constraints', '-', ...member.locals.flatMap((name) => ['--reinstall-package', name]), ...flagged('--python', member.python), '.'])}`,
                             options: { cwd: member.root },
-                            inputs: [...member.sources, ...built, posix.join('{workspaceRoot}', member.lock), { externalDependencies: [] }],
+                            inputs: ['default', ...built, ...project, { externalDependencies: [] }],
                             metadata: {
                                 description: "Installs the member scripts from the checkout into uv's tool folder at the versions uv.lock pins, on an interpreter its requires-python accepts, with uv export piped to uv tool install --constraints",
                                 help: { command: 'uv tool install --help', example: { args: ['--editable'] } },
