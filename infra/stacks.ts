@@ -17,7 +17,7 @@ import { type configs, identified, repositoryStack } from '#/repository-stack';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Rows = <const K extends string>(keys: readonly K[]) => Schema.fromJsonString(Schema.StructWithRest(Schema.Struct(Struct.Record(keys, Schema.NonEmptyString)), [Schema.Record(Schema.String, Schema.String)]));
-const LOCAL = ['AUTHELIA_OWNER_PASSWORD_HASH', 'AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY', 'RUSTFS_ACCESS_KEY', 'RUSTFS_SECRET_KEY'] as const;
+const LOCAL = ['AUTHELIA_OWNER_PASSWORD_HASH', 'AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY', 'DOCKERHUB_TOKEN', 'DOCKERHUB_USERNAME', 'RUSTFS_ACCESS_KEY', 'RUSTFS_SECRET_KEY'] as const;
 const Installed = Rows(LOCAL);
 const Deployed = Rows([...LOCAL, 'ATUIN_PASSWORD', 'CLOUDFLARE_ACCOUNT_ID', 'DOPPLER_IAC_TOKEN', 'EPIC_GHCR_TOKEN', 'GITHUB_TOKEN', 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN', 'NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN', 'TAILSCALE_ENROLMENT_OAUTH_SECRET']);
 const Request = Schema.Struct({ positionals: Schema.Tuple([Schema.Literals(['install', 'deploy'])]), operation: Schema.Literals(['up', 'preview', 'destroy']), stack: Schema.optionalKey(Schema.String), production: Schema.Boolean, expectNoChanges: Schema.Boolean }).pipe(

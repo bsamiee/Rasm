@@ -3,14 +3,14 @@ import playwright from '@playwright/test/package.json' with { type: 'json' };
 import aws from '@pulumi/aws';
 import { DnsRecord, getZoneOutput } from '@pulumi/cloudflare';
 import { remote } from '@pulumi/command';
-import { Container, type ContainerArgs, getRegistryImageOutput, Network, Provider, type ProviderArgs, RemoteImage, Tag, Volume } from '@pulumi/docker';
+import { Container, type ContainerArgs, getRegistryImageOutput, Network, Provider, RemoteImage, Tag, type types, Volume } from '@pulumi/docker';
 import dockerBuild from '@pulumi/docker-build';
 import minio from '@pulumi/minio';
 import { all, type CustomResourceOptions, getProject, type Input, interpolate, jsonStringify, output, secret } from '@pulumi/pulumi';
 import { getDeviceOutput } from '@pulumi/tailscale';
 import type { deploy } from '@rasm/hosting/deploy';
 import { Identity } from '@rasm/hosting/identity';
-import { Array, Data, Duration, Effect, Function, Option, Predicate, Record, String, Struct } from 'effect';
+import { Array, Data, Duration, Effect, Function, Option, Predicate, Record, String, Struct, UndefinedOr } from 'effect';
 import type { identified } from '#/repository-stack';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -64,12 +64,13 @@ class Machine extends Data.Class<{
 }> {
     // --- [CONSTRUCTION]
 
-    static readonly on = (host: string, shared: Option.Option<Input<string>>, registryAuth?: ProviderArgs['registryAuth']) => {
+    static readonly on = (host: string, shared: Option.Option<Input<string>>, hub?: Readonly<Record<'DOCKERHUB_USERNAME' | 'DOCKERHUB_TOKEN', string>>, running: readonly types.input.ProviderRegistryAuth[] = []) => {
         const [name, ...labels] = String.split(host, '.');
         const [zone, row] = [labels.join('.'), Record.get<string, Row>(hosts, host)];
         const roles = Option.match(row, { onNone: () => [Role.Apps({ owner: local.owner })], onSome: Struct.get('roles') });
         const dialed = Option.getOrUndefined(Option.map(row, () => ({ host: `ssh://root@${name}` })));
-        const provider = new Provider(host, { ...dialed, registryAuth: roles.some(Role.$is('Runner')) ? registryAuth : undefined });
+        const pulling = UndefinedOr.map(hub, (rows) => [{ address: 'registry-1.docker.io', username: rows.DOCKERHUB_USERNAME, password: rows.DOCKERHUB_TOKEN }, ...(roles.some(Role.$is('Runner')) ? running : [])]);
+        const provider = new Provider(host, { ...dialed, registryAuth: pulling });
         const located = Option.map(row, ({ address }) => [address, getZoneOutput({ filter: { name: zone } }).zoneId] as const).pipe(
             Option.map(([address, zoneId]) => ({ zoneId, target: Option.isNone(shared) ? new DnsRecord(host, { zoneId, name: host, type: 'A', content: address, ttl: 1, proxied: false }).name : host })),
         );
@@ -270,9 +271,9 @@ const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>,
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const installed = (rows: Parameters<typeof stored>[1] & Parameters<typeof hosted>[3]) =>
+const installed = (rows: Parameters<typeof stored>[1] & Parameters<typeof hosted>[3] & NonNullable<Parameters<typeof Machine.on>[2]>) =>
     Effect.sync(() => {
-        const machine = Machine.on(local.host, Option.none());
+        const machine = Machine.on(local.host, Option.none(), rows);
         return hosted(machine, local, stored(machine, rows), rows);
     });
 
@@ -283,7 +284,7 @@ const provisioned = (
 ) =>
     Effect.sync(() => {
         const registries = [{ address: 'ghcr.io', username: owner, password: rows.EPIC_GHCR_TOKEN }];
-        const machine = Machine.on(host, Option.none(), registries);
+        const machine = Machine.on(host, Option.none(), rows, registries);
         const storage = Function.memoize((held: Machine) => stored(held, rows));
         const served = machine.roles.map(
             Role.$match({
