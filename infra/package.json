@@ -43,7 +43,7 @@
                         "repository"
                     ]
                 },
-                "{workspaceRoot}/Xcode.xcconfig",
+                "{workspaceRoot}/.config/sparkle.xcconfig",
                 {
                     "json": "{workspaceRoot}/**/*.uproject",
                     "fields": [
@@ -51,7 +51,7 @@
                     ]
                 },
                 "{workspaceRoot}/.github/ISSUE_TEMPLATE/!(config).yml",
-                "{workspaceRoot}/.config/mise.toml",
+                "{workspaceRoot}/.config/mise/conf.d/remote.toml",
                 "{workspaceRoot}/.config/mise.machine.toml",
                 "{workspaceRoot}/.config/mise.runner.toml"
             ]

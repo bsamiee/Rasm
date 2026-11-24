@@ -1,0 +1,14 @@
+# --- [BOOTSTRAP] ------------------------------------------------------------------------
+
+[bootstrap.remote]
+mise_env = ["machine"]
+source   = "../.."
+
+[bootstrap.remote.hosts.derby]
+host     = "derby"
+mise_env = ["machine", "runner"]
+user     = "root"
+
+[bootstrap.remote.hosts.lucky]
+host = "lucky"
+user = "root"

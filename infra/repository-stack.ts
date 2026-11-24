@@ -52,7 +52,7 @@ const identified = Effect.gen(function* () {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const [manifest, xcconfig, engines] = yield* Effect.all([
         Effect.flatMap(fs.readFileString(path.join(workspaceRoot, 'package.json')), Schema.decodeEffect(Manifest)),
-        fs.readFileString(path.join(workspaceRoot, 'Xcode.xcconfig')),
+        fs.readFileString(path.join(workspaceRoot, '.config/sparkle.xcconfig')),
         Effect.flatMap(run(['git', 'ls-files', '-z', '--', '*.uproject'], { cwd: workspaceRoot }), ({ stdout }) => Effect.forEach(stdout.split('\0').filter(String.isNonEmpty), (project) => Effect.flatMap(fs.readFileString(path.join(workspaceRoot, project)), Schema.decodeEffect(Uproject)))),
     ]);
     const [, { hostname }] = yield* Effect.fromOption(Array.findFirst(xcconfig.split('\n'), (line) => Schema.decodeUnknownOption(Feed)(line.replace('/$()/', '//'))));

@@ -85,7 +85,7 @@ jobs:
             - id: listed
               run: |-
                   affected="$(nx show projects --affected --json)"
-                  deployed="$(nx show projects --affected --targets=deploy--pulumi --json)"
+                  deployed="$(nx show projects --affected --withTarget=deploy--pulumi --json)"
                   version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
                   jq --raw-output --argjson affected "${affected}" --argjson deployed "${deployed}" --arg image "ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" '
                       .nodes as $nodes | def tagged($tags): [$affected[] | select(any($nodes[.].data.tags[]?; IN($tags[])))] | tojson;
