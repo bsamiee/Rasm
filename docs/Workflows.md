@@ -45,7 +45,7 @@ Jobs of workflow `CI` and the projects each runs:
 - Job `linux` runs every `codegen` target first, as type-aware lint reads the sources those targets write
 - Job `linux` runs `hk check` from base to head before its tasks, which run past a failed check once code generation passed
 - Configuration `ci` of job `linux` adds GitHub annotations to `check--knip` findings
-- Job `linux` keeps Nx batches, which ran its Vitest suites sooner, and job `browser` turns batching off (`NX_BATCH_MODE`), which ran its tasks sooner
+- Job `linux` keeps Nx batches, which ran its Vitest suites sooner on the owner's Mac, and job `browser` turns batching off (`NX_BATCH_MODE`), which ran its tasks sooner
 - Jobs `linux` and `browser` remove each report path before their run, as their kept checkout holds earlier runs' reports
 - Job `browser` runs `host:browser` projects on instance `container` with Chromium of its Playwright image
 - Job `browser` runs Chromium in a job container, as on the host each network Docker adds fails queued requests with `net::ERR_NETWORK_CHANGED`
@@ -60,7 +60,7 @@ Jobs of workflow `CI` and the projects each runs:
 - Job `windows` starts only where job `affected` lists an `os:win32` or `host:rhino` project, and runs `test -c headless` over affected `os:win32` projects
 - Job `windows` exports as `RHINO_INSTALLER` the installer URL McNeel's download redirect names for the pinned Rhino major, which every `host:rhino` task hashes
 - Job `windows` first runs `test -c headless` over affected `host:rhino` projects without Rhino, which passes where every task hits the cache
-- Job `windows` installs that installer where a task missed, then runs those projects again with core-hour token `RHINO_TOKEN`
+- Job `windows` installs that installer where that run fails, from a cache miss or a failing test, then runs those projects again with core-hour token `RHINO_TOKEN`
 - Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine a tracked `.uproject` names
 - Unreal projects hold no target on a runner outside their engine image
 - Unreal image pulls sign in to GHCR as the repository owner, the account `EPIC_GHCR_TOKEN` belongs to
@@ -76,7 +76,7 @@ Composite actions and the mise profiles each job loads:
 - Windows jobs install mise tools under `C:\mise`, as `cmd.exe` finds no command once `PATH` passes 8191 characters
 - GitHub-hosted runners, job containers, and job `affected` load mise profile `ci`, which skips Python environments and Playwright browsers
 - Profile `ci-<job id>` sets `enable_tools` to the tools a job's steps and Nx tasks run, and a job with no such file installs every tool
-- Profiles list the tools graph creation spawns (`rust`, `uv`, `jscpd`), and `dotnet` where their job runs .NET projects
+- Profiles list the tools graph creation spawns (`rust`, `uv`, `jscpd`), and `dotnet` where their job's graph holds .NET projects
 - Profiles repeat those tools, as a later mise file replaces `enable_tools` whole
 - Profiles `ci-macos`, `ci-deploy`, and `ci-browser` disable row `msbuild-analyzer`, and their graphs leave .NET projects out
 - Profiles `ci-macos` and `ci-version` hold `yq`, as `mise.macos.toml` reads the Rhino major through it
@@ -103,9 +103,10 @@ Actions caches per workflow and machine:
 - Analyzer caches save a new entry where the mise file holding the analyzer row changed, as mise rebuilds where restored state names another command
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
 - Job `macos` restores no Swift build folder, as compilation cache hits need its path alone to repeat
+- Job `macos` restores and saves the compilation cache on uncached runs alone
 - Uncached `macos` runs took 1218 s of tasks from nothing and 858 s over a restored 727 MB compilation cache at 832 of 832 hits, 29 s to restore
 - Job `macos` uploads the build logs Xcode writes, each ending in a metrics record of cache hits per cacheable task
-- Xcode logs one `Cache hit` per compile job and one `SwiftCompile` per file, so a hit rate comes from the metrics record alone
+- Xcode logs one `Cache hit` per cacheable task and `SwiftCompile` lines per file and per target plan, so a hit rate comes from the metrics record alone
 - Past the 10 GB repository limit GitHub evicts caches by oldest last access
 
 ## [06]-[REMOTE_CACHE]
@@ -118,8 +119,11 @@ Nx remote cache readers and the hash inputs that decide what machines share:
 - .NET targets but format hash `CI`, as MSBuild sets properties under it
 - Vitest targets hash no `CI`, as their executor refuses `.only` and writes no missing snapshot on every machine
 - Playwright targets hash no `CI`, as each one runs `playwright test --forbid-only`, and `pack--playwright` hashes the platform its images render on
-- Swift targets hash compiler version and platform, as `swift --version` adds the macOS version of its host, which a runner and a Mac differ in
+- Swift targets hash compiler version, SDK build, and platform, as `swift --version` adds the macOS version of its host, which a runner and a Mac differ in
+- Xcode targets add `xcodebuild -version` and `XCODE_XCCONFIG_FILE` content to those inputs
 - Xcode targets hash the SwiftPM targets their linked package products reach alone, and other Swift changes leave an app's result cached
+- Cargo targets hash `rustc -vV`, which prints its host triple, and no Mac result of theirs serves a Linux job
+- Python checks and tests but `check--vulture` hash platform, and no Mac result of theirs serves a Linux job
 - Nx sets no remote cache timeout and stops a run on a read answered other than 200 or 404 or left unconnected, and no setting overrides the stop
 - `@rasm/nx-distribution` reads the cache server with its token once before the tasks of each `nx` run that uses the remote cache, outside any task
 - Reads answered other than 200 or 404, refused, or past option `remoteCacheTimeout` print one warning and empty `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`
@@ -200,7 +204,7 @@ Sources of run, job, and task times and cache hits:
 - `duckdb` reads the record through `read_json` and the task database through `ATTACH '<file>' (TYPE sqlite)`, times in milliseconds
 - Batch executors stamp each task with its own start and end, and slowest misses and the critical path of a batch hold task times
 - Nx runs one batch at a time, starts no other task while it runs, and stores its results when it ends
-- `@rasm/nx-apple:run` runs a batch's invocations in order, as concurrent `xcodebuild` runs into one build folder fail on its locked build database
+- `@rasm/nx-apple:run` runs a batch's invocations in order, as `xcodebuild` runs into one build folder queue behind each other and concurrent first package resolutions there can fail
 - First `nx` commands of a job create the project graph, so their time holds graph creation, longest after a plugin change
 - `gh api repos/<owner>/<repository>/actions/runs/<run>/jobs` returns start and end of each job and step, and `created_at` to `started_at` is queue time
 - Manual CI runs take input `uncached`, the jobs running every task of their `nx affected` step past the Nx cache over state their tools keep

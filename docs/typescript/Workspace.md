@@ -18,6 +18,8 @@ Root `package.json` and the settings beside it:
 - Root `package.json` holding an `nx` key becomes an Nx project, and `"includedScripts": []` there keeps `prepare` from becoming a target
 - Root targets `check--jscpd` and `check--knip` read the workspace files their tool selects
 - `nx.json` sets `useDaemonProcess: false` while the Nx daemon forces debug logs into an unrotated `daemon.log` and restarts graphs edits interrupt
+- Commands without a daemon read a warm project graph from workspace data, the most a daemon saves per command
+- Mise `[env]` sets `NX_ISOLATE_PLUGINS` to `false`, as in-process plugins build an identical warm graph sooner than plugin workers
 - `.npmrc` holds only the auth, registry, TLS, proxy, and `local-address` settings pnpm reads from it
 - `virtualStoreType` stays `project`, as `effect-tsgo patch` rewrites files under `node_modules` and a global virtual store refuses the writes
 - `storeDir` and `cacheDir` keep the store and metadata cache in `.cache/pnpm`, on the checkout's volume, where pnpm clones or hard-links files

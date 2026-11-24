@@ -21,7 +21,6 @@ uv roots and the Python each one resolves:
 Rules each root follows:
 - Members pinned to Blender's minor under the root empty its `requires-python` range, and `uv lock` fails
 - Blender roots source shared libraries supporting Blender's minor through `{ workspace = "<path>" }`, with their own root's sources
-- `minimum-libc-version` constrains wheels only through `required-environments`
 - Members without `[build-system]` are virtual: uv installs their dependencies and never builds them
 
 ## [03]-[PACKAGE_MANIFEST]
@@ -115,4 +114,4 @@ Environment variables and tool sources the roots share:
 - `UV_PYTHON` acts as `--python` and overrides a Blender root's range, and no `[env]` row sets it
 - `ruff` comes from mise `[tools]`, as hk runs it at file level from `PATH`
 - `RUFF_CACHE_DIR` in mise `[env]` moves the ruff cache, and a `cache-dir` row overrides it
-- `UV_CACHE_DIR` in mise `[env]` keeps uv's cache inside the checkout, as wheels uv builds from sdists record its Pixi library path
+- `UV_CACHE_DIR` in mise `[env]` keeps uv's cache inside the checkout, and a new checkout folder builds every sdist again

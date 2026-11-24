@@ -31,7 +31,8 @@ Nx facts that decide the layout:
 - `@rasm/nx-vitest` reads the resolved root config and infers one `test--vitest` target per Nx project holding an inline project's `root`
 - Each inferred target runs the inline projects rooted in its Nx project
 - Projects holding an enabled browser take tag `host:browser` and their provider's name (`playwright`) as a technology beside `vitest`
-- One `nx` run batches every target of one config into one `vitest run` with one worker pool, and its own projects' test modules decide each target
+- One `nx` run batches targets sharing a config and options into one `vitest run` with one worker pool, and its own projects' test modules decide each target
+- Suites with a browser provider and tasks enabling coverage each run alone, outside any batch
 - Inferred targets hash files root `vitest.config.ts` loads inside their suite's folder or outside every suite's folder
 - Edits to shared options invalidate every cached result
 

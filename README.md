@@ -168,7 +168,7 @@ Roots split, nest, or hold more where a host or tool decides:
 - Host SDKs come from packages, every OS builds, checks, and packs host projects, and only running a host needs it installed, Unreal Engine aside
 - Host projects target their host's runtime and carry every dependency except SDK assemblies the host supplies
 - Folder `Directory.Build.props` files name a host, and conditional `Update` rows of `Directory.Packages.props` hold its runtime line
-- .NET runs build Release unless they name configuration `debug`, which reaches references and Yak packages, and assemblies embed their PDB
+- .NET runs but Rhino suites build Release unless they name `debug`, which reaches references and Yak packages, and assemblies embed their PDB
 - Swift modules, app code included, are root `Package.swift` targets, and Xcode app targets hold bundle, icon, and signing over their app module
 - Xcode app projects build through root `Rasm.xcworkspace`, as projects built apart each clone every package and compile it again
 - Root `Package.swift` builds and tests in that workspace through shared scheme `Rasm-Package`, which lists every target, in place of SwiftPM
@@ -188,7 +188,8 @@ Nx runs project-level work over a graph its plugins infer:
 - Plugins infer every project, target, and dependency from manifests and tool output, and manifest `nx` tables add only facts no tool reports
 - Inferred targets hold one configuration on every machine of a platform, as Nx hashes every target of a project into each of its tasks
 - Hash inputs name a tool by identity (compiler version, platform, installer URL) and no machine path, as host state differs between machines
-- `mise install` builds .NET and Swift analyzers before graphs, and a missing analyzer or stale .NET one leaves its projects out with a warning naming its build
+- `mise install` builds .NET and Swift analyzers before graphs, and a missing or stale one leaves its projects out with a warning naming its build
+- Missing or stale Swift analyzers leave out Xcode targets alone, and Swift packages stay in the graph
 - `nx affected -t <target>` runs only the tasks a change reaches, as each target's inputs name exactly what its tools read, aggregate targets included
 - Tools keep their own incremental state, and Nx caches results around it in one remote cache CI jobs and the owner's Mac read and write
 - `nx sync` writes executor schemas and tsconfig `references`, and non-terminal runs outside CI stop on stale ones until it runs, never `--skip-sync`
@@ -213,12 +214,12 @@ Workspace commands run from the root:
 ## [07]-[TESTING]
 
 Suites sit in `tests/` except where their tool fixes the place:
-- Suites stay inside a nested tool root that stops discovery at its root (SwiftPM analyzer, Blender uv root) or a plugin folder published whole
+- Suites stay inside a nested tool root that stops discovery at its root (SwiftPM analyzer) or a plugin folder published whole
 - Projects needing no host run on every platform, and tags `os:<platform>` and `host:<host>` mark projects a toolchain, framework, or host limits
 - C++ projects take one Nx configuration per CMake workflow preset (`nx test <project> -c asan`), and the first preset is the default
 - `nx test <project> -c coverage` writes coverage to option `coveragePath`, else each tool's own report, and plain `nx test` stays uninstrumented
 
-Rhino suites boot Rhino once per test process, one run per machine, as concurrent processes on one Cloud Zoo license each raise a prompt:
+Rhino suites boot Rhino once per test process, one run per machine, as concurrent processes opening views on one Cloud Zoo license each raise a prompt:
 - Local runs on a machine with Rhino open views, or none under `nx test <project> -c headless`, in a scratch profile seeded with license files
 - CI tests Rhino suites headless on Windows runners through Rhino.Inside, over the newest release of their pinned major
 

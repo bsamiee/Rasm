@@ -100,6 +100,7 @@ Project references and the generator writing them:
 - Imports from a referenced project load its emitted `.d.ts`, and a package program re-checks no sibling source
 - Referenced projects set `composite`, and a config with `"files": []` can reference a `noEmit` program, as TS6310 needs input files
 - `@rasm/nx-typescript` runs `tsc --build` on a package `tsconfig.json` with `references`, `tsc` on one without
+- Projects with more than one program run their `tsc` commands in declared order, as concurrent builds of one reference truncate its `.d.ts`, read as `any`
 - Solution files check only programs their own project holds, and root `check--tsc` checks `tsconfig.node.json` alone
 - `@nx/js` sync generator `typescript-sync` writes `references` from graph dependencies, run by `nx sync` and targets listing it in `syncGenerators`
 - `typescript-sync` reports a project missing from root `references` on every run while its `tsconfig.json` is not composite
