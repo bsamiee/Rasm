@@ -1,5 +1,5 @@
 name: Tools
-description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, restores the pnpm store on GitHub-hosted runners and places rustup and cargo homes inside the cached mise folder there, restores the Apple analyzer and its mise freshness state on macOS, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose postinstall hook installs project dependencies, on GitHub-hosted runners, in job containers, and in job affected under mise profiles ci, pnpm packages alone, and ci-<job id>, the tools that job runs where its file exists, and exports mise env
+description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, places rustup and cargo homes inside the cached mise folder on GitHub-hosted runners, restores the Apple analyzer and its mise freshness state on macOS, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose postinstall hook installs project dependencies, on GitHub-hosted runners, in job containers, and in job affected under mise profiles ci, pnpm packages alone, and ci-<job id>, the tools that job runs where its file exists, and exports mise env
 
 runs:
     using: composite
@@ -18,12 +18,6 @@ runs:
           run: |-
               tools="${{ runner.os == 'Windows' && 'C:/mise' || '${HOME}/.local/share/mise' }}"
               printf "%s\n" "RUSTUP_HOME=${tools}/rustup" "CARGO_HOME=${tools}/cargo" >> "${GITHUB_ENV}"
-        - if: ${{ runner.environment == 'github-hosted' }}
-          uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-          with:
-              path: .cache/pnpm/store
-              key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-              restore-keys: pnpm-${{ runner.os }}-
         - if: ${{ runner.os == 'macOS' && runner.environment == 'github-hosted' }}
           uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
           with:
