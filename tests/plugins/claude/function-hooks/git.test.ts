@@ -1,6 +1,6 @@
 import { expect, layer } from '@effect/vitest';
 import { closed, opened, wrote } from '@rasm/function-hooks/rules/git';
-import { Cause, Context, Effect, FileSystem, Layer, Match, Path } from 'effect';
+import { Cause, Clock, Context, Effect, FileSystem, Layer, Match, Path } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Decider, decided, refusing } from '#/engine';
 
@@ -82,6 +82,20 @@ const RESTORED = [
     ['its own edit that its own shell call rewrote in place', [STEPS.mine, { runs: 'a', command: "sed -i.orig 's/mine/sed/' f && rm f.orig" }], 'git restore f', 'a'],
     ['a file its own shell call formatted by redirect', [{ runs: 'a', command: String.raw`printf 'formatted\n' > f` }], 'git checkout -- f', 'a'],
     ['a file its own shell call deleted', [{ runs: 'a', command: 'rm f' }], 'git restore f', 'a'],
+    ['the path its own shell call changed while another agent edited a different path', [{ runs: 'a', command: "sed -i.orig 's/base/sed/' g && rm g.orig", during: { edit: 'b', file: 'f', old: 'base', new: 'theirs', text: 'theirs\n' } }], 'git restore g', 'a'],
+    [
+        'its own background shell call once its window closed',
+        [
+            { runs: 'a', command: "sed -i.orig 's/base/sed/' f && rm f.orig", background: true },
+            { closes: 'a', call: 'call-0' },
+        ],
+        'git restore f',
+        'a',
+    ],
+    ['its own edit, back to a tree other than HEAD', [{ hand: 'echo second > g && git commit -qam second' }, STEPS.mine], 'git restore --source=HEAD~1 f', 'a'],
+    ['its own edits with one staged between them, back to HEAD in the worktree alone', [STEPS.mine, { stage: 'f' }, STEPS.more], 'git restore --source=HEAD f', 'a'],
+    ['content another session staged, unstaged alone', [STEPS.theirs, { stage: 'f' }], 'git restore --staged f', 'a'],
+    ['its own shell call after another session died holding a window', [{ dies: 'b' }, { runs: 'a', command: "sed -i.orig 's/base/sed/' g && rm g.orig" }, { runs: 'a', command: "sed -i.orig 's/base/sed/' f && rm f.orig" }], 'git restore f', 'a'],
 ] as const;
 const KEPT = [
     ['its own edit over content a shell staged, back to HEAD with the index', [{ shell: 'f', text: 'staged\n' }, { stage: 'f' }, { edit: 'a', file: 'f', old: 'staged', new: 'mine', text: 'mine\n' }], 'git restore --source=HEAD --staged --worktree f', 'a', `git restore ${FOREIGN} f,`],
@@ -104,6 +118,12 @@ const KEPT = [
         'a',
         `git restore ${FOREIGN} f,`,
     ],
+    ['its own shell call over a path its own subagent edited inside the call', [STEPS.mine, { runs: 'a', command: "sed -i.orig 's/$/!/' f && rm f.orig", during: { edit: 'a1', file: 'f', old: 'mine', new: 'sub', text: 'sub\n' } }], 'git restore f', 'a', `git restore ${FOREIGN} f,`],
+    ['its own background shell call still running', [{ runs: 'a', command: "sed -i.orig 's/base/sed/' f && rm f.orig", background: true }], 'git restore f', 'a', `git restore ${FOREIGN} f,`],
+    ['its own edit over a hand commit, back to the tree before it', [{ hand: 'echo committed > f && git commit -qam second' }, { edit: 'a', file: 'f', old: 'committed', new: 'mine', text: 'mine\n' }], 'git restore --source=HEAD~1 f', 'a', `git restore ${FOREIGN} f,`],
+    ['its own edit over content a shell staged, back to HEAD in the worktree alone', [{ shell: 'f', text: 'staged\n' }, { stage: 'f' }, { edit: 'a', file: 'f', old: 'staged', new: 'mine', text: 'mine\n' }], 'git restore --source=HEAD f', 'a', `git restore ${FOREIGN} f,`],
+    ['a path a variable names', [STEPS.mine], 'git restore "$F"', 'a', 'git restore overwrites uncommitted edits another session may own'],
+    ['its own shell call while a session that died held a window', [{ dies: 'b' }, { runs: 'a', command: "sed -i.orig 's/base/sed/' f && rm f.orig" }], 'git restore f', 'a', `git restore ${FOREIGN} f,`],
     ['its own path beside a path another session edited, naming only that path', [STEPS.mine, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], 'git restore f g', 'a', `git restore ${FOREIGN} g,`],
 ] as const;
 const SWEPT = [
@@ -210,7 +230,14 @@ const scratch = Effect.fnUntraced(function* () {
             yield* opened({ ...OWNERS[by], call, cwd: repo });
             yield* during;
             yield* succeeded('command' in decision ? decision.command : command);
-            yield* closed({ ...OWNERS[by], call, cwd: repo });
+        }),
+        closedAs: (by: keyof typeof OWNERS, call: string) => closed({ ...OWNERS[by], call, cwd: repo }),
+        diedAs: Effect.fnUntraced(function* (by: keyof typeof OWNERS) {
+            const ended = yield* spawner.spawn(ChildProcess.make('true'));
+            yield* ended.exitCode;
+            const ledger = path.join(repo, '.git', 'function-hooks');
+            yield* fs.makeDirectory(ledger, { recursive: true });
+            yield* fs.writeFileString(path.join(ledger, `${OWNERS[by].session}.jsonl`), `{"_tag":"Opened","call":"died","at":${yield* Clock.currentTimeMillis},"pid":${ended.pid}}\n`, { flag: 'a' });
         }),
         pushed: Effect.andThen(
             succeeded(`git init -q --bare ${remote} && git remote add origin ${remote} && git push -q origin main`),
@@ -226,7 +253,9 @@ const duringStep = (held: Scratch, step: { readonly opens: keyof typeof OWNERS }
 
 const restoreStep = (held: Scratch) => (step: (typeof RESTORED | typeof KEPT | typeof SWEPT)[number][1][number], at: number) =>
     Match.value(step).pipe(
-        Match.when({ runs: Match.string }, (call) => held.shelled(call.runs, call.command, `call-${at}`, 'during' in call ? duringStep(held, call.during, at + 100) : Effect.void)),
+        Match.when({ runs: Match.string }, (call) => Effect.andThen(held.shelled(call.runs, call.command, `call-${at}`, 'during' in call ? duringStep(held, call.during, at + 100) : Effect.void), 'background' in call ? Effect.void : held.closedAs(call.runs, `call-${at}`))),
+        Match.when({ closes: Match.string }, ({ closes, call }) => held.closedAs(closes, call)),
+        Match.when({ dies: Match.string }, ({ dies }) => held.diedAs(dies)),
         Match.when({ edit: Match.string }, ({ edit, file, old, new: replacement, text }) => held.recorded(edit, file, text, `edit-${at}`, { oldString: old, newString: replacement, replaceAll: false, structuredPatch: [], userModified: false })),
         Match.when({ replace: Match.string }, ({ replace, file, old, new: replacement, text }) => held.recorded(replace, file, text, `edit-${at}`, { oldString: old, newString: replacement, replaceAll: true, structuredPatch: [], userModified: false })),
         Match.when({ write: Match.string }, ({ write, file, text }) => held.recorded(write, file, text, `edit-${at}`, { type: 'update', content: text, structuredPatch: [] })),
