@@ -67,7 +67,6 @@ notify  = ["apt-daily-upgrade.timer"]
 "apt:docker-buildx-plugin"   = "latest"
 "apt:docker-ce"              = "latest"
 "apt:docker-ce-cli"          = "latest"
-"apt:docker-compose-plugin"  = "latest"
 "apt:systemd-zram-generator" = "latest"
 "apt:tailscale"              = "latest"
 
