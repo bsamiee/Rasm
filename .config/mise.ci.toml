@@ -2,3 +2,33 @@
 
 [deps]
 disable = ["blender", "darkroom", "playwright", "uv"]
+
+# --- [SETTINGS] -------------------------------------------------------------------------
+
+[settings]
+enable_tools = [
+    "conda:openssh",
+    "doppler",
+    "dotnet",
+    "gh",
+    "github:docker/buildx",
+    "github:harehare/mq",
+    "github:sparkle-project/Sparkle",
+    "hk",
+    "http:blender-ext",
+    "http:docker-cli",
+    "http:yak",
+    "imagemagick",
+    "jq",
+    "jscpd",
+    "node",
+    "pnpm",
+    "pulumi",
+    "resvg",
+    "rust",
+    "sd",
+    "swiftlint",
+    "usvg",
+    "uv",
+    "yq",
+]

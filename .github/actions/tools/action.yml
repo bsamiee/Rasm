@@ -1,5 +1,5 @@
 name: Tools
-description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, places rustup and cargo homes inside the cached mise folder on GitHub-hosted runners, restores the Apple analyzer on macOS and the MSBuild analyzer on Windows with mise freshness state by the files each build reads, saving a new entry where the mise file holding its row changed, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose postinstall hook installs project dependencies, on GitHub-hosted runners, in job containers, and in job affected under mise profiles ci, pnpm packages alone, and ci-<job id>, the tools that job runs where its file exists, and exports mise env
+description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, places rustup and cargo homes inside the cached mise folder on GitHub-hosted runners, restores there the MSBuild analyzer and on macOS the Apple analyzer with mise freshness state by analyzer sources, saving a new entry where the mise file holding its row changed, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under the runner's tool cache outside the checkout and on Windows under C:\mise, as cmd.exe finds no command once PATH passes 8191 characters, whose postinstall hook installs project dependencies, on GitHub-hosted runners under mise profile ci, the tools hosted jobs run and pnpm packages alone, and exports mise env
 
 runs:
     using: composite
@@ -27,20 +27,20 @@ runs:
                   ~/.local/state/mise/deps
               key: nx-apple-analyzer-${{ hashFiles('products/developer/nx/apple/analyzer/Package*', 'products/developer/nx/apple/analyzer/package.json', 'products/developer/nx/apple/analyzer/Sources/**', 'products/developer/nx/apple/analyzer/Tests/**') }}-${{ hashFiles('.config/mise.macos.toml') }}
               restore-keys: nx-apple-analyzer-${{ hashFiles('products/developer/nx/apple/analyzer/Package*', 'products/developer/nx/apple/analyzer/package.json', 'products/developer/nx/apple/analyzer/Sources/**', 'products/developer/nx/apple/analyzer/Tests/**') }}-
-        - if: ${{ runner.os == 'Windows' && runner.environment == 'github-hosted' }}
+        - if: ${{ runner.environment == 'github-hosted' }}
           uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
           with:
               path: |-
                   products/developer/nx/dotnet/analyzer/dist
                   ~/.local/state/mise/deps
-              key: msbuild-analyzer-${{ hashFiles('products/developer/nx/dotnet/analyzer/*.cs', 'products/developer/nx/dotnet/analyzer/*.csproj', 'products/developer/nx/dotnet/analyzer/packages.lock.json', '.config/mise.lock') }}-${{ hashFiles('.config/mise.toml') }}
-              restore-keys: msbuild-analyzer-${{ hashFiles('products/developer/nx/dotnet/analyzer/*.cs', 'products/developer/nx/dotnet/analyzer/*.csproj', 'products/developer/nx/dotnet/analyzer/packages.lock.json', '.config/mise.lock') }}-
+              key: msbuild-analyzer-${{ runner.os }}-${{ hashFiles('products/developer/nx/dotnet/analyzer/*.cs', 'products/developer/nx/dotnet/analyzer/*.csproj', 'products/developer/nx/dotnet/analyzer/packages.lock.json', '.config/mise.lock') }}-${{ hashFiles('.config/mise.toml') }}
+              restore-keys: msbuild-analyzer-${{ runner.os }}-${{ hashFiles('products/developer/nx/dotnet/analyzer/*.cs', 'products/developer/nx/dotnet/analyzer/*.csproj', 'products/developer/nx/dotnet/analyzer/packages.lock.json', '.config/mise.lock') }}-
         - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
           with:
               mise_dir: ${{ runner.os == 'Windows' && 'C:\mise' || '' }}
-              mise_env: ${{ (runner.environment == 'github-hosted' || job.container.id != '' || github.job == 'affected') && format('ci,ci-{0}', github.job) || '' }}
+              mise_env: ${{ runner.environment == 'github-hosted' && 'ci' || '' }}
               bootstrap: true
               bootstrap_args: --only tools
               cache: ${{ runner.environment == 'github-hosted' }}
               cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-              cache_key: "{{cache_key_prefix}}-{{platform}}-{{mise_env}}-{{bootstrap_hash}}-${{ hashFiles('.config/mise.lock', '.config/mise.ci.toml', format('.config/mise.ci-{0}.toml', github.job), 'rust-toolchain.toml') }}"
+              cache_key: "{{cache_key_prefix}}-{{platform}}-{{mise_env}}-{{bootstrap_hash}}-${{ hashFiles('.config/mise.lock', '.config/mise.ci.toml', 'rust-toolchain.toml') }}"
