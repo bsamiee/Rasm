@@ -35,7 +35,6 @@ jobs:
                       .cache/nx/workspace-data/*
                       !.cache/nx/workspace-data/cache
                       !.cache/nx/workspace-data/*.db*
-                      !.cache/nx/workspace-data/task-cache.jsonl
                       !.cache/nx/workspace-data/xcode-packages
                   key: nx-${{ runner.os }}-
             - uses: $/.github/actions/tools

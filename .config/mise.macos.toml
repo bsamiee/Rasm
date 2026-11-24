@@ -1,7 +1,7 @@
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-_.path              = { path = ['''{% set props = config_root ~ "/Directory.Packages.props" %}/Applications/Rhino {{ exec(command="yq -p xml -oy '.Project.PropertyGroup[] | select(.+@Label == \"Rhino\") | .RhinoVersion | split(\".\") | .[0]' '" ~ props ~ "'", cache_key="rhino-major-" ~ props | hash_file) }}.app/Contents/Resources/bin''', "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin", '{{ exec(command="xcode-select -p", cache_duration="1h") }}/../Applications/Icon Composer.app/Contents/Executables'], tools = true }
+_.path              = { path = ['''{% set props = config_root ~ "/Directory.Build.props" %}/Applications/Rhino {{ exec(command="yq -p xml -oy '.Project.PropertyGroup[] | select(.+@Label == \"Rhino\") | .RhinoVersion | split(\".\") | .[0]' '" ~ props ~ "'", cache_key="rhino-major-" ~ props | hash_file) }}.app/Contents/Resources/bin''', "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin", '{{ exec(command="xcode-select -p", cache_duration="1h") }}/../Applications/Icon Composer.app/Contents/Executables'], tools = true }
 COLIMA_HOME         = "{{ env.CACHE_DIR }}/colima"
 DOCKER_HOST         = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
 GHIDRA_PROJECT_DIR  = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
@@ -14,8 +14,8 @@ XCODE_XCCONFIG_FILE = "{{ config_root }}/.config/xcode.xcconfig"
 depends = ["pnpm"]
 dir     = "products/developer/nx/apple/analyzer"
 outputs = [".build/out/Products/Release/nx-apple-analyzer", ".build/out/Products/Release/nx-apple-analyzer.hash"]
-run     = '''swift build --configuration release --force-resolved-versions --disable-index-store && node --input-type=module -e "import { workspaceRoot } from '@nx/devkit'; import { hashWithWorkspaceContext } from '@nx/devkit/internal'; import { writeFileSync } from 'node:fs'; import { relative } from 'node:path'; import { fileURLToPath } from 'node:url'; writeFileSync(fileURLToPath(import.meta.resolve('@rasm/nx-apple-darwin-arm64/nx-apple-analyzer')) + '.hash', await hashWithWorkspaceContext(workspaceRoot, [relative(workspaceRoot, process.cwd()) + '/**/*']))"'''
-sources = ["Package*", "package.json", "Sources/**/*", "Tests/**/*"]
+run     = '''swift build --configuration release --force-resolved-versions --disable-index-store && node --input-type=module -e "import { workspaceRoot } from '@nx/devkit'; import { globWithWorkspaceContext, hashFile } from '@nx/devkit/internal'; import { writeFileSync } from 'node:fs'; import { join, relative } from 'node:path'; import { fileURLToPath } from 'node:url'; const sources = [relative(workspaceRoot, process.cwd()) + '/{Package.swift,Package.resolved,Sources/**/*}']; writeFileSync(fileURLToPath(import.meta.resolve('@rasm/nx-apple-darwin-arm64/nx-apple-analyzer')) + '.hash', JSON.stringify({ sources, files: Object.fromEntries((await globWithWorkspaceContext(workspaceRoot, sources)).map((file) => [file, hashFile(join(workspaceRoot, file))])) }))"'''
+sources = ["Package.swift", "Package.resolved", "Sources/**/*"]
 
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 

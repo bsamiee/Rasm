@@ -135,7 +135,7 @@ jobs:
                       .artifacts/playwright
                       .artifacts/vitest
                       .cache/nx/workspace-data/project-graph.json
-                      .cache/nx/workspace-data/task-cache.jsonl
+                      .cache/nx/workspace-data/*.db*
 
     browser:
         name: Browser
@@ -195,7 +195,6 @@ jobs:
                       .cache/nx/workspace-data/*
                       !.cache/nx/workspace-data/cache
                       !.cache/nx/workspace-data/*.db*
-                      !.cache/nx/workspace-data/task-cache.jsonl
                       !.cache/nx/workspace-data/xcode-packages
                   key: nx-${{ runner.os }}-
             - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
@@ -242,7 +241,7 @@ jobs:
             - id: rhino
               if: &rhino ${{ needs.affected.outputs.rhino != '[]' }}
               run: |-
-                  major="$(yq -p xml -oy '.Project.PropertyGroup[] | select(.+@Label == "Rhino") | .RhinoVersion | split(".") | .[0]' Directory.Packages.props)"
+                  major="$(yq -p xml -oy '.Project.PropertyGroup[] | select(.+@Label == "Rhino") | .RhinoVersion | split(".") | .[0]' Directory.Build.props)"
                   installer="$(curl -fsS -o /dev/null -w '%{redirect_url}' --get --data-urlencode "slug=rhino-for-windows/${major}/latest" --data-urlencode "email=${RHINO_EMAIL}" https://www.rhino3d.com/www-api/download/direct)"
                   printf "RHINO_INSTALLER=%s\n" "${installer}" >> "${GITHUB_ENV}"
               env:
