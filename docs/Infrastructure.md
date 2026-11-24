@@ -79,8 +79,8 @@ Routes from public names to containers:
 Nx cache server of role `Cache`:
 - Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes one token that reads and writes
 - Runners reach the server over public HTTPS through its proxy
-- Cache stacks write server URL and token to Doppler `ci` once the server runs healthy
-- Cache stacks write object storage root keys and references to URL and token to Doppler `dev`
+- Cache stacks read the token and object storage root keys from Doppler `deploy` and write no Doppler row
+- Doppler `ci` holds server URL and token, `dev` references both and holds object storage root keys, and `deploy` references what stacks read
 - Cache objects expire role field `kept` after their write, and a read refreshes none
 - Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a run once a cache write fails six times
 - Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop
@@ -92,8 +92,8 @@ Atuin sync server of role `History`:
 - Servers hold records in SQLite on protected volume `atuin` apart from route field `name`, as one account with one writer needs no database server
 - Servers sync the encrypted record store whole (history, threads, kv, scripts, dotfiles), and Atuin Hub alone serves packfiles
 - Clients skip packfile records for a server advertising no packfile capability, as loose records cover them
-- Registration stays closed, and each container start creates or resets the repository owner's account from the stack's password
-- History stacks write `ATUIN_SYNC_ADDRESS` and `ATUIN_PASSWORD` to Doppler `dev` once the server runs healthy, the variables the Atuin client reads
+- Registration stays closed, and each container start creates or resets the repository owner's account from Doppler row `ATUIN_PASSWORD`
+- Doppler `dev` holds `ATUIN_SYNC_ADDRESS` and `ATUIN_PASSWORD`, the variables the Atuin client reads, and `deploy` references the password
 - Clients log in with `doppler run -- atuin login -u <owner> -k "$(atuin key)"`, keeping their encryption key
 - Clients hold every record of their account, and a rebuilt server refills from the next client to log in again and sync
 - Clients signed in before a rebuild run `atuin logout` first, as `atuin login` with a saved session skips authentication
@@ -118,6 +118,8 @@ Doppler configs and their readers:
 - Config `ci` syncs to repository Actions secrets and `release` to GitHub environment `release`, each deleting names removed from Doppler
 - GitHub environment `deploy` holds a read-only Doppler service token of `deploy` as `DOPPLER_TOKEN`
 - Doppler `deploy` rows take the variable name their provider reads, and each stack's Pulumi process receives them as its environment
+- Stacks read each secret a machine service takes from Doppler `deploy` and create none, so an apply changes no Doppler row
+- Rows of `deploy` referencing `ci` or `dev` change with their source, which starts `Deploy` to apply the new value
 - Doppler `deploy` and 1Password hold `<NAME>_ROOT_PASSWORD`, `<NAME>_SSH_PRIVATE_KEY`, and `<NAME>_SSH_PUBLIC_KEY`, and no code reads them
 - Stacks write no `deploy` row, as a change to `deploy` starts workflow `Deploy`
 - Row `DOPPLER_IAC_TOKEN` reaches stacks as `DOPPLER_TOKEN`, and row `GITHUB_TOKEN` authorizes GitHub's provider, deploy webhook, and runners

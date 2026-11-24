@@ -16,7 +16,9 @@ import { type configs, identified, repositoryStack } from '#/repository-stack';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Deployed = Schema.fromJsonString(Schema.StructWithRest(Schema.Struct(Struct.Record(['CLOUDFLARE_ACCOUNT_ID', 'DOPPLER_IAC_TOKEN', 'EPIC_GHCR_TOKEN', 'GITHUB_TOKEN'], Schema.NonEmptyString)), [Schema.Record(Schema.String, Schema.String)]));
+const Deployed = Schema.fromJsonString(
+    Schema.StructWithRest(Schema.Struct(Struct.Record(['ATUIN_PASSWORD', 'CLOUDFLARE_ACCOUNT_ID', 'DOPPLER_IAC_TOKEN', 'EPIC_GHCR_TOKEN', 'GITHUB_TOKEN', 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN', 'RUSTFS_ACCESS_KEY', 'RUSTFS_SECRET_KEY'], Schema.NonEmptyString)), [Schema.Record(Schema.String, Schema.String)]),
+);
 const Request = Schema.Struct({ positionals: Schema.Tuple([Schema.Literals(['install', 'deploy'])]), operation: Schema.Literals(['up', 'preview', 'destroy']), stack: Schema.optionalKey(Schema.String), production: Schema.Boolean, expectNoChanges: Schema.Boolean }).pipe(
     Schema.encodeKeys({ expectNoChanges: 'expect-no-changes' }),
 );

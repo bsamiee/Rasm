@@ -9,11 +9,10 @@ import minio from '@pulumi/minio';
 import { all, type CustomResourceOptions, getProject, type Input, interpolate, jsonStringify, output, secret } from '@pulumi/pulumi';
 import { RandomPassword } from '@pulumi/random';
 import { getDeviceOutput } from '@pulumi/tailscale';
-import { Secret } from '@pulumiverse/doppler';
 import type { deploy } from '@rasm/hosting/deploy';
 import { Identity } from '@rasm/hosting/identity';
 import { Array, Data, Duration, Effect, Function, Option, Predicate, Record, String, Struct } from 'effect';
-import type { configs, identified } from '#/repository-stack';
+import type { identified } from '#/repository-stack';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -144,9 +143,8 @@ const proxied = Function.memoize((machine: Machine) => {
     });
 });
 
-const stored = Function.memoize((machine: Machine) => {
+const stored = (machine: Machine, { user, key }: Readonly<Record<'user' | 'key', Input<string>>>) => {
     const ports = { internal: 9000, external: 7412, health: '/health/ready' } as const;
-    const { user, key } = Record.map({ user: 'storage-access', key: 'storage-secret' }, (name) => new RandomPassword(`${machine.name}-${name}`, { length: 32, special: false }).result);
     const published = Option.match(machine.remote, {
         onNone: () => ({ ips: output(['127.0.0.1']), address: '127.0.0.1' }),
         onSome: () => ({ ips: tailnet(machine).addresses.apply(Array.filter(isIPv4)), address: machine.name }),
@@ -169,7 +167,7 @@ const stored = Function.memoize((machine: Machine) => {
         { dependsOn: Option.match(route, { onNone: Array.empty, onSome: ({ named }) => [proxied(machine), ...named] }) },
     );
     return output({ server: serving.urn.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, ...Option.getOrUndefined(Option.map(route, ({ address }) => ({ origin: `https://${address}` }))), region: 'us-east-1', user, key });
-});
+};
 
 const bucketed = (name: string, storage: ReturnType<typeof stored>, buckets: Effect.Success<ReturnType<typeof deploy.Machine>>['buckets']) => {
     const provider = new minio.Provider(name, { minioServer: storage.server, minioUser: storage.user, minioPassword: storage.key });
@@ -199,11 +197,9 @@ const bucketed = (name: string, storage: ReturnType<typeof stored>, buckets: Eff
     return { AWS_ENDPOINT_URL_S3: storage.within, AWS_REGION: storage.region, AWS_ACCESS_KEY_ID: all([account.accessKey, ...created.flatMap(({ configured }) => configured)]).apply(([id]) => id), AWS_SECRET_ACCESS_KEY: account.secretKey };
 };
 
-const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, project: string) => {
+const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, storage: ReturnType<typeof stored>, token: Input<string>) => {
     const { port, health } = { port: 3000, health: '/health' };
-    const storage = stored(machine);
     const scoped = bucketed(name, storage, { [name]: { kept: false, abort: kept, expire: { '': kept }, cors: [] } });
-    const token = new RandomPassword(`${machine.name}-SERVICE_ACCESS_TOKEN`, { length: 48, special: false }).result;
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: health });
     const image = machine.imaged(
         name,
@@ -220,14 +216,11 @@ ENTRYPOINT ["/nx-cache-aws"]
     );
     const envs = Record.collect({ S3_BUCKET_NAME: name, S3_ENDPOINT_URL: scoped.AWS_ENDPOINT_URL_S3, ...scoped, SERVICE_ACCESS_TOKEN: token }, (variable, value) => interpolate`${variable}=${value}`);
     const serving = machine.contained(name, ['CMD', '/busybox/wget', '--quiet', '--spider', `http://127.0.0.1:${port}${health}`], { image, init: true, envs, labels }, { dependsOn: [proxied(machine), ...named] });
-    const ci = Record.map({ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: token, NX_SELF_HOSTED_REMOTE_CACHE_SERVER: `https://${address}` }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }, { dependsOn: serving }));
-    const dev = Record.map(ci, ({ config, name: reference }, row) => new Secret(`${machine.name}-dev-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value: interpolate`\${${config}.${reference}}` }).name);
-    const root = Record.map({ RUSTFS_ACCESS_KEY: storage.user, RUSTFS_SECRET_KEY: storage.key }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value }).name);
-    return { ...Record.map(ci, Struct.get('name')), dev, root };
+    return { [name]: serving.urn.apply(() => `https://${address}`) };
 };
 
-const synced = (machine: Machine, { name }: Data.TaggedEnum.Value<Role, 'History'>, owner: string, project: string) => {
-    const [port, file, password] = [8888, '/run/password', new RandomPassword(`${machine.name}-ATUIN_PASSWORD`, { length: 32, special: false }).result];
+const synced = (machine: Machine, { name }: Data.TaggedEnum.Value<Role, 'History'>, owner: string, password: Input<string>) => {
+    const [port, file] = [8888, '/run/password'];
     const { address, named, labels } = machine.routed(name, port);
     const serving = machine.contained(
         name,
@@ -243,10 +236,10 @@ const synced = (machine: Machine, { name }: Data.TaggedEnum.Value<Role, 'History
         },
         { dependsOn: [proxied(machine), ...named] },
     );
-    return Record.map({ ATUIN_SYNC_ADDRESS: `https://${address}`, ATUIN_PASSWORD: password }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value }, { dependsOn: serving }).name);
+    return { [name]: serving.urn.apply(() => `https://${address}`) };
 };
 
-const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>) => {
+const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>, storage: ReturnType<typeof stored>) => {
     const [port, { guard, forwarded }] = [9091, Machine];
     const password = new RandomPassword(`${machine.name}-owner`, { length: 32, special: false });
     const { address, named, labels } = machine.routed(guard, port, {
@@ -278,22 +271,33 @@ const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>)
         },
         { dependsOn: [proxied(machine), ...named] },
     );
-    return { network: output(machine.network), owner: { name: 'owner', password: password.result }, storage: stored(machine) };
+    return { network: output(machine.network), owner: { name: 'owner', password: password.result }, storage };
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const installed = Effect.sync(() => hosted(Machine.on(local.host, Option.none()), local));
+const installed = Effect.sync(() => {
+    const machine = Machine.on(local.host, Option.none());
+    return hosted(
+        machine,
+        local,
+        stored(
+            machine,
+            Record.map({ user: 'storage-access', key: 'storage-secret' }, (name) => new RandomPassword(`${machine.name}-${name}`, { length: 32, special: false }).result),
+        ),
+    );
+});
 
-const provisioned = (host: keyof typeof hosts, { owner, repository, project, engines }: Effect.Success<typeof identified>, { EPIC_GHCR_TOKEN: password, GITHUB_TOKEN: pat }: Readonly<Record<'EPIC_GHCR_TOKEN' | 'GITHUB_TOKEN', string>>) =>
+const provisioned = (host: keyof typeof hosts, { owner, repository, engines }: Effect.Success<typeof identified>, rows: Readonly<Record<'EPIC_GHCR_TOKEN' | 'GITHUB_TOKEN' | 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN' | 'RUSTFS_ACCESS_KEY' | 'RUSTFS_SECRET_KEY' | 'ATUIN_PASSWORD', string>>) =>
     Effect.sync(() => {
-        const registries = [{ address: 'ghcr.io', username: owner, password }];
+        const registries = [{ address: 'ghcr.io', username: owner, password: rows.EPIC_GHCR_TOKEN }];
         const machine = Machine.on(host, Option.none(), registries);
+        const storage = Function.memoize((held: Machine) => stored(held, { user: secret(rows.RUSTFS_ACCESS_KEY), key: secret(rows.RUSTFS_SECRET_KEY) }));
         const served = machine.roles.map(
             Role.$match({
-                Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, project),
-                Apps: (settings) => hosted(machine, settings),
-                History: (settings) => synced(machine, settings, owner, project),
+                Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, storage(machine), secret(rows.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN)),
+                Apps: (settings) => hosted(machine, settings, storage(machine)),
+                History: (settings) => synced(machine, settings, owner, secret(rows.ATUIN_PASSWORD)),
                 Runner: ({ instances }) => {
                     const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner' } as const;
                     const browsers = `ghcr.io/${owner}/${repository}/playwright`.toLowerCase();
@@ -319,7 +323,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                         ].join('\n');
                         const instance = new remote.Command(
                             `${machine.name}-runner-${label}`,
-                            { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: `${removed}; rm -rf "${work}"`, stdin: secret(pat), triggers: [tailnet(machine).nodeId] },
+                            { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: `${removed}; rm -rf "${work}"`, stdin: secret(rows.GITHUB_TOKEN), triggers: [tailnet(machine).nodeId] },
                             { dependsOn: Option.toArray(before), deleteBeforeReplace: true },
                         );
                         return [Option.some(instance), [label, instance.id] as const];

@@ -93,6 +93,7 @@ Workflow `Deploy` triggers and steps:
 - Deploy jobs wait in one queue (`queue: max`), as a single pending job gives way to a newer one and drops a Doppler request
 - CI runs on `main` hold their concurrency group through job `deploy`, so a later push waits for the deploy
 - Doppler config `deploy` changes start `Deploy` through a Doppler webhook sending GitHub a `repository_dispatch` event
+- Stacks apply from commits on `main` alone, as each `Deploy` trigger applies the program at the tip of `main` over a local apply
 - `Deploy` runs daily, applying image tags that moved with no commit
 - Job `deploy` runs on a GitHub-hosted runner and reads Doppler `deploy`
 - Job `deploy` signs in to Google Cloud as service account `deploy` through workload identity federation, under `id-token: write`
