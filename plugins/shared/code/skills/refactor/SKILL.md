@@ -20,7 +20,7 @@ Scope names what one pass edits:
 Read before one line changes, a change from memory of an API, a summary, or an outline standing in for a file restates what a package or host holds and misses a consumer's shape:
 1. Run `git status --short` and `git log -5 --stat`, the live tree with uncommitted edits is the base
 2. Choose files with `ast-grep outline <path>`, then read each file to edit line by line whole
-3. Read every consumer to its effect: `ast-grep outline --items exports <file>` names exports, `ast-grep run` and `rg -F` find readers, implementations, and callers, `nx check` confirms types
+3. Read every consumer to its effect: `ast-grep outline --items exports <file>` names exports, `ast-grep run` and `rg -F` find readers, implementations, and callers, `nx run <project>:check` confirms types
 4. List every entry point reaching the code: Nx target and its `--args`, CLI switch, `dotnet publish -o`, host launch, hook rewrite, served product
 5. Run each entry point once on repository input for its normal output
 6. Read dependency and host source at installed release through `search:code` per member called, job hand-written, and behavior performed
