@@ -2,12 +2,11 @@ import { createRequire } from 'node:module';
 import { basename, dirname, extname, join, posix, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
-import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, globWithWorkspaceContext, hashFile, PluginCache, type ProjectRootMappings, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, PluginCache, type ProjectRootMappings, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { EXEC, type Stated, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import type { API, ParsedCommandLine } from '@typescript/native/sync';
 import { Array, Cause, Effect, FileSystem, Function, Option, Result, UndefinedOr } from 'effect';
-import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
 import { MANIFEST, projected } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -87,12 +86,7 @@ const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, l
     const [listings, stamps, tracked] = yield* Effect.all(
         [
             Effect.forEach(listed, (at) => Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, posix.relative('.', at))), { concurrency: 'unbounded' }),
-            Effect.promise(() =>
-                hashMultiGlobWithWorkspaceContext(
-                    workspaceRoot,
-                    rows.map(([config, sources]) => [posix.join(dirname(config), MANIFEST), lock, ...sources]),
-                ),
-            ),
+            Effect.forEach(rows, ([config, sources]) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [posix.join(dirname(config), MANIFEST), lock, ...sources])), { concurrency: 'unbounded' }),
             Effect.map(
                 Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(rows.flatMap(([, sources]) => sources)))),
                 (found) => new Set(found),

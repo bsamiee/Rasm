@@ -2,11 +2,10 @@ import { createRequire } from 'node:module';
 import { join, posix, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { hashArray, normalizePath, type PackageManager, type TargetConfiguration } from '@nx/devkit';
-import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, isRelativePath, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, hashWithWorkspaceContext, isRelativePath, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { above, EXEC, packaged, tokened } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Filter, Option, Record, Result, Schema, Stream } from 'effect';
 import type { ESLint } from 'eslint';
-import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
 import { connected } from '#/programs';
 import { MANIFEST } from '#/workspace';
 
@@ -89,7 +88,10 @@ const linted = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
     const cache = new PluginCache<{ readonly targets: readonly TargetConfiguration[]; readonly typed: boolean; readonly read: readonly string[]; readonly stamp: string; readonly digest: string }>(join(workspaceDataDirectory, 'typescript-eslint.hash'));
     const owners = new Map(roots.map(({ root }) => [root, root] as const));
     const globs = roots.flatMap(({ root }) => [[getLockFileName(manager), ...Array.cartesianWith(above(root), ['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts', 'eslint.config.mts', 'eslint.config.cts'], posix.join)], [...(cache.get(root)?.read ?? [])]]);
-    const [listed, hashes] = yield* Effect.all([Effect.forEach(roots, ({ scope }) => Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, scope)), { concurrency: 'unbounded' }), Effect.promise(() => hashMultiGlobWithWorkspaceContext(workspaceRoot, globs))], { concurrency: 'unbounded' });
+    const [listed, hashes] = yield* Effect.all(
+        [Effect.forEach(roots, ({ scope }) => Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, scope)), { concurrency: 'unbounded' }), Effect.forEach(globs, (group) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, group)), { concurrency: 'unbounded' })],
+        { concurrency: 'unbounded' },
+    );
     const keyed = Array.zipWith(Array.zip(roots, listed), Array.chunksOf(hashes, 2), ([{ root, scope }, beneath], [configured, stamp]) => {
         const owned = beneath.filter((file) => (findProjectForPath(file, owners) ?? '.') === root);
         const digest = hashArray([hashed, configured, ...owned]);
@@ -99,7 +101,7 @@ const linted = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
     const fresh = yield* Array.match(missed, { onEmpty: () => Effect.succeed(new Map<string, { readonly read: readonly string[]; readonly targets: readonly TargetConfiguration[]; readonly typed: boolean }>()), onNonEmpty: (rows) => inspected(workspaceRoot, compiler, manager, rows) });
     const stored = Array.getSomes(missed.map(({ root, digest }) => Option.map(Option.fromUndefinedOr(fresh.get(root)), (held) => ({ root, digest, ...held }))));
     const reads = stored.map(({ read }) => [...read]);
-    const stamps = yield* Effect.promise(() => hashMultiGlobWithWorkspaceContext(workspaceRoot, reads));
+    const stamps = yield* Effect.forEach(reads, (group) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, group)), { concurrency: 'unbounded' });
     yield* Effect.forEach(Array.zip(stored, stamps), ([{ root, digest, read, targets, typed }, stamp]) => Effect.sync(() => cache.set(root, { targets, typed, read, stamp, digest })), { discard: true });
     yield* Array.isReadonlyArrayNonEmpty(missed) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
     return new Map(Array.getSomes(keyed.map(({ root }) => Option.map(Option.all({ target: Array.head(cache.get(root)?.targets ?? []), typed: Option.fromUndefinedOr(cache.get(root)?.typed) }), (held) => [root, held] as const))));
