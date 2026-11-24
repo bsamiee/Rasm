@@ -50,11 +50,10 @@ const Policy = Schema.fromJsonString(Schema.Struct({ bindings: Schema.optionalKe
 
 const identified = Effect.gen(function* () {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const [manifest, xcconfig, engines] = yield* Effect.all([
-        Effect.flatMap(fs.readFileString(path.join(workspaceRoot, 'package.json')), Schema.decodeEffect(Manifest)),
-        fs.readFileString(path.join(workspaceRoot, '.config/sparkle.xcconfig')),
-        Effect.flatMap(run(['git', 'ls-files', '-z', '--', '*.uproject'], { cwd: workspaceRoot }), ({ stdout }) => Effect.forEach(stdout.split('\0').filter(String.isNonEmpty), (project) => Effect.flatMap(fs.readFileString(path.join(workspaceRoot, project)), Schema.decodeEffect(Uproject)))),
-    ]);
+    const manifest = yield* Effect.flatMap(fs.readFileString(path.join(workspaceRoot, 'package.json')), Schema.decodeEffect(Manifest));
+    const xcconfig = yield* fs.readFileString(path.join(workspaceRoot, '.config/sparkle.xcconfig'));
+    const { stdout } = yield* run(['git', 'ls-files', '-z', '--', '*.uproject'], { cwd: workspaceRoot });
+    const engines = yield* Effect.forEach(stdout.split('\0').filter(String.isNonEmpty), (project) => Effect.flatMap(fs.readFileString(path.join(workspaceRoot, project)), Schema.decodeEffect(Uproject)));
     const [, { hostname }] = yield* Effect.fromOption(Array.findFirst(xcconfig.split('\n'), (line) => Schema.decodeUnknownOption(Feed)(line.replace('/$()/', '//'))));
     const [, owner, , repository] = manifest.repository.url;
     return { project: manifest.name, description: manifest.description, owner, repository, feed: { domain: hostname, zone: hostname.split('.').slice(1).join('.') }, engines: Array.dedupe(engines.map(Struct.get('EngineAssociation')).filter(Schema.is(Release))).toSorted() };
@@ -75,10 +74,8 @@ const repositoryStack = Effect.fnUntraced(function* (
     { CLOUDFLARE_ACCOUNT_ID: accountId, GITHUB_TOKEN: token, TAILSCALE_ENROLMENT_OAUTH_SECRET: enrolling }: Readonly<Record<'CLOUDFLARE_ACCOUNT_ID' | 'GITHUB_TOKEN' | 'TAILSCALE_ENROLMENT_OAUTH_SECRET', string>>,
 ) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const forms = yield* Effect.flatMap(
-        fs.glob('.github/ISSUE_TEMPLATE/*.yml', { root: workspaceRoot, exclude: ['**/config.yml'] }),
-        Effect.forEach((form) => Effect.flatMap(fs.readFileString(path.join(workspaceRoot, form)), Schema.decodeEffect(Form))),
-    );
+    const listed = yield* fs.glob('.github/ISSUE_TEMPLATE/*.yml', { root: workspaceRoot, exclude: ['**/config.yml'] });
+    const forms = yield* Effect.forEach(listed, (form) => Effect.flatMap(fs.readFileString(path.join(workspaceRoot, form)), Schema.decodeEffect(Form)));
     const [cloud, organization] = [[project, 'release' satisfies (typeof configs)[number]].join('-'), getZeroTrustOrganizationOutput({ accountId })];
     const { repository, fullName, repoId, doppler, held } = managed(name, { description, project, environments: configs });
     const environments = Record.map(identities, (_, environment) => new RepositoryEnvironment(`${name}-${environment}`, { repository, environment }).environment);

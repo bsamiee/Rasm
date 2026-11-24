@@ -30,72 +30,56 @@ const read = (config: (typeof configs)[number]) => Effect.map(run(['doppler', 's
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-runMain(
-    Effect.gen(function* () {
-        const { positionals, operation, stack, production, expectNoChanges } = yield* Effect.flatMap(
-            Effect.try({
-                try: () => parseArgs({ args: process.argv.slice(2), options: { operation: { type: 'string', default: 'up' }, stack: { type: 'string' }, production: { type: 'boolean', default: false }, 'expect-no-changes': { type: 'boolean', default: false } }, allowPositionals: true }),
-                catch: (cause) => new Cause.UnknownError(cause, `${manifest.name} reads <install|deploy> [--operation=up|preview|destroy] [--stack=<name>] [--production] [--expect-no-changes]`),
-            }),
-            (parsed) => Schema.decodeUnknownEffect(Request)({ ...parsed.values, positionals: parsed.positionals }),
-        );
-        const [fs, services] = yield* Effect.all([FileSystem.FileSystem, Effect.context<FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>()]);
-        const deploy = positionals[0] === 'deploy' ? Option.some({ production, rows: yield* Effect.flatMap(read('deploy'), Schema.decodeEffect(Deployed)) }) : Option.none();
-        const root = relative(workspaceRoot, process.cwd()) || '.';
-        const groups =
-            process.cwd() === import.meta.dirname
-                ? yield* Option.match(deploy, {
-                      onNone: () => Effect.map(Effect.flatMap(read('dev'), Schema.decodeEffect(Installed)), (rows) => [[{ stackName: local.host, program: installed(rows) }]]),
-                      onSome: ({ rows }) => Effect.map(identified, (identity) => [[{ stackName: identity.project, program: repositoryStack(identity, rows) }], Record.collect(hosts, (host) => ({ stackName: host, program: provisioned(host, identity, rows) }))]),
-                  })
-                : [
-                      yield* Effect.try({ try: readCachedProjectGraph, catch: (cause) => new Cause.UnknownError(cause, `${root} has no cached Nx project graph, which an nx run writes`) }).pipe(
-                          Effect.flatMap(({ nodes }) =>
-                              Effect.fromOption(
-                                  Record.findFirst(nodes, ({ data }) => data.root === root),
-                                  () => new Cause.NoSuchElementError(`No Nx project sits at ${root}`),
-                              ),
-                          ),
-                          Effect.flatMap(([, node]) => hostingStacks(node, deploy)),
-                      ),
-                  ];
-        const selected = groups.map((group) => group.filter(({ stackName }) => stack === undefined || stack === stackName));
-        yield* Effect.filterOrFail(
-            Effect.succeed(selected.flat()),
-            Array.isReadonlyArrayNonEmpty,
-            () => new Cause.NoSuchElementError(`${manifest.name} runs ${UndefinedOr.match(stack, { onUndefined: () => 'no stack', onDefined: (name) => `no stack named ${name}` })} for ${process.cwd()}, its stacks are ${groups.flat().map(Struct.get('stackName')).join(', ')}`),
-        );
-        yield* Effect.forEach(
-            operation === 'destroy' ? selected.toReversed() : selected,
-            flow(
-                Effect.forEach(
-                    Effect.fnUntraced(
-                        function* ({ stackName, program }: (typeof groups)[number][number]) {
-                            const workDir = yield* fs.makeTempDirectoryScoped();
-                            yield* Effect.tryPromise({
-                                try: (signal) => {
-                                    const handlers = { signal, color: 'never', ...Struct.Record(['onOutput', 'onError'], (text: string) => process.stderr.write(text.replaceAll(/^(?=.)/gmu, `${stackName} | `))) } as const;
-                                    const converged = { ...handlers, refresh: true, runProgram: true, expectNoChanges };
-                                    return automation.LocalWorkspace.create({
-                                        program: () => Effect.runPromiseWith(services)<Readonly<Record<string, unknown>>, Effect.Error<typeof program>>(program),
-                                        workDir,
-                                        envVars: Option.match(deploy, { onNone: () => ({ PULUMI_BACKEND_URL: 'file://~', PULUMI_CONFIG_PASSPHRASE: '' }), onSome: ({ rows }) => ({ ...rows, DOPPLER_TOKEN: rows.DOPPLER_IAC_TOKEN }) }),
-                                        projectSettings: { name: manifest.name.replace('@', '').replace('/', '-'), runtime: 'nodejs', main: import.meta.dirname },
-                                    })
-                                        .then((workspace) => (operation === 'up' ? automation.Stack.createOrSelect : automation.Stack.select)(stackName, workspace))
-                                        .then((running): Promise<unknown> => ({ up: () => running.up(converged), preview: () => running.preview({ ...converged, diff: true }), destroy: () => running.destroy({ ...handlers, remove: true }) })[operation]());
-                                },
-                                catch: (cause) => new Cause.UnknownError(cause, `${stackName} ${operation} failed`),
-                            });
-                        },
-                        Effect.scoped,
-                        Effect.exit,
-                    ),
-                    { concurrency: 'unbounded' },
+Effect.gen(function* () {
+    const { positionals, operation, stack, production, expectNoChanges } = yield* Effect.try({
+        try: () => parseArgs({ args: process.argv.slice(2), options: { operation: { type: 'string', default: 'up' }, stack: { type: 'string' }, production: { type: 'boolean', default: false }, 'expect-no-changes': { type: 'boolean', default: false } }, allowPositionals: true }),
+        catch: (cause) => new Cause.UnknownError(cause, `${manifest.name} reads <install|deploy> [--operation=up|preview|destroy] [--stack=<name>] [--production] [--expect-no-changes]`),
+    }).pipe(Effect.flatMap((parsed) => Schema.decodeUnknownEffect(Request)({ ...parsed.values, positionals: parsed.positionals })));
+    const [fs, services] = yield* Effect.all([FileSystem.FileSystem, Effect.context<FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>()]);
+    const deploy = positionals[0] === 'deploy' ? Option.some({ production, rows: yield* Effect.flatMap(read('deploy'), Schema.decodeEffect(Deployed)) }) : Option.none();
+    const root = relative(workspaceRoot, process.cwd()) || '.';
+    const programs = Option.match(deploy, {
+        onNone: () => Effect.map(Effect.flatMap(read('dev'), Schema.decodeEffect(Installed)), (rows) => [[{ stackName: local.host, program: installed(rows) }]]),
+        onSome: ({ rows }) => Effect.map(identified, (identity) => [[{ stackName: identity.project, program: repositoryStack(identity, rows) }], Record.collect(hosts, (host) => ({ stackName: host, program: provisioned(host, identity, rows) }))]),
+    });
+    const hosted = Effect.try({ try: () => Record.findFirst(readCachedProjectGraph().nodes, ({ data }) => data.root === root), catch: (cause) => new Cause.UnknownError(cause, `${root} has no cached Nx project graph, which an nx run writes`) }).pipe(
+        Effect.flatMap((found) => Effect.fromOption(found, () => new Cause.NoSuchElementError(`No Nx project sits at ${root}`))),
+        Effect.flatMap(([, node]) => hostingStacks(node, deploy)),
+        Effect.map(Array.of),
+    );
+    const groups = yield* process.cwd() === import.meta.dirname ? programs : hosted;
+    const selected = groups.map((group) => group.filter(({ stackName }) => stack === undefined || stack === stackName));
+    yield* Effect.when(
+        new Cause.NoSuchElementError(`${manifest.name} runs ${UndefinedOr.match(stack, { onUndefined: () => 'no stack', onDefined: (name) => `no stack named ${name}` })} for ${process.cwd()}, its stacks are ${groups.flat().map(Struct.get('stackName')).join(', ')}`),
+        Effect.succeed(selected.flat().length === 0),
+    );
+    yield* Effect.forEach(
+        operation === 'destroy' ? selected.toReversed() : selected,
+        flow(
+            Effect.forEach(
+                Effect.fnUntraced(
+                    function* ({ stackName, program }: (typeof groups)[number][number]) {
+                        const workDir = yield* fs.makeTempDirectoryScoped();
+                        const failed = (cause: unknown) => new Cause.UnknownError(cause, `${stackName} ${operation} failed`);
+                        const handlers = { color: 'never', ...Struct.Record(['onOutput', 'onError'], (text: string) => process.stderr.write(text.replaceAll(/^(?=.)/gmu, `${stackName} | `))) } as const;
+                        const converged = { ...handlers, refresh: true, runProgram: true, expectNoChanges };
+                        const settings = {
+                            program: () => Effect.runPromiseWith(services)<Readonly<Record<string, unknown>>, Effect.Error<typeof program>>(program),
+                            workDir,
+                            envVars: Option.match(deploy, { onNone: () => ({ PULUMI_BACKEND_URL: 'file://~', PULUMI_CONFIG_PASSPHRASE: '' }), onSome: ({ rows }) => ({ ...rows, DOPPLER_TOKEN: rows.DOPPLER_IAC_TOKEN }) }),
+                            projectSettings: { name: manifest.name.replace('@', '').replace('/', '-'), runtime: 'nodejs', main: import.meta.dirname },
+                        } satisfies automation.LocalWorkspaceOptions;
+                        const workspace = yield* Effect.tryPromise({ try: () => automation.LocalWorkspace.create(settings), catch: failed });
+                        const running = yield* Effect.tryPromise({ try: () => (operation === 'up' ? automation.Stack.createOrSelect : automation.Stack.select)(stackName, workspace), catch: failed });
+                        yield* Effect.tryPromise({ try: (signal): Promise<unknown> => ({ up: () => running.up({ ...converged, signal }), preview: () => running.preview({ ...converged, signal, diff: true }), destroy: () => running.destroy({ ...handlers, signal, remove: true }) })[operation](), catch: failed });
+                    },
+                    Effect.scoped,
+                    Effect.exit,
                 ),
-                Effect.flatMap(Exit.asVoidAll),
+                { concurrency: 'unbounded' },
             ),
-            { discard: true },
-        );
-    }).pipe(Effect.provide(layer)),
-);
+            Effect.flatMap(Exit.asVoidAll),
+        ),
+        { discard: true },
+    );
+}).pipe(Effect.provide(layer), runMain());

@@ -149,10 +149,7 @@ const stored = (machine: Machine, rows: Readonly<Record<'RUSTFS_ACCESS_KEY' | 'R
         onNone: () => ({ ips: output(['127.0.0.1']), address: '127.0.0.1' }),
         onSome: () => ({ ips: tailnet(machine).addresses.apply(Array.filter(isIPv4)), address: machine.name }),
     });
-    const route = Option.map(
-        Option.liftPredicate(machine, ({ roles }) => roles.some(Role.$is('Apps'))),
-        (exposed) => exposed.routed('storage', ports.internal),
-    );
+    const route = Option.map(Array.findFirst(machine.roles, Role.$is('Apps')), () => machine.routed('storage', ports.internal));
     const serving = machine.contained(
         'storage',
         ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}${ports.health}`],
@@ -171,10 +168,8 @@ const stored = (machine: Machine, rows: Readonly<Record<'RUSTFS_ACCESS_KEY' | 'R
 
 const bucketed = (name: string, storage: ReturnType<typeof stored>, buckets: Effect.Success<ReturnType<typeof deploy.Machine>>['buckets']) => {
     const provider = new minio.Provider(name, { minioServer: storage.server, minioUser: storage.user, minioPassword: storage.key });
-    const allowed = Record.filter(
-        Record.map(buckets, ({ cors }) => cors.map(({ origins, methods, headers, exposed, age }) => ({ allowedOrigins: [...origins], allowedMethods: [...methods], allowedHeaders: [...headers], exposeHeaders: [...exposed], maxAgeSeconds: Duration.toSeconds(age) }))),
-        Array.isArrayNonEmpty,
-    );
+    const shared = Record.map(buckets, ({ cors }) => cors.map(({ origins, methods, headers, exposed, age }) => ({ allowedOrigins: [...origins], allowedMethods: [...methods], allowedHeaders: [...headers], exposeHeaders: [...exposed], maxAgeSeconds: Duration.toSeconds(age) })));
+    const allowed = Record.filter(shared, Array.isArrayNonEmpty);
     const s3 = Option.map(
         Option.liftPredicate(allowed, Predicate.not(Record.isEmptyRecord)),
         () =>

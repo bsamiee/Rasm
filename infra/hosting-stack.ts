@@ -67,24 +67,16 @@ const hostingStacks = Effect.fnUntraced(function* (node: ProjectGraphProjectNode
             return { url: serving.id.apply(() => `https://${address}`) };
         }).pipe(provided),
     });
-    return yield* Option.match(released, {
-        onNone: () => Effect.succeed([machined('disposable', local.host, Option.some(local.owner))]),
-        onSome: ({ production }) => {
-            const mode = production ? 'production' : 'disposable';
-            const apps = Record.filter(hosts, ({ roles }) => roles.some(Role.$is('Apps')));
-            return Effect.forEach(
-                app.targets,
-                App.Target.$match({
-                    Cloudflare: () => Effect.succeed({ stackName: `${App.resource(app, mode)}.cloudflare`, program: provided(deploy.Cloudflare({ app, mode, root: join(workspaceRoot, node.data.root) })) }),
-                    Machine: ({ host }) =>
-                        Effect.as(
-                            Effect.fromOption(Record.get(apps, host), () => new Cause.NoSuchElementError(`${app.name} deploys to ${host}, machines with role Apps are ${Record.keys(apps).join(', ')}`)),
-                            machined(mode, host, Option.none()),
-                        ),
-                }),
-            );
-        },
-    });
+    const mode = Option.exists(released, Struct.get('production')) ? 'production' : 'disposable';
+    const apps = Record.filter(hosts, ({ roles }) => roles.some(Role.$is('Apps')));
+    const targeted = Effect.forEach(
+        app.targets,
+        App.Target.$match({
+            Cloudflare: () => Effect.succeed({ stackName: `${App.resource(app, mode)}.cloudflare`, program: provided(deploy.Cloudflare({ app, mode, root: join(workspaceRoot, node.data.root) })) }),
+            Machine: ({ host }) => Effect.fromOption(Option.as(Record.get(apps, host), machined(mode, host, Option.none())), () => new Cause.NoSuchElementError(`${app.name} deploys to ${host}, machines with role Apps are ${Record.keys(apps).join(', ')}`)),
+        }),
+    );
+    return yield* Option.match(released, { onNone: () => Effect.succeed([machined(mode, local.host, Option.some(local.owner))]), onSome: () => targeted });
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
