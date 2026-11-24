@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
-import { dried, executor, spawned, Words } from '@rasm/nx-distribution/inference';
+import { dried, executor, spawned, Words } from '@rasm/nx';
 import { Array, Cause, Config, Effect, Option, Path, Result, Schema, SemVer, String, Struct } from 'effect';
 import { Crate } from '#/workspace';
 

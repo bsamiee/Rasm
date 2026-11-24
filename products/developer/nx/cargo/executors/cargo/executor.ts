@@ -2,7 +2,7 @@ import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext, Task } from '@nx/devkit';
 import { findAllProjectNodeDependencies, type TaskResult } from '@nx/devkit/internal';
-import { batched, executor, Words } from '@rasm/nx-distribution/inference';
+import { batched, executor, Words } from '@rasm/nx';
 import { Array, Clock, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream, Struct } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { Crate, Unification } from '#/workspace';

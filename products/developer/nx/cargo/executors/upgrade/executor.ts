@@ -1,4 +1,4 @@
-import { dried, executor, spawned } from '@rasm/nx-distribution/inference';
+import { dried, executor, spawned } from '@rasm/nx';
 import { Array, DateTime, Effect, Option, Order, Path, Record, Result, Schema, SchemaGetter, SemVer, String } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { MANIFEST, toml } from '#/workspace';

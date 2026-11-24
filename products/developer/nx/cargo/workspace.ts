@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { parse } from '@decimalturn/toml-patch';
 import { normalizePath, readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
-import { above, runner, spawned } from '@rasm/nx-distribution/inference';
+import { above, runner, spawned } from '@rasm/nx';
 import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------

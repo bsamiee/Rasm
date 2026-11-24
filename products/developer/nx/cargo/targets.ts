@@ -1,7 +1,6 @@
 import { dirname, posix, relative } from 'node:path';
 import { normalizePath, type TargetConfiguration } from '@nx/devkit';
-import { aggregated, type Verbs } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { type Anchor, aggregated, EXECUTORS, type Verbs } from '@rasm/nx';
 import { Array, Option, Record, Schema } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
 import { ACTIONS, LOCK, MANIFEST, type Member, PLUGIN, Target, tokened, type Workspace } from '#/workspace';
@@ -188,7 +187,7 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
     };
 };
 
-const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, member: Option.Option<Member>, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, workspaceRoot: string, published: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => {
+const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, member: Option.Option<Member>, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, anchor: Anchor, published: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => {
     const nested = Option.filter(member, ({ root }) => root !== workspace.root);
     const packed = Option.map(Option.all({ held: Option.filter(member, ({ versioned, packable }) => versioned && packable), placed: workspace.placed }), ({ held: { crate, packages }, placed: artifacts }) =>
         cargoTarget(
@@ -212,7 +211,7 @@ const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, m
             ...tools,
             attach: Record.getSomes({
                 gh: Option.as(packed, {
-                    executor: `${distribution.name}:attach`,
+                    executor: EXECUTORS.attach,
                     dependsOn: ['pack--cargo'],
                     inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
                     metadata: {
@@ -223,7 +222,7 @@ const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, m
             }),
             clean: {
                 cargo: {
-                    executor: `${distribution.name}:clean`,
+                    executor: EXECUTORS.clean,
                     inputs: SOURCES,
                     options: { commands: cleaned.commands, cwd: workspace.root, targets: removed },
                     configurations: { cache: cleaned.cache },
@@ -233,7 +232,7 @@ const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, m
         },
         stated,
         'rust',
-        workspaceRoot,
+        anchor,
         published,
     );
 };

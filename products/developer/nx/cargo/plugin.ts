@@ -2,7 +2,7 @@ import { dirname, join, posix } from 'node:path';
 import { arch, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { anchored, fingerprinted, inferring, manifested } from '@rasm/nx-distribution/inference';
+import { type Anchor, anchored, fingerprinted, inferring, manifested } from '@rasm/nx';
 import { Array, Config, Effect, identity, Option, Record, String, Struct } from 'effect';
 import { crateInputs, Options, projectTargets, released } from '#/targets';
 import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, type Reading, resolved, run, type Workspace, workspaces } from '#/workspace';
@@ -16,15 +16,15 @@ const OWN = fingerprinted(import.meta.dirname);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, { coveragePath }: Options, listed: (root: string) => boolean, workspace: Workspace) {
+const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, { coveragePath }: Options, anchor: Anchor, workspace: Workspace) {
     const coverage = Option.map(Option.fromUndefinedOr(coveragePath), (at) => posix.join(at, 'lcov.info'));
     const roots = [...new Map<string, Option.Option<Member>>([[workspace.root, Option.none()], ...workspace.members.map((member) => [member.root, Option.some(member)] as const)])];
-    const manifests = yield* Effect.forEach(roots, ([root]) => Effect.transposeOption(Option.liftPredicate(manifested(context.workspaceRoot, root), () => listed(root))));
+    const manifests = yield* Effect.forEach(roots, ([root]) => Effect.transposeOption(Option.liftPredicate(manifested(context.workspaceRoot, root), () => anchor.holds(root))));
     const present = Array.zip(roots, manifests).filter(([[, member], stated]) => Option.isSome(member) || Option.isSome(stated));
     const projects = Record.fromIterableWith(present, ([[root, member], manifest]): [string, ProjectConfiguration] => {
         const stated = Option.getOrElse(manifest, () => ({}));
         const delivery = Option.map(member, (held) => released(held, workspace.root));
-        const targets = projectTargets(workspace, coverage, member, stated, context.workspaceRoot, Option.match(delivery, { onNone: () => ({}), onSome: Struct.get('targets') }));
+        const targets = projectTargets(workspace, coverage, member, stated, anchor, Option.match(delivery, { onNone: () => ({}), onSome: Struct.get('targets') }));
         const crate = Option.zipWith(member, delivery, (held, shipped) => {
             const { default: sources } = getNamedInputs(root, context);
             const implicit = held.crate.metadata?.nx?.implicitDependencies;
@@ -47,7 +47,7 @@ const createNodes: CreateNodes = [
     `**/${MANIFEST}`,
     inferring(Options, run, function* (manifests, settings, context) {
         const { workspaceRoot } = context;
-        const listed = anchored(workspaceRoot);
+        const anchor = anchored(workspaceRoot);
         const cache = new PluginCache<{ readonly digest: string; readonly readings: readonly Reading[] }>(join(workspaceDataDirectory, 'cargo.hash'));
         const { stored, loaded } = placed(workspaceRoot);
         const [content, configured, laid, stated] = yield* Effect.all(
@@ -74,7 +74,7 @@ const createNodes: CreateNodes = [
               });
         const resolutions = readings.map((reading) => resolved(workspaceRoot, reading, files));
         (yield* Links).set(workspaceRoot, new Map(resolutions.flatMap(({ members }) => members.map((member) => [dirname(member.crate.manifest_path), member] as const))));
-        const results = yield* Effect.forEach(resolutions, (workspace) => inferred(context, settings, listed, workspace));
+        const results = yield* Effect.forEach(resolutions, (workspace) => inferred(context, settings, anchor, workspace));
         return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
     }),
 ];
