@@ -84,9 +84,9 @@ const it = workspaced
         onCleanup(() => log.mockRestore());
         return log;
     })
-    .extend('released', ({ workspace }) => async (files: Readonly<Record<string, string>>, tags: readonly string[], release?: object) => {
+    .extend('released', ({ workspace }) => async (files: Readonly<Record<string, string>>, tags: readonly string[], release?: object, view = 'exit 0') => {
         const git = (...args: readonly string[]) => execFileSync('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd: workspace.root });
-        shimmed(join(workspace.root, '.bin'), { gh: String.raw`printf '%s\n' "$@" > "$(dirname "$0")/../gh.txt"` });
+        shimmed(join(workspace.root, '.bin'), { gh: String.raw`[ "$1 $2" = 'release view' ] && { ${view}; }; printf '%s\n' "$@" > "$(dirname "$0")/../gh.txt"` });
         vi.stubEnv('LIB_SECRET', 'token; touch PWNED');
         vi.stubEnv('BLANK_TOKEN', '');
         workspace.write({ '.gitignore': '.bin\n.artifacts\n*.yak\n*.txt\n', 'nx.json': JSON.stringify({ release: release ?? { projects: ['*'], projectsRelationship: 'independent' } }), ...files });
@@ -112,6 +112,23 @@ describe('attach--gh', () => {
         expect(recorded('gh.txt')).toStrictEqual(uploaded);
     });
 
+    it('creates the release of a tag gh finds no release for, with the packed files', async ({ workspace, released }) => {
+        const { graph, recorded } = await released(rhino, ['marker@1.2.4'], undefined, "echo 'release not found' >&2; exit 1");
+
+        await attach({}, workspace.context(graph, 'marker', 'attach--gh'));
+
+        expect(recorded('gh.txt')).toStrictEqual(['release', 'create', 'marker@1.2.4', '--verify-tag', 'rhino/marker-1.2.4-rh8-any.yak']);
+    });
+
+    it('fails where gh cannot read the release of the tag, and creates and uploads nothing', async ({ workspace, released }) => {
+        const { graph, recorded } = await released(rhino, ['marker@1.2.4'], undefined, "echo 'non-200 OK status code: 401 Unauthorized' >&2; exit 1");
+
+        const attached = attach({}, workspace.context(graph, 'marker', 'attach--gh'));
+
+        await expect(attached).rejects.toThrow('gh release view marker@1.2.4 --json tagName exits 1: non-200 OK status code: 401 Unauthorized');
+        expect(recorded('gh.txt')).toStrictEqual([]);
+    });
+
     it('uploads the zip an extension with no Nx configuration packs, with the visible files the pack targets of each package requiring it wrote', async ({ workspace, released }) => {
         const { graph, recorded } = await released(clipper, ['clipper@1.2.4']);
 
@@ -130,12 +147,12 @@ describe('attach--gh', () => {
         expect(recorded('gh.txt')).toStrictEqual([]);
     });
 
-    it('previews the upload with the words of the run but the dry-run flag the executor reads itself, and runs no gh', async ({ workspace, released, log }) => {
+    it('previews the upload and the release creation with the words of the run but the dry-run flag the executor reads itself, and runs no gh', async ({ workspace, released, log }) => {
         const { graph, recorded } = await released(rhino, []);
 
         await attach({ dryRun: true, __unparsed__: ['--dry-run=true', '--repo', 'owner/marker'] }, workspace.context(graph, 'marker', 'attach--gh'));
 
-        expect(log).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/^Would run gh release upload .+ rhino\/marker-1\.2\.4-rh8-any\.yak --clobber --repo owner\/marker$/u));
+        expect(log).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/^Would run gh release upload .+ rhino\/marker-1\.2\.4-rh8-any\.yak --clobber --repo owner\/marker where .+ has a GitHub release, else gh release create .+ --verify-tag rhino\/marker-1\.2\.4-rh8-any\.yak --repo owner\/marker$/u));
         expect(recorded('gh.txt')).toStrictEqual([]);
     });
 

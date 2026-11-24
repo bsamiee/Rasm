@@ -240,7 +240,7 @@ Products deliver through the same targets in every ecosystem, development builds
 - New `release` projects take an annotated `<project>@<version>` tag by hand at their manifest version, in place of `--first-release`
 - `nx release <version> --projects=<projects> --skip-publish` moves projects to an exact version alone, as a prerelease line takes its stable release
 - `nx run-many -t attach -c release` uploads released files to each tag's GitHub release, and stores with no upload API take files by hand
-- Tags made by hand take their GitHub release from `gh release create <tag>`, as `attach` uploads to a release `nx release` made
+- `attach` creates a tag's GitHub release where none exists, as `nx release` makes none for hand-made tags or dependents outside `--projects`
 - `nx release publish` sends the same files to each registry or store its ecosystem's publish setting allows, skipping until a credential is set
 - Store items take their first upload by hand at the store dashboard, as store APIs publish only to listed items
 - `deploy` applies a project's Pulumi stacks after its dependencies', `-c release` a released version's, `deploy--pulumi --stack=<name>` one stack
