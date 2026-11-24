@@ -20,7 +20,6 @@ const REFUSED = [
     ['git -C {session} reset -q --soft HEAD~1', 'git reset HEAD~1 moves HEAD, commit forward'],
     ['git -C {session} branch -D probe', `git branch -D ${BRANCHES}`],
     ['git -C {session} checkout -b probe', `git checkout -b ${BRANCHES}`],
-    ['git -C {session} commit --amend --no-edit', 'git commit --amend rewrites HEAD, which this session did not commit'],
     ['git -C {session} -c core.hooksPath=/dev/null commit -m probe', 'git commit -c skips the commit hooks'],
     ['git -C {session} push origin :main', 'git push :main rewrites remote history'],
     ['git -C {session} rebase main', 'git rebase rewrites shared commits'],
@@ -381,6 +380,28 @@ layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })
                     expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a')).toStrictEqual({ _tag: 'Rewrite', command: `${STAMP} git commit --amend -q --no-edit`, background: false });
                 }),
             ),
+        30_000,
+    );
+
+    it.effect(
+        'Amend by a subagent of the session whose main agent made HEAD is refused',
+        () =>
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const held = yield* scratch();
+                    yield* Effect.forEach([{ hand: 'echo 1 > c && git add c' }, { by: 'a', command: 'git commit -q -m one' }] as const, amendStep(held), { discard: true });
+                    expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a1')).toSatisfy(refusing(NOT_COMMITTED), `refused because ${NOT_COMMITTED}`);
+                }),
+            ),
+        30_000,
+    );
+
+    it.effect(
+        'A commit stamped for one agent is stamped again when decided for another agent of the session',
+        Effect.fnUntraced(function* () {
+            const { session, filled } = yield* Folders;
+            expect(yield* decided(filled(`${STAMP} git -C {session} commit -m probe`), session, OWNERS.a1)).toMatchObject({ _tag: 'Rewrite', command: filled("GIT_REFLOG_ACTION='function-hooks session-a/a1' git -C {session} commit -m probe") });
+        }),
         30_000,
     );
 
