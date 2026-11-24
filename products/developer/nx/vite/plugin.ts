@@ -5,8 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { getReadyCheckReadyWhen, hashObject, quoteShellArg } from '@nx/devkit/internal';
-import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, run, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, run, tokened, type Verbs, within } from '@rasm/nx';
 import { Array, Cause, Effect, FileSystem, Option, Record, Schema } from 'effect';
 import type { parseSync } from 'vite';
 
@@ -22,7 +21,7 @@ const CLOUDFLARE = { plugin: '@cloudflare/vite-plugin', output: '@cloudflare/bui
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Folder }).annotate({ description: 'outputPath: workspace folder vite build writes to, {projectName} naming the project, absent leaves build.outDir of the config' });
+const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'outputPath: workspace folder vite build writes to, {projectName} naming the project, absent leaves build.outDir of the config' });
 const Resolution = Schema.Struct({
     root: Schema.String,
     library: Schema.Boolean,
@@ -118,7 +117,7 @@ const targets = (file: string, { folders, signals, served, loaded, packages, env
             onEmpty: () => ({}),
             onNonEmpty: (labels) => ({
                 vite: {
-                    executor: `${distribution.name}:clean`,
+                    executor: EXECUTORS.clean,
                     options: { targets: labels },
                     inputs: ['default', '^default', { externalDependencies: [] }],
                     metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: `${exec} nx run --help`, example: { options: { targets: labels } } } },
@@ -140,7 +139,7 @@ const targets = (file: string, { folders, signals, served, loaded, packages, env
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, context: CreateNodesContext, at: Option.Option<string>, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, anchor: Anchor, context: CreateNodesContext, at: Option.Option<string>, file: string) {
     const root = posix.dirname(file);
     const outDir = Option.map(at, (folder) => posix.relative(root, folder));
     const resolved = yield* pass.recall(file, read(context.workspaceRoot, file, outDir));
@@ -150,16 +149,16 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(ke
         root,
         ...(resolved.folders !== undefined && { projectType: resolved.type }),
         metadata: { technologies: ['vite'] },
-        targets: aggregated(targets(file, resolved, chain, namedInput(root, context), outDir, pass.exec), stated, 'vite', context.workspaceRoot),
+        targets: aggregated(targets(file, resolved, chain, namedInput(root, context), outDir, pass.exec), stated, 'vite', anchor),
     };
     return { projects: { [root]: project } };
 });
 
 const nodes = inferring(Options, run, function* (files, settings, context, cached) {
-    const project = anchored(context.workspaceRoot);
-    const configs = files.filter((file) => project(posix.dirname(file)));
+    const anchor = anchored(context.workspaceRoot);
+    const configs = files.filter((file) => anchor.holds(posix.dirname(file)));
     const pass = yield* cached<Resolved>('vite.hash', hashArray([hashObject(settings), yield* OWN]));
-    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, Option.fromUndefinedOr(settings.outputPath), file)), configs, settings, context));
+    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, anchor, context, Option.fromUndefinedOr(settings.outputPath), file)), configs, settings, context));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

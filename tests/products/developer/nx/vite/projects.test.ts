@@ -1,5 +1,5 @@
-import { Clean, execute } from '@rasm/nx-distribution/executors/clean';
 import { createNodes } from '@rasm/nx-vite';
+import { Clean, execute } from '@rasm/nx/executors/clean';
 import { it as nx, taskGraph } from '@rasm/testing/nx';
 import { Schema } from 'effect';
 import { assert, describe, expect, vi } from 'vitest';
