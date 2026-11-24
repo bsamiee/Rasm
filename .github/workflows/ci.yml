@@ -40,7 +40,7 @@ jobs:
         env:
             GH_TOKEN: &github ${{ github.token }}
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
+            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
         steps:
             - &checkout
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

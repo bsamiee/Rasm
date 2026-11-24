@@ -77,10 +77,10 @@ Routes from public names to containers:
 ## [05]-[CACHE_SERVER]
 
 Nx cache server of role `Cache`:
-- Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes a read-only and a write token
+- Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes one token that reads and writes
 - Runners reach the server over public HTTPS through its proxy
-- Cache stacks write server URL and both tokens to Doppler `ci` once the server runs healthy
-- Cache stacks write object storage root keys and references to URL and read token to Doppler `dev`
+- Cache stacks write server URL and token to Doppler `ci` once the server runs healthy
+- Cache stacks write object storage root keys and references to URL and token to Doppler `dev`
 - Cache objects expire role field `kept` after their write, and a read refreshes none
 - Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a run once a cache write fails six times
 - Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop
@@ -103,9 +103,10 @@ Atuin sync server of role `History`:
 GitHub Actions runners of role `Runner`:
 - Role `Runner` field `instances` names each runner service by label with systemd limits `systemctl set-property` sets once it starts
 - Systemd limits of instance `container` reach no job, as its jobs run in containers under Docker's cgroups
-- Runner `<machine>-<label>` holds folder `actions-runner-<label>`, its own work folder, and label `<label>` beside default labels
+- Runner `<machine>-<label>` installs in folder `actions-runner-<label>`, works in folder `actions-work-<label>`, and holds label `<label>` beside default labels
 - Instance `host` runs jobs on its machine and `container` in a container, one job of each at once
 - Changes to runner version, label, limits, repository, or tailnet node reinstall a runner after `systemctl revert`
+- Reinstalls replace folder `actions-runner-<label>` alone, so checkouts, tools, and caches of its work folder stay, and a removed runner deletes both
 - Runner installs register through `config.sh --pat`, which takes a registration token from `GITHUB_TOKEN` at each attempt
 - Runner removals run `config.sh remove --pat` with the token of their last install, and a revoked token leaves an offline registration
 - Runners keep tools, ignored files, and each Unreal image between runs, as jobs name an image by tag and `docker image prune` removes untagged ones

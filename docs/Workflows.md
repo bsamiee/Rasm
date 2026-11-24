@@ -71,8 +71,10 @@ Nx remote cache and Actions caches per workflow and machine:
 - Action `jdx/mise-action` saves a GitHub-hosted job's tools after install, keyed by platform, profile, `mise.toml`, `mise.lock`, and profile files
 - Tool cache keys leave out OS and machine mise files, as those state environment and bootstrap rows alone
 - GitHub-hosted jobs cache no pnpm store, as `pnpm store prune` empties a store inside the workspace, which pnpm registers no project for
-- Pushes to `main` read and write with `NX_CACHE_WRITE_TOKEN`, and other runs read with `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`
-- Owner's Mac reads the server and read-only token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
+- Runs read and write with `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`, and a pull request from a fork holds no secret and uses its local cache
+- Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
+- Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
+- Test targets hash variable `CI`, as Vitest, Playwright, and MSBuild change behavior under it, so CI runs its own tests
 - Nx sets no remote cache timeout and stops a run on a read answered other than 200 or 404 or left unconnected, and no setting overrides the stop
 - `@rasm/nx-distribution` reads the cache server with its token once before each `nx` run's tasks, outside any task
 - Reads answered other than 200 or 404, refused, or past option `remoteCacheTimeout` print one warning and empty `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`

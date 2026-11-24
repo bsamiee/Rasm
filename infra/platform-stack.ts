@@ -203,7 +203,7 @@ const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'C
     const { port, health } = { port: 3000, health: '/health' };
     const storage = stored(machine);
     const scoped = bucketed(name, storage, { [name]: { kept: false, abort: kept, expire: { '': kept }, cors: [] } });
-    const tokens = Record.map({ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: 'READ_ONLY_ACCESS_TOKEN', NX_CACHE_WRITE_TOKEN: 'SERVICE_ACCESS_TOKEN' }, (variable, row) => ({ variable, value: new RandomPassword(`${machine.name}-${row}`, { length: 48, special: false }).result }));
+    const token = new RandomPassword(`${machine.name}-SERVICE_ACCESS_TOKEN`, { length: 48, special: false }).result;
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: health });
     const image = machine.imaged(
         name,
@@ -218,10 +218,10 @@ COPY --from=2 /nx-cache-aws /
 ENTRYPOINT ["/nx-cache-aws"]
 `,
     );
-    const envs = Record.collect({ S3_BUCKET_NAME: name, S3_ENDPOINT_URL: scoped.AWS_ENDPOINT_URL_S3, ...scoped, ...Record.mapEntries(tokens, ({ variable, value }) => [variable, value]) }, (variable, value) => interpolate`${variable}=${value}`);
+    const envs = Record.collect({ S3_BUCKET_NAME: name, S3_ENDPOINT_URL: scoped.AWS_ENDPOINT_URL_S3, ...scoped, SERVICE_ACCESS_TOKEN: token }, (variable, value) => interpolate`${variable}=${value}`);
     const serving = machine.contained(name, ['CMD', '/busybox/wget', '--quiet', '--spider', `http://127.0.0.1:${port}${health}`], { image, init: true, envs, labels }, { dependsOn: [proxied(machine), ...named] });
-    const ci = Record.map({ ...Record.map(tokens, Struct.get('value')), NX_SELF_HOSTED_REMOTE_CACHE_SERVER: `https://${address}` }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }, { dependsOn: serving }));
-    const dev = Record.map(Struct.omit(ci, ['NX_CACHE_WRITE_TOKEN']), ({ config, name: reference }, row) => new Secret(`${machine.name}-dev-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value: interpolate`\${${config}.${reference}}` }).name);
+    const ci = Record.map({ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: token, NX_SELF_HOSTED_REMOTE_CACHE_SERVER: `https://${address}` }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }, { dependsOn: serving }));
+    const dev = Record.map(ci, ({ config, name: reference }, row) => new Secret(`${machine.name}-dev-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value: interpolate`\${${config}.${reference}}` }).name);
     const root = Record.map({ RUSTFS_ACCESS_KEY: storage.user, RUSTFS_SECRET_KEY: storage.key }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value }).name);
     return { ...Record.map(ci, Struct.get('name')), dev, root };
 };
@@ -298,18 +298,18 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                     const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner' } as const;
                     const browsers = `ghcr.io/${owner}/${repository}/playwright`.toLowerCase();
                     const [, registered] = Array.mapAccum(Record.toEntries(instances), Option.none<remote.Command>(), (before, [label, limits]) => {
-                        const folder = `/home/${runner.user}/actions-runner-${label}`;
+                        const [folder, work] = [`/home/${runner.user}/actions-runner-${label}`, `/home/${runner.user}/actions-work-${label}`];
                         const archive = `/tmp/actions-runner-${label}.tar.gz`;
                         const removed = `token=$(cat); if cd "${folder}" 2>/dev/null; then systemctl revert "$(cat .service)"; ./svc.sh stop; ./svc.sh uninstall; sudo -u ${runner.user} ./config.sh remove --pat "$token"; fi; rm -rf "${folder}"`;
                         const installation = [
                             removed,
                             'set -eu',
-                            `install -d -o ${runner.user} -g ${runner.user} "${folder}" && cd "${folder}"`,
+                            `install -d -o ${runner.user} -g ${runner.user} "${folder}" "${work}" && cd "${folder}"`,
                             `curl -fsSL -o "${archive}" https://github.com/actions/runner/releases/download/v${runner.version}/actions-runner-linux-x64-${runner.version}.tar.gz`,
                             `echo "${runner.sha256}  ${archive}" | sha256sum --check --quiet`,
                             `sudo -u ${runner.user} tar xzf "${archive}" && rm "${archive}"`,
                             './bin/installdependencies.sh',
-                            `sudo -u ${runner.user} ./config.sh --unattended --replace --url "https://github.com/${owner}/${repository}" --name "${machine.name}-${label}" --labels "${label}" --pat "$token"`,
+                            `sudo -u ${runner.user} ./config.sh --unattended --replace --url "https://github.com/${owner}/${repository}" --name "${machine.name}-${label}" --labels "${label}" --work "${work}" --pat "$token"`,
                             `./svc.sh install ${runner.user}`,
                             './svc.sh start',
                             ...Array.match(
@@ -319,7 +319,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                         ].join('\n');
                         const instance = new remote.Command(
                             `${machine.name}-runner-${label}`,
-                            { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: secret(pat), triggers: [tailnet(machine).nodeId] },
+                            { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: `${removed}; rm -rf "${work}"`, stdin: secret(pat), triggers: [tailnet(machine).nodeId] },
                             { dependsOn: Option.toArray(before), deleteBeforeReplace: true },
                         );
                         return [Option.some(instance), [label, instance.id] as const];
