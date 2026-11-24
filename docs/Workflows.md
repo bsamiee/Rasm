@@ -120,6 +120,7 @@ Workflow `Deploy` triggers and steps:
 - `mise bootstrap remote` continues past an unreachable machine, and `nx deploy` runs after a failed bootstrap
 - `nx deploy` applies the repository stack before machine stacks, and an unreachable machine fails its own stack alone
 - Job `deploy` allows 120 minutes, the `jactionlint` limit, as a machine stack allows an Unreal image pull `2h` (`customTimeouts`)
+- Deploy checkouts fetch their own commit alone, as `nx deploy` and `nx dry-run` read no earlier commit
 - `Deploy` runs with no Nx remote cache, independent of the cache server it deploys
 - `nx deploy @rasm/infra` creates the whole Nx project graph, and a plugin failing graph creation stops each deploy before any stack applies
 - Unchanged stack inputs apply nothing
