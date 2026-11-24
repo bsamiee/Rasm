@@ -8,14 +8,27 @@ import { describe, expect } from 'vitest';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const BUILT = { targets: { build: { dependsOn: [{ target: 'build--*', params: 'forward' }] }, 'build--tsc': { command: 'true' } } };
-const MANIFESTS: Readonly<Record<string, { readonly name: string; readonly bin?: string; readonly dependencies?: Readonly<Record<string, string>>; readonly nx: object }>> = {
+const MANIFESTS: Readonly<Record<string, { readonly name: string; readonly bin?: string; readonly exports?: object; readonly dependencies?: Readonly<Record<string, string>>; readonly nx: object }>> = {
     shared: { name: 'shared', nx: BUILT },
+    source: { name: 'source', exports: { '.': './index.ts', './*': './*.ts' }, nx: BUILT },
+    sourced: { name: 'sourced', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', source: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['source'] } },
+    layered: { name: 'layered', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', wrapper: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['wrapper'] } },
+    wrapper: { name: 'wrapper', exports: { '.': './index.ts' }, dependencies: { shared: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['shared'] } },
     infra: { name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', '@pulumi/cloudflare': '*', shared: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['shared'] } },
     site: { name: 'site', dependencies: { infra: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['infra'] } },
     compiled: { name: 'compiled', bin: 'dist/stacks.js', dependencies: { '@pulumi/pulumi': '*' }, nx: BUILT },
     app: { name: 'app', dependencies: { compiled: 'workspace:*', react: '*' }, nx: { ...BUILT, implicitDependencies: ['compiled'] } },
 };
-const STACKS = { 'package.json': '{"name":"root","workspaces":["packages/*"]}', 'packages/infra/stacks.mjs': 'export {};\n', ...Object.fromEntries(Object.entries(MANIFESTS).map(([name, manifest]) => [`packages/${name}/package.json`, JSON.stringify(manifest)])) };
+const STACKS = {
+    'package.json': '{"name":"root","workspaces":["packages/*"]}',
+    'packages/infra/stacks.mjs': 'export {};\n',
+    'packages/sourced/stacks.mjs': 'export {};\n',
+    'packages/layered/stacks.mjs': 'export {};\n',
+    'packages/source/index.ts': 'export {};\n',
+    'packages/source/util.ts': 'export {};\n',
+    'packages/wrapper/index.ts': 'export {};\n',
+    ...Object.fromEntries(Object.entries(MANIFESTS).map(([name, manifest]) => [`packages/${name}/package.json`, JSON.stringify(manifest)])),
+};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -60,6 +73,8 @@ describe('task order', () => {
         { task: 'site:deploy--pulumi', before: 'infra:build--tsc', runs: false },
         { task: 'compiled:deploy--pulumi', before: 'compiled:build--tsc', runs: true },
         { task: 'app:deploy--pulumi', before: 'compiled:build--tsc', runs: true },
+        { task: 'sourced:deploy--pulumi', before: 'source:build--tsc', runs: false },
+        { task: 'layered:deploy--pulumi', before: 'wrapper:build--tsc', runs: true },
     ])('$task runs $before first: $runs', async ({ task, before, runs }, { workspace }) => {
         const graph = await workspace.write(STACKS).graph({ createNodes });
         const [project = '', target = ''] = task.split(':');
