@@ -182,6 +182,8 @@ jobs:
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
             - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
               run: hk check --step swiftlint --step swift-format --step plutil --step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
+              env:
+                  HK_LIBGIT2: 'false'
             - &save
               if: ${{ !cancelled() && github.ref == 'refs/heads/main' && !endsWith(steps.graph.outputs.cache-matched-key, hashFiles('.cache/nx/workspace-data/*.hash')) }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

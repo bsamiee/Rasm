@@ -48,6 +48,7 @@ Workflow `CI` and its jobs:
 - Unreal projects hold no target on a runner outside their engine image
 - Unreal image pulls sign in to GHCR as the repository owner, the account `EPIC_GHCR_TOKEN` belongs to
 - Jobs `macos` and `windows` clone every commit without file contents and fetch the files of their own commit alone (`filter: blob:none`)
+- Job `macos` runs `hk check` through `git` (`HK_LIBGIT2`), as libgit2 fails on a file a partial clone lacks where `git` lists names without it
 - `nx affected` compares file names between base and head, and reads lockfiles and root manifests changed between them at base, one request each
 - Self-hosted checkouts fetch full history, as a kept checkout fetches new commits alone
 - Release checkouts fetch full history, as `nx release` reads lockfiles and root manifests at each commit after a tag, one request each in a partial clone
