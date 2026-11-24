@@ -7,7 +7,6 @@ import { Container, type ContainerArgs, getRegistryImageOutput, Network, Provide
 import dockerBuild from '@pulumi/docker-build';
 import minio from '@pulumi/minio';
 import { all, type CustomResourceOptions, getProject, type Input, interpolate, jsonStringify, output, secret } from '@pulumi/pulumi';
-import { RandomPassword } from '@pulumi/random';
 import { getDeviceOutput } from '@pulumi/tailscale';
 import type { deploy } from '@rasm/hosting/deploy';
 import { Identity } from '@rasm/hosting/identity';
@@ -143,7 +142,8 @@ const proxied = Function.memoize((machine: Machine) => {
     });
 });
 
-const stored = (machine: Machine, { user, key }: Readonly<Record<'user' | 'key', Input<string>>>) => {
+const stored = (machine: Machine, rows: Readonly<Record<'RUSTFS_ACCESS_KEY' | 'RUSTFS_SECRET_KEY', string>>) => {
+    const [user, key] = [secret(rows.RUSTFS_ACCESS_KEY), secret(rows.RUSTFS_SECRET_KEY)];
     const ports = { internal: 9000, external: 7412, health: '/health/ready' } as const;
     const published = Option.match(machine.remote, {
         onNone: () => ({ ips: output(['127.0.0.1']), address: '127.0.0.1' }),
@@ -239,9 +239,8 @@ const synced = (machine: Machine, { name }: Data.TaggedEnum.Value<Role, 'History
     return { [name]: serving.urn.apply(() => `https://${address}`) };
 };
 
-const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>, storage: ReturnType<typeof stored>) => {
+const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>, storage: ReturnType<typeof stored>, rows: Readonly<Record<'AUTHELIA_SESSION_SECRET' | 'AUTHELIA_STORAGE_ENCRYPTION_KEY' | 'AUTHELIA_OWNER_PASSWORD_HASH', string>>) => {
     const [port, { guard, forwarded }] = [9091, Machine];
-    const password = new RandomPassword(`${machine.name}-owner`, { length: 32, special: false });
     const { address, named, labels } = machine.routed(guard, port, {
         [`traefik.http.middlewares.${guard}-check.forwardauth.address`]: `http://${guard}:${port}/api/authz/forward-auth`,
         [`traefik.http.middlewares.${guard}-check.forwardauth.authResponseHeaders`]: Object.values(forwarded).join(','),
@@ -261,42 +260,36 @@ const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>,
         [],
         {
             image: machine.pulled('authelia/authelia:4.39.28'),
-            envs: Array.map(['AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY'], (row) => interpolate`${row}=${new RandomPassword([machine.name, row].join('-'), { length: 64, special: false }).result}`),
+            envs: Array.map(['AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY'] as const, (row) => interpolate`${row}=${secret(rows[row])}`),
             uploads: [
                 { file: '/config/configuration.yml', content: jsonStringify(configuration) },
-                { file: '/config/users.yml', content: jsonStringify({ users: { owner: { displayname: 'Owner', email: owner, password: password.bcryptHash } } }) },
+                { file: '/config/users.yml', content: jsonStringify({ users: { owner: { displayname: 'Owner', email: owner, password: secret(rows.AUTHELIA_OWNER_PASSWORD_HASH) } } }) },
             ],
             mounts: [{ type: 'volume', source: machine.kept(guard), target: '/var/lib/authelia' }],
             labels,
         },
         { dependsOn: [proxied(machine), ...named] },
     );
-    return { network: output(machine.network), owner: { name: 'owner', password: password.result }, storage };
+    return { network: output(machine.network), storage };
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const installed = Effect.sync(() => {
-    const machine = Machine.on(local.host, Option.none());
-    return hosted(
-        machine,
-        local,
-        stored(
-            machine,
-            Record.map({ user: 'storage-access', key: 'storage-secret' }, (name) => new RandomPassword(`${machine.name}-${name}`, { length: 32, special: false }).result),
-        ),
-    );
-});
+const installed = (rows: Parameters<typeof stored>[1] & Parameters<typeof hosted>[3]) =>
+    Effect.sync(() => {
+        const machine = Machine.on(local.host, Option.none());
+        return hosted(machine, local, stored(machine, rows), rows);
+    });
 
-const provisioned = (host: keyof typeof hosts, { owner, repository, engines }: Effect.Success<typeof identified>, rows: Readonly<Record<'EPIC_GHCR_TOKEN' | 'GITHUB_TOKEN' | 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN' | 'RUSTFS_ACCESS_KEY' | 'RUSTFS_SECRET_KEY' | 'ATUIN_PASSWORD', string>>) =>
+const provisioned = (host: keyof typeof hosts, { owner, repository, engines }: Effect.Success<typeof identified>, rows: Parameters<typeof installed>[0] & Readonly<Record<'EPIC_GHCR_TOKEN' | 'GITHUB_TOKEN' | 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN' | 'ATUIN_PASSWORD', string>>) =>
     Effect.sync(() => {
         const registries = [{ address: 'ghcr.io', username: owner, password: rows.EPIC_GHCR_TOKEN }];
         const machine = Machine.on(host, Option.none(), registries);
-        const storage = Function.memoize((held: Machine) => stored(held, { user: secret(rows.RUSTFS_ACCESS_KEY), key: secret(rows.RUSTFS_SECRET_KEY) }));
+        const storage = Function.memoize((held: Machine) => stored(held, rows));
         const served = machine.roles.map(
             Role.$match({
                 Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, storage(machine), secret(rows.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN)),
-                Apps: (settings) => hosted(machine, settings, storage(machine)),
+                Apps: (settings) => hosted(machine, settings, storage(machine), rows),
                 History: (settings) => synced(machine, settings, owner, secret(rows.ATUIN_PASSWORD)),
                 Runner: ({ instances }) => {
                     const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner' } as const;

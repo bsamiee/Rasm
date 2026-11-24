@@ -51,7 +51,9 @@ Machines, their reinstall, and images their stacks run:
 ## [03]-[TAILNET]
 
 Tailnet members, tags, and policy:
-- Job `deploy` joins as `tag:deploy` through the OAuth client stack `rasm` writes to GitHub environment `deploy`, and machines hold `tag:server`
+- Job `deploy` joins as `tag:deploy` through the OAuth client of rows `TAILSCALE_DEPLOY_CLIENT_ID` and `TAILSCALE_DEPLOY_OAUTH_SECRET`, and machines hold `tag:server`
+- Stack `rasm` copies both rows to GitHub environment `deploy`, and row `TAILSCALE_ENROLMENT_KEY` into the script a new machine runs to join
+- Tailscale auth keys expire within 90 days, and a new machine enrolls with a new key set in row `TAILSCALE_ENROLMENT_KEY`
 - Stacks reach each machine's Docker engine and shell as `root@<name>` over Tailscale SSH with no key
 - Machine and app stacks apply only from a computer on the tailnet
 - Tailnet policy grants every source every destination and port, SSH from members and `tag:deploy` to machine tags, and Funnel to members
@@ -116,9 +118,11 @@ GitHub Actions runners of role `Runner`:
 
 Doppler configs and their readers:
 - Config `ci` syncs to repository Actions secrets and `release` to GitHub environment `release`, each deleting names removed from Doppler
-- GitHub environment `deploy` holds a read-only Doppler service token of `deploy` as `DOPPLER_TOKEN`
+- GitHub environment `deploy` holds a read-only Doppler service token of `deploy` as `DOPPLER_TOKEN`, set by hand once and held in 1Password
 - Doppler `deploy` rows take the variable name their provider reads, and each stack's Pulumi process receives them as its environment
-- Stacks read each secret a machine service takes from Doppler `deploy` and create none, so an apply changes no Doppler row
+- Stacks create no secret: each is made once, held in Doppler and 1Password, and read by the stack that passes it to its service
+- Deploys read Doppler `deploy`, and `nx install @rasm/infra` reads sign-in secrets and object storage keys from Doppler `dev`
+- Row `AUTHELIA_OWNER_PASSWORD_HASH` holds the bcrypt hash of row `AUTHELIA_OWNER_PASSWORD`, the form the sign-in service reads
 - Rows of `deploy` referencing `ci` or `dev` change with their source, which starts `Deploy` to apply the new value
 - Doppler `deploy` and 1Password hold `<NAME>_ROOT_PASSWORD`, `<NAME>_SSH_PRIVATE_KEY`, and `<NAME>_SSH_PUBLIC_KEY`, and no code reads them
 - Stacks write no `deploy` row, as a change to `deploy` starts workflow `Deploy`

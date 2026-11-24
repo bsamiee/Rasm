@@ -16,9 +16,10 @@ import { type configs, identified, repositoryStack } from '#/repository-stack';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Deployed = Schema.fromJsonString(
-    Schema.StructWithRest(Schema.Struct(Struct.Record(['ATUIN_PASSWORD', 'CLOUDFLARE_ACCOUNT_ID', 'DOPPLER_IAC_TOKEN', 'EPIC_GHCR_TOKEN', 'GITHUB_TOKEN', 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN', 'RUSTFS_ACCESS_KEY', 'RUSTFS_SECRET_KEY'], Schema.NonEmptyString)), [Schema.Record(Schema.String, Schema.String)]),
-);
+const Rows = <const K extends string>(keys: readonly K[]) => Schema.fromJsonString(Schema.StructWithRest(Schema.Struct(Struct.Record(keys, Schema.NonEmptyString)), [Schema.Record(Schema.String, Schema.String)]));
+const LOCAL = ['AUTHELIA_OWNER_PASSWORD_HASH', 'AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY', 'RUSTFS_ACCESS_KEY', 'RUSTFS_SECRET_KEY'] as const;
+const Installed = Rows(LOCAL);
+const Deployed = Rows([...LOCAL, 'ATUIN_PASSWORD', 'CLOUDFLARE_ACCOUNT_ID', 'DOPPLER_IAC_TOKEN', 'EPIC_GHCR_TOKEN', 'GITHUB_TOKEN', 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN', 'TAILSCALE_DEPLOY_CLIENT_ID', 'TAILSCALE_DEPLOY_OAUTH_SECRET', 'TAILSCALE_ENROLMENT_KEY']);
 const Request = Schema.Struct({ positionals: Schema.Tuple([Schema.Literals(['install', 'deploy'])]), operation: Schema.Literals(['up', 'preview', 'destroy']), stack: Schema.optionalKey(Schema.String), production: Schema.Boolean, expectNoChanges: Schema.Boolean }).pipe(
     Schema.encodeKeys({ expectNoChanges: 'expect-no-changes' }),
 );
@@ -35,12 +36,13 @@ runMain(
             (parsed) => Schema.decodeUnknownEffect(Request)({ ...parsed.values, positionals: parsed.positionals }),
         );
         const [fs, services] = yield* Effect.all([FileSystem.FileSystem, Effect.context<FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>()]);
-        const deploy = positionals[0] === 'deploy' ? Option.some({ production, rows: yield* Effect.flatMap(run(['doppler', 'secrets', 'download', '--no-file', '--format', 'json', '--config', 'deploy' satisfies (typeof configs)[number]]), ({ stdout }) => Schema.decodeEffect(Deployed)(stdout)) }) : Option.none();
+        const read = (config: (typeof configs)[number]) => Effect.map(run(['doppler', 'secrets', 'download', '--no-file', '--format', 'json', '--config', config]), Struct.get('stdout'));
+        const deploy = positionals[0] === 'deploy' ? Option.some({ production, rows: yield* Effect.flatMap(read('deploy'), Schema.decodeEffect(Deployed)) }) : Option.none();
         const root = relative(workspaceRoot, process.cwd()) || '.';
         const groups =
             process.cwd() === import.meta.dirname
                 ? yield* Option.match(deploy, {
-                      onNone: () => Effect.succeed([[{ stackName: local.host, program: installed }]]),
+                      onNone: () => Effect.map(Effect.flatMap(read('dev'), Schema.decodeEffect(Installed)), (rows) => [[{ stackName: local.host, program: installed(rows) }]]),
                       onSome: ({ rows }) => Effect.map(identified, (identity) => [[{ stackName: identity.project, program: repositoryStack(identity, rows) }], Record.collect(hosts, (host) => ({ stackName: host, program: provisioned(host, identity, rows) }))]),
                   })
                 : [

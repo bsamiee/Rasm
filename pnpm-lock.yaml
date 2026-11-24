@@ -192,9 +192,6 @@ catalogs:
     '@pulumi/github':
       specifier: 6.16.0-alpha.1795068570
       version: 6.16.0-alpha.1795068570
-    '@pulumi/random':
-      specifier: 4.22.0-alpha.1795071935
-      version: 4.22.0-alpha.1795071935
     '@pulumi/tailscale':
       specifier: 1.0.0-alpha.1795072738
       version: 1.0.0-alpha.1795072738
@@ -772,9 +769,6 @@ importers:
       '@pulumi/pulumi':
         specifier: 3.278.0-alpha.x8c16455
         version: 3.278.0-alpha.x8c16455(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-      '@pulumi/random':
-        specifier: 'catalog:'
-        version: 4.22.0-alpha.1795071935(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/tailscale':
         specifier: 'catalog:'
         version: 1.0.0-alpha.1795072738(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
@@ -6340,9 +6334,6 @@ packages:
         optional: true
       typescript:
         optional: true
-
-  '@pulumi/random@4.22.0-alpha.1795071935':
-    resolution: {integrity: sha512-u5nuq/XOoh6zh6M/0N0zbjRX+jxRRvqs2jVybzNT9ua6ySwuZEBmauCd8cSLSY0A9yA/zmUycSV39IfwXzfuoA==}
 
   '@pulumi/tailscale@1.0.0-alpha.1795072738':
     resolution: {integrity: sha512-ACJUOf6asE/jPCOrdLWYeIiHFpvFoDv9y1+84yDaNVA+21RdqUmBB1Ti+p0HiSlYL8/4lX3YETvsXggCnCZiRw==}
@@ -12601,14 +12592,6 @@ snapshots:
       typescript: '@typescript/typescript6@6.0.2'
     transitivePeerDependencies:
       - supports-color
-
-  '@pulumi/random@4.22.0-alpha.1795071935(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
-    dependencies:
-      '@pulumi/pulumi': 3.278.0-alpha.x8c16455(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-    transitivePeerDependencies:
-      - supports-color
-      - ts-node
-      - typescript
 
   '@pulumi/tailscale@1.0.0-alpha.1795072738(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
     dependencies:
