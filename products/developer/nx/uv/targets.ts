@@ -155,7 +155,7 @@ const declared = (documented: ReadonlyMap<string, unknown>, origin: string, root
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
-const targets = (member: Member, { outputPath, coveragePath, environmentPath }: Options, manifest: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
+const targets = (member: Member, { outputPath, coveragePath, environmentPath }: Options, manifest: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, workspaceRoot: string): Record<string, TargetConfiguration> => {
     const distributions = Option.map(Option.fromUndefinedOr(outputPath), (template) => template.replaceAll('{projectName}', member.name));
     const folder = Option.getOrElse(distributions, () => posix.join(member.workspace, 'dist'));
     const environed = Option.map(Option.fromUndefinedOr(environmentPath), (template) => template.replaceAll('{projectName}', member.name));
@@ -309,8 +309,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             }),
         },
     };
-    return {
-        ...aggregated(verbs, manifest, 'python'),
+    return aggregated(verbs, manifest, 'python', workspaceRoot, {
         ...(member.published && {
             'nx-release-publish': {
                 executor: `${distribution.name}:publish`,
@@ -320,7 +319,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                 metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, through PyPI trusted publishing where GitHub Actions grants an OIDC token, else UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
             },
         }),
-    };
+    });
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

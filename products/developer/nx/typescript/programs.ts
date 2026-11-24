@@ -135,7 +135,7 @@ const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler:
 });
 
 const compiled =
-    (root: string, stated: Stated, packages: readonly string[], upstream: string, linted: boolean, synced: boolean, manager: PackageManager) =>
+    (root: string, stated: Stated, packages: readonly string[], upstream: string, linted: boolean, synced: boolean, manager: PackageManager, workspaceRoot: string) =>
     ({ commands, configs, outputs, informed, sources }: Program): Option.Option<ProjectConfiguration> => {
         const token = tokened(root);
         const tsc = {
@@ -178,7 +178,7 @@ const compiled =
                 clean: cleaned('build--tsc'),
             }),
         });
-        return Option.as(Option.liftPredicate(commands, Array.isReadonlyArrayNonEmpty), projected(root, 'typescript', verbs, stated));
+        return Option.as(Option.liftPredicate(commands, Array.isReadonlyArrayNonEmpty), projected(root, 'typescript', verbs, stated, workspaceRoot));
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

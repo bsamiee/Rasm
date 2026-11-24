@@ -215,7 +215,7 @@ const inferred = Effect.fnUntraced(function* (pass: Pass, root: string, matched:
             }),
         },
     };
-    return { projects: yield* Effect.all(Record.map(verbs, (tools, at) => Effect.map(manifested(pass.workspaceRoot, at), (stated): ProjectConfiguration => ({ root: at, metadata: { technologies: ['compose'] }, targets: aggregated(tools, stated, 'compose') })))) };
+    return { projects: yield* Effect.all(Record.map(verbs, (tools, at) => Effect.map(manifested(pass.workspaceRoot, at), (stated): ProjectConfiguration => ({ root: at, metadata: { technologies: ['compose'] }, targets: aggregated(tools, stated, 'compose', pass.workspaceRoot) })))) };
 });
 
 const engine = (workspaceRoot: string, file: string, cleaned: boolean) =>
@@ -248,7 +248,7 @@ const engine = (workspaceRoot: string, file: string, cleaned: boolean) =>
                 help: { command: 'colima delete --help', example: { args: [] } },
             },
         };
-        return [file, { projects: { [ROOT]: { root: ROOT, targets: aggregated({ install: { colima: install }, clean: { colima: clean } }, stated, 'colima') } } }] as const;
+        return [file, { projects: { [ROOT]: { root: ROOT, targets: aggregated({ install: { colima: install }, clean: { colima: clean } }, stated, 'colima', workspaceRoot) } } }] as const;
     });
 
 const required = (pass: Pass, files: readonly string[]) => {

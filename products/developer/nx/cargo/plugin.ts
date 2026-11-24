@@ -3,7 +3,7 @@ import { arch, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { anchored, fingerprinted, inferring, manifested } from '@rasm/nx-distribution/inference';
-import { Array, Config, Effect, identity, Option, Record, String } from 'effect';
+import { Array, Config, Effect, identity, Option, Record, String, Struct } from 'effect';
 import { crateInputs, Options, projectTargets, released } from '#/targets';
 import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, type Reading, resolved, run, type Workspace, workspaces } from '#/workspace';
 
@@ -23,17 +23,17 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, { cov
     const present = Array.zip(roots, manifests).filter(([[, member], stated]) => Option.isSome(member) || Option.isSome(stated));
     const projects = Record.fromIterableWith(present, ([[root, member], manifest]): [string, ProjectConfiguration] => {
         const stated = Option.getOrElse(manifest, () => ({}));
-        const targets = projectTargets(workspace, coverage, member, stated);
-        const crate = Option.map(member, (held) => {
+        const delivery = Option.map(member, (held) => released(held, workspace.root));
+        const targets = projectTargets(workspace, coverage, member, stated, context.workspaceRoot, Option.match(delivery, { onNone: () => ({}), onSome: Struct.get('targets') }));
+        const crate = Option.zipWith(member, delivery, (held, shipped) => {
             const { default: sources } = getNamedInputs(root, context);
             const implicit = held.crate.metadata?.nx?.implicitDependencies;
-            const delivery = released(held, workspace.root);
             return {
                 name: String.kebabToSnake(held.crate.name),
                 namedInputs: { default: crateInputs(workspace, held, sources) },
                 ...(implicit !== undefined && { implicitDependencies: [...implicit] }),
-                ...delivery,
-                targets: { ...targets, ...delivery.targets },
+                ...shipped,
+                targets,
             };
         });
         return [root, { root, metadata: { technologies: ['rust'] }, targets, ...Option.getOrUndefined(crate) }];

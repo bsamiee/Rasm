@@ -52,14 +52,14 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
         const described = yield* looked(manifests, root);
         const linting = Option.map(
             Option.filter(Option.fromUndefinedOr(lints.get(root)), () => anchors.has(file) || root === '.'),
-            ({ target, typed }) => projected(root, 'eslint', { check: { eslint: { ...target, inputs: [...(target.inputs ?? []), ...(typed ? chained(root) : [])] } } }, described.stated),
+            ({ target, typed }) => projected(root, 'eslint', { check: { eslint: { ...target, inputs: [...(target.inputs ?? []), ...(typed ? chained(root) : [])] } } }, described.stated, workspaceRoot),
         );
         const branch = yield* Match.value({ file, name: basename(file) }).pipe(
             Match.when({ file: MANIFEST }, () => Effect.asSome(workspace(workspaceRoot, manager, settings.knipConfig, row, described))),
             Match.when({ name: PROJECT }, () => Effect.succeedNone),
-            Match.when({ name: CONFIG }, () => Effect.map(looked(programs, file), compiled(root, described.stated, settings.compilerPackages, `^${namedInput(root, context)}`, described.manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, manager))),
+            Match.when({ name: CONFIG }, () => Effect.map(looked(programs, file), compiled(root, described.stated, settings.compilerPackages, `^${namedInput(root, context)}`, described.manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, manager, workspaceRoot))),
             Match.when({ name: WORKER }, () => Effect.when(worker(context, manager, described.stated, file, configured), Effect.succeed(installed('cf', join(workspaceRoot, file))))),
-            Match.orElse(() => Effect.succeed(tarball(manager, settings.outputPath, described, root, tagged(context.nxJsonConfiguration)))),
+            Match.orElse(() => Effect.succeed(tarball(manager, settings.outputPath, described, root, tagged(context.nxJsonConfiguration), workspaceRoot))),
         );
         return { projects: Record.getSomes({ [root]: Option.makeReducer(Combiner.make<ProjectConfiguration>((prior, next) => ({ ...prior, ...next, targets: { ...prior.targets, ...next.targets } }))).combine(linting, branch) }) };
     });

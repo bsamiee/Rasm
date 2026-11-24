@@ -24,7 +24,7 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, setti
     const manifests = yield* Effect.forEach(built, ({ member }) => manifested(context.workspaceRoot, member.root));
     const projects = Record.fromIterableWith(Array.zip(built, manifests), ([{ member, head }, declared]): [string, ProjectConfiguration] => {
         const { default: sources } = getNamedInputs(member.root, context);
-        const targets = memberTargets(tree, member, settings, head, declared);
+        const targets = memberTargets(tree, member, settings, head, declared, context.workspaceRoot);
         const project = {
             root: member.root,
             name: member.name,

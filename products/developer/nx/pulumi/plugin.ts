@@ -106,7 +106,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], context: Cr
                 },
             };
         });
-        return [file, { projects: { [root]: { root, metadata: { technologies: ['pulumi'] }, targets: aggregated({ ...(hosted ? {} : { clean: { pulumi: CLEAN } }), ...verbs }, held, 'pulumi') } } }];
+        return [file, { projects: { [root]: { root, metadata: { technologies: ['pulumi'] }, targets: aggregated({ ...(hosted ? {} : { clean: { pulumi: CLEAN } }), ...verbs }, held, 'pulumi', context.workspaceRoot) } } }];
     });
     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
 });

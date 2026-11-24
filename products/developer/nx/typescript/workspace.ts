@@ -46,11 +46,11 @@ const loaded = Effect.fnUntraced(function* (workspaceRoot: string, root: string)
     return [root, yield* Effect.result(Effect.all({ manifest, stated: manifested(workspaceRoot, root) }, { concurrency: 'unbounded' }))] as const;
 });
 
-const projected = (root: string, technology: string, verbs: Verbs, stated: Stated, extra: Partial<ProjectConfiguration> = {}) => ({ root, metadata: { technologies: [technology] }, ...extra, targets: aggregated(verbs, stated, technology) }) satisfies ProjectConfiguration;
+const projected = (root: string, technology: string, verbs: Verbs, stated: Stated, workspaceRoot: string, extra: Partial<ProjectConfiguration> = {}) => ({ root, metadata: { technologies: [technology] }, ...extra, targets: aggregated(verbs, stated, technology, workspaceRoot) }) satisfies ProjectConfiguration;
 
 const installed = (name: string, from: string) => UndefinedOr.liftThrowable(findPackageJSON)(name, pathToFileURL(from)) !== undefined;
 
-const tarball = (manager: PackageManager, outputPath: string | undefined, { manifest: { version, os }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }, root: string, released: readonly string[]) => {
+const tarball = (manager: PackageManager, outputPath: string | undefined, { manifest: { version, os }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }, root: string, released: readonly string[], workspaceRoot: string) => {
     const { argv, to, catalogs } = MANAGERS[manager];
     const packed = `pack--${manager}`;
     const verbs: Verbs = {
@@ -78,7 +78,7 @@ const tarball = (manager: PackageManager, outputPath: string | undefined, { mani
     const systems = os.filter((system) => !system.startsWith('!')).map((system) => `os:${system}`);
     return UndefinedOr.match(version, {
         onUndefined: () => Option.map(Option.liftPredicate(systems, Array.isReadonlyArrayNonEmpty), (tags): ProjectConfiguration => ({ root, tags: [...tags] })),
-        onDefined: () => Option.some(projected(root, 'npm', verbs, stated, { tags: [...released, ...systems], release: {} })),
+        onDefined: () => Option.some(projected(root, 'npm', verbs, stated, workspaceRoot, { tags: [...released, ...systems], release: {} })),
     });
 };
 
@@ -161,6 +161,7 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
             check: Record.map(checks, (target, tool): TargetConfiguration => ({ options: { cwd: '.' }, cache: true, outputs: [], ...target, metadata: { technologies: [tool], ...target.metadata } })),
         },
         stated,
+        workspaceRoot,
     );
 });
 
@@ -207,6 +208,7 @@ const worker = Effect.fnUntraced(function* (context: CreateNodesContext, manager
             clean: { cf: { executor: `${distribution.name}:clean`, options: { targets: ['codegen--cf'] }, inputs: UNPACKAGED, metadata: { description: 'Removes the outputs codegen--cf declare', help: { command: `${EXEC[manager]} nx run --help`, example: { options: { targets: ['codegen--cf'] } } } } } },
         },
         stated,
+        context.workspaceRoot,
     );
 });
 

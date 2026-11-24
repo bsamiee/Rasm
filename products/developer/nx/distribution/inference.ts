@@ -4,7 +4,7 @@ import { findPackageJSON } from 'node:module';
 import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodesContext, type ExecutorContext, getOutputsForTargetAndConfiguration, hashArray, normalizePath, type NxJsonConfiguration, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, type PluginCache } from '@nx/devkit/internal';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, type PluginCache, parseExecutor, readModulePackageJson } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import { Array, Cause, Config, ConfigProvider, Effect, Equal, FileSystem, Formatter, Glob, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
@@ -189,29 +189,57 @@ const produced = (projects: Readonly<Record<string, ProjectConfiguration>>, path
     );
 };
 
-const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<string, TargetConfiguration> =>
-    Record.fromEntries(
-        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [
-                verb,
-                {
-                    dependsOn: [{ target: `${verb}--*`, params: 'forward' }],
-                    inputs: [
-                        '...',
-                        ...Array.dedupe(
-                            Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? [])
-                                .flat()
-                                .map((entry) => (Predicate.isObject(entry) && 'dependentTasksOutputFiles' in entry ? { ...entry, transitive: true } : entry)),
-                        ),
+const aggregated = (verbs: Verbs, stated: Stated, technology: string, workspaceRoot: string, own: Readonly<Record<string, TargetConfiguration>> = {}): Record<string, TargetConfiguration> => {
+    const [unstated, project] = [['default', '^default'], anchored(workspaceRoot)];
+    const provided = (target: TargetConfiguration): TargetConfiguration =>
+        Option.match(
+            Option.fromUndefinedOr(target.executor).pipe(
+                Option.map(parseExecutor),
+                Option.flatMap(([provider]) => Option.liftThrowable(readModulePackageJson)(provider, [workspaceRoot])),
+                Option.map(({ path, packageJson: { name } }) => ({ name, at: normalizePath(relative(workspaceRoot, dirname(path))) })),
+                Option.filter(({ at }) => within(at) && project(at)),
+            ),
+            {
+                onNone: () => target,
+                onSome: ({ name }) => ({ ...target, inputs: [...(target.inputs ?? unstated), { input: 'default', projects: [name] }, { input: 'default', projects: [name], dependencies: true }] }),
+            },
+        );
+    return {
+        ...Record.fromEntries(
+            Record.collect(
+                Record.filter(
+                    Record.map(verbs, (tools) => Record.map(tools, provided)),
+                    Predicate.not(Record.isEmptyRecord),
+                ),
+                (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
+                    [
+                        verb,
+                        {
+                            dependsOn: [{ target: `${verb}--*`, params: 'forward' }],
+                            inputs: [
+                                '...',
+                                ...Array.dedupe(
+                                    Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? unstated }).inputs ?? [])
+                                        .flat()
+                                        .map((entry) => (Predicate.isObject(entry) && 'dependentTasksOutputFiles' in entry ? { ...entry, transitive: true } : entry)),
+                                ),
+                            ],
+                        },
                     ],
-                },
-            ],
-            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [
-                `${verb}--${tool}`,
-                { ...target, ...(verb === 'clean' && { configurations: { ...target.configurations, cache: { targets: [], commands: [], folders: [], ...Option.getOrUndefined(Option.liftPredicate(Predicate.isObject)(target.configurations?.['cache'])) } } }), metadata: { technologies: [technology], ...target.metadata } },
-            ]),
-        ]).flat(),
-    );
+                    ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [
+                        `${verb}--${tool}`,
+                        {
+                            ...target,
+                            ...(verb === 'clean' && { configurations: { ...target.configurations, cache: { targets: [], commands: [], folders: [], ...Option.getOrUndefined(Option.liftPredicate(Predicate.isObject)(target.configurations?.['cache'])) } } }),
+                            metadata: { technologies: [technology], ...target.metadata },
+                        },
+                    ]),
+                ],
+            ).flat(),
+        ),
+        ...Record.map(own, provided),
+    };
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

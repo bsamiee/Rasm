@@ -123,7 +123,7 @@ const releasable = (node: Node) => node.versioned && (node.packable || node.publ
 
 const listing = (node: Node) => join(workspaceDataDirectory, 'dotnet-external', `${hashArray([node.file])}.txt`);
 
-const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests: readonly Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>[], listed: (node: Node) => Option.Option<string>) => {
+const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests: readonly Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>[], listed: (node: Node) => Option.Option<string>, workspaceRoot: string) => {
     const placed = Record.fromEntries(nodes.map((node, index) => [dirname(node.file), { index, released: releasable(node) }] as const));
     const referenced = Graph.fromSnapshot({
         type: 'directed',
@@ -153,10 +153,7 @@ const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests:
             root: dirname(node.file),
             name: node.name,
             metadata: { technologies: ['dotnet', node.language] },
-            targets: {
-                ...aggregated(targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test }, Option.fromUndefinedOr(coveragePath), solution(node), listed(node)), manifest, 'dotnet'),
-                ...publishing(node),
-            },
+            targets: aggregated(targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test }, Option.fromUndefinedOr(coveragePath), solution(node), listed(node)), manifest, 'dotnet', workspaceRoot, publishing(node)),
             ...(releasable(node) && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } } } }),
             ...(tags.length > 0 && { tags }),
             ...(node.implicit.length > 0 && { implicitDependencies: [...node.implicit] }),
@@ -212,15 +209,20 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
                     inputs: [{ externalDependencies: [] }],
                     metadata: { description: `Under configuration cache, empties every NuGet local folder ${basename(file)} reads, the global packages, HTTP cache, temp, and plugin cache, with ${line(purged)}`, help: { command: 'dotnet nuget locals --help', example: { args: [] } } },
                 };
-                return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(Option.isSome(named) ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: aggregated({ upgrade: { dotnet: upgrade }, clean: { nuget: clean } }, manifest, 'dotnet') } } }];
+                return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(Option.isSome(named) ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: aggregated({ upgrade: { dotnet: upgrade }, clean: { nuget: clean } }, manifest, 'dotnet', workspaceRoot) } } }];
             }),
     );
     const results = [
-        ...projected(report.nodes, settings, manifests, (node) =>
-            Option.map(
-                Option.liftPredicate(node, (held) => held.external.length > 0),
-                (held) => relative(workspaceRoot, listing(held)),
-            ),
+        ...projected(
+            report.nodes,
+            settings,
+            manifests,
+            (node) =>
+                Option.map(
+                    Option.liftPredicate(node, (held) => held.external.length > 0),
+                    (held) => relative(workspaceRoot, listing(held)),
+                ),
+            workspaceRoot,
         ),
         ...solutions,
     ];

@@ -44,7 +44,7 @@ const flagged = (workflow: Workflow, flag: string) =>
         ),
     );
 
-const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath, coveragePath }: { readonly outputPath?: string; readonly coveragePath?: string }, head: Workflow, declared: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
+const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath, coveragePath }: { readonly outputPath?: string; readonly coveragePath?: string }, head: Workflow, declared: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, workspaceRoot: string): Record<string, TargetConfiguration> => {
     const others = tree.workflows.filter((workflow) => workflow !== head);
     const within = (at: string) => posix.relative(tree.root, at) || '.';
     const checked = Option.filter(
@@ -209,6 +209,7 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
         },
         declared,
         'cmake',
+        workspaceRoot,
     );
 };
 

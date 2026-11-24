@@ -167,7 +167,7 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCach
         root,
         ...(resolved.folders !== undefined && { projectType: resolved.type }),
         metadata: { technologies: ['vite'] },
-        targets: aggregated(targets(file, resolved, chain, namedInput(root, context), outDir, pass.exec), stated, 'vite'),
+        targets: aggregated(targets(file, resolved, chain, namedInput(root, context), outDir, pass.exec), stated, 'vite', context.workspaceRoot),
     };
     return { projects: { [root]: project } };
 });

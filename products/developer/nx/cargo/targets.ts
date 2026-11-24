@@ -187,7 +187,7 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
     };
 };
 
-const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, member: Option.Option<Member>, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
+const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, member: Option.Option<Member>, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, workspaceRoot: string, published: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => {
     const nested = Option.filter(member, ({ root }) => root !== workspace.root);
     const packed = Option.map(Option.all({ held: Option.filter(member, ({ versioned, packable }) => versioned && packable), placed: workspace.placed }), ({ held: { crate, packages }, placed: artifacts }) =>
         cargoTarget(
@@ -229,6 +229,8 @@ const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, m
         },
         stated,
         'rust',
+        workspaceRoot,
+        published,
     );
 };
 

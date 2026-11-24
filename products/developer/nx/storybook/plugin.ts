@@ -146,7 +146,7 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCach
     });
     const stated = yield* manifested(context.workspaceRoot, root);
     const chain = extended(context.workspaceRoot, root).filter((config) => !config.startsWith(`${root}/`) && config !== getRootTsConfigFileName());
-    return { projects: { [root]: { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, chain, namedInput(root, context) === 'production', output, pass.exec), stated, 'storybook') } } };
+    return { projects: { [root]: { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, chain, namedInput(root, context) === 'production', output, pass.exec), stated, 'storybook', context.workspaceRoot) } } };
 });
 
 const nodes = inferring(Options, run, function* (files, settings, context) {

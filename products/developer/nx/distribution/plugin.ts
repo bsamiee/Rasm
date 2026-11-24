@@ -286,9 +286,12 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
             tags: [...(Option.isSome(released) ? release : []), ...platforms.map((os) => `os:${os}`), ...(item.host.hosted === true ? [`host:${technology}`] : [])],
             ...Array.match(standalone ? linked : [], { onEmpty: () => ({}), onNonEmpty: (implicitDependencies) => ({ implicitDependencies }) }),
             ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest } } } }))),
-            targets: {
-                ...aggregated(verbs, item.stated, technology),
-                ...Record.fromIterableWith(Option.toArray(stored), ({ store, command, variable }): [string, TargetConfiguration] => [
+            targets: aggregated(
+                verbs,
+                item.stated,
+                technology,
+                workspaceRoot,
+                Record.fromIterableWith(Option.toArray(stored), ({ store, command, variable }): [string, TargetConfiguration] => [
                     'nx-release-publish',
                     {
                         executor: `${PLUGIN}:release-publish`,
@@ -298,7 +301,7 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
                         metadata: { technologies: [technology], description: `Publishes the ${archive} packages of the project to ${store} with ${command}, under the credential ${variable} holds`, help: { command: ran, example: { options: { dryRun: true } } } },
                     },
                 ]),
-            },
+            ),
         };
         return [item.file, { projects: { [item.root]: configuration } }] as const;
     });
@@ -326,14 +329,14 @@ const workflows = (files: readonly string[], workspaceRoot: string) =>
         ),
         ({ file, root }) => {
             const listed = files.filter((at) => [WORKFLOWS, COMPOSITES].some((glob) => posix.matchesGlob(at, glob)) && posix.relative(root, at).split('/')[0] === '.github').map((at) => posix.relative(root, at));
-            return Effect.map(manifested(workspaceRoot, root), (stated) => [file, { projects: { [root]: { root, targets: aggregated(upgrading(listed), stated, 'github-actions') } } }] as const);
+            return Effect.map(manifested(workspaceRoot, root), (stated) => [file, { projects: { [root]: { root, targets: aggregated(upgrading(listed), stated, 'github-actions', workspaceRoot) } } }] as const);
         },
     );
 
 const workspace = (files: readonly string[], workspaceRoot: string) =>
     Effect.forEach(
         files.filter((file) => file === MISE),
-        (file) => Effect.map(manifested(workspaceRoot, '.'), (stated) => [file, { projects: { '.': { root: '.', targets: aggregated(ROOT, stated, 'mise') } } }] as const),
+        (file) => Effect.map(manifested(workspaceRoot, '.'), (stated) => [file, { projects: { '.': { root: '.', targets: aggregated(ROOT, stated, 'mise', workspaceRoot) } } }] as const),
     );
 
 const recorded = Effect.fnUntraced(function* ({ id, argv, startTime, endTime }: PostTasksExecutionContext, rows: Array.NonEmptyReadonlyArray<{ readonly task: Task; readonly status: TaskResult['status']; readonly code: number; readonly kind: (typeof OUTCOMES)[TaskResult['status']]['kind']; readonly failed: boolean }>) {

@@ -191,7 +191,7 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCach
                 root: suite.root,
                 ...(suite.providers.length > 0 && { tags: ['host:browser'] }),
                 metadata: { technologies: ['vitest', ...suite.providers] },
-                targets: aggregated(targets(file, resolved, { ...suite, setup }, chain, `^${namedInput(suite.root, context)}`, settings, pass.exec), stated, 'vitest'),
+                targets: aggregated(targets(file, resolved, { ...suite, setup }, chain, `^${namedInput(suite.root, context)}`, settings, pass.exec), stated, 'vitest', context.workspaceRoot),
             };
             return [suite.root, project] as const;
         }),

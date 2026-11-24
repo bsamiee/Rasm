@@ -193,7 +193,7 @@ const createNodes: CreateNodes = [
         const [placed, unread] = yield* Effect.partition(read.graph.projects, ({ file, technology, project, tools }) =>
             Effect.mapBoth(manifested(workspaceRoot, project.root), {
                 onFailure: (error): [string, Error] => [file, error],
-                onSuccess: (stated) => ({ file, project: { ...project, targets: { ...aggregated(tools, stated, technology), ...project.targets } } }),
+                onSuccess: (stated) => ({ file, project: { ...project, targets: aggregated(tools, stated, technology, workspaceRoot, project.targets) } }),
             }),
         );
         const results = Record.collect(Array.groupBy(placed, Struct.get('file')), (file, group) => [file, { projects: Record.fromIterableWith(group, ({ project }) => [project.root, project] as const) }] as const);

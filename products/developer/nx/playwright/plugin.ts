@@ -180,7 +180,7 @@ const inferred = Effect.fnUntraced(function* (
         root: home,
         tags: ['host:browser'],
         metadata: { technologies: ['playwright'] },
-        targets: aggregated(targets(home, resolved, extended(context.workspaceRoot, home), namedInput(home, context) === 'production' ? ['^production', '^{projectRoot}/tsconfig*.json'] : ['^default'], outputPath, pass.exec), stated, 'playwright'),
+        targets: aggregated(targets(home, resolved, extended(context.workspaceRoot, home), namedInput(home, context) === 'production' ? ['^production', '^{projectRoot}/tsconfig*.json'] : ['^default'], outputPath, pass.exec), stated, 'playwright', context.workspaceRoot),
     };
     return { projects: { [home]: project } };
 });
