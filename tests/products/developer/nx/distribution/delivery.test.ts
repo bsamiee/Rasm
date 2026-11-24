@@ -20,6 +20,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const HELD = { data: { repository: { release: { tagName: 'clipper@1.2.4' } } } };
 const suite = (name: string) => JSON.stringify({ targets: { 'pack--playwright': { executor: 'nx:noop', outputs: [`{workspaceRoot}/.artifacts/playwright/${name}`] } } });
 const clipper = {
     'package.json': '{ "name": "repo", "private": true, "workspaces": ["clipper", "suites/*"] }',
@@ -67,10 +68,10 @@ const it = workspaced
         onCleanup(() => log.mockRestore());
         return log;
     })
-    .extend('released', ({ workspace }) => async (files: Readonly<Record<string, string>>, tags: readonly string[], release?: object, view = 'exit 0') => {
+    .extend('released', ({ workspace }) => async (files: Readonly<Record<string, string>>, tags: readonly string[]) => {
         const git = (...args: readonly string[]) => execFileSync('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd: workspace.root });
-        shimmed(join(workspace.root, '.bin'), { gh: String.raw`[ "$1 $2" = 'release view' ] && { ${view}; }; printf '%s\n' "$@" > "$(dirname "$0")/../gh.txt"` });
-        workspace.write({ '.gitignore': '.bin\n.artifacts\n*.yak\n*.txt\n', 'nx.json': JSON.stringify({ release: release ?? { projects: ['*'], projectsRelationship: 'independent' } }), ...files });
+        shimmed(join(workspace.root, '.bin'), { gh: String.raw`[ "$1 $2" = 'api graphql' ] && { printf '%s' '${JSON.stringify(HELD)}'; exit; }; printf '%s\n' "$@" > "$(dirname "$0")/../gh.txt"` });
+        workspace.write({ '.gitignore': '.bin\n.artifacts\n*.yak\n*.txt\n', 'nx.json': JSON.stringify({ release: { projects: ['*'], projectsRelationship: 'independent' } }), ...files });
         git('init', '--quiet', '--initial-branch=main');
         git('add', '.');
         git('commit', '--quiet', '--message', 'base');

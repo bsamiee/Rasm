@@ -1763,9 +1763,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       cf:
         specifier: 'catalog:'
         version: 1.0.0-rc.2(@types/node@26.6.6)
@@ -1803,9 +1800,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -1825,9 +1819,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -1850,9 +1841,6 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
-      '@nx/js':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -1865,9 +1853,6 @@ importers:
       jsonc-parser:
         specifier: 'catalog:'
         version: 4.0.0-next.2
-      minimatch:
-        specifier: 'catalog:'
-        version: 11.0.9
       yaml:
         specifier: 'catalog:'
         version: 3.0.0-2
@@ -1887,9 +1872,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -1909,9 +1891,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       '@xml-tools/ast':
         specifier: 'catalog:'
         version: 5.0.6
@@ -1946,9 +1925,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -1968,9 +1944,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -1996,9 +1969,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -2024,9 +1994,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -2098,9 +2065,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -2123,9 +2087,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -3074,9 +3035,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../../../../../products/developer/nx/distribution
       '@rasm/nx-playwright':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/playwright
@@ -3230,9 +3188,6 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/developer/nx
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../../../../../products/developer/nx/distribution
       '@rasm/nx-vite':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/vite

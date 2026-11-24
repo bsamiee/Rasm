@@ -7,7 +7,6 @@
         "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
         "@rasm/nx": "workspace:*",
-        "@rasm/nx-distribution": "workspace:*",
         "@rasm/nx-playwright": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",

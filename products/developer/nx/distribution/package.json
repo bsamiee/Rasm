@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-distribution",
     "version": "0.1.0",
-    "description": "Nx plugin inferring build, install, attach, and publish targets of host packages (Blender, Yak, UXP, Chrome, Unreal) from their manifests, and the clean, attach, and publish executors every plugin names",
+    "description": "Nx plugin inferring build, install, attach, and publish targets of host packages (Blender, Yak, UXP, Chrome, Unreal) from their manifests, with the executors that build, pack, install, and publish them",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -13,9 +13,7 @@
         "dist/**/*.d.ts",
         "executors.json",
         "executors/*/schema.json",
-        "executors/*/vendored.py*",
-        "generators.json",
-        "generators/*/schema.json"
+        "executors/*/vendored.py*"
     ],
     "type": "module",
     "imports": {
@@ -25,13 +23,9 @@
     },
     "exports": {
         ".": "./plugin.ts",
-        "./inference": "./inference.ts",
-        "./executor": "./executor.ts",
         "./release/version-actions": "./version-actions.ts",
         "./executors.json": "./executors.json",
-        "./generators.json": "./generators.json",
         "./executors/*": "./executors/*/executor.ts",
-        "./generators/*": "./generators/*/generator.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -42,13 +36,9 @@
         },
         "exports": {
             ".": "./dist/plugin.js",
-            "./inference": "./dist/inference.js",
-            "./executor": "./dist/executor.js",
             "./release/version-actions": "./dist/version-actions.js",
             "./executors.json": "./executors.json",
-            "./generators.json": "./generators.json",
             "./executors/*": "./dist/executors/*/executor.js",
-            "./generators/*": "./dist/generators/*/generator.js",
             "./package.json": "./package.json"
         },
         "access": "public"
@@ -57,12 +47,10 @@
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
-        "@nx/js": "catalog:",
         "@rasm/nx": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "effect": "catalog:",
         "jsonc-parser": "catalog:",
-        "minimatch": "catalog:",
         "yaml": "catalog:"
     },
     "devDependencies": {
@@ -75,6 +63,5 @@
     "engines": {
         "node": ">=27"
     },
-    "executors": "./executors.json",
-    "generators": "./generators.json"
+    "executors": "./executors.json"
 }
