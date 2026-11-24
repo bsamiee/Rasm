@@ -125,12 +125,4 @@ describe('uv workspace members', { timeout: 60_000 }, () => {
 
         expect([first, second].map(({ projectGraph }) => (projectGraph.dependencies['library'] ?? []).map(Struct.get('target')).toSorted())).toStrictEqual(edges);
     });
-
-    it('adds the implicit dependencies the nx table of a member manifest names', async ({ workspace }) => {
-        locked(workspace.write({ ...MEMBERS, 'proj/virtual/pyproject.toml': `${MEMBERS['proj/virtual/pyproject.toml']}\n[tool.nx]\nimplicitDependencies = ["internal"]\n` }).root);
-
-        const graph = await workspace.graph({ createNodes, createDependencies });
-
-        expect(graph.dependencies['virtual']).toContainEqual({ source: 'virtual', target: 'internal', type: 'implicit' });
-    });
 });

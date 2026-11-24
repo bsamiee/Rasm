@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, normalize } from 'node:path';
 import { type ProjectGraph, readCachedProjectGraph } from '@nx/devkit';
 import { FsTree } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-uv';
@@ -23,13 +23,14 @@ const LINKED = {
     'pyproject.toml': '[tool.uv.workspace]\nmembers = ["packages/*"]\n',
     'packages/library/pyproject.toml': `[project]\nname = "library"\nversion = "1.0.0"\nrequires-python = ">=3.13"\n${BUILT}`,
     'packages/internal/pyproject.toml': `[project]\nname = "internal"\nversion = "1.0.0"\nrequires-python = ">=3.13"\n${BUILT}`,
-    'packages/application/pyproject.toml': `[project]\nname = "application"\nversion = "1.0.0"\nrequires-python = ">=3.13"\ndependencies = ["library>=1.0.0"]\n\n[tool.uv.sources]\nlibrary = { workspace = true }\n\n[tool.nx]\nimplicitDependencies = ["internal"]\n${BUILT}`,
+    'packages/application/pyproject.toml': `[project]\nname = "application"\nversion = "1.0.0"\nrequires-python = ">=3.13"\ndependencies = ["library>=1.0.0"]\n\n[tool.uv.sources]\nlibrary = { workspace = true }\n${BUILT}`,
+    'packages/application/project.json': '{ "implicitDependencies": ["internal", "library"] }',
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('readDependencies', { timeout: 60_000 }, () => {
-    it('reports the members uv resolves a member to depend on, and none its nx table names', async ({ workspace }) => {
+    it('reports the members the manifest of a member names, as uv export lists them, and none a project.json alone declares', async ({ workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(LINKED).root });
         const graph = await workspace.graph({ createNodes, createDependencies });
         const node = graph.nodes['application'];
@@ -53,7 +54,10 @@ describe('readDependencies', { timeout: 60_000 }, () => {
 
         const dependencies = await actions.readDependencies(tree, graph);
 
-        expect([dependencies.map(({ target }) => target), graph.dependencies['application']?.map(({ target }) => target).toSorted()]).toStrictEqual([['library'], ['internal', 'library']]);
+        const exported = execFileSync('uv', ['export', '--frozen', '--package', 'application', '--no-hashes', '--no-emit-project', '--quiet'], { cwd: workspace.root, encoding: 'utf-8' });
+        const editable = exported.split('\n').flatMap((row) => (row.startsWith('-e ') ? [normalize(row.slice('-e '.length))] : []));
+        expect([dependencies.map(({ target }) => graph.nodes[target]?.data.root), graph.dependencies['application']?.map(({ target }) => target).toSorted()]).toStrictEqual([editable, ['internal', 'library']]);
+        expect(editable).toStrictEqual(['packages/library']);
     });
 });
 

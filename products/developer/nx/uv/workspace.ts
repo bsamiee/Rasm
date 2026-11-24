@@ -49,8 +49,6 @@ const Backend = Schema.Struct({
 }).annotate({ description: "pyproject.toml tables naming files uv_build packs into a member's source distribution, each absent setting at its documented uv default" });
 const Indexed = Schema.Struct({ tool: Schema.Struct({ uv: Schema.Struct({ index: Schema.Array(Schema.Struct({ name: Schema.optionalKey(Schema.String), 'publish-url': Schema.optionalKey(Schema.String) })) }) }) });
 const Pixi = Schema.Struct({ tool: Schema.Struct({ pixi: Schema.Record(Schema.String, Schema.Unknown) }) });
-const Tooled = Schema.Struct({ tool: Schema.Struct({ nx: Schema.Unknown.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) });
-const Nx = Schema.Struct({ implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)) });
 const Local = Schema.Literals(['editable', 'virtual', 'directory', 'path']);
 const Node = Schema.Struct({
     name: Schema.optionalKey(Schema.String),
@@ -166,7 +164,6 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
             locals: named([...reach([member.id])]),
             python: project?.['requires-python'],
             published: packaged && project !== undefined && !(project.dynamic.includes('classifiers') || project.classifiers.some((classifier) => classifier.startsWith('Private ::'))),
-            table: Result.flatMap(Schema.decodeUnknownResult(Tooled)(stated(member.root)), ({ tool }) => Schema.decodeUnknownResult(Nx, { onExcessProperty: 'error' })(tool.nx)),
             edges: (owned[member.root] ?? [])
                 .filter(([id]) => resolution[id]?.name === member.name)
                 .flatMap(([id]) => Array.getSomes((resolution[id]?.dependencies ?? []).map(resolved)))
@@ -194,15 +191,8 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
         }),
     );
     return {
-        failures: [
-            ...Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML or INI`))),
-            ...Array.filterMap(shaped, ({ root, table }) => Result.map(Result.flip(table), (cause) => new Cause.UnknownError(cause, `${posix.join(root, MANIFEST)} does not read as the nx table of tool`))),
-        ],
-        members: shaped.map(({ table, checks, ...member }) => ({
-            ...member,
-            implicit: Result.getOrUndefined(table)?.implicitDependencies,
-            checks: checks.filter((check) => !matched.isDisjointFrom(new Set(check.patterns))),
-        })),
+        failures: Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML or INI`))),
+        members: shaped.map((member) => ({ ...member, checks: member.checks.filter((check) => !matched.isDisjointFrom(new Set(check.patterns))) })),
     };
 });
 

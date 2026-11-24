@@ -51,7 +51,6 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCach
                 name: member.name,
                 metadata: { technologies: ['python'] },
                 ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock } } } }),
-                ...(member.implicit !== undefined && { implicitDependencies: [...member.implicit] }),
                 targets: targets(member, settings, stated, workspaceRoot),
             },
         ]),

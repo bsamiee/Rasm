@@ -71,8 +71,19 @@ const project = Effect.fnUntraced(function* (tree: Tree, at: string) {
     const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), () => new Cause.NoSuchElementError(`${at} does not exist`));
     const parsed = yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML`) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
     const [decoded, raw] = yield* Effect.all([Schema.decodeUnknownEffect(Project)(parsed), Schema.decodeUnknownEffect(Raw)(parsed)]);
-    return { text, parsed, project: decoded.project, groups: decoded['dependency-groups'], table: raw.project };
+    const rows = [...decoded.project.dependencies, ...Object.values(decoded.project['optional-dependencies']).flat(), ...Object.values(decoded['dependency-groups']).flat().filter(Predicate.isString)];
+    return { text, parsed, project: decoded.project, groups: decoded['dependency-groups'], table: raw.project, names: new Set(Array.getSomes(rows.map(required)).map(({ name }) => name)) };
 });
+
+const named = Effect.fnUntraced(function* (tree: Tree, projectGraph: ProjectGraph, name: string, manifest: string) {
+    const { names } = yield* project(tree, manifest);
+    const manifests = (projectGraph.dependencies[name] ?? []).flatMap((dependency) => Array.fromNullishOr(projectGraph.nodes[dependency.target]).map((node) => ({ dependency, at: joinPathFragments(node.data.root, MANIFEST) })));
+    const held = yield* Effect.filter(
+        manifests.filter(({ at }) => tree.exists(at)),
+        ({ at }) => Effect.map(project(tree, at), (target) => names.has(normalized(target.project.name))),
+    );
+    return held.map(({ dependency }) => dependency);
+}, run);
 
 const released = Effect.fnUntraced(function* (tree: Tree, manifest: string, options: unknown) {
     const [{ lock }, { project: stated }] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), project(tree, manifest)]);
@@ -143,10 +154,8 @@ class UvVersionActions extends VersionActions {
         return released(tree, this.manifest, this.finalConfigForProject.versionActionsOptions);
     }
 
-    override readDependencies(_tree: Tree, projectGraph: ProjectGraph) {
-        const { name, data } = this.projectGraphNode;
-        const declared = new Set(data.implicitDependencies);
-        return Promise.resolve((projectGraph.dependencies[name] ?? []).filter(({ target }) => !declared.has(target)));
+    override readDependencies(tree: Tree, projectGraph: ProjectGraph) {
+        return named(tree, projectGraph, this.projectGraphNode.name, this.manifest);
     }
 
     override readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
