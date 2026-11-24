@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
+import { execPath } from 'node:process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-pulumi';
 import { it, taskGraph, type Workspace } from '@rasm/testing/nx';
@@ -15,6 +19,8 @@ const MANIFESTS: Readonly<Record<string, { readonly name: string; readonly bin?:
     sourced: { name: 'sourced', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', source: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['source'] } },
     layered: { name: 'layered', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', wrapper: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['wrapper'] } },
     wrapper: { name: 'wrapper', exports: { '.': './index.ts' }, dependencies: { shared: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['shared'] } },
+    typed: { name: 'typed', exports: { '.': { types: './dist/index.d.ts', default: './index.ts' } }, nx: BUILT },
+    conditioned: { name: 'conditioned', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', typed: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['typed'] } },
     infra: { name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', '@pulumi/cloudflare': '*', shared: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['shared'], metadata: { pulumi: { hosts: 'hosting.config.ts' } } } },
     site: { name: 'site', nx: BUILT },
     compiled: { name: 'compiled', bin: 'dist/stacks.js', dependencies: { '@pulumi/pulumi': '*' }, nx: { ...BUILT, metadata: { pulumi: { hosts: 'compiled.config.ts' } } } },
@@ -30,6 +36,8 @@ const STACKS = {
     'packages/source/index.ts': 'export {};\n',
     'packages/source/util.ts': 'export {};\n',
     'packages/wrapper/index.ts': 'export {};\n',
+    'packages/typed/index.ts': 'export {};\n',
+    'packages/conditioned/stacks.mjs': 'export {};\n',
     ...Object.fromEntries(Object.entries(MANIFESTS).map(([name, manifest]) => [`packages/${name}/package.json`, JSON.stringify(manifest)])),
 };
 
@@ -86,6 +94,18 @@ describe('task order', () => {
         const { dependencies } = taskGraph(graph, [project], [target]);
 
         expect(dependencies[task]?.some(({ id }) => id === before)).toBe(runs);
+    });
+
+    it('runs no build first of a package whose exports Node resolves to a tracked source file, a types condition naming untracked output', async ({ workspace }) => {
+        const graph = await workspace
+            .write(STACKS)
+            .install(pathToFileURL(join(workspace.root, 'packages/typed/package.json')).href)
+            .graph({ createNodes });
+
+        const resolved = execFileSync(execPath, ['--input-type=module', '--eval', "console.log(import.meta.resolve('typed'))"], { cwd: join(workspace.root, 'packages/conditioned'), encoding: 'utf-8' });
+        const { dependencies } = taskGraph(graph, ['conditioned'], ['deploy--pulumi']);
+
+        expect({ resolved: fileURLToPath(resolved.trim()), built: dependencies['conditioned:deploy--pulumi']?.some(({ id }) => id === 'typed:build--tsc') }).toStrictEqual({ resolved: join(workspace.root, 'packages/typed/index.ts'), built: false });
     });
 
     it('previews with no task run first, so a preview applies no stack it depends on', async ({ workspace }) => {

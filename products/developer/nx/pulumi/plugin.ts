@@ -1,15 +1,15 @@
 import { posix } from 'node:path';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, combineGlobPatterns, getFilesInDirectoryUsingContext, globWithWorkspaceContext, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { aggregated, manifested, namedInput, run } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Effect, FileSystem, Match, Option, Predicate, Record, Schema } from 'effect';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, type TargetConfiguration } from '@nx/devkit';
+import { combineGlobPatterns, getFilesInDirectoryUsingContext, globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
+import { aggregated, anchored, EXECUTORS, manifested, namedInput, run } from '@rasm/nx';
+import { Array, Effect, FileSystem, Function, Option, Predicate, Record, Schema, String } from 'effect';
+import { exports as resolved } from 'resolve.exports';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REMOVED = ['pulumi', 'plugin', 'rm', '--all', '--yes'];
 const CLEAN: TargetConfiguration = {
-    executor: `${distribution.name}:clean`,
+    executor: EXECUTORS.clean,
     configurations: { cache: { commands: [REMOVED] } },
     inputs: [{ externalDependencies: [] }],
     metadata: { description: `Under configuration cache, removes every plugin the Pulumi CLI downloaded into its home with ${REMOVED.join(' ')}`, help: { command: 'pulumi plugin rm --help', example: { args: [] } } },
@@ -38,10 +38,9 @@ const Manifest = Schema.fromJsonString(
 
 const nodes = Effect.fnUntraced(function* (files: readonly string[], context: CreateNodesContext) {
     const fs = yield* FileSystem.FileSystem;
-    const member = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(context.workspaceRoot, (file) => readJsonFile<PackageJson>(posix.join(context.workspaceRoot, file))));
-    const roots = new Set(files.filter((file) => posix.basename(file) === 'project.json').map((file) => posix.dirname(file)));
+    const anchor = anchored(context.workspaceRoot);
     const [rows, failures] = yield* Effect.partition(
-        files.filter((file) => posix.basename(file) === 'package.json' && (member(file) || roots.has(posix.dirname(file)))),
+        files.filter((file) => posix.basename(file) === 'package.json' && anchor.holds(posix.dirname(file))),
         (file) => fs.readFileString(posix.join(context.workspaceRoot, file)).pipe(Effect.flatMap(Schema.decodeEffect(Manifest)), Effect.mapBoth({ onFailure: (error): [string, Error] => [file, error], onSuccess: (manifest) => [file, manifest] as const })),
         { concurrency: 'unbounded' },
     );
@@ -70,13 +69,12 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], context: Cr
             { concurrency: 'unbounded' },
         )).flat(),
     );
-    const entries = (value: unknown): readonly string[] =>
-        Match.value(value).pipe(
-            Match.when(Predicate.isString, (at) => [at]),
-            Match.when(Predicate.isObject, (held) => Object.values(held).flatMap(entries)),
-            Match.orElse(() => []),
-        );
-    const exported = Record.map(packages, ({ folder, manifest: { exports, main } }) => (exports === undefined ? [main ?? 'index.js'] : entries(exports)).map((at) => posix.join(folder, at)));
+    const exported = Record.map(packages, ({ folder, manifest }, name) => {
+        const entry = Option.liftThrowable((subpath: string) => resolved({ name, exports: manifest.exports }, subpath) ?? []);
+        const subpaths = Array.match(Predicate.isObject(manifest.exports) ? Record.keys(manifest.exports).filter(String.startsWith('.')) : [], { onEmpty: () => ['.'], onNonEmpty: Function.identity });
+        const loaded = manifest.exports === undefined ? [manifest.main ?? 'index.js'] : subpaths.flatMap((subpath) => Option.getOrElse(entry(subpath), Array.empty<string>));
+        return loaded.map((at) => posix.join(folder, at));
+    });
     const listed = [...tracked];
     const present = (at: string) => {
         const [head = '', tail = ''] = at.split('*');
@@ -136,7 +134,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], context: Cr
                 },
             };
         });
-        return [file, { projects: { [root]: { root, metadata: { technologies: ['pulumi'] }, targets: aggregated({ ...(hosted ? {} : { clean: { pulumi: CLEAN } }), ...verbs }, held, 'pulumi', context.workspaceRoot) } } }];
+        return [file, { projects: { [root]: { root, metadata: { technologies: ['pulumi'] }, targets: aggregated({ ...(hosted ? {} : { clean: { pulumi: CLEAN } }), ...verbs }, held, 'pulumi', anchor) } } }];
     });
     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
 });

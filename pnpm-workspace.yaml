@@ -92,6 +92,7 @@ catalog:
     jszip: 3.10.2
     minimatch: 11.0.9
     package-directory: 8.2.0 # Nearest package directory from existing or generated paths
+    resolve.exports: 2.0.4 # Files a package.json exports map or main field names under Node's conditions
     which: 7.0.0 # Executable lookup over PATH and PATHEXT
 
     # --- [HASHING]

@@ -28,7 +28,8 @@
         "@nx/devkit": "catalog:",
         "@rasm/nx": "workspace:*",
         "@rasm/nx-distribution": "workspace:*",
-        "effect": "catalog:"
+        "effect": "catalog:",
+        "resolve.exports": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",
