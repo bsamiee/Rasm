@@ -31,7 +31,7 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 - Install: The Ghidra row in `.config/mise.toml` builds the decompiler a release lacks for its platform
 - Install: `mise install --force github:NationalSecurityAgency/ghidra` reruns `postinstall`, imports abort on a missing project folder
 - Help: `$GHIDRA_INSTALL_DIR/support/analyzeHeadlessREADME.md` lists every headless flag
-- Project: `.config/mise.toml` names `$GHIDRA_PROJECT_DIR` in the per-user cache of each platform, Ghidra rejects a project path with a dot-prefixed component
+- Project: `.config/mise.<os>.toml` names `$GHIDRA_PROJECT_DIR` in the per-user cache of each platform, Ghidra rejects a project path with a dot-prefixed component
 - Project: `<name>/<folder>` as the project argument places an import under `/<folder>`, one folder per slice or release
 - Project: `-deleteProject` on an `-import` deletes the project that run created with its analysis
 - Program: Repeated imports into one folder add `<file>.<n>`, `-process <file>` keeps reading the first
@@ -50,7 +50,7 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 - Time: Imports and `Serve.java` run as background commands and end with a completion notice, `-process` script runs take the foreground
 - Bundle: `-scriptPath` compiles each listed directory as one bundle at the JDK `JAVA_HOME` names, subdirectories become packages
 - Bundle: Compile failures drop the failing file and every file referencing it
-- Parallel: Processes share the settings, cache, and temp folders `.config/mise.toml` names
+- Parallel: Processes share Ghidra's settings folder and the cache and temp folders `GHIDRA_JAVA_OPTIONS` names
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
 - Parallel: Each process pays a JVM start, bundle load, and project open, a worker runs one process over its whole share of inputs
 - Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<subject>/decompiled/<program>/` of the folder the caller names alone

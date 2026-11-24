@@ -14,8 +14,9 @@ Diagnosing a build from its binary log, from capture through the `binlog` MCP se
 
 ## [01]-[CAPTURE]
 
-Nx targets write no binlog, `nx run <project>:build--dotnet -- -bl:<dir>/<purpose>-{}.binlog` captures one run:
+Nx targets write no binlog, `nx run <project>:build--dotnet --skip-nx-cache -- -bl:<dir>/<purpose>-{}.binlog` captures one run:
 - Words after `--` reach `dotnet` as written, an `--args=<switch>` word reaches it unparsed and fails
+- Nx restores a cached result of the same words with no MSBuild run and no binlog, `--skip-nx-cache` runs MSBuild
 - `-- --artifacts-path=<dir>/artifacts` builds into an empty folder, `-t:Rebuild` rebuilds every batched project
 - `dotnet msbuild` runs evaluation reads and replays, `-bl` captures one
 - MSBuild replaces `{}` in a `-bl` path with a UTC date, time, process id, and random string

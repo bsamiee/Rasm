@@ -12,7 +12,7 @@ argument-hint: "[query or channel]"
 - Paging: `--per` accepts 1–100, `meta.has_more_pages` and `meta.next_page` decide the next `--page`
 - Identity: channels, users, and groups take a slug or ID, blocks, connections, and comments take a numeric ID
 - Failure: `--json` writes `{"error","code","type"}` to stderr, exit `2` unauthorized, `3` not found, `4` invalid, `5` rate limited, `6` forbidden
-- Version: mise installs the newest release inside the repository, `arena update` changes nothing it runs
+- Version: `nx upgrade` moves the release mise installs inside the repository, `arena update` changes nothing it runs
 
 | [INDEX] | [TASK]                                  | [OPERATION]                                                 |
 | :-----: | :-------------------------------------- | :---------------------------------------------------------- |
