@@ -15,3 +15,8 @@ dir     = "products/developer/nx/apple/analyzer"
 outputs = [".build/out/Products/Release/nx-apple-analyzer", ".build/out/Products/Release/nx-apple-analyzer.hash"]
 run     = '''swift build --configuration release --force-resolved-versions --disable-index-store && node --input-type=module -e "import { workspaceRoot } from '@nx/devkit'; import { hashWithWorkspaceContext } from '@nx/devkit/internal'; import { writeFileSync } from 'node:fs'; import { relative } from 'node:path'; import { fileURLToPath } from 'node:url'; writeFileSync(fileURLToPath(import.meta.resolve('@rasm/nx-apple-darwin-arm64/nx-apple-analyzer')) + '.hash', await hashWithWorkspaceContext(workspaceRoot, [relative(workspaceRoot, process.cwd()) + '/**/*']))"'''
 sources = ["Package*", "package.json", "Sources/**/*", "Tests/**/*"]
+
+# --- [BOOTSTRAP] ------------------------------------------------------------------------
+
+[bootstrap.settings.macos.defaults."org.swift.swift-build"]
+CompilationCachingDiskSizeLimit = "4G"
