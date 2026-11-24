@@ -3,7 +3,7 @@ import { findPackageJSON } from 'node:module';
 import { dirname, join, posix, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, normalizePath } from '@nx/devkit';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, hashArray, normalizePath } from '@nx/devkit';
 import { getLockFileName, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
@@ -35,7 +35,7 @@ const braced = (glob: string): string => {
     return flat === glob ? glob : braced(flat);
 };
 
-const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, lock: string) {
+const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
     const [root, main] = [dirname(dirname(file)), join(workspaceRoot, file)];
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Storybook main config`);
     const { named, stories, loaded } = yield* Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData: [main, workspaceRoot] }))).pipe(
@@ -48,15 +48,13 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, l
     const imported = Array.getSomes(loaded.map(([, specifier, parent]) => Option.as(Option.filter(local(parent), within), [specifier, parent] as const)));
     const [{ packages: framed, linked }, { packages: reached }] = yield* Effect.all([packaged(named.map((name) => [name, main] as const)), packaged(imported)]);
     const globs = Array.dedupe(stories.map(({ directory, files }) => posix.join(directory, braced(files)))).filter((at) => !at.startsWith('..'));
-    const sources = [lock, ...modules];
     return {
         packages: Array.dedupe([...framed, ...reached]),
         linked,
         loaded: modules.filter((at) => !at.startsWith(`${root}/`)),
         globs,
         runner: Option.isSome(Option.liftThrowable(findPackageJSON)(RUNNER, main)),
-        sources,
-        stamp: yield* stamped(workspaceRoot)(sources),
+        sources: modules,
     };
 });
 
@@ -130,19 +128,9 @@ const targets = (root: string, { packages, linked, loaded, globs, runner }: Reso
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly digest: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly digest: string; readonly lock: string; readonly exec: string }, context: CreateNodesContext, output: Option.Option<string>, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly stamp: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly stamp: ReturnType<typeof stamped>; readonly exec: string }, context: CreateNodesContext, output: Option.Option<string>, file: string) {
     const root = dirname(dirname(file));
-    const held = Option.filter(yield* recalled(pass.cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === pass.digest);
-    const resolved = yield* Option.match(held, {
-        onSome: Effect.succeed,
-        onNone: () =>
-            Effect.tap(read(context.workspaceRoot, file, pass.lock), (fresh) =>
-                Effect.sync(() => {
-                    pass.cache.set(file, { ...fresh, digest: pass.digest });
-                    MutableRef.set(pass.stored, true);
-                }),
-            ),
-    });
+    const resolved = yield* recalled(pass.cache, file, pass.stamp, read(context.workspaceRoot, file), () => MutableRef.set(pass.stored, true));
     const stated = yield* manifested(context.workspaceRoot, root);
     const chain = extended(context.workspaceRoot, root).filter((config) => !config.startsWith(`${root}/`) && config !== getRootTsConfigFileName());
     return { projects: { [root]: { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, chain, namedInput(root, context) === 'production', output, pass.exec), stated, 'storybook', context.workspaceRoot) } } };
@@ -152,11 +140,11 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
     const project = anchored(context.workspaceRoot);
     const mains = files.filter((file) => project(dirname(dirname(file))));
     const manager = detectPackageManager(context.workspaceRoot);
+    const [lock, digest] = [getLockFileName(manager), yield* OWN];
     const pass = {
-        cache: new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'storybook.hash')),
+        cache: new PluginCache<Resolved & { readonly stamp: string }>(join(workspaceDataDirectory, 'storybook.hash')),
         stored: MutableRef.make(false),
-        digest: yield* OWN,
-        lock: getLockFileName(manager),
+        stamp: (sources: readonly string[]) => Effect.map(stamped(context.workspaceRoot)([lock, ...sources]), (held) => hashArray([held, digest])),
         exec: EXEC[manager],
     };
     return yield* Effect.ensuring(

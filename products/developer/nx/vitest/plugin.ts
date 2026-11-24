@@ -109,7 +109,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
     };
 });
 
-const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, outputPath: string | undefined, stamp: (sources: readonly string[]) => Effect.Effect<string>) {
+const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, outputPath: string | undefined) {
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Vitest config`);
     const workerData = { file, entry: join(workspaceRoot, file), name: PLUGIN, suite: matchesGlob(basename(file), SUITE), ...(outputPath !== undefined && { attachmentsDir: join(workspaceRoot, outputPath, ATTACHMENTS) }) };
     const config = yield* Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData, env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV } }))).pipe(
@@ -117,11 +117,10 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Surveyed)(message)),
         Effect.scoped,
     );
-    const report = yield* Surveyed.match(config, {
+    return yield* Surveyed.match(config, {
         Plain: ({ dependencies }): ReturnType<typeof surveyed> => Effect.succeed({ suites: [], triggers: [], shared: [], sources: dependencies.map((at) => normalizePath(relative(workspaceRoot, at))).filter(within) }),
         Suite: (suite) => surveyed(workspaceRoot, file, suite),
     });
-    return { ...report, stamp: yield* stamp(report.sources) };
 });
 
 const targets = (file: string, { triggers, shared, suites }: Resolved, { root, projects, setup, providers, coverage, covered, written, loaded: configs, packages }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: Options, exec: string): Verbs => {
@@ -162,17 +161,8 @@ const targets = (file: string, { triggers, shared, suites }: Resolved, { root, p
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved>; readonly stored: MutableRef.MutableRef<boolean>; readonly stamp: Parameters<typeof read>[3]; readonly exec: string }, context: CreateNodesContext, settings: Options, file: string) {
-    const resolved = yield* Option.match(yield* recalled(pass.cache, file, pass.stamp), {
-        onSome: Effect.succeed,
-        onNone: () =>
-            Effect.tap(read(context.workspaceRoot, file, settings.outputPath, pass.stamp), (fresh) =>
-                Effect.sync(() => {
-                    pass.cache.set(file, fresh);
-                    MutableRef.set(pass.stored, true);
-                }),
-            ),
-    });
+const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly stamp: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly stamp: ReturnType<typeof stamped>; readonly exec: string }, context: CreateNodesContext, settings: Options, file: string) {
+    const resolved = yield* recalled(pass.cache, file, pass.stamp, read(context.workspaceRoot, file, settings.outputPath), () => MutableRef.set(pass.stored, true));
     const projects = yield* Effect.forEach(
         resolved.suites,
         Effect.fnUntraced(function* (suite) {
@@ -196,7 +186,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
     const manager = detectPackageManager(context.workspaceRoot);
     const [lock, digest] = [getLockFileName(manager), hashArray([hashObject(settings), yield* OWN])];
     const pass = {
-        cache: new PluginCache<Resolved>(join(workspaceDataDirectory, 'vitest.hash')),
+        cache: new PluginCache<Resolved & { readonly stamp: string }>(join(workspaceDataDirectory, 'vitest.hash')),
         stored: MutableRef.make(false),
         stamp: (sources: readonly string[]) => Effect.map(stamped(context.workspaceRoot)([lock, ...sources]), (held) => hashArray([held, digest])),
         exec: EXEC[manager],

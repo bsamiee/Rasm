@@ -67,7 +67,7 @@ const engine = (workspaceRoot: string) => {
 const required = Effect.fnUntraced(function* (workspaceRoot: string, files: readonly string[]) {
     const rooted = anchored(workspaceRoot);
     const manifests = files.filter((file) => posix.basename(file) === MANIFEST && rooted(posix.dirname(file)));
-    const [cache, key, stamp] = [new PluginCache<{ readonly sources: readonly string[]; readonly stamp: string; readonly tagged: CreateNodesResultArray }>(join(workspaceDataDirectory, 'docker.hash')), hashArray([yield* OWN, ...manifests]), stamped(workspaceRoot)];
+    const cache = new PluginCache<{ readonly sources: readonly string[]; readonly tagged: CreateNodesResultArray } & { readonly stamp: string }>(join(workspaceDataDirectory, 'docker.hash'));
     const read = (manifest: string) => FileSystem.FileSystem.use((fs) => fs.readFileString(resolve(workspaceRoot, manifest))).pipe(Effect.flatMap(Schema.decodeEffect(Required)));
     const tagging = Effect.forEach(
         manifests,
@@ -83,20 +83,8 @@ const required = Effect.fnUntraced(function* (workspaceRoot: string, files: read
             );
         }),
         { concurrency: 'unbounded' },
-    );
-    return yield* Effect.flatMap(
-        recalled(cache, key, stamp),
-        Option.match({
-            onSome: ({ tagged }) => Effect.succeed(tagged),
-            onNone: Effect.fnUntraced(function* () {
-                const tagged: CreateNodesResultArray = Array.getSomes(yield* tagging);
-                const sources = [...manifests, getLockFileName(detectPackageManager(workspaceRoot))];
-                cache.set(key, { sources, stamp: yield* stamp(sources), tagged });
-                cache.writeToDisk();
-                return tagged;
-            }),
-        }),
-    );
+    ).pipe(Effect.map((found) => ({ sources: [...manifests, getLockFileName(detectPackageManager(workspaceRoot))], tagged: Array.getSomes(found) })));
+    return (yield* recalled(cache, hashArray([yield* OWN, ...manifests]), stamped(workspaceRoot), tagging, () => cache.writeToDisk())).tagged;
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

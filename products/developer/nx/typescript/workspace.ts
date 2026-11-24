@@ -101,19 +101,12 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
     const lock = getLockFileName(manager);
     const knip = ['knip', ...(UndefinedOr.map(knipConfig, (at) => ['--config', at]) ?? [])].map(quoteShellArg).join(' ');
     const configured = Option.orElse(yield* Effect.findFirst(['.jscpd.json', '.config/jscpd.json', '.config/.jscpd.json'], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => Option.liftPredicate(MANIFEST, () => jscpd !== undefined));
-    const keyed = Option.map(configured, (config) => ({ config, cache: new PluginCache<{ readonly sources: readonly string[]; readonly stamp: string } & typeof Scanned.Type>(join(workspaceDataDirectory, 'typescript-jscpd.hash')), key: hashArray([row, config]) }));
-    const held = Option.flatten(yield* Effect.transposeOption(Option.map(keyed, ({ cache, key }) => recalled(cache, key, stamped(workspaceRoot)))));
-    const current = yield* Option.match(Option.isNone(held) ? keyed : Option.none(), {
-        onNone: () => Effect.succeed(held),
-        onSome: Effect.fnUntraced(function* ({ config, cache, key }) {
-            const sources = [config, ...(installed('jscpd', join(workspaceRoot, MANIFEST)) ? [lock] : [])];
-            const [scanned, stamp] = yield* Effect.all([spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }).pipe(Effect.flatMap(Schema.decodeEffect(Scanned))), stamped(workspaceRoot)(sources)]);
-            const entry = { sources, stamp, ...scanned };
-            cache.set(key, entry);
-            cache.writeToDisk();
-            return Option.some(entry);
-        }),
-    });
+    const current = yield* Effect.gen(function* () {
+        const config = yield* Effect.fromOption(configured);
+        const cache = new PluginCache<{ readonly sources: readonly string[] } & typeof Scanned.Type & { readonly stamp: string }>(join(workspaceDataDirectory, 'typescript-jscpd.hash'));
+        const scanned = Effect.map(spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }).pipe(Effect.flatMap(Schema.decodeEffect(Scanned))), (read) => ({ sources: [config, ...(installed('jscpd', join(workspaceRoot, MANIFEST)) ? [lock] : [])], ...read }));
+        return yield* recalled(cache, hashArray([row, config]), stamped(workspaceRoot), scanned, () => cache.writeToDisk());
+    }).pipe(Effect.catchNoSuchElement);
     const plugged = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(UndefinedOr.liftThrowable(findPackageJSON)('knip', pathToFileURL(join(workspaceRoot, MANIFEST)))), (manifest) => plugins(row, manifest)));
     const checks = Record.getSomes<string, TargetConfiguration>({
         jscpd: Option.zipWith(configured, current, (config, { pattern, ignore }) => ({
@@ -155,24 +148,18 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
     );
 });
 
-const worker = Effect.fnUntraced(function* (context: CreateNodesContext, manager: PackageManager, stated: Stated, file: string, cache: PluginCache<{ readonly sources: readonly string[]; readonly stamp: string }>) {
+const worker = Effect.fnUntraced(function* (context: CreateNodesContext, manager: PackageManager, stated: Stated, file: string, cache: PluginCache<{ readonly sources: readonly string[] } & { readonly stamp: string }>) {
     const fs = yield* FileSystem.FileSystem;
     const [root, at, lock] = [dirname(file), join(context.workspaceRoot, file), getLockFileName(manager)];
     const unresolved = (cause: unknown) => new Cause.UnknownError(cause, `${file} resolves no @cloudflare/config through cf`);
-    const { sources } = yield* Option.match(yield* recalled(cache, file, stamped(context.workspaceRoot)), {
-        onSome: Effect.succeed,
-        onNone: Effect.fnUntraced(function* () {
-            const configured = yield* Effect.try({ try: () => findPackageJSON('@cloudflare/config', pathToFileURL(createRequire(at).resolve('cf/package.json'))), catch: unresolved }).pipe(Effect.flatMap(Effect.fromNullishOr));
-            const { exports } = yield* fs.readFileString(configured).pipe(Effect.flatMap(Schema.decodeEffect(Exported)));
-            const cloudflare = yield* Effect.tryPromise({ try: (): Promise<{ readonly loadConfig: typeof loadConfig }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href), catch: unresolved });
-            const { dependencies } = yield* Effect.tryPromise({ try: () => cloudflare.loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
-            const read = [lock, ...Array.dedupe([file, ...dependencies.values().map((dependency) => normalizePath(relative(context.workspaceRoot, dependency)))]).filter(within)];
-            const entry = { sources: read, stamp: yield* stamped(context.workspaceRoot)(read) };
-            cache.set(file, entry);
-            cache.writeToDisk();
-            return entry;
-        }),
+    const read = Effect.gen(function* () {
+        const configured = yield* Effect.try({ try: () => findPackageJSON('@cloudflare/config', pathToFileURL(createRequire(at).resolve('cf/package.json'))), catch: unresolved }).pipe(Effect.flatMap(Effect.fromNullishOr));
+        const { exports } = yield* fs.readFileString(configured).pipe(Effect.flatMap(Schema.decodeEffect(Exported)));
+        const cloudflare = yield* Effect.tryPromise({ try: (): Promise<{ readonly loadConfig: typeof loadConfig }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href), catch: unresolved });
+        const { dependencies } = yield* Effect.tryPromise({ try: () => cloudflare.loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
+        return { sources: [lock, ...Array.dedupe([file, ...dependencies.values().map((dependency) => normalizePath(relative(context.workspaceRoot, dependency)))]).filter(within)] };
     });
+    const { sources } = yield* recalled(cache, file, stamped(context.workspaceRoot), read, () => cache.writeToDisk());
     const typed = installed('@cloudflare/workers-types', at);
     return projected(
         root,

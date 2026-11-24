@@ -51,7 +51,7 @@ const directed = (to: string, reporters: readonly string[]) => {
     return { flags: [`--output=${results}`], env: reports, folders: [results, ...Object.values(reports)] };
 };
 
-const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, routed: boolean, lock: string) {
+const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, routed: boolean) {
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Playwright config`);
     const { edges, environment, scripts, routes, reported, commands, suites } = yield* Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData: [join(workspaceRoot, file), routed] }))).pipe(
@@ -66,7 +66,6 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, r
     const unread = Array.getSomes(Array.zipWith(commands, tasks, (command, task) => Option.liftPredicate(command, (text) => Option.isNone(task) && NX.test(text))));
     yield* Effect.forEach(unread, (command) => Effect.sync(() => emitPluginWorkerLog('warn', `${PLUGIN} reads no Nx task from webServer command "${command}" in ${file}, so test--playwright waits on no server task`)), { discard: true });
     const scanned = Array.dedupe(suites.map(({ testDir }) => posix.join(local(testDir), '**/*'))).filter(within);
-    const sources = [lock, ...loaded];
     return {
         packages,
         environment,
@@ -76,8 +75,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, r
         reported: Array.dedupe(reported.map(local)),
         suites: suites.map(({ name, outputDir, found }) => ({ name, outputDir: local(outputDir), found })),
         routes,
-        sources,
-        stamp: yield* stamped(workspaceRoot)(sources),
+        sources: loaded,
     };
 });
 
@@ -157,23 +155,13 @@ const targets = (home: string, { loaded: configs, scanned, packages, servers, re
 };
 
 const inferred = Effect.fnUntraced(function* (
-    { outputPath, ...pass }: { readonly cache: PluginCache<Resolved & { readonly digest: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly digest: string; readonly lock: string; readonly exec: string; readonly outputPath: string | undefined },
+    pass: { readonly cache: PluginCache<Resolved & { readonly stamp: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly digest: string; readonly stamp: (sources: readonly string[], entry: Resolved) => Effect.Effect<string>; readonly exec: string },
     context: CreateNodesContext,
+    outputPath: string | undefined,
     file: string,
 ) {
     const [home, key] = [posix.dirname(file), hashArray([pass.digest, file])];
-    const listed = (entry: Resolved) => Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [...entry.scanned])).pipe(Effect.map((names) => ({ ...entry, digest: hashArray([hashObject(Record.fromIterableWith(entry.environment, (name) => [name, env[name] ?? null])), ...names]) })));
-    const held = yield* Effect.findFirst(Option.toArray(yield* recalled(pass.cache, key, stamped(context.workspaceRoot))), (cached) => Effect.map(listed(cached), ({ digest }) => digest === cached.digest));
-    const resolved = yield* Option.match(held, {
-        onSome: Effect.succeed,
-        onNone: () =>
-            Effect.tap(Effect.flatMap(read(context.workspaceRoot, file, outputPath !== undefined, pass.lock), listed), (entry) =>
-                Effect.sync(() => {
-                    pass.cache.set(key, entry);
-                    MutableRef.set(pass.stored, true);
-                }),
-            ),
-    });
+    const resolved = yield* recalled(pass.cache, key, pass.stamp, read(context.workspaceRoot, file, outputPath !== undefined), () => MutableRef.set(pass.stored, true));
     const stated = yield* manifested(context.workspaceRoot, home);
     const project: ProjectConfiguration = {
         root: home,
@@ -188,17 +176,17 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
     const project = anchored(context.workspaceRoot);
     const configs = files.filter((file) => project(posix.dirname(file)));
     const manager = detectPackageManager(context.workspaceRoot);
-    const generation = getDaemonClientEnvGeneration();
+    const [lock, generation] = [getLockFileName(manager), getDaemonClientEnvGeneration()];
     const pass = {
-        cache: new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'playwright.hash')),
+        cache: new PluginCache<Resolved & { readonly stamp: string }>(join(workspaceDataDirectory, 'playwright.hash')),
         stored: MutableRef.make(false),
         digest: hashArray([hashObject(settings), yield* OWN]),
-        lock: getLockFileName(manager),
+        stamp: (sources: readonly string[], { environment, scanned }: Resolved) =>
+            Effect.map(Effect.all([stamped(context.workspaceRoot)([lock, ...sources]), Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [...scanned]))]), ([held, names]) => hashArray([held, hashObject(Record.fromIterableWith(environment, (name) => [name, env[name] ?? null])), ...names])),
         exec: EXEC[manager],
-        outputPath: settings.outputPath,
     };
     return yield* Effect.ensuring(
-        Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, file)), configs, settings, context)),
+        Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, settings.outputPath, file)), configs, settings, context)),
         Effect.when(
             Effect.sync(() => pass.cache.writeToDisk()),
             Effect.sync(() => MutableRef.get(pass.stored) && getDaemonClientEnvGeneration() === generation),

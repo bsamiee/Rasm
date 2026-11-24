@@ -42,7 +42,7 @@ const Emitted = Schema.Struct({ BUILD_OUTPUT_ROOT: Schema.String }).annotate({ d
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, outDir: Option.Option<string>, lock: string) {
+const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, outDir: Option.Option<string>) {
     const fs = yield* FileSystem.FileSystem;
     const at = join(workspaceRoot, file);
     const local = (to: string) => normalizePath(relative(workspaceRoot, to));
@@ -73,7 +73,6 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         }),
     );
     const folders = Array.dedupe([...written, ...emitted].map((to) => local(resolve(base, to))));
-    const sources = [lock, ...loaded, local(join(base, 'index.html')), ...Array.fromNullishOr(findPackageJSON(pathToFileURL(at))).map(local)];
     return {
         type: library ? ('library' as const) : ('application' as const),
         signals,
@@ -81,8 +80,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         loaded: loaded.filter((dependency) => posix.relative(posix.dirname(file), dependency).startsWith('..')),
         packages,
         env: { directory: Option.getOrUndefined(Option.filter(Option.map(Option.fromNullOr(env.directory), local), within)), prefixes: env.prefixes },
-        sources,
-        stamp: yield* stamped(workspaceRoot)(sources),
+        sources: [...loaded, local(join(base, 'index.html')), ...Array.fromNullishOr(findPackageJSON(pathToFileURL(at))).map(local)],
         ...(buildable && { folders: folders.filter((to) => !folders.some((other) => to.startsWith(`${other}/`))) }),
     };
 });
@@ -144,20 +142,10 @@ const targets = (file: string, { folders, signals, served, loaded, packages, env
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly digest: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly digest: string; readonly lock: string; readonly exec: string }, context: CreateNodesContext, at: Option.Option<string>, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<Resolved & { readonly stamp: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly stamp: ReturnType<typeof stamped>; readonly exec: string }, context: CreateNodesContext, at: Option.Option<string>, file: string) {
     const root = posix.dirname(file);
     const outDir = Option.map(at, (folder) => posix.relative(root, folder));
-    const held = Option.filter(yield* recalled(pass.cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === pass.digest);
-    const resolved = yield* Option.match(held, {
-        onSome: Effect.succeed,
-        onNone: () =>
-            Effect.tap(read(context.workspaceRoot, file, outDir, pass.lock), (fresh) =>
-                Effect.sync(() => {
-                    pass.cache.set(file, { ...fresh, digest: pass.digest });
-                    MutableRef.set(pass.stored, true);
-                }),
-            ),
-    });
+    const resolved = yield* recalled(pass.cache, file, pass.stamp, read(context.workspaceRoot, file, outDir), () => MutableRef.set(pass.stored, true));
     const stated = yield* manifested(context.workspaceRoot, root);
     const chain = extended(context.workspaceRoot, root).filter((config) => posix.relative(root, config).startsWith('..'));
     const project: ProjectConfiguration = {
@@ -173,11 +161,11 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
     const project = anchored(context.workspaceRoot);
     const configs = files.filter((file) => project(posix.dirname(file)));
     const manager = detectPackageManager(context.workspaceRoot);
+    const [lock, digest] = [getLockFileName(manager), hashArray([hashObject(settings), yield* OWN])];
     const pass = {
-        cache: new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'vite.hash')),
+        cache: new PluginCache<Resolved & { readonly stamp: string }>(join(workspaceDataDirectory, 'vite.hash')),
         stored: MutableRef.make(false),
-        digest: hashArray([hashObject(settings), yield* OWN]),
-        lock: getLockFileName(manager),
+        stamp: (sources: readonly string[]) => Effect.map(stamped(context.workspaceRoot)([lock, ...sources]), (held) => hashArray([held, digest])),
         exec: EXEC[manager],
     };
     return yield* Effect.ensuring(

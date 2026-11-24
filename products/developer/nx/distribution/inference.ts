@@ -140,8 +140,18 @@ const extended = (workspaceRoot: string, root: string): readonly string[] => {
 
 const stamped = (workspaceRoot: string) => (sources: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...sources]));
 
-const recalled = <A extends { readonly sources: readonly string[]; readonly stamp: string }>(cache: PluginCache<A>, key: string, stamp: (sources: readonly string[]) => Effect.Effect<string>) =>
-    Effect.findFirst(Array.fromNullishOr(cache.get(key)), ({ sources, stamp: held }) => Effect.map(stamp(sources), Equal.equals(held)));
+const recalled = Effect.fnUntraced(function* <A extends { readonly sources: readonly string[] }, E, R>(cache: PluginCache<A & { readonly stamp: string }>, key: string, stamp: (sources: readonly string[], entry: A) => Effect.Effect<string>, fresh: Effect.Effect<NoInfer<A>, E, R>, stored: () => unknown) {
+    return yield* Option.match(yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), (held) => Effect.map(stamp(held.sources, held), Equal.equals(held.stamp))), {
+        onSome: Effect.succeed,
+        onNone: Effect.fnUntraced(function* () {
+            const read = yield* fresh;
+            const entry = { ...read, stamp: yield* stamp(read.sources, read) };
+            cache.set(key, entry);
+            stored();
+            return entry;
+        }),
+    });
+});
 
 const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
     const fs = yield* FileSystem.FileSystem;
