@@ -1,0 +1,19 @@
+# --- [SETTINGS] -------------------------------------------------------------------------
+
+[settings]
+enable_tools = [
+    "dotnet",
+    "gh",
+    "github:sparkle-project/Sparkle",
+    "http:blender-ext",
+    "http:yak",
+    "imagemagick",
+    "jscpd",
+    "node",
+    "pnpm",
+    "resvg",
+    "rust",
+    "usvg",
+    "uv",
+    "yq",
+]
