@@ -28,8 +28,8 @@ Workflow `CI` and its jobs:
 - Job `macos` runs affected `os:darwin` projects except `host:rhino`, as no Linux graph holds an Apple project
 - Job `macos` leaves out root `rasm`, as job `linux` runs its other checks and each Swift project's tasks depend on its Swift targets
 - Job `macos` runs `hk check` steps `swiftlint`, `swift-format`, `plutil`, and `xcprojformatter` from base to head, as they need macOS
-- Job `files` runs every other `hk check` step on instance `host`, which keeps the Nx graph between runs
-- Job `files` runs every `codegen` target first, as type-aware lint reads the sources those targets write
+- Job `linux` runs every other `hk check` step before its tasks, so file findings arrive first, and its tasks run past a failed check
+- Job `linux` runs every `codegen` target before `hk check`, as type-aware lint reads the sources those targets write
 - Job `windows` starts only where job `affected` lists an `os:win32` or `host:rhino` project, and installs Rhino where one is `host:rhino`
 - Job `windows` runs `test -c headless` over affected `os:win32` and `host:rhino` projects with core-hour token `RHINO_TOKEN`
 - Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine a tracked `.uproject` names

@@ -92,7 +92,10 @@ jobs:
               run: rm -rf .artifacts/cmake/*/*.log .artifacts/dotnet/test .artifacts/playwright .artifacts/vitest
             - *checkout
             - *tools
-            - run: nx affected --targets=check,test,build --configuration=ci --exclude='tag:os:*,!tag:os:linux,tag:host:rhino,tag:host:browser,tag:host:unreal'
+            - run: nx run-many --targets=codegen
+            - run: hk check --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
+            - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+              run: nx affected --targets=check,test,build --configuration=ci --exclude='tag:os:*,!tag:os:linux,tag:host:rhino,tag:host:browser,tag:host:unreal'
             - &reports
               if: ${{ always() }}
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -183,23 +186,6 @@ jobs:
                   key: nx-${{ runner.os }}-${{ hashFiles('.cache/nx/workspace-data/*.hash') }}
             - *reports
 
-    files:
-        name: Files
-        needs: affected
-        runs-on: [self-hosted, host]
-        timeout-minutes: 30
-        env:
-            GH_TOKEN: *github
-            NX_BASE: *base
-            NX_HEAD: *head
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
-        steps:
-            - *checkout
-            - *tools
-            - run: nx run-many --targets=codegen
-            - run: hk check --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
-
     windows:
         name: Windows
         needs: affected
@@ -263,7 +249,7 @@ jobs:
 
     deploy:
         name: Deploy
-        needs: [affected, linux, browser, files, unreal]
+        needs: [affected, linux, browser, unreal]
         if: ${{ !cancelled() && github.event_name == 'push' && needs.affected.result == 'success' && needs.affected.outputs.infra != '[]' }}
         permissions:
             contents: read
