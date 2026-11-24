@@ -1,90 +1,163 @@
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { platform } from 'node:process';
+import { env } from 'node:process';
 import { pathToFileURL } from 'node:url';
+import type { NxPlugin } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-docker';
-import { it, taskGraph } from '@rasm/testing/nx';
-import { describe, expect, vi } from 'vitest';
+import { it, taskGraph, type Workspace } from '@rasm/testing/nx';
+import { Option } from 'effect';
+import { readNxJson } from 'nx/src/config/nx-json';
+import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
+import { workspaceRoot } from 'nx/src/utils/workspace-root';
+import { describe, expect, onTestFinished, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const HOSTED = { 'project.json': '{"name":"workspace"}', '.config/mise.toml': '[tools]\n' };
+const { targetDefaults } = readNxJson(workspaceRoot);
+const HOSTED = {
+    'project.json': JSON.stringify({ name: 'workspace', targets: { 'check--lint': { command: 'true', cache: true } } }),
+    'nx.json': JSON.stringify({ targetDefaults }),
+    '.config/mise.toml': '[tools]\n',
+    '.gitignore': '.cache/\ntmp/\n',
+};
 const CLIENT = { 'node_modules/@testcontainers/postgresql/package.json': '{"name":"@testcontainers/postgresql","dependencies":{"testcontainers":"12.2.2"}}' };
-const SUITE = (folder: string, required: object, targets: readonly string[] = ['test--vitest', 'install--pulumi']) => ({
-    [`${folder}/project.json`]: JSON.stringify({ name: folder, targets: Object.fromEntries(targets.map((target) => [target, { command: 'true' }])) }),
-    [`${folder}/package.json`]: JSON.stringify({ name: folder, ...required }),
+const SUITE = (folder: string, required: object, targets: readonly string[] = ['test--vitest'], stated: object = {}) => ({
+    [`${folder}/project.json`]: JSON.stringify({ name: folder, ...stated, targets: Object.fromEntries(targets.map((target) => [target, { command: 'true' }])) }),
+    [`${folder}/package.json`]: JSON.stringify({ name: folder, private: true, ...required }),
 });
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const hashed = async (workspace: Workspace, plugin: Pick<NxPlugin, 'createNodes'>) => {
+    const graph = await workspace.graph(plugin);
+    const tasks = taskGraph(graph, ['workspace'], ['check--lint']);
+    const task = Option.getOrThrow(Option.fromUndefinedOr(tasks.tasks['workspace:check--lint']));
+    const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(task, tasks, env);
+    return value;
+};
+
+const homed = (home: string | undefined) => {
+    vi.stubEnv('COLIMA_HOME', home);
+    onTestFinished(() => {
+        vi.unstubAllEnvs();
+    });
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe.runIf(platform === 'darwin')('engine on macOS', () => {
-    it('reclaims the VM disk only once the VM runs', async ({ workspace }) => {
-        const graph = await workspace.write(HOSTED).graph({ createNodes });
-
-        const { dependencies } = taskGraph(graph, ['workspace'], ['clean--colima']);
-
-        expect(dependencies['workspace:clean--colima']).toStrictEqual([{ id: 'workspace:install--colima' }]);
-    });
-
+describe('root project', () => {
     it.for([
-        { client: 'testcontainers named directly', target: 'test--vitest', required: { devDependencies: { testcontainers: '12.2.2' } }, started: true },
-        { client: 'testcontainers through a module requiring it', target: 'test--vitest', required: { devDependencies: { '@testcontainers/postgresql': '12.2.2' } }, started: true },
-        { client: '@pulumi/docker', target: 'install--pulumi', required: { dependencies: { '@pulumi/docker': '5.4.0' } }, started: true },
-        { client: '@pulumi/docker', target: 'test--vitest', required: { dependencies: { '@pulumi/docker': '5.4.0' } }, started: false },
-        { client: 'no engine client', target: 'test--vitest', required: { devDependencies: { vitest: '4.1.0' } }, started: false },
-    ])('starts the engine before $target of a package requiring $client: $started', async ({ target, required, started }, { workspace }) => {
-        const graph = await workspace.write({ ...HOSTED, ...CLIENT, ...SUITE('suite', required) }).graph({ createNodes });
+        { home: 'inside the workspace', at: (root: string) => join(root, '.cache/colima') },
+        { home: 'unset', at: () => undefined },
+    ])('hashes a root task as a workspace without the plugin does, with COLIMA_HOME $home', async ({ at }, { workspace }) => {
+        homed(at(workspace.root));
+        workspace.write(HOSTED);
 
-        const { dependencies } = taskGraph(graph, ['suite'], [target]);
+        const bare = await hashed(workspace, {});
 
-        expect(dependencies[`suite:${target}`]?.some(({ id }) => id === 'workspace:install--colima')).toBe(started);
-    });
-
-    it('gives the engine edge to the target of each client a package reaches, through a workspace package included, and adds no target', async ({ workspace }) => {
-        workspace.write({ ...HOSTED, ...SUITE('harness', { dependencies: { testcontainers: '12.2.2' } }, ['test--vitest']), ...SUITE('library', { devDependencies: { harness: 'workspace:*' } }, ['test--vitest']), ...SUITE('unrelated', { dependencies: { effect: '4.1.5' } }, ['test--vitest']) });
-        const graph = await workspace.install(['harness', pathToFileURL(join(workspace.root, 'harness/package.json')).href]).graph({ createNodes });
-
-        const { dependencies } = taskGraph(graph, Object.keys(graph.nodes), ['test--vitest', 'install--pulumi', 'install--colima', 'clean--colima']);
-
-        expect(dependencies).toStrictEqual({
-            'workspace:install--colima': [],
-            'workspace:clean--colima': [{ id: 'workspace:install--colima' }],
-            'harness:test--vitest': [{ id: 'workspace:install--colima' }],
-            'library:test--vitest': [{ id: 'workspace:install--colima' }],
-            'unrelated:test--vitest': [],
-        });
-    });
-
-    it('infers no engine in a workspace mise does not configure', async ({ workspace }) => {
-        const graph = await workspace.write({ 'project.json': '{"name":"workspace"}', ...SUITE('suite', { devDependencies: { testcontainers: '12.2.2' } }) }).graph({ createNodes });
-
-        expect([Object.keys(graph.nodes['workspace']?.data.targets ?? {}).filter((target) => target.endsWith('--colima')), taskGraph(graph, ['suite'], ['test--vitest']).dependencies['suite:test--vitest']]).toStrictEqual([[], []]);
+        await expect(hashed(workspace, { createNodes })).resolves.toBe(bare);
     });
 });
 
-describe.runIf(platform === 'darwin')('inference cache', () => {
-    it('starts the engine for a package that gains an engine client after the last graph', async ({ workspace }) => {
+describe('engine project', () => {
+    it('holds Colima at a COLIMA_HOME inside the workspace, reclaiming the VM disk only once the VM runs', async ({ workspace }) => {
+        homed(join(workspace.root, '.cache/colima'));
+        const graph = await workspace.write(HOSTED).graph({ createNodes });
+
+        const { dependencies } = taskGraph(graph, ['colima'], ['install--colima', 'clean--colima']);
+
+        expect([graph.nodes['colima']?.data.root, dependencies]).toStrictEqual(['.cache/colima', { 'colima:install--colima': [], 'colima:clean--colima': [{ id: 'colima:install--colima' }] }]);
+    });
+
+    it.for([
+        { home: 'unset', at: () => undefined },
+        { home: 'empty', at: () => '' },
+        { home: 'outside the workspace', at: () => join(tmpdir(), 'colima') },
+    ])('infers no engine target with COLIMA_HOME $home', async ({ at }, { workspace }) => {
+        homed(at());
+        const graph = await workspace.write(HOSTED).graph({ createNodes });
+
+        expect(Object.values(graph.nodes).map(({ name, data: { targets = {} } }) => [name, Object.keys(targets)])).toStrictEqual([['workspace', ['check--lint']]]);
+    });
+});
+
+describe('engine clients', () => {
+    it.for([
+        { client: 'testcontainers named directly', required: { devDependencies: { testcontainers: '12.2.2' } }, tagged: true },
+        { client: 'testcontainers through a module requiring it', required: { devDependencies: { '@testcontainers/postgresql': '12.2.2' } }, tagged: true },
+        { client: '@pulumi/docker', required: { dependencies: { '@pulumi/docker': '5.4.0' } }, tagged: true },
+        { client: 'no engine client', required: { devDependencies: { vitest: '4.1.0' } }, tagged: false },
+    ])('tags a package requiring $client: $tagged', async ({ required, tagged }, { workspace }) => {
+        const graph = await workspace.write({ ...HOSTED, ...CLIENT, ...SUITE('suite', required) }).graph({ createNodes });
+
+        expect(graph.nodes['suite']?.data.tags?.includes('host:docker')).toBe(tagged);
+    });
+
+    it('keeps the tags a project states beside its own', async ({ workspace }) => {
+        const graph = await workspace.write({ ...HOSTED, ...SUITE('suite', { devDependencies: { testcontainers: '12.2.2' } }, ['test--vitest'], { tags: ['scope:suite'] }) }).graph({ createNodes });
+
+        expect(graph.nodes['suite']?.data.tags).toStrictEqual(expect.arrayContaining(['scope:suite', 'host:docker']));
+    });
+
+    it('tags a package reaching a client through a workspace package', async ({ workspace }) => {
+        workspace.write({ ...HOSTED, ...SUITE('harness', { dependencies: { testcontainers: '12.2.2' } }), ...SUITE('library', { devDependencies: { harness: 'workspace:*' } }), ...SUITE('unrelated', { dependencies: { effect: '4.1.5' } }) });
+        const graph = await workspace.install(['harness', pathToFileURL(join(workspace.root, 'harness/package.json')).href]).graph({ createNodes });
+
+        expect(['harness', 'library', 'unrelated'].map((name) => graph.nodes[name]?.data.tags?.includes('host:docker'))).toStrictEqual([true, true, false]);
+    });
+});
+
+describe('engine edges', () => {
+    it('starts the engine before the test and install targets of each tagged package, adding no target', async ({ workspace }) => {
+        homed(join(workspace.root, '.cache/colima'));
+        workspace.write({
+            ...HOSTED,
+            ...CLIENT,
+            ...SUITE('containers', { devDependencies: { '@testcontainers/postgresql': '12.2.2' } }),
+            ...SUITE('stack', { dependencies: { '@pulumi/docker': '5.4.0' } }, ['install--pulumi', 'test--vitest']),
+            ...SUITE('unrelated', { devDependencies: { vitest: '4.1.0' } }),
+            ...SUITE('bare', { devDependencies: { testcontainers: '12.2.2' } }, ['check--lint']),
+        });
+        const graph = await workspace.graph({ createNodes });
+
+        const { dependencies } = taskGraph(graph, ['containers', 'stack', 'unrelated'], ['test--vitest', 'install--pulumi']);
+
+        expect([dependencies, Object.keys(graph.nodes['bare']?.data.targets ?? {})]).toStrictEqual([
+            {
+                'containers:test--vitest': [{ id: 'colima:install--colima' }],
+                'stack:install--pulumi': [{ id: 'colima:install--colima' }],
+                'stack:test--vitest': [{ id: 'colima:install--colima' }],
+                'unrelated:test--vitest': [],
+                'colima:install--colima': [],
+            },
+            ['check--lint'],
+        ]);
+    });
+
+    it('tags a package and adds no edge where no engine project exists', async ({ workspace }) => {
+        homed(undefined);
+        const graph = await workspace.write({ ...HOSTED, ...SUITE('suite', { devDependencies: { testcontainers: '12.2.2' } }) }).graph({ createNodes });
+
+        expect([graph.nodes['suite']?.data.tags?.includes('host:docker'), taskGraph(graph, ['suite'], ['test--vitest']).dependencies]).toStrictEqual([true, { 'suite:test--vitest': [] }]);
+    });
+});
+
+describe('inference cache', () => {
+    it('tags a package that gains an engine client after the last graph', async ({ workspace }) => {
         await workspace.write({ ...HOSTED, ...SUITE('suite', { devDependencies: { vitest: '4.1.0' } }) }).graph({ createNodes });
 
         const graph = await workspace.write(SUITE('suite', { devDependencies: { testcontainers: '12.2.2' } })).graph({ createNodes });
 
-        expect(taskGraph(graph, ['suite'], ['test--vitest']).dependencies['suite:test--vitest']).toStrictEqual([{ id: 'workspace:install--colima' }]);
+        expect(graph.nodes['suite']?.data.tags).toContain('host:docker');
     });
 
-    it('starts the engine for a package that joins the workspace after the last graph', async ({ workspace }) => {
+    it('tags a package that joins the workspace after the last graph', async ({ workspace }) => {
         await workspace.write({ ...HOSTED, ...SUITE('suite', { devDependencies: { vitest: '4.1.0' } }) }).graph({ createNodes });
 
         const graph = await workspace.write(SUITE('joined', { devDependencies: { testcontainers: '12.2.2' } })).graph({ createNodes });
 
-        expect(taskGraph(graph, ['joined'], ['test--vitest']).dependencies['joined:test--vitest']).toStrictEqual([{ id: 'workspace:install--colima' }]);
-    });
-});
-
-describe.runIf(platform !== 'darwin')('engine elsewhere', () => {
-    it('infers no engine target or edge where Colima does not run', async ({ workspace }) => {
-        const graph = await workspace.write({ ...HOSTED, ...SUITE('suite', { devDependencies: { testcontainers: '12.2.2' } }) }).graph({ createNodes });
-
-        expect([Object.keys(graph.nodes['workspace']?.data.targets ?? {}), taskGraph(graph, ['suite'], ['test--vitest']).dependencies['suite:test--vitest']]).toStrictEqual([[], []]);
+        expect(graph.nodes['joined']?.data.tags).toContain('host:docker');
     });
 });
