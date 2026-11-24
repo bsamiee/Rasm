@@ -245,6 +245,7 @@ Products deliver through the same targets in every ecosystem, development builds
 `infra/` Pulumi programs declare what runs on each machine and how it is reached:
 - Machines take a `hosts` row in `infra/platform-stack.ts` and a `[bootstrap.remote.hosts]` row, and accounts and tailnet addresses stay in services
 - Roles in a `hosts` row decide a machine's services, and a role's OS state sits in the mise environment its bootstrap row loads
+- Stacks declare every container image a machine or CI job runs and build those no registry publishes, and `.github/` holds no Dockerfile or image build
 - App `hosting.config.ts` targets name Cloudflare or a machine with role `Apps`, and `nx install @rasm/infra` runs role `Apps` under `rasm.localhost`
 - Container engines run under systemd on machines and, on the owner's Mac, in a Colima VM `DOCKER_HOST` names
 - Tasks reading the engine depend on the root's `install--*` targets, and `install--colima` starts the Mac's VM and leaves it up

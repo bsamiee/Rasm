@@ -44,7 +44,7 @@ Root `vitest.config.ts` derives its inline projects from the tree:
 - Suites listing `nx` or `@nx/devkit` in `devDependencies` run with the Nx daemon off, workspace data in `.nx/workspace-data`, and color off
 - Projects write browser screenshots and traces beside the resolved `attachmentsDir`, and a lone `@rasm/nx-vitest` target sets it under `outputPath`
 - Target batches write them once beside root `attachmentsDir`, and each project's attachments to its own target's `outputPath`
-- Root `test` writes one report for the whole run, and inline projects inherit its `chaiConfig`
+- Root `test` keeps the default reporter alone, as no task restores a report written for every suite, and projects inherit its `chaiConfig`
 
 ## [03]-[ENVIRONMENTS]
 
@@ -121,6 +121,7 @@ test('decode', async ({ bench }) => {
 
 Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)` of `@rasm/testing/playwright`:
 - `@rasm/nx-playwright` infers tag `host:browser` and `test--playwright` per Playwright config
+- `test--playwright` and `pack--playwright` run `playwright test --forbid-only`, and a `.only` test fails on every machine
 - `test--playwright` sends `test-results` and html, blob, and perfetto reports to `outputPath` through `--output` and `PLAYWRIGHT_<REPORTER>_OUTPUT_DIR`, over folders a config states
 - Project `test` runs `*.spec.ts` and `*.test.ts` files, and project `media` runs `*.media.ts` files outside the default `testMatch`
 - Project `media` writes to `<outputPath>/media` at a fixed scale factor, color scheme, locale, and zone, with traces and failure screenshots off

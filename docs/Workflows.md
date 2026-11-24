@@ -38,6 +38,7 @@ Jobs of workflow `CI` and the projects each runs:
 - Job `affected` lists affected projects once and selects each job's projects by tag from `project-graph.json`
 - Job `affected` names the Playwright image Deploy publishes by the `@playwright/test` row of the pnpm catalog
 - Runs at a Playwright version with no published image fail to pull it until Deploy on `main` publishes its tag
+- Job `deploy` of such a run still builds that tag, as it waits for job `browser` without needing its success, and a re-run of `browser` passes
 - Job `linux` runs affected projects tagged `os:linux` or no `os:` on instance `host`, except `host:rhino`, `host:browser`, `host:unreal`
 - Job `linux` runs `nx sync:check` and `nx conformance:check`, as CI task runs skip sync and no Nx task runs conformance
 - Job `affected` runs neither check, as jobs `browser`, `windows`, `unreal`, and `deploy` wait for it and neither check feeds one
@@ -81,6 +82,7 @@ Composite actions and the mise profiles each job loads:
 - Profiles `ci-macos` and `ci-version` hold `yq`, as `mise.macos.toml` reads the Rhino major through it
 - Jobs `browser` of `CI` and `Release` share profile `ci-browser`, as a profile follows the job id
 - Profile `ci-windows` holds `usvg` for `Rasm.Rhino` icons and no `imagemagick`, as no Windows task builds a Rhino plug-in
+- Profile `ci-deliver` holds Sparkle, Yak, `blender_ext.py`, `gh`, and the icon renderers, as job `deliver` packs and publishes every ecosystem but browser and Unreal
 
 ## [05]-[CACHE]
 
@@ -101,6 +103,7 @@ Actions caches per workflow and machine:
 - Analyzer caches save a new entry where the mise file holding the analyzer row changed, as mise rebuilds where restored state names another command
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
 - Job `macos` restores no Swift build folder, as compilation cache hits need its path alone to repeat
+- Uncached `macos` runs took 1218 s of tasks from nothing and 858 s over a restored 727 MB compilation cache at 832 of 832 hits, 29 s to restore
 - Job `macos` uploads the build logs Xcode writes, each ending in a metrics record of cache hits per cacheable task
 - Xcode logs one `Cache hit` per compile job and one `SwiftCompile` per file, so a hit rate comes from the metrics record alone
 - Past the 10 GB repository limit GitHub evicts caches by oldest last access
@@ -112,8 +115,9 @@ Nx remote cache readers and the hash inputs that decide what machines share:
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
 - Root project `rasm` takes tag `os:darwin`, Xcode targets, and Colima targets on macOS alone, and none of its tasks shares a key with Linux
-- Playwright targets and .NET targets but format hash `CI`, as the shared Playwright config forbids `.only` and MSBuild sets properties under it
+- .NET targets but format hash `CI`, as MSBuild sets properties under it
 - Vitest targets hash no `CI`, as their executor refuses `.only` and writes no missing snapshot on every machine
+- Playwright targets hash no `CI`, as each one runs `playwright test --forbid-only`, and `pack--playwright` hashes the platform its images render on
 - Swift targets hash compiler version and platform, as `swift --version` adds the macOS version of its host, which a runner and a Mac differ in
 - Xcode targets hash the SwiftPM targets their linked package products reach alone, and other Swift changes leave an app's result cached
 - Nx sets no remote cache timeout and stops a run on a read answered other than 200 or 404 or left unconnected, and no setting overrides the stop
@@ -126,6 +130,8 @@ Nx remote cache readers and the hash inputs that decide what machines share:
 Workflow `Deploy` triggers and steps:
 - CI job `deploy` calls `Deploy` on pushes to `main`, failed test jobs included, as fixes apply past a failing test
 - Pushes apply only where a change between the base and head of job `shas` reaches an input of `deploy--pulumi` of `@rasm/infra`
+- `nx show projects --affected --withTarget=<target>` lists projects owning an affected task of that target, and without it every touched project
+- `deploy--pulumi` hashes every file of `@rasm/infra` and of each project it depends on, so an edit to any of them starts Deploy
 - Failed deploys fail their CI run, `nx-set-shas` keeps the base before it, and the next push applies again
 - CI job `deploy` waits for the self-hosted jobs of its run alone, as `mise bootstrap remote` can restart Docker under a job on that machine
 - Jobs `macos` and `windows` run on while a deploy replaces the cache server's container
@@ -136,7 +142,8 @@ Workflow `Deploy` triggers and steps:
 - Manual CI runs wait for no deploy, and Docker keeps their containers through a daemon restart (`live-restore`) while a `docker` call during one fails
 - Doppler config `deploy` changes start `Deploy` through a Doppler webhook sending GitHub a `repository_dispatch` event
 - `Deploy` runs daily, applying image tags that moved with no commit
-- Called runs check out the commit CI tested, and scheduled and dispatched runs check out the tip of `main`
+- Called runs check out the commit CI tested on a first attempt, and scheduled and dispatched runs the tip of `main`
+- Re-runs check out the tip of `main`, as a re-run keeps its run's commit, and stacks there can be older than `main`
 - Deploy checkouts fetch their own commit alone, as `nx deploy` and `nx dry-run` read no earlier commit
 - Job `deploy` runs on a GitHub-hosted runner, reads Doppler `deploy`, and runs with no Nx remote cache, independent of the cache server it deploys
 - Job `deploy` signs in to Google Cloud as service account `deploy` through workload identity federation, under `id-token: write`
