@@ -63,12 +63,20 @@ describe('files Nx hands the plugin', () => {
 
     it('infers the projects, targets, and inputs a glob matching every Vitest config infers', async ({ workspace }) => {
         workspace.write(WORKSPACE);
-        const inferred = async (glob: string) => Object.values((await workspace.graph({ createNodes: [glob, createNodes[1]] })).nodes).map(({ name, data: { root, tags, targets } }) => ({ name, root, tags, targets }));
+        const inferred = async (glob: string) => {
+            const { nodes } = await workspace.graph({ createNodes: [glob, createNodes[1]] });
+            return Object.values(nodes).map(({ name, data: { root, tags, targets } }) => ({ name, root, tags, targets }));
+        };
 
         const wide = await inferred('**/{vite,vitest}.config.{js,mjs,ts,cjs,mts,cts}');
         const narrow = await inferred(createNodes[0]);
 
-        expect(wide.filter(({ targets = {} }) => 'test--vitest' in targets).map(({ name }) => name).toSorted()).toStrictEqual(['a', 'b', 'c']);
+        expect(
+            wide
+                .filter(({ targets = {} }) => 'test--vitest' in targets)
+                .map(({ name }) => name)
+                .toSorted(),
+        ).toStrictEqual(['a', 'b', 'c']);
         expect(narrow).toStrictEqual(wide);
     });
 });
