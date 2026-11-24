@@ -6,7 +6,7 @@ import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, findProjectForPath, hashObject, type PackageJson, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getLockFileName } from '@nx/js';
 import { above, aggregated, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
@@ -180,7 +180,8 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCach
     return { projects: Record.fromEntries(projects) };
 });
 
-const nodes = inferring(Options, run, function* (files, settings, context) {
+const nodes = inferring(Options, run, function* (matched, settings, context) {
+    const files = Array.dedupe([...matched, ...(yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [`**/${SUITE}`])))]);
     const configs = files.filter((file) => matchesGlob(basename(file), SUITE) || !files.some((other) => dirname(other) === dirname(file) && matchesGlob(basename(other), SUITE)));
     const manager = detectPackageManager(context.workspaceRoot);
     const [lock, digest] = [getLockFileName(manager), hashArray([hashObject(settings), yield* OWN])];
@@ -201,7 +202,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes = [`**/{vite,vitest}.config.${EXTENSIONS}`, nodes];
+const createNodes: CreateNodes = [`**/vite.config.${EXTENSIONS}`, nodes];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

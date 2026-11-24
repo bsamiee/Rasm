@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { env } from 'node:process';
+import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-vitest';
 import { refused } from '@rasm/testing/errors';
 import { taskGraph } from '@rasm/testing/nx';
@@ -38,6 +39,37 @@ describe('projects a Vitest configuration infers', () => {
         const graph = await workspace.write({ ...ROOT, ...files }).graph({ createNodes });
 
         expect(Object.values(graph.nodes).filter(({ data }) => 'test--vitest' in { ...data.targets })).toStrictEqual([]);
+    });
+});
+
+describe('files Nx hands the plugin', () => {
+    const WORKSPACE = {
+        ...ROOT,
+        'vitest.config.ts': "export default { test: { projects: [{ test: { name: 'b', root: 'libs/b' } }] } };\n",
+        'libs/a/package.json': '{"name":"a"}',
+        'libs/a/vitest.config.ts': 'export default {};\n',
+        'libs/b/package.json': '{"name":"b"}',
+        'libs/c/package.json': '{"name":"c"}',
+        'libs/c/vite.config.ts': 'export default { test: {} };\n',
+    };
+
+    it('matches no Vitest config, as one marks no project at its own path, and keeps every Vite config', async ({ workspace }) => {
+        workspace.write(WORKSPACE);
+
+        const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
+
+        expect(matched.toSorted()).toStrictEqual(['libs/c/vite.config.ts']);
+    });
+
+    it('infers the projects, targets, and inputs a glob matching every Vitest config infers', async ({ workspace }) => {
+        workspace.write(WORKSPACE);
+        const inferred = async (glob: string) => Object.values((await workspace.graph({ createNodes: [glob, createNodes[1]] })).nodes).map(({ name, data: { root, tags, targets } }) => ({ name, root, tags, targets }));
+
+        const wide = await inferred('**/{vite,vitest}.config.{js,mjs,ts,cjs,mts,cts}');
+        const narrow = await inferred(createNodes[0]);
+
+        expect(wide.filter(({ targets = {} }) => 'test--vitest' in targets).map(({ name }) => name).toSorted()).toStrictEqual(['a', 'b', 'c']);
+        expect(narrow).toStrictEqual(wide);
     });
 });
 
