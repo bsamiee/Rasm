@@ -59,10 +59,5 @@
         "storybook": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
-    },
-    "nx": {
-        "implicitDependencies": [
-            "@rasm/infra"
-        ]
     }
 }

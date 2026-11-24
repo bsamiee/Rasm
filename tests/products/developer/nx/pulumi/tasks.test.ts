@@ -3,6 +3,7 @@ import { createNodes } from '@rasm/nx-pulumi';
 import { it, taskGraph, type Workspace } from '@rasm/testing/nx';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
+import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';
 import { describe, expect } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -14,13 +15,15 @@ const MANIFESTS: Readonly<Record<string, { readonly name: string; readonly bin?:
     sourced: { name: 'sourced', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', source: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['source'] } },
     layered: { name: 'layered', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', wrapper: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['wrapper'] } },
     wrapper: { name: 'wrapper', exports: { '.': './index.ts' }, dependencies: { shared: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['shared'] } },
-    infra: { name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', '@pulumi/cloudflare': '*', shared: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['shared'] } },
-    site: { name: 'site', dependencies: { infra: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['infra'] } },
-    compiled: { name: 'compiled', bin: 'dist/stacks.js', dependencies: { '@pulumi/pulumi': '*' }, nx: BUILT },
-    app: { name: 'app', dependencies: { compiled: 'workspace:*', react: '*' }, nx: { ...BUILT, implicitDependencies: ['compiled'] } },
+    infra: { name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', '@pulumi/cloudflare': '*', shared: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['shared'], metadata: { pulumi: { hosts: 'hosting.config.ts' } } } },
+    site: { name: 'site', nx: BUILT },
+    compiled: { name: 'compiled', bin: 'dist/stacks.js', dependencies: { '@pulumi/pulumi': '*' }, nx: { ...BUILT, metadata: { pulumi: { hosts: 'compiled.config.ts' } } } },
+    app: { name: 'app', dependencies: { react: '*' }, nx: BUILT },
 };
 const STACKS = {
     'package.json': '{"name":"root","workspaces":["packages/*"]}',
+    'packages/site/hosting.config.ts': 'export default {};\n',
+    'packages/app/compiled.config.ts': 'export default {};\n',
     'packages/infra/stacks.mjs': 'export {};\n',
     'packages/sourced/stacks.mjs': 'export {};\n',
     'packages/layered/stacks.mjs': 'export {};\n',
@@ -72,7 +75,8 @@ describe('task order', () => {
         { task: 'site:deploy--pulumi', before: 'site:build--tsc', runs: true },
         { task: 'site:deploy--pulumi', before: 'infra:build--tsc', runs: false },
         { task: 'compiled:deploy--pulumi', before: 'compiled:build--tsc', runs: true },
-        { task: 'app:deploy--pulumi', before: 'compiled:build--tsc', runs: true },
+        { task: 'app:deploy--pulumi', before: 'compiled:deploy--pulumi', runs: true },
+        { task: 'app:install--pulumi', before: 'infra:install--pulumi', runs: false },
         { task: 'sourced:deploy--pulumi', before: 'source:build--tsc', runs: false },
         { task: 'layered:deploy--pulumi', before: 'wrapper:build--tsc', runs: true },
     ])('$task runs $before first: $runs', async ({ task, before, runs }, { workspace }) => {
@@ -90,6 +94,25 @@ describe('task order', () => {
         const { dependencies } = taskGraph(graph, ['site', 'app'], ['dry-run--pulumi']);
 
         expect([dependencies['site:dry-run--pulumi'], dependencies['app:dry-run--pulumi']]).toStrictEqual([[], []]);
+    });
+});
+
+describe('what a hosted project hashes of the program it runs', () => {
+    it.for([
+        { task: 'site:build--tsc', file: 'packages/infra/stacks.mjs', covered: false },
+        { task: 'site:build--tsc', file: 'packages/shared/package.json', covered: false },
+        { task: 'site:deploy--pulumi', file: 'packages/infra/stacks.mjs', covered: true },
+        { task: 'site:dry-run--pulumi', file: 'packages/shared/package.json', covered: true },
+        { task: 'app:deploy--pulumi', file: 'packages/infra/stacks.mjs', covered: false },
+    ])('$task hashes $file: $covered', async ({ task, file, covered }, { workspace }) => {
+        const graph = await workspace.write(STACKS).graph({ createNodes });
+        const [project = '', target = ''] = task.split(':');
+        const inspector = new HashPlanInspector(graph, workspace.root);
+        await inspector.init();
+
+        const planned = inspector.inspectTaskInputs({ project, target })[task];
+
+        expect(planned?.files.includes(file)).toBe(covered);
     });
 });
 

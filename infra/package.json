@@ -33,6 +33,11 @@
         "@types/node": "catalog:"
     },
     "nx": {
+        "metadata": {
+            "pulumi": {
+                "hosts": "hosting.config.ts"
+            }
+        },
         "namedInputs": {
             "deployed": [
                 {

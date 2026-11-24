@@ -7,6 +7,7 @@ import { deploy } from '@rasm/hosting/deploy';
 import { Access, Enrollment } from '@rasm/hosting/identity';
 import { Array, ByteSize, Cause, ConfigProvider, Effect, Option, Record, Redacted, Schema, Struct } from 'effect';
 import type { Plugin } from 'vite';
+import manifest from '#/package.json' with { type: 'json' };
 import { bucketed, hosts, local, Machine, Role } from '#/platform-stack';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -16,7 +17,7 @@ const Stored = Schema.Struct(Struct.Record(['server', 'within', 'origin', 'regio
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const hostingStacks = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, released: Option.Option<{ readonly production: boolean; readonly rows: Record.ReadonlyRecord<string, string> }>) {
-    const [config, project] = [join(node.data.root, 'hosting.config.ts'), node.name];
+    const [config, project] = [join(node.data.root, manifest.nx.metadata.pulumi.hosts), node.name];
     const app = yield* Effect.tryPromise({ try: () => import(pathToFileURL(join(workspaceRoot, config)).href), catch: (cause) => new Cause.UnknownError(cause, `Cannot load ${config}`) }).pipe(
         Effect.map(Struct.get('default')),
         Effect.filterOrFail(

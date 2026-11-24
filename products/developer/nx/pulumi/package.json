@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-pulumi",
     "version": "0.1.0",
-    "description": "Nx plugin running each Pulumi Automation API program as install, deploy, and dry-run targets of its project and of packages depending on it",
+    "description": "Nx plugin running each Pulumi Automation API program as install, deploy, and dry-run targets of its project and of each package holding the file its manifest names",
     "license": "MIT",
     "repository": {
         "type": "git",

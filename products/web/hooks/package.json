@@ -18,10 +18,5 @@
         "@rasm/vite": "workspace:*",
         "@types/node": "catalog:",
         "vite": "catalog:"
-    },
-    "nx": {
-        "implicitDependencies": [
-            "@rasm/infra"
-        ]
     }
 }

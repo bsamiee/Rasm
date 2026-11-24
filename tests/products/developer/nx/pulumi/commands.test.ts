@@ -8,7 +8,7 @@ import { describe, expect } from 'vitest';
 
 const WORKSPACES = { 'package.json': '{"name":"root","workspaces":["packages/*"]}' };
 const RECORDING = "import { writeFileSync } from 'node:fs';\nwriteFileSync(new URL('ran.json', import.meta.url), JSON.stringify({ cwd: process.cwd(), argv: process.argv.slice(2) }));\n";
-const PROGRAM = { 'packages/infra/package.json': JSON.stringify({ name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*' } }), 'packages/infra/stacks.mjs': RECORDING };
+const PROGRAM = { 'packages/infra/package.json': JSON.stringify({ name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*' }, nx: { metadata: { pulumi: { hosts: 'hosting.config.ts' } } } }), 'packages/infra/stacks.mjs': RECORDING };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -17,7 +17,7 @@ describe('program runs', () => {
         { case: 'install--pulumi of a program', files: PROGRAM, project: 'infra', target: 'install--pulumi', program: 'infra', cwd: 'infra', argv: ['install'] },
         { case: 'deploy--pulumi of a program', files: PROGRAM, project: 'infra', target: 'deploy--pulumi', program: 'infra', cwd: 'infra', argv: ['deploy'] },
         { case: 'dry-run--pulumi of a program', files: PROGRAM, project: 'infra', target: 'dry-run--pulumi', program: 'infra', cwd: 'infra', argv: ['deploy', '--operation=preview'] },
-        { case: 'deploy--pulumi of a package depending on a program', files: { ...PROGRAM, 'packages/site/package.json': JSON.stringify({ name: 'site', dependencies: { infra: 'workspace:*' } }) }, project: 'site', target: 'deploy--pulumi', program: 'infra', cwd: 'site', argv: ['deploy'] },
+        { case: 'deploy--pulumi of a package a program hosts', files: { ...PROGRAM, 'packages/site/package.json': '{"name":"site"}', 'packages/site/hosting.config.ts': 'export default {};\n' }, project: 'site', target: 'deploy--pulumi', program: 'infra', cwd: 'site', argv: ['deploy'] },
         {
             case: 'deploy--pulumi of a program depending on another program',
             files: { ...PROGRAM, 'packages/site/package.json': JSON.stringify({ name: 'site', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', infra: 'workspace:*' } }), 'packages/site/stacks.mjs': RECORDING },

@@ -1,6 +1,6 @@
 import { posix } from 'node:path';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, combineGlobPatterns, getFilesInDirectoryUsingContext, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, combineGlobPatterns, getFilesInDirectoryUsingContext, globWithWorkspaceContext, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
 import { aggregated, manifested, namedInput, run } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Effect, FileSystem, Match, Option, Predicate, Record, Schema } from 'effect';
@@ -27,11 +27,11 @@ const Manifest = Schema.fromJsonString(
         main: Schema.optionalKey(Schema.NullOr(Schema.String)),
         dependencies: Dependencies,
         devDependencies: Dependencies,
-        nx: Schema.optionalKey(Schema.Struct({ implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)) })),
+        nx: Schema.optionalKey(Schema.Struct({ metadata: Schema.optionalKey(Schema.Struct({ pulumi: Schema.optionalKey(Schema.Struct({ hosts: Schema.optionalKey(Schema.NonEmptyString) })) })) })),
     }),
 ).annotate({
     description:
-        'The name, bin, exports, main, dependencies, and nx.implicitDependencies of a package.json: a package depending on @pulumi/pulumi with one bin is a Pulumi Automation API program, a package depending on that program or naming it in nx.implicitDependencies runs it for itself, and the files exports or main name are what Node loads of a workspace package the program imports',
+        'The name, bin, exports, main, dependencies, and nx.metadata.pulumi.hosts of a package.json: a package depending on @pulumi/pulumi with one bin is a Pulumi Automation API program, a workspace package holding at its root the file the program names in nx.metadata.pulumi.hosts runs it for itself, and the files exports or main name are what Node loads of a workspace package the program imports',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -47,9 +47,10 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], context: Cr
     );
     const programs = Record.fromEntries(
         Array.getSomes(
-            rows.map(([file, { name, bin, dependencies, devDependencies }]) => {
+            rows.map(([file, { name, bin, dependencies, devDependencies, nx }]) => {
                 const entries = (Predicate.isString(bin) ? [bin] : Object.values(bin ?? {})).map((entry) => posix.join(posix.dirname(file), entry));
-                return Option.all([Option.fromUndefinedOr(name), Option.filter(Array.head(entries), () => entries.length === 1 && '@pulumi/pulumi' in { ...dependencies, ...devDependencies })]);
+                const entry = Option.filter(Array.head(entries), () => entries.length === 1 && '@pulumi/pulumi' in { ...dependencies, ...devDependencies });
+                return Option.map(Option.all([Option.fromUndefinedOr(name), entry]), ([program, at]) => [program, { program, entry: at, folder: posix.dirname(file), hosts: Option.fromUndefinedOr(nx?.metadata?.pulumi?.hosts) }] as const);
             }),
         ),
     );
@@ -60,7 +61,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], context: Cr
     const tracked = new Set(
         (yield* Effect.forEach(
             Array.dedupe([
-                ...Record.values(programs).map(posix.dirname),
+                ...Record.values(programs).map(({ entry }) => posix.dirname(entry)),
                 ...Record.values(imported)
                     .flat()
                     .flatMap((name) => Array.fromNullishOr(packages[name]?.folder)),
@@ -82,27 +83,56 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], context: Cr
         return at.includes('*') ? listed.some((file) => file.startsWith(head) && file.endsWith(tail)) : tracked.has(at);
     };
     const built = Record.map(imported, (names) => !names.flatMap((name) => exported[name] ?? []).every(present));
+    const hosting = Array.getSomes(Record.values(programs).map((host) => Option.map(host.hosts, (at) => [at, host] as const)));
+    const found = new Set(
+        yield* Array.match(hosting, {
+            onEmpty: () => Effect.succeed([]),
+            onNonEmpty: (named) =>
+                Effect.promise(() =>
+                    globWithWorkspaceContext(
+                        context.workspaceRoot,
+                        named.map(([at]) => `**/${at}`),
+                    ),
+                ),
+        }),
+    );
     const selected = Array.getSomes(
-        rows.map(([file, { name, dependencies, nx }]) =>
+        rows.map(([file, { name }]) =>
             Option.map(
-                Array.findFirst([...Array.fromNullishOr(name), ...[...Record.keys(dependencies), ...(nx?.implicitDependencies ?? [])].toSorted()], (held) => Option.product(Option.some(held), Record.get(programs, held))),
-                ([program, entry]) => [posix.dirname(file), file, entry, name === undefined || !Record.has(programs, name), built[program] === true] as const,
+                Option.firstSomeOf([
+                    Option.flatMap(Option.fromUndefinedOr(name), (own) => Record.get(programs, own)),
+                    Option.map(
+                        Array.findFirst(hosting, ([at]) => found.has(posix.join(posix.dirname(file), at))),
+                        ([, host]) => host,
+                    ),
+                ]),
+                ({ program, entry, folder }) => ({ root: posix.dirname(file), file, program, entry, folder, hosted: program !== name }),
             ),
         ),
     );
-    const stated = yield* Effect.forEach(selected, ([root]) => manifested(context.workspaceRoot, root), { concurrency: 'unbounded' });
-    const results = Array.zipWith(selected, stated, ([root, file, entry, hosted, upstream], held): readonly [string, CreateNodesResult] => {
-        const named = namedInput(root, context);
+    const stated = yield* Effect.forEach(selected, ({ root }) => manifested(context.workspaceRoot, root), { concurrency: 'unbounded' });
+    const results = Array.zipWith(selected, stated, ({ root, file, program, entry, folder, hosted }, held): readonly [string, CreateNodesResult] => {
+        const [named, ran] = [namedInput(root, context), namedInput(folder, context)];
         const verbs = Record.map(VERBS, ({ args, ordered }, verb): Readonly<Record<string, TargetConfiguration>> => {
             const command = ['node', posix.relative(root, entry), ...args].map(quoteShellArg).join(' ');
             return {
                 pulumi: {
                     command,
                     options: { cwd: root },
-                    dependsOn: ordered ? [...(tracked.has(entry) && !hosted ? [] : ['build--*']), ...(!tracked.has(entry) || (!hosted && upstream) ? ['^build--*'] : []), `^${verb}--*`] : [],
+                    dependsOn: ordered ? [...(hosted || !tracked.has(entry) ? ['build--*'] : []), ...(!hosted && (!tracked.has(entry) || built[program] === true) ? ['^build--*'] : []), `^${verb}--*`, ...(hosted ? [{ projects: [program], target: `${verb}--*` }] : [])] : [],
                     parallelism: false,
-                    inputs: [named, `^${named}`, { externalDependencies: [] }],
-                    metadata: { description: `Runs the Pulumi Automation API program ${hosted ? 'the project depends on' : 'of the project'} with ${command}` },
+                    inputs: [
+                        named,
+                        `^${named}`,
+                        ...(hosted
+                            ? [
+                                  { input: ran, projects: [program] },
+                                  { input: ran, projects: [program], dependencies: true as const },
+                              ]
+                            : []),
+                        { externalDependencies: [] },
+                    ],
+                    metadata: { description: `Runs the Pulumi Automation API program ${hosted ? `${program} for the project` : 'of the project'} with ${command}` },
                 },
             };
         });
