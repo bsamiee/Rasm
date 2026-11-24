@@ -93,7 +93,7 @@ const swept = Effect.fnUntraced(function* (host: Host['Service'], { ledger, topl
         return writes.some(({ path, agent }) => {
             const links = writes.filter((link) => link.path === path && link.agent === agent);
             const [h, i, w] = [committed.get(path), staged.get(path), worktree.get(path)];
-            return (w !== i && derived(links, i, w)) || (w !== h && derived(links, h, w)) || (i !== h && derived(links, h, i));
+            return (w !== i && derived(links, i, w)) || (w !== h && derived(links, h, w));
         });
     };
     const live = (file: (typeof files)[number]) => windows.some(({ owner, end }) => owner === file.session && end > at) || file.entries.some((entry) => Predicate.isTagged(entry, 'Closed') && entry.at >= opening) || grants(file);

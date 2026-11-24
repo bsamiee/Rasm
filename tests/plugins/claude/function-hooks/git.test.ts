@@ -130,6 +130,13 @@ const SWEPT = [
     ['its own path another session rewrote since', [STEPS.mine, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }, { edit: 'b', file: 'f', old: 'mine', new: 'theirs', text: 'theirs\n' }], { 'session-a': false, 'session-b': true }],
     ['its own path is still dirty', [STEPS.mine, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], { 'session-a': true, 'session-b': true }],
     ['one of its own paths is still dirty after the other was committed', [STEPS.mine, { edit: 'a', file: 'g', old: 'base', new: 'mine', text: 'mine\n' }, { hand: 'git commit -q -m hand g' }, { edit: 'b', file: 'h', old: 'base', new: 'theirs', text: 'theirs\n' }], { 'session-a': true, 'session-b': true }],
+    ['its own paths were all committed, followed by a shell call alone', [STEPS.mine, { hand: 'git commit -qam hand' }, { runs: 'b', command: 'git status --short' }], { 'session-a': false, 'session-b': false }],
+    [
+        'its own edit over content a shell staged, which only a restore to the index grants',
+        [{ shell: 'f', text: 'staged\n' }, { stage: 'f' }, { edit: 'a', file: 'f', old: 'staged', new: 'mine', text: 'mine\n' }, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }],
+        { 'session-a': true, 'session-b': true },
+    ],
+    ['its own staged edit under a hand write, which no restore can discard', [STEPS.mine, { stage: 'f' }, { shell: 'f', text: 'hand\n' }, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], { 'session-a': false, 'session-b': true }],
     ['another session only opened a shell window that is still open', [{ opens: 'b' }, STEPS.mine], { 'session-a': true, 'session-b': true }],
     ['another session holds an open shell window that started before its last call ended', [{ opens: 'b' }, STEPS.mine, { hand: 'git commit -qam hand' }, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], { 'session-a': true, 'session-b': true }],
 ] as const;
@@ -365,6 +372,22 @@ layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })
                     const tree = yield* scratch();
                     yield* Effect.forEach(steps, restoreStep(tree), { discard: true });
                     expect(yield* Effect.all({ 'session-a': tree.ledgerOf('session-a'), 'session-b': tree.ledgerOf('session-b') })).toStrictEqual(held);
+                }),
+            ),
+        30_000,
+    );
+
+    it.effect(
+        "Ledger files of another repository stay through this repository's sweep and go through their own",
+        () =>
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const [here, there] = yield* Effect.all([scratch(), scratch()]);
+                    yield* Effect.forEach([STEPS.mine, { hand: 'git commit -qam hand' }] as const, restoreStep(there), { discard: true });
+                    yield* Effect.forEach([{ edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }] as const, restoreStep(here), { discard: true });
+                    const kept = yield* there.ledgerOf('session-a');
+                    yield* Effect.forEach([{ edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }] as const, restoreStep(there), { discard: true });
+                    expect([kept, yield* there.ledgerOf('session-a')]).toStrictEqual([true, false]);
                 }),
             ),
         30_000,
