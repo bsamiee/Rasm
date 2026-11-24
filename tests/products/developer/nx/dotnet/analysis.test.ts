@@ -156,6 +156,6 @@ describe('analyzer process', () => {
     it('refuses a report it cannot decode, naming the command that builds the analyzer', async ({ workspace }) => {
         pathed(scratch('dotnet-garbled-'), { dotnet: 'echo Unhandled exception. System.IO.FileNotFoundException' });
 
-        await expect(workspace.write({ 'apps/App/App.csproj': LIBRARY }).graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/printed a report this plugin cannot read, .* dotnet publish \S+\/analyzer\/MsbuildAnalyzer\.csproj builds it: /u));
+        await expect(workspace.write({ 'apps/App/App.csproj': LIBRARY }).graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/printed a report this plugin cannot read, .* dotnet publish \S+\/analyzer\/MsbuildAnalyzer\.csproj --output \S+\/analyzer\/dist builds it: /u));
     });
 });

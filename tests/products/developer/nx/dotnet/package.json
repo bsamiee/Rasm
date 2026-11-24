@@ -14,5 +14,19 @@
         "effect": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "test--vitest": {
+                "inputs": [
+                    "...",
+                    "{workspaceRoot}/products/developer/nx/dotnet/analyzer/MsbuildAnalyzer.csproj",
+                    {
+                        "fileset": "{workspaceRoot}/products/developer/nx/dotnet/analyzer/dist/*",
+                        "includeIgnored": true
+                    }
+                ]
+            }
+        }
     }
 }

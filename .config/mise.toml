@@ -121,7 +121,7 @@ run = "uv sync --locked"
 [deps.msbuild-analyzer]
 dir     = "products/developer/nx/dotnet/analyzer"
 outputs = ["dist/*"]
-run     = "dotnet publish -p:RestoreLockedMode=true"
+run     = "dotnet publish -p:RestoreLockedMode=true --output dist"
 sources = ["*.cs", "MsbuildAnalyzer.csproj", "packages.lock.json"]
 
 [deps.playwright]

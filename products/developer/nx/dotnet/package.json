@@ -71,6 +71,13 @@
                 "dependsOn": [
                     "...",
                     "^build--*"
+                ],
+                "inputs": [
+                    "...",
+                    {
+                        "fileset": "{projectRoot}/analyzer/dist/*",
+                        "includeIgnored": true
+                    }
                 ]
             }
         }

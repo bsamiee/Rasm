@@ -55,7 +55,7 @@ const reporting = () => {
 
 const warnings = (logged: MockInstance<typeof console.warn>) => logged.mock.calls.map((call) => call.join(' ')).filter((line) => line.includes('MsbuildAnalyzer'));
 
-const predates = (files: readonly string[]) => refused(new RegExp(`MsbuildAnalyzer\\.dll predates ${files.map((file) => `\\S*/${RegExp.escape(file)}`).join(', ')}, dotnet publish \\S+/analyzer/MsbuildAnalyzer\\.csproj builds it$`, 'u'));
+const predates = (files: readonly string[]) => refused(new RegExp(`MsbuildAnalyzer\\.dll predates ${files.map((file) => `\\S*/${RegExp.escape(file)}`).join(', ')}, dotnet publish \\S+/analyzer/MsbuildAnalyzer\\.csproj --output \\S+/analyzer/dist builds it$`, 'u'));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -65,7 +65,7 @@ describe('analyzer build', () => {
 
         const graph = await workspace.write({ 'apps/App/App.csproj': LIBRARY, ...REPORT }).graph({ createNodes, createDependencies });
 
-        expect([graph.nodes, launches(), warnings(logged).filter((line) => /MsbuildAnalyzer\.dll is absent, dotnet publish \S+\/analyzer\/MsbuildAnalyzer\.csproj builds it$/u.test(line)).length]).toStrictEqual([{}, 0, 1]);
+        expect([graph.nodes, launches(), warnings(logged).filter((line) => /MsbuildAnalyzer\.dll is absent, dotnet publish \S+\/analyzer\/MsbuildAnalyzer\.csproj --output \S+\/analyzer\/dist builds it$/u.test(line)).length]).toStrictEqual([{}, 0, 1]);
     });
 
     it.for([
@@ -90,7 +90,7 @@ describe('analyzer build', () => {
         { kind: 'root MSBuild files its evaluation imports and a source of the Roslyn project it references changed', appended: ['Directory.Build.props', 'Directory.Build.targets', 'roslyn/Rules/Shapes.cs'] },
     ])('infers the reported projects with no warning after a real dotnet publish of the analyzer, as $kind', { timeout: 300_000 }, async ({ appended }, { workspace }) => {
         packaged(PUBLISHED);
-        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--disable-build-servers'], { cwd: analyzer, stdio: 'ignore' });
+        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist', '--disable-build-servers'], { cwd: analyzer, stdio: 'ignore' });
         appended.forEach((file) => appendFileSync(join(analyzer, file), '\n'));
         const { logged } = reporting();
 
@@ -105,7 +105,7 @@ describe('analyzer build', () => {
         { kind: 'its lock file changed', appended: 'analyzer/packages.lock.json' },
     ])('refuses the graph after a real dotnet publish of the analyzer, naming exactly the changed file and the command that rebuilds it, as $kind', { timeout: 300_000 }, async ({ appended }, { workspace }) => {
         packaged(PUBLISHED);
-        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--disable-build-servers'], { cwd: analyzer, stdio: 'ignore' });
+        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist', '--disable-build-servers'], { cwd: analyzer, stdio: 'ignore' });
         appendFileSync(join(analyzer, appended), '\n');
         reporting();
 

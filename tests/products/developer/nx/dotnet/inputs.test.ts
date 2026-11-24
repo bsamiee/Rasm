@@ -1,12 +1,13 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { ProjectGraph } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { environment, taskGraph } from '@rasm/testing/nx';
 import { Option } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
-import { describe, expect, vi } from 'vitest';
+import { describe, expect, onTestFinished, vi } from 'vitest';
 import { it, mode, node, report } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -14,6 +15,9 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PROJECT = '<Project Sdk="Microsoft.NET.Sdk" />\n';
+const TARGETS = fileURLToPath(new URL('targets.ts', import.meta.resolve('@rasm/nx-dotnet/package.json')));
+const PLUGIN = 'products/developer/nx/dotnet';
+const SUITE = 'tests/products/developer/nx/dotnet';
 const TESTED = {
     'libs/Lib/Lib.csproj': PROJECT,
     'libs/Lib/Code.cs': 'class Code;\n',
@@ -46,6 +50,8 @@ const hasher = (root: string, graph: ProjectGraph, target: string, project = 'Li
         return value;
     };
 };
+
+const stated = (folder: string, target: string) => ({ [`${folder}/package.json`]: JSON.stringify({ ...JSON.parse(readFileSync(join(import.meta.dirname, '../../../../..', folder, 'package.json'), 'utf-8')), scripts: { [target]: 'true' } }) });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -103,5 +109,56 @@ describe('task hashes', () => {
         const after = await workspace.write({ [edited]: text }).graph({ createNodes, createDependencies });
 
         expect([built !== (await hasher(workspace.root, after, 'build--dotnet', 'Tests')({})), tested !== (await hasher(workspace.root, after, 'test--dotnet', 'Tests')({}))]).toStrictEqual([build, test]);
+    });
+});
+
+describe('analyzer binary', () => {
+    it('adds no edge from the plugin package to the project publishing into the analyzer folder, and no build of that project before upgrade--dotnet', async ({ workspace }) => {
+        vi.resetModules();
+        vi.doMock(TARGETS, async (actual) => ({ ...(await actual<Record<string, unknown>>()), ANALYZER: join(workspace.root, 'plugin/analyzer/dist/MsbuildAnalyzer.dll') }));
+        onTestFinished(() => {
+            vi.doUnmock(TARGETS);
+        });
+        const loaded = await import('@rasm/nx-dotnet');
+
+        const graph = await workspace
+            .write({
+                'package.json': JSON.stringify({ name: '@fixture/root', workspaces: ['plugin'] }),
+                'Workspace.slnx': '<Solution />\n',
+                'plugin/package.json': JSON.stringify({ name: '@fixture/plugin' }),
+                'plugin/analyzer/Analyzer.csproj': PROJECT,
+                'plugin/analyzer/dist/MsbuildAnalyzer.dll': 'built',
+                ...report([node('plugin/analyzer/Analyzer.csproj', { evaluated: mode('Release', { published: ['plugin/analyzer/dist'] }) })]),
+            })
+            .graph(loaded);
+
+        expect([Object.keys(graph.nodes).toSorted(), graph.dependencies['@fixture/plugin'] ?? [], graph.nodes['@fixture/root']?.data.targets?.['upgrade--dotnet']?.dependsOn]).toStrictEqual([['@fixture/plugin', '@fixture/root', 'Analyzer'], [], undefined]);
+    });
+
+    it.for([
+        { edited: `${PLUGIN}/analyzer/dist/MsbuildAnalyzer.dll`, text: 'rebuilt', changed: true },
+        { edited: `${PLUGIN}/analyzer/Program.cs`, text: 'return 1;\n', changed: false },
+    ])('hashes the analyzer mise publishes into the package pack and the plugin suite, so editing $edited reruns both ($changed)', async ({ edited, text, changed }, { workspace }) => {
+        const tasks = [
+            ['@rasm/nx-dotnet', 'pack--pnpm'],
+            ['@rasm/test-nx-dotnet', 'test--vitest'],
+        ] as const;
+        const before = await workspace
+            .write({
+                '.gitignore': 'dist/\n',
+                'package.json': JSON.stringify({ name: '@fixture/root', workspaces: [PLUGIN, SUITE] }),
+                ...stated(PLUGIN, 'pack--pnpm'),
+                ...stated(SUITE, 'test--vitest'),
+                [`${PLUGIN}/analyzer/MsbuildAnalyzer.csproj`]: PROJECT,
+                [`${PLUGIN}/analyzer/Program.cs`]: 'return 0;\n',
+                [`${PLUGIN}/analyzer/dist/MsbuildAnalyzer.dll`]: 'built',
+                ...report([node(`${PLUGIN}/analyzer/MsbuildAnalyzer.csproj`)]),
+            })
+            .graph({ createNodes, createDependencies });
+        const first = await Promise.all(tasks.map(([project, target]) => hasher(workspace.root, before, target, project)({})));
+
+        const after = await workspace.write({ [edited]: text }).graph({ createNodes, createDependencies });
+
+        await expect(Promise.all(tasks.map(async ([project, target], index) => (await hasher(workspace.root, after, target, project)({})) !== first[index]))).resolves.toStrictEqual([changed, changed]);
     });
 });

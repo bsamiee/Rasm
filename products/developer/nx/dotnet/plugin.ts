@@ -1,7 +1,7 @@
 import { hash } from 'node:crypto';
 import { basename, dirname, extname, format, join, parse, posix, relative } from 'node:path';
 import { env, platform } from 'node:process';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, normalizePath, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
@@ -61,7 +61,7 @@ const stamped = Effect.fnUntraced(function* (workspaceRoot: string, host: Option
     ]);
 });
 
-const published = (workspaceRoot: string) => `${line(['dotnet', 'publish', relative(workspaceRoot, SOURCE)])} builds it`;
+const published = (workspaceRoot: string) => `${line(['dotnet', 'publish', relative(workspaceRoot, SOURCE), '--output', relative(workspaceRoot, dirname(ANALYZER))])} builds it`;
 
 const ready = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
@@ -159,8 +159,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
     const read = yield* Effect.result(Option.match(cached, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => (fresh ? analyzed(workspaceRoot, matched) : Effect.succeed(Report.empty)) }));
     const report = Result.getOrElse(read, () => Report.empty);
     yield* fresh && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, host, report), (stamp) => Effect.sync(() => new PluginCache(slot, { [key]: [{ report, stamp }, ...Array.take(entries, 1)] }).writeToDisk())) : Effect.void;
-    const publisher = Array.findFirst(report.nodes, ({ evaluated }) => [...evaluated.outputs, ...evaluated.published].includes(normalizePath(relative(workspaceRoot, dirname(ANALYZER)))));
-    yield* Ref.set(edges, [...related(report), ...Option.toArray(Option.map(publisher, (node): RawProjectGraphDependency => ({ source: normalizePath(relative(workspaceRoot, dirname(dirname(SOURCE)))), target: dirname(node.file), type: DependencyType.implicit })))]);
+    yield* Ref.set(edges, related(report));
     yield* Effect.forEach(
         report.nodes.filter((node) => node.external.length > 0),
         (node) => Effect.flatMap(Effect.option(fs.readFileString(listing(node))), (held) => (Option.contains(held, node.external.join('\n')) ? Effect.void : Effect.andThen(fs.makeDirectory(dirname(listing(node)), { recursive: true }), fs.writeFileString(listing(node), node.external.join('\n'))))),
@@ -168,7 +167,6 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
     );
     const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.catalogs, ...node.locks])).map((at) => posix.join('{workspaceRoot}', at));
     const manifests = yield* Effect.forEach(report.nodes, (node) => manifested(workspaceRoot, dirname(node.file)));
-    const building = Record.getSomes({ dependsOn: Option.map(publisher, (node) => [{ projects: [node.name], target: 'build--dotnet' }]) });
     const solutions = yield* Effect.forEach(
         matched.filter((file) => SOLUTIONS.includes(extname(file))),
         (file) =>
@@ -178,7 +176,6 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
                 const locked = ['dotnet', 'restore', basename(file), '--force-evaluate'] as const;
                 const upgrade: TargetConfiguration = {
                     executor: `${distribution.name}:upgrade`,
-                    ...building,
                     options: { cwd: dirname(file), commands: [{ apply: moved, preview: [...moved, '--dry-run'], env: ENVIRONMENT }, { apply: cleared }, { apply: locked }] },
                     inputs: [posix.join('{workspaceRoot}', file), ...declared, { externalDependencies: [] }],
                     metadata: {
