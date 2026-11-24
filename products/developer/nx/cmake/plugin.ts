@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { inferring, manifested } from '@rasm/nx-distribution/inference';
+import { type Anchor, anchored, inferring, manifested } from '@rasm/nx';
 import { Array, Effect, Option, Record, Schema } from 'effect';
 import { memberInputs, memberTargets } from '#/targets';
 import { Linked, MANIFEST, PLUGIN, PRESETS, REGISTRY, resolved, run, type Tree } from '#/workspace';
@@ -17,14 +17,14 @@ class Options extends Schema.Opaque<Options, unknown>()(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, settings: Options, matched: readonly string[], linked: Map<string, Tree['members']>, file: string) {
+const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, anchor: Anchor, settings: Options, matched: readonly string[], linked: Map<string, Tree['members']>, file: string) {
     const tree = yield* resolved(context.workspaceRoot, file, matched);
     linked.set(file, tree.members);
     const built = Array.fromNullishOr(tree.workflows[0]).flatMap((head) => tree.members.filter((member) => member.compiled || member.registries.length > 0).map((member) => ({ member, head })));
     const manifests = yield* Effect.forEach(built, ({ member }) => manifested(context.workspaceRoot, member.root));
     const projects = Record.fromIterableWith(Array.zip(built, manifests), ([{ member, head }, declared]): [string, ProjectConfiguration] => {
         const { default: sources } = getNamedInputs(member.root, context);
-        const targets = memberTargets(tree, member, settings, head, declared, context.workspaceRoot);
+        const targets = memberTargets(tree, member, settings, head, declared, anchor);
         const project = {
             root: member.root,
             name: member.name,
@@ -47,8 +47,9 @@ const createNodes: CreateNodes = [
         const held = new Set(listed);
         const presets = matched.filter((file) => held.has(posix.join(posix.dirname(file), MANIFEST)));
         const linked = new Map<string, Tree['members']>();
+        const anchor = anchored(context.workspaceRoot);
         (yield* Linked).set(context.workspaceRoot, linked);
-        return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(context, settings, listed, linked, file)), presets, settings, context));
+        return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(context, anchor, settings, listed, linked, file)), presets, settings, context));
     }),
 ];
 

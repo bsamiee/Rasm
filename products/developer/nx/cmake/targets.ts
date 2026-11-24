@@ -1,8 +1,7 @@
 import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { aggregated, PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { type Anchor, aggregated, EXECUTORS, PLATFORM, type Verbs } from '@rasm/nx';
 import { Array, Option, Record, UndefinedOr } from 'effect';
 import { configured, ENVIRONMENT, PACKAGING, REGISTRY, type Tree, WORKING, type Workflow } from '#/workspace';
 
@@ -44,7 +43,7 @@ const flagged = (workflow: Workflow, flag: string) =>
         ),
     );
 
-const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath, coveragePath }: { readonly outputPath?: string; readonly coveragePath?: string }, head: Workflow, declared: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, workspaceRoot: string): Record<string, TargetConfiguration> => {
+const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath, coveragePath }: { readonly outputPath?: string; readonly coveragePath?: string }, head: Workflow, declared: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, anchor: Anchor): Record<string, TargetConfiguration> => {
     const others = tree.workflows.filter((workflow) => workflow !== head);
     const within = (at: string) => posix.relative(tree.root, at) || '.';
     const checked = Option.filter(
@@ -170,7 +169,7 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
             onEmpty: () => ({}),
             onNonEmpty: (held) => ({
                 vcpkg: {
-                    executor: `${distribution.name}:upgrade`,
+                    executor: EXECUTORS.upgrade,
                     options: {
                         cwd: member.root,
                         commands: held
@@ -195,11 +194,11 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
     return aggregated(
         {
             ...tools,
-            clean: { ...((member.compiled || removed.length > 0) && { cmake: { executor: `${distribution.name}:clean`, inputs: sources, ...cleaning, options: { ...cleaning.options, targets: removed } } }) },
+            clean: { ...((member.compiled || removed.length > 0) && { cmake: { executor: EXECUTORS.clean, inputs: sources, ...cleaning, options: { ...cleaning.options, targets: removed } } }) },
             attach: {
                 ...(Option.isSome(cpack) && {
                     gh: {
-                        executor: `${distribution.name}:attach`,
+                        executor: EXECUTORS.attach,
                         dependsOn: ['pack--cpack'],
                         inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
                         metadata: {
@@ -212,7 +211,7 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
         },
         declared,
         'cmake',
-        workspaceRoot,
+        anchor,
     );
 };
 

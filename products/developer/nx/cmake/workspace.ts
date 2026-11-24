@@ -4,7 +4,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { normalizePath, readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
-import { runner } from '@rasm/nx-distribution/inference';
+import { runner } from '@rasm/nx';
 import { Array, Cause, Context, Effect, FileSystem, Function, Graph, Layer, Match, Option, Order, pipe, Predicate, Record, Result, Schema, SemVer } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
