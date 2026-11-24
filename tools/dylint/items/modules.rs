@@ -1,5 +1,5 @@
 use core::fmt::Display;
-use core::iter;
+use core::{iter, mem};
 use std::ffi::OsStr;
 use std::io::{self, ErrorKind};
 use std::path::{self, Path, PathBuf};
@@ -19,7 +19,7 @@ use rustc_expand::module::{DirOwnership, ModError, default_submod_path};
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{CRATE_DEF_ID, DefId, LocalDefId, LocalModId};
 use rustc_hir::intravisit::{self, FnKind, Visitor};
-use rustc_hir::{Block, Body, Expr, ExprKind, FnDecl, HirId, ImplItem, Item, ItemKind, LocalSource, Node, Pat, PatExprKind, PatKind, StmtKind, TraitItem};
+use rustc_hir::{Block, Body, BodyId, Expr, ExprKind, FnDecl, HirId, ImplItem, Item, ItemKind, LocalSource, Node, Pat, PatExprKind, PatKind, StmtKind, TraitItem};
 use rustc_lexer::TokenKind;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::hir::nested_filter;
@@ -126,6 +126,12 @@ fn movable(cx: &LateContext<'_>, target: LocalDefId, module: LocalModId) -> bool
         type NestedFilter = nested_filter::OnlyBodies;
 
         fn maybe_tcx(&mut self) -> TyCtxt<'tcx> { self.tcx }
+
+        fn visit_nested_body(&mut self, id: BodyId) {
+            let enclosing = mem::replace(&mut self.typeck, self.tcx.typeck_body(id));
+            self.visit_body(self.tcx.hir_body(id));
+            self.typeck = enclosing;
+        }
 
         fn visit_path(&mut self, path: &rustc_hir::Path<'tcx>, _: HirId) {
             path.segments.iter().map(|segment| segment.res).chain([path.res]).filter_map(|res| res.opt_def_id()).for_each(|item| self.read(item));
