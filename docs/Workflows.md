@@ -30,8 +30,10 @@ Workflow `CI` and its jobs:
 - Job `macos` runs `hk check` steps `swiftlint`, `swift-format`, `plutil`, and `xcprojformatter` from base to head, as they need macOS
 - Job `linux` runs every other `hk check` step before its tasks, so file findings arrive first, and its tasks run past a failed check
 - Job `linux` runs every `codegen` target before `hk check`, as type-aware lint reads the sources those targets write
-- Job `windows` starts only where job `affected` lists an `os:win32` or `host:rhino` project, and installs Rhino where one is `host:rhino`
-- Job `windows` runs `test -c headless` over affected `os:win32` and `host:rhino` projects with core-hour token `RHINO_TOKEN`
+- Job `windows` starts only where job `affected` lists an `os:win32` or `host:rhino` project, and runs `test -c headless` over affected `os:win32` projects
+- Job `windows` exports as `RHINO_INSTALLER` the installer URL McNeel's download redirect names for the pinned Rhino major, which every `host:rhino` task hash reads
+- Job `windows` first runs `test -c headless` over affected `host:rhino` projects without Rhino, which passes where every task hits the cache
+- Job `windows` installs that installer where a task missed, then runs those projects again with core-hour token `RHINO_TOKEN`
 - Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine a tracked `.uproject` names
 - Unreal projects hold no target on a runner outside their engine image
 - Unreal image pulls sign in to GHCR as the repository owner, the account `EPIC_GHCR_TOKEN` belongs to
@@ -68,7 +70,7 @@ Nx remote cache and Actions caches per workflow and machine:
 - Row `nx-apple` of mise builds the Apple analyzer with `swift build` and writes its stamp before any Nx graph exists, as graph creation reads it
 - Jobs on macOS restore that analyzer, its stamp, and mise freshness state by runner image and analyzer sources, so a changed source alone rebuilds it
 - Tool cache keys leave out OS and machine mise files, as those state environment and bootstrap rows alone
-- GitHub-hosted jobs cache the pnpm store by OS and `pnpm-lock.yaml`, falling back to the newest store of their OS
+- GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
 - Job `macos` caches no Swift build folder, as restored folders shortened no build and Swift and Xcode tasks hit the Nx cache
 - Runs read and write with `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`, and a pull request from a fork holds no secret and uses its local cache
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row

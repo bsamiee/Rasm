@@ -193,7 +193,7 @@ Template project holds every setting below:
 |  [13]   | `RunCommand`, `RunArguments`                    | Rhino's host, `exec <dll>`    | Tests run on the runtime Rhino uses                          |
 
 - `RhinoApplication` names `Rhino <major>.app` on macOS and `CoreDllPath` under `HKLM\SOFTWARE\McNeel\Rhinoceros\<major>.0\Install` on Windows
-- Target `ResolveRhinoApplication` runs before `ComputeRunArguments` and drops copy-local assemblies Rhino ships, `RequireRhinoApplication` fails a run missing Rhino's runtime
+- Target `ResolveRhinoApplication` runs in every build and before `ComputeRunArguments`, fails a build or run missing Rhino or its runtime, and drops copy-local assemblies Rhino ships, so build output depends on the install
 - Target `BuildBackground` compiles `Background.m` with `xcrun clang -dynamiclib` beside the test assembly on macOS
 - Both frameworks build on every OS into one lock file, and locked restore passes on each OS
 - `ExcludeAssets="runtime"` keeps every Rhino assembly out of build output, a copied RhinoCommon loads beside Rhino's and breaks type identity

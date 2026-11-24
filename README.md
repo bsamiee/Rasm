@@ -206,7 +206,8 @@ Suites sit in `tests/` except where their tool fixes the place:
 
 Rhino suites boot Rhino once per test process, one run per machine, as concurrent processes on one Cloud Zoo license each raise a prompt:
 - Local runs on a machine with Rhino open views, or none under `nx test <project> -c headless`, in a scratch profile seeded with license files
-- CI tests Rhino suites headless on Windows runners through Rhino.Inside, over the newest release of their pinned major each run installs
+- CI tests Rhino suites headless on Windows runners through Rhino.Inside, over the newest release of their pinned major
+- Windows runners install Rhino only where a Rhino task misses the cache
 
 ## [08]-[DELIVERY]
 

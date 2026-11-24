@@ -62,7 +62,7 @@ apt-get update && apt-get install -y "rhino3d=<version>" && apt-mark hold rhino3
 
 1. Checkout without persisted credentials
 2. .NET SDK install, `global.json` selecting Microsoft.Testing.Platform for `dotnet test`
-3. Rhino install, before any build or graph: the install gate reads the install at evaluation, and without Rhino the project holds no test
+3. Rhino install before the build, as the build drops copy-local assemblies Rhino ships, and a cached build or test keyed on the installer URL skips the install
 4. NuGet cache keyed on project files
 5. Build once in Release
 6. `dotnet test --no-build --results-directory <dir>` with `RHINO_TOKEN` on this step alone

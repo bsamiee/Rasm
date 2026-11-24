@@ -38,6 +38,15 @@ describe('task hashes', () => {
         expect([local === ci, local === again]).toStrictEqual([false, true]);
     });
 
+    it.for(['build--dotnet', 'test--dotnet'])('hashes in %s each variable an NxEnvironmentInput item names, and no other', async (target, { workspace }) => {
+        const graph = await workspace.write({ 'libs/Lib/Lib.csproj': PROJECT, ...report([node('libs/Lib/Lib.csproj', { test: true, environment: ['HOST_INSTALLER'] })]) }).graph({ createNodes, createDependencies });
+        const hashed = hasher(workspace.root, graph, target);
+
+        const [first, next, unnamed, again] = [await hashed({ HOST_INSTALLER: 'host_1.exe' }), await hashed({ HOST_INSTALLER: 'host_2.exe' }), await hashed({ HOST_INSTALLER: 'host_1.exe', OTHER_INSTALLER: 'other.exe' }), await hashed({ HOST_INSTALLER: 'host_1.exe' })];
+
+        expect([first === next, first === unnamed, first === again]).toStrictEqual([false, true, true]);
+    });
+
     it.for(['build--dotnet', 'check--dotnet-format'])('hashes in %s the version of the SDK dotnet resolves', async (target, { workspace, analyzer }) => {
         const graph = await workspace.write({ 'libs/Lib/Lib.csproj': PROJECT, ...report([node('libs/Lib/Lib.csproj')]) }).graph({ createNodes, createDependencies });
         const hashed = hasher(workspace.root, graph, target);

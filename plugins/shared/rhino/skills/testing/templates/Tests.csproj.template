@@ -89,13 +89,10 @@
         <PropertyGroup>
             <RunArguments>exec &quot;$(TargetPath)&quot; $(RunArguments)</RunArguments>
         </PropertyGroup>
+        <Error Condition="!Exists('$(RhinoApplication)') or !Exists('$(RunCommand)')" Text="$(MSBuildProjectName) builds and runs against Rhino $(_RhinoMajor), absent at '$(RhinoApplication)' with its .NET runtime at '$(RunCommand)'" />
         <ItemGroup>
             <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)" Condition="Exists('$(_RhinoResources)%(Filename)%(Extension)')" />
         </ItemGroup>
-    </Target>
-
-    <Target Name="RequireRhinoApplication" BeforeTargets="ComputeRunArguments" DependsOnTargets="ResolveRhinoApplication" Condition="'$(IsTestProject)' == 'true'">
-        <Error Condition="!Exists('$(RunCommand)')" Text="$(MSBuildProjectName) runs on Rhino $(RhinoVersion), whose .NET runtime is absent at '$(RunCommand)'" />
     </Target>
 
     <Target Name="BuildBackground" BeforeTargets="CopyFilesToOutputDirectory" Inputs="Background.m" Outputs="$(TargetDir)libbackground.dylib" Condition="'$(IsTestProject)' == 'true' and '$(_RhinoBoot)' == ''">

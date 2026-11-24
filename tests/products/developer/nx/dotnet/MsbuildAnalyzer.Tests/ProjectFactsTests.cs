@@ -14,7 +14,7 @@ public sealed class ProjectFactsWorkspace() : Analyzed(
         ("locked/App/packages.lock.json", Lock),
         ("locked/Custom/Custom.csproj", TempWorkspace.Project("<PropertyGroup><NuGetLockFilePath>locks/custom.json</NuGetLockFilePath></PropertyGroup>")),
         ("locked/Custom/locks/custom.json", JsonElement.Parse("""{ "version": 2, "dependencies": { "net10.0": {} } }""").GetRawText()),
-        ("stated/Plugin/Plugin.csproj", """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks><EnableWindowsTargeting>true</EnableWindowsTargeting></PropertyGroup><ItemGroup><NxTag Include="host:rhino" /><NxImplicitDependency Include="Host" /></ItemGroup><ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'"><NxTag Include="os:windows" /></ItemGroup></Project>"""),
+        ("stated/Plugin/Plugin.csproj", """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks><EnableWindowsTargeting>true</EnableWindowsTargeting></PropertyGroup><ItemGroup><NxTag Include="host:rhino" /><NxImplicitDependency Include="Host" /></ItemGroup><ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'"><NxTag Include="os:windows" /><NxEnvironmentInput Include="HOST_INSTALLER" /></ItemGroup></Project>"""),
         ("stated/External/External.csproj", TempWorkspace.Project($"""<ItemGroup><UpToDateCheckInput Include="{typeof(ProjectFactsTests).Assembly.Location}" /><UpToDateCheckInput Include="Inside.txt" /></ItemGroup>""")),
         ("stated/External/Inside.txt", ""),
         ("stated/Rules/Rules.csproj", TempWorkspace.Project("""<ItemGroup><AdditionalFiles Include="AnalyzerReleases.Shipped.md;AnalyzerReleases.Unshipped.md" /></ItemGroup>""")),
@@ -83,10 +83,11 @@ public sealed class ProjectFactsTests(ProjectFactsWorkspace analyzed) : IClassFi
     // --- [STATED]
 
     [Fact]
-    public void TagsAndTargetPlatformsComeFromEveryFrameworkEvaluationAndImplicitDependenciesFromTheProject() {
+    public void TagsEnvironmentInputsAndTargetPlatformsComeFromEveryFrameworkEvaluationAndImplicitDependenciesFromTheProject() {
         JsonElement node = analyzed.Node("stated/Plugin/Plugin.csproj");
 
         Assert.Equal(["host:rhino", "os:windows"], node.Strings("tags"));
+        Assert.Equal(["HOST_INSTALLER"], node.Strings("environment"));
         Assert.Equal(["Host"], node.Strings("implicit"));
         Assert.Equal(["", "Windows"], node.Strings("platforms"));
     }

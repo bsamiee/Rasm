@@ -42,6 +42,7 @@ internal sealed record Node(
     ImmutableArray<string> Platforms,
     ImmutableArray<string> Implicit,
     ImmutableArray<string> Tags,
+    ImmutableArray<string> Environment,
     ImmutableArray<string> External,
     Tracking? Releases);
 
@@ -175,6 +176,7 @@ internal static partial class Workspace {
                 [.. evaluated.Map(static instance => instance.GetPropertyValue("TargetPlatformIdentifier")).Distinct().Order(StringComparer.Ordinal)],
                 [.. toSeq(outer.GetItems("NxImplicitDependency")).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
                 [.. instances.Bind(static instance => toSeq(instance.GetItems("NxTag"))).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
+                [.. instances.Bind(static instance => toSeq(instance.GetItems("NxEnvironmentInput"))).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
                 [.. (from instance in instances from type in Seq("UpToDateCheckInput", "Reference") from item in toSeq(instance.GetItems(type)) select item.GetMetadataValue("HintPath") is { Length: > 0 } hinted ? hinted : item.GetMetadataValue("FullPath"))
                     .Filter(input => File.Exists(input) && !Under(input, root) && !hosted.Exists(at => Under(input, at)))
                     .Distinct()

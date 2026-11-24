@@ -32,6 +32,7 @@ const node = (file: string, stated: Readonly<Record<string, unknown>> = {}) => (
     platforms: [],
     implicit: [],
     tags: [],
+    environment: [],
     external: [],
     releases: null,
     ...stated,

@@ -207,13 +207,22 @@ jobs:
               if: &rhino ${{ needs.affected.outputs.rhino != '[]' }}
               run: |-
                   major="$(yq -p xml -oy '.Project.PropertyGroup[] | select(.+@Label == "Rhino") | .RhinoVersion | split(".") | .[0]' Directory.Packages.props)"
-                  printf "major=%s\n" "${major}" >> "${GITHUB_OUTPUT}"
-            - uses: mcneel/setup-rhino3d@095a5ff63cdb7dc8383e229fc40ffa779915b0af # v4.0.0
+                  installer="$(curl -fsS -o /dev/null -w '%{redirect_url}' --get --data-urlencode "slug=rhino-for-windows/${major}/latest" --data-urlencode "email=${RHINO_EMAIL}" https://www.rhino3d.com/www-api/download/direct)"
+                  printf "RHINO_INSTALLER=%s\n" "${installer}" >> "${GITHUB_ENV}"
+              env:
+                  RHINO_EMAIL: ${{ secrets.RHINO_EMAIL }}
+            - if: ${{ needs.affected.outputs.windows != needs.affected.outputs.rhino }}
+              run: nx affected --targets=test --configuration=headless --exclude='*,!tag:os:win32,tag:host:rhino'
+            - id: cached
               if: *rhino
+              run: nx affected --targets=test --configuration=headless --exclude='*,!tag:host:rhino' || printf "missed=true\n" >> "${GITHUB_OUTPUT}"
+            - if: ${{ steps.cached.outputs.missed == 'true' }}
+              uses: mcneel/setup-rhino3d@095a5ff63cdb7dc8383e229fc40ffa779915b0af # v4.0.0
               with:
                   email-address: ${{ secrets.RHINO_EMAIL }}
-                  major-version: ${{ steps.rhino.outputs.major }}
-            - run: nx affected --targets=test --configuration=headless --exclude='*,!tag:os:win32,!tag:host:rhino'
+                  download-url: ${{ env.RHINO_INSTALLER }}
+            - if: ${{ steps.cached.outputs.missed == 'true' }}
+              run: nx affected --targets=test --configuration=headless --exclude='*,!tag:host:rhino'
               env:
                   RHINO_TOKEN: ${{ secrets.RHINO_TOKEN }}
             - *save
