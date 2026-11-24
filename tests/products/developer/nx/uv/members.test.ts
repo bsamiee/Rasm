@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-uv';
-import { it, unaggregated } from '@rasm/testing/nx';
-import { Array, Record, Struct } from 'effect';
+import { it, shimmed, unaggregated } from '@rasm/testing/nx';
+import { Array, Record, String, Struct } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
 import { buildProjectGraphUsingProjectFileMap } from 'nx/src/project-graph/build-project-graph';
@@ -124,6 +125,17 @@ describe('uv workspace members', { timeout: 60_000 }, () => {
         const second = await built(workspace.root, first.projectFileMapCache);
 
         expect([first, second].map(({ projectGraph }) => (projectGraph.dependencies['library'] ?? []).map(Struct.get('target')).toSorted())).toStrictEqual(edges);
+    });
+
+    it('reads the workspace again once uv reports another version over unchanged files', async ({ workspace }) => {
+        locked(workspace.write(MEMBERS).root);
+        const [bin, uv] = [join(workspace.root, 'tmp/bin'), execFileSync('which', ['uv'], { encoding: 'utf-8' }).trim()];
+        shimmed(bin, { uv: `[ "$1 $2" = "self version" ] && exec cat "${bin}/version"\n[ "$1 $2" = "workspace metadata" ] && echo "$*" >> "${bin}/metadata.log"\nexec "${uv}" "$@"` });
+        await workspace.write({ 'tmp/bin/version': '0.13.8\n' }).graph({ createNodes, createDependencies });
+
+        await workspace.write({ 'tmp/bin/version': '0.13.9\n' }).graph({ createNodes, createDependencies });
+
+        expect(readFileSync(join(bin, 'metadata.log'), 'utf-8').split('\n').filter(String.isNonEmpty)).toHaveLength(2);
     });
 
     it('adds the implicit dependencies the nx table of a member manifest names', async ({ workspace }) => {
