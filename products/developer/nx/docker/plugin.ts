@@ -3,8 +3,7 @@ import { join, posix, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesResultArray, detectPackageManager, hashArray, normalizePath, type TargetConfiguration } from '@nx/devkit';
 import { getLockFileName, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, anchored, fingerprinted, recalled, run, stamped, within } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { type Anchor, aggregated, anchored, EXECUTORS, fingerprinted, recalled, run, stamped, within } from '@rasm/nx';
 import { Array, Config, Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -25,7 +24,7 @@ const Required = Schema.fromJsonString(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const engine = (workspaceRoot: string) => {
+const engine = (anchor: Anchor) => {
     const started = ['colima', 'start', '--activate=false', '--ssh-config=false', '--mount', 'none', '--port-forwarder', 'grpc', '--memory', '8', '--disk', '20'];
     const install: TargetConfiguration = {
         command: `mkdir -p "$COLIMA_HOME" && ${started.map(quoteShellArg).join(' ')} --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"`,
@@ -37,7 +36,7 @@ const engine = (workspaceRoot: string) => {
         },
     };
     const clean: TargetConfiguration = {
-        executor: `${distribution.name}:clean`,
+        executor: EXECUTORS.clean,
         dependsOn: ['install--colima'],
         options: {
             commands: [
@@ -56,17 +55,16 @@ const engine = (workspaceRoot: string) => {
     return Effect.map(
         Config.option(Config.String('COLIMA_HOME')),
         flow(
-            Option.map((home) => normalizePath(relative(workspaceRoot, resolve(workspaceRoot, home)))),
+            Option.map((home) => normalizePath(relative(anchor.workspaceRoot, resolve(anchor.workspaceRoot, home)))),
             Option.filter(within),
-            Option.map((root) => [MANIFEST, { projects: { [root]: { root, name: ENGINE, targets: aggregated({ install: { [ENGINE]: install }, clean: { [ENGINE]: clean } }, {}, ENGINE, workspaceRoot) } } }] as const),
+            Option.map((root) => [MANIFEST, { projects: { [root]: { root, name: ENGINE, targets: aggregated({ install: { [ENGINE]: install }, clean: { [ENGINE]: clean } }, {}, ENGINE, anchor) } } }] as const),
             Option.toArray,
         ),
     );
 };
 
-const required = Effect.fnUntraced(function* (workspaceRoot: string, files: readonly string[]) {
-    const rooted = anchored(workspaceRoot);
-    const manifests = files.filter((file) => posix.basename(file) === MANIFEST && rooted(posix.dirname(file)));
+const required = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, files: readonly string[]) {
+    const manifests = files.filter((file) => posix.basename(file) === MANIFEST && holds(posix.dirname(file)));
     const cache = new PluginCache<{ readonly sources: readonly string[]; readonly tagged: CreateNodesResultArray } & { readonly stamp: string }>(join(workspaceDataDirectory, 'docker.hash'));
     const read = (manifest: string) => FileSystem.FileSystem.use((fs) => fs.readFileString(resolve(workspaceRoot, manifest))).pipe(Effect.flatMap(Schema.decodeEffect(Required)));
     const tagging = Effect.forEach(
@@ -89,7 +87,13 @@ const required = Effect.fnUntraced(function* (workspaceRoot: string, files: read
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes = [`**/${MANIFEST}`, (files, _, { workspaceRoot }) => run(Effect.map(Effect.all([engine(workspaceRoot), required(workspaceRoot, files)]), Array.flatten))];
+const createNodes: CreateNodes = [
+    `**/${MANIFEST}`,
+    (files, _, { workspaceRoot }) => {
+        const anchor = anchored(workspaceRoot);
+        return run(Effect.map(Effect.all([engine(anchor), required(anchor, files)]), Array.flatten));
+    },
+];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
