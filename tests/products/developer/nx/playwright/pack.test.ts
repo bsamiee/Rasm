@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { Clean, execute } from '@rasm/nx-distribution/executors/clean';
+import { Clean, execute } from '@rasm/nx/executors/clean';
 import { createNodes } from '@rasm/nx-playwright';
 import { environment, it as nx } from '@rasm/testing/nx';
 import { Schema } from 'effect';

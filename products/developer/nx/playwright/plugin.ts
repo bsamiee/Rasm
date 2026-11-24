@@ -5,8 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { emitPluginWorkerLog, getDaemonClientEnvGeneration, globWithWorkspaceContext, hashObject, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, PLATFORM, run, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, PLATFORM, run, tokened, type Verbs, within } from '@rasm/nx';
 import { Array, Cause, Effect, flow, Function, Option, Record, Result, Schema, String } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -23,7 +22,7 @@ const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Folder }).annotate({
+const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({
     description:
         'outputPath: workspace folder a suite writes test-results and the files of the html, blob, and perfetto reporters to, {projectName} naming the project, each config project with its own outputDir under it and test files its testMatch finds running as pack--playwright into that outputDir, absent leaves Playwright its own folders and infers no pack--playwright',
 });
@@ -143,7 +142,7 @@ const targets = (home: string, { loaded: configs, scanned, packages, servers, re
         pack,
         clean: {
             playwright: {
-                executor: `${distribution.name}:clean`,
+                executor: EXECUTORS.clean,
                 options: { targets: removed, cwd: home },
                 configurations: { cache: { commands: [['playwright', 'clear-cache']] } },
                 inputs: ['default', '^default', { externalDependencies: ['@playwright/test'] }],
@@ -153,7 +152,7 @@ const targets = (home: string, { loaded: configs, scanned, packages, servers, re
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, context: CreateNodesContext, outputPath: string | undefined, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, anchor: Anchor, context: CreateNodesContext, outputPath: string | undefined, file: string) {
     const home = posix.dirname(file);
     const resolved = yield* pass.recall(file, read(context.workspaceRoot, file, outputPath !== undefined));
     const stated = yield* manifested(context.workspaceRoot, home);
@@ -161,14 +160,14 @@ const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(ke
         root: home,
         tags: ['host:browser'],
         metadata: { technologies: ['playwright'] },
-        targets: aggregated(targets(home, resolved, extended(context.workspaceRoot, home), namedInput(home, context) === 'production' ? ['^production', '^{projectRoot}/tsconfig*.json'] : ['^default'], outputPath, pass.exec), stated, 'playwright', context.workspaceRoot),
+        targets: aggregated(targets(home, resolved, extended(context.workspaceRoot, home), namedInput(home, context) === 'production' ? ['^production', '^{projectRoot}/tsconfig*.json'] : ['^default'], outputPath, pass.exec), stated, 'playwright', anchor),
     };
     return { projects: { [home]: project } };
 });
 
 const nodes = inferring(Options, run, function* (files, settings, context, cached) {
-    const project = anchored(context.workspaceRoot);
-    const configs = files.filter((file) => project(posix.dirname(file)));
+    const anchor = anchored(context.workspaceRoot);
+    const configs = files.filter((file) => anchor.holds(posix.dirname(file)));
     const pass = yield* cached<Resolved>(
         'playwright.hash',
         hashArray([hashObject(settings), yield* OWN]),
@@ -179,7 +178,7 @@ const nodes = inferring(Options, run, function* (files, settings, context, cache
             ),
         getDaemonClientEnvGeneration,
     );
-    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, settings.outputPath, file)), configs, settings, context));
+    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, anchor, context, settings.outputPath, file)), configs, settings, context));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
