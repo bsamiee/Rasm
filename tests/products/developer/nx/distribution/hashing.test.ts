@@ -42,10 +42,12 @@ const provider = {
     'package.json': '{ "name": "repo", "private": true, "workspaces": ["app", "tools/*"] }',
     'nx.json': '{ "namedInputs": { "default": ["{projectRoot}/**/*"] } }',
     'app/package.json': '{ "name": "app", "private": true }',
-    'tools/runner/package.json': '{ "name": "@fixture/runner", "nx": { "implicitDependencies": ["@fixture/shared"] } }',
+    'tools/runner/package.json': '{ "name": "@fixture/runner", "dependencies": { "@fixture/shared": "workspace:*" } }',
     'tools/runner/executors/run/executor.ts': 'export default async () => ({ success: true });\n',
-    'tools/shared/package.json': '{ "name": "@fixture/shared" }',
+    'tools/shared/package.json': '{ "name": "@fixture/shared", "dependencies": { "@fixture/deep": "workspace:*" } }',
     'tools/shared/index.ts': 'export const shared = 1;\n',
+    'tools/deep/package.json': '{ "name": "@fixture/deep" }',
+    'tools/deep/index.ts': 'export const deep = 1;\n',
 };
 
 const plugged = {
@@ -141,13 +143,14 @@ describe('executor package inputs', () => {
     it.for([
         { task: 'app:check--runner', file: 'tools/runner/executors/run/executor.ts', hashes: true },
         { task: 'app:check--runner', file: 'tools/shared/index.ts', hashes: true },
+        { task: 'app:check--runner', file: 'tools/deep/index.ts', hashes: false },
         { task: 'app:check', file: 'tools/runner/executors/run/executor.ts', hashes: true },
         { task: 'app:nx-release-publish', file: 'tools/runner/executors/run/executor.ts', hashes: true },
         { task: 'app:check--shell', file: 'tools/runner/executors/run/executor.ts', hashes: false },
     ])('$task hashes $file ($hashes) where the executor package is a project of the workspace', async ({ task, file, hashes }, { workspace }) => {
         const graph = await workspace
             .write(provider)
-            .install(pathToFileURL(join(workspace.root, 'tools/runner/package.json')).href)
+            .install(...['runner', 'shared', 'deep'].map((tool) => pathToFileURL(join(workspace.root, 'tools', tool, 'package.json')).href))
             .graph(executing('@fixture/runner:run'));
 
         const covered = await planned(workspace, graph, task);

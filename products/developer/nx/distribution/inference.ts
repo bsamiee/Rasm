@@ -1,5 +1,5 @@
 import { ChildProcess as NodeChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
@@ -79,13 +79,13 @@ const batched = <S extends Schema.Decoder<unknown>, A, E>(options: S, body: (gra
 };
 
 const fingerprinted = (folder: string) =>
-    Effect.runSync(
-        Effect.cached(
-            Effect.map(
-                FileSystem.FileSystem.use((fs) => fs.readDirectory(folder)),
-                (names) => hashArray([...Array.fromNullishOr(hashFile(import.meta.filename)), ...names.toSorted().flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(folder, name)))])]),
-            ),
-        ),
+    Effect.succeed(
+        hashArray([
+            ...Array.fromNullishOr(hashFile(import.meta.filename)),
+            ...readdirSync(folder)
+                .toSorted()
+                .flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(folder, name)))]),
+        ]),
     );
 
 const ran = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
@@ -191,17 +191,23 @@ const produced = (projects: Readonly<Record<string, ProjectConfiguration>>, path
 
 const aggregated = (verbs: Verbs, stated: Stated, technology: string, workspaceRoot: string, own: Readonly<Record<string, TargetConfiguration>> = {}): Record<string, TargetConfiguration> => {
     const [unstated, project] = [['default', '^default'], anchored(workspaceRoot)];
+    const held = (specifier: string, from: string) =>
+        Option.liftThrowable(readModulePackageJson)(specifier, [from]).pipe(
+            Option.map(({ path, packageJson }) => ({ packageJson, folder: dirname(path) })),
+            Option.filter(({ folder }) => {
+                const at = normalizePath(relative(workspaceRoot, folder));
+                return within(at) && project(at);
+            }),
+        );
     const provided = (target: TargetConfiguration): TargetConfiguration =>
         Option.match(
-            Option.fromUndefinedOr(target.executor).pipe(
-                Option.map(parseExecutor),
-                Option.flatMap(([provider]) => Option.liftThrowable(readModulePackageJson)(provider, [workspaceRoot])),
-                Option.map(({ path, packageJson: { name } }) => ({ name, at: normalizePath(relative(workspaceRoot, dirname(path))) })),
-                Option.filter(({ at }) => within(at) && project(at)),
-            ),
+            Option.flatMap(Option.map(Option.fromUndefinedOr(target.executor), parseExecutor), ([provider]) => held(provider, workspaceRoot)),
             {
                 onNone: () => target,
-                onSome: ({ name }) => ({ ...target, inputs: [...(target.inputs ?? unstated), { input: 'default', projects: [name] }, { input: 'default', projects: [name], dependencies: true }] }),
+                onSome: ({ packageJson, folder }) => ({
+                    ...target,
+                    inputs: [...(target.inputs ?? unstated), { input: 'default', projects: [packageJson.name, ...Array.getSomes(Record.keys(packageJson.dependencies ?? {}).map((name) => held(name, folder))).map(({ packageJson: linked }) => linked.name)] }],
+                }),
             },
         );
     return {
