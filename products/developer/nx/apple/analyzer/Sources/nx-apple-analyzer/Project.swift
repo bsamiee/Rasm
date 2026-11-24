@@ -57,6 +57,7 @@ struct Analysis {
     let container: FilePath
     let configurations: [String]
     let projects: [String]
+    let products: [String: [String]]
     let buildFiles: [String]
     let built: Built
     let references: [Reference]
@@ -67,10 +68,18 @@ struct Analysis {
 func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(AnalyzerError) -> Analysis {
     let root = container.removingLastComponent()
     let tree = Tree(decoded.topLevelReferences, root: root)
-    let locals = decoded.packages.compactMap { package in
-        if case .local(let local) = package.location { joined(root, local.path).string } else { nil }
+    let locals = decoded.packages.compactMap { (package: XCSchema.SwiftPackage) -> (identity: String?, path: String)? in
+        if case .local(let local) = package.location { (FilePath(local.path).lastComponent?.string.lowercased(), joined(root, local.path).string) } else { nil }
     }
     let targets = decoded.targets.map(\.commonProperties)
+    let linked: [String?: [XCSchema.SwiftPackageProductReference]] = Dictionary(
+        grouping: targets.flatMap { (target: XCSchema.CommonTargetProperties) -> [XCSchema.SwiftPackageProductReference] in
+            target.packageProductTargetMembers.map(\.packageProduct)
+                + target.dependencies.compactMap { (dependency: XCSchema.TargetDependency) -> XCSchema.SwiftPackageProductReference? in
+                    if case .package(let product, _) = dependency { product } else { nil }
+                }
+        }
+    ) { product in product.package?.packageName.lowercased() }
     let configurations = decoded.configurations.map(\.name.rawValue)
     let based = { (configurations: [XCSchema.Configuration], owner: String) throws(AnalyzerError) -> [String: [Source]] in
         Dictionary(
@@ -120,7 +129,8 @@ func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(Analyze
     return Analysis(
         container: container,
         configurations: configurations,
-        projects: Set(remotes.map(\.string) + locals).sorted(),
+        projects: Set(remotes.map(\.string) + locals.map(\.path)).sorted(),
+        products: Dictionary(locals.map { local in (local.path, Set(linked[local.identity, default: []].map(\.productName)).sorted()) }) { first, second in Set(first + second).sorted() },
         buildFiles: Set(tree.built.map(\.string)).sorted(),
         built: Built(configuration: decoded.defaultConfigurationName.rawValue, products: Dictionary(evaluated.map { held in (held.id, held.installed) }) { first, _ in first }),
         references: project.values.joined().map(\.reference) + evaluated.flatMap(\.references),
@@ -137,6 +147,7 @@ func project(_ analysis: Analysis, built: [String: Built]) throws(AnalyzerError)
             configurations: analysis.configurations,
             inputs: Set(references.compactMap(\.path).map(\.string)).sorted(),
             projects: analysis.projects,
+            products: analysis.products,
             buildFiles: analysis.buildFiles,
         ),
         references,

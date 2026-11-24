@@ -22,7 +22,7 @@ const PLIST = '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dic
 const VERSIONED = '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict><key>CFBundleShortVersionString</key><string>1.0.0</string></dict></plist>\n';
 const REFERENCE = '<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A10000000000000000000002" BuildableName="Viewer.app" BlueprintName="Viewer" ReferencedContainer="container:Viewer.xcodeproj"/>';
 const PACKAGES = {
-    'Package.swift': `${TOOLS}let package = Package(\n    name: "Fixture",\n    platforms: [.macOS(.v27)],\n    targets: [\n        .target(name: "Core", path: "libs/Core"),\n        .target(name: "Middle", dependencies: ["Core"], path: "libs/Middle"),\n        .target(name: "Loose", path: "libs/Loose"),\n        .executableTarget(name: "Tool", dependencies: ["Middle"], path: "apps/Tool"),\n        .testTarget(name: "CoreTests", dependencies: ["Core"], path: "libs/tests/CoreTests"),\n    ]\n)\n`,
+    'Package.swift': `${TOOLS}let package = Package(\n    name: "Fixture",\n    platforms: [.macOS(.v27)],\n    products: [.library(name: "Middle", targets: ["Middle"])],\n    targets: [\n        .target(name: "Core", path: "libs/Core"),\n        .target(name: "Middle", dependencies: ["Core"], path: "libs/Middle"),\n        .target(name: "Loose", path: "libs/Loose"),\n        .executableTarget(name: "Tool", dependencies: ["Middle"], path: "apps/Tool"),\n        .testTarget(name: "CoreTests", dependencies: ["Core"], path: "libs/tests/CoreTests"),\n    ]\n)\n`,
     'libs/Core/Core.swift': 'public func one() -> Int { 1 }\n',
     'libs/Middle/Middle.swift': 'import Core\n\npublic func two() -> Int { one() + 1 }\n',
     'libs/Loose/Loose.swift': 'public let loose = 0\n',
@@ -48,6 +48,7 @@ const XCODE = {
   "default-configuration": "Release",
   "configurations": [ { "name": "Debug", "file": "Configs/Base.xcconfig" }, { "name": "Release", "file": "Configs/Base.xcconfig" } ],
   "localizations": { "development": "en", "supported": [ "Base" ] },
+  "packages": [ { "kind": "local", "path": "../.." } ],
   "files": [
     { "kind": "folder", "path": "Sources", "target-membership": [ "Viewer" ] },
     { "kind": "group", "name": "Configs", "path": "Configs", "children": [ { "path": "Base.xcconfig" } ] },
@@ -61,6 +62,7 @@ const XCODE = {
       "product-type": "application",
       "build-phases": [ "compile-sources", "frameworks", "resources" ],
       "build-settings": { "PRODUCT_BUNDLE_IDENTIFIER": "example.fixture.viewer", "INFOPLIST_FILE": "$(SRCROOT)/Support/Info.plist" },
+      "package-product-members": [ { "package": "..", "product-name": "Middle", "build-phase": { "build-phase": "frameworks" } } ],
     },
   ],
   "build-settings": { "CODE_SIGN_IDENTITY": "-", "CODE_SIGN_STYLE": "Manual", "GENERATE_INFOPLIST_FILE": "YES", "MACOSX_DEPLOYMENT_TARGET": "27.0", "MARKETING_VERSION": "0.1.0", "PRODUCT_NAME": "$(TARGET_NAME)", "SDKROOT": "macosx", "SWIFT_VERSION": "6.0" },
@@ -177,6 +179,12 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
         const hashed = graph.nodes['Viewer']?.data.targets?.['build--xcodebuild']?.inputs?.filter(Predicate.isString) ?? [];
 
         expect({ resolved: Array.dedupe(located).length, unhashed: Array.difference(located, hashed) }).toStrictEqual({ resolved: 3, unhashed: [] });
+    });
+
+    it('hashes the folder of each package target the products it links reach, and no other target or test target of that package', ({ fixture: { graph } }) => {
+        const hashed = graph.nodes['Viewer']?.data.targets?.['build--xcodebuild']?.inputs?.filter(Predicate.isString) ?? [];
+
+        expect(['libs/Middle', 'libs/Core', 'libs/Loose', 'apps/Tool', 'libs/tests/CoreTests'].filter((folder) => hashed.includes(join('{workspaceRoot}', folder, '**/*')))).toStrictEqual(['libs/Middle', 'libs/Core']);
     });
 
     it('lands the application its install command builds at /Applications/Viewer.app, as xcodebuild resolves that command', async ({ fixture: { root, graph } }) => {

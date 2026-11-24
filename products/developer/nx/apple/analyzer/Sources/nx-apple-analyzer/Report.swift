@@ -50,6 +50,7 @@ struct Container: Encodable, Equatable {
     let configurations: [String]
     let inputs: [String]
     let projects: [String]
+    let products: [String: [String]]
     let buildFiles: [String]
 }
 

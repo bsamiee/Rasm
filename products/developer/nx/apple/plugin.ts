@@ -113,7 +113,7 @@ const analyze = Effect.fnUntraced(function* (
     const destinations = (folders: readonly string[]) => Array.dedupe(folders.flatMap((folder) => Array.match(Option.match(local(folder), { onNone: () => [], onSome: ({ manifest }) => manifest.platforms.map(Struct.get('name')) }), { onEmpty: () => Option.toArray(host), onNonEmpty: identity })));
     const nested = packages.flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: `${join(owner.root, module.path)}/` }))).flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${dirname(other)}/`.startsWith(folder)).map((inner) => ({ owner, inner })));
     yield* Effect.forEach(nested, ({ owner, inner }) => Effect.sync(() => emitPluginWorkerLog('warn', `${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`)));
-    const linkedSources = (container: Analyzed['containers'][number]) => Array.getSomes(container.projects.map(local)).flatMap((swiftPackage) => sources(swiftPackage, described));
+    const linkedSources = (container: Analyzed['containers'][number]) => Array.getSomes(container.projects.map((at) => Option.map(local(at), (swiftPackage) => sources(swiftPackage, described, Record.get(container.products, at))))).flat();
     const parts: readonly Part[] = [
         ...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described, stamp)),
         ...analyzed.containers.map((container) =>

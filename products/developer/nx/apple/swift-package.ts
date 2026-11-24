@@ -2,7 +2,7 @@ import { dirname, join, matchesGlob, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Effect, Option, Record, Schema } from 'effect';
+import { Array, Effect, Graph, Option, Record, Schema } from 'effect';
 import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -48,13 +48,33 @@ const Shipped = Schema.fromJsonString(Schema.Struct({ files: Listed })).annotate
 
 const locals = (manifest: Described, described: ReadonlyMap<string, Package>) => Array.getSomes(manifest.dependencies.map((dependency) => Option.flatMap(Option.fromUndefinedOr(dependency.path), (at) => Option.fromUndefinedOr(described.get(at)))));
 
-const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Package>): readonly string[] => [
-    ...manifest.targets.map((module) => join('{workspaceRoot}', root, module.path, '**/*')),
-    ...[MANIFEST, 'Package@swift-*.swift', RESOLVED, '.swiftpm/configuration/*.json'].map((file) => join('{workspaceRoot}', root, file)),
-    ...locals(manifest, described)
-        .flatMap((local) => sources(local, described))
-        .filter((input) => !input.endsWith(RESOLVED)),
-];
+const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Package>, products: Option.Option<readonly string[]>): readonly string[] => {
+    const indexed = new Map(manifest.targets.map(({ name }, index) => [name, index] as const));
+    const graph = Graph.fromSnapshot({
+        type: 'directed',
+        nodes: manifest.targets.map((data, index) => ({ index, data })),
+        edges: manifest.targets.flatMap(({ target_dependencies }, source) => Array.getSomes(target_dependencies.map((name) => Option.fromUndefinedOr(indexed.get(name)))).map((target) => ({ source, target, data: undefined }))).map((edge, index) => ({ ...edge, index })),
+    });
+    const linked = Option.map(products, (names) => new Set(manifest.products.filter(({ name }) => names.includes(name)).flatMap(({ targets }) => targets)));
+    const reached = Array.fromIterable(Graph.values(Graph.dfs(graph, { start: Graph.findNodes(graph, ({ name }) => Option.match(linked, { onNone: () => true, onSome: (held) => held.has(name) })) })));
+    const used = new Set(reached.flatMap(({ product_dependencies }) => product_dependencies));
+    return [
+        ...reached.map((module) => join('{workspaceRoot}', root, module.path, '**/*')),
+        ...[MANIFEST, 'Package@swift-*.swift', RESOLVED, '.swiftpm/configuration/*.json'].map((file) => join('{workspaceRoot}', root, file)),
+        ...locals(manifest, described)
+            .flatMap((local) =>
+                sources(
+                    local,
+                    described,
+                    Option.as(
+                        products,
+                        local.manifest.products.map(({ name }) => name).filter((name) => used.has(name)),
+                    ),
+                ),
+            )
+            .filter((input) => !input.endsWith(RESOLVED)),
+    ];
+};
 
 const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>, stamp: Option.Option<Readonly<Record<'root' | 'name' | 'hash', string>>>): readonly Part[] => {
     const { file, root, plists, entitled, manifest, bins, whole, shipped } = local;
@@ -62,7 +82,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const modules = manifest.targets.filter(({ name, type }) => !Schema.is(Tests)(type) && name !== manifest.name);
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
-    const inputs = [...sources(local, described), ...INPUTS];
+    const inputs = [...sources(local, described, Option.none()), ...INPUTS];
     const build = ['swift', 'build', '--package-path', root, ...SWIFTPM] as const;
     const test = ['swift', 'test', '--package-path', root, ...SWIFTPM] as const;
     const lcov = Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info'));

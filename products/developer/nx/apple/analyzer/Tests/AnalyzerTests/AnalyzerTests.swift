@@ -30,7 +30,7 @@ private final class Workspace {
 
     subscript(_ relative: String) -> String { root.appending(relative).string }
 
-    static func project(configurations: String = #""Debug", "Release""#, packages: String = "[]", files: [String] = [], settings: String = "") -> String {
+    static func project(configurations: String = #""Debug", "Release""#, packages: String = "[]", files: [String] = [], settings: String = "", members: String = "[]") -> String {
         """
         {
           "default-configuration": "Release",
@@ -50,6 +50,7 @@ private final class Workspace {
               "product-type": "application",
               "build-phases": [ "compile-sources", "frameworks", "resources" ],
               "build-settings": { "PRODUCT_BUNDLE_IDENTIFIER": "example.fixture.viewer", \(settings) },
+              "package-product-members": \(members),
             },
           ],
           "build-settings": { "MARKETING_VERSION": "0.1.0", "PRODUCT_NAME": "$(TARGET_NAME)", "SDKROOT": "macosx" },
@@ -72,8 +73,8 @@ private final class Workspace {
         """
     }
 
-    func viewer(schemes: [Scheme] = [], inputs: [String] = [], projects: [String] = []) -> Container {
-        Container(path: self["Viewer.xcodeproj"], schemes: schemes, configurations: ["Debug", "Release"], inputs: inputs, projects: projects, buildFiles: [self["Sources"]])
+    func viewer(schemes: [Scheme] = [], inputs: [String] = [], projects: [String] = [], products: [String: [String]] = [:]) -> Container {
+        Container(path: self["Viewer.xcodeproj"], schemes: schemes, configurations: ["Debug", "Release"], inputs: inputs, projects: projects, products: products, buildFiles: [self["Sources"]])
     }
 }
 
@@ -105,10 +106,17 @@ struct AnalyzerSmokeTests {
     }
 
     @Test
-    func localPackages_areProjects() throws {
-        let workspace = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(packages: #"[ { "kind": "local", "path": "Core" } ]"#), "Core/Package.swift": ""])
+    func localPackages_areProjectsHoldingTheProductsTheirTargetsLink() throws {
+        let packages = #"[ { "kind": "local", "path": "Core" }, { "kind": "local", "path": "Unlinked" }, { "kind": "remote", "repository": "https://github.com/apple/swift-argument-parser" } ]"#
+        let members =
+            #"[ { "package": "Core", "product-name": "CoreKit", "build-phase": { "build-phase": "frameworks" } }, "#
+            + #"{ "package": "swift-argument-parser", "product-name": "ArgumentParser", "build-phase": { "build-phase": "frameworks" } } ]"#
+        let workspace = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(packages: packages, members: members), "Core/Package.swift": "", "Unlinked/Package.swift": ""])
+        let products = [workspace["Core"]: ["CoreKit"], workspace["Unlinked"]: []]
 
-        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(projects: [workspace["Core"]])], failures: [:]))
+        #expect(
+            report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(projects: [workspace["Core"], workspace["Unlinked"]], products: products)], failures: [:])
+        )
     }
 
     @Test
@@ -192,7 +200,7 @@ struct AnalyzerSmokeTests {
             "Viewer.xcodeproj/project.xcproj": Workspace.project(),
             "Apps.xcworkspace/contents.xcworkspacedata": #"<?xml version="1.0" encoding="UTF-8"?><Workspace version="1.0"><FileRef location="group:Viewer.xcodeproj"/></Workspace>"#,
         ])
-        let listed = Container(path: workspace["Apps.xcworkspace"], schemes: [], configurations: [], inputs: [], projects: [workspace["Viewer.xcodeproj"]], buildFiles: [])
+        let listed = Container(path: workspace["Apps.xcworkspace"], schemes: [], configurations: [], inputs: [], projects: [workspace["Viewer.xcodeproj"]], products: [:], buildFiles: [])
 
         #expect(report([workspace.root.appending("Viewer.xcodeproj"), workspace.root.appending("Apps.xcworkspace")]) == Report(containers: [workspace.viewer(), listed], failures: [:]))
     }
