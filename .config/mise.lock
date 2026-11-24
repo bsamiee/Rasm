@@ -2,78 +2,6 @@
 
 lockfile_version = 4
 
-[conda-packages.linux-arm64."_openmp_mutex-4.5-20_gnu"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/_openmp_mutex-4.5-20_gnu.conda"
-checksum = "sha256:a2527b1d81792a0ccd2c05850960df119c2b6d8f5fdec97f2db7d25dc23b1068"
-
-[conda-packages.linux-arm64."ca-certificates-2026.10.23-hbd8a1cb_0"]
-url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.23-hbd8a1cb_0.conda"
-checksum = "sha256:95619b9c1184be7175392eeb0ee7eeb5ccf25d280951f4225f2d62e725790be3"
-
-[conda-packages.linux-arm64."keyutils-1.6.3-h5bc82ec_1"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/keyutils-1.6.3-h5bc82ec_1.conda"
-checksum = "sha256:3999b1472f1e549a0b766428e2823abf20626aac5314b474c9b76bf6eb679def"
-
-[conda-packages.linux-arm64."krb5-1.22.2-h095d8e5_2"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/krb5-1.22.2-h095d8e5_2.conda"
-checksum = "sha256:601d79af94d9562ba70e2d4947034ba159aae293a3c860855335a7c76c14400e"
-
-[conda-packages.linux-arm64."libcap-2.78-hfcc8634_1"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libcap-2.78-hfcc8634_1.conda"
-checksum = "sha256:6487e7644d062e18d389c11a9a3183e5a71c2652d05fdd88dbd063ad09f7ad4b"
-
-[conda-packages.linux-arm64."libcbor-0.9.0-h01db608_0"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libcbor-0.9.0-h01db608_0.tar.bz2"
-checksum = "sha256:0af09220fa5143dc0c2fd537cb5b26bb0ae767a93c096e17ee56df473fffbfa9"
-
-[conda-packages.linux-arm64."libedit-3.1.20260512-pl5321hc48eb74_0"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libedit-3.1.20260512-pl5321hc48eb74_0.conda"
-checksum = "sha256:58fd637d0219016bb69edf2973b089975de283e8a38149d69ef586b8fc4ad90b"
-
-[conda-packages.linux-arm64."libfido2-1.17.0-hec975cf_0"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libfido2-1.17.0-hec975cf_0.conda"
-checksum = "sha256:8d02a54eca030fa1badae1c7808cfae1621908a98c9693b5427a00167232bf49"
-
-[conda-packages.linux-arm64."libgcc-16.2.0-h205dda4_7"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libgcc-16.2.0-h205dda4_7.conda"
-checksum = "sha256:eae7a3449d5a3b5351c5427137c076cc3fc826645c7bfc42dc10772b783826f1"
-
-[conda-packages.linux-arm64."libgcc-ng-16.2.0-he9431aa_7"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libgcc-ng-16.2.0-he9431aa_7.conda"
-checksum = "sha256:d7502682cfce6f51aabd40bba63cd6b46db3d3e4b67abdb00f54ae72332523db"
-
-[conda-packages.linux-arm64."libgomp-16.2.0-h8acb6b2_7"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libgomp-16.2.0-h8acb6b2_7.conda"
-checksum = "sha256:4406fd67c5beeb99b9372f9bf07aa3e40ca141e337eceebac3ff64aa72799494"
-
-[conda-packages.linux-arm64."libstdcxx-16.2.0-hef695bb_7"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libstdcxx-16.2.0-hef695bb_7.conda"
-checksum = "sha256:b241a3acfa9cdb1359112864a1241225533c92642de3000d52ae65ef5d3a9786"
-
-[conda-packages.linux-arm64."libstdcxx-ng-16.2.0-hdbbeba8_7"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libstdcxx-ng-16.2.0-hdbbeba8_7.conda"
-checksum = "sha256:cfe644e4cf78302e605f7dc1cfa23ee4edabf5b72f84c92436f5f51c3003542c"
-
-[conda-packages.linux-arm64."libudev1-262.2-hd1ea486_1"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libudev1-262.2-hd1ea486_1.conda"
-checksum = "sha256:dbd69c667a4421a0e1e41a943cc7bde209745ff372bb4794977713bd35d6cd98"
-
-[conda-packages.linux-arm64."libxcrypt-4.4.38-h80f16a2_0"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libxcrypt-4.4.38-h80f16a2_0.conda"
-checksum = "sha256:d3514900e2121972e435f7803763c1843dad6709e48aa02a2b47c4d481f83be7"
-
-[conda-packages.linux-arm64."libzlib-1.3.2-hdc9db2a_3"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libzlib-1.3.2-hdc9db2a_3.conda"
-checksum = "sha256:76efa6cc9d7e6f5ee3bbca0939f64054af2bdfb3c3632531f8e633cf6c2ea41e"
-
-[conda-packages.linux-arm64."ncurses-6.6-h2b6f883_1"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/ncurses-6.6-h2b6f883_1.conda"
-checksum = "sha256:d69a04914139627f0a6bfd19412d6c7f1e37edc896af84a6011e07e8bc1e69fa"
-
-[conda-packages.linux-arm64."openssl-3.6.5-he6ad1d5_0"]
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/openssl-3.6.5-he6ad1d5_0.conda"
-checksum = "sha256:238136f1df197ecd89bafd728a34d0642176f3170423d13d8276746d675a9485"
-
 [conda-packages.linux-x64."_openmp_mutex-4.5-20_gnu"]
 url = "https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda"
 checksum = "sha256:1dd3fffd892081df9726d7eb7e0dea6198962ba775bd88842135a4ddb4deb3c9"
@@ -167,12 +95,6 @@ version = "0.30.0"
 backend = "aqua:owenlamont/ryl"
 specifiers = ["latest"]
 
-[tools."aqua:owenlamont/ryl"."platforms.linux-arm64"]
-checksum = "sha256:2e4a765434d63986c858678df0573349da44abc162b7b698a4395e5b586a1e10"
-checksum_source = "mise-versions"
-url = "https://github.com/owenlamont/ryl/releases/download/v0.30.0/ryl-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/owenlamont/ryl/releases/assets/757823621"
-
 [tools."aqua:owenlamont/ryl"."platforms.linux-x64"]
 checksum = "sha256:37ee3c236005117886949cb413b467a9f4ec06072e2233a1727222b06e54ea3e"
 checksum_source = "mise-versions"
@@ -196,11 +118,6 @@ version = "0.9.1"
 backend = "aqua:taiki-e/cargo-llvm-cov"
 specifiers = ["latest"]
 
-[tools."aqua:taiki-e/cargo-llvm-cov"."platforms.linux-arm64"]
-checksum = "sha256:abf5f13c1520f8756d2192bfaaeadb0208f5b7eaa8cadc15bf847befa42b7360"
-url = "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.9.1/cargo-llvm-cov-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/taiki-e/cargo-llvm-cov/releases/assets/547403281"
-
 [tools."aqua:taiki-e/cargo-llvm-cov"."platforms.linux-x64"]
 checksum = "sha256:b3f68e625481fed9b16444174f3fa5ebcdbde4a1878803a35eabe2dcefcdc41a"
 url = "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.9.1/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz"
@@ -220,12 +137,6 @@ url_api = "https://api.github.com/repos/taiki-e/cargo-llvm-cov/releases/assets/5
 version = "0.51.3"
 backend = "aqua:ast-grep/ast-grep"
 specifiers = ["latest"]
-
-[tools.ast-grep."platforms.linux-arm64"]
-checksum = "sha256:5b44fd68e78744934b359b07badce347d4197ed50b341d50f1f99d056ecedb08"
-checksum_source = "mise-versions"
-url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.3/app-aarch64-unknown-linux-gnu.zip"
-url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/753397190"
 
 [tools.ast-grep."platforms.linux-x64"]
 checksum = "sha256:22803eb0c5bf83164fb7fd76d4721d355ecf0c8466ef47342c1ec7d80897ca47"
@@ -248,12 +159,6 @@ url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/753401
 version = "1.8.2"
 backend = "aqua:carapace-sh/carapace-bin"
 specifiers = ["latest"]
-
-[tools.carapace."platforms.linux-arm64"]
-checksum = "sha256:1e44575128e35554eec39e8b8d04aad0177ef74696ccd5be48f85cd2672a7126"
-checksum_source = "mise-versions"
-url = "https://github.com/carapace-sh/carapace-bin/releases/download/v1.8.2/carapace-bin_1.8.2_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/carapace-sh/carapace-bin/releases/assets/698585323"
 
 [tools.carapace."platforms.linux-x64"]
 checksum = "sha256:1b3dc4cab51361d3443400aefa4314ad8d44d8414bf4b1d18f41a6fe71b1b0e4"
@@ -278,12 +183,6 @@ version = "0.21.0"
 backend = "aqua:EmbarkStudios/cargo-deny"
 specifiers = ["latest"]
 
-[tools.cargo-deny."platforms.linux-arm64"]
-checksum = "sha256:47cc5d88d43cd568028080fece02d729f56f0ff8e6c168563ce6589e3c0f4738"
-checksum_source = "mise-versions"
-url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.21.0/cargo-deny-0.21.0-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/755169459"
-
 [tools.cargo-deny."platforms.linux-x64"]
 checksum = "sha256:a2170b854ff697e79e39c4c538981c9c1bdd803addbae6719a4cb66b4585a903"
 checksum_source = "mise-versions"
@@ -305,7 +204,6 @@ url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets
 version = "1.49.0"
 backend = "aqua:mitsuhiko/insta"
 specifiers = ["latest"]
-unsupported_platforms = ["linux-arm64"]
 
 [tools.cargo-insta."platforms.linux-x64"]
 checksum = "sha256:18879f4e7280c2eb87bb1037ddb9d48af697511fb0d8113edfc39ab8bade4d4e"
@@ -328,12 +226,6 @@ url_api = "https://api.github.com/repos/mitsuhiko/insta/releases/assets/60685999
 version = "0.9.152"
 backend = "aqua:nextest-rs/nextest/cargo-nextest"
 specifiers = ["latest"]
-
-[tools.cargo-nextest."platforms.linux-arm64"]
-checksum = "sha256:ca1f81a5b86533eb45ab97e0064aa88e925e53aab9a698ca6331a7cad1f85f07"
-checksum_source = "mise-versions"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.152/cargo-nextest-0.9.152-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/745394722"
 
 [tools.cargo-nextest."platforms.linux-x64"]
 checksum = "sha256:d039b43c3e0958441b6ad0a39c8884d018b3d2e8fb9928f209074b1100b5e17a"
@@ -378,12 +270,6 @@ version = "4.5.0"
 backend = "aqua:Kitware/CMake"
 specifiers = ["latest"]
 
-[tools.cmake."platforms.linux-arm64"]
-checksum = "sha256:0c8447e7bba9701467b5ac6155d157aa9e309e71af4981f78bd4b9176107f553"
-checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.5.0/cmake-4.5.0-linux-aarch64.tar.gz"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/740685187"
-
 [tools.cmake."platforms.linux-x64"]
 checksum = "sha256:81f0d5b0960fb6adc8197030ffc827fba937640d51e73e39e0e9e40d88c66f6f"
 checksum_source = "mise-versions"
@@ -420,30 +306,6 @@ specifiers = ["latest"]
 [tools."conda:openssh".options]
 channel = "conda-forge"
 
-[tools."conda:openssh"."platforms.linux-arm64"]
-checksum = "sha256:e3119d493e7342516b710c54d8f13a770d5da49c2dd4fa7a5792cdc6b13ca785"
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/openssh-10.6p2-h13a77a2_0.conda"
-conda_deps = [
-    "libedit-3.1.20260512-pl5321hc48eb74_0",
-    "libfido2-1.17.0-hec975cf_0",
-    "libxcrypt-4.4.38-h80f16a2_0",
-    "libcbor-0.9.0-h01db608_0",
-    "libgcc-16.2.0-h205dda4_7",
-    "libgcc-ng-16.2.0-he9431aa_7",
-    "libstdcxx-16.2.0-hef695bb_7",
-    "libstdcxx-ng-16.2.0-hdbbeba8_7",
-    "openssl-3.6.5-he6ad1d5_0",
-    "libzlib-1.3.2-hdc9db2a_3",
-    "krb5-1.22.2-h095d8e5_2",
-    "_openmp_mutex-4.5-20_gnu",
-    "libgomp-16.2.0-h8acb6b2_7",
-    "ca-certificates-2026.10.23-hbd8a1cb_0",
-    "libudev1-262.2-hd1ea486_1",
-    "keyutils-1.6.3-h5bc82ec_1",
-    "ncurses-6.6-h2b6f883_1",
-    "libcap-2.78-hfcc8634_1",
-]
-
 [tools."conda:openssh"."platforms.linux-x64"]
 checksum = "sha256:7ca0598e72b90375d730c624a58f051ca127ea5bd577c8620c0b6878e71358dc"
 url = "https://conda.anaconda.org/conda-forge/linux-64/openssh-10.6p2-h2a9badf_0.conda"
@@ -476,15 +338,6 @@ specifiers = ["latest"]
 [tools."conda:pkgconf".options]
 channel = "conda-forge"
 
-[tools."conda:pkgconf"."platforms.linux-arm64"]
-checksum = "sha256:519d8f7629cbe91e837c8ef62a000ead4ce644dabe3538b584799698f697f13d"
-url = "https://conda.anaconda.org/conda-forge/linux-aarch64/pkgconf-3.0.11-pkg_config_hd4f8cd5_0.conda"
-conda_deps = [
-    "libgcc-16.2.0-h205dda4_7",
-    "_openmp_mutex-4.5-20_gnu",
-    "libgomp-16.2.0-h8acb6b2_7",
-]
-
 [tools."conda:pkgconf"."platforms.linux-x64"]
 checksum = "sha256:7231904776e73ccb27d7c2e5e67086efcf92b3d4bae45d01dc7f7cea06bd91c9"
 url = "https://conda.anaconda.org/conda-forge/linux-64/pkgconf-3.0.11-pkg_config_hf2a7378_0.conda"
@@ -513,11 +366,6 @@ conda_deps = [
 version = "3.77.1"
 backend = "github:DopplerHQ/cli"
 specifiers = ["latest"]
-
-[tools.doppler."platforms.linux-arm64"]
-checksum = "sha256:a7f4be5b30295921dfe1cdc34f905cd017210ec3264a47d46e315ab09cb03e1c"
-url = "https://github.com/DopplerHQ/cli/releases/download/3.77.1/doppler_3.77.1_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/DopplerHQ/cli/releases/assets/666340963"
 
 [tools.doppler."platforms.linux-x64"]
 checksum = "sha256:001f89a42629f9cb827cd86683c4c2dbf87c6299a8d6130643b98044bf5ed80a"
@@ -579,12 +427,6 @@ version = "2.0.0"
 backend = "aqua:duckdb/duckdb"
 specifiers = ["latest"]
 
-[tools.duckdb."platforms.linux-arm64"]
-checksum = "sha256:859e1875d2a9515fbb4bf8871061437a14af82320da68c753f094c4b776348fe"
-checksum_source = "mise-versions"
-url = "https://github.com/duckdb/duckdb/releases/download/v2.0.0/duckdb-cli-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/duckdb/duckdb/releases/assets/662550868"
-
 [tools.duckdb."platforms.linux-x64"]
 checksum = "sha256:c6507206baf7793c6013dbd82368469a45f20dc0e17a6f92f204602f652ed2bc"
 checksum_source = "mise-versions"
@@ -608,11 +450,6 @@ version = "4.0.2"
 backend = "github:editorconfig-checker/editorconfig-checker"
 specifiers = ["latest"]
 
-[tools.editorconfig-checker."platforms.linux-arm64"]
-checksum = "sha256:abad76da8c9950fdc2a314bcd66969172aa823e9c595fa7e3a389a91e34d025e"
-url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v4.0.2/editorconfig-checker-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/574675779"
-
 [tools.editorconfig-checker."platforms.linux-x64"]
 checksum = "sha256:44efaef3ed14c6ab52eb87481d78e5e5c204796dccf26e2f4598a61ba17f8003"
 url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v4.0.2/editorconfig-checker-linux-amd64.tar.gz"
@@ -632,12 +469,6 @@ url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checke
 version = "10.5.2"
 backend = "aqua:sharkdp/fd"
 specifiers = ["latest"]
-
-[tools.fd."platforms.linux-arm64"]
-checksum = "sha256:4b144f38bd7352cd4c95020b58e8e575476e60edcdf1dc5e0733e3d01efba6dd"
-checksum_source = "mise-versions"
-url = "https://github.com/sharkdp/fd/releases/download/v10.5.2/fd-v10.5.2-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/sharkdp/fd/releases/assets/719978299"
 
 [tools.fd."platforms.linux-x64"]
 checksum = "sha256:985e24041e9ef6e9a38e9e088743405dde23d7220aa96740f091862167d9ff28"
@@ -662,10 +493,6 @@ version = "594.0.1"
 backend = "vfox:jdx/vfox-gcloud"
 specifiers = ["latest"]
 
-[tools.gcloud."platforms.linux-arm64"]
-checksum = "sha256:5431df9d2ba9be5917ee7a1ff6d7c7d2720dfc82690b3f8de4bfacdad093d792"
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-594.0.1-linux-arm.tar.gz"
-
 [tools.gcloud."platforms.linux-x64"]
 checksum = "sha256:5f8cd9fade09784bde9e15dcfac29736e1a8041e43e5e6a2d8e5f12fd28a828b"
 url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-594.0.1-linux-x86_64.tar.gz"
@@ -682,12 +509,6 @@ url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-594.0.1
 version = "2.105.0"
 backend = "aqua:cli/cli"
 specifiers = ["latest"]
-
-[tools.gh."platforms.linux-arm64"]
-checksum = "sha256:b1278c75107423d818f1937fd92cafc9e5e9b606631568f68d7fb816f5885a02"
-checksum_source = "mise-versions"
-url = "https://github.com/cli/cli/releases/download/v2.105.0/gh_2.105.0_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/cli/cli/releases/assets/761188590"
 
 [tools.gh."platforms.linux-x64"]
 checksum = "sha256:79e7ab5db738c48777b696e374f8b428f0647debfb424f44d2f426370407fe2f"
@@ -710,12 +531,6 @@ url_api = "https://api.github.com/repos/cli/cli/releases/assets/761188741"
 version = "3.8.1"
 backend = "aqua:git-lfs/git-lfs"
 specifiers = ["latest"]
-
-[tools.git-lfs."platforms.linux-arm64"]
-checksum = "sha256:67895dd77b63329796bc5efdd47b57f218e1f7b98717ebaf936a8238dbcaec0f"
-checksum_source = "mise-versions"
-url = "https://github.com/git-lfs/git-lfs/releases/download/v3.8.1/git-lfs-linux-arm64-v3.8.1.tar.gz"
-url_api = "https://api.github.com/repos/git-lfs/git-lfs/releases/assets/666388648"
 
 [tools.git-lfs."platforms.linux-x64"]
 checksum = "sha256:e72cf723a4a660438862282e8aecf3885fc8123e88bfcad534cf6b941a354b75"
@@ -740,12 +555,6 @@ version = "0.29.2"
 backend = "github:BlankSpruce/gersemi"
 specifiers = ["latest"]
 
-[tools."github:BlankSpruce/gersemi"."platforms.linux-arm64"]
-checksum = "sha256:6aafd13b0363359fb56f8c8a96b34c4f72aef21ff2a3859cb3156294e86decf1"
-checksum_source = "mise-versions"
-url = "https://github.com/BlankSpruce/gersemi/releases/download/0.29.2/gersemi-linux-arm"
-url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/603551968"
-
 [tools."github:BlankSpruce/gersemi"."platforms.linux-x64"]
 checksum = "sha256:34ae3c8e32f65ca64361149c5e97dbb523f446b837588784b5e98e29a1c93af9"
 checksum_source = "mise-versions"
@@ -768,12 +577,6 @@ url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/6035
 version = "2.0.10"
 backend = "github:Link-/gh-token"
 specifiers = ["latest"]
-
-[tools."github:Link-/gh-token"."platforms.linux-arm64"]
-checksum = "sha256:21f96d8969443bf3f00afe4d9bfc66b110ae26a8305fd1af27109fc0ac33f353"
-checksum_source = "mise-versions"
-url = "https://github.com/Link-/gh-token/releases/download/v2.0.10/linux-arm64"
-url_api = "https://api.github.com/repos/Link-/gh-token/releases/assets/381221101"
 
 [tools."github:Link-/gh-token"."platforms.linux-x64"]
 checksum = "sha256:342adb88bb2c5d334a0f6d5fc094e3de4e755c6ccef45a2fd55ed6b1d79cd8a6"
@@ -801,12 +604,6 @@ specifiers = ["latest"]
 [tools."github:NationalSecurityAgency/ghidra".options]
 version_prefix = "Ghidra_"
 
-[tools."github:NationalSecurityAgency/ghidra"."platforms.linux-arm64"]
-checksum = "sha256:2c2cd776db3c1f6a097ba418922378ac3649cadd5e844a6f5f088ae628a7be67"
-checksum_source = "mise-versions"
-url = "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.2_build/ghidra_12.2_PUBLIC_20261016.zip"
-url_api = "https://api.github.com/repos/NationalSecurityAgency/ghidra/releases/assets/665189215"
-
 [tools."github:NationalSecurityAgency/ghidra"."platforms.linux-x64"]
 checksum = "sha256:2c2cd776db3c1f6a097ba418922378ac3649cadd5e844a6f5f088ae628a7be67"
 checksum_source = "mise-versions"
@@ -830,12 +627,6 @@ version = "3.2.0-1092"
 backend = "github:Samsung/netcoredbg"
 specifiers = ["latest"]
 
-[tools."github:Samsung/netcoredbg"."platforms.linux-arm64"]
-checksum = "sha256:065ff49badec8a695dbea2de6ab6a330c774a191e426a217ab8cc05250627ccb"
-checksum_source = "mise-versions"
-url = "https://github.com/Samsung/netcoredbg/releases/download/3.2.0-1092/netcoredbg-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/Samsung/netcoredbg/releases/assets/457716392"
-
 [tools."github:Samsung/netcoredbg"."platforms.linux-x64"]
 checksum = "sha256:080eb3b2d2152465f599d3b33d1ee6e747794e11cc0a3773ec689f5e5f2c5afa"
 checksum_source = "mise-versions"
@@ -857,12 +648,6 @@ url_api = "https://api.github.com/repos/Samsung/netcoredbg/releases/assets/45771
 version = "0.39.0"
 backend = "github:docker/buildx"
 specifiers = ["latest"]
-
-[tools."github:docker/buildx"."platforms.linux-arm64"]
-checksum = "sha256:722cdcdfdd6f3fb943fa1ba75102d057feb18ba72aab93b1b0a8cf2b2b48a25f"
-checksum_source = "mise-versions"
-url = "https://github.com/docker/buildx/releases/download/v0.39.0/buildx-v0.39.0.linux-arm64"
-url_api = "https://api.github.com/repos/docker/buildx/releases/assets/736606975"
 
 [tools."github:docker/buildx"."platforms.linux-x64"]
 checksum = "sha256:5fb31a097304fbf6dd4038649a0decf32c2b9510e4047acd7d68b9d700c46194"
@@ -894,7 +679,6 @@ url_api = "https://api.github.com/repos/docker/docker-credential-helpers/release
 version = "1.9.1"
 backend = "github:fonttools/fontspector"
 specifiers = ["latest"]
-unsupported_platforms = ["linux-arm64"]
 
 [tools."github:fonttools/fontspector".options]
 version_prefix = "fontspector-v"
@@ -922,11 +706,6 @@ version = "0.10.1"
 backend = "github:harehare/mq"
 specifiers = ["latest"]
 
-[tools."github:harehare/mq"."platforms.linux-arm64"]
-checksum = "sha256:8a42a4898fd982b10f17e5bf40991a706d33117f2cf7e8fb66a94da18a5e4023"
-url = "https://github.com/harehare/mq/releases/download/v0.10.1/mq-aarch64-unknown-linux-gnu"
-url_api = "https://api.github.com/repos/harehare/mq/releases/assets/720895048"
-
 [tools."github:harehare/mq"."platforms.linux-x64"]
 checksum = "sha256:1c08db356c9c4231df449d634f25802799b5f6ca92a7a3ef1c5c7fc682306464"
 url = "https://github.com/harehare/mq/releases/download/v0.10.1/mq-x86_64-unknown-linux-gnu"
@@ -951,11 +730,6 @@ specifiers = ["latest"]
 matching_regex = '^(clang\+)?(?i:llvm)-\d'
 version_prefix = "llvmorg-"
 
-[tools."github:llvm/llvm-project"."platforms.linux-arm64"]
-checksum = "sha256:830ceb70edf63849ce66e97bf85310a3bf2bdd04c860a9f2fa4ef1560e290cef"
-url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/LLVM-23.1.5-Linux-ARM64.tar.zst"
-url_api = "https://api.github.com/repos/llvm/llvm-project/releases/assets/705827461"
-
 [tools."github:llvm/llvm-project"."platforms.linux-x64"]
 checksum = "sha256:c3107384835f788768f614db610e87fba7077f125ca950eb02a78bab0a308065"
 url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/LLVM-23.1.5-Linux-X64.tar.zst"
@@ -979,16 +753,6 @@ specifiers = ["latest"]
 
 [tools."github:microsoft/vcpkg-tool".options]
 additional_asset_patterns = "vcpkg-standalone-bundle.tar.gz"
-
-[tools."github:microsoft/vcpkg-tool"."platforms.linux-arm64"]
-checksum = "sha256:e59a1f42de574dbceec05e4f90630898a33150f27c5a999e0f2d9b80a17001e3"
-url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-glibc-arm64"
-url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264305"
-
-[[tools."github:microsoft/vcpkg-tool"."platforms.linux-arm64".additional_artifacts]]
-checksum = "sha256:3e128d4e44dfb0400bfef92d00e259a7095db2a2ca218e0c483145aa16e41b62"
-url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-standalone-bundle.tar.gz"
-url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264684"
 
 [tools."github:microsoft/vcpkg-tool"."platforms.linux-x64"]
 checksum = "sha256:8b10d43c1392a2d51622b1e439cb952289dcf56cbb595eb935847e79fe00d303"
@@ -1028,12 +792,6 @@ specifiers = ["latest"]
 [tools."github:pmd/pmd".options]
 version_prefix = "pmd_releases/"
 version_regex = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$'
-
-[tools."github:pmd/pmd"."platforms.linux-arm64"]
-checksum = "sha256:d27177c185b837fa57f097e482d1253468aa035379c5eb2671fa0a279109b179"
-checksum_source = "mise-versions"
-url = "https://github.com/pmd/pmd/releases/download/pmd_releases/7.29.0/pmd-dist-7.29.0-bin.zip"
-url_api = "https://api.github.com/repos/pmd/pmd/releases/assets/691607210"
 
 [tools."github:pmd/pmd"."platforms.linux-x64"]
 checksum = "sha256:d27177c185b837fa57f097e482d1253468aa035379c5eb2671fa0a279109b179"
@@ -1082,11 +840,6 @@ specifiers = ["latest"]
 [tools."github:trailofbits/dylint".options]
 matching = "cargo-dylint-"
 
-[tools."github:trailofbits/dylint"."platforms.linux-arm64"]
-checksum = "sha256:85ed5c32f5391c2ab7f1d1e2126adf61ab7049b0c1151567453157ffacbe11a3"
-url = "https://github.com/trailofbits/dylint/releases/download/v6.4.0/cargo-dylint-aarch64-unknown-linux-gnu-v6.4.0.tar.gz"
-url_api = "https://api.github.com/repos/trailofbits/dylint/releases/assets/731624249"
-
 [tools."github:trailofbits/dylint"."platforms.linux-x64"]
 checksum = "sha256:11a75eb2b0f57a7240a08deb95898cf7b54d5d57e0a08f8328e4ce6b6263ef4f"
 url = "https://github.com/trailofbits/dylint/releases/download/v6.4.0/cargo-dylint-x86_64-unknown-linux-gnu-v6.4.0.tar.gz"
@@ -1112,12 +865,6 @@ version = "2.0.0"
 backend = "aqua:google/google-java-format"
 specifiers = ["latest"]
 
-[tools.google-java-format."platforms.linux-arm64"]
-checksum = "sha256:3193ae2e3a32634a45effc9f575005e7adf202699ab4d9d6488ff1a715588d10"
-checksum_source = "mise-versions"
-url = "https://github.com/google/google-java-format/releases/download/v2.0.0/google-java-format_linux-arm64"
-url_api = "https://api.github.com/repos/google/google-java-format/releases/assets/692101364"
-
 [tools.google-java-format."platforms.linux-x64"]
 checksum = "sha256:c351f587e6dd1f11836be7296894ea2ab3bd91847dbd14101f4f04d390380fe9"
 checksum_source = "mise-versions"
@@ -1140,12 +887,6 @@ url_api = "https://api.github.com/repos/google/google-java-format/releases/asset
 version = "2.13.0"
 backend = "packslip:github.com/jdx/hk"
 specifiers = ["latest"]
-
-[tools.hk."platforms.linux-arm64"]
-checksum = "sha256:490196a4e638991c671f42941d72ade4d00b14750145f34fc64377b49fc070bb"
-url = "https://github.com/jdx/hk/releases/download/v2.13.0/hk-aarch64-unknown-linux-gnu.tar.gz"
-signer = "sigstore-oidc:https://github.com/jdx/hk/.github/workflows/release.yml"
-repository_ids = { repository = "922514152" }
 
 [tools.hk."platforms.linux-x64"]
 checksum = "sha256:8ff0b29c9925d73df9b14af7fc43ace86de03db73eafa3046750fce5c39e1955"
@@ -1170,10 +911,6 @@ version = "5.3.0"
 backend = "http:blender-ext"
 specifiers = ["latest"]
 
-[tools."http:blender-ext"."platforms.linux-arm64"]
-checksum = "sha256:f3b5445be87c5a8404309426e882f88b9486a5de94e1ab5fb94fd4b92bdb0699"
-url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_core/bl_pkg/cli/blender_ext.py"
-
 [tools."http:blender-ext"."platforms.linux-x64"]
 checksum = "sha256:f3b5445be87c5a8404309426e882f88b9486a5de94e1ab5fb94fd4b92bdb0699"
 url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_core/bl_pkg/cli/blender_ext.py"
@@ -1191,10 +928,6 @@ version = "2.1.330"
 backend = "http:claude-code-types"
 specifiers = ["latest"]
 
-[tools."http:claude-code-types"."platforms.linux-arm64"]
-checksum = "sha256:7afdda2e6a7a40e2e8d12e77ab98129df6e45f460545da9cfec1fda783d488f0"
-url = "https://raw.githubusercontent.com/anthropics/claude-code/v2.1.330/mods/types/claude-code.d.ts"
-
 [tools."http:claude-code-types"."platforms.linux-x64"]
 checksum = "sha256:7afdda2e6a7a40e2e8d12e77ab98129df6e45f460545da9cfec1fda783d488f0"
 url = "https://raw.githubusercontent.com/anthropics/claude-code/v2.1.330/mods/types/claude-code.d.ts"
@@ -1210,10 +943,6 @@ specifiers = ["latest"]
 
 [tools."http:dataflow-errorprone".options]
 format = "raw"
-
-[tools."http:dataflow-errorprone"."platforms.linux-arm64"]
-checksum = "sha256:a3f53467156715459ec50d95927cfb16464afa13cd07181183e0d491918f38c4"
-url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.49.5-eisop1/dataflow-errorprone-3.49.5-eisop1.jar"
 
 [tools."http:dataflow-errorprone"."platforms.linux-x64"]
 checksum = "sha256:a3f53467156715459ec50d95927cfb16464afa13cd07181183e0d491918f38c4"
@@ -1235,10 +964,6 @@ specifiers = ["latest"]
 [tools."http:dataflow-nullaway".options]
 format = "raw"
 
-[tools."http:dataflow-nullaway"."platforms.linux-arm64"]
-checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
-url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
-
 [tools."http:dataflow-nullaway"."platforms.linux-x64"]
 checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
 url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
@@ -1256,10 +981,6 @@ version = "29.10.0"
 backend = "http:docker-cli"
 specifiers = ["latest"]
 
-[tools."http:docker-cli"."platforms.linux-arm64"]
-checksum = "sha256:622eedf878e44548a70cadbb43e54374e112cfa101f82eefbb4f62d1a2efffda"
-url = "https://download.docker.com/linux/static/test/aarch64/docker-cli_29.10.0.tgz"
-
 [tools."http:docker-cli"."platforms.linux-x64"]
 checksum = "sha256:94e8261e6e566c719973a81b22906d7b0a2655440b83fca0ea9c26215437541a"
 url = "https://download.docker.com/linux/static/test/x86_64/docker-cli_29.10.0.tgz"
@@ -1275,10 +996,6 @@ specifiers = ["latest"]
 
 [tools."http:error-prone".options]
 format = "raw"
-
-[tools."http:error-prone"."platforms.linux-arm64"]
-checksum = "sha256:3efb5a1d65ebcb68dd8dfb228f0c05943a551b5d740455bf166df6e0e302b6bb"
-url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.52.0/error_prone_core-2.52.0-with-dependencies.jar"
 
 [tools."http:error-prone"."platforms.linux-x64"]
 checksum = "sha256:3efb5a1d65ebcb68dd8dfb228f0c05943a551b5d740455bf166df6e0e302b6bb"
@@ -1300,10 +1017,6 @@ specifiers = ["latest"]
 [tools."http:jspecify".options]
 format = "raw"
 
-[tools."http:jspecify"."platforms.linux-arm64"]
-checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
-url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
-
 [tools."http:jspecify"."platforms.linux-x64"]
 checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
 url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
@@ -1323,10 +1036,6 @@ specifiers = ["latest"]
 
 [tools."http:nullaway".options]
 format = "raw"
-
-[tools."http:nullaway"."platforms.linux-arm64"]
-checksum = "sha256:98c2efffc689fe6061b62da5390f6bbd53ddd88445b22d46e8946665669044ed"
-url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.4/nullaway-0.14.4.jar"
 
 [tools."http:nullaway"."platforms.linux-x64"]
 checksum = "sha256:98c2efffc689fe6061b62da5390f6bbd53ddd88445b22d46e8946665669044ed"
@@ -1348,10 +1057,6 @@ specifiers = ["2026-11-23"]
 [tools."http:rustc-source".options]
 strip_components = "1"
 
-[tools."http:rustc-source"."platforms.linux-arm64"]
-checksum = "sha256:ebf730343b73f3c2f33690ec622d4bb1ab5cc3e491f9e0d501901d28ec2b03da"
-url = "https://static.rust-lang.org/dist/2026-11-23/rustc-nightly-src.tar.xz"
-
 [tools."http:rustc-source"."platforms.linux-x64"]
 checksum = "sha256:ebf730343b73f3c2f33690ec622d4bb1ab5cc3e491f9e0d501901d28ec2b03da"
 url = "https://static.rust-lang.org/dist/2026-11-23/rustc-nightly-src.tar.xz"
@@ -1364,10 +1069,6 @@ url = "https://static.rust-lang.org/dist/2026-11-23/rustc-nightly-src.tar.xz"
 version = "0.19.1"
 backend = "http:yak"
 specifiers = ["latest"]
-
-[tools."http:yak"."platforms.linux-arm64"]
-checksum = "sha256:8879c7ffe402b6e10b93af6892208090bdb3d5e75854452f479421f60979026e"
-url = "https://files.mcneel.com/yak/tools/0.19.1/linux-arm64/yak"
 
 [tools."http:yak"."platforms.linux-x64"]
 checksum = "sha256:6b4c654a24ce61de27b602e965699d97703977b86eab38df42bbf623d0891d91"
@@ -1385,12 +1086,6 @@ url = "https://files.mcneel.com/yak/tools/0.19.1/win-x64/yak.exe"
 version = "2.0.0"
 backend = "aqua:sharkdp/hyperfine"
 specifiers = ["latest"]
-
-[tools.hyperfine."platforms.linux-arm64"]
-checksum = "sha256:f8244d1e17f8da23ee6b3ae2cdc04a6a185a450f6b74e09bff12e498038fcbc9"
-checksum_source = "mise-versions"
-url = "https://github.com/sharkdp/hyperfine/releases/download/v2.0.0/hyperfine-v2.0.0-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/sharkdp/hyperfine/releases/assets/619832203"
 
 [tools.hyperfine."platforms.linux-x64"]
 checksum = "sha256:ae2beda2ac99c098427e4f755244552daf20e514422889cca6d44421e2d93c87"
@@ -1414,12 +1109,6 @@ url_api = "https://api.github.com/repos/sharkdp/hyperfine/releases/assets/619834
 version = "2.6.0"
 backend = "packslip:github.com/jdx/jactionlint"
 specifiers = ["latest"]
-
-[tools.jactionlint."platforms.linux-arm64"]
-checksum = "sha256:c726185a85f26d09aa94ea556509a19827979074b35d65f357f3a4947573e934"
-url = "https://github.com/jdx/jactionlint/releases/download/v2.6.0/jactionlint_2.6.0_linux_arm64.tar.gz"
-signer = "sigstore-oidc:https://github.com/jdx/jactionlint/.github/workflows/release.yaml"
-repository_ids = { repository = "1404951382" }
 
 [tools.jactionlint."platforms.linux-x64"]
 checksum = "sha256:d5400967b8f0d3a5ae9a4cee21f56400a50eb3f05d0cbb4ef17184f17f0760c8"
@@ -1447,10 +1136,6 @@ specifiers = ["latest"]
 [tools.java.options]
 shorthand_vendor = "corretto"
 
-[tools.java."platforms.linux-arm64"]
-checksum = "sha256:6658f4f479bb179f1d9b0ed95ce8430432adac6f0502f5a80570d54dd0517ec9"
-url = "https://corretto.aws/downloads/resources/27.0.1.0.11/amazon-corretto-27.0.1.0.11-linux-aarch64.tar.gz"
-
 [tools.java."platforms.linux-x64"]
 checksum = "sha256:2a8a5a833ec1b2e6e66bcf8a530438f471ebbbc928be90ab153b2985cdeac8e8"
 url = "https://corretto.aws/downloads/resources/27.0.1.0.11/amazon-corretto-27.0.1.0.11-linux-x64.tar.gz"
@@ -1467,11 +1152,6 @@ url = "https://corretto.aws/downloads/resources/27.0.1.0.11/amazon-corretto-27.0
 version = "1.8.2"
 backend = "aqua:jqlang/jq"
 specifiers = ["latest"]
-
-[tools.jq."platforms.linux-arm64"]
-checksum = "sha256:8b85c817833814ddca00a144c33705546355afccf0cf39b188f3cdb48b852309"
-url = "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-linux-arm64"
-url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012756"
 
 [tools.jq."platforms.linux-x64"]
 checksum = "sha256:b1c22172dd303f3be49e935aa56aa48a8b7a46e0bc838b4997d3bb451495870f"
@@ -1492,12 +1172,6 @@ url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012788"
 version = "5.4.3"
 backend = "github:kucherenko/jscpd"
 specifiers = ["latest"]
-
-[tools.jscpd."platforms.linux-arm64"]
-checksum = "sha256:221a62a254ab4cc42f26e076943ca79ecd311ae41646a76a08e4b790ed8c5fbe"
-checksum_source = "mise-versions"
-url = "https://github.com/kucherenko/jscpd/releases/download/v5.4.3/jscpd-linux-arm64-gnu.tar.gz"
-url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/723169094"
 
 [tools.jscpd."platforms.linux-x64"]
 checksum = "sha256:a19d719331b21a047a7537f982566dabcf6d6e5f51581c3b80d9c420979cc92c"
@@ -1532,12 +1206,6 @@ version = "1.13.2"
 backend = "aqua:ninja-build/ninja"
 specifiers = ["latest"]
 
-[tools.ninja."platforms.linux-arm64"]
-checksum = "sha256:fd2cacc8050a7f12a16a2e48f9e06fca5c14fc4c2bee2babb67b58be17a607fc"
-checksum_source = "mise-versions"
-url = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux-aarch64.zip"
-url_api = "https://api.github.com/repos/ninja-build/ninja/releases/assets/318864579"
-
 [tools.ninja."platforms.linux-x64"]
 checksum = "sha256:5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6"
 checksum_source = "mise-versions"
@@ -1560,10 +1228,6 @@ url_api = "https://api.github.com/repos/ninja-build/ninja/releases/assets/318863
 version = "27.0.0-alpha.0.1.1"
 backend = "core:node"
 specifiers = ["latest"]
-
-[tools.node."platforms.linux-arm64"]
-checksum = "sha256:ad722a9ab0d0863435b5d66e036455263964ddf0633523f317bd5a8cf5e1c290"
-url = "https://nodejs.org/dist/v27.0.0-alpha.0.1.1/node-v27.0.0-alpha.0.1.1-linux-arm64.tar.gz"
 
 [tools.node."platforms.linux-x64"]
 checksum = "sha256:42ac750e1601cfc41399c5cebf03520d32cf7af3c8d210b14aaf7d2d5ec85f3f"
@@ -1625,11 +1289,6 @@ version = "0.84.2"
 backend = "github:prefix-dev/pixi"
 specifiers = ["latest"]
 
-[tools.pixi."platforms.linux-arm64"]
-checksum = "sha256:0957b6352d077bb3ffcce913f90b1e6cfbc6b98888a45d59ee2910e8c4811110"
-url = "https://github.com/prefix-dev/pixi/releases/download/v0.84.2/pixi-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/prefix-dev/pixi/releases/assets/731635725"
-
 [tools.pixi."platforms.linux-x64"]
 checksum = "sha256:6d2a576bde0a7b26533a068fec0aea6e4ee21c36668efc1dc73fce90110906ae"
 url = "https://github.com/prefix-dev/pixi/releases/download/v0.84.2/pixi-x86_64-unknown-linux-musl.tar.gz"
@@ -1649,12 +1308,6 @@ url_api = "https://api.github.com/repos/prefix-dev/pixi/releases/assets/73163605
 version = "0.33.0"
 backend = "aqua:apple/pkl"
 specifiers = ["latest"]
-
-[tools.pkl."platforms.linux-arm64"]
-checksum = "sha256:edcea361402ecab0f3a93f86b1a896c41d00a9241f4962f70278254b08fbd26d"
-checksum_source = "mise-versions"
-url = "https://github.com/apple/pkl/releases/download/0.33.0/pkl-linux-aarch64"
-url_api = "https://api.github.com/repos/apple/pkl/releases/assets/714756970"
 
 [tools.pkl."platforms.linux-x64"]
 checksum = "sha256:b9a6ddea6b382b7d4db4cf78e77aa3858e0c8a7e02939d2ba298574b5d1fcc69"
@@ -1679,12 +1332,6 @@ version = "12.22.0"
 backend = "aqua:pnpm/pnpm"
 specifiers = ["latest"]
 
-[tools.pnpm."platforms.linux-arm64"]
-checksum = "sha256:22b23da8b00d12c2fdfc41b5533b65b467c7b178d93fdfe9128c491585dff1a4"
-checksum_source = "mise-versions"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.22.0/pnpm-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/760376163"
-
 [tools.pnpm."platforms.linux-x64"]
 checksum = "sha256:07ee196f91af1e21edb0c794401f4152932c74b0dba5d415dc4dbd5783f3c7af"
 checksum_source = "mise-versions"
@@ -1706,12 +1353,6 @@ url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/760376175"
 version = "3.276.0"
 backend = "aqua:pulumi/pulumi"
 specifiers = ["latest"]
-
-[tools.pulumi."platforms.linux-arm64"]
-checksum = "sha256:dbf8d1efd39f3fc3f0d9cefa37c6caba8fdf937562dbaa93b6c284ded4f2c904"
-checksum_source = "mise-versions"
-url = "https://github.com/pulumi/pulumi/releases/download/v3.276.0/pulumi-v3.276.0-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/pulumi/pulumi/releases/assets/739644964"
 
 [tools.pulumi."platforms.linux-x64"]
 checksum = "sha256:99f6b4626be083a3326517a46ba33b995f44812058143a018d9dffaa027ec3bf"
@@ -1756,10 +1397,6 @@ version = "3.15.2"
 backend = "core:python"
 specifiers = ["3.15"]
 
-[tools.python."platforms.linux-arm64"]
-checksum = "sha256:d1367a6c3cd86a9e35712072841f1376859f3b47a2a54e224421a0f9fd169047"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.15.2+20261110-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
-
 [tools.python."platforms.linux-x64"]
 checksum = "sha256:ad23d1b73fac26440b0306ae06911031344c49a90ec19716c8362e7fa40cae43"
 url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.15.2+20261110-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
@@ -1794,12 +1431,6 @@ version = "15.2.0"
 backend = "aqua:BurntSushi/ripgrep"
 specifiers = ["latest"]
 
-[tools.ripgrep."platforms.linux-arm64"]
-checksum = "sha256:a740b91c82eaf9914cfedd353572f2791cbe0162c84101ee0951058f4dcbc90d"
-checksum_source = "mise-versions"
-url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478119579"
-
 [tools.ripgrep."platforms.linux-x64"]
 checksum = "sha256:33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c"
 checksum_source = "mise-versions"
@@ -1822,12 +1453,6 @@ url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/47811
 version = "0.17.5"
 backend = "aqua:astral-sh/ruff"
 specifiers = ["latest"]
-
-[tools.ruff."platforms.linux-arm64"]
-checksum = "sha256:4d959d4322a8cd3effe11e9fc6743da1dbb41cd0b2476e433b6e6bfd9a69b626"
-checksum_source = "mise-versions"
-url = "https://github.com/astral-sh/ruff/releases/download/0.17.5/ruff-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/740496838"
 
 [tools.ruff."platforms.linux-x64"]
 checksum = "sha256:7d261fc981a784668e19e9fa6ad437bfd95b67f2dc263fc1eab87d54d72fcc90"
@@ -1860,12 +1485,6 @@ version = "1.1.0"
 backend = "aqua:chmln/sd"
 specifiers = ["latest"]
 
-[tools.sd."platforms.linux-arm64"]
-checksum = "sha256:ec8c93c0533ff21f4851d11566808d4082544baf063d9b96ea77c27e98b7cd99"
-checksum_source = "mise-versions"
-url = "https://github.com/chmln/sd/releases/download/v1.1.0/sd-v1.1.0-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/chmln/sd/releases/assets/362325535"
-
 [tools.sd."platforms.linux-x64"]
 checksum = "sha256:3613eca74cd686739bb5a6d68319aa56c747e7315274d02323a2ca2b1c5d82d2"
 checksum_source = "mise-versions"
@@ -1889,12 +1508,6 @@ version = "0.11.0"
 backend = "aqua:koalaman/shellcheck"
 specifiers = ["latest"]
 
-[tools.shellcheck."platforms.linux-arm64"]
-checksum = "sha256:12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588"
-checksum_source = "mise-versions"
-url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.aarch64.tar.xz"
-url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056934"
-
 [tools.shellcheck."platforms.linux-x64"]
 checksum = "sha256:8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
 checksum_source = "mise-versions"
@@ -1917,12 +1530,6 @@ url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/2790
 version = "3.14.1"
 backend = "aqua:mvdan/sh"
 specifiers = ["latest"]
-
-[tools.shfmt."platforms.linux-arm64"]
-checksum = "sha256:5f2db09dae91fca848f7adbdd014632e921a383863a2ad7e0450ad3aba0c6489"
-checksum_source = "mise-versions"
-url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_arm64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320869"
 
 [tools.shfmt."platforms.linux-x64"]
 checksum = "sha256:76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf"
@@ -1972,12 +1579,6 @@ version = "1.11.3"
 backend = "aqua:tombi-toml/tombi"
 specifiers = ["latest"]
 
-[tools.tombi."platforms.linux-arm64"]
-checksum = "sha256:083614471a69e15f147ba68c96fe1e3ea02e8efe38d6bcdb4606b5a37ab8758a"
-checksum_source = "mise-versions"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.3/tombi-cli-1.11.3-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/755626402"
-
 [tools.tombi."platforms.linux-x64"]
 checksum = "sha256:36672279d05f093455f01fa5a2799a8cc2162a9195cbbb23f0f8d1107d0de497"
 checksum_source = "mise-versions"
@@ -2020,12 +1621,6 @@ version = "0.13.9"
 backend = "aqua:astral-sh/uv"
 specifiers = ["latest"]
 
-[tools.uv."platforms.linux-arm64"]
-checksum = "sha256:0797542018e541a9288855df555c8077eed06f7a47d206362030480e8ecc9f3d"
-checksum_source = "mise-versions"
-url = "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/758513657"
-
 [tools.uv."platforms.linux-x64"]
 checksum = "sha256:a7fbaff2b9a271d85c1bdb540941090fd1ce011797b4abeb48e4dcd39c2471d5"
 checksum_source = "mise-versions"
@@ -2047,12 +1642,6 @@ url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/758513940"
 version = "0.26.3"
 backend = "aqua:ducaale/xh"
 specifiers = ["latest"]
-
-[tools.xh."platforms.linux-arm64"]
-checksum = "sha256:a45d8cb6c234c6850f9fc2395fc3544ab7691fb511237f00179aedba1bcd525e"
-checksum_source = "mise-versions"
-url = "https://github.com/ducaale/xh/releases/download/v0.26.3/xh-v0.26.3-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/ducaale/xh/releases/assets/661696698"
 
 [tools.xh."platforms.linux-x64"]
 checksum = "sha256:cbbf53bd76007d57d95e4bed8ba7fb3b7fcec22af4bdfc1ff119cd5de351e74f"
@@ -2076,11 +1665,6 @@ url_api = "https://api.github.com/repos/ducaale/xh/releases/assets/661699030"
 version = "4.54.3"
 backend = "aqua:mikefarah/yq"
 specifiers = ["latest"]
-
-[tools.yq."platforms.linux-arm64"]
-checksum = "sha256:89f69310b61b68d1245065a1241d1fc843f7a36cd6103ffd77ad987613bd1b67"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_linux_arm64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219924"
 
 [tools.yq."platforms.linux-x64"]
 checksum = "sha256:129534601871538efe0ba4c5e62a34fb1d5f469bcb975c4fddeb467d82974973"

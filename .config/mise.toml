@@ -14,7 +14,7 @@ status.missing_tools    = "always"
 
 # --- [RESOLUTION]
 
-lockfile_platforms      = ["linux-arm64", "linux-x64", "macos-arm64", "windows-x64"]
+lockfile_platforms      = ["linux-x64", "macos-arm64", "windows-x64"]
 minimum_release_age     = "0s"
 prereleases             = true
 registry_floating       = true
@@ -66,7 +66,6 @@ NODE_COMPILE_CACHE             = "{{ env.CACHE_DIR }}/node"
 NX_WORKSPACE_DATA_DIRECTORY    = "{{ env.CACHE_DIR }}/nx/workspace-data"
 PLAYWRIGHT_TRANSFORM_CACHE_DIR = "{{ env.CACHE_DIR }}/playwright/transform"
 PYTEST_CACHE_DIR               = "{{ env.CACHE_DIR }}/pytest"
-PYTHONPYCACHEPREFIX            = "{{ env.CACHE_DIR }}/python"
 RUFF_CACHE_DIR                 = "{{ env.CACHE_DIR }}/ruff"
 SE_CACHE_PATH                  = "{{ env.CACHE_DIR }}/selenium"
 TOMBI_CACHE_HOME               = "{{ env.CACHE_DIR }}/tombi"
