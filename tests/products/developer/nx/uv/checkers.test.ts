@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
 import { env } from 'node:process';
 import type { ProjectGraph } from '@nx/devkit';
 import { readNxJsonFromDisk } from '@nx/devkit/internal';
@@ -108,15 +109,14 @@ describe('checker targets', { timeout: 120_000 }, () => {
         expect(after.map(({ value }, index) => value === before[index]?.value)).toStrictEqual([false, false]);
     });
 
-    it('changes the hash of a checker uv runs from the member root, and of none uv runs from the uv root, after .python-version appears in the member root', async ({ workspace }) => {
-        locked(workspace, workspaced(['mypy', 'vulture']));
-        const graph = await workspace.graph(uv);
-        const before = await Promise.all(['library:check--mypy', 'library:check--vulture'].map((task) => hashed(workspace, graph, task)));
+    it('keeps the mypy hash of a member after a .python-version in the member root, whose minor uv run never picks', async ({ workspace }) => {
+        locked(workspace, workspaced(['mypy']));
+        const picked = () => execFileSync('uv', ['run', '--no-active', '--quiet', 'python', '-c', 'import sys; print(sys.version_info[:2])'], { cwd: join(workspace.root, 'proj/library'), encoding: 'utf-8' });
+        const [before, interpreter] = [await hashed(workspace, await workspace.graph(uv), 'library:check--mypy'), picked()];
 
-        const edited = await workspace.write({ 'proj/library/.python-version': '3.13\n' }).graph(uv);
+        const after = await hashed(workspace, await workspace.write({ 'proj/library/.python-version': '3.14\n' }).graph(uv), 'library:check--mypy');
 
-        const after = await Promise.all(['library:check--mypy', 'library:check--vulture'].map((task) => hashed(workspace, edited, task)));
-        expect(after.map(({ value }, index) => value === before[index]?.value)).toStrictEqual([false, true]);
+        expect([picked(), after.value]).toStrictEqual([interpreter, before.value]);
     });
 
     it.for([

@@ -161,15 +161,11 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
     const environed = Option.map(Option.fromUndefinedOr(environmentPath), (template) => template.replaceAll('{projectName}', member.name));
     const built = [posix.relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${posix.join('{projectRoot}', held, '**', '*')}`);
     const hashed = { platform: PLATFORM, python: { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) } };
-    const resolved = (cwd: string) => {
-        const outside = posix.relative(member.workspace, cwd).startsWith('..');
-        const searched = above(outside ? member.workspace : cwd);
-        return { outside, inputs: [...searched.slice(0, searched.indexOf(member.workspace) + 1).flatMap((at) => UV.pins.map((file) => posix.join('{workspaceRoot}', at, file))), posix.join('{workspaceRoot}', member.workspace, UV.settings), posix.join('{workspaceRoot}', member.lock)] };
-    };
+    const project = [...[...UV.pins, UV.settings].map((file) => posix.join('{workspaceRoot}', member.workspace, file)), posix.join('{workspaceRoot}', member.lock)];
     const checked = member.checks.map((stated) => {
         const row = CHECKERS[stated.key];
         const { cwd } = stated;
-        const project = resolved(cwd);
+        const outside = posix.relative(member.workspace, cwd).startsWith('..');
         const config = UndefinedOr.map(stated.config, (file) => posix.relative(cwd, file));
         const environment = Option.filter(environed, () => row.isolated);
         const argv = [
@@ -178,7 +174,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             '--no-active',
             '--locked',
             ...(row.isolated ? [Option.isSome(environment) ? '--exact' : '--isolated'] : []),
-            ...(project.outside ? ['--project', posix.relative(cwd, member.workspace)] : []),
+            ...(outside ? ['--project', posix.relative(cwd, member.workspace)] : []),
             '--package',
             member.name,
             '--all-extras',
@@ -208,7 +204,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                 ...row.variables.map((env) => ({ env })),
                 ...row.hashes.map((hash) => hashed[hash]),
                 ...(row.imports ? ['^default'] : []),
-                ...project.inputs,
+                ...project,
                 ...Array.match(row.imports ? stated.projects.filter((name) => name !== member.name) : [], {
                     onEmpty: () => [],
                     onNonEmpty: (projects) => [
@@ -223,7 +219,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
         };
         return { verb: row.verb, key: stated.key, target };
     });
-    const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests, ...resolved(member.root).inputs, { externalDependencies: [] }];
+    const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests, ...project, { externalDependencies: [] }];
     const rooted: Verbs =
         member.root === member.workspace
             ? {
