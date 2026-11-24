@@ -104,7 +104,7 @@ Nx remote cache readers and the hash inputs that decide what machines share:
 - Pull request runs read with `NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN` and store nothing, and fork pull requests hold no secret and use local cache
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
-- Root project `rasm` takes Colima targets on macOS alone, and none of its tasks shares a key with Linux
+- Colima targets sit in project `colima`, which exists on macOS alone, so root project `rasm` shares its keys with Linux
 - .NET targets but format hash `CI`, as MSBuild sets properties under it
 - Vitest targets hash no `CI`, as their executor refuses `.only` and writes no missing snapshot on every machine
 - Playwright targets hash no `CI`, as each one runs `playwright test --forbid-only`, and `pack--playwright` hashes the platform its images render on
