@@ -26,4 +26,4 @@ notice = { hide_full_access_warning = true }
 "writing@rasm"       = { enabled = true }
 
 [marketplaces]
-rasm = { source_type = "local", source = "/Users/bardiasamiee/Developer/Rasm" }
+rasm = { source_type = "git", source = "https://github.com/bsamiee/Rasm.git", ref = "main", sparse_paths = [".agents/plugins", "plugins"] }

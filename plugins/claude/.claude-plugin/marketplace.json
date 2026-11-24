@@ -1,0 +1,13 @@
+{
+    "name": "rasm-local",
+    "description": "Plugins of the Rasm monorepo that run from its checkout",
+    "owner": {
+        "name": "Bardia Samiee"
+    },
+    "plugins": [
+        {
+            "name": "function-hooks",
+            "source": "./function-hooks"
+        }
+    ]
+}

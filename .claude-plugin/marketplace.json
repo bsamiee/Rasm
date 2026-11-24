@@ -6,13 +6,8 @@
     },
     "plugins": [
         {
-            "name": "function-hooks",
-            "source": "./plugins/claude/function-hooks"
-        },
-        {
             "name": "blender",
             "source": "./plugins/shared/blender",
-            "version": "0.4.1",
             "description": "Blender sessions and Python inside Blender: bpy data, extensions, interface, node trees, and render output",
             "author": {
                 "name": "Bardia Samiee"
@@ -21,7 +16,6 @@
         {
             "name": "chrome",
             "source": "./plugins/shared/chrome",
-            "version": "0.2.2",
             "description": "Chrome extensions from manifest and permissions through execution contexts, UI elements in Chrome's own look, suites, and Web Store release, and the signed-in Chrome's pages, settings, flags, and unpacked builds through the chrome-devtools CLI",
             "author": {
                 "name": "Bardia Samiee"
@@ -30,7 +24,6 @@
         {
             "name": "code",
             "source": "./plugins/shared/code",
-            "version": "0.1.1",
             "description": "Refactoring and testing rules for code in any language",
             "author": {
                 "name": "Bardia Samiee"
@@ -39,7 +32,6 @@
         {
             "name": "cpp",
             "source": "./plugins/shared/cpp",
-            "version": "0.5.1",
             "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, Unreal Engine debugging, reloads, and logs on macOS, and the Unreal Engine editor MCP server",
             "author": {
                 "name": "Bardia Samiee"
@@ -49,7 +41,6 @@
         {
             "name": "delegate",
             "source": "./plugins/claude/delegate",
-            "version": "0.3.0",
             "description": "Work handed to other agents: headless Antigravity and Codex runs, audits of paths, and a council of models",
             "author": {
                 "name": "Bardia Samiee"
@@ -58,7 +49,6 @@
         {
             "name": "dotnet",
             "source": "./plugins/shared/dotnet",
-            "version": "0.3.1",
             "description": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
             "author": {
                 "name": "Bardia Samiee"
@@ -67,7 +57,6 @@
         {
             "name": "media",
             "source": "./plugins/shared/media",
-            "version": "0.5.0",
             "description": "Audio work through the Voicebox voice studio MCP server",
             "author": {
                 "name": "Bardia Samiee"
@@ -76,7 +65,6 @@
         {
             "name": "msbuild",
             "source": "./plugins/shared/msbuild",
-            "version": "0.3.0",
             "description": "MSBuild evaluation, execution, packaging, binary-log diagnostics, and antipatterns",
             "author": {
                 "name": "Bardia Samiee"
@@ -85,7 +73,6 @@
         {
             "name": "python",
             "source": "./plugins/shared/python",
-            "version": "0.4.1",
             "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
             "author": {
                 "name": "Bardia Samiee"
@@ -94,7 +81,6 @@
         {
             "name": "rhino",
             "source": "./plugins/shared/rhino",
-            "version": "0.3.1",
             "description": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
             "author": {
                 "name": "Bardia Samiee"
@@ -103,7 +89,6 @@
         {
             "name": "rust",
             "source": "./plugins/shared/rust",
-            "version": "0.3.2",
             "description": "Rust design with algebraic types, results, traits, and async effects",
             "author": {
                 "name": "Bardia Samiee"
@@ -112,7 +97,6 @@
         {
             "name": "search",
             "source": "./plugins/shared/search",
-            "version": "0.9.2",
             "description": "Dependency source, web, Are.na, and Gemini Notebook research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
@@ -121,7 +105,6 @@
         {
             "name": "swift",
             "source": "./plugins/shared/swift",
-            "version": "0.4.2",
             "description": "Swift design with typed throws, value types, and structured concurrency",
             "author": {
                 "name": "Bardia Samiee"
@@ -130,7 +113,6 @@
         {
             "name": "terminal",
             "source": "./plugins/shared/terminal",
-            "version": "0.4.3",
             "description": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks",
             "author": {
                 "name": "Bardia Samiee"
@@ -139,7 +121,6 @@
         {
             "name": "tool",
             "source": "./plugins/shared/tool",
-            "version": "0.8.5",
             "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, breakpoint debugging of Python, .NET, C++, and JavaScript through mcp-debugger, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
             "author": {
                 "name": "Bardia Samiee"
@@ -148,7 +129,6 @@
         {
             "name": "typescript",
             "source": "./plugins/shared/typescript",
-            "version": "0.4.2",
             "description": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
             "author": {
                 "name": "Bardia Samiee"
@@ -157,7 +137,6 @@
         {
             "name": "uxp",
             "source": "./plugins/shared/uxp",
-            "version": "0.5.3",
             "description": "Code that runs in an Adobe UXP host, and the Atelier server that drives Adobe apps and proxies their own servers",
             "author": {
                 "name": "Bardia Samiee"
@@ -166,7 +145,6 @@
         {
             "name": "web",
             "source": "./plugins/shared/web",
-            "version": "0.2.2",
             "description": "Web styling and components: CSS, browser support facts, and React Aria Components",
             "author": {
                 "name": "Bardia Samiee"
@@ -175,7 +153,6 @@
         {
             "name": "writing",
             "source": "./plugins/shared/writing",
-            "version": "0.1.2",
             "description": "Project prose and names: wording rules, a word map, and automatic checks",
             "author": {
                 "name": "Bardia Samiee"

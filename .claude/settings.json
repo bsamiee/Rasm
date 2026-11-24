@@ -21,7 +21,7 @@
     "bgIsolation": "none"
   },
   "enabledPlugins": {
-    "function-hooks@rasm": true,
+    "function-hooks@rasm-local": true,
     "blender@rasm": true,
     "dotnet@rasm": true,
     "msbuild@rasm": true,
@@ -44,10 +44,20 @@
   "extraKnownMarketplaces": {
     "rasm": {
       "source": {
-        "source": "directory",
-        "path": "/Users/bardiasamiee/Developer/Rasm"
+        "source": "github",
+        "repo": "bsamiee/Rasm",
+        "sparsePaths": [
+          ".claude-plugin",
+          "plugins"
+        ]
       },
       "autoUpdate": true
+    },
+    "rasm-local": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/bardiasamiee/Developer/Rasm/plugins/claude"
+      }
     }
   },
   "effortLevel": "high",
