@@ -12,7 +12,7 @@ const byKinds = SqlSchema.findAll({
 });
 ```
 
-`Note` is the row schema. `execute` receives the encoded request, and `byKinds` builds once at module scope, an `Effect.fn` taking it as its body. The text a segment produces selects its helper:
+`Note` is the row schema. `execute` receives the encoded request, and `byKinds` builds once at module scope, an `Effect.fn` taking it as its body. Steps after a finder join it through `Function.flow(byKinds, <step>)` inside the `Effect.fn`, a trailing `Effect.fn` transform inferring no error channel from the finder. The text a segment produces selects its helper:
 
 | [INDEX] | [SEGMENT]                     | [HELPER]                                                                                          |
 | :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------ |
