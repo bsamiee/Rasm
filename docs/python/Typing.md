@@ -53,8 +53,8 @@ Configuration lookup of ty:
 Project roots and configuration lookup of ruff:
 - `src` lists project roots, and ruff reads each import package there as first party
 - `import-private-name` reads a sibling's `_` module as internal to its own package and an outside one as external
-- `ruff` takes `target-version` from the `requires-python` beside each `[tool.ruff]` it finds
-- Members requiring a Python below the root's hold `[tool.ruff] extend` for their own range, and other members hold none
+- `ruff` takes `target-version` from `requires-python` of the `pyproject.toml` beside the configuration it finds, root `ruff.toml` or a member's `[tool.ruff]`
+- Members requiring a Python below the root's hold a `[tool.ruff]` extending root `ruff.toml` for their own range, and other members hold none
 - `ruff check --force-exclude` honors each file's closest configuration across roots
 
 ## [06]-[STUBS]

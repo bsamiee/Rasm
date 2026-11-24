@@ -122,7 +122,7 @@ rasm-refurb            = { workspace = "../../../.." }
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
-extend = "../../../../pyproject.toml"
+extend = "../../../../ruff.toml"
 
 [tool.ruff.lint]
 ignore = ["relative-imports"] # Blender loads an extension as `bl_ext.<repository>.<id>`, its own modules import each other relatively

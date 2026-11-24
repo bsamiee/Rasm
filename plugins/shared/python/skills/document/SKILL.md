@@ -9,10 +9,10 @@ Covers Google-style docstrings on Python modules, classes, functions, and method
 
 `<repo>` is the repository root.
 
-Ruff settings in `pyproject.toml` fire every `D` rule the convention keeps and, under `preview`, `D420`, `D421`, and every `DOC` rule:
+Ruff settings in `ruff.toml` fire every `D` rule the convention keeps and, under `preview`, `D420`, `D421`, and every `DOC` rule:
 
 ```!
-yq -p toml -o toml '{"tool": {"ruff": (.tool.ruff | {"preview": .preview, "format": (.format | pick(["docstring-code-format"])), "lint": (.lint | pick(["select", "pycodestyle", "pydocstyle", "pydoclint"]))})}}' "<repo>/pyproject.toml"
+yq -p toml -o toml '{"preview": .preview, "format": (.format | pick(["docstring-code-format"])), "lint": (.lint | pick(["select", "pycodestyle", "pydocstyle", "pydoclint"]))}' "<repo>/ruff.toml"
 ```
 
 ## [01]-[SCOPE]

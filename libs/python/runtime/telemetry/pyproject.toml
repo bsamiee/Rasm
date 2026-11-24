@@ -71,4 +71,4 @@ module-root = ""
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
-extend = "../../../../pyproject.toml" # Ruff reads this manifest's `requires-python` through its own table
+extend = "../../../../ruff.toml" # Ruff reads this manifest's `requires-python` through its own table
