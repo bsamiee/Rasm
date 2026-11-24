@@ -85,15 +85,15 @@ jobs:
             - id: listed
               run: |-
                   listed() {
-                      projects="$(nx show projects --affected ${2:+--withTarget="$2"} --exclude="$3" --json)"
+                      projects="$(nx show projects --affected --withTarget="$2" --exclude="$3" --json)"
                       printf "%s=%s\n" "$1" "${projects}"
                   }
                   version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
                   {
                       listed unreal check,test,build '*,!tag:host:unreal'
                       listed browser check,test,build,pack '*,!tag:host:browser'
-                      listed windows '' '*,!tag:os:win32,!tag:host:rhino'
-                      listed rhino '' '*,!tag:host:rhino'
+                      listed windows test,build '*,!tag:os:win32,!tag:host:rhino'
+                      listed rhino test,build '*,!tag:host:rhino'
                       listed infra deploy--pulumi '*,!@rasm/infra'
                       printf "image=%s\n" "ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}"
                   } >> "${GITHUB_OUTPUT}"

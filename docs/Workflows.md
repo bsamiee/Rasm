@@ -33,8 +33,8 @@ Workflow `CI` queues, bases, and checkouts:
 Jobs of workflow `CI` and the projects each runs:
 - Jobs `shas` and `affected` run on instance `graph`, as other jobs wait for them and instance `host` holds a job behind job `linux` of an earlier run
 - Jobs `linux` and `macos` wait for job `shas` alone, and every other job for job `affected` too
-- Job `affected` lists each job's projects through `nx show projects --affected` over that job's exclusions, with its targets for jobs `browser`, `unreal`, and `deploy`
-- Job `affected` lists every touched project for job `windows`, as a Linux graph holds no test target of a suite limited to another platform
+- Job `affected` lists each job's projects through `nx show projects --affected --withTarget` over that job's targets and exclusions
+- Job `windows` is listed over `test,build`, as a Linux graph holds no `test` target of a .NET suite limited to another platform, and `test` reads `build` outputs
 - Job `affected` names the Playwright image Deploy publishes by the `@playwright/test` row of the pnpm catalog
 - Runs at a Playwright version with no published image fail to pull it until Deploy on `main` publishes its tag
 - Job `deploy` of such a run still builds that tag, as it waits for job `browser` without needing its success, and a re-run of `browser` passes
