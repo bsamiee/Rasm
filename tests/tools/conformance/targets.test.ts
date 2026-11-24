@@ -36,15 +36,26 @@ describe('targets', () => {
         expect(reported(await checked(lib), rows)).toStrictEqual(rows);
     });
 
-    it('reports dependsOn entries naming a target their own project, their named projects, or every project lacks, and accepts a ^ entry naming an absent tool of a held aggregate', async () => {
+    it('reports dependsOn entries naming a target their own project, their named projects, or every project lacks, a ^ entry naming an absent tool of a held aggregate included', async () => {
         const rows = [
             'lib | lib:test--vitest dependsOn "lint" names no target',
+            'lib | lib:test--vitest dependsOn "^build--dotnet" names no target',
+            'lib | lib:test--vitest dependsOn "^check--clipy" names no target',
             'lib | lib:test--vitest dependsOn "^compile" names no target',
             'lib | lib:test--vitest dependsOn "^compile--tsc" names no target',
             'lib | lib:test--vitest dependsOn "missing--*" names no target',
             'lib | lib:test--vitest dependsOn {"projects":["app"],"target":"build--tsc"} names no target',
         ];
-        const lib = project('lib', { targets: { test: aggregate('test'), 'test--vitest': run({ dependsOn: ['lint', '^compile', '^compile--tsc', 'missing--*', { projects: ['app'], target: 'build--tsc' }, 'build--tsc', '^test--vitest', '^build--dotnet'] }), build: aggregate('build'), 'build--tsc': run() } });
+        const lib = project('lib', {
+            targets: {
+                test: aggregate('test'),
+                'test--vitest': run({ dependsOn: ['lint', '^compile', '^compile--tsc', 'missing--*', { projects: ['app'], target: 'build--tsc' }, 'build--tsc', '^test--vitest', '^build--dotnet', '^check--clipy'] }),
+                build: aggregate('build'),
+                'build--tsc': run(),
+                check: aggregate('check'),
+                'check--tsc': run(),
+            },
+        });
         expect(reported(await checked(app, lib), rows)).toStrictEqual(rows);
     });
 

@@ -10,11 +10,9 @@ import { combineOptionsForExecutor } from 'nx/src/utils/params';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const resolves = (graph: ProjectGraph, names: readonly string[], prefixes: readonly string[], owner: string, entry: string | TargetDependencyConfig) => {
+const resolves = (graph: ProjectGraph, names: readonly string[], owner: string, entry: string | TargetDependencyConfig) => {
     const expanded = normalizeDependencyConfigDefinition(Predicate.isString(entry) ? entry : { ...entry }, owner, graph, [...names]);
-    return isGlobPattern(Predicate.isString(entry) ? entry : entry.target)
-        ? Array.isReadonlyArrayNonEmpty(expanded)
-        : expanded.some(({ target, projects, dependencies = false }) => (dependencies ? names.includes(target) || prefixes.some((prefix) => target.startsWith(prefix)) : projects.some((held) => target in (graph.nodes[held]?.data.targets ?? {}))));
+    return isGlobPattern(Predicate.isString(entry) ? entry : entry.target) ? Array.isReadonlyArrayNonEmpty(expanded) : expanded.some(({ target, projects, dependencies = false }) => (dependencies ? names.includes(target) : projects.some((held) => target in (graph.nodes[held]?.data.targets ?? {}))));
 };
 
 const same = (stated: NonNullable<TargetConfiguration['inputs']>[number], read: NonNullable<TargetConfiguration['inputs']>[number]) => isDeepStrictEqual(stated, read) || (Predicate.isObject(read) && 'dependentTasksOutputFiles' in read && isDeepStrictEqual(stated, { ...read, transitive: true }));
@@ -44,7 +42,7 @@ export default createConformanceRule<{ readonly separator: string }>({
     name: 'targets',
     category: 'consistency',
     description:
-        "Holds every project under Nx's project schema and the options of every target and configuration under its executor's schema, resolves every dependsOn entry to a target, a ^ entry also to `<name><separator><tool>` of an aggregate `<name>` any project holds, and gives a project an nx:noop target `<name>` exactly where it holds `<name><separator><tool>` targets, depending on them alone with its parameters forwarded and stating exactly their inputs, with no other target depending on it, as Nx forwards the parameters of the run to its tool targets",
+        "Holds every project under Nx's project schema and the options of every target and configuration under its executor's schema, resolves every dependsOn entry to a target, and gives a project an nx:noop target `<name>` exactly where it holds `<name><separator><tool>` targets, depending on them alone with its parameters forwarded and stating exactly their inputs, with no other target depending on it, as Nx forwards the parameters of the run to its tool targets",
     implementation: ({ tree, projectGraph, ruleOptions: { separator } }) => {
         const validator = new Ajv({ strict: false, allErrors: true });
         const configured = validator.compile(project);
@@ -53,7 +51,6 @@ export default createConformanceRule<{ readonly separator: string }>({
         const declared = nodes.flatMap(({ name, data }) => Record.collect(data.targets ?? {}, (target, configuration) => ({ name, target, configuration, dependsOn: configuration.dependsOn ?? [] })));
         const names = Array.dedupe(declared.map(Struct.get('target')));
         const aggregates = Array.dedupe(Array.filterMap(names, (target) => (target.includes(separator) ? Result.succeed(target.slice(0, target.indexOf(separator))) : Result.failVoid)));
-        const prefixes = aggregates.map((aggregate) => `${aggregate}${separator}`);
         const violations = [
             ...nodes.filter(({ data }) => !configured(data)).map(({ name }) => ({ sourceProject: name, message: `${name} ${validator.errorsText(configured.errors)}` })),
             ...declared.flatMap(({ name, target, configuration }) =>
@@ -66,7 +63,7 @@ export default createConformanceRule<{ readonly separator: string }>({
                     ),
                 ),
             ),
-            ...declared.flatMap(({ name, target, dependsOn }) => dependsOn.filter((entry) => !resolves(projectGraph, names, prefixes, name, entry)).map((entry) => ({ sourceProject: name, message: `${name}:${target} dependsOn ${JSON.stringify(entry)} names no target, name an existing target or drop the entry` }))),
+            ...declared.flatMap(({ name, target, dependsOn }) => dependsOn.filter((entry) => !resolves(projectGraph, names, name, entry)).map((entry) => ({ sourceProject: name, message: `${name}:${target} dependsOn ${JSON.stringify(entry)} names no target, name an existing target or drop the entry` }))),
             ...declared.flatMap(({ name, target, dependsOn }) =>
                 Array.intersection(
                     dependsOn.map((entry) => (Predicate.isString(entry) ? entry.replace(/^\^|^.*:/u, '') : entry.target)),

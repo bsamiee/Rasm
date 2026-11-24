@@ -70,7 +70,7 @@
             "pack--pnpm": {
                 "dependsOn": [
                     "...",
-                    "^build--dotnet"
+                    "^build--*"
                 ]
             }
         }
