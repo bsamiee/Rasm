@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Effect, ErrorReporter, Formatter, type LogLevel, Match, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
+import { Array, Effect, ErrorReporter, Formatter, type LogLevel, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
 import { format, parse } from '#/host';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -60,11 +60,7 @@ const Declaration = Object.assign(Declared, {
         const sorted = (enumerations: boolean) => Array.sort(Record.keys(Record.filter(table, (entry) => enumerated(entry) === enumerations)), Order.String);
         return {
             index: Declared.cases.Index.make({ classes: sorted(false), enumerations: sorted(true) }),
-            page: (name: string) =>
-                Effect.map(
-                    Unmatched.single(Record.toEntries(table), 'class or enumeration', Option.some(name), ([key]) => [key]),
-                    ([, found]) => page(found),
-                ),
+            page: (name: string) => Unmatched.single(Record.toEntries(table), 'class or enumeration', Option.some(name), ([key]) => [key]).pipe(Effect.map(([, found]) => page(found))),
         };
     },
 });
@@ -100,13 +96,13 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
         return format({ steps: Array.map(this.steps, (step, index) => (index === this.steps.length - 1 ? Struct.omit(step, ['selector']) : step)) });
     }
     get property(): boolean {
-        return Option.exists(Array.last(this.steps), ({ kind }) => String.startsWith('@')(kind));
+        return Option.exists(Array.last(this.steps), ({ kind }) => kind.startsWith('@'));
     }
     get name(): Option.Option<string> {
         return Option.flatMap(Option.filter(this.selector, Selector.guards.Key), ({ key, value }) => (key === 'name' ? Option.some(`${value}`) : Option.none()));
     }
     get leaf(): string {
-        return Array.map([this.steps, ...Option.toArray(Option.fromUndefinedOr(this.end))], (steps) => Option.match(Array.last(steps), { onNone: () => '/', onSome: (step) => format({ steps: [step] }).slice(step.separator.length) })).join(' to ');
+        return Array.map([this.steps, ...Array.fromNullishOr(this.end)], (steps) => Option.match(Array.last(steps), { onNone: () => '/', onSome: (step) => format({ steps: [step] }).slice(step.separator.length) })).join(' to ');
     }
 }
 class Reference extends Schema.Class<Reference, { readonly brand: unique symbol }>('Reference')({ type: Schema.String, specifier: Schema.String, name: Schema.OptionFromOptionalKey(Schema.String), valid: Schema.Boolean }) {}
@@ -129,10 +125,7 @@ class HostError extends Schema.TaggedError<HostError, { readonly brand: unique s
             reason,
             subject,
             ...(cause === undefined ? {} : { cause }),
-            message: Match.value(reason).pipe(
-                Match.tag('Thrown', ({ line }) => [...Option.toArray(line).map((at) => `line ${at}`), subject].join(': ')),
-                Match.orElse(({ _tag }) => [`${subject} ${String.toLowerCase(_tag)}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ')),
-            ),
+            message: HostError.fields.reason.matchOrElse(reason, { Thrown: ({ line }) => [...Option.toArray(line).map((at) => `line ${at}`), subject].join(': ') }, ({ _tag }) => [`${subject} ${String.toLowerCase(_tag)}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ')),
         });
     static readonly refused = (subject: string) => HostError.of({ _tag: 'Refused' }, subject);
     static readonly thrown = (subject: string, line: Option.Option<number>) => HostError.of({ _tag: 'Thrown', line }, subject);

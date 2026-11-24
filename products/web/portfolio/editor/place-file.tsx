@@ -1,6 +1,6 @@
 import { useAtomSet } from '@effect/atom-react';
 import { Field, MenuButton } from '@rasm/ui';
-import { Array, Function, Option, Record, Struct } from 'effect';
+import { Array, Function, Option, Record, Result, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { useState } from 'react';
 import { CheckboxGroup } from 'react-aria-components';
@@ -31,7 +31,7 @@ const PlaceFile = ({
     const file = Option.flatMap(assetId, (id) => Record.get(assets, id));
     const placements = Option.toArray(file).flatMap(Placement.fromAsset);
     const pages = placements.filter((placement) => placement.kind === 'pdf');
-    const chosen = pages.length > 0 ? Array.getSomes(order.map((number) => Array.findFirst(pages, ({ page }) => String(page.number) === number))) : placements;
+    const chosen = pages.length > 0 ? Array.filterMap(order, (number) => Result.fromOption(Array.get(pages, Number(number) - 1), Function.constVoid)) : placements;
     const add = () => {
         const compositions = chosen.map((placement) => Composition.make({ id: Composition.fields.id.make(SecureRandom.uuidV7Unsafe()), items: [placement] }));
         setDraft(updateEntry(entryId, Struct.evolve({ compositions: Array.appendAll(compositions) })));

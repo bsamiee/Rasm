@@ -1,5 +1,5 @@
 import { Format } from '@rasm/ui';
-import { Option, Predicate, String } from 'effect';
+import { Array, Function, Option, Predicate, Result, String } from 'effect';
 import type { Sheet } from '#/model/asset';
 import type { Composition } from '#/model/placement';
 import type { Entry } from '#/model/portfolio';
@@ -20,7 +20,7 @@ const placementTitle = (placement: Composition['items'][number]) => joinDetails(
 const placementAlt = (placement: Composition['items'][number]) => placement.alt ?? placementTitle(placement);
 const descriptionLabel = ({ kind }: Composition['items'][number]) => (kind === 'video' ? 'Description or transcript' : 'Detailed description');
 const compositionLabel = ({ items }: Composition) => format.list(items.map(placementTitle));
-const compositionCaption = ({ items }: Composition) => Option.liftPredicate(format.list(items.map(({ caption }) => caption).filter(Predicate.isNotUndefined)), String.isNonEmpty);
+const compositionCaption = ({ items }: Composition) => Option.liftPredicate(format.list(Array.filterMap(items, ({ caption }) => Result.fromNullishOr(caption, Function.constVoid))), String.isNonEmpty);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

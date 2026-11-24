@@ -3,10 +3,6 @@ import { Array, Cause, Option, Schema, SchemaTransformation, String, Struct } fr
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { HostError, Reference, Specifier } from '#/model';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const BODY = 'function body() {';
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Evaluation extends Schema.Class<Evaluation, { readonly brand: unique symbol }>('Evaluation')({
@@ -14,8 +10,8 @@ class Evaluation extends Schema.Class<Evaluation, { readonly brand: unique symbo
     label: Schema.String.annotate({ description: 'Name of the undo step the evaluation runs in' }),
 }) {
     static readonly Result = Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) });
-    static readonly expression = (body: string, awaits: boolean) => (awaits ? `(async ${BODY}\n${body}\n})` : `(${BODY}\n${body}\n})`);
-    static readonly labelled = (body: string) => `Run ${Option.getOrElse(Array.findFirst(Array.map(body.split('\n'), String.trim), String.isNonEmpty), () => 'script')}`;
+    static readonly expression = (body: string, awaits: boolean) => `(${awaits ? 'async ' : ''}function body() {\n${body}\n})`;
+    static readonly labelled = (body: string) => `Run ${Array.findFirst(body.split('\n'), (line) => Option.liftPredicate(line.trim(), String.isNonEmpty)).pipe(Option.getOrElse(() => 'script'))}`;
 }
 class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Render')({
     target: Specifier.Path.annotate({ description: 'Document, page, spread, artboard, layer, composition, or sequence specifier' }),

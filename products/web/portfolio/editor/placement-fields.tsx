@@ -8,6 +8,10 @@ import { type Composition, Placement } from '#/model/placement';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const imageRoles = Record.collect({ drawing: 'Drawing (full sheet)', photograph: 'Photograph' } satisfies Record.ReadonlyRecord<Extract<Composition['items'][number], { readonly kind: 'image' }>['role'], string>, (id, label) => ({ id, label }));
+const framings = [
+    { id: 'contain', label: 'Fit whole image', framing: { mode: 'contain' } },
+    { id: 'cover', label: 'Crop to frame', framing: { mode: 'cover', x: 50, y: 50 } },
+] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -33,37 +37,28 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                         {sheetLabel(sheet.page, sheet.asset.pages.length)}
                     </MenuButton>
                 ),
-                image: (image) => {
-                    const shared = Struct.pick(image, ['kind', 'asset', 'caption', 'alt', 'description']);
-                    return (
-                        <>
-                            <Choice {...choiceLayout} label="Image use" onChange={({ id }) => onChange(id === 'photograph' ? { ...shared, role: id, framing: { mode: 'contain' } } : { ...shared, role: id })} options={imageRoles} value={image.role} />
-                            {Match.value(image).pipe(
-                                Match.discriminatorsExhaustive('role')({
-                                    drawing: () => undefined,
-                                    photograph: ({ framing, ...photograph }) => {
-                                        const framings = [
-                                            { id: 'contain', label: 'Fit whole image', framing: { mode: 'contain' } },
-                                            { id: 'cover', label: 'Crop to frame', framing: { mode: 'cover', x: 50, y: 50 } },
-                                        ] as const;
-                                        return (
-                                            <>
-                                                <Choice {...choiceLayout} label="Framing" onChange={(option) => onChange({ ...photograph, framing: option.framing })} options={framings} value={framing.mode} />
-                                                {framing.mode === 'cover' && (
-                                                    <div className="field-pair">
-                                                        {Record.collect({ x: 'Horizontal', y: 'Vertical' } as const, (axis, direction) => (
-                                                            <Field.Slider key={axis} label={`${direction} focal point`} maxValue={Placement.focus.maximum} minValue={Placement.focus.minimum} onChange={(position) => onChange({ ...photograph, framing: { ...framing, [axis]: position } })} value={framing[axis]} />
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </>
-                                        );
-                                    },
-                                }),
-                            )}
-                        </>
-                    );
-                },
+                image: (image) => (
+                    <>
+                        <Choice {...choiceLayout} label="Image use" onChange={({ id }) => onChange({ ...Struct.pick(image, ['kind', 'asset', 'caption', 'alt', 'description']), ...(id === 'photograph' ? { role: id, framing: { mode: 'contain' } } : { role: id }) })} options={imageRoles} value={image.role} />
+                        {Match.value(image).pipe(
+                            Match.discriminatorsExhaustive('role')({
+                                drawing: () => undefined,
+                                photograph: ({ framing, ...photograph }) => (
+                                    <>
+                                        <Choice {...choiceLayout} label="Framing" onChange={(option) => onChange({ ...photograph, framing: option.framing })} options={framings} value={framing.mode} />
+                                        {framing.mode === 'cover' && (
+                                            <div className="field-pair">
+                                                {Record.collect({ x: 'Horizontal', y: 'Vertical' } as const, (axis, direction) => (
+                                                    <Field.Slider key={axis} label={`${direction} focal point`} maxValue={Placement.focus.maximum} minValue={Placement.focus.minimum} onChange={(position) => onChange({ ...photograph, framing: { ...framing, [axis]: position } })} value={framing[axis]} />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                ),
+                            }),
+                        )}
+                    </>
+                ),
                 video: (film) => (
                     <div className="placement-poster">
                         <MenuButton

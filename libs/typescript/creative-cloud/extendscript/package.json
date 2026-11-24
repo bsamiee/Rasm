@@ -19,7 +19,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        ".": "./completion.ts",
         "./host": "./host.ts",
         "./node": "./node.ts",
         "./vite": "./vite.ts",
@@ -30,7 +30,7 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            ".": "./dist/completion.js",
             "./host": "./dist/host.js",
             "./node": "./dist/node.js",
             "./vite": "./dist/vite.js",

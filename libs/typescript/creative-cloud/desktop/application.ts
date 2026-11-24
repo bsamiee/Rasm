@@ -21,13 +21,6 @@ const Info = Schema.Struct({
     CFBundleDocumentTypes: Schema.Array(Schema.Struct({ CFBundleTypeExtensions: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
 });
 const Numeric = Order.mapInput(Array.makeOrder(Order.Number), (version: string) => version.split('.').map(Number));
-const Released = Order.combine(
-    Order.mapInput(Order.Number, ({ channel }: Application) => CHANNELS.indexOf(channel)),
-    Order.combine(
-        Order.mapInput(Numeric, ({ version }: Application) => version),
-        Order.mapInput(Option.makeOrder(Numeric), ({ build }: Application) => build),
-    ),
-);
 
 class Application extends Schema.Class<Application, { readonly brand: unique symbol }>('Application')({
     name: Schema.String.annotate({ description: 'Folder or app its installer placed' }),
@@ -39,7 +32,7 @@ class Application extends Schema.Class<Application, { readonly brand: unique sym
     documents: Schema.Array(Schema.String).annotate({ description: 'Lowercase file extensions of the document types the bundle declares' }),
     url: Schema.URL.annotate({ description: 'Bundle' }),
 }) {
-    static readonly Order: Order.Order<Application> = (left, right) => Released(right, left);
+    static readonly Order: Order.Order<Application> = Order.flip(Order.Struct({ channel: Order.mapInput(Order.Number, (channel: Application['channel']) => CHANNELS.indexOf(channel)), version: Numeric, build: Option.makeOrder(Numeric) }));
     static readonly installed = Effect.gen(function* () {
         const [files, path, registry] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Registry]);
         const candidates = yield* Effect.all(
@@ -105,9 +98,7 @@ const products = SqlSchema.findAll({
 });
 const lines = (text: string) => text.split('\n').filter(String.isNonEmpty);
 const absent = (error: unknown): error is ExitError => Schema.is(ExitError)(error) && error.code === 1 && String.isEmpty(error.stdout);
-const placed =
-    (path: Path.Path) =>
-    (bundle: string): { readonly bundle: string; readonly name: string; readonly product: Option.Option<string>; readonly channel: Application['channel']; readonly build: Option.Option<string> } => ({ bundle, name: path.basename(bundle, '.app'), product: Option.none(), channel: CHANNELS[0], build: Option.none() });
+const placed = (path: Path.Path) => (bundle: string) => ({ bundle, name: path.basename(bundle, '.app'), product: Option.none(), channel: CHANNELS[0], build: Option.none() });
 const registered =
     (path: Path.Path) =>
     ({ code, directory, launch, build }: Registered) => {

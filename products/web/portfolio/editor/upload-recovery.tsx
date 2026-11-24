@@ -11,21 +11,19 @@ import type { Recovery } from '#/model/api';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const UploadRecovery = () => {
-    const files = Object.values(useAtomValue(queue));
     const recovery = useAtomValue(recoveryRequest);
-    const refreshRecovery = useAtomRefresh(recoveryRequest);
     const [discarded, discard] = useAtom(discardRequest);
     const actions = {
         incomplete: { label: 'Discard incomplete upload', description: 'Deletes partial upload data. Add original file again to upload it' },
         cleanup: { label: 'Remove leftover upload data', description: 'Uploaded file and its placements stay' },
         removing: { label: 'Finish removal', description: 'Deletes remaining upload data of removed file' },
     } satisfies Record<Recovery['status'], { readonly label: string; readonly description: string }>;
-    const queuedUploads = new Set(Array.filterMap(files, (file) => (file.meta.prepared !== undefined && file.progress.uploadComplete !== true ? Result.succeed(file.meta.prepared.asset.id) : Result.failVoid)));
+    const queuedUploads = new Set(Array.filterMap(Object.values(useAtomValue(queue)), (file) => (file.meta.prepared !== undefined && file.progress.uploadComplete !== true ? Result.succeed(file.meta.prepared.asset.id) : Result.failVoid)));
     return (
         <section className="upload-recovery">
             <header>
                 <h3>Upload recovery</h3>
-                <button className="button button-ghost" disabled={recovery.waiting || discarded.waiting} onClick={refreshRecovery} type="button">
+                <button className="button button-ghost" disabled={recovery.waiting || discarded.waiting} onClick={useAtomRefresh(recoveryRequest)} type="button">
                     Refresh
                 </button>
             </header>

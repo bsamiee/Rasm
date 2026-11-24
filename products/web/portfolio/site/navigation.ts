@@ -24,13 +24,8 @@ const work = Place.Anchor({ id: 'work' });
 
 const href = Place.$match({ Anchor: ({ id }) => `#${id}`, Project: ({ project, composition }) => Option.match(Schema.encodeOption(Position)({ project, composition }), { onNone: () => `#${work.id}`, onSome: (params) => `#${params}` }) });
 const read = (hash: string): Option.Option<Place> => {
-    const text = hash.slice(1);
-    return text === ''
-        ? Option.some(top)
-        : Option.orElse(
-              Array.findFirst([top, work], ({ id }) => id === text),
-              () => Option.map(Schema.decodeOption(Position)(new URLSearchParams(text)), Place.Project),
-          );
+    const text = hash.slice(1) || top.id;
+    return Array.findFirst([top, work], ({ id }) => id === text).pipe(Option.orElse(() => Option.map(Schema.decodeOption(Position)(new URLSearchParams(text)), Place.Project)));
 };
 const project = (place: Option.Option<Place>) => Option.map(Option.filter(place, Place.$is('Project')), Struct.get('project'));
 const visit = (place: Place, mode: NavigationHistoryBehavior) => {

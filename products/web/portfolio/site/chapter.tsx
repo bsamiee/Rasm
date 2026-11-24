@@ -15,9 +15,8 @@ import { Overview } from '#/site/overview.tsx';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Chapter = ({ entry }: { readonly entry: Entry }) => {
-    const slideDuration = 28;
     const reduced = useReducedMotion();
-    const [viewport, clientApi, serverApi] = useEmblaCarousel({ align: 'start', duration: reduced === true ? 0 : slideDuration });
+    const [viewport, clientApi, serverApi] = useEmblaCarousel({ align: 'start', duration: reduced === true ? 0 : 28 });
     const api = clientApi ?? serverApi;
     const selectedSnap = useSyncExternalStore(
         (onStoreChange) => {

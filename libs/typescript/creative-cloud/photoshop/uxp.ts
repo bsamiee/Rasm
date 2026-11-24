@@ -5,7 +5,7 @@ import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import { action, app, core } from 'adobe:photoshop';
 import { type File, host } from 'adobe:uxp';
-import { Array, Effect, Exit, Match, Option, Predicate, Queue, Record, Schema, Stream, String, Struct } from 'effect';
+import { Array, Effect, Exit, Match, Option, Predicate, Queue, Record, Schema, Stream, String, Struct, UndefinedOr } from 'effect';
 import type { ExecutionContext } from 'photoshop/dom/CoreModules';
 import type { Document } from 'photoshop/dom/Document';
 
@@ -25,28 +25,10 @@ const COLLECTIONS = {
     layerComp: 'layerComps',
     pathItem: 'pathItems',
 } as const satisfies Record<string, keyof typeof app | keyof Document>;
-const Typed = Schema.Struct({ typename: Schema.String });
-const containment: Containment = {
-    root: app,
-    type: (value) => Option.match(Schema.decodeUnknownOption(Typed)(value), { onNone: () => value.constructor.name, onSome: Struct.get('typename') }),
-    kinds: Record.map(COLLECTIONS, (collection: string, kind) => ({
-        collection,
-        nested: kind === 'layer',
-        ...(kind === 'textFont' ? { keys: ['postScriptName'] } : {}),
-        is: (value: object) => Option.exists(Schema.decodeUnknownOption(Typed)(value), ({ typename }) => String.uncapitalize(typename) === kind),
-        ...(collection in app
-            ? {}
-            : {
-                  owner: (value: object) => {
-                      const above = read(value, 'document') ?? read(value, 'parent');
-                      return Array.isArray(above) ? read(above, 'parent') : above;
-                  },
-              }),
-    })),
-};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Typed = Schema.Struct({ typename: Schema.String });
 const Exportable = Schema.declare((input: unknown): input is Document | Document['layers'][number] => Predicate.hasProperty(input, 'typename') && (input.typename === 'Document' || input.typename === 'Layer'));
 const Entry = Uxp.Entry.mapFields(Struct.assign({ isFile: Schema.Literal(true) }));
 const Stored = Schema.declare((input: unknown): input is globalThis.File => Schema.is(Entry)(input)).annotate({ description: 'UXP storage file, the DOM File type @types/photoshop names for file parameters' });
@@ -57,6 +39,17 @@ const Notified = Schema.Struct({ documentID: Schema.Int }).annotate({ descriptio
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const containment: Containment = {
+    root: app,
+    type: (value) => Option.match(Schema.decodeUnknownOption(Typed)(value), { onNone: () => value.constructor.name, onSome: Struct.get('typename') }),
+    kinds: Record.map(COLLECTIONS, (collection: string, kind) => ({
+        collection,
+        nested: kind === 'layer',
+        ...(kind === 'textFont' ? { keys: ['postScriptName'] } : {}),
+        is: (value: object) => Option.exists(Schema.decodeUnknownOption(Typed)(value), ({ typename }) => String.uncapitalize(typename) === kind),
+        ...(collection in app ? {} : { owner: (value: object) => UndefinedOr.map(read(value, 'document') ?? read(value, 'parent'), (above) => (Array.isArray(above) ? read(above, 'parent') : above)) }),
+    })),
+};
 const holds = (layer: Document['layers'][number], id: number): boolean => (layer.layers ?? []).some((each) => each.id === id || holds(each, id));
 const isolated = (layers: readonly Document['layers'][number][], id: number): Effect.Effect<void, HostError> =>
     Effect.forEach(
@@ -123,4 +116,4 @@ const application = Effect.tryPromise({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { application, containment, execute, notices, render };
+export { application, execute, notices, render };

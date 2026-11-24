@@ -3,7 +3,7 @@ import { type Containment, read } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import type { File } from 'adobe:uxp';
-import { Effect, Option, Predicate, Schema } from 'effect';
+import { Effect, Option, Predicate, type Record, Schema } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -32,19 +32,10 @@ const containment = Effect.map(hosted, ({ app, Project, CompItem, FolderItem, Fo
         layer: { collection: 'layers', base: 1, is: (value) => read(value, 'containingComp') instanceof CompItem && Predicate.isNumber(read(value, 'id')), owner: (value) => read(value, 'containingComp') },
     },
 }));
-const paired = (subject: string, begin: (app: Application) => unknown, end: (app: Application) => unknown) =>
+const paired = (subject: string, { begin, end }: Record.ReadonlyRecord<'begin' | 'end', (app: Application) => unknown>) =>
     Effect.flatMap(hosted, ({ app }) => Effect.acquireRelease(Effect.try({ try: () => begin(app), catch: HostError.refused(subject) }), () => Effect.orDie(Effect.try({ try: () => end(app), catch: HostError.refused(subject) }))));
-const session = paired(
-    'dialog suppression',
-    (app) => app.beginSuppressDialogs(),
-    (app) => app.endSuppressDialogs(false),
-);
-const undo = (label: string) =>
-    paired(
-        `undo group ${label}`,
-        (app) => app.beginUndoGroup(label),
-        (app) => app.endUndoGroup(),
-    );
+const session = paired('dialog suppression', { begin: (app) => app.beginSuppressDialogs(), end: (app) => app.endSuppressDialogs(false) });
+const undo = (label: string) => paired(`undo group ${label}`, { begin: (app) => app.beginUndoGroup(label), end: (app) => app.endUndoGroup() });
 const execute = (code: string, label: string) => Effect.flatMap(containment, (held) => Uxp.executed(held, code, (call) => Effect.scoped(Effect.andThen(Effect.all([session, undo(label)]), call))));
 const render = Effect.fnUntraced(function* ({ target, label }: Render, written: File) {
     const [held, { CompItem }] = yield* Effect.all([containment, hosted, session, undo(label)]);
@@ -57,4 +48,4 @@ const render = Effect.fnUntraced(function* ({ target, label }: Render, written: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { containment, execute, render, session, undo };
+export { execute, render };

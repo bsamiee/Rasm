@@ -2,7 +2,7 @@ import { useAtom, useAtomMount, useAtomValue } from '@effect/atom-react';
 import { Choice, MenuButton } from '@rasm/ui';
 import { useUppyState } from '@uppy/react';
 import Dashboard from '@uppy/react/dashboard';
-import { Array, Option, Predicate, Result, String, Struct } from 'effect';
+import { Array, Predicate, Result, String, Struct } from 'effect';
 import { useState } from 'react';
 import { Destination, nextDestination, pendingUploads, preprocessing, queue, uppy } from '#/editor/uploader';
 import { choiceLayout, entryTitle, format, joinDetails } from '#/media/labels';
@@ -55,16 +55,7 @@ const Uploads = ({ assets, entries, onPlace }: { readonly assets: Assets['Servic
                             value={key(selectedFile.meta.destination)}
                         />
                     ) : (
-                        <p className="hint">
-                            {joinDetails([
-                                'Destination',
-                                Array.findFirst(options, (option) => option.id === key(selectedFile.meta.destination)).pipe(
-                                    Option.map(Struct.get('label')),
-                                    Option.getOrElse(() => 'Removed entry'),
-                                ),
-                                selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Locked after processing starts',
-                            ])}
-                        </p>
+                        <p className="hint">{joinDetails(['Destination', options.find((option) => option.id === key(selectedFile.meta.destination))?.label ?? 'Removed entry', selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Locked after processing starts'])}</p>
                     )}
                 </div>
             )}

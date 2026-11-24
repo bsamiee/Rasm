@@ -18,19 +18,13 @@
     ],
     "type": "module",
     "sideEffects": false,
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
-        ".": "./index.ts",
+        ".": "./application.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
-        "imports": {
-            "#/*": "./dist/*.js"
-        },
         "exports": {
-            ".": "./dist/index.js",
+            ".": "./dist/application.js",
             "./package.json": "./package.json"
         },
         "access": "public"

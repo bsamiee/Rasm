@@ -1,5 +1,4 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import type { MediaError } from '@rasm/media';
 import { PdfDocument } from '@rasm/media/pdf-document';
 import { PdfViewer } from '@rasm/media/pdf-viewer';
 import { Array, HashSet, Match, Option } from 'effect';
@@ -16,16 +15,6 @@ import type { PdfAsset, Sheet } from '#/model/asset';
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sheet = (currentPageNumber: number) => ({ removePageBorders: true, annotationEditorMode: AnnotationEditorType.DISABLE, view: { currentPageNumber, currentScaleValue: 'page-fit', scrollMode: ScrollMode.PAGE, spreadMode: SpreadMode.NONE } }) satisfies Parameters<typeof PdfViewer.useViewer>[1];
-const pdfFailure = (retry: () => void) =>
-    Match.type<MediaError['reason']>().pipe(
-        Match.tagsExhaustive({
-            Protected: () => ({ message: 'PDF is password protected' }),
-            Missing: () => ({ message: 'PDF not found' }),
-            Unreadable: () => ({ message: 'Browser cannot read PDF' }),
-            Unsupported: () => ({ message: 'Browser cannot read PDF' }),
-            Unavailable: () => ({ message: 'PDF failed to load', onRetry: retry }),
-        }),
-    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -75,7 +64,18 @@ const PdfSheet = ({ asset, page, layoutId }: { readonly asset: PdfAsset; readonl
     return AsyncResult.builder(useAtomValue(source))
         .onInitialOrWaiting(() => <MediaLoading />)
         .onSuccess((document) => (layoutId === undefined ? <SheetPreview asset={asset} document={document} page={page.number} /> : <SheetViewer asset={asset} document={document} layoutId={layoutId} page={page} url={url} />))
-        .onErrorTag('MediaError', ({ reason }) => <MediaFailure asset={asset} {...pdfFailure(retry)(reason)} />)
+        .onErrorTag('MediaError', ({ reason }) => (
+            <MediaFailure
+                asset={asset}
+                {...Match.valueTags(reason, {
+                    Protected: () => ({ message: 'PDF is password protected' }),
+                    Missing: () => ({ message: 'PDF not found' }),
+                    Unreadable: () => ({ message: 'Browser cannot read PDF' }),
+                    Unsupported: () => ({ message: 'Browser cannot read PDF' }),
+                    Unavailable: () => ({ message: 'PDF failed to load', onRetry: retry }),
+                })}
+            />
+        ))
         .onFailure(() => <MediaFailure asset={asset} message="PDF failed to load" onRetry={retry} />)
         .exhaustive();
 };

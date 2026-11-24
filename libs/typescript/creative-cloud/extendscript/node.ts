@@ -4,14 +4,14 @@ import { run } from '@rasm/process';
 import { type EnvConfig, transformSync } from '@swc/wasm';
 import { parse, type Token, tokTypes } from 'acorn';
 import { simple } from 'acorn-walk';
-import { Array, Cause, Effect, FileSystem, Function, Option, Order, Path, Record, Schema, Stream } from 'effect';
+import { Array, Cause, Effect, FileSystem, Function, Option, Order, Path, Record, Result, Schema, Stream, Struct } from 'effect';
 import { Digest } from 'effect/crypto';
 import { Zip } from 'effect/encoding';
 import { HttpClient, HttpClientResponse } from 'effect/http';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Mark = readonly [at: number, end: number, text: string, closing: boolean];
+type Wrap = readonly [at: number, skipped: number, open: string, end: number, close: string];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -48,53 +48,33 @@ const Entry = Schema.Struct({ originalSource: Schema.String, originalLine: Schem
 const grouped = (code: string): string => {
     const tokens: Token[] = [];
     const tree = parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true, onToken: tokens });
-    const marks = Array.window(tokens, 2).flatMap(([dot, member]): Mark[] =>
-        dot.type === tokTypes.dot && RESERVED.test(code.slice(member.start, member.end))
-            ? [
-                  [dot.start, member.start, '["', false],
-                  [member.end, member.end, '"]', true],
-              ]
-            : [],
-    );
+    const wraps: Wrap[] = Array.filterMap(Array.window(tokens, 2), ([dot, member]) => (dot.type === tokTypes.dot && RESERVED.test(code.slice(member.start, member.end)) ? Result.succeed([dot.start, member.start, '["', member.end, '"]'] as const) : Result.failVoid));
     simple(tree, {
         LogicalExpression: ({ operator, right }) => {
             if (operator === '||' && right.type === 'LogicalExpression' && right.operator === '&&') {
-                marks.push([right.start, right.start, '(', false], [right.end, right.end, ')', true]);
+                wraps.push([right.start, right.start, '(', right.end, ')']);
             }
         },
         ConditionalExpression: ({ consequent, alternate }) => {
-            marks.push(
-                ...[consequent, alternate]
-                    .filter(({ type }) => type === 'ConditionalExpression')
-                    .flatMap(({ start, end }): Mark[] => [
-                        [start, start, '(', false],
-                        [end, end, ')', true],
-                    ]),
-            );
+            wraps.push(...Array.filterMap([consequent, alternate], ({ type, start, end }) => (type === 'ConditionalExpression' ? Result.succeed([start, start, '(', end, ')'] as const) : Result.failVoid)));
         },
         Property: ({ key, computed }) => {
             if (!computed && key.type === 'Identifier' && RESERVED.test(key.name)) {
-                marks.push([key.start, key.start, '"', false], [key.end, key.end, '"', true]);
+                wraps.push([key.start, key.start, '"', key.end, '"']);
             }
         },
     });
-    return Array.sort(
-        Array.map(marks, ([at, end, text, closing], index) => ({ at, end, text, key: [-at, closing, closing ? -index : index] as const })),
-        Order.mapInput(Order.Tuple([Order.Number, Order.Boolean, Order.Number]), ({ key }: { readonly key: readonly [number, boolean, number] }) => key),
-    ).reduce((written, { at, end, text }) => `${written.slice(0, at)}${text}${written.slice(end)}`, code);
+    const edits = Array.flatMap(wraps, ([at, skipped, open, end, close], index) => [
+        { at, end: skipped, text: open, key: [-at, false, index] as const },
+        { at: end, end, text: close, key: [-end, true, -index] as const },
+    ]);
+    return Array.sortWith(edits, ({ key }) => key, Order.Tuple([Order.Number, Order.Boolean, Order.Number])).reduce((written, { at, end, text }) => `${written.slice(0, at)}${text}${written.slice(end)}`, code);
 };
 const lower = Object.assign(
     (code: string, { emitted = Function.identity, ...env }: EnvConfig & { readonly emitted?: (code: string) => string }, syntax: 'typescript' | 'ecmascript' = 'ecmascript') =>
         Effect.try({
-            try: () => {
-                const lowered = transformSync(code, { isModule: false, env, jsc: { parser: { syntax }, ...ASSUMED }, sourceMaps: true });
-                return { ...lowered, code: emitted(lowered.code) };
-            },
-            catch: (cause) =>
-                Option.match(Schema.decodeUnknownOption(Diagnostic)(cause), {
-                    onNone: () => HostError.refused(`${syntax} transform`)(cause),
-                    onSome: ([, text, , line]) => HostError.thrown(text, Option.some(line))(cause),
-                }),
+            try: () => Struct.evolve(transformSync(code, { isModule: false, env, jsc: { parser: { syntax }, ...ASSUMED }, sourceMaps: true }), { code: emitted }),
+            catch: (cause) => Option.match(Schema.decodeUnknownOption(Diagnostic)(cause), { onNone: () => HostError.refused(`${syntax} transform`), onSome: ([, text, , line]) => HostError.thrown(text, Option.some(line)) })(cause),
         }),
     { extendscript: { targets: { ie: '6' }, exclude: ['transform-typeof-symbol'], emitted: grouped } },
 );

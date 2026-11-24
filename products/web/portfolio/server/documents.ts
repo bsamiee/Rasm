@@ -2,7 +2,7 @@ import { Rows } from '@rasm/database';
 import { Enrollment } from '@rasm/hosting/identity';
 import { Template } from '@rasm/hosting/template';
 import { ObjectStorage } from '@rasm/object-storage';
-import { Array, Effect, Function, Match, Schema, SchemaGetter, Struct } from 'effect';
+import { Array, Effect, Function, Match, Schema, SchemaGetter } from 'effect';
 import { HttpRouter } from 'effect/http';
 import { HttpApiBuilder, HttpApiSchema } from 'effect/http-api';
 import { SqlClient, SqlSchema } from 'effect/sql';
@@ -35,15 +35,14 @@ const readDocument = Effect.fn('readDocument')(
         SqlSchema.findOne({
             Request: documents.schema.fields.state,
             Result: Stored,
-            execute: (requested) =>
-                Effect.flatMap(
-                    Effect.all([SqlClient.SqlClient, empty]),
-                    ([sql, body]) => sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${body})), 'assets', json((
+            execute: Effect.fnUntraced(function* (requested) {
+                const [sql, body] = yield* Effect.all([SqlClient.SqlClient, empty]);
+                return yield* sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${body})), 'assets', json((
                 SELECT json_group_object(a.id, json_set(json_remove(a.body, ${projectedPaths}), '$.id', a.id)) FROM assets a
                 WHERE a.available AND (s.state = 'draft' OR a.id IN (SELECT asset_id FROM (${references(sql)}) WHERE state = s.state))
             ))) AS data
-            FROM (SELECT ${requested} AS state) s LEFT JOIN documents d ON d.state = s.state`,
-                ),
+            FROM (SELECT ${requested} AS state) s LEFT JOIN documents d ON d.state = s.state`;
+            }),
         }),
         Effect.catchTag('NoSuchElementError', Effect.die),
         Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
@@ -73,8 +72,7 @@ const storeDraft = SqlSchema.findOne({
 });
 const writeDocument = Effect.fn('writeDocument')(
     function* (portfolio: StoredPortfolio, publish: boolean, revision: number) {
-        const draft = yield* storeDraft({ body: portfolio, publish, revision });
-        return yield* Match.value(draft).pipe(
+        return yield* Match.value(yield* storeDraft({ body: portfolio, publish, revision })).pipe(
             Match.when({ stored: true }, ({ revision: stored }) => Effect.succeed(HttpApiSchema.withHeaders({ body: undefined, headers: { 'draft-etag': stored } }))),
             Match.when({ revision, unplaced: Schema.is(PlacementConflict.fields.placements) }, ({ unplaced }) => PlacementConflict.make({ placements: unplaced })),
             Match.orElse(({ revision: stored }) => PreconditionFailed.make({ revision: stored })),
@@ -97,8 +95,10 @@ const page = HttpRouter.add(
     'GET',
     '/',
     Effect.fn('page')(
-        () => Effect.all({ published: Effect.map(readDocument('published'), Struct.get('data')), session: Enrollment.session }, { concurrency: 'unbounded' }),
-        Effect.flatMap((bootstrap) => ObjectStorage.use(({ endpoint }) => Effect.flatMap(endpoint, ({ origin }) => Template.render(shell, bootstrap, { 'connect-src': [origin] })))),
+        function* () {
+            const [{ data: published }, session, { origin }] = yield* Effect.all([readDocument('published'), Enrollment.session, ObjectStorage.use(({ endpoint }) => endpoint)], { concurrency: 'unbounded' });
+            return yield* Template.render(shell, { published, session }, { 'connect-src': [origin] });
+        },
         Effect.catchTag('ObjectStorageError', unavailable),
         Effect.map(Enrollment.unshared),
     ),

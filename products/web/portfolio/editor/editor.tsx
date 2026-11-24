@@ -1,6 +1,6 @@
 import { useAtom, useAtomMount, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
 import { Issues, ModalDialog } from '@rasm/ui';
-import { Array, Function, Match, Option, Predicate, Schema, Struct } from 'effect';
+import { Array, Filter, Function, Match, Option, Predicate, Schema, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { AsyncResult, Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
@@ -22,8 +22,6 @@ import type { Assets } from '#/model/asset';
 import type { Composition } from '#/model/placement';
 import { Entry, type Portfolio } from '#/model/portfolio';
 import { preview } from '#/site/state';
-
-// --- [TYPES] ---------------------------------------------------------------------------
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -84,20 +82,19 @@ const DraftEditor = (state: Atom.Success<typeof draft>) => {
         setDraft(portfolio.key('entries').modify(Array.append(created)));
         open(created.id, Option.none(), title);
     };
-    const enter = (snapshot: Portfolio, index: number, target: RefObject<HTMLElement | null>, item = Option.none<number>()) =>
-        Option.match(Array.get(snapshot.entries, index), {
-            onNone: () => show(Workspace.Entries({ last: Option.none() }), create),
-            onSome: (found) =>
-                open(
-                    found.id,
-                    Option.map(
-                        Option.flatMap(item, (at) => Array.get(found.compositions, at)),
-                        Struct.get('id'),
+    const enter =
+        (snapshot: Portfolio, index: number, target: RefObject<HTMLElement | null>, item = Option.none<number>()) =>
+        () =>
+            Option.match(Array.get(snapshot.entries, index), {
+                onNone: () => show(Workspace.Entries({ last: Option.none() }), create),
+                onSome: (found) =>
+                    open(
+                        found.id,
+                        Option.flatMap(item, (at) => Option.map(Array.get(found.compositions, at), Struct.get('id'))),
+                        target,
                     ),
-                    target,
-                ),
-        });
-    const describe = (field: PropertyKey | undefined) => {
+            });
+    const describe = (field: PropertyKey | undefined) => () => {
         flushSync(() => setTab('profile'));
         const control = field === 'hero' ? hero.current : form.current?.elements.namedItem(String(field));
         if (control instanceof HTMLElement) {
@@ -106,30 +103,11 @@ const DraftEditor = (state: Atom.Success<typeof draft>) => {
     };
     const locate = (path: readonly PropertyKey[], snapshot: Portfolio) =>
         Match.value(path).pipe(
-            Match.when(
-                ['entries', Match.number, 'compositions', Match.number],
-                ([, index, , item]) =>
-                    () =>
-                        enter(snapshot, index, composing, Option.some(item)),
-            ),
-            Match.when(
-                ['entries', Match.number, 'title'],
-                ([, index]) =>
-                    () =>
-                        enter(snapshot, index, title),
-            ),
-            Match.when(
-                ['entries', Match.number],
-                ([, index]) =>
-                    () =>
-                        enter(snapshot, index, heading),
-            ),
+            Match.when(['entries', Match.number, 'compositions', Match.number], ([, index, , item]) => enter(snapshot, index, composing, Option.some(item))),
+            Match.when(['entries', Match.number, 'title'], ([, index]) => enter(snapshot, index, title)),
+            Match.when(['entries', Match.number], ([, index]) => enter(snapshot, index, heading)),
             Match.when(['entries'], () => () => show(Workspace.Entries({ last: Option.none() }), create)),
-            Match.orElse(
-                ([field]) =>
-                    () =>
-                        describe(field),
-            ),
+            Match.orElse(([field]) => describe(field)),
         );
     const status = Match.value({ reloading: reloading.waiting, saving: operation.waiting, changed: state.portfolio !== state.saved }).pipe(
         Match.when({ reloading: true }, () => 'Loading latest draft…'),
@@ -276,16 +254,7 @@ const DraftEditor = (state: Atom.Success<typeof draft>) => {
                             }}
                             ref={form}
                         >
-                            <Issues.Fields
-                                issue={AsyncResult.error(operation).pipe(
-                                    Option.flatMap(({ error }) =>
-                                        Match.value(error).pipe(
-                                            Match.tag('SchemaError', ({ issue }) => issue),
-                                            Match.option,
-                                        ),
-                                    ),
-                                )}
-                            >
+                            <Issues.Fields issue={AsyncResult.error(operation).pipe(Option.map(Struct.get('error')), Option.filterMap(Filter.tagged('SchemaError')), Option.map(Struct.get('issue')))}>
                                 <Profile
                                     assets={state.assets}
                                     hero={hero}
