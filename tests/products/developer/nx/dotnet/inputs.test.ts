@@ -29,13 +29,20 @@ const hasher = (root: string, graph: ProjectGraph, target: string) => {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('task hashes', () => {
-    it.for(['build--dotnet', 'pack--dotnet', 'test--dotnet', 'check--dotnet-format'])('hashes in %s the CI variable MSBuild reads as the property $(CI)', async (target, { workspace }) => {
+    it.for([
+        { target: 'build--dotnet', split: true },
+        { target: 'pack--dotnet', split: true },
+        { target: 'test--dotnet', split: true },
+        { target: 'check--dotnet-build', split: true },
+        { target: 'check--dotnet-format', split: false },
+        { target: 'fix--dotnet-format', split: false },
+    ])('hashes in $target the CI variable MSBuild reads as the property $(CI) only where the target reads what the compile it changes wrote', async ({ target, split }, { workspace }) => {
         const graph = await workspace.write({ 'libs/Lib/Lib.csproj': PROJECT, ...report([node('libs/Lib/Lib.csproj', { packable: true, test: true })]) }).graph({ createNodes, createDependencies });
         const hashed = hasher(workspace.root, graph, target);
 
         const [local, ci, again] = [await hashed({ CI: 'false' }), await hashed({ CI: 'true' }), await hashed({ CI: 'false' })];
 
-        expect([local === ci, local === again]).toStrictEqual([false, true]);
+        expect([local === ci, local === again]).toStrictEqual([!split, true]);
     });
 
     it.for(['build--dotnet', 'test--dotnet'])('hashes in %s each variable an NxEnvironmentInput item names, and no other', async (target, { workspace }) => {

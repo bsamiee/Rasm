@@ -58,8 +58,25 @@ internal static class Program {
             .Choose(static read => read is ProjectStartedEventArgs { ProjectFile: { } project } begun ? Some((Project: project, begun.Timestamp)) : None)
             .AsEnumerable()
             .ToLookup(static begun => begun.Project, static begun => begun.Timestamp, StringComparer.Ordinal);
+        FrozenDictionary<(int Project, int Target), string> targets = raised
+            .Choose(static read => read is TargetStartedEventArgs { BuildEventContext: { } at } begun ? Some((Key: (at.ProjectContextId, at.TargetId), begun.TargetName)) : None)
+            .AsEnumerable()
+            .ToFrozenDictionary(static begun => begun.Key, static begun => begun.TargetName);
+        FrozenSet<int> roots = raised
+            .Choose(static read => read is ProjectStartedEventArgs { ParentProjectBuildEventContext.ProjectContextId: BuildEventContext.InvalidProjectContextId, BuildEventContext: { } at } ? Some(at.ProjectContextId) : None)
+            .AsEnumerable()
+            .ToFrozenSet();
+        FrozenSet<int> requested = raised
+            .Choose(read => read is ProjectStartedEventArgs { ParentProjectBuildEventContext: { } parent, BuildEventContext: { } at } begun
+                && roots.Contains(parent.ProjectContextId)
+                && targets.TryGetValue((parent.ProjectContextId, parent.TargetId), out string? named)
+                && named.Equals(begun.TargetNames, StringComparison.OrdinalIgnoreCase)
+                    ? Some(at.ProjectContextId)
+                    : None)
+            .AsEnumerable()
+            .ToFrozenSet();
         Console.Out.Write(JsonSerializer.Serialize(
-            raised.Choose(static read => read is ProjectFinishedEventArgs { ProjectFile: { } project } finished ? Some((Project: project, finished.Succeeded, finished.Timestamp)) : None).AsEnumerable().GroupBy(static finished => finished.Project, StringComparer.Ordinal).ToDictionary(
+            raised.Choose(read => read is ProjectFinishedEventArgs { ProjectFile: { } project, BuildEventContext: { } at } finished && requested.Contains(at.ProjectContextId) ? Some((Project: project, finished.Succeeded, finished.Timestamp)) : None).AsEnumerable().GroupBy(static finished => finished.Project, StringComparer.Ordinal).ToDictionary(
                 static finished => finished.Key,
                 finished => new Outcome(finished.All(static each => each.Succeeded), new DateTimeOffset(started[finished.Key].Min()), new DateTimeOffset(finished.Max(static each => each.Timestamp)), [.. lines[finished.Key].Distinct(StringComparer.Ordinal)]),
                 StringComparer.Ordinal),

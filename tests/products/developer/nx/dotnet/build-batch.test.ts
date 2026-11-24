@@ -49,6 +49,24 @@ describe('one MSBuild run per batch', () => {
         });
     });
 
+    it('fails every project of a run whose restore fails, as no project of it reaches the target the run names', { timeout: 240_000 }, async ({ workspace }) => {
+        workspace.write({
+            'lib/lib.csproj': project([]),
+            'lib/Shapes.cs': 'namespace Lib;\n\npublic static class Shapes;\n',
+            'app/app.csproj': project(['../lib/lib.csproj']).replace('</PropertyGroup>', '  <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>\n    <RestoreLockedMode>true</RestoreLockedMode>\n  </PropertyGroup>'),
+            'app/packages.lock.json': JSON.stringify({ version: 2, dependencies: { 'net10.0': {} } }),
+            'app/Views.cs': 'namespace App;\n\npublic static class Views;\n',
+        });
+        const debug = ['build', '--configuration', 'Debug'] as const;
+
+        const ran = await Array.fromAsync(batch(graphed({ lib: [], app: ['lib'] }), { 'lib:build--dotnet': { project: 'lib/lib.csproj', command: debug }, 'app:build--dotnet': { project: 'app/app.csproj', command: debug } }, {}, context(workspace.root)));
+
+        expect(Record.fromIterableWith(ran, ({ task, result: { success, terminalOutput } }) => [task, { success, refused: /error NU1004/u.test(terminalOutput) }] as const)).toStrictEqual({
+            'lib:build--dotnet': { success: false, refused: true },
+            'app:build--dotnet': { success: false, refused: true },
+        });
+    });
+
     it('stamps each project with its own span from the binary log of the run, the referenced project ending before its referrer', { timeout: 240_000 }, async ({ workspace }) => {
         workspace.write({ 'lib/lib.csproj': project([]), 'lib/Shapes.cs': 'namespace Lib;\n\npublic static class Shapes;\n', 'app/app.csproj': project(['../lib/lib.csproj']), 'app/Views.cs': 'namespace App;\n\npublic static class Views;\n' });
         const debug = ['build', '--configuration', 'Debug'] as const;

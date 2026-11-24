@@ -61,7 +61,7 @@ describe('analyzer build', () => {
         { kind: 'a source changed after it was published', edited: { 'analyzer/Catalog.cs': 'namespace MsbuildAnalyzer;\n\ninternal static class Edited;\n' }, removed: [] },
         { kind: 'a source it was published with is gone', edited: {}, removed: ['analyzer/Catalog.cs'] },
         { kind: 'both sources changed after it was published', edited: { 'analyzer/Catalog.cs': 'namespace Edited;\n', 'analyzer/MsbuildAnalyzer.csproj': '<Project />\n' }, removed: [] },
-    ])('still infers the reported projects and names exactly the sources shasum -c refuses, as $kind', async ({ edited, removed }, { workspace }) => {
+    ])('infers the reported projects only where shasum -c refuses no source, naming exactly the sources it refuses, as $kind', async ({ edited, removed }, { workspace }) => {
         const { logged } = reporting();
         packaged({ 'analyzer/MsbuildAnalyzer.csproj': LIBRARY, 'analyzer/Catalog.cs': 'namespace MsbuildAnalyzer;\n', 'analyzer/dist/MsbuildAnalyzer.dll': 'built' });
         packaged({ 'analyzer/dist/MsbuildAnalyzer.sha256': shasum('MsbuildAnalyzer.csproj', 'Catalog.cs').stdout.replaceAll(/^\w+/gmu, (digest) => digest.toUpperCase()) });
@@ -74,6 +74,6 @@ describe('analyzer build', () => {
         const named = warnings(logged)
             .flatMap((line) => [...(/MsbuildAnalyzer\.dll predates (?<files>.+), dotnet publish /u.exec(line)?.groups?.['files']?.split(', ') ?? [])])
             .map((file) => file.slice(file.lastIndexOf('/analyzer/') + '/analyzer/'.length));
-        expect([Object.keys(graph.nodes), new Set(named)]).toStrictEqual([['App'], new Set(refused)]);
+        expect([Object.keys(graph.nodes), new Set(named)]).toStrictEqual([refused.length === 0 ? ['App'] : [], new Set(refused)]);
     });
 });

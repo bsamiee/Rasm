@@ -58,12 +58,6 @@ const published = (workspaceRoot: string) => `${line(['dotnet', 'publish', relat
 const ready = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
     const [host, present, sourced, sums] = yield* Effect.all([Effect.promise(() => which('dotnet', { nothrow: true })), fs.exists(ANALYZER), fs.exists(SOURCE), Effect.option(fs.readFileString(SUMS))], { concurrency: 'unbounded' });
-    const resolved = Result.fromNullishOr(host, () => 'no folder of PATH holds dotnet').pipe(
-        Result.filterOrFail(
-            () => present,
-            () => `${relative(workspaceRoot, ANALYZER)} is absent, ${published(workspaceRoot)}`,
-        ),
-    );
     const stale = yield* Option.match(sums, {
         onNone: () => Effect.succeed([SUMS]),
         onSome: (text) =>
@@ -76,10 +70,23 @@ const ready = Effect.fnUntraced(function* (workspaceRoot: string, matched: reado
                 { concurrency: 'unbounded' },
             ).pipe(Effect.map(Array.map(([file]) => file))),
     });
-    yield* Result.match(resolved, {
-        onFailure: (reason) => (matched.some((file) => PROJECTS.includes(extname(file))) ? Effect.sync(() => emitPluginWorkerLog('warn', `No MSBuild project of the workspace enters the graph, as ${reason}`)) : Effect.void),
-        onSuccess: () => (sourced && stale.length > 0 ? Effect.sync(() => emitPluginWorkerLog('warn', `${relative(workspaceRoot, ANALYZER)} predates ${stale.map((file) => relative(workspaceRoot, file)).join(', ')}, ${published(workspaceRoot)}`)) : Effect.void),
-    });
+    const resolved = Result.fromNullishOr(host, () => 'no folder of PATH holds dotnet').pipe(
+        Result.filterOrFail(
+            () => present,
+            () => `${relative(workspaceRoot, ANALYZER)} is absent, ${published(workspaceRoot)}`,
+        ),
+        Result.filterOrFail(
+            () => !sourced || stale.length === 0,
+            () => `${relative(workspaceRoot, ANALYZER)} predates ${stale.map((file) => relative(workspaceRoot, file)).join(', ')}, ${published(workspaceRoot)}`,
+        ),
+    );
+    yield* Option.match(
+        Option.filter(Result.getFailure(resolved), () => matched.some((file) => PROJECTS.includes(extname(file)))),
+        {
+            onNone: () => Effect.void,
+            onSome: (reason) => Effect.sync(() => emitPluginWorkerLog('warn', `No MSBuild project of the workspace enters the graph, as ${reason}`)),
+        },
+    );
     return Result.getSuccess(resolved);
 });
 
