@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, findProjectForPath, hashObject, type PackageJson, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { getLockFileName, getRootTsConfigFileName } from '@nx/js';
+import { getLockFileName } from '@nx/js';
 import { above, aggregated, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, FileSystem, MutableRef, Option, Record, Schema } from 'effect';
@@ -124,10 +124,9 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
 });
 
 const targets = (file: string, { triggers, shared, suites }: Resolved, { root, projects, setup, providers, coverage, covered, written, loaded: configs, packages }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: Options, exec: string): Verbs => {
-    const rooted = getRootTsConfigFileName();
     const outside = Record.filter(
         { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) },
-        (_input, at) => root !== '.' && !at.startsWith(`${root}/`) && at !== rooted,
+        (_input, at) => root !== '.' && !at.startsWith(`${root}/`),
     );
     const directed = { ...(covered && { enabled: true }), ...(coveragePath !== undefined && { reportsDirectory: coveragePath }) };
     const test = {

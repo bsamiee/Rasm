@@ -5,7 +5,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { getLockFileName, getReadyCheckReadyWhen, hashObject, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { getRootTsConfigFileName } from '@nx/js';
 import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, FileSystem, MutableRef, Option, Record, Schema } from 'effect';
@@ -86,14 +85,13 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
 });
 
 const targets = (file: string, { folders, signals, served, loaded, packages, env }: Resolved, chain: readonly string[], named: 'production' | 'default', outDir: Option.Option<string>, exec: string): Verbs => {
-    const rooted = getRootTsConfigFileName();
     const needs = {
         options: { cwd: posix.dirname(file) },
         dependsOn: ['codegen--*', '^codegen--*'],
         inputs: [
             named,
             `^${named}`,
-            ...chain.filter((at) => at !== rooted).map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
+            ...chain.map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
             ...loaded.map((at) => posix.join('{workspaceRoot}', at)),
             ...Array.fromNullishOr(env.directory).map((at) => ({ fileset: posix.join('{workspaceRoot}', at, '.env*'), includeIgnored: true })),
             { runtime: ['node', '-p', 'Object.entries(process.env).filter(([name]) => process.argv.slice(1).some((prefix) => name.startsWith(prefix))).sort().join()', '--', ...env.prefixes].map(quoteShellArg).join(' ') },

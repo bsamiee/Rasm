@@ -1,7 +1,6 @@
 import { basename, dirname, join, posix } from 'node:path';
 import { type CreateNodes, createNodesFromFiles, detectPackageManager, hashArray, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { hashObject, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { getRootTsConfigFileName } from '@nx/js';
 import { anchored, fingerprinted, Folder, inferring, run, tagged, tokened } from '@rasm/nx-distribution/inference';
 import { Array, Combiner, Effect, FileSystem, Match, Option, Order, Predicate, Record, type Result, Schema } from 'effect';
 import { linted } from '#/eslint';
@@ -45,8 +44,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
     const lints = installed('eslint', join(workspaceRoot, MANIFEST))
         ? yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), manager, [...held.values().map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))], row)
         : new Map<string, { readonly target: TargetConfiguration; readonly typed: boolean }>();
-    const rooted = getRootTsConfigFileName();
-    const chained = (root: string) => Array.fromOption(Option.flatMap(Option.fromUndefinedOr(programs.get(posix.join(root, CONFIG))), Option.getSuccess)).flatMap(({ chain }) => chain.filter((at) => posix.relative(root, at).startsWith('..') && at !== rooted).map(tokened(root)));
+    const chained = (root: string) => Array.fromOption(Option.flatMap(Option.fromUndefinedOr(programs.get(posix.join(root, CONFIG))), Option.getSuccess)).flatMap(({ chain }) => chain.filter((at) => posix.relative(root, at).startsWith('..')).map(tokened(root)));
     const read = Effect.fnUntraced(function* (file: string) {
         const root = dirname(file);
         const described = yield* looked(manifests, root);

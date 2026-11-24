@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { emitPluginWorkerLog, getDaemonClientEnvGeneration, getLockFileName, globWithWorkspaceContext, hashObject, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { getRootTsConfigFileName } from '@nx/js';
 import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, PLATFORM, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, flow, Function, MutableRef, Option, Record, Result, Schema, String } from 'effect';
@@ -82,7 +81,6 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, r
 const templated = (folder: string) => new RegExp(`^${folder.split('{projectName}').map(RegExp.escape).join('.+')}(?:/|$)`, 'u');
 
 const targets = (home: string, { loaded: configs, scanned, packages, servers, reported, routes, suites }: Resolved, chain: readonly string[], upstream: readonly string[], outputPath: string | undefined, exec: string): Verbs => {
-    const rooted = getRootTsConfigFileName();
     const routed = outputPath === undefined ? { flags: [], env: {}, folders: [] } : directed(posix.relative(home, outputPath), routes);
     const held = routed.folders.map((at) => posix.join(home, at));
     const under = Option.map(Option.fromUndefinedOr(outputPath), templated);
@@ -92,7 +90,7 @@ const targets = (home: string, { loaded: configs, scanned, packages, servers, re
     const selected = (chosen: readonly (typeof suites)[number][]) => chosen.map(({ name }) => `--project=${name}`);
     const outside = Record.filter(
         { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions', 'extends'] }]), ...Record.fromIterableWith([...configs, ...scanned], (at) => [at, posix.join('{workspaceRoot}', at)]) },
-        (_input, at) => home !== '.' && !at.startsWith(`${home}/`) && at !== rooted,
+        (_input, at) => home !== '.' && !at.startsWith(`${home}/`),
     );
     const needs = {
         dependsOn: [

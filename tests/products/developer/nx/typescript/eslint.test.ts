@@ -118,7 +118,7 @@ describe('eslint check inference', () => {
         expect(graph.nodes['app']?.data.targets?.['check--eslint']?.inputs?.includes('^default')).toBe(upstream);
     });
 
-    it('hashes the files a type-aware project tsconfig extends outside the project, except the root tsconfig and installed presets', async ({ workspace }) => {
+    it('hashes the files a type-aware project tsconfig extends outside the project, except installed presets', async ({ workspace }) => {
         const graph = await workspace
             .install(typescript, import.meta.resolve('eslint/package.json'))
             .write({
@@ -135,6 +135,6 @@ describe('eslint check inference', () => {
             })
             .graph({ createNodes });
 
-        expect(graph.nodes['app']?.data.targets?.['check--eslint']?.inputs?.filter((input) => typeof input === 'string' && input.includes('tsconfig')).toSorted()).toStrictEqual(['{workspaceRoot}/tsconfig.root.json', '{workspaceRoot}/tsconfig.shared.json']);
+        expect(graph.nodes['app']?.data.targets?.['check--eslint']?.inputs?.filter((input) => typeof input === 'string' && input.includes('tsconfig')).toSorted()).toStrictEqual(['{workspaceRoot}/tsconfig.base.json', '{workspaceRoot}/tsconfig.root.json', '{workspaceRoot}/tsconfig.shared.json']);
     });
 });
