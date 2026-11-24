@@ -11,7 +11,6 @@ import { execute as publish, Publish } from '@rasm/nx-distribution/executors/pub
 import { environment, shimmed, targetOptions, it as workspaced } from '@rasm/testing/nx';
 import { Array, Effect, Option, Predicate, Schema, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
-import { ReleaseClient } from 'nx/release';
 import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('node:process'), async (actual) => {
@@ -62,6 +61,12 @@ const built = {
         },
     }),
 };
+const RENDER = [
+    "import { writeFileSync } from 'node:fs';",
+    "import { ReleaseClient } from 'nx/release';",
+    "const { projectChangelogs } = await new ReleaseClient(JSON.parse(process.argv[1]), true).releaseChangelog({ version: '1.0.1', gitCommit: false, gitTag: false, stageChanges: false, forceChangelogGeneration: true });",
+    "writeFileSync('changelog.txt', projectChangelogs.lib.contents);",
+].join('\n');
 const changed = {
     'lib/project.json': JSON.stringify({ name: 'lib', tags: ['release'] }),
     'lib/package.json': JSON.stringify({ name: 'lib', version: '1.0.0' }),
@@ -165,11 +170,12 @@ describe('nx release changelog of the workspace configuration', { timeout: 120_0
         workspace.write({ 'lib/index.js': 'export const parsed = true;\n' });
         git('add', '.');
         git('commit', '--quiet', '--message', 'fix: repair the parser');
-        const client = new ReleaseClient({ ...Struct.omit(release, ['git']), changelog: { projectChangelogs: { ...Option.getOrUndefined(Option.liftPredicate(release.changelog?.projectChangelogs, Predicate.isObject)), createRelease: false } } }, true);
+        workspace.install(import.meta.resolve('nx/package.json'));
+        const config: NxJsonConfiguration['release'] = { ...Struct.omit(release, ['git']), changelog: { projectChangelogs: { ...Option.getOrUndefined(Option.liftPredicate(release.changelog?.projectChangelogs, Predicate.isObject)), createRelease: false } } };
 
-        const { projectChangelogs = {} } = await client.releaseChangelog({ version: '1.0.1', gitCommit: false, gitTag: false, stageChanges: false, forceChangelogGeneration: true });
+        execFileSync(execPath, ['--input-type=module', '--eval', RENDER, JSON.stringify(config)], { cwd: workspace.root, env: environment(workspace.root), stdio: 'ignore' });
 
-        const contents = projectChangelogs['lib']?.contents ?? '';
+        const contents = readFileSync(join(workspace.root, 'changelog.txt'), 'utf-8');
         expect({ fixed: contents.includes('repair the parser'), thanked: contents.includes('Thank You') }).toStrictEqual({ fixed: true, thanked: false });
     });
 });
