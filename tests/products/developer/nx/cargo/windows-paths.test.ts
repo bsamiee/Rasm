@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { workspaceRoot } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
 import { it, unportable } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
@@ -12,6 +15,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const cargo = { createNodes, createDependencies };
 const crates = {
+    'rust-toolchain.toml': readFileSync(join(workspaceRoot, 'rust-toolchain.toml'), 'utf-8'),
     'rust/Cargo.toml': '[package]\nname = "root"\nversion = "0.1.0"\nedition = "2024"\n\n[workspace]\nresolver = "3"\nmembers = ["crates/*", "api-checker/core"]\n\n[dependencies]\ncore-kit = { path = "crates/core-kit", version = "0.1.0" }\n',
     'rust/src/lib.rs': '',
     'rust/.config/nextest.toml': '[profile.default]\nfail-fast = false\n',

@@ -62,7 +62,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
     const outputs = (folder: string) => Option.toArray(workspace.placed).flatMap((artifacts) => products.map((file) => tokened(posix.join(artifacts, folder, file))));
     const debug = outputs('debug');
     const profiles = ['release', ...workspace.profiles];
-    const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, '--keep-going', ...MESSAGES] }];
+    const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, LOCKED, '--keep-going', ...MESSAGES] }];
     const installed = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['install', '--path', posix.relative(workspace.root, root) || '.', ...profile, LOCKED, '--keep-going', ...MESSAGES] }];
     const checked = (placed: (selection: readonly string[]) => Command): Array.NonEmptyReadonlyArray<Command> =>
         Array.map(
@@ -93,7 +93,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
                           { cache: true, inputs: [...SOURCES, ...workspace.libraries, { env: 'DYLINT_RUSTFLAGS' }, version('dylint')] },
                       ),
                   },
-                  fix: { dylint: cargoTarget('dylint', `Applies the Dylint suggestions for ${crate.name} with cargo dylint --fix`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...kinds, '--keep-going', ...MESSAGES] }] }, {}) },
+                  fix: { dylint: cargoTarget('dylint', `Applies the Dylint suggestions for ${crate.name} with cargo dylint --fix`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...kinds, LOCKED, '--keep-going', ...MESSAGES] }] }, {}) },
               }
             : {};
     return joined(linting, {
@@ -101,7 +101,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
             ...(crate.targets.some(Target.own) && {
                 cargo: cargoTarget(
                     'build',
-                    `Builds ${crate.name} with cargo build, bringing Cargo.lock in line with the manifests`,
+                    `Builds ${crate.name} with cargo build from the committed Cargo.lock`,
                     { ...selected, commands: built([]), outputs: debug },
                     {
                         ...(Option.isSome(workspace.placed) && { cache: true }),
@@ -142,7 +142,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
             clippy: cargoTarget('clippy', `Reports the clippy findings of ${crate.name} with cargo clippy`, { ...selected, commands: checked((selection) => ({ args: ['clippy', ...selection] })) }, { cache: true, inputs: [...SOURCES, ...linted, { env: 'CLIPPY_CONF_DIR' }] }),
         },
         fix: {
-            clippy: cargoTarget('clippy --fix', `Applies the clippy suggestions for ${crate.name} with cargo clippy --fix`, { ...selected, commands: [{ args: ['clippy', '--fix', '--allow-dirty', ...kinds, '--keep-going', ...MESSAGES] }] }, {}),
+            clippy: cargoTarget('clippy --fix', `Applies the clippy suggestions for ${crate.name} with cargo clippy --fix`, { ...selected, commands: [{ args: ['clippy', '--fix', '--allow-dirty', ...kinds, LOCKED, '--keep-going', ...MESSAGES] }] }, {}),
         },
         install: {
             ...(crate.targets.some(Target.binary) && {

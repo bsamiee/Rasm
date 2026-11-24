@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ProjectGraph } from '@nx/devkit';
+import { type ProjectGraph, workspaceRoot } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
 import { batch, Cargo } from '@rasm/nx-cargo/executors/cargo';
 import { batch as suites } from '@rasm/nx-cargo/executors/nextest';
@@ -15,6 +15,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const cargo = { createNodes, createDependencies };
 const crates = {
+    'rust-toolchain.toml': readFileSync(join(workspaceRoot, 'rust-toolchain.toml'), 'utf-8'),
     'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n',
     '.config/nextest.toml': '[profile.default]\nfail-fast = false\n',
     'crates/two/Cargo.toml': '[package]\nname = "two"\nversion = "0.1.0"\nedition = "2024"\n',
@@ -46,6 +47,7 @@ describe('cargo batch', { timeout: 120_000 }, () => {
                 'crates/two/src/lib.rs': 'pub fn two() -> u32 {\n    absent_function()\n}\n',
             })
             .graph(cargo);
+        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
         const { scheduled, inputs } = await planned(graph, 'build--cargo');
 
         const results = await settled(batch(scheduled, inputs, {}, workspace.context(graph, 'app', 'build--cargo')));
@@ -56,6 +58,7 @@ describe('cargo batch', { timeout: 120_000 }, () => {
 
     it('stamps each crate from the start of its command to the last message of its own package, the dependency ending before its dependent', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo);
+        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
         const { scheduled, inputs } = await planned(graph, 'build--cargo');
         const before = vi.getRealSystemTime();
 

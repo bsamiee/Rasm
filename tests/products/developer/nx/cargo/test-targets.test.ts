@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { workspaceRoot } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
 import { Cargo, execute } from '@rasm/nx-cargo/executors/cargo';
 import { it, outputs, targetOptions } from '@rasm/testing/nx';
@@ -12,6 +13,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const cargo = { createNodes, createDependencies };
 const crates = {
+    'rust-toolchain.toml': readFileSync(join(workspaceRoot, 'rust-toolchain.toml'), 'utf-8'),
     'rust/Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n',
     'rust/crates/kit/Cargo.toml': '[package]\nname = "kit"\nversion = "0.1.0"\nedition = "2024"\n',
     'rust/crates/kit/src/lib.rs': '/// ```\n/// assert_eq!(kit::double(2), 4);\n/// ```\npub fn double(value: u32) -> u32 {\n    value * 2\n}\n',

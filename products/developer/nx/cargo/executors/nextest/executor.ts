@@ -1,5 +1,5 @@
 import { Option, Schema } from 'effect';
-import { Cargo, decides } from '#/executors/cargo/executor';
+import { Cargo, decides, Finished } from '#/executors/cargo/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -9,14 +9,13 @@ const Nextest = Cargo.annotate({
 });
 const Suite = Schema.Struct({ type: Schema.Literal('suite'), event: Schema.Literals(['ok', 'failed']), nextest: Schema.Struct({ crate: Schema.String }) });
 const Failed = Schema.Struct({ type: Schema.Literal('test'), event: Schema.Literal('failed'), name: Schema.String, stdout: Schema.optionalKey(Schema.String) });
-const Finished = Schema.Struct({ reason: Schema.Literal('build-finished'), success: Schema.Literal(true) });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const { execute, batch } = decides(({ messages, crate }) => {
     const reported = messages.filter(Schema.is(Suite)).filter(({ nextest }) => Option.contains(crate, nextest.crate));
     const failures = messages.filter(Schema.is(Failed));
-    const empty = reported.length === 0 && failures.length === 0 && messages.some(Schema.is(Finished));
+    const empty = reported.length === 0 && failures.length === 0 && messages.filter(Schema.is(Finished)).some(({ success }) => success);
     const tests = failures.filter(({ name }) => Option.exists(crate, (held) => name.startsWith(`${held}::`))).map(({ name, stdout }) => (stdout === undefined ? name : `${name}\n${stdout}`));
     return { failed: empty || reported.some(({ event }) => event === 'failed'), proven: reported.length > 0, said: empty ? `${Option.getOrElse(crate, () => 'workspace')}: no tests to run\n` : tests.join('') };
 });

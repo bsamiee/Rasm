@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ProjectGraph, readCachedProjectGraph, Tree } from '@nx/devkit';
+import { type ProjectGraph, type readCachedProjectGraph, type Tree, workspaceRoot } from '@nx/devkit';
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import CargoVersionActions, { afterAllProjectsVersioned } from '@rasm/nx-cargo/release/version-actions';
 import { it } from '@rasm/testing/nx';
@@ -125,7 +125,7 @@ describe('package versions', () => {
 
 describe('lock refresh', { timeout: 120_000 }, () => {
     it('brings the lock of each project these actions version in line with its manifests, leaving the locks of other version actions alone', async ({ workspace }) => {
-        workspace.write({ 'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["packages/*"]\n', [MANIFEST]: '[package]\nname = "my-lib"\nversion = "1.0.0"\nedition = "2024"\n', 'packages/my-lib/src/lib.rs': '' });
+        workspace.write({ 'rust-toolchain.toml': readFileSync(join(workspaceRoot, 'rust-toolchain.toml'), 'utf-8'), 'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["packages/*"]\n', [MANIFEST]: '[package]\nname = "my-lib"\nversion = "1.0.0"\nedition = "2024"\n', 'packages/my-lib/src/lib.rs': '' });
         execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
         workspace.write({ [MANIFEST]: '[package]\nname = "my-lib"\nversion = "1.1.0"\nedition = "2024"\n' });
 

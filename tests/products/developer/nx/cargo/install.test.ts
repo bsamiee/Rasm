@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { workspaceRoot } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
 import { Cargo, execute } from '@rasm/nx-cargo/executors/cargo';
 import { it, targetOptions } from '@rasm/testing/nx';
@@ -11,6 +13,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const cargo = { createNodes, createDependencies };
 const crates = {
+    'rust-toolchain.toml': readFileSync(join(workspaceRoot, 'rust-toolchain.toml'), 'utf-8'),
     'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n\n[profile.dev]\ndebug-assertions = false\n\n[profile.release]\ndebug-assertions = true\n',
     'crates/kit/Cargo.toml': '[package]\nname = "kit"\nversion = "0.1.0"\nedition = "2024"\n',
     'crates/kit/src/lib.rs': 'pub fn one() -> u32 {\n    1\n}\n',
@@ -34,5 +37,18 @@ describe('install--cargo', { timeout: 120_000 }, () => {
 
         expect(success).toBe(true);
         expect([execFileSync(join(workspace.root, '.install/bin/cli'), { encoding: 'utf-8' }), execFileSync(join(workspace.root, '.install/bin/second'), { encoding: 'utf-8' })]).toStrictEqual(['checked\n', '']);
+    });
+
+    it('fails when cargo install fails after its build, a file standing where the bin folder of the install root goes', async ({ workspace, onTestFinished }) => {
+        vi.stubEnv('CARGO_INSTALL_ROOT', join(workspace.root, '.install'));
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+        });
+        const graph = await workspace.write({ ...crates, '.install/bin': '' }).graph(cargo);
+        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
+
+        const { success } = await execute(await targetOptions(Cargo, graph, 'cli', 'install--cargo'), workspace.context(graph, 'cli', 'install--cargo'));
+
+        expect(success).toBe(false);
     });
 });

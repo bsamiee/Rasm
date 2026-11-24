@@ -36,6 +36,7 @@ class Cargo extends Schema.Opaque<Cargo, unknown>()(
 ) {}
 const Diagnostic = Schema.Struct({ reason: Schema.Literal('compiler-message'), manifest_path: Schema.String, message: Schema.Struct({ level: Schema.String, rendered: Schema.OptionFromNullOr(Schema.String) }) });
 const Artifact = Schema.Struct({ reason: Schema.Literal('compiler-artifact'), manifest_path: Schema.String, target: Schema.Struct({ kind: Schema.Array(Schema.String) }) });
+const Finished = Schema.Struct({ reason: Schema.Literal('build-finished'), success: Schema.Boolean });
 const Message = Schema.fromJsonString(Schema.Union([Diagnostic, Artifact, Schema.Record(Schema.String, Schema.Unknown)]));
 const Compiled = Schema.Union([Diagnostic, Artifact]);
 const Suited = Schema.Struct({ nextest: Schema.Struct({ crate: Schema.String }) }).annotate({ description: 'A nextest suite or test event, naming the crate of its test binary' });
@@ -110,9 +111,10 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
             .map(({ manifest_path }) => path.dirname(manifest_path)),
     );
     const broken = new Set(Record.keys(Record.filter(nodes, (_, project) => errored.has(root(project)))));
+    const halted = Array.filter(messages, Schema.is(Finished)).some(({ success }) => !success);
     const results = tasks.map(({ id, target: { project } }) => {
         const [at, crate] = [root(project), Option.fromUndefinedOr(inputs[id]?.package)];
-        const { failed, proven, said } = judged({ messages, compiled: completed.passed || built.has(at), crate });
+        const { failed, proven, said } = judged({ messages, compiled: completed.passed || (halted && built.has(at)), crate });
         const rendered = Array.getSomes(diagnostics.filter(({ root: held }) => held === at).map(({ message }) => message.rendered));
         const last = Array.findLast(completed.stamped, ({ message }) => (Schema.is(Compiled)(message) && path.dirname(message.manifest_path) === at) || (Schema.is(Suited)(message) && Option.contains(crate, message.nextest.crate)));
         const timed = { startTime: earlier[id]?.startTime ?? startTime, endTime: Option.getOrElse(Option.map(last, Struct.get('at')), () => endTime) };
@@ -155,4 +157,4 @@ const { execute, batch } = decides(({ compiled }) => ({ failed: false, proven: c
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { batch, Cargo, type Command, decides, execute };
+export { batch, Cargo, type Command, decides, execute, Finished };

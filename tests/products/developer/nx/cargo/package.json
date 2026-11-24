@@ -12,5 +12,15 @@
         "fast-check": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "test--vitest": {
+                "inputs": [
+                    "...",
+                    "{workspaceRoot}/rust-toolchain.toml"
+                ]
+            }
+        }
     }
 }

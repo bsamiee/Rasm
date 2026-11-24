@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { env } from 'node:process';
-import type { ProjectGraph } from '@nx/devkit';
+import { type ProjectGraph, workspaceRoot } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
 import { refused } from '@rasm/testing/errors';
 import { it, outputs, pathed, taskGraph, unaggregated, unportable, type Workspace } from '@rasm/testing/nx';
@@ -16,6 +17,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const cargo = { createNodes, createDependencies };
 const crates = {
+    'rust-toolchain.toml': readFileSync(join(workspaceRoot, 'rust-toolchain.toml'), 'utf-8'),
     'Cargo.toml': '[package]\nname = "root-app"\nversion = "0.1.0"\nedition = "2024"\n\n[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n',
     'src/main.rs': 'fn main() {}\n',
     'crates/core-kit/Cargo.toml': '[package]\nname = "core-kit"\nversion = "0.1.0"\nedition = "2024"\n',
