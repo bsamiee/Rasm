@@ -38,6 +38,7 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 - Tables crossing axes are nested `Record.map` over each axis's record where a nested domain value reads them, else one `Array.cartesianWith`
 - Members differing in a number, flag, literal, or applied function are one member taking that value alone
 - Parameters default to a value an owner states (a host's resolved option, a standard), and every other parameter is required
+- Parameters forwarded to a host argument the host defaults stay optional and pass `undefined`, a literal test choosing that default restating it
 - Parameters every caller passes one value for fold into their owner, and fields no caller acts on go
 - Parameters another parameter determines (a project's manifest, daemon, or release from its folder) derive from it inside the function
 - Values read once are a local in their reader named for their fact, inline where the value is another name, and a value read twice is a `const`
@@ -68,7 +69,8 @@ const summary = (lines: Array.NonEmptyReadonlyArray<Line>) => ({
 ```
 
 Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no absent case:
-- Native methods state a direct `filter`, `every`, `join`, `reduce`, or `Set` relation (`isSupersetOf`), iterator helpers (`map`, `toArray`, `join`) a `Map`, `Set`, or `matchAll` result without a spread, other traversals Effect modules
+- Native methods state direct `filter`, `every`, `join`, `reduce`, or `Set` relations (`union`, `difference`, `isSupersetOf`), Effect modules others
+- Iterator helpers (`map`, `toArray`, `join`) traverse a `Map`, `Set`, or `matchAll` result, a spread or `Array.fromIterable` restating them
 - `Record.collect` maps entries to an array and `Record.keys` lists keys, a `Record.filter` selecting entries first, `Object.entries` pairs restating them
 - `Record.filterMap` maps through a `Result`: `Result.failVoid` drops an entry, `Result.fromOption` enters a lookup, `Schema.decodeResult` validates
 - Dictionaries use `Record.getSomes`, which widens keys; closed optional fields spread `Option.map` field objects through `Option.getOrUndefined`
@@ -80,7 +82,6 @@ Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no
 - `Array.makeBy` and `Array.range` generate sequences from a length or bounds
 - Relations between neighbors map the adjacent pairs `Array.window(values, 2)` returns, a gap filling from `Array.range` over its pair
 - `RegExp.escape(text)` builds a pattern from literal text, a `replaceAll` escape restating it
-- Callbacks nest one level, a deeper step becomes a `yield*` step, a match over the discriminant, or a table, and no decision sits inside an arm
 
 ### [03.1]-[PATTERN_MATCHING]
 
@@ -106,15 +107,50 @@ const route = Match.type<Request>().pipe(Match.when({ method: 'GET', cached: tru
 
 TypeScript runs tail calls on the stack, and a recursion's depth bound selects its form:
 
-| [INDEX] | [APPROACH]            | [USE_WHEN]                                   |
-| :-----: | :-------------------- | :------------------------------------------- |
-|  [01]   | Direct recursion      | Depth small and bounded (parsed tree)        |
-|  [02]   | `Array.unfold`        | Each state yields one element and next state |
-|  [03]   | `Effect.suspend` loop | Effectful transition at unbounded depth      |
-|  [04]   | `Stream.paginate`     | Each step fetches page and cursor            |
-|  [05]   | `Graph` traversal     | Shared or cyclic successors                  |
+| [INDEX] | [APPROACH]            | [USE_WHEN]                                                                   |
+| :-----: | :-------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | Direct recursion      | Depth small and bounded (parsed tree)                                        |
+|  [02]   | `Array.unfold`        | Each state yields one element and next state                                 |
+|  [03]   | `Effect.suspend` loop | Effectful transition at unbounded depth                                      |
+|  [04]   | `Stream.paginate`     | Each step yields a page and an `Option` of next state (cursor, pending work) |
+|  [05]   | `Graph` traversal     | Shared or cyclic successors                                                  |
 
 `Graph.topo` throws on a cycle. Orders over cyclic references sort without edges inside one `Graph.stronglyConnectedComponents` set, applying in-set edges as a later step.
+
+### [03.3]-[NESTING]
+
+oxfmt prints a call with more than one argument one argument per line at any width when more than one argument is an inline function or one argument is a call taking an inline function:
+- Calls holding one inline function beside plain arguments, calls of one argument, and object literals of inline functions print on one line
+- Generators print each statement at their body's level
+- Callbacks a host types `void` keep a block body around their statement, `typescript/strict-void-return` refusing a value-returning expression body
+
+Data-first calls nested through their first argument become one pipe from the innermost subject, each call a data-last step at one level:
+
+```ts
+const version = (commands: readonly Command[], at: string) =>
+    Array.findFirst(commands, ({ name }) => name === 'release').pipe(
+        Option.flatMap(({ args }) => Array.findFirst(args, (arg, index) => (arg === '--version' ? Array.get(args, index + 1) : Option.none()))),
+        Effect.fromOption,
+        Effect.mapError((cause) => new Cause.UnknownError(cause, `${at} states no version`)),
+    );
+```
+
+`Command` holds a `name` and its `args`, and `version` prints one level where `Effect.mapError` around `Effect.fromOption` around `pipe` printed a level per call.
+
+Forbidden forms take the rebuild in their row, each module imported from `effect`:
+
+| [INDEX] | [FORBIDDEN]                                                     | [REBUILD]                                                        |
+| :-----: | :-------------------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `acquireUseRelease`, `acquireRelease` over a disposable handle  | `acquireDisposable` piped through each use, `Effect.scoped` last |
+|  [02]   | Callback reading an `Effect.all` tuple                          | `yield* Effect.all([...])` in a generator, fold as its `return`  |
+|  [03]   | `flatMap` into `Option.match`, `.value` after an early `return` | `Option.match(yield* effect, {...})` in a generator              |
+|  [04]   | Array pattern holding an object pattern                         | `Array.headNonEmpty(items).<field>` destructured flat            |
+|  [05]   | `Option.liftPredicate`, then `Option.flatMap` to a field        | `Option.filter(Option.fromUndefinedOr(field), predicate)`        |
+|  [06]   | `Result.fromOption(Option.map(option, f), g)`                   | `Option.match` arms returning `Result.fail`, `Result.succeed`    |
+|  [07]   | Lookup pairs built, then walked by `forEach`                    | One walk, each lookup through `Option.flatMapNullishOr`          |
+|  [08]   | `Effect.forEach`, then `Effect.map(Array.getSomes)`             | `Effect.filterMapEffect`, completion order if concurrent         |
+|  [09]   | `pipe(<call>, Function.constVoid)` standing for a statement     | Block-bodied callback                                            |
+|  [10]   | `Effect.succeed(value)` mapped or joined in `Effect.all`        | Plain value read inside `Effect.map` over the effect             |
 
 ## [04]-[IMMUTABILITY]
 
@@ -152,6 +188,7 @@ class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique
 `StoreError.of({ _tag: 'Unavailable' }, key)` is the `catch` of every host call reaching the store. `of` omits an absent `cause`, a `cause: undefined` key decoding as `null` across a JSON wire, and `Formatter.format` renders a foreign cause with its nested chain:
 - `message` is a field the constructing static computes, an own property `structuredClone` and a plugin worker's serializer carry, a `get message()` on the class reaches neither
 - Instances are effects failing with themselves, `return yield*` raises one in a generator and a handler returning one fails with it
+- `Effect.when(error, condition)` takes an instance as its effect, an `Effect.fail` or `flow(make, Effect.fail)` around one restating it
 - Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged
 - Codecs over a value the program built die through `Effect.orDie`
 - Absences and refused arguments fail with the `Cause` error naming them (`NoSuchElementError`, `IllegalArgumentError`)
@@ -187,6 +224,7 @@ Dependency structure and concurrency bound select a traversal over many effects:
 |  [06]   | Every outcome kept in order  | `Effect.all` with `mode: 'result'`                         | Runs all, returns one `Result` per effect |
 |  [07]   | Every effect, causes joined  | `Effect.forEach` over `Effect.exit`, then `Exit.asVoidAll` | Runs all, fails with every cause in `E`   |
 |  [08]   | Effectful predicate          | `Effect.filter(items, (item) => Effect<boolean>)`          | Keeps items whose predicate yields `true` |
+|  [09]   | First effectful match        | `Effect.findFirst(items, (item) => Effect<boolean>)`       | Serial, runs no item after first match    |
 
 ### [05.2]-[UNIONS]
 

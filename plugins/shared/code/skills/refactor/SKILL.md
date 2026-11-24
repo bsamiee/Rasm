@@ -108,7 +108,7 @@ Criteria deciding a row:
 - Count: code kept short by an erased error, an untyped read, a discarded message, a dropped case, or a loose decode takes its typed form
 - Suppression: each suppression names its reason, one a catalog or manifest row makes false goes and its finding is fixed
 - String: a string deciding behavior goes, each case derived from the value's owner (type, member, host), never an enum renaming it
-- Fragile: logic reading text shape, order, or spelling (a pattern over a message, an index into a split) reads the typed source in its place
+- Fragile: logic reading text shape, order, or spelling (a message pattern, a split index, a prefix test) reads the typed source or package predicate
 - Injection: values a build tool or host supplies reach code through its typed channel (an import, a generated module), never a declared global
 - Credit: a defect present before the pass and one the pass introduced are both fixed in the pass
 - Triage: mixed work is read against the last clean commit, each change kept for a fact or capability it names or undone in place
@@ -120,22 +120,53 @@ Removal is total across the tree: every mention, consumer path, manifest row, sk
 
 ## [05]-[STRUCTURE]
 
-Inside each member, flat spam (near-identical statements, arms, or rows) and stacked decisions collapse into one structure stating each decision once, `[04]-[CODE_QUALITY]` of the project instructions names the forms. Extraction is the forbidden form everywhere: a helper, a closure bound to a name, or a type born of the pass keeps the shape and adds a name.
+Inside each member, flat spam (near-identical statements, arms, or rows) and nesting collapse into one structure stating each decision once, `[04]-[CODE_QUALITY]` of the project instructions names the forms.
+
+Nesting depth counts levels of logic the formatter prints at project width, each level a step or decision a reader holds open through the next. Calls and callbacks sharing one printed line add no level, and levels data prints count for none: object and array literals with callbacks they hold, schema and table declarations, markup trees, test group bodies, and builder chains declaring an API. Logic nests in shapes a rebuild removes:
+- Sibling function arguments (acquire, use, and release brackets, binds over a call taking a callback, matches holding effects in arms)
+- Decisions inside an arm or inside a callback supplying a default
+- Destructuring patterns nested inside another pattern
+- Collections built, then walked again
+
+Members nesting deeper than `[04]-[CODE_QUALITY]` of the project instructions allows rebuild deepest first, each step taking the first form that holds:
+1. Format the file and name each level of logic by its step's verb (decode, look up, choose), a level taking more verbs holding more steps
+2. Remove each step changing nothing a later step reads: a conversion the next step undoes, a wrapper built to unwrap, a check its type guarantees
+3. Replace code performing a step with a host or package member performing it
+4. Restate the remaining steps in order as one flat chain (binding chain, pipeline, statement sequence), one step per line or statement
+5. Rebuild an operation's signature where callers handle its result alike (same match arms, a value it knows passed in), with every consumer
+6. Compare before and after: each step stands once at one level, nesting depth and lines fell, no name added but a local its next line reads
+7. Run the member on inputs it served: each yields values, order, and failures it yielded before
+
+Fixes that keep shape and add a name, or change what a member returns or raises, are no rebuild:
+
+| [INDEX] | [FORBIDDEN]                                                             | [REBUILD]                                         |
+| :-----: | :---------------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | Lines joined, print width raised, a packed chain standing for steps     | Level removed from logic, one named step per line |
+|  [02]   | Statement made an expression, value lifted into a wrapper to skip a map | Statement in a block, plain value read in the map |
+|  [03]   | Helper or local function holding an inner level                         | Member performing the step, called in place       |
+|  [04]   | Closure bound to a name for an inline callback                          | Callback inline in one flat chain                 |
+|  [05]   | Wrapper or export around a nested call                                  | Direct call                                       |
+|  [06]   | Type born of the pass naming an inner value                             | Value inferred at its reader                      |
+|  [07]   | Body moved to another member or file                                    | Sequence restated in place                        |
+|  [08]   | Caller locals routing around a callee's signature                       | Callee's signature rebuilt with every consumer    |
+|  [09]   | Traversal swapped for one stopping sooner, presented as flattening      | Same items run, same failures raised              |
 
 Each shape replaces one spam or nesting form:
 
-| [INDEX] | [SHAPE]                        | [REPLACES]                                         |
-| :-----: | :----------------------------- | :------------------------------------------------- |
-|  [01]   | Match over a tuple of subjects | Nested conditions over more than one discriminant  |
-|  [02]   | Arm guard                      | Inner condition one arm alone reads                |
-|  [03]   | Binding chain                  | Early returns and stacked unwrap guards            |
-|  [04]   | Shared step hoisted            | Same statement repeated in every arm               |
-|  [05]   | Table or relation              | Arms or rows differing by one value                |
-|  [06]   | Iterator pipeline              | Index loops, side collections, collect then filter |
-|  [07]   | Accumulating collect           | Loop with a mutable error list                     |
-|  [08]   | Combinator choosing a value    | Decision inside a default-supplying closure        |
-|  [09]   | Builder fold                   | Sequence of mutations on one object                |
-|  [10]   | One parameterized member       | Members differing by a value, flag, or case        |
+| [INDEX] | [SHAPE]                           | [REPLACES]                                                     |
+| :-----: | :-------------------------------- | :------------------------------------------------------------- |
+|  [01]   | Match over a tuple of subjects    | Nested conditions over more than one discriminant              |
+|  [02]   | Arm guard                         | Inner condition one arm alone reads                            |
+|  [03]   | Binding chain                     | Early returns, stacked unwrap guards, binds over a nested call |
+|  [04]   | Release by the handle's protocol  | Bracket of acquire, use, and release callbacks                 |
+|  [05]   | Shared step hoisted               | Same statement repeated in every arm                           |
+|  [06]   | Match in owner, miss as parameter | Same match arms at every caller of an absent result            |
+|  [07]   | Table or relation                 | Arms or rows differing by one value                            |
+|  [08]   | Iterator pipeline                 | Index loops, side collections, collect then filter or walk     |
+|  [09]   | Accumulating collect              | Loop with a mutable error list                                 |
+|  [10]   | Combinator choosing a value       | Decision inside a default-supplying closure                    |
+|  [11]   | Builder fold                      | Sequence of mutations on one object                            |
+|  [12]   | One parameterized member          | Members differing by a value, flag, or case                    |
 
 Algebraic forms hold where a relation is real and are never forced:
 - Relation: quantities a caller computes from each other are one derivation solvable for any of them, a member or file per quantity fails
@@ -187,4 +218,4 @@ Verdict: declarations and lines fall against the pass before with each kept decl
 
 Refactors are finished when, once at the end over edited projects and their consumers, `hk fix <paths>` ran, `nx run <project>:check` of each edited and consumer project (`hk check <paths>` for a file-level checker) passes with zero findings and warnings denied, and each entry point ran on repository input with its normal output. Checks run once at the end, never per step and never repository-wide, no test is created, a test the rebuild breaks is rewritten to the new shape or deleted, and no copy or backup sits in tree.
 
-Report: what changed, what it removed, each kept value with the owner member or declaration it reads, kept declarations listed with their fact and count, counts of `[01]` step 9 before and after, check output with exit codes verbatim, and `Unverified:` claims with the command settling them.
+Report: what changed, what it removed, each kept value with the owner member or declaration it reads, kept declarations listed with their fact and count, counts of `[01]` step 8 before and after, check output with exit codes verbatim, and `Unverified:` claims with the command settling them.

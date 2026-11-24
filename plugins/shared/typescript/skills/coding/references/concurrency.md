@@ -63,6 +63,10 @@ const entries = (root: string, bufferSize: number) => Stream.callback<Entry, Wal
 - Sources enter through `Stream.fromIterable`, `fromAsyncIterable`, `fromEventListener`, `fromEffectSchedule` for polling, and `paginate` for cursors
 - `Stream.peel(stream, Sink.head())` returns an `Option` of the first element beside a scoped stream of the rest, seeding state first
 - `flow(Effect.fn(body), Stream.unwrap)` returns a stream releasing its acquired resources at its end
+- `Stream.unwrap(<Service>.useSync((service) => service.<member>(...)))` opens service streams as one pipe, `flatMap` over the service restating it
+- `Stream.filter` before `mapEffect` runs effects on kept items alone, `asSome` or `succeedNone` effects before `filter(Option.isSome)` restating it
+- Per-value streams merge in `Stream.make(...values).pipe(Stream.flatMap(f, { concurrency }))`, `Stream.mergeAll` over a mapped array restating it
+- `Stream.runCollect` pipes end in `Effect.zip(other, { concurrent: true })` beside an independent `other`, `Effect.all` around the pipe restating it
 - `Stream.debounce(limit)` emits once a stream stays quiet for `limit`, a `switchMap` to `Effect.sleep` restating it
 
 ## [03]-[SHARED_STATE]

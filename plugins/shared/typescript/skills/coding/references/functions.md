@@ -17,8 +17,9 @@ const podium = (entries: readonly Entry[], places: number) =>
 ```
 
 `Entry.byScore` orders entries by score. `Array.groupBy` returns non-empty groups, and `Array.max` picks each player's best entry with no absent case. `podium` returns best entries of the top `places` players:
-- Package members and applied data-last forms (`String.includes(term)`) enter as steps by reference, a lambda reads a field or joins arguments
-- Nested data-first module calls become `pipe` steps
+- Package members and applied data-last forms (`String.includes(term)`, `Schema.decodeOption(S)`) enter as steps by reference
+- Lambda steps read a field or join arguments
+- Overloaded generic members (`HashSet.add` as a reducer) take a lambda passing each argument, a reference inferring `unknown` or `any` downstream
 - Steps reading no input pass the effect value to `Effect.tap` or `Effect.andThen`, a `() => effect` thunk restating it
 
 ## [02]-[DUAL_SIGNATURES]
@@ -76,7 +77,8 @@ const matched = (invoices: HashMap.HashMap<string, Invoice>) =>
 - `Filter.compose` feeds one filter's pass to the next, `Filter.or` runs the second on the input the first rejects, and `Filter.zip` pairs both passes
 - Schema `guards` take `unknown` and leave the remainder `unknown`, `Filter.tagged<A>()` fixes the input type
 - `Effect.catchFilter` without a fallback replaces `E` with the remainder, and `Effect.filterMapOrFail` builds its error from the remainder
-- `Array.flatMap` callbacks returning `[x]` or `[]` restate `Array.filterMap`
+- `Array.filterMap` reads any iterable, an `Array.getSomes` over `Array.map` or an `Array.flatMap` returning `[x]` or `[]` restating it
+- `Array.filterMap` keeps what `Result.try(() => parse(item))` parses or `Filter.fromPredicateOption(Schema.decodeUnknownOption(S))` decodes
 
 ## [05]-[DISPATCH_TABLES]
 

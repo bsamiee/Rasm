@@ -17,19 +17,23 @@ const escalation = Effect.fn('escalation')(function* (id: CustomerId) {
 - Steps inside a chain one `catchNoSuchElement` closes fail the caller through a package error the closing catch passes on
 - `Effect.filterOrFail(effect, predicate)` gates a step into the absence chain, a `fromOption` after a hand check restating it
 - `Effect.filterOrFail(lookup, rule, onOther)` fails a count rule (`Predicate.isTupleOf(1)`, `Array.isReadonlyArrayNonEmpty`, `Array.isArrayEmpty`)
+- `Result.filterOrFail(Function.constant(flag), onFail)` refuses on a fact computed before the chain as one step
 - `Array.headNonEmpty` reads the one element `Predicate.isTupleOf(1)` passed, an `([only]) => only` destructure restating it
 - `Array.headNonEmpty(String.split(text, separator))` reads the first part with no absent case, a `split(...)[0] ?? text` restating it
-- `UndefinedOr.match(x, { onUndefined, onDefined })` and `UndefinedOr.map` fold an optional field, a conversion to `Option` restating them
+- `UndefinedOr.match(x, { onUndefined, onDefined })` and `UndefinedOr.map(x, f) ?? fallback` fold host `T | undefined`, an `Option` restating them
 - `Option.firstSomeOf` returns the first present source, and a new source is one more element of its list
 - `Effect.firstSuccessOf` fails with its last error alone, and alternatives with failures listing candidates fold through `Effect.catch`, joining every list
 - `Option.all` combines independent options over a tuple or struct for one `Option.match`, over an array holding a value when every element does
+- `Option.zipWith(a, b, f)` joins independent options into one value, an `Option.map` inside an `Option.flatMap` restating it
 - `Option.bind(option, 'key', (fields) => lookup)` adds a looked-up record to a decoded struct, consumers destructuring both
 - `Option.gen` and `Result.gen` sequence pure steps where a later one reads more than one earlier value, each guard a `yield*` of the same module's `liftPredicate`
 - `Option.liftThrowable(parse)(input)` lifts a throwing call whose throw means absence, an `Effect.try` discarding its error restating it
 - `Array.findFirst` and `Array.findLast` with a function returning `Option` find and map in one pass, from the side whose match wins
+- Matches reading a neighbor take the callback's index (`Array.get(items, index + 1)`), a `findFirstIndex` before an `Array.get` restating it
 - `Array.fromNullishOr(x)` spreads a nullable value into an array literal, an `Option.toArray(Option.fromNullishOr(x))` chain restating it
-- `Effect.transposeOption` runs an effect an `Option` holds and returns an effect of `Option`
-- `Effect.when(effect, condition)` runs `effect` into an `Option` when `condition` yields `true`, a `succeedNone` or `asSome` ternary restating it
+- `Effect.transposeOption` turns an `Option` of an effect into an effect of `Option`, an `Option.match` with an `Effect.void` arm restating it
+- `Effect.when(effect, condition)` runs `effect` into `Option` when `condition` yields `true`, an `asSome` or `succeedNone` ternary restating it
+- Ternaries over `Effect.option(effect)` restate `Effect.when(effect, condition).pipe(Effect.orElseSucceed(Option.none))`
 
 ## [02]-[VALIDATION]
 

@@ -60,7 +60,7 @@ class Invoice extends Model.Class<Invoice>('Invoice')({
 }
 ```
 
-`Invoice.jsonCreate` decodes a body holding neither `id` nor `issuedAt`, `Invoice.insert.makeEffect(created)` fills both from the clock, and `SqlModel.makeRepository(Invoice, { tableName: 'invoices', spanPrefix: 'Invoices', idColumn: 'id' })` writes the row and returns the decoded class. `lines` is a JSON text column in the table and an array in every JSON variant:
+`Invoice.jsonCreate` decodes a body holding neither `id` nor `issuedAt`, and `Invoice.insert.makeEffect(created)` fills both from the clock. `lines` is a JSON text column in the table and an array in every JSON variant:
 - `Model.GeneratedByDb` reaches read variants alone, `GeneratedByApp` all but `jsonCreate` and `jsonUpdate`, and `Sensitive` all but JSON
 - `Model.DateTimeUpdate` stamps each write, and `Model.FieldOption` decodes a `null` column and a missing JSON key to one `Option`
 - Boundaries besides SQL and JSON declare variants in `VariantSchema.make({ variants, defaultVariant })` with `Class`, `Field`, and `FieldExcept`
@@ -187,6 +187,7 @@ Absence a host returns decodes to `Option`, absence a domain default fills decod
 |  [08]   | Key missing or `undefined`   | `A`         | `A.pipe(Schema.withDecodingDefaultType(Effect.succeed(a)))`    |
 |  [09]   | Key a caller omits           | `?: A`      | `Schema.optionalKey(A)`                                        |
 
+- Readers of a key `OptionFromOptionalKey` decodes take its `Option`, an `optionalKey` field readers pass to `Option.fromUndefinedOr` restating it
 - Caller text decodes through `Schema.Trim` and `Schema.NonEmptyString` (`Schema.Trim.check(Schema.isNonEmpty())`), every reader taking it trimmed and present
 - Absence as `null` or `''` decodes by `transform({ decode: flow(Option.fromNullOr, Option.filter(String.isNonEmpty)), encode: Option.getOrNull })`
 - Defaults are effects producing the decoded value, `Schema.withDecodingDefaultTypeKey(DateTime.now)` stamps an instant from the clock

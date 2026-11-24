@@ -4,22 +4,23 @@
 
 Return types infer from the body, and every type a consumer names derives at its use from the value that owns it. An annotation stays where it adds a fact: a parameter, a recursive return, `unknown` over a host `any`, a host type checking an object literal; one restating the inferred type goes. Packages export the owning value in place of a type:
 
-| [INDEX] | [OWNER]            | [DERIVED_TYPE]                                                      |
-| :-----: | :----------------- | :------------------------------------------------------------------ |
-|  [01]   | `Effect`, `Stream` | `<Module>.Success<typeof x>`, `<Module>.Error`, `<Module>.Services` |
-|  [02]   | `Layer`            | `Layer.Success<typeof x>` built, `Layer.Services` read              |
-|  [03]   | Service            | `X['Service']`                                                      |
-|  [04]   | Schema class       | `X`, `X['<field>']`, `X['<list>'][number]`                          |
-|  [05]   | Schema parameter   | `S['Type']`, `S['Encoded']`, `S['DecodingServices']`                |
-|  [06]   | Union case         | `Extract<X['<field>'], { readonly _tag: '<Case>' }>`                |
-|  [07]   | Tagged enum        | `ReturnType<typeof X.<Case>>`, a `$match` handler's parameter       |
-|  [08]   | Command config     | `Command.Command.Config.Infer<typeof config>`                       |
-|  [09]   | Atom               | `Atom.Type<typeof x>`, `Atom.Success`, `Atom.Failure`               |
-|  [10]   | Generic function   | `ReturnType<typeof f<A>>` at chosen type arguments                  |
-|  [11]   | Function parameter | `Parameters<typeof f>[n]`, an exported interface restating it       |
-|  [12]   | Bundler `define`   | `ImportMetaEnv['<KEY>']` the reading module declares                |
+| [INDEX] | [OWNER]            | [DERIVED_TYPE]                                                            |
+| :-----: | :----------------- | :------------------------------------------------------------------------ |
+|  [01]   | `Effect`, `Stream` | `<Module>.Success<typeof x>`, `<Module>.Error`, `<Module>.Services`       |
+|  [02]   | `Layer`            | `Layer.Success<typeof x>` built, `Layer.Services` read                    |
+|  [03]   | Service            | `X['Service']`                                                            |
+|  [04]   | Schema class       | `X`, `X['<field>']`, `X['<list>'][number]`                                |
+|  [05]   | Schema parameter   | `S['Type']`, `S['Encoded']`, `S['DecodingServices']`                      |
+|  [06]   | Union case         | `typeof X.cases.<Case>.Type`, `typeof X.fields.<field>.cases.<Case>.Type` |
+|  [07]   | Tagged enum        | `ReturnType<typeof X.<Case>>`, a `$match` handler's parameter             |
+|  [08]   | Command config     | `Command.Command.Config.Infer<typeof config>`                             |
+|  [09]   | Atom               | `Atom.Type<typeof x>`, `Atom.Success`, `Atom.Failure`                     |
+|  [10]   | Generic function   | `ReturnType<typeof f<A>>` at chosen type arguments                        |
+|  [11]   | Function parameter | `Parameters<typeof f>[n]`, an exported interface restating it             |
+|  [12]   | Bundler `define`   | `ImportMetaEnv['<KEY>']` the reading module declares                      |
 
 - Schema types take their name from a class: the class itself, or an indexed access on the class holding the schema as a field
+- `Extract<U, { readonly _tag: '<Case>' }>` restates the case type a union's `cases` holds, spelling its tag as a string
 - Schemas no class holds flow by inference: a decoder's return, a `match` handler, a callback written at its call, a generic over the schema
 - `typeof X.Type` queries and `type X = typeof X.Type` aliases restate a class name, and a helper type wrapping either restates both
 - Unions, brands, literal sets, and encoded sides alone in a signature have no form free of both, a record holds each or its operation derives it
@@ -27,7 +28,7 @@ Return types infer from the body, and every type a consumer names derives at its
 - Aliases and interfaces stand where no schema, table, or function states the shape (a host contract, a recursive union)
 - Package option types pass whole (`Types.Concurrency`, a `number` narrowing it), and added fields join as `& { readonly <added>: A }`
 - Options a layer fills omit `keyof` the filler's output (`Effect.Success<ReturnType<typeof fill>>`), nested ones their own keys, a literal list going stale
-- Host member types read by indexed access (`Viewer['scale']`, `Parameters<Events['error']>[1]`), a restated field type drifting from its host
+- Host member types read by indexed access (`Viewer['scale']`, `Parameters<Events['error']>[1]`), a restated field type or literal union drifting
 - `Parameters` reads an overload set's last signature, one overload reading through `typeof f extends { (o: infer O): unknown; (...rest: never): unknown }`
 - Host constants the typings declare and the runtime omits are literals `satisfies typeof <type-only import>`, failing to compile when a release changes one
 - Structs whose field types depend on each field's own type map through `Struct.map(record, Struct.lambda<L>(f))`, `Struct.Apply<L, V>` naming one output

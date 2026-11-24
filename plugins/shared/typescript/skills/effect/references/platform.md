@@ -1,93 +1,94 @@
 # [PLATFORM]
 
-## [01]-[PROCESSES]
+## [01]-[FILES]
 
-`ChildProcess.make` describes a command as an effect of a scoped handle, and closing the scope stops the process:
-- `ChildProcess.make(command, args)` and template ``ChildProcess.make`git log -n ${count}` `` spell each argument once, arrays adding one per element
-- Templates reject shell syntax, and a shell script builds through `CommandLine.join` or `CommandLine.quote` for a named shell
-- `env` replaces the inherited environment unless `extendEnv: true`, and values can be `Redacted`
-- `stdin` takes a `Stream`, and `stdout` and `stderr` take `'inherit'`, `'ignore'`, `'pipe'`, or a `Sink`
-- `killSignal` defaults to `SIGTERM`, and `forceKillAfter` sends `SIGKILL` after a delay
-- `ChildProcess.pipeTo(next, { from })` builds a pipeline, and `prefix`, `setCwd`, and `setEnv` transform a whole one
-- `ChildProcessSpawner` members `string`, `lines`, `streamString`, and `streamLines` read stdout without exit code, `includeStderr: true` interleaving stderr
-- `ChildProcessSpawner.exitCode` returns on process exit, ignoring pipes descendants hold
-- `CommandLine.display(words)` renders a command for logs and errors, each `Redacted` word as `<redacted>`
-- Commands run in their machine format (`--json`, `-z`) for a schema to decode, records split on its separator (`'\0'` for `git -z`)
-- Text tables of commands without a machine format slice rows by column spans their ruler line marks, keying cells by heading
-
-Commands failing on a non-zero exit read output and exit code in one scope:
+`FileSystem` and `Path` are services a platform layer provides, and file content enters as a byte `Stream` that a codec of `effect/encoding` decodes in the same pipe:
 
 ```ts
-const run = Effect.fn('run')(function* (command: string, args: readonly string[]) {
-    const handle = yield* ChildProcess.make(command, args, { stdin: 'ignore' });
-    const [output, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? output : yield* ExitError.make({ argv: [command, ...args], code, output });
-}, Effect.scoped);
+const entries = (path: string) => Stream.unwrap(FileSystem.FileSystem.useSync((fs) => fs.stream(path))).pipe(Stream.pipeThroughChannel(Ndjson.decodeSchema(Entry)()));
 ```
 
-`ExitError` is the package error holding `argv`, `code`, and `output`, and a caller acting on a refusal reads `output` through `Effect.catchTag`.
-
-## [02]-[COMMANDS]
-
-`Command.make(name, params, handler)` derives the handler input from its flags and arguments, and `Command.run` parses `--help`, `--version`, `--completions`, `--wizard`, and `--log-level` itself:
-
-```ts
-Command.make(
-    'format',
-    {
-        mode: Flag.Literals('mode', Mode.literals).pipe(Flag.withDefault(Mode.literals[0])),
-        jobs: Flag.Int('jobs').pipe(Flag.withSchema(Schema.Int.check(Schema.isGreaterThan(0))), Flag.withFallbackConfig(Config.Int('FORMAT_JOBS')), Flag.withDefault(Effect.sync(os.availableParallelism))),
-        roots: Argument.Directory('root', { mustExist: true }).pipe(Argument.atLeast(1)),
-    },
-    ({ mode, jobs, roots }) => ChildProcessSpawner.ChildProcessSpawner.use((spawner) => Effect.forEach(roots, (root) => spawner.exitCode(ChildProcess.make(formatter, [mode, root])), { concurrency: jobs })),
-).pipe(Command.run({ version }), Effect.provide(NodeServices.layer), NodeRuntime.runMain);
-```
-
-`formatter` names the formatter executable, `Mode` is a `Schema.Literals` of its modes, and `version` the package version. `--log-level` sets `References.MinimumLogLevel` for the handler:
-- `Command.withSubcommands([...])` composes commands, and a subcommand reads its parent's input through `yield* parent`
-- `Command.withSharedFlags({...})` makes flags readable by descendants on either side of the subcommand name
-- `Flag.Redacted`, `Flag.KeyValuePair`, and `Flag.FileSchema(name, schema)` are typed constructors, and `Flag.withSchema(codec)` decodes any value
-- `Flag.withFallbackConfig(config)` reads a missing flag from `Config`, `withFallbackPrompt(prompt)` asks for it, and `withDefault` closes the chain
-- `Command.provide(layer | (input) => layer)` provides services chosen from the parsed input
-- Handler errors with a `[CliError.userMessage]` getter render through the CLI formatter with their tag kept
-- `Prompt` constructors are effects reading `Terminal`, and `Prompt.all` collects a struct of them
-
-## [03]-[FILES]
-
-`FileSystem` and `Path` are services a platform layer provides, and `Glob` matches paths without the disk:
-- `fs.glob(pattern, { root, exclude, dot })` returns sorted paths, and `Glob.make(pattern)` with `Glob.match` tests a path
-- `fs.makeTempFileScoped({ suffix })` owns one file a host writes and `makeTempDirectoryScoped()` a folder, each deleted when its scope closes
-- `fs.stream` and `fs.sink` stream bytes, and `fs.watch(path)` streams changes
-- `Url.fromString('../Resources/<file>', base)` resolves a bundle resource, `base` from `path.toFileUrl(executable)`, in place of `dirname` chains
-- `import.meta.resolve('<pkg>/<file>')` locates a dependency file through `path.fromFileUrl` in an effect
+`Entry` is a schema class of one line:
+- `fs.sink(path)` writes a stream, and `Stream.run(stream, fs.sink(path))` closes its file when the stream ends
+- `fs.makeTempFileScoped({ suffix })` and `fs.makeTempDirectoryScoped()` delete their path when the owning scope closes
+- `fs.glob(pattern, { root, exclude, dot })` returns sorted paths, and `Glob.make(pattern)` with `Glob.match` tests a path without the disk
+- `fs.watch(path)` streams changes, and `NodeStream.fromReadable({ evaluate, onError })` enters a Node readable as a `Stream`
 - `FileSystem.layerNoop({ ...overrides })` stubs the service for a test
 
-## [04]-[CRYPTO]
+## [02]-[ENCODING]
 
-`effect/crypto` holds one service per primitive family over WebCrypto, each taking an algorithm value (`Digest.sha256`, `Aead.aes256Gcm`):
-- `digest.digestHex(Digest.sha256, bytes)` returns lowercase hex
-- `Mac.key`, `Aead.key`, and `Signature.privateKey` import algorithm-typed keys, and `KeyFormat.decodePublic` reads `pem`, `jwk`, `spki`, or `pkcs8`
-- `mac.verify(key, tag, data)` compares in constant time, and `Mac.timingSafeEqual` compares held bytes
-- `Jwt.verifyWithKeySet(S, token, { issuer, audience, algorithms })` over `Jwks.layerRemote` decodes claims, needing `Signature` and `HttpClient`
+`effect/encoding` holds one codec per format, and the outcome a parser returns selects how it enters an effect:
 
-## [05]-[ENCODING]
+| [INDEX] | [FORMAT]                | [MEMBER]                                          | [OUTCOME]                  |
+| :-----: | :---------------------- | :------------------------------------------------ | :------------------------- |
+|  [01]   | Hex, Base64, Base64 URL | `Hex.decode`, `Base64.decode`, `Base64Url.decode` | `Result` for `fromResult`  |
+|  [02]   | TOML, JSONC, JSON5      | `Toml.parse`, `Jsonc.parse`, `Json5.parse`        | `Result` for `fromResult`  |
+|  [03]   | YAML                    | `Yaml.parse`                                      | Throws `SyntaxError`       |
+|  [04]   | INI                     | `Ini.parse`                                       | Total                      |
+|  [05]   | Lines, CSV, JSON array  | `Ndjson`, `Csv`, `JsonArray` `decodeSchema(S)`    | Channel of decoded records |
+|  [06]   | Server-sent events      | `Sse.decodeDataSchema`                            | Channel of decoded events  |
+|  [07]   | XML                     | `Xml.decodeString` through `Xml.elements(path)`   | Channel of element trees   |
+|  [08]   | Tar, Zip                | `Tar.decode`, `Zip.decode`                        | Channel of archive entries |
 
-`effect/encoding` holds byte and text codecs and streaming channels for line, event, and archive formats:
-- `Hex.decode`, `Base64.decode`, and `Base64Url.decode` return a `Result`, and schema boundaries use `Schema.Uint8ArrayFrom*` schemas
-- `Ndjson.decodeSchema(S)()` and `Csv.decodeSchema(S)()` read bytes, `decodeSchemaString` and `Sse.decodeDataSchema(S)` text, each with an encoder
-- `Csv.decodeSchemaString(S)({ headers: true })` keys cells by header, an empty optional cell decoding as a missing key
-- Caller-named CSV fields map to columns through `Schema.encodeKeys` on the row schema
-- Reads parse through these codecs, a format-preserving patch library serving writes alone
-- `Toml.parse`, `Jsonc.parse`, and `Json5.parse` return a `Result` for `Effect.fromResult`, `Yaml.parse` throws `SyntaxError` into `Effect.try`, and `Ini.parse` is total
-- `Xml.decodeString` piped through `Xml.elements(path)` reads XML trees for a schema, and `Xml.encodeString` writes an `Xml.Event` stream unindented
-- Indented documents build from a tree through one module-scope `fast-xml-builder` `Builder({ ignoreAttributes: false, format: true })` reading `@_` keys
-- `Tar` and `Zip` stream archive entries
-- `NodeStream.fromReadable` enters a Node readable stream as a `Stream`
+Channels enter a stream through `Stream.pipeThroughChannel`, `decodeSchema` reading bytes and `decodeSchemaString` text. CSV headers a caller names map to fields through `Schema.encodeKeys` on the row:
 
-## [06]-[DURABLE]
+```ts
+const rows = (text: string) => Stream.make(text).pipe(Stream.pipeThroughChannel(Csv.decodeSchemaString(Row.pipe(Schema.encodeKeys({ sku: 'SKU', quantity: 'Qty' })))({ headers: true })), Stream.runCollect);
+```
 
-`effect/graphql`, `effect/workflow`, and `effect/cluster` hold generated clients, durable execution, and sharded entities:
-- `graphqlgen` (`@effect/graphql-generator`) writes typed operations per `.graphql` file, and `GraphQLClient.make(group)` gives a method per operation
-- `GraphQLClient.items` pages through a cursor, and `GraphQLResolver.findById` batches lookups into one request
-- `Workflow.make` declares a workflow with schemas and an idempotency key, and `Activity.make` wraps an effect the engine stores and replays
-- `Entity.make(name, rpcs)` addresses an RPC protocol by entity id across runners, and `SingleRunner.layer` and `TestRunner.layer` run entities
+`Row` is a schema class. `headers: true` keys each record by the first row, and an empty cell for an optional field decodes as a missing key:
+- Each format holds an encoder beside its decoder (`Ndjson.encodeSchema(S)`, `Csv.encodeSchemaString(S)`, `Xml.encodeString`)
+- `Xml.toEvents(element)` turns an `Xml.Element` tree into the events `Xml.encodeString` writes, unindented
+- `Schema.Uint8ArrayFromHex` and `Schema.Uint8ArrayFromBase64` decode bytes inside a record, where the table's members decode a lone value
+- `SchemaBinary.toCodec(S)` encodes a schema's values as bytes
+
+## [03]-[CRYPTO]
+
+`effect/crypto` holds one service per primitive over WebCrypto, each taking an algorithm value and an algorithm-typed key:
+
+| [INDEX] | [PRIMITIVE]          | [SERVICE]                        | [KEY]                                  |
+| :-----: | :------------------- | :------------------------------- | :------------------------------------- |
+|  [01]   | Hash                 | `Digest` (`Digest.sha256`)       | None                                   |
+|  [02]   | Message tag          | `Mac` (`Mac.hmacSha256`)         | `Mac.key(algorithm, bytes)`            |
+|  [03]   | Authenticated cipher | `Aead` (`Aead.aes256Gcm`)        | `Aead.key(algorithm, bytes)`           |
+|  [04]   | Signature            | `Signature` (`ed25519`)          | `Signature.privateKey`, `publicKey`    |
+|  [05]   | Shared secret        | `KeyAgreement` (`x25519`)        | `KeyAgreement.privateKey`, `publicKey` |
+|  [06]   | Key derivation       | `Kdf` (`hkdfSha256`, `argon2id`) | Input bytes                            |
+|  [07]   | Password storage     | `Password.layer({ algorithm })`  | PHC string                             |
+|  [08]   | Random bytes and ids | `SecureRandom`                   | None                                   |
+
+Services have no default layer, `NodeCrypto.layer<Service>` provides one service on Node, and every `layerWebCrypto` except `Digest` and `Kdf` requires `SecureRandom.layerWebCrypto`. A signed request body verifies against a shared secret:
+
+```ts
+const signed = Effect.fn('signed')(function* (secret: Uint8Array, signature: string, body: Uint8Array) {
+    const [mac, key, tag] = yield* Effect.all([Mac.Mac, Mac.key(Mac.hmacSha256, secret), Effect.fromResult(Hex.decode(signature))]);
+    return yield* mac.verify(key, tag, body);
+});
+```
+
+`mac.verify` compares in constant time, and `Mac.timingSafeEqual` compares bytes a caller holds:
+- `Kdf.layerWebCrypto` fails Argon2id with an `Unsupported` reason, `NodeCrypto.layerKdf` supplying it for `Password`
+- `KeyFormat.decodePublic(format, algorithm, data)` reads `spki`, `jwk`, or `pem(spki)`, `decodePrivate` reads `pkcs8`, `pkcs1`, `sec1`, or `jwk`
+- `signer.publicKeyOf(privateKey)` derives the verifying key, and `Signature.privateKey(Signature.ed25519, seed)` takes a raw seed
+- `WebCrypto.layer(crypto)` replaces the `Crypto` object every `layerWebCrypto` reads
+
+## [04]-[TOKENS]
+
+`effect/jose` signs, verifies, and encrypts JSON Web Tokens over the `Signature` service, and a key set a remote publishes verifies tokens it issued:
+
+```ts
+const verified = (token: string, issuer: string, audience: string) => Jwt.verifyWithKeySet(Claims, token, { issuer, audience, algorithms: ['RS256'] });
+
+const Verifier = Layer.mergeAll(Jwks.layerRemote({ url: keys }).pipe(Layer.provide(FetchHttpClient.layer)), Signature.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto)));
+```
+
+`Claims` is a claims schema and `keys` a key set URL. `algorithms` lists every accepted algorithm and takes at least one:
+- `Jwt.sign` and `Jwt.verify` work over one key, and `Jwks.layerLocal(keySet)` holds a fixed set
+- `Jwt.encrypt` and `Jwt.decrypt` handle encrypted tokens, and `Jwt.decodeUnverified` reads claims with no check
+
+## [05]-[NETWORK]
+
+`effect/net` holds address values and name resolution apart from any socket:
+- `NetAddress` parses and formats IP, socket, and Unix path addresses, `IpNetwork` CIDR prefixes, and `Host` an unresolved host and port
+- `AddressResolver` resolves a `Host.HostPort` to every socket address through the `Dns` service
+- `NodeAddressResolver.layer` and `NodeDns.layer` supply both services
