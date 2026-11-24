@@ -52,7 +52,7 @@ Machines, their reinstall, and images their stacks run:
 - `set-hostname` restores a machine's hostname after its tailnet join and resets it with no shutdown, and post-install scripts flush writes first
 - Hostinger VPS use under 60% of its vCPUs earns CPU credits and use above spends them
 - Hostinger limits a machine with no credits to 30% of its vCPUs until a fifth of its balance returns
-- Hostinger shows no credit balance, and a limited machine reports the lost time as steal in `/proc/stat`
+- Hostinger shows no credit balance, and steal in `/proc/stat` counts CPU time the hypervisor gives other machines, so steal shows no credit limit
 - `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine and erases its hostname
 - Reinstalls follow `tscli delete device`, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote` follows
 - Reinstalls of a storage machine follow `node stacks.ts deploy --operation=destroy --stack=<name>`, as its provider cannot refresh a lost store
@@ -61,7 +61,7 @@ Machines, their reinstall, and images their stacks run:
 - Host rows leave table `hosts` after `node stacks.ts deploy --operation=destroy --stack=<name>`, as a removed row leaves its stack unvisited
 - `[bootstrap]` lengthens the Hostinger image's `99lock-timeout`, as a reinstalled machine's runner install meets its first unattended upgrade
 - `[bootstrap]` writes the Hostinger image's `/etc/fstab` whole, as a file entry edits no line of a file mise does not own
-- Root filesystems mount with `nodiscard` and `fstrim.timer` trims weekly, as online discard after mass deletes held the disk busy for hours
+- Root filesystems mount with `nodiscard`, as online discard held the disk busy for hours, and Hostinger's guest agent runs `fstrim` daily beside weekly `fstrim.timer`
 - Reach machines off the tailnet through their provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
 - `[bootstrap.remote]` loads `machine`, and a host row with a role names `machine` and its role file, as `mise bootstrap remote` sends no miserc
 - `mise bootstrap remote` sends folder `.config` and applies its parts as `root@<name>` over Tailscale SSH
@@ -138,8 +138,8 @@ GitHub Actions runners of role `Runner`:
 - Systemd limits of instance `container` reach no job, as its jobs run in containers under Docker's cgroups
 - Runner `<machine>-<label>` installs in folder `actions-runner-<label>`, works in folder `actions-work-<label>`, and holds label `<label>` beside default labels
 - Instances `host` and `graph` run jobs on their machine and `container` in a container, one job of each at once, and `graph` runs job `affected` alone
-- Changes to runner version, label, limits, repository, or tailnet node reinstall a runner after `systemctl revert`
-- Reinstalls replace folder `actions-runner-<label>` alone, keeping checkouts, tools, and caches of the work folder, and a removed runner deletes both
+- Changes to runner version, limits, repository, or tailnet node reinstall a runner after `systemctl revert`
+- Reinstalls replace folder `actions-runner-<label>` alone and keep the work folder's checkouts, tools, and caches, which only a label leaving `instances` deletes
 - Runner installs register through `config.sh --pat`, which takes a registration token from `GITHUB_TOKEN` at each attempt
 - Runner removals run `config.sh remove --pat` with the token of their last install, and a revoked token leaves an offline registration
 - Runners keep tools, ignored files, and each Unreal image between runs, as jobs name an image by tag and `docker image prune` removes untagged ones

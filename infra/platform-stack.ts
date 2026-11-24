@@ -40,7 +40,7 @@ const hosts = {
         tags: ['tag:server'],
         roles: [
             { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(2) },
-            { _tag: 'Runner', instances: { host: { MemoryHigh: '18G', MemoryMax: '20G' }, container: {}, graph: {} } },
+            { _tag: 'Runner', instances: { host: { MemoryMax: '20G' }, container: {}, graph: {} } },
         ],
     },
 } as const satisfies Record.ReadonlyRecord<string, Row>;
@@ -314,10 +314,12 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, engines }: E
                                 { onEmpty: Array.empty, onNonEmpty: (options) => [`systemctl set-property "$(cat .service)" ${options.join(' ')}`] },
                             ),
                         ].join('\n');
+                        const connection = { host: machine.name };
+                        const kept = new remote.Command(`${machine.name}-work-${label}`, { connection, delete: `rm -rf "${work}"` });
                         const instance = new remote.Command(
                             `${machine.name}-runner-${label}`,
-                            { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: `${removed}; rm -rf "${work}"`, stdin: secret(rows.GITHUB_TOKEN), triggers: [tailnet(machine).nodeId] },
-                            { dependsOn: Option.toArray(before), deleteBeforeReplace: true },
+                            { connection, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: secret(rows.GITHUB_TOKEN), triggers: [tailnet(machine).nodeId] },
+                            { dependsOn: [...Option.toArray(before), kept], deleteBeforeReplace: true },
                         );
                         return [Option.some(instance), [label, instance.id] as const];
                     });
