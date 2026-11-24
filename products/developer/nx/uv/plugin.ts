@@ -1,67 +1,58 @@
 import { join, posix } from 'node:path';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, hashArray, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { above, fingerprinted, inferring, manifested, run, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Effect, MutableRef, Option, type Record, Schema } from 'effect';
-import { CONFIGS, Options, PLUGIN, targets, UV } from '#/targets';
+import { AggregateCreateNodesError, type CreateNodes, type ProjectConfiguration } from '@nx/devkit';
+import { combineGlobPatterns, emitPluginWorkerLog, globWithWorkspaceContext } from '@nx/devkit/internal';
+import { fingerprinted, inferring, manifested, run, spawned } from '@rasm/nx-distribution/inference';
+import { Array, Effect, FileSystem, Glob, Option, type Record, Schema, String } from 'effect';
+import which from 'which';
+import { Options, PLUGIN, targets } from '#/targets';
 import { LOCK, located, MANIFEST, Metadata, SCHEMA } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const READ: readonly string[] = [LOCK, MANIFEST, UV.settings, ...UV.pins];
 const FILES = combineGlobPatterns([LOCK, MANIFEST].map((file) => `**/${file}`));
-const FOUND = Array.difference(Array.dedupe([...READ, ...CONFIGS]), [LOCK, MANIFEST]).map((file) => `**/${file}`);
 const OWN = fingerprinted(import.meta.dirname);
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Quoted = Schema.fromJsonString(Schema.String);
+const METADATA = ['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'] as const;
+const LISTED = ['uv', 'workspace', 'list'] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<{ readonly digest: string; readonly reply: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly files: ReadonlySet<string> }, { workspaceRoot }: CreateNodesContext, lock: string) {
-    const token = '{workspaceRoot}';
-    const folder = posix.dirname(lock);
-    const parents = new Set(above(posix.dirname(folder)));
-    const placed = (yield* Schema.encodeEffect(Quoted)(workspaceRoot)).slice(1, -1);
-    const read = [...pass.files].filter((file) => READ.includes(posix.basename(file)) && (folder === '.' || file.startsWith(`${folder}/`) || parents.has(posix.dirname(file))));
-    const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, read)), yield* OWN]);
-    const metadata = yield* Option.match(
-        Option.filter(Option.fromNullishOr(pass.cache.get(lock)), (held) => held.digest === digest),
-        {
-            onSome: (held) => Schema.decodeEffect(Metadata)(held.reply.replaceAll(token, placed)),
-            onNone: Effect.fnUntraced(function* () {
-                const decoded = yield* Effect.flatMap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'], { cwd: join(workspaceRoot, folder) }), Schema.decodeEffect(Metadata));
-                const reply = yield* Schema.encodeEffect(Metadata)(decoded);
-                pass.cache.set(lock, { digest, reply: reply.replaceAll(placed, token) });
-                MutableRef.set(pass.stored, true);
-                return decoded;
+const asked = (cwd: string) =>
+    Effect.matchEffect(spawned(METADATA, { cwd, env: { UV_PROJECT_ENVIRONMENT: posix.join(LOCK, 'environment') } }), {
+        onSuccess: (reply) => Effect.map(Schema.decodeEffect(Metadata)(reply), (metadata) => ({ metadata, refused: Array.empty<string>() })),
+        onFailure: (refusal) =>
+            Effect.mapBoth(Effect.all([spawned(LISTED, { cwd }), spawned([...LISTED, '--paths'], { cwd })], { concurrency: 'unbounded' }), {
+                onFailure: () => refusal,
+                onSuccess: ([names, paths]) => ({
+                    metadata: { workspace: { path: cwd, id: cwd }, members: Array.zipWith(names.split('\n').filter(String.isNonEmpty), paths.split('\n').filter(String.isNonEmpty), (name, path) => ({ name, path, id: name })), resolution: {} },
+                    refused: [refusal.message],
+                }),
             }),
-        },
-    );
-    const { members, failures } = yield* located(workspaceRoot, pass.files, lock, metadata);
-    return yield* Array.match(failures, { onEmpty: () => Effect.succeed(members), onNonEmpty: (errors) => Effect.fail(new Cause.UnknownError(errors, `${lock}: ${errors.map(({ message }) => message).join('; ')}`)) });
+    });
+
+const read = Effect.fnUntraced(function* (workspaceRoot: string, lock: string) {
+    const { metadata, refused } = yield* asked(join(workspaceRoot, posix.dirname(lock)));
+    return { ...(yield* located(workspaceRoot, lock, metadata)), refused };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes = [
     FILES,
-    inferring(Options, run, function* (matched, settings, context) {
-        const found = yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, FOUND));
-        const pass = { cache: new PluginCache<{ readonly digest: string; readonly reply: string }>(join(workspaceDataDirectory, 'uv.hash')), stored: MutableRef.make(false), files: new Set([...matched, ...found]) };
-        const [read, refused] = yield* Effect.ensuring(
-            Effect.partition(
-                matched.filter((file) => posix.basename(file) === LOCK),
-                (lock) => Effect.mapError(inferred(pass, context, lock), (error): [string, Error] => [lock, error]),
-                { concurrency: 'unbounded' },
-            ),
-            Effect.when(
-                Effect.sync(() => pass.cache.writeToDisk()),
-                Effect.sync(() => MutableRef.get(pass.stored)),
-            ),
+    inferring(Options, run, function* (matched, settings, context, cached) {
+        const fs = yield* FileSystem.FileSystem;
+        const found = yield* Effect.forEach(Array.fromNullishOr(yield* Effect.promise(() => which('uv', { nothrow: true }))), (at) => fs.realPath(at));
+        const stats = yield* Effect.forEach(found, (at) => fs.stat(at));
+        const binary = [...found, ...stats.flatMap(({ size, mtime }) => [`${size}`, ...Option.toArray(mtime).map(globalThis.String)])];
+        const pass = yield* cached<Effect.Success<ReturnType<typeof read>>>('uv.hash', yield* OWN, () => Effect.succeed(binary));
+        const [models, refused] = yield* Effect.partition(
+            matched.filter((file) => posix.basename(file) === LOCK),
+            (lock) => Effect.mapError(pass.recall(lock, read(context.workspaceRoot, lock)), (error): [string, Error] => [lock, error]),
+            { concurrency: 'unbounded' },
         );
-        const members = read.flat();
+        const members = models.flatMap((model) => model.members);
+        const patterns = Array.dedupe(members.flatMap(({ checks }) => checks.flatMap((check) => check.patterns)));
+        const listed = yield* Array.match(patterns, { onEmpty: () => Effect.succeed([]), onNonEmpty: (globs) => Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, globs)) });
+        const held = new Set(patterns.filter((pattern) => listed.some((file) => Glob.match(Glob.make(pattern, { dot: true }), file))));
         const roots = new Set(members.map(({ root }) => root));
         const stated = yield* Effect.forEach(members, ({ root }) => manifested(context.workspaceRoot, root), { concurrency: 'unbounded' });
         const results = Array.zipWith(members, stated, (member, manifest): [string, { readonly projects: Record<string, ProjectConfiguration> }] => [
@@ -74,11 +65,15 @@ const createNodes: CreateNodes = [
                         metadata: { technologies: ['python'] },
                         ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } }),
                         implicitDependencies: member.linked.filter((root) => roots.has(root)).map((root) => `directory:${root}`),
-                        targets: targets(member, settings, manifest, context.workspaceRoot),
+                        targets: targets({ ...member, checks: member.checks.filter((check) => !held.isDisjointFrom(new Set(check.patterns))) }, settings, manifest, context.workspaceRoot),
                     },
                 },
             },
         ]);
+        yield* Effect.forEach(
+            models.flatMap(({ lock, refused: refusals }) => refusals.map((refusal) => `${lock} gives uv no workspace metadata, so its members hold no checker, test, or build target until \`uv lock\` rewrites it: ${refusal}`)),
+            (warning) => Effect.sync(() => emitPluginWorkerLog('warn', warning)),
+        );
         return yield* Array.match(refused, { onEmpty: () => Effect.succeed(results), onNonEmpty: (errors) => Effect.fail(new AggregateCreateNodesError(errors, results)) });
     }),
 ];

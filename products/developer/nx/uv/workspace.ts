@@ -1,8 +1,8 @@
 import { join, posix, relative } from 'node:path';
 import { normalizePath } from '@nx/devkit';
-import { globWithWorkspaceContext } from '@nx/devkit/internal';
+import { combineGlobPatterns, globWithWorkspaceContext } from '@nx/devkit/internal';
 import { above } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Effect, Equivalence, FileSystem, Glob, Graph, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
+import { Array, Cause, Effect, Equivalence, FileSystem, Graph, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
 import { CHECKERS, CONFIGS, declared, PIXI } from '#/targets';
 
@@ -16,6 +16,7 @@ const LOCK = 'uv.lock';
 const SCHEMA = 'preview';
 const MANIFEST = 'pyproject.toml';
 const LOADERS: ReadonlySet<string> = new Set(Object.values(CHECKERS).flatMap(({ plugins }) => plugins ?? []));
+const DECODED = combineGlobPatterns(CONFIGS.map((file) => `**/${file}`));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -53,9 +54,10 @@ class Metadata extends Schema.Opaque<Metadata, unknown>()(
 
 const normalized = (name: string) => name.toLowerCase().replaceAll(/[-_.]+/gu, '-');
 
-const located = Effect.fnUntraced(function* (workspaceRoot: string, files: ReadonlySet<string>, lock: string, metadata: Metadata) {
+const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string, metadata: Pick<Metadata, 'workspace' | 'members' | 'resolution'>) {
     const fs = yield* FileSystem.FileSystem;
     const { resolution } = metadata;
+    const files = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [DECODED])));
     const rooted = (at: string) => normalizePath(relative(workspaceRoot, at)) || '.';
     const sited = Record.getSomes(
         Record.map(resolution, ({ source }) =>
@@ -71,7 +73,8 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
         ([, root]) => root,
     );
     const workspace = rooted(metadata.workspace.path);
-    const present = Array.cartesianWith(Array.dedupe([workspace, ...Record.values(sited)].flatMap(above)), CONFIGS, posix.join).filter((at) => files.has(at));
+    const members = metadata.members.map((member) => ({ ...member, root: rooted(member.path) }));
+    const present = Array.cartesianWith(Array.dedupe([workspace, ...members.map(({ root }) => root), ...Record.values(sited)].flatMap(above)), CONFIGS, posix.join).filter((at) => files.has(at));
     const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [at, posix.extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
     const documented = new Map(read.map(([at, parsed]) => [at, Result.getOrElse(parsed, Record.empty)] as const));
     const stated = (root: string) => documented.get(posix.join(root, MANIFEST));
@@ -89,7 +92,6 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
             (resolution[id]?.dependencies ?? []).some(distributed(name));
     const declaring = (id: string) => Option.flatMap(Record.get(sited, id), (root) => Option.map(Schema.decodeUnknownOption(Declared)(stated(root)), ({ project }) => project));
     const loaded = (group: string | undefined) => (id: string) => Option.match(declaring(id), { onNone: () => true, onSome: (project) => Record.isEmptyRecord(project['entry-points']) || Record.keys(project['entry-points']).some((kind) => kind === group || !LOADERS.has(kind)) });
-    const members = metadata.members.map((member) => ({ ...member, root: rooted(member.path) }));
     const packages = new Set(
         yield* Effect.filter(
             members.map(({ root }) => root),
@@ -148,21 +150,11 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
             }),
         };
     });
-    const patterns = Array.dedupe(shaped.flatMap(({ checks }) => checks.flatMap((check) => check.patterns)));
-    const listed = yield* Array.match(patterns, {
-        onEmpty: () => Effect.succeed([]),
-        onNonEmpty: (globs) => Effect.promise(() => globWithWorkspaceContext(workspaceRoot, globs)),
+    const failures = Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML or INI`)));
+    return yield* Array.match(failures, {
+        onEmpty: () => Effect.succeed({ lock, sources: [lock, DECODED, ...members.map(({ root }) => posix.join(root, '__init__.py'))], members: shaped }),
+        onNonEmpty: (errors) => Effect.fail(new Cause.UnknownError(errors, `${lock}: ${errors.map(({ message }) => message).join('; ')}`)),
     });
-    const matched = new Set(
-        patterns.filter((pattern) => {
-            const glob = Glob.make(pattern, { dot: true });
-            return listed.some((file) => Glob.match(glob, file));
-        }),
-    );
-    return {
-        failures: Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML or INI`))),
-        members: shaped.map((member) => ({ ...member, checks: member.checks.filter((check) => !matched.isDisjointFrom(new Set(check.patterns))) })),
-    };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

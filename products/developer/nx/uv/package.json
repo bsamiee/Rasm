@@ -39,10 +39,12 @@
         "@nx/devkit": "catalog:",
         "@rasm/nx-distribution": "workspace:*",
         "@renovatebot/pep440": "catalog:",
-        "effect": "catalog:"
+        "effect": "catalog:",
+        "which": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",
+        "@types/which": "catalog:",
         "nx": "catalog:"
     },
     "peerDependencies": {
