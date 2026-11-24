@@ -170,7 +170,7 @@ Roots split, nest, or hold more where a host or tool decides:
 - Folder `Directory.Build.props` files name a host, and conditional `Update` rows of `Directory.Packages.props` read its runtime line
 - .NET runs but Rhino suites build Release unless they name `debug`, which reaches references and Yak packages, and assemblies embed their PDB
 - `.config/licenses/sixlabors.lic` signs `Rasm.Imaging`, as ImageSharp fails a Release build of any assembly referencing it unsigned, and other projects reach ImageSharp through `Rasm.Imaging`
-- That licence expires 2028-01-15, and its renewal application at `licensing.sixlabors.com` names `Rasm.Imaging` alone in the 90 days before
+- `sixlabors.lic` expires 2028-01-15, and its renewal application at `licensing.sixlabors.com` names `Rasm.Imaging` alone in the 90 days before
 - Swift modules, app code included, are root `Package.swift` targets, and Xcode app targets hold bundle, icon, and signing over their app module
 - Xcode app projects build through root `Rasm.xcworkspace`, as projects built apart each clone every package and compile it again
 - Root `Package.swift` builds and tests in that workspace through shared scheme `Rasm-Package`, which lists every target, in place of SwiftPM

@@ -24,7 +24,7 @@ Builds derive every host form from masters into build output, and no painted or 
 - `@rasm/mark` paints a `Tone` into a wrapper SVG placing a canvas at a whole pixel scale or artwork inside a padding for `resvg`
 - Tones come from a host library (`HOSTS` of `@rasm/uxp`, `Rasm.Rhino.props`), a web app's theme, or a product's own value (Chrome `config.brand`)
 - `@rasm/hosting/head` rasterizes web favicons, touch icons, and PWA icons through `@vite-pwa/assets-generator`
-- ImageMagick packs PNG frames into an ICO and draws nothing
+- `svg_to_ico` renders a themed SVG through resvg into one PNG frame per ICO size, from a release archive on Windows and its crate elsewhere
 - Hosts theming at run time (Blender preview tint, Apple template rendering) read an untinted master
 
 Each host form, its build owner, and files it writes:
@@ -71,7 +71,7 @@ Rhino plug-ins draw on transparency in Rhino 9's toolbar language, Open Color gr
 - Each master paints into a `<stem>.svg` and `<stem>_darkmode.svg` resource, the pair Rhino's asset system and `.rui` writer read
 - `IconResource.PlugIn` reads the `mark.svg` pair for license, splash, and toolbar art
 - Forms that cannot switch theme paint the mark in `RhinoPlugInIconColor`, a mid-tone clearing 3:1 on Settings backgrounds `#ffffff` and `#212121`
-- Plug-in icons are `PlugIn.ico`, the full-frame mid-tone mark at 16, 24, 32, 48, and 256 px, as RhinoCommon reads `DescriptionType.Icon` as ICO
+- Plug-in icons are `PlugIn.ico`, a full-frame mid-tone mark as one PNG frame each at 16, 24, 32, 48, and 256 px, each size RhinoCommon snaps a `DescriptionType.Icon` read to
 - Yak icons are a 64 px `icon.png` of the mid-tone mark, as Package Manager draws one PNG on both themes
 - Plug-ins declaring toolbars write `<TargetName>.rui` beside the `.rhp`, every toolbar inside a toolbar group so it shows on first load
 - Library buttons read Rhino's stock glyph through `ResourceIds` where one names the action, at rest, as `_hot` marks hover and `_gray` disabled
