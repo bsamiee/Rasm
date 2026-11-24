@@ -146,7 +146,9 @@ jobs:
             - *checkout
             - *tools
             - run: nx affected --targets=check,test,build,pack --exclude='*,!tag:host:browser'
-              env: *uncached
+              env:
+                  NX_BATCH_MODE: 'false'
+                  NX_SKIP_NX_CACHE: ${{ contains(inputs.uncached, 'linux') || inputs.uncached == 'all' }}
             - *reports
 
     macos:
