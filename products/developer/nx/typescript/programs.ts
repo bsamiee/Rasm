@@ -3,8 +3,7 @@ import { basename, dirname, extname, join, posix, relative, resolve } from 'node
 import { pathToFileURL } from 'node:url';
 import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, PluginCache, type ProjectRootMappings, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { EXEC, type Stated, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { type Anchor, EXEC, EXECUTORS, type Stated, tokened, type Verbs, within } from '@rasm/nx';
 import type { API, ParsedCommandLine } from '@typescript/native/sync';
 import { Array, Cause, Effect, FileSystem, Function, Option, Result, UndefinedOr } from 'effect';
 import { MANIFEST, projected } from '#/workspace';
@@ -150,7 +149,7 @@ const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler:
 });
 
 const compiled =
-    (root: string, stated: Stated, packages: readonly string[], linted: boolean, synced: boolean, manager: PackageManager, workspaceRoot: string) =>
+    (root: string, stated: Stated, packages: readonly string[], linted: boolean, synced: boolean, manager: PackageManager, anchor: Anchor) =>
     ({ commands, configs, outputs, informed, sources, ignored }: Program): Option.Option<ProjectConfiguration> => {
         const [token, unlisted] = [tokened(root), new Set(ignored)];
         const tsc = {
@@ -163,7 +162,7 @@ const compiled =
         } satisfies TargetConfiguration;
         const cleaned = (removed: string) => ({
             tsc: {
-                executor: `${distribution.name}:clean`,
+                executor: EXECUTORS.clean,
                 options: { targets: [removed], commands: configs.map((config) => ['tsc', '--build', '--clean', config]), cwd: root },
                 inputs: ['default', '^default', { externalDependencies: [...packages] }],
                 metadata: { description: `Removes the outputs ${removed} declare and each program output with tsc --build --clean`, help: { command: `${EXEC[manager]} tsc --build --help`, example: { args: ['--dry'] } } },
@@ -193,7 +192,7 @@ const compiled =
                 clean: cleaned('build--tsc'),
             }),
         });
-        return Option.as(Option.liftPredicate(commands, Array.isReadonlyArrayNonEmpty), projected(root, 'typescript', verbs, stated, workspaceRoot));
+        return Option.as(Option.liftPredicate(commands, Array.isReadonlyArrayNonEmpty), projected(root, 'typescript', verbs, stated, anchor));
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

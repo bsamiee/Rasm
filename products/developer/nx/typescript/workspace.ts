@@ -2,10 +2,9 @@ import { createRequire, findPackageJSON } from 'node:module';
 import { dirname, join, posix, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
-import { type CreateNodesContext, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { getCatalogManager, getLockFileName, hashFile, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, EXEC, manifested, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { type Anchor, aggregated, EXEC, EXECUTORS, manifested, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx';
 import { Array, Cause, Effect, FileSystem, Option, Record, Schema, UndefinedOr } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -46,13 +45,13 @@ const loaded = Effect.fnUntraced(function* (workspaceRoot: string, root: string)
     return [root, yield* Effect.result(Effect.all({ manifest, stated: manifested(workspaceRoot, root) }, { concurrency: 'unbounded' }))] as const;
 });
 
-const projected = (root: string, technology: string, verbs: Verbs, stated: Stated, workspaceRoot: string, extra: Partial<ProjectConfiguration> = {}) => ({ root, metadata: { technologies: [technology] }, ...extra, targets: aggregated(verbs, stated, technology, workspaceRoot) }) satisfies ProjectConfiguration;
+const projected = (root: string, technology: string, verbs: Verbs, stated: Stated, anchor: Anchor, extra: Partial<ProjectConfiguration> = {}) => ({ root, metadata: { technologies: [technology] }, ...extra, targets: aggregated(verbs, stated, technology, anchor) }) satisfies ProjectConfiguration;
 
 const installed = (name: string, from: string) => UndefinedOr.liftThrowable(findPackageJSON)(name, pathToFileURL(from)) !== undefined;
 
-const tarball = (manager: PackageManager, outputPath: string | undefined, { manifest: { version, os }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }, root: string, released: readonly string[], workspaceRoot: string) => {
+const tarball = (manager: PackageManager, outputPath: string | undefined, { manifest: { version, os }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }, root: string, released: readonly string[], anchor: Anchor) => {
     const { argv, to } = MANAGERS[manager];
-    const catalogs = getCatalogManager(workspaceRoot)?.getCatalogDefinitionFilePaths() ?? [];
+    const catalogs = getCatalogManager(anchor.workspaceRoot)?.getCatalogDefinitionFilePaths() ?? [];
     const packed = `pack--${manager}`;
     const verbs: Verbs = {
         pack: {
@@ -75,10 +74,10 @@ const tarball = (manager: PackageManager, outputPath: string | undefined, { mani
                 metadata: { description: `Packs the package into one tarball named for it with ${argv.join(' ')}`, help: { command: `${argv.join(' ')} --help`, example: { args: ['--json'] } } },
             },
         },
-        clean: { [manager]: { executor: `${distribution.name}:clean`, options: { targets: [packed] }, inputs: UNPACKAGED, metadata: { description: `Removes the outputs ${packed} declare`, help: { command: `${EXEC[manager]} nx run --help`, example: { options: { targets: [packed] } } } } } },
+        clean: { [manager]: { executor: EXECUTORS.clean, options: { targets: [packed] }, inputs: UNPACKAGED, metadata: { description: `Removes the outputs ${packed} declare`, help: { command: `${EXEC[manager]} nx run --help`, example: { options: { targets: [packed] } } } } } },
         attach: {
             gh: {
-                executor: `${distribution.name}:attach`,
+                executor: EXECUTORS.attach,
                 dependsOn: [packed],
                 inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
                 metadata: {
@@ -91,7 +90,7 @@ const tarball = (manager: PackageManager, outputPath: string | undefined, { mani
     const systems = os.filter((system) => !system.startsWith('!')).map((system) => `os:${system}`);
     return UndefinedOr.match(version, {
         onUndefined: () => Option.map(Option.liftPredicate(systems, Array.isReadonlyArrayNonEmpty), (tags): ProjectConfiguration => ({ root, tags: [...tags] })),
-        onDefined: () => Option.some(projected(root, 'npm', verbs, stated, workspaceRoot, { tags: [...released, ...systems], release: {} })),
+        onDefined: () => Option.some(projected(root, 'npm', verbs, stated, anchor, { tags: [...released, ...systems], release: {} })),
     });
 };
 
@@ -109,7 +108,8 @@ const plugins = Effect.fnUntraced(function* (row: string, manifest: string) {
     });
 });
 
-const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: PackageManager, knipConfig: string | undefined, row: string, { manifest: { jscpd }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }) {
+const workspace = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageManager, knipConfig: string | undefined, row: string, { manifest: { jscpd }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }) {
+    const { workspaceRoot } = anchor;
     const { prune } = MANAGERS[manager];
     const lock = getLockFileName(manager);
     const knip = ['knip', ...(UndefinedOr.map(knipConfig, (at) => ['--config', at]) ?? [])].map(quoteShellArg).join(' ');
@@ -148,7 +148,7 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
             },
             clean: {
                 [manager]: {
-                    executor: `${distribution.name}:clean`,
+                    executor: EXECUTORS.clean,
                     configurations: { cache: { commands: [[manager, ...prune]] } },
                     inputs: [{ externalDependencies: [] }],
                     metadata: { description: `Under configuration cache, removes the packages no project of the store or cache of ${manager} references with ${manager} ${prune.join(' ')}`, help: { command: `${manager} ${prune.join(' ')} --help`, example: { args: [] } } },
@@ -157,22 +157,22 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
             check: Record.map(checks, (target, tool): TargetConfiguration => ({ options: { cwd: '.' }, cache: true, outputs: [], ...target, metadata: { technologies: [tool], ...target.metadata } })),
         },
         stated,
-        workspaceRoot,
+        anchor,
     );
 });
 
-const worker = Effect.fnUntraced(function* (context: CreateNodesContext, manager: PackageManager, stated: Stated, file: string, cache: PluginCache<{ readonly sources: readonly string[] } & { readonly stamp: string }>) {
+const worker = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageManager, stated: Stated, file: string, cache: PluginCache<{ readonly sources: readonly string[] } & { readonly stamp: string }>) {
     const fs = yield* FileSystem.FileSystem;
-    const [root, at, lock] = [dirname(file), join(context.workspaceRoot, file), getLockFileName(manager)];
+    const [root, at, lock] = [dirname(file), join(anchor.workspaceRoot, file), getLockFileName(manager)];
     const unresolved = (cause: unknown) => new Cause.UnknownError(cause, `${file} resolves no @cloudflare/config through cf`);
     const read = Effect.gen(function* () {
         const configured = yield* Effect.try({ try: () => findPackageJSON('@cloudflare/config', pathToFileURL(createRequire(at).resolve('cf/package.json'))), catch: unresolved }).pipe(Effect.flatMap(Effect.fromNullishOr));
         const { exports } = yield* fs.readFileString(configured).pipe(Effect.flatMap(Schema.decodeEffect(Exported)));
         const cloudflare = yield* Effect.tryPromise({ try: (): Promise<{ readonly loadConfig: typeof loadConfig }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href), catch: unresolved });
         const { dependencies } = yield* Effect.tryPromise({ try: () => cloudflare.loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
-        return { sources: [lock, ...Array.dedupe([file, ...dependencies.values().map((dependency) => normalizePath(relative(context.workspaceRoot, dependency)))]).filter(within)] };
+        return { sources: [lock, ...Array.dedupe([file, ...dependencies.values().map((dependency) => normalizePath(relative(anchor.workspaceRoot, dependency)))]).filter(within)] };
     });
-    const { sources } = yield* recalled(cache, file, stamped(context.workspaceRoot), read, () => cache.writeToDisk());
+    const { sources } = yield* recalled(cache, file, stamped(anchor.workspaceRoot), read, () => cache.writeToDisk());
     const typed = installed('@cloudflare/workers-types', at);
     return projected(
         root,
@@ -191,10 +191,10 @@ const worker = Effect.fnUntraced(function* (context: CreateNodesContext, manager
                     },
                 },
             },
-            clean: { cf: { executor: `${distribution.name}:clean`, options: { targets: ['codegen--cf'] }, inputs: UNPACKAGED, metadata: { description: 'Removes the outputs codegen--cf declare', help: { command: `${EXEC[manager]} nx run --help`, example: { options: { targets: ['codegen--cf'] } } } } } },
+            clean: { cf: { executor: EXECUTORS.clean, options: { targets: ['codegen--cf'] }, inputs: UNPACKAGED, metadata: { description: 'Removes the outputs codegen--cf declare', help: { command: `${EXEC[manager]} nx run --help`, example: { options: { targets: ['codegen--cf'] } } } } } },
         },
         stated,
-        context.workspaceRoot,
+        anchor,
     );
 });
 

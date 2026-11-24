@@ -3,7 +3,7 @@ import { join, posix, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { hashArray, normalizePath, type PackageManager, type TargetConfiguration } from '@nx/devkit';
 import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, hashWithWorkspaceContext, isRelativePath, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { above, EXEC, packaged, tokened } from '@rasm/nx-distribution/inference';
+import { above, EXEC, packaged, tokened } from '@rasm/nx';
 import { Array, Cause, Effect, Filter, Option, Record, Result, Schema, Stream } from 'effect';
 import type { ESLint } from 'eslint';
 import { connected } from '#/programs';

@@ -1,7 +1,7 @@
 import { basename, dirname, join, posix } from 'node:path';
 import { type CreateNodes, createNodesFromFiles, detectPackageManager, hashArray, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { hashObject, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { anchored, fingerprinted, Folder, inferring, run, tagged, tokened } from '@rasm/nx-distribution/inference';
+import { anchored, fingerprinted, inferring, run, tagged, tokened } from '@rasm/nx';
 import { Array, Combiner, Effect, FileSystem, Match, Option, Order, Predicate, Record, type Result, Schema } from 'effect';
 import { linted } from '#/eslint';
 import { compiled, CONFIG, programmed } from '#/programs';
@@ -14,9 +14,9 @@ const PROJECT = 'project.json';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({
-    outputPath: Folder,
+    outputPath: Schema.optionalKey(Schema.String),
     compilerPackages: Schema.NonEmptyArray(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['typescript'] as const))),
-    knipConfig: Folder,
+    knipConfig: Schema.optionalKey(Schema.String),
 }).annotate({
     description:
         'outputPath: workspace folder the package manager packs each tarball to, {projectName} naming the project, absent packs into the package folder. compilerPackages: npm packages every tsc target hashes as external dependencies, the first the native TypeScript package whose tsc runs and whose ./sync API reads each tsconfig.json. knipConfig: workspace file knip reads its configuration from through --config, absent leaving knip to find its own',
@@ -30,8 +30,8 @@ const looked = <A, E>(table: ReadonlyMap<string, Result.Result<A, E>>, at: strin
 
 const nodes = inferring(Options, run, function* (files, settings, context) {
     const { workspaceRoot } = context;
-    const listed = new Set(files);
-    const held = new Set(Array.dedupe(files.map(dirname)).filter(Predicate.and((root: string) => root !== '.', anchored(workspaceRoot))));
+    const [listed, anchor] = [new Set(files), anchored(workspaceRoot)];
+    const held = new Set(Array.dedupe(files.map(dirname)).filter(Predicate.and((root: string) => root !== '.', anchor.holds)));
     const nested = files.filter((file) => file === MANIFEST || (file === CONFIG && listed.has(MANIFEST)) || held.has(dirname(file)));
     const anchors = new Set(Object.values(Array.groupBy(nested, dirname)).map(Array.min(Order.String)));
     const manager = detectPackageManager(workspaceRoot);
@@ -50,14 +50,14 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
         const described = yield* looked(manifests, root);
         const linting = Option.map(
             Option.filter(Option.fromUndefinedOr(lints.get(root)), () => anchors.has(file) || root === '.'),
-            ({ target, typed }) => projected(root, 'eslint', { check: { eslint: { ...target, inputs: [...(target.inputs ?? []), ...(typed ? chained(root) : [])] } } }, described.stated, workspaceRoot),
+            ({ target, typed }) => projected(root, 'eslint', { check: { eslint: { ...target, inputs: [...(target.inputs ?? []), ...(typed ? chained(root) : [])] } } }, described.stated, anchor),
         );
         const branch = yield* Match.value({ file, name: basename(file) }).pipe(
-            Match.when({ file: MANIFEST }, () => Effect.asSome(workspace(workspaceRoot, manager, settings.knipConfig, row, described))),
+            Match.when({ file: MANIFEST }, () => Effect.asSome(workspace(anchor, manager, settings.knipConfig, row, described))),
             Match.when({ name: PROJECT }, () => Effect.succeedNone),
-            Match.when({ name: CONFIG }, () => Effect.map(looked(programs, file), compiled(root, described.stated, settings.compilerPackages, described.manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, manager, workspaceRoot))),
-            Match.when({ name: WORKER }, () => Effect.when(worker(context, manager, described.stated, file, configured), Effect.succeed(installed('cf', join(workspaceRoot, file))))),
-            Match.orElse(() => Effect.succeed(tarball(manager, settings.outputPath, described, root, tagged(context.nxJsonConfiguration), workspaceRoot))),
+            Match.when({ name: CONFIG }, () => Effect.map(looked(programs, file), compiled(root, described.stated, settings.compilerPackages, described.manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, manager, anchor))),
+            Match.when({ name: WORKER }, () => Effect.when(worker(anchor, manager, described.stated, file, configured), Effect.succeed(installed('cf', join(workspaceRoot, file))))),
+            Match.orElse(() => Effect.succeed(tarball(manager, settings.outputPath, described, root, tagged(context.nxJsonConfiguration), anchor))),
         );
         return { projects: Record.getSomes({ [root]: Option.makeReducer(Combiner.make<ProjectConfiguration>((prior, next) => ({ ...prior, ...next, targets: { ...prior.targets, ...next.targets } }))).combine(linting, branch) }) };
     });
