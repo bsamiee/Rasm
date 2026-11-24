@@ -124,24 +124,35 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         ...unsupported.map((file): [string, Error] => [file, new Cause.UnknownError(file, `${file} has no reader, and no project.xcproj sits beside it`)]),
     ];
     yield* Effect.forEach(unread, (warning) => Effect.sync(() => emitPluginWorkerLog('warn', warning)));
-    const packaged = (at: string) => Option.map(local(at), ({ manifest }) => manifest.name);
     const nested = packages.flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: `${join(owner.root, module.path)}/` }))).flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${dirname(other)}/`.startsWith(folder)).map((inner) => ({ owner, inner })));
     yield* Effect.forEach(nested, ({ owner, inner }) => Effect.sync(() => emitPluginWorkerLog('warn', `${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`)));
     const linkedSources = (container: Analyzed['containers'][number]) => Array.getSomes(container.projects.map((at) => Option.map(local(at), (swiftPackage) => sources(swiftPackage, described, Record.get(container.products, at))))).flat();
-    const xcode = analyzed.containers.map((container) => ({
-        schemes: container.schemes,
-        part: xcodeParts(
-            options,
-            marker(container.path),
-            container,
-            Array.dedupe([...[...container.inputs, ...Option.toArray(Option.map(xcconfig, (at) => relative(workspaceRoot, at)))].flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]),
-            built(container.path),
-            packaged,
-            relative(workspaceRoot, workspaceDataDirectory),
+    const titled = (container: Analyzed['containers'][number]) => {
+        const packaging = extname(container.path) === '.xcworkspace' ? Array.dedupe(container.schemes.filter((scheme) => scheme.containers.some((at) => Option.isSome(local(at)))).map(Struct.get('name'))) : [];
+        return Option.getOrElse(Array.head(packaging.length === 1 ? packaging : []), () => basename(container.path, extname(container.path)));
+    };
+    const owning = new Map(analyzed.containers.flatMap((container) => Array.getSomes(container.schemes.flatMap(Struct.get('containers')).map(local)).map((swiftPackage) => [swiftPackage, container] as const)));
+    const packaged = (at: string) => Option.map(local(at), (swiftPackage) => Option.match(Option.fromUndefinedOr(owning.get(swiftPackage)), { onNone: () => swiftPackage.manifest.name, onSome: titled }));
+    const xcode = new Map(
+        analyzed.containers.map(
+            (container) =>
+                [
+                    container,
+                    xcodeParts(
+                        options,
+                        marker(container.path),
+                        container,
+                        titled(container),
+                        Array.dedupe([...[...container.inputs, ...Option.toArray(Option.map(xcconfig, (at) => relative(workspaceRoot, at)))].flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]),
+                        built(container.path),
+                        packaged,
+                        relative(workspaceRoot, workspaceDataDirectory),
+                    ),
+                ] as const,
         ),
-    }));
-    const covered = new Map(xcode.flatMap(({ schemes, part }) => Array.getSomes(schemes.flatMap(Struct.get('containers')).map(local)).map((swiftPackage) => [swiftPackage, part] as const)));
-    const parts: readonly Part[] = [...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described, Option.fromUndefinedOr(covered.get(swiftPackage)))), ...xcode.map(Struct.get('part'))];
+    );
+    const covered = new Map(owning.entries().flatMap(([swiftPackage, container]) => Option.toArray(Option.map(Option.fromUndefinedOr(xcode.get(container)), (part) => [swiftPackage, part] as const))));
+    const parts: readonly Part[] = [...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described, covered)), ...xcode.values()];
     const [settled, conflicts] = Record.partition(Array.groupBy(parts, Struct.get('root')), (group) => (new Set(group.map(Struct.get('name'))).size > 1 ? Result.fail(group) : Result.succeed(group)));
     const merged = Record.collect(settled, (root, group) => {
         const { name, file, technologies } = Array.headNonEmpty(group);
@@ -160,8 +171,8 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     return {
         graph: {
             projects: merged,
-            edges: Array.getSomes(packages.flatMap((swiftPackage) => packageEdges(swiftPackage, described)).map((edge) => Option.map(Option.all({ source: Option.fromUndefinedOr(roots.get(edge.source)), target: Option.fromUndefinedOr(roots.get(edge.target)) }), (at) => ({ ...edge, ...at })))),
-            buildFiles: Record.fromIterableWith(analyzed.containers, (container) => [dirname(container.path), container.buildFiles]),
+            edges: Array.getSomes(packages.flatMap((swiftPackage) => packageEdges(swiftPackage, described, covered)).map((edge) => Option.map(Option.all({ source: Option.fromUndefinedOr(roots.get(edge.source)), target: Option.fromUndefinedOr(roots.get(edge.target)) }), (at) => ({ ...edge, ...at })))),
+            buildFiles: Record.fromIterableWith(xcode, ([container, part]) => [part.root, container.buildFiles]),
         } satisfies Graph,
         failures: [...broken, ...Record.collect(conflicts, (root, group): [string, Error] => [Array.headNonEmpty(group).file, new Cause.UnknownError(group, `${root} holds projects named ${group.map((part) => part.name).join(' and ')}`)])],
         partial: unread.length > 0,

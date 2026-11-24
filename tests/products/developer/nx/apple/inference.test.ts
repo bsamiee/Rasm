@@ -116,11 +116,11 @@ describe('SwiftPM packages as swift package describe reports them', { timeout: 2
         expect({ inferred: 'Remote' in graph.nodes, fetched }).toStrictEqual({ inferred: true, fetched: [] });
     });
 
-    it('infers one project per package and per module other than a test, held by a product or not, at the module folder', ({ fixture: { graph } }) => {
+    it('infers one project per package, the scheme building it naming and holding it, and one per module other than a test, held by a product or not, at the module folder', ({ fixture: { graph } }) => {
         expect(Record.collect(graph.nodes, (name, { data: { root } }) => `${name}@${root}`).toSorted()).toStrictEqual([
             'Consumer@packages/consumer',
             'Core@libs/Core',
-            'Fixture@.',
+            'Fixture-Package@Fixture.xcworkspace',
             'Kit@packages/kit/Sources/Kit',
             'KitPackage@packages/kit',
             'Loose@libs/Loose',
@@ -196,8 +196,8 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
         const targets = [
             ['Viewer', 'build--xcodebuild'],
             ['Viewer', 'install--xcodebuild'],
-            ['Fixture', 'build--xcodebuild'],
-            ['Fixture', 'test--xcodebuild'],
+            ['Fixture-Package', 'build--xcodebuild'],
+            ['Fixture-Package', 'test--xcodebuild'],
         ] as const;
 
         expect(targets.map(([project, target]) => graph.nodes[project]?.data.targets?.[target]?.inputs?.includes(`{workspaceRoot}/${SHARED}`))).toStrictEqual([true, true, true, true]);
@@ -209,9 +209,9 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
             ['Viewer', 'install--xcodebuild'],
             ['Viewer', 'pack--ditto'],
             ['Viewer', 'clean--xcodebuild'],
-            ['Fixture', 'build--xcodebuild'],
-            ['Fixture', 'test--xcodebuild'],
-            ['Fixture', 'clean--xcodebuild'],
+            ['Fixture-Package', 'build--xcodebuild'],
+            ['Fixture-Package', 'test--xcodebuild'],
+            ['Fixture-Package', 'clean--xcodebuild'],
             ['Signer', 'build--swift-build'],
             ['Signer', 'pack--ditto'],
             ['Viewer', 'build--swift-build'],
@@ -251,23 +251,52 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
 describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
     it('builds and tests the package through its workspace scheme in place of swift build and swift test, each module running its build and check, the test where a test target reaches it, and the pack after its build, hashing the Package.resolved the workspace one links to', async ({ fixture: { graph } }) => {
         const targets = ['build--xcodebuild', 'check--xcodebuild', 'test--xcodebuild'] as const;
-        const [build, test] = await Promise.all([targetOptions(Run, graph, 'Fixture', 'build--xcodebuild'), targetOptions(Run, graph, 'Fixture', 'test--xcodebuild')]);
+        const [build, test] = await Promise.all([targetOptions(Run, graph, 'Fixture-Package', 'build--xcodebuild'), targetOptions(Run, graph, 'Fixture-Package', 'test--xcodebuild')]);
         const forwards = [...Array.cartesian(MODULES, ['build--xcodebuild', 'check--xcodebuild'] as const), ['Core', 'test--xcodebuild'] as const];
 
         expect({
-            compiled: Array.intersection(['build--swift-build', 'check--swift-build', 'test--swift', ...targets], Record.keys(graph.nodes['Fixture']?.data.targets ?? {})),
+            compiled: Array.intersection(['build--swift-build', 'check--swift-build', 'test--swift', ...targets], Record.keys(graph.nodes['Fixture-Package']?.data.targets ?? {})),
             runs: [build.runs, test.runs],
             forwarded: forwards.map(([module, target]) => graph.nodes[module]?.data.targets?.[target]?.dependsOn),
             tested: MODULES.filter((module) => 'test--xcodebuild' in (graph.nodes[module]?.data.targets ?? {})),
             packed: graph.nodes['Tool']?.data.targets?.['pack--ditto']?.dependsOn,
-            locked: targets.map((target) => graph.nodes['Fixture']?.data.targets?.[target]?.inputs?.includes('{workspaceRoot}/Package.resolved')),
+            locked: targets.map((target) => graph.nodes['Fixture-Package']?.data.targets?.[target]?.inputs?.includes('{workspaceRoot}/Package.resolved')),
         }).toStrictEqual({
             compiled: targets,
             runs: [invoked('build'), invoked('test')],
-            forwarded: forwards.map(([, target]) => [{ projects: ['Fixture'], target }]),
+            forwarded: forwards.map(([, target]) => [{ projects: ['Fixture-Package'], target }]),
             tested: ['Core'],
             packed: ['build--xcodebuild'],
             locked: [true, true, true],
+        });
+    });
+
+    it('places the package in one project named after the scheme building it at the workspace folder, holding its own targets, the edges of its test targets, and its manifest and pins as inputs, so no project sits at the workspace root', ({ fixture: { graph } }) => {
+        const scheme = graph.nodes['Fixture-Package']?.data;
+
+        expect({
+            root: scheme?.root,
+            tags: scheme?.tags,
+            owned: Array.intersection(['upgrade--swift-package', 'clean--swift-package', 'upgrade--xcodebuild', 'clean--xcodebuild'], Record.keys(scheme?.targets ?? {})),
+            edges: graph.dependencies['Fixture-Package'],
+            manifest: (['build--xcodebuild', 'check--xcodebuild', 'test--xcodebuild'] as const).map((target) => Array.intersection(['{workspaceRoot}/Package.swift', '{workspaceRoot}/Package.resolved'], (scheme?.targets?.[target]?.inputs ?? []).filter(Predicate.isString))),
+            rooted: Record.keys(Record.filter(graph.nodes, ({ data: { root } }) => root === '.')),
+        }).toStrictEqual({
+            root: 'Fixture.xcworkspace',
+            tags: ['os:darwin'],
+            owned: ['upgrade--swift-package', 'clean--swift-package', 'upgrade--xcodebuild', 'clean--xcodebuild'],
+            edges: [{ source: 'Fixture-Package', target: 'Core', type: 'implicit' }],
+            manifest: Array.makeBy(3, () => ['{workspaceRoot}/Package.swift', '{workspaceRoot}/Package.resolved']),
+            rooted: [],
+        });
+    });
+
+    it('upgrades each local package an Xcode container resolves against through the project the scheme building that package names', ({ fixture: { graph } }) => {
+        const upgrades = Record.collect(graph.nodes, (name, { data }) => ({ name, dependsOn: data.targets?.['upgrade--xcodebuild']?.dependsOn ?? [] })).filter(({ dependsOn }) => dependsOn.length > 0);
+
+        expect(Record.fromIterableWith(upgrades, ({ name, dependsOn }) => [name, dependsOn])).toStrictEqual({
+            'Fixture-Package': [{ projects: ['Fixture-Package'], target: 'upgrade--swift-package', params: 'forward' }],
+            Viewer: [{ projects: ['Fixture-Package'], target: 'upgrade--swift-package', params: 'forward' }],
         });
     });
 
@@ -287,7 +316,7 @@ describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
             vi.unstubAllEnvs();
         });
 
-        const { success } = await execute(await targetOptions(Run, graph, 'Fixture', 'test--xcodebuild'), workspace.context(graph, 'Fixture', 'test--xcodebuild'));
+        const { success } = await execute(await targetOptions(Run, graph, 'Fixture-Package', 'test--xcodebuild'), workspace.context(graph, 'Fixture-Package', 'test--xcodebuild'));
 
         expect(success).toBe(true);
     });

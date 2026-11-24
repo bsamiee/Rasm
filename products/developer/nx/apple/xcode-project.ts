@@ -31,14 +31,15 @@ class Analyzed extends Schema.Opaque<Analyzed, unknown>()(Schema.fromJsonString(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const xcodeParts = (options: Options, file: string, container: Analyzed['containers'][number], inputs: readonly string[], built: string, packaged: (at: string) => Option.Option<string>, data: string): Part => {
+const xcodeParts = (options: Options, file: string, container: Analyzed['containers'][number], name: string, inputs: readonly string[], built: string, packaged: (at: string) => Option.Option<string>, data: string): Part => {
     const workspace = extname(built) === '.xcworkspace';
     const lock = join(built, workspace ? 'xcshareddata/swiftpm/Package.resolved' : 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved');
     const flags = [workspace ? '-workspace' : '-project', built, '-skipMacroValidation', '-skipPackagePluginValidation'];
-    const name = basename(container.path, extname(container.path));
     const cloned = join(data, 'xcode-packages', container.path);
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0);
+    const listing = extname(container.path) === '.xcworkspace';
+    const root = listing ? container.path : dirname(container.path);
     const locals = Array.dedupe(Array.getSomes(container.projects.map(packaged)));
     const seed = Array.head(Array.getSomes(container.projects.map((at) => Option.as(packaged(at), join(at, RESOLVED)))));
     const archives = Array.getSomes(schemes.map(({ name: scheme, archive }) => Option.map(Option.fromUndefinedOr(archive), (held) => ({ scheme, ...held }))));
@@ -47,9 +48,8 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
             Option.map(Option.fromUndefinedOr(options.outputPath), (at) => ({ folder: join(at, scheme), archive: join(at, scheme, `${scheme}.xcarchive`), run: invoke('archive', scheme, ['-archivePath', join(at, scheme, `${scheme}.xcarchive`), '-configuration', configuration]) })),
         ),
     );
-    const referenced = container.buildFiles.filter((at) => relative(dirname(container.path), at).startsWith('..')).flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
-    const listing = extname(container.path) === '.xcworkspace';
-    const read = Array.dedupe([join(listing ? join('{workspaceRoot}', container.path) : '{projectRoot}', '**/*'), ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]);
+    const referenced = container.buildFiles.filter((at) => relative(root, at).startsWith('..')).flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
+    const read = Array.dedupe(['{projectRoot}/**/*', ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]);
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
     const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
     const derived = Option.orElse(Option.fromUndefinedOr(options.derivedDataPath), () => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, 'DerivedData')));
@@ -109,7 +109,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                     dependsOn: ['^build--*'],
                     inputs: [...read, { env: NOTARY.keyId }],
                     options: { exports: archived.map(({ archive, folder, run }) => ({ archive, folder, run })) },
-                    outputs: archived.flatMap(({ folder, archive }) => ['*.dmg', '*.zip', basename(archive)].map((entry) => (relative(dirname(container.path), folder).startsWith('..') ? join('{workspaceRoot}', folder, entry) : join('{projectRoot}', relative(dirname(container.path), folder), entry)))),
+                    outputs: archived.flatMap(({ folder, archive }) => ['*.dmg', '*.zip', basename(archive)].map((entry) => (relative(root, folder).startsWith('..') ? join('{workspaceRoot}', folder, entry) : join('{projectRoot}', relative(root, folder), entry)))),
                     metadata: {
                         technologies: ['xcode'],
                         description: `Archives each app with installed products with xcodebuild archive, then zips it with ditto, or where ${NOTARY.key}, ${NOTARY.keyId}, and ${NOTARY.issuer} are set exports it under the Developer ID Application identity into a disk image that is signed, notarized, and stapled`,
@@ -156,7 +156,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
         ...(released && { attach: { gh: ATTACH } }),
     };
     return {
-        root: dirname(container.path),
+        root,
         name,
         file,
         technologies: ['xcode'],
@@ -202,7 +202,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                     help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } },
                 },
             },
-            release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(dirname(dirname(file)), file) } } },
+            release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(root, file) } } },
         }),
     };
 };
