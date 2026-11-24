@@ -39,7 +39,7 @@ const hosts = {
         address: '45.90.223.193',
         tags: ['tag:server'],
         roles: [
-            { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(2) },
+            { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(4) },
             { _tag: 'Runner', instances: { host: { MemoryMax: '20G' }, container: {}, graph: {} } },
         ],
     },
