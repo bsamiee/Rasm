@@ -170,7 +170,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, files: Reado
             edges: (owned[member.root] ?? [])
                 .filter(([id]) => resolution[id]?.name === member.name)
                 .flatMap(([id]) => Array.getSomes((resolution[id]?.dependencies ?? []).map(resolved)))
-                .map(({ root: target }): RawProjectGraphDependency => ({ source: member.root, target, type: DependencyType.static, sourceFile: posix.join(member.root, MANIFEST) })),
+                .map(({ root: target }): RawProjectGraphDependency => ({ source: member.root, target, type: DependencyType.implicit })),
             checks: Array.filterMap(nested ? [] : Record.toEntries(CHECKERS), ([key, row]) => {
                 const group = Array.findFirst(groups, offering(key));
                 const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });

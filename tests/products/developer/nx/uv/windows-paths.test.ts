@@ -50,8 +50,8 @@ describe('@rasm/nx-uv under Windows path separators', { timeout: 120_000 }, () =
             Object.values(graph.dependencies)
                 .flat()
                 .filter(({ target }) => !target.startsWith('npm:'))
-                .map(({ source, target, type }) => `${source} -> ${target} (${type})`)
+                .map(({ source, target }) => `${source} -> ${target}`)
                 .toSorted(),
-        ).toStrictEqual(['app -> middle (static)', 'cli -> sdk (static)', 'middle -> core (static)']);
+        ).toStrictEqual(['app -> middle', 'cli -> sdk', 'middle -> core']);
     });
 });

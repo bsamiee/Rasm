@@ -6,7 +6,7 @@ import { FsTree } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-uv';
 import UvVersionActions, { afterAllProjectsVersioned } from '@rasm/nx-uv/release/version-actions';
 import { it } from '@rasm/testing/nx';
-import { describe, expect, vi } from 'vitest';
+import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 vi.mock(import('@nx/devkit'), async (actual) => ({ ...(await actual()), readCachedProjectGraph: vi.fn<() => ProjectGraph>() }));
@@ -19,8 +19,43 @@ const WORKSPACE = {
     'packages/my-lib/pyproject.toml': `[project]\nname = "My_Lib"\nversion = "1.0.0"\nrequires-python = ">=3.13"\n${BUILT}`,
     'packages/my-lib/src/my_lib/__init__.py': '',
 };
+const LINKED = {
+    'pyproject.toml': '[tool.uv.workspace]\nmembers = ["packages/*"]\n',
+    'packages/library/pyproject.toml': `[project]\nname = "library"\nversion = "1.0.0"\nrequires-python = ">=3.13"\n${BUILT}`,
+    'packages/internal/pyproject.toml': `[project]\nname = "internal"\nversion = "1.0.0"\nrequires-python = ">=3.13"\n${BUILT}`,
+    'packages/application/pyproject.toml': `[project]\nname = "application"\nversion = "1.0.0"\nrequires-python = ">=3.13"\ndependencies = ["library>=1.0.0"]\n\n[tool.uv.sources]\nlibrary = { workspace = true }\n\n[tool.nx]\nimplicitDependencies = ["internal"]\n${BUILT}`,
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+describe('readDependencies', { timeout: 60_000 }, () => {
+    it('reports the members uv resolves a member to depend on, and none its nx table names', async ({ workspace }) => {
+        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(LINKED).root });
+        const graph = await workspace.graph({ createNodes, createDependencies });
+        const node = graph.nodes['application'];
+        assert(node !== undefined, 'application is a node of the graph');
+        const tree = new FsTree(workspace.root, false);
+        const actions = new UvVersionActions({ name: 'default', projects: ['application'], projectsRelationship: 'independent', resolvedVersionPlans: false, version: {}, changelog: false, releaseTag: {}, versionPlans: false }, node, {
+            specifierSource: 'prompt',
+            currentVersionResolver: 'disk',
+            currentVersionResolverMetadata: {},
+            fallbackCurrentVersionResolver: 'disk',
+            versionPrefix: 'auto',
+            preserveLocalDependencyProtocols: false,
+            preserveMatchingDependencyRanges: false,
+            adjustSemverBumpsForZeroMajorVersion: false,
+            applyPreidToDependents: false,
+            versionActionsOptions: { lock: 'uv.lock' },
+            manifestRootsToUpdate: [],
+            dockerOptions: {},
+        });
+        await actions.init(tree);
+
+        const dependencies = await actions.readDependencies(tree, graph);
+
+        expect([dependencies.map(({ target }) => target), graph.dependencies['application']?.map(({ target }) => target).toSorted()]).toStrictEqual([['library'], ['internal', 'library']]);
+    });
+});
 
 describe('readCurrentVersionFromRegistry', { timeout: 60_000 }, () => {
     it('reads the newest release the index settings of the lock folder serve, in its SemVer form', async ({ workspace }) => {

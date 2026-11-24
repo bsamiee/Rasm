@@ -143,6 +143,12 @@ class UvVersionActions extends VersionActions {
         return released(tree, this.manifest, this.finalConfigForProject.versionActionsOptions);
     }
 
+    override readDependencies(_tree: Tree, projectGraph: ProjectGraph) {
+        const { name, data } = this.projectGraphNode;
+        const declared = new Set(data.implicitDependencies);
+        return Promise.resolve((projectGraph.dependencies[name] ?? []).filter(({ target }) => !declared.has(target)));
+    }
+
     override readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
         return depended(tree, projectGraph, this.manifest, dependencyProjectName);
     }
