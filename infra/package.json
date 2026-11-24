@@ -51,7 +51,7 @@
                     ]
                 },
                 "{workspaceRoot}/.github/ISSUE_TEMPLATE/!(config).yml",
-                "{workspaceRoot}/.config/mise/conf.d/remote.toml",
+                "{workspaceRoot}/.config/mise.remote.toml",
                 "{workspaceRoot}/.config/mise.machine.toml",
                 "{workspaceRoot}/.config/mise.runner.toml"
             ]

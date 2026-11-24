@@ -50,7 +50,7 @@ jobs:
                   tags: tag:deploy
             - run: mkdir -p ~/.ssh && printf "%s\n" "Host *" "    StrictHostKeyChecking accept-new" >> ~/.ssh/config
             - id: bootstrap
-              run: mise bootstrap remote --all --only accounts,packages,files,services --yes
+              run: MISE_ENV="${MISE_ENV},remote" mise bootstrap remote --all --only accounts,packages,files,services --yes
             - if: ${{ !cancelled() && steps.bootstrap.outcome != 'skipped' }}
               run: nx deploy @rasm/infra
               env: &doppler

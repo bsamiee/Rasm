@@ -2,7 +2,7 @@
 
 [bootstrap.remote]
 mise_env = ["machine"]
-source   = "../.."
+source   = "."
 
 [bootstrap.remote.hosts.derby]
 host     = "derby"

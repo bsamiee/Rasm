@@ -50,7 +50,9 @@ Machines, their roles, and their reinstall:
 - Each machine holds DNS record `<name>.<zone>`, tailnet name `<name>`, and a Pulumi stack named by its DNS name
 - `[bootstrap.remote]` loads `machine`, and a host row with a role names `machine` and its role file, as `mise bootstrap remote` sends no miserc
 - `mise bootstrap remote` sends folder `.config` and applies its parts as `root@<name>` over Tailscale SSH
-- Remote bootstrap rows sit in `.config/mise/conf.d/remote.toml` and Sparkle settings in `.config/sparkle.xcconfig`, files the stacks read whole
+- Remote bootstrap rows sit in `.config/mise.remote.toml` and Sparkle settings in `.config/sparkle.xcconfig`, files the stacks read whole
+- Environment `remote` loads the remote rows, and job `deploy` adds it for its bootstrap step, as `mise -E remote bootstrap remote` does by hand
+- Config files mise loads beside `mise.toml` outside an environment take the lock rows of tools a version file names, and locked installs of Rust then fail
 - Deploy starts for those files and no other mise or Xcode setting, as named input `deployed` names what `deploy--pulumi` reads
 - Role `Cache` runs the Nx cache server with its proxy and object storage
 - Role `History` runs the Atuin sync server with its proxy
