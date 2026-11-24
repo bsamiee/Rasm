@@ -11,7 +11,7 @@ import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, ty
 
 const CONFIGURED = [...CONFIG, ...CLIPPY, NEXTEST, ...Object.values(DENY).flat()].map((file) => `**/${file}`);
 const LAYOUT = ['src/{main,lib}.rs', '{src/bin,examples,tests,benches}/{*.rs,*/main.rs}', 'build.rs', '{README,README.md,README.txt}'] as const;
-const VARIABLES = ['CARGO_TARGET_DIR', 'CARGO_BUILD_TARGET_DIR', 'CARGO_BUILD_TARGET', 'CARGO_RESOLVER_FEATURE_UNIFICATION', 'CARGO_UNSTABLE_FEATURE_UNIFICATION'] as const;
+const VARIABLES = ['CARGO_TARGET_DIR', 'CARGO_BUILD_TARGET_DIR', 'CARGO_BUILD_TARGET', 'CARGO_RESOLVER_FEATURE_UNIFICATION', 'CARGO_UNSTABLE_FEATURE_UNIFICATION', 'CLIPPY_CONF_DIR'] as const;
 const OWN = fingerprinted(import.meta.dirname);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

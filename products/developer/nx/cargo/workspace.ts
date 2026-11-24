@@ -65,12 +65,13 @@ const Unification = Schema.Literals(['selected', 'workspace', 'package']).annota
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Profiles = Schema.Struct({ profile: Schema.Record(Schema.String, Schema.Struct({ inherits: Schema.optionalKey(Schema.String), panic: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) });
 const Settings = Schema.Struct({
-    env: Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Struct({ value: Schema.String, relative: Schema.optionalKey(Schema.Boolean) })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+    env: Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Struct({ value: Schema.optionalKey(Schema.String), force: Schema.optionalKey(Schema.Boolean), relative: Schema.optionalKey(Schema.Boolean) })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     unstable: Schema.Record(Schema.String, Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     build: Schema.Struct({ target: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     resolver: Schema.Struct({ 'feature-unification': Schema.optionalKey(Unification) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
 }).annotate({
-    description: 'The [env], [unstable], [build], and [resolver] tables of a Cargo configuration file, an [env] value with relative = true and a build.target spec file resolving against the folder holding its .cargo folder',
+    description:
+        'The [env], [unstable], [build], and [resolver] tables of a Cargo configuration file, an [env] table row merging field by field across layers and yielding to the process environment unless force = true, an [env] value with relative = true and a build.target spec file resolving against the folder holding its .cargo folder',
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -100,7 +101,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
     const found = (stems: readonly string[]) => above(root).flatMap((at) => stems.map((stem) => posix.join(at, stem)).filter((file) => files.has(file)));
     const settings = found(SETTINGS);
-    const [{ profile }, host, denied, layers, exported, resolving, gated] = yield* Effect.all(
+    const [{ profile }, host, denied, layers, exported, resolving, gated, directed] = yield* Effect.all(
         [
             toml(Profiles, join(metadata.workspace_root, MANIFEST)),
             Effect.map(spawned(['rustc', '--print', 'host-tuple'], { cwd: metadata.workspace_root }), String.trim),
@@ -109,6 +110,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
             Config.option(Config.String('CARGO_BUILD_TARGET')),
             Config.option(Config.Literals(Unification.literals, 'CARGO_RESOLVER_FEATURE_UNIFICATION')),
             Config.option(Config.Boolean('CARGO_UNSTABLE_FEATURE_UNIFICATION')),
+            Config.option(Config.String('CLIPPY_CONF_DIR')),
         ],
         { concurrency: 'unbounded' },
     );
@@ -126,9 +128,15 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
         ({ argument, folder }) => Effect.map(spawned(['rustc', ...argument, '--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root }), (stdout) => ({ folder, uplifted: Record.fromEntries(Array.zip(types, String.split(stdout, '\n'))) })),
         { concurrency: 'unbounded' },
     );
-    const clippy = Array.findFirst(Array.zip(settings, layers), ([file, { env }]) =>
-        Option.map(Record.get(env, 'CLIPPY_CONF_DIR'), (stated) => (Predicate.isString(stated) ? resolve(metadata.workspace_root, stated) : resolve(stated.relative === true ? join(workspaceRoot, posix.dirname(posix.dirname(file))) : metadata.workspace_root, stated.value))),
-    );
+    const rows = Array.getSomes(Array.zip(settings, layers).map(([file, { env }]) => Option.map(Record.get(env, 'CLIPPY_CONF_DIR'), (row) => ({ ...(Predicate.isString(row) ? { value: row, force: false, relative: false } : row), from: join(workspaceRoot, posix.dirname(posix.dirname(file))) }))));
+    const merged = (option: 'force' | 'relative') =>
+        Option.contains(
+            Array.findFirst(rows, (row) => Option.fromUndefinedOr(row[option])),
+            true,
+        );
+    const layered = Array.findFirst(rows, ({ value, from }) => Option.map(Option.fromUndefinedOr(value), (at) => resolve(merged('relative') ? from : metadata.workspace_root, at)));
+    const inherited = Option.map(directed, (at) => resolve(metadata.workspace_root, at));
+    const clippy = merged('force') ? Option.orElse(layered, () => inherited) : Option.orElse(inherited, () => layered);
     return {
         metadata,
         profile,
