@@ -1,5 +1,5 @@
 import { pid } from 'node:process';
-import { executor, spawned, Words } from '@rasm/nx-distribution/inference';
+import { executor, spawned, Words } from '@rasm/nx';
 import { Array, Config, Effect, FileSystem, Path, Schema } from 'effect';
 import { commands, configured } from '#/executors/run/executor';
 import { SIGNED, SWIFTPM } from '#/targets';

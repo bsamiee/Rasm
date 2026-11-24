@@ -1,9 +1,9 @@
-import { basename, dirname, extname, join, relative, resolve } from 'node:path';
+import { basename, dirname, extname, join, posix, relative, resolve } from 'node:path';
 import process from 'node:process';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, hashObject, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, fingerprinted, inferring, manifested, produced, runner, spawned, stamped, type Verbs, within } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Config, Context, Effect, FileSystem, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { aggregated, anchored, fingerprinted, inferring, manifested, runner, spawned, stamped, type Verbs, within } from '@rasm/nx';
+import { Array, Cause, Config, Context, Effect, FileSystem, Glob, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import which from 'which';
 import { Described, ENTITLEMENTS, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, RESOLVED, Shipped, sources } from '#/swift-package';
 import { analyzer, BUILDER, CORE, Options, type Part, PLUGIN, tokened } from '#/targets';
@@ -180,6 +180,26 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     };
 });
 
+const produced = (projects: Readonly<Record<string, ProjectConfiguration>>, paths: Array.NonEmptyReadonlyArray<string>): Readonly<Record<string, readonly string[]>> => {
+    const declared = Record.collect(projects, (name, data) =>
+        Record.collect(
+            Record.filter(data.targets ?? {}, ({ outputs }) => outputs !== undefined),
+            (target, { configurations = {} }) => ({ name, data, target, configurations }),
+        ),
+    ).flat();
+    const outputs = declared.flatMap(({ name, data, target, configurations }) =>
+        [{}, ...Record.keys(configurations).map((configuration) => ({ configuration }))]
+            .flatMap((selected) => getOutputsForTargetAndConfiguration({ project: name, target, ...selected }, {}, { name, type: 'lib', data }))
+            .filter((output) => !output.startsWith('!'))
+            .map((output) => ({ name, output, covering: Glob.make(`${output}{,/**}`, { dot: true }) })),
+    );
+    const matched = Array.cartesian(Array.dedupe(paths), outputs).filter(([at, { output, covering }]) => Glob.match(covering, at) || !posix.relative(at, output).startsWith('..'));
+    return Record.map(
+        Array.groupBy(matched, ([at]) => at),
+        (pairs) => Array.dedupe(pairs.map(([, { name }]) => name)),
+    );
+};
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const run = runner(Graphs.layer);
@@ -216,10 +236,11 @@ const createNodes: CreateNodes = [
         });
         yield* Option.isNone(stored) && read.failures.length === 0 && !read.partial ? Effect.sync(() => new PluginCache(slot, { [FILES]: { digest, graph: read.graph } }).writeToDisk()) : Effect.void;
         (yield* Graphs).set(workspaceRoot, read.graph);
+        const anchor = anchored(workspaceRoot);
         const [placed, unread] = yield* Effect.partition(read.graph.projects, ({ file, technology, project, tools }) =>
             Effect.mapBoth(manifested(workspaceRoot, project.root), {
                 onFailure: (error): [string, Error] => [file, error],
-                onSuccess: (stated) => ({ file, project: { ...project, targets: aggregated(tools, stated, technology, workspaceRoot, project.targets) } }),
+                onSuccess: (stated) => ({ file, project: { ...project, targets: aggregated(tools, stated, technology, anchor, project.targets) } }),
             }),
         );
         const results = Record.collect(Array.groupBy(placed, Struct.get('file')), (file, group) => [file, { projects: Record.fromIterableWith(group, ({ project }) => [project.root, project] as const) }] as const);

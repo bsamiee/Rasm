@@ -1,4 +1,4 @@
-import { dried, executor, spawned } from '@rasm/nx-distribution/inference';
+import { dried, executor, spawned } from '@rasm/nx';
 import { Array, Cause, DateTime, Effect, FileSystem, Option, Order, Path, Result, Schema, SemVer, Struct } from 'effect';
 import { commands } from '#/executors/run/executor';
 import { MANIFEST } from '#/swift-package';

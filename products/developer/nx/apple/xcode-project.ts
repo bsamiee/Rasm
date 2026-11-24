@@ -1,7 +1,6 @@
 import { basename, dirname, extname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
-import type { Verbs } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { EXECUTORS, type Verbs } from '@rasm/nx';
 import { Array, Option, Record, Schema } from 'effect';
 import type { Run } from '#/executors/run/executor';
 import { RESOLVED } from '#/swift-package';
@@ -165,7 +164,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
             ...(schemes.length > 0 && {
                 clean: {
                     xcodebuild: {
-                        executor: `${distribution.name}:clean`,
+                        executor: EXECUTORS.clean,
                         parallelism: false,
                         inputs: read,
                         options: {

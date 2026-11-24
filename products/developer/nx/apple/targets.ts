@@ -3,8 +3,7 @@ import { arch, platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
-import { PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { EXECUTORS, PLATFORM, type Verbs } from '@rasm/nx';
 import { type Array, Cause, Effect, FileSystem, Record, Schema } from 'effect';
 import type { Run } from '#/executors/run/executor';
 
@@ -31,7 +30,7 @@ const APPCAST = { key: 'SPARKLE_ED_PRIVATE_KEY', bucket: 'SPARKLE_FEED_BUCKET' }
 const SWIFTPM = ['--force-resolved-versions', '--disable-index-store'] as const;
 const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'swift -print-target-info | plutil -extract compilerVersion raw - && xcrun --show-sdk-build-version' }, PLATFORM, { externalDependencies: [] }];
 const ATTACH: TargetConfiguration = {
-    executor: `${distribution.name}:attach`,
+    executor: EXECUTORS.attach,
     dependsOn: ['pack--ditto'],
     inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
     metadata: {

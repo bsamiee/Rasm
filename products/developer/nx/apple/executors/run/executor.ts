@@ -1,7 +1,7 @@
 import { glob } from 'node:fs/promises';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { env } from 'node:process';
-import { executor, spawned, Words } from '@rasm/nx-distribution/inference';
+import { executor, spawned, Words } from '@rasm/nx';
 import { Array, Cause, Config, Effect, FileSystem, Function, Option, Record, Schema } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 

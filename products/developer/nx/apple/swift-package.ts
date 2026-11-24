@@ -1,7 +1,6 @@
 import { dirname, join, matchesGlob, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
-import type { Verbs } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { EXECUTORS, type Verbs } from '@rasm/nx';
 import { Array, Effect, Graph, Option, Record, Schema } from 'effect';
 import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets';
 
@@ -188,7 +187,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
             tools: {
                 ...tools,
                 ...(swept.length + removed.length > 0 && {
-                    clean: { 'swift-package': { executor: `${distribution.name}:clean`, inputs, options: { commands: swept, cwd: '.', targets: removed }, metadata: { technologies: ['swift'], description, help: { command: 'swift package clean --help', example: {} } } } },
+                    clean: { 'swift-package': { executor: EXECUTORS.clean, inputs, options: { commands: swept, cwd: '.', targets: removed }, metadata: { technologies: ['swift'], description, help: { command: 'swift package clean --help', example: {} } } } },
                 }),
             },
             ...Option.getOrUndefined(Option.map(zipped, ({ plist }) => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(at, plist) } } } }))),

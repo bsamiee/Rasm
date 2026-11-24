@@ -1,4 +1,4 @@
-import { executor, spawned, Words } from '@rasm/nx-distribution/inference';
+import { executor, spawned, Words } from '@rasm/nx';
 import { Array, Cause, Config, Effect, FileSystem, Option, Path, Redacted, Schema, Stream, Struct } from 'effect';
 import { commands } from '#/executors/run/executor';
 import { NOTARY, SIGNED, SWIFTPM } from '#/targets';
