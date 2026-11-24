@@ -69,7 +69,7 @@ describe('what test--playwright hashes', { timeout: 60_000 }, () => {
     it.for([
         { case: 'a new release of @playwright/test', moved: { versions: { ...INSTALLED, '@playwright/test': '1.67.0' } }, changes: true },
         { case: 'a new release of a package nothing reads', moved: { versions: { ...INSTALLED, unread: '2.0.0' } }, changes: false },
-        { case: 'a run outside CI', moved: { env: {} }, changes: true },
+        { case: 'a run outside CI', moved: { env: {} }, changes: false },
     ])('hashes again after $case: $changes', async ({ moved, changes }, { workspace }) => {
         const graph = await workspace.graph({ createNodes });
 

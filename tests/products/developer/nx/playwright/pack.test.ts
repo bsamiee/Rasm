@@ -43,7 +43,7 @@ describe('pack--playwright of config projects whose own outputDir sits under out
             cachedByPack: [expect.stringMatching(/^\.artifacts\/playwright\/e2e\/media\/[^/]+\/tile\.png$/u)],
             cachedByTest: [],
         });
-        expect(targets['pack--playwright']).toMatchObject({ dependsOn: [...(targets['test--playwright']?.dependsOn ?? []), 'test--playwright'], cache: true, inputs: targets['test--playwright']?.inputs });
+        expect(targets['pack--playwright']).toMatchObject({ dependsOn: [...(targets['test--playwright']?.dependsOn ?? []), 'test--playwright'], cache: true, inputs: [...(targets['test--playwright']?.inputs ?? []), { runtime: 'node -p process.platform+process.arch' }] });
     });
 
     it('declares outputs apart from test--playwright that hold every file its run writes, leaving the files test--playwright wrote as they were', async ({ workspace }) => {

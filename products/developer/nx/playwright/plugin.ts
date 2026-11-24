@@ -6,7 +6,7 @@ import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { emitPluginWorkerLog, getDaemonClientEnvGeneration, getLockFileName, globWithWorkspaceContext, hashObject, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
-import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { aggregated, anchored, EXEC, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, PLATFORM, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, flow, Function, MutableRef, Option, Record, Result, Schema, String } from 'effect';
 
@@ -44,7 +44,7 @@ const Task = Schema.Struct({ project: Schema.String, target: Schema.String }).an
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const invocation = (flags: readonly string[]) => [['playwright', 'test'].map(quoteShellArg).join(' '), ...Array.match(flags, { onEmpty: () => [], onNonEmpty: (given) => ['{args}', given.map(quoteShellArg).join(' ')] })].join(' ');
+const invocation = (flags: readonly string[]) => [['playwright', 'test', '--forbid-only'].map(quoteShellArg).join(' '), ...Array.match(flags, { onEmpty: () => [], onNonEmpty: (given) => ['{args}', given.map(quoteShellArg).join(' ')] })].join(' ');
 
 const directed = (to: string, reporters: readonly string[]) => {
     const [results, reports] = [posix.join(to, 'test-results'), Record.fromIterableWith(reporters, (name) => [`PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_DIR`, posix.join(to, name)])];
@@ -108,7 +108,7 @@ const targets = (home: string, { loaded: configs, scanned, packages, servers, re
             ),
         ],
         cache: true,
-        inputs: ['default', ...upstream, ...Object.values(outside), { dependentTasksOutputFiles: '**/*', transitive: true }, { env: 'CI' }, { externalDependencies: Array.dedupe(['@playwright/test', ...packages]) }],
+        inputs: ['default', ...upstream, ...Object.values(outside), { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: Array.dedupe(['@playwright/test', ...packages]) }],
     };
     const test: Record<string, TargetConfiguration> = Array.match(tested, {
         onEmpty: () => ({}),
@@ -132,6 +132,7 @@ const targets = (home: string, { loaded: configs, scanned, packages, servers, re
                 command: invocation([...selected(chosen), '--no-deps', '--reporter=list']),
                 options: { cwd: home },
                 ...needs,
+                inputs: [...needs.inputs, PLATFORM],
                 dependsOn: Record.isEmptyRecord(test) ? needs.dependsOn : [...needs.dependsOn, 'test--playwright'],
                 outputs: chosen.map(({ outputDir }) => outputDir).map(tokened(home)),
                 metadata: {

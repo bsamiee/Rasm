@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { AxeBuilder } from '@axe-core/playwright';
 import { layer } from '@effect/platform-node/NodeServices';
 import { getOutputsForTargetAndConfiguration, readCachedProjectGraph, readJsonFile, workspaceRoot } from '@nx/devkit';
-import { interpolate, isCI, readNxJsonFromDisk } from '@nx/devkit/internal';
+import { interpolate, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { type BrowserContext, chromium, defineConfig, expect, type Page, test, type TestInfo, type Worker } from '@playwright/test';
 import { Brand } from '@rasm/vite/chrome';
 import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Schema, type Scope, UndefinedOr } from 'effect';
@@ -227,7 +227,6 @@ const tile = Effect.fnUntraced(function* ({ name, width, height, axis, gap, mark
 const config = (home: string) => {
     const folder = Option.flatMap(Schema.decodeUnknownOption(Named)(readJsonFile(join(home, 'package.json'))), ({ name }) => routed('@rasm/nx-playwright', name));
     return defineConfig({
-        forbidOnly: Boolean(isCI()),
         reporter: [['html', { open: 'never' }]],
         use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
         ...Option.getOrUndefined(

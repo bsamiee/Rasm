@@ -52,4 +52,18 @@ describe('projects test--playwright joins', { timeout: 60_000 }, () => {
 
         expect(dependencies['e2e:test--playwright']?.map(({ id }) => id)).toStrictEqual(['extension:build--vite']);
     });
+
+    it('fails test--playwright over a focused test whatever the config states, as its key leaves CI out', async ({ workspace }) => {
+        const graph = await workspace
+            .write({
+                'apps/e2e/package.json': '{"name":"e2e"}',
+                'apps/e2e/playwright.config.js': "module.exports = { forbidOnly: false, reporter: [['list']] };\n",
+                'apps/e2e/focused.spec.js': "const { test } = require('@playwright/test');\n\ntest.only('passes', () => {});\n",
+            })
+            .graph({ createNodes });
+
+        const result = await workspace.run(graph, 'e2e', 'test--playwright');
+
+        expect(result.success).toBe(false);
+    });
 });
