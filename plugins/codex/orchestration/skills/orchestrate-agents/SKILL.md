@@ -31,5 +31,5 @@ Send an agent a bounded task with its own context. Keep decisions and file paths
 
 ## [04]-[CORRECTION]
 
-- Rounds: rounds 1-3 resume the original sub-agent with the open findings verbatim, its context intact; later rounds go to a fresh sub-agent with the report path and the findings, since a loop that survives three resumes usually means the sub-agent cannot see its own problem
-- Evidence: after one evidence-free response send one focused retry, after a second replace the sub-agent
+- Rounds: each correction goes to a new sub-agent with the report path and the open findings verbatim, as agents rarely see their own problem
+- Evidence: an evidence-free response earns one focused retry, by a new sub-agent whose brief names the evidence wanted
