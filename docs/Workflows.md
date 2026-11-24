@@ -28,12 +28,6 @@ Workflow `CI` and its jobs:
 - Job `macos` runs affected `os:darwin` projects except `host:rhino`, as no Linux graph holds an Apple project
 - Job `macos` leaves out root `rasm`, as job `linux` runs its other checks and each Swift project's tasks depend on its Swift targets
 - Job `macos` runs `hk check` steps `swiftlint`, `swift-format`, `plutil`, and `xcprojformatter` from base to head, as they need macOS
-- Job `macos` caches `.build` at its own path, as SwiftPM reuses a build folder only at the path that built it
-- Swift caches leave out `repositories` and product archives, as a restored build reads neither
-- Swift cache paths name the children of each folder holding an exclusion, as an excluded path inside a named folder still enters its archive
-- Swift cache keys name the Xcode build, `Package.resolved`, and the hash of `Package.swift` and every Swift file
-- Swift cache restores fall back to the newest key of the same Xcode build and `Package.resolved`, and a changed source saves a new key
-- Swift caches save only where the task step ran, as a job failing before it holds no `.build` and an empty entry hits on the next run
 - Job `files` runs every other `hk check` step on instance `host`, which keeps the Nx graph between runs
 - Job `files` runs every `codegen` target first, as type-aware lint reads the sources those targets write
 - Job `windows` starts only where job `affected` lists an `os:win32` or `host:rhino` project, and installs Rhino where one is `host:rhino`
@@ -71,7 +65,8 @@ Nx remote cache and Actions caches per workflow and machine:
 - Past the 10 GB repository limit GitHub evicts caches by oldest last access
 - Action `jdx/mise-action` saves a GitHub-hosted job's tools after install, keyed by platform, profile, `mise.toml`, `mise.lock`, and profile files
 - Tool cache keys leave out OS and machine mise files, as those state environment and bootstrap rows alone
-- GitHub-hosted jobs cache no pnpm store, as `pnpm store prune` empties a store inside the workspace, which pnpm registers no project for
+- GitHub-hosted jobs cache the pnpm store by OS and `pnpm-lock.yaml`, falling back to the newest store of their OS
+- Job `macos` caches no Swift build folder, as restored folders shortened no build and Swift and Xcode tasks hit the Nx cache
 - Runs read and write with `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`, and a pull request from a fork holds no secret and uses its local cache
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks

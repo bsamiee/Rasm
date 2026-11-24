@@ -165,23 +165,6 @@ jobs:
             - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
                   xcode-version: latest-stable
-            - id: xcode
-              run: |-
-                  build="$(xcodebuild -version | awk '/^Build version/ { print $3 }')"
-                  printf "build=%s\n" "${build}" >> "${GITHUB_OUTPUT}"
-            - id: swift
-              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                  path: &swift |-
-                      .build/*
-                      !.build/repositories
-                      !.build/out
-                      .build/out/*
-                      !.build/out/Products
-                      .build/out/Products/*/*
-                      !.build/out/Products/*/lib*.a
-                  key: swift-${{ steps.xcode.outputs.build }}-${{ hashFiles('Package.resolved') }}-${{ hashFiles('Package.swift', '**/*.swift') }}
-                  restore-keys: swift-${{ steps.xcode.outputs.build }}-${{ hashFiles('Package.resolved') }}-
             - *tools
             - if: ${{ env.APPLE_DEVELOPMENT_P12 != '' }}
               uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
@@ -189,13 +172,7 @@ jobs:
                   p12-file-base64: ${{ env.APPLE_DEVELOPMENT_P12 }}
                   p12-password: ${{ env.APPLE_DEVELOPMENT_P12_PASSWORD }}
             - run: nx conformance:check
-            - id: tasks
-              run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
-            - if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (steps.tasks.outcome == 'success' || steps.tasks.outcome == 'failure') && steps.swift.outputs.cache-hit != 'true' }}
-              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                  path: *swift
-                  key: ${{ steps.swift.outputs.cache-primary-key }}
+            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
             - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
               run: hk check --step swiftlint --step swift-format --step plutil --step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
             - &save
