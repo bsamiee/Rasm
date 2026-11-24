@@ -7,19 +7,40 @@ import { Option } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { describe, expect, vi } from 'vitest';
-import { it, node, report } from '#/analyzer';
+import { it, mode, node, report } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PROJECT = '<Project Sdk="Microsoft.NET.Sdk" />\n';
+const TESTED = {
+    'libs/Lib/Lib.csproj': PROJECT,
+    'libs/Lib/Code.cs': 'class Code;\n',
+    'tests/Tests/Tests.csproj': PROJECT,
+    'tests/Tests/Case.cs': 'class Case;\n',
+    'Directory.Build.props': '<Project />\n',
+    '.globalconfig': 'is_global = true\n',
+    'out/Lib/Lib.dll': 'lib',
+    'out/Tests/Tests.dll': 'tests',
+    'obj/Tests/Tests.sarif': '{ "runs": [] }',
+    ...report([
+        node('libs/Lib/Lib.csproj', { inputs: ['.globalconfig', 'Directory.Build.props'], loaded: ['Directory.Build.props'], evaluated: mode('Debug', { outputs: ['out/Lib'] }) }),
+        node('tests/Tests/Tests.csproj', {
+            test: true,
+            inputs: ['.globalconfig', 'Directory.Build.props'],
+            loaded: ['Directory.Build.props'],
+            references: [{ root: 'libs/Lib', declared: 'tests/Tests/Tests.csproj' }],
+            evaluated: mode('Debug', { outputs: ['out/Tests'], reports: ['obj/Tests/Tests.sarif'] }),
+        }),
+    ]),
+};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const hasher = (root: string, graph: ProjectGraph, target: string) => {
-    const tasks = taskGraph(graph, ['Lib'], [target]);
-    const task = Option.getOrThrow(Option.fromUndefinedOr(tasks.tasks[`Lib:${target}`]));
+const hasher = (root: string, graph: ProjectGraph, target: string, project = 'Lib') => {
+    const tasks = taskGraph(graph, [project], [target]);
+    const task = Option.getOrThrow(Option.fromUndefinedOr(tasks.tasks[`${project}:${target}`]));
     return async (set: Readonly<Record<string, string>>) => {
         const { value } = await createTaskHasher(graph, readNxJson(root)).hashTask(task, tasks, environment(root, set));
         return value;
@@ -65,5 +86,22 @@ describe('task hashes', () => {
         const [first, next, again] = [await resolving('10.0.100'), await resolving('11.0.100'), await resolving('10.0.100')];
 
         expect([first === next, first === again]).toStrictEqual([false, true]);
+    });
+
+    it.for([
+        { edited: '.globalconfig', text: 'is_global = true\ndotnet_diagnostic.CA1000.severity = none\n', build: true, test: false },
+        { edited: 'Directory.Build.props', text: '<Project><PropertyGroup><Deterministic>true</Deterministic></PropertyGroup></Project>\n', build: true, test: true },
+        { edited: 'tests/Tests/Case.cs', text: 'class Case { }\n', build: true, test: true },
+        { edited: 'libs/Lib/Code.cs', text: 'class Code { }\n', build: true, test: false },
+        { edited: 'out/Lib/Lib.dll', text: 'lib rebuilt', build: false, test: true },
+        { edited: 'out/Tests/Tests.dll', text: 'tests rebuilt', build: false, test: true },
+        { edited: 'obj/Tests/Tests.sarif', text: '{ "runs": [{ "results": [] }] }', build: false, test: false },
+    ])('hashes in test--dotnet the binaries the builds wrote and the files loading the test project reads, so editing $edited reruns the build ($build) and the tests ($test)', async ({ edited, text, build, test }, { workspace }) => {
+        const before = await workspace.write(TESTED).graph({ createNodes, createDependencies });
+        const [built, tested] = [await hasher(workspace.root, before, 'build--dotnet', 'Tests')({}), await hasher(workspace.root, before, 'test--dotnet', 'Tests')({})];
+
+        const after = await workspace.write({ [edited]: text }).graph({ createNodes, createDependencies });
+
+        expect([built !== (await hasher(workspace.root, after, 'build--dotnet', 'Tests')({})), tested !== (await hasher(workspace.root, after, 'test--dotnet', 'Tests')({}))]).toStrictEqual([build, test]);
     });
 });

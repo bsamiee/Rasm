@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Xunit;
 
 namespace MsbuildAnalyzer.Tests;
@@ -30,7 +31,12 @@ public sealed class InputWorkspace() : Analyzed(
         ("cascading/apps/Lib/Lib.csproj", TempWorkspace.Project()),
         ("redirected/Directory.Build.props", """<Project><PropertyGroup><BaseOutputPath>..\..\out\$(MSBuildProjectName)\bin\</BaseOutputPath></PropertyGroup></Project>"""),
         ("redirected/out/Lib/bin/Generated.cs", "class Generated;"),
-        ("redirected/apps/Lib/Lib.csproj", TempWorkspace.Project("""<ItemGroup><Compile Include="$(BaseOutputPath)Generated.cs" /></ItemGroup>"""))
+        ("redirected/apps/Lib/Lib.csproj", TempWorkspace.Project("""<ItemGroup><Compile Include="$(BaseOutputPath)Generated.cs" /></ItemGroup>""")),
+        ("central/Directory.Build.props", "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup></Project>"),
+        ("central/Directory.Packages.props", """<Project><ItemGroup><PackageVersion Include="Unused.Package" Version="1.0.0" /></ItemGroup></Project>"""),
+        ("central/apps/Lib/Lib.csproj", TempWorkspace.Project()),
+        ("pinned/Directory.Packages.props", """<Project><PropertyGroup><HostVersion>9.0.1</HostVersion></PropertyGroup><ItemGroup><PackageVersion Include="Host.Sdk" Version="$(HostVersion)" /></ItemGroup></Project>"""),
+        ("pinned/apps/Lib/Lib.csproj", TempWorkspace.Project())
 );
 
 public sealed class InputTests(InputWorkspace analyzed) : IClassFixture<InputWorkspace> {
@@ -66,4 +72,37 @@ public sealed class InputTests(InputWorkspace analyzed) : IClassFixture<InputWor
     [Fact]
     public void EveryAncestorCodeStyleAndNuGetFileIsAnInputSpelledAsOnDisk() =>
         Assert.Equal(["cascading/.editorconfig", "cascading/.globalconfig", "cascading/NuGet.Config", "cascading/apps/.editorconfig", "cascading/apps/Lib/nuget.config"], analyzed.Node("cascading/apps/Lib/Lib.csproj").Strings("inputs"));
+
+    // --- [LOADING]
+
+    [Fact]
+    public void LoadedFilesAreTheImportsOutsideTheProjectFolderAndNoFileOnlyTheCompilerReads() =>
+        Assert.Equal(["shared/Directory.Build.props", "shared/build/Common.props"], analyzed.Node("shared/apps/Lib/Lib.csproj").Strings("loaded"));
+
+    [Fact]
+    public void LoadedAncestorFilesAreTheSdkResponseAndNuGetFilesAndNoCodeStyleFile() =>
+        Assert.Equal(["cascading/NuGet.Config", "cascading/apps/Lib/nuget.config"], analyzed.Node("cascading/apps/Lib/Lib.csproj").Strings("loaded"));
+
+    // --- [CENTRAL_PACKAGES]
+
+    [Fact]
+    public void TheCentralPackageFileIsNoInputAndStaysEvaluatedAndCatalogued() {
+        JsonElement node = analyzed.Node("central/apps/Lib/Lib.csproj");
+
+        Assert.Equal(["central/Directory.Build.props"], node.Strings("inputs"));
+        Assert.Equal(["central/Directory.Build.props"], node.Strings("loaded"));
+        Assert.Equal(["central/Directory.Packages.props"], node.Strings("catalogs"));
+        Assert.Contains("central/Directory.Packages.props", analyzed.Report.Strings("evaluated"), StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void AProjectOutsideCentralPackageManagementHasNoCatalog() =>
+        Assert.Empty(analyzed.Node("plain/Plain/Plain.csproj").Strings("catalogs"));
+
+    [Fact]
+    public void ACentralPackageFileDefiningAPropertyFailsEachProjectReadingItNamingTheProperty() {
+        JsonElement failure = Assert.Single(analyzed.Report.GetProperty("failures").EnumerateArray(), static failure => failure.GetProperty("file").ValueEquals("pinned/apps/Lib/Lib.csproj"));
+
+        Assert.Contains("pinned/Directory.Packages.props defines HostVersion", failure.GetProperty("message").GetString(), StringComparison.Ordinal);
+    }
 }

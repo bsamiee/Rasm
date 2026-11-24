@@ -23,6 +23,8 @@ const node = (file: string, stated: Readonly<Record<string, unknown>> = {}) => (
     declared: [],
     references: [],
     inputs: [],
+    loaded: [],
+    catalogs: [],
     bases: [],
     packages: [],
     referenced: [],

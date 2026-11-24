@@ -36,6 +36,8 @@ internal sealed record Node(
     ImmutableArray<Mode> Declared,
     ImmutableArray<Reference> References,
     ImmutableArray<string> Inputs,
+    ImmutableArray<string> Loaded,
+    ImmutableArray<string> Catalogs,
     ImmutableArray<string> Bases,
     ImmutableArray<Package> Packages,
     ImmutableArray<string> Referenced,
@@ -111,7 +113,7 @@ internal static partial class Workspace {
         Seq<string> folders = projects.Choose(file => Optional(Path.GetDirectoryName(Path.GetFullPath(Path.Combine(root, file))))).Distinct();
         FrozenDictionary<string, Seq<string>> listed = folders.Bind(folder => Ancestors(root, folder)).Distinct().AsEnumerable().ToFrozenDictionary(static at => at, static at => toSeq(Directory.EnumerateFiles(at)).Strict());
         using SettingsLoadingContext loading = new();
-        FrozenDictionary<string, Fin<(Seq<string> Walked, bool Pushed)>> located = folders.AsEnumerable().ToFrozenDictionary(
+        FrozenDictionary<string, Fin<((Seq<string> Loaded, Seq<string> Styled) Walked, bool Pushed)>> located = folders.AsEnumerable().ToFrozenDictionary(
             static folder => folder,
             folder => Try.lift(() => Settings.LoadDefaultSettings(folder, configFileName: null, new XPlatMachineWideSetting(), loading)).Run().Map(settings => (Walk(root, folder, listed, settings), !string.IsNullOrEmpty(SettingsUtility.GetDefaultPushSource(settings)))));
         Seq<(string File, Fin<(Node Node, Seq<string> Evaluated, Seq<string> Owned)> Result)> read = projects.Map(file => (file, Try.lift(() => Evaluate(root, file, located, probing, context, collection)).Run())).Strict();
@@ -125,7 +127,7 @@ internal static partial class Workspace {
             [.. reads.Read.Order(StringComparer.OrdinalIgnoreCase)]);
     }
 
-    private static Fin<(Node Node, Seq<string> Evaluated, Seq<string> Owned)> Evaluate(string root, string file, FrozenDictionary<string, Fin<(Seq<string> Walked, bool Pushed)>> located, Probing probing, EvaluationContext context, ProjectCollection collection) {
+    private static Fin<(Node Node, Seq<string> Evaluated, Seq<string> Owned)> Evaluate(string root, string file, FrozenDictionary<string, Fin<((Seq<string> Loaded, Seq<string> Styled) Walked, bool Pushed)>> located, Probing probing, EvaluationContext context, ProjectCollection collection) {
         string path = Path.GetFullPath(Path.Combine(root, file));
         if (Path.GetDirectoryName(path) is not { } folder) return Error.New($"{path} names no folder");
         ProjectInstance outer = Load(path, Defaults, context, collection);
@@ -164,6 +166,22 @@ internal static partial class Workspace {
             select import;
         Seq<string> bases = Seq("BaseOutputPath", "BaseIntermediateOutputPath").Map(name => outer.ExpandString($"$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $({name})))"));
         Seq<string> inside = imports.Map(import => Relative(root, import)).Filter(static relative => !relative.StartsWith("..", StringComparison.Ordinal));
+        Seq<string> catalogs = instances
+            .Map(static instance => instance.GetPropertyValue("DirectoryPackagesPropsPath"))
+            .Filter(static at => at.Length > 0)
+            .Map(Path.GetFullPath)
+            .Distinct()
+            .Filter(at => imports.Exists(import => import.Equals(at, StringComparison.OrdinalIgnoreCase)));
+        Seq<string> defined = catalogs.Choose(at => toSeq(ProjectRootElement.Open(at, collection).Properties).Map(static property => property.Name).Distinct() switch {
+            { IsEmpty: true } => None,
+            var names => Some($"{Relative(root, at)} defines {string.Join(", ", names)}"),
+        });
+        if (!defined.IsEmpty) return Error.New($"{string.Join("; ", defined)}, which no lock file records, so each property moves to Directory.Build.props and the central package file holds package rows alone");
+        Seq<string> Held(Seq<string> files) =>
+            files
+                .Filter(input => !Under(input, folder) && !bases.Exists(at => Under(input, at)) && !catalogs.Exists(at => at.Equals(input, StringComparison.OrdinalIgnoreCase)) && probing.FileExists(input))
+                .Map(input => Relative(root, input))
+                .Filter(static relative => !relative.StartsWith("..", StringComparison.Ordinal));
         Seq<string> locks = instances
             .Map(static instance => Path.GetFullPath(Path.Combine(instance.Directory, instance.GetPropertyValue("NuGetLockFilePath") is { Length: > 0 } named ? named : PackagesLockFileFormat.LockFileName)))
             .Distinct()
@@ -188,15 +206,14 @@ internal static partial class Workspace {
                     .Bind(static instance => toSeq(instance.GetItems("ProjectReference")))
                     .Choose(reference => Optional(Path.GetDirectoryName(reference.GetMetadataValue("FullPath"))).Map(referenced => new Reference(Relative(root, referenced), Relative(root, reference.GetMetadataValue("DefiningProjectFullPath")))))
                     .Distinct()],
-                [.. imports
-                    .Append(from instance in instances from type in Seq("Compile", "AdditionalFiles", "EmbeddedResource", "Content", "GlobalAnalyzerConfigFiles") from item in toSeq(instance.GetItems(type)) select item.GetMetadataValue("FullPath"))
-                    .Append(from instance in instances from target in toSeq(instance.Targets.Values) from input in toSeq(instance.ExpandString(target.Inputs).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) select Path.GetFullPath(Path.Combine(instance.Directory, input)))
-                    .Filter(input => !Under(input, folder) && !bases.Exists(at => Under(input, at)) && probing.FileExists(input))
-                    .Map(input => Relative(root, input))
-                    .Filter(static relative => !relative.StartsWith("..", StringComparison.Ordinal))
-                    .Append(held.Walked)
+                [.. Held(imports
+                        .Append(from instance in instances from type in Seq("Compile", "AdditionalFiles", "EmbeddedResource", "Content", "GlobalAnalyzerConfigFiles") from item in toSeq(instance.GetItems(type)) select item.GetMetadataValue("FullPath"))
+                        .Append(from instance in instances from target in toSeq(instance.Targets.Values) from input in toSeq(instance.ExpandString(target.Inputs).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) select Path.GetFullPath(Path.Combine(instance.Directory, input))))
+                    .Append(held.Walked.Loaded + held.Walked.Styled)
                     .Distinct()
                     .Order(StringComparer.Ordinal)],
+                [.. Held(imports).Append(held.Walked.Loaded).Distinct().Order(StringComparer.Ordinal)],
+                [.. catalogs.Map(at => Relative(root, at)).Filter(static relative => !relative.StartsWith("..", StringComparison.Ordinal))],
                 [.. bases.Map(at => Relative(root, at)).Distinct()],
                 [.. locks
                     .Bind(static locked => toSeq(PackagesLockFileFormat.Read(locked).Targets))
@@ -229,7 +246,7 @@ internal static partial class Workspace {
                     .Distinct()
                     .Order(StringComparer.Ordinal)],
                 Tracked(root, instances)),
-            Seq(file.Replace('\\', '/')) + inside + held.Walked,
+            Seq(file.Replace('\\', '/')) + inside + held.Walked.Loaded + held.Walked.Styled,
             bases + hosted + instances.Bind(static instance => Seq("ArtifactsPath", "PublishDir", "PackageOutputPath").Map(instance.GetPropertyValue)).Filter(static at => at.Length > 0).Map(at => Path.GetFullPath(Path.Combine(folder, at)))));
     }
 
@@ -242,13 +259,14 @@ internal static partial class Workspace {
         return (from shipped in Named("AnalyzerReleases.Shipped.md") from unshipped in Named("AnalyzerReleases.Unshipped.md") select new Tracking(shipped, unshipped)).ValueUnsafe();
     }
 
-    private static Seq<string> Walk(string root, string folder, FrozenDictionary<string, Seq<string>> listed, ISettings settings) {
+    private static (Seq<string> Loaded, Seq<string> Styled) Walk(string root, string folder, FrozenDictionary<string, Seq<string>> listed, ISettings settings) {
         Seq<string> entries = Ancestors(root, folder).Bind(at => listed[at]);
         Seq<string> Named(string name) => entries.Filter(entry => Path.GetFileName(entry).Equals(name, StringComparison.OrdinalIgnoreCase));
-        return Seq("global.json", "Directory.Build.rsp").Choose(name => Named(name).Head)
-            .Append(Seq(".editorconfig", ".globalconfig").Bind(Named))
-            .Append(toSeq(settings.GetConfigFilePaths()).Choose(config => entries.Find(entry => entry.Equals(config, StringComparison.OrdinalIgnoreCase))))
-            .Map(found => Relative(root, found));
+        return (
+            Seq("global.json", "Directory.Build.rsp").Choose(name => Named(name).Head)
+                .Append(toSeq(settings.GetConfigFilePaths()).Choose(config => entries.Find(entry => entry.Equals(config, StringComparison.OrdinalIgnoreCase))))
+                .Map(found => Relative(root, found)),
+            Seq(".editorconfig", ".globalconfig").Bind(Named).Map(found => Relative(root, found)));
     }
 
     private static Seq<string> Ancestors(string root, string folder) =>

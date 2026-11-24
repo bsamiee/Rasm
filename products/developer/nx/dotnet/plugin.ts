@@ -105,8 +105,8 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: re
         Effect.timeoutOrElse({ duration: Duration.seconds(seconds), orElse: () => Effect.fail(new Cause.UnknownError(seconds, `${CommandLine.display(argv)} ran past ${seconds} seconds, set NX_DOTNET_PROJECT_GRAPH_TIMEOUT to a higher count of seconds`)) }),
     );
     const report = yield* Effect.mapError(Schema.decodeEffect(Reported)(stdout), (error) => new Cause.UnknownError(error, `${CommandLine.display(argv)} printed a report this plugin cannot read, as ${relative(workspaceRoot, ANALYZER)} predates the plugin, ${published(workspaceRoot)}: ${error.message}`));
-    const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs }) => inputs)))));
-    return { ...report, nodes: report.nodes.map((node) => ({ ...node, inputs: node.inputs.filter((input) => known.has(input)) })) };
+    const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs, loaded }) => [...inputs, ...loaded])))));
+    return { ...report, nodes: report.nodes.map((node) => ({ ...node, inputs: node.inputs.filter((input) => known.has(input)), loaded: node.loaded.filter((input) => known.has(input)) })) };
 });
 
 const related = ({ nodes }: Report): readonly RawProjectGraphDependency[] =>
@@ -181,7 +181,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
         (node) => Effect.flatMap(Effect.option(fs.readFileString(listing(node))), (held) => (Option.contains(held, node.external.join('\n')) ? Effect.void : Effect.andThen(fs.makeDirectory(dirname(listing(node)), { recursive: true }), fs.writeFileString(listing(node), node.external.join('\n'))))),
         { discard: true },
     );
-    const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.locks])).map((at) => posix.join('{workspaceRoot}', at));
+    const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.catalogs, ...node.locks])).map((at) => posix.join('{workspaceRoot}', at));
     const manifests = yield* Effect.forEach(report.nodes, (node) => manifested(workspaceRoot, dirname(node.file)));
     const building = Record.getSomes({ dependsOn: Option.map(publisher, (node) => [{ projects: [node.name], target: 'build--dotnet' }]) });
     const solutions = yield* Effect.forEach(
@@ -201,6 +201,17 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
                         help: { command: 'dotnet restore --help', example: { options: { dryRun: true } } },
                     },
                 };
+                const restored = ['dotnet', 'restore', basename(file), '--locked-mode'] as const;
+                const restore: TargetConfiguration = {
+                    executor: 'nx:run-commands',
+                    options: { cwd: dirname(file), command: line(restored) },
+                    cache: true,
+                    inputs: [posix.join('{workspaceRoot}', file), ...declared, { runtime: 'dotnet --version' }, { externalDependencies: [] }],
+                    metadata: {
+                        description: `Fails where a lock file of ${basename(file)} disagrees with the central package versions, project files, or NuGet settings its projects read, with ${line(restored)}, as task hashes reach a version change through lock files alone`,
+                        help: { command: 'dotnet restore --help', example: { args: ['--verbosity', 'detailed'] } },
+                    },
+                };
                 const purged = ['dotnet', 'nuget', 'locals', 'all', '--clear'] as const;
                 const clean: TargetConfiguration = {
                     executor: `${distribution.name}:clean`,
@@ -209,7 +220,19 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
                     inputs: [{ externalDependencies: [] }],
                     metadata: { description: `Under configuration cache, empties every NuGet local folder ${basename(file)} reads, the global packages, HTTP cache, temp, and plugin cache, with ${line(purged)}`, help: { command: 'dotnet nuget locals --help', example: { args: [] } } },
                 };
-                return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(Option.isSome(named) ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: aggregated({ upgrade: { dotnet: upgrade }, clean: { nuget: clean } }, manifest, 'dotnet', workspaceRoot) } } }];
+                return [
+                    file,
+                    {
+                        projects: {
+                            [dirname(file)]: {
+                                root: dirname(file),
+                                ...(Option.isSome(named) ? {} : { name: basename(file, extname(file)) }),
+                                metadata: { technologies: ['dotnet'] },
+                                targets: aggregated({ upgrade: { dotnet: upgrade }, check: { 'dotnet-restore': restore }, clean: { nuget: clean } }, manifest, 'dotnet', workspaceRoot),
+                            },
+                        },
+                    },
+                ];
             }),
     );
     const results = [

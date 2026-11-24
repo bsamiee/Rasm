@@ -1,19 +1,4 @@
 <Project>
-    <!-- [PROPERTIES] ──────────────────────────────────────────────────────────────── -->
-
-    <PropertyGroup Label="Central Package Management">
-        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-        <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Rhino">
-        <RhinoVersion>9.0.26300.9401</RhinoVersion>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Runtime Lines">
-        <DotNetRuntimeLine>[10.0.15, 11)</DotNetRuntimeLine>
-    </PropertyGroup>
-
     <!-- [PACKAGES] ────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Analyzers">

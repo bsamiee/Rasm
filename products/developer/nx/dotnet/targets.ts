@@ -31,6 +31,8 @@ class Node extends Schema.Opaque<Node, unknown>()(
         declared: Schema.Array(Mode),
         references: Schema.Array(Schema.Struct({ root: Schema.String, declared: Schema.String })),
         inputs: Schema.Array(Schema.String),
+        loaded: Schema.Array(Schema.String),
+        catalogs: Schema.Array(Schema.String),
         bases: Schema.Array(Schema.String),
         packages: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String, hash: Schema.String, direct: Schema.Boolean, dependencies: Schema.Array(Schema.String) })),
         referenced: Schema.Array(Schema.String),
@@ -63,18 +65,18 @@ const written = (...modes: readonly { readonly outputs: readonly string[] }[]) =
 const targets = (node: Node, coverage: Option.Option<string>, solution: (configuration: string) => Option.Option<Readonly<Record<string, string>>>, listed: Option.Option<string>): Verbs => {
     const root = dirname(node.file);
     const project = posix.join('{projectRoot}', basename(node.file));
-    const hashed = (...hosts: NonNullable<TargetConfiguration['inputs']>): NonNullable<TargetConfiguration['inputs']> => [
+    const hashed = (upstream: NonNullable<TargetConfiguration['inputs']>[number], files: readonly string[], ...hosts: NonNullable<TargetConfiguration['inputs']>): NonNullable<TargetConfiguration['inputs']> => [
         'default',
-        '^default',
+        upstream,
         ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${posix.join('{projectRoot}', posix.relative(root, base), '**')}`),
         { runtime: 'dotnet --version' },
         ...node.environment.map((env) => ({ env })),
         ...hosts,
         { externalDependencies: [] },
-        ...node.inputs.map((input) => posix.join('{workspaceRoot}', input)),
+        ...files.map((input) => posix.join('{workspaceRoot}', input)),
         ...Option.toArray(listed).map((at) => ({ runtime: `${line(['git', 'hash-object', '--no-filters', '--stdin-paths'])} < ${quoteShellArg(at)}` })),
     ];
-    const [inputs, compiled] = [hashed(), hashed({ env: 'CI' }, PLATFORM)];
+    const [inputs, compiled, executed] = [hashed('^default', node.inputs), hashed('^default', node.inputs, { env: 'CI' }, PLATFORM), hashed({ dependentTasksOutputFiles: '**/!(*.sarif)', transitive: true }, node.loaded, { env: 'CI' }, PLATFORM)];
     const moded = <A extends object>(each: (mode: Node['evaluated']) => A) => ({ options: each(node.evaluated), configurations: Record.fromIterableWith(node.declared, (mode) => [mode.configuration.toLowerCase(), each(mode)] as const) });
     const verb = node.publishable ? 'publish' : 'build';
     const built = moded(({ configuration, outputs, published, reports, documents }) => ({
@@ -140,12 +142,12 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
                     configurations: { ...moded(tested).configurations, ...(coverable && { coverage: covered }) },
                     dependsOn: ['build--dotnet'],
                     cache: true,
-                    inputs: [...compiled, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }],
+                    inputs: executed,
                     outputs: [...node.results.map(tokened(root)), posix.join('{projectRoot}', '{options.results-directory}'), ...(coverable ? written(covered) : [])],
                     metadata: metadata(
                         'test',
                         [
-                            `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a locked restore of the project alone that fetches only packages the machine lacks and writes no lock file`,
+                            `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a locked restore of the project alone that fetches only packages the machine lacks and writes no lock file, cached under the binaries the builds wrote and the files loading the project reads, as sources and compiler settings reach the tests through those binaries alone`,
                             ...(coverable ? ['configuration coverage adds --coverlet with an lcov report from coverlet.MTP'] : []),
                         ].join(', and '),
                     ),
