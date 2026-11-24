@@ -70,8 +70,6 @@ jobs:
             - &tools
               id: tools
               uses: $/.github/actions/tools
-            - run: nx sync:check
-            - run: nx conformance:check
             - id: unreal
               uses: $/.github/actions/unreal
             - id: listed
@@ -100,6 +98,8 @@ jobs:
               run: rm -rf .artifacts/cmake/*/*.log .artifacts/dotnet/test .artifacts/playwright .artifacts/vitest
             - *checkout
             - *tools
+            - run: nx sync:check
+            - run: nx conformance:check
             - run: nx run-many --targets=codegen
             - run: hk check --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
             - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}

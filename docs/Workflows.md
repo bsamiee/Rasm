@@ -16,7 +16,8 @@ Rules every workflow follows:
 
 Workflow `CI` and its jobs:
 - Jobs select projects by tag through `nx affected --exclude`, as `nx affected` takes no `--projects`
-- Job `affected` runs `nx sync:check` and `nx conformance:check`, as CI task runs skip sync and no Nx task runs conformance
+- Job `linux` runs `nx sync:check` and `nx conformance:check`, as CI task runs skip sync and no Nx task runs conformance
+- Job `affected` runs neither check, as every other job waits for it and neither check feeds one
 - Job `affected` names the Playwright image Deploy publishes by the `@playwright/test` row of the pnpm catalog
 - Runs at a Playwright version with no published image fail to pull it until Deploy on `main` publishes its tag
 - Job `affected` runs `nrwl/nx-set-shas` once for every job but `unreal`, as a CI run finishing between jobs moves the base `nx-set-shas` finds
