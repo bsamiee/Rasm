@@ -38,6 +38,11 @@ describe('tsc inference reused across graph runs', () => {
         { case: 'a file appears in a new folder the include covers', before: {}, files: { 'libs/lib/src/nested/added.ts': 'export {};\n' } },
         { case: 'a listed file starts importing a file no files entry names', before: {}, files: { 'apps/app/helper.ts': "export * from './extra';\n", 'apps/app/extra.ts': 'export const extra = 2;\n' } },
         { case: 'the tsconfig another folder holds references another program', before: {}, files: { 'libs/shared/tsconfig.json': '{"files":[],"references":[{"path":"./tsconfig.two.json"}]}' } },
+        {
+            case: 'a gitignored source starts importing a file outside the project',
+            before: { '.gitignore': 'libs/lib/src/generated.ts\n', 'libs/lib/src/generated.ts': 'export {};\n', 'libs/other/x.ts': 'export const x = 1;\n' },
+            files: { 'libs/lib/src/generated.ts': "export * from '../../other/x';\n" },
+        },
         { case: 'the extended base config turns emitting on', before: {}, files: { 'tsconfig.base.json': '{"compilerOptions":{"strict":true,"outDir":"dist"}}' } },
     ])('infers from a warm cache what a cold read infers after $case', async ({ before, files }, { workspace }) => {
         workspace.install(typescript).write({ ...WORKSPACE, ...before });

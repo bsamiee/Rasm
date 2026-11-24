@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { basename, dirname, extname, join, posix, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
-import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, PluginCache, type ProjectRootMappings, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, globWithWorkspaceContext, hashFile, PluginCache, type ProjectRootMappings, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { EXEC, type Stated, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import type { API, ParsedCommandLine } from '@typescript/native/sync';
@@ -12,7 +12,7 @@ import { MANIFEST, projected } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Program = Result.Result.Success<ReturnType<typeof resolved>>;
+type Program = Result.Result.Success<ReturnType<typeof resolved>> & { readonly ignored: readonly string[] };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -80,8 +80,8 @@ const resolved = (workspaceRoot: string, solution: Effect.Success<ReturnType<typ
         };
     });
 
-const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, lock: string, rows: readonly (readonly [config: string, sources: readonly string[]])[]) {
-    const folders = rows.map(([config, sources]) => [dirname(config), ...Array.dedupe(sources.filter((at) => posix.relative(dirname(config), at).startsWith('..')).map(posix.dirname))] as const);
+const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, lock: string, rows: readonly (readonly [config: string, read: Pick<Program, 'sources' | 'ignored'>])[]) {
+    const folders = rows.map(([config, { sources }]) => [dirname(config), ...Array.dedupe(sources.filter((at) => posix.relative(dirname(config), at).startsWith('..')).map(posix.dirname))] as const);
     const listed = Array.dedupe(folders.flat());
     const [listings, stamps] = yield* Effect.all(
         [
@@ -89,7 +89,7 @@ const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, l
             Effect.promise(() =>
                 hashMultiGlobWithWorkspaceContext(
                     workspaceRoot,
-                    rows.map(([config, sources]) => [posix.join(dirname(config), MANIFEST), lock, ...sources]),
+                    rows.map(([config, { sources }]) => [posix.join(dirname(config), MANIFEST), lock, ...sources]),
                 ),
             ),
         ],
@@ -98,7 +98,7 @@ const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, l
     const beneath = new Map(Array.zipWith(listed, listings, (at, files) => [at, { files, direct: files.filter((file) => posix.dirname(file) === at) }] as const));
     return Array.zip(
         folders.map(([folder, ...outside]) => hashArray([row, ...(beneath.get(folder)?.files ?? []), ...outside.flatMap((at) => beneath.get(at)?.direct ?? [])])),
-        stamps,
+        Array.zipWith(rows, stamps, ([, { ignored }], stamp) => hashArray([stamp, ...ignored.map((at) => hashFile(join(workspaceRoot, at)))])),
     );
 });
 
@@ -109,27 +109,21 @@ const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler:
         workspaceRoot,
         row,
         lock,
-        configs.map((config) => [config, cache.get(config)?.sources ?? []]),
+        configs.map((config) => [config, cache.get(config) ?? { sources: [], ignored: [] }]),
     );
     const current = Array.zipWith(configs, keys, (config, [digest, stamp]) => [config, Option.filter(Option.fromNullishOr(cache.get(config)), (entry) => entry.digest === digest && entry.stamp === stamp)] as const);
-    const fresh = yield* Array.match(
+    const solutions = yield* Array.match(
         current.filter(([, held]) => Option.isNone(held)).map(([config]) => config),
         {
             onEmpty: () => Effect.succeed([]),
-            onNonEmpty: (missed) =>
-                Effect.map(
-                    solved(workspaceRoot, compiler, owners, missed),
-                    Array.map(([config, solution]) => [config, resolved(workspaceRoot, solution)] as const),
-                ),
+            onNonEmpty: (missed) => solved(workspaceRoot, compiler, owners, missed),
         },
     );
+    const programs = solutions.map(([config, solution]) => [config, resolved(workspaceRoot, solution)] as const);
+    const tracked = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(Array.getSuccesses(programs.map(([, program]) => program)).flatMap(({ sources }) => sources)))));
+    const fresh = programs.map(([config, program]) => [config, Result.map(program, (value): Program => ({ ...value, ignored: [...new Set(value.sources).difference(tracked)] }))] as const);
     const stored = Array.getSuccesses(fresh.map(([config, program]) => Result.map(program, (value) => [config, value] as const)));
-    const renewed = yield* keyed(
-        workspaceRoot,
-        row,
-        lock,
-        stored.map(([config, { sources }]) => [config, sources]),
-    );
+    const renewed = yield* keyed(workspaceRoot, row, lock, stored);
     yield* Effect.forEach(Array.zip(stored, renewed), ([[config, value], [digest, stamp]]) => Effect.sync(() => cache.set(config, { ...value, digest, stamp })), { discard: true });
     yield* Array.isReadonlyArrayNonEmpty(stored) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
     return new Map<string, Result.Result<Program, Cause.UnknownError>>([...Array.getSomes(current.map(([config, held]) => Option.map(held, (cached) => [config, Result.succeed(cached)] as const))), ...fresh]);
@@ -137,14 +131,14 @@ const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler:
 
 const compiled =
     (root: string, stated: Stated, packages: readonly string[], linted: boolean, synced: boolean, manager: PackageManager, workspaceRoot: string) =>
-    ({ commands, configs, outputs, informed, sources }: Program): Option.Option<ProjectConfiguration> => {
-        const token = tokened(root);
+    ({ commands, configs, outputs, informed, sources, ignored }: Program): Option.Option<ProjectConfiguration> => {
+        const [token, unlisted] = [tokened(root), new Set(ignored)];
         const tsc = {
             executor: 'nx:run-commands',
             options: { commands, cwd: root, parallel: false },
             dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'],
             cache: true,
-            inputs: [...Array.dedupe([posix.join(root, MANIFEST), ...sources].map(token)), `^{projectRoot}/${MANIFEST}`, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts}', transitive: true }, { externalDependencies: [...packages] }],
+            inputs: [...Array.dedupe([posix.join(root, MANIFEST), ...sources]).map((at) => (unlisted.has(at) ? { fileset: token(at), includeIgnored: true } : token(at))), `^{projectRoot}/${MANIFEST}`, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts}', transitive: true }, { externalDependencies: [...packages] }],
             ...(synced && { syncGenerators: ['@nx/js:typescript-sync'] }),
         } satisfies TargetConfiguration;
         const cleaned = (removed: string) => ({

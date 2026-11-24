@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, symlinkSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { env } from 'node:process';
 import type { ProjectGraph } from '@nx/devkit';
@@ -115,6 +116,40 @@ describe('check--tsc hashes the files tsc reads', () => {
         expect(read.length).toBeGreaterThan(0);
         expect([...read, ...configs].filter((file) => !hashed.has(file))).toStrictEqual([]);
         expect(['libs/lib/decoy.ts', ...unread].filter((file) => hashed.has(file))).toStrictEqual([]);
+    });
+
+    it('hashes a declaration file tsc reads through a gitignored directory link to a folder outside the workspace, and the task hash follows its content', async ({ workspace, onTestFinished }) => {
+        const outside = realpathSync(mkdtempSync(join(tmpdir(), 'nx-outside-')));
+        onTestFinished(() => {
+            rmSync(outside, { recursive: true, force: true });
+        });
+        writeFileSync(join(outside, 'outside.d.ts'), "declare module 'outside' {\n    export const value: number;\n}\n");
+        workspace.install(typescript).write({
+            ...LIB,
+            '.gitignore': 'libs/lib/types/outside\n',
+            'libs/lib/tsconfig.json': '{"include":["*.ts","types/**/*.d.ts"],"compilerOptions":{"noEmit":true,"module":"preserve"}}',
+            'libs/lib/index.ts': "import { value } from 'outside';\nexport const doubled: number = value * 2;\n",
+        });
+        mkdirSync(join(workspace.root, 'libs/lib/types'));
+        symlinkSync(outside, join(workspace.root, 'libs/lib/types/outside'), 'dir');
+        const hashed = async () => {
+            const graph = await graphed(workspace);
+            const tasks = taskGraph(graph, ['lib'], ['check--tsc']);
+            const task = tasks.tasks['lib:check--tsc'];
+            assert(task !== undefined, 'lib:check--tsc is a task of the graph');
+            const inspector = new HashPlanInspector(graph, workspace.root);
+            await inspector.init();
+            const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(task, tasks, env);
+            return { files: inspector.inspectTaskInputs({ project: 'lib', target: 'check--tsc' })['lib:check--tsc']?.files ?? [], hash: value };
+        };
+
+        const before = await hashed();
+        writeFileSync(join(outside, 'outside.d.ts'), "declare module 'outside' {\n    export const value: string;\n}\n");
+        const after = await hashed();
+
+        expect(listed(workspace, 'libs/lib', 'tsconfig.json')).toContain('libs/lib/types/outside/outside.d.ts');
+        expect(before.files).toContain('libs/lib/types/outside/outside.d.ts');
+        expect(after.hash).not.toBe(before.hash);
     });
 
     it("hashes the declarations tsc reads in place of a referenced project's sources through its build outputs, each upstream manifest, and sources imported without a reference, and no other upstream file", async ({ workspace }) => {
