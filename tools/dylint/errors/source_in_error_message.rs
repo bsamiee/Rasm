@@ -29,7 +29,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let node = tcx.local_def_id_to_hir_id(variant.def_id.as_local()?);
             let parsed = tcx.hir_attrs(node).iter().find_map(|attribute| match attribute {
                 Attribute::DeriveHelper(parsed) if *parsed.path.segments == [error] => Some(parsed),
-                Attribute::DeriveHelper(_) | Attribute::Tool(_) | Attribute::Parsed(_) => None,
+                Attribute::DeriveHelper(_) | Attribute::Tool { .. } | Attribute::Parsed(_) => None,
             })?;
             let AttrArgs::Delimited(delimited) = &parsed.args else { return None };
             let tokens = delimited.tokens.iter().map(|tree| if let TokenTree::Token(token, _) = tree { Some(&token.kind) } else { None }).collect::<Vec<_>>();
@@ -53,7 +53,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let marked = |field: &FieldDef| {
                 field.did.as_local().into_iter().flat_map(|local| tcx.hir_attrs(tcx.local_def_id_to_hir_id(local))).any(|marker| match marker {
                     Attribute::DeriveHelper(helper) => [[source], [sym::from]].iter().any(|name| *helper.path.segments == *name),
-                    Attribute::Tool(_) | Attribute::Parsed(_) => false,
+                    Attribute::Tool { .. } | Attribute::Parsed(_) => false,
                 })
             };
             let named = |name: Symbol| variant.fields.iter().find(|field| field.name == name).filter(|field| field.name == source || marked(field)).map(|_| name.to_string());

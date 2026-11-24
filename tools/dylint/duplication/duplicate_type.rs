@@ -425,7 +425,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                             if helper.path.segments.last().is_some_and(|segment| segment.as_str() == "error")
                                 && let AttrArgs::Delimited(delimited) = &helper.args =>
                             Some(delimited.tokens.iter().collect::<Vec<_>>()),
-                        Attribute::DeriveHelper(_) | Attribute::Tool(_) | Attribute::Parsed(_) => None,
+                        Attribute::DeriveHelper(_) | Attribute::Tool { .. } | Attribute::Parsed(_) => None,
                     })
                     .any(|tokens| matches!(&tokens, [TokenTree::Token(token, _)] if token.is_ident_named(transparent)))
             };
@@ -565,7 +565,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 .filter_map(DefId::as_local)
                 .flat_map(|owner| tcx.hir_attrs(tcx.local_def_id_to_hir_id(owner)))
                 .filter_map(|attribute| match attribute {
-                    Attribute::Tool(unparsed) | Attribute::DeriveHelper(unparsed) => Some(&**unparsed),
+                    Attribute::Tool { item: unparsed, .. } | Attribute::DeriveHelper(unparsed) => Some(&**unparsed),
                     Attribute::Parsed(_) => None,
                 })
                 .collect::<Vec<&AttrItem>>()

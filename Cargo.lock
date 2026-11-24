@@ -1795,7 +1795,7 @@ dependencies = [
 [[package]]
 name = "clippy_utils"
 version = "0.1.102"
-source = "git+https://github.com/rust-lang/rust-clippy?rev=56afb1133b89d84e0458047b4d51611710f111bb#56afb1133b89d84e0458047b4d51611710f111bb"
+source = "git+https://github.com/rust-lang/rust-clippy?rev=c132618b27b340db96c591bc4efcb169a1c99b25#c132618b27b340db96c591bc4efcb169a1c99b25"
 dependencies = [
  "arrayvec",
  "itertools 0.15.0",

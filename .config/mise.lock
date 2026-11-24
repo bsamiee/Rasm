@@ -3046,24 +3046,24 @@ checksum = "sha256:98c2efffc689fe6061b62da5390f6bbd53ddd88445b22d46e894666566904
 url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.4/nullaway-0.14.4.jar"
 
 [[tools."http:rustc-source"]]
-version = "2026-11-17"
+version = "2026-11-23"
 backend = "http:rustc-source"
-specifiers = ["2026-11-17"]
+specifiers = ["2026-11-23"]
 
 [tools."http:rustc-source".options]
 strip_components = "1"
 
 [tools."http:rustc-source"."platforms.linux-arm64"]
-checksum = "sha256:f27b8ddf8ed3297d81961953910f912c45c567a040a05b1775932679e7c3c65a"
-url = "https://static.rust-lang.org/dist/2026-11-17/rustc-nightly-src.tar.xz"
+checksum = "sha256:ebf730343b73f3c2f33690ec622d4bb1ab5cc3e491f9e0d501901d28ec2b03da"
+url = "https://static.rust-lang.org/dist/2026-11-23/rustc-nightly-src.tar.xz"
 
 [tools."http:rustc-source"."platforms.linux-x64"]
-checksum = "sha256:f27b8ddf8ed3297d81961953910f912c45c567a040a05b1775932679e7c3c65a"
-url = "https://static.rust-lang.org/dist/2026-11-17/rustc-nightly-src.tar.xz"
+checksum = "sha256:ebf730343b73f3c2f33690ec622d4bb1ab5cc3e491f9e0d501901d28ec2b03da"
+url = "https://static.rust-lang.org/dist/2026-11-23/rustc-nightly-src.tar.xz"
 
 [tools."http:rustc-source"."platforms.macos-arm64"]
-checksum = "sha256:f27b8ddf8ed3297d81961953910f912c45c567a040a05b1775932679e7c3c65a"
-url = "https://static.rust-lang.org/dist/2026-11-17/rustc-nightly-src.tar.xz"
+checksum = "blake3:d0171e7832f75f26763283f12f3f179c60275572ad21d283daa9f118881ccc22"
+url = "https://static.rust-lang.org/dist/2026-11-23/rustc-nightly-src.tar.xz"
 
 [[tools."http:yak"]]
 version = "0.19.1"
@@ -4016,9 +4016,9 @@ url = "https://github.com/astral-sh/ruff/releases/download/0.17.5/ruff-x86_64-pc
 url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/740497059"
 
 [[tools.rust]]
-version = "nightly-2026-11-17"
+version = "nightly-2026-11-23"
 backend = "core:rust"
-specifiers = ["nightly-2026-11-17"]
+specifiers = ["nightly-2026-11-23"]
 
 [tools.rust.options]
 components = "clippy,llvm-tools,rust-analyzer,rust-src,rustc-dev,rustfmt"

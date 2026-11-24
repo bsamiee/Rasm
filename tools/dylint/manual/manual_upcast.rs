@@ -85,7 +85,7 @@ fn upcast(cx: &LateContext<'_>, method: LocalDefId) -> Option<DefId> {
                     ty::ProjectionClause { projection_term: alias, term: alias.to_term(tcx, ty::IsRigid::No) },
                 )))
             });
-        let auto_traits = elaborate(tcx, param_env.caller_bounds().all_clauses(tcx).iter())
+        let auto_traits = elaborate(tcx, param_env.caller_bounds().all_clauses_interned(tcx).iter())
             .filter_only_self()
             .filter_map(Clause::as_trait_clause)
             .filter(|bound| bound.skip_binder().polarity == ty::ClausePolarity::Positive && bound.self_ty().skip_binder().is_self_param() && tcx.trait_is_auto(bound.def_id()))
@@ -112,7 +112,7 @@ fn upcast(cx: &LateContext<'_>, method: LocalDefId) -> Option<DefId> {
                     .is_none_or(|bound| bound.skip_binder().projection_term.args.iter().flat_map(ty::GenericArg::walk).filter_map(ty::GenericArg::as_type).any(Ty::is_self_param))
             })
             .map(|clause| ty::EarlyBinder::bind(tcx, clause).instantiate(tcx, args).skip_normalization());
-        let param_env = obligations.normalize(&cause, param_env, Unnormalized::new(ty::ParamEnv::new(tcx, elaborate(tcx, original.chain(substituted)))));
+        let param_env = ty::ParamEnv::new(tcx, obligations.normalize(&cause, param_env, Unnormalized::new(elaborate(tcx, original.chain(substituted)).collect::<Vec<_>>())));
         let (receiver, output) = obligations.normalize(&cause, param_env, ty::EarlyBinder::bind(tcx, coercion).instantiate(tcx, args));
         (receiver, output, param_env)
     };
