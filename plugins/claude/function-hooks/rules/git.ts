@@ -1,4 +1,5 @@
-import { Array, Effect, Function, Match, Option, Predicate, Result, Schema, String, Struct } from 'effect';
+import process from 'node:process';
+import { Array, Clock, Effect, Function, Match, Option, Predicate, Result, Schema, String, Struct } from 'effect';
 import manifest from '#/.claude-plugin/plugin.json' with { type: 'json' };
 import { Host, HostError } from '#/host';
 import type { Request } from '#/rules/decision';
@@ -29,11 +30,18 @@ const UNWINDS = ['--abort', '--quit'];
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Entry = Schema.TaggedUnion({
-    Wrote: { agent: Schema.optionalKey(Schema.String), path: Schema.String, before: Schema.optionalKey(Schema.String), after: Schema.String },
+    Wrote: { agent: Schema.optionalKey(Schema.String), path: Schema.String, before: Schema.optionalKey(Schema.String), after: Schema.optionalKey(Schema.String) },
+    Opened: { agent: Schema.optionalKey(Schema.String), call: Schema.String, at: Schema.Finite, pid: Schema.Int, tree: Schema.optionalKey(Schema.String), path: Schema.optionalKey(Schema.String), until: Schema.optionalKey(Schema.Finite) },
+    Closed: { agent: Schema.optionalKey(Schema.String), call: Schema.String, at: Schema.Finite },
 });
 const Line = Schema.fromJsonString(Entry);
 const Output = Schema.Union([Schema.Struct({ filePath: Schema.String, oldString: Schema.String, newString: Schema.String, originalFile: Schema.NullOr(Schema.String), replaceAll: Schema.Boolean }), Schema.Struct({ filePath: Schema.String, content: Schema.String, originalFile: Schema.NullOr(Schema.String) })]);
-const Writing = Schema.Struct({ session: Schema.String, agent: Schema.optionalKey(Schema.String), result: Schema.Unknown }).annotate({ description: "An Edit or Write call's structured result, recorded as the writing agent's change of that file's blob" });
+const Calling = Schema.Struct({ session: Schema.String, agent: Schema.optionalKey(Schema.String), call: Schema.String, cwd: Schema.String, file: Schema.optionalKey(Schema.String), until: Schema.optionalKey(Schema.Finite) }).annotate({
+    description: "A tool call about to run: a file tool's file, or a shell call's session folder whose worktree is snapshot, and the latest instant a bounded call can still write",
+});
+const Writing = Schema.Struct({ session: Schema.String, agent: Schema.optionalKey(Schema.String), call: Schema.String, file: Schema.String, result: Schema.Unknown }).annotate({
+    description: "An Edit or Write call's result after it ran, recorded as the writing agent's change of that file's blob and closing the call's window",
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -44,7 +52,7 @@ const markerOf = ({ session, agent }: Pick<Request, 'session' | 'agent'>) => `${
 const located = (host: Host['Service'], folder: string) =>
     Effect.map(host.run(['git', '-C', folder, 'rev-parse', '--absolute-git-dir', '--show-toplevel', '--show-prefix']), ({ code, stdout }) => {
         const [gitdir = '', toplevel = '', prefix = ''] = stdout.split('\n');
-        return Option.liftPredicate({ ledger: host.path.join(gitdir, manifest.name), toplevel, prefix }, () => code === 0);
+        return Option.liftPredicate({ gitdir, ledger: host.path.join(gitdir, manifest.name), toplevel, prefix }, () => code === 0);
     });
 
 const entriesOf = Effect.fnUntraced(function* (host: Host['Service'], ledger: string) {
@@ -73,13 +81,23 @@ const changesOf = (listed: string) =>
         return { path, from: blobOf(from), to: Option.filter(blobOf(to), () => status !== 'D'), kept: status !== 'D' };
     });
 
-const appended = Effect.fnUntraced(function* (host: Host['Service'], ledger: string, session: string, entry: typeof Entry.Type) {
-    const line = yield* Effect.orDie(Schema.encodeEffect(Line)(entry));
-    yield* Effect.mapError(Effect.andThen(host.fs.makeDirectory(ledger, { recursive: true }), host.fs.writeFileString(host.path.join(ledger, `${session}${LEDGER}`), `${line}\n`, { flag: 'a' })), HostError.of(ledger));
+const appended = Effect.fnUntraced(function* (host: Host['Service'], ledger: string, session: string, entries: readonly (typeof Entry.Type)[]) {
+    const lines = yield* Effect.orDie(Effect.forEach(entries, (entry) => Schema.encodeEffect(Line)(entry)));
+    yield* Effect.mapError(Effect.andThen(host.fs.makeDirectory(ledger, { recursive: true }), host.fs.writeFileString(host.path.join(ledger, `${session}${LEDGER}`), lines.map((line) => `${line}\n`).join(''), { flag: 'a' })), HostError.of(ledger));
 });
 
-const derived = (links: readonly { readonly before?: string; readonly after: string }[], from: Option.Option<string>, to: Option.Option<string>, seen: ReadonlySet<string> = new Set()): boolean =>
-    Option.getOrUndefined(from) === Option.getOrUndefined(to) || Option.exists(to, (blob) => !seen.has(blob) && links.some(({ before, after }) => after === blob && derived(links, from, Option.fromUndefinedOr(before), seen.union(new Set([blob])))));
+const snapshot = (host: Host['Service'], { gitdir, toplevel }: { readonly gitdir: string; readonly toplevel: string }) =>
+    Effect.scoped(
+        Effect.gen(function* () {
+            const index = yield* Effect.mapError(host.fs.makeTempFileScoped(), HostError.of('index'));
+            yield* Effect.ignore(host.fs.copyFile(host.path.join(gitdir, 'index'), index));
+            yield* host.run(['git', '-C', toplevel, 'add', '-A'], { env: { GIT_INDEX_FILE: index } });
+            return (yield* host.run(['git', '-C', toplevel, 'write-tree'], { env: { GIT_INDEX_FILE: index } })).stdout.trim();
+        }),
+    );
+
+const derived = (links: readonly { readonly before?: string; readonly after?: string }[], from: string | undefined, to: string | undefined, seen: ReadonlySet<string | undefined> = new Set()): boolean =>
+    from === to || (!seen.has(to) && links.some(({ before, after }) => after === to && derived(links, from, before, seen.union(new Set([to])))));
 
 const foreign = Effect.fnUntraced(function* (host: Host['Service'], repository: string, { session, agent }: Pick<Request, 'session' | 'agent'>, pathspecs: readonly string[], source: Option.Option<string>, indexed: boolean) {
     const place = yield* located(host, repository);
@@ -96,7 +114,7 @@ const foreign = Effect.fnUntraced(function* (host: Host['Service'], repository: 
         entries.flatMap(([owner, entry]) => (Predicate.isTagged(entry, 'Wrote') && owner === session && entry.agent === agent ? [entry] : [])),
         Struct.get('path'),
     );
-    const unowned = [...worktree.map(({ path, from }) => ({ path, from, to: Option.fromUndefinedOr(blobs.get(path)) })), ...index].filter(({ path, from, to }) => !derived(links[path] ?? [], from, to));
+    const unowned = [...worktree.map(({ path, from }) => ({ path, from, to: Option.fromUndefinedOr(blobs.get(path)) })), ...index].filter(({ path, from, to }) => !derived(links[path] ?? [], Option.getOrUndefined(from), Option.getOrUndefined(to)));
     return Array.dedupe(unowned.map(Struct.get('path')));
 });
 
@@ -313,23 +331,72 @@ const forcedRefs: Rule = (invocation) =>
 
 // --- [ROUTES]
 
-const wrote = Effect.fn('wrote')(function* ({ session, agent, result }: typeof Writing.Type) {
+const opened = Effect.fn('opened')(
+    function* ({ session, agent, call, file, until }: typeof Calling.Type) {
+        const host = yield* Host;
+        const place = yield* located(
+            host,
+            Option.getOrElse(Option.map(Option.fromUndefinedOr(file), host.path.dirname), () => host.root),
+        );
+        if (Option.isNone(place)) {
+            return;
+        }
+        const { ledger, prefix } = place.value;
+        const [tree, at] = yield* Effect.all([file === undefined ? Effect.asSome(snapshot(host, place.value)) : Effect.succeedNone, Clock.currentTimeMillis]);
+        const window = { call, at, pid: process.ppid, ...Option.match(tree, { onNone: () => ({}), onSome: (held) => ({ tree: held }) }), ...(file === undefined ? {} : { path: `${prefix}${host.path.basename(file)}` }), ...(until === undefined ? {} : { until }) };
+        yield* appended(host, ledger, session, [Entry.cases.Opened.make({ ...window, ...(agent === undefined ? {} : { agent }) })]);
+    },
+    (effect, { cwd }) => Effect.provideServiceEffect(effect, Host, Host.make(cwd)),
+);
+
+const closed = Effect.fn('closed')(
+    function* ({ session, agent, call }: typeof Calling.Type) {
+        const host = yield* Host;
+        const place = yield* located(host, host.root);
+        const own = Option.isSome(place) ? Array.findLast(yield* entriesOf(host, place.value.ledger), ([owner, entry]) => owner === session && Predicate.isTagged(entry, 'Opened') && entry.call === call) : Option.none();
+        const start = Option.flatMap(own, ([, entry]) => (Predicate.isTagged(entry, 'Opened') ? Option.fromUndefinedOr(entry.tree === undefined ? undefined : { at: entry.at, tree: entry.tree }) : Option.none()));
+        if (Option.isNone(place) || Option.isNone(start)) {
+            return;
+        }
+        const { ledger, toplevel } = place.value;
+        const tree = yield* snapshot(host, place.value);
+        const [at, entries] = yield* Effect.all([Clock.currentTimeMillis, entriesOf(host, ledger)]);
+        const ended = new Map(entries.flatMap(([owner, entry]) => (Predicate.isTagged(entry, 'Closed') ? [[`${owner} ${entry.call}`, entry.at] as const] : [])));
+        const windows = entries.flatMap(([owner, entry]) => (Predicate.isTagged(entry, 'Opened') && (owner !== session || entry.agent !== agent) ? [{ owner, entry }] : []));
+        const living = yield* Effect.forEach(windows, ({ owner, entry }) =>
+            Effect.map(Effect.isSuccess(Effect.try({ try: () => process.kill(entry.pid, 0), catch: HostError.of('kill') })), (alive) => ({ owner, entry, end: ended.get(`${owner} ${entry.call}`) ?? Math.min(entry.until ?? Number.POSITIVE_INFINITY, alive ? Number.POSITIVE_INFINITY : at) })),
+        );
+        const overlapping = living.filter(({ entry, end }) => entry.at <= at && end >= start.value.at);
+        const blocked = new Set(overlapping.map(({ entry }) => entry.path));
+        const changes = blocked.has(undefined) ? [] : changesOf(yield* host.output(['git', '-C', toplevel, 'diff-tree', '-r', '-z', '--no-renames', start.value.tree, tree])).filter(({ path }) => !blocked.has(path));
+        const held = agent === undefined ? {} : { agent };
+        const dead = living.filter(({ end }) => end === at);
+        yield* Effect.forEach(dead, ({ owner, entry }) => appended(host, ledger, owner, [Entry.cases.Closed.make({ call: entry.call, at, ...(entry.agent === undefined ? {} : { agent: entry.agent }) })]), { discard: true });
+        yield* appended(host, ledger, session, [
+            ...changes.map(({ path, from, to }) => Entry.cases.Wrote.make({ path, ...held, ...Option.match(from, { onNone: () => ({}), onSome: (before) => ({ before }) }), ...Option.match(to, { onNone: () => ({}), onSome: (after) => ({ after }) }) })),
+            Entry.cases.Closed.make({ call, at, ...held }),
+        ]);
+    },
+    (effect, { cwd }) => Effect.provideServiceEffect(effect, Host, Host.make(cwd)),
+);
+
+const wrote = Effect.fn('wrote')(function* ({ session, agent, call, file, result }: typeof Writing.Type) {
     const host = yield* Host;
-    const output = Schema.decodeUnknownOption(Output)(result);
-    const held = Option.all({ decoded: output, after: Option.flatMap(output, afterOf) });
-    if (Option.isNone(held)) {
-        return;
-    }
-    const { decoded, after } = held.value;
-    const place = yield* located(host, host.path.dirname(decoded.filePath));
+    const place = yield* located(host, host.path.dirname(file));
     if (Option.isNone(place)) {
         return;
     }
     const { ledger, toplevel, prefix } = place.value;
-    const path = `${prefix}${host.path.basename(decoded.filePath)}`;
+    const path = `${prefix}${host.path.basename(file)}`;
+    const output = Schema.decodeUnknownOption(Output)(result);
+    const held = agent === undefined ? {} : { agent };
     const hashed = (stdin: string) => Effect.map(host.run(['git', '-C', toplevel, 'hash-object', '--stdin', `--path=${path}`], { stdin }), ({ stdout }) => stdout.trim());
-    const [before, blob] = yield* Effect.all([Effect.transposeOption(Option.map(Option.fromNullOr(decoded.originalFile), hashed)), hashed(after)]);
-    yield* appended(host, ledger, session, Entry.cases.Wrote.make({ path, after: blob, ...Option.match(before, { onNone: () => ({}), onSome: (hash) => ({ before: hash }) }), ...(agent === undefined ? {} : { agent }) }));
+    const written = yield* Option.match(Option.all({ decoded: output, after: Option.flatMap(output, afterOf) }), {
+        onNone: () => Effect.succeedNone,
+        onSome: ({ decoded, after }) => Effect.asSome(Effect.all({ before: Effect.transposeOption(Option.map(Option.fromNullOr(decoded.originalFile), hashed)), after: hashed(after) })),
+    });
+    const at = yield* Clock.currentTimeMillis;
+    yield* appended(host, ledger, session, [...Option.toArray(Option.map(written, ({ before, after }) => Entry.cases.Wrote.make({ path, after, ...held, ...Option.match(before, { onNone: () => ({}), onSome: (hash) => ({ before: hash }) }) }))), Entry.cases.Closed.make({ call, at, ...held })]);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -388,4 +455,4 @@ const GIT: Ruleset = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { GIT, Writing, wrote };
+export { Calling, closed, GIT, opened, Writing, wrote };

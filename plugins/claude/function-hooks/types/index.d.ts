@@ -17,4 +17,7 @@ export interface Task {
     readonly file: string;
     readonly agent?: string;
     readonly told?: string;
+    readonly session?: string;
+    readonly call?: string;
+    readonly cwd?: string;
 }

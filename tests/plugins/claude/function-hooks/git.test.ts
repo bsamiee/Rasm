@@ -1,5 +1,5 @@
 import { expect, layer } from '@effect/vitest';
-import { wrote } from '@rasm/function-hooks/rules/git';
+import { closed, opened, wrote } from '@rasm/function-hooks/rules/git';
 import { Cause, Context, Effect, FileSystem, Layer, Match, Path } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Decider, decided, refusing } from '#/engine';
@@ -79,6 +79,9 @@ const RESTORED = [
     ['its own edits with one staged between them, back to the index', [STEPS.mine, { stage: 'f' }, STEPS.more], 'git restore f', 'a'],
     ['its own edits with one staged between them, back to HEAD', [STEPS.mine, { stage: 'f' }, STEPS.more], 'git checkout HEAD -- f', 'a'],
     ['its own edit over content a shell staged, back to the index', [{ shell: 'f', text: 'staged\n' }, { stage: 'f' }, { edit: 'a', file: 'f', old: 'staged', new: 'mine', text: 'mine\n' }], 'git restore f', 'a'],
+    ['its own edit that its own shell call rewrote in place', [STEPS.mine, { runs: 'a', command: "sed -i.orig 's/mine/sed/' f && rm f.orig" }], 'git restore f', 'a'],
+    ['a file its own shell call formatted by redirect', [{ runs: 'a', command: String.raw`printf 'formatted\n' > f` }], 'git checkout -- f', 'a'],
+    ['a file its own shell call deleted', [{ runs: 'a', command: 'rm f' }], 'git restore f', 'a'],
 ] as const;
 const KEPT = [
     ['its own edit over content a shell staged, back to HEAD with the index', [{ shell: 'f', text: 'staged\n' }, { stage: 'f' }, { edit: 'a', file: 'f', old: 'staged', new: 'mine', text: 'mine\n' }], 'git restore --source=HEAD --staged --worktree f', 'a', `git restore ${FOREIGN} f,`],
@@ -89,6 +92,18 @@ const KEPT = [
     ['its own edit that a shell command deleted since', [STEPS.mine, { remove: 'f' }], 'git restore f', 'a', `git restore ${FOREIGN} f,`],
     ['its own edit beside a path a shell command deleted, naming only the deleted path', [{ edit: 'a', file: 'g', old: 'base', new: 'mine', text: 'mine\n' }, { remove: 'f' }], 'git restore f g', 'a', `git restore ${FOREIGN} f, read`],
     ['an edit by the main agent of its own session, from a subagent', [STEPS.mine], 'git restore f', 'a1', `git restore ${FOREIGN} f,`],
+    ['its own shell call over a path another session edited inside the call', [STEPS.mine, { runs: 'a', command: "sed -i.orig 's/$/!/' f && rm f.orig", during: { edit: 'b', file: 'f', old: 'mine', new: 'theirs', text: 'theirs\n' } }], 'git restore f', 'a', `git restore ${FOREIGN} f,`],
+    ['its own shell call while a shell call of another session was open', [STEPS.mine, { runs: 'a', command: "sed -i.orig 's/mine/sed/' f && rm f.orig", during: { opens: 'b' } }], 'git restore f', 'a', `git restore ${FOREIGN} f,`],
+    [
+        'a hand write to a path its own shell call left alone',
+        [
+            { shell: 'f', text: 'hand\n' },
+            { runs: 'a', command: "sed -i.orig 's/base/sed/' g && rm g.orig" },
+        ],
+        'git restore f',
+        'a',
+        `git restore ${FOREIGN} f,`,
+    ],
     ['its own path beside a path another session edited, naming only that path', [STEPS.mine, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], 'git restore f g', 'a', `git restore ${FOREIGN} g,`],
 ] as const;
 const NOT_COMMITTED = 'git commit --amend rewrites HEAD, which this session did not commit';
@@ -175,10 +190,18 @@ const scratch = Effect.fnUntraced(function* () {
         succeeded,
         decidedAs,
         written: (name: string, text: string) => fs.writeFileString(file(name), text),
-        recorded: Effect.fnUntraced(function* (by: keyof typeof OWNERS, name: string, text: string, result: object) {
+        recorded: Effect.fnUntraced(function* (by: keyof typeof OWNERS, name: string, text: string, call: string, result: object) {
+            yield* opened({ ...OWNERS[by], call, cwd: repo, file: file(name) });
             const originalFile = (yield* fs.exists(file(name))) ? yield* fs.readFileString(file(name)) : null;
             yield* fs.writeFileString(file(name), text);
-            yield* wrote({ ...OWNERS[by], result: { ...result, filePath: file(name), originalFile } });
+            yield* wrote({ ...OWNERS[by], call, file: file(name), result: { ...result, filePath: file(name), originalFile } });
+        }),
+        shelled: Effect.fnUntraced(function* <E, R>(by: keyof typeof OWNERS, command: string, call: string, during: Effect.Effect<void, E, R>) {
+            const decision = yield* reached(decidedAs(command, by, call), ({ _tag }) => _tag === 'Allow' || _tag === 'Rewrite', `a ${command} that runs`);
+            yield* opened({ ...OWNERS[by], call, cwd: repo });
+            yield* during;
+            yield* succeeded('command' in decision ? decision.command : command);
+            yield* closed({ ...OWNERS[by], call, cwd: repo });
         }),
         pushed: Effect.andThen(
             succeeded(`git init -q --bare ${remote} && git remote add origin ${remote} && git push -q origin main`),
@@ -189,11 +212,15 @@ const scratch = Effect.fnUntraced(function* () {
 
 type Scratch = Effect.Success<ReturnType<typeof scratch>>;
 
-const restoreStep = (held: Scratch) => (step: (typeof RESTORED | typeof KEPT)[number][1][number]) =>
+const duringStep = (held: Scratch, step: { readonly opens: keyof typeof OWNERS } | { readonly edit: keyof typeof OWNERS; readonly file: string; readonly old: string; readonly new: string; readonly text: string }, at: number) =>
+    'opens' in step ? opened({ ...OWNERS[step.opens], call: `open-${at}`, cwd: held.repo }) : held.recorded(step.edit, step.file, step.text, `edit-${at}`, { oldString: step.old, newString: step.new, replaceAll: false, structuredPatch: [], userModified: false });
+
+const restoreStep = (held: Scratch) => (step: (typeof RESTORED | typeof KEPT)[number][1][number], at: number) =>
     Match.value(step).pipe(
-        Match.when({ edit: Match.string }, ({ edit, file, old, new: replacement, text }) => held.recorded(edit, file, text, { oldString: old, newString: replacement, replaceAll: false, structuredPatch: [], userModified: false })),
-        Match.when({ replace: Match.string }, ({ replace, file, old, new: replacement, text }) => held.recorded(replace, file, text, { oldString: old, newString: replacement, replaceAll: true, structuredPatch: [], userModified: false })),
-        Match.when({ write: Match.string }, ({ write, file, text }) => held.recorded(write, file, text, { type: 'update', content: text, structuredPatch: [] })),
+        Match.when({ runs: Match.string }, (call) => held.shelled(call.runs, call.command, `call-${at}`, 'during' in call ? duringStep(held, call.during, at + 100) : Effect.void)),
+        Match.when({ edit: Match.string }, ({ edit, file, old, new: replacement, text }) => held.recorded(edit, file, text, `edit-${at}`, { oldString: old, newString: replacement, replaceAll: false, structuredPatch: [], userModified: false })),
+        Match.when({ replace: Match.string }, ({ replace, file, old, new: replacement, text }) => held.recorded(replace, file, text, `edit-${at}`, { oldString: old, newString: replacement, replaceAll: true, structuredPatch: [], userModified: false })),
+        Match.when({ write: Match.string }, ({ write, file, text }) => held.recorded(write, file, text, `edit-${at}`, { type: 'update', content: text, structuredPatch: [] })),
         Match.when({ shell: Match.string }, ({ shell, text }) => held.written(shell, text)),
         Match.when({ remove: Match.string }, ({ remove }) => held.succeeded(`rm ${remove}`)),
         Match.orElse(({ stage }) => held.succeeded(`git add ${stage}`)),

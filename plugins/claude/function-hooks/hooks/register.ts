@@ -7,7 +7,15 @@ interface Routes {
     readonly decide: readonly [{ readonly command: string; readonly cwd: string; readonly kind: 'foreground' | 'background' | 'monitor'; readonly agent?: string; readonly session: string; readonly call: string }, Decision];
     readonly read: readonly [{ readonly file: string }, Decision];
     readonly tasks: readonly [{ readonly files: readonly string[] }, readonly { readonly file: string; readonly live: boolean; readonly stuck?: { readonly key: string; readonly text: string } }[]];
-    readonly wrote: readonly [{ readonly session: string; readonly agent?: string; readonly result: unknown }, Record<never, never>];
+    readonly opened: readonly [Caller & { readonly file?: string; readonly until?: number }, Record<never, never>];
+    readonly closed: readonly [Caller, Record<never, never>];
+    readonly wrote: readonly [Omit<Caller, 'cwd'> & { readonly file: string; readonly result: unknown }, Record<never, never>];
+}
+interface Caller {
+    readonly session: string;
+    readonly agent?: string;
+    readonly call: string;
+    readonly cwd: string;
 }
 type Phase = { readonly kind: 'starting'; readonly waiting: ((cause?: Error) => void)[] } | { readonly kind: 'listening' } | { readonly kind: 'failed'; readonly cause: Error };
 interface Server {
@@ -126,12 +134,13 @@ const asked = <R extends keyof Routes>($: EngineInterface, route: R, body: Route
 
 // --- [TASKS]
 
-const followed = async ($: EngineInterface, agent: string | undefined, { result, text = '' }: { readonly result?: unknown; readonly text?: string | undefined }): Promise<void> => {
+const followed = async ($: EngineInterface, caller: Caller, { result, text = '' }: { readonly result?: unknown; readonly text?: string | undefined }, signal: AbortSignal): Promise<void> => {
     const id = typeof result === 'object' && result !== null && 'backgroundTaskId' in result && typeof result.backgroundTaskId === 'string' ? result.backgroundTaskId : undefined;
     const file = id === undefined ? undefined : text.split(/\s+/u).find((word) => word.endsWith(`/tasks/${id}.output`));
     if (id !== undefined && file !== undefined) {
-        await update($, TASKS, (tasks) => ({ ...tasks, [id]: agent === undefined ? { file } : { file, agent } }));
+        await update($, TASKS, (tasks) => ({ ...tasks, [id]: { file, ...caller } }));
     }
+    await (id === undefined ? asked($, 'closed', caller, signal) : undefined);
 };
 
 const scanned = async ($: EngineInterface): Promise<void> => {
@@ -151,6 +160,7 @@ const scanned = async ($: EngineInterface): Promise<void> => {
     });
     const scans = new Map(judged.map(({ id, held }) => [id, held] as const));
     await update($, TASKS, (stored) => Object.fromEntries(Object.entries(stored).flatMap(([id, task]) => (scans.get(id) ?? [task]).map((kept) => [id, kept] as const))));
+    await Promise.all(judged.flatMap(({ task: { file: _file, told: _told, ...caller }, held }) => (held.length === 0 && caller.call !== undefined && caller.session !== undefined && caller.cwd !== undefined ? [asked($, 'closed', { ...caller, call: caller.call, session: caller.session, cwd: caller.cwd })] : [])));
     await Promise.all(
         judged.flatMap(({ id, task: { agent, file }, due }) =>
             due.map((evidence) => {
@@ -162,6 +172,8 @@ const scanned = async ($: EngineInterface): Promise<void> => {
 };
 
 // --- [ANSWERS]
+
+const bounded = ({ tool, timeout, timeout_ms }: { readonly tool: string } & Partial<Record<'timeout' | 'timeout_ms', number>>, monitored: boolean) => (tool === 'Monitor' || monitored ? { until: Date.now() + (timeout_ms ?? timeout ?? MONITOR_MS) } : {});
 
 const noted = <A extends { readonly deny?: unknown; readonly context?: readonly string[] | undefined }>(answer: A, note?: string) => (note !== undefined && answer.deny === undefined ? { ...answer, context: [...(answer.context ?? []), note] } : answer);
 
@@ -189,13 +201,15 @@ const register: Register = (on) => {
         }
         const [cwd, session] = await Promise.all([$.session.cwd(), $.session.id()]);
         const kind = e.tool === 'Bash' && e.run_in_background === true ? 'background' : ({ Bash: 'foreground', Monitor: 'monitor' } as const)[e.tool];
-        const decision = await asked($, 'decide', { command: e.command, cwd, kind, ...(e.agentId !== undefined && { agent: e.agentId }), session, call: e.tool_use_id }, next.signal);
+        const caller = { session, call: e.tool_use_id, cwd, ...(e.agentId !== undefined && { agent: e.agentId }) };
+        const decision = await asked($, 'decide', { command: e.command, kind, ...caller }, next.signal);
         if (decision._tag === 'Deny') {
             return { deny: decision.reason };
         }
+        await asked($, 'opened', { ...caller, ...bounded(e, decision._tag === 'Monitor') }, next.signal);
         if (decision._tag === 'Allow' || e.tool === 'Monitor') {
             const answer = await next(decision._tag === 'Allow' ? e : { ...e, command: decision.command });
-            await followed($, e.agentId, answer);
+            await (e.tool === 'Bash' ? followed($, caller, answer, next.signal) : undefined);
             return noted(answer, decision.note);
         }
         if (decision._tag === 'Monitor') {
@@ -208,7 +222,7 @@ const register: Register = (on) => {
         }
         const { timeout: _timeout, ...untimed } = e;
         const answer = await next(decision.background ? { ...untimed, command: decision.command, run_in_background: true } : { ...e, command: decision.command });
-        await followed($, e.agentId, answer);
+        await followed($, caller, answer, next.signal);
         return noted(answer, decision.note);
     }).catch(async ($, e, next) => {
         if (next.called) {
@@ -224,8 +238,11 @@ const register: Register = (on) => {
         return { ...answer, context: [...(answer.context ?? []), line] };
     });
     on('tool.call', { tool: ['Edit', 'Write'] }, async ($, e, next) => {
+        const [cwd, session] = await Promise.all([$.session.cwd(), $.session.id()]);
+        const caller = { session, call: e.tool_use_id, ...(e.agentId !== undefined && { agent: e.agentId }) };
+        await asked($, 'opened', { ...caller, cwd, file: e.file_path }, next.signal);
         const answer = await next(e);
-        await (answer.deny === undefined && answer.isError !== true ? asked($, 'wrote', { session: await $.session.id(), ...(e.agentId !== undefined && { agent: e.agentId }), result: answer.result }, next.signal) : undefined);
+        await asked($, 'wrote', { ...caller, file: e.file_path, result: answer.deny === undefined && answer.isError !== true ? answer.result : undefined }, next.signal);
         return answer;
     });
     on('turn.start', (_$, e, next) => {

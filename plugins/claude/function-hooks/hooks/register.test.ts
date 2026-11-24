@@ -104,7 +104,7 @@ const worldOf = (on: On, decide: () => HttpResponse | { readonly deny: string },
         const route = new URL(e.url).pathname.slice(1);
         seen.sent.push([route, typeof e.init?.body === 'string' ? JSON.parse(e.init.body) : e.init?.body]);
         const step = route === 'tasks' ? given.watched?.next() : undefined;
-        const replies: Readonly<Record<string, () => HttpResponse | { readonly deny: string }>> = { tasks: () => answered(step === undefined || step.done === true ? [] : [step.value]), wrote: () => answered({}) };
+        const replies: Readonly<Record<string, () => HttpResponse | { readonly deny: string }>> = { tasks: () => answered(step === undefined || step.done === true ? [] : [step.value]), wrote: () => answered({}), opened: () => answered({}), closed: () => answered({}) };
         const reply = (replies[route] ?? decide)();
         return 'deny' in reply ? reply : { value: reply };
     });
@@ -142,23 +142,63 @@ const worldOf = (on: On, decide: () => HttpResponse | { readonly deny: string },
         await $.session.start(SESSION);
         expect(await $.tool.call(LIST)).toEqual(resolved);
         expect(world.ran).toEqual(ran);
-        expect(world.sent).toEqual([['decide', { command: 'ls', cwd: SESSION.cwd, kind: 'foreground', ...DECIDED }]]);
+        expect(world.sent.filter(([route]) => route === 'decide')).toEqual([['decide', { command: 'ls', cwd: SESSION.cwd, kind: 'foreground', ...DECIDED }]]);
+    });
+});
+
+const WINDOW = { ...DECIDED, agent: 'a1', cwd: SESSION.cwd } as const;
+(
+    [
+        { tool: { tool: 'Edit', file_path: '/work/f', old_string: 'base', new_string: 'mine' }, result: EDITED, wrote: { result: EDITED.result } },
+        { tool: { tool: 'Write', file_path: '/work/f', content: 'mine\n' }, result: WRITTEN, wrote: { result: WRITTEN.result } },
+        { tool: { tool: 'Edit', file_path: '/work/f', old_string: 'gone', new_string: 'mine' }, result: { isError: true, result: 'String to replace not found', text: 'String to replace not found' }, wrote: {} },
+    ] as const
+).forEach(({ tool, result, wrote }) => {
+    test(`${tool.tool} call ${'result' in wrote ? "that ran opens its file's window and closes it with its result as the calling agent's writing" : "that failed opens its file's window and closes it with no writing"}`, async ($, on) => {
+        const world = worldOf(on, () => answered(ALLOWED), { result });
+        await $.session.start(SESSION);
+        expect(await $.tool.call({ ...tool, agentId: 'a1' })).toEqual(result);
+        expect(world.sent).toEqual([
+            ['opened', { ...WINDOW, file: '/work/f' }],
+            ['wrote', { ...DECIDED, agent: 'a1', file: '/work/f', ...wrote }],
+        ]);
     });
 });
 
 (
     [
-        { tool: { tool: 'Edit', file_path: '/work/f', old_string: 'base', new_string: 'mine' }, result: EDITED, wrote: [['wrote', { session: ENDING.sessionId, agent: 'a1', result: EDITED.result }]] },
-        { tool: { tool: 'Write', file_path: '/work/f', content: 'mine\n' }, result: WRITTEN, wrote: [['wrote', { session: ENDING.sessionId, agent: 'a1', result: WRITTEN.result }]] },
-        { tool: { tool: 'Edit', file_path: '/work/f', old_string: 'gone', new_string: 'mine' }, result: { isError: true, result: 'String to replace not found', text: 'String to replace not found' }, wrote: [] },
+        {
+            call: { ...LIST, agentId: 'a1' },
+            result: RAN,
+            sent: [
+                ['opened', WINDOW],
+                ['closed', WINDOW],
+            ],
+        },
+        {
+            call: { ...LIST, agentId: 'a1' },
+            result: { isError: true, result: 'Exit code 1', text: 'Exit code 1' },
+            sent: [
+                ['opened', WINDOW],
+                ['closed', WINDOW],
+            ],
+        },
+        { call: { ...LIST, agentId: 'a1', run_in_background: true }, result: BACKGROUND.result, sent: [['opened', WINDOW]] },
     ] as const
-).forEach(({ tool, result, wrote }) => {
-    test(`${tool.tool} call ${wrote.length === 0 ? 'that failed sends no writing' : "that ran sends its result as the calling agent's writing"}`, async ($, on) => {
+).forEach(({ call, result, sent }) => {
+    test(`Bash call ${sent.length === 1 ? 'run in the background opens its window and leaves it open' : 'run in the foreground opens its window before it runs and closes it after, failed or not'}`, async ($, on) => {
         const world = worldOf(on, () => answered(ALLOWED), { result });
         await $.session.start(SESSION);
-        expect(await $.tool.call({ ...tool, agentId: 'a1' })).toEqual(result);
-        expect(world.sent).toEqual(wrote);
+        await $.tool.call(call);
+        expect(world.sent.filter(([route]) => route !== 'decide')).toEqual(sent);
     });
+});
+
+test('Bash call the server refuses opens no window', async ($, on) => {
+    const world = worldOf(on, () => answered({ _tag: 'Deny', reason: 'no' }));
+    await $.session.start(SESSION);
+    await $.tool.call(LIST);
+    expect(world.sent.map(([route]) => route)).toEqual(['decide']);
 });
 
 test('Rewrite sets only Monitor input fields on a Monitor call', async ($, on) => {
@@ -166,7 +206,10 @@ test('Rewrite sets only Monitor input fields on a Monitor call', async ($, on) =
     await $.session.start(SESSION);
     await $.tool.call({ tool: 'Monitor', description: 'log', timeout_ms: 1000, command: 'tail -f a.log' });
     expect(world.ran).toEqual([{ tool: 'Monitor', description: 'log', timeout_ms: 1000, command: 'tail -F b.log' }]);
-    expect(world.sent).toEqual([['decide', { command: 'tail -f a.log', cwd: SESSION.cwd, kind: 'monitor', ...DECIDED }]]);
+    expect(world.sent).toEqual([
+        ['decide', { command: 'tail -f a.log', cwd: SESSION.cwd, kind: 'monitor', ...DECIDED }],
+        ['opened', { ...DECIDED, cwd: SESSION.cwd, until: expect.any(Number) }],
+    ]);
 });
 
 test('Monitor decision answers a Bash wait with a Monitor the calling agent runs, bounded by its timeout', async ($, on) => {
@@ -188,15 +231,17 @@ test('Monitor decision passes the Monitor error and a timeout past half an hour 
     expect(answers).toEqual(answers.map(() => ({ result: { stdout: 'Monitor failed', stderr: '', interrupted: false }, isError: true, context: [expect.stringContaining('ran this wait as a Monitor')] })));
 });
 
-test('Watchdog wakes the agent that owns a background task repeating one line, and drops the task once nothing writes it', async ($, on) => {
+test('Watchdog wakes the agent that owns a background task repeating one line, and drops the task and closes its window once nothing writes it', async ($, on) => {
     const world = worldOf(on, () => answered(ALLOWED), { watched: [REPEATING, { file: OUTPUT, live: false }].values(), agents: [agentOf('completed')], ...BACKGROUND });
     await $.session.start(SESSION);
     await $.tool.call({ tool: 'Bash', command: 'fetch.sh', run_in_background: true, agentId: 'a1' });
     expect([await world.scanned(), await world.scanned(), await world.scanned()]).toEqual([1, 1, 1]);
     expect(world.told).toEqual([['a1', expect.stringContaining('b7k2 repeats "retry #"')]]);
-    expect(world.sent.filter(([route]) => route === 'tasks')).toEqual([
+    expect(world.sent.filter(([route]) => route !== 'decide')).toEqual([
+        ['opened', WINDOW],
         ['tasks', { files: [OUTPUT] }],
         ['tasks', { files: [OUTPUT] }],
+        ['closed', WINDOW],
     ]);
 });
 
@@ -247,7 +292,7 @@ test('Decide request states run kind and calling agent, and both calls use one s
     await $.session.start(SESSION);
     await $.tool.call({ tool: 'Bash', command: 'make', run_in_background: true, timeout: 5000, agentId: 'a1' });
     await $.tool.call({ tool: 'Bash', command: 'make' });
-    expect(world.sent).toEqual([
+    expect(world.sent.filter(([route]) => route === 'decide')).toEqual([
         ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'background', agent: 'a1', ...DECIDED }],
         ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'foreground', ...DECIDED }],
     ]);

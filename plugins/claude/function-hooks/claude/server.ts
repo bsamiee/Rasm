@@ -9,7 +9,7 @@ import manifest from '#/.claude-plugin/plugin.json' with { type: 'json' };
 import { HostError } from '#/host';
 import { decide, Engine } from '#/rules/decide';
 import { Decision, Request } from '#/rules/decision';
-import { Writing, wrote } from '#/rules/git';
+import { Calling, closed, opened, Writing, wrote } from '#/rules/git';
 import { recorded, watched } from '#/rules/waits';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -29,6 +29,8 @@ const routed = <A, I, B, O, E, R>(route: string, asked: Schema.Codec<A, I>, answ
 const Router = HttpRouter.addAll([
     routed('decide', Request, Decision, decide),
     routed('read', Schema.Struct({ file: Schema.String }), Decision, ({ file }) => Effect.succeed(recorded(file))),
+    routed('opened', Calling, Schema.Struct({}), (body) => Effect.as(opened(body), {})),
+    routed('closed', Calling, Schema.Struct({}), (body) => Effect.as(closed(body), {})),
     routed('wrote', Writing, Schema.Struct({}), (body) => Effect.as(wrote(body), {})),
     routed(
         'tasks',
