@@ -33,6 +33,7 @@ Workflow `CI` and its jobs:
 - Swift cache paths name the children of each folder holding an exclusion, as an excluded path inside a named folder still enters its archive
 - Swift cache keys name the Xcode build, `Package.resolved`, and the hash of `Package.swift` and every Swift file
 - Swift cache restores fall back to the newest key of the same Xcode build and `Package.resolved`, and a changed source saves a new key
+- Swift caches save only where the task step ran, as a job failing before it holds no `.build` and an empty entry hits on the next run
 - Job `files` runs every other `hk check` step on instance `host`, which keeps the Nx graph between runs
 - Job `files` runs every `codegen` target first, as type-aware lint reads the sources those targets write
 - Job `windows` starts only where job `affected` lists an `os:win32` or `host:rhino` project, and installs Rhino where one is `host:rhino`

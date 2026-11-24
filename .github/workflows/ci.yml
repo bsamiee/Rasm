@@ -187,8 +187,9 @@ jobs:
                   p12-file-base64: ${{ env.APPLE_DEVELOPMENT_P12 }}
                   p12-password: ${{ env.APPLE_DEVELOPMENT_P12_PASSWORD }}
             - run: nx conformance:check
-            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
-            - if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.swift.outcome == 'success' && steps.swift.outputs.cache-hit != 'true' }}
+            - id: tasks
+              run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,rasm'
+            - if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (steps.tasks.outcome == 'success' || steps.tasks.outcome == 'failure') && steps.swift.outputs.cache-hit != 'true' }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: *swift
