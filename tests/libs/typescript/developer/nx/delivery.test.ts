@@ -13,6 +13,7 @@ import { assert, describe, expect, vi } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const HELD = { data: { repository: { release: { tagName: 'marker@1.2.4' } } } };
 const rhino = {
     'rhino/marker-1.2.4-rh8-any.yak': 'archive',
     'rhino/project.json': JSON.stringify({ name: 'marker', targets: { pack: { executor: 'nx:noop', outputs: ['{projectRoot}/*.yak'] }, attach: { executor: EXECUTORS.attach, dependsOn: ['pack'], inputs: [{ dependentTasksOutputFiles: '**/*' }] } } }),
@@ -38,9 +39,9 @@ const it = workspaced
         onCleanup(() => log.mockRestore());
         return log;
     })
-    .extend('released', ({ workspace }) => async (files: Readonly<Record<string, string>>, tags: readonly string[], release?: object, view = 'exit 0') => {
+    .extend('released', ({ workspace }) => async (files: Readonly<Record<string, string>>, tags: readonly string[], release?: object, lookup = `printf '%s' '${JSON.stringify(HELD)}'`) => {
         const git = (...args: readonly string[]) => execFileSync('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd: workspace.root });
-        shimmed(join(workspace.root, '.bin'), { gh: String.raw`[ "$1 $2" = 'release view' ] && { ${view}; }; printf '%s\n' "$@" > "$(dirname "$0")/../gh.txt"` });
+        shimmed(join(workspace.root, '.bin'), { gh: String.raw`[ "$1 $2" = 'api graphql' ] && { ${lookup}; exit; }; printf '%s\n' "$@" > "$(dirname "$0")/../gh.txt"` });
         vi.stubEnv('LIB_SECRET', 'token; touch PWNED');
         vi.stubEnv('BLANK_TOKEN', '');
         workspace.write({ '.gitignore': '.bin\n.artifacts\n*.yak\n*.txt\n', 'nx.json': JSON.stringify({ release: release ?? { projects: ['*'], projectsRelationship: 'independent' } }), ...files });
@@ -80,20 +81,23 @@ describe('attach executor', () => {
         expect(recorded('gh.txt')).toStrictEqual(['release', 'upload', resolved?.tag, 'rhino/marker-1.2.4-rh8-any.yak', '--clobber']);
     });
 
-    it('creates the release of a tag gh finds no release for, with the packed files', async ({ workspace, released }) => {
-        const { graph, recorded } = await released(rhino, ['marker@1.2.4'], undefined, "echo 'release not found' >&2; exit 1");
+    it.for([
+        { case: 'has a release', answer: HELD, ran: ['release', 'upload', 'marker@1.2.4', 'rhino/marker-1.2.4-rh8-any.yak', '--clobber'] },
+        { case: 'has no release', answer: { data: { repository: { release: null } } }, ran: ['release', 'create', 'marker@1.2.4', '--verify-tag', 'rhino/marker-1.2.4-rh8-any.yak'] },
+    ])('runs $ran where GitHub answers that the tag $case', async ({ answer, ran }, { workspace, released }) => {
+        const { graph, recorded } = await released(rhino, ['marker@1.2.4'], undefined, `printf '%s' '${JSON.stringify(answer)}'`);
 
         await attach({}, workspace.context(graph, 'marker', 'attach'));
 
-        expect(recorded('gh.txt')).toStrictEqual(['release', 'create', 'marker@1.2.4', '--verify-tag', 'rhino/marker-1.2.4-rh8-any.yak']);
+        expect(recorded('gh.txt')).toStrictEqual(ran);
     });
 
     it('fails where gh cannot read the release of the tag, and creates and uploads nothing', async ({ workspace, released }) => {
-        const { graph, recorded } = await released(rhino, ['marker@1.2.4'], undefined, "echo 'non-200 OK status code: 401 Unauthorized' >&2; exit 1");
+        const { graph, recorded } = await released(rhino, ['marker@1.2.4'], undefined, "echo 'HTTP 401: Bad credentials (https://api.github.com/graphql)' >&2; exit 1");
 
         const attached = attach({}, workspace.context(graph, 'marker', 'attach'));
 
-        await expect(attached).rejects.toThrow('gh release view marker@1.2.4 --json tagName exits 1: non-200 OK status code: 401 Unauthorized');
+        await expect(attached).rejects.toThrow(/^gh api graphql .+ exits 1: HTTP 401: Bad credentials \(https:\/\/api\.github\.com\/graphql\)$/u);
         expect(recorded('gh.txt')).toStrictEqual([]);
     });
 
