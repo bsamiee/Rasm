@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createNodes } from '@rasm/nx-distribution';
-import { execute, Upgrade } from '@rasm/nx-distribution/executors/upgrade';
+import { execute, Upgrade } from '@rasm/nx/executors/upgrade';
 import { it, shimmed, targetOptions } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
 

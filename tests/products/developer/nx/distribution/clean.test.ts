@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { createNodes } from '@rasm/nx-distribution';
-import { Clean, execute } from '@rasm/nx-distribution/executors/clean';
+import { Clean, execute } from '@rasm/nx/executors/clean';
 import { it } from '@rasm/testing/nx';
 import { Schema } from 'effect';
 import { assert, describe, expect, vi } from 'vitest';

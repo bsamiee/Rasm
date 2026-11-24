@@ -8,6 +8,8 @@ import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
+import { above, PLATFORM, spawned } from '@rasm/nx';
+import { packaged } from '@rasm/nx/executor';
 import { HOSTS as UXP } from '@rasm/uxp';
 import { Array, Cause, Config, Console, Duration, Effect, FileSystem, Function, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
@@ -15,8 +17,6 @@ import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
 import { applyEdits, modify, parse } from 'jsonc-parser';
 import { parseDocument, Scalar } from 'yaml';
-import { packaged } from '#/executor';
-import { above, PLATFORM, spawned } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

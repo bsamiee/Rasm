@@ -1,8 +1,8 @@
 import { joinPathFragments, type Tree } from '@nx/devkit';
+import { run } from '@rasm/nx';
 import { Array, Cause, Effect, Option, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
 import { routed } from '#/host-packages';
-import { run } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -4,10 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, normalizePath, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type TaskResult } from '@nx/devkit';
 import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { above, type Anchor, aggregated, anchored, EXEC, EXECUTORS, inferring, manifested, namedInput, run, type Stated, tagged, type Verbs } from '@rasm/nx';
 import { Array, Config, Duration, Effect, FileSystem, Formatter, Function, Option, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { type Fields, FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
-import { above, aggregated, anchored, EXEC, Folder, inferring, manifested, namedInput, run, type Stated, tagged, type Verbs } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -41,7 +41,7 @@ const RELEASED: NonNullable<TargetConfiguration['inputs']> = [{ dependentTasksOu
 const ROOT: Verbs = {
     clean: {
         mise: {
-            executor: `${PLUGIN}:clean`,
+            executor: EXECUTORS.clean,
             dependsOn: [{ projects: '*', target: 'clean--!(mise)', params: 'forward' }],
             options: { folders: [['ARTIFACTS_DIR']] },
             configurations: {
@@ -62,7 +62,7 @@ const ROOT: Verbs = {
     },
     upgrade: {
         mise: {
-            executor: `${PLUGIN}:upgrade`,
+            executor: EXECUTORS.upgrade,
             dependsOn: [{ projects: '*', target: 'upgrade--!(mise)', params: 'forward' }],
             options: { cwd: '.', commands: [{ apply: ['mise', 'upgrade'], preview: ['mise', 'upgrade', '--dry-run'] }] },
             inputs: [{ externalDependencies: [] }],
@@ -73,7 +73,7 @@ const ROOT: Verbs = {
 const ACTIONS: Verbs = {
     upgrade: {
         jactionlint: {
-            executor: `${PLUGIN}:upgrade`,
+            executor: EXECUTORS.upgrade,
             options: { cwd: '.', commands: [{ apply: ['jactionlint', 'update', '--apply'], preview: ['jactionlint', 'update', '--diff'] }] },
             inputs: ['{projectRoot}/.github/**/*', { externalDependencies: [] }],
             metadata: {
@@ -89,7 +89,7 @@ const ACTIONS: Verbs = {
 
 class Options extends Schema.Opaque<Options, unknown>()(
     Schema.Struct({
-        outputPath: Folder,
+        outputPath: Schema.optionalKey(Schema.String),
         storeCredentials: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
         remoteCacheTimeout: Schema.optionalKey(Schema.DurationFromString),
     }).annotate({
@@ -105,13 +105,12 @@ const Member = Schema.fromJsonString(Schema.Struct({ name: Schema.String, depend
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = Effect.fnUntraced(function* (files: readonly string[], context: CreateNodesContext) {
+const read = Effect.fnUntraced(function* (files: readonly string[], anchor: Anchor, context: CreateNodesContext) {
     const fs = yield* FileSystem.FileSystem;
     const { workspaceRoot } = context;
-    const member = anchored(workspaceRoot);
     const [packages, manifests] = Array.partition(files, (file) => Result.liftPredicate(file, (at) => posix.basename(at) === PACKAGE, Function.identity));
     const [members, undecoded] = yield* Effect.partition(
-        packages.filter((file) => member(posix.dirname(file))),
+        packages.filter((file) => anchor.holds(posix.dirname(file))),
         (file) =>
             Effect.mapBoth(Effect.flatMap(fs.readFileString(join(workspaceRoot, file)), Schema.decodeEffect(Member)), {
                 onFailure: (error): [string, Error] => [file, error],
@@ -150,8 +149,8 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
 
 const placed = (operation: keyof typeof FOLDERS) => `{options.outputPath}/${FOLDERS[operation]}`;
 
-const projects = (declared: readonly Declared[], settings: Options, exec: string, release: readonly string[], workspaceRoot: string) => {
-    const identified = ['node', normalizePath(relative(workspaceRoot, ENGINE))];
+const projects = (declared: readonly Declared[], settings: Options, exec: string, release: readonly string[], anchor: Anchor) => {
+    const identified = ['node', normalizePath(relative(anchor.workspaceRoot, ENGINE))];
     const holds = (other: Declared, item: Declared) => (other.fields.folders ?? []).some((folder) => !posix.relative(posix.join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled);
     const hosts = Function.memoize((item: Declared) => (item.fields.folders === undefined ? declared.filter((other) => holds(other, item)) : [item]));
     const uses = Function.memoize((item: Declared) => declared.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name)));
@@ -247,12 +246,12 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
             ...own,
             clean: Array.match(removed, {
                 onEmpty: () => ({}),
-                onNonEmpty: (labels) => ({ [technology]: { executor: `${PLUGIN}:clean`, options: { targets: labels }, inputs: UNSTATED, metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: ran, example: { options: { targets: labels } } } } } }),
+                onNonEmpty: (labels) => ({ [technology]: { executor: EXECUTORS.clean, options: { targets: labels }, inputs: UNSTATED, metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: ran, example: { options: { targets: labels } } } } } }),
             }),
             attach: {
                 ...(archive !== undefined && {
                     gh: {
-                        executor: `${PLUGIN}:attach`,
+                        executor: EXECUTORS.attach,
                         dependsOn: [packer, ...Array.match(item.dependents, { onEmpty: () => [], onNonEmpty: (dependents) => [{ projects: [...dependents], target: 'pack--*' }] })],
                         inputs: RELEASED,
                         metadata: {
@@ -276,7 +275,7 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
                 verbs,
                 item.stated,
                 technology,
-                workspaceRoot,
+                anchor,
                 Record.fromIterableWith(Option.toArray(stored), ({ store, command, variable }): [string, TargetConfiguration] => [
                     'nx-release-publish',
                     {
@@ -293,11 +292,11 @@ const projects = (declared: readonly Declared[], settings: Options, exec: string
     });
 };
 
-const workspace = Effect.fnUntraced(function* (files: readonly string[], workspaceRoot: string) {
-    const fs = yield* FileSystem.FileSystem;
+const workspace = Effect.fnUntraced(function* (files: readonly string[], anchor: Anchor) {
+    const [fs, { workspaceRoot }] = [yield* FileSystem.FileSystem, anchor];
     const [mise, actions] = yield* Effect.all([fs.exists(join(workspaceRoot, MISE)), fs.exists(join(workspaceRoot, WORKFLOWS))]);
     const verbs: Verbs = Record.union(mise ? ROOT : {}, actions ? ACTIONS : {}, (tools, more) => ({ ...tools, ...more }));
-    return yield* Effect.forEach(Record.isEmptyRecord(verbs) ? [] : files.filter((file) => file === PACKAGE), (file) => Effect.map(manifested(workspaceRoot, '.'), (stated) => [file, { projects: { '.': { root: '.', targets: aggregated(verbs, stated, 'mise', workspaceRoot) } } }] as const));
+    return yield* Effect.forEach(Record.isEmptyRecord(verbs) ? [] : files.filter((file) => file === PACKAGE), (file) => Effect.map(manifested(workspaceRoot, '.'), (stated) => [file, { projects: { '.': { root: '.', targets: aggregated(verbs, stated, 'mise', anchor) } } }] as const));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -305,14 +304,15 @@ const workspace = Effect.fnUntraced(function* (files: readonly string[], workspa
 const createNodes: CreateNodes = [
     FILES,
     inferring(Options, run, function* (files, settings, context) {
-        const [{ declared, failures }, root] = yield* Effect.all([read(files, context), workspace(files, context.workspaceRoot)]);
+        const anchor = anchored(context.workspaceRoot);
+        const [{ declared, failures }, root] = yield* Effect.all([read(files, anchor, context), workspace(files, anchor)]);
         const results = [
             ...projects(
                 declared.filter(({ fields }) => fields.installed !== true),
                 settings,
                 EXEC[detectPackageManager(context.workspaceRoot)],
                 tagged(context.nxJsonConfiguration),
-                context.workspaceRoot,
+                anchor,
             ),
             ...root,
         ];

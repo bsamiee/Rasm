@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { env, execPath } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { workspaceRoot } from '@nx/devkit';
@@ -11,16 +11,18 @@ import { describe, expect, it } from 'vitest';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const NX = fileURLToPath(import.meta.resolve('nx/bin/nx'));
-const OWNERS = { GRAPH_PLUGINS: dirname(dirname(fileURLToPath(import.meta.resolve('@rasm/nx-distribution')))), GRAPH_NX: dirname(fileURLToPath(import.meta.resolve('nx/package.json'))) } as const;
+const OWNERS = { GRAPH_PLUGINS: [dirname(dirname(fileURLToPath(import.meta.resolve('@rasm/nx-distribution')))), dirname(fileURLToPath(import.meta.resolve('@rasm/nx/package.json')))].join(delimiter), GRAPH_NX: dirname(fileURLToPath(import.meta.resolve('nx/package.json'))) } as const;
 const TRACER = `data:text/javascript,${encodeURIComponent(String.raw`
 import childProcess from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 import { syncBuiltinESMExports } from 'node:module';
 import workerThreads from 'node:worker_threads';
 const traced = fs.openSync(process.env.GRAPH_TRACE, 'a');
+const owners = process.env.GRAPH_PLUGINS.split(path.delimiter);
 const log = (kind, what) => {
     const frames = (new Error().stack ?? '').split('\n');
-    const at = frames.find((frame) => frame.includes(process.env.GRAPH_PLUGINS))?.trim() ?? '';
+    const at = frames.find((frame) => owners.some((owner) => frame.includes(owner)))?.trim() ?? '';
     fs.writeSync(traced, JSON.stringify({ kind, what: String(what), at, owned: at !== '' || !frames.some((frame) => frame.includes(process.env.GRAPH_NX)) }) + '\n');
 };
 const wrap = (owner, names) => names.forEach((name) => { const held = owner[name]; owner[name] = function (...args) { log(name, args[0]); return held.apply(this, args); }; });

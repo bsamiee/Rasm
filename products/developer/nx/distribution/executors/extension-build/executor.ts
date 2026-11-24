@@ -2,11 +2,11 @@ import { hash } from 'node:crypto';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
+import { executor, spawned, Words } from '@rasm/nx';
 import { Array, Cause, Config, Effect, Equivalence, FileSystem, Function, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import { Toml } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { BUILDER, EXTENSION } from '#/host-packages';
-import { executor, spawned, Words } from '#/inference';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

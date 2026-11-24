@@ -1,6 +1,6 @@
+import { executor, Words } from '@rasm/nx';
 import { Array, Cause, Effect, FileSystem, Option, Path, Schema } from 'effect';
 import { located } from '#/host-packages';
-import { executor, Words } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
