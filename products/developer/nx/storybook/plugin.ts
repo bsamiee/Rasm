@@ -7,8 +7,7 @@ import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, normal
 import { quoteShellArg } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
-import { aggregated, anchored, extended, fingerprinted, Folder, inferring, manifested, namedInput, packaged, run, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, run, tokened, type Verbs, within } from '@rasm/nx';
 import { Array, Cause, Effect, Option, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -23,7 +22,7 @@ const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Folder }).annotate({ description: 'outputPath: workspace folder storybook build writes to, {projectName} naming the project, absent writes storybook-static in the project' });
+const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'outputPath: workspace folder storybook build writes to, {projectName} naming the project, absent writes storybook-static in the project' });
 const Loaded = Schema.Struct({ named: Schema.Array(Schema.String), stories: Schema.Array(Schema.Struct({ directory: Schema.String, files: Schema.String })), loaded: Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])) }).annotate({
     description: 'The framework and addon package names Storybook read from a main config, each stories folder relative to the workspace root with its file glob, and the resolved URL, specifier, and importing module URL of every import its load resolved',
 });
@@ -119,7 +118,7 @@ const targets = (root: string, { packages, linked, loaded, globs, runner }: Reso
             : {},
         clean: {
             storybook: {
-                executor: `${distribution.name}:clean`,
+                executor: EXECUTORS.clean,
                 options: { targets: built },
                 inputs: ['default', '^default', { externalDependencies: [] }],
                 metadata: { description: `Removes the outputs ${built.join(', ')} declare`, help: { command: `${exec} nx run --help`, example: { options: { targets: built } } } },
@@ -128,19 +127,19 @@ const targets = (root: string, { packages, linked, loaded, globs, runner }: Reso
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, context: CreateNodesContext, output: Option.Option<string>, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, anchor: Anchor, context: CreateNodesContext, output: Option.Option<string>, file: string) {
     const root = dirname(dirname(file));
     const resolved = yield* pass.recall(file, read(context.workspaceRoot, file));
     const stated = yield* manifested(context.workspaceRoot, root);
     const chain = extended(context.workspaceRoot, root).filter((config) => !config.startsWith(`${root}/`) && config !== getRootTsConfigFileName());
-    return { projects: { [root]: { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, chain, namedInput(root, context) === 'production', output, pass.exec), stated, 'storybook', context.workspaceRoot) } } };
+    return { projects: { [root]: { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, chain, namedInput(root, context) === 'production', output, pass.exec), stated, 'storybook', anchor) } } };
 });
 
 const nodes = inferring(Options, run, function* (files, settings, context, cached) {
-    const project = anchored(context.workspaceRoot);
-    const mains = files.filter((file) => project(dirname(dirname(file))));
+    const anchor = anchored(context.workspaceRoot);
+    const mains = files.filter((file) => anchor.holds(dirname(dirname(file))));
     const pass = yield* cached<Resolved>('storybook.hash', yield* OWN);
-    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, context, Option.fromUndefinedOr(settings.outputPath), file)), mains, settings, context));
+    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, anchor, context, Option.fromUndefinedOr(settings.outputPath), file)), mains, settings, context));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
