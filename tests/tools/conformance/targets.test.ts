@@ -13,7 +13,7 @@ const aggregate = (name: string, inputs?: TargetConfiguration['inputs']): Target
 
 const checked = (...projects: readonly ProjectNodesWithFiles[]) => Effect.runPromise(violations(rule, { separator: '--' }, { projects }));
 
-const app = project('app', { targets: { codegen: aggregate('codegen'), 'codegen--cf': run(), clean: aggregate('clean'), 'clean--compose': run(), test: aggregate('test'), 'test--vitest': run() } });
+const app = project('app', { targets: { codegen: aggregate('codegen'), 'codegen--cf': run(), clean: aggregate('clean'), 'clean--colima': run(), test: aggregate('test'), 'test--vitest': run() } });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -22,7 +22,7 @@ describe('targets', () => {
         const lib = project('lib', {
             targets: {
                 build: aggregate('build', ['default', { externalDependencies: ['typescript'] }, { dependentTasksOutputFiles: '**/*.d.ts', transitive: true }]),
-                'build--tsc': run({ inputs: ['default', { externalDependencies: ['typescript'] }, { dependentTasksOutputFiles: '**/*.d.ts' }], dependsOn: ['^build--*', 'codegen--*', { projects: '*', target: 'clean--compose' }, 'app:codegen--cf'], configurations: { watch: { command: 'tsc --watch' } } }),
+                'build--tsc': run({ inputs: ['default', { externalDependencies: ['typescript'] }, { dependentTasksOutputFiles: '**/*.d.ts' }], dependsOn: ['^build--*', 'codegen--*', { projects: '*', target: 'clean--colima' }, 'app:codegen--cf'], configurations: { watch: { command: 'tsc --watch' } } }),
                 check: { executor: 'nx:noop', dependsOn: [{ target: 'check--*', params: 'forward', projects: ['lib'] }] },
                 'check--tsc': run({ dependsOn: ['build--tsc'] }),
             },
