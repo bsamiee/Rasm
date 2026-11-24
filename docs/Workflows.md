@@ -27,6 +27,8 @@ Workflow `CI` queues, bases, and checkouts:
 - Jobs `macos` and `windows` clone every commit without file contents and fetch the files of their own commit alone (`filter: blob:none`)
 - Self-hosted checkouts fetch full history and keep ignored files (`clean: false`), as a kept checkout fetches new commits alone
 - CI jobs run Nx tasks on all cores (`NX_PARALLEL`), and `Release` jobs `browser` and `unreal` on half
+- Pushes and manual runs read and write the Nx remote cache with secret `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`
+- Pull request runs read with `NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN` and store nothing, and fork pull requests hold no secret and use local cache
 
 ## [03]-[CI_JOBS]
 
@@ -34,7 +36,8 @@ Jobs of workflow `CI` and the projects each runs:
 - Jobs `shas` and `affected` run on instance `graph`, as other jobs wait for them and instance `host` holds a job behind job `linux` of an earlier run
 - Jobs `linux` and `macos` wait for job `shas` alone, and every other job for job `affected` too
 - Job `affected` lists each job's projects through `nx show projects --affected --withTarget` over that job's targets and exclusions
-- Job `windows` is listed over `test,build`, as a Linux graph holds no `test` target of a .NET suite limited to another platform, and `test` reads `build` outputs
+- Job `affected` lists job `windows` and its Rhino steps over `test,build`, as Linux graphs hold `build` alone of a suite limited to another OS
+- `test` targets read `build` outputs, and a listing over `test,build` reaches each suite a change selects through its build
 - Job `affected` names the Playwright image Deploy publishes by the `@playwright/test` row of the pnpm catalog
 - Runs at a Playwright version with no published image fail to pull it until Deploy on `main` publishes its tag
 - Job `deploy` of such a run still builds that tag, as it waits for job `browser` without needing its success, and a re-run of `browser` passes
@@ -74,6 +77,7 @@ Composite actions and the mise profile jobs load:
 - Windows jobs install mise tools under `C:\mise`, as `cmd.exe` finds no command once `PATH` passes 8191 characters
 - GitHub-hosted runners alone load mise profile `ci`, which skips Python environments and Playwright browsers
 - Profile `ci` sets `enable_tools` to the tools hosted jobs' steps, Nx tasks, and graph creation run
+- Profile `ci` states no `[tools]` row, as mise installs a row stated there only from a `mise.ci.toml` lock the repository lacks
 - Self-hosted jobs, job containers and job `affected` included, load no profile and install every tool
 
 ## [05]-[CACHE]
@@ -96,34 +100,12 @@ Actions caches per workflow and machine:
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
 - Past the 10 GB repository limit GitHub evicts caches by oldest last access
 
-## [06]-[REMOTE_CACHE]
-
-Nx remote cache readers and the hash inputs that decide what machines share:
-- Pushes and manual runs read and write with secret `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`
-- Pull request runs read with `NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN` and store nothing, and fork pull requests hold no secret and use local cache
-- Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
-- Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
-- Colima targets sit in project `colima`, which exists on macOS alone, so root project `rasm` shares its keys with Linux
-- .NET targets but format hash `CI`, as MSBuild sets properties under it
-- Vitest targets hash no `CI`, as their executor refuses `.only` and writes no missing snapshot on every machine
-- Playwright targets hash no `CI`, as each one runs `playwright test --forbid-only`, and `pack--playwright` hashes the platform its images render on
-- Swift targets hash compiler version, SDK build, and platform, as `swift --version` adds the macOS version of its host, which a runner and a Mac differ in
-- Xcode targets add `xcodebuild -version` and `XCODE_XCCONFIG_FILE` content to those inputs
-- Xcode targets hash the SwiftPM targets their linked package products reach alone, and other Swift changes leave an app's result cached
-- Cargo targets hash `rustc -vV`, which prints its host triple, and no Mac result of theirs serves a Linux job
-- Python checks and tests but `check--vulture` hash platform, and no Mac result of theirs serves a Linux job
-- Nx sets no remote cache timeout and stops a run on a read answered other than 200 or 404 or left unconnected, and no setting overrides the stop
-- `@rasm/nx-distribution` reads the cache server with its token once before the tasks of each `nx` run that uses the remote cache, outside any task
-- Reads answered other than 200 or 404, refused, or past option `remoteCacheTimeout` print one warning and empty `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`
-- Nx stores nothing and reports no error for a write answered 403 or 409, and fails a task after 6 attempts of any other failed write
-
-## [07]-[DEPLOY]
+## [06]-[DEPLOY]
 
 Workflow `Deploy` triggers and steps:
 - CI job `deploy` calls `Deploy` on pushes to `main`, failed test jobs included, as fixes apply past a failing test
 - Pushes apply only where a change between the base and head of job `shas` reaches an input of `deploy--pulumi` of `@rasm/infra`
-- `nx show projects --affected --withTarget=<target>` lists projects owning an affected task of that target, and without it every touched project
-- `deploy--pulumi` hashes every file of `@rasm/infra` and of each project it depends on, so an edit to any of them starts Deploy
+- `deploy--pulumi` hashes every file of `@rasm/infra` and of each project it depends on, and an edit to any of them starts Deploy
 - Failed deploys fail their CI run, `nx-set-shas` keeps the base before it, and the next push applies again
 - CI job `deploy` waits for the self-hosted jobs of its run alone, as `mise bootstrap remote` can restart Docker under a job on that machine
 - Jobs `macos` and `windows` run on while a deploy replaces the cache server's container
@@ -148,7 +130,7 @@ Workflow `Deploy` triggers and steps:
 - After the apply, job `deploy` runs `nx dry-run @rasm/infra -c converged`, and `--expect-no-changes` fails it where a second apply changes a resource
 - Job `deploy` ends by removing the BuildKit builders its image builds created, with their build cache
 
-## [08]-[RELEASE]
+## [07]-[RELEASE]
 
 Workflow `Release` credentials and jobs:
 - `Release` runs wait in one queue (`queue: max`), as a single pending run gives way to a newer one and drops a release request
@@ -173,17 +155,18 @@ Workflow `Release` credentials and jobs:
 - Job `deliver` runs `nx release publish` without `--projects`, which drops publish task dependencies, and each publish target skips an untagged project
 - Before `nx release publish`, job `deliver` requests a `chromewebstore` token as `chrome-web-store` and passes it as `CHROME_WEB_STORE_TOKEN`
 
-## [09]-[MAINTENANCE]
+## [08]-[MAINTENANCE]
 
 Workflow `Maintenance` and its jobs on instances `host` and `container`:
 - Workflow `Maintenance` runs weekly before the machine update hour
 - Job `host` keeps ignored files and prunes package stores, Docker objects, and week-old build cache
 - Job `host` prunes unused mise tools of its machine, and job `container` those of instance `container`'s tool cache in the Playwright image
+- Both prunes pass `--yes`, as `mise prune` refuses with no terminal attached
 - Job `container` prunes inside a job container, as tool receipts there name container paths, and a prune from the machine refuses them
 - Jobs `host` and `container` take their instance's queue, and a prune never overlaps a job there as a machine timer can
 - Job `host` runs `check--cargo-deny-advisories` past the Nx cache, as an advisory can name a crate of an unchanged lock
 
-## [10]-[TIMINGS]
+## [09]-[TIMINGS]
 
 Sources of run, job, and task times and cache hits:
 - Nx ends each run with its duration, cache hit share, and critical path, in every job log
@@ -193,9 +176,7 @@ Sources of run, job, and task times and cache hits:
 - Jobs upload `project-graph.json` beside it, and a task machines hash apart differs in an input or in its project's configuration there
 - `duckdb` reads the task database through `ATTACH '<file>' (TYPE sqlite)`, times in milliseconds
 - Batch executors stamp each task with its own start and end, and the critical path of a batch holds task times
-- Nx runs one batch at a time, starts no other task while it runs, and stores its results when it ends
-- Targets running `xcodebuild` set `parallelism: false`, as builds into one build folder queue behind each other and concurrent first package resolutions there can fail
-- First `nx` commands of a job create the project graph, so their time holds graph creation, longest after a plugin change
+- First `nx` commands of a job create the project graph, and their time holds graph creation, longest after a plugin change
 - `gh api repos/<owner>/<repository>/actions/runs/<run>/jobs` returns start and end of each job and step, and `created_at` to `started_at` is queue time
 - Manual CI runs take input `uncached`, the jobs running every task of their `nx affected` step past the Nx cache over state their tools keep
 - `NX_PERF_LOGGING=true` prints each task's time and graph creation times, and `NX_PROFILE=<file>` writes a trace of a run's tasks

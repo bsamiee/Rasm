@@ -83,7 +83,8 @@ Rasm/
 - Each ecosystem pins every version, root tooling included, in its root catalog and lock, and targets build from the committed lock
 - State sits in the folder its lifetime matches, inside the folder a cache saves or outside the folder a reinstall replaces
 - Changes start from reading the file and log line their claim cites, as docs and reviews state facts those files contradict
-- `hk check <paths>` and `hk fix <paths>` run `.config/hk.pkl` steps over named paths and its `commit-msg` hook over commit messages, and hk and Nx never call each other
+- `hk check <paths>` and `hk fix <paths>` run `.config/hk.pkl` steps over named paths and its `commit-msg` hook over commit messages
+- Checkers reading given files alone run in hk, tools reading an environment or whole repository as cached Nx targets, and neither calls the other
 
 ## [03]-[FLOW]
 
@@ -169,8 +170,7 @@ Roots split, nest, or hold more where a host or tool decides:
 - Host projects target their host's runtime and carry every dependency except SDK assemblies the host supplies
 - Folder `Directory.Build.props` files name a host, and conditional `Update` rows of `Directory.Packages.props` read its runtime line
 - .NET runs but Rhino suites build Release unless they name `debug`, which reaches references and Yak packages, and assemblies embed their PDB
-- `.config/licenses/sixlabors.lic` signs `Rasm.Imaging`, as ImageSharp fails a Release build of any assembly referencing it unsigned, and other projects reach ImageSharp through `Rasm.Imaging`
-- `sixlabors.lic` expires 2028-01-15, and its renewal application at `licensing.sixlabors.com` names `Rasm.Imaging` alone in the 90 days before
+- Projects reach ImageSharp through `Rasm.Imaging`, as ImageSharp fails unsigned Release builds and `.config/licenses/sixlabors.lic` signs it alone
 - Swift modules, app code included, are root `Package.swift` targets, and Xcode app targets hold bundle, icon, and signing over their app module
 - Xcode app projects build through root `Rasm.xcworkspace`, as projects built apart each clone every package and compile it again
 - Root `Package.swift` builds and tests in that workspace through shared scheme `Rasm-Package`, which lists every target, in place of SwiftPM
@@ -189,8 +189,10 @@ Roots split, nest, or hold more where a host or tool decides:
 Nx runs project-level work over a graph its plugins infer:
 - Plugins use what Nx and its official plugins provide, and behavior an `nx.json` field or plugin option can state stays out of plugin code
 - Plugins infer every project, target, and dependency from manifests and tool output, and manifest `nx` tables add only facts no tool reports
+- Plugin globs match only files marking a project at their path, as a changed match reconfigures its project and a deleted one selects every task
 - Inferred targets hold one configuration on every machine of a platform, as Nx hashes every target of a project into each of its tasks
 - Hash inputs name a tool by identity (compiler version, platform, installer URL) and no machine path, as host state differs between machines
+- Tool tables stay in the manifest their tool reads in place of a file per table, as Nx hashes input files whole
 - `mise install` builds .NET and Swift analyzers before graphs, and a missing one leaves its projects out with a warning naming its build
 - Stale analyzers fail the graph, and a missing Swift analyzer leaves out Xcode targets alone
 - `nx affected -t <target>` runs only the tasks whose inputs a change reaches, aggregate targets included
@@ -198,6 +200,7 @@ Nx runs project-level work over a graph its plugins infer:
 - Tools keep their own incremental state, and Nx caches results around it in one remote cache that pull request runs read alone
 - `nx sync` writes executor schemas and tsconfig `references`, and non-terminal runs outside CI stop on stale ones until it runs, never `--skip-sync`
 - `nx conformance:check` runs `nx.json` conformance rules over the graph and every target
+- Use `docs/Nx.md` for Nx behavior plugins and `nx.json` rows rely on
 
 `nx <target> <project>` runs one project, each target one operation in every ecosystem:
 - `codegen` writes source a project's tools derive from its schemas and configuration
@@ -213,7 +216,6 @@ Workspace commands run from the root:
 - `nx upgrade` moves every project to newer releases, then every mise tool row and its lock
 - `nx migrate <version>`, `nx migrate --run-migrations`, then `pnpm dedupe` apply a new Nx release
 - `nx clean` removes every output in and outside the repository, and `nx clean -c cache` empties every cache
-- `CARGO_BUILD_ANALYSIS_ENABLED=true` writes cargo build logs, which `nx clean -c cache` removes
 
 ## [07]-[TESTING]
 
@@ -236,6 +238,8 @@ Products deliver through the same targets in every ecosystem, development builds
 - `doppler run --config release --command 'nx pack <app>'` packs a Mac app with release signing, notarized as a `.dmg` where `ASC_API_*` rows are set
 - Commit scopes name one project as `nx show projects` prints it, or none, as `nx release` refuses a scope matching more than one `release` project
 - `nx release --skip-publish` versions each `release` project alone from commits since its `<project>@<version>` tag, tags it, and patches dependents
+- Unscoped breaking commits touching a file every project hashes (`nx.json`, `pnpm-lock.yaml`) bump every `release` project
+- Conventional commits since a project's last tag write its GitHub release notes without authors, and no changelog file exists
 - New `release` projects take an annotated `<project>@<version>` tag by hand at their manifest version, in place of `--first-release`
 - `nx release <version> --projects=<projects> --skip-publish` moves projects to an exact version alone, as a prerelease line takes its stable release
 - `nx run-many -t attach -c release` uploads released files to each tag's GitHub release, and stores with no upload API take files by hand
@@ -254,5 +258,5 @@ Products deliver through the same targets in every ecosystem, development builds
 - App `hosting.config.ts` targets name Cloudflare or a machine with role `Apps`, and `nx install @rasm/infra` runs role `Apps` under `rasm.localhost`
 - Container engines run under systemd on machines and, on the owner's Mac, in a Colima VM `DOCKER_HOST` names
 - Project `colima` exists where `COLIMA_HOME` names a workspace folder, as on macOS, and its `install--colima` starts the VM and leaves it up
-- Packages requiring an engine client take tag `host:docker`, and their `test--*` and `install--*` tasks depend on `colima` install targets
+- Packages requiring an engine client take tag `host:docker`, and their `test--*` and `install--*` tasks depend on `install--colima` where one exists
 - Colima keeps its VM in `.cache/colima`, `clean--colima` prunes images and trims its disk, and `nx clean -c cache` deletes it

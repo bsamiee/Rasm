@@ -5,7 +5,7 @@ Machines, accounts, and services the `infra/` stacks declare.
 ## [01]-[PRINCIPLES]
 
 Rules every stack and machine follows:
-- Stacks apply from commits `main` holds, as each `Deploy` trigger checks out a commit of `main` in place of a local apply
+- Stacks apply from commits `main` holds, as each `Deploy` trigger checks out a commit of `main`, and a local apply serves a trial alone
 - Secrets are made once and read by the stacks passing them to services, and an apply rotates no secret
 - Stacks write no Doppler row, as a written row reaches `deploy` through its references and starts `Deploy` again
 - Jobs and machines join services through identity federation or a credential with no expiry, and no credential waits on a renewal by hand
@@ -123,9 +123,9 @@ Nx cache server of role `Cache`:
 - Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes a read-write and a read-only token
 - Runners reach the server over public HTTPS through its proxy
 - Doppler `ci` holds server URL and both tokens, `dev` references URL and read-write token, and `deploy` both tokens
-- Cache objects expire role field `kept` after their write, and a read refreshes none, so an unchanged task runs again once per `kept`
+- Cache objects expire role field `kept` after their write with no refresh on read, and an unchanged task runs again once per `kept`
 - Incomplete cache uploads abort role field `abort` after they start, as no upload outlasts a job
-- Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a task once its cache write fails six times
+- Cache buckets hold no quota, as RustFS refuses writes past one and a refused write fails its task
 - Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop
 
 ## [10]-[HISTORY_SERVER]
@@ -147,11 +147,12 @@ GitHub Actions runners of role `Runner`:
 - Role `Runner` field `instances` names each runner service by label with systemd limits its unit's drop-in `instance` sets
 - Systemd limits of instance `container` reach no job, as its jobs run in containers under Docker's cgroups
 - Runner `<machine>-<label>` installs in folder `actions-runner-<label>`, works in folder `actions-work-<label>`, and holds label `<label>` beside default labels
-- Instances `host` and `graph` run jobs on their machine and `container` in a container, one job of each at once, and `graph` runs jobs `shas` and `affected` alone
+- Instances `host` and `graph` run jobs on their machine and `container` in a container, one job of each at once
 - Runner services stop by removing their label through GitHub's API and waiting until GitHub reports them idle, as a stop cancels a running job
 - Label removal comes first, as a listener takes the next queued job within seconds of its last one
 - Stops GitHub refuses wait for their instance's `Runner.Worker` to exit, and a job GitHub assigns meanwhile is canceled
 - Runner services restore their label as they start, retry a failed start every 30 seconds, and stop before Docker
+- Runner self-updates wait for a running job and stay on
 - Drains wait up to `drained` of the `Runner` arm, the longest self-hosted job timeout, and a runner command's Pulumi timeout adds 15 minutes
 - Runner installs keep `GITHUB_TOKEN` in root-only file `.token` of their folder, which the drain reads
 - Changes to runner version, limits, repository, or tailnet node stop a runner, then `systemctl revert` deletes its drop-ins and it reinstalls
@@ -182,4 +183,5 @@ Package updates and reboots of each machine:
 - `reboot-when-idle` reboots while `/run/reboot-required` exists and the repository's 100 newest runs hold none without a conclusion
 - `reboot-when-idle` reads the unfiltered run list, as a run filtered by status appears seconds after its creation
 - Reboots stop runner services through their drain
+- Reinstalls restore `docker-compose-plugin` and `docker-ce-rootless-extras` as recommendations of Docker's packages, and no code runs either
 - Docker Engine's builder garbage collection keeps the build cache CI builds fill under `defaultMaxUsedSpace`

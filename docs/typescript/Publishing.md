@@ -69,9 +69,8 @@ Reach of each check:
 
 ## [05]-[VERSIONING]
 
-Release versions and notes:
+Release versions:
 - `release.version.preserveLocalDependencyProtocols` defaults to `true`, and committed manifests keep `workspace:` references
-- Conventional commits after a package's last tag write its GitHub release notes, and no changelog file exists
 
 ## [06]-[PUBLISH]
 
@@ -83,5 +82,6 @@ Registry upload routes and their credentials:
 - `npm trust github <package> --file release.yml --repository <owner>/<repository> --environment release --allow-publish` adds a trusted publisher
 - New trusted publishers expire unless a publish through them succeeds within 2 days
 - Trusted publishing accepts GitHub-hosted runners alone
+- Publishes under scope `@rasm` fail without writing until the publishing account joins npm organization `@rasm`
 - Trusted publishing attaches provenance to a public package from a public repository with no `--provenance` flag
 - Release jobs publish in dependency order, and a consumer's install never meets a missing sibling version

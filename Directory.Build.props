@@ -23,7 +23,7 @@
     </PropertyGroup>
 
     <PropertyGroup Label="Package Licenses">
-        <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/licenses/sixlabors.lic</SixLaborsLicenseFile>
+        <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/licenses/sixlabors.lic</SixLaborsLicenseFile> <!-- Expires 2028-01-15, and its renewal at licensing.sixlabors.com names Rasm.Imaging alone in the 90 days before -->
     </PropertyGroup>
 
     <PropertyGroup Label="Target Framework">
