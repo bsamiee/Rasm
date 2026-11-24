@@ -24,6 +24,7 @@ interface Part {
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const CORE = `${PLUGIN}-${platform}-${arch}`;
+const BUILDER = 'mise deps install nx-apple';
 const NOTARY = { key: 'ASC_API_KEY_P8', keyId: 'ASC_API_KEY_ID', issuer: 'ASC_API_ISSUER_ID' } as const;
 const SIGNED = { development: 'Apple Development', distribution: 'Developer ID Application' } as const;
 const APPCAST = { key: 'SPARKLE_ED_PRIVATE_KEY', bucket: 'SPARKLE_FEED_BUCKET' } as const;
@@ -55,7 +56,7 @@ const core = Effect.try({ try: () => Record.map({ manifest: 'package.json', bina
 
 const analyzer = Effect.flatMap(core, ({ binary }) =>
     FileSystem.FileSystem.use((fs) => fs.access(binary)).pipe(
-        Effect.catchReason('PlatformError', 'NotFound', (cause) => Effect.fail(new Cause.UnknownError(cause, `the ${CORE} core is absent, nx build ${CORE} builds it`))),
+        Effect.catchReason('PlatformError', 'NotFound', (cause) => Effect.fail(new Cause.UnknownError(cause, `the ${CORE} core is absent, ${BUILDER} builds it`))),
         Effect.as(binary),
     ),
 );
@@ -71,4 +72,4 @@ const sequenced = (runs: Run['runs'], metadata: NonNullable<TargetConfiguration[
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPCAST, ATTACH, analyzer, CORE, core, INPUTS, NOTARY, Options, type Part, PLUGIN, SIGNED, SWIFTPM, sequenced, tokened };
+export { APPCAST, ATTACH, analyzer, BUILDER, CORE, INPUTS, NOTARY, Options, type Part, PLUGIN, SIGNED, SWIFTPM, sequenced, tokened };

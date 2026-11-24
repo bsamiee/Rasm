@@ -75,9 +75,8 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
     ];
 };
 
-const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>, stamp: Option.Option<Readonly<Record<'root' | 'name' | 'hash', string>>>, scheme: Option.Option<Pick<Part, 'name' | 'tools'>>): readonly Part[] => {
+const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>, scheme: Option.Option<Pick<Part, 'name' | 'tools'>>): readonly Part[] => {
     const { file, root, plists, entitled, manifest, bins, whole, shipped } = local;
-    const stamped = Option.filter(stamp, (held) => held.root === root);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const modules = manifest.targets.filter(({ name, type }) => !Schema.is(Tests)(type) && name !== manifest.name);
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
@@ -87,7 +86,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
     const lcov = Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info'));
     const covered = [bins.codecov, ...Option.toArray(lcov)];
     const written = (folder: string) => (whole ? manifest.products.map(({ name }) => join('{workspaceRoot}', folder, name)) : []);
-    const released = [...written(bins.release), ...Option.toArray(Option.map(stamped, ({ name }) => join('{workspaceRoot}', bins.release, name)))];
+    const released = written(bins.release);
     const report = Option.map(lcov, (at) => ({ report: { profiles: [join(dirname(bins.codecov), 'default.profdata')], objects: Array.map(suites, ({ name }) => join(bins.debug, `${name}.xctest`, 'Contents', 'MacOS', name)), file: at } }));
     const coverage = { runs: [[...test, '--enable-code-coverage']], outputs: covered.map((at) => join('{workspaceRoot}', at)), ...Option.getOrUndefined(report) };
     const testing = { cache: true, dependsOn: ['build--swift-build'], inputs, outputs: covered.map((_, index) => `{options.outputs.${index}}`), configurations: { coverage } };
@@ -105,7 +104,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
                     inputs,
                     options: { outputs: written(bins.debug) },
                     outputs: released.map((_, index) => `{options.outputs.${index}}`),
-                    configurations: { release: { runs: [[...build, '--configuration', 'release'], ...Option.toArray(Option.map(stamped, ({ name, hash }) => ['sh', '-c', 'printf %s "$0" > "$1"', hash, join(bins.release, name)] as const))], outputs: released } },
+                    configurations: { release: { runs: [[...build, '--configuration', 'release']], outputs: released } },
                     ...(manifest.products.some(({ name }) => shipped.some((entry) => matchesGlob(relative(root, join(bins.release, name)), entry))) && { defaultConfiguration: 'release' }),
                 },
             ),
@@ -152,16 +151,16 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
     };
     const forwarded = (module: string): Verbs =>
         Record.map(compiled(module), (tools, verb) =>
-            Record.map(tools, (_, tool): TargetConfiguration => ({
+            Record.map(tools, (held, tool): TargetConfiguration => ({
                 dependsOn: [{ projects: [compiler], target: `${verb}--${tool}` }],
                 inputs: forwardedInputs,
-                metadata: { technologies: ['swift'], description: `Runs ${verb}--${tool} of ${compiler} with nx run`, help: { command: `nx run ${compiler}:${verb}--${tool} --help`, example: { args: ['--verbose'] } } },
+                metadata: { ...held.metadata, technologies: ['swift'], description: `Runs ${verb}--${tool} of the project compiling ${module} with nx run` },
             })),
         );
     const relayed: TargetConfiguration<Readonly<Record<string, unknown>>> = {
         dependsOn: [{ projects: [manifest.name], target: 'clean--swift-package' }],
         inputs: forwardedInputs,
-        metadata: { technologies: ['swift'], description: `Runs clean--swift-package of ${manifest.name} with nx run`, help: { command: `nx run ${manifest.name}:clean--swift-package --help`, example: { args: ['--verbose'] } } },
+        metadata: { ...cleaning.metadata, description: 'Runs clean--swift-package of the package holding this module with nx run' },
     };
     return [{ name: manifest.name, at: root, own: owned, clean: cleaning }, ...modules.map((module) => ({ name: module.name, at: join(root, module.path), own: forwarded(module.name), clean: relayed }))].map(({ name, at, own, clean }): Part => {
         const product = Option.fromUndefinedOr(products.get(name));

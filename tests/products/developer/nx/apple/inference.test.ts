@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import { join, matchesGlob, relative, resolve } from 'node:path';
 import { env } from 'node:process';
+import { isDeepStrictEqual } from 'node:util';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
 import { Install } from '@rasm/nx-apple/executors/install';
 import { execute, Run } from '@rasm/nx-apple/executors/run';
@@ -81,6 +82,7 @@ const XCODE = {
     'Fixture.xcworkspace/xcshareddata/xcschemes/Fixture-Package.xcscheme': `<?xml version="1.0" encoding="UTF-8"?>\n<Scheme LastUpgradeVersion="2720" version="1.7">\n    <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">\n        <BuildActionEntries>\n${['Core', 'Middle', 'Loose', 'Tool'].map((target) => `            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">\n                ${PACKAGED(target)}\n            </BuildActionEntry>\n`).join('')}        </BuildActionEntries>\n    </BuildAction>\n    <TestAction buildConfiguration="Debug">\n        <Testables>\n            <TestableReference skipped="NO">\n                ${PACKAGED('CoreTests')}\n            </TestableReference>\n        </Testables>\n    </TestAction>\n</Scheme>\n`,
 };
 const MODULES = ['Core', 'Loose', 'Middle', 'Tool'] as const;
+const SHARED = '.config/shared.xcconfig';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -101,7 +103,9 @@ const compiledBy =
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const it = nx.extend('fixture', { scope: 'file' }, async ({ fileWorkspace }) => {
-    const graph = await fileWorkspace.write({ ...PACKAGES, ...XCODE }).graph({ createNodes, createDependencies }, { outputPath: 'dist' });
+    vi.stubEnv('XCODE_XCCONFIG_FILE', join(fileWorkspace.root, SHARED));
+    const graph = await fileWorkspace.write({ ...PACKAGES, ...XCODE, [SHARED]: 'SWIFT_TREAT_WARNINGS_AS_ERRORS = NO\n' }).graph({ createNodes, createDependencies }, { outputPath: 'dist' });
+    vi.unstubAllEnvs();
     const fetched = ['packages/remote/Package.resolved', 'packages/remote/.build/workspace-state.json', 'packages/remote/.build/checkouts'].filter((at) => existsSync(join(fileWorkspace.root, at)));
     const described = await Effect.runPromise(Effect.forEach(['packages/consumer', 'packages/kit'], (folder) => Effect.map(Schema.decodeEffect(Described)(execFileSync('swift', ['package', '--package-path', folder, 'describe', '--type', 'json'], { cwd: fileWorkspace.root, encoding: 'utf-8' })), compiledBy(folder))));
     return { root: fileWorkspace.root, graph, workspace: fileWorkspace, fetched, compiled: described.flat() };
@@ -188,6 +192,34 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
         expect({ resolved: Array.dedupe(located).length, unhashed: Array.difference(located, hashed) }).toStrictEqual({ resolved: 3, unhashed: [] });
     });
 
+    it('hashes the file XCODE_XCCONFIG_FILE names into every xcodebuild target, which applies it to each target it builds', ({ fixture: { graph } }) => {
+        const targets = [
+            ['Viewer', 'build--xcodebuild'],
+            ['Viewer', 'install--xcodebuild'],
+            ['Fixture', 'build--xcodebuild'],
+            ['Fixture', 'test--xcodebuild'],
+        ] as const;
+
+        expect(targets.map(([project, target]) => graph.nodes[project]?.data.targets?.[target]?.inputs?.includes(`{workspaceRoot}/${SHARED}`))).toStrictEqual([true, true, true, true]);
+    });
+
+    it('runs each target that calls xcodebuild into the shared build folder alone, and leaves SwiftPM targets free to run beside others', ({ fixture: { graph } }) => {
+        const targets = [
+            ['Viewer', 'build--xcodebuild'],
+            ['Viewer', 'install--xcodebuild'],
+            ['Viewer', 'pack--ditto'],
+            ['Viewer', 'clean--xcodebuild'],
+            ['Fixture', 'build--xcodebuild'],
+            ['Fixture', 'test--xcodebuild'],
+            ['Fixture', 'clean--xcodebuild'],
+            ['Signer', 'build--swift-build'],
+            ['Signer', 'pack--ditto'],
+            ['Viewer', 'build--swift-build'],
+        ] as const;
+
+        expect(targets.map(([project, target]) => graph.nodes[project]?.data.targets?.[target]?.parallelism)).toStrictEqual([false, false, false, false, false, false, false, true, true, true]);
+    });
+
     it('hashes the folder of each package target the products it links reach, and no other target or test target of that package', ({ fixture: { graph } }) => {
         const hashed = graph.nodes['Viewer']?.data.targets?.['build--xcodebuild']?.inputs?.filter(Predicate.isString) ?? [];
 
@@ -237,6 +269,16 @@ describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
             packed: ['build--xcodebuild'],
             locked: [true, true, true],
         });
+    });
+
+    it('gives each module target forwarding to the scheme the help of the target it runs, in the project the graph holds', ({ fixture: { graph } }) => {
+        const forwarded = [...Array.cartesian(MODULES, ['build--xcodebuild', 'check--xcodebuild', 'clean--swift-package'] as const), ['Core', 'test--xcodebuild'] as const].map(([module, target]) => {
+            const { dependsOn: [dependency] = [], metadata } = graph.nodes[module]?.data.targets?.[target] ?? {};
+            const runs = typeof dependency === 'object' ? graph.nodes[Array.ensure(dependency.projects ?? [])[0] ?? '']?.data.targets?.[dependency.target]?.metadata?.help : undefined;
+            return { forwarder: `${module}:${target}`, help: metadata?.help, runs };
+        });
+
+        expect(forwarded.filter(({ help, runs }) => runs === undefined || !isDeepStrictEqual(help, runs)).map(({ forwarder }) => forwarder)).toStrictEqual([]);
     });
 
     it('passes every test the scheme lists through the run executor', async ({ fixture: { root, graph, workspace }, onTestFinished }) => {

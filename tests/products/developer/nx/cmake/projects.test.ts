@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-cmake';
 import { refused } from '@rasm/testing/errors';
 import { it, pathed, unaggregated, unportable } from '@rasm/testing/nx';
@@ -128,6 +129,16 @@ describe('inferred projects', { timeout: 120_000 }, () => {
         const graph = await workspace.write({ 'CMakePresets.json': presets, 'lib/CMakeLists.txt': 'cmake_minimum_required(VERSION 4.5)\nproject(lib LANGUAGES CXX)\nadd_library(lib STATIC lib.cpp)\n', 'lib/lib.cpp': 'int one() { return 1; }\n' }).graph(cmake);
 
         expect(graph.nodes).toStrictEqual({});
+    });
+});
+
+describe('files Nx hands the plugin', () => {
+    it('are the presets files alone, so a list file, module, or vcpkg manifest edit is no project configuration change', async ({ workspace }) => {
+        workspace.write({ ...rich, 'apps/tool/vcpkg-configuration.json': '{}\n', 'apps/tool/consumer/CMakePresets.json': presets });
+
+        const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
+
+        expect(matched.toSorted()).toStrictEqual(['CMakePresets.json', 'apps/tool/consumer/CMakePresets.json']);
     });
 });
 

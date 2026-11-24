@@ -1,6 +1,6 @@
 import { posix } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs, globWithWorkspaceContext } from '@nx/devkit/internal';
 import { inferring, manifested } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Option, Record, Schema } from 'effect';
 import { memberInputs, memberTargets } from '#/targets';
@@ -41,12 +41,14 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, setti
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes = [
-    combineGlobPatterns([PRESETS, MANIFEST, '*.cmake', REGISTRY.manifest, REGISTRY.configuration].map((file) => `**/${file}`)),
+    `**/${PRESETS}`,
     inferring(Options, run, function* (matched, settings, context) {
-        const presets = matched.filter((file) => posix.basename(file) === PRESETS && matched.includes(posix.join(posix.dirname(file), MANIFEST)));
+        const listed = yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [combineGlobPatterns([PRESETS, MANIFEST, '*.cmake', REGISTRY.manifest, REGISTRY.configuration].map((file) => `**/${file}`))]));
+        const held = new Set(listed);
+        const presets = matched.filter((file) => held.has(posix.join(posix.dirname(file), MANIFEST)));
         const linked = new Map<string, Tree['members']>();
         (yield* Linked).set(context.workspaceRoot, linked);
-        return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(context, settings, matched, linked, file)), presets, settings, context));
+        return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(context, settings, listed, linked, file)), presets, settings, context));
     }),
 ];
 

@@ -49,15 +49,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     );
     const referenced = container.buildFiles.filter((at) => relative(dirname(container.path), at).startsWith('..')).flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
     const listing = extname(container.path) === '.xcworkspace';
-    const read = Array.dedupe([
-        join(listing ? join('{workspaceRoot}', container.path) : '{projectRoot}', '**/*'),
-        ...inputs,
-        ...referenced,
-        ...[lock, ...Option.toArray(seed)].flatMap(tokened),
-        ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []),
-        { runtime: 'xcodebuild -version && { test -z "$XCODE_XCCONFIG_FILE" || cat "$XCODE_XCCONFIG_FILE"; }' },
-        ...INPUTS,
-    ]);
+    const read = Array.dedupe([join(listing ? join('{workspaceRoot}', container.path) : '{projectRoot}', '**/*'), ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]);
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
     const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
     const derived = Option.orElse(Option.fromUndefinedOr(options.derivedDataPath), () => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, 'DerivedData')));
@@ -88,7 +80,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                         description: 'Builds each shared scheme with xcodebuild build for the destination xcodebuild picks on this Mac, as app builds do, so a package scheme reuses the modules app builds compiled, pack--ditto archiving the schemes with installed products',
                         help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
                     },
-                    { cache: true, ...(!listing && { dependsOn: ['^build--*'] }), inputs: read, ...modes(builds) },
+                    { cache: true, parallelism: false, ...(!listing && { dependsOn: ['^build--*'] }), inputs: read, ...modes(builds) },
                 ),
             },
             check: { xcodebuild: { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Type-checks each shared scheme with xcodebuild build', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } } } },
@@ -113,6 +105,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                 ditto: {
                     executor: `${PLUGIN}:package`,
                     cache: true,
+                    parallelism: false,
                     dependsOn: ['^build--*'],
                     inputs: [...read, { env: NOTARY.keyId }],
                     options: { exports: archived.map(({ archive, folder, run }) => ({ archive, folder, run })) },
@@ -136,6 +129,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                     },
                     {
                         cache: true,
+                        parallelism: false,
                         dependsOn: ['build--xcodebuild'],
                         inputs: read,
                         outputs: covered.map((_, index) => `{options.outputs.${index}}`),
@@ -155,7 +149,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                             "Builds each shared scheme archiving an application that installs, under -configuration set to the scheme's archive configuration, and installs its applications into the LOCAL_APPS_DIR xcodebuild evaluates on this Mac with its install action, that folder as DSTROOT since the build system refuses / as one",
                         help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
                     },
-                    { dependsOn: ['^build--*'], inputs: read, options: { applications: Array.dedupe(archives.flatMap(({ bundles }) => bundles)) } },
+                    { parallelism: false, dependsOn: ['^build--*'], inputs: read, options: { applications: Array.dedupe(archives.flatMap(({ bundles }) => bundles)) } },
                 ),
             },
         }),
@@ -172,6 +166,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                 clean: {
                     xcodebuild: {
                         executor: `${distribution.name}:clean`,
+                        parallelism: false,
                         inputs: read,
                         options: {
                             commands: [...schemes.map((scheme) => invoke('clean', scheme.name, [])), ...[...archived.map(({ archive }) => archive), ...(runs.length > 0 ? Option.toArray(derived) : [])].map((at) => ['rm', '-rf', at])],

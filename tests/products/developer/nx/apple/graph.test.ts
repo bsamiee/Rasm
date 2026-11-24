@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
+import { globWithWorkspaceContext, hashFile } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
 import { refused } from '@rasm/testing/errors';
 import { it as nx, pathed, shimmed } from '@rasm/testing/nx';
@@ -51,6 +52,21 @@ const CONTAINERS = String.raw`apps/Other/Other\.xcodeproj/project\.xcproj, apps/
 
 const Stored = Schema.fromJsonString(Schema.Struct({ entries: Schema.Record(Schema.String, Schema.Unknown) }));
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const stamped = (root: string) => JSON.stringify({ sources: ['core/{Package.swift,Package.resolved,Sources/**/*}'], files: Record.fromIterableWith(['core/Package.swift', 'core/Package.resolved', 'core/Sources/analyzer/main.swift'], (at) => [at, hashFile(join(root, at))]) });
+
+const built = (root: string, place: (folder: string, files: Readonly<Record<string, string>>) => void) => {
+    place(join(root, 'core'), {
+        'Package.swift': `${TOOLS}let package = Package(name: "Analyzer", targets: [.executableTarget(name: "analyzer"), .testTarget(name: "AnalyzerTests")])\n`,
+        'Package.resolved': '{ "pins": [], "version": 3 }\n',
+        'Sources/analyzer/main.swift': 'print("analyzer")\n',
+        'Tests/AnalyzerTests/AnalyzerTests.swift': 'import Testing\n',
+        [BINARY]: `#!/bin/sh\ntouch analyzed\nprintf '%s' '{"containers":[],"failures":{}}'\n`,
+    });
+    place(join(root, 'core'), { [`${BINARY}.hash`]: stamped(root) });
+};
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const it = nx
@@ -91,6 +107,17 @@ const it = nx
         };
     });
 
+describe('files Nx hands the plugin', () => {
+    it('are the manifests and containers that make a project alone, so a setting, scheme, plist, entitlements, or test plan edit is no project configuration change', async ({ workspace }) => {
+        const markers = ['A/A.xcodeproj/project.pbxproj', 'A/A.xcodeproj/project.xcproj', 'W.xcworkspace/contents.xcworkspacedata', 'proj/Package.swift', 'proj/Package@swift-6.4.swift'];
+        workspace.write(Record.fromIterableWith([...markers, '.config/xcode.xcconfig', 'Xcode.xcconfig', 'A/A.xcodeproj/xcshareddata/xcschemes/A.xcscheme', 'W.xcworkspace/xcshareddata/xcschemes/W.xcscheme', 'A/Info.plist', 'A/Settings.plist', 'A/A.entitlements', 'A/A.xctestplan'], (at) => [at, '']));
+
+        const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
+
+        expect(matched.toSorted()).toStrictEqual(markers);
+    });
+});
+
 describe('graph cache', { timeout: 240_000 }, () => {
     it('describes each package once until its manifest or the swift toolchain changes, holding the last state alone', async ({ workspace, swift }) => {
         workspace.write({ 'proj/Package.swift': PACKAGE, 'proj/Sources/Lib/Lib.swift': 'public let lib = 1\n' });
@@ -118,6 +145,34 @@ describe('graph cache', { timeout: 240_000 }, () => {
         });
     });
 
+    it('describes again after an edit to a setting, scheme, plist, or entitlements file the analysis reads, though none marks a project', async ({ workspace, swift }) => {
+        workspace.write({ 'proj/Package.swift': PACKAGE, 'proj/Sources/Lib/Lib.swift': 'public let lib = 1\n', 'proj/Configs/Base.xcconfig': 'SWIFT_VERSION = 6.0\n', 'Fixture.xcworkspace/xcshareddata/xcschemes/Lib.xcscheme': SCHEME('Lib') });
+
+        await workspace.graph({ createNodes, createDependencies });
+        await workspace.graph({ createNodes, createDependencies });
+        await workspace.write({ 'proj/Configs/Base.xcconfig': 'SWIFT_VERSION = 6.4\n' }).graph({ createNodes, createDependencies });
+        await workspace.write({ 'Fixture.xcworkspace/xcshareddata/xcschemes/Lib.xcscheme': SCHEME('Other') }).graph({ createNodes, createDependencies });
+        await workspace.write({ 'proj/Sources/Lib/Info.plist': '<plist version="1.0"><dict/></plist>\n' }).graph({ createNodes, createDependencies });
+        await workspace.write({ 'proj/Sources/Lib/Lib.entitlements': '<plist version="1.0"><dict/></plist>\n' }).graph({ createNodes, createDependencies });
+
+        expect(swift.described()).toHaveLength(5);
+    });
+
+    it('describes again after XCODE_XCCONFIG_FILE names another file, as every Xcode target hashes the file it names', async ({ workspace, swift, onTestFinished }) => {
+        workspace.write({ 'proj/Package.swift': PACKAGE, 'proj/Sources/Lib/Lib.swift': 'public let lib = 1\n', 'One.xcconfig': '', 'Two.xcconfig': '' });
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+        });
+
+        vi.stubEnv('XCODE_XCCONFIG_FILE', join(workspace.root, 'One.xcconfig'));
+        await workspace.graph({ createNodes, createDependencies });
+        await workspace.graph({ createNodes, createDependencies });
+        vi.stubEnv('XCODE_XCCONFIG_FILE', join(workspace.root, 'Two.xcconfig'));
+        await workspace.graph({ createNodes, createDependencies });
+
+        expect(swift.described()).toHaveLength(2);
+    });
+
     it('refuses a manifest swift package describe rejects on every graph, naming the package and the exit', async ({ workspace, swift }) => {
         workspace.write({ 'broken/Package.swift': `${TOOLS}let package = Package(name: \n` });
 
@@ -138,6 +193,32 @@ describe('Xcode containers the core cannot read', { timeout: 240_000 }, () => {
     });
 });
 
+describe('a core built inside the workspace', { timeout: 240_000 }, () => {
+    it('reads the containers through it after an edit to a file outside its stamped sources, a test edit included', async ({ workspace, core }) => {
+        workspace.write(APPS);
+        built(workspace.root, core);
+        core(join(workspace.root, 'core'), { 'Tests/AnalyzerTests/AnalyzerTests.swift': 'import Testing\n\n@Test func added() {}\n' });
+
+        await workspace.graph({ createNodes, createDependencies });
+
+        expect(existsSync(join(workspace.root, 'analyzed'))).toBe(true);
+    });
+
+    it.for([
+        { case: 'a source it was built from changes', files: { 'Sources/analyzer/main.swift': 'print("edited")\n' }, removed: [], named: 'core/Sources/analyzer/main.swift' },
+        { case: 'a source joins its sources', files: { 'Sources/analyzer/Added.swift': 'let added = 1\n' }, removed: [], named: 'core/Sources/analyzer/Added.swift' },
+        { case: 'its stamp is absent', files: {}, removed: [`${BINARY}.hash`], named: `core/${BINARY}.hash` },
+    ])('refuses the graph, naming the file and the command that rebuilds the core, where $case', async ({ files, removed, named }, { workspace, core }) => {
+        workspace.write(APPS);
+        built(workspace.root, core);
+        core(join(workspace.root, 'core'), files);
+        removed.forEach((at) => rmSync(join(workspace.root, 'core', at)));
+
+        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(new RegExp(`^the @rasm/nx-apple-darwin-arm64 core predates ${RegExp.escape(named)}, mise deps install nx-apple rebuilds it$`, 'u')));
+        expect(existsSync(join(workspace.root, 'analyzed'))).toBe(false);
+    });
+});
+
 describe('hosts lacking a tool the plugin reads', { timeout: 240_000 }, () => {
     it('presents no project and warns once where swift is absent', async ({ workspace, warned }) => {
         workspace.write({ 'proj/Package.swift': PACKAGE, 'other/Package.swift': PACKAGE.replace('"Proj"', '"Other"') });
@@ -149,24 +230,16 @@ describe('hosts lacking a tool the plugin reads', { timeout: 240_000 }, () => {
     });
 
     it.for([
-        { case: 'is absent', inside: false, files: {}, ran: false, reason: 'the @rasm/nx-apple-darwin-arm64 core is absent, nx build @rasm/nx-apple-darwin-arm64 builds it' },
-        {
-            case: 'is older than its sources',
-            inside: true,
-            files: { 'Package.swift': `${TOOLS}let package = Package(name: "Analyzer", targets: [.executableTarget(name: "analyzer")])\n`, 'Sources/analyzer/main.swift': 'print("analyzer")\n', [BINARY]: '#!/bin/sh\ntouch analyzed\n', [`${BINARY}.hash`]: 'a hash of other sources' },
-            ran: false,
-            reason: 'the @rasm/nx-apple-darwin-arm64 core is older than its sources, nx build @rasm/nx-apple-darwin-arm64 rebuilds it',
-        },
+        { case: 'is absent', files: {}, ran: false, reason: 'the @rasm/nx-apple-darwin-arm64 core is absent, mise deps install nx-apple builds it' },
         {
             case: 'reports in a form the plugin does not read',
-            inside: false,
             files: { [BINARY]: `#!/bin/sh\ntouch analyzed\nprintf '%s' '{"containers":[{"configurations":[],"inputs":[],"path":"apps/Other/Other.xcodeproj","projects":[],"schemes":[]}],"failures":{}}'\n` },
             ran: true,
-            reason: 'the @rasm/nx-apple-darwin-arm64 core reports in a form this plugin does not read, nx build @rasm/nx-apple-darwin-arm64 rebuilds it: Missing key',
+            reason: 'the @rasm/nx-apple-darwin-arm64 core reports in a form this plugin does not read, mise deps install nx-apple rebuilds it: Missing key',
         },
-    ])('keeps the Swift targets of each project, compiles nothing, and warns once naming the command where the core $case', async ({ inside, files, ran, reason }, { workspace, swift, warned, core }) => {
+    ])('keeps the Swift targets of each project, compiles nothing, and warns once naming the command where the core $case', async ({ files, ran, reason }, { workspace, swift, warned, core }) => {
         workspace.write(APPS);
-        core(inside ? join(workspace.root, 'core') : `${workspace.root}-core`, files);
+        core(`${workspace.root}-core`, files);
 
         const graph = await workspace.graph({ createNodes, createDependencies });
 

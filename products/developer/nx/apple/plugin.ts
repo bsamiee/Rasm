@@ -1,12 +1,12 @@
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, hashObject, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, inferring, manifested, produced, runner, spawned, stamped, type Verbs, within } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Context, Effect, FileSystem, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import which from 'which';
 import { Described, ENTITLEMENTS, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, RESOLVED, Shipped, sources } from '#/swift-package';
-import { analyzer, CORE, core, Options, type Part, PLUGIN, tokened } from '#/targets';
+import { analyzer, BUILDER, CORE, Options, type Part, PLUGIN, tokened } from '#/targets';
 import { Analyzed, xcodeParts } from '#/xcode-project';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -19,9 +19,15 @@ interface Graph {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const READ = [MANIFEST, INFO, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcworkspace/contents.xcworkspacedata', '*.xcscheme', '*.xcconfig'].map((file) => `**/${file}`);
-const FILES = combineGlobPatterns([...READ, ...['*.xcodeproj/project.pbxproj', '*.xctestplan', '*.entitlements', '*.plist'].map((file) => `**/${file}`)]);
+const FILES = combineGlobPatterns([MANIFEST, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcodeproj/project.pbxproj', '*.xcworkspace/contents.xcworkspacedata'].map((file) => `**/${file}`));
+const READ = [FILES, ...['*.xcscheme', '*.xcconfig', '*.xctestplan', '*.entitlements', '*.plist'].map((file) => `**/${file}`)];
 const HOST: NodeJS.Platform = 'darwin';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Stamp = Schema.fromJsonString(Schema.Struct({ sources: Schema.Array(Schema.String), files: Schema.Record(Schema.String, Schema.String) })).annotate({
+    description: 'The stamp the mise row nx-apple writes beside the core it builds: the workspace globs of the sources the core compiles, and the Nx hash of each file they matched',
+});
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -33,14 +39,28 @@ class Graphs extends Context.Service<Graphs, Map<string, Graph>>()(`${PLUGIN}/pl
 
 const own = fingerprinted(import.meta.dirname);
 
+const current = Effect.fnUntraced(function* (workspaceRoot: string, binary: string) {
+    const stamp = `${binary}.hash`;
+    const held = yield* Effect.option(
+        Effect.flatMap(
+            FileSystem.FileSystem.use((fs) => fs.readFileString(stamp)),
+            Schema.decodeEffect(Stamp),
+        ),
+    );
+    const stale = yield* Option.match(held, {
+        onNone: () => Effect.succeed([relative(workspaceRoot, stamp)]),
+        onSome: (stated) =>
+            Effect.map(
+                Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [...stated.sources])),
+                (found) => Array.union(found, Record.keys(stated.files)).filter((file) => stated.files[file] !== hashFile(join(workspaceRoot, file))),
+            ),
+    });
+    return yield* Array.match(stale, { onEmpty: () => Effect.void, onNonEmpty: (named) => Effect.fail(new Cause.UnknownError(named, `the ${CORE} core predates ${named.join(', ')}, ${BUILDER} rebuilds it`)) });
+});
+
 const joined = (left: Verbs, right: Verbs): Verbs => Record.union(left, right, (base, stated) => Record.union(base, stated, (held, over) => mergeTargetConfigurations(over, held)));
 
-const analyze = Effect.fnUntraced(function* (
-    workspaceRoot: string,
-    options: Options,
-    files: readonly string[],
-    { developer, compiled, stamp }: { readonly developer: Option.Option<string>; readonly compiled: Result.Result<string, string>; readonly stamp: Option.Option<Readonly<Record<'root' | 'name' | 'hash', string>>> },
-) {
+const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Options, files: readonly string[], { developer, compiled, xcconfig }: { readonly developer: Option.Option<string>; readonly compiled: Result.Result<string, string>; readonly xcconfig: Option.Option<string> }) {
     const fs = yield* FileSystem.FileSystem;
     const [info, xcodebuild] = yield* Effect.all([Effect.option(spawned(['swift', '-print-target-info'], { cwd: workspaceRoot })), Effect.option(Effect.flatMap(Effect.fromOption(developer), (path) => fs.stat(join(path, 'usr', 'bin', 'xcodebuild'))))], { concurrency: 'unbounded' });
     const paths = new Set(files);
@@ -84,7 +104,7 @@ const analyze = Effect.fnUntraced(function* (
                 Effect.andThen(Effect.fromResult(compiled)),
                 Effect.flatMap((at) => spawned([at, 'analyze', ...listed], { cwd: workspaceRoot })),
                 Effect.flatMap(Schema.decodeEffect(Analyzed)),
-                Effect.catchTag('SchemaError', ({ message }) => Effect.fail(`the ${CORE} core reports in a form this plugin does not read, nx build ${CORE} rebuilds it: ${message}`)),
+                Effect.catchTag('SchemaError', ({ message }) => Effect.fail(`the ${CORE} core reports in a form this plugin does not read, ${BUILDER} rebuilds it: ${message}`)),
                 Effect.result,
             ),
         ),
@@ -110,10 +130,18 @@ const analyze = Effect.fnUntraced(function* (
     const linkedSources = (container: Analyzed['containers'][number]) => Array.getSomes(container.projects.map((at) => Option.map(local(at), (swiftPackage) => sources(swiftPackage, described, Record.get(container.products, at))))).flat();
     const xcode = analyzed.containers.map((container) => ({
         schemes: container.schemes,
-        part: xcodeParts(options, marker(container.path), container, Array.dedupe([...container.inputs.flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]), built(container.path), packaged, relative(workspaceRoot, workspaceDataDirectory)),
+        part: xcodeParts(
+            options,
+            marker(container.path),
+            container,
+            Array.dedupe([...[...container.inputs, ...Option.toArray(Option.map(xcconfig, (at) => relative(workspaceRoot, at)))].flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]),
+            built(container.path),
+            packaged,
+            relative(workspaceRoot, workspaceDataDirectory),
+        ),
     }));
     const covered = new Map(xcode.flatMap(({ schemes, part }) => Array.getSomes(schemes.flatMap(Struct.get('containers')).map(local)).map((swiftPackage) => [swiftPackage, part] as const)));
-    const parts: readonly Part[] = [...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described, stamp, Option.fromUndefinedOr(covered.get(swiftPackage)))), ...xcode.map(Struct.get('part'))];
+    const parts: readonly Part[] = [...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described, Option.fromUndefinedOr(covered.get(swiftPackage)))), ...xcode.map(Struct.get('part'))];
     const [settled, conflicts] = Record.partition(Array.groupBy(parts, Struct.get('root')), (group) => (new Set(group.map(Struct.get('name'))).size > 1 ? Result.fail(group) : Result.succeed(group)));
     const merged = Record.collect(settled, (root, group) => {
         const { name, file, technologies } = Array.headNonEmpty(group);
@@ -148,37 +176,23 @@ const createNodes: CreateNodes = [
     FILES,
     inferring(Options, run, function* (matched, settings, { workspaceRoot }) {
         const [files, fs] = [process.platform === HOST ? matched.toSorted() : [], yield* FileSystem.FileSystem];
-        const sourced = Effect.gen(function* () {
-            const { manifest, binary } = yield* core;
-            const root = yield* Effect.fromOption(Option.liftPredicate(relative(workspaceRoot, dirname(manifest)), within));
-            return { root, name: `${basename(binary)}.hash`, hash: yield* stamped(workspaceRoot)([join(root, '**/*')]) };
-        });
-        const [hashed, developer, swift, stamp] = yield* Effect.all(
+        const [hashed, developer, swift, compiled] = yield* Effect.all(
             [
                 own,
                 process.platform === HOST ? Effect.option(Effect.firstSuccessOf([Config.String('DEVELOPER_DIR'), fs.readLink('/var/db/xcode_select_link'), Effect.map(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot }), (at) => at.trim())])) : Effect.succeed(Option.none<string>()),
                 Effect.promise(() => which('swift', { nothrow: true })).pipe(Effect.map(Option.fromNullOr)),
-                Effect.option(sourced),
+                Effect.result(Effect.mapError(analyzer, ({ message }) => message)),
             ],
             { concurrency: 'unbounded' },
         );
-        const compiled = yield* Effect.result(
-            Effect.tap(
-                Effect.mapError(analyzer, ({ message }) => message),
-                (at) =>
-                    Effect.filterOrFail(
-                        Effect.option(fs.readFileString(`${at}.hash`)),
-                        (held) => Option.match(stamp, { onNone: () => true, onSome: ({ hash }) => Option.contains(held, hash) }),
-                        () => `the ${CORE} core is older than its sources, nx build ${CORE} rebuilds it`,
-                    ),
-            ),
-        );
+        yield* Effect.forEach(Option.toArray(Option.filter(Result.getSuccess(compiled), (binary) => process.platform === HOST && within(relative(workspaceRoot, binary)))), (binary) => current(workspaceRoot, binary), { discard: true });
         const slot = join(workspaceDataDirectory, 'apple.hash');
+        const xcconfig = yield* Config.option(Config.String('XCODE_XCCONFIG_FILE'));
         const stamps = [
+            ...Option.toArray(xcconfig),
             ...Option.toArray(developer),
             ...Option.toArray(Option.flatMap(developer, (path) => Option.fromNullishOr(hashFile(join(path, '..', 'version.plist'))))),
             ...[...Option.toArray(swift), ...Option.toArray(Result.getSuccess(compiled))].flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file))]),
-            ...Option.toArray(Option.map(stamp, ({ hash }) => hash)),
             ...Option.toArray(yield* Config.option(Config.String('TOOLCHAINS'))),
             ...files.filter((file) => basename(file) === MANIFEST).flatMap((file) => Array.fromNullishOr(hashFile(join(workspaceRoot, dirname(file), PACKAGED)))),
         ];
@@ -186,7 +200,7 @@ const createNodes: CreateNodes = [
         const stored = Option.filter(Option.fromNullishOr(new PluginCache<{ readonly digest: string; readonly graph: Graph }>(slot).get(FILES)), (held) => held.digest === digest);
         const read = yield* Option.match(stored, {
             onSome: ({ graph }) => Effect.succeed({ graph, failures: [], partial: false }),
-            onNone: () => analyze(workspaceRoot, settings, files, { developer, compiled, stamp }),
+            onNone: () => analyze(workspaceRoot, settings, files, { developer, compiled, xcconfig }),
         });
         yield* Option.isNone(stored) && read.failures.length === 0 && !read.partial ? Effect.sync(() => new PluginCache(slot, { [FILES]: { digest, graph: read.graph } }).writeToDisk()) : Effect.void;
         (yield* Graphs).set(workspaceRoot, read.graph);

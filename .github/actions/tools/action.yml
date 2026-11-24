@@ -25,8 +25,8 @@ runs:
                   products/developer/nx/apple/analyzer/.build/out/Products/Release/nx-apple-analyzer
                   products/developer/nx/apple/analyzer/.build/out/Products/Release/nx-apple-analyzer.hash
                   ~/.local/state/mise/deps
-              key: nx-apple-analyzer-${{ hashFiles('products/developer/nx/apple/analyzer/Package*', 'products/developer/nx/apple/analyzer/package.json', 'products/developer/nx/apple/analyzer/Sources/**', 'products/developer/nx/apple/analyzer/Tests/**') }}-${{ hashFiles('.config/mise.macos.toml') }}
-              restore-keys: nx-apple-analyzer-${{ hashFiles('products/developer/nx/apple/analyzer/Package*', 'products/developer/nx/apple/analyzer/package.json', 'products/developer/nx/apple/analyzer/Sources/**', 'products/developer/nx/apple/analyzer/Tests/**') }}-
+              key: nx-apple-analyzer-${{ hashFiles('products/developer/nx/apple/analyzer/Package.swift', 'products/developer/nx/apple/analyzer/Package.resolved', 'products/developer/nx/apple/analyzer/Sources/**') }}-${{ hashFiles('.config/mise.macos.toml') }}
+              restore-keys: nx-apple-analyzer-${{ hashFiles('products/developer/nx/apple/analyzer/Package.swift', 'products/developer/nx/apple/analyzer/Package.resolved', 'products/developer/nx/apple/analyzer/Sources/**') }}-
         - if: ${{ runner.environment == 'github-hosted' }}
           uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
           with:
