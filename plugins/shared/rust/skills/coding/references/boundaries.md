@@ -2,35 +2,113 @@
 
 ## [01]-[DECODE]
 
-Decoding is the one place untrusted data becomes domain values, and `nutype` states a rule across fields with its wire form in one declaration:
+Untrusted input becomes domain values once, and each refusal names its field's path:
 
 ```rust
-#[nutype(
-    validate(predicate = |span| !span.is_empty()),
-    derive(Debug, Clone, PartialEq, Eq, Deref, Serialize, Deserialize)
-)]
-pub struct Window(Range<Timestamp>);
+#[derive(Debug)]
+pub struct Object<T>(PhantomData<T>);
+
+impl<'de, T> Visitor<'de> for Object<T>
+where T: Deserialize<'de>
+{
+    type Value = T;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("an object of named fields") }
+
+    fn visit_map<A>(self, map: A) -> Result<T, A::Error>
+    where A: MapAccess<'de> {
+        T::deserialize(MapAccessDeserializer::new(map))
+    }
+}
+
+impl<'de, T> DeserializeAs<'de, T> for Object<T>
+where T: Deserialize<'de>
+{
+    fn deserialize_as<D>(deserializer: D) -> Result<T, D::Error>
+    where D: Deserializer<'de> {
+        deserializer.deserialize_map(Self(PhantomData))
+    }
+}
+
+pub fn decoded<'de, T>(text: &'de [u8]) -> Result<T, Error<serde_json::Error>>
+where T: Deserialize<'de> {
+    let mut json = serde_json::Deserializer::from_slice(text);
+    let mut track = Track::new();
+    let tracked = serde_path_to_error::Deserializer::new(&mut json, &mut track);
+    let value = Object::<T>::deserialize_as(tracked).and_then(|value| json.end().map(|()| value));
+    value.map_err(|source| Error::new(track.path(), source))
+}
 ```
 
-`Window` round-trips `{"start": .., "end": ..}` and rejects an unknown key or an end at or before its start. `Deref` reaches `Range` members (`window.contains(&now)`). Domain enums spelled as flat wire fields decode through `#[serde(try_from = "<Wire>")]`. Records re-encoded with one field replaced take it as a type parameter, decode `IgnoredAny` there, and rebuild through `Record { field, ..decoded }`.
+Derived `Deserialize` accepts a record as a JSON list of its fields in order, and `Object` reads a map alone (`["a", []]` is refused):
+- Fields holding a record take `#[serde_as(as = "Object<Line>")]`, a list of records `Vec<Object<Line>>`
+- `Deserializer::end` refuses text after the document, which `serde_path_to_error::deserialize` alone accepts
+- Documents decode into their record, and `serde_json::Value` stays inside a decoder in place of keys read through `Value::pointer`
 
-Decode errors name the failing path, held by `toml` errors and `axum::Json` rejections. `serde_json::Value` stays inside a decoder. Programs driving a `serde_json::Deserializer` (stdin, a file) decode through a `serde_path_to_error::Deserializer` over a `Track`, then reject trailing input with `Deserializer::end`, either error joined to the tracked path through `serde_path_to_error::Error::new`. Documents of one primitive, `str`, or `String` hold no field path and read through `Value::as_str` or another `as_*`, every other document decoding into a record in place of a key path (`pointer("/a/b")`) read over its `Value`. Decoded records take the shape of the call consuming them, never a wrapper the call site splits (`unzip`). Nested records decode as one type per level (a child kind holding `type` and `named` alone), never the parent type recursing under `#[serde(default)]` over fields a child never holds. Lengths a peer sends size a buffer through `Vec::try_with_capacity`, refusing as `io::ErrorKind::OutOfMemory` in place of aborting.
+Forms serde reads in one pass keep the path, and forms it buffers report an enclosing position:
+
+| [INDEX] | [FORM]                                                  | [REFUSAL_PATH]                                                  |
+| :-----: | :------------------------------------------------------ | :-------------------------------------------------------------- |
+|  [01]   | Record field, list index, map key of text or number     | Whole path (`lines[0].sku`)                                     |
+|  [02]   | Map key decoded through `FromStr`                       | Whole path                                                      |
+|  [03]   | Map key of an enum type                                 | `?` in place of key                                             |
+|  [04]   | Externally tagged enum, serde's default                 | Whole path through variant (`change.renamed.name`)              |
+|  [05]   | Adjacently tagged enum, tag key ahead of content        | Whole path through content key                                  |
+|  [06]   | Adjacently tagged enum, content key first               | Enum's field                                                    |
+|  [07]   | Internally tagged enum (`tag = "type"`)                 | Enum's field                                                    |
+|  [08]   | `untagged` enum, or an enum with one `untagged` variant | Enum's field, each variant's refusal lost                       |
+|  [09]   | Field of a `flatten` member                             | Record holding member                                           |
+|  [10]   | `#[serde(try_from = "Raw")]`                            | Whole path inside `Raw`, conversion refusal at field holding it |
+
+`nutype`'s derived `Deserialize` appends `Expected valid <Name>` to a refusal, and a text type keeping its own error decodes through `FromStr`:
+
+```rust
+#[nutype(validate(with = labelled, error = LabelError), derive(Debug, Clone, PartialEq, Eq, FromStr), derive_unchecked(DeserializeFromStr))]
+pub struct Label(String);
+```
+
+`labelled` returns `Result<(), LabelError>`, and a refused label decodes to `LabelError`'s message alone at its field's path:
+- `derive_unchecked` takes nutype's `derive_unchecked` feature, and `DeserializeFromStr` comes from `serde_with`
+- `DeserializeFromStr` reads a JSON string alone, and a numeric newtype keeps nutype's `Deserialize`
+
+Domain types whose wire shape differs decode through a derived record of that shape, and the constructor goes in `TryFrom`:
+
+```rust
+#[derive(Debug, Deserialize)]
+#[serde(try_from = "Bounds")]
+pub struct Band {
+    low: u16,
+    high: u16,
+}
+
+impl TryFrom<Bounds> for Band {
+    type Error = Inverted;
+
+    fn try_from(Bounds { low, high }: Bounds) -> Result<Self, Inverted> { (low < high).then_some(Self { low, high }).ok_or(Inverted { low, high }) }
+}
+```
+
+`Bounds` derives `Deserialize` over `low` and `high`, and `Inverted` is the crate error naming both.
+
+Records borrow text from a buffer that outlives them:
+- `&'a str` refuses a JSON string holding an escape (`\n`, `\"`), and `#[serde(borrow)] Cow<'a, str>` borrows unescaped text and owns the rest
+- `#[serde(borrow)]` marks a `Cow` field and a field of a record holding a lifetime, a `Cow` without it owning every value
 
 ## [02]-[TAGGED_UNIONS]
 
-Enums cross a boundary with one tag declaration, and fields every variant shares sit on a record flattening the enum beside them:
+Enums crossing a boundary keep serde's external tag, the one tag form keeping every path, and shared fields go in a record holding the enum:
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Event {
-    pub item: ItemId,
+    pub item: Label,
     pub at: Timestamp,
-    #[serde(flatten)]
     pub change: Change,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Change {
     Created,
     Renamed {
@@ -42,65 +120,42 @@ pub enum Change {
 }
 ```
 
-`{"type": "renamed", "item": .., "at": .., "name": ..}` decodes into one `Event`, and a consumer matches `change` alone. `ItemId` is a `TypedUuid`, `Label` a `nutype` over `String`. Streams producers extend end the enum with a `#[serde(other)]` unit variant: an unknown tag decodes to `Unknown`, a malformed known tag fails. Closed protocols reject an unknown tag at decode. Enums a consumer extends end with a generic `#[serde(untagged)]` variant (`Extended(K)`) that decodes consumer cases. Encoded outcomes are a tagged enum of their cases in place of `Result`'s `{"Ok": ..}`. Crate errors derive `Serialize` under a tag with `#[serde(skip)]` on each `source`. Reason enums serialize through `serde_with::SerializeDisplay`.
+`{"item": "a", "at": "<time>", "change": {"renamed": {"name": "b"}}}` decodes into one `Event`, and a refused name reports `change.renamed.name`:
+- Unit variants are a string (`"change": "created"`), and a variant with fields is one key holding them
+- `#[serde(other)]` on a unit variant takes a string no variant names, and an unknown key holding fields stays refused
+- Closed protocols omit `#[serde(other)]`, refusing an unknown string at decode
+- Tag forms another party fixes take serde's matching attribute
+- Enums holding an `untagged` variant report a refused known variant as `data did not match any variant`
+- Types a program encodes and never decodes take the tag form their consumer reads, path loss being a cost of decode alone
+- Encoded outcomes are an enum of their cases in place of `Result`, which encodes as `{"Ok": ..}`
 
 ## [03]-[FIELD_CONVERSIONS]
 
-Encodings sit on the field, and the field keeps its domain type:
+Encodings belong to a field, and the field keeps its domain type. Adapters go in `#[serde_as(as = "<adapter>")]` under one `#[serde_as]` on the type:
 
-| [INDEX] | [WIRE]                             | [DECLARATION]                                        |
-| :-----: | :--------------------------------- | :--------------------------------------------------- |
-|  [01]   | Text a type parses and renders     | `#[serde_as(as = "DisplayFromStr")]`                 |
-|  [02]   | Number or its text, number written | `#[serde_as(as = "PickFirst<(_, DisplayFromStr)>")]` |
-|  [03]   | Bytes as base64 or hex text        | `#[serde_as(as = "Base64")]`, `Hex`                  |
-|  [04]   | Instant as epoch seconds           | `#[serde_as(as = "TimestampSeconds<i64>")]`          |
-|  [05]   | One value or a list                | `#[serde_as(as = "OneOrMany<_>")]`                   |
-|  [06]   | Map rejecting a repeated key       | `#[serde_as(as = "MapPreventDuplicates<_, _>")]`     |
-|  [07]   | List dropping a malformed item     | `#[serde_as(as = "VecSkipError<_>")]`                |
-|  [08]   | Absent key for each `None`         | `#[skip_serializing_none]` on the type               |
-|  [09]   | JSON forwarded unread              | Borrowed `&RawValue` or owned `Box<RawValue>`        |
-|  [10]   | Undeclared keys kept               | `#[serde(flatten)] rest: Map<String, Value>`         |
-|  [11]   | Undeclared keys rejected           | `#[serde(deny_unknown_fields)]`                      |
-|  [12]   | Foreign type's own byte codec      | Marker with `SerializeAs` over `Bytes`               |
+| [INDEX] | [WIRE]                             | [DECLARATION]                                     |
+| :-----: | :--------------------------------- | :------------------------------------------------ |
+|  [01]   | Text a type parses and renders     | `DisplayFromStr`                                  |
+|  [02]   | Number or its text, number written | `PickFirst<(_, DisplayFromStr)>`                  |
+|  [03]   | Bytes as base64 or hex text        | `Base64`, `Hex`                                   |
+|  [04]   | Instant or duration in seconds     | `TimestampSeconds<i64>`, `DurationSeconds<i64>`   |
+|  [05]   | One value or a list                | `OneOrMany<_>`                                    |
+|  [06]   | Map refusing a repeated key        | `MapPreventDuplicates<_, _>`                      |
+|  [07]   | Absent key for each `None`         | `#[skip_serializing_none]` on the type            |
+|  [08]   | JSON forwarded unread              | `#[serde(borrow)] &'a RawValue`, `Box<RawValue>`  |
+|  [09]   | Undeclared keys kept               | `#[serde(flatten)] rest: BTreeMap<String, Value>` |
+|  [10]   | Undeclared keys refused            | `#[serde(deny_unknown_fields)]`                   |
 
-`#[serde_as]` and `#[skip_serializing_none]` precede the derive; one `#[serde_as]` enables field conversions throughout a type. Adapters compose inside containers (`Vec<DisplayFromStr>`, `Option<Base64>`), and an absent optional key decodes as `None`. Derived `JsonSchema` reads the adapter's wire form. `TimestampSeconds` accepts jiff `Timestamp` or `Zoned`, and `DurationSeconds` accepts `SignedDuration`.
-
-Plain map decoding keeps the last repeated key; `MapPreventDuplicates` enforces a wire contract requiring unique keys. Closed contracts reject undeclared keys, while extension contracts can retain them in flattened `rest`. Serde does not support `deny_unknown_fields` with `flatten` on either record. `VecSkipError<_, I>` reports each discarded item's error to an `InspectError` implementor.
-
-Foreign types with a byte form no adapter covers take one marker implementing both directions over `Bytes`:
-
-```rust
-#[derive(Debug)]
-pub struct Key;
-
-impl<K> SerializeAs<TypedUuid<K>> for Key
-where K: TypedUuidKind
-{
-    fn serialize_as<S>(source: &TypedUuid<K>, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer {
-        Bytes::serialize_as(source.as_bytes(), serializer)
-    }
-}
-
-impl<'de, K> DeserializeAs<'de, TypedUuid<K>> for Key
-where K: TypedUuidKind
-{
-    fn deserialize_as<D>(deserializer: D) -> Result<TypedUuid<K>, D::Error>
-    where D: Deserializer<'de> {
-        Bytes::deserialize_as(deserializer).map(TypedUuid::from_bytes)
-    }
-}
-```
-
-Fields declare `#[serde_as(as = "Key")]` in place of a `serialize_with` and `deserialize_with` pair each.
-
-Raw fields decode directly through the JSON tokenizer: `#[serde(borrow)] &'a RawValue` borrows a string or slice, while `Box<RawValue>` owns reader input or data outliving its source. Buffering through Serde `Content` or `Value` loses raw-source capture and formatting; a named raw field beside flattened siblings can still decode directly. Borrowed fields retain their input owner, making a copy useful when a small retained value otherwise holds a large input alive.
-
-Protocol codecs can use an existing transport when replacing its client would lose authentication, headers, TLS, proxy policy, or connection reuse. Fallible serialization can stage an item before committing destination writes, preserving refusal and partial-write contracts.
+`#[serde_as]` and `#[skip_serializing_none]` precede the derive, and adapters nest inside containers (`Vec<DisplayFromStr>`, `Option<Base64>`):
+- `Option` adapters decode an absent key as `None`
+- Plain maps keep the last of equal keys, and `MapPreventDuplicates` refuses a second at the map's path
+- `deny_unknown_fields` beside `flatten` refuses a key no member reads, naming its record in place of the key
+- `Base64` and `Hex` take serde_with's `base64` and `hex` features, jiff types its `jiff_1` feature, and `RawValue` serde_json's `raw_value` feature
+- Foreign types no adapter covers take one marker implementing `SerializeAs` and `DeserializeAs` in place of a `with` function per field
 
 ## [04]-[BINARY]
 
-Binary formats decode and encode from one `binrw` declaration. Byte order and magic sit on the type, and a raw field enters its domain type through the constructor:
+One `binrw` declaration decodes and encodes a binary format, with byte order and magic on the type and each domain field built by its constructor:
 
 ```rust
 #[binrw]
@@ -118,204 +173,167 @@ pub struct Frame {
 }
 ```
 
-`Frame::read(&mut Cursor::new(bytes))` returns `BinResult<Frame>`, and `binrw::Error` names the stream position of a bad magic or a rejected quantity. `Quantity` is a `nutype` over `u32`. Length prefixes are `temp` on read and computed from the collection on write. `#[binrw]` precedes the derives, removing temporary fields before they run.
+`Quantity` is a `nutype` over `u32`, and `Frame::read(&mut Cursor::new(bytes))` names the stream position of a bad magic or a refused quantity:
+- Length prefixes are `temp` on read and computed from the collection on write, `#[binrw]` preceding the derives to remove each `temp` field
+- `count` grows a list of wider items as they arrive, `Vec<u8>` reserves the whole count at once, and a count past the stream's end fails there
+- `try_map` and `try_calc` box their error through `as _`, and a crate denying `clippy::as_underscore` expects it on the module, never the type
+- Hand-written readers take a peer's length through `reader.take(length).read_to_end(&mut buffer)`, which grows as bytes arrive
+- `read_to_end` over `take` returns fewer bytes than `length` at the stream's end, and the reader refuses that count as a truncation
 
 ## [05]-[CONFIGURATION]
 
-Each setting has one source: `clap` decodes invocation values (settings paths, secrets, process flags) from arguments and environment into the type each consumer reads, a `value_parser` refusing what its `FromStr` accepts and the consumer refuses (an authority without a port), settings files the rest:
+Each setting has one source, `clap` decoding arguments and environment variables into the type each consumer reads and settings files the rest:
 
 ```rust
 #[derive(Debug, Parser)]
 #[command(version, about)]
 pub struct Args {
-    #[arg(long, global = true)]
-    pub settings: Vec<Utf8PathBuf>,
+    #[arg(long)]
+    pub settings: Vec<PathBuf>,
     #[arg(long, env, hide_env_values = true)]
     pub token: SecretString,
     #[arg(long, value_enum, default_value_t)]
     pub retention: Retention,
+    #[arg(required = true, num_args = 1.., trailing_var_arg = true, allow_hyphen_values = true)]
+    pub command: Vec<OsString>,
 }
 ```
 
-Flags and variables derive from field names (`--token`, `TOKEN`); package or specification names use their constant or declared literal (`EnvFilter::DEFAULT_ENV`, `OTEL_PROPAGATORS`). Repeated `--settings` files layer over earlier files and field defaults. `SecretString` redacts `Debug`, with `expose_secret` at the sending call. Choice enums derive `ValueEnum`, per-variant `#[value(help)]`, and `#[default]` beside `default_value_t`. Repeatable paths omit `value_delimiter` so separators remain part of each path.
+`Retention` derives `ValueEnum` and `Default`, and `TOKEN=<token> <program> --settings a.toml run -x` decodes every field:
+- Flags and variables take the field's name (`--token`, `TOKEN`), and a dependency's variable takes its constant (`env = EnvFilter::DEFAULT_ENV`)
+- `hide_env_values` keeps a secret out of `--help`, `SecretString` redacts `Debug`, and `expose_secret` reads it at the call sending it
+- `value_parser` refuses at parse a value the type's `FromStr` accepts and its consumer refuses (an address without a port)
+- Repeatable paths omit `value_delimiter`, a comma staying part of a path
+- Child command lines are one trailing `Vec<OsString>`, and every word after the first positional reaches the child, flags included
+- Variables a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) stay out of `Args` and reach it untouched
 
-Shared flags (logs, man pages, color, telemetry with `RUST_LOG` and `OTEL_*`) belong to a record generic over application `Args`. Native `CommandFactory`, `FromArgMatches`, and `Parser` compose that record. `Resettable::from` restores application `about` and `long_about`; flattened package records clear both through `#[command(about = None, long_about = None)]`. Default `_mut` methods delegate to their borrowed pair, cloning each derived part; composed records can implement all four methods with one clone into the consuming pair. Builder commands read metadata from `clap::command!()`.
-
-Child commands keep executable and child tokens in one trailing `Vec<OsString>` with required arity, `num_args = 1..`, `trailing_var_arg`, `allow_hyphen_values`, and `ValueHint::CommandWithArguments`. Splitting executable and arguments into separate positionals lets known parent flags outrank the next positional. Derive parsing when it expresses the complete contract; supported typed `CommandFactory` and `FromArgMatches` conversion remains available otherwise. Slice pattern `[program, args @ ..]` separates the captured command after native arity enforcement.
-
-Flattened records use `#[group(skip)]` and `#[command(next_help_heading = ..)]`; reused type names need distinct groups and headings. Optional flattening retains the group that determines presence and keeps required fields required. Values requiring another flag use `requires = "<id>"`. Application-read variables become arguments; dependency-read variables (`OTEL_EXPORTER_OTLP_ENDPOINT`) pass through untouched. Settings declare field defaults, and one generic function decodes layered files:
+Settings files layer over field defaults, a later file replacing a value and merging a table by key, and one decode of the merge names a refused key:
 
 ```rust
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Settings {
     pub listen: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8080),
     pub timeout: SignedDuration = SignedDuration::from_secs(30),
-    pub windows: Vec<Window> = Vec::new(),
-}
-
-pub fn layered<S>(layers: &[Arc<Layer>]) -> Result<S, NEVec<ServiceError>>
-where S: DeserializeOwned {
-    fn merged<'text>(lower: DeTable<'text>, upper: DeTable<'text>) -> DeTable<'text> {
-        upper.into_iter().fold(lower, |mut table, (key, entry)| {
-            let span = entry.span();
-            match (table.get_mut(&key).map(Spanned::get_mut), entry.into_inner()) {
-                (Some(DeValue::Table(earlier)), DeValue::Table(later)) => *earlier = merged(mem::take(earlier), later),
-                (_, later) => {
-                    table.insert(key, Spanned::new(span, later));
-                }
-            }
-            table
-        })
-    }
-    let tables = layers
-        .iter()
-        .map(|layer| {
-            let (table, errors) = DeTable::parse_recoverable(&layer.text);
-            NEVec::try_from_vec(errors).map_or(Validated::Good(table.into_inner()), |failures| {
-                Validated::Fail(
-                    failures
-                        .into_nonempty_iter()
-                        .map(|mut source| {
-                            source.set_input(None);
-                            ServiceError::Syntax { origin: Origin { layer: Arc::clone(layer), span: source.span() }, source: Box::new(source) }
-                        })
-                        .collect(),
-                )
-            })
-        })
-        .collect::<Validated<Vec<_>, _>>()
-        .ok()?;
-    serde_path_to_error::deserialize(Deserializer::from(Spanned::new(0..0, tables.into_iter().fold(DeTable::new(), merged))))
-        .map_err(|error| NEVec::new(ServiceError::Settings { origin: origin(layers, error.path()), source: Box::new(error) }))
 }
 
 #[must_use]
-pub fn origin(layers: &[Arc<Layer>], path: &Path) -> Option<Origin> {
-    layers
-        .iter()
-        .filter_map(|layer| {
-            let (table, _) = DeTable::parse_recoverable(&layer.text);
-            let root = Spanned::new(table.span(), DeValue::Table(table.into_inner()));
-            let spans = path.iter().scan(&root, |value, segment| {
-                *value = match segment {
-                    Segment::Map { key } | Segment::Enum { variant: key } => value.get_ref().get(key),
-                    Segment::Seq { index } => value.get_ref().get(*index),
-                    Segment::Unknown => None,
-                }?;
-                Some(value.span())
-            });
-            spans.enumerate().last().map(|deepest| (layer, deepest))
-        })
-        .max_by_key(|(_, (depth, _))| *depth)
-        .map(|(layer, (_, span))| Origin { layer: Arc::clone(layer), span: Some(span) })
+pub fn layered(lower: Table, upper: Table) -> Table {
+    upper.into_iter().fold(lower, |mut table, (key, above)| {
+        let merged = match (table.remove(&key), above) {
+            (Some(Value::Table(below)), Value::Table(above)) => Value::Table(layered(below, above)),
+            (_, above) => above,
+        };
+        table.insert(key, merged);
+        table
+    })
+}
+
+pub fn settings(tables: Vec<Table>) -> Result<Settings, serde_path_to_error::Error<toml::de::Error>> {
+    let merged = tables.into_iter().fold(Table::new(), layered);
+    serde_path_to_error::deserialize(merged)
 }
 ```
 
-`layered::<Settings>(&layers)` decodes `timeout = "30s"` through `SignedDuration`'s friendly format and every value into its domain type. `ServiceError` is the crate error, a `Layer` holds one file's `path` and `text`, and an `Origin` holds an `Arc<Layer>` and `span: Option<Range<usize>>`. `parse_recoverable` reports every syntax error of every layer, and `set_input(None)` drops each error's input copy, its excerpt rendering from the layer through `annotate_snippets::Renderer::plain` under `Level::ERROR.no_name()`, and a `None` span renders the file path alone through `annotate_snippets::Origin::path`. Later layers replace values and merge tables key by key in place, an overridden key keeping its position under `preserve_order`. Tables move into the merge, and `origin` re-parses the layers once a decode or later validation fails at a `serde_path_to_error::Path`, returning the layer holding its deepest prefix (the later one on a tie), and a nested key no layer sets points at the table missing it. `Syntax` holds an `Origin`, and `Settings` an `Option<Origin>` that is `None` for a path no layer holds a prefix of (a missing top-level key, an empty stack).
+Each file parses through `toml::from_str::<Table>`, and a syntax error names its line and column:
+- `settings` over no file returns each field's default
+- `timeout = "5m"` decodes through `SignedDuration`'s own format, and `timeout = 5` reports `timeout`
 
 ## [06]-[ENTRY_POINT]
 
-`main` holds a program's only global effects, one `command::run` call that parses arguments, installs telemetry, starts runtime and signal streams, and logs and translates each failure:
+`main` parses arguments, builds a runtime, runs the composed effect once, and reports its failure:
 
 ```rust
 fn main() -> ExitCode {
-    command::run(Defaults { .. }, io::stderr, Identity::new(), |_: &Args| Builder::new_current_thread(), async |Process { args: Args { settings, token, retention }, styles: _, signals, filter: _, level: _ }| {
-        serve(layered::<Settings>(&read(settings).await?)?, token, retention, signals).await
-    })
+    let args = Args::parse();
+    let runtime = Builder::new_current_thread().enable_all().build().map_err(Failure::Runtime);
+    let ran = runtime.and_then(|runtime| runtime.block_on(run(args)));
+    ran.map_or_else(reported, |()| ExitCode::Ok)
+}
+
+fn reported(error: Failure) -> ExitCode {
+    let printed = writeln!(io::stderr().lock(), "{}", Report::new(&error));
+    printed.map_or_else(ExitCode::from, |()| error.into())
 }
 ```
 
-`read` joins every path's `Arc<Layer>` read through `Validated`, and `Defaults { .. }` keeps the `info` filter. `command::run` holds each process effect around the work:
-- `CompleteEnv::with_factory(<Record>::command).complete()` runs before the parse over the one `fn` item building every later command
-- `Parser::try_parse` parses once, exiting `Usage` on an error or `Ok` on stdout where `use_stderr()` is false (help, version)
-- Failed parses read `--manual` through `ignore_errors(true)`, an `exclusive` flag conflicting with any set `env` variable
-- JSON lines write to `(move || OptionalWriter::from(appender.clone())).or_else(stderr)`, a daily file under a log directory or the passed writer
-- Writers a subscriber shares with other code pass as `Arc<W>` beside `impl Write for &W`, tracing-subscriber's `MakeWriter for Arc<W>` cloning nothing per write
-- Failures before the subscriber starts are crate error variants (`Appender { directory, source }`), printed through `clap::Error::raw(<kind>, ..).with_cmd(&command)`
-- `.print().map_or_else(sysexits::ExitCode::from, |()| error.into()).into()` exits with the variant's status or the print failure's
-- Startup failures report through `subscriber::with_default(<subscriber>, ..)`, a scoped `WARN` subscriber ahead of the global one with no `Dispatch` built
-- Callers pick the runtime from the parsed command as a tokio `Builder` (`new_current_thread`, `new_multi_thread`), `enable_all` starting each driver
-- `panic::set_hook` force-flushes each provider, then calls the previous hook, `panic::take_hook()` held as an `Arc<dyn Fn(&PanicHookInfo) + Send + Sync>` the guard restores
-- Hooks record `info.payload_as_str()` as `EXCEPTION_MESSAGE` and `info.location()` as `CODE_FILE_PATH` and `CODE_LINE_NUMBER` fields
-- Provider guards shut down on unwind without replacing hooks; normal exit restores the previous hook before provider shutdown
-- `panic = "abort"` runs no unwind release, and a hook held for process lifetime chains through `panic::update_hook` to drop the `WorkerGuard` an `Arc<nonpoison::Mutex<Option<WorkerGuard>>>` holds
-- `clap_mangen::generate_to` writes man pages into a directory `create_dir_all` made
-- Work returning `T: Termination` exits through `report()`
+`ExitCode` is `sysexits::ExitCode`, `run` returns `Result<(), Failure>`, and `Failure` is the crate error converting into `ExitCode`:
+- `Args::parse` exits 2 on a usage error and 0 after `--help` or `--version`, before any thread starts
+- `Builder` builds the runtime from parsed arguments, where `#[tokio::main]` starts one before the parse
+- Failed report writes exit with their own status through `sysexits`'s `From<io::Error>`
+- Raw mode and alternate screen end in a `Drop` guard and in a panic hook, the hook alone running under `panic = "abort"`
+- `panic::update_hook(|previous, info| { <release>; previous(info) })` (`panic_update_hook`) runs `<release>` ahead of the previous hook
 
-One release serves suspend, the panic hook, and exit:
+## [07]-[OUTPUT]
+
+Stdout holds what another program reads through `Serialize`, text a person reads renders through `Display`, and records stream as JSON Lines:
 
 ```rust
-pub fn released(modes: &[Mode]) -> Result<(), NEVec<io::Error>> {
-    let mut out = io::stdout();
-    let restored = try {
-        #[cfg(unix)]
-        queue!(out, PopKeyboardEnhancementFlags)?;
-        modes.iter().try_for_each(|mode| match mode {
-            Mode::Mouse => queue!(out, DisableMouseCapture),
-            Mode::Focus => queue!(out, DisableFocusChange),
-        })?;
-        execute!(out, DisableBracketedPaste, Show, LeaveAlternateScreen)?
-    };
-    Validated::from(restored).map2(Validated::from(terminal::disable_raw_mode()), |(), ()| ()).ok()
-}
-
-#[cfg(unix)]
-pub fn suspended(terminal: &mut DefaultTerminal, modes: &[Mode]) -> Result<(), NEVec<io::Error>> {
-    released(modes).and_then(|()| {
-        (try bikeshed io::Result<()> {
-            kill_current_process_group(Signal::TSTP)?;
-            entered(modes)?;
-            terminal.clear()?
-        })
-        .map_err(NEVec::new)
-    })
-}
-```
-
-Escapes leave the alternate screen before raw mode ends. Writers gated on raw mode resume stderr once it ends, and lines written while the alternate screen is up vanish with it. Raw mode refusals leave screen restores applied, where `ratatui::try_restore` stops at its first `?` with the alternate screen up. `entered` reapplies the modes `released` undoes.
-
-Stdout holds output another program reads through `Serialize`, and output a person reads renders through `Display`. Encoder failures classify where they enter, an I/O cause converting into the one variant over `io::Error` (serde_json `classify() == Category::Io` through `io::Error::from`, csv `into_kind()` yielding `ErrorKind::Io`), and the exit match holds one arm per variant, a `BrokenPipe` from a closed reader ending output as success. Streamed encoders keep a refused item out of their state and output:
-
-```rust
-#[derive(Debug)]
-pub struct JsonArray<W> {
-    out: W,
-    scratch: Vec<u8>,
-    formatter: PrettyFormatter<'static>,
-    first: bool,
-}
-
-impl<W> JsonArray<W>
-where W: io::Write
+pub fn written<W, T>(out: W, records: impl IntoIterator<Item = T>) -> io::Result<()>
+where
+    W: Write,
+    T: Serialize,
 {
-    pub fn opened(out: W) -> io::Result<Self> {
-        let (mut scratch, mut formatter) = (Vec::new(), PrettyFormatter::new());
-        formatter.begin_array(&mut scratch).map(|()| Self { out, scratch, formatter, first: true })
-    }
-
-    pub fn appended<T>(&mut self, value: &T) -> Result<(), serde_json::Error>
-    where T: Serialize {
-        let (mark, mut next) = (self.scratch.len(), self.formatter.clone());
-        let encoded = try {
-            next.begin_array_value(&mut self.scratch, self.first).map_err(serde_json::Error::io)?;
-            value.serialize(&mut Serializer::with_formatter(&mut self.scratch, next.clone()))?;
-            next.end_array_value(&mut self.scratch).map_err(serde_json::Error::io)?
-        };
-        encoded.inspect(|()| (self.formatter, self.first) = (next, false)).inspect_err(|_| self.scratch.truncate(mark))
-    }
-
-    pub fn delivered(&mut self) -> io::Result<()> {
-        let lines = self.scratch.iter().rposition(|byte| *byte == b'\n').map_or_default(|end| end.strict_add(1));
-        self.out.write_all(self.scratch.drain(..lines).as_slice())
-    }
-
-    pub fn closed(mut self) -> io::Result<()> {
-        self.formatter.end_array(&mut self.scratch)?;
-        self.scratch.push(b'\n');
-        self.out.write_all(&self.scratch)
+    let mut out = BufWriter::new(out);
+    let lines = records.into_iter().try_for_each(|record| {
+        let mut line = serde_json::to_vec(&record)?;
+        line.push(b'\n');
+        out.write_all(&line)
+    });
+    match lines.and_then(|()| out.flush()) {
+        Err(closed) if closed.kind() == io::ErrorKind::BrokenPipe => Ok(()),
+        written => written,
     }
 }
 ```
 
-`opened` writes `begin_array` once, and an empty run closes as `[]`. `appended` encodes into the scratch buffer and `delivered` writes its completed lines, a write failure ending the stream sitting outside each item's refusal, and callers fold refusals per row with no variant test sorting out the fatal one. `Color::write_global` sets the one color choice every `anstream` writer reads where its consumer writes, no public record holding a standard stream, and `AutoStream::choice(&stream)` decides color for a consumer writing outside `anstream` (`enforce_styling`, `Styles::plain`).
+`written(io::stdout().lock(), records)` writes one line per record, and a reader closing the pipe ends output as success:
+- `print!`, `println!`, and `eprintln!` panic once a reader closes the stream, and `writeln!` on a locked handle returns `io::ErrorKind::BrokenPipe`
+- `serde_json::to_writer` writes a refused record's prefix before it fails, and `to_vec` before `write_all` writes each record whole or not at all
+- `Stdout` flushes at each newline even into a pipe, and bulk output wraps its lock in `BufWriter` and calls `flush`, a dropped one losing its error
+- `serde_json::Error` converts through `io::Error::from`, an I/O cause returning its own `io::Error` and a refused value `InvalidData`
+
+## [08]-[FILES]
+
+Files replaced whole are written beside their target and renamed over it, and a reader sees one whole file, old or new:
+
+```rust
+pub fn replaced(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let folder = path.parent().ok_or(io::ErrorKind::InvalidInput)?;
+    let mut staged = NamedTempFile::new_in(folder)?;
+    staged.write_all(bytes)?;
+    staged.as_file().sync_all()?;
+    staged.persist(path)?;
+    cfg_select! {
+        unix => fs_err::File::open(folder)?.sync_all(),
+        _ => Ok(()),
+    }
+}
+```
+
+`new_in(folder)` keeps the rename on one filesystem, and a target names its folder (`./a.json`), `a.json` holding an empty parent `new_in` refuses:
+- `sync_all` before `persist` keeps a crash from leaving an empty file under the target's name
+- Folder syncs keep the rename on Unix, and `File::open` refuses a folder on Windows
+- `fs_err` names the path in each `io::Error`, where `std::fs` names none
+- Temporary files hold mode `0o600`, and a target others read takes `as_file().set_permissions` before `persist`
+- `persist_noclobber` refuses an existing target, and `PersistError` returns its file beside its `io::Error` for a retry, `?` keeping the error alone
+- Async callers run the whole replacement in one `spawn_blocking` closure
+
+Locks belong to the open file that took them, and `File::try_lock` reports another holder as `TryLockError::WouldBlock`:
+
+```rust
+pub fn locked(path: &Path) -> io::Result<Option<fs_err::File>> {
+    let file = fs_err::OpenOptions::new().write(true).create(true).truncate(false).open(path)?;
+    match file.try_lock() {
+        Ok(()) => Ok(Some(file)),
+        Err(TryLockError::WouldBlock) => Ok(None),
+        Err(TryLockError::Error(source)) => Err(source),
+    }
+}
+```
+
+Dropping a file releases its lock, and `truncate(false)` keeps a second opener from emptying a file the holder wrote:
+- Each open `File` holds its own lock, and a second open in one process meets `WouldBlock` as another process does
+- `lock` blocks until its holder releases, and async code runs it in `spawn_blocking` or retries `try_lock` after a sleep
+- `lock_shared` and `try_lock_shared` let readers share a lock no writer holds
+- Locks are advisory on Unix (`flock`), and a process opening the file without a lock reads and writes it freely

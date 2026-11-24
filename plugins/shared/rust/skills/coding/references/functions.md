@@ -8,45 +8,51 @@ Cursor pages over sorted rows are one generic function taking the row's key:
 #[must_use]
 pub fn page<T, K>(rows: &[T], mut key: impl FnMut(&T) -> K, after: Option<K>, size: NonZero<usize>) -> (&[T], Option<K>)
 where K: Ord {
-    let (_, rest) = rows.split_at(after.map_or_default(|cursor| rows.partition_point(|row| key(row) <= cursor)));
+    let start = after.map_or_default(|cursor| rows.partition_point(|row| key(row) <= cursor));
+    let (_, rest) = rows.split_at(start);
     let (taken, left) = rest.split_at_checked(size.get()).unwrap_or((rest, &[]));
     (taken, taken.last().filter(|_| !left.is_empty()).map(key))
 }
 ```
 
-`page(&orders, |order| order.id, cursor, size)` serves listings sorted by a unique key. `partition_point` supplies a valid split of the same slice, requiring no fallback. A requested page longer than remaining rows takes them all. The next cursor is the last returned key while more rows remain.
+`page(&orders, |order| order.id, cursor, size)` serves listings sorted by a unique key:
+- `partition_point` returns an index `split_at` accepts on every input
+- Pages longer than the remaining rows take them all
+- `page` returns the last key it took as its cursor while more rows remain
 
-## [02]-[RULES]
+## [02]-[RULE_TABLES]
 
-Threshold rules are one `match` over a tuple of readings, each guard testing a bound of the caller's validated record:
+Rules differing per case are rows of one `const` table, each naming a field, the cases refusing it, and its test, and one filter reads every row:
 
 ```rust
-#[nutype(
-    validate(predicate = |band| !band.is_empty()),
-    derive(Debug, Clone, Copy, PartialEq, Eq, Deref)
-)]
-pub struct Warning(Range<Celsius>);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Bands {
-    pub heat: Warning,
-    pub humidity: Percent,
+pub enum Carrier {
+    Post,
+    Courier,
+    Freight,
 }
 
-#[must_use]
-pub fn level(reading: &Reading, bands: &Bands) -> Level {
-    match (reading.celsius, reading.humidity) {
-        (celsius, _) if celsius >= bands.heat.end => Level::Critical,
-        (celsius, humidity) if celsius >= bands.heat.start || humidity >= bands.humidity => Level::Warning,
-        (_, _) => Level::Normal,
-    }
+pub fn refused(parcel: &Parcel, carrier: Carrier) -> impl Iterator<Item = Field> {
+    const RULES: [(Field, &[Carrier], fn(&Parcel) -> bool); 4] = [
+        (Field::Weight, &[Carrier::Post], |parcel| parcel.grams > 2_000),
+        (Field::Weight, &[Carrier::Courier], |parcel| parcel.grams > 30_000),
+        (Field::Insurance, &[Carrier::Post], |parcel| parcel.insured.is_some()),
+        (Field::Signature, &[Carrier::Post, Carrier::Freight], |parcel| parcel.signed),
+    ];
+    RULES.into_iter().filter(move |(_, refusing, test)| refusing.contains(&carrier) && test(parcel)).map(|(field, _, _)| field)
 }
 ```
 
-`Celsius` and `Percent` are `Copy` integer wrappers deriving `Ord`, `Range` is the `core::range` type, and `Warning` refuses a critical bound at or below its warning bound, so every constructible `Bands` leaves a warning band between `Normal` and `Critical`. Findings a report collects without failing are an enum with one variant per kind rendering its message. `VariantArray` lists the variants, one `match` holds each predicate, and a new variant fails to compile until its predicate exists:
+`Parcel` holds `grams`, `insured`, and `signed`, and `Field` names each of them:
+- `RULES`'s type names its `fn` column, and each closure capturing nothing coerces to it with no `as fn(..)` cast
+- New carriers and rules are one row each, where a function per carrier restates each test it shares with another
+
+## [03]-[FINDINGS]
+
+Checks a report collects without failing are one enum with a variant and message per check, and one `match` holds each predicate:
 
 ```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::VariantArray, derive_more::Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, VariantArray, Display)]
 pub enum Finding {
     #[display("order holds no lines")]
     Empty,
@@ -65,11 +71,12 @@ pub fn findings(order: &Order) -> impl Iterator<Item = Finding> {
 }
 ```
 
-`findings(order).collect::<Vec<_>>()` reports every violated check, `findings(order).next().is_none()` tests a pass and stops at the first finding.
+`findings(order).collect::<Vec<_>>()` reports every violated check, and `findings(order).next().is_none()` stops at the first finding to test a pass:
+- `VariantArray` lists the variants, and a new variant fails to compile until its predicate exists
 
-## [03]-[RETURNED_CLOSURES]
+## [04]-[RETURNED_CLOSURES]
 
-Rate bands index once into a `BTreeMap` the returned closure reads per spend:
+Factories do once the work their fixed arguments allow and return a closure for the one operation left:
 
 ```rust
 pub fn rate_for(bands: &[(Cents, Rate)]) -> impl Fn(Cents) -> Option<Rate> + use<> {
@@ -78,11 +85,13 @@ pub fn rate_for(bands: &[(Cents, Rate)]) -> impl Fn(Cents) -> Option<Rate> + use
 }
 ```
 
-`range(..=spend).next_back()` reads the highest floor at or below a spend in logarithmic time, and a spend below every floor is `None`. `use<>` states that the closure borrows nothing and outlives `bands`. Closures from one factory share its return type, and `[rate_for(&retail), rate_for(&wholesale)]` is an array with no box.
+`range(..=spend).next_back()` reads the highest floor at or below a spend in logarithmic time, and a spend below every floor is `None`:
+- `use<>` states that the closure borrows nothing and outlives `bands`
+- Closures from one factory share its return type, and `[rate_for(&retail), rate_for(&wholesale)]` is an array with no box
 
-## [04]-[COMPOSITION_ROOT]
+## [05]-[COMPOSITION_ROOT]
 
-Factories bind a resource once and return an async closure applying a pure transition through that resource's atomic update:
+Factories bind a resource once and return an async closure applying a pure transition through the resource's atomic update:
 
 ```rust
 pub type Depositing<L: Ledger> = impl AsyncFn(Deposit) -> Result<Account, LedgerError>;
@@ -94,4 +103,7 @@ where L: Ledger {
 }
 ```
 
-`Ledger::update` reads an account and commits a successful transition atomically, returning `Result<Account, LedgerError>`. Missing accounts and refused transitions leave stored state unchanged. Native transactions or conditional writes implement that contract; separate load and save calls lose concurrent updates. Retryable update callbacks remain pure. `main` binds `depositing(store)` once, each request borrowing the captured ledger. `#[define_opaque]` fixes `Depositing<L>` to the returned closure type; records hold `deposit: Depositing<Store>` without a box or another type parameter.
+`Ledger::update` commits the transition its closure returns in one atomic step, where a load and a save apart lose a concurrent update:
+- `main` binds `depositing(store)` once, and each request borrows the captured ledger
+- `#[define_opaque]` under `type_alias_impl_trait` fixes `Depositing<L>` to the returned closure type
+- Records hold `deposit: Depositing<Store>` with no box or type parameter

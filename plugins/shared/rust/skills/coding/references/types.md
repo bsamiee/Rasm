@@ -2,21 +2,50 @@
 
 ## [01]-[CARDINALITY]
 
-Fields every parcel holds sit in one record. Varying fields compose `Option`, `Result`, and tuples until their value count equals the domain's state count:
+`Flagged` and `Payment` each hold an order's payment:
 
 ```rust
-#[derive(Debug)]
-pub struct Parcel {
-    pub id: ParcelUuid,
-    pub route: (Zone, Option<Zone>),
-    pub booking: Option<(Timestamp, Option<Result<Label, CarrierError>>)>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Flagged {
+    pub paid: bool,
+    pub paid_at: Option<Timestamp>,
+    pub refund: Option<Refund>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Payment {
+    Unpaid,
+    Paid { at: Timestamp },
+    Refunded { at: Timestamp, refund: Refund },
+}
+```
+
+`T` counts instants and `R` refunds:
+- `Flagged` counts `2 × (1 + T) × (1 + R)` values, a paid order with no instant and an unpaid order holding a refund among them
+- `Payment` counts `1 + T + T × R`, one value per state an order reaches
+- Consumers match `Payment` once with no flag tested against its `Option`
+
+Key sets are an enum deriving `Enum`, and `EnumMap::from_fn` over a `match` builds a table that fails to compile when a key lacks its arm:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Enum)]
+pub enum Zone {
+    Domestic,
+    Continental,
+    Overseas,
 }
 
 #[must_use]
-pub fn charge(tariff: &EnumMap<Zone, Decimal>, (origin, relay): (Zone, Option<Zone>)) -> Option<Decimal> { relay.into_iter().try_fold(tariff[origin], |total, zone| total.checked_add(tariff[zone])) }
+pub fn tariff() -> EnumMap<Zone, Decimal> {
+    EnumMap::from_fn(|zone| match zone {
+        Zone::Domestic => Decimal::new(450, 2),
+        Zone::Continental => Decimal::new(1_200, 2),
+        Zone::Overseas => Decimal::new(3_500, 2),
+    })
+}
 ```
 
-`(Zone, Option<Zone>)` holds a direct route per zone and a relayed route per zone pair, the count of a `Direct` and `Relayed` route enum. `booking` counts an unbooked parcel, a request pending since its instant, and a finished request's label or carrier error. Consumers reach the label through `?`, `map`, and `ok`. Enums declare a key set (`Zone`, deriving `Enum`) and states with same-typed data no standard sum tells apart (`Delivered { at }`, `Returned { at }`). `EnumMap` indexing has no absent case. `EnumMap::from_fn` over a key `match` builds a tariff that fails to compile when a zone lacks an entry, or computes entries a rule derives. Facts a state determines (a charge, a transit time) are one function over the state, and other consumers pass the state onward.
+`tariff()[zone]` has no absent case, where a `HashMap<Zone, Decimal>` answers `get` with an `Option` and panics on a missing index.
 
 ## [02]-[CONSTRAINED_VALUES]
 
@@ -26,45 +55,110 @@ Rules beyond a literal integer range take `nutype`, and a literal range takes a 
 #[nutype(
     sanitize(trim, lowercase),
     validate(not_empty, len_char_max = 254, predicate = |text: &str| text.contains('@')),
-    derive(Debug, Clone, PartialEq, Eq, Hash, Display, AsRef, FromStr, Serialize, Deserialize)
+    derive(Debug, Clone, PartialEq, Eq, Hash, Display, AsRef, FromStr)
 )]
 pub struct Email(String);
 
 pub type Rating = BoundedU8<1, 5>;
 ```
 
-`Email::try_new` sanitizes first, and `EmailError` has a variant per validator (`NotEmptyViolated`, `LenCharMaxViolated`, `PredicateViolated`). Derived `FromStr` and `Deserialize` run the same path at a boundary. `Rating::new` returns `Option`, `Rating::const_new::<3>()` rejects an out-of-range constant at compile time, and `Deserialize` rejects one on decode. The `schemars1` feature writes both bounds into a derived schema.
+`nutype` and `bounded_integer` generate each constructor and its refusal:
+- `Email::try_new` and derived `FromStr` trim and lowercase before they validate
+- `EmailError` holds one variant per validator (`NotEmptyViolated`, `LenCharMaxViolated`, `PredicateViolated`)
+- `Rating::new` returns `Option`, and `Rating::const_new::<3>()` fails to compile out of range
+- `serde1` refuses an out-of-range `Rating` on decode, and `schemars1` writes both bounds into a derived schema
 
-One `impl_typed_uuid_kinds!` row per entity states its identifier type:
+## [03]-[IDENTITIES]
+
+Identities are one type over a `ConstParamTy` kind enum, holding any value that names a thing, and one `Display` and `FromStr` serve every kind:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ConstParamTy, Display, FromStr)]
+#[display(rename_all = "lowercase")]
+#[from_str(rename_all = "lowercase")]
+pub enum Kind {
+    Order,
+    Customer,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Display, SerializeDisplay, DeserializeFromStr)]
+#[display("{KIND}:{name}")]
+pub struct Id<const KIND: Kind> {
+    pub name: Name,
+}
+
+impl<const KIND: Kind> FromStr for Id<KIND> {
+    type Err = IdError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let refused = || IdError { expected: KIND, found: s.to_owned() };
+        let (kind, name) = s.split_once(':').ok_or_else(refused)?;
+        match (kind.parse::<Kind>(), Name::try_new(name)) {
+            (Ok(parsed), Ok(name)) if parsed == KIND => Ok(Self { name }),
+            _ => Err(refused()),
+        }
+    }
+}
+```
+
+`Name` is a `nutype` over `String` refusing an empty name or one holding `:`, and `IdError` holds the kind it expected with the text it refused:
+- `Id<{ Kind::Order }>` passed where `Id<{ Kind::Customer }>` belongs fails to compile
+- `order:a1` read as a customer's identity is refused
+- `SerializeDisplay` and `DeserializeFromStr` write an identity as its text and read it through `from_str`
+
+UUID identities take `TypedUuid<K>` of `newtype-uuid`, one row of `impl_typed_uuid_kinds!` (`newtype-uuid-macros`) declaring each kind and its alias:
 
 ```rust
 impl_typed_uuid_kinds! {
     kinds = {
         Parcel = {},
-        Order = {},
-        Customer = {},
     },
 }
 ```
 
-Each row derives an uninhabited `ParcelKind`, its tag `parcel`, and the alias `ParcelUuid` for `TypedUuid<ParcelKind>`. `ParcelUuid::new_v7(stamp)` creates a time-ordered identifier from `uuid::Timestamp::from_unix(&context, seconds, nanos)` over a caller's instant. The caller's `ContextV7` orders identifiers created within one millisecond.
+`ParcelKind` is uninhabited, and `ParcelUuid` names `TypedUuid<ParcelKind>`:
+- `ParcelUuid::new_v7` takes the `uuid::Timestamp` that `from_unix(&context, seconds, nanos)` builds from a caller's instant
+- `ContextV7` of the caller orders identifiers created within one millisecond
 
-## [03]-[MEMORY]
+## [04]-[STAGE_TYPES]
 
-Native `collect` can reuse an owned iterator's allocation. Small retained results can keep large source allocations; `Box<[T]>` fits frozen storage when spare capacity has no future consumer. Converting `Vec` to `Arc<[T]>` allocates and moves elements; direct shared-slice collection lets native specialization choose construction. Exact output length can enable direct allocation, while `ExactSizeIterator` alone promises no specialization and filtering can lose it. Unsafe iterator markers remain with their owning implementation.
+`resolved` fills a stated job's retry, and struct update under `type_changing_struct_update` copies the other fields:
 
-`Vec` and `String` use native `clone_from` or `clone_into` to reuse destination storage when replacement requires cloning; element reuse follows that element's implementation. Generic `Clone` bounds promise no reuse. Borrow or move an available owner when duplication serves no consumer. `Bytes::slice` shares backing storage in constant time; copying a small retained part can release a larger source after other owners drop. Allocation count and retained bytes are separate costs.
+```rust
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Job<R = Option<Retry>> {
+    pub name: String,
+    pub command: Vec<String>,
+    pub env: BTreeMap<String, String>,
+    pub retry: R,
+}
 
-Borrowed map lookup avoids temporary key ownership. `hashbrown::HashMap::entry_ref(...).or_insert_with(...)` constructs an owned key and value only on vacancy. `or_insert_with_key` derives a value from its key; `get_key_value` returns both stored facts in one lookup. Preserve output ordering and hasher requirements when choosing the collection.
+#[must_use]
+pub fn resolved(stated: Job, fallback: Retry) -> Job<Retry> {
+    let retry = stated.retry.unwrap_or(fallback);
+    Job { retry, ..stated }
+}
+```
 
-## [04]-[TYPESTATE]
+`Job` names a stated record wherever a decoder or a caller writes it, and `Job<Retry>` a resolved one, read with no `None` arm:
+- Fields a later stage decides each take a parameter of their own (`Job<R = Option<Retry>, H = Option<HostId>>`)
+- Stages write their field beside `..`
 
-Generic state parameters hold each state's data, marker impls declare the lifecycle's transitions, and one function moves an order along any of them:
+Stage forms without a type parameter each lose a guarantee:
+
+| [INDEX] | [FORM]                                        | [FAULT]                                  |
+| :-----: | :-------------------------------------------- | :--------------------------------------- |
+|  [01]   | `struct ResolvedJob` restating `Job`'s fields | Fields written twice, second copy drifts |
+|  [02]   | `Job` returned with `retry: Some(fallback)`   | Consumers keep unreachable `None` arm    |
+
+## [05]-[TYPESTATE]
+
+Lifecycles one owner drives through fixed steps take their state as a type parameter, and each transition is a declared `Precedes` impl:
 
 ```rust
 #[derive(Debug, Clone)]
 pub struct Order<S> {
-    pub id: OrderUuid,
+    pub id: OrderId,
     pub lines: NEVec<Line>,
     pub state: S,
 }
@@ -81,11 +175,16 @@ where S: Precedes<T> {
 }
 ```
 
-`Draft`, `Placed { at }`, and `Paid { at, reference }` are the state records. `advance(order, Placed { at })` accepts a draft, and declared impls give paid orders no successor. Branching states implement `Precedes` per successor; downstream crates can extend the public trait with their own state types. `enum Stored { Draft(Order<Draft>), Placed(Order<Placed>), Paid(Order<Paid>) }` holds stored orders, and a load matches once. Closed lifecycle cases use an enum when consumers inspect state.
+`Draft`, `Placed { at }`, and `Paid { at, reference }` are the state records, and `advance` moves an order along any declared transition:
+- `advance(order, Placed { at })` accepts a draft alone, and a paid order has no successor
+- Operations valid in one state take its type alone (`fn refund(order: &Order<Paid>, ..)`)
+- Branching states implement `Precedes` once per successor
+- Stored orders load as `enum Stored { Draft(Order<Draft>), Placed(Order<Placed>), Paid(Order<Paid>) }`, one match reaching each state's operations
+- Lifecycles with no owner driving fixed steps, their state read at each use, stay one enum with no type parameter
 
-## [05]-[PERSISTENT_COLLECTIONS]
+## [06]-[PERSISTENT_COLLECTIONS]
 
-`imbl` transitions (`update`, `alter`, `without`) return a successor sharing every node off the changed path. Derived values follow each version through a diff:
+`imbl` transitions (`update`, `alter`, `without`) return a successor sharing each node off the changed path, derived values updating through `diff`:
 
 ```rust
 #[must_use]
@@ -98,11 +197,14 @@ pub fn retotal(total: Decimal, before: &OrdMap<Sku, Decimal>, after: &OrdMap<Sku
 }
 ```
 
-`diff` skips every subtree both versions share by pointer, and a total, index, or view updates at the cost of changed entries alone. Versions sharing a root diff empty. `alter` reads a key's present value and returns the successor in one call, and a `None` from its closure removes the key. A `Vector` of versions holds an undo history at the cost of changed paths.
+`diff` skips each subtree both versions share by pointer, and a total, index, or view updates at the cost of changed entries alone:
+- Versions sharing a root diff empty
+- `alter` passes a key's present value to its closure and returns a successor in one call, a `None` from the closure removing the key
+- Versions kept in a `Vector` hold an undo history at the cost of changed paths
 
-## [06]-[ARENAS]
+## [07]-[ARENAS]
 
-Records referring to each other sit in an arena owning every record, references are keys, and the graph an algorithm reads derives from the arena:
+Records referring to each other go in an arena owning every record, references are keys, and a graph an algorithm reads derives from the arena:
 
 ```rust
 new_key_type! {
@@ -111,18 +213,14 @@ new_key_type! {
 
 #[must_use]
 pub fn network(hubs: &SlotMap<HubKey, Hub>) -> DiGraphMap<HubKey, &Link> {
-    DiGraphMap::from_edges(hubs.iter().flat_map(|(from, hub)| hub.links.iter().filter_map(move |(to, link)| hubs.contains_key(*to).then_some((from, *to, link)))))
+    let edges = hubs.iter().flat_map(|(from, hub)| hub.links.iter().map(move |(to, link)| (from, *to, link)));
+    DiGraphMap::from_edges(edges.filter(|(_, to, _)| hubs.contains_key(*to)))
 }
 ```
 
-`Hub` holds its outgoing `links` as `(HubKey, Link)` pairs. Generational keys outliving their hub fail `get` and `contains_key` in place of naming a hub that reused the slot. The graph leaves out links to removed hubs. Edges borrow each `Link` from the arena, and the graph copies no record. `Bfs::new(&graph, origin).iter(&graph)` walks hubs reachable from `origin`. `toposort(&graph, None)` orders linked hubs or returns a `Cycle` naming a hub on one. `SecondaryMap<HubKey, V>` adds a column computed later (a layout, a load) without widening `Hub`.
-
-Dense `SecondaryMap` storage and iteration cover primary slots; `SparseSecondaryMap` fits columns populated for a minority of keys. Derived columns need later consumers. Arena lifetime, removal, and destruction semantics select the owner; dropless storage excludes values requiring destruction.
-
-`Dfs::reset` starts an independent traversal, while `move_to` retains discovered nodes. `has_path_connecting` accepts reusable `DfsSpace` and stops when the target is found. Preserve direction, revisit behavior, mutation rules, and simultaneously live outputs when reusing workspace.
-
-## [07]-[LAYOUT]
-
-`Option` preserves size, alignment, and call ABI for the references, global boxes, function pointers, nonzero integers, `NonNull`, and transparent wrappers its contract lists. Custom enums and arbitrary smart pointers carry no blanket niche guarantee. Use the domain's optional value instead of a separate presence flag or sentinel, with no unsafe representation conversion.
-
-Inline storage saves allocation when its footprint and spill behavior fit the workload. `SmallVec` embeds capacity even when empty; domain bounds or observed lengths determine capacity. Large enum variants affect every instance's layout, while boxing adds allocation and indirection and can remove `Copy`. Variant distribution, access patterns, native size and alignment determine whether representation changes improve the operation. `-Zprint-type-sizes` in `RUSTFLAGS` prints size, alignment, field order, and padding per type at build.
+`Hub` holds its outgoing `links` as `(HubKey, Link)` pairs:
+- Keys outliving their hub fail `get` and `contains_key` in place of naming a hub that reused their slot
+- `network` leaves out links to removed hubs, and edges borrow each `Link` from the arena with no record copied
+- `Bfs::new(&graph, origin).iter(&graph)` walks hubs reachable from `origin` through `Walker`
+- `toposort(&graph, None)` orders linked hubs or returns a `Cycle` naming a hub on one
+- `SecondaryMap<HubKey, V>` holds a column computed later (a layout, a load) without widening `Hub`

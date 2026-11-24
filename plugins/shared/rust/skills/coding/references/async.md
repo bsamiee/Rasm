@@ -1,30 +1,27 @@
 # [ASYNC]
 
-## [01]-[FUTURES]
+## [01]-[CANCELLATION]
 
-Dropping a future stops polling it; completed effects and separately spawned work remain. Captures and values retained across `.await` determine a future's `Send`, `Sync`, and layout. Non-`Send` locals (an `Rc`, a lock guard) end before suspension when the consumer requires `Send`. Replacing a blocking drive with `.await` can change the enclosing future's traits, size, and caller bounds; the selected executor and enabled drivers must support the awaited API. Racing and bounding combinators (`select!`, `timeout`, `run_until_cancelled`, `take_until`) drop the losing future. Raced operations keep their progress outside it:
-- Cancel-safe, lossless on drop: `mpsc::Receiver::recv`, `watch::Receiver::changed`, `TcpListener::accept`, `StreamExt::next`, `AsyncReadExt::read`
-- `read_exact` and `write_all` lose partial progress, a `LinesStream` keeps its partial line in its own buffer
-- `tokio::sync::Mutex::lock`, `Semaphore::acquire`, and `Notify::notified` lose their queue position when dropped
+`select!`, `timeout`, and `run_until_cancelled` drop each losing future, and effects it finished and tasks it spawned remain:
+- `mpsc::Receiver::recv`, `watch::Receiver::changed`, `TcpListener::accept`, `StreamExt::next`, and `AsyncReadExt::read` lose nothing on drop
+- `Lines::next_line` keeps a partial line in its own buffer and loses nothing on drop
+- `read_exact`, `read_line`, and `write_all` lose partial progress on drop, and a loop racing one pins it outside the loop and polls `as_mut()`
+- `mpsc::Sender::send` loses its message on drop, and a raced send awaits `reserve()` and sends through the `Permit` it returns
+- `Mutex::lock`, `Semaphore::acquire`, `Notify::notified`, and `Sender::reserve` lose their queue position on drop
 
 ## [02]-[TASKS]
 
-`JoinQueue` collection spawns each future on runtime threads, `join_all` awaits every output, and dropping the queue aborts running tasks:
-
-```rust
-pub async fn upload_all<S>(store: Arc<S>, parts: impl IntoIterator<Item = Part>) -> Result<Vec<Receipt>, NEVec<UploadError>>
-where S: Bucket + Send + Sync + 'static {
-    iter::repeat(store).zip(parts).map(async |(bucket, part)| bucket.put(part).await).collect::<JoinQueue<_>>().join_all().await.into_iter().collect::<Validated<Vec<_>, _>>().ok()
-}
-```
-
-`iter::repeat` clones the `Arc` per part, and each future owns its inputs as `'static`. `join_all` resumes a task panic in the caller. Other joins resume panic payloads through `panic::resume_unwind`; cancellation remains a distinct outcome where the task owner permits it. Blocking tasks read a stream as an iterator through `executor::block_on_stream`. Services hold a `TaskTracker` for tasks they start over their lifetime, and a `CancellationToken` stops the loop that starts them:
+Services hold a `TaskTracker` for each task they start over their lifetime, and a `CancellationToken` stops the loop that starts them:
 
 ```rust
 pub async fn serve<H>(listener: TcpListener, handler: Arc<H>, stop: CancellationToken) -> Result<(), ServiceError>
 where H: Handler + Send + Sync + 'static {
     let tracker = TaskTracker::new();
-    let accepted = TcpListenerStream::new(listener)
+    let connections = TcpListenerStream::new(listener).filter_map(async |accepted| match accepted {
+        Err(error) if matches!(error.kind(), ErrorKind::ConnectionAborted | ErrorKind::ConnectionReset) => None,
+        accepted => Some(accepted),
+    });
+    let accepted = connections
         .take_until(stop.cancelled())
         .try_for_each(async |stream| {
             let handler = Arc::clone(&handler);
@@ -38,41 +35,64 @@ where H: Handler + Send + Sync + 'static {
 }
 ```
 
-Accepting ends when `stop` fires or an accept fails. `close` with `wait` runs on both paths, and every accepted connection finishes before `serve` returns. HTTP services use `TcpListener::bind` for native platform backlog defaults (128 on macOS, Linux, and Windows). Different backlog or pre-bind policies use `TcpSocket`, `local_addr`, and `listen` with caller policy. `axum::serve` over `tap_io(set_nodelay)` drains through `with_graceful_shutdown(token.cancelled_owned())`. `handle` returns `()` and records its connection's outcome itself. A token one scope owns becomes a `DropGuard` through `drop_guard`, or `drop_guard_ref` while the scope reads it, and the drop cancels it and every child token on each exit path. `child_token` hands a consumer a token that cannot cancel its root. Subscribers to one task each hold an `Arc<AbortOnDropHandle<()>>`, a map of its `Weak` hands it to later subscribers and retains entries with a nonzero `strong_count`, and the last drop aborts it. Programs drain on the first signal and abandon the drain on the next:
+Accepting ends when `stop` fires or an accept fails, and `close` with `wait` lets each accepted connection finish before `serve` returns:
+- `filter_map` skips a connection its peer reset before `accept` returned it, and any other accept error ends `serve`
+- `handle` returns `()` and records its connection's outcome itself
+- `axum::serve(..).with_graceful_shutdown(stop.cancelled_owned())` stops accepting on the token and waits for open connections
+- `drop_guard` (`drop_guard_ref` while a scope reads the token) cancels a scope's token and each child on every exit path
+- `child_token` hands a consumer a token that cancels with its parent and never cancels the parent
+- `JoinQueue` joins in spawn order and `JoinSet` in completion order, each spawns the futures it collects, and a drop aborts every task
+- `join_all` resumes a task's panic, and `join_next` and `JoinHandle` results pass `JoinError::try_into_panic` to `panic::resume_unwind`
+- Tasks many holders share go in an `Arc<AbortOnDropHandle<T>>`, and the last holder's drop aborts the task
+- Blocking threads read a stream as an iterator through `executor::block_on_stream`
+
+## [03]-[SHUTDOWN]
+
+Programs drain on the first signal and abandon the drain on a second signal or at a deadline:
 
 ```rust
-pub async fn supervised(
-    grace: Option<Duration>,
-    serving: impl AsyncFnOnce(CancellationToken) -> Result<(), ServiceError>,
-    drain: impl AsyncFnOnce() -> Result<(), ServiceError>,
-    mut signals: impl Stream + Unpin,
-) -> Result<(), NEVec<ServiceError>> {
-    let stop = CancellationToken::new();
-    let _stopped = stop.drop_guard_ref();
-    let mut serving = pin!(future::maybe_done(serving(stop.child_token())));
-    let trigger = tokio::select! {
-        _ = signals.next() => Trigger::Signal,
-        () = serving.as_mut() => Trigger::Serving,
-    };
-    let mut draining = pin!(future::maybe_done(drain().inspect(|_| stop.cancel())));
-    let abandonment = tokio::select! {
+pub async fn drained<F>(serving: F, stop: &CancellationToken, mut signals: impl Stream + Unpin, grace: Duration) -> Option<F::Output>
+where F: Future {
+    let mut serving = pin!(future::maybe_done(serving));
+    tokio::select! {
+        _ = signals.next() => stop.cancel(),
+        () = serving.as_mut() => {},
+    }
+    tokio::select! {
         biased;
-        ((), ()) = future::join(draining.as_mut(), serving.as_mut()) => None,
-        _ = signals.skip(match trigger { Trigger::Signal => 0, Trigger::Serving => 1 }).into_future() => Some(Abandonment::Signal),
-        Some(reason) = OptionFuture::from(grace.map(|grace| time::sleep(grace).map(move |()| Abandonment::Deadline(grace)))) => Some(reason),
-    };
-    let (drained, served) = (draining.as_mut().take_output(), serving.as_mut().take_output());
-    let pending = [drained.is_none().then_some(Stage::Drain), served.is_none().then_some(Stage::Serving)].into_iter().flatten().try_into_nonempty_iter().map(|stages| stages.collect::<NEVec<_>>());
-    let abandoned = abandonment.zip(pending).map(|(reason, pending)| ServiceError::Abandoned { reason, pending });
-    iter::chain(drained, served).chain(abandoned.map(Err)).collect::<Validated<(), _>>().ok()
+        () = serving.as_mut() => {},
+        _ = signals.next() => {},
+        () = time::sleep(grace) => {},
+    }
+    serving.as_mut().take_output()
 }
 ```
 
-`move |stop| serve(listener, handler, stop)` fills `serving`, and `maybe_done` holds each output across both races until `take_output` reads it once. `trigger` holds the `Trigger` that began the drain and sets the skip count making a second signal abandon it either way. `biased;` puts the join first, and a drain finished at the instant of a signal or deadline wins. `OptionFuture` resolves a `None` grace at once and disables its branch. Deadline futures yield their own `Abandonment` with no second read of `grace`. `Abandoned` names each `Stage` that `take_output` finds unfinished, and an abandonment with none pending drops. Serving stays in the join, its accept loop advancing only while polled. Failures serving returned before an abandonment join the outcome. More workers join beside the drain (`join3`), each error mapped where its future is built. Outputs more than one future reads are `.shared()`. `signals` is one `SelectAll` that `try_collect` builds over each `SignalStream` a `cfg_select!` value lists per platform.
+`drained(serve(listener, handler, stop.child_token()), &stop, signals, grace)` returns the serving output, or `None` once the drain is abandoned:
+- `maybe_done` keeps the serving output across both races, and `take_output` reads it once
+- Serving is a branch of both races, and a future no `select!` polls makes no progress (an accept loop accepts nothing)
+- `biased;` polls serving first, and a drain finishing at the instant of a second signal or the deadline wins
 
-## [03]-[STREAMS]
+## [04]-[FAN_OUT]
 
-Values arriving over time are a `Stream` with each failure one item. `tokio_stream::wrappers` adapt receivers, listeners, watches, intervals, line readers, and join sets:
+`removed` runs every removal to its outcome under the caller's bound and returns each failure:
+
+```rust
+pub async fn removed<S>(store: &S, keys: Vec<Key>, bound: NonZero<usize>) -> Result<(), NEVec<StoreError>>
+where S: Store {
+    let outcomes = stream::iter(keys).map(|key| store.remove(key)).buffer_unordered(bound.get());
+    let failed = outcomes.filter_map(async |outcome| outcome.err()).collect::<Vec<_>>().await;
+    NEVec::try_from_vec(failed).map_or(Ok(()), Err)
+}
+```
+
+`Store::remove` deletes one key, and `NonZero` keeps out the bound that stalls or panics:
+- `buffered(0)` and `buffer_unordered(0)` pull no future and never end, and `ready_chunks(0)` panics
+- Phases acting on what an earlier phase left run one fan-out each, `?` ending the run after the first phase holding a failure
+
+## [05]-[STREAMS]
+
+Values arriving over time are a `Stream` with each failure one item, `tokio_stream::wrappers` adapting tokio's receivers, listeners, and intervals:
 
 ```rust
 pub fn sample<S>(sensor: &S, ticks: Interval) -> impl Stream<Item = Result<Reading, SensorError>>
@@ -81,7 +101,21 @@ where S: Sensor {
 }
 ```
 
-`sample` borrows the sensor and consumes a constructed native `Interval`, with its nonzero period and missed-tick policy already established. Each tick produces a reading or an `Err` item while the stream continues. `interval` ticks at once, then every period. `set_missed_tick_behavior` selects `Burst`, `Delay` for a full period, or `Skip` for the original grid. `then` runs one read at a time. Consumers stop at the first `Err` through `try_for_each`, or record each failure and continue through `for_each` with a `match`. `ready_chunks(n)` batches waiting items into one write or one commit per batch. Sources of different item types one consumer reads in arrival order merge through `stream::select` into `Either` for a source pair and one `stream_select!` over the consumer's own input enum for more (nested `select` halving each inner share), `chain(stream::iter([<enum>::End]))` marking where one ends. Effect streams a program requests over time arrive on a channel merged through `flatten_unordered(None)`. Sources with a consumer each run as one `future::join` of their `for_each` calls. `WatchStream::new` yields the held value and each change, `from_changes` the changes alone. A `watch` empty until its first value holds `Option<T>`. Streams that end only with their sender (`WatchStream`, `BroadcastStream`) end beside other work through `take_until(stop.cancelled())`, and `TakeUntil::is_stopped`, read through `pin!` and `as_mut()` once the consumer finishes, tells a stream its signal cut from one that ended (a `TempFail` exit). Paged sources unfold into one stream of items:
+`sample` consumes an `Interval` holding its period and missed-tick policy, and each tick yields a reading or an `Err` item while the stream continues:
+- `interval` ticks at once, then each period, and `set_missed_tick_behavior` replaces its default `Burst` of missed ticks with `Delay` or `Skip`
+- `then` runs one read at a time
+- Consumers stop at the first `Err` through `try_for_each`, or record each failure and continue through `for_each` over a `match`
+- `ready_chunks(limit.get())` batches waiting items into one write or one commit per batch
+- Sources of different item types merge in arrival order through `stream::select` into `Either` for a pair, `stream_select!` over an enum for more
+- `stream_select!` polls its sources alike, where a nested `select` gives its outer source half the polls
+- `chain(stream::iter([<Enum>::End]))` marks where one merged source ends
+- Streams a program starts over time arrive on a channel and merge through `flatten_unordered(None)`
+- Sources with a consumer each run as one `future::join` of their `for_each` calls
+- `WatchStream::new` yields the held value and each change, `from_changes` the changes alone
+- `watch` channels empty until their first value hold `Option<T>`
+- Streams ending only with their sender (`WatchStream`, `BroadcastStream`) end beside other work through `take_until(stop.cancelled())`
+
+Paged sources unfold into one stream of items:
 
 ```rust
 pub fn listed<C>(catalog: &C) -> impl Stream<Item = Result<Item, SourceError>>
@@ -94,9 +128,24 @@ where C: Catalog {
 }
 ```
 
-`page` returns its items beside the `next` cursor, `None` after the last page. `try_unfold` threads the cursor and fetches a page only when the consumer polls past the previous one, and `take(n)` stops paging. A failed page ends the stream after its `Err`.
+`page` returns its items beside the `next` cursor, `None` after the last page:
+- `try_unfold` fetches a page only when the consumer polls past the previous one, and `take(n)` stops paging
+- Failed pages end the stream after their `Err`
 
-## [04]-[SHARED_STATE]
+## [06]-[SHARED_STATE]
+
+Shared state takes the construct its access pattern names, and values changing together share one construct holding value and notification:
+
+| [INDEX] | [ACCESS]                                      | [CONSTRUCT]                                     |
+| :-----: | :-------------------------------------------- | :---------------------------------------------- |
+|  [01]   | Read-mostly snapshot replaced whole           | `ArcSwap<T>`                                    |
+|  [02]   | Latest value observed by many tasks           | `watch` channel                                 |
+|  [03]   | Every event delivered to many tasks           | `broadcast` channel                             |
+|  [04]   | Commands serialized against one owner         | Task owning the state, `mpsc` in, `oneshot` out |
+|  [05]   | Short synchronous edits from any thread       | `std::sync::nonpoison::Mutex`                   |
+|  [06]   | Concurrent keyed reads and writes             | `papaya::HashMap`                               |
+|  [07]   | Keyed results with expiry and coalesced loads | `moka::future::Cache`                           |
+|  [08]   | Reusable connections and handles              | `deadpool` pool                                 |
 
 Owning tasks fold the request stream through a pure transition and answer each request on its `oneshot` sender:
 
@@ -112,19 +161,25 @@ pub async fn owned<S, C, R>(initial: S, transition: impl Fn(S, C) -> (S, R), req
 }
 ```
 
-Transitions return the next state beside the reply, and a refused command keeps its state and answers with the refusal. State is the fold's accumulator, no lock guards it, and requests apply in arrival order. Requesters send a command with the sender half of a fresh `oneshot::channel` and await the receiver. A dropped receiver leaves its command applied, and once every sender drops, the fold returns the final state. Other access patterns go through a shared structure's own API:
-- `ArcSwap::load` borrows a snapshot for a short read, `load_full` returns an `Arc` held across `.await`, and a reload `store`s the next whole value
-- `watch::Sender::send_if_modified` edits the value in place and notifies when its closure returns `true`, `send_replace` publishes a whole next value
-- `nonpoison::Mutex` state one closure reads or writes goes through `with_mut`, `get_cloned`, `set`, or `replace`, and no guard outlives the call
+Transitions return the next state beside the reply, and a refused command keeps its state and answers with the refusal:
+- State is the fold's accumulator, no lock guards it, and requests apply in arrival order
+- Requesters send a command with the sender half of a fresh `oneshot::channel` and await the receiver
+- Dropped receivers leave their command applied, and the fold returns the final state once every sender drops
+
+Other constructs go through their own API:
+- `ArcSwap::load` borrows a snapshot for a read with no `.await`, `load_full` returns an `Arc` held across one, and `store` replaces the whole value
+- `ArcSwap::rcu` reruns its closure whenever another writer stores first, and the closure computes the next value alone
+- `send_modify` edits a `watch` value in place, `send_if_modified` notifies only on a `true` from its closure, and `send_replace` sets a new value
+- `watch::Sender::send` discards its value while no receiver exists, and `send_replace` or `send_modify` keeps it for a later `subscribe`
+- `broadcast::Receiver::recv` returns `RecvError::Lagged(n)` once `n` values passed unread, and a consumer needing each value resyncs from the owner
+- `nonpoison::Mutex` (`sync_nonpoison`, `nonpoison_mutex`) state goes through `with_mut`, `get_cloned`, `set`, or `replace` (`lock_value_accessors`)
 - `papaya::HashMap::pin` returns a guard that drops before the next `.await`, `pin_owned` a `Send` guard held across it
-- `moka::future::Cache::try_get_with(key, load)` coalesces concurrent loads for a missing key and caches only an `Ok`
+- `moka::future::Cache::try_get_with(key, load)` runs one load for concurrent callers of a missing key and caches only an `Ok`
 - `try_get_with` returns `Result<V, Arc<E>>` with one failure every waiter shares, and a crate error variant holds the `Arc<E>` as its source
+- `get_with_by_ref` and `try_get_with_by_ref` take a borrowed key and build the owned key on insertion alone
+- Cache keys hold every input the cached value depends on, and a value `get` clones on each hit is an `Arc<T>` when large
 
-`ArcSwap::rcu` can retry its update closure. Callbacks stay pure, and effects use the committed update's returned state after success.
-
-Borrowed cache keys take `get_with_by_ref` or `try_get_with_by_ref`, deferring owned key construction until insertion. Cache keys contain every varying input, or invalidation belongs to the owner of those inputs. Scope retention to an operation, immutable snapshot, or external validity period. Native capacity and weighting are best-effort eviction policies, not hard allocator bounds; `get` clones its value, making shared ownership useful only when the value needs that shared lifetime. A task-local computation read once needs no concurrent cache.
-
-## [05]-[TELEMETRY]
+## [07]-[TELEMETRY]
 
 Values known after span entry fill a field the span declared empty:
 
@@ -137,23 +192,40 @@ pub async fn deposited(deposit: &impl AsyncFn(Deposit) -> Result<Account, Ledger
 }
 ```
 
-Spans, events, metrics, and JSON log fields read crate key constants (`ACCOUNT`, `BALANCE`), and `opentelemetry_semantic_conventions::attribute` supplies each key it names (`{ SERVER_ADDRESS } = %address.ip()`), and a key it lacks or marks deprecated is a crate constant beside the values the convention fixes (an operation name, bucket boundaries). Instrumentation scopes name the emitting crate through `env!("CARGO_PKG_NAME")`. Spans ending in failure set `Status::error` and record `error.type` from the source's own classifier (`reqwest::Error::is_timeout`) before a cause-chain walk. Failures a program continues past record through `unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), ..))` over a `Result<(), _>`. Trace context crosses a wire through a propagator over its carrier (`HeaderExtractor(&headers)`, an `Extractor` or `Injector` impl over a JSON object) with no `HashMap` copy, a span taking a parent only where its carrier holds one. Forwarded requests inject the current `Context` into the forwarded carrier, never the inbound one. `skip_all` keeps arguments out of the span unless a field names them. Spawned tasks start outside the caller's span. `in_current_span()` attaches the caller's span to a task future, `instrument(span)` gives it its own (a connection named by its peer). Pure functions emit nothing, and the boundary that calls them records what they returned.
+Spans, events, metrics, and log fields read crate key constants (`ACCOUNT`, `BALANCE`):
+- `opentelemetry_semantic_conventions::attribute` supplies each key it names (`{ SERVER_ADDRESS } = %address.ip()`)
+- Keys the conventions lack or deprecate are crate constants beside the values a convention fixes (an operation name, bucket boundaries)
+- Spans ending in failure take `OpenTelemetrySpanExt::set_status(Status::error(..))` and `ERROR_TYPE` from the error's classifier (`is_timeout`)
+- Failures a program continues past record `%Report::new(error)` under `EXCEPTION_MESSAGE` through `unwrap_or_else(|error| tracing::debug!(..))`
+- Trace context crosses a wire through a propagator over the carrier itself (`HeaderExtractor(&headers)`, an `Injector` over a JSON object)
+- Forwarded requests inject the current `Context` into the outgoing carrier, never the inbound one
+- Spans take a parent only where their carrier holds one
+- `skip_all` keeps arguments out of a span unless a field names them
+- Spawned tasks start outside the caller's span, `in_current_span()` entering it and `instrument(span)` giving the task its own
+- Pure functions emit nothing, and the boundary calling them records what they returned
 
-## [06]-[POLICIES]
+## [08]-[POLICIES]
 
-Retry is `backon` over the operation, its schedule a parameter and `when` naming the failures that repeat:
+Applications compose each failure policy around a library's own error, retry running through `backon` with its schedule a parameter:
 
 ```rust
 pub async fn fetched<S>(source: &S, id: ItemId, schedule: impl BackoffBuilder) -> Result<Item, SourceError>
 where S: Source {
-    (|| source.fetch(id)).retry(schedule).when(SourceError::is_transient).await
+    let attempts = (|| source.fetch(id)).retry(schedule).when(SourceError::is_transient);
+    attempts.adjust(|error, planned| planned.map(|delay| error.retry_after.unwrap_or(delay))).await
 }
 ```
 
-`ExponentialBuilder::default()` waits one second and doubles for 3 retries under a 60-second cap. `with_jitter`, `with_max_times`, `with_max_delay`, and `with_total_delay` reshape it. Any `Duration` iterator is a schedule. A success or a failure `when` rejects returns at once, and the last failure returns when the schedule ends. `notify` records each retried failure with its delay, and `adjust` replaces a delay with one the failure holds (a `Retry-After`). Waits run on the runtime clock, and cancellation drops each one:
-- `timeout(limit, future)` returns `Err(Elapsed)` once the limit passes, one `timeout` around a composed future bounds every step inside it
-- `timeout_at(deadline, future)` takes an `Instant`, steps in separate calls sharing one budget receive one deadline
-- Crate error variants hold `Elapsed` as their source beside the subject that ran out of time
-- `tokio::time::Instant` measures waits and deadlines, a `Timestamp` names the wall-clock instant a record stores
-
-`TryFutureExt::or_else` composes a fallback, and each policy reads only the result it wraps. Served routes take the same policies as `tower` layers on one `ServiceBuilder` (`load_shed`, `concurrency_limit`, `timeout`), outermost first.
+`when` names the failures that repeat, `retry_after` holds a server's `Retry-After` delay, and `adjust` replaces only a planned delay:
+- `adjust` returning `Some` where the schedule gave `None` retries past its end
+- `ExponentialBuilder::default()` waits one second, doubles up to a 60-second cap, and stops after 3 retries
+- `with_jitter`, `with_max_times`, `with_max_delay`, and `with_total_delay` reshape the schedule, and `with_jitter_seed` fixes a test's jitter
+- `ExponentialBuilder` multiplies each delay as `f32` seconds, and a first delay `f32` cannot hold exactly (100 ms) drifts by nanoseconds each step
+- `retry` takes any `Duration` iterator as schedule, and exact delays a test or protocol fixes step by `iter::successors` over `checked_mul`
+- Successes and failures `when` refuses return at once, and the last failure returns once the schedule ends
+- `notify` records each retried failure with its delay, waits run on the runtime clock, and cancellation drops each wait
+- `TryFutureExt::or_else` runs a lower-priority fallback after the preferred effect fails, each policy reading only the result it wraps
+- Recovery maps a final failure to a value at the entry point
+- `timeout(limit, future)` returns `Err(Elapsed)` once the limit passes, and one `timeout` around a composed future bounds every step inside it
+- `timeout_at(deadline, future)` takes an `Instant`, and steps in separate calls sharing one budget receive one deadline
+- Served routes take the same policies as `tower` layers on one `ServiceBuilder` (`load_shed`, `concurrency_limit`, `timeout`), outermost first
