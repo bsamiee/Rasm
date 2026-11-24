@@ -63,7 +63,8 @@ Nx remote cache and Actions caches per workflow and machine:
 - Graph cache saves skip a hash the restored key ends with
 - Caches save from runs on `main` alone, as a pull request run's cache serves re-runs of that pull request alone
 - Past the 10 GB repository limit GitHub evicts caches by oldest last access
-- Action `jdx/mise-action` saves a GitHub-hosted job's tools after install, keyed by platform, profile, `mise.toml`, `mise.lock`, and profile files
+- Action `jdx/mise-action` saves a GitHub-hosted job's tools after install, keyed by platform, profile, `mise.toml`, `mise.lock`, profile files, and `rust-toolchain.toml`
+- GitHub-hosted jobs hold rustup and cargo homes inside the mise folder that action caches, so a restored cache holds the Rust toolchain
 - Tool cache keys leave out OS and machine mise files, as those state environment and bootstrap rows alone
 - GitHub-hosted jobs cache the pnpm store by OS and `pnpm-lock.yaml`, falling back to the newest store of their OS
 - Job `macos` caches no Swift build folder, as restored folders shortened no build and Swift and Xcode tasks hit the Nx cache
