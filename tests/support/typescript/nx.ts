@@ -22,7 +22,7 @@ import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
 import { getReadyWhen } from 'nx/src/tasks-runner/readiness/ready-when';
 import { resetWorkspaceContext } from 'nx/src/utils/workspace-context';
 import { setWorkspaceRoot, workspaceRoot } from 'nx/src/utils/workspace-root';
-import { onTestFinished, test, vi } from 'vitest';
+import { expect, onTestFinished, test, vi } from 'vitest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -179,6 +179,11 @@ const listen = (port = 0) => {
     );
 };
 
+const spanned = (from: number, to: number): unknown => {
+    const instant = Schema.Finite.check(Schema.isBetween({ minimum: from, maximum: to }));
+    return expect.schemaMatching(Schema.toStandardSchemaV1(Schema.Struct({ startTime: instant, endTime: instant }).check(Schema.makeFilter(({ startTime, endTime }) => startTime <= endTime || `ends at ${endTime} before it starts at ${startTime}`))));
+};
+
 const unaggregated = (graph: ProjectGraph) =>
     Object.values(graph.nodes).flatMap(({ name, data: { targets = {} } }) =>
         Record.collect(
@@ -313,4 +318,4 @@ const it = test.extend('workspace', ({ onTestFinished: finished }) => opened(fin
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answered, environment, it, listen, outputs, pathed, refusing, remote, shimmed, targetOptions, taskGraph, typescript, unaggregated, unportable, Workspace };
+export { answered, environment, it, listen, outputs, pathed, refusing, remote, shimmed, spanned, targetOptions, taskGraph, typescript, unaggregated, unportable, Workspace };

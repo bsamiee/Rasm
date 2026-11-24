@@ -5,7 +5,7 @@ import type { ProjectGraph } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
 import { batch, Cargo } from '@rasm/nx-cargo/executors/cargo';
 import { batch as suites } from '@rasm/nx-cargo/executors/nextest';
-import { it, targetOptions, taskGraph } from '@rasm/testing/nx';
+import { it, spanned, targetOptions, taskGraph } from '@rasm/testing/nx';
 import { Effect, Record } from 'effect';
 import { describe, expect, vi } from 'vitest';
 
@@ -31,7 +31,8 @@ const planned = async (graph: ProjectGraph, target: string) => {
     return { scheduled, inputs };
 };
 
-const settled = async (results: AsyncIterable<{ readonly task: string; readonly result: { readonly success: boolean; readonly status?: string; readonly terminalOutput?: string } }>) => Record.fromIterableWith(await Array.fromAsync(results), ({ task, result }) => [task, result] as const);
+const settled = async (results: AsyncIterable<{ readonly task: string; readonly result: { readonly success: boolean; readonly status?: string; readonly terminalOutput?: string; readonly startTime?: number; readonly endTime?: number } }>) =>
+    Record.fromIterableWith(await Array.fromAsync(results), ({ task, result }) => [task, result] as const);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -52,6 +53,18 @@ describe('cargo batch', { timeout: 120_000 }, () => {
         expect(Record.map(results, ({ success, status }) => ({ success, status }))).toStrictEqual({ 'two:build--cargo': { success: false, status: undefined }, 'app:build--cargo': { success: false, status: 'skipped' } });
         expect([results['two:build--cargo']?.terminalOutput?.includes('absent_function'), existsSync(join(workspace.root, 'target/debug/app'))]).toStrictEqual([true, true]);
     });
+
+    it('stamps each crate from the start of its command to the last message of its own package, the dependency ending before its dependent', async ({ workspace }) => {
+        const graph = await workspace.write(crates).graph(cargo);
+        const { scheduled, inputs } = await planned(graph, 'build--cargo');
+        const before = vi.getRealSystemTime();
+
+        const results = await settled(batch(scheduled, inputs, {}, workspace.context(graph, 'app', 'build--cargo')));
+
+        const after = vi.getRealSystemTime();
+        expect(results).toStrictEqual({ 'two:build--cargo': spanned(before, after), 'app:build--cargo': spanned(before, after) });
+        expect((results['app:build--cargo']?.endTime ?? 0) - (results['two:build--cargo']?.endTime ?? 0)).toBeGreaterThan(0);
+    });
 });
 
 describe('nextest batch', { timeout: 120_000 }, () => {
@@ -67,5 +80,17 @@ describe('nextest batch', { timeout: 120_000 }, () => {
 
         expect(Record.map(results, ({ success }) => success)).toStrictEqual({ 'two:test--nextest': false, 'app:test--nextest': true });
         expect([results['two:test--nextest']?.terminalOutput?.includes(said), results['app:test--nextest']?.terminalOutput?.includes(said)]).toStrictEqual([true, false]);
+    });
+
+    it('stamps each crate from the start of its command to the suite events of its own package, inside the batch', async ({ workspace }) => {
+        const graph = await workspace.write(crates).graph(cargo);
+        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
+        const { scheduled, inputs } = await planned(graph, 'test--nextest');
+        const before = vi.getRealSystemTime();
+
+        const results = await settled(suites(scheduled, inputs, {}, workspace.context(graph, 'app', 'test--nextest')));
+
+        const after = vi.getRealSystemTime();
+        expect(results).toStrictEqual({ 'two:test--nextest': spanned(before, after), 'app:test--nextest': spanned(before, after) });
     });
 });

@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PostTasksExecutionContext, TaskResult } from '@nx/devkit';
 import { postTasksExecution } from '@rasm/nx-distribution';
-import { it } from '@rasm/testing/nx';
+import { it as nx } from '@rasm/testing/nx';
 import { Array, Option, Record, Schema } from 'effect';
 import { assert as holds, asyncProperty, boolean, constantFrom, nat, tuple, uniqueArray } from 'fast-check';
 import { describe, expect, vi } from 'vitest';
@@ -32,6 +32,7 @@ const Line = Schema.fromJsonString(
         remote: Schema.Int,
         missed: Schema.Int,
         targets: Schema.Record(Schema.String, Schema.Struct({ hits: Schema.Int, misses: Schema.Int })),
+        failed: Schema.Array(Schema.Struct({ task: Schema.String })),
     }),
 );
 
@@ -65,12 +66,21 @@ const reference = (rows: readonly (readonly [task: string, status: TaskResult['s
         Array.groupBy(counted, ([task]) => task.slice(task.indexOf(':') + 1)),
         (held) => ({ hits: held.filter(([, status]) => KIND[status] !== 'misses').length, misses: held.filter(([, status]) => KIND[status] === 'misses').length }),
     );
-    return { local: kinds['local']?.length ?? 0, remote: kinds['remote']?.length ?? 0, misses: kinds['misses']?.length ?? 0, targets };
+    return { local: kinds['local']?.length ?? 0, remote: kinds['remote']?.length ?? 0, misses: kinds['misses']?.length ?? 0, targets, failed: rows.filter(([, status]) => status === 'failure' || status === 'stopped').map(([task]) => task) };
 };
 
-const tallied = (root: string) => Option.map(last(root), ({ id, local, remote, missed, targets }) => ({ id, local, remote, misses: missed, targets }));
+const timed = (id: string, cache: boolean, times: { readonly startTime?: number; readonly endTime: number }) => ({ id, target: { project: id.slice(0, id.indexOf(':')), target: id.slice(id.indexOf(':') + 1) }, overrides: {}, outputs: [], cache, ...times });
+
+const tallied = (root: string) => Option.map(last(root), ({ id, local, remote, missed, targets, failed }) => ({ id, local, remote, misses: missed, targets, failed: failed.map(({ task }) => task) }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+const it = nx.extend('unannotated', { auto: true }, ({}, { onCleanup }) => {
+    vi.stubEnv('GITHUB_ACTIONS', 'false');
+    onCleanup(() => {
+        vi.unstubAllEnvs();
+    });
+});
 
 describe('task cache record after a run', () => {
     it('counts local and remote hits against misses of cacheable tasks alone, by target, with the slowest misses first', async ({ workspace }) => {
@@ -100,10 +110,52 @@ describe('task cache record after a run', () => {
 
                 await postTasksExecution({}, finished(`run-${before}`, rows));
 
-                expect(lines(workspace.root).length > before ? tallied(workspace.root) : Option.none()).toStrictEqual(expected.local + expected.remote + expected.misses === 0 ? Option.none() : Option.some({ id: `run-${before}`, ...expected }));
+                expect(lines(workspace.root).length > before ? tallied(workspace.root) : Option.none()).toStrictEqual(expected.local + expected.remote + expected.misses + expected.failed.length === 0 ? Option.none() : Option.some({ id: `run-${before}`, ...expected }));
             }),
             { numRuns: 60 },
         );
+    });
+
+    it('names every failed or stopped task with its status and exit code, stating a duration only for a task holding both times', async ({ workspace }) => {
+        await postTasksExecution(
+            {},
+            {
+                ...finished('run-failed', []),
+                taskResults: {
+                    'a:build--dotnet': { status: 'failure', code: 1, task: timed('a:build--dotnet', true, { endTime: 9000 }) },
+                    'b:serve--vite': { status: 'stopped', code: 130, task: timed('b:serve--vite', false, { startTime: 1000, endTime: 4000 }) },
+                    'c:test--vitest': { status: 'failure', code: 2, task: timed('c:test--vitest', true, { startTime: 1000, endTime: 10_000 }) },
+                    'd:build--tsc': { status: 'success', code: 0, task: timed('d:build--tsc', true, { endTime: 9000 }) },
+                },
+            },
+        );
+
+        const line: unknown = JSON.parse(lines(workspace.root).at(-1) ?? 'null');
+        expect(line).toStrictEqual(
+            expect.objectContaining({
+                failed: [
+                    { task: 'a:build--dotnet', status: 'failure', code: 1 },
+                    { task: 'b:serve--vite', status: 'stopped', code: 130, seconds: 3 },
+                    { task: 'c:test--vitest', status: 'failure', code: 2, seconds: 9 },
+                ],
+                slowest: [{ task: 'c:test--vitest', status: 'failure', seconds: 9 }],
+            }),
+        );
+    });
+
+    it.for([
+        { on: 'true', printed: ['::error title=e%3Atest--vitest::e:test--vitest ended in failure with exit code 1'] },
+        { on: 'false', printed: [] },
+    ])('prints an error workflow command per failed task where GITHUB_ACTIONS is $on', async ({ on, printed }, { workspace, onTestFinished }) => {
+        const log = vi.spyOn(console, 'log').mockReturnValue(undefined);
+        onTestFinished(() => {
+            log.mockRestore();
+        });
+        vi.stubEnv('GITHUB_ACTIONS', on);
+
+        await postTasksExecution({}, finished('run-annotated', run));
+
+        expect([log.mock.calls.map((call) => String(call.at(-1))), lines(workspace.root).length]).toStrictEqual([printed, 1]);
     });
 
     it('writes nothing for a run holding no cacheable task', async ({ workspace }) => {
@@ -118,7 +170,6 @@ describe('task cache record after a run', () => {
         vi.stubEnv('GITHUB_STEP_SUMMARY', summary);
 
         await postTasksExecution({}, finished('run-ci', run));
-        vi.unstubAllEnvs();
 
         expect(readFileSync(summary, 'utf-8')).toMatch(/^# Earlier step\n[^\n]*\b3 of 5 cacheable tasks\b[^\n]*\b60\s?%[^\n]*e:test--vitest[^\n]*\n$/u);
     });

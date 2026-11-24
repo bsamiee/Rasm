@@ -1,7 +1,7 @@
 import type { TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { batched, executor, ran, spawned, Words } from '@rasm/nx-distribution/inference';
-import { Array, Console, Effect, Equal, FileSystem, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
+import { Array, Clock, Console, DateTime, Effect, Equal, FileSystem, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { ANALYZER, ENVIRONMENT } from '#/targets';
 
@@ -29,8 +29,8 @@ class Build extends Schema.Opaque<Build, unknown>()(
         description: "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb or the -t a run passes, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result from the run's binary log",
     }),
 ) {}
-const Outcomes = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Struct({ succeeded: Schema.Boolean, lines: Schema.Array(Schema.String) }))).annotate({
-    description: 'Success and diagnostics per project file the binary log of a run records, which MsbuildAnalyzer results prints',
+const Outcomes = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Struct({ succeeded: Schema.Boolean, started: Schema.DateTimeUtcFromString, finished: Schema.DateTimeUtcFromString, lines: Schema.Array(Schema.String) }))).annotate({
+    description: 'Success, first start, last finish, and diagnostics per project file the binary log of a run records, which MsbuildAnalyzer results prints',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -63,13 +63,18 @@ const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyRe
         }),
     ).pipe(Stream.pipeThroughChannel(Xml.encode()), Stream.run(fs.sink(file)));
     const contents = yield* Stream.fromIterable(Xml.toEvents({ name: 'SolutionConfiguration', attributes: {}, children: assigned })).pipe(Stream.pipeThroughChannel(Xml.encodeString()), Stream.mkString);
-    const { invoked, stdout, said } = yield* ran(['dotnet', Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...(assigned.length > 0 ? [`-p:CurrentSolutionConfigurationContents=${escaped(contents)}`] : []), `-bl:${log}`, ...words], { cwd: root });
+    const [startTime, { invoked, stdout, said }, endTime] = yield* Effect.all([
+        Clock.currentTimeMillis,
+        ran(['dotnet', Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...(assigned.length > 0 ? [`-p:CurrentSolutionConfigurationContents=${escaped(contents)}`] : []), `-bl:${log}`, ...words], { cwd: root }),
+        Clock.currentTimeMillis,
+    ]);
     const outcomes = yield* Effect.flatMap(spawned(['dotnet', ANALYZER, 'results', root, log], { cwd: root, env: ENVIRONMENT }), Schema.decodeEffect(Outcomes));
     return Array.map(Array.zip(group, projects), ([[task], project]) => {
         const outcome = Record.get(outcomes, project);
         const success = Option.exists(outcome, Struct.get('succeeded'));
         const own = Option.match(outcome, { onNone: () => [], onSome: ({ lines }) => lines });
-        const result: TaskResult = { success, terminalOutput: (success ? own : [invoked, ...(own.length > 0 ? own : [said, stdout])]).join('\n') };
+        const timed = Option.match(outcome, { onNone: () => ({ startTime, endTime }), onSome: ({ started, finished }) => ({ startTime: DateTime.toEpochMillis(started), endTime: DateTime.toEpochMillis(finished) }) });
+        const result: TaskResult = { success, terminalOutput: (success ? own : [invoked, ...(own.length > 0 ? own : [said, stdout])]).join('\n'), ...timed };
         return { task, result };
     });
 });

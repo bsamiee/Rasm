@@ -28,7 +28,15 @@ interface Declared {
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const SERVER = 'NX_SELF_HOSTED_REMOTE_CACHE_SERVER';
 const RECORD = { file: 'task-cache.jsonl', bound: 1_048_576, slowest: 5 } as const;
-const KINDS: Readonly<Record<TaskResult['status'], 'local' | 'remote' | 'missed' | undefined>> = { 'local-cache': 'local', 'local-cache-kept-existing': 'local', 'remote-cache': 'remote', success: 'missed', failure: 'missed', skipped: undefined, stopped: undefined };
+const OUTCOMES: Readonly<Record<TaskResult['status'], { readonly kind: 'local' | 'remote' | 'missed' | 'none'; readonly failed: boolean }>> = {
+    'local-cache': { kind: 'local', failed: false },
+    'local-cache-kept-existing': { kind: 'local', failed: false },
+    'remote-cache': { kind: 'remote', failed: false },
+    success: { kind: 'missed', failed: false },
+    failure: { kind: 'missed', failed: true },
+    skipped: { kind: 'none', failed: false },
+    stopped: { kind: 'none', failed: true },
+};
 const SHARE = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 1 });
 const WORKFLOWS = '**/.github/workflows/*.{yml,yaml}';
 const COMPOSITES = '**/.github/actions/*/action.{yml,yaml}';
@@ -82,7 +90,23 @@ const Requirements = Schema.Record(Schema.String, Schema.String).pipe(Schema.wit
 const Member = Schema.fromJsonString(Schema.Struct({ name: Schema.String, dependencies: Requirements, devDependencies: Requirements, optionalDependencies: Requirements, peerDependencies: Requirements })).annotate({
     description: 'The name of a workspace package.json and the packages each of its dependency fields requires',
 });
-const Line = Schema.fromJsonString(Schema.Unknown);
+const Line = Schema.fromJsonString(
+    Schema.Struct({
+        id: Schema.String,
+        at: Schema.DateTimeUtcFromString,
+        command: Schema.String,
+        seconds: Schema.Finite,
+        local: Schema.Int,
+        remote: Schema.Int,
+        missed: Schema.Int,
+        rate: Schema.optionalKey(Schema.Finite),
+        targets: Schema.Record(Schema.String, Schema.Struct({ hits: Schema.Int, misses: Schema.Int })),
+        slowest: Schema.Array(Schema.Struct({ task: Schema.String, status: Schema.String, seconds: Schema.Finite })),
+        failed: Schema.Array(Schema.Struct({ task: Schema.String, status: Schema.String, code: Schema.Int, seconds: Schema.optionalKey(Schema.Finite) })),
+    }),
+).annotate({
+    description: 'One run of the task cache record: hits and misses of cacheable tasks with their rate where any ran, by target, the slowest timed misses, and every failed or stopped task with its exit code, a duration standing only where Nx holds both times of a task',
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -319,21 +343,36 @@ const workspace = (files: readonly string[], workspaceRoot: string) =>
         (file) => Effect.map(manifested(workspaceRoot, '.'), (stated) => [file, { projects: { '.': { root: '.', targets: aggregated(ROOT, stated, 'mise') } } }] as const),
     );
 
-const recorded = Effect.fnUntraced(function* ({ id, argv, startTime, endTime }: PostTasksExecutionContext, rows: Array.NonEmptyReadonlyArray<{ readonly task: Task; readonly status: TaskResult['status']; readonly kind: 'local' | 'remote' | 'missed' }>) {
-    const [fs, summary] = yield* Effect.all([FileSystem.FileSystem, Config.option(Config.String('GITHUB_STEP_SUMMARY'))]);
-    const { local = [], remote = [], missed = [] } = Array.groupBy(rows, Struct.get('kind'));
+const recorded = Effect.fnUntraced(function* ({ id, argv, startTime, endTime }: PostTasksExecutionContext, rows: Array.NonEmptyReadonlyArray<{ readonly task: Task; readonly status: TaskResult['status']; readonly code: number; readonly kind: (typeof OUTCOMES)[TaskResult['status']]['kind']; readonly failed: boolean }>) {
+    const [fs, summary, annotated] = yield* Effect.all([FileSystem.FileSystem, Config.option(Config.String('GITHUB_STEP_SUMMARY')), Config.withDefault(Config.Boolean('GITHUB_ACTIONS'), false)]);
+    const timed = rows.map(({ task, ...row }) => ({ ...row, task: task.id, target: task.target.target, seconds: Option.map(Option.all([Option.fromUndefinedOr(task.startTime), Option.fromUndefinedOr(task.endTime)]), ([from, to]) => (to - from) / 1000) }));
+    const counted = timed.filter(({ kind }) => kind !== 'none');
+    const { local = [], remote = [], missed = [] } = Array.groupBy(counted, Struct.get('kind'));
     const hits = local.length + remote.length;
-    const rate = hits / rows.length;
+    const rate = Option.map(
+        Option.liftPredicate(counted.length, (total) => total > 0),
+        (total) => hits / total,
+    );
     const slowest = Array.sortWith(
-        missed.map(({ task, status }) => ({ task: task.id, status, seconds: ((task.endTime ?? 0) - (task.startTime ?? 0)) / 1000 })),
-        ({ seconds }) => seconds,
+        missed.flatMap(({ task, status, seconds }) => Option.toArray(Option.map(seconds, (spent) => ({ task, status, seconds: spent })))),
+        Struct.get('seconds'),
         Order.flip(Order.Number),
     ).slice(0, RECORD.slowest);
-    const targets = Record.map(
-        Array.groupBy(rows, ({ task }) => task.target.target),
-        (held) => ({ hits: Array.countBy(held, ({ kind }) => kind !== 'missed'), misses: Array.countBy(held, ({ kind }) => kind === 'missed') }),
-    );
-    const line = yield* Schema.encodeEffect(Line)({ id, at: DateTime.formatIso(DateTime.makeUnsafe(endTime)), command: argv.slice(2).join(' '), seconds: (endTime - startTime) / 1000, local: local.length, remote: remote.length, missed: missed.length, rate, targets, slowest });
+    const failed = timed.filter(Struct.get('failed')).map(({ task, status, code, seconds }) => ({ task, status, code, ...Option.getOrUndefined(Option.map(seconds, (spent) => ({ seconds: spent }))) }));
+    const targets = Record.map(Array.groupBy(counted, Struct.get('target')), (held) => ({ hits: Array.countBy(held, ({ kind }) => kind !== 'missed'), misses: Array.countBy(held, ({ kind }) => kind === 'missed') }));
+    const line = yield* Schema.encodeEffect(Line)({
+        id,
+        at: DateTime.makeUnsafe(endTime),
+        command: argv.slice(2).join(' '),
+        seconds: (endTime - startTime) / 1000,
+        local: local.length,
+        remote: remote.length,
+        missed: missed.length,
+        ...Option.getOrUndefined(Option.map(rate, (share) => ({ rate: share }))),
+        targets,
+        slowest,
+        failed,
+    });
     const at = join(workspaceDataDirectory, RECORD.file);
     yield* fs.makeDirectory(workspaceDataDirectory, { recursive: true });
     const size = yield* fs.stat(at).pipe(
@@ -341,8 +380,9 @@ const recorded = Effect.fnUntraced(function* ({ id, argv, startTime, endTime }: 
         Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(0)),
     );
     yield* size + line.length < RECORD.bound ? fs.writeFileString(at, `${line}\n`, { flag: 'a' }) : Effect.flatMap(fs.readFileString(at), (held) => fs.writeFileString(at, `${held.slice(held.indexOf('\n', held.length - RECORD.bound / 2) + 1)}${line}\n`));
-    const tally = [`Nx cache: ${hits} of ${rows.length} cacheable tasks hit (${SHARE.format(rate)}: ${local.length} local, ${remote.length} remote)`, ...slowest.slice(0, 1).map(({ task, seconds }) => `slowest miss ${task} at ${Duration.format(Duration.seconds(seconds))}`)].join('; ');
-    yield* Effect.forEach(Option.toArray(summary), (file) => fs.writeFileString(file, `${tally}\n`, { flag: 'a' }), { discard: true });
+    const tally = Option.map(rate, (share) => [`Nx cache: ${hits} of ${counted.length} cacheable tasks hit (${SHARE.format(share)}: ${local.length} local, ${remote.length} remote)`, ...slowest.slice(0, 1).map(({ task, seconds }) => `slowest miss ${task} at ${Duration.format(Duration.seconds(seconds))}`)].join('; '));
+    yield* Effect.forEach(Option.toArray(Option.all([summary, tally])), ([file, text]) => fs.writeFileString(file, `${text}\n`, { flag: 'a' }), { discard: true });
+    yield* Effect.forEach(annotated ? failed : [], ({ task, status, code }) => Effect.sync(() => emitPluginWorkerLog('log', `::error title=${task.replaceAll(/[%\r\n:,]/gu, encodeURIComponent)}::${`${task} ended in ${status} with exit code ${code}`.replaceAll(/[%\r\n]/gu, encodeURIComponent)}`)), { discard: true });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -401,14 +441,9 @@ const postTasksExecution: PostTasksExecution = (_, context) =>
     run(
         Effect.catchCause(
             Array.match(
-                Array.getSomes(
-                    Object.values(context.taskResults).map(({ task, status }) =>
-                        Option.map(
-                            Option.filter(Option.fromUndefinedOr(KINDS[status]), () => task.cache),
-                            (kind) => ({ task, status, kind }),
-                        ),
-                    ),
-                ),
+                Object.values(context.taskResults)
+                    .map(({ task, status, code }) => ({ task, status, code, kind: task.cache ? OUTCOMES[status].kind : 'none', failed: OUTCOMES[status].failed }))
+                    .filter(({ kind, failed }) => kind !== 'none' || failed),
                 { onEmpty: () => Effect.void, onNonEmpty: (rows) => recorded(context, rows) },
             ),
             (cause) => Effect.sync(() => emitPluginWorkerLog('warn', `Task cache record of run ${context.id} is not written: ${Cause.pretty(cause)}`)),

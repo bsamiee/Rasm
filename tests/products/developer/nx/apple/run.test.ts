@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { TaskGraph } from '@nx/devkit';
 import { batch, execute } from '@rasm/nx-apple/executors/run';
-import { it, shimmed, type Workspace } from '@rasm/testing/nx';
+import { it, shimmed, spanned, type Workspace } from '@rasm/testing/nx';
 import { Array, Record } from 'effect';
 import { assert, asyncProperty, integer, record, subarray, tuple } from 'fast-check';
 import { describe, expect, vi } from 'vitest';
@@ -53,6 +53,24 @@ describe('run batch', { timeout: 120_000 }, () => {
             asyncProperty(plan, (planned) => scheduled(workspace, planned)),
             { numRuns: 25 },
         );
+    });
+
+    it('stamps each task that ran with the span of its own invocations inside the batch, and no span on a task it skips', async ({ workspace }) => {
+        const graph: TaskGraph = {
+            tasks: Record.fromIterableWith([0, 1, 2, 3], (index) => [id(index), { id: id(index), target: { project: `P${index}`, target: 'build--swift-build' }, outputs: [], overrides: {}, projectRoot: `P${index}`, parallelism: true, cache: true }]),
+            dependencies: { [id(0)]: [], [id(1)]: [{ id: id(0) }], [id(2)]: [], [id(3)]: [{ id: id(2) }] },
+            continuousDependencies: {},
+            roots: [id(0), id(2)],
+        };
+        const before = vi.getRealSystemTime();
+
+        const results = Record.fromIterableWith(
+            await globalThis.Array.fromAsync(batch(graph, { [id(0)]: { runs: [['sleep', '0.2']] }, [id(1)]: { runs: [['sleep', '0.2']] }, [id(2)]: { runs: [['false']] }, [id(3)]: { runs: [['true']] } }, {}, workspace.context(EMPTY, 'P0', 'build--swift-build'))),
+            ({ task, result }) => [task, result] as const,
+        );
+
+        const after = vi.getRealSystemTime();
+        expect(results).toStrictEqual({ [id(0)]: spanned(before, after), [id(1)]: spanned(results[id(0)]?.endTime ?? after, after), [id(2)]: spanned(before, after), [id(3)]: { success: false, status: 'skipped', terminalOutput: '' } });
     });
 });
 

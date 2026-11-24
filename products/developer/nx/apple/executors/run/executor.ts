@@ -4,7 +4,7 @@ import { env } from 'node:process';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { batched, executor, spawned, Words } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Config, Effect, FileSystem, Function, HashSet, Option, Predicate, Record, Schema, Stream } from 'effect';
+import { Array, Cause, Clock, Config, Effect, FileSystem, Function, HashSet, Option, Predicate, Record, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -94,7 +94,9 @@ const ordered = (graph: TaskGraph, inputs: Readonly<Record<string, Run>>, { root
                 onSome: ([task, options]) => {
                     const rest = pending.filter((id) => id !== task);
                     const blocked = (graph.dependencies[task] ?? []).some((edge) => HashSet.has(failed, edge.id));
-                    const outcome = blocked ? Effect.succeed<TaskResult>({ success: false, status: 'skipped', terminalOutput: '' }) : Effect.map(commands(options, root), ({ success }): TaskResult => ({ success, terminalOutput: '' }));
+                    const outcome = blocked
+                        ? Effect.succeed<TaskResult>({ success: false, status: 'skipped', terminalOutput: '' })
+                        : Effect.map(Effect.all([Clock.currentTimeMillis, commands(options, root), Clock.currentTimeMillis]), ([startTime, { success }, endTime]): TaskResult => ({ success, terminalOutput: '', startTime, endTime }));
                     return Effect.map(outcome, (result) => [[{ task, result }], Option.some({ pending: rest, failed: result.success ? failed : HashSet.add(failed, task) })] as const);
                 },
             },

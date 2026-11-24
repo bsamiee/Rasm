@@ -3,7 +3,7 @@ import { basename, dirname, join } from 'node:path';
 import type { ProjectGraph, TaskGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-vitest';
 import { batch, execute, Test } from '@rasm/nx-vitest/executors/test';
-import { targetOptions, type Workspace } from '@rasm/testing/nx';
+import { spanned, targetOptions, type Workspace } from '@rasm/testing/nx';
 import { Record } from 'effect';
 import { describe, expect, vi } from 'vitest';
 import { it } from '#/installed';
@@ -122,5 +122,33 @@ describe('batched test--vitest tasks', { timeout: 60_000 }, () => {
         expect(results[1]?.result.terminalOutput).toContain('FAIL b b.test.ts > breaks');
         expect(readFileSync(join(workspace.root, 'runs.log'), 'utf-8')).toBe('run\n');
         expect([...workspace.files()].flatMap((file) => (file.startsWith('.artifacts/') ? [dirname(file)] : []))).toStrictEqual(['.artifacts/vitest/a/attachments']);
+    });
+
+    it('stamps each task with the span Vitest states for its own test modules, inside the run, a task with no module taking the span of the run', async ({ workspace }) => {
+        const graph = await workspace
+            .write({
+                ...ROOT,
+                'vitest.config.ts': "export default { test: { projects: ['packages/*'] } };\n",
+                'packages/a/package.json': '{"name":"a","type":"module"}',
+                'packages/a/a.test.ts': "import { expect, test } from 'vitest';\n\ntest('waits', async () => { await new Promise((resolve) => setTimeout(resolve, 300)); expect(1).toBe(1); });\n",
+                'packages/b/package.json': '{"name":"b","type":"module"}',
+            })
+            .graph({ createNodes });
+        const tasks: TaskGraph = {
+            tasks: Record.fromIterableWith(['a', 'b'], (name) => [`${name}:test--vitest`, { id: `${name}:test--vitest`, target: { project: name, target: 'test--vitest' }, outputs: [], overrides: {}, projectRoot: `packages/${name}`, parallelism: true, cache: true }]),
+            dependencies: { 'a:test--vitest': [], 'b:test--vitest': [] },
+            continuousDependencies: {},
+            roots: ['a:test--vitest', 'b:test--vitest'],
+        };
+        const before = vi.getRealSystemTime();
+
+        const results = Record.fromIterableWith(
+            await Array.fromAsync(batch(tasks, { 'a:test--vitest': await targetOptions(Test, graph, 'a', 'test--vitest'), 'b:test--vitest': await targetOptions(Test, graph, 'b', 'test--vitest') }, {}, workspace.context(graph, 'a', 'test--vitest'))),
+            ({ task, result }) => [task, result] as const,
+        );
+
+        const after = vi.getRealSystemTime();
+        expect(results).toStrictEqual({ 'a:test--vitest': spanned(before, after), 'b:test--vitest': spanned(before, after) });
+        expect([(results['a:test--vitest']?.endTime ?? 0) - (results['a:test--vitest']?.startTime ?? 0) >= 300, (results['a:test--vitest']?.startTime ?? 0) > (results['b:test--vitest']?.startTime ?? Infinity)]).toStrictEqual([true, true]);
     });
 });

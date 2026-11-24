@@ -1,6 +1,6 @@
 import type { TaskResult } from '@nx/devkit/internal';
 import { batched, executor, ran, Words } from '@rasm/nx-distribution/inference';
-import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Clock, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { grouped } from '#/executors/build/executor';
 
@@ -30,7 +30,7 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
         Order.mapInput(Order.flip(Order.Number), (member: (typeof members)[number]) => member.folder.length),
     );
     const owner = ({ FilePath }: { readonly FilePath: string }) => Array.findFirst(nested, (member) => FilePath.startsWith(member.folder));
-    const folder = yield* fs.makeTempDirectoryScoped();
+    const [startTime, folder] = yield* Effect.all([Clock.currentTimeMillis, fs.makeTempDirectoryScoped()]);
     const target = rest.length === 0 ? Array.headNonEmpty(members).project : path.join(folder, 'batch.slnx');
     yield* rest.length === 0 ? Effect.void : Stream.fromIterable(Xml.toEvents({ name: 'Solution', attributes: {}, children: members.map(({ project }) => ({ name: 'Project', attributes: { Path: project }, children: [] })) })).pipe(Stream.pipeThroughChannel(Xml.encode()), Stream.run(fs.sink(target)));
     const runs = yield* Effect.forEach(
@@ -47,13 +47,14 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
             return { command: invoked, lines: [stdout, stderr].join('').split('\n'), blamed };
         }),
     );
+    const endTime = yield* Clock.currentTimeMillis;
     const said = (project: string, { command, lines }: (typeof runs)[number]) => {
         const own = lines.filter((text) => text.endsWith(`[${project}]`));
         return [command, ...(own.length > 0 ? own : lines)];
     };
     return Array.map(members, ({ task, project }) => {
         const failed = runs.filter(({ blamed }) => Option.match(blamed, { onNone: () => true, onSome: (tasks) => tasks.has(task) }));
-        const result: TaskResult = { success: failed.length === 0, terminalOutput: failed.flatMap((each) => said(project, each)).join('\n') };
+        const result: TaskResult = { success: failed.length === 0, terminalOutput: failed.flatMap((each) => said(project, each)).join('\n'), startTime, endTime };
         return { task, result };
     });
 });

@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 import type { ExecutorContext, Task } from '@nx/devkit';
 import { findAllProjectNodeDependencies, type TaskResult } from '@nx/devkit/internal';
 import { batched, executor, Words } from '@rasm/nx-distribution/inference';
-import { Array, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream } from 'effect';
+import { Array, Clock, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream, Struct } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { Crate } from '#/workspace';
 
@@ -37,6 +37,8 @@ class Cargo extends Schema.Opaque<Cargo, unknown>()(
 const Diagnostic = Schema.Struct({ reason: Schema.Literal('compiler-message'), manifest_path: Schema.String, message: Schema.Struct({ level: Schema.String, rendered: Schema.OptionFromNullOr(Schema.String) }) });
 const Artifact = Schema.Struct({ reason: Schema.Literal('compiler-artifact'), manifest_path: Schema.String, target: Schema.Struct({ kind: Schema.Array(Schema.String) }) });
 const Message = Schema.fromJsonString(Schema.Union([Diagnostic, Artifact, Schema.Record(Schema.String, Schema.Unknown)]));
+const Compiled = Schema.Union([Diagnostic, Artifact]);
+const Suited = Schema.Struct({ nextest: Schema.Struct({ crate: Schema.String }) }).annotate({ description: 'A nextest suite or test event, naming the crate of its test binary' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -49,13 +51,14 @@ const ran = Effect.fnUntraced(
                     [[handle.stdout, stdout] as const, [handle.stderr, stderr] as const].map(([bytes, sink]) => Stream.map(Stream.splitLines(Stream.decodeText(bytes)), (line) => ({ line, sink }))),
                     { concurrency: 'unbounded' },
                 ).pipe(
-                    Stream.mapAccum(HashSet.empty<string>, (seen, { line, sink }) => {
+                    Stream.mapEffect((read) => Effect.map(Clock.currentTimeMillis, (at) => ({ ...read, at }))),
+                    Stream.mapAccum(HashSet.empty<string>, (seen, { line, sink, at }) => {
                         const message = Schema.decodeOption(Message)(line);
                         const fresh = Option.filter(
                             Option.flatMap(message, (parsed) => (Schema.is(Diagnostic)(parsed) ? parsed.message.rendered : Option.none())),
                             (rendered) => !HashSet.has(seen, rendered),
                         );
-                        return [Option.match(fresh, { onNone: () => seen, onSome: (rendered) => HashSet.add(seen, rendered) }), [{ text: Option.isSome(message) ? fresh : Option.some(`${line}\n`), message, sink }]];
+                        return [Option.match(fresh, { onNone: () => seen, onSome: (rendered) => HashSet.add(seen, rendered) }), [{ text: Option.isSome(message) ? fresh : Option.some(`${line}\n`), message, sink, at }]];
                     }),
                     Stream.tap(({ text, sink }) => Option.match(text, { onNone: () => Effect.void, onSome: (rendered) => Effect.sync(() => sink.write(rendered)) })),
                     Stream.runCollect,
@@ -64,13 +67,13 @@ const ran = Effect.fnUntraced(
             ],
             { concurrency: 'unbounded' },
         );
-        return { passed: code === 0, log: Array.getSomes(lines.map(({ text }) => text)).join(''), messages: Array.getSomes(lines.map(({ message }) => message)) };
+        return { passed: code === 0, log: Array.getSomes(lines.map(({ text }) => text)).join(''), stamped: lines.flatMap(({ message, at }) => Option.toArray(Option.map(message, (held) => ({ message: held, at })))) };
     },
     Effect.scoped,
-    Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ passed: false, log: 'cargo is not on PATH, so no Cargo task can run\n', messages: [] })),
+    Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ passed: false, log: 'cargo is not on PATH, so no Cargo task can run\n', stamped: [] })),
 );
 
-const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, Cargo>>, command: Command, tasks: Array.NonEmptyReadonlyArray<Planned>) {
+const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, Cargo>>, command: Command, tasks: Array.NonEmptyReadonlyArray<Planned>, earlier: Readonly<Record<string, TaskResult>>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { nodes } = context.projectGraph;
     const root = (project: string) => path.resolve(context.root, nodes[project]?.data.root ?? '.');
@@ -83,34 +86,41 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
             { discard: true },
         ),
     );
-    const completed = yield* ran(
-        path.resolve(context.root, options?.cwd ?? '.'),
-        [
-            ...command.args,
-            ...tasks.flatMap(({ id, target: { project } }) => Option.toArray(Option.fromUndefinedOr(inputs[id]?.package)).flatMap((name) => selected(root(project), name))),
-            ...(command.packages ?? []).flatMap(({ root: at, name }) => selected(at, name)),
-            ...(command.trailing === undefined ? [] : ['--', ...command.trailing]),
-            ...(options?.__unparsed__ ?? []),
-        ],
-        command.env,
-    );
-    const diagnostics = Array.filter(completed.messages, Schema.is(Diagnostic)).map((diagnostic) => ({ ...diagnostic, root: path.dirname(diagnostic.manifest_path) }));
+    const [startTime, completed, endTime] = yield* Effect.all([
+        Clock.currentTimeMillis,
+        ran(
+            path.resolve(context.root, options?.cwd ?? '.'),
+            [
+                ...command.args,
+                ...tasks.flatMap(({ id, target: { project } }) => Option.toArray(Option.fromUndefinedOr(inputs[id]?.package)).flatMap((name) => selected(root(project), name))),
+                ...(command.packages ?? []).flatMap(({ root: at, name }) => selected(at, name)),
+                ...(command.trailing === undefined ? [] : ['--', ...command.trailing]),
+                ...(options?.__unparsed__ ?? []),
+            ],
+            command.env,
+        ),
+        Clock.currentTimeMillis,
+    ]);
+    const messages = completed.stamped.map(Struct.get('message'));
+    const diagnostics = Array.filter(messages, Schema.is(Diagnostic)).map((diagnostic) => ({ ...diagnostic, root: path.dirname(diagnostic.manifest_path) }));
     const errored = new Set(diagnostics.filter(({ message: { level } }) => level.startsWith('error')).map(({ root: at }) => at));
     const built = new Set(
-        Array.filter(completed.messages, Schema.is(Artifact))
+        Array.filter(messages, Schema.is(Artifact))
             .filter(({ target: { kind } }) => !kind.includes('custom-build'))
             .map(({ manifest_path }) => path.dirname(manifest_path)),
     );
     const broken = new Set(Record.keys(Record.filter(nodes, (_, project) => errored.has(root(project)))));
     const results = tasks.map(({ id, target: { project } }) => {
-        const at = root(project);
-        const { failed, proven, said } = judged({ messages: completed.messages, compiled: completed.passed || built.has(at), crate: Option.fromUndefinedOr(inputs[id]?.package) });
-        const rendered = Array.getSomes(diagnostics.filter(({ root: crate }) => crate === at).map(({ message }) => message.rendered));
-        return { id, own: errored.has(at) || failed, passed: proven && !findAllProjectNodeDependencies(project, context.projectGraph).some((name) => broken.has(name)), terminalOutput: [...rendered, said].join('') };
+        const [at, crate] = [root(project), Option.fromUndefinedOr(inputs[id]?.package)];
+        const { failed, proven, said } = judged({ messages, compiled: completed.passed || built.has(at), crate });
+        const rendered = Array.getSomes(diagnostics.filter(({ root: held }) => held === at).map(({ message }) => message.rendered));
+        const last = Array.findLast(completed.stamped, ({ message }) => (Schema.is(Compiled)(message) && path.dirname(message.manifest_path) === at) || (Schema.is(Suited)(message) && Option.contains(crate, message.nextest.crate)));
+        const timed = { startTime: earlier[id]?.startTime ?? startTime, endTime: Option.getOrElse(Option.map(last, Struct.get('at')), () => endTime) };
+        return { id, own: errored.has(at) || failed, passed: proven && !findAllProjectNodeDependencies(project, context.projectGraph).some((name) => broken.has(name)), terminalOutput: [...rendered, said].join(''), timed };
     });
     const attributed = results.some(({ own }) => own);
     const unproven: TaskResult = attributed ? { success: false, status: 'skipped', terminalOutput: '' } : { success: false, terminalOutput: completed.log };
-    return Record.fromIterableWith(results, ({ id, own, passed, terminalOutput }): readonly [string, TaskResult] => [id, own || passed ? { success: !own, terminalOutput } : unproven]);
+    return Record.fromIterableWith(results, ({ id, own, passed, terminalOutput, timed }): readonly [string, TaskResult] => [id, own || passed ? { success: !own, terminalOutput, ...timed } : { ...unproven, ...(attributed ? {} : timed) }]);
 }, Effect.scoped);
 
 const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, Cargo>>, tasks: readonly Planned[]) => {
@@ -121,7 +131,7 @@ const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Re
             (): Readonly<Record<string, TaskResult>> => ({}),
             Effect.fnUntraced(function* (finished, { group, command, last }) {
                 const ready = group.filter(({ id }) => finished[id]?.success !== false);
-                const results = Array.isReadonlyArrayNonEmpty(ready) ? yield* decided(judged, context, inputs, command, ready) : {};
+                const results = Array.isReadonlyArrayNonEmpty(ready) ? yield* decided(judged, context, inputs, command, ready, finished) : {};
                 const settled = Record.filter(results, ({ success }) => last || !success);
                 return [{ ...finished, ...results }, Record.collect(settled, (task, result) => ({ task, result }))] as const;
             }),

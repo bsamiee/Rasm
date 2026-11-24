@@ -3,9 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import { batch } from '@rasm/nx-dotnet/executors/build';
-import { it, pathed } from '@rasm/testing/nx';
+import { batch as checked } from '@rasm/nx-dotnet/executors/check';
+import { batch as formatted } from '@rasm/nx-dotnet/executors/format';
+import { it, pathed, spanned } from '@rasm/testing/nx';
 import { Record } from 'effect';
-import { describe, expect, onTestFinished } from 'vitest';
+import { describe, expect, onTestFinished, vi } from 'vitest';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -19,6 +21,8 @@ const graphed = (dependencies: Record.ReadonlyRecord<string, readonly string[]>)
 });
 
 const context = (root: string): ExecutorContext => ({ root, cwd: root, isVerbose: false, projectsConfigurations: { version: 2, projects: {} }, nxJsonConfiguration: {}, projectGraph: { nodes: {}, dependencies: {} } });
+
+const sarif = (results: readonly unknown[]) => JSON.stringify({ runs: [{ results }] });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -43,6 +47,54 @@ describe('one MSBuild run per batch', () => {
             'app:build--dotnet': { success: true, errors: [] },
             'bad:build--dotnet': { success: false, errors: ['Broken.cs(3,57): error CS0103'] },
         });
+    });
+
+    it('stamps each project with its own span from the binary log of the run, the referenced project ending before its referrer', { timeout: 240_000 }, async ({ workspace }) => {
+        workspace.write({ 'lib/lib.csproj': project([]), 'lib/Shapes.cs': 'namespace Lib;\n\npublic static class Shapes;\n', 'app/app.csproj': project(['../lib/lib.csproj']), 'app/Views.cs': 'namespace App;\n\npublic static class Views;\n' });
+        const debug = ['build', '--configuration', 'Debug'] as const;
+        const before = vi.getRealSystemTime();
+
+        const ran = Record.fromIterableWith(
+            await Array.fromAsync(batch(graphed({ lib: [], app: ['lib'] }), { 'lib:build--dotnet': { project: 'lib/lib.csproj', command: debug }, 'app:build--dotnet': { project: 'app/app.csproj', command: debug } }, {}, context(workspace.root))),
+            ({ task, result }) => [task, result] as const,
+        );
+
+        const after = vi.getRealSystemTime();
+        expect(ran).toStrictEqual({ 'lib:build--dotnet': spanned(before, after), 'app:build--dotnet': spanned(before, after) });
+        expect((ran['app:build--dotnet']?.endTime ?? 0) - (ran['lib:build--dotnet']?.endTime ?? 0)).toBeGreaterThan(0);
+    });
+});
+
+describe('check batch', () => {
+    it('stamps each task with the span of reading its own reports inside the batch, failing the one holding a finding', async ({ workspace }) => {
+        workspace.write({ 'a/a.sarif': sarif([]), 'b/b.sarif': sarif([{ ruleId: 'CA1000', level: 'warning', message: { text: 'Held' } }]) });
+        const before = vi.getRealSystemTime();
+
+        const ran = Record.fromIterableWith(await Array.fromAsync(checked(graphed({ a: [], b: [] }), { 'a:build--dotnet': { reports: ['a/a.sarif'] }, 'b:build--dotnet': { reports: ['b/b.sarif'] } }, {}, context(workspace.root))), ({ task, result }) => [task, result] as const);
+
+        const after = vi.getRealSystemTime();
+        expect([ran, Record.map(ran, ({ success }) => success)]).toStrictEqual([
+            { 'a:build--dotnet': spanned(before, after), 'b:build--dotnet': spanned(before, after) },
+            { 'a:build--dotnet': true, 'b:build--dotnet': false },
+        ]);
+    });
+});
+
+describe('format batch', () => {
+    it('stamps every project of one dotnet format run with the span of that run, inside the batch', async ({ workspace }) => {
+        const folder = mkdtempSync(join(tmpdir(), 'dotnet-format-'));
+        onTestFinished(() => rmSync(folder, { recursive: true }));
+        pathed(folder, { dotnet: '/bin/sleep 0.2' });
+        const before = vi.getRealSystemTime();
+
+        const ran = await Array.fromAsync(formatted(graphed({ a: [], b: [] }), { 'a:build--dotnet': { project: 'a/a.csproj', commands: [['format', 'style', '--verify-no-changes']] }, 'b:build--dotnet': { project: 'b/b.csproj', commands: [['format', 'style', '--verify-no-changes']] } }, {}, context(workspace.root)));
+
+        const after = vi.getRealSystemTime();
+        const [first] = ran;
+        expect(ran).toStrictEqual([
+            { task: 'a:build--dotnet', result: spanned(before, after) },
+            { task: 'b:build--dotnet', result: { ...first?.result } },
+        ]);
     });
 });
 

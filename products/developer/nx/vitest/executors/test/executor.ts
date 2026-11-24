@@ -3,7 +3,7 @@ import { chdir, cwd, env } from 'node:process';
 import { normalizePath } from '@nx/devkit';
 import { type BatchExecutorTaskResult, findProjectForPath, hashObject } from '@nx/devkit/internal';
 import { batched, executor } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Effect, Exit, Formatter, Function, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Clock, Effect, Exit, Formatter, Function, Option, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
 import { loaded, MODE } from '#/plugin';
 
@@ -116,19 +116,32 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
         ...(Exit.isFailure(started) && !Option.exists(Cause.findErrorOption(started.cause), (error) => error.cause instanceof node.TestsNotFoundError) ? [`vitest run over ${config} stops before it reports: ${Cause.pretty(started.cause)}`] : []),
         ...Option.toArray(Option.map(signalled, (code) => `vitest run over ${config} sets exit code ${code} with every test module passing, as a run-level check such as a coverage threshold or the import duration limit failed`)),
     ];
+    const files = new Map(vitest.state.getFiles().map((file) => [file.id, file] as const));
     const held = Array.groupBy(
-        modules.flatMap((module) => Option.toArray(Option.map(owner(module.project.config.root), (task) => ({ task, module })))),
+        modules.flatMap((module) => {
+            const { prepareDuration, environmentSetupDuration, setupDuration, collectDuration, duration } = module.diagnostic();
+            const span = Option.map(Option.fromUndefinedOr(files.get(module.id)?.result?.startTime), (begun) => [Math.round(begun - prepareDuration - environmentSetupDuration - setupDuration - collectDuration), Math.round(begun + duration)] as const);
+            return Option.toArray(Option.map(owner(module.project.config.root), (task) => ({ task, module, span })));
+        }),
         Struct.get('task'),
     );
     return Array.map(group, ({ task }): BatchExecutorTaskResult => {
         const own = (held[task] ?? []).map(Struct.get('module'));
+        const spans = (held[task] ?? []).flatMap(({ span }) => Option.toArray(span));
         const said = [...own.flatMap(reported), ...(own.length === 0 ? [`no test module of ${task} ran`] : []), ...broken];
         const passed = own.length > 0 ? own.every((module) => module.ok()) : Predicate.isTruthy(vitest.config.passWithNoTests);
-        return { task, result: { success: passed && broken.length === 0, terminalOutput: said.join('\n') } };
+        const timed = Array.match(spans, { onEmpty: () => ({}), onNonEmpty: (ran) => ({ startTime: Math.min(...ran.map(([from]) => from)), endTime: Math.max(...ran.map(([, to]) => to)) }) });
+        return { task, result: { success: passed && broken.length === 0, terminalOutput: said.join('\n'), ...timed } };
     });
 }, Effect.scoped);
 
-const settled = (root: string, group: Array.NonEmptyReadonlyArray<Planned>) => Effect.match(tested(root, group), { onFailure: (error) => Array.map(group, ({ task }): BatchExecutorTaskResult => ({ task, result: { success: false, terminalOutput: error.message } })), onSuccess: Function.identity });
+const settled = (root: string, group: Array.NonEmptyReadonlyArray<Planned>) =>
+    Effect.map(Effect.all([Clock.currentTimeMillis, Effect.result(tested(root, group)), Clock.currentTimeMillis]), ([startTime, outcome, endTime]) =>
+        Result.match(outcome, {
+            onFailure: (error) => Array.map(group, ({ task }): BatchExecutorTaskResult => ({ task, result: { success: false, terminalOutput: error.message, startTime, endTime } })),
+            onSuccess: Array.map(({ task, result }): BatchExecutorTaskResult => ({ task, result: { startTime, endTime, ...result } })),
+        }),
+    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

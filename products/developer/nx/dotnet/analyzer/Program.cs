@@ -8,7 +8,7 @@ namespace MsbuildAnalyzer;
 
 // --- [MODELS] ---------------------------------------------------------------------------
 
-internal sealed record Outcome(bool Succeeded, ImmutableArray<string> Lines);
+internal sealed record Outcome(bool Succeeded, DateTimeOffset Started, DateTimeOffset Finished, ImmutableArray<string> Lines);
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -54,10 +54,14 @@ internal static class Program {
             })
             .AsEnumerable()
             .ToLookup(static line => line.Project, static line => line.Line, StringComparer.Ordinal);
+        ILookup<string, DateTime> started = raised
+            .Choose(static read => read is ProjectStartedEventArgs { ProjectFile: { } project } begun ? Some((Project: project, begun.Timestamp)) : None)
+            .AsEnumerable()
+            .ToLookup(static begun => begun.Project, static begun => begun.Timestamp, StringComparer.Ordinal);
         Console.Out.Write(JsonSerializer.Serialize(
-            raised.Choose(static read => read is ProjectFinishedEventArgs { ProjectFile: { } project } finished ? Some((Project: project, finished.Succeeded)) : None).AsEnumerable().GroupBy(static finished => finished.Project, StringComparer.Ordinal).ToDictionary(
+            raised.Choose(static read => read is ProjectFinishedEventArgs { ProjectFile: { } project } finished ? Some((Project: project, finished.Succeeded, finished.Timestamp)) : None).AsEnumerable().GroupBy(static finished => finished.Project, StringComparer.Ordinal).ToDictionary(
                 static finished => finished.Key,
-                finished => new Outcome(finished.All(static each => each.Succeeded), [.. lines[finished.Key].Distinct(StringComparer.Ordinal)]),
+                finished => new Outcome(finished.All(static each => each.Succeeded), new DateTimeOffset(started[finished.Key].Min()), new DateTimeOffset(finished.Max(static each => each.Timestamp)), [.. lines[finished.Key].Distinct(StringComparer.Ordinal)]),
                 StringComparer.Ordinal),
             Json));
         return 0;

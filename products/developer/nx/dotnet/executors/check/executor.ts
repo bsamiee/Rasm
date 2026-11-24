@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { batched, executor } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Console, Effect, FileSystem, Path, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Clock, Console, Effect, Exit, FileSystem, Path, Record, Schema, Stream, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -42,10 +42,14 @@ const batch = batched(Check, (_, inputs, context) =>
     Stream.mapEffect(
         Stream.fromIterable(Record.toEntries(inputs)),
         ([task, { reports }]) =>
-            Effect.matchCause(findings(context.root, reports), {
-                onSuccess: (lines) => ({ task, result: { success: lines.length === 0, terminalOutput: lines.join('\n') } }),
-                onFailure: (cause) => ({ task, result: { success: false, terminalOutput: Cause.pretty(cause) } }),
-            }),
+            Effect.map(Effect.all([Clock.currentTimeMillis, Effect.exit(findings(context.root, reports)), Clock.currentTimeMillis]), ([startTime, read, endTime]) => ({
+                task,
+                result: {
+                    startTime,
+                    endTime,
+                    ...Exit.match(read, { onSuccess: (lines) => ({ success: lines.length === 0, terminalOutput: lines.join('\n') }), onFailure: (cause) => ({ success: false, terminalOutput: Cause.pretty(cause) }) }),
+                },
+            })),
         { concurrency: 'unbounded' },
     ),
 );
