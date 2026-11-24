@@ -1,7 +1,5 @@
-import { findPackageJSON } from 'node:module';
-import { dirname, join, relative } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { readJsonFile } from '@nx/devkit';
+import { join, relative } from 'node:path';
+import { loadConfig } from '@cloudflare/config';
 import { createNodes } from '@rasm/nx-typescript';
 import { refused } from '@rasm/testing/errors';
 import { it } from '@rasm/testing/nx';
@@ -36,12 +34,8 @@ describe('Worker binding type generation', () => {
             .graph({ createNodes });
         const inspector = new HashPlanInspector({ ...graph, externalNodes: CF }, workspace.root);
         await inspector.init();
-        const configured = String(findPackageJSON('@cloudflare/config', import.meta.resolve('cf/package.json')));
-        const { exports } = readJsonFile<{ readonly exports: { readonly '.': { readonly import: string } } }>(configured);
-        const loaded = (): Promise<{ readonly loadAndParseConfig: (file: string) => Promise<{ readonly dependencies: ReadonlySet<string> }> }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href);
 
-        const { loadAndParseConfig } = await loaded();
-        const { dependencies } = await loadAndParseConfig(join(workspace.root, 'apps/edge/cloudflare.config.ts'));
+        const { dependencies } = await loadConfig(join(workspace.root, 'apps/edge/cloudflare.config.ts'));
         const reported = [...dependencies].map((at) => relative(workspace.root, at)).filter((at) => !(at.startsWith('..') || at.includes('node_modules')));
         const hashed = new Set(inspector.inspectTaskInputs({ project: 'edge', target: 'codegen--cf' })['edge:codegen--cf']?.files);
 

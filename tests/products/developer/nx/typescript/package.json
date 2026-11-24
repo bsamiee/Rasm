@@ -4,6 +4,7 @@
     "description": "@rasm/nx-typescript suites over project and task graphs in temporary workspaces, and tsc, eslint, and pnpm runs of inferred targets",
     "type": "module",
     "devDependencies": {
+        "@cloudflare/config": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx-typescript": "workspace:*",
         "@rasm/testing": "workspace:*",

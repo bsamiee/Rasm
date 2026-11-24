@@ -3070,6 +3070,9 @@ importers:
 
   tests/products/developer/nx/typescript:
     devDependencies:
+      '@cloudflare/config':
+        specifier: 'catalog:'
+        version: 1.0.0-rc.3
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
