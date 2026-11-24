@@ -25,10 +25,11 @@ const shelled = (word: string) =>
 
 const line = (argv: readonly string[]) => argv.map(shelled).join(' ');
 
-const memberInputs = (tree: Tree, member: Tree['members'][number], stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => [
+const memberInputs = (tree: Tree, member: Tree['members'][number], head: Workflow, stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => [
     ...(stated ?? ['{projectRoot}/**/*']),
     ...tree.inputs.filter((file) => !tree.members.some(({ root }) => root !== tree.root && root !== member.root && !posix.relative(root, file).startsWith('..'))).map((file) => tokened(file)),
     { runtime: 'cmake --version' },
+    ...Array.fromNullishOr(head.toolchain).map((file) => ({ runtime: line(['cmake', `-DTOOLCHAIN=${file}`, '-P', tree.identifier]) })),
     ...(tree.inputs.some((file) => posix.basename(file) === REGISTRY.manifest) ? [{ runtime: 'vcpkg version' }] : []),
     PLATFORM,
 ];

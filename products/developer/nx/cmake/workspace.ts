@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { normalizePath, readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
 import { runner } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Context, Effect, FileSystem, Function, Graph, Layer, Match, Option, Order, pipe, Record, Result, Schema, SemVer } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, Function, Graph, Layer, Match, Option, Order, pipe, Predicate, Record, Result, Schema, SemVer } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,6 +16,7 @@ type Workflow = Tree['workflows'][number];
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const EXPORTER = fileURLToPath(import.meta.resolve('#/coverage.cmake'));
+const IDENTIFIER = fileURLToPath(import.meta.resolve('#/compiler.cmake'));
 const MANIFEST = 'CMakeLists.txt';
 const PRESETS = 'CMakePresets.json';
 const PACKAGING = 'CPackConfig.cmake';
@@ -52,7 +53,7 @@ class Presets extends Schema.Opaque<Presets, unknown>()(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()(`${PLUGIN}/workspace/Linked`) {
+class Linked extends Context.Service<Linked, Map<string, ReadonlyMap<string, Tree['members']>>>()(`${PLUGIN}/workspace/Linked`) {
     static readonly layer = Layer.sync(Linked, () => new Map());
 }
 
@@ -184,16 +185,22 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
                 ),
             ),
         ) || '.';
+    const variables = (configure: string) =>
+        Record.fromEntries(
+            chain(configure)
+                .toReversed()
+                .flatMap(({ cacheVariables = {} }) => Record.toEntries(cacheVariables)),
+        );
+    const toolchain = (configure: string) =>
+        Option.getOrUndefined(
+            Option.map(
+                Array.findFirst(['VCPKG_CHAINLOAD_TOOLCHAIN_FILE', 'CMAKE_TOOLCHAIN_FILE'], (variable) => Option.liftPredicate(variables(configure)[variable], Predicate.isString)),
+                (stated) => posix.normalize(macros(configure, root)(stated)),
+            ),
+        );
     const launchers = (configure: string) =>
         Record.collect(
-            Record.filterMap(
-                Record.fromEntries(
-                    chain(configure)
-                        .toReversed()
-                        .flatMap(({ cacheVariables = {} }) => Record.toEntries(cacheVariables)),
-                ),
-                (stated, variable) => (TIDY.test(variable) ? Result.fromOption(Schema.decodeUnknownOption(Launcher)(stated), Function.constVoid) : Result.failVoid),
-            ),
+            Record.filterMap(variables(configure), (stated, variable) => (TIDY.test(variable) ? Result.fromOption(Schema.decodeUnknownOption(Launcher)(stated), Function.constVoid) : Result.failVoid)),
             (variable, named) => ({ variable, launcher: macros(configure, WORKING)(typeof named === 'string' ? named : named.value) }),
         );
     const workflows = Array.getSomes(
@@ -206,6 +213,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
                 name,
                 configure,
                 tidy: launchers(configure),
+                toolchain: toolchain(configure),
             })),
         ),
     );
@@ -252,7 +260,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
         links: Array.dedupe(linked.filter(({ from }) => from === folder).map(({ root: to, file }) => ({ root: to, file }))),
         registries: inputs.filter((file) => posix.basename(file) === REGISTRY.manifest && owner(posix.dirname(file)) === folder).map((manifest) => ({ folder: posix.dirname(manifest), inputs: Array.intersection([manifest, posix.join(posix.dirname(manifest), REGISTRY.configuration)], matched) })),
     }));
-    return { root, workflows, packages, members, inputs, exporter: normalizePath(relative(source, EXPORTER)) };
+    return { root, workflows, packages, members, inputs, exporter: normalizePath(relative(source, EXPORTER)), identifier: normalizePath(relative(workspaceRoot, IDENTIFIER)) };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

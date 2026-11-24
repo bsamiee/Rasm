@@ -1,10 +1,10 @@
-import { join, posix, relative } from 'node:path';
+import { posix } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs } from '@nx/devkit/internal';
 import { inferring, manifested } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Option, Record, Schema } from 'effect';
 import { memberInputs, memberTargets } from '#/targets';
-import { Linked, MANIFEST, PLUGIN, PRESETS, REGISTRY, resolved, run } from '#/workspace';
+import { Linked, MANIFEST, PLUGIN, PRESETS, REGISTRY, resolved, run, type Tree } from '#/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -17,9 +17,9 @@ class Options extends Schema.Opaque<Options, unknown>()(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, settings: Options, matched: readonly string[], file: string) {
+const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, settings: Options, matched: readonly string[], linked: Map<string, Tree['members']>, file: string) {
     const tree = yield* resolved(context.workspaceRoot, file, matched);
-    (yield* Linked).set(join(context.workspaceRoot, file), tree.members);
+    linked.set(file, tree.members);
     const built = Array.fromNullishOr(tree.workflows[0]).flatMap((head) => tree.members.filter((member) => member.compiled || member.registries.length > 0).map((member) => ({ member, head })));
     const manifests = yield* Effect.forEach(built, ({ member }) => manifested(context.workspaceRoot, member.root));
     const projects = Record.fromIterableWith(Array.zip(built, manifests), ([{ member, head }, declared]): [string, ProjectConfiguration] => {
@@ -29,7 +29,7 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, setti
             root: member.root,
             name: member.name,
             metadata: { technologies: ['cmake'] },
-            ...(member.compiled && { namedInputs: { default: memberInputs(tree, member, sources) } }),
+            ...(member.compiled && { namedInputs: { default: memberInputs(tree, member, head, sources) } }),
             ...('pack--cpack' in targets && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions` } } }),
             targets,
         };
@@ -44,7 +44,9 @@ const createNodes: CreateNodes = [
     combineGlobPatterns([PRESETS, MANIFEST, '*.cmake', REGISTRY.manifest, REGISTRY.configuration].map((file) => `**/${file}`)),
     inferring(Options, run, function* (matched, settings, context) {
         const presets = matched.filter((file) => posix.basename(file) === PRESETS && matched.includes(posix.join(posix.dirname(file), MANIFEST)));
-        return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(context, settings, matched, file)), presets, settings, context));
+        const linked = new Map<string, Tree['members']>();
+        (yield* Linked).set(context.workspaceRoot, linked);
+        return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(context, settings, matched, linked, file)), presets, settings, context));
     }),
 ];
 
@@ -52,8 +54,7 @@ const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) 
     run(
         Effect.map(Linked, (links) => {
             const names = createProjectRootMappingsFromProjectConfigurations(projects);
-            const members = [...links].flatMap(([presets, held]) => (relative(workspaceRoot, presets).startsWith('..') ? [] : held));
-            const linked = members.flatMap(({ root, links: held }) => held.map((link) => ({ root, link })));
+            const linked = [...(links.get(workspaceRoot)?.values() ?? [])].flat().flatMap(({ root, links: held }) => held.map((link) => ({ root, link })));
             return Array.getSomes(
                 linked.map(({ root, link }) =>
                     Option.map(Option.all({ source: Option.fromUndefinedOr(names.get(root)), target: Option.fromUndefinedOr(names.get(link.root)) }), (named): RawProjectGraphDependency =>
