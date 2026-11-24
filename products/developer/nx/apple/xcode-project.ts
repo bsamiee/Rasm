@@ -195,7 +195,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                 executor: `${PLUGIN}:release-publish`,
                 dependsOn: ['pack--ditto', '^nx-release-publish'],
                 inputs: [{ dependentTasksOutputFiles: '**/*.dmg' }, { externalDependencies: [] }],
-                options: { exports: archived.map(({ archive, folder }) => ({ archive, folder })) },
+                options: { exports: archived.map(({ archive }) => ({ archive })) },
                 metadata: {
                     technologies: ['xcode'],
                     description: `Signs the Sparkle feed of each disk image pack--ditto wrote with generate_appcast under ${APPCAST.key} and uploads it to the R2 bucket ${APPCAST.bucket} names with cf r2 objects put, skipping where either is unset or no disk image exists`,

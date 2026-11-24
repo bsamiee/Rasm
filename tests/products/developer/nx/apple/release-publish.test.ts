@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { execute } from '@rasm/nx-apple/executors/release-publish';
-import { it as workspaced } from '@rasm/testing/nx';
+import { outputs, it as workspaced } from '@rasm/testing/nx';
 import { getLatestGitTagForPattern } from 'nx/src/command-line/release/utils/git';
 import { describe, expect, vi } from 'vitest';
 
@@ -52,8 +52,16 @@ describe('release-publish', () => {
         const graph = await tagged({ ...relay, 'Relay/build/Relay/Relay.dmg': 'image' }, TAGS);
         const expected = await getLatestGitTagForPattern(PATTERN, { projectName: 'Relay', releaseGroupName: 'apps' }, () => Promise.resolve(TAGS), { checkAllBranchesWhen: false, requireSemver: true, strictPreid: false });
 
-        await execute({ exports: [{ archive: 'Relay/build/Relay/Relay.xcarchive', folder: 'Relay/build/Relay' }], dryRun: true }, workspace.context(graph, 'Relay', 'nx-release-publish'));
+        await execute({ exports: [{ archive: 'Relay/build/Relay/Relay.xcarchive' }], dryRun: true }, workspace.context(graph, 'Relay', 'nx-release-publish'));
 
         expect(log).toHaveBeenCalledWith(expect.anything(), `Would publish the Sparkle feed of Relay.dmg for ${expected?.tag} through generate_appcast and cf r2 objects put`);
+    });
+
+    it('refuses where pack--ditto wrote no disk image, naming its declared outputs', async ({ workspace, tagged }) => {
+        const graph = await tagged(relay, TAGS);
+
+        const published = execute({ exports: [{ archive: 'Relay/build/Relay/Relay.xcarchive' }] }, workspace.context(graph, 'Relay', 'nx-release-publish'));
+
+        await expect(published).rejects.toThrow(`Relay holds no file its dependentTasksOutputFiles input of nx-release-publish matches under [${outputs(graph, 'Relay', 'pack--ditto').join(', ')}]`);
     });
 });

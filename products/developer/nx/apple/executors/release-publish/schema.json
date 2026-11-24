@@ -11,14 +11,10 @@
                 "properties": {
                     "archive": {
                         "type": "string",
-                        "description": "The .xcarchive whose app states its Sparkle feed in SUFeedURL"
-                    },
-                    "folder": {
-                        "type": "string",
-                        "description": "Folder holding the disk image of that app"
+                        "description": "The .xcarchive whose app states its Sparkle feed in SUFeedURL, beside the disk image pack--ditto writes of that app"
                     }
                 },
-                "required": ["archive", "folder"],
+                "required": ["archive"],
                 "additionalProperties": true
             }
         },
@@ -42,5 +38,5 @@
     "required": ["exports"],
     "additionalProperties": true,
     "title": "Release publish",
-    "description": "Signs a Sparkle feed for each disk image an export folder holds with generate_appcast under the key SPARKLE_ED_PRIVATE_KEY holds, pointing at the image's asset on the GitHub release of the project's tag at the checked-out commit, the tag nx release made from release.releaseTag.pattern, and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL with cf r2 objects put, and where a folder holds no disk image, either variable is unset, or nx release released no version of the project at that commit names what is missing and publishes nothing; runs through nx release publish, a dry run previewing every project"
+    "description": "Signs a Sparkle feed for the disk images beside each archive among the files the target's dependentTasksOutputFiles input matches in the outputs of the tasks it depends on with generate_appcast under the key SPARKLE_ED_PRIVATE_KEY holds, pointing at the image's asset on the GitHub release of the project's tag at the checked-out commit, the tag nx release made from the release tag pattern of the project's release group, and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL with cf r2 objects put, fails naming those outputs where they hold no matching file, and where an archive has no disk image beside it, either variable is unset, or nx release released no version of the project at that commit names what is missing and publishes nothing; runs through nx release publish, a dry run previewing every project"
 }
