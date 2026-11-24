@@ -1,5 +1,5 @@
 import { ExitError, run, spawn } from '@rasm/process';
-import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Path, pipe, Record, Schema, Stream } from 'effect';
+import { Array, Boolean, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Path, Record, Schema, Stream } from 'effect';
 import { type ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Forward } from '#/forward';
 import { type Host, Line } from '#/host';
@@ -55,7 +55,7 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
         const shared = yield* Cache.makeWith(
             Effect.fnUntraced(function* (host: Host) {
                 yield* Cache.get(placed, host);
-                return yield* (yield* checked(host)) ? Effect.void : pipe(Effect.fromResult(host.command(path, root, ['true'])), Effect.flatMap(captured), Effect.catchTag('ExitError', settled(host)), Effect.asVoid);
+                yield* Effect.fromResult(host.command(path, root, ['true'])).pipe(Effect.flatMap(captured), Effect.catchTag('ExitError', settled(host)), Effect.when(Effect.map(checked(host), Boolean.not)));
             }),
             { capacity: Number.POSITIVE_INFINITY, timeToLive: () => Duration.zero },
         );
@@ -86,7 +86,7 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
                 const socket = path.join(yield* fs.makeTempDirectoryScoped(), 'control');
                 const holder = yield* started(yield* Effect.fromResult(host.command(path, root, ['sh', '-c', 'echo && exec cat'], [], Option.some(socket))), { stdin: 'pipe' });
                 const refused = Effect.flatMap(Stream.mkString(Stream.decodeText(holder.stderr)), (printed) => SshError.of({ _tag: 'Unreachable', stderr: printed }, host.name));
-                yield* Effect.flatMap(Stream.runHead(holder.stdout), Option.match({ onSome: () => Effect.void, onNone: () => refused }));
+                yield* Effect.filterOrElse(Stream.runHead(holder.stdout), Option.isSome, () => refused);
                 yield* started(['sh', '-c', 'cat > /dev/null; exec "$0" "$@"', ...host.request(socket, 'exit')], { stdin: 'pipe', stdout: 'ignore', stderr: 'ignore' });
                 const { stdout } = yield* captured(host.request(socket, 'forward', ...Forward.argv(wanted))).pipe(Effect.catchTag('ExitError', ({ stderr }) => SshError.of({ _tag: 'Refused', stderr }, host.name)));
                 return yield* Forward.bound(stdout)(wanted);

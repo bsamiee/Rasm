@@ -16,21 +16,9 @@ const spec = (...ends: readonly (Host.HostPort | NetAddress.UnixPathAddress)[]) 
 const Forward = Object.assign(Spec, {
     argv: Spec.match({ Local: ({ bind, connect }) => ['-L', spec(bind, connect)], Remote: ({ bind, connect }) => ['-R', spec(bind, connect)], Dynamic: ({ bind }) => ['-D', spec(bind)] }),
     bound: (printed: string) =>
-        Spec.matchOrElse(
-            {
-                Remote: (wanted) =>
-                    Match.value(wanted).pipe(
-                        Match.when({ bind: { _tag: 'HostPort', port: 0 } }, ({ bind: { host }, connect }) =>
-                            Schema.decodeEffect(Allocated)(printed).pipe(
-                                Effect.flatMap((port) => Effect.fromResult(Host.hostPort(host, port))),
-                                Effect.map((bind) => Spec.cases.Remote.make({ bind, connect })),
-                                Effect.orDie,
-                            ),
-                        ),
-                        Match.orElse((remote) => Effect.succeed(remote)),
-                    ),
-            },
-            (wanted) => Effect.succeed(wanted),
+        Match.type<typeof Spec.Type>().pipe(
+            Match.when({ _tag: 'Remote', bind: { _tag: 'HostPort', port: 0 } }, ({ bind: { host }, connect }) => Effect.orDie(Effect.map(Schema.decodeEffect(Allocated)(printed), (port) => Spec.cases.Remote.make({ bind: Host.hostPortUnsafe(host, port), connect })))),
+            Match.orElse((wanted) => Effect.succeed(wanted)),
         ),
 });
 
