@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { batched, executor } from '@rasm/nx-distribution/inference';
+import { batched, executor } from '@rasm/nx';
 import { Array, Cause, Clock, Console, Effect, Exit, FileSystem, Path, Record, Schema, Stream, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { joinPathFragments, type Tree } from '@nx/devkit';
-import { spawned } from '@rasm/nx-distribution/inference';
+import { spawned } from '@rasm/nx';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
 import { Array, Cause, Effect, identity, Option, Result, Schema, SemVer, String, Struct } from 'effect';

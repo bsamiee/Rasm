@@ -1,6 +1,6 @@
 import type { TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, ran, spawned, Words } from '@rasm/nx-distribution/inference';
+import { batched, executor, ran, spawned, Words } from '@rasm/nx';
 import { Array, Clock, Console, DateTime, Effect, Equal, FileSystem, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { ANALYZER, ENVIRONMENT } from '#/targets';

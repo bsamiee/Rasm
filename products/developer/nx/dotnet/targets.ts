@@ -2,8 +2,7 @@ import { basename, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { PLATFORM, runner, tokened, type Verbs } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { EXECUTORS, PLATFORM, runner, tokened, type Verbs } from '@rasm/nx';
 import { Array, Context, Layer, Option, Record, Ref, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -168,7 +167,7 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
         ...tools,
         clean: {
             dotnet: {
-                executor: `${distribution.name}:clean`,
+                executor: EXECUTORS.clean,
                 inputs: compiled,
                 options: { targets: Record.collect(tools, (named, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${named}--${tool}`)).flat() },
                 metadata: metadata('clean', `Removes the outputs every configuration of the build and pack targets of ${node.name} declares`),
@@ -177,7 +176,7 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
         attach: {
             ...(node.packable && {
                 gh: {
-                    executor: `${distribution.name}:attach`,
+                    executor: EXECUTORS.attach,
                     dependsOn: ['pack--dotnet'],
                     inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
                     metadata: {
@@ -194,7 +193,7 @@ const publishing = (node: Node): Readonly<Record<string, TargetConfiguration>> =
     node.packable && node.pushed
         ? {
               'nx-release-publish': {
-                  executor: `${distribution.name}:publish`,
+                  executor: EXECUTORS.publish,
                   options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'], credential: CREDENTIAL, flag: '--api-key' },
                   dependsOn: ['pack--dotnet', '^nx-release-publish'],
                   inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],

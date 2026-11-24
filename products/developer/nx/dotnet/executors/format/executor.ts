@@ -1,5 +1,5 @@
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, ran, Words } from '@rasm/nx-distribution/inference';
+import { batched, executor, ran, Words } from '@rasm/nx';
 import { Array, Clock, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { grouped } from '#/executors/build/executor';

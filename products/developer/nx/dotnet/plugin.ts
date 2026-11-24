@@ -3,8 +3,7 @@ import { basename, dirname, extname, format, join, parse, posix, relative } from
 import { env, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, fingerprinted, inferring, manifested, spawned } from '@rasm/nx-distribution/inference';
-import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { type Anchor, aggregated, anchored, EXECUTORS, fingerprinted, inferring, manifested, spawned } from '@rasm/nx';
 import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Function, Graph, Option, Record, Ref, Result, Schema, Stream, String, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import which from 'which';
@@ -108,7 +107,7 @@ const releasable = (node: Node) => node.versioned && (node.packable || node.publ
 
 const listing = (node: Node) => join(workspaceDataDirectory, 'dotnet-external', `${hashArray([node.file])}.txt`);
 
-const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests: readonly Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>[], listed: (node: Node) => Option.Option<string>, workspaceRoot: string) => {
+const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests: readonly Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>[], listed: (node: Node) => Option.Option<string>, anchor: Anchor) => {
     const placed = Record.fromEntries(nodes.map((node, index) => [dirname(node.file), { index, released: releasable(node) }] as const));
     const referenced = Graph.fromSnapshot({
         type: 'directed',
@@ -138,7 +137,7 @@ const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests:
             root: dirname(node.file),
             name: node.name,
             metadata: { technologies: ['dotnet', node.language] },
-            targets: aggregated(targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test }, Option.fromUndefinedOr(coveragePath), solution(node), listed(node)), manifest, 'dotnet', workspaceRoot, publishing(node)),
+            targets: aggregated(targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test }, Option.fromUndefinedOr(coveragePath), solution(node), listed(node)), manifest, 'dotnet', anchor, publishing(node)),
             ...(releasable(node) && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } } } }),
             ...(tags.length > 0 && { tags }),
             ...(node.implicit.length > 0 && { implicitDependencies: [...node.implicit] }),
@@ -167,6 +166,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
     );
     const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.catalogs, ...node.locks])).map((at) => posix.join('{workspaceRoot}', at));
     const manifests = yield* Effect.forEach(report.nodes, (node) => manifested(workspaceRoot, dirname(node.file)));
+    const anchor = anchored(workspaceRoot);
     const solutions = yield* Effect.forEach(
         matched.filter((file) => SOLUTIONS.includes(extname(file))),
         (file) =>
@@ -175,7 +175,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
                 const cleared = ['dotnet', 'nuget', 'locals', 'global-packages', '--clear'] as const;
                 const locked = ['dotnet', 'restore', basename(file), '--force-evaluate'] as const;
                 const upgrade: TargetConfiguration = {
-                    executor: `${distribution.name}:upgrade`,
+                    executor: EXECUTORS.upgrade,
                     options: { cwd: dirname(file), commands: [{ apply: moved, preview: [...moved, '--dry-run'], env: ENVIRONMENT }, { apply: cleared }, { apply: locked }] },
                     inputs: [posix.join('{workspaceRoot}', file), ...declared, { externalDependencies: [] }],
                     metadata: {
@@ -196,7 +196,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
                 };
                 const purged = ['dotnet', 'nuget', 'locals', 'all', '--clear'] as const;
                 const clean: TargetConfiguration = {
-                    executor: `${distribution.name}:clean`,
+                    executor: EXECUTORS.clean,
                     options: { cwd: dirname(file) },
                     configurations: { cache: { commands: [purged] } },
                     inputs: [{ externalDependencies: [] }],
@@ -210,7 +210,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
                                 root: dirname(file),
                                 ...(Option.isSome(named) ? {} : { name: basename(file, extname(file)) }),
                                 metadata: { technologies: ['dotnet'] },
-                                targets: aggregated({ upgrade: { dotnet: upgrade }, check: { 'dotnet-restore': restore }, clean: { nuget: clean } }, manifest, 'dotnet', workspaceRoot),
+                                targets: aggregated({ upgrade: { dotnet: upgrade }, check: { 'dotnet-restore': restore }, clean: { nuget: clean } }, manifest, 'dotnet', anchor),
                             },
                         },
                     },
@@ -227,7 +227,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
                     Option.liftPredicate(node, (held) => held.external.length > 0),
                     (held) => relative(workspaceRoot, listing(held)),
                 ),
-            workspaceRoot,
+            anchor,
         ),
         ...solutions,
     ];
