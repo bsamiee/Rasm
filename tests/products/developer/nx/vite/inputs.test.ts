@@ -17,14 +17,14 @@ const INSTALLED = { vite: '8.0.0', dep: '1.0.0', unread: '1.0.0' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const hashed = (workspace: Workspace, graph: ProjectGraph, versions: Readonly<Record<string, string>> = INSTALLED) => {
+const hashed = (workspace: Workspace, graph: ProjectGraph, versions: Readonly<Record<string, string>> = INSTALLED, variables: Readonly<Record<string, string>> = {}) => {
     const planned = taskGraph(graph, ['web'], ['build--vite']);
     const installed: ProjectGraph = { ...graph, externalNodes: Object.fromEntries(Object.entries(versions).map(([name, version]) => [`npm:${name}`, { type: 'npm', name: `npm:${name}`, data: { packageName: name, version, hash: `${name}@${version}` } }])) };
     const task = planned.tasks['web:build--vite'];
     return task === undefined
         ? Promise.resolve(undefined)
         : createTaskHasher(installed, readNxJson(workspace.root))
-              .hashTask(task, planned, {})
+              .hashTask(task, planned, { ...env, ...variables })
               .then(({ value }) => value);
 };
 
@@ -38,6 +38,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
         'nx.json': '{"namedInputs":{"default":["{projectRoot}/**/*"],"production":["default","!{projectRoot}/**/*.spec.ts"]}}',
         'tsconfig.base.json': '{"compilerOptions":{"target":"es2022"}}',
         'tsconfig.shared.json': '{"extends":"./tsconfig.base.json","compilerOptions":{"jsx":"react-jsx"}}',
+        '.gitignore': '.env*\n',
         'docs/guide.md': '# Guide\n',
         'tools/vite/base.ts': "export const outDir = 'dist';\n",
         'libs/plugin/package.json': '{"name":"plugin","type":"module","exports":"./index.js"}',
@@ -63,6 +64,7 @@ describe('what build--vite hashes', { timeout: 60_000 }, () => {
         { case: 'the compilerOptions of a tsconfig outside the project its extends chain reaches', edit: { 'tsconfig.shared.json': '{"extends":"./tsconfig.base.json","compilerOptions":{"jsx":"preserve"}}' }, changes: true },
         { case: 'the include list of that tsconfig, which vite build never reads', edit: { 'tsconfig.shared.json': '{"extends":"./tsconfig.base.json","compilerOptions":{"jsx":"react-jsx"},"include":["src"]}' }, changes: false },
         { case: 'a docs file no project owns', edit: { 'docs/guide.md': '# Guide\n\nMore.\n' }, changes: false },
+        { case: 'a gitignored dotenv file of the envDir', edit: { 'apps/web/.env.production.local': 'VITE_API=https://two.test\n' }, changes: true },
     ])('hashes again after an edit to $case: $changes', async ({ edit, changes }, { workspace }) => {
         const before = await hashed(workspace, await workspace.graph({ createNodes }));
 
@@ -79,6 +81,18 @@ describe('what build--vite hashes', { timeout: 60_000 }, () => {
         const graph = await workspace.graph({ createNodes });
 
         const [before, after] = await Promise.all([hashed(workspace, graph), hashed(workspace, graph, { ...INSTALLED, [moved]: '9.0.0' })]);
+
+        expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: changes });
+    });
+
+    it.for([
+        { case: 'a variable under the envPrefix', variable: 'VITE_API', changes: true },
+        { case: 'a variable under a custom envPrefix', variable: 'PUBLIC_API', config: "export default { envPrefix: 'PUBLIC_' };\n", changes: true },
+        { case: 'a variable outside the envPrefix', variable: 'API', changes: false },
+    ])('hashes again after a change to $case: $changes', async ({ variable, config, changes }, { workspace }) => {
+        const graph = await (config === undefined ? workspace : workspace.write({ 'apps/web/vite.config.ts': config })).graph({ createNodes });
+
+        const [before, after] = await Promise.all([hashed(workspace, graph, INSTALLED, { [variable]: 'https://one.test' }), hashed(workspace, graph, INSTALLED, { [variable]: 'https://two.test' })]);
 
         expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: changes });
     });

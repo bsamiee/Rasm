@@ -24,9 +24,18 @@ const CLOUDFLARE = { plugin: '@cloudflare/vite-plugin', output: '@cloudflare/bui
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ outputPath: Folder }).annotate({ description: 'outputPath: workspace folder vite build writes to, {projectName} naming the project, absent leaves build.outDir of the config' });
-const Resolution = Schema.Struct({ root: Schema.String, library: Schema.Boolean, built: Schema.Boolean, signals: Schema.Boolean, stated: Schema.Boolean, written: Schema.Array(Schema.String), dependencies: Schema.Array(Schema.String) }).annotate({
+const Resolution = Schema.Struct({
+    root: Schema.String,
+    library: Schema.Boolean,
+    buildable: Schema.Boolean,
+    signals: Schema.Boolean,
+    served: Schema.Boolean,
+    written: Schema.Array(Schema.String),
+    env: Schema.Struct({ directory: Schema.NullOr(Schema.String), prefixes: Schema.Array(Schema.String) }),
+    dependencies: Schema.Array(Schema.String),
+}).annotate({
     description:
-        'What the worker read from a Vite config through resolveConfig for one command: the Vite root, whether it builds a library, states a builder or an entry vite build builds from, loads the Nx ready signal, and states a server or preview block, the outDir of each environment vite build builds, and every file the config load read',
+        'What the worker read from a Vite config through resolveConfig: the Vite root, whether it builds a library, whether vite build builds anything, whether it loads the Nx ready signal, whether vite serves it, the outDir of each environment vite build builds, the envDir its dotenv files load from with the envPrefix of the variables it exposes, and every file the build load and any serve load read',
 });
 const Exported = Schema.fromJsonString(Schema.Struct({ exports: Schema.Struct({ '.': Schema.Struct({ import: Schema.String }) }) })).annotate({ description: `The import entry of the root export of ${CLOUDFLARE.output}, the package ${CLOUDFLARE.plugin} writes its Build Output tree through` });
 const Emitted = Schema.Struct({ BUILD_OUTPUT_ROOT: Schema.String }).annotate({ description: `The Build Output root ${CLOUDFLARE.output} exports, relative to the Vite root, holding the root config and every Worker and Container ${CLOUDFLARE.plugin} writes beside the environment build folders` });
@@ -37,27 +46,21 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     const fs = yield* FileSystem.FileSystem;
     const at = join(workspaceRoot, file);
     const local = (to: string) => normalizePath(relative(workspaceRoot, to));
-    const resolved = (command: 'build' | 'serve') => {
-        const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load for vite ${command}`);
-        return Effect.flatMap(
-            Effect.acquireUseRelease(
-                Effect.sync(() => new Worker(WORKER, { workerData: { at, command, outDir: Option.getOrUndefined(outDir) } })),
-                (worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail))),
-                (worker) => Effect.promise(() => worker.terminate()),
-            ),
-            ([message]) => Schema.decodeUnknownEffect(Resolution)(message),
-        );
-    };
-    const [{ root: base, library, built, signals, stated, written, dependencies }, vite] = yield* Effect.all(
-        [resolved('build'), Effect.tryPromise({ try: (): Promise<{ readonly parseSync: typeof parseSync }> => import(pathToFileURL(createRequire(at).resolve('vite')).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no vite`) })],
+    const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load for vite build`);
+    const resolved = Effect.flatMap(
+        Effect.acquireUseRelease(
+            Effect.sync(() => new Worker(WORKER, { workerData: { at, outDir: Option.getOrUndefined(outDir) } })),
+            (worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail))),
+            (worker) => Effect.promise(() => worker.terminate()),
+        ),
+        ([message]) => Schema.decodeUnknownEffect(Resolution)(message),
+    );
+    const [{ root: base, library, buildable, signals, served, written, env, dependencies }, vite] = yield* Effect.all(
+        [resolved, Effect.tryPromise({ try: (): Promise<{ readonly parseSync: typeof parseSync }> => import(pathToFileURL(createRequire(at).resolve('vite')).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no vite`) })],
         { concurrency: 'unbounded' },
     );
-    const page = join(base, 'index.html');
-    const entry = yield* fs.exists(page);
-    const buildable = library || entry || built;
-    const served = buildable && ((!library && (entry || signals)) || stated || Option.exists(yield* Effect.option(resolved('serve')), (serve) => serve.stated));
     const loaded = Array.dedupe([file, ...dependencies.map(local)]).filter(within);
-    const { packages, linked, folders: imported } = yield* packaged(yield* parsed(vite.parseSync, workspaceRoot, loaded));
+    const { packages } = yield* packaged(yield* parsed(vite.parseSync, workspaceRoot, loaded));
     const emitted = yield* Effect.forEach(
         packages.filter((name) => name === CLOUDFLARE.plugin),
         Effect.fnUntraced(function* (name) {
@@ -73,21 +76,21 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         }),
     );
     const folders = Array.dedupe([...written, ...emitted].map((to) => local(resolve(base, to))));
-    const sources = [lock, ...loaded, ...imported.map((folder) => posix.join(local(folder), '**/*')), local(page), ...Array.fromNullishOr(findPackageJSON(pathToFileURL(at))).map(local)];
+    const sources = [lock, ...loaded, local(join(base, 'index.html')), ...Array.fromNullishOr(findPackageJSON(pathToFileURL(at))).map(local)];
     return {
         type: library ? ('library' as const) : ('application' as const),
         signals,
         served,
         loaded: loaded.filter((dependency) => posix.relative(posix.dirname(file), dependency).startsWith('..')),
         packages,
-        linked,
+        env: { directory: Option.getOrUndefined(Option.filter(Option.map(Option.fromNullOr(env.directory), local), within)), prefixes: env.prefixes },
         sources,
         stamp: yield* stamped(workspaceRoot)(sources),
         ...(buildable && { folders: folders.filter((to) => !folders.some((other) => to.startsWith(`${other}/`))) }),
     };
 });
 
-const targets = (file: string, { folders, signals, served, loaded, packages, linked }: Resolved, chain: readonly string[], named: 'production' | 'default', outDir: Option.Option<string>, exec: string): Verbs => {
+const targets = (file: string, { folders, signals, served, loaded, packages, env }: Resolved, chain: readonly string[], named: 'production' | 'default', outDir: Option.Option<string>, exec: string): Verbs => {
     const rooted = getRootTsConfigFileName();
     const needs = {
         options: { cwd: posix.dirname(file) },
@@ -97,7 +100,8 @@ const targets = (file: string, { folders, signals, served, loaded, packages, lin
             `^${named}`,
             ...chain.filter((at) => at !== rooted).map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
             ...loaded.map((at) => posix.join('{workspaceRoot}', at)),
-            ...Array.match(linked, { onEmpty: () => [], onNonEmpty: (owners) => [{ input: 'default', projects: [...owners] }] }),
+            ...Array.fromNullishOr(env.directory).map((at) => ({ fileset: posix.join('{workspaceRoot}', at, '.env*'), includeIgnored: true })),
+            { runtime: ['node', '-p', `Object.entries(process.env).filter(([name]) => ${JSON.stringify(env.prefixes)}.some((prefix) => name.startsWith(prefix))).sort().join()`].map(quoteShellArg).join(' ') },
             { dependentTasksOutputFiles: '**/*', transitive: true },
             { externalDependencies: Array.dedupe(['vite', ...packages]) },
         ],
