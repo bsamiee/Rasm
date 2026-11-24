@@ -13,7 +13,6 @@ const NESTED = {
     'nested/proj/pyproject.toml': '[tool.uv.workspace]\nmembers = ["library"]\n',
     'nested/proj/library/pyproject.toml': '[project]\nname = "library"\nversion = "0.1.0"\n',
 };
-const VERSIONED = { uv: `[ "$1 $2" = "self version" ] && { echo ${execFileSync('uv', ['self', 'version', '--short'], { encoding: 'utf-8' }).trim()}; exit 0; }\nexit 2` };
 const ADDED = {
     'nested/proj/pyproject.toml': '[tool.uv.workspace]\nmembers = ["library", "added"]\n',
     'nested/proj/added/pyproject.toml': '[project]\nname = "added"\nversion = "0.1.0"\n',
@@ -22,10 +21,10 @@ const ADDED = {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('uv workspace metadata', { timeout: 60_000 }, () => {
-    it('answers from the cache while uv reports the same version and no file uv reads changes', async ({ workspace }) => {
+    it('answers from the cache while no file uv reads changes', async ({ workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
         await workspace.graph({ createNodes, createDependencies });
-        pathed(join(workspace.root, '.bin'), VERSIONED);
+        pathed(join(workspace.root, '.bin'), {});
 
         const graph = await workspace.graph({ createNodes, createDependencies });
 
@@ -49,11 +48,11 @@ describe('uv workspace metadata', { timeout: 60_000 }, () => {
     ])('reads the workspace again once $file appears at the uv root', async ({ file, content }, { workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.write(NESTED).root, 'nested/proj') });
         await workspace.graph({ createNodes, createDependencies });
-        pathed(join(workspace.write({ [`nested/proj/${file}`]: content }).root, '.bin'), VERSIONED);
+        pathed(join(workspace.write({ [`nested/proj/${file}`]: content }).root, '.bin'), {});
 
         const graphed = workspace.graph({ createNodes, createDependencies });
 
-        await expect(graphed).rejects.toSatisfy(refused(/^uv workspace metadata .* exits 2$/u));
+        await expect(graphed).rejects.toSatisfy(refused(/^uv workspace metadata .*cannot start: /u));
     });
 
     it('keeps the projects of every other lock while one lock fails', async ({ workspace }) => {

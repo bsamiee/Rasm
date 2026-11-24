@@ -19,18 +19,13 @@ const Quoted = Schema.fromJsonString(Schema.String);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (
-    pass: { readonly cache: PluginCache<{ readonly digest: string; readonly reply: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly files: ReadonlySet<string>; readonly version: string },
-    { workspaceRoot }: CreateNodesContext,
-    settings: Options,
-    lock: string,
-) {
+const inferred = Effect.fnUntraced(function* (pass: { readonly cache: PluginCache<{ readonly digest: string; readonly reply: string }>; readonly stored: MutableRef.MutableRef<boolean>; readonly files: ReadonlySet<string> }, { workspaceRoot }: CreateNodesContext, settings: Options, lock: string) {
     const token = '{workspaceRoot}';
     const folder = posix.dirname(lock);
     const parents = new Set(above(posix.dirname(folder)));
     const placed = (yield* Schema.encodeEffect(Quoted)(workspaceRoot)).slice(1, -1);
     const read = [...pass.files].filter((file) => READ.includes(posix.basename(file)) && (folder === '.' || file.startsWith(`${folder}/`) || parents.has(posix.dirname(file))));
-    const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, read)), yield* OWN, pass.version]);
+    const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, read)), yield* OWN]);
     const metadata = yield* Option.match(
         Option.filter(Option.fromNullishOr(pass.cache.get(lock)), (held) => held.digest === digest),
         {
@@ -70,7 +65,7 @@ const createNodes: CreateNodes = [
     FILES,
     inferring(Options, run, function* (matched, settings, context) {
         const found = yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, FOUND));
-        const pass = { cache: new PluginCache<{ readonly digest: string; readonly reply: string }>(join(workspaceDataDirectory, 'uv.hash')), stored: MutableRef.make(false), files: new Set([...matched, ...found]), version: yield* spawned(['uv', 'self', 'version', '--short'], { cwd: context.workspaceRoot }) };
+        const pass = { cache: new PluginCache<{ readonly digest: string; readonly reply: string }>(join(workspaceDataDirectory, 'uv.hash')), stored: MutableRef.make(false), files: new Set([...matched, ...found]) };
         const locks = matched.filter((file) => posix.basename(file) === LOCK);
         (yield* Linked).delete(context.workspaceRoot);
         return yield* Effect.ensuring(
