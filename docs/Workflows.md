@@ -9,8 +9,6 @@ Rules every workflow follows:
 - Jobs install a host application only once a task needing it misses the cache, as a cached task reads no host
 - Jobs wait for the jobs whose machine or outputs they need alone, as each wait lengthens the chain a run ends with
 - Work no other job waits for runs as steps of a job already on its runner instance, as an instance runs one job at a time
-- Speed changes rest on step and task times measured before and after them, as estimates and review agreement miss restore and queue costs
-- Cache steps stay where measured runs show their restore costs less than the work they save
 
 ## [02]-[CI]
 
@@ -28,14 +26,14 @@ Workflow `CI` queues, bases, and checkouts:
 - `nx affected` compares file names between base and head, and reads lockfiles and root manifests changed between them at base, one request each
 - Jobs `macos` and `windows` clone every commit without file contents and fetch the files of their own commit alone (`filter: blob:none`)
 - Self-hosted checkouts fetch full history and keep ignored files (`clean: false`), as a kept checkout fetches new commits alone
-- CI jobs run Nx tasks on all cores (`NX_PARALLEL`), as batch tools take every core at any setting and the setting speeds only one-worker tasks
+- CI jobs run Nx tasks on all cores (`NX_PARALLEL`), and `Release` jobs `browser` and `unreal` on half
 
 ## [03]-[CI_JOBS]
 
 Jobs of workflow `CI` and the projects each runs:
 - Jobs `shas` and `affected` run on instance `graph`, as other jobs wait for them and instance `host` holds a job behind job `linux` of an earlier run
 - Jobs `linux` and `macos` wait for job `shas` alone, and every other job for job `affected` too
-- Job `affected` lists affected projects once and selects each job's projects by tag from `project-graph.json`
+- Job `affected` lists each job's projects through `nx show projects --affected` over that job's targets and exclusions
 - Job `affected` names the Playwright image Deploy publishes by the `@playwright/test` row of the pnpm catalog
 - Runs at a Playwright version with no published image fail to pull it until Deploy on `main` publishes its tag
 - Job `deploy` of such a run still builds that tag, as it waits for job `browser` without needing its success, and a re-run of `browser` passes
@@ -45,7 +43,7 @@ Jobs of workflow `CI` and the projects each runs:
 - Job `linux` runs every `codegen` target first, as type-aware lint reads the sources those targets write
 - Job `linux` runs `hk check` from base to head before its tasks, which run past a failed check once code generation passed
 - Configuration `ci` of job `linux` adds GitHub annotations to `check--knip` findings
-- Job `linux` keeps Nx batches, which ran its Vitest suites sooner on the owner's Mac, and job `browser` turns batching off (`NX_BATCH_MODE`), which ran its tasks sooner
+- Job `browser` turns batching off (`NX_BATCH_MODE`)
 - Jobs `linux` and `browser` remove each report path before their run, as their kept checkout holds earlier runs' reports
 - Job `browser` runs `host:browser` projects on instance `container` with Chromium of its Playwright image
 - Job `browser` runs Chromium in a job container, as on the host each network Docker adds fails queued requests with `net::ERR_NETWORK_CHANGED`
@@ -67,22 +65,16 @@ Jobs of workflow `CI` and the projects each runs:
 
 ## [04]-[TOOLS]
 
-Composite actions and the mise profiles each job loads:
+Composite actions and the mise profile jobs load:
 - Workflows name composite actions and reusable workflows by `$/` paths, read from the archive of the commit a run started from
 - Runners fail a job before its first step where a tracked symlink of that archive names an untracked file
-- Action `tools` removes untracked files and bootstraps mise tools alone, and mise hook `postinstall` installs project dependencies
+- Action `tools` removes untracked files and runs `mise bootstrap --only tools`, and mise hook `postinstall` installs project dependencies
 - Job containers install mise tools in the runner's tool cache
 - CMake checks uninitialized variables in each file inside the source tree, vcpkg's toolchain file included where mise installs it there
 - Windows jobs install mise tools under `C:\mise`, as `cmd.exe` finds no command once `PATH` passes 8191 characters
-- GitHub-hosted runners, job containers, and job `affected` load mise profile `ci`, which skips Python environments and Playwright browsers
-- Profile `ci-<job id>` sets `enable_tools` to the tools a job's steps and Nx tasks run, and a job with no such file installs every tool
-- Profiles list the tools graph creation spawns (`rust`, `uv`, `jscpd`), and `dotnet` where their job's graph holds .NET projects
-- Profiles repeat those tools, as a later mise file replaces `enable_tools` whole
-- Profiles `ci-macos`, `ci-deploy`, and `ci-browser` disable row `msbuild-analyzer`, and their graphs leave .NET projects out
-- Profiles `ci-macos` and `ci-version` hold `yq`, as `mise.macos.toml` reads the Rhino major through it
-- Jobs `browser` of `CI` and `Release` share profile `ci-browser`, as a profile follows the job id
-- Profile `ci-windows` holds `usvg` for `Rasm.Rhino` icons and no `imagemagick`, as no Windows task builds a Rhino plug-in
-- Profile `ci-deliver` holds Sparkle, Yak, `blender_ext.py`, `gh`, and the icon renderers, as job `deliver` packs and publishes every ecosystem but browser and Unreal
+- GitHub-hosted runners alone load mise profile `ci`, which skips Python environments and Playwright browsers
+- Profile `ci` sets `enable_tools` to the tools hosted jobs' steps, Nx tasks, and graph creation run
+- Self-hosted jobs, job containers and job `affected` included, load no profile and install every tool
 
 ## [05]-[CACHE]
 
@@ -95,25 +87,20 @@ Actions caches per workflow and machine:
 - Graph caches save after the run passes or fails, keyed by the hash of every `*.hash` file, as those change only with plugin entries
 - Graph cache saves skip a hash the restored key ends with
 - Graph caches save from runs on `main` and tool caches from pushes to `main` alone, as a pull request run's cache serves re-runs of that pull request alone
-- Action `jdx/mise-action` saves a GitHub-hosted job's tools, keyed by platform, profile names, `mise.lock`, profile files, and `rust-toolchain.toml`
+- `jdx/mise-action` saves hosted jobs' tools by platform, profile, bootstrap arguments, `mise.lock`, `mise.ci.toml`, and `rust-toolchain.toml`
 - Tool cache keys leave out `mise.toml` and the OS and machine mise files, as `mise.lock` pins every tool and those files change with hooks and rows no tool reads
 - GitHub-hosted jobs hold rustup and cargo homes inside the mise folder that action caches, and a restored cache holds the Rust toolchain
 - Jobs on macOS restore the Apple analyzer, its stamp, and mise freshness state by analyzer sources
-- Jobs on Windows restore the MSBuild analyzer and mise freshness state by analyzer sources and `mise.lock`
+- GitHub-hosted jobs restore the MSBuild analyzer and mise freshness state by analyzer sources and `mise.lock`
 - Analyzer caches save a new entry where the mise file holding the analyzer row changed, as mise rebuilds where restored state names another command
 - GitHub-hosted jobs cache no pnpm store, as restoring its archive takes longer than the downloads a warm store saves
-- Job `macos` restores no Swift build folder, as compilation cache hits need its path alone to repeat
-- Job `macos` restores and saves the compilation cache on uncached runs alone
-- Xcode tasks the owner's Mac ran first restore in job `macos` from the Nx cache while both hold one Xcode build, so pushes restore no compilation cache
-- Uncached `macos` runs took 1218 s of tasks from nothing and 858 s over a restored 727 MB compilation cache at 832 of 832 hits, 29 s to restore
-- Job `macos` uploads the build logs Xcode writes, each ending in a metrics record of cache hits per cacheable task
-- Xcode logs one `Cache hit` per cacheable task and `SwiftCompile` lines per file and per target plan, so a hit rate comes from the metrics record alone
 - Past the 10 GB repository limit GitHub evicts caches by oldest last access
 
 ## [06]-[REMOTE_CACHE]
 
 Nx remote cache readers and the hash inputs that decide what machines share:
-- Runs read and write with `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`, and a pull request from a fork holds no secret and uses its local cache
+- Pushes and manual runs read and write with secret `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`
+- Pull request runs read with `NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN` and store nothing, and fork pull requests hold no secret and use local cache
 - Owner's Mac reads the server and token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
 - Root project `rasm` takes tag `os:darwin`, Xcode targets, and Colima targets on macOS alone, and none of its tasks shares a key with Linux

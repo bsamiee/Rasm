@@ -16,8 +16,8 @@ Each place holding state changes through one action:
 
 | [INDEX] | [PLACE]                              | [DECIDED_BY]                                                   | [UPDATED_BY]      |
 | :-----: | :----------------------------------- | :------------------------------------------------------------- | :---------------- |
-|  [01]   | Owner's Mac                          | Tool versions, lock files, Nx cache folder                     | `mise install`    |
-|  [02]   | CI runner                            | Pushed commit                                                  | `git push`        |
+|  [01]   | Owner's Mac                          | Tool versions, lock files                                      | `mise install`    |
+|  [02]   | GitHub-hosted runner                 | Pushed commit                                                  | `git push`        |
 |  [03]   | GitHub, Doppler, Cloudflare, tailnet | `infra/repository-stack.ts`, Doppler's sync                    | Workflow `Deploy` |
 |  [04]   | Google Cloud project `rasm-release`  | `infra/repository-stack.ts`                                    | Workflow `Deploy` |
 |  [05]   | Machines                             | Table `hosts` of `infra/platform-stack.ts`, mise `[bootstrap]` | Workflow `Deploy` |
@@ -48,9 +48,9 @@ Pulumi state and operations of each stack:
 Machines, their roles, and their reinstall:
 - Table `hosts` keys machines by DNS name, names state no role, provider, or location, and each service a role runs takes a DNS alias
 - Each machine holds DNS record `<name>.<zone>`, tailnet name `<name>`, and a Pulumi stack named by its DNS name
-- `[bootstrap.remote]` loads `machine`, and a host row with a role names `machine` and its role file, as `mise bootstrap remote` sends no miserc
+- `[bootstrap.remote]` loads `machine`, and a host row with a role file names `machine` and that file, as `mise bootstrap remote` sends no miserc
 - `mise bootstrap remote` sends folder `.config` and applies its parts as `root@<name>` over Tailscale SSH
-- Remote bootstrap rows sit in `.config/mise.remote.toml` and Sparkle settings in `.config/sparkle.xcconfig`, files the stacks read whole
+- Remote bootstrap rows sit in `.config/mise.remote.toml` and Sparkle settings in `.config/sparkle.xcconfig`, files `deploy--pulumi` hashes whole
 - Environment `remote` loads the remote rows, and job `deploy` adds it for its bootstrap step, as `mise -E remote bootstrap remote` does by hand
 - Config files mise loads beside `mise.toml` outside an environment take the lock rows of tools a version file names, and locked installs of Rust then fail
 - Deploy starts for those files and no other mise or Xcode setting, as named input `deployed` names what `deploy--pulumi` reads
@@ -86,7 +86,7 @@ Images stacks build, push, and pull:
 - Pushed images hold their registry credentials, as a changed `registries` setting replaces the build provider and images ignore a changed password
 - Locally built images lost from their machine stay in stack state until a deploy replaces their `docker-build:Image` resource
 - Pulled images take name `<tag>@<digest>` from registry digests each deploy reads, and a moved tag replaces its image, then its containers
-- Docker removes no image name a container uses, its provider pulls no name a machine holds, and stacks name no image by tag alone
+- Docker removes no image name a container uses, its provider pulls no name a machine holds, and stacks pull no image by tag alone
 
 ## [07]-[TAILNET]
 
@@ -105,7 +105,7 @@ Tailnet members, tags, and policy:
 Routes from public names to containers:
 - Traefik proxies publish ports 80 and 443 on every address, redirect 80 to 443, and issue ACME certificates by TLS challenge
 - Proxies mount folder `/var/run` to read the Docker socket, as Docker package updates replace its socket file under running containers
-- Routed services publish no port, and proxies reach each on its Docker network under one CNAME `<service>.<zone>` to its machine's A record
+- Proxies reach routed services on their Docker network, each under CNAME `<service>.<zone>` to its machine's A record
 - Apps on a machine get CNAME `<app>.<zone>`, and its sign-in service requires a session on each app's sign-in path alone
 - Proxies strip `Remote-User` and `Remote-Email` from every app request and set both from its sign-in session, and apps read both through `ACCESS`
 - Object storage publishes its port on its machine's tailnet IPv4 alone, `127.0.0.1` on a local install
@@ -119,9 +119,9 @@ Routes from public names to containers:
 ## [09]-[CACHE_SERVER]
 
 Nx cache server of role `Cache`:
-- Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes one token that reads and writes
+- Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes a read-write and a read-only token
 - Runners reach the server over public HTTPS through its proxy
-- Doppler `ci` holds server URL and token, which `dev` and `deploy` reference
+- Doppler `ci` holds server URL and both tokens, `dev` references URL and read-write token, and `deploy` both tokens
 - Cache objects expire role field `kept` after their write, and a read refreshes none
 - Cache buckets hold no quota, as RustFS refuses writes past a quota and Nx fails a task once its cache write fails six times
 - Deploys recreate a cache container on a changed definition alone, runs starting meanwhile use their local cache, and runs past their first read stop

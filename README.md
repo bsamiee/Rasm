@@ -190,8 +190,9 @@ Nx runs project-level work over a graph its plugins infer:
 - Hash inputs name a tool by identity (compiler version, platform, installer URL) and no machine path, as host state differs between machines
 - `mise install` builds .NET and Swift analyzers before graphs, and a missing one leaves its projects out with a warning naming its build
 - Stale .NET analyzers fail the graph, and missing or stale Swift analyzers leave out Xcode targets alone
-- `nx affected -t <target>` runs only the tasks a change reaches, as each target's inputs name exactly what its tools read, aggregate targets included
-- Tools keep their own incremental state, and Nx caches results around it in one remote cache CI jobs and the owner's Mac read and write
+- `nx affected -t <target>` runs only the tasks whose inputs a change reaches, aggregate targets included
+- Tasks hash their executor's workspace project and its dependencies
+- Tools keep their own incremental state, and Nx caches results around it in one remote cache that pull request runs read alone
 - `nx sync` writes executor schemas and tsconfig `references`, and non-terminal runs outside CI stop on stale ones until it runs, never `--skip-sync`
 - `nx conformance:check` runs `nx.json` conformance rules over the graph and every target
 
