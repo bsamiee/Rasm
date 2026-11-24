@@ -66,7 +66,8 @@ jq -n '[inputs | (.structured_output // .).unread[]] | unique' .artifacts/audit/
 
 - Unread paths form the next share, and an audit with unread paths is unfinished
 - Findings sharing a path and line are one finding
-- Each finding is read against its file and its `verify` step run before any fix, and one that fails either is dropped
+- Each finding is read against its file and its `verify` step run before any fix, and one failing either joins a pool file with its reader and doubt
+- Pool files sit at `.artifacts/audit/<run>/questionable.md`, each finding read and run again after the last report, then fixed or discarded with its evidence
 - Fixes go by reach: one file here, one project to one fresh writer (a subagent, a `delegate:codex` Task, a `delegate:antigravity` Build) briefed with its confirmed findings
 - Writers run in place, each file assigned to one of them
 - Use `delegate:antigravity` and `delegate:codex` for each harness's run options and result checks

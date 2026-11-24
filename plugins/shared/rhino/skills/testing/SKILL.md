@@ -70,7 +70,7 @@ Exit codes decide what to read next:
 |  [02]   |  `2`   | One or more tests failed      | Failure messages, `Standard output` of each failed test |
 |  [03]   |  `5`   | Invalid command line          | Option named in the message                             |
 |  [04]   |  `7`   | Test host exited unexpectedly | Crash sequence log, crash report, macOS `.ips` report   |
-|  [05]   |  `8`   | Zero tests ran                | Install gate, filter, or test discovery                 |
+|  [05]   |  `8`   | Zero tests ran                | Filter or test discovery                                |
 
 ### [01.3]-[RHINO_TESTING]
 

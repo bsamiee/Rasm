@@ -4,14 +4,14 @@ Rhino tests need Rhino installed and licensed on the runner, and only some runne
 
 ## [01]-[RUNNERS]
 
-| [INDEX] | [RUNNER]                    | [INSTALL]                       | [LICENSE]       | [STATUS]                                       |
-| :-----: | :-------------------------- | :------------------------------ | :-------------- | :--------------------------------------------- |
-|  [01]   | GitHub-hosted Windows       | Silent installer, about 1–2 min | `RHINO_TOKEN`   | McNeel's own harnesses test here               |
-|  [02]   | Self-hosted macOS           | Machine owner                   | Signed-in Rhino | Template host, runner in the signed-in session |
-|  [03]   | Self-hosted Windows desktop | Machine owner                   | Signed-in Rhino | Rhino processes and plug-in files persist      |
-|  [04]   | Linux container             | `rhino3d` apt package           | `RHINO_TOKEN`   | Headless Rhino with defects, no Grasshopper 2  |
-|  [05]   | GitHub-hosted macOS         | `setup-rhino3d@v4` dmg copy     | None            | No license route for an ephemeral Mac          |
-|  [06]   | GitHub-hosted Linux         | None                            | None            | Rhino-free projects                            |
+| [INDEX] | [RUNNER]                    | [INSTALL]                   | [LICENSE]       | [STATUS]                                       |
+| :-----: | :-------------------------- | :-------------------------- | :-------------- | :--------------------------------------------- |
+|  [01]   | GitHub-hosted Windows       | Silent installer            | `RHINO_TOKEN`   | McNeel's own harnesses test here               |
+|  [02]   | Self-hosted macOS           | Machine owner               | Signed-in Rhino | Template host, runner in the signed-in session |
+|  [03]   | Self-hosted Windows desktop | Machine owner               | Signed-in Rhino | Rhino processes and plug-in files persist      |
+|  [04]   | Linux container             | `rhino3d` apt package       | `RHINO_TOKEN`   | Headless Rhino with defects, no Grasshopper 2  |
+|  [05]   | GitHub-hosted macOS         | `setup-rhino3d@v4` dmg copy | None            | No license route for an ephemeral Mac          |
+|  [06]   | GitHub-hosted Linux         | None                        | None            | Rhino-free projects                            |
 
 - Self-hosted macOS runners run as a LaunchAgent (`svc.sh install`) of the user signed in to Rhino, a LaunchDaemon has no user session for Rhino
 - Rhino-free projects run on every runner in a separate job, a Rhino outage blocks no other test
@@ -93,7 +93,7 @@ Job settings:
 
 | [INDEX] | [SYMPTOM]                                   | [CAUSE]                                             |
 | :-----: | :------------------------------------------ | :-------------------------------------------------- |
-|  [01]   | Zero tests ran, exit code 8                 | Rhino absent when the project evaluated             |
+|  [01]   | `ResolveRhinoApplication` build error       | Rhino or its .NET runtime absent at build           |
 |  [02]   | `NotLicensedException`, `PAL_SEHException`  | `RHINO_TOKEN` absent from the test step             |
 |  [03]   | `Unsupported platform` on macOS             | `setup-rhino3d@v2`                                  |
 |  [04]   | Rhino 8 installed for a Rhino 9 project     | `setup-rhino3d` `major-version: 8`                  |

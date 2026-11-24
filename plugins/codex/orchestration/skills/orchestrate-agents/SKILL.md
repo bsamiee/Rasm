@@ -19,7 +19,7 @@ Send an agent a bounded task with its own context. Keep decisions and file paths
 ## [02]-[INDEPENDENCE]
 
 - Angles: independent angles on the same question require fresh contexts; a context containing another angle's findings is not independent coverage
-- Checks: send a separate agent to try to refute a finding, with uncertainty counting against the finding
+- Checks: send a separate agent to try to refute a finding, and one it leaves in doubt joins a pool read and run again after the last result
 - Answers: never pre-author an agent's committed answer; name the trap without answering it, since an injected defense turns the answer into an echo of the brief
 
 ## [03]-[HAND_OFF]
