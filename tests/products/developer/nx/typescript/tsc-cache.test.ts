@@ -1,6 +1,6 @@
-import { rmSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ProjectGraph } from '@nx/devkit';
+import { type ProjectGraph, readJsonFile } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-typescript';
 import { it, typescript } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
@@ -53,6 +53,19 @@ describe('tsc inference reused across graph runs', () => {
         const cold = targets(await workspace.graph({ createNodes }));
 
         expect(cold).not.toStrictEqual(initial);
+        expect(warm).toStrictEqual(cold);
+    });
+
+    it('infers what a cold read infers from a cache whose entries an earlier plugin release wrote without the fields this one reads', async ({ workspace }) => {
+        workspace.install(typescript).write(WORKSPACE);
+        const cold = targets(await workspace.graph({ createNodes }));
+        const file = join(workspace.root, 'tmp/project-graph-cache/typescript.hash');
+        const configs = Object.keys(readJsonFile<{ readonly entries: Readonly<Record<string, unknown>> }>(file).entries);
+        writeFileSync(file, JSON.stringify({ entries: Object.fromEntries(configs.map((config) => [config, {}])) }));
+
+        const warm = targets(await workspace.graph({ createNodes }));
+
+        expect(configs.length).toBeGreaterThan(0);
         expect(warm).toStrictEqual(cold);
     });
 

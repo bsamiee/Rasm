@@ -12,7 +12,8 @@ import { MANIFEST, projected } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Program = Result.Result.Success<ReturnType<typeof resolved>> & { readonly ignored: readonly string[] };
+type Resolved = Result.Result.Success<ReturnType<typeof resolved>>;
+type Program = Resolved & { readonly ignored: readonly string[] };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -80,53 +81,78 @@ const resolved = (workspaceRoot: string, solution: Effect.Success<ReturnType<typ
         };
     });
 
-const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, lock: string, rows: readonly (readonly [config: string, read: Pick<Program, 'sources' | 'ignored'>])[]) {
-    const folders = rows.map(([config, { sources }]) => [dirname(config), ...Array.dedupe(sources.filter((at) => posix.relative(dirname(config), at).startsWith('..')).map(posix.dirname))] as const);
+const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, lock: string, rows: readonly (readonly [config: string, sources: readonly string[]])[]) {
+    const folders = rows.map(([config, sources]) => [dirname(config), ...Array.dedupe(sources.filter((at) => posix.relative(dirname(config), at).startsWith('..')).map(posix.dirname))] as const);
     const listed = Array.dedupe(folders.flat());
-    const [listings, stamps] = yield* Effect.all(
+    const [listings, stamps, tracked] = yield* Effect.all(
         [
             Effect.forEach(listed, (at) => Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, posix.relative('.', at))), { concurrency: 'unbounded' }),
             Effect.promise(() =>
                 hashMultiGlobWithWorkspaceContext(
                     workspaceRoot,
-                    rows.map(([config, { sources }]) => [posix.join(dirname(config), MANIFEST), lock, ...sources]),
+                    rows.map(([config, sources]) => [posix.join(dirname(config), MANIFEST), lock, ...sources]),
                 ),
+            ),
+            Effect.map(
+                Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(rows.flatMap(([, sources]) => sources)))),
+                (found) => new Set(found),
             ),
         ],
         { concurrency: 'unbounded' },
     );
     const beneath = new Map(Array.zipWith(listed, listings, (at, files) => [at, { files, direct: files.filter((file) => posix.dirname(file) === at) }] as const));
-    return Array.zip(
-        folders.map(([folder, ...outside]) => hashArray([row, ...(beneath.get(folder)?.files ?? []), ...outside.flatMap((at) => beneath.get(at)?.direct ?? [])])),
-        Array.zipWith(rows, stamps, ([, { ignored }], stamp) => hashArray([stamp, ...ignored.map((at) => hashFile(join(workspaceRoot, at)))])),
-    );
+    return Array.zipWith(folders, Array.zip(rows, stamps), ([folder, ...outside], [[, sources], stamp]) => {
+        const ignored = [...new Set(sources).difference(tracked)];
+        return { digest: hashArray([row, ...(beneath.get(folder)?.files ?? []), ...outside.flatMap((at) => beneath.get(at)?.direct ?? [])]), stamp: hashArray([stamp, ...ignored.map((at) => hashFile(join(workspaceRoot, at)))]), ignored };
+    });
 });
 
 const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, row: string, manager: PackageManager, roots: ReadonlySet<string>, files: readonly string[]) {
-    const cache = new PluginCache<Program & { readonly digest: string; readonly stamp: string }>(join(workspaceDataDirectory, 'typescript.hash'));
+    const cache = new PluginCache<Resolved & { readonly digest: string; readonly stamp: string }>(join(workspaceDataDirectory, 'typescript.hash'));
     const [lock, owners, configs] = [getLockFileName(manager), new Map(roots.values().map((root) => [root, root] as const)), files.filter((file) => basename(file) === CONFIG)];
     const keys = yield* keyed(
         workspaceRoot,
         row,
         lock,
-        configs.map((config) => [config, cache.get(config) ?? { sources: [], ignored: [] }]),
+        configs.map((config) => [config, cache.get(config)?.sources ?? []]),
     );
-    const current = Array.zipWith(configs, keys, (config, [digest, stamp]) => [config, Option.filter(Option.fromNullishOr(cache.get(config)), (entry) => entry.digest === digest && entry.stamp === stamp)] as const);
-    const solutions = yield* Array.match(
+    const current = Array.zipWith(
+        configs,
+        keys,
+        (config, { digest, stamp, ignored }) =>
+            [
+                config,
+                Option.map(
+                    Option.filter(Option.fromNullishOr(cache.get(config)), (entry) => entry.digest === digest && entry.stamp === stamp),
+                    (entry): Program => ({ ...entry, ignored }),
+                ),
+            ] as const,
+    );
+    const fresh = yield* Array.match(
         current.filter(([, held]) => Option.isNone(held)).map(([config]) => config),
         {
             onEmpty: () => Effect.succeed([]),
-            onNonEmpty: (missed) => solved(workspaceRoot, compiler, owners, missed),
+            onNonEmpty: (missed) =>
+                Effect.map(
+                    solved(workspaceRoot, compiler, owners, missed),
+                    Array.map(([config, solution]) => [config, resolved(workspaceRoot, solution)] as const),
+                ),
         },
     );
-    const programs = solutions.map(([config, solution]) => [config, resolved(workspaceRoot, solution)] as const);
-    const tracked = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(Array.getSuccesses(programs.map(([, program]) => program)).flatMap(({ sources }) => sources)))));
-    const fresh = programs.map(([config, program]) => [config, Result.map(program, (value): Program => ({ ...value, ignored: [...new Set(value.sources).difference(tracked)] }))] as const);
-    const stored = Array.getSuccesses(fresh.map(([config, program]) => Result.map(program, (value) => [config, value] as const)));
-    const renewed = yield* keyed(workspaceRoot, row, lock, stored);
-    yield* Effect.forEach(Array.zip(stored, renewed), ([[config, value], [digest, stamp]]) => Effect.sync(() => cache.set(config, { ...value, digest, stamp })), { discard: true });
+    const [stored, failed] = Array.partition(fresh, ([config, program]) => Result.mapBoth(program, { onFailure: (error) => [config, error] as const, onSuccess: (value) => [config, value] as const }));
+    const renewed = yield* keyed(
+        workspaceRoot,
+        row,
+        lock,
+        stored.map(([config, { sources }]) => [config, sources]),
+    );
+    yield* Effect.forEach(Array.zip(stored, renewed), ([[config, value], { digest, stamp }]) => Effect.sync(() => cache.set(config, { ...value, digest, stamp })), { discard: true });
     yield* Array.isReadonlyArrayNonEmpty(stored) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
-    return new Map<string, Result.Result<Program, Cause.UnknownError>>([...Array.getSomes(current.map(([config, held]) => Option.map(held, (cached) => [config, Result.succeed(cached)] as const))), ...fresh]);
+    return new Map<string, Result.Result<Program, Cause.UnknownError>>([
+        ...Array.getSomes(current.map(([config, held]) => Option.map(held, (cached) => [config, Result.succeed(cached)] as const))),
+        ...failed.map(([config, error]) => [config, Result.fail(error)] as const),
+        ...Array.zipWith(stored, renewed, ([config, value], { ignored }) => [config, Result.succeed({ ...value, ignored })] as const),
+    ]);
 });
 
 const compiled =
