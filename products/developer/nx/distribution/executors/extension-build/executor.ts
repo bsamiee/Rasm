@@ -2,7 +2,7 @@ import { hash } from 'node:crypto';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, Record, Result, Schema, Struct } from 'effect';
+import { Array, Cause, Config, Effect, Equivalence, FileSystem, Function, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import { Toml } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { BUILDER, EXTENSION } from '#/host-packages';
@@ -63,11 +63,24 @@ const keyed = (stem: string, tags: readonly string[]) =>
         ).toSorted(),
     ].join(' ');
 
-const fetched = Effect.fnUntraced(function* (url: string, sha256: string, file: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const response = yield* Effect.flatMap(HttpClient.get(url), HttpClientResponse.filterStatusOk);
-    const bytes = new Uint8Array(yield* response.arrayBuffer);
-    yield* hash('sha256', bytes, 'hex') === sha256 ? fs.writeFile(file, bytes) : Effect.fail(new Cause.UnknownError(sha256, `${url} does not hash to ${sha256}, the sha256 its lock states`));
+const fetched = Effect.fnUntraced(function* (url: string, sha256: string, file: string, store: Option.Option<string>) {
+    const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
+    const kept = Option.map(store, (folder) => path.join(folder, `${sha256}.whl`));
+    const held = yield* Effect.filter(Option.toArray(kept), fs.exists);
+    const bytes = yield* Option.match(Array.head(held), {
+        onSome: (at) => fs.readFile(at),
+        onNone: () =>
+            Effect.flatMap(HttpClient.get(url), HttpClientResponse.filterStatusOk).pipe(
+                Effect.flatMap((response) => response.arrayBuffer),
+                Effect.map((buffer) => new Uint8Array(buffer)),
+            ),
+    });
+    yield* hash('sha256', bytes, 'hex') === sha256 ? fs.writeFile(file, bytes) : Effect.fail(new Cause.UnknownError(sha256, `${held[0] ?? url} does not hash to ${sha256}, the sha256 its lock states`));
+    yield* Effect.forEach(
+        held.length > 0 ? [] : Option.toArray(Option.all({ folder: store, at: kept })),
+        ({ folder, at }) => Effect.scoped(Effect.flatMap(fs.makeTempDirectoryScoped({ directory: folder }), (staging) => Effect.andThen(fs.writeFile(path.join(staging, path.basename(at)), bytes), fs.rename(path.join(staging, path.basename(at)), at)))),
+        { discard: true },
+    );
 }, Effect.provide(FetchHttpClient.layer));
 
 const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: string, text: string, document: Record.ReadonlyRecord<string, unknown>, declared: Manifest) {
@@ -103,8 +116,9 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
         { concurrency: 'unbounded' },
     );
     const pool = path.join(work, 'wheels');
-    yield* fs.makeDirectory(pool);
-    yield* Effect.forEach(Array.dedupeWith(selected.flat(), Equivalence.mapInput(Equivalence.String, Struct.get('file'))), ({ url, sha256, file }) => fetched(url, sha256, path.join(pool, file)), { concurrency: 'unbounded', discard: true });
+    const store = Option.map(yield* Config.option(Config.String('CACHE_DIR')), (folder) => path.join(folder, 'blender', 'wheels'));
+    yield* Effect.forEach([pool, ...Option.toArray(store)], (folder) => fs.makeDirectory(folder, { recursive: true }), { discard: true });
+    yield* Effect.forEach(Array.dedupeWith(selected.flat(), Equivalence.mapInput(Equivalence.String, Struct.get('file'))), ({ url, sha256, file }) => fetched(url, sha256, path.join(pool, file), store), { concurrency: 'unbounded', discard: true });
     const builds = declared.platforms === undefined ? [{ stated: document, chosen: selected.flat() }] : Array.zipWith(declared.platforms, selected, (platform, chosen) => ({ stated: { ...document, platforms: [platform] }, chosen }));
     return yield* Effect.forEach(
         builds,
