@@ -165,6 +165,7 @@ Workflow `Release` credentials and jobs:
 - Job `browser` runs in the Playwright image Deploy publishes, named by the pnpm catalog row, and store images render as in CI
 - `import-codesign-certs` imports one p12 per call, and the Developer ID import reuses the Apple Development import's keychain where both run
 - `pack` targets find each codesign identity by name in the user keychain list, which `import-codesign-certs` sets to its keychain first
+- Apple Development expires 2027-09-13 and Developer ID Application 2027-12-24, and a renewal replaces its p12 rows in Doppler and 1Password
 - `Release` sets `cache-mode: none`, as files a release restores from a cache reach what it publishes
 - `Release` reads no Nx remote cache, as a pack or build another machine cached reaches what a release publishes the same way
 - Job `version` holds `contents: write` for tags and releases
