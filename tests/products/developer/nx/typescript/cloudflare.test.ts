@@ -38,9 +38,10 @@ describe('Worker binding type generation', () => {
         await inspector.init();
         const configured = String(findPackageJSON('@cloudflare/config', import.meta.resolve('cf/package.json')));
         const { exports } = readJsonFile<{ readonly exports: { readonly '.': { readonly import: string } } }>(configured);
-        const cloudflare: { readonly loadAndParseConfig: (file: string) => Promise<{ readonly dependencies: ReadonlySet<string> }> } = await import(pathToFileURL(join(dirname(configured), exports['.'].import)).href);
+        const loaded = (): Promise<{ readonly loadAndParseConfig: (file: string) => Promise<{ readonly dependencies: ReadonlySet<string> }> }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href);
 
-        const { dependencies } = await cloudflare.loadAndParseConfig(join(workspace.root, 'apps/edge/cloudflare.config.ts'));
+        const { loadAndParseConfig } = await loaded();
+        const { dependencies } = await loadAndParseConfig(join(workspace.root, 'apps/edge/cloudflare.config.ts'));
         const reported = [...dependencies].map((at) => relative(workspace.root, at)).filter((at) => !(at.startsWith('..') || at.includes('node_modules')));
         const hashed = new Set(inspector.inspectTaskInputs({ project: 'edge', target: 'codegen--cf' })['edge:codegen--cf']?.files);
 
