@@ -38,7 +38,8 @@
             "exclude": [".config/mise/locks/**"],
             "options": {
                 "outputPath": ".artifacts/uv/{projectName}",
-                "coveragePath": ".artifacts/coverage/{projectName}"
+                "coveragePath": ".artifacts/coverage/{projectName}",
+                "environmentPath": ".cache/uv-environments/{projectName}"
             }
         },
         {

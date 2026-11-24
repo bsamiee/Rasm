@@ -34,6 +34,7 @@ Module names `--import-mode=importlib` assigns:
 ## [04]-[RUNS]
 
 Targets `nx-uv` infers for suites:
-- `nx-uv` infers `test--pytest` per member holding test files and runs it with `uv run --isolated`, and a suite imports only what its member declares
+- `nx-uv` infers `test--pytest` per member holding test files and runs it in an environment holding only what its member declares
+- Option `environmentPath` keeps that environment between runs with `UV_PROJECT_ENVIRONMENT` and `uv run --exact`, else `uv run --isolated` builds it
 - `--group <group>` gives a member the root group holding `pytest`
 - `nx test <member> -c coverage` adds `--cov` and writes `lcov.info` and `.coverage` to the member's coverage folder

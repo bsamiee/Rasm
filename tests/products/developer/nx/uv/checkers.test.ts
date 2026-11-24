@@ -53,6 +53,15 @@ describe('checker targets', { timeout: 120_000 }, () => {
         expect(written.toSorted()).toStrictEqual(['.artifacts/coverage/library/.coverage', '.artifacts/coverage/library/lcov.info']);
     });
 
+    it('runs pytest in the environment environmentPath names, which a second run reuses at the locked selection', async ({ workspace }) => {
+        locked(workspace, { ...workspaced(['pytest>=8']), ...TESTED });
+        const graph = await workspace.graph(uv, { environmentPath: 'tmp/environments/{projectName}' });
+
+        const [first, second] = [await workspace.run(graph, 'library', 'test--pytest'), await workspace.run(graph, 'library', 'test--pytest')];
+
+        expect([first.success, second.success, workspace.files('.venv').has('tmp/environments/library/pyvenv.cfg')]).toStrictEqual([true, true, true]);
+    });
+
     it.for([
         { case: 'its own source', edited: { 'proj/application/src/application/__init__.py': 'from library import one\n\n\ndef three() -> int:\n    return one() + 2\n' }, changes: true },
         { case: 'a dependency source vulture never reads', edited: { 'proj/library/src/library/__init__.py': 'def one() -> int:\n    return 2 - 1\n' }, changes: false },
