@@ -24,6 +24,7 @@ Workflow `CI` and its jobs:
 - `nx-set-shas` stops at the first commit with a successful push run, and each walked commit costs one API request
 - `max-commits` (150) covers a streak of failed CI runs on `main`, as each run takes every commit pushed while the previous one ran
 - Pushes to `main` run CI one at a time, so a walk to `max-commits` in each run stays under the token's 1000 requests an hour
+- Manual runs each take a concurrency group of their own, as they apply no deploy and read no base, so no push waits for one or displaces it
 - `nx-set-shas` falls back to the first commit where no successful run is in reach, and every task runs, as default `HEAD~1` checks one commit
 - Manual runs skip `nx-set-shas` and take the first commit as base, so every task runs
 - Job `linux` runs affected projects tagged `os:linux` or no `os:` on instance `host`, except `host:rhino`, `host:browser`, `host:unreal`
@@ -155,8 +156,9 @@ Workflow `Release` credentials and jobs:
 Workflow `Maintenance` jobs per runner instance:
 - Workflow `Maintenance` runs weekly before the machine update hour
 - Job `container` checks out clean, removing every ignored file of its checkout, package store included, and deletes its tool cache's mise tools
+- Job `graph` checks out clean, removing every ignored file of its checkout
 - Job `host` keeps ignored files and prunes package stores, the cargo build folder, unused mise tools and Docker objects, and week-old build cache
-- Jobs `container` and `host` each take their instance's queue, and a reset or prune never overlaps a job there as a machine timer can
+- Jobs `container`, `graph`, and `host` each take their instance's queue, and a reset or prune never overlaps a job there as a machine timer can
 
 ## [08]-[TIMINGS]
 
