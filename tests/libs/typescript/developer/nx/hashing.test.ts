@@ -1,8 +1,10 @@
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { CreateNodes, ProjectGraph } from '@nx/devkit';
-import { aggregated, anchored, EXECUTORS } from '@rasm/nx';
+import { resetWorkspaceContext } from '@nx/devkit/internal';
+import { aggregated, anchored, EXECUTORS, stamped } from '@rasm/nx';
 import { it, type Workspace } from '@rasm/testing/nx';
+import { Effect } from 'effect';
 import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';
 import { assert, describe, expect } from 'vitest';
 
@@ -82,5 +84,24 @@ describe('executor package inputs', () => {
             .graph(executing(executor));
 
         expect(['check', 'check--runner', 'nx-release-publish'].map((target) => graph.nodes['app']?.data.targets?.[target]?.inputs)).toStrictEqual([['default'], ['default'], ['default']]);
+    });
+});
+
+describe('source stamps', () => {
+    it.for([
+        { sources: [], edited: { 'tools/deep/index.ts': 'export const deep = 2;\n' }, changes: false },
+        { sources: ['tools/shared/index.ts'], edited: { 'tools/deep/index.ts': 'export const deep = 2;\n' }, changes: false },
+        { sources: ['tools/shared/index.ts'], edited: { 'tools/shared/index.ts': 'export const shared = 2;\n' }, changes: true },
+    ])('stamps $sources anew ($changes) after editing $edited', async ({ sources, edited, changes }, { workspace }) => {
+        const stamp = (files: Readonly<Record<string, string>>) => {
+            workspace.write(files);
+            resetWorkspaceContext();
+            return Effect.runPromise(stamped(workspace.root)(sources));
+        };
+        const before = await stamp(provider);
+
+        const after = await stamp(edited);
+
+        expect(before === after).toBe(!changes);
     });
 });

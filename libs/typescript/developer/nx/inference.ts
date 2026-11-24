@@ -136,7 +136,7 @@ const extended = (workspaceRoot: string, root: string): readonly string[] => {
     return files.map((at) => normalizePath(relative(workspaceRoot, at))).filter(within);
 };
 
-const stamped = (workspaceRoot: string) => (sources: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...sources]));
+const stamped = (workspaceRoot: string) => (sources: readonly string[]) => Array.match(sources, { onEmpty: () => Effect.succeed(hashArray([])), onNonEmpty: (globs) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...globs])) });
 
 const recalled = Effect.fnUntraced(function* <A extends { readonly sources: readonly string[] }, E, R>(cache: PluginCache<A & { readonly stamp: string }>, key: string, stamp: (sources: readonly string[], entry: A) => Effect.Effect<string>, fresh: Effect.Effect<NoInfer<A>, E, R>, stored: () => unknown) {
     return yield* Option.match(yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), (held) => Effect.map(stamp(held.sources, held), Equal.equals(held.stamp))), {
