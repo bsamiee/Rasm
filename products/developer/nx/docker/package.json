@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-docker",
     "version": "0.1.0",
-    "description": "Nx plugin inferring Compose projects, checks, image builds, and service starts from docker compose's own output",
+    "description": "Nx plugin starting the Colima container engine on macOS before the tasks of packages requiring an engine client",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -13,21 +13,13 @@
         "dist/**/*.d.ts"
     ],
     "type": "module",
-    "imports": {
-        "#/*.json": "./*.json"
-    },
     "exports": {
         ".": "./plugin.ts",
-        "./ready-check": "./ready-check.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
-        "imports": {
-            "#/*.json": "./*.json"
-        },
         "exports": {
             ".": "./dist/plugin.js",
-            "./ready-check": "./dist/ready-check.js",
             "./package.json": "./package.json"
         },
         "access": "public"

@@ -1,16 +1,14 @@
 {
     "name": "@rasm/test-nx-docker",
     "private": true,
-    "description": "@rasm/nx-docker suites over Compose projects in temporary workspaces, with inferred commands run against the local engine",
+    "description": "@rasm/nx-docker suites over the Colima engine targets and the engine edges of packages requiring an engine client, in temporary workspaces",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",
         "@rasm/nx-docker": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
-        "effect": "catalog:",
         "nx": "catalog:",
-        "vite": "catalog:",
         "vitest": "catalog:"
     }
 }
