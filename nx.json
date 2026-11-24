@@ -35,7 +35,6 @@
         },
         {
             "plugin": "@rasm/nx-uv",
-            "exclude": [".config/mise/locks/**"],
             "options": {
                 "outputPath": ".artifacts/uv/{projectName}",
                 "coveragePath": ".artifacts/coverage/{projectName}",
