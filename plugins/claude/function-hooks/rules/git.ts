@@ -1,5 +1,7 @@
-import { Array, Effect, Function, Match, Option, Predicate, Result, String, Struct } from 'effect';
-import type { Host } from '#/host';
+import { Array, Effect, Function, Match, Option, Predicate, Result, Schema, String, Struct } from 'effect';
+import manifest from '#/.claude-plugin/plugin.json' with { type: 'json' };
+import { Host, HostError } from '#/host';
+import type { Request } from '#/rules/decision';
 import { all, commandOf, edited, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, refuse, relocated, respell, spelled, unresolved, when, whole } from '#/rules/rule';
 import type { Argument } from '#/shell/arguments';
 import type { Invocation } from '#/shell/invocation';
@@ -9,6 +11,9 @@ import type { Invocation } from '#/shell/invocation';
 const BRANCHES = ['changes branches', 'stay on this branch'] as const;
 const MOVES = 'moves the HEAD every session shares';
 const OVERWRITES = ['overwrites uncommitted edits another session may own', 'read git diff and undo only your own hunks with your file edit tool'] as const;
+const FOREIGN = 'overwrites edits this session did not write in';
+const LEDGER = '.jsonl';
+const ABSENT = /^0+$/u;
 const HOOKS = ['skips the commit hooks', 'fix what they report'] as const;
 const HISTORY = ['rewrites shared history', 'commit forward'] as const;
 const HOOKS_PATH = /^core\.hookspath=/iu;
@@ -20,7 +25,84 @@ const BRANCH_WRITES = ['--delete', '-D', '-M', '--force', '--copy', '-C', '--mov
 const RESET_DISCARDS = ['--hard', '--merge', '--keep'];
 const UNWINDS = ['--abort', '--quit'];
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Entry = Schema.TaggedUnion({
+    Wrote: { agent: Schema.optionalKey(Schema.String), path: Schema.String, before: Schema.optionalKey(Schema.String), after: Schema.String },
+    Pending: { call: Schema.String, repository: Schema.String, parent: Schema.optionalKey(Schema.String) },
+    Committed: { agent: Schema.optionalKey(Schema.String), commit: Schema.String },
+});
+const Line = Schema.fromJsonString(Entry);
+const Output = Schema.Union([Schema.Struct({ filePath: Schema.String, oldString: Schema.String, newString: Schema.String, originalFile: Schema.NullOr(Schema.String), replaceAll: Schema.Boolean }), Schema.Struct({ filePath: Schema.String, content: Schema.String, originalFile: Schema.NullOr(Schema.String) })]);
+const Writing = Schema.Struct({ session: Schema.String, agent: Schema.optionalKey(Schema.String), result: Schema.Unknown }).annotate({ description: "An Edit or Write call's structured result, recorded as the writing agent's change of that file's blob" });
+const Finished = Schema.Struct({ session: Schema.String, agent: Schema.optionalKey(Schema.String), call: Schema.String, cwd: Schema.String, failed: Schema.Boolean }).annotate({ description: 'A Bash call that ran in the foreground, settling a commit it held as pending' });
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+// --- [LEDGER]
+
+const located = (host: Host['Service'], folder: string) =>
+    Effect.map(host.run(['git', '-C', folder, 'rev-parse', '--absolute-git-dir', '--show-toplevel', '--show-prefix']), ({ code, stdout }) => {
+        const [gitdir = '', toplevel = '', prefix = ''] = stdout.split('\n');
+        return Option.liftPredicate({ ledger: host.path.join(gitdir, manifest.name), toplevel, prefix }, () => code === 0);
+    });
+
+const entriesOf = Effect.fnUntraced(function* (host: Host['Service'], ledger: string) {
+    const files = yield* Effect.orElseSucceed(host.fs.readDirectory(ledger), (): readonly string[] => []);
+    const texts = yield* Effect.forEach(files, (file) => Effect.orElseSucceed(host.fs.readFileString(host.path.join(ledger, file)), () => ''));
+    return Array.zip(files, texts).flatMap(([file, text]) => Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Line)(line))).map((entry) => [host.path.basename(file, LEDGER), entry] as const));
+});
+
+const afterOf = (output: typeof Output.Type): Option.Option<string> =>
+    'content' in output
+        ? Option.some(output.content)
+        : Option.match(Option.fromNullOr(output.originalFile), {
+              onNone: () => Option.some(output.newString),
+              onSome: (original) =>
+                  Option.map(
+                      Option.liftPredicate(original.indexOf(output.oldString), (at) => at >= 0),
+                      (at) => (output.replaceAll ? original.split(output.oldString).join(output.newString) : `${original.slice(0, at)}${output.newString}${original.slice(at + output.oldString.length)}`),
+                  ),
+          });
+
+const blobOf = (oid: string) => Option.liftPredicate(oid, (held: string) => !ABSENT.test(held));
+
+const changesOf = (listed: string) =>
+    Array.chunksOf(listed.split('\0').filter(String.isNonEmpty), 2).map(([meta, path = '']) => {
+        const [from = '', to = '', status = ''] = meta.split(' ').slice(2);
+        return { path, from: blobOf(from), to: Option.filter(blobOf(to), () => status !== 'D'), kept: status !== 'D' };
+    });
+
+const appended = Effect.fnUntraced(function* (host: Host['Service'], ledger: string, session: string, entry: typeof Entry.Type) {
+    const line = yield* Effect.orDie(Schema.encodeEffect(Line)(entry));
+    yield* Effect.mapError(Effect.andThen(host.fs.makeDirectory(ledger, { recursive: true }), host.fs.writeFileString(host.path.join(ledger, `${session}${LEDGER}`), `${line}\n`, { flag: 'a' })), HostError.of(ledger));
+});
+
+const derived = (links: readonly { readonly before?: string; readonly after: string }[], from: Option.Option<string>, to: Option.Option<string>, seen: ReadonlySet<string> = new Set()): boolean =>
+    Option.getOrUndefined(from) === Option.getOrUndefined(to) || Option.exists(to, (blob) => !seen.has(blob) && links.some(({ before, after }) => after === blob && derived(links, from, Option.fromUndefinedOr(before), seen.union(new Set([blob])))));
+
+const foreign = Effect.fnUntraced(function* (host: Host['Service'], repository: string, { session, agent }: Pick<Request, 'session' | 'agent'>, pathspecs: readonly string[], source: Option.Option<string>, indexed: boolean) {
+    const place = yield* located(host, repository);
+    if (Option.isNone(place)) {
+        return pathspecs;
+    }
+    const { ledger, toplevel } = place.value;
+    const diffed = (...against: readonly string[]) => Effect.map(host.output(['git', '-C', repository, 'diff', '--raw', '-z', '--no-abbrev', '--no-renames', '--no-relative', ...against, '--', ...pathspecs]), changesOf);
+    const [worktree, index, entries] = yield* Effect.all([diffed(...Option.toArray(source)), indexed ? diffed('--cached', ...Option.toArray(source)) : Effect.succeed([]), entriesOf(host, ledger)]);
+    const present = worktree.filter(({ kept }) => kept);
+    const hashed = present.length === 0 ? [] : (yield* host.output(['git', '-C', toplevel, 'hash-object', '--', ...present.map(({ path }) => path)])).split('\n');
+    const blobs = new Map(present.map(({ path }, at) => [path, hashed[at]] as const));
+    const links = Array.groupBy(
+        entries.flatMap(([owner, entry]) => (Predicate.isTagged(entry, 'Wrote') && owner === session && entry.agent === agent ? [entry] : [])),
+        Struct.get('path'),
+    );
+    const unowned = [...worktree.map(({ path, from }) => ({ path, from, to: Option.fromUndefinedOr(blobs.get(path)) })), ...index].filter(({ path, from, to }) => !derived(links[path] ?? [], from, to));
+    return Array.dedupe(unowned.map(Struct.get('path')));
+});
+
+const refusedPaths = (invocation: Invocation, paths: readonly string[]) => (paths.length === 0 ? [] : refusal(`${commandOf(invocation)} ${FOREIGN} ${paths.join(', ')}, ${OVERWRITES[1]}`));
+
+// --- [RULES]
 
 const nested =
     (...names: readonly string[]): Predicate.Predicate<Invocation> =>
@@ -97,34 +179,75 @@ const cleanMerge: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     );
 });
 
-const checkoutPaths: Rule = Effect.fnUntraced(function* (invocation, { host }) {
-    const { operands } = invocation;
+const checkoutPaths: Rule = Effect.fnUntraced(function* (invocation, { host, request }) {
+    const { operands, tail } = invocation;
     const [first] = operands;
-    if (first === undefined || invocation.has('--detach')) {
+    if (first === undefined || invocation.has('--detach') || !(yield* namesPaths(host, invocation))) {
         return [];
     }
-    const paths = yield* namesPaths(host, invocation);
-    const uncommitted =
-        paths &&
-        (!operands.every(({ known }) => known) ||
-            (yield* dirty(
-                host,
-                invocation,
-                operands.map(({ text }) => text),
-            )));
-    return uncommitted ? refusal(`${commandOf(invocation)} ${first.text} ${OVERWRITES.join(', ')}`) : [];
+    if (!operands.every(({ known }) => known)) {
+        return refusal(`${commandOf(invocation)} ${first.text} ${OVERWRITES.join(', ')}`);
+    }
+    const tree = tail.length > 0 ? operands.filter((word) => !tail.includes(word)) : operands.slice(0, operands.length > 1 && !(yield* present(host, invocation, first.text)) ? 1 : 0);
+    const source = Option.map(Array.head(tree), Struct.get('text'));
+    const paths = operands.filter((word) => !tree.includes(word)).map(Struct.get('text'));
+    return refusedPaths(
+        invocation,
+        yield* foreign(
+            host,
+            Option.getOrElse(repositoryOf(host, invocation), () => host.root),
+            request,
+            paths,
+            source,
+            Option.isSome(source),
+        ),
+    );
 });
 
-const restoredPaths: Rule = Effect.fnUntraced(function* (invocation, { host }) {
+const restoredPaths: Rule = Effect.fnUntraced(function* (invocation, { host, request }) {
     const { operands } = invocation;
-    const uncommitted =
-        !operands.every(({ known }) => known) ||
-        (yield* dirty(
+    if (!operands.every(({ known }) => known)) {
+        return refusal(`${commandOf(invocation)} ${OVERWRITES.join(', ')}`);
+    }
+    const staged = invocation.has('--staged');
+    const source = Option.orElse(Array.head(invocation.values('--source', '-s')), () => Option.liftPredicate('HEAD', () => staged));
+    return refusedPaths(
+        invocation,
+        yield* foreign(
             host,
-            invocation,
-            operands.map(({ text }) => text),
-        ));
-    return uncommitted ? refusal(`${commandOf(invocation)} ${OVERWRITES.join(', ')}`) : [];
+            Option.getOrElse(repositoryOf(host, invocation), () => host.root),
+            request,
+            operands.map(Struct.get('text')),
+            source,
+            staged,
+        ),
+    );
+});
+
+const heldCommit: Rule = Effect.fnUntraced(function* (invocation, { host, request, analysis }) {
+    const commits = analysis.invocations.filter(({ program, path, operands }) => program === 'git' && Option.contains(Option.firstSomeOf([Array.head(path), Option.map(Array.head(operands), Struct.get('text'))]), 'commit'));
+    const repository = Option.getOrElse(repositoryOf(host, invocation), () => host.root);
+    const [session, target] = yield* Effect.all([located(host, host.root), located(host, repository)]);
+    if (commits.length !== 1 || Option.isNone(session) || Option.isNone(target)) {
+        return [];
+    }
+    const { code, stdout } = yield* host.run(['git', '-C', repository, 'rev-parse', '--verify', '-q', invocation.has('--amend') ? 'HEAD^' : 'HEAD']);
+    yield* appended(host, session.value.ledger, request.session, Entry.cases.Pending.make({ call: request.call, repository: target.value.toplevel, ...(code === 0 ? { parent: stdout.trim() } : {}) }));
+    return [];
+});
+
+const ownedHead: Rule = Effect.fnUntraced(function* (invocation, { host, request }) {
+    const repository = Option.getOrElse(repositoryOf(host, invocation), () => host.root);
+    const [place, head, held] = yield* Effect.all([located(host, repository), host.run(['git', '-C', repository, 'rev-parse', '--verify', '-q', 'HEAD']), host.output(['git', '-C', repository, 'for-each-ref', '--contains', 'HEAD', '--format=%(refname:short)', 'refs/remotes'])]);
+    const entries = Option.isSome(place) && head.code === 0 ? yield* entriesOf(host, place.value.ledger) : [];
+    const claims = entries.flatMap(([session, entry]) => (Predicate.isTagged(entry, 'Committed') && entry.commit === head.stdout.trim() ? [[session, entry.agent] as const] : []));
+    const remotes = held.split('\n').filter(String.isNonEmpty);
+    const mine = Array.isReadonlyArrayNonEmpty(claims) && claims.every(([session, agent]) => session === request.session && agent === request.agent);
+    return Match.value({ mine, pushed: remotes.length > 0 }).pipe(
+        Match.when({ mine: false }, () => refusal(`${commandOf(invocation)} --amend rewrites HEAD, which this session did not commit, commit forward`)),
+        Match.when({ pushed: true }, () => refusal(`${commandOf(invocation)} --amend rewrites HEAD, which ${remotes.join(', ')} already holds, commit forward`)),
+        Match.orElse(() => []),
+    );
 });
 
 const appliedPatch: Rule = Effect.fnUntraced(function* (invocation, { host }) {
@@ -187,6 +310,47 @@ const forcedRefs: Rule = (invocation) =>
             return word.text.startsWith('+') && word.known ? edited(invocation, word, quote(word.text.slice(1)), `git push ${word.text}`) : [];
         });
 
+// --- [ROUTES]
+
+const wrote = Effect.fn('wrote')(function* ({ session, agent, result }: typeof Writing.Type) {
+    const host = yield* Host;
+    const output = Schema.decodeUnknownOption(Output)(result);
+    const held = Option.all({ decoded: output, after: Option.flatMap(output, afterOf) });
+    if (Option.isNone(held)) {
+        return;
+    }
+    const { decoded, after } = held.value;
+    const place = yield* located(host, host.path.dirname(decoded.filePath));
+    if (Option.isNone(place)) {
+        return;
+    }
+    const { ledger, toplevel, prefix } = place.value;
+    const path = `${prefix}${host.path.basename(decoded.filePath)}`;
+    const hashed = (stdin: string) => Effect.map(host.run(['git', '-C', toplevel, 'hash-object', '--stdin', `--path=${path}`], { stdin }), ({ stdout }) => stdout.trim());
+    const [before, blob] = yield* Effect.all([Effect.transposeOption(Option.map(Option.fromNullOr(decoded.originalFile), hashed)), hashed(after)]);
+    yield* appended(host, ledger, session, Entry.cases.Wrote.make({ path, after: blob, ...Option.match(before, { onNone: () => ({}), onSome: (hash) => ({ before: hash }) }), ...(agent === undefined ? {} : { agent }) }));
+});
+
+const ran = Effect.fn('ran')(
+    function* ({ session, agent, call, failed }: typeof Finished.Type) {
+        const host = yield* Host;
+        const place = yield* located(host, host.root);
+        const entries = Option.isSome(place) && !failed ? yield* entriesOf(host, place.value.ledger) : [];
+        const pending = Array.findLast(entries, ([owner, entry]) => owner === session && Predicate.isTagged(entry, 'Pending') && entry.call === call);
+        const [, held] = Option.getOrUndefined(pending) ?? [];
+        if (held === undefined || !Predicate.isTagged(held, 'Pending')) {
+            return;
+        }
+        const [target, listed] = yield* Effect.all([located(host, held.repository), host.output(['git', '-C', held.repository, 'rev-list', '--parents', '-n', '1', 'HEAD'])]);
+        const [commit, parent] = listed.trim().split(' ');
+        if (commit === undefined || !String.isNonEmpty(commit) || parent !== held.parent || Option.isNone(target)) {
+            return;
+        }
+        yield* appended(host, target.value.ledger, session, Entry.cases.Committed.make({ commit, ...(agent === undefined ? {} : { agent }) }));
+    },
+    (effect, { cwd }) => Effect.provideServiceEffect(effect, Host, Host.make(cwd)),
+);
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const UNFORCED = respell({ drops: ['--force', '--force-with-lease', '--force-if-includes', '--discard-changes'], notify: true });
@@ -213,7 +377,7 @@ const GIT: Ruleset = {
                         when(holds(HOOKS_PATH, '-c'), refuse(...HOOKS, '-c')),
                         perSubcommand({
                             branch: [branchWrites],
-                            commit: [respell({ drops: ['--no-verify'], notify: true }), refuse('rewrites the last commit another session may own', 'commit forward', '--amend')],
+                            commit: [respell({ drops: ['--no-verify'], notify: true }), when(({ has }) => has('--amend'), ownedHead), heldCommit],
                             'filter-branch': [refuse(...HISTORY)],
                             'filter-repo': [refuse(...HISTORY)],
                             tag: [refuse('deletes a tag', 'leave published tags in place', '-d', '--delete')],
@@ -243,4 +407,4 @@ const GIT: Ruleset = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { GIT };
+export { Finished, GIT, ran, Writing, wrote };

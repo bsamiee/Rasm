@@ -1,23 +1,26 @@
 import { expect, layer } from '@effect/vitest';
-import { Cause, Context, Effect, FileSystem, Layer, Path } from 'effect';
+import { ran, wrote } from '@rasm/function-hooks/rules/git';
+import { Cause, Context, Effect, FileSystem, Layer, Match, Path } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Decider, decided, refusing } from '#/engine';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ISOLATED = { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } as const;
+const IDENTITY = { GIT_AUTHOR_NAME: 'hooks', GIT_AUTHOR_EMAIL: 'hooks@localhost', GIT_COMMITTER_NAME: 'hooks', GIT_COMMITTER_EMAIL: 'hooks@localhost' } as const;
 const OVERWRITES = 'overwrites uncommitted edits another session may own';
 const BRANCHES = 'changes branches, stay on this branch';
+const FOREIGN = 'overwrites edits this session did not write in';
 const REFUSED = [
-    ['git -C {repo} checkout -- dirty', `git checkout dirty ${OVERWRITES}`],
-    ['cd {repo} && git restore dirty', `git restore ${OVERWRITES}`],
+    ['git -C {repo} checkout -- dirty', `git checkout ${FOREIGN} dirty`],
+    ['cd {repo} && git restore dirty', `git restore ${FOREIGN} dirty`],
     ['git -C {repo} reset --hard', `git reset --hard ${OVERWRITES}`],
     ['git -C {repo} stash', 'git stash hides work'],
     ['git -C {repo} clean -fd', "git clean deletes other sessions' untracked files"],
     ['git -C {session} reset -q --soft HEAD~1', 'git reset HEAD~1 moves HEAD, commit forward'],
     ['git -C {session} branch -D probe', `git branch -D ${BRANCHES}`],
     ['git -C {session} checkout -b probe', `git checkout -b ${BRANCHES}`],
-    ['git -C {session} commit --amend --no-edit', 'git commit --amend rewrites the last commit another session may own'],
+    ['git -C {session} commit --amend --no-edit', 'git commit --amend rewrites HEAD, which this session did not commit'],
     ['git -C {session} -c core.hooksPath=/dev/null commit -m probe', 'git commit -c skips the commit hooks'],
     ['git -C {session} push origin :main', 'git push :main rewrites remote history'],
     ['git -C {session} rebase main', 'git rebase rewrites shared commits'],
@@ -53,6 +56,52 @@ const SHARED_REFUSED = [
     ['git merge topic clash', 'git merge topic clash names more than one branch'],
 ] as const;
 const SHARED_ALLOWED = ['git switch main', 'git checkout main', 'git checkout', 'git bisect log', 'git pull --ff-only', 'git merge topic', 'git merge --abort'] as const;
+const OWNERS = { a: { session: 'session-a' }, a1: { session: 'session-a', agent: 'a1' }, b: { session: 'session-b' } } as const;
+const STEPS = {
+    mine: { edit: 'a', file: 'f', old: 'base', new: 'mine', text: 'mine\n' },
+    more: { edit: 'a', file: 'f', old: 'mine', new: 'more', text: 'more\n' },
+    theirs: { edit: 'b', file: 'f', old: 'base', new: 'theirs', text: 'theirs\n' },
+} as const;
+const RESTORED = [
+    ['an unchanged path', [], 'git restore f', 'a'],
+    ['its own edit', [STEPS.mine], 'git restore f', 'a'],
+    ['its own edit across the tree', [STEPS.mine], 'git restore .', 'a'],
+    [
+        'its own write and its own edit of every occurrence',
+        [
+            { write: 'a', file: 'f', text: 'base\nbase\n' },
+            { replace: 'a', file: 'f', old: 'base', new: 'mine', text: 'mine\nmine\n' },
+        ],
+        'git restore f',
+        'a',
+    ],
+    ['its own edit and its own later write', [STEPS.mine, { write: 'a', file: 'f', text: 'whole\n' }], 'git checkout -- f', 'a'],
+    ['its own edits with one staged between them, back to the index', [STEPS.mine, { stage: 'f' }, STEPS.more], 'git restore f', 'a'],
+    ['its own edits with one staged between them, back to HEAD', [STEPS.mine, { stage: 'f' }, STEPS.more], 'git checkout HEAD -- f', 'a'],
+    ['its own edit over content a shell staged, back to the index', [{ shell: 'f', text: 'staged\n' }, { stage: 'f' }, { edit: 'a', file: 'f', old: 'staged', new: 'mine', text: 'mine\n' }], 'git restore f', 'a'],
+] as const;
+const KEPT = [
+    ['its own edit over content a shell staged, back to HEAD with the index', [{ shell: 'f', text: 'staged\n' }, { stage: 'f' }, { edit: 'a', file: 'f', old: 'staged', new: 'mine', text: 'mine\n' }], 'git restore --source=HEAD --staged --worktree f', 'a', `git restore ${FOREIGN} f,`],
+    ['its own edit over the HEAD content while a shell staged other content, back to HEAD with the index', [{ shell: 'f', text: 'staged\n' }, { stage: 'f' }, { shell: 'f', text: 'base\n' }, STEPS.mine], 'git checkout HEAD -- f', 'a', `git checkout ${FOREIGN} f,`],
+    ['an edit by another session', [STEPS.theirs], 'git restore f', 'a', `git restore ${FOREIGN} f,`],
+    ['its own edit that another session edited since', [STEPS.mine, { edit: 'b', file: 'f', old: 'mine', new: 'theirs', text: 'theirs\n' }], 'git restore f', 'a', `git restore ${FOREIGN} f,`],
+    ['its own edit that a shell command rewrote since', [STEPS.mine, { shell: 'f', text: 'shell\n' }], 'git checkout -- f', 'a', `git checkout ${FOREIGN} f,`],
+    ['its own edit that a shell command deleted since', [STEPS.mine, { remove: 'f' }], 'git restore f', 'a', `git restore ${FOREIGN} f,`],
+    ['its own edit beside a path a shell command deleted, naming only the deleted path', [{ edit: 'a', file: 'g', old: 'base', new: 'mine', text: 'mine\n' }, { remove: 'f' }], 'git restore f g', 'a', `git restore ${FOREIGN} f, read`],
+    ['an edit by the main agent of its own session, from a subagent', [STEPS.mine], 'git restore f', 'a1', `git restore ${FOREIGN} f,`],
+    ['its own path beside a path another session edited, naming only that path', [STEPS.mine, { edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }], 'git restore f g', 'a', `git restore ${FOREIGN} g,`],
+] as const;
+const AMENDED = [
+    ['its own commit', [{ commit: 'a' }]],
+    ['its own commit it amended before', [{ commit: 'a' }, { amend: 'a' }]],
+] as const;
+const AMEND_KEPT = [
+    ['a commit by another session', [{ commit: 'b' }], 'git commit --amend rewrites HEAD, which this session did not commit'],
+    ['a commit made outside any session', [{ outside: true }], 'git commit --amend rewrites HEAD, which this session did not commit'],
+    ['a commit another session made on top of its own', [{ commit: 'a' }, { commit: 'b' }], 'git commit --amend rewrites HEAD, which this session did not commit'],
+    ['a commit made outside any session while its own commit failed', [{ race: 'a' }], 'git commit --amend rewrites HEAD, which this session did not commit'],
+    ['its own commit once pushed', [{ commit: 'a' }, { push: true }], 'git commit --amend rewrites HEAD, which origin/main already holds'],
+] as const;
 const REWRITTEN = [
     ['git -C {session} commit --no-verify -m probe', 'git -C {session} commit -m probe'],
     ['git -C {session} commit -nm probe', 'git -C {session} commit -m probe'],
@@ -94,6 +143,75 @@ class Folders extends Context.Service<Folders>()('@rasm/test-function-hooks/git.
 }) {
     static readonly layer = Layer.effect(this, this.make);
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const reached = <A, E, R>(effect: Effect.Effect<A, E, R>, holds: (value: A) => boolean, partition: string) => Effect.filterOrFail(effect, holds, (value) => new Cause.UnknownError(value, `setup did not reach ${partition}, got ${JSON.stringify(value)}`));
+
+const scratch = Effect.fnUntraced(function* () {
+    const [fs, path, spawner] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+    const [repo, remote] = yield* Effect.all([Effect.flatMap(fs.makeTempDirectoryScoped(), fs.realPath), Effect.flatMap(fs.makeTempDirectoryScoped(), fs.realPath)]);
+    const shell = (command: string) => spawner.exitCode(ChildProcess.make('bash', ['-c', command], { cwd: repo, env: { ...ISOLATED, ...IDENTITY }, extendEnv: true }));
+    const succeeded = (command: string) => reached(shell(command), (code) => code === 0, `a passing ${command}`);
+    const file = (name: string) => path.join(repo, name);
+    const decidedAs = (command: string, by: keyof typeof OWNERS, call?: string) => decided(command, repo, { ...OWNERS[by], ...(call === undefined ? {} : { call }) });
+    const allowedAs = (command: string, by: keyof typeof OWNERS, call: string) => reached(decidedAs(command, by, call), ({ _tag }) => _tag === 'Allow', `an allowed ${command}`);
+    yield* Effect.forEach(['f', 'g'], (name) => fs.writeFileString(file(name), 'base\n'), { discard: true });
+    yield* succeeded('git init -q -b main && git add . && git commit -q -m base');
+    return {
+        repo,
+        file,
+        shell,
+        succeeded,
+        decidedAs,
+        allowedAs,
+        written: (name: string, text: string) => fs.writeFileString(file(name), text),
+        recorded: Effect.fnUntraced(function* (by: keyof typeof OWNERS, name: string, text: string, result: object) {
+            const originalFile = (yield* fs.exists(file(name))) ? yield* fs.readFileString(file(name)) : null;
+            yield* fs.writeFileString(file(name), text);
+            yield* wrote({ ...OWNERS[by], result: { ...result, filePath: file(name), originalFile } });
+        }),
+        committedAs: Effect.fnUntraced(function* (command: string, by: keyof typeof OWNERS, call: string) {
+            yield* allowedAs(command, by, call);
+            yield* ran({ call, ...OWNERS[by], cwd: repo, failed: (yield* shell(command)) !== 0 });
+        }),
+        pushed: Effect.andThen(
+            succeeded(`git init -q --bare ${remote} && git remote add origin ${remote} && git push -q origin main`),
+            reached(spawner.string(ChildProcess.make('git', ['-C', repo, 'for-each-ref', '--contains', 'HEAD', '--format=%(refname:short)', 'refs/remotes'], { env: ISOLATED, extendEnv: true })), (held) => held === 'origin/main\n', 'a HEAD origin/main holds'),
+        ),
+    };
+});
+
+type Scratch = Effect.Success<ReturnType<typeof scratch>>;
+
+const restoreStep = (held: Scratch) => (step: (typeof RESTORED | typeof KEPT)[number][1][number]) =>
+    Match.value(step).pipe(
+        Match.when({ edit: Match.string }, ({ edit, file, old, new: replacement, text }) => held.recorded(edit, file, text, { oldString: old, newString: replacement, replaceAll: false, structuredPatch: [], userModified: false })),
+        Match.when({ replace: Match.string }, ({ replace, file, old, new: replacement, text }) => held.recorded(replace, file, text, { oldString: old, newString: replacement, replaceAll: true, structuredPatch: [], userModified: false })),
+        Match.when({ write: Match.string }, ({ write, file, text }) => held.recorded(write, file, text, { type: 'update', content: text, structuredPatch: [] })),
+        Match.when({ shell: Match.string }, ({ shell, text }) => held.written(shell, text)),
+        Match.when({ remove: Match.string }, ({ remove }) => held.succeeded(`rm ${remove}`)),
+        Match.orElse(({ stage }) => held.succeeded(`git add ${stage}`)),
+    );
+
+const amendStep = (held: Scratch) => (step: (typeof AMENDED | typeof AMEND_KEPT)[number][1][number], at: number) =>
+    Match.value(step).pipe(
+        Match.when({ commit: Match.string }, ({ commit }) => Effect.andThen(held.succeeded(`echo ${at} > c${at} && git add c${at}`), held.committedAs(`git commit -q -m c${at}`, commit, `call-${at}`))),
+        Match.when({ amend: Match.string }, ({ amend }) => held.committedAs('git commit --amend -q --no-edit', amend, `call-${at}`)),
+        Match.when({ outside: true }, () => held.succeeded(`echo ${at} > c${at} && git add c${at} && git commit -q -m c${at}`)),
+        Match.when({ race: Match.string }, ({ race }) =>
+            Effect.all(
+                [
+                    held.allowedAs('git commit -q -m race', race, `call-${at}`),
+                    held.succeeded(`echo ${at} > c${at} && git add c${at} && git commit -q -m outside`),
+                    reached(held.shell('git commit -q -m race'), (code) => code !== 0, 'a session commit that fails'),
+                    ran({ call: `call-${at}`, ...OWNERS[race], cwd: held.repo, failed: true }),
+                ],
+                { discard: true },
+            ),
+        ),
+        Match.orElse(() => held.pushed),
+    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -145,6 +263,58 @@ layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })
                 const { repo } = yield* Folders;
                 expect(yield* decided(command, repo)).toStrictEqual({ _tag: 'Allow' });
             }),
+        30_000,
+    );
+
+    it.effect.each(RESTORED)(
+        'Restore after %s runs unchanged',
+        ([, steps, command, by]) =>
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const held = yield* scratch();
+                    yield* Effect.forEach(steps, restoreStep(held), { discard: true });
+                    expect(yield* held.decidedAs(command, by)).toStrictEqual({ _tag: 'Allow' });
+                }),
+            ),
+        30_000,
+    );
+
+    it.effect.each(KEPT)(
+        'Restore after %s is refused',
+        ([, steps, command, by, reason]) =>
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const held = yield* scratch();
+                    yield* Effect.forEach(steps, restoreStep(held), { discard: true });
+                    expect(yield* held.decidedAs(command, by)).toSatisfy(refusing(reason), `refused because ${reason}`);
+                }),
+            ),
+        30_000,
+    );
+
+    it.effect.each(AMENDED)(
+        'Amend after %s runs unchanged',
+        ([, steps]) =>
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const held = yield* scratch();
+                    yield* Effect.forEach(steps, amendStep(held), { discard: true });
+                    expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a')).toStrictEqual({ _tag: 'Allow' });
+                }),
+            ),
+        30_000,
+    );
+
+    it.effect.each(AMEND_KEPT)(
+        'Amend after %s is refused',
+        ([, steps, reason]) =>
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const held = yield* scratch();
+                    yield* Effect.forEach(steps, amendStep(held), { discard: true });
+                    expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a')).toSatisfy(refusing(reason), `refused because ${reason}`);
+                }),
+            ),
         30_000,
     );
 

@@ -15,10 +15,10 @@ const refusing =
 
 const Decider = Layer.provideMerge(Engine, Layer.merge(NodeServices, SecureRandom.layerWebCrypto));
 
-const decided = (command: string, cwd: string, { kind = 'foreground', session }: { readonly kind?: Request['kind']; readonly session?: string } = {}) =>
+const decided = (command: string, cwd: string, { kind = 'foreground', session, agent, call }: Partial<Pick<Request, 'kind' | 'session' | 'agent' | 'call'>> = {}) =>
     Effect.flatMap(
-        SecureRandom.SecureRandom.use((random) => Effect.all({ session: session === undefined ? random.uuidV4() : Effect.succeed(session), call: random.uuidV4() })),
-        (ids) => decide({ command, cwd, kind, ...ids }),
+        SecureRandom.SecureRandom.use((random) => Effect.all({ session: session === undefined ? random.uuidV4() : Effect.succeed(session), call: call === undefined ? random.uuidV4() : Effect.succeed(call) })),
+        (ids) => decide({ command, cwd, kind, ...ids, ...(agent === undefined ? {} : { agent }) }),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

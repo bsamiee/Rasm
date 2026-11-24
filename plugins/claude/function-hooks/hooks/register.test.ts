@@ -35,6 +35,8 @@ const LIST = { tool: 'Bash', command: 'ls' } as const;
 const DECIDED = { session: ENDING.sessionId, call: expect.any(String) } as const;
 const OUTPUT = '/tmp/claude-501/x/tasks/b7k2.output';
 const BACKGROUND = { result: { result: { stdout: '', stderr: '', interrupted: false, backgroundTaskId: 'b7k2' }, text: `Command running in background with ID: b7k2. Output is being written to: ${OUTPUT}` } } as const;
+const EDITED = { result: { filePath: '/work/f', oldString: 'base', newString: 'mine', originalFile: 'base\n', structuredPatch: [], userModified: false, replaceAll: false }, text: 'The file /work/f has been updated' } as const;
+const WRITTEN = { result: { type: 'update', filePath: '/work/f', content: 'mine\n', originalFile: 'base\n', structuredPatch: [] }, text: 'The file /work/f has been updated' } as const;
 const REPEATING = { file: OUTPUT, live: true, stuck: { key: 'repeats retry #', text: 'repeats "retry #"' } } as const;
 const RUNNING = { file: OUTPUT, live: true } as const;
 const SCAN_MS = 300_000;
@@ -102,7 +104,8 @@ const worldOf = (on: On, decide: () => HttpResponse | { readonly deny: string },
         const route = new URL(e.url).pathname.slice(1);
         seen.sent.push([route, typeof e.init?.body === 'string' ? JSON.parse(e.init.body) : e.init?.body]);
         const step = route === 'tasks' ? given.watched?.next() : undefined;
-        const reply = route === 'tasks' ? answered(step === undefined || step.done === true ? [] : [step.value]) : decide();
+        const replies: Readonly<Record<string, () => HttpResponse | { readonly deny: string }>> = { tasks: () => answered(step === undefined || step.done === true ? [] : [step.value]), wrote: () => answered({}), ran: () => answered({}) };
+        const reply = (replies[route] ?? decide)();
         return 'deny' in reply ? reply : { value: reply };
     });
     on('tool.call', (_, e) => {
@@ -139,8 +142,45 @@ const worldOf = (on: On, decide: () => HttpResponse | { readonly deny: string },
         await $.session.start(SESSION);
         expect(await $.tool.call(LIST)).toEqual(resolved);
         expect(world.ran).toEqual(ran);
-        expect(world.sent).toEqual([['decide', { command: 'ls', cwd: SESSION.cwd, kind: 'foreground', ...DECIDED }]]);
+        expect(world.sent.filter(([route]) => route === 'decide')).toEqual([['decide', { command: 'ls', cwd: SESSION.cwd, kind: 'foreground', ...DECIDED }]]);
     });
+});
+
+(
+    [
+        { tool: { tool: 'Edit', file_path: '/work/f', old_string: 'base', new_string: 'mine' }, result: EDITED, wrote: [['wrote', { session: ENDING.sessionId, agent: 'a1', result: EDITED.result }]] },
+        { tool: { tool: 'Write', file_path: '/work/f', content: 'mine\n' }, result: WRITTEN, wrote: [['wrote', { session: ENDING.sessionId, agent: 'a1', result: WRITTEN.result }]] },
+        { tool: { tool: 'Edit', file_path: '/work/f', old_string: 'gone', new_string: 'mine' }, result: { isError: true, result: 'String to replace not found', text: 'String to replace not found' }, wrote: [] },
+    ] as const
+).forEach(({ tool, result, wrote }) => {
+    test(`${tool.tool} call ${wrote.length === 0 ? 'that failed sends no writing' : "that ran sends its result as the calling agent's writing"}`, async ($, on) => {
+        const world = worldOf(on, () => answered(ALLOWED), { result });
+        await $.session.start(SESSION);
+        expect(await $.tool.call({ ...tool, agentId: 'a1' })).toEqual(result);
+        expect(world.sent).toEqual(wrote);
+    });
+});
+
+(
+    [
+        { call: LIST, result: RAN, ran: [['ran', { session: ENDING.sessionId, cwd: SESSION.cwd, failed: false, call: expect.any(String) }]] },
+        { call: { ...LIST, agentId: 'a1' }, result: { isError: true, result: 'Exit code 1', text: 'Exit code 1' }, ran: [['ran', { session: ENDING.sessionId, agent: 'a1', cwd: SESSION.cwd, failed: true, call: expect.any(String) }]] },
+        { call: { ...LIST, run_in_background: true }, result: BACKGROUND.result, ran: [] },
+    ] as const
+).forEach(({ call, result, ran }) => {
+    test(`Bash call ${ran.length === 0 ? 'run in the background reports nothing after it' : 'run in the foreground reports its call, folder, and failure after it ran'}`, async ($, on) => {
+        const world = worldOf(on, () => answered(ALLOWED), { result });
+        await $.session.start(SESSION);
+        await $.tool.call(call);
+        expect(world.sent.filter(([route]) => route === 'ran')).toEqual(ran);
+    });
+});
+
+test('Bash call the server refuses reports nothing after it', async ($, on) => {
+    const world = worldOf(on, () => answered({ _tag: 'Deny', reason: 'no' }));
+    await $.session.start(SESSION);
+    await $.tool.call(LIST);
+    expect(world.sent.map(([route]) => route)).toEqual(['decide']);
 });
 
 test('Rewrite sets only Monitor input fields on a Monitor call', async ($, on) => {
@@ -229,7 +269,7 @@ test('Decide request states run kind and calling agent, and both calls use one s
     await $.session.start(SESSION);
     await $.tool.call({ tool: 'Bash', command: 'make', run_in_background: true, timeout: 5000, agentId: 'a1' });
     await $.tool.call({ tool: 'Bash', command: 'make' });
-    expect(world.sent).toEqual([
+    expect(world.sent.filter(([route]) => route === 'decide')).toEqual([
         ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'background', agent: 'a1', ...DECIDED }],
         ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'foreground', ...DECIDED }],
     ]);

@@ -11,6 +11,7 @@
         "./claude/server": "./claude/server.ts",
         "./rules/decide": "./rules/decide.ts",
         "./rules/decision": "./rules/decision.ts",
+        "./rules/git": "./rules/git.ts",
         "./package.json": "./package.json"
     },
     "dependencies": {
