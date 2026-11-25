@@ -80,7 +80,6 @@
         "INFOPLIST_FILE": "Info.plist",
         "INFOPLIST_KEY_LSBackgroundOnly": "YES",
         "INFOPLIST_KEY_NSAppleEventsUsageDescription": "Rasad sends scripting commands to apps when an MCP client requests them.",
-        "OTHER_CODE_SIGN_FLAGS": "--requirements \"=designated => identifier \\\"$(PRODUCT_BUNDLE_IDENTIFIER)\\\" and anchor apple generic and certificate leaf[subject.OU] = \\\"$(DEVELOPMENT_TEAM)\\\"\"",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.rasad",
       },
     },
