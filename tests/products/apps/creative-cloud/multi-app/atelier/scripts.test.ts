@@ -86,8 +86,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
         const files: Record<string, string> = {
             [path.join(contents, 'Info.plist')]: build({ CFBundleExecutable: 'Atelier', CFBundleIdentifier: 'app.rasm.atelier.suite', CFBundleShortVersionString: '0.0.0' }),
             [path.join(contents, 'MacOS', 'Atelier')]: `#!/bin/sh\nexec /usr/bin/nc -U '${socket}'\n`,
-            [path.join(bin, 'pkgutil')]: `#!/bin/sh\ncase "$1" in\n--pkgs=*) printf '%s\\n' ${INSTALLED.map(({ receipt }) => receipt).join(' ')} ;;\n--pkg-info-plist) cat '${receipts}/'"$2".plist ;;\n--only-dirs) cat '${receipts}/'"$3".txt ;;\nesac\n`,
-            [path.join(bin, 'osascript')]: '#!/bin/sh\nexit 1\n',
+            [path.join(bin, 'pkgutil')]: `#!/bin/sh\ncase "$1" in\n--pkgs) printf '%s\\n' ${INSTALLED.map(({ receipt }) => receipt).join(' ')} ;;\n--pkg-info-plist) cat '${receipts}/'"$2".plist ;;\n--only-dirs) cat '${receipts}/'"$3".txt ;;\nesac\n`,
             ...Record.fromEntries(
                 INSTALLED.flatMap(({ receipt, name, identifier, version }) => [
                     [path.join(receipts, `${receipt}.plist`), build({ pkgid: receipt, 'pkg-version': version, volume: root, 'install-location': location })],
@@ -112,7 +111,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
         yield* Effect.forEach(products, (row) => Effect.sync(() => product.run(...row)), { discard: true });
         yield* Effect.forEach(facts, (row) => Effect.sync(() => fact.run(...row)), { discard: true });
         yield* Effect.forEach(Record.toEntries(files), ([file, text]) => Effect.andThen(fs.makeDirectory(path.dirname(file), { recursive: true }), fs.writeFileString(file, text)), { discard: true });
-        yield* Effect.forEach([path.join(contents, 'MacOS', 'Atelier'), path.join(bin, 'pkgutil'), path.join(bin, 'osascript')], (file) => fs.chmod(file, 0o755), { discard: true });
+        yield* Effect.forEach([path.join(contents, 'MacOS', 'Atelier'), path.join(bin, 'pkgutil')], (file) => fs.chmod(file, 0o755), { discard: true });
         yield* Effect.forEach(['Helpers', 'Resources'], (folder) => fs.makeDirectory(path.join(contents, folder)), { discard: true });
         yield* Effect.all(
             [

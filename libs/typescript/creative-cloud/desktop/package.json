@@ -2,7 +2,7 @@
     "name": "@rasm/creative-cloud-desktop",
     "version": "0.1.0",
     "private": true,
-    "description": "Adobe applications Creative Cloud desktop installs, read from its registry with product, channel, and version",
+    "description": "Adobe applications installed on this Mac, read from the Creative Cloud registry and Adobe installer receipts, with product, channel, and version",
     "license": "MIT",
     "repository": {
         "type": "git",
