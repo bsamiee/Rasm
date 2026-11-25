@@ -3,7 +3,8 @@ import Files
 import Foundation
 import Instrumentation
 import Logging
-public import OTel
+import OTel
+import OTelSemanticConventions
 import Processes
 public import ServiceLifecycle
 import SystemMetrics
@@ -90,27 +91,24 @@ extension Program {
 
     // --- [PROCESS]
 
-    public func telemetry(scopes: [Any.Type], configuration: OTel.Configuration = .default, shutdownWithin limit: Duration = .milliseconds(500)) -> ServiceGroup {
-        let stated = preferences.compactMapValues { value in value as? String }.filter { variable, _ in variable.hasPrefix("OTEL_") }.merging(environment) { _, variable in variable }
+    public func telemetry(scopes: [Any.Type]) -> ServiceGroup {
+        let process = ProcessInfo.processInfo
+        let stated = preferences.compactMapValues { value in value as? String }.filter { variable, _ in variable.hasPrefix("OTEL_") }.merging(process.environment) { _, variable in variable }
         let signals: [(enabled: WritableKeyPath<OTel.Configuration, Bool>, exporter: String)] = [
             (\.logs.enabled, "OTEL_LOGS_EXPORTER"), (\.metrics.enabled, "OTEL_METRICS_EXPORTER"), (\.traces.enabled, "OTEL_TRACES_EXPORTER"),
         ]
-        var configuration = signals.reduce(into: configuration) { gated, signal in gated[keyPath: signal.enabled] = gated[keyPath: signal.enabled] && stated[signal.exporter] != nil }
-        let process = ProcessInfo.processInfo
-        let detected: [String: String] =
+        var configuration = signals.reduce(into: OTel.Configuration.default) { gated, signal in gated[keyPath: signal.enabled] = stated[signal.exporter] != nil }
+        configuration.resourceAttributes =
             configuration.logs.enabled || configuration.metrics.enabled || configuration.traces.enabled
             ? [
-                "service.instance.id": UUID().uuidString, "process.executable.name": process.processName, "host.name": process.hostName, "os.type": "darwin",
-                "os.description": process.operatingSystemVersionString, "process.runtime.name": "swift",
-            ] : [:]
-        configuration.resourceAttributes =
-            detected
-            .merging(["service.name": identifier, "service.version": version, "process.pid": String(process.processIdentifier)].compactMapValues(\.self)) { _, own in own }
-            .merging(configuration.resourceAttributes) { _, caller in caller }
+                OTelAttribute.service.name: identifier, OTelAttribute.service.version: version, OTelAttribute.service.instance.id: UUID().uuidString, "process.pid": String(process.processIdentifier),
+                "process.executable.name": process.processName, "host.name": process.hostName, "os.type": "darwin", "os.description": process.operatingSystemVersionString,
+                "process.runtime.name": "swift",
+            ].compactMapValues(\.self) : [:]
         let filter = LogFilter(roots: scopes, rules: rules())
         let resource: Logging.Logger.Metadata = [
-            "service.name": configuration.resourceAttributes["service.name"].map(Logging.Logger.MetadataValue.string),
-            "service.version": configuration.resourceAttributes["service.version"].map(Logging.Logger.MetadataValue.string), "process.pid": .stringConvertible(process.processIdentifier),
+            OTelAttribute.service.name: .string(identifier), OTelAttribute.service.version: version.map(Logging.Logger.MetadataValue.string),
+            "process.pid": .stringConvertible(process.processIdentifier),
         ]
         .compactMapValues(\.self)
         var file = RotatingFile(directory(.logs).appending(path: "\(process.processName).log", directoryHint: .notDirectory))
@@ -170,7 +168,7 @@ extension Program {
             services: exports.map { service in .init(service: service) } + [.init(service: crashReports(to: logger), successTerminationBehavior: .ignore, failureTerminationBehavior: .ignore)],
             logger: Logging.Logger(label: String(reflecting: ServiceGroup.self)),
         )
-        group.maximumGracefulShutdownDuration = limit
+        group.maximumGracefulShutdownDuration = .milliseconds(500)
         return ServiceGroup(configuration: group)
     }
 }

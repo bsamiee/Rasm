@@ -8,10 +8,7 @@ import System
 
 nonisolated struct FileLocations: Sendable {
     let home: URL
-    let applicationSupportDirectory: URL = Program.current.directory(
-        .state,
-        default: (Bundle.main.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String).map { name in URL.applicationSupportDirectory.appending(path: name, directoryHint: .isDirectory) },
-    )
+    let applicationSupportDirectory: URL = Program.current.directory(.state)
 
     init(environment: [Environment.Key: String]) {
         home = environment["HOME"].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) } ?? URL.homeDirectory

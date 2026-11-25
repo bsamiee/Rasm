@@ -3,6 +3,7 @@ import CasePathsCore
 public import Configuration
 public import Foundation
 import Logging
+import Security
 import Synchronization
 public import System
 
@@ -42,10 +43,7 @@ final class UnrecognizedValues: AccessReporter {
             return state.pending
         }
         for entry in pending {
-            logger.warning(
-                "Setting value unrecognized, default stands",
-                metadata: ["variable": .string(entry.variable), "value": .string(entry.value), "accepted": .string(entry.accepted)],
-            )
+            logger.warning("Setting value unrecognized, default stands", metadata: ["variable": .string(entry.variable), "value": .string(entry.value), "accepted": .string(entry.accepted)])
         }
     }
 }
@@ -57,25 +55,24 @@ public struct Program: Sendable {
     public let name: String
     public let version: String?
     public let settings: ConfigReader
-    let environment: [String: String]
     let stored: MutableInMemoryProvider
     let unrecognized: UnrecognizedValues
 
-    public init(bundle: Bundle = .main, environment: [String: String] = ProcessInfo.processInfo.environment) {
-        let identifier = bundle.bundleIdentifier ?? ProcessInfo.processInfo.processName
-        let name = identifier.split(separator: ".").last.map { component in String(component) } ?? identifier
-        (self.identifier, self.name, self.environment) = (identifier, name, environment)
-        version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+    private init() {
+        identifier = Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName
+        name = identifier.split(separator: ".").last.map { component in String(component) } ?? identifier
+        version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         stored = MutableInMemoryProvider(name: identifier, initialValues: Self.values(UserDefaults.standard.persistentDomain(forName: identifier) ?? [:]))
-        let providers: [any ConfigProvider] = [EnvironmentVariablesProvider(environmentVariables: environment).prefixKeys(with: ConfigKey([name])), stored]
+        let providers: [any ConfigProvider] = [EnvironmentVariablesProvider().prefixKeys(with: ConfigKey([name])), stored]
         unrecognized = UnrecognizedValues(accepted: ["log.target": Target.allCases.map(\.rawValue)], raw: ConfigReader(providers: providers))
         settings = ConfigReader(providers: providers, accessReporter: unrecognized)
     }
 
-    public func directory(_ folder: Folder, of application: String? = nil, default stated: URL? = nil) -> URL {
+    public func directory(_ folder: Folder, of application: String? = nil) -> URL {
         let setting: (ConfigKey) -> URL? = { key in settings.string(forKey: key).map { path in URL(filePath: path, directoryHint: .isDirectory) } }
         return switch (folder, setting("output.dir")) {
-            case (.state, _): setting("state.dir") ?? stated ?? .applicationSupportDirectory.appending(path: identifier, directoryHint: .isDirectory)
+            case (.state, _):
+                setting("state.dir") ?? .applicationSupportDirectory.appending(path: Bundle.main.infoDictionary?[kCFBundleNameKey as String] as? String ?? identifier, directoryHint: .isDirectory)
             case (_, .some(let output)): output.appending(components: application ?? name, String(describing: folder), directoryHint: .isDirectory)
             case (.logs, .none): .libraryDirectory.appending(components: "Logs", name, directoryHint: .isDirectory)
             case (_, .none): .cachesDirectory.appending(components: name, String(describing: folder), directoryHint: .isDirectory)
@@ -89,10 +86,15 @@ public struct Program: Sendable {
 
     public func require(_ grants: [Grant]) throws(ApplicationFailure) {
         for grant in grants where !grant.held {
+            var (code, requirement, identity): (SecStaticCode?, SecRequirement?, CFData?) = (nil, nil, nil)
+            let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
+            let designated = code.map { code in unsafe SecCodeCopyDesignatedRequirement(code, [], &requirement) } ?? found
+            let read = requirement.map { requirement in unsafe SecRequirementCopyData(requirement, [], &identity) } ?? designated
+            guard read == errSecSuccess, let identity else { throw ApplicationFailure(subject: identifier, reason: .host(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))) }
             let requested = ConfigKey("grants.requested.\(grant.rawValue)")
-            if settings.bool(forKey: requested) != true {
+            if settings.bytes(forKey: requested).map(Data.init) != identity as Data {
                 grant.request()
-                store(true, forKey: requested)
+                store(identity as Data, forKey: requested)
             }
             try grant.check()
         }
