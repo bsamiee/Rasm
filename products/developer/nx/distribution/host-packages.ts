@@ -55,7 +55,7 @@ interface Host {
     readonly hosted?: true;
     readonly configurations?: readonly string[];
     readonly engine?: { readonly fields: readonly string[] };
-    readonly operations?: Partial<Record<'check' | 'test' | 'pack' | 'install', { readonly command: string; readonly options: Readonly<Record<string, unknown>> }>>;
+    readonly operations?: Partial<Record<'check' | 'test' | 'pack' | 'install', string>>;
     readonly output: string;
     readonly read: (text: string, file: string) => Effect.Effect<Option.Option<Fields>, Cause.UnknownError>;
     readonly write?: (text: string, version: string, file: string) => Effect.Effect<string, Cause.UnknownError>;
@@ -101,12 +101,12 @@ const Yak = Schema.Struct({ name: Schema.String, version: Schema.String, authors
 const Pushed = Schema.Struct({ distributions: Schema.Array(Schema.Struct({ filename: Schema.String })) });
 const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.Struct({ app: Schema.Literals(Struct.keys(UXP)) }) }));
 const Chrome = Schema.fromJsonString(Schema.Struct({ manifest_version: Schema.Literal(3), version: Schema.String, key: Schema.optionalKey(Schema.Uint8ArrayFromBase64) }));
-const Revision = Schema.optionalKey(Schema.Struct({ distributionChannels: Schema.optionalKey(Schema.Array(Schema.Struct({ crxVersion: Schema.String }))) }));
+const Revision = Schema.Struct({ distributionChannels: Schema.Array(Schema.Struct({ crxVersion: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Upload = Schema.optionalKey(Schema.Literals(['UPLOAD_STATE_UNSPECIFIED', 'SUCCEEDED', 'IN_PROGRESS', 'FAILED', 'NOT_FOUND']));
 const Status = Schema.Struct({ publishedItemRevisionStatus: Revision, submittedItemRevisionStatus: Revision, lastAsyncUploadState: Upload });
 const Uploaded = Schema.Struct({ uploadState: Upload });
 const Registry = Schema.Struct({ plugins: Schema.Array(Schema.StructWithRest(Schema.Struct({ pluginId: Schema.String, path: Schema.optionalKey(Schema.String) }), [Schema.Record(Schema.String, Schema.Unknown)])) });
-const References = Schema.optionalKey(Schema.Array(Schema.Struct({ Name: Schema.String, Enabled: Schema.optionalKey(Schema.Boolean) })));
+const References = Schema.Array(Schema.Struct({ name: Schema.String, enabled: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))) }).pipe(Schema.encodeKeys({ name: 'Name', enabled: 'Enabled' }))).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
 const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Plugins: References, AdditionalPluginDirectories: Schema.optionalKey(Schema.Array(Schema.String)) }));
 const Linked = Schema.Record(Schema.String, Schema.Struct({ project: Schema.String, target: Schema.String, configuration: Schema.optionalKey(Schema.String) })).annotate({
     description: 'Folders of a .uplugin, each mapped to the Nx target that installs a package under it in a folder named for the engine platform',
@@ -122,13 +122,14 @@ const Built = Schema.fromJsonString(Schema.Struct({ MajorVersion: Schema.Int, Mi
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const exact = (subject: string, version: string) =>
+const exact = (text: string, version: string, file: string) =>
     Effect.fromResult(SemVer.parse(version)).pipe(
         Effect.filterOrFail((parsed) => !(SemVer.isPrerelease(parsed) || SemVer.hasBuild(parsed))),
-        Effect.mapError((cause) => new Cause.UnknownError(cause, `${subject} takes a major.minor.patch version alone, which ${version} is not`)),
+        Effect.mapError((cause) => new Cause.UnknownError(cause, `${file} takes a major.minor.patch version alone, which ${version} is not`)),
+        Effect.as(applyEdits(text, modify(text, ['version'], version, {}))),
     );
 
-const webstore = Effect.fnUntraced(function* ({ at, text }: Found, token: string) {
+const webstore = Effect.fnUntraced(function* ({ at, text, version }: Found, store: string, token: string) {
     const [{ key }, publisher, client] = yield* Effect.all([
         Effect.mapError(Schema.decodeEffect(Chrome)(text), (cause) => new Cause.UnknownError(cause, `${at} does not decode`)),
         Effect.mapError(Config.NonEmptyString(WEBSTORE.publisher), (cause) => new Cause.UnknownError(cause, `${WEBSTORE.publisher} names no Chrome Web Store publisher`)),
@@ -140,14 +141,21 @@ const webstore = Effect.fnUntraced(function* ({ at, text }: Found, token: string
             .slice(0, 32)
             .replaceAll(/./gu, (digit) => (Number.parseInt(digit, 16) + 10).toString(36))}`;
         const status = Effect.flatMap(authorized.get(`${WEBSTORE.api}/v2/${item}:fetchStatus`), HttpClientResponse.schemaBodyJson(Status));
+        const settled = Effect.map(Effect.repeat(status, { schedule: Schedule.spaced(WEBSTORE.poll), until: ({ lastAsyncUploadState }) => lastAsyncUploadState !== 'IN_PROGRESS' }), Struct.get('lastAsyncUploadState'));
         return {
-            status,
-            upload: HttpClientRequest.bodyFile(HttpClientRequest.post(`${WEBSTORE.api}/upload/v2/${item}:upload`), at, { contentType: 'application/zip' }).pipe(
+            held: Effect.map(status, ({ publishedItemRevisionStatus, submittedItemRevisionStatus }) => [publishedItemRevisionStatus, submittedItemRevisionStatus].flatMap(Struct.get('distributionChannels')).map(Struct.get('crxVersion')).includes(version)),
+            pushed: HttpClientRequest.bodyFile(HttpClientRequest.post(`${WEBSTORE.api}/upload/v2/${item}:upload`), at, { contentType: 'application/zip' }).pipe(
                 Effect.flatMap((request) => authorized.execute(request)),
                 Effect.flatMap(HttpClientResponse.schemaBodyJson(Uploaded)),
+                Effect.flatMap(({ uploadState }) => (uploadState === 'IN_PROGRESS' ? settled : Effect.succeed(uploadState))),
+                Effect.timeout(WEBSTORE.upload),
+                Effect.filterOrFail(
+                    (state) => state === 'SUCCEEDED',
+                    (state) => new Cause.UnknownError(state, `${at} uploads to ${store} in state ${state}, so nothing is submitted for review`),
+                ),
+                Effect.andThen(authorized.post(`${WEBSTORE.api}/v2/${item}:publish`)),
+                Effect.as(Option.none<string>()),
             ),
-            settled: Effect.map(Effect.repeat(status, { schedule: Schedule.spaced(WEBSTORE.poll), until: ({ lastAsyncUploadState }) => lastAsyncUploadState !== 'IN_PROGRESS' }), Struct.get('lastAsyncUploadState')),
-            publish: authorized.post(`${WEBSTORE.api}/v2/${item}:publish`),
         };
     });
 });
@@ -158,11 +166,11 @@ const routed = (file: string, text: string) =>
         (host) => Effect.map(host.read(text, file), Option.match({ onNone: () => Result.failVoid, onSome: (fields) => Result.succeed({ file, host, fields }) })),
     );
 
-const zipped = Effect.fnUntraced(function* (folder: string, names: readonly string[], file: string) {
+const zipped = Effect.fnUntraced(function* ({ at, names }: Pick<Found, 'at' | 'names'>, file: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const entries = yield* Effect.forEach(names.toSorted(), (name) => Effect.map(fs.stat(path.join(folder, name)), (info) => ({ name, info })));
+    const entries = yield* Effect.forEach(names.toSorted(), (name) => Effect.map(fs.stat(path.join(at, name)), (info) => ({ name, info })));
     yield* Stream.fromIterable(entries.filter(({ info }) => info.type === 'File')).pipe(
-        Stream.map(({ name, info }) => Zip.fileStream(name.split(path.sep).join('/'), fs.stream(path.join(folder, name)), { mode: info.mode & (constants.S_IRWXU + constants.S_IRWXG + constants.S_IRWXO) })),
+        Stream.map(({ name, info }) => Zip.fileStream(name.split(path.sep).join('/'), fs.stream(path.join(at, name)), { mode: info.mode & (constants.S_IRWXU + constants.S_IRWXG + constants.S_IRWXO) })),
         Stream.pipeThroughChannel(Zip.encode()),
         Stream.run(fs.sink(file)),
         Effect.mapError((cause) => new Cause.UnknownError(cause, `${file} does not write`)),
@@ -249,7 +257,7 @@ const HOSTS: readonly Host[] = [
             lock: 'uv.lock',
             runtime: [['uv', ...PYTHON, `import hashlib, os, shutil; print(hashlib.file_digest(open(${LOCATED}, 'rb'), 'sha256').hexdigest())`].map(quoteShellArg).join(' ')],
         },
-        operations: { check: { command: 'blender_ext.py validate', options: { operation: 'check' } } },
+        operations: { check: 'blender_ext.py validate' },
         install: {
             command: 'blender --command extension install-file',
             help: 'blender --command extension install-file --help',
@@ -314,12 +322,9 @@ const HOSTS: readonly Host[] = [
             command: 'yak push',
             credential: CREDENTIALS.yak,
             held: ({ at, name, version }, store) =>
-                Effect.flatMap(
-                    HttpClient.get(`${store}/versions/${name}/${version}`),
-                    HttpClientResponse.matchStatus({
-                        404: () => Effect.succeed(false),
-                        orElse: (response) => Effect.map(Effect.flatMap(HttpClientResponse.filterStatusOk(response), HttpClientResponse.schemaBodyJson(Pushed)), ({ distributions }) => distributions.some(({ filename }) => filename.toLowerCase() === basename(at).toLowerCase())),
-                    }),
+                HttpClient.get(`${store}/versions/${name}/${version}`).pipe(
+                    Effect.flatMap(HttpClientResponse.matchStatus({ 404: () => Effect.succeed<typeof Pushed.Type>({ distributions: [] }), orElse: (response) => Effect.flatMap(HttpClientResponse.filterStatusOk(response), HttpClientResponse.schemaBodyJson(Pushed)) })),
+                    Effect.map(({ distributions }) => distributions.some(({ filename }) => filename.toLowerCase() === basename(at).toLowerCase())),
                 ),
             push: ({ at }, store, token, words) => Effect.as(spawned(['yak', 'push', at, '--source', store, ...words], { env: { [CREDENTIALS.yak]: token } }), Option.none()),
         },
@@ -330,8 +335,8 @@ const HOSTS: readonly Host[] = [
         archive: '.ccx',
         output: '.',
         read: (text) => Effect.succeed(Option.map(Schema.decodeOption(Uxp)(text), ({ id, version }) => ({ name: id, version }))),
-        write: (text, version, file) => Effect.as(exact(file, version), applyEdits(text, modify(text, ['version'], version, {}))),
-        build: { executor: 'package', command: 'a zip archive named .ccx', pack: ({ at, names }, file) => zipped(at, names, file) },
+        write: exact,
+        build: { executor: 'package', command: 'a zip archive named .ccx', pack: zipped },
         install: {
             command: "a copy into the per-user UXP plug-in folder in place of its earlier folders and CEP extension, and the plug-in's row in the PluginsInfo registry of a host that reads one",
             platforms: Object.keys(ADOBE),
@@ -362,37 +367,17 @@ const HOSTS: readonly Host[] = [
         archive: '.zip',
         output: '.',
         read: (text, file) => Effect.succeed(Option.map(Schema.decodeOption(Chrome)(text), ({ version }) => ({ name: basename(dirname(file), posix.extname(dirname(file))), version }))),
-        write: (text, version, file) => Effect.as(exact(file, version), applyEdits(text, modify(text, ['version'], version, {}))),
-        build: { executor: 'package', command: 'a zip archive of the extension folder', pack: ({ at, names }, file) => zipped(at, names, file) },
+        write: exact,
+        build: { executor: 'package', command: 'a zip archive of the extension folder', pack: zipped },
         publish: {
             store: 'https://chrome.google.com/webstore/devconsole',
             command: 'the Chrome Web Store API upload, then publish',
             credential: CREDENTIALS.chrome,
-            held: (found, _store, token) =>
-                Effect.flatMap(
-                    webstore(found, token),
-                    Option.match({
-                        onNone: () => Effect.succeed(false),
-                        onSome: ({ status }) => Effect.map(status, ({ publishedItemRevisionStatus, submittedItemRevisionStatus }) => [publishedItemRevisionStatus, submittedItemRevisionStatus].flatMap((revision) => revision?.distributionChannels ?? []).some(({ crxVersion }) => crxVersion === found.version)),
-                    }),
-                ),
+            held: (found, store, token) => Effect.flatMap(webstore(found, store, token), Option.match({ onNone: () => Effect.succeed(false), onSome: ({ held }) => held })),
             push: (found, store, token) =>
                 Effect.flatMap(
-                    webstore(found, token),
-                    Option.match({
-                        onNone: () => Effect.succeedSome(`${found.name} states no key in its manifest.json: its first version uploads by hand at ${store}, then the public key the dashboard shows goes in as key, and each later version publishes here`),
-                        onSome: ({ upload, settled, publish }) =>
-                            upload.pipe(
-                                Effect.flatMap(({ uploadState }) => (uploadState === 'IN_PROGRESS' ? settled : Effect.succeed(uploadState))),
-                                Effect.timeout(WEBSTORE.upload),
-                                Effect.filterOrFail(
-                                    (state) => state === 'SUCCEEDED',
-                                    (state) => new Cause.UnknownError(state, `${found.at} uploads to ${store} in state ${state}, so nothing is submitted for review`),
-                                ),
-                                Effect.andThen(publish),
-                                Effect.as(Option.none()),
-                            ),
-                    }),
+                    webstore(found, store, token),
+                    Option.match({ onNone: () => Effect.succeedSome(`${found.name} states no key in its manifest.json: its first version uploads by hand at ${store}, then the public key the dashboard shows goes in as key, and each later version publishes here`), onSome: ({ pushed }) => pushed }),
                 ),
         },
     },
@@ -406,11 +391,11 @@ const HOSTS: readonly Host[] = [
         read: (text, file) =>
             Effect.mapBoth(Schema.decodeEffect(Project)(text), {
                 onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not decode`),
-                onSuccess: ({ Plugins, AdditionalPluginDirectories }) => Option.some({ name: basename(file, '.uproject'), folders: ['Plugins', ...(AdditionalPluginDirectories ?? [])], references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })) }),
+                onSuccess: ({ Plugins, AdditionalPluginDirectories = [] }) => Option.some({ name: basename(file, '.uproject'), folders: ['Plugins', ...AdditionalPluginDirectories], references: Plugins }),
             }),
         engine: { fields: Struct.keys(Association.fields) },
         build: { executor: 'unreal-build', command: 'UnrealBuildTool', outputs: ({ folders = [] }) => ['Binaries', ...folders.map((folder) => posix.join(folder, '**', 'Binaries'))] },
-        operations: { check: { command: ['UnrealBuildTool', ...ANALYSIS].join(' '), options: { operation: 'check' } } },
+        operations: { check: ['UnrealBuildTool', ...ANALYSIS].join(' ') },
     },
     {
         manifest: '*.uplugin',
@@ -423,14 +408,7 @@ const HOSTS: readonly Host[] = [
         read: (text, file) =>
             Effect.mapBoth(Schema.decodeEffect(Plugin)(text), {
                 onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not decode`),
-                onSuccess: ({ VersionName, Installed, Plugins, nx }) =>
-                    Option.some({
-                        name: basename(file, '.uplugin'),
-                        ...(VersionName !== undefined && { version: VersionName }),
-                        ...(nx !== undefined && { packages: nx.packages }),
-                        installed: Installed === true,
-                        references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })),
-                    }),
+                onSuccess: ({ VersionName, Installed, Plugins, nx }) => Option.some({ name: basename(file, '.uplugin'), ...(VersionName !== undefined && { version: VersionName }), ...(nx !== undefined && { packages: nx.packages }), installed: Installed === true, references: Plugins }),
             }),
         write: (text, version, file) =>
             Effect.mapBoth(Schema.decodeEffect(Plugin)(text), {
@@ -439,9 +417,9 @@ const HOSTS: readonly Host[] = [
             }),
         build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin -StrictIncludes', runtime: [PLATFORM.runtime] },
         operations: {
-            test: { command: 'UnrealEditor-Cmd -ExecCmds="Automation RunTests ^<plug-in name>.;Quit" -nullrhi -unattended in each project loading the plug-in, then a read of each test state from the exported report', options: { operation: 'test' } },
-            pack: { command: "the Fab store checks, then one zip per engine of the tracked sources with each installed package and that engine's EngineVersion", options: { operation: 'pack' } },
-            install: { command: 'a copy of the BuildPlugin package into the Plugins folder of each project enabling the plug-in outside its folders', options: { operation: 'install' } },
+            test: 'UnrealEditor-Cmd -ExecCmds="Automation RunTests ^<plug-in name>.;Quit" -nullrhi -unattended in each project loading the plug-in, then a read of each test state from the exported report',
+            pack: "the Fab store checks, then one zip per engine of the tracked sources with each installed package and that engine's EngineVersion",
+            install: 'a copy of the BuildPlugin package into the Plugins folder of each project enabling the plug-in outside its folders',
         },
     },
 ];

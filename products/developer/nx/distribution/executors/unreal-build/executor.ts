@@ -134,7 +134,7 @@ const execute = executor(Unreal, function* ({ outputPath, descriptor, hosts, dep
         yield* fs.writeFileString(path.join(root, path.basename(descriptor)), applyEdits(text, modify(text, ['EngineVersion'], `${version}.0`, {})));
         const sources = yield* fs.readDirectory(stage, { recursive: true });
         yield* stored(text, tracked, root, sources);
-        yield* zipped(stage, sources, placed('pack', `${name}-${version}.zip`));
+        yield* zipped({ at: stage, names: sources }, placed('pack', `${name}-${version}.zip`));
     }, Effect.scoped);
     const installed = Effect.fnUntraced(function* (at: string) {
         const { version, project } = yield* located(at);

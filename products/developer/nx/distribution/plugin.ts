@@ -6,7 +6,7 @@ import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, d
 import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
 import { above, type Anchor, aggregated, anchored, EXEC, EXECUTORS, inferring, manifested, namedInput, run, tagged, type Verbs } from '@rasm/nx';
 import { Array, Config, Duration, Effect, FileSystem, Formatter, Function, Option, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
-import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
+import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http';
 import { FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -192,12 +192,12 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
             { onEmpty: () => [], onNonEmpty: (holders) => [{ projects: holders.map((other) => other.fields.name), target: 'build' }] },
         );
         const operated = (verb: keyof NonNullable<Host['operations']>, extra: TargetConfiguration<Readonly<Record<string, unknown>>>) =>
-            Option.zipWith(Option.fromUndefinedOr(build), Option.fromUndefinedOr(operations[verb]), ({ executor }, { command, options: added }): TargetConfiguration => ({
+            Option.zipWith(Option.fromUndefinedOr(build), Option.fromUndefinedOr(operations[verb]), ({ executor }, command): TargetConfiguration => ({
                 executor: `${PLUGIN}:${executor}`,
                 parallelism: false,
                 ...extra,
-                options: { ...options, ...added, ...extra.options },
-                metadata: { description: `${String.capitalize(verb)}s the ${technology} project its ${manifest} declares with ${command}`, help: { command: ran, example: { options: added } } },
+                options: { ...options, operation: verb, ...extra.options },
+                metadata: { description: `${String.capitalize(verb)}s the ${technology} project its ${manifest} declares with ${command}`, help: { command: ran, example: { options: { operation: verb } } } },
             }));
         const written = [
             ...UndefinedOr.match(operations.pack, {
@@ -241,28 +241,32 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
             install: installed,
         });
         const removed = Record.keys(Record.filter(own, ({ outputs = [] }) => outputs.length > 0)).map((verb) => `${verb}--${technology}`);
+        const attached = Option.map(Option.fromUndefinedOr(archive), (): TargetConfiguration => ({
+            executor: EXECUTORS.attach,
+            dependsOn: [packer, ...Array.match(item.dependents, { onEmpty: () => [], onNonEmpty: (dependents) => [{ projects: [...dependents], target: 'pack--*' }] })],
+            inputs: [{ dependentTasksOutputFiles: '**/[!.]*' }, { externalDependencies: [] }],
+            metadata: {
+                description: `Uploads the files ${packer} wrote, with the visible files the pack targets of each package requiring the project wrote, to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload, creating that release with gh release create where none exists`,
+                help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
+            },
+        }));
         const verbs: Verbs = {
             ...Record.map(own, (target) => ({ [technology]: target })),
             clean: Array.match(removed, {
                 onEmpty: () => ({}),
                 onNonEmpty: (labels) => ({ [technology]: { executor: EXECUTORS.clean, options: { targets: labels }, inputs: UNSTATED, metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: ran, example: { options: { targets: labels } } } } } }),
             }),
-            attach: {
-                ...(archive !== undefined && {
-                    gh: {
-                        executor: EXECUTORS.attach,
-                        dependsOn: [packer, ...Array.match(item.dependents, { onEmpty: () => [], onNonEmpty: (dependents) => [{ projects: [...dependents], target: 'pack--*' }] })],
-                        inputs: [{ dependentTasksOutputFiles: '**/[!.]*' }, { externalDependencies: [] }],
-                        metadata: {
-                            description: `Uploads the files ${packer} wrote, with the visible files the pack targets of each package requiring the project wrote, to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload, creating that release with gh release create where none exists`,
-                            help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
-                        },
-                    },
-                }),
-            },
+            attach: Record.getSomes({ gh: attached }),
         };
         const released = Option.filter(Option.fromUndefinedOr(write), () => item.fields.version !== undefined);
         const stored = Option.map(Option.fromUndefinedOr(publish), ({ store, command, credential }) => ({ store, command, variable: settings.storeCredentials?.[technology] ?? credential }));
+        const published = Option.map(stored, ({ store, command, variable }): TargetConfiguration => ({
+            executor: `${PLUGIN}:release-publish`,
+            dependsOn: [packer, '^nx-release-publish'],
+            inputs: RECEIVED,
+            options: { credential: variable },
+            metadata: { technologies: [technology], description: `Publishes the ${archive} packages of the project to ${store} with ${command}, under the credential ${variable} holds`, help: { command: ran, example: { options: { dryRun: true } } } },
+        }));
         const configuration: ProjectConfiguration = {
             root: item.root,
             name: item.fields.name,
@@ -270,21 +274,7 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
             tags: [...(Option.isSome(released) ? release : []), ...platforms.map((os) => `os:${os}`), ...(item.host.hosted === true ? [`host:${technology}`] : [])],
             ...Array.match(standalone ? linked : [], { onEmpty: () => ({}), onNonEmpty: (implicitDependencies) => ({ implicitDependencies }) }),
             ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest } } } }))),
-            targets: aggregated(
-                verbs,
-                item.stated,
-                technology,
-                anchor,
-                Record.getSomes({
-                    'nx-release-publish': Option.map(stored, ({ store, command, variable }): TargetConfiguration => ({
-                        executor: `${PLUGIN}:release-publish`,
-                        dependsOn: [packer, '^nx-release-publish'],
-                        inputs: RECEIVED,
-                        options: { credential: variable },
-                        metadata: { technologies: [technology], description: `Publishes the ${archive} packages of the project to ${store} with ${command}, under the credential ${variable} holds`, help: { command: ran, example: { options: { dryRun: true } } } },
-                    })),
-                }),
-            ),
+            targets: aggregated(verbs, item.stated, technology, anchor, Record.getSomes({ 'nx-release-publish': published })),
         };
         return [item.file, { projects: { [item.root]: configuration } }] as const;
     });
@@ -320,34 +310,24 @@ const createNodes: CreateNodes = [
 const preTasksExecution: PreTasksExecution = (options, { id, argv }) =>
     run(
         Effect.gen(function* () {
-            const [{ remoteCacheTimeout = Duration.infinity }, server, nested, token, annotated, uncached] = yield* Effect.all([
+            const [{ remoteCacheTimeout = Duration.infinity }, server, nested, token, annotated, uncached, client] = yield* Effect.all([
                 Schema.decodeEffect(Options)(options ?? {}),
                 Config.option(Config.String(SERVER)),
                 Config.option(Config.String('NX_TASK_TARGET_PROJECT')),
                 Config.option(Config.Redacted('NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN')),
                 ANNOTATED,
                 Config.all(UNCACHED.variables.map((name) => Config.withDefault(Config.Boolean(name), false))),
+                HttpClient.HttpClient,
             ]);
             const { values } = parseArgs({ args: argv.slice(2), strict: false, allowPositionals: true, allowNegative: true, options: Record.fromIterableWith(UNCACHED.flags, (flag) => [flag, { type: 'boolean' }] as const) });
-            const authorized = Option.match(token, { onNone: () => Function.identity<HttpClientRequest.HttpClientRequest>, onSome: (held) => HttpClientRequest.bearerToken(held) });
-            const [, refused] = yield* Effect.partition(
-                Option.toArray(server).filter((url) => String.isNonEmpty(url) && Option.isNone(nested) && !uncached.includes(true) && !UNCACHED.flags.some((flag) => values[flag] === true)),
-                (url) =>
-                    HttpClient.execute(authorized(HttpClientRequest.get(`${url}/v1/cache/${id}`, { accept: 'application/octet-stream' }))).pipe(
-                        Effect.flatMap(HttpClientResponse.filterStatus((status) => status === 200 || status === 404)),
-                        Effect.timeout(remoteCacheTimeout),
-                        Effect.mapError((error) => `Remote cache ${url} serves no read, so this run uses the local cache alone: ${Formatter.format(error)}`),
-                    ),
+            const reader = client.pipe(
+                HttpClient.mapRequest(Option.match(token, { onNone: () => Function.identity<HttpClientRequest.HttpClientRequest>, onSome: (held) => HttpClientRequest.bearerToken(held) })),
+                HttpClient.filterStatus((status) => status === 200 || status === 404),
+                HttpClient.transformResponse(Effect.timeout(remoteCacheTimeout)),
             );
-            yield* Effect.forEach(
-                refused,
-                (text) =>
-                    Effect.sync(() => {
-                        Object.assign(process.env, { [SERVER]: '' });
-                        emitPluginWorkerLog('warn', annotated ? `::warning title=Nx remote cache::${text}` : text);
-                    }),
-                { discard: true },
-            );
+            const reached = Option.toArray(server).filter((url) => String.isNonEmpty(url) && Option.isNone(nested) && !uncached.includes(true) && !UNCACHED.flags.some((flag) => values[flag] === true));
+            const [, refused] = yield* Effect.partition(reached, (url) => Effect.mapError(reader.get(`${url}/v1/cache/${id}`, { accept: 'application/octet-stream' }), (error) => `Remote cache ${url} serves no read, so this run uses the local cache alone: ${Formatter.format(error)}`));
+            yield* Effect.forEach(refused, (text) => Effect.all([Effect.sync(() => Object.assign(process.env, { [SERVER]: '' })), Effect.sync(() => emitPluginWorkerLog('warn', annotated ? `::warning title=Nx remote cache::${text}` : text))]), { discard: true });
         }).pipe(Effect.provide(FetchHttpClient.layer)),
     );
 

@@ -48,20 +48,17 @@ const locked = (args: readonly string[], cwd: string) =>
         Effect.flatMap(Schema.decodeUnknownEffect(Locked)),
     );
 
-const keyed = (stem: string, tags: readonly string[]) =>
-    [
-        stem.split('-', 2).join(' ').toLowerCase().replaceAll(/[_.]+/gu, '-'),
-        ...Array.dedupe(
-            tags.flatMap((tag) => {
-                const [platform, abi, python] = tag.split('-').toReversed();
-                return Array.cartesianWith(
-                    Array.cartesianWith(python?.split('.') ?? [], abi?.split('.') ?? [], (interpreter, binary) => `${interpreter}-${binary}`),
-                    platform?.split('.') ?? [],
-                    (prefix, system) => `${prefix}-${system}`,
-                );
-            }),
-        ).toSorted(),
-    ].join(' ');
+const keyed = (stem: string, tags: readonly string[]) => {
+    const expanded = tags.flatMap((tag) => {
+        const [platform, abi, python] = tag.split('-').toReversed();
+        return Function.pipe(
+            python?.split('.') ?? [],
+            Array.cartesianWith(abi?.split('.') ?? [], (interpreter, binary) => `${interpreter}-${binary}`),
+            Array.cartesianWith(platform?.split('.') ?? [], (prefix, system) => `${prefix}-${system}`),
+        );
+    });
+    return [stem.split('-', 2).join(' ').toLowerCase().replaceAll(/[_.]+/gu, '-'), ...Array.dedupe(expanded).toSorted()].join(' ');
+};
 
 const fetched = Effect.fnUntraced(function* (url: string, sha256: string, file: string, store: Option.Option<string>) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
