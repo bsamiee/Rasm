@@ -4,7 +4,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { normalizePath } from '@nx/devkit';
 import { runner } from '@rasm/nx';
-import { Array, Cause, Context, Effect, FileSystem, Function, Graph, Layer, Match, Option, Order, pipe, Predicate, Record, Result, Schema, SchemaTransformation, SemVer } from 'effect';
+import { Array, Cause, Combiner, Context, Effect, Equal, FileSystem, Function, Graph, Layer, Match, Option, Order, pipe, Predicate, Record, Result, Schema, SchemaTransformation, SemVer } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -21,6 +21,7 @@ const PRESETS = 'CMakePresets.json';
 const PACKAGING = 'CPackConfig.cmake';
 const REGISTRY = { manifest: 'vcpkg.json', configuration: 'vcpkg-configuration.json' } as const;
 const DEFINING = new Set(['add_library', 'add_executable', 'add_custom_target']);
+const INHERITED = Record.makeReducerUnion<string, unknown>(Combiner.last());
 const TIDY = /^CMAKE_[A-Z]+_CLANG_TIDY$/u;
 const WORKING = '$env{PWD}';
 const MACRO = /\$(?<space>env|penv)?\{(?<name>\w+)\}/gu;
@@ -119,7 +120,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
             });
     });
     yield* Effect.when(new Cause.UnknownError(inheriting, `${presets} lists configure presets inheriting each other in a cycle, which cmake refuses`), Effect.succeed(!Graph.isAcyclic(inheriting)));
-    const chains = new Map(Array.fromIterable(Graph.entries(Graph.nodes(inheriting))).map(([at, preset]) => [preset.name, Array.fromIterable(Graph.values(Graph.dfs(inheriting, { start: [at] })))] as const));
+    const chains = new Map(Array.fromIterable(Graph.entries(Graph.nodes(inheriting))).map(([at, preset]) => [preset.name, Array.reverse(Graph.values(Graph.dfs(inheriting, { start: [at] })))] as const));
     const chain = (name: string) => chains.get(name) ?? [];
     const macros = (configure: string, at: string) =>
         expanded(
@@ -133,31 +134,19 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
                 fileDir: at,
                 dollar: '$',
                 pathListSep: delimiter,
-                ...Record.getSomes({ generator: Array.findFirst(chain(configure), ({ generator }) => Option.fromUndefinedOr(generator)) }),
+                ...Record.getSomes({ generator: Array.findLast(chain(configure), ({ generator }) => Option.fromUndefinedOr(generator)) }),
             },
-            Record.filter(
-                Record.fromEntries(
-                    chain(configure)
-                        .toReversed()
-                        .flatMap(({ environment = {} }) => Record.toEntries(environment)),
-                ),
-                (value) => value !== null,
-            ),
+            Record.filter(INHERITED.combineAll(chain(configure).map(({ environment = {} }) => environment)), Predicate.isString),
         );
     const stepped = (listed: Presets['workflowPresets'][number]['steps'], kind: string) => listed.find((each) => each.type === kind)?.name;
     const followed = (listed: Presets['workflowPresets'][number]['steps']) => Option.getOrUndefined(Array.findFirst(listed, (each, at) => (each.type === 'test' ? Option.fromUndefinedOr(stepped(listed.slice(at + 1), 'build')) : Option.none())));
     const rooted = (configure: string) =>
-        Array.findFirst(chain(configure), ({ binaryDir }) => Option.fromUndefinedOr(binaryDir)).pipe(
+        Array.findLast(chain(configure), ({ binaryDir }) => Option.fromUndefinedOr(binaryDir)).pipe(
             Option.map(macros(configure, source)),
             Option.getOrElse(() => '.'),
             (at) => normalizePath(relative(workspaceRoot, resolve(source, at))) || '.',
         );
-    const variables = (configure: string) =>
-        Record.fromEntries(
-            chain(configure)
-                .toReversed()
-                .flatMap(({ cacheVariables = {} }) => Record.toEntries(cacheVariables)),
-        );
+    const variables = (configure: string) => INHERITED.combineAll(chain(configure).map(({ cacheVariables = {} }) => cacheVariables));
     const toolchain = (configure: string) =>
         Array.findFirst(['VCPKG_CHAINLOAD_TOOLCHAIN_FILE', 'CMAKE_TOOLCHAIN_FILE'], (variable) => Option.liftPredicate(variables(configure)[variable], Predicate.isString)).pipe(
             Option.map((stated) => posix.normalize(macros(configure, root)(stated))),
@@ -192,18 +181,13 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
         );
     const defined = Record.fromEntries(invoked.filter(({ name }) => DEFINING.has(name)).flatMap(({ folder, args }) => Array.take(args, 1).map(({ value }) => [value, owner(folder)] as const)));
     const linked = Map.groupBy(
-        invoked
-            .map(({ file, folder, args }) => ({
-                file,
-                args,
-                from: pipe(
-                    Array.head(args),
-                    Option.flatMap(({ value }) => Record.get(defined, value)),
-                    Option.getOrElse(() => owner(folder)),
-                ),
-            }))
-            .flatMap(({ file, args, from }) => Array.drop(args, 1).map(({ value }) => ({ file, from, to: Record.get(defined, value) })))
-            .flatMap(({ file, from, to }) => Option.toArray(Option.filter(to, (held) => held !== from)).map((target) => ({ from, root: target, file }))),
+        invoked.flatMap(({ file, folder, args }) => {
+            const from = Option.getOrElse(
+                Option.flatMap(Array.head(args), ({ value }) => Record.get(defined, value)),
+                () => owner(folder),
+            );
+            return Array.filterMap(Array.drop(args, 1), ({ value }) => Result.fromOption(Option.filter(Record.get(defined, value), Predicate.not(Equal.equals(from))), Function.constVoid)).map((target) => ({ from, root: target, file }));
+        }),
         ({ from }) => from,
     );
     const registries = Map.groupBy(

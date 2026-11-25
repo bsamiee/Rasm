@@ -44,24 +44,23 @@ const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyRe
     const projects = Array.map(group, ([, { project }]) => path.resolve(root, project));
     const folder = yield* fs.makeTempDirectoryScoped();
     const [file, log] = [path.join(folder, 'batch.proj'), path.join(folder, 'batch.binlog')];
-    yield* Stream.fromIterable(
-        Xml.toEvents({
-            name: 'Project',
-            attributes: { DefaultTargets: String.capitalize(Array.headNonEmpty(command)) },
-            children: [
-                { name: 'Import', attributes: { Project: '$(MSBuildToolsPath)/NuGet.targets' }, children: [] },
-                {
-                    name: 'ItemGroup',
-                    attributes: {},
-                    children: [
-                        ...projects.flatMap((project) => ['RestoreGraphProjectInputItems', 'ProjectReference'].map((name) => ({ name, attributes: { Include: escaped(project) }, children: [] }))),
-                        ...ENTRY_TARGETS.map((name) => ({ name: 'ProjectReferenceTargets', attributes: { Include: name, Targets: name }, children: [] })),
-                    ],
-                },
-                ...ENTRY_TARGETS.map((name) => ({ name: 'Target', attributes: { Name: name }, children: [{ name: 'MSBuild', attributes: { Projects: '@(ProjectReference)', Targets: name, BuildInParallel: 'true' }, children: [] }] })),
-            ],
-        }),
-    ).pipe(Stream.pipeThroughChannel(Xml.encode()), Stream.run(fs.sink(file)));
+    const traversal: Xml.Element = {
+        name: 'Project',
+        attributes: { DefaultTargets: String.capitalize(Array.headNonEmpty(command)) },
+        children: [
+            { name: 'Import', attributes: { Project: '$(MSBuildToolsPath)/NuGet.targets' }, children: [] },
+            {
+                name: 'ItemGroup',
+                attributes: {},
+                children: [
+                    ...projects.flatMap((project) => ['RestoreGraphProjectInputItems', 'ProjectReference'].map((name) => ({ name, attributes: { Include: escaped(project) }, children: [] }))),
+                    ...ENTRY_TARGETS.map((name) => ({ name: 'ProjectReferenceTargets', attributes: { Include: name, Targets: name }, children: [] })),
+                ],
+            },
+            ...ENTRY_TARGETS.map((name) => ({ name: 'Target', attributes: { Name: name }, children: [{ name: 'MSBuild', attributes: { Projects: '@(ProjectReference)', Targets: name, BuildInParallel: 'true' }, children: [] }] })),
+        ],
+    };
+    yield* Stream.fromIterable(Xml.toEvents(traversal)).pipe(Stream.pipeThroughChannel(Xml.encode()), Stream.run(fs.sink(file)));
     const contents = yield* Stream.fromIterable(Xml.toEvents({ name: 'SolutionConfiguration', attributes: {}, children: assigned })).pipe(Stream.pipeThroughChannel(Xml.encodeString()), Stream.mkString);
     const [started, { invoked, stdout, said }, finished] = yield* Effect.all([
         DateTime.now,

@@ -96,15 +96,10 @@ const resolved = Effect.fnUntraced(function* <P extends { readonly name: string;
     const versions = Array.dedupe(candidates.flatMap(({ heads }) => heads.map(({ version }) => SemVer.format(version))));
     const releases = yield* Effect.forEach(versions, (version) => viewed(registry, version, ['deprecated', 'version'], Release), { concurrency: 4 });
     const deprecated = new Set(releases.filter(({ deprecated: message }) => message !== undefined).map(({ version }) => version));
-    return Array.getSomes(
-        candidates.map(({ pin, heads }) =>
-            Option.map(
-                Array.match(
-                    heads.filter(({ version }) => !deprecated.has(SemVer.format(version))),
-                    { onEmpty: () => Option.none(), onNonEmpty: (held) => Option.some(Array.max(held, ranked)) },
-                ),
-                (head) => ({ ...pin, head, spec: pin.render(head.version) }),
-            ),
+    return Array.filterMap(candidates, ({ pin, heads }) =>
+        Array.match(
+            heads.filter(({ version }) => !deprecated.has(SemVer.format(version))),
+            { onEmpty: () => Result.failVoid, onNonEmpty: (held) => Result.succeed({ ...pin, head: Array.max(held, ranked) }) },
         ),
     );
 });
@@ -144,24 +139,22 @@ const execute = executor(Upgrade, function* ({ catalogs, supported, dryRun }, co
     const shell = { cwd: context.root, stdout: 'inherit', stderr: 'inherit' } as const;
     const pruning = [manager, ...prune] as const;
     const written = files.filter(({ file }) => moved.has(file));
-    const relocked = Effect.forEach(moves, ({ token, spec }) => Effect.sync(() => CST.setScalarValue(token, spec)), { discard: true }).pipe(
+    const relocked = Effect.forEach(moves, ({ token, render, head }) => Effect.sync(() => CST.setScalarValue(token, render(head.version))), { discard: true }).pipe(
         Effect.andThen(Effect.forEach(written, ({ file, tokens }) => fs.writeFileString(join(context.root, file), tokens.map((token) => CST.stringify(token)).join('')), { discard: true })),
         Effect.andThen(Effect.forEach(lock, (step) => spawned([manager, step], shell), { discard: true })),
     );
-    const freed = Array.match(stored, {
-        onEmpty: () => Effect.void,
-        onNonEmpty: (args) =>
-            Effect.flatMap(
-                Effect.map(spawned([manager, ...args], { cwd: context.root }), (at) => relative(context.root, at.trim())),
-                (at) =>
-                    Match.value({ kept: !(at.startsWith('..') || isAbsolute(at)), dry }).pipe(
-                        Match.when({ kept: true }, () => Effect.logInfo(`Keeps ${at} whole, as ${manager} registers no workspace holding its store and ${CommandLine.display(pruning)} there removes every package the workspace installed`)),
-                        Match.when({ dry: true }, () => Effect.logInfo(`Would run ${CommandLine.display(pruning)}`)),
-                        Match.orElse(() => spawned(pruning, shell)),
-                    ),
-            ),
-    });
-    yield* Array.isReadonlyArrayEmpty(moves) ? Effect.void : Effect.andThen(dry ? Effect.void : relocked, freed);
+    const moving = Array.isReadonlyArrayNonEmpty(moves);
+    yield* Effect.when(relocked, Effect.succeed(moving && !dry));
+    const store = yield* spawned([manager, ...stored], { cwd: context.root }).pipe(
+        Effect.map((at) => relative(context.root, at.trim())),
+        Effect.when(Effect.succeed(moving && Array.isReadonlyArrayNonEmpty(stored))),
+    );
+    yield* Match.value({ store, dry }).pipe(
+        Match.when({ store: Option.isNone }, () => Effect.void),
+        Match.when({ store: { value: (at: string) => !(at.startsWith('..') || isAbsolute(at)) } }, ({ store: { value } }) => Effect.logInfo(`Keeps ${value} whole, as ${manager} registers no workspace holding its store and ${CommandLine.display(pruning)} there removes every package the workspace installed`)),
+        Match.when({ dry: true }, () => Effect.logInfo(`Would run ${CommandLine.display(pruning)}`)),
+        Match.orElse(() => spawned(pruning, shell)),
+    );
     return { success: failures.length === 0 };
 });
 
