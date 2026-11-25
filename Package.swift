@@ -28,15 +28,15 @@ let modules: [Target] = [
     .target(name: "Encoding", path: "libs/swift/data/Encoding"),
     .target(name: "Results", path: "libs/swift/data/Results"),
 
-    // --- [RPC]
+    // --- [NETWORK]
 
     .target(
         name: "JSONRPC",
         dependencies: ["Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "Tracing", package: "swift-distributed-tracing")],
-        path: "libs/swift/rpc/JSONRPC",
+        path: "libs/swift/network/JSONRPC",
     ),
 
-    // --- [RUNTIME]
+    // --- [SYSTEM]
 
     .target(
         name: "Files",
@@ -44,7 +44,7 @@ let modules: [Target] = [
             "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Logging", package: "swift-log"),
         ],
-        path: "libs/swift/runtime/Files",
+        path: "libs/swift/system/Files",
     ),
     .target(
         name: "Processes",
@@ -53,8 +53,11 @@ let modules: [Target] = [
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "DequeModule", package: "swift-collections"),
             .product(name: "Subprocess", package: "swift-subprocess"),
         ],
-        path: "libs/swift/runtime/Processes",
+        path: "libs/swift/system/Processes",
     ),
+
+    // --- [OBSERVABILITY]
+
     .target(
         name: "Telemetry",
         dependencies: [
@@ -62,12 +65,12 @@ let modules: [Target] = [
             .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
             .product(name: "Tracing", package: "swift-distributed-tracing"),
         ],
-        path: "libs/swift/runtime/Telemetry",
+        path: "libs/swift/observability/Telemetry",
     ),
 
     // --- [GRAPHICS]
 
-    .target(name: "Fonts", dependencies: ["Results"], path: "libs/swift/graphics/Fonts"),
+    .target(name: "Typography", dependencies: ["Results"], path: "libs/swift/graphics/Typography"),
 
     // --- [DISTRIBUTION]
 
@@ -154,7 +157,7 @@ let tests: [Target] = [
     .testTarget(
         name: "FixtureTests",
         dependencies: ["Fixture", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump")],
-        path: "tests/support/swift/Tests",
+        path: "tests/support/swift/FixtureTests",
     ),
     .testTarget(
         name: "EncodingTests",
@@ -175,9 +178,9 @@ let tests: [Target] = [
     .testTarget(
         name: "JSONRPCTests",
         dependencies: ["Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
-        path: "tests/libs/swift/rpc/JSONRPC",
+        path: "tests/libs/swift/network/JSONRPC",
     ),
-    .testTarget(name: "ProcessesTests", dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/runtime/Processes"),
+    .testTarget(name: "ProcessesTests", dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/system/Processes"),
     .testTarget(
         name: "AppleEventsTests",
         dependencies: [
@@ -225,7 +228,7 @@ let package = Package(
         .package(url: "https://github.com/swift-server/swift-service-lifecycle", from: "2.13.0"),
         .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.2"),
 
-        // --- [TELEMETRY]
+        // --- [OBSERVABILITY]
 
         .package(url: "https://github.com/apple/swift-distributed-tracing", from: "1.7.4"),
         .package(url: "https://github.com/apple/swift-log", from: "1.17.2"),

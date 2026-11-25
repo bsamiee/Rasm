@@ -21,7 +21,7 @@
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Telemetry" BuildableName="Telemetry" BlueprintName="Telemetry" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Fonts" BuildableName="Fonts" BlueprintName="Fonts" ReferencedContainer="container:"/>
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Typography" BuildableName="Typography" BlueprintName="Typography" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Updater" BuildableName="Updater" BlueprintName="Updater" ReferencedContainer="container:"/>
