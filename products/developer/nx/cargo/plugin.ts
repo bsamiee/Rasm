@@ -66,12 +66,10 @@ const createNodes: CreateNodes = [
             onNone: () => Effect.map(workspaces(workspaceRoot, manifests, files), (read) => Array.partition(read, identity)),
             onSome: (held) => Effect.succeed([held.readings.map(loaded), Array.empty<[string, Error]>()] as const),
         });
-        yield* failures.length > 0 || Option.isSome(hit)
-            ? Effect.void
-            : Effect.sync(() => {
-                  cache.set(MANIFEST, { digest, readings: readings.map(stored) });
-                  cache.writeToDisk();
-              });
+        if (failures.length === 0 && Option.isNone(hit)) {
+            cache.set(MANIFEST, { digest, readings: readings.map(stored) });
+            cache.writeToDisk();
+        }
         const resolutions = readings.map((reading) => resolved(workspaceRoot, reading, files));
         (yield* Links).set(workspaceRoot, new Map(resolutions.flatMap(({ members }) => members.map((member) => [dirname(member.crate.manifest_path), member] as const))));
         const results = yield* Effect.forEach(resolutions, (workspace) => inferred(context, settings, anchor, workspace));

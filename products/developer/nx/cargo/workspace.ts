@@ -4,7 +4,7 @@ import { parse } from '@decimalturn/toml-patch';
 import { normalizePath, readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
 import { above, runner, spawned } from '@rasm/nx';
-import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -84,13 +84,12 @@ class Links extends Context.Service<Links, Map<string, ReadonlyMap<string, Membe
 
 const tokened = (file: string) => posix.join('{workspaceRoot}', file);
 
-const nearest = (files: ReadonlySet<string>, folder: string, names: readonly string[]) => Array.findFirst(above(folder), (at) => Array.findFirst(names, (name) => files.has(posix.join(at, name))).pipe(Option.map((name) => posix.join(at, name))));
+const nearest = (files: ReadonlySet<string>, folder: string, names: readonly string[]) => Array.findFirst(above(folder), (at) => Array.findFirst(names, (name) => Option.liftPredicate(posix.join(at, name), (file) => files.has(file))));
 
 const parsed = (text: string, subject: string) => Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${subject} does not read as TOML`) });
 
 const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
-    FileSystem.FileSystem.pipe(
-        Effect.flatMap((fs) => fs.readFileString(file)),
+    FileSystem.FileSystem.use((fs) => fs.readFileString(file)).pipe(
         Effect.flatMap((text) => parsed(text, file)),
         Effect.flatMap(Schema.decodeUnknownEffect(schema)),
     );
@@ -114,26 +113,16 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
         ],
         { concurrency: 'unbounded' },
     );
-    const enabled = Option.contains(
-        Option.orElse(gated, () => Array.findFirst(layers, ({ unstable }) => Record.get(unstable, 'feature-unification'))),
-        true,
-    );
-    const configured = Array.findFirst(Array.zip(settings, layers), ([file, { build }]) => Option.map(Option.fromUndefinedOr(build.target), (targets) => ({ targets: Array.ensure(targets), from: join(workspaceRoot, posix.dirname(posix.dirname(file))) })));
-    const chosen = Option.orElse(
-        Option.map(exported, (target) => ({ targets: [target], from: metadata.workspace_root })),
-        () => configured,
-    );
+    const enabled = Option.orElse(gated, () => Array.findFirst(layers, ({ unstable }) => Record.get(unstable, 'feature-unification'))).pipe(Option.contains<unknown>(true));
+    const configured = Array.findFirst(Array.zip(settings, layers), ([file, layer]) => Option.map(Option.fromUndefinedOr(layer.build.target), (targets) => ({ targets: Array.ensure(targets), from: join(workspaceRoot, posix.dirname(posix.dirname(file))) })));
+    const chosen = Option.map(exported, (target) => ({ targets: [target], from: metadata.workspace_root })).pipe(Option.orElse(() => configured));
     const layouts = yield* Effect.forEach(
-        Option.match(chosen, { onNone: () => [{ argument: [], folder: [] }], onSome: ({ targets, from }) => targets.map((target) => (target.endsWith('.json') ? { argument: ['--target', resolve(from, target)], folder: [basename(target, '.json')] } : { argument: ['--target', target], folder: [target] })) }),
+        Option.match(chosen, { onNone: () => [{ argument: [], folder: [] }], onSome: ({ targets, from }) => targets.map((target) => ({ argument: ['--target', target.endsWith('.json') ? resolve(from, target) : target], folder: [basename(target, '.json')] })) }),
         ({ argument, folder }) => Effect.map(spawned(['rustc', ...argument, '--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root }), (stdout) => ({ folder, uplifted: Record.fromEntries(Array.zip(types, String.split(stdout, '\n'))) })),
         { concurrency: 'unbounded' },
     );
-    const rows = Array.getSomes(Array.zip(settings, layers).map(([file, { env }]) => Option.map(Record.get(env, 'CLIPPY_CONF_DIR'), (row) => ({ ...(Predicate.isString(row) ? { value: row, force: false, relative: false } : row), from: join(workspaceRoot, posix.dirname(posix.dirname(file))) }))));
-    const merged = (option: 'force' | 'relative') =>
-        Option.contains(
-            Array.findFirst(rows, (row) => Option.fromUndefinedOr(row[option])),
-            true,
-        );
+    const rows = Array.getSomes(Array.zip(settings, layers).map(([file, layer]) => Option.map(Record.get(layer.env, 'CLIPPY_CONF_DIR'), (row) => ({ ...(Predicate.isString(row) ? { value: row, force: false, relative: false } : row), from: join(workspaceRoot, posix.dirname(posix.dirname(file))) }))));
+    const merged = (option: 'force' | 'relative') => Array.findFirst(rows, (row) => Option.fromUndefinedOr(row[option])).pipe(Option.contains(true));
     const layered = Array.findFirst(rows, ({ value, from }) => Option.map(Option.fromUndefinedOr(value), (at) => resolve(merged('relative') ? from : metadata.workspace_root, at)));
     const inherited = Option.map(directed, (at) => resolve(metadata.workspace_root, at));
     const clippy = merged('force') ? Option.orElse(layered, () => inherited) : Option.orElse(inherited, () => layered);
@@ -177,7 +166,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
     const inside = (at: string) => Option.liftPredicate(within(at), (folder) => !(folder.startsWith('..') || isAbsolute(folder)));
     const root = within(metadata.workspace_root);
     const profiles = Record.keys(Record.filter(profile, ({ inherits }) => inherits !== undefined));
-    const strategy = (name: string): string => profile[name]?.panic ?? UndefinedOr.match(profile[name]?.inherits, { onUndefined: () => 'unwind', onDefined: strategy });
+    const strategy = (name: string): string => profile[name]?.panic ?? UndefinedOr.map(profile[name]?.inherits, strategy) ?? 'unwind';
     const crates = metadata.packages.map((crate) => ({ crate, root: within(dirname(crate.manifest_path)), manifest: within(crate.manifest_path), versioned: crate.version !== '0.0.0' || crate.publish === null }));
     const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
         const next = names.union(new Set(crates.filter(({ crate }) => names.has(crate.name)).flatMap(({ crate }) => crate.dependencies.filter(({ path: to }) => to !== undefined).map(({ name }) => name))));
@@ -195,11 +184,9 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
                 linted: Option.toArray(nearest(files, clippy[0] ?? member.root, CLIPPY)).map(tokened),
             };
         }),
-        libraries: Array.getSomes((metadata.metadata?.dylint?.libraries ?? []).map(({ path: at }) => Option.map(Option.fromUndefinedOr(at), (folder) => posix.join(root, folder)))).flatMap((folder) => {
-            const [sources, others] = Array.partition(
-                crates.filter((member) => member.root === folder).flatMap(({ crate }) => crate.targets.map((target) => [target, posix.join(folder, normalizePath(relative(dirname(crate.manifest_path), dirname(target.src_path))))] as const)),
-                ([target, at]) => (Target.library(target) ? Result.succeed(at) : Result.fail(at)),
-            );
+        libraries: Array.filterMap(metadata.metadata?.dylint?.libraries ?? [], ({ path: at }) => Result.map(Result.fromNullishOr(at, Function.constVoid), (folder) => posix.join(root, folder))).flatMap((folder) => {
+            const owned = crates.filter((member) => member.root === folder).flatMap(({ crate }) => crate.targets.map((target) => [target, posix.join(folder, normalizePath(relative(dirname(crate.manifest_path), dirname(target.src_path))))] as const));
+            const [sources, others] = Array.partition(owned, ([target, at]) => (Target.library(target) ? Result.succeed(at) : Result.fail(at)));
             const found = Array.dedupe(sources);
             const included = Array.isReadonlyArrayNonEmpty(found) ? found : [folder];
             const excluded = Array.difference(Array.dedupe([...others, ...crates.map((member) => member.root).filter((nested) => nested.startsWith(`${folder}/`))]), included);
@@ -223,9 +210,9 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
         nextest: Option.liftPredicate(posix.join(root, NEXTEST), (file) => files.has(file)),
         profiles,
         strategies: Array.dedupeWith(['release', ...profiles], (left, right) => strategy(left) === strategy(right)).filter((name) => strategy(name) !== strategy('dev')),
-        deny: Array.head(deny),
+        deny,
         placed: inside(metadata.target_directory),
-        uplifted: (target: Target) => layouts.flatMap(({ folder, uplifted }) => Array.getSomes(target.crate_types.map((type) => Option.map(Record.get(uplifted, type), (file) => ({ folder, file: file.replace(CRATE, target.name) }))))),
+        uplifted: (target: Target) => layouts.flatMap(({ folder, uplifted }) => Array.filterMap(target.crate_types, (type) => Result.map(Result.fromNullishOr(uplifted[type], Function.constVoid), (file) => ({ folder, file: file.replace(CRATE, target.name) })))),
     };
 };
 

@@ -1,5 +1,5 @@
 import { dried, executor, spawned } from '@rasm/nx';
-import { Array, DateTime, Effect, Option, Order, Path, Record, Result, Schema, SchemaGetter, SemVer, String } from 'effect';
+import { Array, DateTime, Effect, Option, Order, Path, Record, Result, Schema, SchemaGetter, SemVer, SemVerRange, String } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { MANIFEST, toml } from '#/workspace';
 
@@ -32,35 +32,22 @@ class Release extends Schema.Opaque<Release, unknown>()(Schema.fromJsonString(Sc
 
 const byVersion = Order.mapInput(SemVer.Order, ({ vers }: Release) => vers);
 
-const line = ({ major, minor, patch }: SemVer.SemVer) => {
-    const parts = [major, minor, patch];
-    return parts.slice(0, Math.min(Array.takeWhile(parts, (part) => part === 0).length + 1, parts.length)).join('.');
-};
-
 const newest = (releases: readonly Release[]) => {
     const listed = releases.filter(({ yanked }) => !yanked);
     const stable = listed.filter(({ vers }) => !SemVer.isPrerelease(vers));
-    const opened = Option.map(Array.match(stable, { onEmpty: Option.none, onNonEmpty: (held) => Option.some(Array.max(held, byVersion)) }), (top) =>
-        Array.min(
-            Array.map(
-                Array.prepend(
-                    stable.filter(({ vers }) => line(vers) === line(top.vers)),
-                    top,
-                ),
-                ({ pubtime }) => pubtime,
-            ),
-            DateTime.Order,
-        ),
+    const opened = Option.liftPredicate(stable, Array.isReadonlyArrayNonEmpty<Release>).pipe(
+        Option.map(Array.max(byVersion)),
+        Option.map((top) => stable.filter(({ vers }) => SemVerRange.matches(SemVerRange.caret(vers), top.vers)).reduce((earliest, { pubtime }) => DateTime.min(earliest, pubtime), top.pubtime)),
     );
     const offered = listed.filter(({ vers, pubtime }) => !SemVer.isPrerelease(vers) || (!vers.prerelease.some((id) => COMMIT.test(`${id}`)) && Option.match(opened, { onNone: () => true, onSome: (at) => DateTime.isGreaterThan(pubtime, at) })));
-    return Option.map(Array.match(offered, { onEmpty: Option.none, onNonEmpty: (held) => Option.some(Array.max(held, byVersion)) }), ({ vers }) => vers);
+    return Option.map(Option.liftPredicate(offered, Array.isReadonlyArrayNonEmpty<Release>), (held) => Array.max(held, byVersion).vers);
 };
 
 const indexed = Effect.fnUntraced(function* (name: string) {
     const lower = name.toLowerCase();
     const shard = SHARDS[lower.length]?.(lower) ?? [lower.slice(0, 2), lower.slice(2, 4)];
     const response = yield* Effect.flatMap(HttpClient.get([REGISTRY.index, ...shard, lower].join('/')), HttpClientResponse.filterStatusOk);
-    return Array.getSomes(String.split(yield* response.text, '\n').map((row) => Schema.decodeOption(Release)(row)));
+    return Array.filterMap(String.split(yield* response.text, '\n'), (row) => Schema.decodeResult(Release)(row));
 }, Effect.provide(FetchHttpClient.layer));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -11,8 +11,8 @@ const DENIED = [
     { tool: 'cargo-deny', checks: ['bans', 'licenses', 'sources'] },
     { tool: 'cargo-deny-advisories', checks: ['advisories'] },
 ] as const;
-const MESSAGES = ['--message-format', 'json-diagnostic-rendered-ansi'] as const;
 const LOCKED = '--locked';
+const COMPILED = [LOCKED, '--keep-going', '--message-format', 'json-diagnostic-rendered-ansi'] as const;
 const SOURCES: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -62,16 +62,9 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
     const outputs = (profile: string) => Option.toArray(workspace.placed).flatMap((artifacts) => products.map(({ folder, file }) => tokened(posix.join(artifacts, ...folder, profile, file))));
     const debug = outputs('debug');
     const profiles = ['release', ...workspace.profiles];
-    const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, LOCKED, '--keep-going', ...MESSAGES] }];
-    const installed = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['install', '--path', posix.relative(workspace.root, root) || '.', ...profile, LOCKED, '--keep-going', ...MESSAGES] }];
-    const checked = (placed: (selection: readonly string[]) => Command): Array.NonEmptyReadonlyArray<Command> =>
-        Array.map(
-            Array.prepend(
-                workspace.strategies.map((profile) => ['--profile', profile]),
-                [],
-            ),
-            (profile) => placed([...kinds, ...profile, LOCKED, '--keep-going', ...MESSAGES]),
-        );
+    const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, ...COMPILED] }];
+    const installed = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['install', '--path', posix.relative(workspace.root, root) || '.', ...profile, ...COMPILED] }];
+    const checked = (placed: (selection: readonly string[]) => Command) => Array.map(Array.prepend(workspace.strategies.map(Option.some), Option.none()), (profile) => placed([...kinds, ...Option.toArray(profile).flatMap((name) => ['--profile', name]), ...COMPILED]));
     const covered = (run: (exported: readonly string[]) => Command): Partial<TargetConfiguration> => {
         const report = Option.toArray(coverage);
         const direct = packages.filter(({ name }) => crate.dependencies.some((dependency) => dependency.path !== undefined && dependency.name === name));
@@ -93,7 +86,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
                           { cache: true, inputs: [...SOURCES, ...workspace.libraries, { env: 'DYLINT_RUSTFLAGS' }, version('dylint')] },
                       ),
                   },
-                  fix: { dylint: cargoTarget('dylint', `Applies the Dylint suggestions for ${crate.name} with cargo dylint --fix`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...kinds, LOCKED, '--keep-going', ...MESSAGES] }] }, {}) },
+                  fix: { dylint: cargoTarget('dylint', `Applies the Dylint suggestions for ${crate.name} with cargo dylint --fix`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...kinds, ...COMPILED] }] }, {}) },
               }
             : {};
     return joined(linting, {
@@ -138,11 +131,11 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
             }),
         },
         check: {
-            rustdoc: cargoTarget('doc', `Reports the rustdoc lint findings of ${crate.name} with cargo doc --no-deps`, { ...selected, commands: [{ args: ['doc', '--no-deps', LOCKED, '--keep-going', ...MESSAGES] }] }, { cache: true }),
+            rustdoc: cargoTarget('doc', `Reports the rustdoc lint findings of ${crate.name} with cargo doc --no-deps`, { ...selected, commands: [{ args: ['doc', '--no-deps', ...COMPILED] }] }, { cache: true }),
             clippy: cargoTarget('clippy', `Reports the clippy findings of ${crate.name} with cargo clippy`, { ...selected, commands: checked((selection) => ({ args: ['clippy', ...selection] })) }, { cache: true, inputs: [...SOURCES, ...linted, { env: 'CLIPPY_CONF_DIR' }] }),
         },
         fix: {
-            clippy: cargoTarget('clippy --fix', `Applies the clippy suggestions for ${crate.name} with cargo clippy --fix`, { ...selected, commands: [{ args: ['clippy', '--fix', '--allow-dirty', ...kinds, LOCKED, '--keep-going', ...MESSAGES] }] }, {}),
+            clippy: cargoTarget('clippy --fix', `Applies the clippy suggestions for ${crate.name} with cargo clippy --fix`, { ...selected, commands: [{ args: ['clippy', '--fix', '--allow-dirty', ...kinds, ...COMPILED] }] }, {}),
         },
         install: {
             ...(crate.targets.some(Target.binary) && {
@@ -160,9 +153,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
 const workspaceTargets = (workspace: Workspace): Verbs => {
     const graph = [...[...Array.dedupe([...workspace.members.map((member) => member.manifest), posix.join(workspace.root, MANIFEST)]), posix.join(workspace.root, LOCK)].map(tokened), ...workspace.configs];
     const check = Record.fromIterableWith(
-        Option.toArray(workspace.deny)
-            .flatMap(({ files, tables }) => DENIED.map((row) => ({ ...row, files, selected: Array.intersection(row.checks, tables) })))
-            .filter(({ selected }) => selected.length > 0),
+        workspace.deny.flatMap(({ files, tables }) => DENIED.map((row) => ({ ...row, files, selected: Array.intersection(row.checks, tables) }))).filter(({ selected }) => selected.length > 0),
         ({ tool, files, selected }): readonly [string, TargetConfiguration] => [
             tool,
             {
@@ -189,7 +180,8 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
 
 const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, member: Option.Option<Member>, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, anchor: Anchor, published: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => {
     const nested = Option.filter(member, ({ root }) => root !== workspace.root);
-    const packed = Option.map(Option.all({ held: Option.filter(member, ({ versioned, packable }) => versioned && packable), placed: workspace.placed }), ({ held: { crate, packages }, placed: artifacts }) =>
+    const shipped = Option.filter(member, ({ versioned, packable }) => versioned && packable);
+    const packed = Option.zipWith(shipped, workspace.placed, ({ crate, packages }, artifacts) =>
         cargoTarget(
             'package',
             `Packs ${crate.name} into a .crate archive with cargo package beside the workspace crates it depends on, without the verification build`,

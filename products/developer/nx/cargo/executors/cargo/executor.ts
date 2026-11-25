@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 import type { ExecutorContext, Task } from '@nx/devkit';
 import { findAllProjectNodeDependencies, type TaskResult } from '@nx/devkit/internal';
 import { batched, executor, Words } from '@rasm/nx';
-import { Array, Clock, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Clock, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Result, Schema, Stream, Struct } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { Crate, Unification } from '#/workspace';
 
@@ -67,14 +67,9 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
     const { nodes } = context.projectGraph;
     const root = (project: string) => path.resolve(context.root, nodes[project]?.data.root ?? '.');
     const selected = (at: string, name: string) => ['--package', `${pathToFileURL(path.resolve(context.root, at)).href}#${name}`];
-    const options = inputs[tasks[0].id];
-    yield* Effect.orDie(
-        Effect.forEach(
-            tasks.flatMap(({ id }) => inputs[id]?.outputs ?? []),
-            (file) => fs.makeDirectory(path.dirname(path.resolve(context.root, file)), { recursive: true }),
-            { discard: true },
-        ),
-    );
+    const options = inputs[Array.headNonEmpty(tasks).id];
+    const outputs = tasks.flatMap(({ id }) => inputs[id]?.outputs ?? []);
+    yield* Effect.forEach(outputs, (file) => fs.makeDirectory(path.dirname(path.resolve(context.root, file)), { recursive: true }), { discard: true }).pipe(Effect.orDie);
     const [startTime, completed, endTime] = yield* Effect.all([
         Clock.currentTimeMillis,
         ran(
@@ -93,11 +88,7 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
     const messages = completed.stamped.map(Struct.get('message'));
     const diagnostics = Array.filter(messages, Schema.is(Diagnostic)).map((diagnostic) => ({ ...diagnostic, root: path.dirname(diagnostic.manifest_path) }));
     const errored = new Set(diagnostics.filter(({ message: { level } }) => level.startsWith('error')).map(({ root: at }) => at));
-    const built = new Set(
-        Array.filter(messages, Schema.is(Artifact))
-            .filter(({ target: { kind } }) => !kind.includes('custom-build'))
-            .map(({ manifest_path }) => path.dirname(manifest_path)),
-    );
+    const built = new Set(Array.filterMap(messages, (message) => (Schema.is(Artifact)(message) && !message.target.kind.includes('custom-build') ? Result.succeed(path.dirname(message.manifest_path)) : Result.failVoid)));
     const broken = new Set(Record.keys(Record.filter(nodes, (_, project) => errored.has(root(project)))));
     const halted = Array.filter(messages, Schema.is(Finished)).some(({ success }) => !success);
     const results = tasks.map(({ id, target: { project } }) => {

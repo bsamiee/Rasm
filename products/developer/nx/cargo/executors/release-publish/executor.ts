@@ -1,7 +1,8 @@
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
 import { dried, executor, spawned, Words } from '@rasm/nx';
-import { Array, Cause, Config, Effect, Option, Path, Result, Schema, SemVer, String, Struct } from 'effect';
+import { credentialed } from '@rasm/nx/executor';
+import { Array, Cause, Effect, Function, Option, Path, Result, Schema, SemVer, String, Struct } from 'effect';
 import { Crate } from '#/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -25,12 +26,7 @@ const released = Effect.fnUntraced(function* ({ root, projectName, nxJsonConfigu
     const project = yield* Effect.fromNullishOr(projectName);
     const pattern = release?.releaseTag?.pattern ?? (release?.projectsRelationship === 'independent' ? '{projectName}@{version}' : 'v{version}');
     const matcher = new RegExp(`^${pattern.replaceAll('{projectName}', project).split('{version}').map(RegExp.escape).join('(.+)')}$`, 'u');
-    const tags = Array.filterMap((yield* spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root })).split('\n'), (tag) =>
-        Result.flatMap(
-            Result.fromNullishOr(matcher.exec(tag)?.[1], () => tag),
-            (version) => (Result.isSuccess(SemVer.parse(version)) ? Result.succeed({ tag, version }) : Result.fail(tag)),
-        ),
-    );
+    const tags = Array.filterMap((yield* spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root })).split('\n'), (tag) => Result.flatMap(Result.fromNullishOr(matcher.exec(tag)?.[1], Function.constant(tag)), (version) => Result.map(SemVer.parse(version), Function.constant({ tag, version }))));
     return tags.length > 1 ? yield* new Cause.UnknownError(tags, `HEAD holds [${tags.map(Struct.get('tag')).join(', ')}], each matching ${pattern} for ${project}, in place of the one tag nx release makes per project`) : Array.head(tags);
 });
 
@@ -44,7 +40,7 @@ const execute = executor(Publish, function* ({ dryRun, cwd: root, package: named
     const registries = Array.fromNullishOr(registry).flatMap((name) => ['--registry', name]);
     const publish = ['cargo', 'publish', ...selected, ...(dry ? ['--dry-run'] : []), '--locked', ...words] as const;
     const credential = registry === undefined ? 'CARGO_REGISTRY_TOKEN' : `CARGO_REGISTRIES_${String.kebabToSnake(registry).toUpperCase()}_TOKEN`;
-    const [tagged, token] = yield* Effect.all([released(context), Effect.map(Config.option(Config.String(credential)), Option.filter(String.isNonEmpty))]);
+    const [tagged, token] = yield* Effect.all([released(context), credentialed(credential)]);
     const missing = dry ? [] : [...(Option.isNone(tagged) ? [`HEAD holds no tag of ${node.name}, so nx release released no version of it at this commit`] : []), ...(Option.isNone(token) ? [`${credential} is not set`] : [])];
     const stored = yield* Option.match(
         Option.filter(tagged, () => !dry && missing.length === 0),
