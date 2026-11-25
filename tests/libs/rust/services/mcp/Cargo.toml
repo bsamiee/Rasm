@@ -5,6 +5,9 @@ name              = "rasm-mcp-tests"
 edition.workspace = true
 description       = "MCP suite: an everything server with the official conformance fixtures, a recording client, raw line peers, and the official conformance runner"
 
+[package.metadata.nx.targets.test--nextest]
+inputs = ["...", "{workspaceRoot}/.config/mise/locks/npm-modelcontextprotocol-conformance/**/*"]
+
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]

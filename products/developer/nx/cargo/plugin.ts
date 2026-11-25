@@ -1,7 +1,7 @@
 import { dirname, join, posix } from 'node:path';
 import { arch, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
-import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { type Anchor, anchored, fingerprinted, inferring, manifested } from '@rasm/nx';
 import { Array, Config, Effect, identity, Option, Record, String, Struct } from 'effect';
 import { crateInputs, Options, projectTargets, released } from '#/targets';
@@ -22,9 +22,10 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, { cov
     const manifests = yield* Effect.forEach(roots, ([root]) => Effect.transposeOption(Option.liftPredicate(manifested(context.workspaceRoot, root), () => anchor.holds(root))));
     const present = Array.zip(roots, manifests).filter(([[, member], stated]) => Option.isSome(member) || Option.isSome(stated));
     const projects = Record.fromIterableWith(present, ([[root, member], manifest]): [string, ProjectConfiguration] => {
-        const stated = Option.getOrElse(manifest, () => ({}));
+        const declared = Option.flatMapNullishOr(member, (held) => held.crate.metadata?.nx?.targets).pipe(Option.getOrElse(Record.empty));
+        const stated = Record.union(declared, Option.getOrElse(manifest, Record.empty), (own, written) => mergeTargetConfigurations(written, own));
         const delivery = Option.map(member, (held) => released(held, workspace.root));
-        const targets = projectTargets(workspace, coverage, member, stated, anchor, Option.match(delivery, { onNone: () => ({}), onSome: Struct.get('targets') }));
+        const targets = Record.union(projectTargets(workspace, coverage, member, stated, anchor, Option.match(delivery, { onNone: () => ({}), onSome: Struct.get('targets') })), declared, (derived, own) => mergeTargetConfigurations(own, derived));
         const crate = Option.zipWith(member, delivery, (held, shipped) => {
             const { default: sources } = getNamedInputs(root, context);
             const implicit = held.crate.metadata?.nx?.implicitDependencies;

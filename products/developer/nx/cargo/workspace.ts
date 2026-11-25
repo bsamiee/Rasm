@@ -1,7 +1,7 @@
 import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@decimalturn/toml-patch';
-import { normalizePath, readJsonFile } from '@nx/devkit';
+import { normalizePath, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
 import { above, runner, spawned } from '@rasm/nx';
 import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
@@ -50,7 +50,18 @@ const Package = Schema.Struct({
     dependencies: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.optionalKey(Schema.String) })),
     targets: Schema.Array(Target),
     features: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-    metadata: Schema.NullOr(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)) })) })),
+    metadata: Schema.NullOr(
+        Schema.Struct({
+            nx: Schema.optionalKey(
+                Schema.Struct({
+                    implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)),
+                    targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input))))) }))).annotate({
+                        description: 'Target rows of [package.metadata.nx.targets], merged over the inferred targets as Nx merges the nx field of a package.json, a package.json or project.json beside the crate merging over them',
+                    }),
+                }),
+            ),
+        }),
+    ),
 });
 const Metadata = Schema.fromJsonString(
     Schema.Struct({
