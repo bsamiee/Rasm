@@ -20,7 +20,7 @@ struct Read: Hashable {
 
 @Suite(.timeLimit(.minutes(1)))
 struct FixtureTests {
-    @Test
+    @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
     func reportsEveryMemberOnScreenAsAnOutsideAccessibilityReadOfTheProcessFindsIt() async throws {
         let roles: [NSAccessibility.Role] = [
             .button, .checkBox, .radioButton, .popUpButton, .comboBox, .tabGroup, .radioGroup, .table, .outline, .slider, .incrementor, .textField, .colorWell, .dateTimeAreaRole,
@@ -30,9 +30,9 @@ struct FixtureTests {
             try await fixture.send(.show(surface: .panel))
             try await fixture.send(.report)
             let report = try await fixture.next(\.report).value
-            func read(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
+            func read(_ element: AXUIElement, _ attribute: String) -> (answer: AXError, value: CFTypeRef?) {
                 var value: CFTypeRef?
-                return unsafe AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success ? value : nil
+                return (unsafe AXUIElementCopyAttributeValue(element, attribute as CFString, &value), value)
             }
             func elements(_ slot: CFTypeRef?) -> [AXUIElement] {
                 let held: [CFTypeRef] = (slot as? [CFTypeRef]) ?? slot.map { single in [single] } ?? []
@@ -40,7 +40,11 @@ struct FixtureTests {
             }
             let attributes = [kAXRoleAttribute, kAXSubroleAttribute, kAXPositionAttribute, kAXSizeAttribute, kAXParentAttribute, kAXHelpAttribute, kAXTitleUIElementAttribute, kAXChildrenAttribute]
             let height = CGDisplayBounds(CGMainDisplayID()).height
-            var pending = elements(read(AXUIElementCreateApplication(fixture.process), kAXWindowsAttribute))
+            let windows = read(AXUIElementCreateApplication(fixture.process), kAXWindowsAttribute)
+            let readable: Bool = windows.answer == AXError.success
+            let refusal: Comment = "Reading the fixture's windows answered \(windows.answer.rawValue)"
+            try #require(readable, refusal)
+            var pending = elements(windows.value)
             var outside: [Read] = []
             while let element = pending.popLast() {
                 var copied: CFArray?
@@ -57,9 +61,9 @@ struct FixtureTests {
                         role: slots[kAXRoleAttribute] as? String,
                         subrole: slots[kAXSubroleAttribute] as? String,
                         frame: CGRect(x: origin.x, y: height - origin.y - size.height, width: size.width, height: size.height),
-                        parent: elements(slots[kAXParentAttribute]).first.flatMap { parent in read(parent, kAXRoleAttribute) as? String },
+                        parent: elements(slots[kAXParentAttribute]).first.flatMap { parent in read(parent, kAXRoleAttribute).value as? String },
                         help: slots[kAXHelpAttribute] as? String,
-                        caption: elements(slots[kAXTitleUIElementAttribute]).first.flatMap { title in read(title, kAXValueAttribute) as? String },
+                        caption: elements(slots[kAXTitleUIElementAttribute]).first.flatMap { title in read(title, kAXValueAttribute).value as? String },
                     )
                 )
             }
