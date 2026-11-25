@@ -1,4 +1,4 @@
-import type { ProjectGraphProjectNode, Tree } from '@nx/devkit';
+import type { ProjectGraphProjectNode } from '@nx/devkit';
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import CmakeVersionActions from '@rasm/nx-cmake/release/version-actions';
 import { assert, asyncProperty, nat, tuple } from 'fast-check';
@@ -28,7 +28,7 @@ const settled: FinalConfigForProject = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const manifested = async (text: string): Promise<{ readonly tree: Tree; readonly actions: CmakeVersionActions }> => {
+const manifested = async (text: string) => {
     const tree = createTreeWithEmptyWorkspace();
     tree.write(MANIFEST, text);
     const actions = new CmakeVersionActions(group, node, settled);

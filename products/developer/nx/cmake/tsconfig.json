@@ -1,8 +1,7 @@
 {
     "extends": "../../../../tsconfig.base.json",
-    "compilerOptions": {
-        "types": ["node"]
-    },
+    "compilerOptions": { "types": ["node"] },
+    "include": ["**/*", "package.json"],
     "references": [
         {
             "path": "../../../../libs/typescript/developer/nx"

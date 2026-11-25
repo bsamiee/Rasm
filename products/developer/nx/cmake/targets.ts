@@ -1,32 +1,24 @@
 import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, aggregated, EXECUTORS, PLATFORM, type Verbs } from '@rasm/nx';
+import { above, type Anchor, aggregated, EXECUTORS, PLATFORM, type Stated, tokened, type Verbs } from '@rasm/nx';
 import { Array, Option, Record, UndefinedOr } from 'effect';
-import { configured, ENVIRONMENT, PACKAGING, REGISTRY, type Tree, WORKING, type Workflow } from '#/workspace';
+import { configured, PACKAGING, REGISTRY, type Tree, WORKING, type Workflow } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const SHELL = /[\\"`$]/gu;
+const SHELL = /\$env\{(?<name>\w+)\}|[\\"`$]/gu;
 const COVERAGE = { configuration: 'coverage', folder: 'profiles', profile: '%m-%p.profraw', merged: 'coverage.profdata', report: 'lcov.info' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const tokened = (file: string) => posix.join('{workspaceRoot}', file);
-
-const shelled = (word: string) =>
-    word.includes('$env{')
-        ? `"${word
-              .split(ENVIRONMENT)
-              .map((part, at) => (at % 2 === 0 ? part.replaceAll(SHELL, String.raw`\$&`) : `\${${part}}`))
-              .join('')}"`
-        : quoteShellArg(word);
+const shelled = (word: string) => (word.includes('$env{') ? `"${word.replaceAll(SHELL, (held: string, name: string | undefined) => (name === undefined ? `\\${held}` : `\${${name}}`))}"` : quoteShellArg(word));
 
 const line = (argv: readonly string[]) => argv.map(shelled).join(' ');
 
-const memberInputs = (tree: Tree, member: Tree['members'][number], head: Workflow, stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => [
+const memberInputs = (tree: Tree, member: Tree['members'][number], head: Workflow, stated: TargetConfiguration['inputs']) => [
     ...(stated ?? ['{projectRoot}/**/*']),
-    ...tree.inputs.filter((file) => !tree.members.some(({ root }) => root !== tree.root && root !== member.root && !posix.relative(root, file).startsWith('..'))).map((file) => tokened(file)),
+    ...tree.inputs.filter((file) => !tree.members.some(({ root }) => root !== tree.root && root !== member.root && !posix.relative(root, file).startsWith('..'))).map(tokened('.')),
     { runtime: 'cmake --version' },
     ...Array.fromNullishOr(head.toolchain).map((file) => ({ runtime: line(['cmake', `-DTOOLCHAIN=${file}`, '-P', tree.identifier]) })),
     ...(tree.inputs.some((file) => posix.basename(file) === REGISTRY.manifest) ? [{ runtime: 'vcpkg version' }] : []),
@@ -35,58 +27,34 @@ const memberInputs = (tree: Tree, member: Tree['members'][number], head: Workflo
 
 const preset = (name: string | undefined) => Array.fromNullishOr(name).flatMap((stated) => ['--preset', stated]);
 
-const flagged = (workflow: Workflow, flag: string) =>
-    workflow.tidy.map(({ launcher }) =>
-        Option.map(
-            Array.findFirst(launcher.split(';'), (word) => word.startsWith(flag)),
-            (word) => word.slice(flag.length),
-        ),
-    );
+const flagged = (workflow: Workflow, flag: string) => workflow.tidy.map(({ launcher }) => Array.findFirst(launcher.split(';'), (word) => (word.startsWith(flag) ? Option.some(word.slice(flag.length)) : Option.none())));
 
-const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath, coveragePath }: { readonly outputPath?: string; readonly coveragePath?: string }, head: Workflow, declared: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, anchor: Anchor): Record<string, TargetConfiguration> => {
+const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath, coveragePath }: { readonly outputPath?: string; readonly coveragePath?: string }, head: Workflow, declared: Stated, anchor: Anchor) => {
     const others = tree.workflows.filter((workflow) => workflow !== head);
     const within = (at: string) => posix.relative(tree.root, at) || '.';
-    const checked = Option.filter(
-        Array.findFirst(tree.workflows, ({ tidy }) => tidy.length > 0),
-        () => member.compiled,
-    );
-    const packing = Array.findFirst(tree.packages, ({ name: stated, configurePreset }) =>
-        Option.map(
-            Option.filter(
-                Array.findFirst(tree.workflows, ({ configure }) => configure === configurePreset),
-                () => member.compiled && member.packaged,
-            ),
-            (workflow) => ({ workflow, stated }),
-        ),
-    );
+    const checked = Array.findFirst(tree.workflows, ({ tidy }) => member.compiled && tidy.length > 0);
+    const packing = Array.findFirst(tree.packages, ({ name: stated, configurePreset }) => Array.findFirst(tree.workflows, ({ configure }) => member.compiled && member.packaged && configure === configurePreset).pipe(Option.map((workflow) => ({ workflow, stated }))));
     const sources = ['default', '^default', { externalDependencies: [] }];
-    const looked = [
-        ...Array.unfold(
-            Option.some(posix.dirname(member.root)),
-            Option.map((at: string) => [at, Option.liftPredicate(posix.dirname(at), () => at !== '.')] as const),
-        ),
-        posix.join(member.root, '**'),
-    ].map((at) => posix.join(at, '.clang-tidy'));
+    const looked = [...above(posix.dirname(member.root)), posix.join(member.root, '**')].map((at) => posix.join(at, '.clang-tidy'));
     const tidied = (workflow: Workflow) => [
         ...Array.dedupe(
             flagged(workflow, '--config-file=')
                 .flatMap(Option.match({ onNone: () => looked, onSome: (at) => [posix.normalize(at.replaceAll(WORKING, tree.root))] }))
-                .map((file) => tokened(file)),
+                .map(tokened('.')),
         ),
-        ...Array.dedupe(workflow.tidy.flatMap(({ launcher }) => Array.take(launcher.split(';'), 1))).map((program) => ({ runtime: `${line([program])} --version` })),
+        ...Array.dedupe(workflow.tidy.flatMap(({ launcher }) => launcher.split(';', 1))).map((program) => ({ runtime: `${line([program])} --version` })),
     ];
     const planned = (workflow: Workflow, defines: Readonly<Record<string, string>> = {}) => {
-        const shared = { cwd: tree.root, configure: configured(workflow.configure, { ...Record.fromIterableWith(workflow.tidy, ({ variable }) => [`${variable}_EXPORT_FIXES_DIR`, ''] as const), ...defines }) };
+        const configure = configured(workflow.configure, { ...Record.fromIterableWith(workflow.tidy, ({ variable }) => [`${variable}_EXPORT_FIXES_DIR`, ''] as const), ...defines });
         const ran = (commands: readonly (readonly string[])[], outputs: readonly string[] = [], forwarded = commands.length - 1) => ({
-            cwd: shared.cwd,
+            cwd: tree.root,
             parallel: false,
-            commands: [shared.configure, ...commands].map((stated, at) => ({ command: line(stated), forwardAllArgs: at === forwarded + 1 })),
+            commands: [configure, ...commands].map((stated, at) => ({ command: line(stated), forwardAllArgs: at === forwarded + 1 })),
             ...(outputs.length > 0 && { outputs }),
         });
-        return { at: workflow.tree, folder: posix.join(workflow.tree, member.build), shared, ran };
+        return { folder: posix.join(workflow.tree, member.build), configure, ran };
     };
-    const placed = (workflow: Workflow, tool: string, inside: string) => UndefinedOr.match(outputPath, { onUndefined: () => posix.join(workflow.tree, member.build, inside), onDefined: (at) => posix.join(at, tool) });
-    const compiled = (workflow: Workflow, at: string, named = posix.join(member.build, 'all')) => ['cmake', '--build', within(at), ...preset(workflow.build), '--target', named];
+    const compiled = (workflow: Workflow, named = posix.join(member.build, 'all')) => ['cmake', '--build', within(workflow.tree), ...preset(workflow.build), '--target', named];
     const varied = (each: (workflow: Workflow) => object) => (others.length > 0 ? { configurations: Record.fromIterableWith(others, (workflow) => [workflow.name, each(workflow)] as const) } : {});
     const target = (help: string, description: string, options: Readonly<Record<string, unknown>>, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
         executor: 'nx:run-commands',
@@ -97,21 +65,18 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
         ...extra,
     });
     const builds = (workflow: Workflow) => {
-        const { at, folder, ran } = planned(workflow);
-        return ran([compiled(workflow, at)], [tokened(folder)]);
+        const { folder, ran } = planned(workflow);
+        return ran([compiled(workflow)], [tokened('.')(folder)]);
     };
     const covered = Option.all({ profiled: Option.fromUndefinedOr(coveragePath), workflow: Array.findFirst(others, ({ name }) => name === COVERAGE.configuration) });
     const tests = (workflow: Workflow) => {
-        const { at, folder, ran } = planned(workflow);
+        const { folder, ran } = planned(workflow);
         const ctest = ['ctest', ...preset(workflow.test), '--test-dir', within(folder)];
-        const after = Array.fromNullishOr(workflow.after).map((stated) => ['cmake', '--build', within(at), '--preset', stated]);
+        const after = Array.fromNullishOr(workflow.after).map((stated) => ['cmake', '--build', within(workflow.tree), '--preset', stated]);
         const [profiles, merged] = [within(posix.join(folder, COVERAGE.folder)), within(posix.join(folder, COVERAGE.merged))];
-        const coverage = Option.toArray(
-            Option.map(
-                Option.filter(covered, (held) => held.workflow === workflow),
-                (held) => ({ ...held, lcov: posix.join(held.profiled, COVERAGE.report) }),
-            ),
-        );
+        const coverage = Option.toArray(covered)
+            .filter((held) => held.workflow === workflow)
+            .map(({ profiled }) => ({ profiled, lcov: posix.join(profiled, COVERAGE.report) }));
         const cleared = coverage.flatMap(({ profiled, lcov }) => [
             ['cmake', '-E', 'rm', '-rf', profiles, within(lcov)],
             ['cmake', '-E', 'make_directory', within(profiled)],
@@ -120,47 +85,37 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
         const exported = coverage.map(({ lcov }) => ['cmake', `-DPROFILES=${profiles}`, `-DMERGED=${merged}`, `-DTESTS=${within(folder)}`, `-DREPORT=${within(lcov)}`, '-P', tree.exporter]);
         return ran(
             [...cleared, [...profiling, ...ctest], ...after, ...exported],
-            coverage.map(({ lcov }) => tokened(lcov)),
+            coverage.map(({ lcov }) => tokened('.')(lcov)),
             cleared.length,
         );
     };
     const installs = (workflow: Workflow) => {
-        const { at, folder, ran } = planned(workflow);
-        return ran([compiled(workflow, at), ['cmake', '--install', within(folder)]]);
-    };
-    const checks = (workflow: Workflow) => {
-        const { at, ran } = planned(workflow);
-        return ran([compiled(workflow, at)]);
+        const { folder, ran } = planned(workflow);
+        return ran([compiled(workflow), ['cmake', '--install', within(folder)]]);
     };
     const fixes = (workflow: Workflow) => {
         const fixer = 'clang-apply-replacements';
         const defines = workflow.tidy.flatMap(({ variable, launcher: stated }) => [[variable, `${stated};--warnings-as-errors=-*`] as const, [`${variable}_EXPORT_FIXES_DIR`, fixer] as const]);
-        const style = Option.getOrElse(Array.head(Array.getSomes(flagged(workflow, '--format-style='))), () => 'file');
-        const { at, folder, ran } = planned(workflow, Object.fromEntries(defines));
-        return ran([compiled(workflow, at), [fixer, '--format', `--style=${style}`, within(posix.join(folder, fixer))]]);
+        const style = Option.getOrElse(Option.firstSomeOf(flagged(workflow, '--format-style=')), () => 'file');
+        const { folder, ran } = planned(workflow, Object.fromEntries(defines));
+        return ran([compiled(workflow), [fixer, '--format', `--style=${style}`, within(posix.join(folder, fixer))]]);
     };
-    const cleans = (workflow: Workflow) => {
-        const { at, shared } = planned(workflow);
-        return { cwd: shared.cwd, commands: [shared.configure, compiled(workflow, at, 'clean')] };
-    };
-    const packs = (workflow: Workflow, stated: string) => {
-        const { at, folder, ran } = planned(workflow);
-        const [archives, run] = [placed(workflow, 'cpack', 'packages'), (file: string) => posix.relative(at, file) || '.'];
-        const packed = ['cpack', '--preset', stated, '--config', run(posix.join(folder, PACKAGING)), '-B', run(folder), '-D', `CPACK_OUTPUT_FILE_PREFIX=${run(archives)}`];
-        return { archives, options: ran([compiled(workflow, at), ['cmake', '-E', 'rm', '-rf', within(archives)], packed]) };
-    };
+    const cleans = (workflow: Workflow) => ({ cwd: tree.root, commands: [planned(workflow).configure, compiled(workflow, 'clean')] });
     const cpack = Option.map(packing, ({ workflow, stated }) => {
-        const { archives, options } = packs(workflow, stated);
-        return target('cpack', `Builds ${member.name} in workflow ${workflow.name}, empties its package folder, and packs its install tree with cpack, which names the archive`, options, {
+        const { folder, ran } = planned(workflow);
+        const archives = UndefinedOr.match(outputPath, { onUndefined: () => posix.join(folder, 'packages'), onDefined: (at) => posix.join(at, 'cpack') });
+        const run = (file: string) => posix.relative(workflow.tree, file) || '.';
+        const packed = ['cpack', '--preset', stated, '--config', run(posix.join(folder, PACKAGING)), '-B', run(folder), '-D', `CPACK_OUTPUT_FILE_PREFIX=${run(archives)}`];
+        return target('cpack', `Builds ${member.name} in workflow ${workflow.name}, empties its package folder, and packs its install tree with cpack, which names the archive`, ran([compiled(workflow), ['cmake', '-E', 'rm', '-rf', within(archives)], packed]), {
             cache: true,
-            outputs: [posix.relative(member.root, archives).startsWith('..') ? tokened(archives) : posix.join('{projectRoot}', posix.relative(member.root, archives))],
+            outputs: [tokened(member.root)(archives)],
         });
     });
     const tools: Verbs = {
         build: { ...(member.compiled && { cmake: target('cmake --build', `Builds the ${posix.join(member.build, 'all')} target of the tree its workflow preset configures with cmake --build, every target ${member.name} adds`, builds(head), { cache: true, outputs: ['{options.outputs.0}'], ...varied(builds) }) }) },
         pack: Record.getSomes({ cpack }),
         check: Record.getSomes({
-            'clang-tidy': Option.map(checked, (workflow) => target('clang-tidy', `Reports the findings and failed header-set verification of ${member.name} in workflow ${workflow.name} as errors with clang-tidy`, checks(workflow), { cache: true, inputs: [...sources, ...tidied(workflow)] })),
+            'clang-tidy': Option.map(checked, (workflow) => target('clang-tidy', `Reports the findings and failed header-set verification of ${member.name} in workflow ${workflow.name} as errors with clang-tidy`, planned(workflow).ran([compiled(workflow)]), { cache: true, inputs: [...sources, ...tidied(workflow)] })),
         }),
         fix: Record.getSomes({ 'clang-tidy': Option.map(checked, (workflow) => target('clang-apply-replacements', `Applies the replacements clang-tidy exports for ${member.name} in workflow ${workflow.name}, then formats the changed lines with clang-apply-replacements`, fixes(workflow), {})) }),
         test: { ...(member.compiled && { ctest: target('ctest', `Runs the tests of ${member.name} with ctest, the test preset deciding whether none is an error`, tests(head), { cache: true, dependsOn: ['build--cmake'], outputs: Option.toArray(covered).map(() => '{options.outputs.0}'), ...varied(tests) }) }) },
@@ -176,7 +131,7 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
                             .map(({ folder }) => ['vcpkg', 'x-update-baseline', `--x-manifest-root=${posix.relative(member.root, folder) || '.'}`, `--x-install-root=${posix.join(posix.relative(member.root, head.tree), 'vcpkg_installed')}`] as const)
                             .map((apply) => ({ apply, preview: [...apply, '--dry-run'] })),
                     },
-                    inputs: [...held.flatMap(({ inputs }) => inputs).map((file) => tokened(file)), { externalDependencies: [] }],
+                    inputs: [...held.flatMap(({ inputs }) => inputs).map(tokened('.')), { externalDependencies: [] }],
                     metadata: { description: `Moves the baselines ${held.map(({ folder }) => posix.join(folder, 'vcpkg.json')).join(', ')} state to the newest commit of each registry with vcpkg x-update-baseline`, help: { command: 'vcpkg help x-update-baseline', example: { options: { dryRun: true } } } },
                 },
             }),

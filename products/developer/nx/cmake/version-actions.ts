@@ -16,9 +16,9 @@ class CmakeVersionActions extends VersionActions {
     readCurrentVersionFromSourceManifest(tree: Tree) {
         const manifestPath = joinPathFragments(this.projectGraphNode.data.root, MANIFEST);
         return run(
-            Effect.map(
-                Effect.flatMap(read(tree, manifestPath), (text) => versioned(text, manifestPath)),
-                ({ value }) => ({ currentVersion: value, manifestPath }),
+            read(tree, manifestPath).pipe(
+                Effect.flatMap((text) => versioned(text, manifestPath)),
+                Effect.map(({ value }) => ({ currentVersion: value, manifestPath })),
             ),
         );
     }
@@ -34,12 +34,12 @@ class CmakeVersionActions extends VersionActions {
     updateProjectVersion(tree: Tree, newVersion: string) {
         return run(
             Effect.forEach(this.manifestsToUpdate, ({ manifestPath }) =>
-                Effect.map(
-                    Effect.flatMap(read(tree, manifestPath), (text) => restated(text, newVersion, manifestPath)),
-                    (text) => {
+                read(tree, manifestPath).pipe(
+                    Effect.flatMap((text) => restated(text, newVersion, manifestPath)),
+                    Effect.map((text) => {
                         tree.write(manifestPath, text);
                         return `New version ${newVersion} written to manifest: ${manifestPath}`;
-                    },
+                    }),
                 ),
             ),
         );

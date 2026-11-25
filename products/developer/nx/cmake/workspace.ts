@@ -2,10 +2,10 @@ import { type } from 'node:os';
 import { basename, delimiter, join, posix, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { normalizePath, readJsonFile } from '@nx/devkit';
-import type { PackageJson } from '@nx/devkit/internal';
+import { normalizePath } from '@nx/devkit';
 import { runner } from '@rasm/nx';
-import { Array, Cause, Context, Effect, FileSystem, Function, Graph, Layer, Match, Option, Order, pipe, Predicate, Record, Result, Schema, SemVer } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, Function, Graph, Layer, Match, Option, Order, pipe, Predicate, Record, Result, Schema, SchemaTransformation, SemVer } from 'effect';
+import plugin from '#/package.json' with { type: 'json' };
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -14,7 +14,6 @@ type Workflow = Tree['workflows'][number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const EXPORTER = fileURLToPath(import.meta.resolve('#/coverage.cmake'));
 const IDENTIFIER = fileURLToPath(import.meta.resolve('#/compiler.cmake'));
 const MANIFEST = 'CMakeLists.txt';
@@ -25,13 +24,11 @@ const DEFINING = new Set(['add_library', 'add_executable', 'add_custom_target'])
 const TIDY = /^CMAKE_[A-Z]+_CLANG_TIDY$/u;
 const WORKING = '$env{PWD}';
 const MACRO = /\$(?<space>env|penv)?\{(?<name>\w+)\}/gu;
-const ENVIRONMENT = /\$env\{(?<name>\w+)\}/gu;
 const TOKEN = /#\[(?<comment>=*)\[[\s\S]*?\]\k<comment>\]|#[^\n]*|\[(?<bracket>=*)\[[\s\S]*?\]\k<bracket>\]|"(?<quoted>(?:\\[\s\S]|[^"\\])*)"|(?<head>[A-Za-z_]\w*)[ \t]*\(|[^\s()#"]+|[()]/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Packaging = Schema.Struct({ name: Schema.String, configurePreset: Schema.String });
-const Launcher = Schema.Union([Schema.String, Schema.Struct({ value: Schema.String })]);
+const Launcher = Schema.Union([Schema.String, Schema.Struct({ value: Schema.String }).pipe(Schema.decodeTo(Schema.String, SchemaTransformation.transform({ decode: ({ value }) => value, encode: (value) => ({ value }) })))]);
 class Presets extends Schema.Opaque<Presets, unknown>()(
     Schema.fromJsonString(
         Schema.Struct({
@@ -45,7 +42,7 @@ class Presets extends Schema.Opaque<Presets, unknown>()(
                     environment: Schema.optionalKey(Schema.Record(Schema.String, Schema.NullOr(Schema.String))),
                 }),
             ).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-            packagePresets: Schema.Array(Packaging).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+            packagePresets: Schema.Array(Schema.Struct({ name: Schema.String, configurePreset: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
             workflowPresets: Schema.Array(Schema.Struct({ name: Schema.String, steps: Schema.Array(Schema.Struct({ type: Schema.String, name: Schema.String })) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         }),
     ),
@@ -53,7 +50,7 @@ class Presets extends Schema.Opaque<Presets, unknown>()(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Linked extends Context.Service<Linked, Map<string, ReadonlyMap<string, Tree['members']>>>()(`${PLUGIN}/workspace/Linked`) {
+class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()(`${plugin.name}/workspace/Linked`) {
     static readonly layer = Layer.sync(Linked, () => new Map());
 }
 
@@ -63,7 +60,7 @@ const inside = (folder: string) => (file: string) => !posix.relative(folder, fil
 
 const commands = (text: string) => {
     const [, tokens] = Array.mapAccum(
-        [...text.matchAll(TOKEN)].filter(([token]) => !token.startsWith('#')),
+        text.matchAll(TOKEN).filter(([token]) => !token.startsWith('#')),
         { depth: 0, call: -1 },
         ({ depth, call }, { 0: token, index, groups = {} }) => {
             const opened = depth === 0 && groups['head'] !== undefined;
@@ -73,11 +70,11 @@ const commands = (text: string) => {
             return [next, { call: next.call, name: opened ? Option.some(value.toLowerCase()) : Option.none(), argument: depth > 0 && token !== '(' && token !== ')' ? Option.some({ value, start, end: start + value.length }) : Option.none() }] as const;
         },
     );
-    const argued = Array.groupBy(
-        tokens.flatMap(({ call, argument }) => Option.toArray(Option.map(argument, (held) => ({ call, ...held })))),
-        ({ call }) => String(call),
+    const argued = Map.groupBy(
+        tokens.flatMap(({ call, argument }) => Option.toArray(argument).map((held) => ({ call, ...held }))),
+        ({ call }) => call,
     );
-    return tokens.flatMap(({ call, name }) => Option.toArray(Option.map(name, (named) => ({ name: named, args: argued[String(call)] ?? [] }))));
+    return tokens.flatMap(({ call, name }) => Option.toArray(name).map((named) => ({ name: named, args: argued.get(call) ?? [] })));
 };
 
 const versioned = (text: string, at: string) =>
@@ -107,27 +104,23 @@ const expanded = (named: Readonly<Record<string, string>>, environment: Readonly
 
 const configured = (configure: string, defines: Readonly<Record<string, string>> = {}): Array.NonEmptyReadonlyArray<string> => ['cmake', '--preset', configure, '-S', '.', ...Record.collect(defines, (name, value) => `-D${name}=${value}`)];
 
-const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: string, matched: readonly string[]) {
+const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: string, matched: ReadonlySet<string>) {
     const fs = yield* FileSystem.FileSystem;
     const root = posix.dirname(presets);
     const source = join(workspaceRoot, root);
     const { configurePresets, packagePresets: packages, workflowPresets } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
     const inherited = configurePresets.flatMap(({ name, inherits = [] }) => Array.ensure(inherits).map((parent) => [name, parent] as const));
-    const inheriting = yield* Effect.succeed(
-        Graph.directed<Presets['configurePresets'][number], undefined>((mutable) => {
-            const placed = new Map(configurePresets.map((preset) => [preset.name, Graph.addNode(mutable, preset)] as const));
-            Array.getSomes(inherited.map(([child, parent]) => Option.all([Option.fromUndefinedOr(placed.get(child)), Option.fromUndefinedOr(placed.get(parent))]))).forEach(([from, to]) => {
+    const inheriting = Graph.directed<Presets['configurePresets'][number], undefined>((mutable) => {
+        const placed = new Map(configurePresets.map((preset) => [preset.name, Graph.addNode(mutable, preset)] as const));
+        inherited
+            .flatMap(([child, parent]) => Array.cartesian(Array.fromNullishOr(placed.get(child)), Array.fromNullishOr(placed.get(parent))))
+            .forEach(([from, to]) => {
                 Graph.addEdge(mutable, from, to, undefined);
             });
-        }),
-    ).pipe(
-        Effect.filterOrFail(
-            (graph) => Graph.isAcyclic(graph),
-            (graph) => new Cause.UnknownError(graph, `${presets} lists configure presets inheriting each other in a cycle, which cmake refuses`),
-        ),
-    );
+    });
+    yield* Effect.when(new Cause.UnknownError(inheriting, `${presets} lists configure presets inheriting each other in a cycle, which cmake refuses`), Effect.succeed(!Graph.isAcyclic(inheriting)));
     const chains = new Map(Array.fromIterable(Graph.entries(Graph.nodes(inheriting))).map(([at, preset]) => [preset.name, Array.fromIterable(Graph.values(Graph.dfs(inheriting, { start: [at] })))] as const));
-    const chain = (name: string): readonly Presets['configurePresets'][number][] => chains.get(name) ?? [];
+    const chain = (name: string) => chains.get(name) ?? [];
     const macros = (configure: string, at: string) =>
         expanded(
             {
@@ -142,40 +135,23 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
                 pathListSep: delimiter,
                 ...Record.getSomes({ generator: Array.findFirst(chain(configure), ({ generator }) => Option.fromUndefinedOr(generator)) }),
             },
-            Record.getSomes(
-                Record.map(
-                    Record.fromEntries(
-                        chain(configure)
-                            .toReversed()
-                            .flatMap(({ environment = {} }) => Record.toEntries(environment)),
-                    ),
-                    Option.fromNullOr,
+            Record.filter(
+                Record.fromEntries(
+                    chain(configure)
+                        .toReversed()
+                        .flatMap(({ environment = {} }) => Record.toEntries(environment)),
                 ),
+                (value) => value !== null,
             ),
         );
-    const stepped = (listed: Presets['workflowPresets'][number]['steps'], kind: string) =>
-        Option.map(
-            Array.findFirst(listed, (each) => each.type === kind),
-            (each) => each.name,
-        );
-    const followed = (listed: Presets['workflowPresets'][number]['steps']) =>
-        Option.flatMap(
-            Array.findFirstIndex(listed, (each) => each.type === 'test'),
-            (at) => stepped(listed.slice(at + 1), 'build'),
-        );
+    const stepped = (listed: Presets['workflowPresets'][number]['steps'], kind: string) => listed.find((each) => each.type === kind)?.name;
+    const followed = (listed: Presets['workflowPresets'][number]['steps']) => Option.getOrUndefined(Array.findFirst(listed, (each, at) => (each.type === 'test' ? Option.fromUndefinedOr(stepped(listed.slice(at + 1), 'build')) : Option.none())));
     const rooted = (configure: string) =>
-        normalizePath(
-            relative(
-                workspaceRoot,
-                resolve(
-                    source,
-                    Option.match(
-                        Array.findFirst(chain(configure), ({ binaryDir }) => Option.fromUndefinedOr(binaryDir)),
-                        { onNone: () => '.', onSome: macros(configure, source) },
-                    ),
-                ),
-            ),
-        ) || '.';
+        Array.findFirst(chain(configure), ({ binaryDir }) => Option.fromUndefinedOr(binaryDir)).pipe(
+            Option.map(macros(configure, source)),
+            Option.getOrElse(() => '.'),
+            (at) => normalizePath(relative(workspaceRoot, resolve(source, at))) || '.',
+        );
     const variables = (configure: string) =>
         Record.fromEntries(
             chain(configure)
@@ -183,33 +159,20 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
                 .flatMap(({ cacheVariables = {} }) => Record.toEntries(cacheVariables)),
         );
     const toolchain = (configure: string) =>
-        Option.getOrUndefined(
-            Option.map(
-                Array.findFirst(['VCPKG_CHAINLOAD_TOOLCHAIN_FILE', 'CMAKE_TOOLCHAIN_FILE'], (variable) => Option.liftPredicate(variables(configure)[variable], Predicate.isString)),
-                (stated) => posix.normalize(macros(configure, root)(stated)),
-            ),
+        Array.findFirst(['VCPKG_CHAINLOAD_TOOLCHAIN_FILE', 'CMAKE_TOOLCHAIN_FILE'], (variable) => Option.liftPredicate(variables(configure)[variable], Predicate.isString)).pipe(
+            Option.map((stated) => posix.normalize(macros(configure, root)(stated))),
+            Option.getOrUndefined,
         );
     const launchers = (configure: string) =>
         Record.collect(
-            Record.filterMap(variables(configure), (stated, variable) => (TIDY.test(variable) ? Result.fromOption(Schema.decodeUnknownOption(Launcher)(stated), Function.constVoid) : Result.failVoid)),
-            (variable, named) => ({ variable, launcher: macros(configure, WORKING)(typeof named === 'string' ? named : named.value) }),
+            Record.filterMap(variables(configure), (stated, variable) => (TIDY.test(variable) ? Result.mapError(Schema.decodeUnknownResult(Launcher)(stated), Function.constVoid) : Result.failVoid)),
+            (variable, launcher) => ({ variable, launcher: macros(configure, WORKING)(launcher) }),
         );
-    const workflows = Array.getSomes(
-        workflowPresets.map(({ name, steps }) =>
-            Option.map(stepped(steps, 'configure'), (configure) => ({
-                build: Option.getOrUndefined(stepped(steps, 'build')),
-                test: Option.getOrUndefined(stepped(steps, 'test')),
-                after: Option.getOrUndefined(followed(steps)),
-                tree: rooted(configure),
-                name,
-                configure,
-                tidy: launchers(configure),
-                toolchain: toolchain(configure),
-            })),
-        ),
+    const workflows = workflowPresets.flatMap(({ name, steps }) =>
+        Array.fromNullishOr(stepped(steps, 'configure')).map((configure) => ({ build: stepped(steps, 'build'), test: stepped(steps, 'test'), after: followed(steps), tree: rooted(configure), name, configure, tidy: launchers(configure), toolchain: toolchain(configure) })),
     );
-    const trees = matched.filter((file) => posix.basename(file) === PRESETS && file !== presets && inside(root)(file)).map(posix.dirname);
-    const inputs = matched.filter((file) => inside(root)(file) && !trees.some((nested) => inside(nested)(file)));
+    const trees = Array.filter(matched, (file) => posix.basename(file) === PRESETS && file !== presets && inside(root)(file)).map(posix.dirname);
+    const inputs = Array.filter(matched, (file) => inside(root)(file) && !trees.some((nested) => inside(nested)(file)));
     const parsed = yield* Effect.forEach(
         inputs.filter((file) => posix.basename(file) === MANIFEST),
         (file) => Effect.map(fs.readFileString(join(workspaceRoot, file)), (text) => ({ file, folder: posix.dirname(file), calls: commands(text) })),
@@ -222,34 +185,39 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
     );
     const placed = declared.filter(({ folder }) => folder === root || !declared.some((outer) => outer.folder !== root && outer.folder !== folder && inside(outer.folder)(folder)));
     const owner = (folder: string) =>
-        Array.min(
-            Array.prepend(
-                placed.map((held) => held.folder).filter((at) => inside(at)(folder)),
-                root,
-            ),
-            Order.mapInput(Order.Number, (at: string) => posix.relative(at, folder).length),
+        pipe(
+            placed.map((held) => held.folder).filter((at) => inside(at)(folder)),
+            Array.prepend(root),
+            Array.min(Order.mapInput(Order.Number, (at: string) => posix.relative(at, folder).length)),
         );
     const defined = Record.fromEntries(invoked.filter(({ name }) => DEFINING.has(name)).flatMap(({ folder, args }) => Array.take(args, 1).map(({ value }) => [value, owner(folder)] as const)));
-    const linked = invoked
-        .map(({ file, folder, args }) => ({
-            file,
-            args,
-            from: pipe(
-                Array.head(args),
-                Option.flatMap(({ value }) => Record.get(defined, value)),
-                Option.getOrElse(() => owner(folder)),
-            ),
-        }))
-        .flatMap(({ file, args, from }) => Array.drop(args, 1).map(({ value }) => ({ file, from, to: Record.get(defined, value) })))
-        .flatMap(({ file, from, to }) => Option.toArray(Option.filter(to, (held) => held !== from)).map((target) => ({ from, root: target, file })));
+    const linked = Map.groupBy(
+        invoked
+            .map(({ file, folder, args }) => ({
+                file,
+                args,
+                from: pipe(
+                    Array.head(args),
+                    Option.flatMap(({ value }) => Record.get(defined, value)),
+                    Option.getOrElse(() => owner(folder)),
+                ),
+            }))
+            .flatMap(({ file, args, from }) => Array.drop(args, 1).map(({ value }) => ({ file, from, to: Record.get(defined, value) })))
+            .flatMap(({ file, from, to }) => Option.toArray(Option.filter(to, (held) => held !== from)).map((target) => ({ from, root: target, file }))),
+        ({ from }) => from,
+    );
+    const registries = Map.groupBy(
+        inputs.filter((file) => posix.basename(file) === REGISTRY.manifest),
+        (manifest) => owner(posix.dirname(manifest)),
+    );
     const members = placed.map(({ name, folder, args }) => ({
         name,
         root: folder,
         build: posix.relative(root, folder),
         compiled: folder !== root && !args.some(({ value }) => value === 'NONE'),
         packaged: args.some(({ value }) => value === 'VERSION'),
-        links: Array.dedupe(linked.filter(({ from }) => from === folder).map(({ root: to, file }) => ({ root: to, file }))),
-        registries: inputs.filter((file) => posix.basename(file) === REGISTRY.manifest && owner(posix.dirname(file)) === folder).map((manifest) => ({ folder: posix.dirname(manifest), inputs: Array.intersection([manifest, posix.join(posix.dirname(manifest), REGISTRY.configuration)], matched) })),
+        links: Array.dedupe((linked.get(folder) ?? []).map(({ root: to, file }) => ({ root: to, file }))),
+        registries: (registries.get(folder) ?? []).map((manifest) => ({ folder: posix.dirname(manifest), inputs: Array.fromIterable(new Set([manifest, posix.join(posix.dirname(manifest), REGISTRY.configuration)]).intersection(matched)) })),
     }));
     return { root, workflows, packages, members, inputs, exporter: normalizePath(relative(source, EXPORTER)), identifier: normalizePath(relative(workspaceRoot, IDENTIFIER)) };
 });
@@ -260,4 +228,4 @@ const run = runner(Linked.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { configured, ENVIRONMENT, Linked, MANIFEST, PACKAGING, PLUGIN, PRESETS, REGISTRY, resolved, restated, run, type Tree, versioned, WORKING, type Workflow };
+export { configured, Linked, MANIFEST, PACKAGING, PRESETS, REGISTRY, resolved, restated, run, type Tree, versioned, WORKING, type Workflow };
