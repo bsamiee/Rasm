@@ -1,4 +1,4 @@
-import { HostError, Specifier } from '@rasm/object-model';
+import { HostError, Reference, Specifier } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
 import type { InsertionPoint, Text, TextDefault, TextStyleRange } from 'adobe:indesign';
 import { Array, Effect, flow, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
@@ -9,7 +9,6 @@ import { InDesignSettings, thousandths } from '#/uxp/settings';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MARK = /^\p{M}+$/v;
-const REFERENCED = ['type', 'specifier', 'name', 'valid'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -71,7 +70,7 @@ const kerns = Effect.fn('kerns')(function* (payload: Kerns) {
 const runs = Effect.fn('runs')(function* ({ target: path }: Runs) {
     const [{ text, textContainer }, target] = yield* Effect.all([Model, textTarget(path)]);
     if (!text(target)) {
-        return yield* Effect.try({ try: () => ({ ...Struct.pick(Model.referenceUnsafe(target), REFERENCED), start: 0, length: 0, runs: [{ text: '', font: target.appliedFont.name, axes: target.designAxes }] }), catch: HostError.refused(`applied font of ${target.toSpecifier()}`) });
+        return yield* Effect.try({ try: () => ({ ...Struct.pick(Model.referenceUnsafe(target), Struct.keys(Reference.fields)), start: 0, length: 0, runs: [{ text: '', font: target.appliedFont.name, axes: target.designAxes }] }), catch: HostError.refused(`applied font of ${target.toSpecifier()}`) });
     }
     const container = target.parent;
     const whole = yield* textContainer(container) ? Effect.succeed(container.texts.item(0)) : Unmatched.of({ subject: 'text container', query: Option.some(path) });
@@ -79,7 +78,7 @@ const runs = Effect.fn('runs')(function* ({ target: path }: Runs) {
         try: () => Array.map(whole.textStyleRanges.everyItem().getElements(), (run) => ({ text: Predicate.isString(run.contents) ? run.contents : '\n'.repeat(run.length), font: run.appliedFont.name, axes: run.designAxes })),
         catch: HostError.refused(`style ranges of ${whole.toSpecifier()}`),
     });
-    return { ...Struct.pick(yield* Model.reference(container), REFERENCED), start: target.index, length: target.length, runs: ranges };
+    return { ...Struct.pick(yield* Model.reference(container), Struct.keys(Reference.fields)), start: target.index, length: target.length, runs: ranges };
 });
 const typeset = Effect.fn('typeset')(function* ({ label, target: path, settings }: Typeset) {
     const target = yield* textTarget(path);

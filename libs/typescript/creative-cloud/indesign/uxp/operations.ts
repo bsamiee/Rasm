@@ -17,12 +17,12 @@ class Flat extends Schema.Opaque<Flat, { readonly brand: unique symbol }>()(Sche
 
 // --- [SEARCH]
 
-const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pick<FindChange, 'mode' | 'find' | 'change' | 'options'>, located: unknown) {
-    const members = Search.members(mode);
+const search = Effect.fnUntraced(function* (payload: Pick<FindChange, 'mode' | 'find' | 'change' | 'options'>, located: unknown) {
+    const members = Search.members(payload.mode);
     const model = yield* Model;
     const { app, enumerator } = model;
     yield* Effect.forEach(
-        members.preferences,
+        Record.values(members.preferences),
         Effect.fnUntraced(function* (member) {
             const saved = yield* Model.saved(app[member]);
             const reset = Effect.try({ try: () => Object.assign(app, { [member]: model.NothingEnum.NOTHING })[member], catch: HostError.refused(`reset of ${member}`) });
@@ -36,8 +36,8 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pic
         Match.when(Predicate.isString, identity<string>),
         Match.orElse(Formatter.format),
     );
-    const scopes = yield* Effect.forEach(Array.ensure(located), (each) => (model.owning(members.change)(each) ? Effect.succeed(each) : Unmatched.of({ subject: `${mode} search target`, query: model.domObject(located) ? Option.some(located.toSpecifier()) : Option.none() })));
-    yield* Effect.forEach(Array.zip(members.preferences, [find, options, change]), ([target, fields]) => Effect.transposeOption(Option.map(fields, (values) => Effect.flatten(Model.write(app[target], values)))), { discard: true });
+    const scopes = yield* Effect.forEach(Array.ensure(located), (each) => (model.owning(members.change)(each) ? Effect.succeed(each) : Unmatched.of({ subject: `${payload.mode} search target`, query: model.domObject(located) ? Option.some(located.toSpecifier()) : Option.none() })));
+    yield* Effect.forEach(Record.toEntries(members.preferences), ([field, target]) => Effect.transposeOption(Option.map(payload[field], (values) => Effect.flatten(Model.write(app[target], values)))), { discard: true });
     const describe = (hit: Text | PageItem) => {
         const placed = model.text(hit) ? Option.filter(Array.head(hit.parentTextFrames), model.item) : Option.liftPredicate(hit, model.item);
         return {
@@ -51,10 +51,10 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pic
         Effect.fnUntraced(function* (each) {
             const owner = model.owner(each);
             yield* Effect.transposeOption(Option.as(owner, Uxp.preserve(app, Record.getSomes({ activeDocument: owner }))));
-            const refused = HostError.refused(`${mode} search of ${each.toSpecifier()}`);
+            const refused = HostError.refused(`${payload.mode} search of ${each.toSpecifier()}`);
             const hits = yield* Effect.try({ try: () => each[members.find](), catch: refused });
             const matches = yield* Effect.try({ try: () => (Predicate.isNumber(hits) ? [] : hits.map(describe)), catch: refused });
-            const changes = yield* Effect.transposeOption(Option.as(change, Effect.try({ try: () => counted(each[members.change]()), catch: refused })));
+            const changes = yield* Effect.transposeOption(Option.as(payload.change, Effect.try({ try: () => counted(each[members.change]()), catch: refused })));
             return { count: { matches: counted(hits), changes }, matches };
         }, Effect.scoped),
     );
@@ -130,8 +130,7 @@ const fontView = Effect.fnUntraced(function* (face: Font) {
         },
         catch: HostError.refused(`styles and features of ${face.name}`),
     }).pipe(Effect.when(Effect.succeed(face.status.equals(model.FontStatus.INSTALLED))));
-    const uses = [...Array.flatMap(searched, ({ matches }) => Array.map(matches, Struct.get('specifier'))), ...styled];
-    return yield* Model.picked(Inspection.View.cases.Font, face, () => ({ uses, installed }));
+    return yield* Model.picked(Inspection.View.cases.Font, face, () => ({ uses: [...Array.flatMap(searched, ({ matches }) => Array.map(matches, Struct.get('specifier'))), ...styled], installed }));
 });
 const view = (model: Model['Service'], found: unknown, slice: Slice) => {
     const { picked } = model;
@@ -152,6 +151,7 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
                 );
                 const panels = Array.getSomes(globalThis.Array.from({ length: app.panels.length }, (_, index) => Option.map(Option.filter(Option.fromUndefinedOr(app.panels.item(index)), Struct.get('visible')), Struct.get('name'))));
                 return yield* Model.picked(Inspection.View.cases.Application, app, () => ({
+                    toolBoxTools: { ...picked(Inspection.View.cases.Application.fields.toolBoxTools, app.toolBoxTools), tools: Array.map(model.members(model.UITools), (tool) => tool.toString()) },
                     panels,
                     documents: Array.map(documents, ({ document, fullName }) => ({ ...picked(Inspection.View.cases.Application.fields.documents.value, document, ['fullName']), fullName })),
                     current: Option.map(opened, (document) => ({ document: document.toSpecifier(), window, selection, overset: overset(document), undo: { mode: app.activeScriptUndoMode, name: document.undoName, history: document.undoHistory } })),

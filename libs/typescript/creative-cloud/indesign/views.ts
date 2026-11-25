@@ -13,7 +13,7 @@ const MODES = ['Text', 'Grep', 'Glyph', 'Object', 'Color', 'Transliterate'] as c
 
 class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Extent')(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite), { description: 'Outer stroke bounds in spread points, x 0 at spine or spread center' }) {}
 const Search = Object.assign(Schema.Literals(MODES).annotate({ description: 'Find/change kind, each with its find and change methods and preference objects' }), {
-    members: <M extends (typeof MODES)[number]>(mode: M) => ({ find: `find${mode}` as const, change: `change${mode}` as const, preferences: [`find${mode}Preferences`, `findChange${mode}Options`, `change${mode}Preferences`] as const }),
+    members: <M extends (typeof MODES)[number]>(mode: M) => ({ find: `find${mode}` as const, change: `change${mode}` as const, preferences: { find: `find${mode}Preferences`, options: `findChange${mode}Options`, change: `change${mode}Preferences` } as const }),
 });
 
 class Slice extends Schema.Class<Slice, { readonly brand: unique symbol }>('Slice')({
@@ -136,6 +136,7 @@ class Document extends Schema.TaggedClass<Document, { readonly brand: unique sym
     links: Schema.Record(Schema.String, Schema.Int).annotate({ description: 'Count per LinkStatus member' }),
     fonts: Schema.Array(Schema.Struct({ name: Schema.String, status: Schema.String })),
     swatches: Schema.Array(Reference),
+    placeGuns: Schema.Struct({ loaded: Schema.Boolean, pageItems: Collection }),
     ...Struct.Record(['allParagraphStyles', 'allCharacterStyles', 'allObjectStyles', 'allTableStyles', 'allCellStyles'], Count.annotate({ description: 'Count with grouped styles' })),
     preflightOptions: Schema.Struct({
         ...Struct.Record(['preflightOff', 'preflightIncludeObjectsOnPasteboard', 'preflightIncludeNonprintingObjects'], Schema.Boolean),
@@ -147,7 +148,7 @@ class Document extends Schema.TaggedClass<Document, { readonly brand: unique sym
 }) {}
 class Application extends Schema.TaggedClass<Application, { readonly brand: unique symbol }>()('Application', {
     version: Schema.String,
-    toolBoxTools: Schema.Struct({ currentTool: Schema.String }),
+    toolBoxTools: Schema.Struct({ currentTool: Schema.String, currentToolName: Schema.String, currentToolHint: Schema.String, tools: Schema.Array(Schema.String) }),
     panels: Schema.Array(Schema.String).annotate({ description: 'Visible panel names' }),
     documents: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(Document.fields, ['saved', 'modified', 'fullName', 'windows'])))),
     current: Schema.OptionFromOptionalKey(

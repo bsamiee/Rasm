@@ -6,16 +6,15 @@ import type { InDesignDOMObject } from 'adobe:indesign';
 const stepped = <A>({ app, ScriptLanguage, UndoModes, UserInteractionLevels }: Pick<typeof indesign, 'app' | 'ScriptLanguage' | 'UndoModes' | 'UserInteractionLevels'>, body: () => A, label: string): A => {
     const { scriptPreferences } = app;
     const level = scriptPreferences.userInteractionLevel;
-    const returned: { readonly value: A }[] = [];
-    const thrown: unknown[] = [];
+    const settled: ({ readonly ok: true; readonly value: A } | { readonly ok: false; readonly error: unknown })[] = [];
     Object.assign(scriptPreferences, { userInteractionLevel: UserInteractionLevels.NEVER_INTERACT });
     try {
         app.doScript(
             () => {
                 try {
-                    returned.push({ value: body() });
+                    settled.push({ ok: true, value: body() });
                 } catch (error) {
-                    thrown.push(error);
+                    settled.push({ ok: false, error });
                     throw error;
                 }
             },
@@ -25,15 +24,15 @@ const stepped = <A>({ app, ScriptLanguage, UndoModes, UserInteractionLevels }: P
             label,
         );
     } catch (error) {
-        throw thrown.length === 0 ? error : thrown[0];
+        settled.push({ ok: false, error });
     } finally {
         Object.assign(scriptPreferences, { userInteractionLevel: level });
     }
-    const [settled] = returned;
-    if (settled === undefined) {
-        throw new Error('doScript returned before its function ran');
+    const [outcome = { ok: false, error: new Error('doScript returned before its function ran') } as const] = settled;
+    if (!outcome.ok) {
+        throw outcome.error;
     }
-    return settled.value;
+    return outcome.value;
 };
 const referenced = (value: object) => {
     const held: Partial<Pick<InDesignDOMObject<unknown>, 'constructorName' | 'isValid' | 'toSpecifier'>> & { readonly name?: unknown } = value;

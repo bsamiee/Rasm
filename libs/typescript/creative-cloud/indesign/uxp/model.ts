@@ -71,8 +71,7 @@ type Owned = {
 
 const AGGREGATE_FIELD = 'properties';
 const STYLISTIC_SETS = 20;
-const STYLISTIC_SET_ACTION = 0x69_74;
-const STYLISTIC_SET_ACTIONS = { minimum: STYLISTIC_SET_ACTION, maximum: STYLISTIC_SET_ACTION + STYLISTIC_SETS - 1 };
+const STYLISTIC_SET_ACTIONS = { minimum: 0x69_74, maximum: 0x69_74 + STYLISTIC_SETS - 1 };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -302,7 +301,15 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 Match.when(Schema.is(Value.Located), ({ specifier }) => Model.resolve(specifier)),
                 Match.when(Schema.is(Value.Enumerated), ({ type, member }) => Model.member(type, member)),
                 Match.when(Predicate.isString, (text) =>
-                    Array.match(named, { onEmpty: () => Effect.succeed<unknown>(text), onNonEmpty: (kinds) => firstOf(Array.map(kinds, (kind): Effect.Effect<unknown, Failure, Model> => (Option.isSome(enumeration(kind)) ? Model.member(kind, text) : Model.object(kind, text, target)))) }),
+                    Array.match(named, {
+                        onEmpty: () => Effect.succeed<unknown>(text),
+                        onNonEmpty: (kinds) =>
+                            Effect.forEach(kinds, (kind) => Effect.flip(Effect.map(Option.isSome(enumeration(kind)) ? Model.member(kind, text) : Model.object(kind, text, target), Array.of))).pipe(
+                                Effect.map((missed) => Unmatched.of({ subject: missed.map(({ subject }) => subject).join(' or '), query: Option.some(text), candidates: missed.flatMap(({ candidates }) => candidates) })),
+                                Effect.flip,
+                                Effect.map(Array.headNonEmpty),
+                            ),
+                    }),
                 ),
                 Match.when(Array.isArray, Effect.forEach(Model.decode(target, named))),
                 Match.when(isPlain, (properties) => Effect.all(Record.map(properties, Model.decode(target, [])))),
@@ -373,14 +380,6 @@ const identified = (path: string) =>
         Option.flatMap(({ steps }) => Array.last(steps)),
         Option.map(Struct.get('kind')),
     );
-const joined =
-    <E>(failed: E | Unmatched) =>
-    (later: E | Unmatched): E | Unmatched => {
-        if (!Schema.is(Unmatched)(later)) {
-            return later;
-        }
-        return Schema.is(Unmatched)(failed) ? Unmatched.of({ subject: `${failed.subject} or ${later.subject}`, query: failed.query, candidates: [...failed.candidates, ...later.candidates] }) : failed;
-    };
 const accumulated = <E>(causes: readonly Cause.Cause<E>[]) => Effect.failCause(Cause.fromReasons(causes.flatMap(Struct.get('reasons'))));
 const decoded = Effect.fnUntraced(function* (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>): Effect.fn.Return<readonly (readonly [string, Effect.Effect<unknown, HostError>])[], Failure, Model> {
     const [{ declaration, domObject }, specifier] = [yield* Model, target.toSpecifier()];
@@ -400,7 +399,6 @@ const decoded = Effect.fnUntraced(function* (target: InDesignDOMObject<unknown>,
         }, Effect.sandbox),
     ).pipe(Effect.map(Array.flatten), Effect.catch(accumulated));
 });
-const firstOf = <A, E, R>([head, ...rest]: Array.NonEmptyReadonlyArray<Effect.Effect<A, E, R>>) => rest.reduce<Effect.Effect<A, E | Unmatched, R>>((chosen, fallback) => Effect.catch(chosen, (failed) => Effect.mapError(fallback, joined(failed))), head);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

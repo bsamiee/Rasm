@@ -50,7 +50,6 @@ const ALIGNMENTS = {
 } as const satisfies Record<Members<typeof Justification>, { readonly _tag: Settings['alignment']['_tag']; readonly edge: keyof Sides }>;
 const SINGLE_WORDS = { LEFT_ALIGN: 'left', CENTER_ALIGN: 'center', RIGHT_ALIGN: 'right', FULLY_JUSTIFIED: 'justified' } as const satisfies Record<Members<typeof SingleWordJustification>, keyof Sides>;
 const SPINES = { LEFT_HAND: 'right', RIGHT_HAND: 'left', SINGLE_SIDED: 'left' } as const satisfies Record<Members<typeof PageSideOptions>, 'left' | 'right'>;
-const PARAGRAPH_STARTS = { LTR: 'left', RTL: 'right' } as const;
 const JUSTIFICATIONS = {
     NASKH_TATWEEL_JUSTIFICATION: { _tag: 'Tatweel', fractional: false },
     NASKH_TATWEEL_JUSTIFICATION_FRAC: { _tag: 'Tatweel', fractional: true },
@@ -61,7 +60,6 @@ const JUSTIFICATIONS = {
     NASKH_JUSTIFICATION: { _tag: 'Stretched', fractional: false },
 } as const satisfies Record<Members<typeof ParagraphJustificationOptions>, { readonly _tag: Exclude<Settings['kashida']['_tag'], 'None'>; readonly fractional: boolean }>;
 const KASHIDA_WIDTHS = { None: 0, Short: 1, Medium: 2, Long: 3 } as const;
-const ROUND_TRIPS: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>> = { digitsType: Record.map(NUMBERING, String), paragraphJustification: Record.map(JUSTIFICATIONS, ({ _tag, fractional }) => `${_tag} ${fractional}`) };
 const FEATURE_FLAGS = { otfTitling: 'titl', otfContextualAlternate: 'calt', otfDiscretionaryLigature: 'dlig', otfStylisticAlternate: 'salt', otfJustificationAlternate: 'jalt' } as const;
 const CAPITALIZATIONS = { CAP_TO_SMALL_CAP: ['c2sc', 'smcp'], SMALL_CAPS: ['smcp'], NORMAL: [], ALL_CAPS: [], LOWER_CASE: [] } as const satisfies Record<Members<typeof Capitalization>, readonly string[]>;
 const SPACING = Record.map({ word: 'WordSpacing', letter: 'LetterSpacing', glyph: 'GlyphScaling' } as const, (suffix) => Record.map({ min: 'minimum', desired: 'desired', max: 'maximum' } as const, (prefix) => `${prefix}${suffix}` as const));
@@ -189,16 +187,16 @@ class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: 
 
 const inverse = <K extends string, V>(table: Readonly<Record<K, V>>, wanted: (row: V) => boolean, actual: unknown, message: string) => Array.findFirst(Struct.keys(table), (key) => wanted(table[key])).pipe(Effect.fromOption(() => new SchemaIssue.InvalidValue({ message }, actual)));
 const sides = (paragraph: Placement['paragraphDirection'], spine: (typeof SPINES)[keyof typeof SPINES]) => {
-    const toward = (edge: 'left' | 'right'): Exclude<ReturnType<Settings['lineAlignment']>, 'center' | 'justified'> => (edge === PARAGRAPH_STARTS[paragraph] ? 'start' : 'end');
+    const toward = (edge: 'left' | 'right'): Exclude<ReturnType<Settings['lineAlignment']>, 'center' | 'justified'> => (edge === (paragraph === 'LTR' ? 'left' : 'right') ? 'start' : 'end');
     return { left: toward('left'), center: 'center', right: toward('right'), justified: 'justified', spine: toward(spine), fore: toward(spine === 'left' ? 'right' : 'left') } as const;
 };
 const sections = ({ pointSize, paragraphDirection, side = 'SINGLE_SIDED' }: Placement) => {
     const sided = sides(paragraphDirection, SPINES[side]);
-    const trips = Record.set(
-        ROUND_TRIPS,
-        'justification',
-        Record.map(ALIGNMENTS, ({ _tag, edge }) => `${_tag} ${sided[edge]}`),
-    );
+    const trips: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>> = {
+        digitsType: Record.map(NUMBERING, String),
+        paragraphJustification: Record.map(JUSTIFICATIONS, ({ _tag, fractional }) => `${_tag} ${fractional}`),
+        justification: Record.map(ALIGNMENTS, ({ _tag, edge }) => `${_tag} ${sided[edge]}`),
+    };
     return { trips, schema: InDesignSettings.mapFields(Struct.assign({ alignment: alignment(sided), leading: leading(pointSize) })) };
 };
 const placement = Effect.fnUntraced(function* (target: Placed) {
