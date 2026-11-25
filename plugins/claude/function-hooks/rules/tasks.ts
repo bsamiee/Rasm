@@ -67,11 +67,7 @@ const members = (targets: Targets, aggregate: string): readonly string[] => {
     return Object.keys(targets).filter((name) => name !== aggregate && globs.some((glob) => glob.pattern !== name && Glob.match(glob, name)));
 };
 
-const aggregateOf = (targets: Targets, target: string): string =>
-    Option.getOrElse(
-        Array.findFirst(Object.keys(targets), (aggregate) => members(targets, aggregate).includes(target)),
-        () => target,
-    );
+const aggregateOf = (targets: Targets, target: string): string => Array.findFirst(Object.keys(targets), (aggregate) => members(targets, aggregate).includes(target)).pipe(Option.getOrElse(() => target));
 
 // --- [NX_TARGETS]
 
@@ -93,13 +89,10 @@ const scopeOf = Effect.fnUntraced(function* (invocation: Invocation, { host }: C
     return { paths: Array.getSomes(inside.filter((_, at) => present[at] === true)), files, words: [...invocation.path, ...Array.difference(own, files).map(({ text }) => text)].join(' ') };
 });
 
+const inProject = ({ command }: Invocation, { host }: Call): boolean => Option.exists(command.cwd, (folder) => host.inside(folder, host.root));
+
 const replaceable = (invocation: Invocation, call: Call): boolean =>
-    Option.exists(invocation.command.cwd, (folder) => call.host.inside(folder, call.host.root)) &&
-    invocation.command.origin === 'call' &&
-    invocation.last &&
-    invocation.tail.length === 0 &&
-    invocation.assigned.length === 0 &&
-    !(invocation.command.fed || invocation.command.captured || invocation.repeated || feedsJq(invocation, call));
+    inProject(invocation, call) && invocation.command.origin === 'call' && invocation.last && invocation.tail.length === 0 && invocation.assigned.length === 0 && !(invocation.command.fed || invocation.command.captured || invocation.repeated || feedsJq(invocation, call));
 
 const ownersOf = ({ nodes, owner }: Graph, invocation: Invocation, paths: readonly string[], helping: readonly Helping[], call: Call) => {
     const { host } = call;
@@ -458,11 +451,6 @@ const cores =
 
 // --- [PYTHON]
 
-const projectOptions =
-    (...rules: readonly Rule[]): Rule =>
-    (invocation, call) =>
-        Option.exists(invocation.command.cwd, (folder) => call.host.inside(folder, call.host.root)) ? all(...rules)(invocation, call) : [];
-
 const strayCache: Rule = (invocation, { host }) => Effect.map(host.ignored(Array.getSomes(invocation.values('--cache-dir').map((value) => host.resolve(value, invocation.command.cwd)))), (kept) => (kept ? [] : respell({ drops: ['--cache-dir'], notify: true })(invocation)));
 
 const stubCache: Rule = (invocation) => {
@@ -525,10 +513,10 @@ const TASKS: Ruleset = {
                     daemon: [when(({ has }) => has('--stop'), sharedDaemon)],
                     reset: [
                         when(({ has }) => has('--only-daemon'), sharedDaemon),
-                        (invocation, { host }) => {
+                        (invocation, call) => {
                             const reset = commandOf(invocation);
                             const full = !invocation.has('--only-cache', '--only-daemon', '--only-workspace-data');
-                            return (full || invocation.has('--only-workspace-data')) && Option.exists(invocation.command.cwd, (folder) => host.inside(folder, host.root)) ? refusal(`${reset} ${full ? 'stops the daemon and deletes' : 'deletes'} the workspace data every session shares, run ${reset} --only-cache`) : [];
+                            return (full || invocation.has('--only-workspace-data')) && inProject(invocation, call) ? refusal(`${reset} ${full ? 'stops the daemon and deletes' : 'deletes'} the workspace data every session shares, run ${reset} --only-cache`) : [];
                         },
                     ],
                 }),
@@ -577,22 +565,23 @@ const TASKS: Ruleset = {
         ruff: {
             flags: ['--isolated', '--cache-dir=', '--config=', '-n, --no-cache'],
             nx: { ignores: ['--quiet'] },
-            rules: [projectOptions(respell({ drops: ['--isolated'], notify: true }), strayCache, unassign(/^RUFF_CACHE_DIR=/u), perSubcommand({ check: [configFile], format: [configFile] }))],
+            rules: [when(inProject, respell({ drops: ['--isolated'], notify: true }), strayCache, unassign(/^RUFF_CACHE_DIR=/u), perSubcommand({ check: [configFile], format: [configFile] }))],
         },
         ryl: { flags: ['-c, --config-file=', '-d, --config-data=', '-f, --output-format=', '-o, --output-file='] },
         'ast-grep': { aliases: ['sg'], flags: ['-U, --update-all', '-i, --interactive', '--filter=', '--globs=', '--color=', '--report-style='], nx: { ignores: ['--report-style'] } },
-        stubgen: { rules: [projectOptions(stubCache)] },
+        stubgen: { rules: [when(inProject, stubCache)] },
         mypy: {
             flags: ['--cache-dir=', '--config-file=', '--python-version='],
             nx: { ignores: ['--no-pretty'] },
-            rules: [projectOptions(strayCache, unassign(/^MYPY_CACHE_DIR=/u))],
+            rules: [when(inProject, strayCache, unassign(/^MYPY_CACHE_DIR=/u))],
         },
         refurb: { flags: ['--config-file=', '--python-version='], informational: ['--explain'], nx: {} },
         pytest: {
             flags: ['-o, --override-ini=', '-c, --config-file=', '--benchmark-storage='],
             nx: { narrows: true },
             rules: [
-                projectOptions(
+                when(
+                    inProject,
                     respell({ drops: ['--override-ini'], only: /^(?:addopts=|cache_dir=.*)$/u, notify: true }),
                     when(holds(/^addopts=.+/u, '--override-ini'), addedOptions),
                     when(({ assigned, outer }) => [...outer.flatMap((wrapper) => wrapper.assigned), ...assigned].some(({ text }) => text.startsWith(ADDOPTS_VARIABLE)), addedOptions),

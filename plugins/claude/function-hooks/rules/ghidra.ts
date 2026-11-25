@@ -91,7 +91,7 @@ const concurrentRuns: Rule = (invocation, { analysis: { invocations, jobs } }) =
     const [, name] = invocation.operands;
     const socket = name?.known === true ? name.text : '<name>';
     const headless = invocations.filter(({ program }) => program === HEADLESS);
-    const backgrounded = jobs.flatMap((job) => Option.toArray(Option.fromNullishOr(headless.find(({ command }) => command.end === job.start && command.origin === 'call')).pipe(Option.map(() => job))));
+    const backgrounded = jobs.filter((job) => headless.some(({ command }) => command.end === job.start && command.origin === 'call'));
     const chained = invocation.has('-import') && invocations.some(({ program }) => program === 'wait') && backgrounded.length === jobs.length && headless.every(({ has }) => has('-import'));
     if (!(invocation.repeated || (jobs.length > 0 && headless.length > 1))) {
         return [];

@@ -67,8 +67,7 @@ const decide = Effect.fn('decide')(
     function* (request: Request) {
         const first = yield* judged(request);
         const { decision: settledOn, subjects } = first.decision._tag === 'Rewrite' || first.decision._tag === 'Monitor' ? yield* converged(request, first.decision, first.subjects, new Set([`Rewrite ${request.command}`, `${first.decision._tag} ${first.decision.command}`])) : first;
-        const broken = (settledOn._tag === 'Rewrite' || settledOn._tag === 'Monitor') && (yield* parses(request.command)) && !(yield* parses(settledOn.command));
-        const reached = broken && 'command' in settledOn ? Decision.cases.Deny.make({ reason: `Rules rewrote the call to ${settledOn.command}, which does not parse, fix the rule at its cause` }) : settledOn;
+        const reached = (settledOn._tag === 'Rewrite' || settledOn._tag === 'Monitor') && (yield* parses(request.command)) && !(yield* parses(settledOn.command)) ? Decision.cases.Deny.make({ reason: `Rules rewrote the call to ${settledOn.command}, which does not parse, fix the rule at its cause` }) : settledOn;
         const notes = reached._tag === 'Deny' ? [] : [...Option.toArray(Option.fromNullishOr(reached.note)), ...(yield* due(request, subjects)), ...(reached._tag === 'Rewrite' && reached.background ? [BACKGROUND] : [])];
         const noted = notes.length === 0 ? {} : { note: notes.join('. ') };
         const decision = Decision.match(reached, {

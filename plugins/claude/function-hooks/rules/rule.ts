@@ -142,9 +142,9 @@ const all =
         Effect.forEach(rules, (rule) => settled(rule(invocation, call))).pipe(Effect.map(Array.flatten));
 
 const when =
-    (applies: Predicate.Predicate<Invocation>, ...rules: readonly Rule[]): Rule =>
+    (applies: (invocation: Invocation, call: Call) => boolean, ...rules: readonly Rule[]): Rule =>
     (invocation, call) =>
-        applies(invocation) ? all(...rules)(invocation, call) : [];
+        applies(invocation, call) ? all(...rules)(invocation, call) : [];
 
 const absent =
     (rule: Rule): Rule =>

@@ -198,11 +198,6 @@ const inRepository =
     (invocation, call) =>
         Effect.map(all(...rules)(invocation, call), (verdicts) => (verdicts.length > 0 && Option.isNone(repositoryOf(call.host, invocation)) ? unresolved(invocation) : verdicts));
 
-const inSession =
-    (...rules: readonly Rule[]): Rule =>
-    (invocation, call) =>
-        Option.exists(repositoryOf(call.host, invocation), (repository) => !call.host.inside(repository, call.host.root)) ? [] : all(...rules)(invocation, call);
-
 const dirty = (host: Host['Service'], invocation: Invocation, paths: readonly string[]) =>
     Effect.orElseSucceed(
         Effect.map(host.output(['git', '-C', Option.getOrElse(repositoryOf(host, invocation), () => host.root), 'status', '--porcelain', '--', ...paths]), (listed) => listed.trim() !== ''),
@@ -382,8 +377,9 @@ const opened = Effect.fn('opened')(
         const host = yield* Host;
         const place = yield* Effect.fromOption(yield* located(host, file === undefined ? host.root : host.path.dirname(file)));
         const [tree, at] = yield* Effect.all([file === undefined ? Effect.asSome(snapshot(host, place)) : Effect.succeedNone, Clock.currentTimeMillis]);
-        const window = { call, at, pid: process.ppid, ...Option.getOrUndefined(Option.bindTo(tree, 'tree')), ...(file === undefined ? {} : { path: `${place.prefix}${host.path.basename(file)}` }), ...(until === undefined ? {} : { until }) };
-        yield* appended(host, place.ledger, session, [Entry.cases.Opened.make({ ...window, ...(agent === undefined ? {} : { agent }) })]);
+        yield* appended(host, place.ledger, session, [
+            Entry.cases.Opened.make({ call, at, pid: process.ppid, ...Option.getOrUndefined(Option.bindTo(tree, 'tree')), ...(file === undefined ? {} : { path: `${place.prefix}${host.path.basename(file)}` }), ...(until === undefined ? {} : { until }), ...(agent === undefined ? {} : { agent }) }),
+        ]);
     },
     Effect.catchNoSuchElement,
     (effect, { cwd }) => Effect.provideServiceEffect(effect, Host, Host.make(cwd)),
@@ -447,7 +443,8 @@ const GIT: Ruleset = {
                         'checkout-index': [refuse(...OVERWRITES, '-f', '--force', '-a', '--all')],
                         'update-index': [refuse('hides edits from git status', 'leave the index flags alone', '--assume-unchanged', '--skip-worktree')],
                     }),
-                    inSession(
+                    when(
+                        (invocation, { host }) => !Option.exists(repositoryOf(host, invocation), (repository) => !host.inside(repository, host.root)),
                         when(holds(ALIAS, '-c'), refuse(...ALIASES, '-c')),
                         when(holds(HOOKS_PATH, '-c'), refuse(...HOOKS, '-c')),
                         perSubcommand({

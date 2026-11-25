@@ -84,7 +84,7 @@ const watchedRun: Rule = (invocation, { analysis, request }) => {
 
 // --- [TIMERS]
 
-const taskIds = (text: string): readonly string[] => Array.dedupe(Array.getSomes(Array.fromIterable(text.matchAll(TASK_OUTPUTS)).map(({ groups }) => Option.flatMap(Option.fromNullishOr(groups), Record.get('id')))));
+const taskIds = (text: string): readonly string[] => Array.dedupe(text.matchAll(TASK_OUTPUTS).flatMap(({ groups }) => Array.fromNullishOr(groups?.['id'])));
 
 const closesInput = ({ row: { closesInput: closes }, has }: Invocation): boolean => closes === true || (closes !== undefined && has(...closes));
 

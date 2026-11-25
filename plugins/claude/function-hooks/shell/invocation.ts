@@ -47,8 +47,11 @@ const ZSH_FEATURE = /\bzsh feature\b/u;
 const Stored = Layer.unwrap(
     Effect.gen(function* () {
         const [machine, path, data] = yield* Effect.all([Machine, Path.Path, Config.option(Config.String('CLAUDE_PLUGIN_DATA'))]);
-        const versioned = Option.zipWith(data, yield* Effect.transposeOption(Option.map(data, (folder) => machine.run(['carapace', '--version'], { cwd: folder }))), (folder, { stdout }) => path.join(folder, String.trim(stdout)));
-        return Option.match(versioned, { onNone: () => KeyValueStore.layerMemory, onSome: (folder) => Layer.orDie(KeyValueStore.layerFileSystem(folder)) });
+        return yield* data.pipe(
+            Option.map((folder) => Effect.map(machine.run(['carapace', '--version'], { cwd: folder }), ({ stdout }) => Layer.orDie(KeyValueStore.layerFileSystem(path.join(folder, String.trim(stdout)))))),
+            Effect.transposeOption,
+            Effect.map(Option.getOrElse(() => KeyValueStore.layerMemory)),
+        );
     }),
 );
 
@@ -212,13 +215,8 @@ const analysisOf = Effect.fnUntraced(function* (stmts: readonly Stmt[], text: st
 const analyzed = Effect.fnUntraced(function* (text: string, start: Start, dialect: 'bash' | 'zsh' = 'bash') {
     const stated = yield* Effect.result(parsed(text, dialect));
     const read = Result.isFailure(stated) && dialect === 'bash' && ZSH_FEATURE.test(stated.failure.message) ? 'zsh' : dialect;
-    const stmts = yield* Effect.option(read === dialect ? Effect.fromResult(stated) : parsed(text, read));
-    return yield* analysisOf(
-        Option.getOrElse(stmts, () => []),
-        text,
-        start,
-        read,
-    );
+    const stmts = yield* Effect.orElseSucceed(read === dialect ? Effect.fromResult(stated) : parsed(text, read), Array.empty);
+    return yield* analysisOf(stmts, text, start, read);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
