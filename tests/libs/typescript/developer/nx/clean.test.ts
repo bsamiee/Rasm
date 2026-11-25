@@ -9,7 +9,7 @@ import { describe, expect } from 'vitest';
 
 const lib = {
     '.gitignore': 'packed\nbuilt.txt\n.artifacts\ncleaned.txt\n',
-    'tools/record.js': "import { writeFileSync } from 'node:fs';\n\nconst [file, ...argv] = process.argv.slice(2);\nwriteFileSync(file, argv.join('\\n'));\n",
+    'tools/record.mjs': "import { writeFileSync } from 'node:fs';\n\nconst [file, ...argv] = process.argv.slice(2);\nwriteFileSync(file, argv.join('\\n'));\n",
     'lib/index.js': 'export const lib = 1;\n',
     'lib/packed/lib.tgz': 'archive',
     'lib/staged/built.txt': 'built',
@@ -20,6 +20,7 @@ const lib = {
         name: 'lib',
         targets: {
             pack: { executor: 'nx:noop', outputs: ['{projectRoot}/packed/lib.tgz'] },
+            sign: { executor: 'nx:noop', outputs: ['{projectRoot}/packed', '!{projectRoot}/packed/lib.tgz'] },
             stage: { executor: 'nx:noop', outputs: ['{projectRoot}/staged'] },
             archive: { executor: 'nx:noop', outputs: ['{options.outputPath}'], options: { outputPath: '.artifacts/distribution/lib' }, configurations: { release: { outputPath: '.artifacts/release/lib' } } },
         },
@@ -35,6 +36,14 @@ describe('clean executor', () => {
         await execute({ targets: ['pack', 'stage'], commands: [], cwd: '.', folders: [] }, workspace.context(graph, 'lib', 'clean'));
 
         expect(['lib/packed/lib.tgz', 'lib/staged/built.txt', 'lib/staged/tracked.txt', 'lib/index.js'].filter((file) => existsSync(join(workspace.root, file)))).toStrictEqual(['lib/staged/tracked.txt', 'lib/index.js']);
+    });
+
+    it('keeps each file a negated output excludes from a declared output', async ({ workspace }) => {
+        const graph = await workspace.write({ ...lib, 'lib/packed/lib.tgz.sig': 'signature' }).graph({});
+
+        await execute({ targets: ['sign'], commands: [], cwd: '.', folders: [] }, workspace.context(graph, 'lib', 'clean'));
+
+        expect(['lib/packed/lib.tgz', 'lib/packed/lib.tgz.sig'].filter((file) => existsSync(join(workspace.root, file)))).toStrictEqual(['lib/packed/lib.tgz']);
     });
 
     it('removes each folder under the project root a removal left empty', async ({ workspace }) => {
@@ -65,7 +74,7 @@ describe('clean executor', () => {
     it("runs the tool's own clean commands in the folder cwd names", async ({ workspace }) => {
         const graph = await workspace.write(lib).graph({});
 
-        await execute({ targets: [], commands: [[execPath, join(workspace.root, 'tools/record.js'), 'cleaned.txt', 'swept']], cwd: 'lib', folders: [] }, workspace.context(graph, 'lib', 'clean'));
+        await execute({ targets: [], commands: [[execPath, join(workspace.root, 'tools/record.mjs'), 'cleaned.txt', 'swept']], cwd: 'lib', folders: [] }, workspace.context(graph, 'lib', 'clean'));
 
         expect(readFileSync(join(workspace.root, 'lib/cleaned.txt'), 'utf-8')).toBe('swept');
     });
