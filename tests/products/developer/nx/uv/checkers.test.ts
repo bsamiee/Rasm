@@ -75,7 +75,7 @@ const hashed = (workspace: Workspace, graph: ProjectGraph, task: string) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('checker targets', { timeout: 120_000 }, () => {
+describe('checker targets', () => {
     it('writes the coverage of a pytest run with pytest-cov locked to the outputs its coverage configuration declares under coveragePath', async ({ workspace }) => {
         locked(workspace, { ...workspaced(['pytest>=8', 'pytest-cov']), ...TESTED });
         const graph = await workspace.graph(uv, { coveragePath: '.artifacts/coverage/{projectName}' });
@@ -130,6 +130,15 @@ describe('checker targets', { timeout: 120_000 }, () => {
         expect([...runs.map(({ success }) => success), workspace.files('.venv').has('tmp/environments/library/dev/pyvenv.cfg')]).toStrictEqual([true, true, true]);
     });
 
+    it('runs the mypy check of a member whose optional dependencies alone hold mypy, as uv run --all-extras installs every extra of the member', async ({ workspace }) => {
+        locked(workspace, { ...workspaced([]), 'proj/library/pyproject.toml': `${LIBRARY['proj/library/pyproject.toml']}\n[project.optional-dependencies]\nlint = ["mypy"]\n` });
+        const graph = await workspace.graph(uv);
+
+        const result = await workspace.run(graph, 'library', 'check--mypy');
+
+        expect(result.success).toBe(true);
+    });
+
     it('gives a uv root one ty check over every member, and no member its own', async ({ workspace }) => {
         locked(workspace, { ...workspaced(['ty']), ...APPLICATION });
 
@@ -180,29 +189,15 @@ describe('checker targets', { timeout: 120_000 }, () => {
         expect([passed.success, failed.success, after.value === before.value]).toStrictEqual([true, false, false]);
     });
 
-    it('changes the refurb hash of a member after a mypy.ini appears in the folder refurb builds mypy from', async ({ workspace }) => {
-        locked(workspace, workspaced(['refurb']));
-        const before = await hashed(workspace, await workspace.graph(uv), 'library:check--refurb');
+    it.for([
+        { case: 'a mypy.ini appears in the folder refurb builds mypy from', task: 'library:check--refurb', files: workspaced(['refurb']), edited: { 'proj/library/mypy.ini': '[mypy]\ndisallow_untyped_defs = True\n' } },
+        { case: 'an edit to a member manifest, which ty reads through uv and no createNodes pattern matches', task: 'uv-tutorial:check--ty', files: workspaced(['ty']), edited: { 'proj/library/pyproject.toml': `${LIBRARY['proj/library/pyproject.toml']}\n[project.urls]\nSource = "https://example.invalid"\n` } },
+        { case: 'an edit to a dependency of a workspace member its dependency group installs', task: 'library:test--pytest', files: { ...workspaced(['pytest>=8', 'helper'], ['helper']), ...WORDS, ...HELPER, ...TESTED }, edited: { 'proj/words/src/words/__init__.py': 'WORD = "two"\n' } },
+    ])('changes the hash of $task after $case', async ({ task, files, edited }, { workspace }) => {
+        locked(workspace, files);
+        const before = await hashed(workspace, await workspace.graph(uv), task);
 
-        const after = await hashed(workspace, await workspace.write({ 'proj/library/mypy.ini': '[mypy]\ndisallow_untyped_defs = True\n' }).graph(uv), 'library:check--refurb');
-
-        expect(after.value).not.toBe(before.value);
-    });
-
-    it('changes the ty hash of a uv root after an edit to a member manifest, which ty reads through uv and no createNodes pattern matches', async ({ workspace }) => {
-        locked(workspace, workspaced(['ty']));
-        const before = await hashed(workspace, await workspace.graph(uv), 'uv-tutorial:check--ty');
-
-        const after = await hashed(workspace, await workspace.write({ 'proj/library/pyproject.toml': `${LIBRARY['proj/library/pyproject.toml']}\n[project.urls]\nSource = "https://example.invalid"\n` }).graph(uv), 'uv-tutorial:check--ty');
-
-        expect(after.value).not.toBe(before.value);
-    });
-
-    it('changes the pytest hash of a member after an edit to a dependency of a workspace member its dependency group installs', async ({ workspace }) => {
-        locked(workspace, { ...workspaced(['pytest>=8', 'helper'], ['helper']), ...WORDS, ...HELPER, ...TESTED });
-        const before = await hashed(workspace, await workspace.graph(uv), 'library:test--pytest');
-
-        const after = await hashed(workspace, await workspace.write({ 'proj/words/src/words/__init__.py': 'WORD = "two"\n' }).graph(uv), 'library:test--pytest');
+        const after = await hashed(workspace, await workspace.write(edited).graph(uv), task);
 
         expect(after.value).not.toBe(before.value);
     });

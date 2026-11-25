@@ -1,7 +1,6 @@
 import { posix } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import type { TargetConfiguration } from '@nx/devkit';
+import { quoteShellArg } from '@nx/devkit/internal';
 import { type Anchor, above, aggregated, EXECUTORS, PLATFORM, type Stated, type Verbs } from '@rasm/nx';
 import { Array, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
@@ -88,7 +87,6 @@ const CHECKERS = {
         help: 'pytest --help',
     },
 } as const;
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const UV = { version: { runtime: 'uv self version --short' }, settings: 'uv.toml', pins: ['.python-version', '.python-versions'] } as const;
 const CONFIGS = Record.keys(PYTEST);
 
@@ -242,13 +240,12 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
         ),
     );
     const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
-    const emptied = Array.match(member.checks, { onEmpty: () => [], onNonEmpty: () => Option.toArray(environed).map((at) => ['NX_WORKSPACE_ROOT', ...at.split('/')]) });
+    const emptied = Option.toArray(Option.filter(environed, () => Array.isReadonlyArrayNonEmpty(member.checks))).map((at) => ['NX_WORKSPACE_ROOT', ...at.split('/')]);
     const scattered = member.leaf ? [posix.join('{projectRoot}', '**', '__pycache__')] : [];
     const verbs: Verbs = {
         ...tools,
-        clean: Array.match([...removed, ...emptied.flat(), ...scattered], {
-            onEmpty: () => ({}),
-            onNonEmpty: () => ({
+        clean: {
+            ...([...removed, ...emptied, ...scattered].length > 0 && {
                 uv: {
                     executor: EXECUTORS.clean,
                     options: { targets: removed },
@@ -260,7 +257,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                     },
                 },
             }),
-        }),
+        },
         attach: {
             ...(member.packaged && {
                 gh: {
@@ -290,4 +287,4 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CHECKERS, CONFIGS, Options, PLUGIN, targets, UV };
+export { CHECKERS, CONFIGS, Options, targets, UV };

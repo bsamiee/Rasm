@@ -119,14 +119,7 @@ const bounded = Effect.fnUntraced(function* (tree: Tree, projectGraph: ProjectGr
         Effect.fnUntraced(function* ({ manifestPath }) {
             const { text, parsed, table, project: dependent, groups } = yield* project(tree, manifestPath);
             const [dependencies, optional, grouped] = yield* Effect.all([Effect.forEach(dependent.dependencies, moved), Effect.all(Record.map(dependent['optional-dependencies'], Effect.forEach(moved))), Effect.all(Record.map(groups, Effect.forEach(moved)))]);
-            tree.write(
-                manifestPath,
-                patch(text, {
-                    ...parsed,
-                    project: { ...table, ...('dependencies' in table ? { dependencies } : {}), ...(Record.isEmptyRecord(optional) ? {} : { 'optional-dependencies': optional }) },
-                    ...(Record.isEmptyRecord(grouped) ? {} : { 'dependency-groups': grouped }),
-                }),
-            );
+            tree.write(manifestPath, patch(text, { ...parsed, project: { ...table, ...Record.filter({ dependencies, 'optional-dependencies': optional }, (_, key) => key in table) }, ...Record.filter({ 'dependency-groups': grouped }, (_, key) => key in parsed) }));
             return [...floors].map(([name, floor]) => `Lower bound of ${name} moved to ${floor} in ${manifestPath}`);
         }),
     );
