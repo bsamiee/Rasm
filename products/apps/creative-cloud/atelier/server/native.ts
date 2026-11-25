@@ -2,7 +2,7 @@ import { glob } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Installation, type RunningInstance } from '@rasm/applications';
-import { Inventory } from '@rasm/applications/inventory';
+import { Inventory } from '@rasm/applications/workspace';
 import type { Application } from '@rasm/creative-cloud-desktop';
 import { Link, Upstream } from '@rasm/mcp';
 import { HOSTS } from '@rasm/uxp';

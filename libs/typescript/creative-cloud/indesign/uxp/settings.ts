@@ -4,7 +4,7 @@ import { Settings } from '@rasm/typography';
 import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
 import { Array, type Cause, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
 import type { Typeset } from '#/typesetting';
-import { Model, STYLISTIC_SETS } from '#/uxp/model';
+import { Model, STYLISTIC_SETS } from '#/uxp/dom';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

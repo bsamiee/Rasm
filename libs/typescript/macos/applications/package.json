@@ -20,10 +20,10 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./inventory": "./inventory.ts",
-        "./node": "./node.ts",
+        "./client": "./client.ts",
         "./tools": "./tools.ts",
         "./vite": "./vite.ts",
+        "./workspace": "./workspace.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -32,10 +32,10 @@
         },
         "exports": {
             ".": "./dist/index.js",
-            "./inventory": "./dist/inventory.js",
-            "./node": "./dist/node.js",
+            "./client": "./dist/client.js",
             "./tools": "./dist/tools.js",
             "./vite": "./dist/vite.js",
+            "./workspace": "./dist/workspace.js",
             "./package.json": "./package.json"
         },
         "access": "public"

@@ -3,7 +3,7 @@ import { Unmatched } from '@rasm/search';
 import type { InsertionPoint, Text, TextDefault, TextStyleRange } from 'adobe:indesign';
 import { Array, Effect, flow, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import type { Adjust, Kerns, Runs, Typeset } from '#/typesetting';
-import { Model } from '#/uxp/model';
+import { Model } from '#/uxp/dom';
 import { InDesignSettings, thousandths } from '#/uxp/settings';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

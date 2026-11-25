@@ -1,6 +1,6 @@
 import type { RunningInstance, Terms } from '@rasm/applications';
-import type { Entry } from '@rasm/applications/inventory';
-import { ApplicationServer } from '@rasm/applications/node';
+import { ApplicationServer } from '@rasm/applications/client';
+import type { Entry } from '@rasm/applications/workspace';
 import type { Application } from '@rasm/creative-cloud-desktop';
 import { Completion } from '@rasm/extendscript';
 import runtime from '@rasm/extendscript/host?inline';

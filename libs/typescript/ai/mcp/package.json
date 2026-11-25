@@ -20,7 +20,7 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./node": "./node.ts",
+        "./cli": "./cli.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -29,7 +29,7 @@
         },
         "exports": {
             ".": "./dist/index.js",
-            "./node": "./dist/node.js",
+            "./cli": "./dist/cli.js",
             "./package.json": "./package.json"
         },
         "access": "public"

@@ -39,7 +39,7 @@ const Called = { tool: Argument.String('tool'), given: Argument.String('json').p
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Output extends Context.Service<Output, { readonly folder: (app: string, kind: keyof typeof FOLDERS) => string; readonly logs: string }>()('@rasm/mcp/node/Output') {}
+class Output extends Context.Service<Output, { readonly folder: (app: string, kind: keyof typeof FOLDERS) => string; readonly logs: string }>()('@rasm/mcp/cli/Output') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -79,7 +79,7 @@ const Declared = Schema.fromJsonString(Declaration.Model);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
+class Model extends Context.Service<Model>()('@rasm/indesign/uxp/dom/Model', {
     make: (text: string) =>
         Effect.map(Schema.decodeEffect(Declared)(text), (declared) => {
             const inheriting: <T extends object>(prototype: T) => T = Object.create;

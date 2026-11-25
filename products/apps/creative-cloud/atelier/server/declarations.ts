@@ -4,7 +4,7 @@ import { isSea } from 'node:sea';
 import type { Application } from '@rasm/creative-cloud-desktop';
 import { core } from '@rasm/extendscript/node';
 import { registerTemplate, Server } from '@rasm/mcp';
-import { Output } from '@rasm/mcp/node';
+import { Output } from '@rasm/mcp/cli';
 import { Declaration } from '@rasm/object-model';
 import { declared, documents, manifest, omv } from '@rasm/object-model/node';
 import { Unmatched } from '@rasm/search';

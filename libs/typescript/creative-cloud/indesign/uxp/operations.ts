@@ -4,7 +4,7 @@ import { Uxp } from '@rasm/uxp/plugin';
 import type { Application, CellStyle, CharacterStyle, Document, Event, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
 import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Number, Option, Predicate, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
 import type { FontSource } from '#/typesetting';
-import { Model } from '#/uxp/model';
+import { Model } from '#/uxp/dom';
 import { InDesignSettings } from '#/uxp/settings';
 import { type Call, Called, type Change, type FindChange, type Inspect, Inspection, type Issue, type Preflight, Search, type Slice } from '#/views';
 

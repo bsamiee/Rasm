@@ -1,10 +1,10 @@
 import { homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import type { Installation } from '@rasm/applications';
-import { type Entry, Inventory } from '@rasm/applications/inventory';
+import { type Entry, Inventory } from '@rasm/applications/workspace';
 import { Application, Registry } from '@rasm/creative-cloud-desktop';
 import { Link } from '@rasm/mcp';
-import { setting } from '@rasm/mcp/node';
+import { setting } from '@rasm/mcp/cli';
 import { UxpManifest } from '@rasm/uxp';
 import { Array, Context, Effect, FileSystem, Function, Layer, Option, Order, Path, Record, Schema, String, Struct, SubscriptionRef } from 'effect';
 import { McpSchema } from 'effect/ai';

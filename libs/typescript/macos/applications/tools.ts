@@ -1,13 +1,13 @@
 import { pathToFileURL } from 'node:url';
 import { Content, Server } from '@rasm/mcp';
-import { Output, setting } from '@rasm/mcp/node';
+import { Output, setting } from '@rasm/mcp/cli';
 import { Unmatched } from '@rasm/search';
 import { Array, Cause, Context, Duration, Effect, FileSystem, HashSet, Match, Option, Path, Predicate, Record, Result, Schema, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Tool } from 'effect/ai';
 import { SecureRandom } from 'effect/crypto';
+import { ApplicationServer } from '#/client';
 import { Act, Acted, AppleEventValue, type Capture, Diagnostics, ElementID, Installation, Node, QuitMode, RunningInstance, State, Terms, WindowID } from '#/contract';
-import { type Entry, Inventory } from '#/inventory';
-import { ApplicationServer } from '#/node';
+import { type Entry, Inventory } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

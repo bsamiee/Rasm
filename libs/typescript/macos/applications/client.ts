@@ -13,7 +13,7 @@ const Bundle = Schema.Struct({ CFBundleExecutable: Schema.String, CFBundleIdenti
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/applications/node/ApplicationServer', {
+class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/applications/client/ApplicationServer', {
     make: Effect.fnUntraced(function* (handle: ChildProcessSpawner.ChildProcessHandle) {
         const client = yield* RpcClient.make(Automation);
         const [first, rest] = yield* Stream.peel(client.installations({}), Sink.head());

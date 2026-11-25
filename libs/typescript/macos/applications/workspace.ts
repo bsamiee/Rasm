@@ -1,8 +1,8 @@
 import { Handle, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Array, Cause, Context, Effect, Equivalence, Function, HashSet, Layer, Option, Predicate, Record, Result, Schema, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { ApplicationServer } from '#/client';
 import { type Dialog, Event, Installation, Pressure, type RunningInstance, State } from '#/contract';
-import { ApplicationServer } from '#/node';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -19,11 +19,11 @@ type Catalogued<E, R> = (offered: readonly Installation[]) => Effect.Effect<read
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const Target = Context.Reference<{ readonly held: Option.Option<{ readonly row: Entry; readonly instance: RunningInstance['instance'] }>; readonly followed: HashSet.HashSet<RunningInstance['instance']> }>('@rasm/applications/inventory/Target', {
+const Target = Context.Reference<{ readonly held: Option.Option<{ readonly row: Entry; readonly instance: RunningInstance['instance'] }>; readonly followed: HashSet.HashSet<RunningInstance['instance']> }>('@rasm/applications/workspace/Target', {
     defaultValue: () => ({ held: Option.none(), followed: HashSet.empty() }),
 });
 
-class Inventory extends Context.Service<Inventory>()('@rasm/applications/inventory', {
+class Inventory extends Context.Service<Inventory>()('@rasm/applications/workspace/Inventory', {
     make: Effect.fnUntraced(function* <E, R>(catalogued: Catalogued<E, R>) {
         const server = yield* ApplicationServer;
         const listed = Effect.gen(function* () {

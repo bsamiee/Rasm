@@ -1,9 +1,9 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { Inventory } from '@rasm/applications/inventory';
-import { ApplicationServer } from '@rasm/applications/node';
+import { ApplicationServer } from '@rasm/applications/client';
 import { Tools } from '@rasm/applications/tools';
-import { serve } from '@rasm/mcp/node';
+import { Inventory } from '@rasm/applications/workspace';
+import { serve } from '@rasm/mcp/cli';
 import { teardown } from '@rasm/telemetry/node';
 import { Effect, Layer, Option } from 'effect';
 import { Host } from 'effect/net';
