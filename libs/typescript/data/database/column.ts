@@ -19,10 +19,6 @@ type Collection = Data.TaggedEnum<{
 type Limit = number | bigint | Date;
 type Range = Readonly<Partial<Record<'minimum' | 'maximum' | 'minCodePoints' | 'maxCodePoints', Limit | undefined>>> & Readonly<Partial<Record<'exclusiveMinimum' | 'exclusiveMaximum', Limit | true | undefined>>>;
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const uuidVersion = 7;
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Default = Schema.Union([Schema.String, Schema.Finite]);
@@ -51,7 +47,7 @@ class Column extends Data.Class<{
     static readonly Collection = Data.taggedEnum<Collection>();
     static readonly Bound = Data.taggedEnum<Column['bounds'][number]>();
     static readonly Bytes = Schema.Union([Schema.Uint8Array, Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 0xff })))]).pipe(Schema.decodeTo(Schema.Uint8Array, { decode: SchemaGetter.transform((bytes) => new Uint8Array(bytes)), encode: SchemaGetter.passthroughSubtype() }));
-    static readonly Uuid = Schema.String.check(Schema.isUUID(uuidVersion), Schema.isLowercased());
+    static readonly Uuid = Schema.String.check(Schema.isUUID(7), Schema.isLowercased());
     static readonly conditions = (where: Where<Fields>, rename: (name: string) => string) =>
         Record.collect(Record.filter(where, Predicate.isNotUndefined), (field, rule) => ({
             column: rename(field),

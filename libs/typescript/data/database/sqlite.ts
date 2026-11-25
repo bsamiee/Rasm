@@ -8,8 +8,6 @@ import { Tokenizer } from '#/relation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const words = /\s+/u;
-const lexemes = /'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*\]|\/\*[\s\S]*?\*\/|--[^\n]*|[(),]|[^\s'"`[(),/-]+|\S/gu;
 const types = { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', decimal: 'TEXT', real: 'REAL', boolean: 'INTEGER', blob: 'BLOB' } as const satisfies Readonly<Record<Kind, string>>;
 const keywords: ReadonlySet<string> = new Set(['CHECK', 'COLLATE', 'UNIQUE', 'REFERENCES', 'PRIMARY', 'CONSTRAINT', 'FOREIGN']);
 
@@ -47,7 +45,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly search: Rows['Service']['search'] = ({ sql, name: table, owner, prefix, keys, reads }, { columns: searched, tokenizer }, text, pattern, marks, count) => {
         const virtual = sql(`${table}_fts`);
         const gram = 3;
-        const terms = Tokenizer.$match(tokenizer, { Trigram: () => [text], Words: () => text.trim().split(words) })
+        const terms = Tokenizer.$match(tokenizer, { Trigram: () => [text], Words: () => text.trim().split(/\s+/u) })
             .map((term) => `"${term.replaceAll('"', '""')}"`)
             .join(' ');
         const marked = Option.match(marks, {
@@ -124,7 +122,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             Option.flatMap((text) => Schema.decodeOption(Stamp)(text.slice(2, -2).trim())),
         );
     static readonly identities = ({ columns, ...table }: Sqlite['tables'][number]) => {
-        const tokens: readonly string[] = table.sql.match(lexemes) ?? [];
+        const tokens: readonly string[] = table.sql.match(/'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*\]|\/\*[\s\S]*?\*\/|--[^\n]*|[(),]|[^\s'"`[(),/-]+|\S/gu) ?? [];
         const quotes: Readonly<Record<string, string>> = { '"': '"', '`': '`', '[': ']' };
         const opening = tokens.indexOf('(');
         const [, depths] = Array.mapAccum(Array.drop(tokens, opening + 1), 1, (depth, token) => {

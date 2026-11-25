@@ -104,7 +104,7 @@ class Rows extends Context.Service<Rows, RowDialect>()('@rasm/database/engine/Ro
                     all.flatMap((entry) =>
                         Array.fromNullishOr(rules[entry.name]).map((rule) => {
                             const [column, body] = [sql`${sql(entry.name)}`, typeof rule === 'string' ? rule : rule.not];
-                            const matched = sql`(${column} IN (SELECT ${rows.element(sql, entry, sql.literal('e.value'))} FROM ${rows.texts(sql, body)}) OR (${column} IS NULL AND EXISTS (SELECT 1 FROM ${rows.texts(sql, body)} WHERE e.value IS NULL)))`;
+                            const matched = sql.or([sql`${column} IN (SELECT ${rows.element(sql, entry, sql.literal('e.value'))} FROM ${rows.texts(sql, body)})`, ...(entry.nullable ? [sql`(${column} IS NULL AND EXISTS (SELECT 1 FROM ${rows.texts(sql, body)} WHERE e.value IS NULL))`] : [])]);
                             return typeof rule === 'string' ? matched : sql`(${matched}) IS NOT TRUE`;
                         }),
                     ),

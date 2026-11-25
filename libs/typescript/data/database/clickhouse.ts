@@ -22,7 +22,6 @@ const kinds = {
 } as const;
 const bits = { narrowest: 8n, unbounded: 64n, widest: 256n };
 const edges = { '>': { lower: true, round: Math.floor, step: 1n }, '>=': { lower: true, round: Math.ceil, step: 0n }, '<': { lower: false, round: Math.ceil, step: -1n }, '<=': { lower: false, round: Math.floor, step: 0n } };
-const escape = Statement.defaultEscape('"');
 const quoted = flow(literal, String.replaceAll('\\', '$&$&'));
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -44,7 +43,7 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
         Scalar: ({ kind }) => types[kind],
         Array: ({ element }) => `Array(${Clickhouse.#stored(element)})`,
         Map: ({ value }) => `Map(String, ${Clickhouse.#stored(value)})`,
-        Records: ({ members }) => `Array(Tuple(${Record.collect(members, (name, member) => [escape(name), Clickhouse.#stored(member)].join(' ')).join(', ')}))`,
+        Records: ({ members }) => `Array(Tuple(${Record.collect(members, (name, member) => [Statement.defaultEscape('"')(name), Clickhouse.#stored(member)].join(' ')).join(', ')}))`,
     });
     static readonly #integer = (bounds: Column['bounds']) => {
         const [lower, upper] = Array.partition(
