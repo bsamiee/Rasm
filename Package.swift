@@ -149,7 +149,23 @@ let applications: [Target] = [
         swiftSettings: [.unsafeFlags(["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "watch_app_main"])],
     ),
 ]
+let support: [Target] = [
+    .executableTarget(
+        name: "Fixture",
+        dependencies: [
+            "Encoding", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CasePathsCore", package: "swift-case-paths"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
+        ],
+        path: "tests/support/swift/Fixture",
+    ),
+    .target(name: "RasmTesting", dependencies: [.product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/support/swift/Testing"),
+]
 let tests: [Target] = [
+    .testTarget(
+        name: "RasmTestingTests",
+        dependencies: ["Fixture", "RasmTesting", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump")],
+        path: "tests/support/swift/Tests",
+    ),
     .testTarget(
         name: "EncodingTests",
         dependencies: [
@@ -245,7 +261,7 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.2"),
         .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.0.1"),
     ],
-    targets: modules + applications + tests,
+    targets: modules + applications + support + tests,
 )
 
 for target: Target in package.targets {
