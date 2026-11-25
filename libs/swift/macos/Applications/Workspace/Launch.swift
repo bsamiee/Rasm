@@ -69,17 +69,6 @@ public enum Launching: CaseKeyed, Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension Installation {
-    public init(opening document: URL) throws(ApplicationFailure) {
-        let subject = document.isFileURL ? document.path(percentEncoded: false) : document.absoluteString
-        if document.isFileURL {
-            do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: subject, reason: .host(error as NSError)) }
-        }
-        guard let handler = NSWorkspace.shared.urlForApplication(toOpen: document) else { throw ApplicationFailure(subject: subject, reason: .noHandler) }
-        try self.init(at: handler)
-    }
-}
-
 extension NSWorkspace {
     public func launch(
         _ installation: Installation,

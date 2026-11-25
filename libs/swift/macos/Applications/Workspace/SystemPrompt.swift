@@ -13,6 +13,13 @@ let dialogHelpers: Set<String> = [
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+extension NSRunningApplication {
+    var isDialogHelper: Bool {
+        bundleIdentifier.map(dialogHelpers.contains) == true
+            || activationPolicy == .accessory && bundleURL?.deletingLastPathComponent().pathComponents.contains { component in component.hasSuffix(".app") } == true
+    }
+}
+
 extension InstanceState {
     func prompting(_ names: [String]) -> [Window] {
         let words = names.map { name in

@@ -2,7 +2,7 @@ import AsyncAlgorithms
 import CasePathsCore
 public import Foundation
 import Logging
-import Results
+public import Results
 import System
 
 // --- [TYPES] ---------------------------------------------------------------------------

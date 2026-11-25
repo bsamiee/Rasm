@@ -26,13 +26,6 @@ struct Beat: Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension NSRunningApplication {
-    var isDialogHelper: Bool {
-        bundleIdentifier.map(dialogHelpers.contains) == true
-            || activationPolicy == .accessory && bundleURL?.deletingLastPathComponent().pathComponents.contains { component in component.hasSuffix(".app") } == true
-    }
-}
-
 extension Instance {
     private func rows(_ listed: [InstanceState.Window], in beat: Beat, _ description: (CGWindowID) -> InstanceState.Window.Description) -> [InstanceState.Window] {
         let numbers = Set(listed.map(\.number))

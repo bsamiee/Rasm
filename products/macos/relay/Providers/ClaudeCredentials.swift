@@ -4,6 +4,7 @@ import Encoding
 import Files
 import Foundation
 import Processes
+import Results
 import Security
 import Subprocess
 import System

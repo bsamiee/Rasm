@@ -22,42 +22,6 @@ private struct Headers: Extractor {
     func extract(key: String, from carrier: [String: String]) -> String? { carrier[key] }
 }
 
-enum Reason: Encodable, Sendable {
-    case fail(any Error)
-    case die(any Error)
-
-    func encode(to encoder: any Encoder) throws {
-        let (tag, key, error): (String, Key, any Error) =
-            switch self {
-                case .fail(let error): ("Fail", .error, error)
-                case .die(let error): ("Die", .defect, error)
-            }
-        var fields = encoder.container(keyedBy: Key.self)
-        try fields.encode(tag, forKey: .tag)
-        try fields.encode(EncodedError(error: error), forKey: key)
-    }
-}
-
-struct Cause: Encodable, Sendable {
-    let reasons: AggregateError<Reason>
-
-    func encode(to encoder: any Encoder) throws {
-        let first: any Error =
-            switch reasons.first {
-                case .fail(let error), .die(let error): error
-            }
-        var fields = encoder.container(keyedBy: Key.self)
-        try fields.encode("Cause", forKey: .tag)
-        try fields.encode(0, forKey: .code)
-        try fields.encode(first.localizedDescription, forKey: .message)
-        try fields.encode(reasons.errors, forKey: .data)
-    }
-}
-
-extension AggregateError where Element == Reason {
-    init(failing error: any Error) { self = Self(((error as NSError).userInfo[NSMultipleUnderlyingErrorsKey] as? [any Error] ?? []).map(Reason.fail)) ?? Self(first: .fail(error)) }
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 actor Server<Request: Decodable & Sendable, Failure: Error> {

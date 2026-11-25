@@ -181,6 +181,15 @@ extension Installation {
         )
     }
 
+    public init(opening document: URL) throws(ApplicationFailure) {
+        let subject = document.isFileURL ? document.path(percentEncoded: false) : document.absoluteString
+        if document.isFileURL {
+            do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: subject, reason: .host(error as NSError)) }
+        }
+        guard let handler = NSWorkspace.shared.urlForApplication(toOpen: document) else { throw ApplicationFailure(subject: subject, reason: .noHandler) }
+        try self.init(at: handler)
+    }
+
     public func runs(_ instance: NSRunningApplication) -> Bool {
         instance.bundleURL?.resolvingSymlinksInPath().pathComponents == url.pathComponents
     }
