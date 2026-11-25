@@ -1,7 +1,7 @@
 import { basename, dirname, extname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { EXECUTORS, type Verbs } from '@rasm/nx';
-import { Array, Option, Record, Schema } from 'effect';
+import { Array, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 import type { Run } from '#/executors/run/executor';
 import { RESOLVED } from '#/swift-package';
 import { APPCAST, ATTACH, INPUTS, NOTARY, type Options, type Part, PLUGIN, sequenced, tokened } from '#/targets';
@@ -40,28 +40,24 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const listing = extname(container.path) === '.xcworkspace';
     const root = listing ? container.path : dirname(container.path);
     const locals = Array.dedupe(Array.getSomes(container.projects.map(packaged)));
-    const seed = Array.head(Array.getSomes(container.projects.map((at) => Option.as(packaged(at), join(at, RESOLVED)))));
-    const archives = Array.getSomes(schemes.map(({ name: scheme, archive }) => Option.map(Option.fromUndefinedOr(archive), (held) => ({ scheme, ...held }))));
-    const archived = Array.getSomes(
-        archives.map(({ scheme, configuration }) =>
-            Option.map(Option.fromUndefinedOr(options.outputPath), (at) => ({ folder: join(at, scheme), archive: join(at, scheme, `${scheme}.xcarchive`), run: invoke('archive', scheme, ['-archivePath', join(at, scheme, `${scheme}.xcarchive`), '-configuration', configuration]) })),
-        ),
+    const seed = Array.findFirst(container.projects, (at) => Option.as(packaged(at), join(at, RESOLVED)));
+    const archives = schemes.flatMap(({ name: scheme, archive }) => Array.fromNullishOr(archive).map((held) => ({ scheme, ...held })));
+    const archived = Array.fromNullishOr(options.outputPath).flatMap((at) =>
+        archives.map(({ scheme, configuration }) => ({ folder: join(at, scheme), archive: join(at, scheme, `${scheme}.xcarchive`), run: invoke('archive', scheme, ['-archivePath', join(at, scheme, `${scheme}.xcarchive`), '-configuration', configuration]) })),
     );
     const referenced = container.buildFiles.filter((at) => relative(root, at).startsWith('..')).flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
     const read = Array.dedupe(['{projectRoot}/**/*', ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]);
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
     const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
-    const derived = Option.orElse(Option.fromUndefinedOr(options.derivedDataPath), () => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, 'DerivedData')));
-    const report = Option.all({ file: Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info')), folder: derived }).pipe(
-        Option.map(({ file: at, folder }) => ({ profiles: [join(folder, 'Build/ProfileData/*/Coverage.profdata')], results: [join(folder, 'Logs/Test/*.xcresult')], file: at })),
-    );
+    const derived = Option.fromUndefinedOr(options.derivedDataPath ?? UndefinedOr.map(options.outputPath, (at) => join(at, 'DerivedData')));
+    const report = Option.zipWith(Option.fromUndefinedOr(options.coveragePath), derived, (coverage, folder) => ({ profiles: [join(folder, 'Build/ProfileData/*/Coverage.profdata')], results: [join(folder, 'Logs/Test/*.xcresult')], file: join(coverage, 'lcov.info') }));
     const covered = Option.toArray(Option.map(report, ({ file: at }) => at));
     const builds: Run['runs'] = schemes.map((scheme) => invoke('build', scheme.name, []));
     const installs = archives.map(({ scheme, configuration }) => invoke('install', scheme, ['-configuration', configuration, 'DSTROOT=$(LOCAL_APPS_DIR)', 'INSTALL_PATH=/']));
-    const launches = Array.dedupe(Array.getSomes(schemes.map(({ launch }) => Option.fromUndefinedOr(launch))));
+    const launches = Array.dedupe(schemes.flatMap(({ launch }) => Array.fromNullishOr(launch)));
     const modes = (planned: Run['runs']): Partial<TargetConfiguration> => ({
         configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned.map((run) => [...run, '-configuration', configuration]) }]),
-        ...(launches.length === 1 ? Record.fromIterableWith(launches, (launch) => ['defaultConfiguration', launch.toLowerCase()] as const) : {}),
+        ...(Predicate.isTupleOf(launches, 1) && { defaultConfiguration: launches[0].toLowerCase() }),
     });
     const testing = modes(runs);
     const profiled = {
@@ -174,10 +170,10 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                         },
                         configurations: {
                             cache: {
-                                commands: Array.take(
-                                    Array.filter(schemes, ({ containers }) => containers.some((at) => Option.isNone(packaged(at)))),
-                                    1,
-                                ).map((scheme) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme.name, ['-json'])]),
+                                commands: schemes
+                                    .filter(({ containers }) => containers.some((at) => Option.isNone(packaged(at))))
+                                    .slice(0, 1)
+                                    .map((scheme) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme.name, ['-json'])]),
                             },
                         },
                         metadata: {

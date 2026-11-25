@@ -19,9 +19,8 @@ const Install = Schema.Struct({
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = executor(Install, function* ({ package: root, product, entitlements, __unparsed__: words = [] }, context) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const stated = yield* configured;
-    const folder = path.join(yield* Config.String('HOME'), '.local', 'bin');
+    const [fs, path, stated, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, configured, Config.String('HOME')]);
+    const folder = path.join(home, '.local', 'bin');
     const [at, staged] = [path.join(folder, product), path.join(folder, `${product}.${pid}`)];
     const build = Array.make('swift', 'build', '--package-path', root, ...SWIFTPM, '--configuration', 'release', '--product', product, ...words);
     const built = yield* commands({ runs: [build] }, context.root);

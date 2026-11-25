@@ -53,7 +53,7 @@ const fed = Effect.fnUntraced(function* (root: string, archive: string, files: r
 
 const execute = executor(Publish, function* ({ exports, dryRun, __unparsed__: words = [] }, context) {
     const [dry, tag, { files }] = yield* Effect.all([dried(dryRun), released(context), packaged(context)]);
-    yield* Option.match(dry ? Option.some(Option.getOrElse(tag, () => `<tag nx release makes for ${context.projectName}>`)) : tag, {
+    yield* Option.match(dry ? Option.orElseSome(tag, () => `<tag nx release makes for ${context.projectName}>`) : tag, {
         onNone: () => Effect.logInfo(`Skipped the Sparkle feeds of ${context.projectName}: HEAD holds no tag of ${context.projectName}, so nx release released no version of it at this commit`),
         onSome: (at) => Effect.forEach(exports, ({ archive }) => fed(context.root, archive, files, at, dry, words), { discard: true }),
     });

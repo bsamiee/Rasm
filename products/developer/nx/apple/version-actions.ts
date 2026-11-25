@@ -27,7 +27,7 @@ const stated = Effect.fnUntraced(
         const text = yield* read(tree, at);
         return extname(at) === '.plist' ? (yield* piped(['plutil', '-extract', SHORT_VERSION, 'raw', '-o', '-', '-'], text)).trim() : yield* Effect.mapError(Effect.fromNullishOr((yield* versioned(text, [])).version), (cause) => new Cause.UnknownError(cause, 'it states no MARKETING_VERSION'));
     },
-    (effect, _, at) => Effect.catchCause(effect, (cause) => Effect.fail(new Cause.UnknownError(cause, `Cannot read the version of ${at}: ${Cause.pretty(cause)}`))),
+    (effect, _, at) => Effect.catchCause(effect, (cause) => new Cause.UnknownError(cause, `Cannot read the version of ${at}: ${Cause.pretty(cause)}`)),
 );
 
 const restated = Effect.fnUntraced(
@@ -36,7 +36,7 @@ const restated = Effect.fnUntraced(
         tree.write(at, extname(at) === '.plist' ? yield* piped(['plutil', '-replace', SHORT_VERSION, '-string', version, '-o', '-', '-'], text) : (yield* versioned(text, ['--marketing-version', version])).project);
         return `New version ${version} written to manifest: ${at}`;
     },
-    (effect, _, at) => Effect.catchCause(effect, (cause) => Effect.fail(new Cause.UnknownError(cause, `Cannot update ${at}: ${Cause.pretty(cause)}`))),
+    (effect, _, at) => Effect.catchCause(effect, (cause) => new Cause.UnknownError(cause, `Cannot update ${at}: ${Cause.pretty(cause)}`)),
 );
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -50,7 +50,7 @@ class AppleVersionActions extends VersionActions {
 
     readCurrentVersionFromSourceManifest(tree: Tree) {
         const located = Effect.mapError(Effect.fromOption(Array.head(this.manifestsToUpdate)), (cause) => new Cause.UnknownError(cause, `${this.projectGraphNode.name} names no manifest in its versionActionsOptions`));
-        return run(Effect.flatMap(located, ({ manifestPath }) => Effect.all({ currentVersion: stated(tree, manifestPath), manifestPath: Effect.succeed(manifestPath) })));
+        return run(Effect.flatMap(located, ({ manifestPath }) => Effect.map(stated(tree, manifestPath), (currentVersion) => ({ currentVersion, manifestPath }))));
     }
 
     override readCurrentVersionFromRegistry() {

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
 import { EXECUTORS, PLATFORM, type Verbs } from '@rasm/nx';
-import { type Array, Cause, Effect, FileSystem, Record, Schema } from 'effect';
+import { type Array, Cause, Effect, FileSystem, Schema } from 'effect';
 import type { Run } from '#/executors/run/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -54,13 +54,9 @@ class Options extends Schema.Opaque<Options, unknown>()(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const core = Effect.try({ try: () => Record.map({ manifest: 'package.json', binary: 'nx-apple-analyzer' }, (subpath) => fileURLToPath(import.meta.resolve(`${CORE}/${subpath}`))), catch: (cause) => new Cause.UnknownError(cause, `${PLUGIN} resolves no ${CORE} core on this host`) });
-
-const analyzer = Effect.flatMap(core, ({ binary }) =>
-    FileSystem.FileSystem.use((fs) => fs.access(binary)).pipe(
-        Effect.catchReason('PlatformError', 'NotFound', (cause) => Effect.fail(new Cause.UnknownError(cause, `the ${CORE} core is absent, ${BUILDER} builds it`))),
-        Effect.as(binary),
-    ),
+const analyzer = Effect.try({ try: () => fileURLToPath(import.meta.resolve(`${CORE}/nx-apple-analyzer`)), catch: (cause) => new Cause.UnknownError(cause, `${PLUGIN} resolves no ${CORE} core on this host`) }).pipe(
+    Effect.tap((binary) => FileSystem.FileSystem.use((fs) => fs.access(binary))),
+    Effect.catchReason('PlatformError', 'NotFound', (cause) => new Cause.UnknownError(cause, `the ${CORE} core is absent, ${BUILDER} builds it`)),
 );
 
 const tokened = (at: string) => (isAbsolute(at) || at.startsWith('..') ? [] : [join('{workspaceRoot}', at)]);

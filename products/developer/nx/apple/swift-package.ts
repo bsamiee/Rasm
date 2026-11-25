@@ -1,7 +1,7 @@
 import { dirname, join, matchesGlob, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
 import { EXECUTORS, type Verbs } from '@rasm/nx';
-import { Array, Effect, Graph, Option, Record, Schema } from 'effect';
+import { Array, Effect, Graph, Option, Record, Schema, UndefinedOr } from 'effect';
 import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -9,10 +9,9 @@ import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } f
 interface Package {
     readonly file: string;
     readonly root: string;
-    readonly plists: ReadonlyMap<string, string>;
-    readonly entitled: ReadonlyMap<string, string>;
+    readonly plists: Readonly<Record<string, string>>;
+    readonly entitled: Readonly<Record<string, string>>;
     readonly bins: Readonly<Record<'debug' | 'release' | 'codecov', string>>;
-    readonly whole: boolean;
     readonly shipped: readonly string[];
     readonly manifest: Described;
 }
@@ -44,14 +43,14 @@ const Shipped = Schema.fromJsonString(Schema.Struct({ files: Listed })).annotate
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const locals = (manifest: Described, described: ReadonlyMap<string, Package>) => Array.getSomes(manifest.dependencies.map((dependency) => Option.flatMap(Option.fromUndefinedOr(dependency.path), (at) => Option.fromUndefinedOr(described.get(at)))));
+const locals = (manifest: Described, described: ReadonlyMap<string, Package>) => manifest.dependencies.flatMap(({ path }) => Array.fromNullishOr(UndefinedOr.map(path, (at) => described.get(at))));
 
 const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Package>, products: Option.Option<readonly string[]>): readonly string[] => {
     const indexed = new Map(manifest.targets.map(({ name }, index) => [name, index] as const));
     const graph = Graph.fromSnapshot({
         type: 'directed',
         nodes: manifest.targets.map((data, index) => ({ index, data })),
-        edges: manifest.targets.flatMap(({ target_dependencies }, source) => Array.getSomes(target_dependencies.map((name) => Option.fromUndefinedOr(indexed.get(name)))).map((target) => ({ source, target, data: undefined }))).map((edge, index) => ({ ...edge, index })),
+        edges: manifest.targets.flatMap(({ target_dependencies }, source) => target_dependencies.flatMap((name) => Array.fromNullishOr(indexed.get(name))).map((target) => ({ source, target, data: undefined }))).map((edge, index) => ({ ...edge, index })),
     });
     const linked = Option.map(products, (names) => new Set(manifest.products.filter(({ name }) => names.includes(name)).flatMap(({ targets }) => targets)));
     const reached = Array.fromIterable(Graph.values(Graph.dfs(graph, { start: Graph.findNodes(graph, ({ name }) => Option.match(linked, { onNone: () => true, onSome: (held) => held.has(name) })) })));
@@ -75,7 +74,8 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
 };
 
 const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>, owners: ReadonlyMap<Package, Part>): readonly Part[] => {
-    const { file, root, plists, entitled, manifest, bins, whole, shipped } = local;
+    const { file, root, plists, entitled, manifest, bins, shipped } = local;
+    const whole = Array.isReadonlyArrayNonEmpty(manifest.products) && manifest.products.every(({ type }) => 'executable' in type) && manifest.targets.every(({ resources }) => resources.length === 0);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const modules = manifest.targets.filter(({ name, type }) => !Schema.is(Tests)(type) && name !== manifest.name);
     const inputs = [...sources(local, described, Option.none()), ...INPUTS];
@@ -146,8 +146,8 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
         ...modules.map((module) => ({ module: module.name, name: module.name, at: join(root, module.path), own: Record.empty<string, Verbs[string]>(), swept: [], description: `Removes the outputs the targets of ${module.name} declare` })),
     ].map(({ module, name, at, own, swept, description }): Part => {
         const product = Option.fromUndefinedOr(products.get(module));
-        const signing = Option.getOrUndefined(Option.map(Option.all([product, Option.fromUndefinedOr(entitled.get(module))]), ([, entitlements]) => ({ entitlements })));
-        const zipped = Option.map(Option.all({ held: product, plist: Option.fromUndefinedOr(plists.get(module)) }), ({ held, plist }) => ({ held, plist, folder: options.outputPath === undefined ? bins.release : join(options.outputPath, held) }));
+        const signing = Option.getOrUndefined(Option.zipWith(product, Record.get(entitled, module), (_, entitlements) => ({ entitlements })));
+        const zipped = Option.zipWith(product, Record.get(plists, module), (held, plist) => ({ held, plist, folder: options.outputPath === undefined ? bins.release : join(options.outputPath, held) }));
         const tools: Verbs = {
             ...own,
             ...Option.getOrUndefined(
@@ -197,7 +197,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
 
 const packageEdges = (local: Package, described: ReadonlyMap<string, Package>, owners: ReadonlyMap<Package, Part>): readonly RawProjectGraphDependency[] => {
     const { file, manifest } = local;
-    const named = (held: Package) => Option.match(Option.fromUndefinedOr(owners.get(held)), { onNone: () => held.manifest.name, onSome: ({ name }) => name });
+    const named = (held: Package) => owners.get(held)?.name ?? held.manifest.name;
     const modules = new Set(manifest.targets.filter(({ name, type }) => !Schema.is(Tests)(type) && name !== manifest.name).map(({ name }) => name));
     const project = (module: string) => (modules.has(module) ? module : named(local));
     const linked = locals(manifest, described);
