@@ -26,14 +26,17 @@ interface Edited {
     readonly edit: (editor: Editor, within: (nested: Script) => Editor) => readonly Edit[];
 }
 type Respelling = { readonly drop: readonly string[] } | { readonly ensure: Array.NonEmptyReadonlyArray<string>; readonly unless?: readonly string[] } | { readonly rename: Readonly<Record<string, string>> };
-type Settled = Refusal | Note | Edited | { readonly run: 'background' };
+type Settled = Refusal | Note | Edited | { readonly run: Exclude<Run, 'foreground'> };
 type Verdict = Settled | Respelling;
 type Needs = Shell | FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner;
 type Verdicts<V> = readonly V[] | Effect.Effect<readonly V[], Cause.YieldableError, Needs>;
+type Run = 'foreground' | 'background' | 'monitor';
 interface Call {
     readonly action: Action;
     readonly script: Script;
     readonly cwd: string;
+    readonly shell: Shell['Service'];
+    readonly run: Run;
 }
 type Plain = (Refusal & { readonly when?: readonly string[]; readonly unless?: readonly string[] }) | Respelling;
 type Rule =
@@ -55,13 +58,12 @@ class Told extends Data.Class<{ readonly text: string; readonly once: Once; read
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const texted = ({ field, exact }: Written) => Option.filter(field.text, () => exact);
-const spelling = (written: Written) => Option.map(texted(written), (text) => Array.headNonEmpty(String.split(text, '=')));
+const spelling = (written: Written) => Option.map(written.text, (text) => Array.headNonEmpty(String.split(text, '=')));
 const meets =
     (names: readonly string[]) =>
     ({ flag, spelled }: Bound) =>
         flag.spellings.some((name) => names.includes(name)) || Option.exists(spelling(spelled), (name) => names.includes(name));
-const shown = (invocation: Invocation, path: readonly string[], names: readonly string[]) => [...Option.toArray(Option.flatMap(Array.head(invocation.words), texted)), ...path, ...Array.dedupe(invocation.flags.filter(meets(names)).flatMap(({ spelled }) => Option.toArray(texted(spelled))))].join(' ');
+const shown = (invocation: Invocation, path: readonly string[], names: readonly string[]) => [...Option.toArray(Option.flatMap(Array.head(invocation.words), ({ text }) => text)), ...path, ...Array.dedupe(invocation.flags.filter(meets(names)).flatMap(({ spelled }) => Option.toArray(spelled.text)))].join(' ');
 const respelling = (to: string, value: string) => (to.startsWith('--') ? [value === '' ? to : `${to}=${value}`] : [to, ...(value === '' ? [] : [value])]);
 const respelled = (invocation: Invocation, path: readonly string[], wanted: Wanted): readonly ((editor: Editor) => Edit)[] => {
     const named = [...wanted.drop, ...Record.keys(wanted.rename)];
@@ -72,7 +74,7 @@ const respelled = (invocation: Invocation, path: readonly string[], wanted: Want
         );
     const placed = invocation.flags.filter(({ spelled }) => Option.isSome(spelled.node));
     const words = (Array.isReadonlyArrayNonEmpty(placed) ? Array.groupWith(placed, (left, right) => Equal.equals(left.spelled.node, right.spelled.node)) : [])
-        .flatMap((group) => Option.toArray(Option.map(Option.all({ word: Array.headNonEmpty(group).spelled.node, text: texted(Array.headNonEmpty(group).spelled), spelled: spelling(Array.headNonEmpty(group).spelled) }), (found) => ({ ...found, group }))))
+        .flatMap((group) => Option.toArray(Option.map(Option.all({ word: Array.headNonEmpty(group).spelled.node, text: Array.headNonEmpty(group).spelled.text, spelled: spelling(Array.headNonEmpty(group).spelled) }), (found) => ({ ...found, group }))))
         .flatMap(({ group, word, text, spelled }) => {
             const whole = text.startsWith('--') || [...Array.headNonEmpty(group).flag.spellings, ...named].includes(spelled);
             const letters = Array.fromIterable(text);
@@ -100,7 +102,7 @@ const respelled = (invocation: Invocation, path: readonly string[], wanted: Want
         });
     const anchor = Option.flatMap(
         Option.orElse(
-            Option.flatMap(Array.last(path), (last) => Array.findFirst(Array.drop(invocation.words, 1), (written) => Option.contains(texted(written), last))),
+            Option.flatMap(Array.last(path), (last) => Array.findFirst(Array.drop(invocation.words, 1), (written) => Option.contains(written.text, last))),
             () => Array.head(invocation.words),
         ),
         ({ node }) => node,
@@ -130,4 +132,4 @@ const plain = (rule: Plain, invocation: Invocation, path: readonly string[]): re
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Call, type Dialect, type Invocation, type Needs, type Note, plain, type Rule, type Script, type Settled, settled, type Table, texted, Told, type Tool, type Used, type Verdicts };
+export { type Call, type Dialect, type Edit, type Editor, type Invocation, type Needs, type Note, plain, type Rule, type Run, type Script, type Settled, settled, type Table, Told, type Tool, type Used, type Verdicts };

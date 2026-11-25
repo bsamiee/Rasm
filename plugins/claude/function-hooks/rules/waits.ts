@@ -1,6 +1,6 @@
-import { Array, Effect, Match, Option } from 'effect';
-import { walk } from 'sh-syntax';
-import { command, type Editor, foreground, type Invocation, is, leaves, operand, ran, said, span, spells, staged, type Table, texts, type Written } from '#/rules/rule';
+import { Array, Effect, Function, Match, Option, Struct } from 'effect';
+import { type Stmt, walk } from 'sh-syntax';
+import { type Editor, feeds, type Invocation, ran, type Table, type Written } from '#/rules/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -10,9 +10,13 @@ type Loop = Option.Option.Value<Invocation['repeated']>;
 
 const idle = ['echo', 'printf', ':', 'true'];
 const constant = [':', 'true', 'false'];
+const leaving = ['break', 'exit', 'return'];
+const checks = ['sleep', 'wait', 'read', 'jq', 'grep', 'rg', 'echo', 'printf', 'test', '[', 'true', ':', 'false', 'date', 'pgrep', 'ps', 'stat', 'ls', 'cat', 'tail', 'head', 'wc', 'curl', 'lsof', 'nc', 'wait4path', 'caffeinate', 'seq', 'continue', ...leaving];
+const polls = ['sleep', 'jq', 'grep', 'rg', 'echo', 'printf', 'test', '[', 'true', ':', 'date', 'read'];
 const statuses = ['nx', 'uv', 'dotnet', 'xcodebuild', 'swift', 'npm', 'pnpm', 'cargo', 'curl', 'pytest', 'vitest'];
 const loopback: ReadonlySet<string> = new Set(['127.0.0.1', 'localhost', '::1']);
 const endless: ReadonlySet<string> = new Set(['/dev/zero', '/dev/urandom', '/dev/random']);
+const instant = /^(?:0+(?:\.0*)?|\.0+)[smhd]?$/u;
 const output = /\/tasks\/(?<id>[^/\s]+)\.output$/u;
 const agent = /\/tasks\/a[0-9a-f]{16}\.output$/u;
 const records = [
@@ -23,23 +27,36 @@ const waiting = 'Background tasks and agents notify when they end, Monitor `unti
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const timer = (invocation: Invocation) => is(invocation, 'sleep') || (is(invocation, 'tail') && invocation.has('-f', '-F', '--follow') && Array.isReadonlyArrayNonEmpty(invocation.reads) && invocation.reads.every(({ text }) => Option.contains(text, '/dev/null')));
-const ends = (invocation: Invocation) => is(invocation, 'sleep', 'wait4path') || (is(invocation, 'caffeinate') && invocation.has('-t', '-w')) || (is(invocation, 'tail') && invocation.has('--pid'));
-const pauses = (invocation: Invocation) => is(invocation, 'sleep', 'wait') || (is(invocation, 'read') && invocation.has('-t'));
-const closes = (invocation: Invocation) => is(invocation, 'head') || (is(invocation, 'grep', 'rg') && invocation.has('-q', '--quiet', '-m', '--max-count', '-l', '--files-with-matches'));
+const settles = (invocation: Invocation) => invocation.runs('sleep') && Array.isReadonlyArrayNonEmpty(invocation.operands) && invocation.operands.every(({ word }) => word.test(instant));
+const sleeps = (invocation: Invocation) => invocation.runs('sleep') && !settles(invocation);
+const timer = (invocation: Invocation) => sleeps(invocation) || (invocation.runs('tail') && invocation.has('-f', '-F', '--follow') && !invocation.has('--pid') && Array.isReadonlyArrayNonEmpty(invocation.reads) && invocation.reads.every(({ text }) => Option.contains(text, '/dev/null')));
+const ends = (invocation: Invocation) => sleeps(invocation) || invocation.runs('wait4path') || (invocation.runs('caffeinate') && invocation.has('-t', '-w')) || (invocation.runs('tail') && invocation.has('--pid'));
+const pauses = (invocation: Invocation) => sleeps(invocation) || invocation.runs('wait') || (invocation.runs('read') && invocation.has('-t'));
+const closes = (invocation: Invocation) => invocation.runs('head') || (invocation.runs('grep', 'rg') && invocation.has('-q', '--quiet', '-m', '--max-count', '-l', '--files-with-matches'));
+const reaped = (invocations: readonly Invocation[], job: Invocation) => invocations.some((other) => other.start >= job.end && (other.runs('wait') || (other.runs('kill') && !other.has('-0'))));
 const task = (file: string) => output.exec(file)?.groups?.['id'] ?? file;
+const silent = () => ({ printed: '', code: 1 });
 const streamed = (file: string) => `Monitor \`tail -n +1 -F ${file} | grep --line-buffered -E '<pattern>'\` streams the lines you wait for.`;
-const holds = Effect.fnUntraced(function* (file: string, cwd: string) {
-    const { printed } = yield* Effect.orElseSucceed(ran(['lsof', '-t', '--', file], cwd), () => ({ printed: '', code: 1 }));
-    return printed.trim() !== '';
+const writers = Effect.fnUntraced(function* (file: string, cwd: string) {
+    const [held, table] = yield* Effect.all([Effect.orElseSucceed(ran(['lsof', '-F', 'pa', '--', file], cwd), silent), Effect.orElseSucceed(ran(['ps', '-A', '-o', 'pid=,ppid='], cwd), silent)], { concurrency: 'unbounded' });
+    const parents = new Map(table.printed.split('\n').flatMap((line) => Option.toArray(Option.map(Option.fromNullishOr(/^\s*(?<pid>\d+)\s+(?<parent>\d+)/u.exec(line)?.groups), ({ pid = '', parent = '' }) => [pid, parent] as const))));
+    const holders = new Set(held.printed.split(/^p/mu).flatMap((listing) => (/^a[uw]$/mu.test(listing) ? [listing.split('\n', 1).join('')] : [])));
+    return [...holders].filter((pid) => parents.has(pid) && !holders.has(parents.get(pid) ?? ''));
 });
 const stuck = Effect.fnUntraced(function* (file: string, cwd: string) {
-    const { printed } = yield* Effect.orElseSucceed(ran(['tail', '-n', '10', '--', file], cwd), () => ({ printed: '', code: 1 }));
+    const { printed } = yield* Effect.orElseSucceed(ran(['tail', '-n', '10', '--', file], cwd), silent);
     const lines = printed
         .split('\n')
         .filter((line) => line.trim() !== '')
         .map((line) => line.replaceAll(/\d+/gu, '#'));
-    return lines.length >= 5 && new Set(lines).size === 1;
+    return Option.map(
+        Option.fromUndefinedOr(
+            Map.groupBy(lines, Function.identity)
+                .entries()
+                .find(([, same]) => same.length >= 5),
+        ),
+        ([line]) => line,
+    );
 });
 const loops = (invocations: readonly Invocation[]) =>
     Array.dedupeWith(
@@ -50,72 +67,115 @@ const loops = (invocations: readonly Invocation[]) =>
         const tested = inside.filter(({ repeated }) => Option.exists(repeated, ({ start, condition }) => start === loop.start && condition));
         return { loop, inside, tested, body: inside.filter((invocation) => !tested.includes(invocation)), until: loop.source.slice(loop.start).startsWith('until') };
     });
-const spins = ({ tested, until }: ReturnType<typeof loops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && tested.every((invocation) => is(invocation, ...constant) && is(invocation, 'false') === until);
-const probes = ({ tested }: ReturnType<typeof loops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && !tested.every((invocation) => is(invocation, ...constant));
-const marked = (written: Written) => Option.map(Option.all([written.node, Option.filter(said(written), (text) => /^\w/u.test(text))]), ([node, text]) => ({ edit: (editor: Editor) => [editor.replace(node, Array.of(`[${text.slice(0, 1)}]${text.slice(1)}`))] }));
-const read = (invocation: Invocation) => [...invocation.reads.flatMap(({ text }) => Option.toArray(text)), ...invocation.words.flatMap((written) => Option.toArray(Option.filter(said(written), (text) => text.startsWith('/'))))];
-const after = (invocation: Invocation, flag: string) => Option.filter(Option.flatMap(Array.head(invocation.values(flag)), said), (text) => Number.isFinite(Number(text)));
-const slept = (invocation: Invocation, seconds: string) => Option.toArray(span(invocation)).map((whole) => ({ edit: (editor: Editor) => [editor.replace(whole, Array.make('sleep', seconds))] }));
+const spins = ({ tested, until }: ReturnType<typeof loops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && tested.every((invocation) => invocation.runs(...constant) && invocation.runs('false') === until);
+const probes = ({ tested }: ReturnType<typeof loops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && !tested.every((invocation) => invocation.runs(...constant));
+const marked = (written: Written) => Option.map(Option.all([written.node, Option.filter(written.text, (text) => /^\w/u.test(text))]), ([node, text]) => ({ edit: (editor: Editor) => [editor.replace(node, Array.of(`[${text.slice(0, 1)}]${text.slice(1)}`))] }));
+const read = (invocation: Invocation) => [...invocation.reads.flatMap(({ text }) => Option.toArray(text)), ...invocation.words.flatMap((written) => Option.toArray(Option.filter(written.text, (text) => text.startsWith('/'))))];
+const after = (invocation: Invocation, flag: string) => Option.filter(Option.flatMap(Array.head(invocation.values(flag)), Struct.get('text')), (text) => Number.isFinite(Number(text)));
+const slept = (invocation: Invocation, seconds: string) => Option.toArray(invocation.span).map((whole) => ({ edit: (editor: Editor) => [editor.replace(whole, Array.make('sleep', seconds))] }));
+const watching = (invocation: Invocation) =>
+    Option.map(
+        Option.filter(
+            Array.findFirst(invocation.operands, ({ word }) => Option.filter(word.text, (text) => /^\d+$/u.test(text))),
+            () => invocation.runs('gh') && invocation.path[0] === 'run' && invocation.path[1] === 'view' && !invocation.has('--log', '--log-failed', '--job', '--web', '--attempt'),
+        ),
+        (run) => [run, '--exit-status', ...invocation.values('--repo', '-R').flatMap((value) => Option.toArray(value.text).flatMap((repo) => ['--repo', repo]))],
+    );
 
 const waits: Table = {
     'timer.bare': {
         script: true,
         judge: Effect.fnUntraced(function* (script) {
-            const run = leaves(yield* script.invocations).filter(({ inner }) => inner.length === 0);
-            return run.some(timer) && run.every((invocation) => timer(invocation) || is(invocation, ...idle)) ? [{ refuse: 'A bare timer waits on nothing and wakes you with nothing new.', instruct: waiting }] : [];
+            const run = (yield* script.invocations).flatMap(Struct.get('leaves')).filter(({ inner }) => inner.length === 0);
+            return run.some(timer) && run.every((invocation) => timer(invocation) || invocation.runs(...idle)) ? [{ refuse: 'A bare timer waits on nothing and wakes you with nothing new.', instruct: waiting }] : [];
         }),
     },
     'timer.trailing': {
         script: true,
         judge: Effect.fnUntraced(function* (script, call) {
             const last = Array.last((yield* script.invocations).filter(({ within }) => within.length === 0));
-            return foreground(call) && Option.exists(last, (invocation) => Option.isNone(invocation.repeated) && leaves([invocation]).some(ends)) ? [{ run: 'background' as const }] : [];
+            return call.run === 'foreground' && Option.exists(last, (invocation) => Option.isNone(invocation.repeated) && invocation.leaves.some(ends)) ? [{ run: 'background' as const }] : [];
+        }),
+    },
+    'sleep.instant': {
+        program: 'sleep',
+        judge: Effect.fnUntraced(function* (invocation, call) {
+            const stmt = Option.filter(invocation.node, () => settles(invocation) && invocation.source === call.script.source && invocation.within.length === 0 && Option.isNone(invocation.repeated) && Option.isNone(invocation.stage));
+            const sole = yield* Effect.transposeOption(
+                Option.map(
+                    Option.filter(stmt, (found) => call.script.syntax.stmts.length === 1 && call.script.syntax.stmts[0] === found),
+                    () => call.shell.script(call.script.dialect)`:`,
+                ),
+            );
+            return Option.toArray(stmt).map((found) => ({ edit: (editor: Editor) => [Option.match(sole, { onNone: () => editor.remove(found), onSome: (held) => editor.command(found, held) })] }));
         }),
     },
     'call.idle': {
         script: true,
         judge: Effect.fnUntraced(function* (script) {
             const invocations = yield* script.invocations;
-            const idled = Array.isReadonlyArrayNonEmpty(invocations) && invocations.every((invocation) => is(invocation, 'echo', 'printf', 'true') && invocation.writes.length === 0 && Option.isSome(texts(invocation.words)));
+            const idled = Array.isReadonlyArrayNonEmpty(invocations) && invocations.every((invocation) => invocation.runs('echo', 'printf', 'true') && invocation.writes.length === 0 && Option.isSome(Option.all(invocation.words.map(Struct.get('text')))));
             return idled ? [{ refuse: 'Call prints literal text and runs nothing.', instruct: 'Background tasks and agents notify when they end, so end the turn; a foreground subagent, whose background work ends with its final answer, keeps working instead.' }] : [];
         }),
     },
     'job.detached': {
         script: true,
-        judge: Effect.fnUntraced(function* (script) {
+        judge: Effect.fnUntraced(function* (script, call) {
             const invocations = yield* script.invocations;
             const jobs = invocations.filter(({ background }) => background);
-            const ending = Array.last(jobs).pipe(Option.map(({ end }) => end));
-            const reaped = invocations.some((other) => Option.exists(ending, (end) => other.start >= end) && (is(other, 'wait') || (is(other, 'kill') && !other.has('-0'))));
-            return Array.match(jobs, { onEmpty: () => [], onNonEmpty: ([job]) => (reaped ? [] : [{ refuse: `${command(job)} & outlives the call.`, instruct: 'Set run_in_background on the call, or wait for the job in the same script.' }]) });
+            const detached: Stmt[] = [];
+            walk(script.syntax, (node) => {
+                detached.push(...(node.type === 'Stmt' && node.background ? [node] : []));
+            });
+            const trailing = Array.dropWhile(script.syntax.stmts, ({ background }) => !background);
+            const tail = Option.filter(Array.last(trailing), () => trailing.length === detached.length && trailing.every(({ background }) => background));
+            const reap = yield* Effect.transposeOption(Option.map(tail, () => call.shell.script(script.dialect)`wait`));
+            return Array.match(
+                jobs.filter((job) => !reaped(invocations, job)),
+                {
+                    onEmpty: () => [],
+                    onNonEmpty: ([job]) =>
+                        Option.match(Option.all([tail, reap]), {
+                            onNone: () => [{ refuse: `${job.label} & outlives the call.`, instruct: 'Set run_in_background on the call, or wait for the job in the same script.' }],
+                            onSome: ([stmt, wait]) => [{ edit: (editor: Editor) => [editor.follow(stmt, ';', wait)] }, ...(call.run === 'foreground' ? [{ run: 'background' as const }] : [])],
+                        }),
+                },
+            );
         }),
     },
     'loop.endless': {
         script: true,
         judge: Effect.fnUntraced(function* (script) {
-            const spinning = loops(leaves(yield* script.invocations)).filter((found) => spins(found) && found.body.some((invocation) => !is(invocation, ...constant, ...idle) && !ends(invocation)) && !found.inside.some((invocation) => is(invocation, 'break', 'exit', 'return')));
-            return spinning.map(({ tested }) => ({ refuse: `Loop on ${tested.map(command).join(' ')} never ends, as nothing changes its condition and no break or exit leaves it.`, instruct: 'Wait on a real condition with Monitor `until <check>; do sleep <seconds>; done`.' }));
+            const spinning = loops((yield* script.invocations).flatMap(Struct.get('leaves'))).filter(
+                (found) => spins(found) && found.body.some((invocation) => !invocation.runs(...constant, ...idle) && !ends(invocation)) && !found.inside.some((invocation) => invocation.runs(...leaving) || Option.isSome(watching(invocation))),
+            );
+            return spinning.map(({ tested }) => ({ refuse: `Loop on ${tested.map(Struct.get('label')).join(' ')} never ends, as nothing changes its condition and no break or exit leaves it.`, instruct: 'Wait on a real condition with Monitor `until <check>; do sleep <seconds>; done`.' }));
         }),
     },
     'loop.busy': {
         script: true,
         judge: Effect.fnUntraced(function* (script) {
-            const busy = loops(leaves(yield* script.invocations)).filter((found) => probes(found) && found.body.every((invocation) => is(invocation, ...idle)) && !found.inside.some(pauses));
-            return busy.map(({ tested }) => ({ refuse: `Loop on ${tested.map(command).join(' ')} checks again at once and spins a core.`, instruct: 'Put sleep <seconds> in its body, or wait with Monitor `until <check>; do sleep <seconds>; done`.' }));
+            const busy = loops((yield* script.invocations).flatMap(Struct.get('leaves'))).filter((found) => probes(found) && found.body.every((invocation) => invocation.runs(...idle)) && !found.inside.some(pauses));
+            return busy.map(({ tested }) => ({ refuse: `Loop on ${tested.map(Struct.get('label')).join(' ')} checks again at once and spins a core.`, instruct: 'Put sleep <seconds> in its body, or wait with Monitor `until <check>; do sleep <seconds>; done`.' }));
         }),
     },
     'loop.waiting': {
         script: true,
         judge: Effect.fnUntraced(function* (script, call) {
             const invocations = yield* script.invocations;
-            const waited = loops(leaves(invocations)).filter((found) => probes(found) && found.inside.some(pauses));
+            const waited = loops(invocations.flatMap(Struct.get('leaves'))).filter((found) => (probes(found) || found.inside.some((invocation) => invocation.runs(...leaving))) && found.inside.some(pauses));
             const inside = (invocation: Invocation) => waited.some(({ loop }) => invocation.start >= loop.start && invocation.end <= loop.end);
-            const trailing = (invocation: Invocation) => waited.some(({ loop }) => invocation.start >= loop.end) && is(invocation, 'cat', 'tail', 'head', 'echo', 'printf', 'rg', 'jq', 'ls');
+            const trailing = (invocation: Invocation) => waited.some(({ loop }) => invocation.start >= loop.end) && invocation.runs('cat', 'tail', 'head', 'echo', 'printf', 'rg', 'jq', 'ls');
             const placed = invocations.filter(({ within }) => within.length === 0).every((invocation) => inside(invocation) || trailing(invocation));
-            return foreground(call) && Array.isReadonlyArrayNonEmpty(waited) && placed ? [{ run: 'background' as const }] : [];
+            const checking = waited.every((found) => found.inside.every((invocation) => invocation.runs(...checks) || (invocation.runs('kill') && invocation.has('-0'))));
+            return Match.value({ waits: Array.isReadonlyArrayNonEmpty(waited) && call.action.tool === 'Bash', watched: placed && checking, foreground: call.run === 'foreground' }).pipe(
+                Match.when({ waits: true, watched: true }, () => [{ run: 'monitor' as const }]),
+                Match.when({ waits: true, foreground: true }, () => [{ run: 'background' as const }]),
+                Match.orElse(() => []),
+            );
         }),
     },
-    'watch.repaints': { program: 'watch', refuse: 'repaints a screen', instruct: 'Monitor `until <check>; do sleep <seconds>; done` waits on the condition and its exit notifies you.' },
+    'watch.repaints': { program: 'watch', judge: (invocation, call) => (call.action.tool === 'Bash' ? [{ refuse: `${invocation.label} repaints a screen.`, instruct: 'Monitor `until <check>; do sleep <seconds>; done` waits on the condition and its exit notifies you.' }] : []) },
     'caffeinate.unbounded': { program: 'caffeinate', judge: (invocation) => (invocation.has('-t', '-w') || invocation.inner.length > 0 ? [] : [{ refuse: 'caffeinate holds the call open until it is killed.', instruct: 'Bound it with -t <seconds> or -w <pid>.' }]) },
     'caffeinate.wrapper': {
         program: 'caffeinate',
@@ -129,28 +189,33 @@ const waits: Table = {
     'gh.run.polled': {
         program: 'gh',
         path: ['run', 'view'],
-        judge: (invocation) => {
-            const run = invocation.operands.flatMap(({ word }) => Option.toArray(Option.filter(said(word), (text) => /^\d+$/u.test(text))));
-            const repos = invocation.values('--repo', '-R').flatMap((value) => Option.toArray(said(value)).map((repo) => ` --repo ${repo}`));
-            return Option.isSome(invocation.repeated) && !invocation.has('--log', '--log-failed', '--job', '--web', '--attempt')
-                ? [{ refuse: 'gh run view in a loop polls a run.', instruct: `Run gh run watch ${run.join(' ') || '<run>'} --exit-status${repos.join('')}, which waits and exits with the run's result.` }]
-                : [];
-        },
+        judge: Effect.fnUntraced(function* (invocation, call) {
+            const watch = Option.filter(watching(invocation), () => Option.isSome(invocation.repeated));
+            const polled = (yield* call.script.invocations).flatMap(Struct.get('leaves')).every((other) => Option.isSome(other.repeated) && other.writes.every(({ text }) => Option.contains(text, '/dev/null')) && (other.runs(...polls) || Option.isSome(watching(other))));
+            const sole = Option.filter(Array.head(call.script.syntax.stmts), () => polled && call.script.syntax.stmts.length === 1);
+            const written = yield* Effect.transposeOption(Option.map(Option.all([sole, watch]), ([, argv]) => call.shell.script(call.script.dialect)`gh run watch ${argv}`));
+            return Option.match(watch, {
+                onNone: () => [],
+                onSome: (argv) =>
+                    Option.match(Option.all([sole, written]), {
+                        onNone: () => [{ refuse: 'gh run view in a loop polls a run.', instruct: `Run gh run watch ${argv.join(' ')}, which waits and exits with the run's result.` }],
+                        onSome: ([stmt, watched]) => [{ edit: (editor: Editor) => [editor.command(stmt, watched)] }, ...(call.run === 'foreground' ? [{ run: 'background' as const }] : [])],
+                    }),
+            });
+        }),
     },
     'gh.run.slept': {
         program: 'gh',
         path: ['run', 'view'],
         judge: Effect.fnUntraced(function* (invocation, call) {
             const before = (yield* call.script.invocations).filter((other) => other.end <= invocation.start && other.within.length === 0);
-            const sleep = Option.filter(Array.last(before), (other) => is(other, 'sleep') && Option.isNone(other.repeated));
-            const run = Array.findFirst(invocation.operands, ({ word }) => Option.filter(said(word), (text) => /^\d+$/u.test(text)));
-            const repos = invocation.values('--repo', '-R').flatMap((value) => Option.toArray(said(value)).flatMap((repo) => ['--repo', repo]));
-            const plain = Option.isNone(invocation.repeated) && invocation.within.length === 0 && !invocation.has('--log', '--log-failed', '--job', '--web', '--attempt', '--json') && call.action.tool === 'Bash';
+            const sleep = Option.filter(Array.last(before), (other) => other.runs('sleep') && Option.isNone(other.repeated));
+            const plain = Option.isNone(invocation.repeated) && invocation.within.length === 0 && !invocation.has('--json') && call.action.tool === 'Bash';
             return Option.match(
-                Option.filter(Option.all([Option.flatMap(sleep, ({ node }) => node), run, span(invocation)]), () => plain),
+                Option.filter(Option.all([Option.flatMap(sleep, ({ node }) => node), watching(invocation), invocation.span]), () => plain),
                 {
                     onNone: () => [],
-                    onSome: ([stmt, id, whole]) => [{ edit: (editor: Editor) => [editor.remove(stmt), editor.replace(whole, Array.make('gh', 'run', 'watch', id, '--exit-status', ...repos))] }, { run: 'background' as const }],
+                    onSome: ([stmt, argv, whole]) => [{ edit: (editor: Editor) => [editor.remove(stmt), editor.replace(whole, Array.make('gh', 'run', 'watch', ...argv))] }, { run: 'background' as const }],
                 },
             );
         }),
@@ -159,20 +224,24 @@ const waits: Table = {
     'record.shell': {
         script: true,
         judge: Effect.fnUntraced(function* (script) {
-            const files = Array.dedupe(leaves(yield* script.invocations).flatMap(read));
+            const files = Array.dedupe((yield* script.invocations).flatMap(Struct.get('leaves')).flatMap(read));
             return records.flatMap(([pattern, fact, route]) => files.filter((file) => pattern.test(file)).map((file) => ({ refuse: `${file} ${fact}.`, instruct: route })));
         }),
     },
     'task.output': {
         script: true,
         judge: Effect.fnUntraced(function* (script, call) {
-            const all = leaves(yield* script.invocations);
+            const all = (yield* script.invocations).flatMap(Struct.get('leaves'));
             const files = Array.dedupe(all.flatMap(read)).filter((file) => output.test(file) && !agent.test(file));
-            const polled = all.some((invocation) => Option.isSome(invocation.repeated) || pauses(invocation));
-            const live = polled ? [] : yield* Effect.filter(files, (file) => holds(file, call.cwd));
+            const watched = call.action.tool === 'Monitor' || all.some((invocation) => Option.isSome(invocation.repeated) || (invocation.runs('tail') && invocation.has('-f', '-F', '--follow')));
+            const polled = !watched && all.some(pauses);
+            const live = watched || polled ? [] : yield* Effect.filter(files, (file) => Effect.map(writers(file, call.cwd), Array.isReadonlyArrayNonEmpty));
             const repeating = yield* Effect.forEach(live, (file) => stuck(file, call.cwd));
             const notes = Array.zipWith(live, repeating, (file, repeats) => ({
-                note: repeats ? `Task ${task(file)} prints one line again and again and looks stuck: TaskStop ${task(file)}, fix its cause, and rerun it bounded by a count or timeout.` : `Task ${task(file)} still runs and notifies when it ends; ${streamed(file)}`,
+                note: Option.match(repeats, {
+                    onNone: () => `Task ${task(file)} still runs and notifies when it ends; ${streamed(file)}`,
+                    onSome: (line) => `Task ${task(file)} repeats "${line}" and looks stuck: TaskStop ${task(file)}, fix its cause, and rerun it bounded by a count or timeout.`,
+                }),
                 once: 'call' as const,
             }));
             return polled ? files.map((file) => ({ refuse: `Call polls the output of task ${task(file)}, which notifies when it ends.`, instruct: `End the turn until its notice arrives, or run ${streamed(file)}` })) : notes;
@@ -182,22 +251,29 @@ const waits: Table = {
         program: 'tail',
         judge: Effect.fnUntraced(function* (invocation, call) {
             const files = invocation.reads.flatMap(({ text }) => Option.toArray(text));
-            const follows = invocation.has('-f', '-F', '--follow') && !invocation.has('--pid') && call.action.tool === 'Bash' && !files.every((file) => file === '/dev/null');
+            const follows = invocation.has('-f', '-F', '--follow') && !invocation.has('--pid') && !files.every((file) => file === '/dev/null') && !(invocation.background && reaped(yield* call.script.invocations, invocation));
             const tasked = follows && Array.isReadonlyArrayNonEmpty(files) && files.every((file) => output.test(file));
-            const holders = tasked ? yield* Effect.forEach(files, (file) => holds(file, call.cwd)) : [true];
-            return Match.value({ following: follows, finished: !holders.some(Boolean) }).pipe(
-                Match.when({ finished: true }, () => [{ drop: ['-f', '-F', '--follow'] }]),
-                Match.when({ following: true }, () => [{ refuse: `${command(invocation)} -f never ends, so the call blocks until its timeout.`, instruct: 'Run it with the Monitor tool, or drop -f to print what the file holds now.' }]),
-                Match.orElse(() => []),
+            const held = tasked ? (yield* Effect.forEach(files, (file) => writers(file, call.cwd))).flat() : [];
+            const bash = call.action.tool === 'Bash';
+            const waiter = yield* Effect.transposeOption(Option.liftPredicate(held, Array.isReadonlyArrayNonEmpty).pipe(Option.map((pids) => call.shell.script(call.script.dialect)`for pid in ${pids}; do while kill -0 "$pid" 2>/dev/null; do sleep 1; done; done; kill $!`)));
+            const moved = bash ? [{ run: 'monitor' as const }] : [];
+            return Match.value({ follows, tasked, live: Array.isReadonlyArrayNonEmpty(held) }).pipe(
+                Match.when({ follows: false }, () => []),
+                Match.when({ tasked: true, live: false }, () => [{ drop: ['-f', '-F', '--follow'] }]),
+                Match.when({ tasked: true }, () => [...Option.toArray(Option.all([invocation.node, waiter])).map(([stmt, wait]) => ({ edit: (editor: Editor) => [editor.follow(stmt, '&', wait)] })), ...moved]),
+                Match.orElse(() => moved),
             );
         }),
     },
     'read.timed': {
         program: 'read',
         judge: (invocation) => {
-            const unfed = !invocation.has('-u') && invocation.reads.length === 0 && Option.isNone(invocation.repeated) && !Option.exists(invocation.stage, ({ index }) => index > 0);
+            const sources = invocation.reads.flatMap(({ text }) => Option.toArray(text));
+            const bounded = invocation.has('-n', '-N') || invocation.values('-d').some((value) => Option.contains(value.text, ''));
+            const filed = invocation.stdin._tag === 'File' && !(sources.length === invocation.reads.length && sources.every((file) => endless.has(file)) && !bounded) && !(Array.isReadonlyArrayNonEmpty(invocation.inner) && invocation.inner.every((inner) => ends(inner) || inner.runs(...idle)));
+            const unfed = !invocation.has('-u') && (invocation.stdin._tag === 'Inherited' || (invocation.stdin._tag === 'File' && !filed)) && Option.isNone(invocation.repeated);
             return Option.match(
-                Option.filter(Option.flatMap(Array.head(invocation.values('-t')), said), () => unfed),
+                Option.filter(Option.flatMap(Array.head(invocation.values('-t')), Struct.get('text')), () => unfed),
                 { onNone: () => [], onSome: (seconds) => slept(invocation, seconds) },
             );
         },
@@ -206,7 +282,7 @@ const waits: Table = {
         program: 'read',
         judge: (invocation) => {
             const sources = invocation.reads.flatMap(({ text }) => Option.toArray(text));
-            const bounded = invocation.has('-n', '-N') || invocation.values('-d').some((value) => Option.contains(said(value), ''));
+            const bounded = invocation.has('-n', '-N', '-t') || invocation.values('-d').some((value) => Option.contains(value.text, ''));
             return sources.some((file) => endless.has(file)) && !bounded ? [{ refuse: `read < ${sources.join(' ')} never returns and spins a core.`, instruct: 'Run sleep <seconds> to wait.' }] : [];
         },
     },
@@ -215,17 +291,21 @@ const waits: Table = {
         program: 'grep',
         aliases: ['rg'],
         judge: Effect.fnUntraced(function* (grep, { script }) {
-            const ps = Option.exists(staged(yield* script.invocations, grep, -1), (found) => is(found, 'ps'));
+            const ps = (yield* script.invocations).flatMap(Struct.get('leaves')).some((found) => found.runs('ps') && feeds(found, grep));
             return ps && grep.flags.length === 0 && grep.operands.length === 1 ? Option.toArray(Option.flatMap(Array.head(grep.operands), ({ word }) => marked(word))) : [];
         }),
     },
     'pipe.status': {
         script: true,
-        judge: Effect.fnUntraced(function* (script) {
+        judge: Effect.fnUntraced(function* (script, call) {
             const invocations = yield* script.invocations;
-            const set = invocations.some((invocation) => is(invocation, 'set') && invocation.words.some((written) => spells(written, 'pipefail')));
-            const hidden = invocations.filter((invocation) => Option.exists(invocation.stage, ({ index, count }) => index < count - 1) && leaves([invocation]).some((leaf) => is(leaf, ...statuses)) && !Option.exists(staged(invocations, invocation, 1), closes));
-            return set ? [] : hidden.map((invocation) => ({ note: `${command(invocation)} exits into a pipe, so the call reports the last stage's status; set -o pipefail; before it keeps the failure.`, once: 'agent' as const }));
+            const set = script.dialect.options.pipefail || invocations.some((invocation) => invocation.runs('set') && invocation.words.some((written) => Option.contains(written.text, 'pipefail')));
+            const hidden = invocations.some(
+                (invocation) => invocation.source === script.source && Option.exists(invocation.stage, ({ index, count }) => index < count - 1) && invocation.leaves.some((leaf) => leaf.runs(...statuses)) && !invocations.flatMap(Struct.get('leaves')).some((next) => feeds(invocation, next) && closes(next)),
+            );
+            const first = Option.filter(Array.head(script.syntax.stmts), () => hidden && !set);
+            const pipefail = yield* Effect.transposeOption(Option.map(first, () => call.shell.script(script.dialect)`set -o pipefail`));
+            return Option.toArray(Option.all([first, pipefail])).map(([stmt, prefix]) => ({ edit: (editor: Editor) => [editor.precede(prefix, ';', stmt)] }));
         }),
     },
     'zsh.special': {
@@ -235,15 +315,18 @@ const waits: Table = {
             walk(script.syntax, (node) => {
                 names.push(...(node.type === 'Assign' && node.name !== null ? [node.name.value] : []), ...(node.type === 'WordIter' && node.name !== null ? [node.name.value] : []));
             });
-            return Array.dedupe(names)
-                .filter((name) => script.dialect.special.has(name))
-                .map((name) => ({ refuse: `zsh ${name} is a special parameter, so assigning it changes the shell itself.`, instruct: 'Rename the variable.' }));
+            return Array.dedupe(names).flatMap((name) =>
+                Option.toArray(Option.filter(Option.fromUndefinedOr(script.dialect.parameters.get(name)), (kind) => /^\p{Ll}/u.test(name) && kind.has('special') && ['tied', 'readonly', 'association'].some((word) => kind.has(word)))).map((kind) => ({
+                    refuse: `zsh parameter ${name} is ${[...kind].join('-')}, so assigning it changes the shell itself.`,
+                    instruct: 'Rename the variable.',
+                })),
+            );
         },
     },
     'ffmpeg.timer': {
         program: 'ffmpeg',
         judge: (invocation) => {
-            const words = Option.getOrElse(texts(invocation.words), (): readonly string[] => []);
+            const words = Option.getOrElse(Option.all(invocation.words.map(Struct.get('text'))), (): readonly string[] => []);
             const paced = words.includes('-re') || words.includes('-readrate');
             const silenced = /^a?nullsrc\b/u.test(Option.getOrUndefined(Array.get(words, words.indexOf('-i') + 1)) ?? '') && words.includes('-i');
             const discarded = words.at(-1) === '/dev/null' || (words.includes('null') && words.at(-1) === '-');
@@ -257,7 +340,7 @@ const waits: Table = {
         program: 'ping',
         judge: (invocation) => {
             const seconds = (Number(Option.getOrUndefined(after(invocation, '-c')) ?? 'NaN') - 1) * Number(Option.getOrUndefined(after(invocation, '-i')) ?? '1');
-            const local = Option.exists(operand(invocation), (host) => loopback.has(host)) && Option.isNone(invocation.stage) && !invocation.within.some(({ _tag }) => _tag === 'Substitution');
+            const local = Option.exists(invocation.operand(), (host) => loopback.has(host)) && Option.isNone(invocation.stage) && !invocation.within.some(({ _tag }) => _tag === 'Substitution');
             return local && seconds > 0 ? slept(invocation, `${seconds}`) : [];
         },
     },

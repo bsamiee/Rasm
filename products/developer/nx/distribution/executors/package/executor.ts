@@ -9,7 +9,7 @@ const Package = Schema.Struct({
     __unparsed__: Words,
 }).annotate({
     title: 'Package',
-    description: "Packs each host package the project's other builds wrote, else its tracked source folder: a .ccx zip for an Adobe UXP manifest.json, a .zip for a Chrome Manifest V3 manifest.json, a .yak through yak build for a manifest.yml",
+    description: "Packs each host package the project's other builds wrote, else its tracked source folder: a .ccx zip for an Adobe UXP manifest.json, a .zip for a Chrome Manifest V3 manifest.json, a .zip for a Claude Code .claude-plugin/plugin.json, a .yak through yak build for a manifest.yml",
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -26,7 +26,7 @@ const execute = executor(Package, function* ({ outputPath, __unparsed__: words =
         { discard: true },
     );
     yield* Array.match(packed, {
-        onEmpty: () => new Cause.UnknownError(folders, `${project} finds no manifest.json or manifest.yml in what its builds wrote`),
+        onEmpty: () => new Cause.UnknownError(folders, `${project} finds no host manifest in what its builds wrote`),
         onNonEmpty: Effect.forEach(({ found, pack, file }) => pack(found, file, words), { discard: true }),
     });
     return { success: true };

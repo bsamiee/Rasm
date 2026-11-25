@@ -101,6 +101,7 @@ const Yak = Schema.Struct({ name: Schema.String, version: Schema.String, authors
 const Pushed = Schema.Struct({ distributions: Schema.Array(Schema.Struct({ filename: Schema.String })) });
 const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.Struct({ app: Schema.Literals(Struct.keys(UXP)) }) }));
 const Chrome = Schema.fromJsonString(Schema.Struct({ manifest_version: Schema.Literal(3), version: Schema.String, key: Schema.optionalKey(Schema.Uint8ArrayFromBase64) }));
+const Claude = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String }));
 const Revision = Schema.Struct({ distributionChannels: Schema.Array(Schema.Struct({ crxVersion: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Upload = Schema.optionalKey(Schema.Literals(['UPLOAD_STATE_UNSPECIFIED', 'SUCCEEDED', 'IN_PROGRESS', 'FAILED', 'NOT_FOUND']));
 const Status = Schema.Struct({ publishedItemRevisionStatus: Revision, submittedItemRevisionStatus: Revision, lastAsyncUploadState: Upload });
@@ -380,6 +381,15 @@ const HOSTS: readonly Host[] = [
                     Option.match({ onNone: () => Effect.succeedSome(`${found.name} states no key in its manifest.json: its first version uploads by hand at ${store}, then the public key the dashboard shows goes in as key, and each later version publishes here`), onSome: ({ pushed }) => pushed }),
                 ),
         },
+    },
+    {
+        manifest: '.claude-plugin/plugin.json',
+        technology: 'claude',
+        archive: '.zip',
+        output: '.',
+        read: (text) => Effect.succeed(Schema.decodeOption(Claude)(text)),
+        write: exact,
+        build: { executor: 'package', command: 'a zip archive of the plugin folder', pack: zipped },
     },
     {
         manifest: '*.uproject',

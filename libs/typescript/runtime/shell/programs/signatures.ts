@@ -28,7 +28,7 @@ const recursive = (roles: readonly ('read' | 'write' | 'delete')[], ...given: re
     ] as const;
 const sourced = { roles: ['read', 'execute'], count: 'optional' } as const;
 const signatures: readonly (typeof Usage.Encoded)[] = [
-    { name: 'cat', operands: [read], input: data, output: printed, abbreviates: true },
+    { name: 'cat', operands: [read], input: { roles: ['read', 'copy'] }, output: printed, abbreviates: true },
     {
         name: 'cp',
         flags: [
@@ -56,6 +56,7 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
         abbreviates: true,
     },
     { name: 'rmdir', operands: [{ roles: ['delete'], count: 'rest' }], abbreviates: true },
+    { name: 'rsync', aliases: ['ditto'], operands: [walked, { roles: [], count: 'one' }] },
     {
         name: 'mkdir',
         operands: [{ roles: ['create'], count: 'rest' }],
@@ -100,7 +101,7 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
         output: printed,
         abbreviates: true,
     },
-    { name: 'tee', flags: [['none', '-a', '--append']], operands: [{ ...written, count: 'rest' }], input: data, output: printed, abbreviates: true },
+    { name: 'tee', flags: [['none', '-a', '--append']], operands: [{ ...written, count: 'rest' }], input: { roles: ['read', 'copy'] }, output: printed, abbreviates: true },
     { name: 'shred', operands: [{ roles: ['write', 'delete'], count: 'rest' }], abbreviates: true },
     { name: 'trash', operands: [{ roles: ['delete'], count: 'rest', tree: true }] },
     { name: 'rimraf', operands: [{ roles: ['delete'], count: 'rest', tree: true }] },
@@ -161,7 +162,7 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
     { name: 'awk', values: { '-f': { roles: ['read', 'execute'] } }, operands: [{ roles: ['code'], count: 'one', unless: ['-f'] }, read], input: data, output: printed },
     {
         name: 'grep',
-        flags: [['none', '-R', '-r', '--recursive']],
+        flags: [['none', '-R', '-r', '--recursive', '--dereference-recursive']],
         values: { '-f': data },
         operands: [pattern('-e', '-f'), ...recursive(['read'], '-R')],
         input: data,
@@ -308,7 +309,12 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
     },
     {
         name: 'hyperfine',
-        values: { '-p': { roles: ['script'] }, '-s': { roles: ['script'] }, '-c': { roles: ['script'] }, '--export-json': written },
+        flags: [
+            ['none', '-S'],
+            ['none', '-N'],
+            ['one', '--shell'],
+        ],
+        values: { '-p': { roles: ['script'] }, '-s': { roles: ['script'] }, '-c': { roles: ['script'] }, '-C': { roles: ['script'] }, '--export-json': written },
         output: printed,
     },
     { name: 'printf', flags: [['one', '-v']], values: { '-v': { roles: ['assignment'] } }, operands: [plain], output: { ...printed, unless: ['-v'] } },
@@ -344,7 +350,7 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['none', '-u'],
             ['none', '-x'],
             ['none', '-n'],
-            ['none', '-v'],
+            ['none', '-v', '--verbose'],
         ],
         operands: [{ roles: ['shell'], count: 'one', when: ['-c'] }, { roles: [], count: 'optional', when: ['-c'] }, { ...sourced, unless: ['-c', '-s'] }, plain],
         input: { roles: ['shell'], unless: ['-c'] },
@@ -465,7 +471,7 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
         interspersed: false,
     },
     { name: 'xargs', flags: [['one', '-a', '--arg-file']], values: { '-I': { roles: ['placeholder'] }, '-J': { roles: ['placeholder'] }, '-a': data }, operands: [inner], input: { roles: ['command'], unless: ['-a'] }, interspersed: false },
-    { name: 'parallel', operands: [inner], input: { roles: ['command'] }, interspersed: false },
+    { name: 'parallel', flags: [['one', '-j', '--jobs', '-P', '--max-procs']], operands: [inner], input: { roles: ['command'] }, interspersed: false },
     {
         name: 'watch',
         operands: [
@@ -631,6 +637,7 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
     },
     {
         name: 'make',
+        flags: [['optional', '-j', '--jobs']],
         values: { '-C': directory, '-f': data },
         operands: [plain],
         abbreviates: true,
@@ -640,6 +647,7 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
         flags: [
             ['one', '-C'],
             ['one', '-f'],
+            ['one', '-j'],
         ],
         values: { '-C': directory, '-f': data },
         operands: [plain],
@@ -710,11 +718,38 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
     },
     {
         name: 'cargo-fmt',
+        flags: [
+            ['none', '--check'],
+            ['none', '--all'],
+            ['one', '-p', '--package'],
+            ['one', '--manifest-path'],
+            ['one', '--message-format'],
+        ],
         values: { '--manifest-path': data },
+    },
+    {
+        name: 'cargo',
+        commands: [
+            {
+                name: 'fmt',
+                flags: [
+                    ['none', '--check'],
+                    ['none', '--all'],
+                    ['one', '-p', '--package'],
+                    ['one', '--manifest-path'],
+                    ['one', '--message-format'],
+                ],
+                values: { '--manifest-path': data },
+            },
+        ],
     },
     { name: 'swiftlint', flags: [['none', '--fix', '--autocorrect']], operands: fixed('--fix'), commands: [{ name: 'lint', flags: [['none', '--fix', '--autocorrect']], operands: fixed('--fix') }] },
     {
         name: 'ruff',
+        inherited: [
+            ['one', '--cache-dir'],
+            ['one', '--config'],
+        ],
         commands: [
             {
                 name: 'check',
@@ -783,6 +818,75 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
         ],
     },
     { name: 'mypy', aliases: ['refurb', 'pytest', 'ty'], operands: [walked] },
+    {
+        name: 'mypy',
+        aliases: ['refurb'],
+        flags: [
+            ['one', '--cache-dir'],
+            ['one', '--config-file'],
+            ['one', '--python-version'],
+        ],
+    },
+    {
+        name: 'vitest',
+        flags: [
+            ['one', '-c', '--config'],
+            ['one', '-r', '--root'],
+            ['one', '--dir'],
+            ['one', '--exclude'],
+            ['one', '--mode'],
+            ['one', '--project'],
+            ['one', '--repeats'],
+            ['one', '--reporter'],
+            ['one', '--shard'],
+            ['one', '-t', '--testNamePattern'],
+        ],
+    },
+    {
+        name: 'playwright',
+        flags: [
+            ['one', '-c', '--config'],
+            ['one', '-g', '--grep'],
+            ['one', '-G', '--grep-invert'],
+            ['one', '-j', '--workers'],
+            ['one', '--add-reporter'],
+            ['one', '--browser'],
+            ['one', '--global-timeout'],
+            ['one', '--last-failed-file'],
+            ['one', '--max-failures'],
+            ['one', '--output'],
+            ['one', '--project'],
+            ['one', '--repeat-each'],
+            ['one', '--reporter'],
+            ['one', '--retries'],
+            ['one', '--shard'],
+            ['one', '--test-list'],
+            ['one', '--test-list-invert'],
+            ['one', '--timeout'],
+            ['one', '--trace'],
+            ['one', '--tsconfig'],
+        ],
+    },
+    {
+        name: 'analyzeHeadless',
+        flags: [
+            ['one', '-import'],
+            ['one', '-process'],
+            ['one', '-log'],
+            ['one', '-scriptlog'],
+            ['one', '-scriptPath'],
+            ['one', '-propertiesPath'],
+            ['one', '-preScript'],
+            ['one', '-postScript'],
+            ['one', '-processor'],
+            ['one', '-cspec'],
+            ['one', '-loader'],
+            ['one', '-analysisTimeoutPerFile'],
+            ['one', '-keystore'],
+            ['one', '-max-cpu'],
+            ['one', '-librarySearchPaths'],
+        ],
+    },
     { name: 'stubgen', flags: [['one', '-o', '--output']], values: { '-o': { roles: ['create', 'write'], tree: true } }, operands: [read] },
     {
         name: 'tsc',
@@ -796,6 +900,10 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '-c', '--configuration'],
             ['one', '-p', '--projects'],
             ['one', '-t', '--targets', '--target'],
+            ['none', '--skip-sync', '--skipSync'],
+            ['none', '--only-cache', '--onlyCache'],
+            ['none', '--only-daemon', '--onlyDaemon'],
+            ['none', '--only-workspace-data', '--onlyWorkspaceData'],
         ],
     },
 ];

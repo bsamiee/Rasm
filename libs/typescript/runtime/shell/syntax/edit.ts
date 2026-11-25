@@ -29,6 +29,7 @@ type Edit = Data.TaggedEnum<{ Splice: { readonly changes: Array.NonEmptyReadonly
 
 const Edit = Data.taggedEnum<Edit>();
 const joints = { ';': true, '&': true, '&&': false, '||': false, '|': false, '|&': false } as const;
+const spaced: Readonly<Record<Joint, string>> = { ';': '; ', '&': ' & ', '&&': ' && ', '||': ' || ', '|': ' | ', '|&': ' |& ' };
 const emptied: ReadonlySet<string> = new Set(['File', 'CmdSubst', 'ProcSubst', 'CaseItem']);
 const identifier = /^[A-Za-z_]\w*$/u;
 const bare = /\\\n|\\(?<escaped>[\s\S])|(?<plain>[\s\S])/gu;
@@ -404,17 +405,18 @@ class Editor {
         const list = Option.isSome(this.#siblings(stmt));
         const binary = this.#links.get(stmt)?.parent?.type === 'BinaryCmd';
         const placeable = (list || binary) && !(shown.text.includes('\n') && this.#pending(start));
-        return settled(start)(placeable ? Result.succeed(list ? Array.of(inserted(start, '', shown, ` ${joint} `)) : Array.make(inserted(start, '{ ', shown, ` ${joint} `), inserted(this.#visible(stmt), '; }', { text: '', redacted: [] }, ''))) : Result.fail('Position'));
+        return settled(start)(placeable ? Result.succeed(list || (joint.startsWith('|') && !stmt.negated) ? Array.of(inserted(start, '', shown, spaced[joint])) : Array.make(inserted(start, '{ ', shown, spaced[joint]), inserted(this.#visible(stmt), '; }', { text: '', redacted: [] }, ''))) : Result.fail('Position'));
     }
 
     follow(stmt: Stmt, joint: Joint, script: Script): Edit {
         const shown = new Editor(script).#grouped(joints[joint]);
         const list = Option.isSome(this.#siblings(stmt));
         const binary = this.#links.get(stmt)?.parent?.type === 'BinaryCmd';
-        const placed = Match.value({ list, background: joints[joint] && stmt.background }).pipe(
+        const placed = Match.value({ list, background: joints[joint] && stmt.background, piped: binary && joint.startsWith('|') && !stmt.negated }).pipe(
             Match.when({ list: true, background: true }, () => Array.of(inserted(this.#visible(stmt), ' ', shown, ''))),
-            Match.when({ list: true }, () => Array.of(inserted(this.#body(stmt), ` ${joint} `, shown, ''))),
-            Match.orElse(() => Array.make(inserted(this.#located(stmt.start), '{ ', { text: '', redacted: [] }, ''), inserted(this.#visible(stmt), ` ${joint} `, shown, '; }'))),
+            Match.when({ list: true }, () => Array.of(inserted(this.#body(stmt), spaced[joint], shown, ''))),
+            Match.when({ piped: true }, () => Array.of(inserted(this.#visible(stmt), spaced[joint], shown, ''))),
+            Match.orElse(() => Array.make(inserted(this.#located(stmt.start), '{ ', { text: '', redacted: [] }, ''), inserted(this.#visible(stmt), spaced[joint], shown, '; }'))),
         );
         const placeable = (list || binary) && !(shown.text.includes('\n') && placed.some(({ start }) => this.#pending(start)));
         return settled(this.#located(stmt.start))(placeable ? Result.succeed(placed) : Result.fail('Position'));

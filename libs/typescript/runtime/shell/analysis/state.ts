@@ -1,7 +1,7 @@
 import { Array, Data, Equal, HashMap, HashSet, Option } from 'effect';
 import type { Stmt } from 'sh-syntax';
 import type { Invocation } from '#/analysis/invocation';
-import { Binding, Scope } from '#/evaluation/value';
+import { Binding, Origin, Scope } from '#/evaluation/value';
 import type { Dialect } from '#/syntax/dialect';
 import type { Script } from '#/syntax/script';
 
@@ -12,14 +12,18 @@ type Callee = Data.TaggedEnum<{ Absent: object; Defined: { readonly body: Stmt; 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const Callee = Data.taggedEnum<Callee>();
-const unknown = HashSet.make(Binding.Unknown());
+const unknown = HashSet.make(Binding.Unknown({ origins: HashSet.empty() }));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Variable extends Data.Class<{ readonly values: HashSet.HashSet<Binding>; readonly exported: boolean }> {
     get single(): Binding {
         const [only, ...more] = this.values;
-        return only !== undefined && more.length === 0 ? only : Binding.Unknown();
+        return only !== undefined && more.length === 0 ? only : Binding.Unknown({ origins: this.origins });
+    }
+
+    get origins(): HashSet.HashSet<Origin> {
+        return HashSet.reduce(this.values, HashSet.empty<Origin>(), (origins, binding) => HashSet.union(origins, binding._tag === 'Unknown' ? binding.origins : HashSet.make(Origin.Literal())));
     }
 
     join(other: Variable): Variable {
@@ -27,14 +31,15 @@ class Variable extends Data.Class<{ readonly values: HashSet.HashSet<Binding>; r
     }
 
     static of(values: HashSet.HashSet<Binding>, exported: boolean): Variable {
-        return new Variable({ values: HashSet.some(values, Binding.$is('Unknown')) ? unknown : values, exported });
+        const held = new Variable({ values, exported });
+        return HashSet.some(values, Binding.$is('Unknown')) ? new Variable({ values: HashSet.make(Binding.Unknown({ origins: held.origins })), exported }) : held;
     }
 }
 
 class State extends Data.Class<{
     readonly variables: HashMap.HashMap<string, Variable>;
     readonly unlisted: Variable;
-    readonly positional: Option.Option<readonly string[]>;
+    readonly positional: Option.Option<readonly Binding[]>;
     readonly name: string;
     readonly functions: HashMap.HashMap<string, HashSet.HashSet<Callee>>;
     readonly callee: HashSet.HashSet<Callee>;
@@ -49,12 +54,12 @@ class State extends Data.Class<{
         return Option.getOrElse(HashMap.get(this.functions, name), () => this.callee);
     }
 
-    scopes(names: ReadonlySet<string>): readonly Scope[] {
+    scopes(names: ReadonlySet<string>, substitutions: Scope['substitutions'] = HashMap.empty()): readonly Scope[] {
         const chosen = [...HashMap.entries(this.variables)].reduce<readonly HashMap.HashMap<string, Binding>[]>(
             (scopes, [name, held]) => (names.has(name) && HashSet.size(held.values) > 1 ? scopes.flatMap((scope) => [...held.values].map((binding) => HashMap.set(scope, name, binding))) : scopes),
             [HashMap.map(this.variables, (held) => held.single)],
         );
-        return chosen.map((variables) => new Scope({ variables, unlisted: this.unlisted.single, positional: this.positional, name: this.name }));
+        return chosen.map((variables) => new Scope({ variables, unlisted: this.unlisted.single, positional: this.positional, name: this.name, substitutions }));
     }
 
     // --- [CHANGING]
@@ -71,7 +76,7 @@ class State extends Data.Class<{
         return new State({ ...this, variables: HashMap.reduce(after.variables, this.variables, (variables, binding, name) => (Equal.equals(Option.some(binding), HashMap.get(before.variables, name)) ? variables : HashMap.set(variables, name, Variable.of(HashSet.make(binding), this.variable(name).exported)))) });
     }
 
-    entered(scope: Scope, dialect: Dialect, positional: Option.Option<readonly string[]>, name: string): State {
+    entered(scope: Scope, dialect: Dialect, positional: Option.Option<readonly Binding[]>, name: string): State {
         const started = State.started(scope, dialect);
         return new State({ ...started, variables: HashMap.reduce(this.variables, started.variables, (variables, held, key) => (held.exported || key === 'PWD' ? HashMap.set(variables, key, held) : variables)), positional, name });
     }
@@ -99,7 +104,7 @@ class State extends Data.Class<{
         const finite = (binding: Binding) => Binding.$match(binding, { Unset: () => true, Unknown: () => true, Known: ({ value }) => known.has(value), Listed: ({ items }) => items.every((item) => known.has(item)) });
         return new State({
             ...next,
-            variables: HashMap.map(next.variables, (held, name) => (name === '?' || HashSet.every(HashSet.difference(held.values, this.variable(name).values), finite) ? held : Variable.of(unknown, held.exported))),
+            variables: HashMap.map(next.variables, (held, name) => (name === '?' || HashSet.every(HashSet.difference(held.values, this.variable(name).values), finite) ? held : Variable.of(HashSet.make(Binding.Unknown({ origins: held.origins })), held.exported))),
             positional: Option.filter(next.positional, () => Equal.equals(next.positional, this.positional)),
         });
     }
@@ -152,7 +157,7 @@ class Flow extends Data.Class<{
     static readonly none = new Flow({ zero: Option.none(), nonzero: Option.none(), breaks: Option.none(), continues: Option.none(), returns: Option.none(), exits: Option.none(), found: [] });
 
     static ran(zero: Option.Option<State>, nonzero: Option.Option<State>, found: readonly Invocation[] = []): Flow {
-        return new Flow({ ...Flow.none, zero: Option.map(zero, (state) => state.bound('?', Binding.Known({ value: '0' }))), nonzero: Option.map(nonzero, (state) => state.bound('?', Binding.Unknown())), found });
+        return new Flow({ ...Flow.none, zero: Option.map(zero, (state) => state.bound('?', Binding.Known({ value: '0' }))), nonzero: Option.map(nonzero, (state) => state.bound('?', Binding.Unknown({ origins: HashSet.empty() }))), found });
     }
 
     static joined(flows: readonly Flow[]): Flow {

@@ -38,7 +38,7 @@ const carapaceTypes = { bool: 'none', boolSlice: 'none', count: 'none', duration
 
 const omitted = <S extends Schema.Top>(schema: S, empty: S['Encoded'], kept: Predicate.Predicate<S['Encoded']>) => Schema.optionalKey(Schema.toEncoded(schema)).pipe(Schema.decodeTo(schema, { decode: SchemaGetter.withDefault(Effect.succeed(empty)), encode: SchemaGetter.transformOptional(Option.filter(kept)) }));
 const listed = <S extends Schema.Top>(item: S) => omitted(Schema.Array(item), [], Array.isReadonlyArrayNonEmpty);
-const Role = Schema.Literals(['read', 'write', 'create', 'delete', 'execute', 'directory', 'host', 'user', 'container', 'assignment', 'unset', 'command', 'shell', 'script', 'code', 'placeholder']);
+const Role = Schema.Literals(['read', 'write', 'create', 'delete', 'execute', 'copy', 'directory', 'host', 'user', 'container', 'assignment', 'unset', 'command', 'shell', 'script', 'code', 'placeholder']);
 const Arity = Schema.Literals(['none', 'one', 'optional', 'rest']);
 const Slot = Schema.Struct({
     roles: listed(Role),
@@ -74,6 +74,20 @@ const unified = (base: readonly (typeof Flag.Type)[], over: readonly (typeof Fla
             },
         ];
     }, base);
+
+const claimed = (base: readonly (typeof Flag.Type)[], over: readonly (typeof Flag.Type)[]): readonly (typeof Flag.Type)[] =>
+    over.reduce<readonly (typeof Flag.Type)[]>(
+        (flags, flag) => [
+            ...flags.flatMap((held) =>
+                Array.match(
+                    held.spellings.filter((spelling) => !flag.spellings.includes(spelling)),
+                    { onEmpty: () => [], onNonEmpty: (spellings) => [{ ...held, spellings }] },
+                ),
+            ),
+            flag,
+        ],
+        base,
+    );
 
 class Usage extends Schema.Class<Usage, { readonly brand: unique symbol }>('@rasm/shell/Usage')(
     Schema.Struct({
@@ -123,8 +137,8 @@ class Usage extends Schema.Class<Usage, { readonly brand: unique symbol }>('@ras
         return Usage.make({
             name: this.name,
             aliases: Array.dedupe([...this.aliases, ...over.aliases]),
-            flags: unified(this.flags, local),
-            inherited: unified(this.inherited, [...persistent, ...over.inherited]),
+            flags: claimed(this.flags, local),
+            inherited: claimed(this.inherited, [...persistent, ...over.inherited]),
             values: { ...this.values, ...over.values },
             operands: Option.orElse(over.operands, () => this.operands),
             input: Option.orElse(over.input, () => this.input),

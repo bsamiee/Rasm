@@ -1,6 +1,6 @@
-import { Cache, Context, Effect, Equal, FileSystem, Function, Match, Option, Record } from 'effect';
+import { Cache, Cause, Context, Effect, Equal, FileSystem, Function, HashSet, Match, Option, Record } from 'effect';
 import { ChildProcessSpawner, type CommandLine } from 'effect/process';
-import { BinTestOperator, createSourceIndex, ErrorCode, type Node, ParseError, RedirOperator, ShSyntaxError, walk, type Word } from 'sh-syntax';
+import { BinTestOperator, createSourceIndex, ErrorCode, type Node, ParseError, RedirOperator, ShSyntaxError, walk, type Word, type WordPart } from 'sh-syntax';
 import type { Processor } from 'sh-syntax/sync';
 import { Place } from '#/analysis/invocation';
 import { builtins, walked } from '#/analysis/walk';
@@ -38,6 +38,11 @@ class Shell extends Context.Service<Shell>()('@rasm/shell/shell', {
             lookup: ({ binary, environment }: { readonly binary: string; readonly environment: Readonly<Record<string, string>> }) => Effect.option(Effect.provideService(probed({ shell: binary, environment }, builtins, parsed), ChildProcessSpawner.ChildProcessSpawner, spawner)),
         });
         const interpreter = (binary: string, environment: Readonly<Record<string, string>>) => Cache.get(interpreters, { binary, environment });
+        const read = (path: string) =>
+            fs.readFileString(path).pipe(
+                Effect.map(Option.liftPredicate((body: string) => !body.includes('\0'))),
+                Effect.catch((error) => (error.reason._tag === 'NotFound' ? Effect.fail(new Cause.NoSuchElementError(path)) : Effect.succeedNone)),
+            );
         const parsed = (source: string, dialect: Dialect) =>
             Effect.try({
                 try: () => facts.processor(source, { variant: dialect.variant }),
@@ -58,7 +63,7 @@ class Shell extends Context.Service<Shell>()('@rasm/shell/shell', {
                 Option.filter(logical, () => Option.isSome(physical) && Equal.equals(physical, resolved)),
                 () => physical,
             );
-            return { place: Place.Local({ cwd: Option.match(pwd, { onNone: () => Field.unknown(Origin.Variable({ name: 'PWD' })), onSome: Field.known }) }), scope: Scope.started({ dialect, operands: at.operands ?? [], pwd }) };
+            return { place: Place.Local({ cwd: Option.match(pwd, { onNone: () => Field.unknown(Origin.Variable({ name: 'PWD', origins: HashSet.empty() })), onSome: Field.known }) }), scope: Scope.started({ dialect, operands: at.operands ?? [], pwd }) };
         });
         const scripted = Effect.fnUntraced(function* (source: string, dialect: Dialect, start: Pick<Script, 'place' | 'scope'>, redacted: Script['redacted'] = []): Effect.fn.Return<Script, ShellError> {
             const syntax = yield* parsed(source, dialect);
@@ -76,7 +81,7 @@ class Shell extends Context.Service<Shell>()('@rasm/shell/shell', {
                     return [word, { role, braces: Option.liftPredicate(alternated, Function.constant(changed)) }] as const;
                 }),
             );
-            const invocations = yield* Effect.cached(Effect.suspend(() => walked(script, { parse: (text, held) => scripted(text, held, { place: script.place, scope: Scope.started({ dialect: held, operands: [], pwd: Option.none() }) }), programs, interpreter })));
+            const invocations = yield* Effect.cached(Effect.suspend(() => walked(script, { parse: (text, held) => scripted(text, held, { place: script.place, scope: Scope.started({ dialect: held, operands: [], pwd: Option.none() }) }), programs, interpreter, read })));
             const script: Script = new Script({ source, dialect, syntax, located: createSourceIndex(source), place: start.place, scope: start.scope, sites: new Map(sites), redacted, invocations });
             return script;
         });
@@ -93,10 +98,11 @@ class Shell extends Context.Service<Shell>()('@rasm/shell/shell', {
                 return yield* scripted(source, script.dialect, { place: script.place, scope: script.scope }, redacted);
             }),
             script:
-                (dialect: Dialect) =>
-                (strings: TemplateStringsArray, ...holes: readonly CommandLine.TemplateExpression[]) =>
+                (at: Dialect | Script) =>
+                (strings: TemplateStringsArray, ...holes: readonly (CommandLine.TemplateExpression | Word | WordPart)[]) =>
                     Effect.gen(function* () {
-                        const { source, redacted } = yield* constructed((text) => parsed(text, dialect), dialect, strings, holes, programs);
+                        const [dialect, origin] = at instanceof Script ? [at.dialect, Option.some(at)] : [at, Option.none<Script>()];
+                        const { source, redacted } = yield* constructed((text) => parsed(text, dialect), dialect, strings, holes, programs, origin);
                         return yield* scripted(source, dialect, yield* started(dialect, {}), redacted);
                     }).pipe(Effect.withSpan('Shell.script')),
         } as const;

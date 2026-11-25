@@ -1,4 +1,4 @@
-import { Array, Data, Glob, HashMap, Match, Option, Redacted } from 'effect';
+import { Array, Data, Glob, HashMap, HashSet, Match, Option, Redacted } from 'effect';
 import { type BraceExp, LangVariant, type Lit, type SglQuoted, type Word, type WordPart } from 'sh-syntax';
 import { evaluated } from '#/evaluation/arithmetic';
 import { Chunk, type Parted, type Frame, held, parameter, rendered, type Rules, splits, Value, valued } from '#/evaluation/parameter';
@@ -143,7 +143,12 @@ const alternated = (parts: readonly WordPart[], dialect: Dialect): Option.Option
 const tilded = (lit: Lit, next: Option.Option<WordPart>, scope: Scope, frame: Frame, colons: boolean): Option.Option<readonly [readonly Chunk[], string]> => {
     const zsh = frame.dialect.variant === LangVariant.LangZsh;
     const known = (name: string, unset: () => readonly Chunk[]) =>
-        Binding.$match(scope.get(name), { Known: ({ value }) => [held(value)], Unset: unset, Listed: () => [Chunk.Hidden({ origin: Origin.Variable({ name }), certain: true, many: false })], Unknown: () => [Chunk.Hidden({ origin: Origin.Variable({ name }), certain: true, many: false })] });
+        Binding.$match(scope.get(name), {
+            Known: ({ value }) => [held(value)],
+            Unset: unset,
+            Listed: () => [Chunk.Hidden({ origin: Origin.Variable({ name, origins: HashSet.empty() }), certain: true, many: false })],
+            Unknown: ({ origins }) => [Chunk.Hidden({ origin: Origin.Variable({ name, origins }), certain: true, many: false })],
+        });
     const slashed = Option.exists(Option.map(next, opening), (text) => text.startsWith('/'));
     return Option.flatMap(Option.fromNullishOr((colons ? /^~(?<user>[^/\\:]*)(?<slash>[/:]?)/u : /^~(?<user>[^/\\]*)(?<slash>\/?)/u).exec(lit.value)), (found) => {
         const { user = '', slash = '' } = found.groups ?? {};
@@ -191,8 +196,8 @@ const parted = (part: WordPart, trailing: readonly string[], scope: Scope, frame
                 [scope, [frame.quoted ? held(`${dollar ? '$' : ''}'${value}'`, secret) : Option.match(dollar ? decoded(value, frame.dialect) : Option.some(value), { onNone: () => Chunk.Hidden({ origin: Origin.Bytes(), certain: true, many: false }), onSome: (text) => held(text, secret) })]] as const,
             DblQuoted: ({ parts }) => (parts.length === 0 ? ([scope, [held('')]] as const) : worded(parts, scope, { ...frame, quoted: true }, false)),
             ParamExp: (exp) => parameter(exp, trailing, scope, frame),
-            CmdSubst: () => [scope, [Chunk.Hidden({ origin: Origin.Substitution(), certain: frame.quoted || frame.rules.single, many: !frame.quoted && splits(frame) })]] as const,
-            ProcSubst: () => [scope, [Chunk.Hidden({ origin: Origin.Substitution(), certain: true, many: false })]] as const,
+            CmdSubst: (node) => [scope, [Chunk.Hidden({ origin: Origin.Substitution({ programs: Option.getOrElse(HashMap.get(scope.substitutions, node), Array.empty) }), certain: frame.quoted || frame.rules.single, many: !frame.quoted && splits(frame) })]] as const,
+            ProcSubst: (node) => [scope, [Chunk.Hidden({ origin: Origin.Substitution({ programs: Option.getOrElse(HashMap.get(scope.substitutions, node), Array.empty) }), certain: true, many: false })]] as const,
             ArithmExp: ({ x }) => {
                 const [result, next] = evaluated(x, scope, frame.dialect, (word, from) => valued(word, from, frame));
                 return [
@@ -247,7 +252,7 @@ const tokens = (chunk: Chunk, ifs: Option.Option<string>): readonly Token[] =>
                 Match.when({ split: false, empty: true }, () => (quoted ? [Token.Mark()] : [])),
                 Match.when({ split: false }, () => [Token.Piece({ text, glob, secret })]),
                 Match.when({ empty: true }, () => []),
-                Match.when({ ifs: Match.undefined }, () => [Token.Unseen({ origin: Origin.Variable({ name: 'IFS' }), certain: false, many: true })]),
+                Match.when({ ifs: Match.undefined }, () => [Token.Unseen({ origin: Origin.Variable({ name: 'IFS', origins: HashSet.empty() }), certain: false, many: true })]),
                 Match.orElse(({ ifs: by = spaces }) => {
                     const [white, hard] = [true, false].map((whitespace) =>
                         [...by]
@@ -362,7 +367,7 @@ const expanded = (word: Word, scope: Scope, dialect: Dialect, at: { readonly bra
     });
 };
 const text = (word: Word, dialect: Dialect): Option.Option<string> => {
-    const { expansion } = expanded(word, new Scope({ variables: HashMap.empty(), unlisted: Binding.Unset(), positional: Option.some([]), name: dialect.binary }), dialect, { braces: Option.none(), role: Role.Argument(), secret: () => false });
+    const { expansion } = expanded(word, new Scope({ variables: HashMap.empty(), unlisted: Binding.Unset(), positional: Option.some([]), name: dialect.binary, substitutions: HashMap.empty() }), dialect, { braces: Option.none(), role: Role.Argument(), secret: () => false });
     return expansion._tag === 'Expanded' ? expansion.text : Option.none();
 };
 

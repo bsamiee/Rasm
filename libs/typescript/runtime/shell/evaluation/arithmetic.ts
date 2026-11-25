@@ -1,6 +1,6 @@
-import { Array, Data, Equal, HashMap, Match, Option } from 'effect';
+import { Array, Data, Equal, HashMap, HashSet, Match, Option } from 'effect';
 import { type ArithmExpr, BinAritOperator, type BinaryArithm, LangVariant, UnAritOperator, type UnaryArithm, type Word } from 'sh-syntax';
-import { Binding, type Scope } from '#/evaluation/value';
+import { Binding, Origin, type Scope } from '#/evaluation/value';
 import type { Dialect } from '#/syntax/dialect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -127,8 +127,9 @@ const variable = (name: string, scope: Scope, dialect: Dialect, visited: Readonl
     });
 };
 const named = (expression: ArithmExpr | null): Option.Option<string> => (expression?.type === 'Word' && expression.parts.length === 1 && expression.parts[0]?.type === 'Lit' && identifier.test(expression.parts[0].value) ? Option.some(expression.parts[0].value) : Option.none());
-const joined = (start: Scope, ...ends: readonly Scope[]): Scope => ends.reduce((scope, end) => HashMap.reduce(end.variables, scope, (merged, binding, name) => (Equal.equals(Option.some(binding), HashMap.get(start.variables, name)) ? merged : merged.set(name, Binding.Unknown()))), start);
-const stored = (name: Option.Option<string>, [value, scope]: Evaluated): Evaluated => [value, Option.match(name, { onNone: () => scope, onSome: (target) => scope.set(target, value._tag === 'Known' ? Binding.Known({ value: `${value.value}` }) : Binding.Unknown()) })];
+const joined = (start: Scope, ...ends: readonly Scope[]): Scope =>
+    ends.reduce((scope, end) => HashMap.reduce(end.variables, scope, (merged, binding, name) => (Equal.equals(Option.some(binding), HashMap.get(start.variables, name)) ? merged : merged.set(name, Binding.Unknown({ origins: HashSet.make(Origin.Arithmetic()) })))), start);
+const stored = (name: Option.Option<string>, [value, scope]: Evaluated): Evaluated => [value, Option.match(name, { onNone: () => scope, onSome: (target) => scope.set(target, value._tag === 'Known' ? Binding.Known({ value: `${value.value}` }) : Binding.Unknown({ origins: HashSet.make(Origin.Arithmetic()) })) })];
 const evaluated = (expression: ArithmExpr | null, scope: Scope, dialect: Dialect, valued: Valued): Evaluated =>
     Option.match(Option.fromNullishOr(expression), {
         onNone: () => [known(0n), scope] as const,

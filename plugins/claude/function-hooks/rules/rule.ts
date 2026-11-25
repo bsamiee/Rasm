@@ -16,20 +16,7 @@ type Word = Parameters<Editor['before']>[0];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const said = (written: Written): Option.Option<string> => Option.filter(written.field.text, () => written.exact);
-const matches = (written: Written, pattern: RegExp): boolean => Option.exists(said(written), (text) => pattern.test(text));
-const spells = (written: Written, ...words: readonly string[]): boolean => Option.exists(said(written), (text) => words.includes(text));
-const texts = (words: readonly Written[]): Option.Option<readonly string[]> => Option.all(words.map(said));
-const named = (invocation: Invocation): Option.Option<string> => (invocation.program._tag === 'Unknown' ? Option.none() : Option.some(invocation.program.name.slice(invocation.program.name.lastIndexOf('/') + 1)));
-const is = (invocation: Invocation, ...names: readonly string[]): boolean => Option.exists(named(invocation), (name) => names.includes(name));
-const operand = (invocation: Invocation, at = 0): Option.Option<string> => Option.flatMap(Array.get(invocation.operands, at), ({ word }) => said(word));
-const head = (invocation: Invocation): Option.Option<Word> => Option.flatMap(Array.head(invocation.words), ({ node }) => node);
-const foreground = ({ action }: Call): boolean => action.tool === 'Bash' && !('run_in_background' in action && action.run_in_background);
-const leaves = (invocations: readonly Invocation[]): readonly Invocation[] => invocations.flatMap((invocation) => [invocation, ...leaves(invocation.inner)]);
-const span = (invocation: Invocation): Option.Option<readonly [Word, Word]> => Option.all([head(invocation), Option.flatMap(Array.last(invocation.words), ({ node }) => node)]);
-const command = (invocation: Invocation): string => [...Option.toArray(named(invocation)), ...invocation.path].join(' ');
-const staged = (invocations: readonly Invocation[], invocation: Invocation, offset: number): Option.Option<Invocation> =>
-    Option.flatMap(invocation.stage, ({ pipeline, index }) => Array.findFirst(invocations, (other) => other.source === invocation.source && other.within.length === invocation.within.length && Option.exists(other.stage, (stage) => stage.pipeline === pipeline && stage.index === index + offset)));
+const feeds = (producer: Invocation, { stdin, source }: Invocation): boolean => stdin._tag === 'Piped' && producer.source === source && Option.exists(producer.stage, ({ pipeline, index }) => stdin.pipeline === pipeline && stdin.index === index);
 const ancestors = (path: Path.Path, folder: string): readonly string[] => (path.dirname(folder) === folder ? [folder] : [folder, ...ancestors(path, path.dirname(folder))]);
 const nearest = Effect.fnUntraced(function* (cwd: string, marker: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -44,4 +31,4 @@ const ran = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<strin
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Call, command, type Editor, foreground, head, type Invocation, is, leaves, matches, named, nearest, operand, ran, said, type Script, span, spells, staged, type Table, texts, type Verdict, type Word, type Written };
+export { type Call, type Editor, feeds, type Invocation, nearest, ran, type Script, type Table, type Verdict, type Word, type Written };

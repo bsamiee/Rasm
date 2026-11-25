@@ -38,6 +38,11 @@ class Script extends Data.Class<{
         return [expansion, next];
     }
 
+    expanded(word: Word): Option.Option<string> {
+        const [expansion] = this.expand(word);
+        return expansion._tag === 'Expanded' ? expansion.text : Option.none();
+    }
+
     text(node: BaseNode): string {
         return this.source.slice(this.located(node.start), this.located(node.end));
     }

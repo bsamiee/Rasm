@@ -110,7 +110,7 @@ class Dialect extends Data.Class<{
     readonly aliases: ReadonlyMap<string, { readonly text: string; readonly global: boolean }>;
     readonly suffixes: ReadonlyMap<string, string>;
     readonly variables: ReadonlyMap<string, Option.Option<string>>;
-    readonly special: ReadonlySet<string>;
+    readonly parameters: ReadonlyMap<string, ReadonlySet<string>>;
 }> {
     supports(feature: keyof typeof features): boolean {
         return this.features.has(feature);
@@ -119,7 +119,7 @@ class Dialect extends Data.Class<{
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const posix = (binary: string, environment: Readonly<Record<string, string>>) => new Dialect({ binary, variant: LangVariant.LangPOSIX, environment, features: new Set(), options: bash(() => false, true), builtins: new Set(), aliases: new Map(), suffixes: new Map(), variables: new Map(), special: new Set() });
+const posix = (binary: string, environment: Readonly<Record<string, string>>) => new Dialect({ binary, variant: LangVariant.LangPOSIX, environment, features: new Set(), options: bash(() => false, true), builtins: new Set(), aliases: new Map(), suffixes: new Map(), variables: new Map(), parameters: new Map() });
 
 const probed = Effect.fnUntraced(function* (at: { readonly shell: string; readonly environment: Readonly<Record<string, string>>; readonly source?: string; readonly timeout?: Duration.Input }, builtins: readonly string[], parse: (source: string, dialect: Dialect) => Effect.Effect<File, ShellError>) {
     const names = Array.dedupe(['IFS', 'OLDPWD', ...Record.keys(at.environment).filter((name) => identifier.test(name))]);
@@ -174,7 +174,7 @@ const probed = Effect.fnUntraced(function* (at: { readonly shell: string; readon
         aliases: new Map((['alias', 'global'] as const).flatMap((kind) => pairs(kind).map(([name, value]) => [name, { text: value, global: kind === 'global' }] as const))),
         suffixes: new Map(pairs('suffix')),
         variables: new Map([...pairs('variable').map(([name]) => name), ...values.keys()].map((name) => [name, Option.fromUndefinedOr(values.get(name))])),
-        special: new Set(pairs('variable').flatMap(([name, kind]) => (kind.includes('special') ? [name] : []))),
+        parameters: new Map(variant === LangVariant.LangZsh ? pairs('variable').map(([name, kind]) => [name, new Set(kind.split('-'))] as const) : []),
     });
 });
 

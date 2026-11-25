@@ -1,10 +1,10 @@
 import { Array, Data, Effect, Function, Match, Option, Predicate, Redacted, Result } from 'effect';
 import { CommandLine } from 'effect/process';
 import { BinTestOperator, createSourceIndex, type File, LangVariant, type Node, type Redirect, RedirOperator, UnTestOperator, walk, type Word, type WordPart } from 'sh-syntax';
-import { bound, texted } from '#/analysis/binding';
-import type { Written } from '#/analysis/invocation';
+import { bound } from '#/analysis/binding';
+import { Written } from '#/analysis/invocation';
 import { text } from '#/evaluation/expansion';
-import { Field, Origin } from '#/evaluation/value';
+import { Field, Origin, Role } from '#/evaluation/value';
 import type { Usage } from '#/programs/usage';
 import type { Dialect } from '#/syntax/dialect';
 import { type Script, ShellError } from '#/syntax/script';
@@ -57,8 +57,11 @@ const executed = (path: readonly Link[], literal: (word: Word) => Option.Option<
             ),
         );
 const coded = Effect.fnUntraced(function* (programs: (program: string) => Effect.Effect<Option.Option<Usage>, ShellError>, words: readonly Written[], target: Word | undefined): Effect.fn.Return<boolean, ShellError> {
-    const kept = Array.dropWhile(words, (word) => Option.exists(texted(word), (name) => modifiers.has(name)));
-    const program = Option.map(Option.flatMap(Array.head(kept), texted), (name) => name.slice(name.lastIndexOf('/') + 1));
+    const kept = Array.dropWhile(words, (word) => Option.exists(word.text, (name) => modifiers.has(name)));
+    const program = Option.map(
+        Option.flatMap(Array.head(kept), (held) => held.text),
+        (name) => name.slice(name.lastIndexOf('/') + 1),
+    );
     const binding = bound(Option.flatten(yield* Effect.transposeOption(Option.map(program, programs))), kept, Field.known('/'));
     const holds = (held: readonly Written[]) => held.some(({ node }) => Option.exists(node, (word) => word === target));
     return holds(binding.running) || Option.isSome(yield* Effect.findFirst(binding.lists.filter(holds), (list) => coded(programs, list, target)));
@@ -126,7 +129,39 @@ const rendered = (site: Option.Option<Site>, hole: CommandLine.TemplateExpressio
             ),
     );
 };
-const constructed = Effect.fnUntraced(function* (parse: (source: string) => Effect.Effect<File, ShellError>, dialect: Dialect, strings: TemplateStringsArray, holes: readonly CommandLine.TemplateExpression[], programs: (program: string) => Effect.Effect<Option.Option<Usage>, ShellError>) {
+const lifted = (hole: CommandLine.TemplateExpression | Word | WordPart): hole is Word | WordPart => Predicate.hasProperty(hole, 'type') && Predicate.isString(hole.type);
+const spliced = (site: Option.Option<Site>, node: Word | WordPart, origin: Option.Option<Script>): Result.Result<{ readonly text: string; readonly redacted: Script['redacted'] }, { readonly kind: 'Value' | 'Position'; readonly cause?: unknown }> => {
+    const backquoted: Node[] = [];
+    const held = Option.filter(origin, (script) => {
+        const word = node.type === 'Word' ? Option.some(node) : Array.findFirst(script.sites.keys(), (candidate) => candidate.parts.includes(node));
+        walk(script.syntax, (inner) => {
+            backquoted.push(...(inner.type === 'CmdSubst' && inner.backquotes && inner.start < node.start && inner.end >= node.end ? [inner] : []));
+        });
+        return (
+            Option.exists(
+                Option.flatMap(word, (found) => Option.fromUndefinedOr(script.sites.get(found))),
+                ({ role }) => Role.$is('Argument')(role),
+            ) && Array.isReadonlyArrayEmpty(backquoted)
+        );
+    });
+    return Option.match(held, {
+        onNone: () => Result.fail({ kind: 'Value' as const }),
+        onSome: (script) => {
+            const [start, end] = [script.located(node.start), script.located(node.end)];
+            return Option.exists(site, (found) => Site.$is('Bare')(found) && found.whole && !found.command)
+                ? Result.succeed({ text: script.source.slice(start, end), redacted: script.redacted.filter((span) => span.start >= start && span.end <= end).map((span) => ({ ...span, start: span.start - start, end: span.end - start })) })
+                : Result.fail({ kind: 'Position' as const });
+        },
+    });
+};
+const constructed = Effect.fnUntraced(function* (
+    parse: (source: string) => Effect.Effect<File, ShellError>,
+    dialect: Dialect,
+    strings: TemplateStringsArray,
+    holes: readonly (CommandLine.TemplateExpression | Word | WordPart)[],
+    programs: (program: string) => Effect.Effect<Option.Option<Usage>, ShellError>,
+    origin: Option.Option<Script>,
+) {
     const invalid = strings.findIndex(Predicate.isUndefined);
     yield* Effect.when(ShellError.of({ _tag: 'Construction', hole: invalid, kind: 'Escape' }, `text ${invalid}`)(), Effect.succeed(invalid !== -1));
     const base = unused(strings);
@@ -134,9 +169,11 @@ const constructed = Effect.fnUntraced(function* (parse: (source: string) => Effe
     const marked = strings.reduce((written, part, index) => `${written}+${base}${index - 1}_${part}`);
     const tree = yield* Effect.catchReason(parse(marked), 'ShellError', 'Syntax', (reason, error) => ShellError.of({ ...reason, offset: Option.map(reason.offset, (at) => marked.slice(0, at).replaceAll(pattern, '').length) }, error.subject)(error.cause));
     const raw = holes.map((hole) =>
-        Array.ensure(hole)
-            .map((item) => (Redacted.isRedacted(item) ? Redacted.value(item) : item))
-            .join(' '),
+        lifted(hole)
+            ? Option.match(origin, { onNone: () => '', onSome: (script) => script.text(hole) })
+            : Array.ensure(hole)
+                  .map((item) => (Redacted.isRedacted(item) ? Redacted.value(item) : item))
+                  .join(' '),
     );
     const literal = (word: Word) => Option.map(text(word, dialect), (written) => written.replaceAll(pattern, (_, hole: string) => raw[Number(hole)] ?? ''));
     const path: Link[] = [];
@@ -148,7 +185,7 @@ const constructed = Effect.fnUntraced(function* (parse: (source: string) => Effe
             const links = Array.window(path, 2);
             const calls = links.flatMap(([outer, inner]) =>
                 outer.node.type === 'CallExpr' && inner.prop === 'args'
-                    ? [{ words: outer.node.args.map((word): Written => ({ field: Option.getOrElse(Option.map(literal(word), Field.known), Function.constant(Field.unknown(Origin.Unsupported()))), exact: true, node: Option.some(word) })), target: outer.node.args[inner.index ?? 0] }]
+                    ? [{ words: outer.node.args.map((word) => new Written({ field: Option.getOrElse(Option.map(literal(word), Field.known), Function.constant(Field.unknown(Origin.Unsupported()))), exact: true, node: Option.some(word) })), target: outer.node.args[inner.index ?? 0] }]
                     : [],
             );
             const heredocs = links.flatMap(([outer, inner]) => (outer.node.type === 'Redirect' && inner.node.type === 'Word' && inner.prop === 'hdoc' ? [{ redirect: outer.node, body: inner.node }] : []));
@@ -167,7 +204,9 @@ const constructed = Effect.fnUntraced(function* (parse: (source: string) => Effe
             }),
         ),
     );
-    const segments = yield* Effect.forEach(holes, (hole, index) => Effect.mapError(Effect.fromResult(rendered(sites.get(index) ?? Option.none(), hole, dialect)), ({ kind, cause }) => ShellError.of({ _tag: 'Construction', hole: index, kind }, `hole ${index}`)(cause)));
+    const segments = yield* Effect.forEach(holes, (hole, index) =>
+        Effect.mapError(Effect.fromResult(lifted(hole) ? spliced(sites.get(index) ?? Option.none(), hole, origin) : rendered(sites.get(index) ?? Option.none(), hole, dialect)), ({ kind, cause }) => ShellError.of({ _tag: 'Construction', hole: index, kind }, `hole ${index}`)(cause)),
+    );
     const texts = segments.map(({ text: written }) => written);
     const located = createSourceIndex(marked);
     const delimiting = Array.findFirst(

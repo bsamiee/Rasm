@@ -1,4 +1,4 @@
-import { Array, Data, Match, Option } from 'effect';
+import { Array, Data, HashSet, Match, Option } from 'effect';
 import { type ArithmExpr, LangVariant, ParExpOperator, ParNamesOperator, type ParamExp, type Replace, type Slice, type Word, type WordPart } from 'sh-syntax';
 import { evaluated, Integer } from '#/evaluation/arithmetic';
 import { Binding, type Field, type Matching, Origin, type Scope } from '#/evaluation/value';
@@ -120,6 +120,8 @@ const valued = (word: Word, scope: Scope, frame: Frame): readonly [Option.Option
     return [Option.map(text, (texts) => texts.join('')), next, chunks.filter(Chunk.$is('Refuse'))];
 };
 const counted = (expression: ArithmExpr | null, scope: Scope, frame: Frame) => evaluated(expression, scope, frame.dialect, (word, from) => valued(word, from, frame));
+const stated = (name: string, binding: Binding): Value =>
+    Binding.$match(binding, { Unset: () => Value.Unset(), Known: ({ value }) => Value.Scalar({ text: value }), Listed: ({ items }) => Value.List({ items, spread: false }), Unknown: ({ origins }) => Value.Unknown({ origin: Origin.Variable({ name, origins }), many: false }) });
 const bound = (name: string, scope: Scope): Value =>
     Match.value(name).pipe(
         Match.when('0', () => Value.Scalar({ text: scope.name })),
@@ -127,17 +129,19 @@ const bound = (name: string, scope: Scope): Value =>
             (candidate: string) => /^(?:[@*#]|[1-9]\d*)$/u.test(candidate),
             (special) =>
                 Option.match(scope.positional, {
-                    onNone: () => Value.Unknown({ origin: Origin.Variable({ name }), many: special === '@' || special === '*' }),
-                    onSome: (positional) =>
-                        Match.value(special).pipe(
-                            Match.when('@', () => Value.List({ items: positional, spread: true })),
-                            Match.when('*', () => Value.List({ items: positional, spread: false })),
+                    onNone: () => Value.Unknown({ origin: Origin.Variable({ name, origins: HashSet.empty() }), many: special === '@' || special === '*' }),
+                    onSome: (positional) => {
+                        const items = Option.all(positional.map((binding) => (binding._tag === 'Known' ? Option.some(binding.value) : Option.none())));
+                        const origins = HashSet.fromIterable(positional.flatMap((binding) => (binding._tag === 'Unknown' ? [...binding.origins] : [Origin.Literal()])));
+                        return Match.value(special).pipe(
+                            Match.when(Match.is('@', '*'), (spread) => Option.match(items, { onNone: () => Value.Unknown({ origin: Origin.Variable({ name, origins }), many: true }), onSome: (known) => Value.List({ items: known, spread: spread === '@' }) })),
                             Match.when('#', () => Value.Scalar({ text: `${positional.length}` })),
-                            Match.orElse((position) => Option.match(Array.get(positional, Number(position) - 1), { onNone: () => Value.Unset(), onSome: (text) => Value.Scalar({ text }) })),
-                        ),
+                            Match.orElse((position) => Option.match(Array.get(positional, Number(position) - 1), { onNone: () => Value.Unset(), onSome: (binding) => stated(name, binding) })),
+                        );
+                    },
                 }),
         ),
-        Match.orElse(() => Binding.$match(scope.get(name), { Unset: () => Value.Unset(), Known: ({ value }) => Value.Scalar({ text: value }), Listed: ({ items }) => Value.List({ items, spread: false }), Unknown: () => Value.Unknown({ origin: Origin.Variable({ name }), many: false }) })),
+        Match.orElse(() => stated(name, scope.get(name))),
     );
 const listed = (value: Value, spread: boolean, origin: Origin): Value =>
     Value.$match(value, {
@@ -160,11 +164,11 @@ const picked = (value: Value, position: Integer, frame: Frame, origin: Origin): 
 };
 const looked = (exp: ParamExp, scope: Scope, frame: Frame): readonly [Value, Scope] => {
     const name = exp.param?.value ?? '';
-    const origin = Origin.Variable({ name });
+    const origin = Origin.Variable({ name, origins: HashSet.empty() });
     const direct = bound(name, scope);
     const base = Match.value({ nested: exp.nestedParam, excl: exp.excl, shaped: exp.names !== ParNamesOperator.None || exp.index !== null }).pipe(
         Match.when({ nested: { type: 'ParamExp' } }, ({ nested }) => looked(nested, scope, frame)[0]),
-        Match.when({ nested: Match.defined }, () => Value.Unknown({ origin: Origin.Substitution(), many: false })),
+        Match.when({ nested: Match.defined }, () => Value.Unknown({ origin: Origin.Substitution({ programs: [] }), many: false })),
         Match.when({ excl: true, shaped: true }, () => Value.Unknown({ origin, many: true })),
         Match.when({ excl: true }, () => (direct._tag === 'Scalar' && /^(?:[A-Za-z_]\w*|\d+|[@*#])$/u.test(direct.text) ? bound(direct.text, scope) : Value.Unknown({ origin, many: false }))),
         Match.orElse(() => direct),
@@ -268,7 +272,7 @@ const removed = (removal: { readonly prefix: boolean; readonly largest: boolean 
 };
 const operated = (exp: ParamExp, value: Value, scope: Scope, frame: Frame, direct: boolean): readonly [Value, Scope, Option.Option<readonly Chunk[]>, readonly Chunk[]] => {
     const name = exp.param?.value ?? '';
-    const origin = Origin.Variable({ name });
+    const origin = Origin.Variable({ name, origins: HashSet.empty() });
     const unknown = Value.Unknown({ origin, many: many(value) });
     const empty = (colon: boolean) => Value.$match(value, { Unset: () => Option.some(true), Unknown: () => Option.none(), Scalar: ({ text }) => Option.some(colon && text === ''), List: ({ items }) => Option.some(colon && items.length === 0) });
     const substituted = (word: Word | null): readonly [Value, Scope, Option.Option<readonly Chunk[]>, readonly Chunk[]] => {
@@ -283,7 +287,7 @@ const operated = (exp: ParamExp, value: Value, scope: Scope, frame: Frame, direc
                 Option.filter(text, () => assignable),
                 { onNone: () => Value.Unknown({ origin, many: false }), onSome: (given) => Value.Scalar({ text: given }) },
             ),
-            assignable ? next.set(name, Option.match(text, { onNone: () => Binding.Unknown(), onSome: (given) => Binding.Known({ value: given }) })) : next,
+            assignable ? next.set(name, Option.match(text, { onNone: () => Binding.Unknown({ origins: HashSet.make(origin) }), onSome: (written) => Binding.Known({ value: written }) })) : next,
             Option.none(),
             refused,
         ];
@@ -364,16 +368,16 @@ const rendered = (value: Value, frame: Frame, exp: ParamExp | undefined, scope: 
     const piece = (text: string) => Chunk.Text({ text, quoted, split: !quoted && splits(frame, exp), glob: !quoted && globs(frame, exp), secret: false });
     const glue = Binding.$match(scope.get('IFS'), { Unset: () => Option.some(' '), Known: ({ value: known }) => Option.some([...known][0] ?? ''), Listed: () => Option.none(), Unknown: () => Option.none() });
     const strict = exp !== undefined && dialect.options.nounset;
-    const joined = (items: readonly string[], spaced: boolean) => (spaced ? [piece(items.join(' '))] : [Option.match(glue, { onNone: () => Chunk.Hidden({ origin: Origin.Variable({ name: 'IFS' }), certain: true, many: false }), onSome: (between) => piece(items.join(between)) })]);
+    const joined = (items: readonly string[], spaced: boolean) => (spaced ? [piece(items.join(' '))] : [Option.match(glue, { onNone: () => Chunk.Hidden({ origin: Origin.Variable({ name: 'IFS', origins: HashSet.empty() }), certain: true, many: false }), onSome: (between) => piece(items.join(between)) })]);
     return Value.$match(value, {
-        Unset: () => [...(strict ? [refusal(Origin.Variable({ name }))] : []), ...(quoted || rules.single ? [piece('')] : [])],
+        Unset: () => [...(strict ? [refusal(Origin.Variable({ name, origins: HashSet.empty() }))] : []), ...(quoted || rules.single ? [piece('')] : [])],
         Scalar: ({ text }) => [piece(text)],
         List: ({ items, spread: own }) => (rules.single || (quoted && !(own || spread)) ? joined(items, (own || spread) && dialect.variant === LangVariant.LangBash && rules.single) : items.flatMap((item, index) => (index === 0 ? [piece(item)] : [Chunk.Break(), piece(item)]))),
         Unknown: ({ origin, many: plural }) => [...(strict ? [Chunk.Refuse({ origin, certain: false })] : []), Chunk.Hidden({ origin, certain: (quoted || rules.single) && !plural, many: !rules.single && (plural || (!quoted && splits(frame, exp))) })],
     });
 };
 const parameter = (exp: ParamExp, trailing: readonly string[], scope: Scope, frame: Frame): Parted => {
-    const origin = Origin.Variable({ name: exp.param?.value ?? '' });
+    const origin = Origin.Variable({ name: exp.param?.value ?? '', origins: HashSet.empty() });
     const letters = [...exp.modifiers.map(({ value }) => value), ...trailing];
     const flags = flagged(exp.flags?.value ?? '');
     const { length: counting } = exp;

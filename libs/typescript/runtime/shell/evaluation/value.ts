@@ -1,12 +1,13 @@
-import { Array, Data, Glob, HashMap, Match, Option, Record, type Redacted } from 'effect';
+import { Array, Data, Glob, HashMap, HashSet, Match, Option, Record, type Redacted } from 'effect';
+import type { Node } from 'sh-syntax';
 import type { Dialect } from '#/syntax/dialect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Unmatched = Data.TaggedEnum<{ Kept: object; Dropped: object; Refused: object }>;
 type Origin = Data.TaggedEnum<{
-    Variable: { readonly name: string };
-    Substitution: object;
+    Variable: { readonly name: string; readonly origins: HashSet.HashSet<Origin> };
+    Substitution: { readonly programs: readonly string[] };
     Arithmetic: object;
     Home: { readonly user: Option.Option<string> };
     Command: { readonly name: string };
@@ -19,6 +20,7 @@ type Origin = Data.TaggedEnum<{
     Script: object;
     File: object;
     Recursion: object;
+    Literal: object;
 }>;
 type Piece = Data.TaggedEnum<{
     Text: { readonly text: string };
@@ -28,7 +30,7 @@ type Piece = Data.TaggedEnum<{
 }>;
 type Matching = Data.TaggedEnum<{ Paths: { readonly glob: Option.Option<Glob.Glob>; readonly unmatched: Unmatched }; Strings: { readonly glob: Option.Option<Glob.Glob> } }>;
 type Role = Data.TaggedEnum<{ Argument: object; Assignment: object; Heredoc: { readonly expands: boolean }; Pattern: object; Operand: object; Redirect: object }>;
-type Binding = Data.TaggedEnum<{ Unset: object; Known: { readonly value: string }; Listed: { readonly items: readonly string[] }; Unknown: object }>;
+type Binding = Data.TaggedEnum<{ Unset: object; Known: { readonly value: string }; Listed: { readonly items: readonly string[] }; Unknown: { readonly origins: HashSet.HashSet<Origin> } }>;
 type Expansion = Expanded | Refused;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -51,6 +53,10 @@ class Field extends Data.Class<{ readonly pieces: readonly Piece[]; readonly mat
             Option.liftPredicate(this.pieces, () => Option.isNone(this.matching)),
             (pieces) => Option.map(Option.all(pieces.map((piece) => (piece._tag === 'Text' ? Option.some(piece.text) : Option.none()))), (texts) => texts.join('')),
         );
+    }
+
+    get origins(): HashSet.HashSet<Origin> {
+        return HashSet.fromIterable(this.pieces.map((piece) => (piece._tag === 'Unknown' ? piece.origin : Origin.Literal())));
     }
 
     get prefix(): string {
@@ -125,14 +131,22 @@ class Expanded extends Data.TaggedClass('Expanded')<{ readonly fields: readonly 
         return this.exact && this.fields.length === 1 ? Option.flatMap(Array.head(this.fields), (field) => field.text) : Option.none();
     }
 
+    get binding(): Binding {
+        return Option.match(this.text, { onNone: () => Binding.Unknown({ origins: HashSet.fromIterable([...this.fields.flatMap((field) => [...field.origins]), ...this.refusals]) }), onSome: (value) => Binding.Known({ value }) });
+    }
+
     matches(candidate: string): Option.Option<boolean> {
         return this.fields.length === 1 ? Option.flatMap(Array.head(this.fields), (field) => field.matches(candidate)) : Option.none();
     }
 }
 
-class Refused extends Data.TaggedClass('Refused')<{ readonly origin: Origin }> {}
+class Refused extends Data.TaggedClass('Refused')<{ readonly origin: Origin }> {
+    get binding(): Binding {
+        return Binding.Unknown({ origins: HashSet.make(this.origin) });
+    }
+}
 
-class Scope extends Data.Class<{ readonly variables: HashMap.HashMap<string, Binding>; readonly unlisted: Binding; readonly positional: Option.Option<readonly string[]>; readonly name: string }> {
+class Scope extends Data.Class<{ readonly variables: HashMap.HashMap<string, Binding>; readonly unlisted: Binding; readonly positional: Option.Option<readonly Binding[]>; readonly name: string; readonly substitutions: HashMap.HashMap<Node, readonly string[]> }> {
     get(name: string): Binding {
         return Option.getOrElse(HashMap.get(this.variables, name), () => this.unlisted);
     }
@@ -143,14 +157,21 @@ class Scope extends Data.Class<{ readonly variables: HashMap.HashMap<string, Bin
 
     static started(at: { readonly dialect: Dialect; readonly operands: readonly string[]; readonly pwd: Option.Option<string> }): Scope {
         const { environment, variables } = at.dialect;
-        const held = (name: string, value: Option.Option<string>) => Option.match(value, { onNone: () => Binding.Unknown(), onSome: (found) => (name === 'IFS' || Record.get(environment, name).pipe(Option.contains(found)) ? Binding.Known({ value: found }) : Binding.Unknown()) });
+        const unknown = Binding.Unknown({ origins: HashSet.empty() });
+        const held = (name: string, value: Option.Option<string>) => Option.match(value, { onNone: () => unknown, onSome: (found) => (name === 'IFS' || Record.get(environment, name).pipe(Option.contains(found)) ? Binding.Known({ value: found }) : unknown) });
         const special = [
             ['?', Binding.Known({ value: '0' })],
-            ['$', Binding.Unknown()],
-            ['-', Binding.Unknown()],
-            ['PWD', Option.match(at.pwd, { onNone: () => Binding.Unknown(), onSome: (value) => Binding.Known({ value }) })],
+            ['$', unknown],
+            ['-', unknown],
+            ['PWD', Option.match(at.pwd, { onNone: () => unknown, onSome: (value) => Binding.Known({ value }) })],
         ] as const;
-        return new Scope({ variables: HashMap.fromIterable([...variables.entries().map(([name, value]) => [name, held(name, value)] as const), ...special]), unlisted: Binding.Unset(), positional: Option.some(at.operands), name: at.dialect.binary });
+        return new Scope({
+            variables: HashMap.fromIterable([...variables.entries().map(([name, value]) => [name, held(name, value)] as const), ...special]),
+            unlisted: Binding.Unset(),
+            positional: Option.some(at.operands.map((value) => Binding.Known({ value }))),
+            name: at.dialect.binary,
+            substitutions: HashMap.empty(),
+        });
     }
 }
 

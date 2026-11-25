@@ -48,7 +48,7 @@ const policy = new Policy({
 const rows = [
     { name: 'a refusal beats a rewrite in the same script', command: 'grep -i x f; rm a', tag: 'Refuse', text: 'rm deletes files. Move them aside.' },
     { name: 'a rename is judged again and a later rule edits what it wrote', command: 'grep -i x f', tag: 'Rewrite', text: 'grep --ignore-case -n x f' },
-    { name: 'overlapping edits apply none and name both rules', command: 'cat f', tag: 'Pass', text: 'stand.left, stand.right: edits overlap' },
+    { name: 'overlapping edits apply the earlier rule and judge the later again', command: 'cat f', tag: 'Rewrite', text: 'bat f' },
     { name: 'a throwing rule lets the call run with a note', command: 'echo hi', tag: 'Pass', text: 'stand.throws: failed and judged nothing' },
     { name: 'no rule speaks and the call passes', command: 'true', tag: 'Pass', text: '' },
     { name: 'a refusal names the subcommand of a program with no usage', command: 'zzpm patch left-pad', tag: 'Refuse', text: 'zzpm patch copies a package into the tree. Set the package option.' },

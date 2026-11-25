@@ -6,7 +6,7 @@ import { processor } from 'sh-syntax/sync';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const recorder = `#!/bin/sh\n{ printf '%s\\0' "$#" "$PWD" "\${0##*/}" "$@"; /bin/cat; printf '\\0'; } >> "$RECORD"\n`;
+const recorder = `#!/bin/sh\nt=$(/usr/bin/mktemp) || exit 1\n{ printf '%s\\0' "$#" "$PWD" "\${0##*/}" "$@"; /bin/cat; printf '\\0'; } > "$t"\n/bin/cat "$t" >> "$RECORD"\n/bin/rm -f "$t"\n`;
 const remote = '#!/bin/sh\nshift\nexec /bin/sh -c "$*"\n';
 const fixture = ['a.txt', 'b.txt', '.dot.txt', 'dir/c.txt', 'space name.txt', 'ab'] as const;
 
