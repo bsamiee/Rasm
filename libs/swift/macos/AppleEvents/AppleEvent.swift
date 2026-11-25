@@ -34,7 +34,6 @@ extension NSAppleEventDescriptor {
             )
             answer.finish()
         }
-        guard let outcome = await replies.first(where: { _ in true }) else { throw AppleEventFailure(subject: subject, reason: .cancelled) }
-        return try outcome.get()
+        return try (await replies.first { _ in true } ?? .failure(AppleEventFailure(subject: subject, reason: .cancelled))).get()
     }
 }

@@ -34,8 +34,8 @@ private let events: [(String, [String: AppleEventValue], [String], [String])] = 
     ("set", ["direct": properties, "to": .record(type: DescType(typeAERecord), fields: raised)], [], ["activating"]),
     ("set", ["direct": properties, "to": .record(type: DescType(typeAERecord), fields: renamed)], [], ["coresetd", "pALL"]),
     ("set", ["direct": name, "to": .text("Front")], [], ["coresetd", "pnam"]),
-    ("activate", [:], ["miscactv"], ["activating"]),
-    ("activate", [:], ["aevtodoc"], ["miscactv"]),
+    ("set", ["direct": name, "to": .text("Front")], ["coresetd"], ["activating"]),
+    ("activate", [:], [], ["activating"]),
 ]
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -47,7 +47,7 @@ struct EventTests {
     init() throws { dictionary = try ScriptingDictionary(definition: definition) }
 
     @Test(arguments: events)
-    func refusesEveryEventThatWritesTheFrontmostStateOrIsListedAsActivating(command: String, arguments: [String: AppleEventValue], refused: [String], outcome: [String]) throws {
+    func refusesEveryEventThatActivatesWritesTheFrontmostStateOrIsListedAsActivating(command: String, arguments: [String: AppleEventValue], refused: [String], outcome: [String]) throws {
         let codes = Set(try refused.map { code in try #require(UInt64(sdef: code)) })
         let resolved = try dictionary.command(command, taking: Set(arguments.keys))
         let built = Result { () throws(AggregateError<AppleEventFailure>) in

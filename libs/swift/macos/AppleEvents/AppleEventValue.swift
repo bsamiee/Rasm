@@ -167,16 +167,16 @@ extension AppleEventValue {
             else { return nil }
             let container = from.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue ?? FourCharCode(cApplication)
             return .specifier(
-                want: ScriptingDictionary.term(want.typeCodeValue, in: [dictionary.types, dictionary.properties]).name,
+                want: ScriptingDictionary.name(of: want.typeCodeValue, in: [dictionary.types, dictionary.properties]),
                 form: form,
-                seld: form == .property ? .type(ScriptingDictionary.term(seld.typeCodeValue, in: dictionary.scope(container)).name) : Self(seld, in: dictionary),
+                seld: form == .property ? .type(ScriptingDictionary.name(of: seld.typeCodeValue, in: dictionary.scope(container))) : Self(seld, in: dictionary),
                 from: Self(from, in: dictionary),
             )
         }
         func record() -> Self {
             let scope = dictionary.scope(descriptor.forKeyword(AEKeyword(pClass))?.typeCodeValue ?? descriptor.descriptorType)
             let fields = (1..<descriptor.numberOfItems + 1).compactMap { index in
-                descriptor.atIndex(index).map { value in (ScriptingDictionary.term(descriptor.keywordForDescriptor(at: index), in: scope).name, Self(value, in: dictionary)) }
+                descriptor.atIndex(index).map { value in (ScriptingDictionary.name(of: descriptor.keywordForDescriptor(at: index), in: scope), Self(value, in: dictionary)) }
             }
             return .record(type: descriptor.descriptorType, fields: Dictionary(fields) { first, _ in first })
         }
@@ -193,8 +193,8 @@ extension AppleEventValue {
                 case DescType(typeChar), DescType(typeCString), DescType(typePString), DescType(typeUnicodeText), DescType(typeUTF8Text), DescType(typeUTF16ExternalRepresentation):
                     descriptor.stringValue.map(Self.text) ?? opaque()
                 case DescType(typeAEList): .list((1..<descriptor.numberOfItems + 1).compactMap(descriptor.atIndex).map { item in Self(item, in: dictionary) })
-                case DescType(typeType): .type(ScriptingDictionary.term(descriptor.typeCodeValue, in: [dictionary.types, dictionary.properties]).name)
-                case DescType(typeEnumerated): .enumerator(ScriptingDictionary.term(descriptor.enumCodeValue, in: [dictionary.enumerators]).name)
+                case DescType(typeType): .type(ScriptingDictionary.name(of: descriptor.typeCodeValue, in: [dictionary.types, dictionary.properties]))
+                case DescType(typeEnumerated): .enumerator(ScriptingDictionary.name(of: descriptor.enumCodeValue, in: [dictionary.enumerators]))
                 case DescType(typeAbsoluteOrdinal): Ordinal.allCases.first { ordinal in ordinal.code == descriptor.enumCodeValue }.map { ordinal in .text(ordinal.rawValue) } ?? opaque()
                 case DescType(typeFileURL), DescType(typeAlias): descriptor.fileURLValue.map(Self.file) ?? opaque()
                 case DescType(typeLongDateTime): descriptor.dateValue.map(Self.date) ?? opaque()
@@ -240,7 +240,7 @@ extension AppleEventValue {
                         }
                 }
             case .list(let items):
-                return try traverse(items) { item in encoded(item, as: types) }.get().reduce(into: .list()) { list, descriptor in list.insert(descriptor, at: list.numberOfItems + 1) }
+                return try traverse(items) { item in encoded(item, as: types) }.get().reduce(into: .list()) { list, descriptor in list.insert(descriptor, at: 0) }
             case .record(let type, let fields):
                 let named = fields.sorted { left, right in left.key < right.key }.first { key, _ in
                     ScriptingDictionary.resolve(key, in: [dictionary.properties])[case: \.success]?.code == FourCharCode(pClass)
