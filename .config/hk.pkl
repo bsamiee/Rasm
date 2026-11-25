@@ -154,6 +154,32 @@ steps {
     }
     diagnostic_format = "gcc"
   }
+  ["mise-lock"] {
+    glob =
+      List(
+        ".config/mise*.toml",
+        ".config/mise*.lock",
+        ".config/mise/locks/**",
+        "rust-toolchain.toml",
+      )
+    check = new CommandSpec {
+      command = new Command { argv = List("mise", "lock", "--check") }
+      effect = "read"
+    }
+  }
+  ["mise-lock-ci"] {
+    glob =
+      List(
+        ".config/mise*.toml",
+        ".config/mise*.lock",
+        ".config/mise/locks/**",
+        "rust-toolchain.toml",
+      )
+    check = new CommandSpec {
+      command = new Command { argv = List("mise", "--env", "ci", "lock", "--check") }
+      effect = "read"
+    }
+  }
   ["pmd"] {
     glob = "**/*.java"
     depends = "javac"

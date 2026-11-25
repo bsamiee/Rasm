@@ -73,6 +73,7 @@ Composite actions and the mise profile jobs load:
 - Runners fail a job before its first step where a tracked symlink of that archive names an untracked file
 - Action `tools` removes untracked files and runs `mise bootstrap --only tools`, and mise hook `postinstall` installs project dependencies
 - Action `tools` points `TMPDIR` at the runner's per-job temp folder
+- Action `tools` replaces a kept mise once a newer release is a day old, as an older mise refuses a newer lock format
 - Job containers install mise tools in the runner's tool cache
 - CMake checks uninitialized variables in each file inside the source tree, vcpkg's toolchain file included where mise installs it there
 - Windows jobs install mise tools under `C:\mise`, as `cmd.exe` finds no command once `PATH` passes 8191 characters

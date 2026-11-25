@@ -39,6 +39,7 @@ runs:
           with:
               mise_dir: ${{ runner.os == 'Windows' && 'C:\mise' || '' }}
               mise_env: ${{ runner.environment == 'github-hosted' && 'ci' || '' }}
+              auto_update: true
               bootstrap: true
               bootstrap_args: --only tools
               cache: ${{ runner.environment == 'github-hosted' }}

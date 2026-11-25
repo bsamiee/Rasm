@@ -147,6 +147,9 @@ mise installs every tool, `[env]` holds process variables, and `[bootstrap]` hol
 - New compilers rebuild every crate beside the old one's artifacts Cargo keeps, and a new Rust toolchain prunes the old one with its compiler source
 - `.config/mise.toml` `[tools]` rows stay at `latest` where a backend lists releases, and a `version_regex` excludes development builds
 - Platform rows sit in the `.config/mise.<os>.toml` mise loads, as only a file limits a row to one OS
+- `.config/mise/locks/` holds the dependency lock mise writes for each npm and PyPI tool row, and a locked install fails without it
+- Checkers a uv or pnpm catalog can hold sit there, never in an npm or PyPI tool row
+- `hk check` runs `mise lock --check` under no profile and under `ci`, as a row its lock lacks fails every locked install
 - Doppler project `rasm` and 1Password hold every secret, a registry token as a `rasm/release` row named as the variable its publish target reads
 
 ## [05]-[WORKSPACES]
