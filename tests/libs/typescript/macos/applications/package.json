@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/test-applications",
+    "private": true,
+    "description": "@rasm/applications suites over the interface map's fold and its SQLite store",
+    "type": "module",
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/sql-sqlite-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/applications": "workspace:*",
+        "@rasm/database": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vitest": "catalog:"
+    }
+}
