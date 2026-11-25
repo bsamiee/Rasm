@@ -135,7 +135,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                 stated.paths.map((root) => posix.relative(cwd, root) || '.'),
                 {
                     config,
-                    floor: UndefinedOr.map(member.python, (range) => /(?:>=|==|~=)\s*(?<floor>\d+\.\d+)/u.exec(range)?.groups?.['floor']),
+                    floor: member.floor,
                     cache: Option.getOrUndefined(Option.map(kept, (at) => posix.relative(cwd, at))),
                     store: Option.getOrUndefined(Option.map(kept, (at) => posix.join('$NX_WORKSPACE_ROOT', at))),
                 },

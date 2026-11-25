@@ -5,8 +5,8 @@ import { env } from 'node:process';
 import type { ProjectGraph } from '@nx/devkit';
 import { readNxJsonFromDisk } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-uv';
-import { it, taskGraph, type Workspace } from '@rasm/testing/nx';
-import { Record } from 'effect';
+import { it, targetOptions, taskGraph, type Workspace } from '@rasm/testing/nx';
+import { Array, Record, Schema } from 'effect';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { assert, describe, expect, vi } from 'vitest';
 
@@ -51,6 +51,10 @@ const STUBS = {
     'proj/words-stubs/pyproject.toml': `[project]\nname = "words-stubs"\nversion = "0.1.0"\nrequires-python = ">=3.13"\nclassifiers = ["Typing :: Stubs Only"]\n${BUILT}`,
     'proj/words-stubs/src/words-stubs/__init__.pyi': 'WORD: str\n',
 };
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Commanded = Schema.Struct({ command: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -226,6 +230,21 @@ describe('checker targets', { timeout: 120_000 }, () => {
 
         expect(result.success).toBe(true);
         expect([...workspace.files('.venv')].filter((file) => file.includes('.mypy_cache/'))).toStrictEqual([]);
+    });
+
+    it('passes mypy the lowest Python minor the requires-python range of each member admits, as packaging.specifiers works it', async ({ workspace }) => {
+        const ranges = { floored: '>=3.13', wildcard: '==3.13.*', compatible: '~=3.13.1', above: '>3.12', bounded: '>=3.13,<3.16', excluding: '!=3.14,>=3.13' };
+        const members = Record.toEntries(ranges).flatMap(([name, range]): readonly (readonly [string, string])[] => [
+            [`proj/${name}/pyproject.toml`, `[project]\nname = "${name}"\nversion = "0.1.0"\nrequires-python = "${range}"\n${BUILT}`],
+            [`proj/${name}/src/${name}/__init__.py`, ''],
+        ]);
+        locked(workspace, { ...workspaced(['mypy']), ...Record.fromEntries(members) });
+
+        const graph = await workspace.graph(uv);
+
+        const options = await Promise.all(Record.keys(ranges).map((name) => targetOptions(Commanded, graph, name, 'check--mypy')));
+        const floors = Array.zipWith(Record.keys(ranges), options, (name, { command }) => [name, /--python-version (?<minor>\S+)/u.exec(command)?.groups?.['minor']] as const);
+        expect(Record.fromEntries(floors)).toStrictEqual({ floored: '3.13', wildcard: '3.13', compatible: '3.13', above: '3.12', bounded: '3.13', excluding: '3.13' });
     });
 
     it.for([

@@ -2,7 +2,8 @@ import { basename, join, posix, relative } from 'node:path';
 import { normalizePath } from '@nx/devkit';
 import { combineGlobPatterns, globWithWorkspaceContext } from '@nx/devkit/internal';
 import { above } from '@rasm/nx';
-import { Array, Cause, Effect, Equivalence, FileSystem, Graph, Option, Predicate, Record, Result, Schema, SchemaTransformation, String, Struct } from 'effect';
+import { inc, major, minor, minSatisfying, RANGE_PATTERN } from '@renovatebot/pep440';
+import { Array, Cause, Effect, Equivalence, FileSystem, Graph, Option, Predicate, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
 import { CHECKERS, CONFIGS, PIXI } from '#/targets';
 
@@ -17,6 +18,7 @@ const SCHEMA = 'preview';
 const MANIFEST = 'pyproject.toml';
 const LOADERS: ReadonlySet<string> = new Set(Object.values(CHECKERS).flatMap(({ plugins }) => plugins ?? []));
 const DECODED = combineGlobPatterns(CONFIGS.map((file) => `**/${file}`));
+const CLAUSES = new RegExp(RANGE_PATTERN, 'giu');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -62,6 +64,12 @@ class Metadata extends Schema.Opaque<Metadata, unknown>()(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const normalized = (name: string) => name.toLowerCase().replaceAll(/[-_.]+/gu, '-');
+
+const floor = (range: string) => {
+    const stated = range.matchAll(CLAUSES).flatMap(({ groups }) => Array.fromNullishOr(groups?.['version']));
+    const near = stated.flatMap((version) => Array.getSomes([version, inc(version, 'patch'), inc(version, 'minor')].map(Option.fromNullOr))).toArray();
+    return UndefinedOr.map(minSatisfying(near, range) ?? undefined, (lowest) => `${major(lowest)}.${minor(lowest)}`);
+};
 
 const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string, metadata: Pick<Metadata, 'workspace' | 'members' | 'resolution'>) {
     const fs = yield* FileSystem.FileSystem;
@@ -183,6 +191,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
             scripted: packaged && project !== undefined && !Record.isEmptyRecord(project.scripts),
             locals: named([...reach([member.id])]),
             python: project?.['requires-python'],
+            floor: UndefinedOr.map(project?.['requires-python'], floor),
             published: packaged && project !== undefined && !(project.dynamic.includes('classifiers') || project.classifiers.some((classifier) => classifier.startsWith('Private ::'))),
             linked: Array.dedupe(
                 (owned[member.root] ?? [])

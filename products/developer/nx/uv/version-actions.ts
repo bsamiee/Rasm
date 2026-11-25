@@ -26,6 +26,7 @@ const Project = Schema.Struct({
     'dependency-groups': Schema.Record(Schema.String, Schema.Array(Schema.Unknown)).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
 });
 const Raw = Schema.Struct({ project: Table });
+const Pylock = Schema.Struct({ packages: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.optionalKey(Schema.String) })) }).annotate({ description: 'The packages of a PEP 751 pylock.toml, each with the version it locks' });
 const Semantic = Schema.Struct({
     epoch: Schema.Literal(0),
     release: Schema.Tuple([Schema.Int, Schema.optionalKey(Schema.Int), Schema.optionalKey(Schema.Int)]),
@@ -87,10 +88,11 @@ const named = Effect.fnUntraced(function* (tree: Tree, projectGraph: ProjectGrap
 
 const released = Effect.fnUntraced(function* (tree: Tree, manifest: string, options: unknown) {
     const [{ lock }, { project: stated }] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), project(tree, manifest)]);
-    const compile = ['uv', 'pip', 'compile', '-', '--no-deps', '--quiet'] as const;
+    const compile = ['uv', 'pip', 'compile', '-', '--no-deps', '--quiet', '--format', 'pylock.toml'] as const;
     const stdout = yield* spawned(compile, { cwd: join(tree.root, dirname(lock)), stdin: Stream.encodeText(Stream.make(stated.name)) });
-    const found = Array.findFirst(stdout.matchAll(/^(?<name>\S+)==(?<version>\S+)$/gmu), ({ groups }) => Option.flatMap(Option.fromNullishOr(groups), ({ name, version }) => (name !== undefined && normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none())));
-    const latest = yield* Effect.fromOption(found, () => new Cause.NoSuchElementError(`${compile.join(' ')} prints no row for ${stated.name}`));
+    const { packages } = yield* Effect.flatMap(Effect.try({ try: (): unknown => parse(stdout), catch: (cause) => new Cause.UnknownError(cause, `${compile.join(' ')} prints no TOML`) }), Schema.decodeUnknownEffect(Pylock));
+    const found = Array.findFirst(packages, ({ name, version }) => (normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none()));
+    const latest = yield* Effect.fromOption(found, () => new Cause.NoSuchElementError(`${compile.join(' ')} locks no version of ${stated.name}`));
     return { currentVersion: yield* semver(latest), logText: compile.join(' ') };
 }, run);
 
