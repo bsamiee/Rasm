@@ -51,9 +51,6 @@
             "path": "./plugins/claude/function-hooks"
         },
         {
-            "path": "./plugins/claude/varasi"
-        },
-        {
             "path": "./libs/typescript/ai/mcp"
         },
         {
