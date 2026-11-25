@@ -3,7 +3,7 @@
         "clean": {
             "implementation": "./dist/executors/clean/executor#execute",
             "schema": "./executors/clean/schema.json",
-            "description": "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare, keeping any the workspace tracks as source, and empties the named folders"
+            "description": "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare and the matches of the named patterns, keeping any the workspace tracks as source, and empties the named folders"
         },
         "upgrade": {
             "implementation": "./dist/executors/upgrade/executor#execute",

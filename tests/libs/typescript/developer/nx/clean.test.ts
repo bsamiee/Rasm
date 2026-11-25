@@ -53,6 +53,15 @@ describe('clean executor', () => {
         expect(['.artifacts/distribution/lib', '.artifacts/release/lib', '.artifacts'].filter((file) => existsSync(join(workspace.root, file)))).toStrictEqual(['.artifacts']);
     });
 
+    it('removes each match of a workspace pattern, and keeps a same-named folder outside the pattern and one holding a file the workspace tracks', async ({ workspace }) => {
+        const scattered = { 'lib/pkg/__pycache__/a.pyc': '', 'lib/pkg/deep/__pycache__/b.pyc': '', 'other/__pycache__/c.pyc': '', 'lib/kept/__pycache__/tracked.py': 'source' };
+        const graph = await workspace.write({ ...lib, ...scattered, '.gitignore': `${lib['.gitignore']}*.pyc\n` }).graph({});
+
+        await execute({ targets: [], commands: [], cwd: '.', folders: [], patterns: ['lib/**/__pycache__'] }, workspace.context(graph, 'lib', 'clean'));
+
+        expect(['lib/pkg/__pycache__', 'lib/pkg/deep/__pycache__', 'other/__pycache__', 'lib/kept/__pycache__/tracked.py'].filter((file) => existsSync(join(workspace.root, file)))).toStrictEqual(['other/__pycache__', 'lib/kept/__pycache__/tracked.py']);
+    });
+
     it("runs the tool's own clean commands in the folder cwd names", async ({ workspace }) => {
         const graph = await workspace.write(lib).graph({});
 

@@ -242,16 +242,22 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
         ),
     );
     const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
+    const emptied = Array.match(member.checks, { onEmpty: () => [], onNonEmpty: () => Option.toArray(environed).map((at) => ['NX_WORKSPACE_ROOT', ...at.split('/')]) });
+    const scattered = member.leaf ? [posix.join('{projectRoot}', '**', '__pycache__')] : [];
     const verbs: Verbs = {
         ...tools,
-        clean: Array.match(removed, {
+        clean: Array.match([...removed, ...emptied.flat(), ...scattered], {
             onEmpty: () => ({}),
-            onNonEmpty: (labels) => ({
+            onNonEmpty: () => ({
                 uv: {
                     executor: EXECUTORS.clean,
-                    options: { targets: labels },
+                    options: { targets: removed },
+                    configurations: { cache: { folders: emptied, patterns: scattered } },
                     inputs: ['default', '^default', posix.join('{workspaceRoot}', member.lock), { externalDependencies: [] }],
-                    metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: 'nx run --help', example: { options: { targets: labels } } } },
+                    metadata: {
+                        description: `Removes the outputs ${removed.join(', ')} declare, and under configuration cache empties the folder environmentPath names for the project (its environments and the caches of its checkers and tests) and removes each __pycache__ folder under a project holding no other`,
+                        help: { command: 'nx run --help', example: { options: { targets: removed } } },
+                    },
                 },
             }),
         }),

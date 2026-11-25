@@ -1,5 +1,6 @@
+import { glob } from 'node:fs/promises';
 import { posix } from 'node:path';
-import { getOutputsForTargetAndConfiguration } from '@nx/devkit';
+import { getOutputsForTargetAndConfiguration, normalizePath } from '@nx/devkit';
 import { globWithWorkspaceContext, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Config, Effect, FileSystem, Function, Glob, Order, Path, Record, Result, Schema } from 'effect';
 import { getFilesForOutputsBatch } from 'nx/src/native';
@@ -12,8 +13,14 @@ const Clean = Schema.Struct({
     commands: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: "The tool's own clean commands, each an argument list", default: [] }),
     cwd: Schema.String.annotate({ description: 'Folder the commands run in, relative to the workspace root', default: '.' }),
     folders: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: "Folders whose entries are removed, keeping the entry holding Nx's workspace data, each an environment variable naming a folder followed by path segments under it", default: [] }),
+    patterns: Schema.Array(Schema.String)
+        .annotate({ description: 'Glob patterns relative to the workspace root, each match is removed whole unless the workspace tracks it or a file under it', default: [] })
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
     __unparsed__: Words,
-}).annotate({ title: 'Clean', description: "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare, keeping any the workspace tracks as source, and empties the named folders" });
+}).annotate({
+    title: 'Clean',
+    description: "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare and the matches of the named patterns, keeping any the workspace tracks as source, and empties the named folders",
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -58,8 +65,8 @@ const emptied = Effect.fnUntraced(function* ([variable, ...segments]: Array.NonE
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Clean, function* ({ targets, commands, cwd, folders, __unparsed__: words = [] }, context) {
-    const [path, project] = yield* Effect.all([Path.Path, Effect.fromNullishOr(context.projectName)]);
+const execute = executor(Clean, function* ({ targets, commands, cwd, folders, patterns, __unparsed__: words = [] }, context) {
+    const [fs, path, project] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.fromNullishOr(context.projectName)]);
     const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
     const selections = targets.flatMap((target) => [{ target }, ...Record.keys(node.data.targets?.[target]?.configurations ?? {}).map((configuration) => ({ target, configuration }))]);
     const [outputs, negated] = Array.partition(
@@ -77,6 +84,21 @@ const execute = executor(Clean, function* ({ targets, commands, cwd, folders, __
     );
     yield* Effect.forEach(outputs, (output) => cleared(context.root, node.data.root, output, negated, tracked), { discard: true });
     yield* Effect.forEach(folders, emptied, { discard: true });
+    const [matched, sourced] = yield* Array.match(patterns, {
+        onEmpty: () => Effect.succeed([[], []]),
+        onNonEmpty: (globs) =>
+            Effect.all([
+                Effect.promise(() => globalThis.Array.fromAsync(glob([...globs], { cwd: context.root }))),
+                Effect.promise(() =>
+                    globWithWorkspaceContext(
+                        context.root,
+                        globs.flatMap((pattern) => [pattern, posix.join(pattern, '**')]),
+                    ),
+                ),
+            ]),
+    });
+    const scattered = matched.map(normalizePath).filter((at) => !sourced.some((file) => file === at || file.startsWith(`${at}/`)));
+    yield* Effect.forEach(scattered, (at) => Effect.andThen(fs.remove(path.join(context.root, at), { recursive: true, force: true }), Effect.logInfo(`Removed ${at}`)), { discard: true });
     return { success: true };
 });
 

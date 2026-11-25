@@ -50,6 +50,14 @@
                 }
             }
         },
+        "patterns": {
+            "type": "array",
+            "description": "Glob patterns relative to the workspace root, each match is removed whole unless the workspace tracks it or a file under it",
+            "default": [],
+            "items": {
+                "type": "string"
+            }
+        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, appended after the configured arguments",
@@ -66,5 +74,5 @@
     "required": ["targets", "commands", "cwd", "folders"],
     "additionalProperties": true,
     "title": "Clean",
-    "description": "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare, keeping any the workspace tracks as source, and empties the named folders"
+    "description": "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare and the matches of the named patterns, keeping any the workspace tracks as source, and empties the named folders"
 }

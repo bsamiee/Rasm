@@ -133,13 +133,14 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
     const holding = (root: string) => members.some((other) => other.root !== root && (root === '.' || other.root.startsWith(`${root}/`)));
     const leaves = listed.filter(({ root }) => !holding(root));
     const placed = members.map((member) => {
-        const owning = member.root === workspace;
+        const [owning, leaf] = [member.root === workspace, member.listed && !holding(member.root)];
         return {
             ...member,
             owning,
+            leaf,
+            alone: leaf ? [member] : [],
             base: packages.has(member.root) ? posix.dirname(member.root) : member.root,
             groups: Array.unionWith(resolution[member.id]?.dependency_groups ?? [], shared, Equivalence.Struct({ name: Equivalence.String })),
-            alone: member.listed && !holding(member.root) ? [member] : [],
             every: owning ? leaves : [],
         };
     });
@@ -177,6 +178,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
         return {
             name: member.name,
             listed: member.listed,
+            leaf: member.leaf,
             distribution: `${normalized(member.name).replaceAll('-', '_')}-${resolution[member.id]?.version ?? '*'}`,
             root: member.root,
             workspace,
