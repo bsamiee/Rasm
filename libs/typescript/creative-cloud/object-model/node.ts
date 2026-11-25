@@ -23,14 +23,13 @@ interface Source {
 const SCRIPT = '/script.ts';
 const VERSIONS = ['minVersion', 'since'] as const;
 const OPTIONS = ['--module', 'esnext', '--moduleResolution', 'bundler', '--strict', 'false', '--skipLibCheck', '--noEmit'] as const;
-const RANGE = /\(Range: [^)]*\)/u;
 const LISTED = new Set(['classdef', 'elements', 'property', 'method', 'parameter', 'datatype']);
 const PARSER = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '', textNodeName: 'text', parseTagValue: false, parseAttributeValue: false, isArray: (name) => LISTED.has(name) });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Flag = <const T extends string, const F extends string>(truthy: T, falsy: F) => Schema.Union([Schema.Literal(truthy).transform(true), Schema.Literal(falsy).transform(false)]);
-const Ranged = Schema.TemplateLiteralParser(['(Range: ', Schema.Finite, ' to ', Schema.Finite, ')']);
+const Ranged = Schema.TemplateLiteralParser([Schema.String, '(Range: ', Schema.Finite, ' to ', Schema.Finite, ')', Schema.String]);
 const Text = Schema.Union([Schema.String, Schema.Struct({ text: Schema.String }).pipe(Schema.decodeTo(Schema.String, SchemaTransformation.transform({ decode: Struct.get('text'), encode: (text) => ({ text }) })))]);
 const Datatype = Schema.Struct({ type: Text, array: Schema.optionalKey(Schema.Union([Schema.String, Schema.Struct({ size: Schema.String })])), value: Schema.optionalKey(Text), ...Struct.Record(['min', 'max'], Schema.optionalKey(Schema.FiniteFromString)) });
 const Described = { name: Schema.String, shortdesc: Schema.optionalKey(Text), datatype: Schema.optionalKey(Schema.NonEmptyArray(Datatype).annotate({ description: 'Alternatives where a value takes more than one type' })) };
@@ -79,12 +78,12 @@ const HOST: FileSystemCallbacks = {
     removeFile: serverFS.error,
 };
 const scripted = (preamble: string, program: string) => `${preamble}\n${program}\nexport {};\n`;
-const flagged = (symbol: TypeScriptSymbol, ...flags: Array.NonEmptyReadonlyArray<SymbolFlags>) => flags.some((flag) => (symbol.flags & flag) !== 0);
+const flagged = (symbol: TypeScriptSymbol, flags: SymbolFlags) => (symbol.flags & flags) !== 0;
 const typed = (checker: Checker, type: Type) => checker.typeToString(type, undefined, TypeFormatFlags.NoTruncation);
 const promised = (checker: Checker, type: Type) => Option.exists(Option.fromUndefinedOr(checker.getAwaitedType(type)), (awaited) => awaited.id !== type.id);
 const bounded = (description: Option.Option<string>) => {
-    const range = Option.flatMap(description, (text) => Schema.decodeUnknownOption(Ranged)(RANGE.exec(text)?.[0]));
-    return { minimum: Option.map(range, (parsed) => parsed[1]), maximum: Option.map(range, (parsed) => parsed[3]) };
+    const range = Option.flatMap(description, Schema.decodeUnknownOption(Ranged));
+    return { minimum: Option.map(range, (parsed) => parsed[2]), maximum: Option.map(range, (parsed) => parsed[4]) };
 };
 const tagged = (checker: Checker, symbol: TypeScriptSymbol) => ({
     name: symbol.name,
@@ -118,10 +117,10 @@ const members = (checker: Checker, type: Type, statics: boolean) => {
     return { fields, methods: Array.flatten(methods) };
 };
 const exported = (checker: Checker, symbol: TypeScriptSymbol): readonly TypeScriptSymbol[] =>
-    Array.flatMap(checker.getExportsOfModule(symbol), (each) => [each, ...(flagged(each, SymbolFlags.Module) && !flagged(each, SymbolFlags.Variable, SymbolFlags.Class, SymbolFlags.Function, SymbolFlags.Enum) ? exported(checker, each) : [])]);
+    Array.flatMap(checker.getExportsOfModule(symbol), (each) => [each, ...(flagged(each, SymbolFlags.Module) && !flagged(each, SymbolFlags.Variable | SymbolFlags.Class | SymbolFlags.Function | SymbolFlags.Enum) ? exported(checker, each) : [])]);
 const classified = (checker: Checker, base: Option.Option<Type>) => (symbol: TypeScriptSymbol) => {
     const enumerations = flagged(symbol, SymbolFlags.Enum) || (flagged(symbol, SymbolFlags.Variable) && Option.exists(base, (enumeration) => checker.isTypeAssignableTo(checker.getTypeOfSymbol(symbol), enumeration)));
-    const declared = enumerations || (flagged(symbol, SymbolFlags.Class, SymbolFlags.Interface, SymbolFlags.TypeAlias) && Array.isReadonlyArrayNonEmpty(checker.getDeclaredTypeOfSymbol(symbol).getProperties()));
+    const declared = enumerations || (flagged(symbol, SymbolFlags.Class | SymbolFlags.Interface | SymbolFlags.TypeAlias) && Array.isReadonlyArrayNonEmpty(checker.getDeclaredTypeOfSymbol(symbol).getProperties()));
     return declared ? Result.succeed({ symbol, enumerations }) : Result.failVoid;
 };
 const enumerated = (checker: Checker, symbol: TypeScriptSymbol, base: Option.Option<Type>) => {
@@ -232,33 +231,32 @@ const declared = Effect.fnUntraced(function* (compiler: Option.Option<{ readonly
     });
 });
 
-const nonEmpty = (text: string) => Option.liftPredicate(text.trim(), String.isNonEmpty);
-const summary = (shortdesc: string | undefined) => Option.flatMap(Option.fromUndefinedOr(shortdesc), nonEmpty);
+const nonEmpty = (text: string | undefined) => Option.filter(Option.map(Option.fromUndefinedOr(text), String.trim), String.isNonEmpty);
 const datatyped = (datatypes: Classdef['datatype']) => ({
     type: Option.map(Option.fromUndefinedOr(datatypes), (alternatives) => Array.map(alternatives, ({ type, array }) => (array === undefined ? type : `${type}[]`)).join(' | ')),
     minimum: Array.findFirst(datatypes ?? [], ({ min }) => Option.fromUndefinedOr(min)),
     maximum: Array.findFirst(datatypes ?? [], ({ max }) => Option.fromUndefinedOr(max)),
 });
-const parameter = (each: Argued) => Declaration.Parameter.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), optional: each.optional ?? false });
+const parameter = (each: Argued) => Declaration.Parameter.make({ name: each.name, description: nonEmpty(each.shortdesc), ...datatyped(each.datatype), optional: each.optional ?? false });
 const grouped =
     (type: Classdef['elements'][number]['type']) =>
     ({ elements }: Classdef) =>
         elements.some((group) => group.type === type);
 const classdef = (constructible: Predicate.Predicate<Classdef>) => (definition: Classdef) => {
     const { name, shortdesc, enumeration, superclass, elements } = definition;
-    const description = summary(shortdesc);
+    const description = nonEmpty(shortdesc);
     const properties = Array.flatMap(elements, (group) => group.property ?? []);
     const methods = Array.flatMap(elements, (group) => (group.type === 'constructor' ? [] : (group.method ?? [])));
     const page =
         enumeration === true
-            ? Declaration.cases.Enumeration.make({ name, description, members: Array.map(properties, (each) => ({ name: each.name, description: summary(each.shortdesc), value: Array.findFirst(each.datatype ?? [], ({ value }) => Option.fromUndefinedOr(value)) })) })
+            ? Declaration.cases.Enumeration.make({ name, description, members: Array.map(properties, (each) => ({ name: each.name, description: nonEmpty(each.shortdesc), value: Array.findFirst(each.datatype ?? [], ({ value }) => Option.fromUndefinedOr(value)) })) })
             : Declaration.cases.Class.make({
                   name,
                   description,
                   parents: Array.fromNullishOr(superclass),
                   constructible: constructible(definition),
-                  fields: Array.map(properties, (each) => Declaration.Field.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), readonly: each.rwaccess ?? false })),
-                  methods: Array.map(methods, (each) => Declaration.Method.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), parameters: Array.map(each.parameters?.parameter ?? [], parameter) })),
+                  fields: Array.map(properties, (each) => Declaration.Field.make({ name: each.name, description: nonEmpty(each.shortdesc), ...datatyped(each.datatype), readonly: each.rwaccess ?? false })),
+                  methods: Array.map(methods, (each) => Declaration.Method.make({ name: each.name, description: nonEmpty(each.shortdesc), ...datatyped(each.datatype), parameters: Array.map(each.parameters?.parameter ?? [], parameter) })),
               });
     return [name, page] as const;
 };

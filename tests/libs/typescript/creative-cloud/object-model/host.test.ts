@@ -15,9 +15,9 @@ const HELD: Containment = {
     root: { documents: { length: 2, 0: COVER, 1: PROOF } },
     type: () => 'Object',
     kinds: {
-        document: { collection: 'documents', is: (value) => Reflect.get(value, 'kind') === 'document' },
-        page: { collection: 'pages', base: 1, is: (value) => Reflect.get(value, 'kind') === 'page', owner: (value) => OWNERS.get(value) },
-        layer: { collection: 'layers', nested: true, is: (value) => Reflect.get(value, 'kind') === 'layer', owner: (value) => OWNERS.get(value) },
+        document: { collection: 'documents', keys: ['name'], is: (value) => Reflect.get(value, 'kind') === 'document' },
+        page: { collection: 'pages', base: 1, keys: ['name'], is: (value) => Reflect.get(value, 'kind') === 'page', owner: (value) => OWNERS.get(value) },
+        layer: { collection: 'layers', nested: true, keys: ['name'], is: (value) => Reflect.get(value, 'kind') === 'layer', owner: (value) => OWNERS.get(value) },
     },
 };
 

@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Effect, ErrorReporter, Formatter, type LogLevel, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
+import { Array, Effect, ErrorReporter, Formatter, type LogLevel, Option, Order, Record, Result, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
 import { format, parse } from '#/host';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -57,9 +57,9 @@ const Declaration = Object.assign(Declared, {
     Page,
     Model,
     catalog: <A, P>(table: Record.ReadonlyRecord<string, A>, page: (entry: A) => P, enumerated: (entry: A) => boolean) => {
-        const sorted = (enumerations: boolean) => Array.sort(Record.keys(Record.filter(table, (entry) => enumerated(entry) === enumerations)), Order.String);
+        const [enumerations, classes] = Record.partition(table, (entry) => (enumerated(entry) ? Result.succeed(entry) : Result.fail(entry)));
         return {
-            index: Declared.cases.Index.make({ classes: sorted(false), enumerations: sorted(true) }),
+            index: Declared.cases.Index.make(Record.map({ classes, enumerations }, (held) => Array.sort(Record.keys(held), Order.String))),
             page: (name: string) => Unmatched.single(Record.toEntries(table), 'class or enumeration', Option.some(name), ([key]) => [key]).pipe(Effect.map(([, found]) => page(found))),
         };
     },
@@ -99,7 +99,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
         return Option.exists(Array.last(this.steps), ({ kind }) => kind.startsWith('@'));
     }
     get name(): Option.Option<string> {
-        return Option.flatMap(Option.filter(this.selector, Selector.guards.Key), ({ key, value }) => (key === 'name' ? Option.some(`${value}`) : Option.none()));
+        return Option.flatMap(this.selector, (chosen) => (chosen._tag === 'Key' && chosen.key === 'name' ? Option.some(`${chosen.value}`) : Option.none()));
     }
     get leaf(): string {
         return Array.map([this.steps, ...Array.fromNullishOr(this.end)], (steps) => Option.match(Array.last(steps), { onNone: () => '/', onSome: (step) => format({ steps: [step] }).slice(step.separator.length) })).join(' to ');
