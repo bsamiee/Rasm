@@ -42,15 +42,18 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const locals = Array.dedupe(Array.getSomes(container.projects.map(packaged)));
     const seed = Array.findFirst(container.projects, (at) => Option.as(packaged(at), join(at, RESOLVED)));
     const archives = schemes.flatMap(({ name: scheme, archive }) => Array.fromNullishOr(archive).map((held) => ({ scheme, ...held })));
-    const archived = Array.fromNullishOr(options.outputPath).flatMap((at) =>
-        archives.map(({ scheme, configuration, feed }) => ({ feed, folder: join(at, scheme), archive: join(at, scheme, `${scheme}.xcarchive`), run: invoke('archive', scheme, ['-archivePath', join(at, scheme, `${scheme}.xcarchive`), '-configuration', configuration]) })),
-    );
+    const archived = Array.cartesianWith(Array.fromNullishOr(options.outputPath), archives, (at, { scheme, configuration, feed }) => {
+        const folder = join(at, scheme);
+        const archive = join(folder, `${scheme}.xcarchive`);
+        const placed = relative(root, folder);
+        return { feed, folder, archive, base: placed.startsWith('..') ? join('{workspaceRoot}', folder) : join('{projectRoot}', placed), run: invoke('archive', scheme, ['-archivePath', archive, '-configuration', configuration]) };
+    });
     const referenced = container.buildFiles.filter((at) => relative(root, at).startsWith('..')).flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
     const read = Array.dedupe(['{projectRoot}/**/*', ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]);
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
-    const fed = archived.filter(Struct.get('feed'));
+    const fed = released ? archived.filter(Struct.get('feed')) : [];
     const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
-    const derived = Option.fromUndefinedOr(options.derivedDataPath ?? UndefinedOr.map(options.outputPath, (at) => join(at, 'DerivedData')));
+    const derived = Option.filter(Option.fromUndefinedOr(options.derivedDataPath ?? UndefinedOr.map(options.outputPath, (at) => join(at, 'DerivedData'))), () => Array.isReadonlyArrayNonEmpty(runs));
     const report = Option.zipWith(Option.fromUndefinedOr(options.coveragePath), derived, (coverage, folder) => ({ profiles: [join(folder, 'Build/ProfileData/*/Coverage.profdata')], results: [join(folder, 'Logs/Test/*.xcresult')], file: join(coverage, 'lcov.info') }));
     const covered = Option.toArray(Option.map(report, ({ file: at }) => at));
     const builds: Run['runs'] = schemes.map((scheme) => invoke('build', scheme.name, []));
@@ -66,7 +69,8 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
         outputs: covered.map((at) => join('{workspaceRoot}', at)),
         ...Option.getOrUndefined(Option.map(report, (held) => ({ report: held }))),
     };
-    const tools: Verbs = {
+    const purged = Array.findFirst(schemes, ({ containers }) => containers.some((at) => Option.isNone(packaged(at))));
+    const work: Verbs = {
         ...(schemes.length > 0 && {
             build: {
                 xcodebuild: sequenced(
@@ -85,7 +89,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                     [
                         ['rm', '-rf', join(cloned, 'workspace-state.json'), join(cloned, 'checkouts'), ...(Option.isNone(seed) ? [lock] : [])],
                         ...Option.toArray(Option.map(seed, (from) => ['ln', '-sf', relative(dirname(lock), from), lock] as const)),
-                        ...schemes.slice(0, 1).map((scheme) => ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', cloned, '-scheme', scheme.name] as const),
+                        ...Option.toArray(Option.map(Array.head(schemes), ({ name: scheme }) => ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', cloned, '-scheme', scheme] as const)),
                     ],
                     {
                         technologies: ['xcode'],
@@ -105,7 +109,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                     dependsOn: ['^build--*'],
                     inputs: [...read, { env: NOTARY.keyId }],
                     options: { exports: archived.map(({ archive, folder, run }) => ({ archive, folder, run })) },
-                    outputs: archived.flatMap(({ folder, archive }) => ['*.dmg', '*.zip', basename(archive)].map((entry) => (relative(root, folder).startsWith('..') ? join('{workspaceRoot}', folder, entry) : join('{projectRoot}', relative(root, folder), entry)))),
+                    outputs: archived.flatMap(({ base, archive }) => ['*.dmg', '*.zip', basename(archive)].map((entry) => join(base, entry))),
                     metadata: {
                         technologies: ['xcode'],
                         description: `Archives each app with installed products with xcodebuild archive, then zips it with ditto, or where ${NOTARY.key}, ${NOTARY.keyId}, and ${NOTARY.issuer} are set exports it under the Developer ID Application identity into a disk image that is signed, notarized, and stapled`,
@@ -151,55 +155,45 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
         }),
         ...(released && { attach: { gh: ATTACH } }),
     };
+    const removed = Record.collect(work, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
+    const tools: Verbs = {
+        ...work,
+        ...(schemes.length > 0 && {
+            clean: {
+                xcodebuild: {
+                    executor: EXECUTORS.clean,
+                    parallelism: false,
+                    inputs: read,
+                    options: { commands: [...schemes.map(({ name: scheme }) => invoke('clean', scheme, [])), ...[...archived.map(Struct.get('archive')), ...Option.toArray(derived)].map((at) => ['rm', '-rf', at])], cwd: '.', targets: removed },
+                    configurations: { cache: { commands: Option.toArray(Option.map(purged, ({ name: scheme }) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme, ['-json'])])) } },
+                    metadata: {
+                        technologies: ['xcode'],
+                        description: `Removes the build products of each shared scheme with xcodebuild clean, then each archive and the DerivedData folder of the coverage configuration, and under configuration cache removes the per-user DerivedData folder of ${name}, two folders above the BUILD_ROOT xcodebuild -showBuildSettings -json prints`,
+                        help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
+                    },
+                },
+            },
+        }),
+    };
     return {
         root,
         name,
         file,
         technologies: ['xcode'],
-        tools: {
-            ...tools,
-            ...(schemes.length > 0 && {
-                clean: {
-                    xcodebuild: {
-                        executor: EXECUTORS.clean,
-                        parallelism: false,
-                        inputs: read,
-                        options: {
-                            commands: [...schemes.map((scheme) => invoke('clean', scheme.name, [])), ...[...archived.map(({ archive }) => archive), ...(runs.length > 0 ? Option.toArray(derived) : [])].map((at) => ['rm', '-rf', at])],
-                            cwd: '.',
-                            targets: Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat(),
-                        },
-                        configurations: {
-                            cache: {
-                                commands: schemes
-                                    .filter(({ containers }) => containers.some((at) => Option.isNone(packaged(at))))
-                                    .slice(0, 1)
-                                    .map((scheme) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme.name, ['-json'])]),
-                            },
-                        },
-                        metadata: {
-                            technologies: ['xcode'],
-                            description: `Removes the build products of each shared scheme with xcodebuild clean, then each archive and the DerivedData folder of the coverage configuration, and under configuration cache removes the per-user DerivedData folder of ${name}, two folders above the BUILD_ROOT xcodebuild -showBuildSettings -json prints`,
-                            help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
-                        },
-                    },
+        tools,
+        ...(Array.isReadonlyArrayNonEmpty(fed) && {
+            published: {
+                executor: `${PLUGIN}:release-publish`,
+                dependsOn: ['pack--ditto', '^nx-release-publish'],
+                inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+                options: { exports: fed.map(({ archive }) => ({ archive })) },
+                metadata: {
+                    technologies: ['xcode'],
+                    description: `Signs the Sparkle feed of each disk image pack--ditto wrote for an application stating SUFeedURL with generate_appcast under ${APPCAST.key} and uploads it to the R2 bucket ${APPCAST.bucket} names with cf r2 objects put, skipping where either is unset or no disk image exists`,
+                    help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } },
                 },
-            }),
-        },
-        ...(released &&
-            Array.isReadonlyArrayNonEmpty(fed) && {
-                published: {
-                    executor: `${PLUGIN}:release-publish`,
-                    dependsOn: ['pack--ditto', '^nx-release-publish'],
-                    inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-                    options: { exports: fed.map(({ archive }) => ({ archive })) },
-                    metadata: {
-                        technologies: ['xcode'],
-                        description: `Signs the Sparkle feed of each disk image pack--ditto wrote for an application stating SUFeedURL with generate_appcast under ${APPCAST.key} and uploads it to the R2 bucket ${APPCAST.bucket} names with cf r2 objects put, skipping where either is unset or no disk image exists`,
-                        help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } },
-                    },
-                },
-            }),
+            },
+        }),
         ...(released && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(root, file) } } } }),
     };
 };
