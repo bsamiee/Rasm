@@ -54,7 +54,7 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
     const defaults = yield* process.platform === 'darwin' ? run(['defaults', 'export', domain, '-']).pipe(Effect.flatMap(({ stdout: text }) => Effect.try({ try: (): unknown => plist(text), catch: (cause) => new Cause.UnknownError(cause, `defaults export of ${domain} printed no property list`) }))) : Effect.succeed({});
     const provider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase, ConfigProvider.nested(String.constantCase(named.name)), ConfigProvider.orElse(ConfigProvider.fromUnknown(defaults).pipe(ConfigProvider.mapInput((path) => [path.join('.')]))), ConfigProvider.orElse(ConfigProvider.fromEnv()));
     const listened = Effect.fnUntraced(
-        function* (transport: Parameters<typeof Server.layerHttp>[1], served: Layer.Layer<never, E, R>) {
+        function* (transport: Parameters<typeof Server.layerHttp>[1], served: Layer.Layer<never, E, Exclude<R, Output>>) {
             const [handler, addresses] = yield* Effect.all([HttpRouter.toHttpEffect(Server.layerHttp(named, transport, served)), AddressResolver.AddressResolver.use((resolver) => resolver.resolve(transport.address))]);
             yield* Effect.forEach(addresses, (resolved) => HttpServer.serve(handler).pipe(HttpServer.withLogAddress, Layer.provide(layerServer(createServer, { host: NetAddress.formatHost(resolved), port: resolved.port, disablePreemptiveShutdown: true })), Layer.build), { discard: true });
         },
