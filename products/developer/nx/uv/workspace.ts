@@ -114,12 +114,45 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
         .filter((file) => posix.basename(file) === MANIFEST)
         .map((file) => posix.join('{workspaceRoot}', file))
         .toArray();
-    const shaped = members.map((member) => {
-        const groups = Array.unionWith(resolution[member.id]?.dependency_groups ?? [], shared, Equivalence.Struct({ name: Equivalence.String }));
+    const holding = (root: string) => members.some((other) => other.root !== root && (root === '.' || other.root.startsWith(`${root}/`)));
+    const leaves = listed.filter(({ root }) => !holding(root));
+    const placed = members.map((member) => {
+        const owning = member.root === workspace;
+        return {
+            ...member,
+            owning,
+            base: packages.has(member.root) ? posix.dirname(member.root) : member.root,
+            groups: Array.unionWith(resolution[member.id]?.dependency_groups ?? [], shared, Equivalence.Struct({ name: Equivalence.String })),
+            alone: member.listed && !holding(member.root) ? [member] : [],
+            every: owning ? leaves : [],
+        };
+    });
+    const checks = Array.groupBy(
+        Array.filterMap(Array.cartesian(placed, Record.toEntries(CHECKERS)), ([member, [key, row]]) => {
+            const group = Array.findFirst(member.groups, offering(key));
+            const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
+            const installed = reach([member.id, ...(member.owning ? listed.map(({ id }) => id) : []), ...from]);
+            const [cwd, checked] = [row.folder(workspace, member.base), row.once ? member.every : member.alone];
+            const { files: matches, ...found } = declared(documented, { cwd, root: member.root }, key);
+            return Array.isReadonlyArrayNonEmpty(checked) && installed.values().some(distributed(key))
+                ? Result.succeed({
+                      root: member.root,
+                      key,
+                      cwd,
+                      ...found,
+                      paths: checked.map(({ root }) => root),
+                      patterns: Array.cartesianWith(checked, matches, ({ root }, file) => posix.join(root, '**', file)),
+                      group: Option.getOrUndefined(group)?.name,
+                      projects: Array.dedupe([...checked.map(({ name }) => name), ...named(from.filter(loaded(row.plugins)))]),
+                      covered: row.coverage !== undefined && installed.values().some(distributed(row.coverage)),
+                  })
+                : Result.failVoid;
+        }),
+        ({ root }) => root,
+    );
+    const shaped = placed.map((member) => {
         const packaged = 'editable' in (resolution[member.id]?.source ?? {});
         const project = Option.getOrUndefined(declaring(member.id));
-        const base = packages.has(member.root) ? posix.dirname(member.root) : member.root;
-        const nested = members.some((other) => other.root !== member.root && (member.root === '.' || other.root.startsWith(`${member.root}/`)));
         return {
             name: member.name,
             listed: member.listed,
@@ -127,6 +160,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
             root: member.root,
             workspace,
             lock,
+            selection: member.owning ? ['--all-packages'] : ['--package', member.name],
             packaged,
             manifests,
             index,
@@ -141,15 +175,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
                     .flatMap(([id]) => Array.getSomes((resolution[id]?.dependencies ?? []).map(resolved)))
                     .map(({ root }) => root),
             ),
-            checks: Array.filterMap(nested || !member.listed ? [] : Record.toEntries(CHECKERS), ([key, row]) => {
-                const group = Array.findFirst(groups, offering(key));
-                const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
-                const installed = reach([member.id, ...from]);
-                const cwd = row.folder(workspace, base);
-                return installed.values().some(distributed(key))
-                    ? Result.succeed({ key, cwd, ...declared(documented, { cwd, root: member.root }, key), group: Option.getOrUndefined(group)?.name, projects: named(from.filter(loaded(row.plugins))), covered: row.coverage !== undefined && installed.values().some(distributed(row.coverage)) })
-                    : Result.failVoid;
-            }),
+            checks: Option.toArray(Record.get(checks, member.root)).flat(),
         };
     });
     const failures = Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML or INI`)));

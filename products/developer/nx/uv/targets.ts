@@ -6,94 +6,76 @@ import { type Anchor, above, aggregated, EXECUTORS, PLATFORM, type Verbs } from 
 import { Array, identity, Option, pipe, Record, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Stated = Readonly<Record<'config' | 'floor' | 'cache' | 'store', string | undefined>>;
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MYPY = [['mypy.ini'], ['.mypy.ini'], ['pyproject.toml', 'tool', 'mypy'], ['setup.cfg', 'mypy']] as const;
 const CHECKERS = {
     ty: {
         verb: 'check',
+        once: true,
         variables: ['TY_UV'],
-        hashes: ['platform'],
-        imports: true,
         plugins: undefined,
         configs: { cwd: [['ty.toml'], ['pyproject.toml', 'tool', 'ty']], root: [] },
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: identity<string>,
-        isolated: false,
-        command: (at: string) => ['ty', 'check', at],
+        command: (paths: readonly string[]) => ['ty', 'check', ...paths],
         coverage: undefined,
-        description: 'Type-checks the member with ty check',
+        description: 'Type-checks every member of the uv workspace in one ty check run',
         help: 'ty check --help',
-        example: ['--output-format', 'concise'],
     },
     mypy: {
         verb: 'check',
+        once: false,
         variables: [],
-        hashes: ['platform', 'python'],
-        imports: true,
         plugins: undefined,
         configs: { cwd: MYPY, root: [] },
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
-        isolated: false,
-        command: (at: string, _config: string | undefined, version: string | undefined, cache: string) => ['mypy', at, ...flagged('--python-version', version), '--cache-dir', cache],
+        command: (paths: readonly string[], { floor, cache }: Stated) => ['mypy', ...paths, ...flagged('--python-version', floor), ...flagged('--cache-dir', cache)],
         coverage: undefined,
         description: 'Type-checks the member with mypy and the plugins its configuration loads',
         help: 'mypy --help',
-        example: ['--output', 'json'],
     },
     refurb: {
         verb: 'check',
+        once: false,
         variables: [],
-        hashes: ['platform', 'python'],
-        imports: true,
         plugins: 'refurb.plugins',
         configs: { cwd: MYPY, root: [['pyproject.toml', 'tool', 'refurb']] },
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
-        isolated: false,
-        command: (at: string, config?: string, version?: string) => ['refurb', ...(config === undefined ? [] : ['--config-file', config]), ...flagged('--python-version', version), at],
+        command: (paths: readonly string[], { config, floor, cache }: Stated) => ['refurb', ...flagged('--config-file', config), ...flagged('--python-version', floor), ...paths, ...(cache === undefined ? [] : ['--', '--cache-dir', cache])],
         coverage: undefined,
         description: 'Reports the findings of the member with refurb over a mypy build',
         help: 'refurb --help',
-        example: ['--format', 'github'],
-    },
-    vulture: {
-        verb: 'check',
-        variables: [],
-        hashes: [],
-        imports: false,
-        plugins: undefined,
-        configs: { cwd: [], root: [['pyproject.toml', 'tool', 'vulture']] },
-        matches: ['*.py'],
-        sources: ['*.py'],
-        folder: identity<string>,
-        isolated: false,
-        command: (at: string, config?: string) => ['vulture', at, ...(config === undefined ? [] : ['--config', config])],
-        coverage: undefined,
-        description: 'Reports the functions, classes, methods, and attributes of the member that nothing reads with vulture',
-        help: 'vulture --help',
-        example: ['--min-confidence', '80'],
     },
     pytest: {
         verb: 'test',
+        once: false,
         variables: ['PYTEST_ADDOPTS', 'PYTEST_PLUGINS', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD'],
-        hashes: ['platform', 'python'],
-        imports: true,
         plugins: undefined,
         configs: { cwd: [], root: [['pytest.toml', 'pytest'], ['.pytest.toml', 'pytest'], ['pytest.ini'], ['.pytest.ini'], ['pyproject.toml', 'tool', 'pytest'], ['tox.ini', 'pytest'], ['setup.cfg', 'tool:pytest']] },
         matches: ['test_*.py', '*_test.py'],
         sources: ['*'],
-        isolated: true,
         folder: identity<string>,
-        command: (at: string) => ['pytest', at],
+        command: (paths: readonly string[], { store }: Stated) => [
+            'pytest',
+            ...paths,
+            ...flagged(
+                '-o',
+                UndefinedOr.map(store, (folder) => `cache_dir=${folder}`),
+            ),
+        ],
         coverage: 'pytest-cov',
         description: 'Runs the member tests with pytest',
         help: 'pytest --help',
-        example: ['-k', '<expression>'],
     },
 } as const;
 const PIXI = 'pixi.toml';
@@ -106,7 +88,7 @@ const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ configs }) =
 class Options extends Schema.Opaque<Options, unknown>()(
     Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String), environmentPath: Schema.optionalKey(Schema.String) }).annotate({
         description:
-            "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the member, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its lcov.info report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the member, absent writes both to the folder pytest runs from. environmentPath: workspace folder holding the environment pytest runs in through UV_PROJECT_ENVIRONMENT, which uv run --exact keeps at the member's locked selection between runs, {projectName} naming the member, absent builds a temporary environment per run through uv run --isolated",
+            "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the project, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its lcov.info report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the project, absent writes both to the folder pytest runs from. environmentPath: workspace folder holding what the checkers and tests of a project keep between runs, {projectName} naming the project: one environment per dependency group offering a tool, in a folder named for the group, or .venv where the project's own dependencies hold the tool, each selected through UV_PROJECT_ENVIRONMENT and kept at its locked selection by uv run --exact, beside the cache folder of each tool (.mypy_cache, .refurb_cache, .pytest_cache), absent builds a temporary environment per run through uv run --isolated and leaves each tool its own cache folder. The tasks of a uv root select every package of its workspace (--all-packages), so a uv root that is itself a checked member checks in that wider environment",
     }),
 ) {}
 const Table = Schema.Record(Schema.String, Schema.Unknown);
@@ -115,7 +97,7 @@ const Patterns = Schema.Struct({
         Schema.Union([Schema.Array(Schema.String), Schema.String.pipe(Schema.decodeTo(Schema.Array(Schema.String), SchemaTransformation.transform({ decode: (text): readonly string[] => text.split(/\s+/u).filter(String.isNonEmpty), encode: (files: readonly string[]) => files.join(' ') })))]),
     ),
 });
-const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns), cache_dir: Schema.optionalKey(Schema.String) }));
+const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -140,48 +122,47 @@ const declared = (documented: ReadonlyMap<string, unknown>, folders: { readonly 
     const settings = Option.getOrUndefined(Option.map(found, ([[, stated]]) => stated));
     return {
         config: Option.getOrUndefined(Option.map(found, ([[config]]) => config)),
-        cache: settings?.cache_dir,
         inputs: Array.dedupe([...searched.root.read, ...searched.cwd.read].map(([at]) => posix.join('{workspaceRoot}', at))),
-        patterns: (settings?.python_files ?? settings?.ini_options?.python_files ?? settings?.pytest?.python_files ?? CHECKERS[checker].matches).map((pattern) => posix.join(folders.root, '**', pattern)),
+        files: settings?.python_files ?? settings?.ini_options?.python_files ?? settings?.pytest?.python_files ?? CHECKERS[checker].matches,
     };
 };
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
 const targets = (member: Member, { outputPath, coveragePath, environmentPath }: Options, manifest: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, anchor: Anchor): Record<string, TargetConfiguration> => {
-    const distributions = Option.map(Option.fromUndefinedOr(outputPath), (template) => template.replaceAll('{projectName}', member.name));
+    const distributions = Option.fromUndefinedOr(outputPath);
     const folder = Option.getOrElse(distributions, () => posix.join(member.workspace, 'dist'));
-    const environed = Option.map(Option.fromUndefinedOr(environmentPath), (template) => template.replaceAll('{projectName}', member.name));
+    const environed = Option.fromUndefinedOr(environmentPath);
     const built = [posix.relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${posix.join('{projectRoot}', held, '**', '*')}`);
-    const hashed = { platform: PLATFORM, python: { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) } };
     const settings = [...UV.pins, UV.settings].map((file) => posix.join('{workspaceRoot}', member.workspace, file));
     const project = [...settings, posix.join('{workspaceRoot}', member.lock)];
     const checked = member.checks.map((stated) => {
         const row = CHECKERS[stated.key];
         const { cwd } = stated;
         const outside = posix.relative(member.workspace, cwd).startsWith('..');
-        const config = UndefinedOr.map(stated.config, (file) => posix.relative(cwd, file));
-        const environment = Option.filter(environed, () => row.isolated);
+        const [environment, kept] = [Option.map(environed, (at) => posix.join(at, stated.group ?? '.venv')), Option.map(environed, (at) => posix.join(at, `.${stated.key}_cache`))];
         const argv = [
             'uv',
             'run',
+            '--frozen',
             '--no-active',
-            '--locked',
-            ...(row.isolated ? [Option.isSome(environment) ? '--exact' : '--isolated'] : []),
+            Option.isSome(environment) ? '--exact' : '--isolated',
             ...(outside ? ['--project', posix.relative(cwd, member.workspace)] : []),
-            '--package',
-            member.name,
+            ...member.selection,
             '--all-extras',
             ...flagged('--group', stated.group),
             ...row.command(
-                posix.relative(cwd, member.root) || '.',
-                config,
-                UndefinedOr.map(member.python, (range) => /(?:>=|==|~=)\s*(?<floor>\d+\.\d+)/u.exec(range)?.groups?.['floor']),
-                posix.join((stated.cache ?? '.mypy_cache').replace('$MYPY_CONFIG_FILE_DIR', posix.dirname(config ?? '.')), member.root, stated.key),
+                stated.paths.map((root) => posix.relative(cwd, root) || '.'),
+                {
+                    config: UndefinedOr.map(stated.config, (file) => posix.relative(cwd, file)),
+                    floor: UndefinedOr.map(member.python, (range) => /(?:>=|==|~=)\s*(?<floor>\d+\.\d+)/u.exec(range)?.groups?.['floor']),
+                    cache: Option.getOrUndefined(Option.map(kept, (at) => posix.relative(cwd, at))),
+                    store: Option.getOrUndefined(Option.map(kept, (at) => posix.join('$NX_WORKSPACE_ROOT', at))),
+                },
             ),
         ];
         const reported = coveragePath ?? cwd;
-        const selected = Option.match(environment, { onNone: () => ({}), onSome: (at) => ({ UV_PROJECT_ENVIRONMENT: posix.relative(cwd, at) }) });
+        const selected = Option.match(environment, { onNone: () => ({}), onSome: (at) => ({ UV_PROJECT_ENVIRONMENT: posix.relative(member.workspace, at) }) });
         const covered = {
             command: line([...argv, '--cov', `--cov-report=lcov:${posix.join(posix.relative(cwd, reported), 'lcov.info')}`]),
             env: { ...selected, COVERAGE_FILE: posix.join(posix.relative(cwd, reported), '.coverage') },
@@ -197,20 +178,24 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                 ...built,
                 ...stated.inputs,
                 ...row.variables.map((env) => ({ env })),
-                ...row.hashes.map((hash) => hashed[hash]),
-                ...(row.imports ? ['^default'] : []),
+                PLATFORM,
+                { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) },
+                '^default',
                 ...project,
-                ...Array.match(row.imports ? stated.projects.filter((name) => name !== member.name) : [], {
-                    onEmpty: () => [],
-                    onNonEmpty: (projects) => [
-                        { input: 'default', projects },
-                        { input: 'default', projects, dependencies: true },
-                    ],
-                }),
+                ...Array.match(
+                    stated.projects.filter((name) => name !== member.name),
+                    {
+                        onEmpty: () => [],
+                        onNonEmpty: (projects) => [
+                            { input: 'default', projects },
+                            { input: 'default', projects, dependencies: true },
+                        ],
+                    },
+                ),
                 { externalDependencies: [] },
             ],
             ...(stated.covered && { outputs: ['{options.outputs.0}'], configurations: { coverage: covered } }),
-            metadata: { description: row.description, help: { command: `uv run ${row.help}`, example: { args: [...row.example] } } },
+            metadata: { description: row.description, help: { command: `uv run ${row.help}`, example: {} } },
         };
         return { verb: row.verb, key: stated.key, target };
     });
