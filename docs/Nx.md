@@ -59,7 +59,7 @@ Remote cache clients and the inputs deciding which machines share a result:
 - Xcode targets add `xcodebuild -version` and `XCODE_XCCONFIG_FILE` content to those inputs
 - Xcode targets hash the SwiftPM targets their linked package products reach alone, and other Swift changes leave an app's result cached
 - Cargo targets hash `rustc -vV`, which prints its host triple, and no Mac result of theirs serves a Linux job
-- Python checks and tests but `check--vulture` hash platform, and no Mac result of theirs serves a Linux job
+- Python checks and tests hash platform, and no Mac result of theirs serves a Linux job
 - Root project `rasm` holds no Colima target, and its tasks share keys between the Mac and Linux
 - Nx sets no remote cache timeout and stops a run on a read answered other than 200 or 404 or left unconnected, and no setting overrides the stop
 - `@rasm/nx-distribution` reads the cache server with its token once before the tasks of each `nx` run that uses the remote cache, outside any task
