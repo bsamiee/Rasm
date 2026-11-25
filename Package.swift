@@ -117,8 +117,8 @@ let applications: [Target] = [
     .target(
         name: "Atelier",
         dependencies: ["ApplicationServer", "Applications"],
-        path: "products/apps/creative-cloud/multi-app/atelier/macos",
-        exclude: ["AppIcon.icon", "Atelier.entitlements", "Atelier.xcodeproj", "Info.plist"],
+        path: "products/apps/creative-cloud/atelier",
+        exclude: ["AppIcon.icon", "Atelier.entitlements", "Atelier.xcodeproj", "Info.plist", "server"],
     ),
     .target(
         name: "Relay",

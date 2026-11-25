@@ -1623,63 +1623,7 @@ importers:
         specifier: 'catalog:'
         version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
 
-  products/apps/creative-cloud/illustrator/atelier:
-    dependencies:
-      '@rasm/illustrator':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/creative-cloud/illustrator
-      '@rasm/uxp':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/creative-cloud/uxp
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
-    devDependencies:
-      '@adobe-uxp-types/uxp':
-        specifier: 'catalog:'
-        version: 0.1.4
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      vite:
-        specifier: 'catalog:'
-        version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
-
-  products/apps/creative-cloud/indesign/atelier:
-    dependencies:
-      '@rasm/indesign':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/creative-cloud/indesign
-      '@rasm/mcp':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/ai/mcp
-      '@rasm/object-model':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/creative-cloud/object-model
-      '@rasm/typography':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/graphics/typography
-      '@rasm/uxp':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/creative-cloud/uxp
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
-    devDependencies:
-      '@adobe-uxp-types/uxp':
-        specifier: 'catalog:'
-        version: 0.1.4
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      indesign-uxp-types:
-        specifier: 'catalog:'
-        version: 2.0.0(@adobe/cc-ext-uxp-types@7.3.1)
-      vite:
-        specifier: 'catalog:'
-        version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
-
-  products/apps/creative-cloud/multi-app/atelier:
+  products/apps/creative-cloud/atelier/server:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -1751,6 +1695,62 @@ importers:
       uxp-after-effects:
         specifier: 'catalog:'
         version: https://codeload.github.com/AdobeDocs/uxp-after-effects/tar.gz/7d1cd01b4c69a9e02b77d48b3f919a6145a90841
+      vite:
+        specifier: 'catalog:'
+        version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+
+  products/apps/creative-cloud/illustrator/atelier:
+    dependencies:
+      '@rasm/illustrator':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/illustrator
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/uxp
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+    devDependencies:
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      vite:
+        specifier: 'catalog:'
+        version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+
+  products/apps/creative-cloud/indesign/atelier:
+    dependencies:
+      '@rasm/indesign':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/indesign
+      '@rasm/mcp':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/ai/mcp
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
+      '@rasm/typography':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/graphics/typography
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/uxp
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+    devDependencies:
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      indesign-uxp-types:
+        specifier: 'catalog:'
+        version: 2.0.0(@adobe/cc-ext-uxp-types@7.3.1)
       vite:
         specifier: 'catalog:'
         version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -2933,7 +2933,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
 
-  tests/products/apps/creative-cloud/multi-app/atelier:
+  tests/products/apps/creative-cloud/atelier:
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -2943,10 +2943,10 @@ importers:
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
       '@rasm/applications':
         specifier: workspace:*
-        version: link:../../../../../../libs/typescript/macos/applications
+        version: link:../../../../../libs/typescript/macos/applications
       '@rasm/testing':
         specifier: workspace:*
-        version: link:../../../../../support/typescript
+        version: link:../../../../support/typescript
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6

@@ -90,7 +90,7 @@
             "path": "./tests/e2e/portfolio"
         },
         {
-            "path": "./products/apps/creative-cloud/multi-app/atelier"
+            "path": "./products/apps/creative-cloud/atelier/server"
         },
         {
             "path": "./products/apps/creative-cloud/indesign/atelier"
@@ -231,7 +231,7 @@
             "path": "./libs/typescript/web/vite"
         },
         {
-            "path": "./tests/products/apps/creative-cloud/multi-app/atelier"
+            "path": "./tests/products/apps/creative-cloud/atelier"
         },
         {
             "path": "./tests/libs/typescript/graphics/mark"

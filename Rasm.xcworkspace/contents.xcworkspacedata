@@ -5,7 +5,7 @@
       location = "group:">
    </FileRef>
    <FileRef
-      location = "group:products/apps/creative-cloud/multi-app/atelier/macos/Atelier.xcodeproj">
+      location = "group:products/apps/creative-cloud/atelier/Atelier.xcodeproj">
    </FileRef>
    <FileRef
       location = "group:products/macos/relay/Relay.xcodeproj">

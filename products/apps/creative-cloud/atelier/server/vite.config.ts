@@ -38,9 +38,9 @@ export default Effect.fnUntraced(
                 Effect.forEach([...Array.map(Array.flatten(declared), (file) => [relative(directory, file), file] as const), ...Array.map(libraries, (file) => [join('typescript', relative(root, file)), file] as const)], ([fileName, file]) =>
                     fs.readFile(file).pipe(Effect.bindTo('source'), Effect.map(Struct.assign({ fileName }))),
                 ),
-                run(['mq', '--aggregate', '--from-file', join(directory, 'after-effects.mq'), '--output-format', 'jsonl', ...documented]),
+                run(['mq', '--aggregate', '--from-file', join(directory, 'aftereffects.mq'), '--output-format', 'jsonl', ...documented]),
             ]);
-            return [...read, { fileName: 'after-effects.jsonl', source: stdout }];
+            return [...read, { fileName: 'aftereffects.jsonl', source: stdout }];
         });
         const declarations = {
             name: 'declarations',

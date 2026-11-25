@@ -13,14 +13,14 @@
   "packages": [
     {
       "kind": "local",
-      "path": "../../../../../..",
+      "path": "../../../..",
     },
   ],
   "files": [
-    { "path": "../../../../../../.artifacts/vite/@rasm/atelier/server", "target-membership": [ "Atelier/copy/Embed Server" ] },
-    { "path": "../../../../../../.artifacts/vite/@rasm/atelier/tsc", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
-    { "path": "../../../../../../.artifacts/vite/@rasm/atelier/typescript/lib.d.ts", "target-membership": [ "Atelier/resources" ] },
-    { "path": "<PROJECT>/../../../../../../Xcode.xcconfig" },
+    { "path": "../../../../.artifacts/vite/@rasm/atelier/server", "target-membership": [ "Atelier/copy/Embed Server" ] },
+    { "path": "../../../../.artifacts/vite/@rasm/atelier/tsc", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
+    { "path": "../../../../.artifacts/vite/@rasm/atelier/typescript/lib.d.ts", "target-membership": [ "Atelier/resources" ] },
+    { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
     { "path": "AppIcon.icon", "target-membership": [ "Atelier/resources" ] },
     {
       "kind": "group",
