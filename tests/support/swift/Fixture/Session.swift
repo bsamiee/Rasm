@@ -1,4 +1,3 @@
-import CasePaths
 public import CasePathsCore
 import Encoding
 public import Foundation
@@ -8,15 +7,9 @@ import System
 // --- [ERRORS] --------------------------------------------------------------------------
 
 public struct FixtureFailure: LocalizedError, Sendable {
-    @CasePathable
-    public enum Reason: Sendable {
-        case ended
-    }
-
     public let subject: String
-    public let reason: Reason
 
-    public var errorDescription: String? { "\(reason): \(subject)" }
+    public var errorDescription: String? { "Fixture output ended before \(subject)" }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -36,7 +29,7 @@ public struct FixtureSession: Sendable {
             if let value = read[case: line] { return (value, before) }
             before.append(read)
         }
-        throw FixtureFailure(subject: String(describing: line), reason: .ended)
+        throw FixtureFailure(subject: String(describing: line))
     }
 
     public static func launched<Value: Sendable>(_ body: (Self) async throws -> Value) async throws -> Value {

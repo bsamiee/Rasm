@@ -24,9 +24,18 @@ public enum Inventory: String, CaseIterable, Codable, Sendable {
     case secure
     case color
     case date
+    case quit
+    case export
+    case select
     case item
     case region
+    case context
     case siblings
+    case answer
+    case progress
+    case bleed
+    case done
+    case status
 }
 
 public enum Surface: String, CaseIterable, Codable, Sendable {
@@ -52,21 +61,14 @@ public enum Hang: Codable, Sendable {
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct Report: Codable, Equatable, Sendable {
-    public struct Item: Codable, Equatable, Sendable {
-        public let title: String
-        public let selected: Bool
-        public let level: Int?
-    }
-
     public struct Shortcut: Codable, Equatable, Sendable {
         public let key: String
-        public let modifiers: UInt
+        public let modifiers: Lenient<NSEvent.ModifierFlags>
     }
 
     public struct Control: Codable, Equatable, Sendable {
         public let entry: Inventory
         public let member: Int
-        public let className: String
         public let role: String?
         public let subrole: String?
         public let parent: String?
@@ -77,7 +79,7 @@ public struct Report: Codable, Equatable, Sendable {
         public let enabled: Bool
         public let range: ClosedRange<Double>?
         public let step: Double?
-        public let items: [Item]?
+        public let mark: Lenient<NSControl.StateValue>?
         public let shortcut: Shortcut?
         public let window: Int?
         public let frame: CGRect?
@@ -97,6 +99,8 @@ public struct Report: Codable, Equatable, Sendable {
         public let key: Bool
         public let main: Bool
         public let edited: Bool
+        public let defaultButton: Control?
+        public let cancelButton: Control?
     }
 
     public let controls: [Control]
@@ -105,13 +109,12 @@ public struct Report: Codable, Equatable, Sendable {
 
 public enum Command: Codable, Sendable {
     case report
-    case show(Surface)
-    case dismiss(Surface)
-    case retitle(Inventory, member: Int, to: String)
-    case reorder(Inventory, to: Int)
-    case fault(String)
-    case hang(Hang)
-    case activate
+    case show(surface: Surface)
+    case dismiss(surface: Surface)
+    case retitle(entry: Inventory, member: Int, to: String)
+    case reorder(from: Int, to: Int)
+    case fault(nonce: String)
+    case hang(kind: Hang)
     case abort
 }
 
@@ -119,11 +122,12 @@ public enum Command: Codable, Sendable {
 public enum Line: Codable, Sendable {
     case ready
     case report(report: Report)
-    case action(selector: String, entry: Inventory?, member: Int?, value: JSONValue?, cause: UInt?)
-    case pointer(type: UInt, window: Int, at: CGPoint, clicks: Int, modifiers: UInt)
-    case key(type: UInt, window: Int, characters: String?, code: UInt16, modifiers: UInt)
-    case scroll(window: Int, at: CGPoint, delta: CGVector, modifiers: UInt)
-    case menu(title: String, opened: Bool, tracking: Bool)
+    case action(selector: String, control: Report.Control?, cause: Lenient<NSEvent.EventType>?)
+    case pointer(type: Lenient<NSEvent.EventType>, window: Int, at: CGPoint, clicks: Int, modifiers: Lenient<NSEvent.ModifierFlags>)
+    case key(type: Lenient<NSEvent.EventType>, window: Int, characters: String?, code: UInt16, modifiers: Lenient<NSEvent.ModifierFlags>)
+    case scroll(window: Int, at: CGPoint, delta: CGVector, modifiers: Lenient<NSEvent.ModifierFlags>)
+    case menu(title: String, opened: Bool)
+    case tracking(title: String, began: Bool)
     case answered(surface: Surface, accepted: Bool)
     case active(active: Bool)
     case keyed(window: Int, key: Bool)
