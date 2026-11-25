@@ -2,6 +2,7 @@ import Encoding
 public import Files
 import Foundation
 public import Logging
+import OTelSemanticConventions
 import Runtime
 import System
 import Tracing
@@ -25,9 +26,7 @@ private struct LogRecord: Encodable {
             var attribute = encoder.singleValueContainer()
             switch value {
                 case .string(let text): try attribute.encode(text)
-                case .stringConvertible(let flag as Bool): try attribute.encode(flag)
-                case .stringConvertible(let integer as any BinaryInteger & Encodable): try attribute.encode(integer)
-                case .stringConvertible(let number as any BinaryFloatingPoint & Encodable): try attribute.encode(number)
+                case .stringConvertible(let scalar as any Encodable) where scalar is Bool || scalar is any BinaryInteger || scalar is any BinaryFloatingPoint: try attribute.encode(scalar)
                 case .stringConvertible(let described): try attribute.encode(described.description)
                 case .dictionary(let fields): try attribute.encode(fields.mapValues(Self.init))
                 case .array(let elements): try attribute.encode(elements.map(Self.init))
@@ -52,17 +51,17 @@ private struct LogRecord: Encodable {
 public struct JSONLogHandler: LogHandler {
     // --- [STATE]
 
-    public var metadata: Logger.Metadata = [:]
+    public var metadata: Logger.Metadata = [:] { didSet { terminal?.metadata = metadata } }
     public var metadataProvider: Logger.MetadataProvider?
     private var level: Logger.Level?
+    private var terminal: any LogHandler?
     private let scope: String
     private let file: RotatingFile?
     private let export: any LogHandler?
-    private let terminal: any LogHandler?
     private let filter: LogFilter
-    private let resource: Logger.Metadata
+    private let resource: [String: LogRecord.Attribute]
     private let trace: (id: String, span: String, flags: String)
-    private let encoder: JSONEncoder = .lines
+    private let encoder = JSONEncoder.lines
 
     public init(
         label: String,
@@ -72,7 +71,8 @@ public struct JSONLogHandler: LogHandler {
         trace: (id: String, span: String, flags: String),
         metadataProvider: Logger.MetadataProvider? = nil,
     ) {
-        (scope, (file, export, terminal), self.filter, self.resource, self.trace, self.metadataProvider) = (label, sinks, filter, resource, trace, metadataProvider)
+        (scope, (file, export, terminal), self.filter, self.trace, self.metadataProvider) = (label, sinks, filter, trace, metadataProvider)
+        self.resource = resource.mapValues(LogRecord.Attribute.init)
     }
 
     public var logLevel: Logger.Level {
@@ -89,27 +89,18 @@ public struct JSONLogHandler: LogHandler {
 
     public func log(event: LogEvent) {
         let instant = DefaultTracerClock.now.nanosecondsSinceEpoch
-        let second = Date(timeIntervalSince1970: TimeInterval(instant / 1_000_000_000)).formatted(.iso8601)
-        let location: Logger.Metadata =
-            event.level >= .warning
-            ? [
-                "code.file.path": .attributed(event.file, attributes: [Privacy.public]), "code.function.name": .attributed(event.function, attributes: [Privacy.public]),
-                "code.line.number": .stringConvertible(event.line),
-            ] : [:]
-        let exception: Logger.Metadata = event.error.map { error in Self.exception(error, stack: event.level >= .error) } ?? [:]
-        var attributes = [location, exception].reduce(into: attributes(of: event)) { merged, next in merged.merge(next) { _, last in last } }
-        let (traceID, spanID, traceFlags) = (attributes.removeValue(forKey: trace.id), attributes.removeValue(forKey: trace.span), attributes.removeValue(forKey: trace.flags))
+        var attributes = attributes(of: event)
         let record = LogRecord(
-            timestamp: "\(second.dropLast()).\(String(1_000_000 + instant / 1000 % 1_000_000).dropFirst())Z",
+            timestamp: "\(Date(timeIntervalSince1970: TimeInterval(instant / 1_000_000_000)).formatted(.iso8601).dropLast()).\(String(1_000_000 + instant / 1000 % 1_000_000).dropFirst())Z",
             severityText: event.level.severity.text,
             severityNumber: event.level.severity.number,
             body: event.message.description,
             scope: scope,
-            traceID: traceID.map(LogRecord.Attribute.init),
-            spanID: spanID.map(LogRecord.Attribute.init),
-            traceFlags: traceFlags.map(LogRecord.Attribute.init),
+            traceID: attributes.removeValue(forKey: trace.id).map(LogRecord.Attribute.init),
+            spanID: attributes.removeValue(forKey: trace.span).map(LogRecord.Attribute.init),
+            traceFlags: attributes.removeValue(forKey: trace.flags).map(LogRecord.Attribute.init),
             attributes: attributes.isEmpty ? nil : attributes.mapValues(LogRecord.Attribute.init),
-            resource: resource.mapValues(LogRecord.Attribute.init),
+            resource: resource,
         )
         if let terminal, terminal.logLevel <= event.level { terminal.log(event: event) }
         if let export {
@@ -128,28 +119,6 @@ public struct JSONLogHandler: LogHandler {
             )
         }
     }
-
-    private static func exception(_ error: any Error, stack captured: Bool) -> Logger.Metadata {
-        let causes = sequence(first: (error as NSError).underlyingErrors) { errors in
-            let next = errors.flatMap { cause in (cause as NSError).underlyingErrors }
-            return next.isEmpty ? nil : next
-        }
-        .joined().map { cause in "Caused by \((cause as NSError).domain) \((cause as NSError).code): \(cause.localizedDescription)" }
-        let frames = (captured ? try? Backtrace.capture(images: ImageMap.capture()) : nil).map { backtrace in
-            let images = backtrace.images.map { images in
-                Set(backtrace.frames.compactMap { frame in images.indexOfImage(at: frame.adjustedProgramCounter) }).sorted().map { index in images[index].description }
-            }
-            return backtrace.frames.map(\.description) + (images ?? [])
-        }
-        let stack = causes + (frames ?? [])
-        let message = error is any LocalizedError ? error.localizedDescription : String(describing: error)
-        return [
-            "exception.type": .attributed(String(reflecting: type(of: error)), attributes: [Privacy.public]),
-            "exception.message": .attributed(message, attributes: [Privacy.public]),
-            "exception.stacktrace": stack.isEmpty ? nil : .attributed(stack.joined(separator: "\n"), attributes: [Privacy.public]),
-        ]
-        .compactMapValues(\.self)
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -165,5 +134,35 @@ extension Logger.Level {
             case .error: ("ERROR", 17)
             case .critical: ("FATAL", 21)
         }
+    }
+}
+
+extension LogEvent {
+    var attributes: Logger.Metadata {
+        let location: Logger.Metadata =
+            level >= .warning
+            ? [
+                OTelAttribute.code.file.path: .attributed(file, attributes: [Privacy.public]), OTelAttribute.code.function.name: .attributed(function, attributes: [Privacy.public]),
+                OTelAttribute.code.line.number: .stringConvertible(line),
+            ] : [:]
+        guard let error else { return location }
+        let causes = sequence(first: (error as NSError).underlyingErrors) { errors in errors.isEmpty ? nil : errors.flatMap { cause in (cause as NSError).underlyingErrors } }
+            .joined().map { cause in "Caused by \((cause as NSError).domain) \((cause as NSError).code): \(cause.localizedDescription)" }
+        let stack: [String] =
+            switch level >= .error ? Result(catching: { try Backtrace.capture(images: ImageMap.capture()) }) : nil {
+                case .success(let backtrace):
+                    causes + backtrace.frames.map(\.description)
+                        + (backtrace.images.map { images in
+                            images[RangeSet(backtrace.frames.compactMap { frame in images.indexOfImage(at: frame.adjustedProgramCounter) }, within: images)].map(\.description)
+                        } ?? [])
+                case .failure(let failure): causes + ["Backtrace capture failed: \(failure)"]
+                case nil: causes
+            }
+        let exception: [String: Logger.MetadataValue?] = [
+            OTelAttribute.exception.type: .attributed(String(reflecting: type(of: error)), attributes: [Privacy.public]),
+            OTelAttribute.exception.message: .attributed(error is any LocalizedError ? error.localizedDescription : String(describing: error), attributes: [Privacy.public]),
+            OTelAttribute.exception.stacktrace: stack.isEmpty ? nil : .attributed(stack.joined(separator: "\n"), attributes: [Privacy.public]),
+        ]
+        return location.merging(exception.compactMapValues(\.self)) { _, stated in stated }
     }
 }

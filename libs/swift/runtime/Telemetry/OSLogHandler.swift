@@ -32,14 +32,8 @@ public struct OSLogHandler: LogHandler {
                 case .critical: .fault
             }
         guard logger.isEnabled(type: type) else { return }
-        let exception: Logging.Logger.Metadata =
-            event.error.map { error in
-                ["exception.type": .attributed(String(reflecting: Swift.type(of: error)), attributes: [Privacy.public]), "exception.message": .string(String(describing: error))]
-            } ?? [:]
-        let fields = Dictionary(grouping: attributes(of: event).merging(exception) { _, stated in stated }.sorted { first, second in first.key < second.key }) { field in
-            Privacy.of(field.value) == .public
-        }
-        .mapValues { marked in marked.map { field in "\(field.key)=\(field.value)" }.joined(separator: " ") }
+        let fields = Dictionary(grouping: attributes(of: event).sorted { first, second in first.key < second.key }) { field in Privacy.of(field.value) == .public }
+            .mapValues { marked in marked.map { field in "\(field.key)=\(field.value)" }.joined(separator: " ") }
         logger.log(level: type, "\(event.message.description, privacy: .public) \(fields[true] ?? "", privacy: .public) \(fields[false] ?? "", privacy: .private(mask: .hash))")
     }
 }
@@ -48,6 +42,6 @@ public struct OSLogHandler: LogHandler {
 
 extension LogHandler {
     func attributes(of event: LogEvent) -> Logging.Logger.Metadata {
-        [metadataProvider?.get() ?? [:], event.metadata ?? [:]].reduce(into: metadata) { merged, next in merged.merge(next) { _, last in last } }
+        [metadataProvider?.get() ?? [:], event.metadata ?? [:], event.attributes].reduce(into: metadata) { merged, next in merged.merge(next) { _, last in last } }
     }
 }
