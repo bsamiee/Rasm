@@ -12,6 +12,7 @@
         // --- [ESLINT]
 
         "class-methods-use-this": ["error", { "ignoreOverrideMethods": true }],
+        "complexity": ["error", { "max": 30 }],
         "func-names": ["error", "as-needed", { "generators": "never" }],
         "id-length": "off", // `_` that `no-unused-vars` requires, Effect type parameters
         "max-classes-per-file": "off", // Schema classes of one concept share a file, CLAUDE.md file organization
