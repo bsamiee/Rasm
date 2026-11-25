@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
 import { type Anchor, above, aggregated, EXECUTORS, PLATFORM, type Verbs } from '@rasm/nx';
-import { Array, identity, Option, pipe, Record, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
+import { Array, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -12,14 +12,18 @@ type Stated = Readonly<Record<'config' | 'floor' | 'cache' | 'store', string | u
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MYPY = [['mypy.ini'], ['.mypy.ini'], ['pyproject.toml', 'tool', 'mypy'], ['setup.cfg', 'mypy']] as const;
+const MYPY = ['mypy.ini', '.mypy.ini', 'pyproject.toml', 'setup.cfg'] as const;
+const PYTEST = { 'pytest.toml': ['pytest'], '.pytest.toml': ['pytest'], 'pytest.ini': [], '.pytest.ini': [], 'pyproject.toml': ['tool', 'pytest'], 'tox.ini': ['pytest'], 'setup.cfg': ['tool:pytest'] } as const;
+const FIXED: Readonly<Record<string, readonly string[]>> = {};
 const CHECKERS = {
     ty: {
         verb: 'check',
         once: true,
-        variables: ['TY_UV'],
+        variables: ['TY_UV', 'TY_CONFIG_FILE'],
         plugins: undefined,
-        configs: { cwd: [['ty.toml'], ['pyproject.toml', 'tool', 'ty']], root: [] },
+        configs: ['ty.toml', 'pyproject.toml'],
+        settings: FIXED,
+        table: undefined,
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: identity<string>,
@@ -31,9 +35,11 @@ const CHECKERS = {
     mypy: {
         verb: 'check',
         once: false,
-        variables: [],
+        variables: ['MYPYPATH'],
         plugins: undefined,
-        configs: { cwd: MYPY, root: [] },
+        configs: MYPY,
+        settings: FIXED,
+        table: undefined,
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
@@ -45,9 +51,11 @@ const CHECKERS = {
     refurb: {
         verb: 'check',
         once: false,
-        variables: [],
+        variables: ['MYPYPATH'],
         plugins: 'refurb.plugins',
-        configs: { cwd: MYPY, root: [['pyproject.toml', 'tool', 'refurb']] },
+        configs: MYPY,
+        settings: FIXED,
+        table: 'refurb',
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
@@ -59,9 +67,11 @@ const CHECKERS = {
     pytest: {
         verb: 'test',
         once: false,
-        variables: ['PYTEST_ADDOPTS', 'PYTEST_PLUGINS', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD'],
+        variables: ['PYTEST_ADDOPTS', 'PYTEST_PLUGINS', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD', 'COVERAGE_RCFILE'],
         plugins: undefined,
-        configs: { cwd: [], root: [['pytest.toml', 'pytest'], ['.pytest.toml', 'pytest'], ['pytest.ini'], ['.pytest.ini'], ['pyproject.toml', 'tool', 'pytest'], ['tox.ini', 'pytest'], ['setup.cfg', 'tool:pytest']] },
+        configs: [...Record.keys(PYTEST), 'conftest.py', '.coveragerc', '.coveragerc.toml'],
+        settings: PYTEST,
+        table: 'coverage',
         matches: ['test_*.py', '*_test.py'],
         sources: ['*'],
         folder: identity<string>,
@@ -81,7 +91,7 @@ const CHECKERS = {
 const PIXI = 'pixi.toml';
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const UV = { version: { runtime: 'uv self version --short' }, settings: 'uv.toml', pins: ['.python-version', '.python-versions'] } as const;
-const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ configs }) => [...configs.cwd, ...configs.root].map(([file]) => file)), PIXI]);
+const CONFIGS = [...Record.keys(PYTEST), PIXI];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -91,41 +101,10 @@ class Options extends Schema.Opaque<Options, unknown>()(
             "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the project, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its lcov.info report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the project, absent writes both to the folder pytest runs from. environmentPath: workspace folder holding what the checkers and tests of a project keep between runs, {projectName} naming the project: one environment per dependency group offering a tool, in a folder named for the group, or .venv where the project's own dependencies hold the tool, each selected through UV_PROJECT_ENVIRONMENT and kept at its locked selection by uv run --exact, beside the cache folder of each tool (.mypy_cache, .refurb_cache, .pytest_cache), absent builds a temporary environment per run through uv run --isolated and leaves each tool its own cache folder. The tasks of a uv root select every package of its workspace (--all-packages), so a uv root that is itself a checked member checks in that wider environment",
     }),
 ) {}
-const Table = Schema.Record(Schema.String, Schema.Unknown);
-const Patterns = Schema.Struct({
-    python_files: Schema.optionalKey(
-        Schema.Union([Schema.Array(Schema.String), Schema.String.pipe(Schema.decodeTo(Schema.Array(Schema.String), SchemaTransformation.transform({ decode: (text): readonly string[] => text.split(/\s+/u).filter(String.isNonEmpty), encode: (files: readonly string[]) => files.join(' ') })))]),
-    ),
-});
-const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const flagged = (flag: string, value: string | undefined): readonly string[] => (value === undefined ? [] : [flag, value]);
-
-const declared = (documented: ReadonlyMap<string, unknown>, folders: { readonly cwd: string; readonly root: string }, checker: keyof typeof CHECKERS) => {
-    const configs: Readonly<Record<keyof typeof folders, readonly (readonly [file: string, ...keys: string[]])[]>> = CHECKERS[checker].configs;
-    const searched = Record.map(configs, (files, start) => {
-        const candidates = above(folders[start]).flatMap((folder) => files.map(([file, ...keys]) => [posix.join(folder, file), keys] as const));
-        const found = Array.findFirstWithIndex(candidates, ([at, keys]) =>
-            Option.map(
-                Option.flatMap(
-                    keys.reduce<Option.Option<unknown>>((table, key) => table.pipe(Option.flatMap(Schema.decodeUnknownOption(Table)), Option.flatMap(Record.get(key))), Option.fromUndefinedOr(documented.get(at))),
-                    Schema.decodeUnknownOption(Settings),
-                ),
-                (decoded) => [at, decoded] as const,
-            ),
-        );
-        return { found, read: candidates.slice(0, Option.match(found, { onNone: () => candidates.length, onSome: ([, index]) => index + 1 })) };
-    });
-    const found = Option.orElse(searched.root.found, () => searched.cwd.found);
-    const settings = Option.getOrUndefined(Option.map(found, ([[, stated]]) => stated));
-    return {
-        config: Option.getOrUndefined(Option.map(found, ([[config]]) => config)),
-        inputs: Array.dedupe([...searched.root.read, ...searched.cwd.read].map(([at]) => posix.join('{workspaceRoot}', at))),
-        files: settings?.python_files ?? settings?.ini_options?.python_files ?? settings?.pytest?.python_files ?? CHECKERS[checker].matches,
-    };
-};
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
@@ -140,6 +119,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
         const row = CHECKERS[stated.key];
         const { cwd } = stated;
         const outside = posix.relative(member.workspace, cwd).startsWith('..');
+        const config = UndefinedOr.map(stated.config, (file) => posix.relative(cwd, file));
         const [environment, kept] = [Option.map(environed, (at) => posix.join(at, stated.group ?? '.venv')), Option.map(environed, (at) => posix.join(at, `.${stated.key}_cache`))];
         const argv = [
             'uv',
@@ -154,7 +134,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             ...row.command(
                 stated.paths.map((root) => posix.relative(cwd, root) || '.'),
                 {
-                    config: UndefinedOr.map(stated.config, (file) => posix.relative(cwd, file)),
+                    config,
                     floor: UndefinedOr.map(member.python, (range) => /(?:>=|==|~=)\s*(?<floor>\d+\.\d+)/u.exec(range)?.groups?.['floor']),
                     cache: Option.getOrUndefined(Option.map(kept, (at) => posix.relative(cwd, at))),
                     store: Option.getOrUndefined(Option.map(kept, (at) => posix.join('$NX_WORKSPACE_ROOT', at))),
@@ -164,7 +144,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
         const reported = coveragePath ?? cwd;
         const selected = Option.match(environment, { onNone: () => ({}), onSome: (at) => ({ UV_PROJECT_ENVIRONMENT: posix.relative(member.workspace, at) }) });
         const covered = {
-            command: line([...argv, '--cov', `--cov-report=lcov:${posix.join(posix.relative(cwd, reported), 'lcov.info')}`]),
+            command: line([...argv, '--cov', ...flagged('--cov-config', config), `--cov-report=lcov:${posix.join(posix.relative(cwd, reported), 'lcov.info')}`]),
             env: { ...selected, COVERAGE_FILE: posix.join(posix.relative(cwd, reported), '.coverage') },
             outputs: [posix.join('{workspaceRoot}', reported, '{lcov.info,.coverage}')],
         };
@@ -174,9 +154,8 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             cache: true,
             inputs: [
                 ...row.sources.map((glob) => posix.join('{projectRoot}', '**', glob)),
-                posix.join('{projectRoot}', 'pyproject.toml'),
                 ...built,
-                ...stated.inputs,
+                ...Array.cartesianWith(Array.dedupe([cwd, ...stated.paths].flatMap(above)), row.configs, (at, file) => posix.join('{workspaceRoot}', at, file)),
                 ...row.variables.map((env) => ({ env })),
                 PLATFORM,
                 { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) },
@@ -314,4 +293,4 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CHECKERS, CONFIGS, declared, Options, PIXI, PLUGIN, targets, UV };
+export { CHECKERS, CONFIGS, Options, PIXI, PLUGIN, targets, UV };

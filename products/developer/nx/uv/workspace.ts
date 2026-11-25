@@ -2,9 +2,9 @@ import { basename, join, posix, relative } from 'node:path';
 import { normalizePath } from '@nx/devkit';
 import { combineGlobPatterns, globWithWorkspaceContext } from '@nx/devkit/internal';
 import { above } from '@rasm/nx';
-import { Array, Cause, Effect, Equivalence, FileSystem, Graph, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
+import { Array, Cause, Effect, Equivalence, FileSystem, Graph, Option, Predicate, Record, Result, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
-import { CHECKERS, CONFIGS, declared, PIXI } from '#/targets';
+import { CHECKERS, CONFIGS, PIXI } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,6 +31,15 @@ const Declared = Schema.Struct({
 });
 const Indexed = Schema.Struct({ tool: Schema.Struct({ uv: Schema.Struct({ index: Schema.Array(Schema.Struct({ name: Schema.optionalKey(Schema.String), 'publish-url': Schema.optionalKey(Schema.String) })) }) }) });
 const Pixi = Schema.Struct({ tool: Schema.Struct({ pixi: Schema.Record(Schema.String, Schema.Unknown) }) });
+const Table = Schema.Record(Schema.String, Schema.Unknown);
+const Patterns = Schema.Struct({
+    python_files: Schema.optionalKey(
+        Schema.Union([Schema.Array(Schema.String), Schema.String.pipe(Schema.decodeTo(Schema.Array(Schema.String), SchemaTransformation.transform({ decode: (text): readonly string[] => text.split(/\s+/u).filter(String.isNonEmpty), encode: (files: readonly string[]) => files.join(' ') })))]),
+    ),
+});
+const Patterned = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns) })).annotate({
+    description: 'The python_files setting of a pytest configuration table, of its ini_options table in a pyproject.toml, or of the pytest section of an INI file read whole',
+});
 const Local = Schema.Literals(['editable', 'virtual', 'directory', 'path']);
 const Node = Schema.Struct({
     name: Schema.optionalKey(Schema.String),
@@ -79,6 +88,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
     const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [at, posix.extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
     const documented = new Map(read.map(([at, parsed]) => [at, Result.getOrElse(parsed, Record.empty)] as const));
     const stated = (root: string) => documented.get(posix.join(root, MANIFEST));
+    const drilled = (at: string, keys: readonly string[]) => keys.reduce<Option.Option<unknown>>((table, key) => table.pipe(Option.flatMap(Schema.decodeUnknownOption(Table)), Option.flatMap(Record.get(key))), Option.fromUndefinedOr(documented.get(at)));
     const entries = Record.toEntries(resolution);
     const indexed = new Map(entries.map(([id], index) => [id, index] as const));
     const indices = (ids: Iterable<string>) => Array.getSomes(Array.fromIterable(ids).map((id) => Option.fromUndefinedOr(indexed.get(id))));
@@ -133,13 +143,18 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
             const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
             const installed = reach([member.id, ...(member.owning ? listed.map(({ id }) => id) : []), ...from]);
             const [cwd, checked] = [row.folder(workspace, member.base), row.once ? member.every : member.alone];
-            const { files: matches, ...found } = declared(documented, { cwd, root: member.root }, key);
+            const settings = Array.findFirst(Array.cartesian(above(member.root), Record.toEntries(row.settings)), ([folder, [file, keys]]) => Option.flatMap(drilled(posix.join(folder, file), keys), Schema.decodeUnknownOption(Patterned)));
+            const matches = Option.getOrElse(
+                Option.flatMapNullishOr(settings, (held) => held.python_files ?? held.ini_options?.python_files ?? held.pytest?.python_files),
+                (): readonly string[] => row.matches,
+            );
+            const config = Array.findFirst(Array.cartesian(Array.fromNullishOr(row.table), above(member.root)), ([table, folder]) => Option.isSome(drilled(posix.join(folder, MANIFEST), ['tool', table])));
             return Array.isReadonlyArrayNonEmpty(checked) && installed.values().some(distributed(key))
                 ? Result.succeed({
                       root: member.root,
                       key,
                       cwd,
-                      ...found,
+                      config: Option.getOrUndefined(Option.map(config, ([, folder]) => posix.join(folder, MANIFEST))),
                       paths: checked.map(({ root }) => root),
                       patterns: Array.cartesianWith(checked, matches, ({ root }, file) => posix.join(root, '**', file)),
                       group: Option.getOrUndefined(group)?.name,

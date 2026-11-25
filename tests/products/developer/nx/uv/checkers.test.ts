@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { env } from 'node:process';
 import type { ProjectGraph } from '@nx/devkit';
@@ -32,6 +33,7 @@ const IMPORTING = {
     'proj/importing/pyproject.toml': `[project]\nname = "importing"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n${BUILT}`,
     'proj/importing/src/importing/__init__.py': VERSIONED,
 };
+const BRANCHED = 'def one(flag: bool = True) -> int:\n    if flag:\n        return 1\n    return 0\n';
 const TESTED = { 'proj/library/tests/test_library.py': 'from library import one\n\n\ndef test_one() -> None:\n    assert one() == 1\n' };
 const WORDS = {
     'proj/words/pyproject.toml': `[project]\nname = "words"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n${BUILT}`,
@@ -226,17 +228,47 @@ describe('checker targets', { timeout: 120_000 }, () => {
         expect([...workspace.files('.venv')].filter((file) => file.includes('.mypy_cache/'))).toStrictEqual([]);
     });
 
-    it('changes the pytest hash of a member once PYTEST_ADDOPTS selects other tests', async ({ workspace, onTestFinished }) => {
-        locked(workspace, { ...workspaced(['pytest>=8']), ...TESTED });
+    it.for([
+        { variable: 'PYTEST_ADDOPTS', value: '-k smoke', dev: ['pytest>=8'], tasks: ['library:test--pytest'] },
+        { variable: 'COVERAGE_RCFILE', value: 'other.ini', dev: ['pytest>=8'], tasks: ['library:test--pytest'] },
+        { variable: 'MYPYPATH', value: 'stubs', dev: ['mypy', 'refurb'], tasks: ['library:check--mypy', 'library:check--refurb'] },
+        { variable: 'TY_CONFIG_FILE', value: 'other.toml', dev: ['ty'], tasks: ['uv-tutorial:check--ty'] },
+    ])('changes the hash of $tasks once $variable is set', async ({ variable, value, dev, tasks }, { workspace, onTestFinished }) => {
+        locked(workspace, { ...workspaced(dev), ...TESTED });
         const graph = await workspace.graph(uv);
         onTestFinished(() => {
             vi.unstubAllEnvs();
         });
+        const before = await Promise.all(tasks.map((task) => hashed(workspace, graph, task)));
+        vi.stubEnv(variable, value);
+
+        const after = await Promise.all(tasks.map((task) => hashed(workspace, graph, task)));
+
+        expect(after.map(({ value: hash }, index) => hash === before[index]?.value)).toStrictEqual(tasks.map(() => false));
+    });
+
+    it.for([
+        { case: 'a conftest.py in a folder above it', file: 'proj/conftest.py', content: '' },
+        { case: 'a .coveragerc at the uv root', file: '.coveragerc', content: '[run]\nbranch = True\n' },
+    ])('changes the pytest hash of a member in the graph built before $case', async ({ file, content }, { workspace }) => {
+        locked(workspace, { ...workspaced(['pytest>=8']), ...TESTED });
+        const graph = await workspace.graph(uv);
         const before = await hashed(workspace, graph, 'library:test--pytest');
-        vi.stubEnv('PYTEST_ADDOPTS', '-k smoke');
+
+        await workspace.write({ [file]: content }).graph(uv);
 
         const after = await hashed(workspace, graph, 'library:test--pytest');
-
         expect(after.value).not.toBe(before.value);
+    });
+
+    it('measures branches in the lcov report of a suite in a nested uv root, as the coverage table of a manifest above it states', async ({ workspace }) => {
+        workspace.write({ 'pyproject.toml': '[tool.coverage.run]\nbranch = true\n', ...Record.mapKeys({ ...workspaced(['pytest>=8', 'pytest-cov']), ...TESTED, 'proj/library/src/library/__init__.py': BRANCHED }, (file) => posix.join('nested', file)) });
+        execFileSync('uv', ['lock', '--quiet'], { cwd: join(workspace.root, 'nested') });
+        const graph = await workspace.graph(uv, { coveragePath: '.artifacts/coverage/{projectName}' });
+
+        const result = await workspace.run(graph, 'library', 'test--pytest', 'coverage');
+
+        const report = readFileSync(join(workspace.root, '.artifacts/coverage/library/lcov.info'), 'utf-8').split('\n');
+        expect([result.success, report.some((row) => row.startsWith('SF:')), report.some((row) => row.startsWith('BRDA:'))]).toStrictEqual([true, true, true]);
     });
 });
