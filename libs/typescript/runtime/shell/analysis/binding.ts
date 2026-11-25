@@ -1,5 +1,5 @@
-import { Array, Equal, Glob, Match, Option, String } from 'effect';
-import { type Invocation, Written } from '#/analysis/invocation';
+import { Array, Data, Equal, Function, Glob, Match, Option, Record } from 'effect';
+import { Written } from '#/analysis/invocation';
 import { Field, Matching, Origin, Piece, Unmatched } from '#/evaluation/value';
 import { Usage } from '#/programs/usage';
 
@@ -7,200 +7,201 @@ import { Usage } from '#/programs/usage';
 
 type Flag = Usage['flags'][number];
 type Slot = Usage['values'][string];
-type Bound = Invocation['flags'][number];
-interface Parsed {
+interface Argument {
+    readonly slot: Slot;
+    readonly words: readonly Written[];
+}
+interface Reading extends Pick<Arguments, 'subcommands' | 'flags' | 'ambiguous'> {
     readonly usage: Usage;
-    readonly path: readonly string[];
-    readonly flags: readonly Bound[];
     readonly operands: readonly Written[];
-    readonly rest: readonly Written[];
+    readonly dashed: Option.Option<number>;
     readonly ended: boolean;
-    readonly dashed: boolean;
-    readonly ambiguous: boolean;
+    readonly doubted: boolean;
+    readonly taking: number;
+    readonly ends: readonly string[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const blank = Usage.make({ name: '', aliases: [], flags: [], inherited: [], values: {}, operands: Option.none(), input: Option.none(), output: Option.none(), abbreviates: Option.none(), interspersed: Option.none(), commands: [] });
+const arities = { none: { attached: 0, following: 0 }, optional: { attached: 1, following: 0 }, one: { attached: 1, following: 1 }, rest: { attached: 1, following: Number.POSITIVE_INFINITY } } as const;
+const counts = { one: { least: 1, most: 1 }, optional: { least: 0, most: 1 }, rest: { least: 0, most: Number.POSITIVE_INFINITY } } as const;
+const effects = { reads: ['read', 'execute'], writes: ['write', 'create'], deletes: ['delete'] } as const;
+const assignment = /^[A-Za-z_]\w*=/u;
+const valued = /^--[^=]+=/u;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+class Arguments extends Data.Class<{
+    readonly usage: Option.Option<Usage>;
+    readonly subcommands: readonly Written[];
+    readonly flags: readonly { readonly flag: Flag; readonly spelling: string; readonly spelled: Written; readonly values: readonly Written[] }[];
+    readonly positional: readonly Argument[];
+    readonly extras: readonly Written[];
+    readonly rest: readonly Written[];
+    readonly ambiguous: boolean;
+    readonly cwd: Field;
+}> {
+    // --- [WORDS]
+
+    get operands(): readonly { readonly word: Written; readonly roles: Slot['roles'] }[] {
+        return [...this.positional.flatMap(({ slot, words }) => words.map((word) => ({ word, roles: slot.roles }))), ...this.extras.map((word) => ({ word, roles: [] }))];
+    }
+
+    get all(): readonly Argument[] {
+        return gather(this);
+    }
+
+    get input(): Option.Option<Slot> {
+        const fed = this.operands.some(({ word, roles }) => roles.includes('read') && !word.spells('-'));
+        return Option.filter(
+            Option.flatMap(this.usage, ({ input }) => input),
+            (slot) => !fed && meets(this.flags)(slot),
+        );
+    }
+
+    collect(...roles: Slot['roles']) {
+        return this.all.flatMap(({ slot, words }) => (Array.isReadonlyArrayNonEmpty(words) && slot.roles.some((role) => roles.includes(role)) ? [{ slot, words }] : []));
+    }
+
+    follow(slot: Slot): readonly Written[] {
+        const at = this.positional.findIndex((argument) => argument.slot === slot);
+        return at === -1 ? [] : [...this.positional.slice(at + 1).flatMap(({ words }) => words), ...this.extras];
+    }
+
+    // --- [EFFECTS]
+
+    get effects(): Readonly<Record<keyof typeof effects, readonly Field[]>> {
+        return touch(this);
+    }
+
+    get host(): Option.Option<Written> {
+        return Option.flatMap(Array.head(this.collect('host')), ({ words }) => Array.head(words));
+    }
+
+    get opaque(): boolean {
+        return Option.isNone(this.usage) || this.ambiguous || this.all.some(({ slot }) => slot.roles.includes('code')) || Option.exists(this.input, ({ roles }) => roles.includes('command') || roles.includes('code'));
+    }
+
+    // --- [CODE]
+
+    get code(): readonly Written[] {
+        return this.collect('shell', 'script', 'code', 'variable').flatMap(({ words }) => words);
+    }
+
+    get commands(): readonly (readonly Written[])[] {
+        const token = Option.flatMap(Array.head(this.collect('placeholder')), ({ words }) => Option.flatMap(Array.head(words), ({ text }) => text));
+        return this.collect('command').map(({ slot, words }) => {
+            const hole = Array.isReadonlyArrayNonEmpty(slot.ends) ? Option.some('{}') : token;
+            return words.map((word) => (Option.isSome(hole) && Equal.equals(word.text, hole) ? new Written({ field: Field.unknown(Origin.Input()), exact: word.exact, node: Option.none() }) : word));
+        });
+    }
+
+    get scripts() {
+        return this.collect('script', 'shell').map(({ slot, words }) => {
+            const [shell, after] = [slot.roles.includes('shell'), this.follow(slot)];
+            return { text: Option.map(Option.all(words.map(({ text }) => text)), Array.join(' ')), shell, zero: Option.filter(Array.head(after), () => shell), operands: shell ? after.slice(1) : [] };
+        });
+    }
+
+    get files() {
+        const shell = Option.exists(this.usage, ({ operands, values, input }) => [...Option.getOrElse(operands, Array.empty), ...Record.values(values), ...Option.toArray(input)].some(({ roles }) => roles.includes('shell')));
+        return this.collect('execute').map(({ slot, words }) => ({ path: Array.headNonEmpty(words).field.resolve(this.cwd), shell, zero: Option.some(Array.headNonEmpty(words)), operands: [...Array.tailNonEmpty(words), ...this.follow(slot)] }));
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const named = (after: readonly Written[]) => ({ zero: Array.head(after), operands: after.slice(1) });
-const piece = (text: string) => new Written({ field: Field.known(text), exact: true, node: Option.none() });
-const valued = (state: Parsed, flag: Flag, spelling: string, spelled: Written, attached: Option.Option<Written>, tail: readonly Written[]): readonly [Parsed, readonly Written[]] => {
-    const ends = Option.match(state.usage.value(flag), { onNone: (): readonly string[] => [], onSome: (slot) => slot.ends });
-    const [values, left] = Match.value(flag.arity).pipe(
-        Match.when('none', () => [[], tail] as const),
-        Match.when('optional', () => [Option.toArray(attached), tail] as const),
-        Match.when('one', () => Option.match(attached, { onNone: () => [tail.slice(0, 1), tail.slice(1)] as const, onSome: (value) => [[value], tail] as const })),
-        Match.orElse(() => {
-            const [taken, after] = Array.span(tail, (word) => !Option.exists(word.text, (text) => ends.includes(text)));
-            return [taken, after.slice(1)] as const;
-        }),
-    );
-    return [{ ...state, flags: [...state.flags, { flag, spelling, spelled, values }] }, left];
+const meets = (flags: Arguments['flags']) => {
+    const spelled = (names: readonly string[]) => flags.some(({ flag }) => flag.spellings.some((spelling) => names.includes(spelling)));
+    return (slot: Slot) => (Array.isReadonlyArrayEmpty(slot.when) || spelled(slot.when)) && !spelled(slot.unless);
 };
-const unknown = (state: Parsed, spelled: Written, name: string, attached: Option.Option<Written>, tail: readonly Written[]): readonly [Parsed, readonly Written[]] => [
-    {
-        ...state,
-        flags: [...state.flags, { flag: { spellings: Array.of(name), arity: 'optional' as const }, spelling: name, spelled, values: Option.toArray(attached) }],
-        ambiguous:
-            state.ambiguous ||
-            !(
-                Option.isSome(attached) ||
-                Array.isReadonlyArrayEmpty(tail) ||
-                Option.exists(
-                    Option.flatMap(Array.head(tail), ({ text }) => text),
-                    (text) => text.startsWith('-'),
-                )
+const reach =
+    (cwd: Field) =>
+    ({ slot, words }: Argument): readonly Field[] =>
+        words.flatMap((word) => {
+            const field = word.field.resolve(cwd);
+            const below = Option.map(
+                Option.filter(field.text, () => slot.tree),
+                (text) => new Field({ pieces: [...field.pieces, Piece.Wild({ text: '/**' })], matching: Option.some(Matching.Paths({ glob: Option.some(Glob.make(`${Glob.escape(text)}/**`, { dot: true })), unmatched: Unmatched.Kept() })) }),
+            );
+            return [field, ...Option.toArray(below)];
+        });
+const gather = Function.memoize((held: Arguments): readonly Argument[] => [
+    ...held.positional,
+    ...held.flags.flatMap(({ flag, values }) =>
+        Option.toArray(
+            Option.map(
+                Option.flatMap(held.usage, (usage) => usage.value(flag)),
+                (slot) => ({ slot, words: values }),
             ),
-    },
-    tail,
-];
-const clustered = (state: Parsed, spelled: Written, letters: string, tail: readonly Written[]): readonly [Parsed, readonly Written[]] => {
-    const spelling = `-${letters.slice(0, 1)}`;
-    return Option.match(state.usage.flag(spelling), {
-        onNone: () => unknown(state, spelled, `-${letters}`, Option.none(), tail),
-        onSome: (flag) =>
-            flag.arity === 'none' && letters.length > 1
-                ? clustered(valued(state, flag, spelling, spelled, Option.none(), tail)[0], spelled, letters.slice(1), tail)
-                : valued(
-                      state,
-                      flag,
-                      spelling,
-                      spelled,
-                      Option.map(
-                          Option.liftPredicate(letters.slice(1), (rest) => rest !== ''),
-                          piece,
-                      ),
-                      tail,
-                  ),
-    });
+        ),
+    ),
+]);
+const touch = Function.memoize((held: Arguments) => Record.map(effects, (roles) => held.collect(...roles).flatMap(reach(held.cwd))));
+const open = (state: Reading, flag: Flag, spelling: string, spelled: Written, attached: Option.Option<Written>): Reading => {
+    const values = Array.take(Option.toArray(attached), arities[flag.arity].attached);
+    const ends = Option.match(state.usage.value(flag), { onNone: () => [], onSome: (slot) => slot.ends });
+    return { ...state, flags: [...state.flags, { flag, spelling, spelled, values }], taking: arities[flag.arity].following - values.length, ends };
 };
-const operand = (state: Parsed, word: Written, text: Option.Option<string>): Parsed =>
+const doubt = (state: Reading, spelled: Written, name: string, attached: Option.Option<Written>): Reading => ({ ...open(state, { spellings: Array.of(name), arity: 'optional' }, name, spelled, attached), doubted: Option.isNone(attached) });
+const fill = (state: Reading, word: Written): Reading => (word.spells(...state.ends) ? { ...state, taking: 0 } : { ...state, taking: state.taking - 1, flags: state.flags.map((held, at) => (at === state.flags.length - 1 ? { ...held, values: [...held.values, word] } : held)) });
+const place = (state: Reading, word: Written): Reading =>
     Option.match(
         Option.flatMap(
-            Option.filter(text, () => Array.isReadonlyArrayEmpty(state.operands) && !state.ended),
-            (name) => Option.map(state.usage.command(name), (usage) => ({ usage, name })),
+            Option.filter(word.text, () => Array.isReadonlyArrayEmpty(state.operands) && !state.ended),
+            (name) => state.usage.command(name),
         ),
         {
-            onNone: () => ({ ...state, operands: [...state.operands, word], rest: state.dashed ? [...state.rest, word] : state.rest, ended: state.ended || !Option.getOrElse(state.usage.interspersed, () => true) }),
-            onSome: ({ usage, name }) => ({ ...state, usage, path: [...state.path, name] }),
+            onNone: () => ({ ...state, operands: [...state.operands, word], ended: state.ended || !Option.getOrElse(state.usage.interspersed, () => true) }),
+            onSome: (usage) => ({ ...state, usage, subcommands: [...state.subcommands, word] }),
         },
     );
-const stepped = (state: Parsed, word: Written, tail: readonly Written[]): readonly [Parsed, readonly Written[]] => {
-    const { text } = word;
-    const lead = Option.isNone(text) ? (/^--[^=]+=/u.exec(word.field.prefix)?.[0] ?? '') : '';
-    const written = Option.getOrElse(text, () => lead);
-    const [name = '', ...parts] = written.split('=');
+const uncluster = (state: Reading, spelled: Written, letters: readonly string[]): Reading =>
+    letters.reduce(
+        ({ read, open: unbound }, letter, at) =>
+            unbound
+                ? Option.match(read.usage.flag(`-${letter}`), {
+                      onNone: () => ({ read: doubt(read, spelled, `-${letters.slice(at).join('')}`, Option.none()), open: false }),
+                      onSome: (flag) => {
+                          const [lone, value] = [arities[flag.arity].attached === 0, letters.slice(at + 1).join('')];
+                          return { read: open(read, flag, `-${letter}`, spelled, lone || value === '' ? Option.none() : Option.some(Written.of(value))), open: lone };
+                      },
+                  })
+                : { read, open: unbound },
+        { read: state, open: true },
+    ).read;
+const spell = (state: Reading, word: Written): Reading => {
+    const lead = Option.match(word.text, { onSome: () => '', onNone: () => valued.exec(word.field.prefix)?.[0] ?? '' });
+    const written = Option.getOrElse(word.text, () => lead);
+    const cut = written.indexOf('=');
+    const name = cut === -1 ? written : written.slice(0, cut);
     const attached =
         lead === ''
             ? Option.map(
-                  Option.liftPredicate(parts.join('='), () => Array.isReadonlyArrayNonEmpty(parts)),
-                  piece,
+                  Option.liftPredicate(written.slice(cut + 1), () => cut !== -1),
+                  Written.of,
               )
-            : Option.some(new Written({ field: word.field.after(lead.length), exact: false, node: Option.none() }));
-    return Match.value({ ended: state.ended || written === '', long: written.startsWith('--') && written.length > 2, short: written.startsWith('-') && written.length > 1 }).pipe(
-        Match.when({ ended: true }, () => [operand(state, word, text), tail] as const),
-        Match.when(
-            () => written === '--',
-            () => [{ ...state, ended: true, dashed: true }, tail] as const,
-        ),
-        Match.when({ long: true }, () =>
-            Option.match(
-                Option.orElse(state.usage.flag(name), () => Option.filter(Array.head(state.usage.abbreviated(name)), () => state.usage.abbreviated(name).length === 1)),
-                {
-                    onNone: () => unknown(state, word, name, attached, tail),
-                    onSome: (flag) => valued(state, flag, name, word, attached, tail),
-                },
-            ),
-        ),
-        Match.when({ short: true }, () => Option.match(state.usage.flag(written), { onNone: () => clustered(state, word, written.slice(1), tail), onSome: (flag) => valued(state, flag, written, word, Option.none(), tail) })),
-        Match.orElse(() => [operand(state, word, text), tail] as const),
+            : Option.some(new Written({ field: word.field.drop(lead.length), exact: false, node: Option.none() }));
+    return Match.value({ flagged: !state.ended && written.startsWith('-') && written.length > 1, closing: written === '--', long: written.startsWith('--') }).pipe(
+        Match.when({ flagged: false }, () => place(state, word)),
+        Match.when({ closing: true }, () => ({ ...state, ended: true, dashed: Option.some(state.operands.length) })),
+        Match.when({ long: true }, () => Option.match(state.usage.flag(name), { onNone: () => doubt(state, word, name, attached), onSome: (flag) => open(state, flag, name, word, attached) })),
+        Match.orElse(() => Option.match(state.usage.flag(written), { onNone: () => uncluster(state, word, Array.fromIterable(written.slice(1))), onSome: (flag) => open(state, flag, written, word, Option.none()) })),
     );
 };
-const parsed = (state: Parsed, words: readonly Written[]): Parsed =>
-    Array.match(words, {
-        onEmpty: () => state,
-        onNonEmpty: (all) => {
-            const [next, tail] = stepped(state, Array.headNonEmpty(all), Array.tailNonEmpty(all));
-            return parsed(next, tail);
-        },
+const step = (state: Reading, word: Written): Reading => (state.taking > 0 ? fill(state, word) : spell({ ...state, doubted: false, ambiguous: state.ambiguous || (state.doubted && !word.test(/^-/u)) }, word));
+const bind = (usage: Option.Option<Usage>, words: readonly Written[], cwd: Field): Arguments => {
+    const read = words.slice(1).reduce(step, { usage: Option.getOrElse(usage, () => Usage.blank), subcommands: [], flags: [], operands: [], dashed: Option.none(), ended: false, ambiguous: false, doubted: false, taking: 0, ends: [] });
+    const slots = Option.getOrElse(read.usage.operands, () => []).filter(meets(read.flags));
+    const [extras, positional] = Array.mapAccum(slots, read.operands, (left, slot, at) => {
+        const fitting = slot.roles.includes('assignment') ? Array.takeWhile(left, (word) => word.test(assignment)) : left;
+        const reserved = slots.slice(at + 1).filter(({ count }) => counts[count].least > 0).length;
+        const taken = Math.min(fitting.length, counts[slot.count].most, Math.max(counts[slot.count].least, fitting.length - reserved));
+        return [left.slice(taken), { slot, words: left.slice(0, taken) }];
     });
-const placed = (word: Written, cwd: Field, tree: boolean): readonly Field[] => {
-    const field = word.field.under(cwd);
-    return Option.match(
-        Option.filter(field.text, () => tree),
-        {
-            onNone: () => [field],
-            onSome: (text) => [field, new Field({ pieces: [...field.pieces, Piece.Wild({ text: '/**' })], matching: Option.some(Matching.Paths({ glob: Option.some(Glob.make(`${Glob.escape(text)}/**`, { dot: true })), unmatched: Unmatched.Kept() })) })],
-        },
-    );
-};
-const bound = (usage: Option.Option<Usage>, words: readonly Written[], cwd: Field) => {
-    const state = parsed({ usage: Option.getOrElse(usage, () => blank), path: [], flags: [], operands: [], rest: [], ended: false, dashed: false, ambiguous: false }, words.slice(1));
-    const spelled = new Set(state.flags.flatMap(({ flag }) => flag.spellings));
-    const active = (slot: Slot) => (Array.isReadonlyArrayEmpty(slot.when) || slot.when.some((spelling) => spelled.has(spelling))) && !slot.unless.some((spelling) => spelled.has(spelling));
-    const slots = Option.getOrElse(state.usage.operands, () => []).filter(active);
-    const [left, taken] = Array.mapAccum(slots, state.operands, (remaining, slot, index) => {
-        const reserved = slots.slice(index + 1).filter(({ count }) => count === 'one').length;
-        const count = Match.value(slot).pipe(
-            Match.when({ roles: (roles: Slot['roles']) => roles.includes('command') }, () => remaining.length),
-            Match.when({ count: 'one' }, () => Math.min(1, remaining.length)),
-            Match.when({ count: 'optional' }, () => (remaining.length > reserved ? 1 : 0)),
-            Match.when({ roles: (roles: Slot['roles']) => roles.includes('assignment') }, () => Array.span(remaining, (word) => Option.isSome(Option.flatMap(word.text, String.match(/^[A-Za-z_]\w*=/u))))[0].length),
-            Match.orElse(() => Math.max(0, remaining.length - reserved)),
-        );
-        return [remaining.slice(count), { slot, words: remaining.slice(0, count) }] as const;
-    });
-    const operands = [...taken.flatMap(({ slot, words: held }) => held.map((word) => ({ word, roles: slot.roles }))), ...left.map((word) => ({ word, roles: [] }))];
-    const valuedSlots = state.flags.flatMap(({ flag, values }) => Option.toArray(Option.map(state.usage.value(flag), (slot) => ({ slot, words: values }))));
-    const filled = [...taken, ...valuedSlots];
-    const stdin = !operands.some(({ word, roles }) => roles.includes('read') && !Option.contains(word.text, '-'));
-    const effect = (...roles: Slot['roles']) => filled.flatMap(({ slot, words: held }) => (slot.roles.some((role) => roles.includes(role)) ? held.flatMap((word) => placed(word, cwd, slot.tree)) : []));
-    const token = Option.flatMap(
-        Array.findFirst(valuedSlots, ({ slot }) => slot.roles.includes('placeholder')),
-        ({ words: held }) => Option.flatMap(Array.head(held), ({ text }) => text),
-    );
-    const lists = filled
-        .filter(({ slot, words: held }) => slot.roles.includes('command') && Array.isReadonlyArrayNonEmpty(held))
-        .map(({ slot, words: held }) => {
-            const replaced = Array.isReadonlyArrayNonEmpty(slot.ends) ? Option.some('{}') : token;
-            return held.map((word) => (Option.isSome(replaced) && Equal.equals(word.text, replaced) ? new Written({ field: Field.unknown(Origin.Input()), exact: word.exact, node: Option.none() }) : word));
-        });
-    const scripts = filled.flatMap(({ slot, words: held }, at) =>
-        (slot.roles.includes('script') || slot.roles.includes('shell')) && Array.isReadonlyArrayNonEmpty(held)
-            ? [{ text: Option.map(Option.all(held.map(({ text }) => text)), (texts) => texts.join(' ')), shell: slot.roles.includes('shell'), ...named(at < taken.length && slot.roles.includes('shell') ? [...taken.slice(at + 1).flatMap(({ words: after }) => after), ...left] : []) }]
-            : [],
-    );
-    const shell = [...Option.getOrElse(state.usage.operands, Array.empty), ...Object.values(state.usage.values), ...Option.toArray(state.usage.input)].some(({ roles }) => roles.includes('shell'));
-    const files = filled.flatMap(({ slot, words: [file, ...after] }, at) =>
-        slot.roles.includes('execute') && file !== undefined ? [{ path: file.field.under(cwd), shell, zero: Option.some(file), operands: [...after, ...(at < taken.length ? [...taken.slice(at + 1).flatMap(({ words: held }) => held), ...left] : [])] }] : [],
-    );
-    const host = Option.flatMap(
-        Array.findFirst(filled, ({ slot }) => slot.roles.includes('host')),
-        ({ words: held }) => Array.head(held),
-    );
-    const input = Option.filter(state.usage.input, (slot) => stdin && active(slot));
-    return {
-        usage: Option.as(usage, state.usage),
-        path: state.path,
-        flags: state.flags,
-        operands,
-        rest: state.rest,
-        reads: effect('read', 'execute'),
-        writes: effect('write', 'create'),
-        deletes: effect('delete'),
-        opaque: Option.isNone(usage) || state.ambiguous || filled.some(({ slot }) => slot.roles.includes('code')) || Option.exists(input, (slot) => slot.roles.includes('command') || slot.roles.includes('code')),
-        lists,
-        scripts,
-        files,
-        running: filled.filter(({ slot }) => slot.roles.some((role) => role === 'shell' || role === 'script' || role === 'code')).flatMap(({ words: held }) => held),
-        host,
-        input,
-    };
+    return new Arguments({ usage: Option.as(usage, read.usage), subcommands: read.subcommands, flags: read.flags, positional, extras, rest: Option.match(read.dashed, { onNone: () => [], onSome: (at) => read.operands.slice(at) }), ambiguous: read.ambiguous, cwd });
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { bound };
+export { type Arguments, bind };

@@ -1,625 +1,592 @@
-import { Array, type Cause, Effect, Equal, HashMap, HashSet, Match, Option, Ref, Struct } from 'effect';
-import { BinCmdOperator, type CallExpr, type Command, type Node, RedirOperator, type Stmt, walk as visit, type Word } from 'sh-syntax';
-import { bound } from '#/analysis/binding';
-import { Invocation, Loop, Place, Program, Stdin, Within, Written } from '#/analysis/invocation';
+import { Array, type Cause, Data, Effect, Equal, Function, HashMap, HashSet, Match, Option, Record, Ref, Stream } from 'effect';
+import { BinCmdOperator, type CallExpr, type Command, type Node, type Stmt, walk as visit, type Word } from 'sh-syntax';
+import { bind } from '#/analysis/binding';
+import { Invocation, Loop, Place, Program, Redirection, Stdin, Within, Written } from '#/analysis/invocation';
 import { Callee, Flow, State } from '#/analysis/state';
-import { text } from '#/evaluation/expansion';
-import { Binding, Expanded, Field, Origin, type Scope } from '#/evaluation/value';
+import { unquote } from '#/evaluation/expansion';
+import { Binding, Expanded, type Expansion, Field, Origin, type Scope, trace } from '#/evaluation/value';
 import type { Usage } from '#/programs/usage';
 import { posix } from '#/syntax/dialect';
 import type { Script, ShellError } from '#/syntax/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Context {
-    readonly script: Script;
+type Form = (stmt: Stmt, state: State, context: Context) => Effect.Effect<Flow, ShellError>;
+type Transfer = (simple: SimpleCommand, invocation: Invocation) => Effect.Effect<Flow, ShellError>;
+interface Visit {
+    readonly node: Node;
+    readonly parent: Node | null;
+    readonly prop: string | null;
+}
+interface Hosts {
     readonly parse: (source: string, dialect: Script['dialect']) => Effect.Effect<Script, ShellError>;
-    readonly interpreter: (binary: string, environment: Readonly<Record<string, string>>) => Effect.Effect<Option.Option<Script['dialect']>>;
+    readonly probe: (shell: string, environment: Readonly<Record<string, string>>) => Effect.Effect<Option.Option<Script['dialect']>>;
     readonly read: (path: string) => Effect.Effect<Option.Option<string>, Cause.NoSuchElementError>;
-    readonly files: Ref.Ref<HashMap.HashMap<string, Option.Option<string>>>;
-    readonly stdin: Stdin;
-    readonly aliased: ReadonlySet<string>;
-    readonly within: readonly Within[];
-    readonly loop: Option.Option<Loop>;
-    readonly stage: Invocation['stage'];
-    readonly background: boolean;
-    readonly calls: readonly Stmt[];
     readonly programs: (program: string) => Effect.Effect<Option.Option<Usage>, ShellError>;
-    readonly origin: Script;
-    readonly remote: Option.Option<Field>;
-    readonly visited: readonly (readonly [Option.Option<Field>, string])[];
+}
+interface Body {
+    readonly source: Effect.Effect<Option.Option<string>>;
+    readonly shell: boolean;
+    readonly zero: Option.Option<Written>;
+    readonly operands: readonly Written[];
+    readonly frames: readonly Within[];
+    readonly stdin: Stdin;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const builtins = ['cd', 'true', 'false', ':', 'break', 'continue', 'return', 'exit', 'eval', 'unset', 'read', 'shift', 'source', '.', 'echo', 'printf'] as const;
-const special = ['PWD', 'OLDPWD', 'HOME', 'IFS'] as const;
-const reading: ReadonlySet<number> = new Set([RedirOperator.RdrIn, RedirOperator.RdrInOut]);
-const writing: ReadonlySet<number> = new Set([RedirOperator.RdrOut, RedirOperator.AppOut, RedirOperator.ClbOut, RedirOperator.AppClob, RedirOperator.RdrAll, RedirOperator.RdrAllClob, RedirOperator.AppAll, RedirOperator.AppAllClob, RedirOperator.RdrInOut]);
-const feeding: ReadonlySet<number> = new Set([RedirOperator.Hdoc, RedirOperator.DashHdoc, RedirOperator.WordHdoc]);
-const printing: ReadonlySet<number> = new Set([RedirOperator.RdrOut, RedirOperator.ClbOut, RedirOperator.AppOut, RedirOperator.AppClob]);
-const appending: ReadonlySet<number> = new Set([RedirOperator.AppOut, RedirOperator.AppClob]);
+const specials = ['PWD', 'OLDPWD', 'HOME', 'IFS'] as const;
+const arithmetic: ReadonlySet<string | undefined> = new Set(['ArithmCmd', 'ArithmExp', 'BinaryArithm', 'CallArithm', 'CStyleLoop', 'FlagsArithm', 'LetClause', 'ParenArithm', 'UnaryArithm'] satisfies readonly Node['type'][]);
+const subscripts: ReadonlySet<string | null> = new Set(['index', 'offset', 'length', 'subscripts']);
+const declarators: ReadonlySet<string | undefined> = new Set(['local', 'declare', 'typeset']);
+const chains: Partial<Record<BinCmdOperator, 'zero' | 'nonzero'>> = { [BinCmdOperator.AndStmt]: 'zero', [BinCmdOperator.OrStmt]: 'nonzero' };
+const pipes: ReadonlySet<number> = new Set([BinCmdOperator.Pipe, BinCmdOperator.PipeAll]);
 const escapes: Readonly<Record<string, string>> = { '%%': '%', '\\\\': '\\', '\\n': '\n', '\\t': '\t' };
+const blank = new Expanded({ fields: [Field.known('')], exact: true, refusals: [] });
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+class Context extends Data.Class<{
+    readonly walk: Hosts & { readonly origin: Script; readonly files: Ref.Ref<HashMap.HashMap<string, Option.Option<string>>> };
+    readonly script: Script;
+    readonly remote: Option.Option<Field>;
+    readonly visited: HashSet.HashSet<readonly [Option.Option<Field>, string]>;
+    readonly aliased: ReadonlySet<string>;
+    readonly calls: ReadonlySet<Stmt>;
+    readonly at: Pick<Invocation, 'within' | 'stage' | 'stdin' | 'background' | 'repeated'>;
+}> {
+    // --- [SITUATION]
+
+    set(at: Partial<Context['at']>): Context {
+        return new Context({ ...this, at: { ...this.at, ...at } });
+    }
+
+    enter(...frames: readonly Within[]): Context {
+        return this.set({ within: [...frames, ...this.at.within] });
+    }
+
+    loop(clause: Node, condition: boolean): Context {
+        const { source, located } = this.script;
+        return this.set({ repeated: Option.some(new Loop({ source, start: located(clause.start), end: located(clause.end), condition })) });
+    }
+
+    // --- [SOURCE]
+
+    read(script: Script, body: readonly Stmt[] = [], aliased: readonly string[] = []): Context {
+        return new Context({ ...this, script, calls: this.calls.union(new Set(body)), aliased: this.aliased.union(new Set(aliased)) });
+    }
+
+    open(script: Script, remote: Context['remote'], aliased = this.aliased): Context {
+        return new Context({ ...this, script, remote, aliased, visited: HashSet.add(this.visited, [remote, script.source] as const) });
+    }
+
+    saw(remote: Context['remote'], source: string): boolean {
+        return HashSet.has(this.visited, [remote, source] as const);
+    }
+
+    cwd(scope: Scope): Field {
+        const held = scope.get('PWD');
+        const local = Option.isNone(this.remote);
+        return held._tag === 'Known' && local ? Field.known(held.value) : Field.unknown(Origin.Variable({ name: 'PWD', origins: held._tag === 'Unknown' && local ? held.origins : HashSet.empty() }));
+    }
+
+    expand(words: readonly (Word | null)[], scope: Scope): readonly [Scope, readonly Expansion[]] {
+        return Array.mapAccum(words, scope, (from, word) => {
+            const [expansion, to] = word === null ? [blank, from] : this.script.expand(word, from);
+            return [to, expansion];
+        });
+    }
+
+    // --- [FILES]
+
+    load(file: string, missing: Option.Option<string> = Option.none()): Effect.Effect<Option.Option<string>> {
+        const disk = Effect.catchTag(this.walk.read(file), 'NoSuchElementError', () => Effect.succeed(missing));
+        return Effect.flatMap(Ref.get(this.walk.files), (files) => Option.match(HashMap.get(files, file), { onSome: Effect.succeed, onNone: () => disk }));
+    }
+
+    store(file: string, written: Option.Option<string>, append: boolean): Effect.Effect<void> {
+        const prior = append ? this.load(file, Option.some('')) : Effect.succeedSome('');
+        return Effect.flatMap(prior, (held) => Ref.update(this.walk.files, HashMap.set(file, Option.map(Option.all([held, written]), Array.join('')))));
+    }
+
+    fetch(path: Field, remote: Context['remote']): Effect.Effect<Option.Option<string>> {
+        return Option.match(
+            Option.filter(path.text, () => Option.isNone(remote)),
+            { onNone: () => Effect.succeedNone, onSome: (file) => this.load(file) },
+        );
+    }
+}
+
+class SimpleCommand extends Data.Class<{
+    readonly stmt: Stmt;
+    readonly words: readonly Written[];
+    readonly assigns: Invocation['assigns'];
+    readonly redirections: readonly Redirection[];
+    readonly scope: Scope;
+    readonly state: State;
+    readonly context: Context;
+}> {
+    get operands(): Option.Option<readonly string[]> {
+        return Option.all(this.words.slice(1).map(({ text: written }) => written));
+    }
+
+    invoke(program: Program, usage: Option.Option<Usage> = Option.none()): Invocation {
+        const { context, stmt, words, assigns, redirections } = this;
+        const [cwd, { source, located }] = [context.cwd(this.scope), context.script];
+        const args = bind(usage, words, cwd);
+        const opaque = Program.$match(program, { Function: () => false, Builtin: () => args.opaque && Option.isSome(usage), External: () => args.opaque, Unknown: () => true });
+        const place = Option.match(context.remote, { onNone: () => Place.Local({ cwd }), onSome: (host) => Place.Remote({ host }) });
+        const node = Option.liftPredicate(stmt, () => context.script === context.walk.origin);
+        return new Invocation({ program, source, start: located(stmt.start), end: located(stmt.end), words, node, assigns, arguments: args, redirections, opaque, inner: [], place, ...context.at });
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const referenced = (nodes: readonly Node[]): ReadonlySet<string> => {
-    const names = new Set<string>(special);
-    visit(nodes, (node) => {
-        const written = Match.value(node).pipe(
-            Match.discriminators('type')({ Lit: ({ value }) => value, ParamExp: ({ param }) => param?.value ?? '' }),
-            Match.orElse(() => ''),
-        );
-        written.matchAll(/[A-Za-z_]\w*|[?@*#0-9]/gu).forEach(([name]) => {
-            names.add(name);
-        });
+const descend = (nodes: readonly Node[]): readonly Visit[] => {
+    const visits: Visit[] = [];
+    visit(nodes, (node, parent, prop) => {
+        visits.push({ node, parent, prop });
+        return node.type !== 'CmdSubst' && node.type !== 'ProcSubst';
     });
-    return names;
+    return visits;
 };
-const literals = (node: Node, script: Script, state: State): ReadonlySet<string> => {
-    const found = new Set<string>(Array.fromIterable(HashMap.values(state.variables)).flatMap((held) => [...held.values].flatMap(Binding.$match({ Known: ({ value }) => [value], Listed: ({ items }) => items, Unset: () => [], Unknown: () => [] }))));
-    visit(node, (inner) => {
-        if (inner.type === 'Word') {
-            Option.toArray(text(inner, script.dialect)).forEach((written) => {
-                found.add(written);
-            });
-        }
-    });
-    return found;
+const lex = ({ node, parent, prop }: Visit): readonly string[] =>
+    node.type === 'Word' && (arithmetic.has(parent?.type) || subscripts.has(prop)) ? node.parts.flatMap((part) => (part.type === 'DblQuoted' ? part.parts : [part])).flatMap((part) => (part.type === 'Lit' || part.type === 'SglQuoted' ? (part.value.match(/[A-Za-z_]\w*/gu) ?? []) : [])) : [];
+const mention = (nodes: readonly Node[]) => {
+    const visits = descend(nodes);
+    return {
+        names: [...specials, ...visits.flatMap((held) => (held.node.type === 'ParamExp' ? Array.fromNullishOr(held.node.param?.value) : lex(held)))],
+        bodies: visits.flatMap(({ node }) => (node.type === 'CmdSubst' || node.type === 'ProcSubst' ? [node] : [])),
+    };
 };
-const cwd = (scope: Scope) =>
-    Binding.$match(scope.get('PWD'), {
-        Known: ({ value }) => Field.known(value),
-        Unset: () => Field.unknown(Origin.Variable({ name: 'PWD', origins: HashSet.empty() })),
-        Listed: () => Field.unknown(Origin.Variable({ name: 'PWD', origins: HashSet.empty() })),
-        Unknown: ({ origins }) => Field.unknown(Origin.Variable({ name: 'PWD', origins })),
-    });
-const placed = (context: Context, scope: Scope) => Option.getOrElse(Option.as(context.remote, Field.unknown(Origin.Variable({ name: 'PWD', origins: HashSet.empty() }))), () => cwd(scope));
-const positional = (words: readonly Written[]) =>
+const forget = (node: Node, state: State): State =>
+    descend([node])
+        .flatMap(lex)
+        .reduce((held, name) => held.bind(name, Binding.Unknown({ origins: HashSet.make(Origin.Arithmetic()) })), state);
+const limit = (clause: Node, state: State, context: Context): ReadonlySet<string> => {
+    const held = HashMap.toValues(state.variables.listed).flatMap(({ values }) => Array.fromIterable(values).flatMap(Binding.$match({ Known: ({ value }) => [value], Listed: ({ items }) => items, Unset: () => [], Unknown: () => [] })));
+    const written = descend([clause]).flatMap(({ node }) => (node.type === 'Word' ? Option.toArray(unquote(node, context.script.dialect)) : []));
+    return new Set([...held, ...written]);
+};
+const pass = (words: readonly Written[]): State['positional'] =>
     Option.map(
         Option.liftPredicate(words, (all) => all.every(({ exact }) => exact)),
-        Array.map((held) => held.binding),
+        Array.map(({ binding }) => binding),
     );
-const supplied = (stmt: Stmt, scope: Scope, context: Context): Stdin =>
+const redirect = (stmt: Stmt, scope: Scope, context: Context): readonly Redirection[] =>
+    stmt.redirs.map(({ op, n, word, hdoc }) => {
+        const [, [expansion = blank]] = context.expand(Array.fromNullishOr(hdoc ?? word), scope);
+        const target = expansion._tag === 'Expanded' ? Array.head(expansion.fields) : Option.some(Field.unknown(Origin.Unsupported()));
+        const body = Option.map(expansion._tag === 'Expanded' ? expansion.text : Option.none(), (written) => (hdoc === null ? `${written}\n` : written));
+        return Redirection.of(
+            op,
+            Option.map(Option.fromNullOr(n), ({ value }) => value),
+            target,
+            context.cwd(scope),
+            body,
+        );
+    });
+const supply = (redirections: readonly Redirection[], inherited: Stdin): Stdin =>
     Option.match(
-        Array.findLast(stmt.redirs, ({ op, n }) => (reading.has(op) || feeding.has(op) || op === RedirOperator.DplIn) && (n === null || n.value === '0')),
-        {
-            onNone: () => context.stdin,
-            onSome: ({ op, hdoc, word }) => {
-                const expansion = Option.filter(
-                    Option.map(Option.fromNullishOr(hdoc ?? word), (held) => context.script.expand(held, scope)[0]),
-                    (expanded): expanded is Expanded => expanded._tag === 'Expanded',
-                );
-                const path = Option.getOrElse(
-                    Option.flatMap(expansion, ({ fields }) => Array.head(fields)),
-                    () => Field.unknown(Origin.Unsupported()),
-                ).under(placed(context, scope));
-                return Match.value({ fed: feeding.has(op), duplicated: op === RedirOperator.DplIn, closed: Option.contains(path.text, op === RedirOperator.DplIn ? '-' : '/dev/null') }).pipe(
-                    Match.when({ fed: true }, () => Stdin.Text({ text: Option.map(Option.flatMap(expansion, Struct.get('text')), (body) => (hdoc === null ? `${body}\n` : body)) })),
-                    Match.when({ closed: true }, () => Stdin.Closed()),
-                    Match.when({ duplicated: true }, () => Stdin.File({ path: Field.unknown(Origin.Unsupported()) })),
-                    Match.orElse(() => Stdin.File({ path })),
-                );
-            },
-        },
+        Array.findLast(redirections, (redirection) => redirection.opens('0', 'read', 'feed', 'duplicate')),
+        { onNone: () => inherited, onSome: ({ stdin }) => stdin },
     );
-const echoed = (words: readonly string[]): Option.Option<string> => {
+const echo = (words: readonly string[]): Option.Option<string> => {
     const bare = words[0] === '-n';
     const shown = bare ? words.slice(1) : words;
     return Option.liftPredicate(`${shown.join(' ')}${bare ? '' : '\n'}`, () => !shown.some((word) => word.includes('\\')) && !Option.exists(Array.head(shown), (word) => word.startsWith('-')));
 };
-const formatted = ([format = '', ...args]: readonly string[]): Option.Option<string> => {
+const printf = ([format = '', ...args]: readonly string[]): Option.Option<string> => {
     const tokens = format.split(/(?<token>%%|%s|\\[\\nt])/u);
     const slots = tokens.filter((token) => token === '%s').length;
-    const rounds = Array.makeBy(slots === 0 ? 1 : Math.max(1, Math.ceil(args.length / slots)), (round) => Array.mapAccum(tokens, round * slots, (at, token) => (token === '%s' ? ([at + 1, args[at] ?? ''] as const) : ([at, escapes[token] ?? token] as const)))[1].join(''));
-    return Option.liftPredicate(rounds.join(''), () => !format.startsWith('-') && tokens.every((token, at) => at % 2 === 1 || !/[%\\]/u.test(token)));
+    const rounds = slots === 0 ? 1 : Math.max(1, Math.ceil(args.length / slots));
+    const printed = Array.makeBy(rounds, (round) => Array.mapAccum(tokens, round * slots, (at, token) => (token === '%s' ? [at + 1, args[at] ?? ''] : [at, escapes[token] ?? token]))[1].join(''));
+    return Option.liftPredicate(printed.join(''), () => !format.startsWith('-') && tokens.every((token, at) => at % 2 === 1 || !/[%\\]/u.test(token)));
 };
-const stored = (file: string, missing: Option.Option<string>, context: Context): Effect.Effect<Option.Option<string>> =>
-    Effect.flatMap(Ref.get(context.files), (files) => Option.match(HashMap.get(files, file), { onNone: () => Effect.catchTag(context.read(file), 'NoSuchElementError', () => Effect.succeed(missing)), onSome: Effect.succeed }));
-const contents = (path: Field, remote: Option.Option<Field>, context: Context): Effect.Effect<Option.Option<string>> =>
-    Option.match(
-        Option.filter(path.text, () => Option.isNone(remote)),
-        { onNone: () => Effect.succeedNone, onSome: (file) => stored(file, Option.none(), context) },
-    );
-const invoked = (program: Program, stmt: Stmt, words: readonly Written[], scope: Scope, context: Context, usage: Option.Option<Usage> = Option.none(), assigns: Invocation['assigns'] = []) => {
-    const base = placed(context, scope);
-    const binding = bound(usage, words, base);
-    const redirected = stmt.redirs.flatMap((redirect) =>
-        Option.toArray(Option.fromNullishOr(redirect.word)).flatMap((word) => {
-            const [expansion] = context.script.expand(word, scope);
-            const fields = expansion._tag === 'Expanded' ? expansion.fields.slice(0, 1).map((field) => field.under(base)) : [Field.unknown(Origin.Unsupported())];
-            return [{ op: redirect.op, printed: (redirect.n === null || redirect.n.value === '1') && printing.has(redirect.op), fields }];
-        }),
-    );
-    const invocation = new Invocation({
-        program,
-        source: context.script.source,
-        start: context.script.located(stmt.start),
-        end: context.script.located(stmt.end),
-        words,
-        node: Option.liftPredicate(stmt, () => context.script === context.origin),
-        assigns,
-        usage: binding.usage,
-        path: binding.path,
-        flags: binding.flags,
-        operands: binding.operands,
-        rest: binding.rest,
-        reads: [...binding.reads, ...redirected.filter(({ op }) => reading.has(op)).flatMap(({ fields }) => fields)],
-        writes: [...binding.writes, ...redirected.filter(({ op }) => writing.has(op)).flatMap(({ fields }) => fields)],
-        deletes: binding.deletes,
-        opaque: Program.$match(program, { Function: () => false, Builtin: () => binding.opaque && Option.isSome(usage), External: () => binding.opaque, Unknown: () => true }),
-        inner: [],
-        place: Option.match(context.remote, { onNone: () => Place.Local({ cwd: base }), onSome: (host) => Place.Remote({ host }) }),
-        within: context.within,
-        stage: context.stage,
-        stdin: context.stdin,
-        background: context.background,
-        repeated: context.loop,
-    });
-    return { invocation, binding, redirected };
-};
-const recorded = ({ invocation, binding, redirected }: ReturnType<typeof invoked>, name: string, context: Context): Effect.Effect<void> => {
-    const words = Option.all(invocation.words.slice(1).map((held) => held.text));
-    const copied = Option.filter(Option.some(invocation.stdin), Stdin.$is('Text')).pipe(
-        Option.filter(() => binding.flags.length === 0 && Option.exists(binding.input, (slot) => slot.roles.includes('copy'))),
-        Option.flatMap(Struct.get('text')),
-    );
-    const printed = Match.value(name).pipe(
-        Match.when('echo', () => Option.flatMap(words, echoed)),
-        Match.when('printf', () => Option.flatMap(words, formatted)),
-        Match.orElse(() => copied),
-    );
-    const targets = [...binding.writes.map((field) => ({ field, text: copied, append: false })), ...redirected.filter(({ op }) => writing.has(op)).flatMap(({ op, printed: out, fields }) => fields.map((field) => ({ field, text: Option.filter(printed, () => out), append: appending.has(op) })))];
-    const known = Option.isSome(context.remote) ? [] : targets.flatMap(({ field, text: written, append }) => Option.toArray(Option.map(field.text, (path) => ({ path, written, append }))));
-    return Effect.forEach(known, ({ path, written, append }) => Effect.flatMap(append ? stored(path, Option.some(''), context) : Effect.succeedNone, (prior) => Ref.update(context.files, HashMap.set(path, append ? Option.map(Option.all([prior, written]), Array.join('')) : written))), { discard: true });
-};
-const nested = Effect.fnUntraced(function* (made: ReturnType<typeof invoked>, name: string, stmt: Stmt, environment: State, scope: Scope, context: Context): Effect.fn.Return<Invocation, ShellError> {
-    const { invocation, binding } = made;
-    const inside = { ...context, within: [Within.Wrapper({ name }), ...context.within], stage: Option.none(), background: false };
-    const listed = { ...inside, stdin: Option.exists(binding.input, (slot) => slot.roles.includes('command')) ? Stdin.Closed() : invocation.stdin };
-    const fed = Option.map(
-        Option.filter(binding.input, (slot) => slot.roles.includes('script') || slot.roles.includes('shell')),
-        (slot) => ({
-            text: invocation.stdin._tag === 'Text' ? invocation.stdin.text : Option.none(),
-            shell: slot.roles.includes('shell'),
-            zero: Option.none<Written>(),
-            operands: binding.operands.map(({ word }) => word),
-            within: Option.none<Within>(),
-            stdin: invocation.stdin._tag === 'Text' ? Stdin.Text({ text: Option.none() }) : invocation.stdin,
-        }),
-    );
-    const lists = yield* Effect.forEach(
-        binding.lists,
-        Effect.fnUntraced(function* (list) {
-            const program = Option.map(
-                Option.flatMap(Array.head(list), (held) => held.text),
-                (written) => written.slice(written.lastIndexOf('/') + 1),
-            );
-            const usage = Option.flatten(yield* Effect.transposeOption(Option.map(program, context.programs)));
-            return yield* Option.match(program, {
-                onNone: () => Effect.succeed(invoked(Program.Unknown({ origin: Origin.Command({ name: '' }) }), stmt, list, scope, listed).invocation),
-                onSome: (short) => nested(invoked(Program.External({ name: short }), stmt, list, scope, listed, usage), short, stmt, environment, scope, listed),
-            });
-        }),
-    );
-    const remote = Option.orElse(
-        Option.map(binding.host, ({ field }) => field),
-        () => context.remote,
-    );
-    const shells = binding.files.filter(({ shell }) => shell);
-    const bodies = yield* Effect.forEach(shells, (file) => contents(file.path, remote, context));
-    const files = Array.zipWith(shells, bodies, (file, written) => ({ ...file, text: written, within: Option.map(file.path.text, (path) => Within.File({ path })), stdin: invocation.stdin }));
-    const seen = new Set(context.visited.filter(([place]) => Equal.equals(place, remote)).map(([, body]) => body));
-    const walkedScripts = yield* Effect.forEach(
-        [...binding.scripts.map((body) => ({ ...body, within: Option.none<Within>(), stdin: invocation.stdin })), ...files, ...Option.toArray(fed)],
-        Effect.fnUntraced(function* (body) {
-            const interpreter = Option.isSome(binding.host)
-                ? Option.some(posix('sh', {}))
-                : yield* context.interpreter(
-                      body.shell
-                          ? Option.getOrElse(
-                                Option.flatMap(Array.head(invocation.words), (held) => held.text),
-                                () => name,
-                            )
-                          : 'sh',
-                      context.script.dialect.environment,
-                  );
-            const source = Option.all({ written: Option.filter(body.text, (written) => !seen.has(written)), dialect: interpreter });
-            const script = Option.flatten(yield* Effect.transposeOption(Option.map(source, ({ written, dialect }) => Effect.option(context.parse(written, dialect)))));
-            const entered = (parsed: Script) =>
-                Option.isSome(binding.host)
-                    ? new State({ ...environment.havoc(), positional: Option.some([]), name: 'sh' })
-                    : environment.entered(
-                          parsed.scope,
-                          parsed.dialect,
-                          positional(body.operands),
-                          Option.getOrElse(
-                              Option.flatMap(body.zero, (held) => held.text),
-                              () => parsed.dialect.binary,
-                          ),
-                      );
-            return yield* Effect.transposeOption(
-                Option.map(script, (parsed) =>
-                    Effect.map(statements(parsed.syntax.stmts, entered(parsed), { ...inside, script: parsed, remote, visited: [...context.visited, [remote, parsed.source]], aliased: new Set(), within: [...Option.toArray(body.within), ...inside.within], stdin: body.stdin }), Struct.get('found')),
-                ),
-            );
-        }),
-    );
-    return new Invocation({ ...invocation, inner: [...lists, ...Array.getSomes(walkedScripts).flat()], opaque: invocation.opaque || walkedScripts.some(Option.isNone) });
-});
-const included = Effect.fnUntraced(function* (made: ReturnType<typeof invoked>, state: State, context: Context) {
-    const file = Array.head(made.binding.files);
-    const seen = new Set(context.visited.filter(([place]) => Equal.equals(place, context.remote)).map(([, body]) => body));
-    const written = Option.filter(Option.flatten(yield* Effect.transposeOption(Option.map(file, ({ path }) => contents(path, context.remote, context)))), (body) => !seen.has(body));
-    const script = Option.flatten(yield* Effect.transposeOption(Option.map(written, (body) => Effect.option(context.parse(body, context.script.dialect)))));
-    const given = Option.flatMap(file, ({ operands }) => Option.liftPredicate(operands, Array.isReadonlyArrayNonEmpty));
-    const restored = (after: State) => (Option.isSome(given) ? new State({ ...after, positional: state.positional }) : after);
-    const entered = Option.match(given, { onNone: () => state, onSome: (operands) => new State({ ...state, positional: positional(operands) }) });
-    return yield* Option.match(Option.all({ parsed: script, path: Option.flatMap(file, ({ path }) => path.text) }), {
-        onNone: () => Effect.succeed(Flow.ran(Option.some(state.havoc()), Option.some(state.havoc()), [new Invocation({ ...made.invocation, opaque: true })])),
-        onSome: ({ parsed, path }) =>
-            Effect.map(
-                statements(parsed.syntax.stmts, entered, { ...context, script: parsed, within: [Within.File({ path }), ...context.within], visited: [...context.visited, [context.remote, parsed.source]] }),
-                (flow) => new Flow({ ...Flow.none, zero: Option.map(State.union([flow.zero, flow.returns]), restored), nonzero: Option.map(flow.nonzero, restored), exits: flow.exits, found: [made.invocation, ...flow.found] }),
+const record = (invocation: Invocation, context: Context, printed: Option.Option<string>): Effect.Effect<void> => {
+    const { arguments: args, redirections, stdin } = invocation;
+    const copies = args.flags.length === 0 && Option.exists(args.input, ({ roles }) => roles.includes('copy'));
+    const copied = Option.filter(stdin._tag === 'Text' ? stdin.text : Option.none<string>(), () => copies);
+    const output = Option.orElse(printed, () => copied);
+    const redirected = redirections.flatMap((redirection) => (redirection.modes.includes('write') ? [{ target: redirection.target, written: Option.filter(output, () => redirection.opens('1', 'print')), append: redirection.modes.includes('append') }] : []));
+    const targets = [...args.effects.writes.map((field) => ({ target: Option.some(field), written: copied, append: false })), ...redirected];
+    const files = targets.flatMap(({ target, written, append }) =>
+        Option.toArray(
+            Option.map(
+                Option.flatMap(target, (field) => field.text),
+                (file) => ({ file, written, append }),
             ),
-    });
+        ),
+    );
+    return Effect.forEach(Option.isSome(context.remote) ? [] : files, ({ file, written, append }) => context.store(file, written, append), { discard: true });
+};
+const iterate = (entry: State, thresholds: ReadonlySet<string>, round: (head: State) => Effect.Effect<Flow, ShellError>): Effect.Effect<Flow, ShellError> =>
+    Stream.paginate(entry, (head) =>
+        Effect.map(round(head), (flow) => {
+            const wider = head.widen(Option.match(flow.continues, { onNone: () => head, onSome: (again) => head.join(again) }), thresholds);
+            return [[flow], Option.liftPredicate(wider, () => !Equal.equals(wider, head))] as const;
+        }),
+    ).pipe(
+        Stream.runFold(
+            () => Flow.none,
+            (seen, flow) => flow.prepend(seen.found),
+        ),
+        Effect.map((flow) => flow.route({ zero: ['zero', 'nonzero', 'breaks'], nonzero: [], breaks: [], continues: [] })),
+    );
+const cycle = (flow: Flow): Flow => flow.route({ continues: ['continues', 'zero', 'nonzero'], zero: [], nonzero: [] });
+const repeat = (clause: Extract<Command, { readonly do: readonly Stmt[] }>, state: State, context: Context, enter: (head: State) => State): Effect.Effect<Flow, ShellError> =>
+    iterate(enter(state), limit(clause, state, context), (head) => Effect.map(run(clause.do, enter(head), context.loop(clause, false)), (flow) => Flow.join([Flow.of('zero', head), cycle(flow)])));
+const concretize = Effect.fnUntraced(function* (nodes: readonly Node[], state: State, context: Context, each: (scope: Scope) => Effect.Effect<Flow, ShellError>): Effect.fn.Return<Flow, ShellError> {
+    const { names, bodies } = mention(nodes);
+    const flows = yield* Effect.forEach(bodies, (body) => run(body.stmts, state, context.enter(Within.Substitution()).set({ stage: Option.none() })));
+    const printers = flows.map(({ found }) => Array.dedupe(found.flatMap(({ leaves }) => leaves).flatMap((leaf) => (leaf.inner.length === 0 ? [leaf.label] : []))));
+    const scopes = state.split(names, HashMap.fromIterable<Node, readonly string[]>(Array.zip(bodies, printers)));
+    return Flow.join(yield* Effect.forEach(scopes, each)).prepend(flows.flatMap(({ found }) => found));
 });
-const printers = (flow: Flow) => Array.dedupe(flow.found.flatMap(({ leaves }) => leaves).flatMap((invocation) => (invocation.inner.length === 0 ? [invocation.label] : [])));
-const substituted = Effect.fnUntraced(function* (nodes: readonly Node[], state: State, context: Context) {
-    const bodies: Extract<Node, { readonly type: 'CmdSubst' | 'ProcSubst' }>[] = [];
-    visit(nodes, (node) => (node.type === 'CmdSubst' || node.type === 'ProcSubst' ? (bodies.push(node), false) : undefined));
-    const flows = yield* Effect.forEach(bodies, (body) => statements(body.stmts, state, { ...context, within: [Within.Substitution(), ...context.within], stage: Option.none() }));
-    return { found: flows.flatMap((flow) => flow.found), substitutions: HashMap.fromIterable(Array.zipWith(bodies, flows, (body, flow): readonly [Node, readonly string[]] => [body, printers(flow)])) };
-});
-const statements = (stmts: readonly Stmt[], state: State, context: Context): Effect.Effect<Flow, ShellError> =>
+const run = (stmts: readonly Stmt[], state: State, context: Context): Effect.Effect<Flow, ShellError> =>
     Effect.reduce(
         stmts,
-        () => new Flow({ ...Flow.none, zero: Option.some(state) }),
-        (flow, stmt) =>
-            Option.match(flow.next, {
-                onNone: () => Effect.succeed(flow),
-                onSome: (next) => Effect.map(statement(stmt, next, context), (ran) => flow.followed(ran)),
-            }),
+        () => Flow.of('zero', state),
+        (flow, stmt) => flow.andThen((next) => perform(stmt, next, context)),
     );
-const statement = Effect.fnUntraced(function* (stmt: Stmt, state: State, context: Context) {
-    const detached = stmt.background ? { ...context, background: true, stdin: Stdin.Closed() } : context;
-    const own = (command: Command) => (command.type === 'CallExpr' ? detached : { ...detached, stdin: Option.match(Array.head(state.scopes(referenced(stmt.redirs))), { onNone: () => detached.stdin, onSome: (scope) => supplied(stmt, scope, detached) }) });
-    const ran = yield* Option.match(Option.fromNullishOr(stmt.cmd), {
-        onNone: () => Effect.succeed(Flow.ran(Option.some(state), Option.none())),
-        onSome: (command) => (stmt.background ? Effect.map(commanded(command, stmt, state, own(command)), (flow) => Flow.ran(Option.some(state), Option.none(), flow.found)) : commanded(command, stmt, state, own(command))),
+const perform = (stmt: Stmt, state: State, context: Context): Effect.Effect<Flow, ShellError> => {
+    const detached = stmt.background ? context.set({ background: true, stdin: Stdin.Closed() }) : context;
+    const compound = stmt.cmd?.type !== 'CallExpr' && Array.isArrayNonEmpty(stmt.redirs);
+    const fed = compound ? detached.set({ stdin: supply(redirect(stmt, state.project(), detached), detached.at.stdin) }) : detached;
+    return Option.match(Option.fromNullOr(stmt.cmd), {
+        onNone: () => Effect.succeed(Flow.status(Option.some(state), Option.none())),
+        onSome: (command) =>
+            Effect.map(dispatch(command)(stmt, state, fed), (flow) => {
+                const ran = stmt.background ? Flow.status(Option.some(state), Option.none(), flow.found) : flow;
+                return stmt.negated ? ran.route({ zero: ['nonzero'], nonzero: ['zero'] }) : ran;
+            }),
     });
-    return stmt.negated ? new Flow({ ...ran, zero: ran.nonzero, nonzero: ran.zero }) : ran;
+};
+const pipe = Effect.fnUntraced(function* (binary: Extract<Command, { readonly type: 'BinaryCmd' }>, state: State, context: Context) {
+    const stages = (stmt: Stmt | null): readonly Stmt[] => (stmt?.cmd?.type === 'BinaryCmd' && pipes.has(stmt.cmd.op) && !stmt.negated ? [...stages(stmt.cmd.x), ...stages(stmt.cmd.y)] : Array.fromNullishOr(stmt));
+    const [all, pipeline] = [[...stages(binary.x), ...stages(binary.y)], context.script.located(binary.start)];
+    const flows = yield* Effect.forEach(all, (stage, index) => {
+        const stdin = index === 0 ? context.at.stdin : Stdin.Piped({ pipeline, index: index - 1 });
+        return perform(stage, state, context.set({ stage: Option.some({ pipeline, index, count: all.length }), stdin }));
+    });
+    const last = Option.getOrElse(Array.last(flows), () => Flow.none);
+    return (context.script.dialect.options.lastpipe ? last : last.contain(state)).prepend(flows.slice(0, -1).flatMap(({ found }) => found));
 });
-const looped = (head: State, known: ReadonlySet<string>, iteration: (state: State) => Effect.Effect<{ readonly flow: Flow; readonly again: Option.Option<State>; readonly out: Option.Option<State> }, ShellError>): Effect.Effect<Flow, ShellError> =>
-    Effect.flatMap(iteration(head), ({ flow, again, out }) => {
-        const widened = head.widen(
-            Option.getOrElse(State.union([Option.some(head), again, flow.continues]), () => head),
-            known,
-        );
-        return Equal.equals(widened, head) ? Effect.succeed(new Flow({ ...Flow.none, zero: State.union([out, flow.breaks]), returns: flow.returns, exits: flow.exits, found: flow.found })) : Effect.map(looped(widened, known, iteration), (rest) => new Flow({ ...rest, found: [...flow.found, ...rest.found] }));
-    });
-const called = Effect.fnUntraced(function* (body: Stmt, script: Script, name: string, operands: Option.Option<readonly Binding[]>, state: State, context: Context) {
-    const locals = new Set<string>();
-    visit(body, (node) => {
-        if (node.type === 'DeclClause') {
-            node.args
-                .flatMap((assign) => Option.toArray(Option.fromNullishOr(assign.name)))
-                .forEach(({ value }) => {
-                    locals.add(value);
-                });
-        }
-    });
-    const flow = yield* statements([body], new State({ ...state, positional: operands }), { ...context, script, within: [Within.Function({ name }), ...context.within], calls: [...context.calls, body] });
-    const restored = (after: State) => new State({ ...after, positional: state.positional, variables: locals.values().reduce((variables, local) => HashMap.set(variables, local, state.variable(local)), after.variables) });
-    return new Flow({ ...Flow.none, zero: Option.map(State.union([flow.zero, flow.returns]), restored), nonzero: Option.map(flow.nonzero, restored), exits: flow.exits, found: flow.found });
-});
-const aliasing = (call: CallExpr, stmt: Stmt, context: Context): Option.Option<{ readonly text: string; readonly names: readonly string[] }> => {
+const unalias = (expr: CallExpr, stmt: Stmt, context: Context): Option.Option<{ readonly source: string; readonly names: readonly string[] }> => {
     const { dialect, located, source } = context.script;
-    const replaced = call.args.flatMap((word, at) => {
+    const found = expr.args.flatMap((word, at) => {
         const [part] = word.parts;
-        const name = word.parts.length === 1 && part?.type === 'Lit' && !part.value.includes('\\') ? Option.some(part.value) : Option.none<string>();
-        const alias = Option.flatMap(name, (held) =>
-            Option.map(
-                Option.filter(Option.fromUndefinedOr(dialect.aliases.get(held)), ({ global }) => dialect.options.aliases && !context.aliased.has(held) && (global || at === 0)),
-                ({ text: written }) => ({ name: held, text: written }),
-            ),
+        const literal = word.parts.length === 1 && part?.type === 'Lit' && !part.value.includes('\\') ? Option.some(part.value) : Option.none();
+        const substitute = Option.flatMap(
+            Option.filter(literal, (name) => !context.aliased.has(name)),
+            (name) => Option.map(dialect.alias(name, at === 0), (written) => ({ name, written })),
         );
-        const suffix = Option.flatMap(
-            Option.filter(name, (held) => at === 0 && dialect.options.aliases && held.includes('.')),
-            (held) => Option.map(Option.fromUndefinedOr(dialect.suffixes.get(held.slice(held.lastIndexOf('.') + 1))), (program) => ({ name: held, text: `${program} ${held}` })),
-        );
-        return Option.toArray(
-            Option.map(
-                Option.orElse(alias, () => suffix),
-                (found) => ({ ...found, start: located(word.start), end: located(word.end) }),
-            ),
-        );
+        return Option.toArray(Option.map(substitute, (held) => ({ ...held, start: located(word.start), end: located(word.end) })));
     });
-    const [start, end] = [located(stmt.start), located(stmt.end)];
-    return Option.map(Array.match(replaced, { onEmpty: Option.none, onNonEmpty: Option.some }), (found) => {
-        const [at, pieces] = Array.mapAccum(found, start, (from, { text: put, start: cut, end: resumed }) => [resumed, `${source.slice(from, cut)}${put}`] as const);
-        return { text: `${pieces.join('')}${source.slice(at, end)}`, names: found.map(({ name }) => name) };
+    const [rest, pieces] = Array.mapAccum(found, located(stmt.start), (from, { written, start, end }) => [end, `${source.slice(from, start)}${written}`]);
+    return Option.liftPredicate({ source: `${pieces.join('')}${source.slice(rest, located(stmt.end))}`, names: found.map(({ name }) => name) }, () => Array.isReadonlyArrayNonEmpty(found));
+};
+const embed = (invocation: Invocation, remote: Context['remote'], context: Context): readonly Body[] => {
+    const { arguments: args, stdin } = invocation;
+    const fed = stdin._tag === 'Text' ? { source: Effect.succeed(stdin.text), stdin: Stdin.Text({ text: Option.none() }) } : { source: Effect.succeedNone, stdin };
+    return [
+        ...args.scripts.map((script) => ({ ...script, source: Effect.succeed(script.text), frames: [], stdin })),
+        ...args.files.flatMap((file) => (file.shell ? [{ ...file, source: context.fetch(file.path, remote), frames: Option.toArray(Option.map(file.path.text, (path) => Within.File({ path }))), stdin }] : [])),
+        ...Option.toArray(args.input).flatMap(({ roles }) => (roles.includes('script') || roles.includes('shell') ? [{ ...fed, shell: roles.includes('shell'), zero: Option.none(), operands: args.operands.map(({ word }) => word), frames: [] }] : [])),
+    ];
+};
+const nest = Effect.fnUntraced(function* (simple: SimpleCommand, invocation: Invocation): Effect.fn.Return<Invocation, ShellError> {
+    const { arguments: args, stdin } = invocation;
+    const { context } = simple;
+    const name = Option.getOrElse(invocation.name, () => '');
+    const environment = simple.assigns.reduce((held, { name: assigned, value }) => held.assign(assigned, HashSet.make(value.binding), true), simple.state);
+    const inside = context.enter(Within.Wrapper({ name })).set({ stage: Option.none(), background: false });
+    const consumed = Option.exists(args.input, ({ roles }) => roles.includes('command'));
+    const commands = yield* Effect.forEach(args.commands, (words) => {
+        const listed = new SimpleCommand({ ...simple, words, assigns: [], state: environment, context: inside.set({ stdin: consumed ? Stdin.Closed() : stdin }) });
+        const program = Option.map(
+            Option.flatMap(Array.head(words), ({ text: written }) => written),
+            (written) => written.slice(written.lastIndexOf('/') + 1),
+        );
+        return Option.match(program, {
+            onNone: () => Effect.succeed(listed.invoke(Program.Unknown({ origin: Origin.Command({ name: '' }) }))),
+            onSome: (short) => Effect.flatMap(context.walk.programs(short), (usage) => nest(listed, listed.invoke(Program.External({ name: short }), usage))),
+        });
+    });
+    const remote = Option.orElse(
+        Option.map(args.host, ({ field }) => field),
+        () => context.remote,
+    );
+    const shell = Option.getOrElse(
+        Option.flatMap(Array.head(invocation.words), ({ text: written }) => written),
+        () => name,
+    );
+    const inner = yield* Effect.forEach(
+        embed(invocation, remote, context),
+        Effect.fnUntraced(function* (body) {
+            const probed = Option.isSome(args.host) ? Option.some(posix('sh', {})) : yield* context.walk.probe(body.shell ? shell : 'sh', context.script.dialect.environment);
+            const source = yield* Effect.fromOption(Option.filter(yield* body.source, (written) => !context.saw(remote, written)));
+            const script = yield* Effect.fromOption(yield* Effect.option(context.walk.parse(source, yield* Effect.fromOption(probed))));
+            const zero = Option.getOrElse(
+                Option.flatMap(body.zero, ({ text: written }) => written),
+                () => script.dialect.binary,
+            );
+            const entered = Option.isSome(args.host) ? new State({ ...environment.havoc(), positional: Option.some([]), name: 'sh' }) : environment.enter(script.scope, script.dialect, pass(body.operands), zero);
+            return (yield* run(
+                script.syntax.stmts,
+                entered,
+                inside
+                    .open(script, remote, new Set())
+                    .enter(...body.frames)
+                    .set({ stdin: body.stdin }),
+            )).found;
+        }, Effect.catchNoSuchElement),
+    );
+    return new Invocation({ ...invocation, inner: [...commands, ...Array.getSomes(inner).flat()], opaque: invocation.opaque || inner.some(Option.isNone) });
+});
+const spawn =
+    (print: (words: readonly string[]) => Option.Option<string>): Transfer =>
+    (simple, invocation) =>
+        nest(simple, invocation).pipe(
+            Effect.tap(() => record(invocation, simple.context, Option.flatMap(simple.operands, print))),
+            Effect.map((nested) => Flow.status(Option.some(simple.state), Option.some(simple.state), [nested])),
+        );
+const end =
+    (zero: (simple: SimpleCommand) => Option.Option<State>, nonzero: (simple: SimpleCommand) => Option.Option<State>): Transfer =>
+    (simple, invocation) =>
+        Effect.succeed(Flow.status(zero(simple), nonzero(simple), [invocation]));
+const leave =
+    (channel: 'breaks' | 'continues' | 'returns' | 'exits'): Transfer =>
+    (simple, invocation) =>
+        Effect.succeed(Flow.of(channel, simple.state, [invocation]));
+const keep = ({ state }: SimpleCommand) => Option.some(state);
+const assign =
+    (names: (operands: readonly string[]) => readonly string[], binding: Binding) =>
+    ({ state, operands }: SimpleCommand) =>
+        Option.some(Option.match(operands, { onNone: () => state.havoc(), onSome: (given) => names(given).reduce((held, name) => held.bind(name, binding), state) }));
+const move = ({ state, scope, operands }: SimpleCommand) => {
+    const named = Option.filter(operands, (given) => !given.some((operand) => operand.startsWith('-')));
+    const target = Option.flatMap(named, (given) => Option.orElse(Array.head(given), () => scope.text('HOME')));
+    const path = Option.flatMap(target, (directory) => (directory.startsWith('/') ? Option.some(directory) : Option.map(scope.text('PWD'), (base) => `${base}/${directory}`)));
+    const moved = Option.map(path, (written) => Option.getOrElse(Field.known(written).resolve(Field.known('/')).text, () => written));
+    const pwd = Option.match(moved, { onNone: () => Binding.Unknown({ origins: HashSet.empty() }), onSome: (value) => Binding.Known({ value }) });
+    return Option.some(state.bind('OLDPWD', scope.get('PWD')).bind('PWD', pwd));
+};
+const shift = ({ state, operands }: SimpleCommand) => {
+    const places = Option.filter(
+        Option.map(operands, ([written = '1']) => Number(written)),
+        Number.isSafeInteger,
+    );
+    return Option.some(state.position(Option.flatMap(state.positional, (held) => Option.map(places, (dropped) => held.slice(dropped)))));
+};
+const include: Transfer = Effect.fnUntraced(
+    function* (simple, invocation) {
+        const { context, state } = simple;
+        const file = yield* Effect.fromOption(Array.head(invocation.arguments.files));
+        const path = yield* Effect.fromOption(file.path.text);
+        const source = yield* Effect.fromOption(Option.filter(yield* context.fetch(file.path, context.remote), (written) => !context.saw(context.remote, written)));
+        const script = yield* Effect.fromOption(yield* Effect.option(context.walk.parse(source, context.script.dialect)));
+        const given = Array.isReadonlyArrayNonEmpty(file.operands);
+        const flow = yield* run(script.syntax.stmts, given ? state.position(pass(file.operands)) : state, context.open(script, context.remote).enter(Within.File({ path })));
+        return flow.conclude((after) => (given ? after.position(state.positional) : after)).prepend([invocation]);
+    },
+    (effect, simple, invocation) => Effect.catchTag(effect, 'NoSuchElementError', () => Effect.succeed(Flow.havoc(simple.state, [new Invocation({ ...invocation, opaque: true })]))),
+);
+const evaluate: Transfer = (simple, invocation) => {
+    const { context, state } = simple;
+    return Option.match(simple.operands, {
+        onNone: () => Effect.succeed(Flow.havoc(state, [invocation, new SimpleCommand({ ...simple, words: [], assigns: [] }).invoke(Program.Unknown({ origin: Origin.Script() }))])),
+        onSome: (given) => Effect.flatMap(context.walk.parse(given.join(' '), context.script.dialect), (script) => Effect.map(run(script.syntax.stmts, state, context.read(script).enter(Within.Eval())), (flow) => flow.prepend([invocation]))),
     });
 };
-const simple = Effect.fnUntraced(function* (call: CallExpr, stmt: Stmt, state: State, context: Context) {
-    const aliased = aliasing(call, stmt, context);
-    if (Option.isSome(aliased)) {
-        const script = yield* context.parse(aliased.value.text, context.script.dialect);
-        return yield* statements(script.syntax.stmts, state, { ...context, script, aliased: new Set([...context.aliased, ...aliased.value.names]) });
-    }
-    const { found, substitutions } = yield* substituted([call, ...stmt.redirs], state, context);
-    const flows = yield* Effect.forEach(state.scopes(referenced([call, ...stmt.redirs]), substitutions), (scope) => concrete(call, stmt, state, scope, context));
-    const flow = Flow.joined(flows);
-    return new Flow({ ...flow, found: [...found, ...flow.found] });
+const transfers: Readonly<Record<string, Transfer>> = {
+    ':': end(keep, Option.none),
+    true: end(keep, Option.none),
+    false: end(Option.none, keep),
+    break: leave('breaks'),
+    continue: leave('continues'),
+    return: leave('returns'),
+    exit: leave('exits'),
+    cd: end(move, keep),
+    unset: end(
+        assign((given) => given.filter((operand) => !operand.startsWith('-')), Binding.Unset()),
+        keep,
+    ),
+    read: end(
+        assign((given) => [...given, 'REPLY'], Binding.Unknown({ origins: HashSet.make(Origin.Input()) })),
+        keep,
+    ),
+    shift: end(shift, keep),
+    source: include,
+    '.': include,
+    eval: evaluate,
+    echo: spawn(echo),
+    printf: spawn(printf),
+};
+const call = (simple: SimpleCommand, name: string, { body, script }: Extract<Callee, { readonly _tag: 'Defined' }>): Effect.Effect<Flow, ShellError> => {
+    const { context, state } = simple;
+    const locals = descend([body]).flatMap(({ node }) => (node.type === 'DeclClause' && declarators.has(node.variant?.value) ? node.args.flatMap((declared) => Array.fromNullishOr(declared.name?.value)) : []));
+    const entered = context.read(script, [body]).enter(Within.Function({ name }));
+    return context.calls.has(body)
+        ? Effect.succeed(Flow.havoc(state, [simple.invoke(Program.Unknown({ origin: Origin.Recursion() }))]))
+        : Effect.map(perform(body, state.position(pass(simple.words.slice(1))), entered), (flow) => flow.conclude((after) => after.restore(state, locals)).prepend([simple.invoke(Program.Function({ name }))]));
+};
+const resolve = Effect.fnUntraced(function* (simple: SimpleCommand, name: string): Effect.fn.Return<Flow, ShellError> {
+    const [own, short] = [simple.context.script.dialect.builtins.has(name), name.slice(name.lastIndexOf('/') + 1)];
+    const usage = yield* simple.context.walk.programs(own ? name : short);
+    const transfer = Option.getOrElse(
+        Option.filter(Record.get(transfers, name), () => own),
+        () => spawn(Option.none),
+    );
+    const program = own ? Program.Builtin({ name }) : Program.External({ name: short });
+    const flows = yield* Effect.forEach(simple.state.functions.get(name), (callee) => (callee._tag === 'Defined' ? call(simple, name, callee) : transfer(simple, simple.invoke(program, usage))));
+    return Flow.join(flows);
 });
-const concrete = Effect.fnUntraced(function* (call: CallExpr, stmt: Stmt, state: State, scope: Scope, context: Context) {
-    const { script } = context;
-    const [after, expansions] = Array.mapAccum(call.args, scope, (from, word) => {
-        const [expansion, to] = script.expand(word, from);
-        return [to, expansion] as const;
+const execute = (expr: CallExpr, stmt: Stmt, state: State, scope: Scope, context: Context): Effect.Effect<Flow, ShellError> => {
+    const sources = [...expr.args, ...expr.assigns.map(({ value }) => value)];
+    const [after, expansions] = context.expand(sources, scope);
+    const fields = Array.zipWith(sources, expansions, (word, expansion) => {
+        const node = Option.filter(Option.fromNullOr(word), () => expansion._tag === 'Expanded' && expansion.fields.length === 1 && context.script === context.walk.origin);
+        return expansion._tag === 'Expanded' ? expansion.fields.map((field) => new Written({ field, exact: expansion.exact, node })) : [];
     });
-    const [settled, values] = Array.mapAccum(call.assigns, after, (from, assign) => {
-        const [expansion, to] = Option.match(Option.fromNullishOr(assign.value), { onNone: () => [new Expanded({ fields: [Field.known('')], exact: true, refusals: [] }), from] as const, onSome: (word: Word) => script.expand(word, from) });
-        return [to, { name: assign.name?.value ?? '', word: assign.value, expansion, array: assign.array !== null || assign.index !== null || assign.append }] as const;
-    });
-    const current = state.absorbed(scope, settled);
-    const own = { ...context, stdin: supplied(stmt, scope, context) };
-    const sourced = [...Array.zip(call.args, expansions), ...values.map(({ word, expansion }) => [word, expansion] as const)];
-    const refused = sourced.some(([, expansion]) => expansion._tag === 'Refused');
-    const fielded = sourced.map(([word, expansion]) => (expansion._tag === 'Expanded' ? expansion.fields.map((field) => new Written({ field, exact: expansion.exact, node: expansion.fields.length === 1 && context.script === context.origin ? Option.fromNullishOr(word) : Option.none() })) : []));
-    const words = fielded.slice(0, call.args.length).flat();
-    const assigns = values.flatMap(({ name: assigned }, index) => Array.take(fielded[call.args.length + index] ?? [], 1).map((value) => ({ name: assigned, value })));
-    const assigned = values.reduce((held, { name, expansion, array }) => held.assign(name, HashSet.make(array ? Binding.Unknown({ origins: HashSet.empty() }) : expansion.binding), script.dialect.options.allexport || held.variable(name).exported), current);
-    const head = Array.head(words);
-    const name = Option.flatMap(head, ({ field, exact }) => Option.filter(field.text, () => exact));
-    const stated = Match.value({ refused, empty: Option.isNone(head), name: Option.getOrUndefined(name) }).pipe(
-        Match.when({ refused: true }, () => Effect.succeed(new Flow({ ...Flow.none, exits: Option.some(current) }))),
-        Match.when({ empty: true }, () => Effect.succeed(Flow.ran(Option.some(assigned), Option.none()))),
-        Match.when({ name: Match.undefined }, () => {
-            const made = invoked(Program.Unknown({ origin: Origin.Command({ name: '' }) }), stmt, words, scope, own, Option.none(), assigns);
-            return Effect.as(recorded(made, '', own), Flow.ran(Option.some(current.havoc()), Option.some(current.havoc()), [made.invocation]));
+    const [words, values] = Array.splitAt(fields, expr.args.length);
+    const assigns = Array.zipWith(expr.assigns, values, ({ name }, held) => Array.take(held, 1).map((value) => ({ name: name?.value ?? '', value }))).flat();
+    const redirections = redirect(stmt, scope, context);
+    const simple = new SimpleCommand({ stmt, words: words.flat(), assigns, redirections, scope, state: state.absorb(scope, after), context: context.set({ stdin: supply(redirections, context.at.stdin) }) });
+    const assigned = Array.zip(expr.assigns, expansions.slice(expr.args.length)).reduce((held, [assigning, expansion]) => {
+        const [name, listed] = [assigning.name?.value ?? '', assigning.array !== null || assigning.index !== null || assigning.append];
+        const exported = context.script.dialect.options.allexport || held.variables.get(name).exported;
+        return held.assign(name, HashSet.make(listed ? Binding.Unknown({ origins: HashSet.empty() }) : expansion.binding), exported);
+    }, simple.state);
+    const name = Option.flatMap(Array.head(simple.words), ({ text: written }) => written);
+    return Match.value({ refused: expansions.some((expansion) => expansion._tag === 'Refused'), bare: Array.isReadonlyArrayEmpty(simple.words), name: Option.getOrUndefined(name) }).pipe(
+        Match.when({ refused: true }, () => Effect.succeed(Flow.of('exits', simple.state))),
+        Match.when({ bare: true }, () => Effect.succeed(Flow.status(Option.some(assigned), Option.none()))),
+        Match.when({ name: Match.string }, ({ name: program }) => resolve(simple, program)),
+        Match.orElse(() => {
+            const invocation = simple.invoke(Program.Unknown({ origin: Origin.Command({ name: '' }) }));
+            return Effect.as(record(invocation, simple.context, Option.none()), Flow.havoc(simple.state, [invocation]));
         }),
-        Match.orElse(({ name: program = '' }) => resolved(program, words, assigns, stmt, current, scope, own)),
-    );
-    return yield* stated;
-});
-const resolved = Effect.fnUntraced(function* (name: string, words: Invocation['words'], assigns: Invocation['assigns'], stmt: Stmt, state: State, scope: Scope, context: Context) {
-    const texts = Option.all(words.slice(1).map(({ field, exact }) => Option.filter(field.text, () => exact)));
-    const own = context.script.dialect.builtins.has(name);
-    const usage = yield* context.programs(own ? name : name.slice(name.lastIndexOf('/') + 1));
-    const flows = yield* Effect.forEach(state.callees(name), (callee) =>
-        Callee.$match(callee, {
-            Defined: ({ body, script }) =>
-                context.calls.includes(body)
-                    ? Effect.succeed(Flow.ran(Option.some(state.havoc()), Option.some(state.havoc()), [invoked(Program.Unknown({ origin: Origin.Recursion() }), stmt, words, scope, context, Option.none(), assigns).invocation]))
-                    : Effect.map(called(body, script, name, positional(words.slice(1)), state, context), (flow) => new Flow({ ...flow, found: [invoked(Program.Function({ name }), stmt, words, scope, context, Option.none(), assigns).invocation, ...flow.found] })),
-            Absent: () => builtin(name, usage, words, assigns, stmt, state, scope, context, texts),
-        }),
-    );
-    return Flow.joined(flows);
-});
-const builtin = (name: string, usage: Option.Option<Usage>, words: Invocation['words'], assigns: Invocation['assigns'], stmt: Stmt, state: State, scope: Scope, context: Context, texts: Option.Option<readonly string[]>): Effect.Effect<Flow, ShellError> => {
-    const own = context.script.dialect.builtins.has(name);
-    const short = name.slice(name.lastIndexOf('/') + 1);
-    const made = invoked(own ? Program.Builtin({ name }) : Program.External({ name: short }), stmt, words, scope, context, usage, assigns);
-    const found = [made.invocation];
-    const operands = Option.getOrElse(texts, () => []);
-    const pwd = Binding.$match(scope.get('PWD'), { Known: ({ value }) => Option.some(value), Unset: () => Option.none(), Listed: () => Option.none(), Unknown: () => Option.none() });
-    const target = Option.flatMap(
-        Option.filter(texts, () => !operands.some((operand) => operand.startsWith('-'))),
-        (given) => Option.orElse(Array.head(given), () => Option.flatMap(Option.some(scope.get('HOME')), (home) => (home._tag === 'Known' ? Option.some(home.value) : Option.none()))),
-    );
-    const moved = Option.map(
-        Option.flatMap(target, (dir) => (dir.startsWith('/') ? Option.some(dir) : Option.map(pwd, (base) => `${base}/${dir}`))),
-        (path) =>
-            Field.known(path)
-                .under(Field.known('/'))
-                .text.pipe(Option.getOrElse(() => path)),
-    );
-    return Match.value(own ? name : '').pipe(
-        Match.when(Match.is(':', 'true'), () => Effect.succeed(Flow.ran(Option.some(state), Option.none(), found))),
-        Match.when('false', () => Effect.succeed(Flow.ran(Option.none(), Option.some(state), found))),
-        Match.when('break', () => Effect.succeed(new Flow({ ...Flow.none, breaks: Option.some(state), found }))),
-        Match.when('continue', () => Effect.succeed(new Flow({ ...Flow.none, continues: Option.some(state), found }))),
-        Match.when('return', () => Effect.succeed(new Flow({ ...Flow.none, returns: Option.some(state), found }))),
-        Match.when('exit', () => Effect.succeed(new Flow({ ...Flow.none, exits: Option.some(state), found }))),
-        Match.when('cd', () => Effect.succeed(Flow.ran(Option.some(state.bound('OLDPWD', scope.get('PWD')).bound('PWD', Option.match(moved, { onNone: () => Binding.Unknown({ origins: HashSet.empty() }), onSome: (value) => Binding.Known({ value }) }))), Option.some(state), found))),
-        Match.when('unset', () => Effect.succeed(Flow.ran(Option.some(Option.isSome(texts) ? operands.filter((operand) => !operand.startsWith('-')).reduce((held, operand) => held.bound(operand, Binding.Unset()), state) : state.havoc()), Option.some(state), found))),
-        Match.when('read', () => Effect.succeed(Flow.ran(Option.some(Option.isSome(texts) ? [...operands, 'REPLY'].reduce((held, operand) => held.bound(operand, Binding.Unknown({ origins: HashSet.make(Origin.Input()) })), state) : state.havoc()), Option.some(state), found))),
-        Match.when('shift', () => Effect.succeed(Flow.ran(Option.some(new State({ ...state, positional: Option.flatMap(state.positional, (held) => Option.map(Option.liftPredicate(Number(operands[0] ?? '1'), Number.isSafeInteger), (count) => held.slice(count))) })), Option.some(state), found))),
-        Match.when(Match.is('source', '.'), () => included(made, state, context)),
-        Match.when('eval', () =>
-            Option.match(texts, {
-                onNone: () => Effect.succeed(Flow.ran(Option.some(state.havoc()), Option.some(state.havoc()), [...found, invoked(Program.Unknown({ origin: Origin.Script() }), stmt, [], scope, context).invocation])),
-                onSome: (given) => Effect.flatMap(context.parse(given.join(' '), context.script.dialect), (script) => Effect.map(statements(script.syntax.stmts, state, { ...context, script, within: [Within.Eval(), ...context.within] }), (flow) => new Flow({ ...flow, found: [...found, ...flow.found] }))),
-            }),
-        ),
-        Match.orElse(() =>
-            Effect.map(
-                nested(
-                    made,
-                    short,
-                    stmt,
-                    assigns.reduce((held, { name: assigned, value }) => held.assign(assigned, HashSet.make(value.binding), true), state),
-                    scope,
-                    context,
-                ).pipe(Effect.tap(() => recorded(made, own ? name : '', context))),
-                (invocation) => Flow.ran(Option.some(state), Option.some(state), [invocation]),
-            ),
-        ),
     );
 };
-const commanded = (command: Command, stmt: Stmt, state: State, context: Context): Effect.Effect<Flow, ShellError> =>
-    Match.value(command).pipe(
-        Match.discriminatorsExhaustive('type')({
-            CallExpr: (call) => simple(call, stmt, state, context),
-            Block: ({ stmts }) => statements(stmts, state, context),
-            Subshell: ({ stmts }) => Effect.map(statements(stmts, state, { ...context, within: [Within.Subshell(), ...context.within] }), (flow) => Flow.ran(Option.as(flow.zero, state), Option.as(State.union([flow.nonzero, flow.exits]), state), flow.found)),
-            BinaryCmd: (binary) => paired(binary.op, binary.x, binary.y, binary, state, context),
-            IfClause: (clause) =>
-                clause.cond.length === 0
-                    ? statements(clause.then, state, context)
-                    : Effect.gen(function* () {
-                          const tested = yield* statements(clause.cond, state, context);
-                          const chosen = yield* Option.match(tested.zero, { onNone: () => Effect.succeed(Flow.none), onSome: (zero) => statements(clause.then, zero, context) });
-                          const other = yield* Option.match(tested.nonzero, { onNone: () => Effect.succeed(Flow.none), onSome: (nonzero) => (clause.else === null ? Effect.succeed(Flow.ran(Option.some(nonzero), Option.none())) : commanded(clause.else, stmt, nonzero, context)) });
-                          return new Flow({ ...tested, zero: Option.none(), nonzero: Option.none(), found: [] })
-                              .join(chosen)
-                              .join(other)
-                              .pipe((joined) => new Flow({ ...joined, found: [...tested.found, ...chosen.found, ...other.found] }));
-                      }),
-            WhileClause: (clause) => {
-                const loop = { source: context.script.source, start: context.script.located(clause.start), end: context.script.located(clause.end) };
-                return looped(state, literals(clause, context.script, state), (head) =>
-                    Effect.gen(function* () {
-                        const tested = yield* statements(clause.cond, head, { ...context, loop: Option.some(new Loop({ ...loop, condition: true })) });
-                        const [enter, leave] = clause.until ? [tested.nonzero, tested.zero] : [tested.zero, tested.nonzero];
-                        const body = yield* Option.match(enter, { onNone: () => Effect.succeed(Flow.none), onSome: (entered) => statements(clause.do, entered, { ...context, loop: Option.some(new Loop({ ...loop, condition: false })) }) });
-                        return { flow: new Flow({ ...body, exits: State.union([tested.exits, body.exits]), returns: State.union([tested.returns, body.returns]), found: [...tested.found, ...body.found] }), again: body.next, out: leave };
-                    }),
-                );
-            },
-            ForClause: (clause) => iterated(clause, state, context),
-            CaseClause: (clause) => cased(clause, state, context),
-            FuncDecl: (declared) =>
-                Effect.succeed(
-                    Flow.ran(
-                        Option.some(new State({ ...state, functions: [...Option.toArray(Option.fromNullishOr(declared.name)), ...declared.names].reduce((functions, { value }) => HashMap.set(functions, value, HashSet.make(Callee.Defined({ body: declared.body ?? stmt, script: context.script }))), state.functions) })),
-                        Option.none(),
-                    ),
-                ),
-            DeclClause: (clause) => Effect.map(substituted([clause], state, context), (walked) => declared(clause, stmt, state, context, walked)),
-            ArithmCmd: (arithmetic) => Effect.map(substituted([arithmetic], state, context), ({ found }) => Flow.ran(Option.some(unknowing(arithmetic, state)), Option.some(unknowing(arithmetic, state)), found)),
-            LetClause: (clause) => Effect.map(substituted([clause], state, context), ({ found }) => Flow.ran(Option.some(unknowing(clause, state)), Option.some(unknowing(clause, state)), found)),
-            TestClause: (clause) => Effect.map(substituted([clause], state, context), ({ found }) => Flow.ran(Option.some(state), Option.some(state), found)),
-            TimeClause: (clause) => Option.match(Option.fromNullishOr(clause.stmt), { onNone: () => Effect.succeed(Flow.ran(Option.some(state), Option.none())), onSome: (inner) => statement(inner, state, context) }),
-            TestDecl: (clause) => Option.match(Option.fromNullishOr(clause.body), { onNone: () => Effect.succeed(Flow.ran(Option.some(state), Option.none())), onSome: (inner) => statement(inner, state, context) }),
-            CoprocClause: (clause) =>
-                Option.match(Option.fromNullishOr(clause.stmt), { onNone: () => Effect.succeed(Flow.ran(Option.some(state), Option.none())), onSome: (inner) => Effect.map(statement(inner, state, { ...context, background: true }), (flow) => Flow.ran(Option.some(state), Option.none(), flow.found)) }),
-            TryClause: (clause) => statements([...(clause.try?.stmts ?? []), ...(clause.always?.stmts ?? [])], state, context),
-            RepeatClause: (clause) => looped(state, literals(clause, context.script, state), (head) => Effect.map(statements(clause.do, head, context), (flow) => ({ flow, again: flow.next, out: Option.some(head) }))),
-        }),
-    );
-const unknowing = (node: Node, state: State) => [...referenced([node])].filter((name) => /^[A-Za-z_]\w*$/u.test(name)).reduce((held, name) => held.bound(name, Binding.Unknown({ origins: HashSet.make(Origin.Arithmetic()) })), state);
-const declared = (clause: Extract<Command, { readonly type: 'DeclClause' }>, stmt: Stmt, state: State, context: Context, { found, substitutions }: Effect.Success<ReturnType<typeof substituted>>): Flow => {
-    const exported = clause.variant?.value === 'export';
-    const [scope] = state.scopes(referenced([clause]), substitutions);
-    const named = clause.args.flatMap((assign) => Option.toArray(Option.map(Option.fromNullishOr(assign.name), ({ value }) => ({ value, assign }))));
-    const next = named.reduce(
-        (held, { value, assign }) => {
-            const [expansion] = assign.value === null || scope === undefined ? [undefined] : context.script.expand(assign.value, scope);
-            const binding = assign.naked
-                ? held.variable(value).single
-                : Option.match(
-                      Option.filter(Option.fromUndefinedOr(expansion), () => assign.array === null),
-                      { onNone: () => Binding.Unknown({ origins: HashSet.empty() }), onSome: (written) => written.binding },
-                  );
-            return held.assign(value, HashSet.make(binding), exported || held.variable(value).exported);
-        },
-        clause.args.some((assign) => assign.name === null && assign.value !== null && !(assign.value.parts[0]?.type === 'Lit' && /^[-+]/u.test(assign.value.parts[0].value))) ? state.havoc() : state,
-    );
-    return Flow.ran(Option.some(next), Option.none(), [...found, ...(scope === undefined ? [] : [invoked(Program.Builtin({ name: clause.variant?.value ?? '' }), stmt, [], scope, context).invocation])]);
-};
-const paired = Effect.fnUntraced(function* (op: number, x: Stmt | null, y: Stmt | null, node: Node, state: State, context: Context) {
-    const stages = (stmt: Stmt | null): readonly Stmt[] => (stmt?.cmd?.type === 'BinaryCmd' && (stmt.cmd.op === BinCmdOperator.Pipe || stmt.cmd.op === BinCmdOperator.PipeAll) && !stmt.negated ? [...stages(stmt.cmd.x), ...stages(stmt.cmd.y)] : Option.toArray(Option.fromNullishOr(stmt)));
-    const left = yield* Option.match(Option.fromNullishOr(x), { onNone: () => Effect.succeed(Flow.ran(Option.some(state), Option.none())), onSome: (stmt) => (op === BinCmdOperator.AndStmt || op === BinCmdOperator.OrStmt ? statement(stmt, state, context) : Effect.succeed(Flow.none)) });
-    const piped = op === BinCmdOperator.Pipe || op === BinCmdOperator.PipeAll;
-    const all = [...stages(x), ...stages(y)];
-    const ran = yield* Effect.forEach(all, (stage, index) => statement(stage, state, { ...context, stage: Option.some({ pipeline: context.script.located(node.start), index, count: all.length }), stdin: index === 0 ? context.stdin : Stdin.Piped({ pipeline: context.script.located(node.start), index: index - 1 }) }));
-    const last = Array.last(ran).pipe(Option.getOrElse(() => Flow.none));
-    const kept = context.script.dialect.options.lastpipe ? last : Flow.ran(Option.as(last.zero, state), Option.as(State.union([last.nonzero, last.exits]), state));
-    const right = (from: Option.Option<State>) => Option.match(Option.all([from, Option.fromNullishOr(y)]), { onNone: () => Effect.succeed(Flow.none), onSome: ([start, stmt]) => statement(stmt, start, context) });
-    return yield* Match.value(op).pipe(
-        Match.when(BinCmdOperator.AndStmt, () => Effect.map(right(left.zero), (after) => new Flow({ ...left, zero: Option.none() }).join(after))),
-        Match.when(BinCmdOperator.OrStmt, () => Effect.map(right(left.nonzero), (after) => new Flow({ ...left, nonzero: Option.none() }).join(after))),
-        Match.orElse(() => Effect.succeed(new Flow({ ...kept, found: ran.flatMap((flow) => flow.found) }).pipe((flow) => (piped ? flow : Flow.none)))),
-    );
-});
-const iterated = Effect.fnUntraced(function* (clause: Extract<Command, { readonly type: 'ForClause' }>, state: State, context: Context) {
-    const loop = { source: context.script.source, start: context.script.located(clause.start), end: context.script.located(clause.end) };
-    const inner = { ...context, loop: Option.some(new Loop({ ...loop, condition: false })) };
-    const iteration = clause.loop?.type === 'WordIter' ? clause.loop : undefined;
-    const name = iteration?.name?.value ?? '';
-    const { found, substitutions } = yield* substituted(iteration?.items ?? [], state, context);
-    const scopes = state.scopes(referenced(iteration?.items ?? []), substitutions);
-    const expansions = scopes.map(
-        (scope) =>
-            Array.mapAccum(iteration?.items ?? [], scope, (from, word) => {
-                const [expansion, to] = context.script.expand(word, from);
-                return [to, expansion] as const;
-            })[1],
-    );
-    const items = Option.flatMap(
-        Option.liftPredicate(expansions, (all) => all.length === 1 && iteration !== undefined && iteration.items.length > 0),
-        ([held = []]) => Option.all(held.flatMap((expansion) => (expansion._tag === 'Expanded' && expansion.exact ? expansion.fields.map(Struct.get('text')) : [Option.none<string>()]))),
-    );
-    const entry = Binding.Unknown({ origins: HashSet.fromIterable(expansions.flat().flatMap((expansion) => (expansion.binding._tag === 'Unknown' ? [...expansion.binding.origins] : [Origin.Literal()]))) });
-    const exact = Effect.reduce(
-        Option.getOrElse(items, () => []),
-        () => new Flow({ ...Flow.none, zero: Option.some(state), found }),
-        (flow, item) =>
-            Option.match(flow.next, {
-                onNone: () => Effect.succeed(flow),
-                onSome: (next) =>
-                    Effect.map(statements(clause.do, next.bound(name, Binding.Known({ value: item })), inner), (ran) =>
-                        new Flow({ ...flow.followed(ran), zero: State.union([ran.next, ran.continues]), nonzero: Option.none(), breaks: Option.none(), continues: Option.none() }).join(new Flow({ ...Flow.none, zero: ran.breaks })),
-                    ),
-            }),
-    );
-    const widened = looped(clause.loop?.type === 'CStyleLoop' ? unknowing(clause.loop, state) : state.bound(name, entry), literals(clause, context.script, state), (head) =>
-        Effect.map(statements(clause.do, clause.loop?.type === 'CStyleLoop' ? unknowing(clause.loop, head) : head.bound(name, entry), inner), (flow) => ({ flow, again: flow.next, out: Option.some(head) })),
-    );
-    return yield* Option.isSome(items) ? exact : Effect.map(widened, (flow) => new Flow({ ...flow, found: [...found, ...flow.found] }));
-});
-const cased = Effect.fnUntraced(function* (clause: Extract<Command, { readonly type: 'CaseClause' }>, state: State, context: Context) {
-    const { found, substitutions } = yield* substituted([clause], state, context);
-    const [scope] = state.scopes(referenced([clause]), substitutions);
-    const [subject] = clause.word === null || scope === undefined ? [undefined] : context.script.expand(clause.word, scope);
-    const verdicts = Option.match(Option.product(subject?._tag === 'Expanded' ? subject.text : Option.none(), Option.fromUndefinedOr(scope)), {
-        onNone: () => clause.items.map(({ patterns }) => patterns.map(() => Option.none<boolean>())),
-        onSome: ([given, at]) =>
-            clause.items.map(({ patterns }) =>
-                patterns.map((pattern) => {
-                    const [expansion] = context.script.expand(pattern, at);
-                    return expansion._tag === 'Expanded' ? expansion.matches(given) : Option.none();
-                }),
-            ),
-    });
-    const [left, flows] = yield* Effect.reduce(
-        Array.zip(clause.items, verdicts),
-        () => [Option.some(state), [] as readonly Flow[]] as const,
-        ([reaching, done], [item, verdict]) =>
-            Option.match(reaching, {
-                onNone: () => Effect.succeed([reaching, done] as const),
-                onSome: (from) => {
-                    const certain = verdict.some(Option.contains(true));
-                    const never = verdict.every(Option.contains(false));
-                    return never ? Effect.succeed([reaching, done] as const) : Effect.map(statements(item.stmts, from, context), (flow) => [certain ? Option.none<State>() : reaching, [...done, flow]] as const);
+const declare = (clause: Extract<Command, { readonly type: 'DeclClause' }>, simple: SimpleCommand): Flow => {
+    const exports = clause.variant?.value === 'export';
+    const dynamic = clause.args.some(({ name, value }) => name === null && value !== null && !(value.parts[0]?.type === 'Lit' && /^[-+]/u.test(value.parts[0].value)));
+    const next = clause.args.reduce(
+        (held, declared) =>
+            Option.match(Option.fromNullOr(declared.name), {
+                onNone: () => held,
+                onSome: ({ value: name }) => {
+                    const [, [expansion]] = simple.context.expand(declared.naked || declared.array !== null ? [] : Array.fromNullishOr(declared.value), simple.scope);
+                    const assigned = Option.match(Option.fromUndefinedOr(expansion), { onNone: () => Binding.Unknown({ origins: HashSet.empty() }), onSome: (written) => written.binding });
+                    return held.assign(name, HashSet.make(declared.naked ? held.variables.get(name).binding : assigned), exports || held.variables.get(name).exported);
                 },
             }),
+        dynamic ? simple.state.havoc() : simple.state,
     );
-    const joined = Flow.joined([...flows, Flow.ran(left, Option.none())]);
-    return new Flow({ ...joined, found: [...found, ...joined.found] });
+    return Flow.status(Option.some(next), Option.none(), [simple.invoke(Program.Builtin({ name: clause.variant?.value ?? '' }))]);
+};
+const enumerate = (clause: Extract<Command, { readonly type: 'ForClause' }>, items: readonly Word[], name: string, state: State, scope: Scope, context: Context): Effect.Effect<Flow, ShellError> => {
+    const [, expansions] = context.expand(items, scope);
+    const fields = expansions.flatMap((expansion) => (expansion._tag === 'Expanded' && expansion.exact ? expansion.fields.map((field) => field.text) : [Option.none<string>()]));
+    const origins = expansions.flatMap((expansion) => [...trace(expansion.binding)]);
+    const unroll = (given: readonly string[]) =>
+        Effect.reduce(
+            given,
+            () => Flow.of('zero', state),
+            (flow, item) => flow.andThen((next) => Effect.map(run(clause.do, next.bind(name, Binding.Known({ value: item })), context.loop(clause, false)), (ran) => ran.route({ zero: ['zero', 'nonzero', 'continues'], nonzero: [], continues: [] }))),
+        );
+    return Option.match(
+        Option.filter(Option.all(fields), () => Array.isReadonlyArrayNonEmpty(items)),
+        {
+            onNone: () => repeat(clause, state, context, (head) => head.bind(name, Binding.Unknown({ origins: HashSet.fromIterable(origins) }))),
+            onSome: (given) => Effect.map(unroll(given), (flow) => flow.route({ zero: ['zero', 'breaks'], breaks: [] })),
+        },
+    );
+};
+const select = (clause: Extract<Command, { readonly type: 'CaseClause' }>, state: State, scope: Scope, context: Context): Effect.Effect<Flow, ShellError> => {
+    const [, [subject]] = context.expand(Array.fromNullishOr(clause.word), scope);
+    const given = subject?._tag === 'Expanded' ? subject.text : Option.none<string>();
+    const arms = clause.items.map((item) => ({ item, verdicts: context.expand(item.patterns, scope)[1].map((pattern) => Option.flatMap(given, (written) => (pattern._tag === 'Expanded' ? pattern.matches(written) : Option.none()))) }));
+    return Effect.map(
+        Effect.reduce(
+            arms,
+            () => ({ unmatched: Option.some(state), flows: Array.empty<Flow>() }),
+            ({ unmatched, flows }, { item, verdicts }) =>
+                Option.match(
+                    Option.filter(unmatched, () => !verdicts.every(Option.contains(false))),
+                    {
+                        onNone: () => Effect.succeed({ unmatched, flows }),
+                        onSome: (reaching) => Effect.map(run(item.stmts, reaching, context), (flow) => ({ unmatched: Option.filter(unmatched, () => !verdicts.some(Option.contains(true))), flows: [...flows, flow] })),
+                    },
+                ),
+        ),
+        ({ unmatched, flows }) => Flow.join([...flows, Flow.status(unmatched, Option.none())]),
+    );
+};
+const forms: { readonly [T in Command['type']]: (form: Extract<Command, { readonly type: T }>) => Form } = {
+    CallExpr: (expr) => (stmt, state, context) =>
+        Option.match(unalias(expr, stmt, context), {
+            onSome: ({ source, names }) => Effect.flatMap(context.walk.parse(source, context.script.dialect), (script) => run(script.syntax.stmts, state, context.read(script, [], names))),
+            onNone: () => concretize([expr, ...stmt.redirs], state, context, (scope) => execute(expr, stmt, state, scope, context)),
+        }),
+    Block:
+        ({ stmts }) =>
+        (_, state, context) =>
+            run(stmts, state, context),
+    Subshell:
+        ({ stmts }) =>
+        (_, state, context) =>
+            Effect.map(run(stmts, state, context.enter(Within.Subshell())), (flow) => flow.contain(state)),
+    BinaryCmd: (binary) => (_, state, context) =>
+        Option.match(Option.fromUndefinedOr(chains[binary.op]), {
+            onNone: () => pipe(binary, state, context),
+            onSome: (channel) => Effect.flatMap(run(Array.fromNullishOr(binary.x), state, context), (left) => left.branch(Record.singleton(channel, (met: State) => run(Array.fromNullishOr(binary.y), met, context)))),
+        }),
+    IfClause: (clause) => (stmt, state, context) =>
+        Array.isArrayEmpty(clause.cond)
+            ? run(clause.then, state, context)
+            : Effect.flatMap(run(clause.cond, state, context), (tested) =>
+                  tested.branch({
+                      zero: (met) => run(clause.then, met, context),
+                      nonzero: (unmet) => Option.match(Option.fromNullOr(clause.else), { onNone: () => Effect.succeed(Flow.status(Option.some(unmet), Option.none())), onSome: (other) => dispatch(other)(stmt, unmet, context) }),
+                  }),
+              ),
+    WhileClause: (clause) => (_, state, context) =>
+        iterate(state, limit(clause, state, context), (head) =>
+            Effect.flatMap(run(clause.cond, head, context.loop(clause, true)), (tested) => (clause.until ? tested.route({ zero: ['nonzero'], nonzero: ['zero'] }) : tested).branch({ zero: (met) => Effect.map(run(clause.do, met, context.loop(clause, false)), cycle) })),
+        ),
+    ForClause: (clause) => (_, state, context) => {
+        const iteration = clause.loop;
+        return iteration?.type === 'WordIter'
+            ? concretize(iteration.items, state, context, (scope) => enumerate(clause, iteration.items, iteration.name?.value ?? '', state, scope, context))
+            : repeat(clause, state, context, (head) => Option.match(Option.fromNullOr(iteration), { onNone: () => head, onSome: (counted) => forget(counted, head) }));
+    },
+    RepeatClause: (clause) => (_, state, context) => repeat(clause, state, context, Function.identity),
+    CaseClause: (clause) => (_, state, context) => concretize([...Array.fromNullishOr(clause.word), ...clause.items.flatMap(({ patterns }) => patterns)], state, context, (scope) => select(clause, state, scope, context)),
+    FuncDecl: (declared) => (stmt, state, context) => {
+        const names = [...Array.fromNullishOr(declared.name), ...declared.names].map(({ value }) => value);
+        return Effect.succeed(Flow.status(Option.some(state.define(names, Callee.Defined({ body: declared.body ?? stmt, script: context.script }))), Option.none()));
+    },
+    DeclClause: (clause) => (stmt, state, context) => concretize([clause], state, context, (scope) => Effect.succeed(declare(clause, new SimpleCommand({ stmt, words: [], assigns: [], redirections: redirect(stmt, scope, context), scope, state, context })))),
+    ArithmCmd: (clause) => (_, state, context) => concretize([clause], state, context, () => Effect.succeed(Flow.status(Option.some(forget(clause, state)), Option.some(forget(clause, state))))),
+    LetClause: (clause) => (_, state, context) => concretize([clause], state, context, () => Effect.succeed(Flow.status(Option.some(forget(clause, state)), Option.some(forget(clause, state))))),
+    TestClause: (clause) => (_, state, context) => concretize([clause], state, context, () => Effect.succeed(Flow.status(Option.some(state), Option.some(state)))),
+    TimeClause: (clause) => (_, state, context) => run(Array.fromNullishOr(clause.stmt), state, context),
+    TestDecl: (clause) => (_, state, context) => run(Array.fromNullishOr(clause.body), state, context),
+    CoprocClause: (clause) => (_, state, context) => Effect.map(run(Array.fromNullishOr(clause.stmt), state, context.set({ background: true })), (flow) => Flow.status(Option.some(state), Option.none(), flow.found)),
+    TryClause: (clause) => (_, state, context) => run([...(clause.try?.stmts ?? []), ...(clause.always?.stmts ?? [])], state, context),
+};
+const dispatch = Match.type<Command>().pipe(Match.discriminatorsExhaustive('type')(forms));
+const interpret = Effect.fnUntraced(function* (script: Script, hosts: Hosts) {
+    const files = yield* Ref.make(HashMap.empty<string, Option.Option<string>>());
+    const at = { within: [], stage: Option.none(), stdin: Stdin.Inherited(), background: false, repeated: Option.none() };
+    const context = new Context({ walk: { ...hosts, origin: script, files }, script, remote: Option.none(), visited: HashSet.make([Option.none(), script.source] as const), aliased: new Set(), calls: new Set(), at });
+    return Array.dedupe((yield* run(script.syntax.stmts, State.start(script.scope, script.dialect), context)).found);
 });
-const walked = Effect.fnUntraced(function* (script: Script, hosts: Pick<Context, 'parse' | 'programs' | 'interpreter' | 'read'>) {
-    const flow = yield* statements(script.syntax.stmts, State.started(script.scope, script.dialect), {
-        ...hosts,
-        files: yield* Ref.make(HashMap.empty<string, Option.Option<string>>()),
-        stdin: Stdin.Inherited(),
-        script,
-        origin: script,
-        remote: Option.none(),
-        visited: [[Option.none(), script.source]],
-        within: [],
-        loop: Option.none(),
-        stage: Option.none(),
-        background: false,
-        calls: [],
-        aliased: new Set(),
-    });
-    return Array.mapAccum(flow.found, HashSet.empty<Invocation>(), (seen, invocation) => [HashSet.add(seen, invocation), HashSet.has(seen, invocation) ? [] : [invocation]] as const)[1].flat();
-});
+const builtins = Record.keys(transfers);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { builtins, walked };
+export { builtins, interpret };

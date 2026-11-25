@@ -1,415 +1,220 @@
-import { Array, Data, HashSet, Match, Option } from 'effect';
-import { type ArithmExpr, LangVariant, ParExpOperator, ParNamesOperator, type ParamExp, type Replace, type Slice, type Word, type WordPart } from 'sh-syntax';
-import { evaluated, Integer } from '#/evaluation/arithmetic';
-import { Binding, type Field, type Matching, Origin, type Scope } from '#/evaluation/value';
-import type { Dialect } from '#/syntax/dialect';
+import { Array, Data, HashSet, Match, Option, String } from 'effect';
+import { Integer } from '#/evaluation/arithmetic';
+import { Binding, Field, Origin, type Scope } from '#/evaluation/value';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Chunk = Data.TaggedEnum<{
-    Text: { readonly text: string; readonly quoted: boolean; readonly split: boolean; readonly glob: boolean; readonly secret: boolean };
-    Hidden: { readonly origin: Origin; readonly certain: boolean; readonly many: boolean };
-    Break: object;
-    Refuse: { readonly origin: Origin; readonly certain: boolean };
-}>;
-type Value = Data.TaggedEnum<{
+type Content = Data.TaggedEnum<{
     Unset: object;
     Scalar: { readonly text: string };
     List: { readonly items: readonly string[]; readonly spread: boolean };
     Unknown: { readonly origin: Origin; readonly many: boolean };
 }>;
-type Parted = readonly [Scope, readonly Chunk[]];
-type Stepped = readonly [Value, Scope, readonly Chunk[]];
-interface Rules {
-    readonly braces: boolean;
-    readonly split: boolean;
-    readonly glob: Option.Option<Matching['_tag']>;
-    readonly single: boolean;
-    readonly tilde: boolean;
-    readonly colons: boolean;
-    readonly named: boolean;
-    readonly heredoc: Option.Option<boolean>;
-}
-interface Frame {
-    readonly dialect: Dialect;
-    readonly rules: Rules;
-    readonly quoted: boolean;
-    readonly result: boolean;
-    readonly secret: (part: WordPart) => boolean;
-    readonly worded: (parts: readonly WordPart[], scope: Scope, frame: Frame, start: boolean) => Parted;
-    readonly patterned: (word: Word, scope: Scope, frame: Frame) => readonly [Field, Scope, readonly Chunk[]];
-}
+type Change = (text: string) => Option.Option<string>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const Chunk = Data.taggedEnum<Chunk>();
-const Value = Data.taggedEnum<Value>();
+const Content = Data.taggedEnum<Content>();
 const identifier = /^[A-Za-z_]\w*$/u;
 const closing: Readonly<Record<string, string>> = { '(': ')', '[': ']', '{': '}', '<': '>' };
-const defaults = [ParExpOperator.DefaultUnset, ParExpOperator.DefaultUnsetOrNull] as const;
-const alternates = [ParExpOperator.AlternateUnset, ParExpOperator.AlternateUnsetOrNull] as const;
-const assigns = [ParExpOperator.AssignUnset, ParExpOperator.AssignUnsetOrNull] as const;
-const errors = [ParExpOperator.ErrorUnset, ParExpOperator.ErrorUnsetOrNull] as const;
-const colons = new Set<number>([ParExpOperator.DefaultUnsetOrNull, ParExpOperator.AlternateUnsetOrNull, ParExpOperator.AssignUnsetOrNull, ParExpOperator.ErrorUnsetOrNull]);
-const removals = new Map<number, { readonly prefix: boolean; readonly largest: boolean }>([
-    [ParExpOperator.RemSmallPrefix, { prefix: true, largest: false }],
-    [ParExpOperator.RemLargePrefix, { prefix: true, largest: true }],
-    [ParExpOperator.RemSmallSuffix, { prefix: false, largest: false }],
-    [ParExpOperator.RemLargeSuffix, { prefix: false, largest: true }],
-]);
-const cases = new Map<number, (text: string) => string>([
-    [ParExpOperator.UpperAll, (text) => text.toUpperCase()],
-    [ParExpOperator.LowerAll, (text) => text.toLowerCase()],
-    [ParExpOperator.UpperFirst, (text) => `${text.slice(0, 1).toUpperCase()}${text.slice(1)}`],
-    [ParExpOperator.LowerFirst, (text) => `${text.slice(0, 1).toLowerCase()}${text.slice(1)}`],
-]);
-const modifiers = new Map<string, (text: string, pwd: Option.Option<string>) => Option.Option<string>>([
-    ['t', (text) => Option.some(text.replace(/\/+$/u, '').split('/').at(-1) ?? '')],
-    [
-        'h',
-        (text) =>
-            Option.some(
-                Match.value(text.replace(/(?<=.)\/+$/u, '')).pipe(
-                    Match.when(Match.is('/'), () => '/'),
-                    Match.when(
-                        (path: string) => !path.includes('/'),
-                        () => '.',
-                    ),
-                    Match.orElse((path) => path.slice(0, path.lastIndexOf('/')).replace(/\/+$/u, '') || '/'),
-                ),
-            ),
-    ],
-    ['r', (text) => Option.some(text.lastIndexOf('.') > text.lastIndexOf('/') ? text.slice(0, text.lastIndexOf('.')) : text)],
-    ['e', (text) => Option.some(text.lastIndexOf('.') > text.lastIndexOf('/') ? text.slice(text.lastIndexOf('.') + 1) : '')],
-    ['l', (text) => Option.liftPredicate(text.toLowerCase(), () => ascii(text))],
-    ['u', (text) => Option.liftPredicate(text.toUpperCase(), () => ascii(text))],
-    ['a', (text, pwd) => (text === '' ? Option.some('') : Option.map(text.startsWith('/') ? Option.some(text) : Option.map(pwd, (cwd) => `${cwd}/${text}`), absolute))],
-]);
+const ascii = Option.liftPredicate((text: string) => /^\p{ASCII}*$/u.test(text));
+const extension = (text: string) => Option.liftPredicate(text.lastIndexOf('.'), (dot) => dot > text.lastIndexOf('/'));
+const modifiers: Readonly<Record<string, (text: string, pwd: Option.Option<string>) => Option.Option<string>>> = {
+    t: (text) => Option.some(Array.lastNonEmpty(String.split(text.replace(/\/+$/u, ''), '/'))),
+    h: (text) => {
+        const path = text.replace(/(?<=.)\/+$/u, '');
+        const head = path.slice(0, path.lastIndexOf('/') + 1).replace(/(?<=.)\/+$/u, '');
+        return Option.some(head === '' ? '.' : head);
+    },
+    r: (text) => Option.some(Option.match(extension(text), { onNone: () => text, onSome: (dot) => text.slice(0, dot) })),
+    e: (text) => Option.some(Option.match(extension(text), { onNone: () => '', onSome: (dot) => text.slice(dot + 1) })),
+    l: (text) => Option.map(ascii(text), String.toLowerCase),
+    u: (text) => Option.map(ascii(text), String.toUpperCase),
+    a: (text, pwd) => Option.flatMap(text.startsWith('/') || text === '' ? Option.some('/') : pwd, (base) => Field.known(text).resolve(Field.known(base)).text),
+};
+const first = <A>(candidates: readonly A[], decide: (candidate: A) => Option.Option<boolean>): Option.Option<Option.Option<A>> => Option.map(Option.all(candidates.map(decide)), (verdicts) => Array.findFirst(candidates, (_, at) => verdicts[at] === true));
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-const ascii = (text: string) => /^\p{ASCII}*$/u.test(text);
-const absolute = (path: string) =>
-    `/${path
-        .split('/')
-        .reduce<readonly string[]>(
-            (kept, segment) =>
-                Match.value(segment).pipe(
-                    Match.when('..', () => kept.slice(0, -1)),
-                    Match.when(Match.is('.', ''), () => kept),
-                    Match.orElse((name) => [...kept, name]),
-                ),
-            [],
-        )
-        .join('/')}`;
-const held = (text: string, secret = false) => Chunk.Text({ text, quoted: true, split: false, glob: false, secret });
-const refusal = (origin: Origin) => Chunk.Refuse({ origin, certain: true });
-const splits = (frame: Frame, exp?: ParamExp) => frame.rules.split && (exp?.split === 1 || (frame.dialect.options.wordsplit && exp?.split !== 2));
-const globs = (frame: Frame, exp?: ParamExp) => Option.isSome(frame.rules.glob) && (exp?.globSubst === 1 || (frame.dialect.options.globsubst && exp?.globSubst !== 2));
-const many = (value: Value) => value._tag === 'List' || (value._tag === 'Unknown' && value.many);
-const mapped = (value: Value, change: (text: string) => Option.Option<string>, origin: Origin): Value =>
-    Value.$match(value, {
-        Unset: () => value,
-        Unknown: () => value,
-        Scalar: ({ text }) => Option.match(change(text), { onNone: () => Value.Unknown({ origin, many: false }), onSome: (changed) => Value.Scalar({ text: changed }) }),
-        List: ({ items, spread }) => Option.match(Option.all(items.map(change)), { onNone: () => Value.Unknown({ origin, many: true }), onSome: (changed) => Value.List({ items: changed, spread }) }),
-    });
-const valued = (word: Word, scope: Scope, frame: Frame): readonly [Option.Option<string>, Scope, readonly Chunk[]] => {
-    const [next, chunks] = frame.worded(word.parts, scope, { ...frame, quoted: false, result: false }, true);
-    const text = Option.all(chunks.map(Chunk.$match({ Text: ({ text: found }) => Option.some(found), Break: () => Option.some(' '), Hidden: () => Option.none(), Refuse: () => Option.some('') })));
-    return [Option.map(text, (texts) => texts.join('')), next, chunks.filter(Chunk.$is('Refuse'))];
-};
-const counted = (expression: ArithmExpr | null, scope: Scope, frame: Frame) => evaluated(expression, scope, frame.dialect, (word, from) => valued(word, from, frame));
-const stated = (name: string, binding: Binding): Value =>
-    Binding.$match(binding, { Unset: () => Value.Unset(), Known: ({ value }) => Value.Scalar({ text: value }), Listed: ({ items }) => Value.List({ items, spread: false }), Unknown: ({ origins }) => Value.Unknown({ origin: Origin.Variable({ name, origins }), many: false }) });
-const bound = (name: string, scope: Scope): Value =>
-    Match.value(name).pipe(
-        Match.when('0', () => Value.Scalar({ text: scope.name })),
-        Match.when(
-            (candidate: string) => /^(?:[@*#]|[1-9]\d*)$/u.test(candidate),
-            (special) =>
-                Option.match(scope.positional, {
-                    onNone: () => Value.Unknown({ origin: Origin.Variable({ name, origins: HashSet.empty() }), many: special === '@' || special === '*' }),
-                    onSome: (positional) => {
-                        const items = Option.all(positional.map((binding) => (binding._tag === 'Known' ? Option.some(binding.value) : Option.none())));
-                        const origins = HashSet.fromIterable(positional.flatMap((binding) => (binding._tag === 'Unknown' ? [...binding.origins] : [Origin.Literal()])));
-                        return Match.value(special).pipe(
-                            Match.when(Match.is('@', '*'), (spread) => Option.match(items, { onNone: () => Value.Unknown({ origin: Origin.Variable({ name, origins }), many: true }), onSome: (known) => Value.List({ items: known, spread: spread === '@' }) })),
-                            Match.when('#', () => Value.Scalar({ text: `${positional.length}` })),
-                            Match.orElse((position) => Option.match(Array.get(positional, Number(position) - 1), { onNone: () => Value.Unset(), onSome: (binding) => stated(name, binding) })),
-                        );
-                    },
-                }),
-        ),
-        Match.orElse(() => stated(name, scope.get(name))),
-    );
-const listed = (value: Value, spread: boolean, origin: Origin): Value =>
-    Value.$match(value, {
-        Unset: () => Value.List({ items: [], spread }),
-        Scalar: ({ text }) => Value.List({ items: [text], spread }),
-        List: ({ items }) => Value.List({ items, spread }),
-        Unknown: () => Value.Unknown({ origin, many: true }),
-    });
-const picked = (value: Value, position: Integer, frame: Frame, origin: Origin): Value => {
-    const offset = frame.dialect.options.ksharrays ? 0 : 1;
-    const unknown = Value.Unknown({ origin, many: false });
-    const element = (items: readonly string[]) => (position._tag === 'Known' && (position.value !== 0n || offset === 0) ? Value.Scalar({ text: items.at(position.value < 0n ? Number(position.value) : Number(position.value) - offset) ?? '' }) : unknown);
-    return Match.value({ value, zsh: frame.dialect.variant === LangVariant.LangZsh }).pipe(
-        Match.when({ value: { _tag: 'List' }, zsh: true }, ({ value: { items } }) => element(items)),
-        Match.when({ value: { _tag: 'Scalar' }, zsh: true }, ({ value: { text } }) => (ascii(text) ? element([...text]) : unknown)),
-        Match.when({ value: { _tag: 'Scalar' } }, () => Integer.$match(position, { Known: ({ value: at }) => (at === 0n ? value : Value.Unset()), Unknown: () => unknown, Refused: () => unknown })),
-        Match.when({ value: { _tag: 'List' } }, ({ value: { items } }) => (origin._tag === 'Variable' && identifier.test(origin.name) ? element(items) : unknown)),
-        Match.orElse(() => value),
-    );
-};
-const looked = (exp: ParamExp, scope: Scope, frame: Frame): readonly [Value, Scope] => {
-    const name = exp.param?.value ?? '';
-    const origin = Origin.Variable({ name, origins: HashSet.empty() });
-    const direct = bound(name, scope);
-    const base = Match.value({ nested: exp.nestedParam, excl: exp.excl, shaped: exp.names !== ParNamesOperator.None || exp.index !== null }).pipe(
-        Match.when({ nested: { type: 'ParamExp' } }, ({ nested }) => looked(nested, scope, frame)[0]),
-        Match.when({ nested: Match.defined }, () => Value.Unknown({ origin: Origin.Substitution({ programs: [] }), many: false })),
-        Match.when({ excl: true, shaped: true }, () => Value.Unknown({ origin, many: true })),
-        Match.when({ excl: true }, () => (direct._tag === 'Scalar' && /^(?:[A-Za-z_]\w*|\d+|[@*#])$/u.test(direct.text) ? bound(direct.text, scope) : Value.Unknown({ origin, many: false }))),
-        Match.orElse(() => direct),
-    );
-    const { index } = exp;
-    const [only] = index?.type === 'Word' && index.parts.length === 1 ? index.parts : [];
-    const first = base._tag === 'List' && identifier.test(name) && frame.dialect.variant !== LangVariant.LangZsh ? Option.match(Array.head(base.items), { onNone: () => Value.Unset(), onSome: (text) => Value.Scalar({ text }) }) : base;
-    return Match.value(index === null ? Option.none() : Option.some(only?.type === 'Lit' ? only.value : '')).pipe(
-        Match.when({ _tag: 'None' }, () => [first, scope] as const),
-        Match.when({ value: '@' }, () => [listed(base, true, origin), scope] as const),
-        Match.when({ value: '*' }, () => [listed(base, false, origin), scope] as const),
-        Match.orElse(() => {
-            const [position, next] = counted(index, scope, frame);
-            return [picked(base, position, frame, origin), next] as const;
-        }),
-    );
-};
-const sliced = (slice: Slice, value: Value, scope: Scope, frame: Frame, origin: Origin): Stepped => {
-    const [offset, after] = counted(slice.offset, scope, frame);
-    const [measured, next] = slice.length === null ? [undefined, after] : counted(slice.length, after, frame);
-    const length = Option.fromUndefinedOr(measured);
-    const bounds = [offset, ...Option.toArray(length)];
-    const negative = Option.exists(length, (found) => found._tag === 'Known' && found.value < 0n);
-    const cut = (items: readonly string[]) => {
-        const [from = 0n, count] = bounds.map((edge) => (edge._tag === 'Known' ? edge.value : 0n));
-        const begin = from < 0n ? items.length + Number(from) : Number(from);
-        const end = Option.match(Option.fromUndefinedOr(count), { onNone: () => items.length, onSome: (taken) => (taken < 0n ? items.length : begin) + Number(taken) });
-        return Match.value({ outside: begin < 0 || begin > items.length, reversed: end < begin }).pipe(
-            Match.when({ outside: true }, () => Option.some<readonly string[]>([])),
-            Match.when({ reversed: true }, () => Option.none()),
-            Match.orElse(() => Option.some(items.slice(begin, end))),
+class Value extends Data.Class<{ readonly origin: Origin; readonly content: Content; readonly refusals: readonly { readonly origin: Origin; readonly certain: boolean }[] }> {
+    // --- [READING]
+
+    get many(): boolean {
+        return this.content._tag === 'List' || (this.content._tag === 'Unknown' && this.content.many);
+    }
+
+    get named(): boolean {
+        return this.origin._tag === 'Variable' && identifier.test(this.origin.name);
+    }
+
+    empty(colon: boolean): Option.Option<boolean> {
+        return Content.$match(this.content, { Unset: () => Option.some(true), Unknown: () => Option.none(), Scalar: ({ text }) => Option.some(colon && text === ''), List: ({ items }) => Option.some(colon && items.length === 0) });
+    }
+
+    // --- [HOLDING]
+
+    hold(content: Content): Value {
+        return new Value({ ...this, content });
+    }
+
+    obscure(many = this.many, origin = this.origin): Value {
+        return this.hold(Content.Unknown({ origin, many }));
+    }
+
+    refuse(...refusals: Value['refusals']): Value {
+        return new Value({ ...this, refusals: [...this.refusals, ...refusals] });
+    }
+
+    map(change: Change): Value {
+        return Content.$match(this.content, {
+            Unset: (): Value => this,
+            Unknown: (): Value => this,
+            Scalar: ({ text }) => Option.match(change(text), { onNone: () => this.obscure(false), onSome: (changed) => this.hold(Content.Scalar({ text: changed })) }),
+            List: ({ items, spread }) => Option.match(Option.all(items.map(change)), { onNone: () => this.obscure(true), onSome: (changed) => this.hold(Content.List({ items: changed, spread })) }),
+        });
+    }
+
+    // --- [SELECTING]
+
+    refer(scope: Scope): Value {
+        return this.content._tag === 'Scalar' && /^(?:[A-Za-z_]\w*|\d+|[@*#])$/u.test(this.content.text) ? this.hold(Value.read(this.content.text, scope).content) : this.obscure(false);
+    }
+
+    first(): Value {
+        return this.content._tag === 'List' ? this.hold(Option.match(Array.head(this.content.items), { onNone: () => Content.Unset(), onSome: (text) => Content.Scalar({ text }) })) : this;
+    }
+
+    spread(spread: boolean): Value {
+        return Content.$match(this.content, {
+            Unset: () => this.hold(Content.List({ items: [], spread })),
+            Scalar: ({ text }) => this.hold(Content.List({ items: [text], spread })),
+            List: ({ items }) => this.hold(Content.List({ items, spread })),
+            Unknown: () => this.obscure(true),
+        });
+    }
+
+    index(position: Integer, zsh: boolean, base: number): Value {
+        const element = (items: readonly string[]) => (position._tag === 'Known' && (position.value !== 0n || base === 0) ? this.hold(Content.Scalar({ text: items.at(Number(position.value) - (position.value < 0n ? 0 : base)) ?? '' })) : this.obscure(false));
+        return Match.value({ content: this.content, zsh }).pipe(
+            Match.when({ content: { _tag: 'List' }, zsh: true }, ({ content }) => element(content.items)),
+            Match.when({ content: { _tag: 'Scalar' }, zsh: true }, ({ content }) => Option.match(ascii(content.text), { onNone: () => this.obscure(false), onSome: (text) => element([...text]) })),
+            Match.when({ content: { _tag: 'Scalar' } }, () => Integer.$match(position, { Known: ({ value }) => (value === 0n ? this : this.hold(Content.Unset())), Unknown: () => this.obscure(false), Refused: () => this.obscure(false) })),
+            Match.when({ content: { _tag: 'List' } }, ({ content }) => (this.named ? element(content.items) : this.obscure(false))),
+            Match.orElse((): Value => this),
         );
-    };
-    const unknown = Value.Unknown({ origin: Origin.Arithmetic(), many: many(value) });
-    return Match.value({ refused: bounds.some(Integer.$is('Refused')) || (negative && (!frame.dialect.supports('negative') || value._tag === 'List')), known: bounds.every(Integer.$is('Known')) }).pipe(
-        Match.when({ refused: true }, () => [unknown, next, [refusal(Origin.Arithmetic())]] as const),
-        Match.when({ known: false }, () => [unknown, next, [Chunk.Refuse({ origin: Origin.Arithmetic(), certain: false })]] as const),
-        Match.orElse(
-            () =>
-                [
-                    Value.$match(value, {
-                        Unset: () => value,
-                        Unknown: () => value,
-                        Scalar: ({ text }) => (ascii(text) ? Option.match(cut([...text]), { onNone: () => unknown, onSome: (characters) => Value.Scalar({ text: characters.join('') }) }) : Value.Unknown({ origin, many: false })),
-                        List: ({ items, spread }) => Option.match(cut(origin._tag === 'Variable' && identifier.test(origin.name) ? items : [scope.name, ...items]), { onNone: () => unknown, onSome: (kept) => Value.List({ items: kept, spread }) }),
-                    }),
-                    next,
-                    [],
-                ] as const,
-        ),
-    );
-};
-const longest = (text: string, pattern: Field, at: number, whole: boolean): Option.Option<Option.Option<number>> => {
-    const ends = whole ? [text.length] : Array.range(at, text.length).toReversed();
-    return Option.map(Option.all(ends.map((end) => pattern.matches(text.slice(at, end)))), (verdicts) =>
-        Option.map(
-            Array.findFirst(Array.zip(ends, verdicts), ([, matched]) => matched),
-            ([end]) => end,
-        ),
-    );
-};
-const replaced = (repl: Replace, value: Value, scope: Scope, frame: Frame, origin: Origin): Stepped => {
-    const head = repl.orig?.parts[0];
-    const anchor = head?.type === 'Lit' ? Option.liftPredicate(head.value.slice(0, 1), (mark) => mark === '#' || mark === '%') : Option.none();
-    const orig = Option.map(Option.fromNullishOr(repl.orig), (word) => (Option.isSome(anchor) && head?.type === 'Lit' ? { ...word, parts: [{ ...head, value: head.value.slice(1) }, ...word.parts.slice(1)] } : word));
-    const [given, after, refused] = Option.match(orig, { onNone: () => [undefined, scope, []] as const, onSome: (word) => frame.patterned(word, scope, frame) });
-    const pattern = Option.fromUndefinedOr(given);
-    const [next, chunks] = repl.with === null ? [after, []] : frame.worded(repl.with.parts, after, { ...frame, quoted: false, result: false }, true);
-    const put = (match: string) =>
-        Option.map(Option.all(chunks.map(Chunk.$match({ Text: ({ text, quoted }) => Option.some(frame.dialect.options.patsub && !quoted ? text.replaceAll('&', match) : text), Break: () => Option.some(' '), Hidden: () => Option.none(), Refuse: () => Option.some('') }))), (texts) => texts.join(''));
-    const swap = (field: Field) => (text: string) => {
-        const starts = Option.contains(anchor, '#') ? [0] : Array.range(0, text.length);
-        const spans = (from: number): Option.Option<readonly (readonly [number, number])[]> =>
-            Option.flatMap(
-                Option.all(
-                    starts
-                        .filter((at) => at >= from)
-                        .map((at) =>
-                            Option.map(
-                                longest(text, field, at, Option.contains(anchor, '%')),
-                                Option.flatMap((end) => Option.liftPredicate([at, end] as const, () => end > at || Option.isSome(anchor))),
-                            ),
-                        ),
+    }
+
+    slice(bounds: readonly Integer[], negative: boolean, zero: string): Value {
+        const [from = 0n, count] = bounds.map((bound) => (bound._tag === 'Known' ? bound.value : 0n));
+        const unknown = this.obscure(this.many, Origin.Arithmetic());
+        const cut = <A>(items: readonly A[]) => {
+            const begin = Number(from) + (from < 0n ? items.length : 0);
+            const end = Option.match(Option.fromUndefinedOr(count), { onNone: () => items.length, onSome: (taken) => (taken < 0n ? items.length : begin) + Number(taken) });
+            return begin < 0 || begin > items.length ? Option.some<readonly A[]>([]) : Option.liftPredicate(items.slice(begin, end), () => end >= begin);
+        };
+        return Match.value({ refused: bounds.some(Integer.$is('Refused')) || (count !== undefined && count < 0n && !(negative && this.content._tag !== 'List')), known: bounds.every(Integer.$is('Known')) }).pipe(
+            Match.when({ refused: true }, () => unknown.refuse({ origin: Origin.Arithmetic(), certain: true })),
+            Match.when({ known: false }, () => unknown.refuse({ origin: Origin.Arithmetic(), certain: false })),
+            Match.orElse(() =>
+                Content.$match(this.content, {
+                    Unset: (): Value => this,
+                    Unknown: (): Value => this,
+                    Scalar: ({ text }) => Option.match(ascii(text), { onNone: () => this.obscure(false), onSome: (plain) => Option.match(cut([...plain]), { onNone: () => unknown, onSome: (kept) => this.hold(Content.Scalar({ text: kept.join('') })) }) }),
+                    List: ({ items, spread }) => Option.match(cut(this.named ? items : [zero, ...items]), { onNone: () => unknown, onSome: (kept) => this.hold(Content.List({ items: kept, spread })) }),
+                }),
+            ),
+        );
+    }
+
+    exists(): Value {
+        return Content.$match(this.content, { Unset: () => this.hold(Content.Scalar({ text: '0' })), Unknown: (): Value => this, Scalar: () => this.hold(Content.Scalar({ text: '1' })), List: () => this.hold(Content.Scalar({ text: '1' })) });
+    }
+
+    measure(): Value {
+        return Content.$match(this.content, {
+            Unset: () => this.hold(Content.Scalar({ text: '0' })),
+            Unknown: ({ origin }) => this.obscure(false, origin),
+            Scalar: ({ text }) => this.map(() => Option.map(ascii(text), (plain) => `${plain.length}`)),
+            List: ({ items }) => this.hold(Content.Scalar({ text: `${items.length}` })),
+        });
+    }
+
+    // --- [REWRITING]
+
+    remove(pattern: Field, prefix: boolean, largest: boolean): Value {
+        return this.map((text) => {
+            const cuts = Array.range(0, text.length);
+            const found = first(prefix === largest ? cuts.toReversed() : cuts, (at) => pattern.matches(prefix ? text.slice(0, at) : text.slice(at)));
+            return Option.map(found, Option.match({ onNone: () => text, onSome: (at) => (prefix ? text.slice(at) : text.slice(0, at)) }));
+        });
+    }
+
+    replace(pattern: Field, anchor: Option.Option<string>, all: boolean, put: Change): Value {
+        return this.map((text) => {
+            const starts = Option.contains(anchor, '#') ? [0] : Array.range(0, text.length);
+            const ends = (at: number) => (Option.contains(anchor, '%') ? [text.length] : Array.range(at, text.length).toReversed());
+            const longest = Option.all(starts.map((at) => first(ends(at), (end) => pattern.matches(text.slice(at, end)))));
+            const found = Array.zip(starts, Option.getOrElse(longest, Array.empty<Option.Option<number>>));
+            const matches = found.flatMap(([at, end]) => Option.toArray(Option.filter(end, (to) => to > at || Option.isSome(anchor))).map((to) => [at, to] as const));
+            const spans = Array.unfold(0, (from) =>
+                Option.map(
+                    Array.findFirst(matches, ([at]) => at >= from),
+                    (span) => [span, all && span[1] < text.length ? Math.max(span[1], span[0] + 1) : text.length + 1] as const,
                 ),
-                (found) => Option.match(Option.firstSomeOf(found), { onNone: () => Option.some([]), onSome: ([at, end]) => (repl.all && end < text.length ? Option.map(spans(end), (rest) => [[at, end] as const, ...rest]) : Option.some([[at, end] as const])) }),
             );
-        return Option.flatMap(spans(0), (found) => Option.map(Option.all(found.map(([at, end]) => put(text.slice(at, end)))), (puts) => found.reduceRight((written, [at, end], index) => `${written.slice(0, at)}${puts[index] ?? ''}${written.slice(end)}`, text)));
-    };
-    return [Option.match(pattern, { onNone: () => Value.Unknown({ origin, many: many(value) }), onSome: (field) => mapped(value, swap(field), origin) }), next, [...refused, ...chunks.filter(Chunk.$is('Refuse'))]];
-};
-const removed = (removal: { readonly prefix: boolean; readonly largest: boolean }, text: string, pattern: Field): Option.Option<string> => {
-    const ascending = Array.range(0, text.length);
-    const piece = (at: number) => (removal.prefix ? text.slice(0, at) : text.slice(at));
-    const verdicts = Option.all((removal.prefix === removal.largest ? ascending.toReversed() : ascending).map((at) => Option.map(pattern.matches(piece(at)), (matched) => [at, matched] as const)));
-    return Option.map(verdicts, (checked) =>
-        Option.match(
-            Array.findFirst(checked, ([, matched]) => matched),
-            { onNone: () => text, onSome: ([at]) => (removal.prefix ? text.slice(at) : text.slice(0, at)) },
-        ),
-    );
-};
-const operated = (exp: ParamExp, value: Value, scope: Scope, frame: Frame, direct: boolean): readonly [Value, Scope, Option.Option<readonly Chunk[]>, readonly Chunk[]] => {
-    const name = exp.param?.value ?? '';
-    const origin = Origin.Variable({ name, origins: HashSet.empty() });
-    const unknown = Value.Unknown({ origin, many: many(value) });
-    const empty = (colon: boolean) => Value.$match(value, { Unset: () => Option.some(true), Unknown: () => Option.none(), Scalar: ({ text }) => Option.some(colon && text === ''), List: ({ items }) => Option.some(colon && items.length === 0) });
-    const substituted = (word: Word | null): readonly [Value, Scope, Option.Option<readonly Chunk[]>, readonly Chunk[]] => {
-        const [next, chunks] = word === null ? [scope, []] : frame.worded(word.parts, scope, { ...frame, result: true }, true);
-        return [Value.Scalar({ text: '' }), next, Option.liftPredicate([...(frame.quoted && chunks.length === 0 ? [held('')] : []), ...chunks], () => direct), []];
-    };
-    const assigned = (word: Word | null): readonly [Value, Scope, Option.Option<readonly Chunk[]>, readonly Chunk[]] => {
-        const [text, next, refused] = word === null ? [Option.some(''), scope, []] : valued(word, scope, frame);
-        const assignable = identifier.test(name) && exp.index === null && exp.nestedParam === null;
-        return [
-            Option.match(
-                Option.filter(text, () => assignable),
-                { onNone: () => Value.Unknown({ origin, many: false }), onSome: (given) => Value.Scalar({ text: given }) },
-            ),
-            assignable ? next.set(name, Option.match(text, { onNone: () => Binding.Unknown({ origins: HashSet.make(origin) }), onSome: (written) => Binding.Known({ value: written }) })) : next,
-            Option.none(),
-            refused,
-        ];
-    };
-    return Option.match(Option.fromNullishOr(exp.exp), {
-        onNone: () => [value, scope, Option.none(), []] as const,
-        onSome: ({ op, word }) =>
-            Match.value({ op, empty: Option.getOrUndefined(empty(colons.has(op))), removal: removals.get(op), change: cases.get(op) }).pipe(
-                Match.when({ op: Match.is(...errors), empty: Match.undefined }, () => [unknown, scope, Option.none(), [Chunk.Refuse({ origin, certain: false })]] as const),
-                Match.when({ op: Match.is(...defaults, ...alternates, ...assigns), empty: Match.undefined }, () => [unknown, scope, Option.none(), []] as const),
-                Match.when({ op: Match.is(...defaults), empty: true }, () => substituted(word)),
-                Match.when({ op: Match.is(...alternates), empty: true }, () => substituted(null)),
-                Match.when({ op: Match.is(...alternates) }, () => substituted(word)),
-                Match.when({ op: Match.is(...assigns), empty: true }, () => assigned(word)),
-                Match.when({ op: Match.is(...errors), empty: true }, () => [unknown, scope, Option.none(), [refusal(origin)]] as const),
-                Match.when({ op: Match.is(...defaults, ...assigns, ...errors) }, () => [value, scope, Option.none(), []] as const),
-                Match.when({ removal: Match.defined }, ({ removal }) => {
-                    const [pattern, next, refused] = word === null ? [undefined, scope, []] : frame.patterned(word, scope, frame);
-                    return [Option.match(Option.fromUndefinedOr(pattern), { onNone: () => value, onSome: (field) => mapped(value, (text) => removed(removal, text, field), origin) }), next, Option.none(), refused] as const;
-                }),
-                Match.when(
-                    { change: Match.defined },
-                    ({ change }) => [frame.dialect.supports('casing') && word === null ? mapped(value, (text) => Option.map(Option.liftPredicate(text, ascii), change), origin) : unknown, scope, Option.none(), frame.dialect.supports('casing') ? [] : [refusal(Origin.Unsupported())]] as const,
-                ),
-                Match.when({ op: ParExpOperator.OtherParamOps }, () => [unknown, scope, Option.none(), frame.dialect.supports('transforms') ? [] : [refusal(Origin.Unsupported())]] as const),
-                Match.orElse(() => [unknown, scope, Option.none(), []] as const),
-            ),
-    });
-};
-const flagged = (flags: string): Option.Option<readonly { readonly letter: string; readonly argument: string }[]> =>
-    Option.all(
-        Array.unfold(0, (at) =>
-            Option.map(
-                Option.liftPredicate(at, (position) => position < flags.length),
-                (position) =>
-                    Match.value(flags[position] ?? '').pipe(
-                        Match.when(
-                            (letter: string) => 'ULf@'.includes(letter),
-                            (letter) => [Option.some({ letter, argument: '' }), position + 1] as const,
-                        ),
-                        Match.when(Match.is('s', 'j'), (letter) => {
-                            const open = flags[position + 1] ?? '';
-                            const finish = flags.indexOf(closing[open] ?? open, position + 2);
-                            return finish === -1 ? ([Option.none(), flags.length] as const) : ([Option.some({ letter, argument: flags.slice(position + 2, finish) }), finish + 1] as const);
-                        }),
-                        Match.orElse(() => [Option.none(), flags.length] as const),
-                    ),
-            ),
-        ),
-    );
-const flagging = (flags: readonly { readonly letter: string; readonly argument: string }[], value: Value, frame: Frame, origin: Origin): readonly [Value, boolean] => {
-    const argument = (letter: string) => Option.fromUndefinedOr(flags.find((flag) => flag.letter === letter)?.argument);
-    const spread = flags.some((flag) => flag.letter === '@');
-    const joined = Option.match(argument('j'), { onNone: () => value, onSome: (glue) => (value._tag === 'List' ? Value.Scalar({ text: value.items.join(glue) }) : value) });
-    const kept = (items: readonly string[]) => (frame.quoted && !spread ? items.filter((item, index) => item !== '' || index === 0 || index === items.length - 1) : items);
-    const split = Option.match(
-        Option.orElse(Option.as(argument('f'), '\n'), () => argument('s')),
-        {
+            const puts = Option.filter(Option.all(spans.map(([at, end]) => put(text.slice(at, end)))), () => Option.isSome(longest));
+            return Option.map(puts, (written) => spans.reduceRight((whole, [at, end], index) => `${whole.slice(0, at)}${written[index] ?? ''}${whole.slice(end)}`, text));
+        });
+    }
+
+    recase(change: (text: string) => string): Value {
+        return this.map((text) => Option.map(ascii(text), change));
+    }
+
+    modify(letter: string, pwd: Option.Option<string>): Value {
+        return Option.match(Option.fromUndefinedOr(modifiers[letter]), { onNone: () => this.obscure(), onSome: (modifier) => this.map((text) => modifier(text, pwd)) });
+    }
+
+    flag(flags: ReadonlyMap<string, string>, quoted: boolean): Value {
+        const joined = Option.match(Option.fromUndefinedOr(flags.get('j')), { onNone: (): Value => this, onSome: (glue) => (this.content._tag === 'List' ? this.hold(Content.Scalar({ text: this.content.items.join(glue) })) : this) });
+        const part = (by: string, items: readonly string[]) => {
+            const parts = items.flatMap((item) => item.split(by));
+            return by === '' ? joined.obscure(true) : joined.hold(Content.List({ items: quoted && !flags.has('@') ? parts.filter((item, at) => item !== '' || at === 0 || at === parts.length - 1) : parts, spread: true }));
+        };
+        const split = Option.match(Option.fromUndefinedOr(flags.has('f') ? '\n' : flags.get('s')), {
             onNone: () => joined,
-            onSome: (by) =>
-                Value.$match(joined, {
-                    Scalar: ({ text }) => (by === '' ? Value.Unknown({ origin, many: true }) : Value.List({ items: kept(text.split(by)), spread: true })),
-                    List: ({ items }) => (by === '' ? Value.Unknown({ origin, many: true }) : Value.List({ items: kept(items.flatMap((item) => item.split(by))), spread: true })),
-                    Unset: () => Value.List({ items: [], spread: true }),
-                    Unknown: () => Value.Unknown({ origin, many: true }),
-                }),
-        },
-    );
-    const change = Option.orElse(
-        Option.as(argument('U'), (text: string) => text.toUpperCase()),
-        () => Option.as(argument('L'), (text: string) => text.toLowerCase()),
-    );
-    return [Option.match(change, { onNone: () => split, onSome: (apply) => mapped(split, (text) => Option.map(Option.liftPredicate(text, ascii), apply), origin) }), spread];
-};
-const rendered = (value: Value, frame: Frame, exp: ParamExp | undefined, scope: Scope, spread: boolean): readonly Chunk[] => {
-    const { dialect, quoted, rules } = frame;
-    const name = exp?.param?.value ?? '';
-    const piece = (text: string) => Chunk.Text({ text, quoted, split: !quoted && splits(frame, exp), glob: !quoted && globs(frame, exp), secret: false });
-    const glue = Binding.$match(scope.get('IFS'), { Unset: () => Option.some(' '), Known: ({ value: known }) => Option.some([...known][0] ?? ''), Listed: () => Option.none(), Unknown: () => Option.none() });
-    const strict = exp !== undefined && dialect.options.nounset;
-    const joined = (items: readonly string[], spaced: boolean) => (spaced ? [piece(items.join(' '))] : [Option.match(glue, { onNone: () => Chunk.Hidden({ origin: Origin.Variable({ name: 'IFS', origins: HashSet.empty() }), certain: true, many: false }), onSome: (between) => piece(items.join(between)) })]);
-    return Value.$match(value, {
-        Unset: () => [...(strict ? [refusal(Origin.Variable({ name, origins: HashSet.empty() }))] : []), ...(quoted || rules.single ? [piece('')] : [])],
-        Scalar: ({ text }) => [piece(text)],
-        List: ({ items, spread: own }) => (rules.single || (quoted && !(own || spread)) ? joined(items, (own || spread) && dialect.variant === LangVariant.LangBash && rules.single) : items.flatMap((item, index) => (index === 0 ? [piece(item)] : [Chunk.Break(), piece(item)]))),
-        Unknown: ({ origin, many: plural }) => [...(strict ? [Chunk.Refuse({ origin, certain: false })] : []), Chunk.Hidden({ origin, certain: (quoted || rules.single) && !plural, many: !rules.single && (plural || (!quoted && splits(frame, exp))) })],
-    });
-};
-const parameter = (exp: ParamExp, trailing: readonly string[], scope: Scope, frame: Frame): Parted => {
-    const origin = Origin.Variable({ name: exp.param?.value ?? '', origins: HashSet.empty() });
-    const letters = [...exp.modifiers.map(({ value }) => value), ...trailing];
-    const flags = flagged(exp.flags?.value ?? '');
-    const { length: counting } = exp;
-    const direct = letters.length === 0 && Option.exists(flags, Array.isReadonlyArrayEmpty) && !counting && exp.slice === null && exp.repl === null;
-    const unmodelled = exp.width || exp.rcExpand === 1 || exp.subscripts.length > 0 || (exp.names !== ParNamesOperator.None && !exp.excl) || Option.isNone(flags);
-    const [base, looking] = looked(exp, scope, frame);
-    const checked = exp.isSet ? Value.$match(base, { Unset: () => Value.Scalar({ text: '0' }), Unknown: () => base, Scalar: () => Value.Scalar({ text: '1' }), List: () => Value.Scalar({ text: '1' }) }) : base;
-    const [operation, operating, chunks, tests] = operated(exp, checked, looking, frame, direct);
-    const [cut, cutting, slices] = exp.slice === null ? [operation, operating, []] : sliced(exp.slice, operation, operating, frame, origin);
-    const [swapped, swapping, swaps] = exp.repl === null ? [cut, cutting, []] : replaced(exp.repl, cut, cutting, frame, origin);
-    const pwd = Binding.$match(swapping.get('PWD'), { Known: ({ value }) => Option.some(value), Unset: () => Option.none(), Listed: () => Option.none(), Unknown: () => Option.none() });
-    const changed = letters.reduce((current, letter) => Option.match(Option.fromUndefinedOr(modifiers.get(letter)), { onNone: () => Value.Unknown({ origin, many: many(current) }), onSome: (modifier) => mapped(current, (text) => modifier(text, pwd), origin) }), swapped);
-    const measured = counting
-        ? Value.$match(changed, {
-              Unset: () => Value.Scalar({ text: '0' }),
-              Unknown: (unknown) => Value.Unknown({ ...unknown, many: false }),
-              Scalar: ({ text }) => (ascii(text) ? Value.Scalar({ text: `${text.length}` }) : Value.Unknown({ origin, many: false })),
-              List: ({ items }) => Value.Scalar({ text: `${items.length}` }),
-          })
-        : changed;
-    const [final, spread] = flagging(Option.getOrElse(flags, Array.empty), measured, frame, origin);
-    const refusals = [...tests, ...slices, ...swaps];
-    return [
-        swapping,
-        Match.value({ unmodelled, chunks: Option.getOrUndefined(chunks) }).pipe(
-            Match.when({ unmodelled: true }, () => [...refusals, ...rendered(Value.Unknown({ origin, many: true }), frame, exp, swapping, false)]),
-            Match.when({ chunks: Match.defined }, ({ chunks: given }) => [...refusals, ...given]),
-            Match.orElse(() => [...refusals, ...rendered(final, frame, exp, swapping, spread)]),
-        ),
-    ];
-};
+            onSome: (by) => Content.$match(joined.content, { Scalar: ({ text }) => part(by, [text]), List: ({ items }) => part(by, items), Unset: () => joined.hold(Content.List({ items: [], spread: true })), Unknown: () => joined.obscure(true) }),
+        });
+        const change: Option.Option<(text: string) => string> = flags.has('U') ? Option.some(String.toUpperCase) : Option.liftPredicate(String.toLowerCase, () => flags.has('L'));
+        const cased = Option.match(change, { onNone: () => split, onSome: (apply) => split.recase(apply) });
+        return flags.has('@') && cased.content._tag === 'List' ? cased.hold(Content.List({ ...cased.content, spread: true })) : cased;
+    }
+
+    static read(name: string, scope: Scope): Value {
+        const content = Binding.$match(scope.get(name), {
+            Unset: () => Content.Unset(),
+            Known: ({ value }) => Content.Scalar({ text: value }),
+            Listed: ({ items }) => Content.List({ items, spread: name === '@' }),
+            Unknown: ({ origins }) => Content.Unknown({ origin: Origin.Variable({ name, origins }), many: name === '@' || name === '*' }),
+        });
+        return new Value({ origin: Origin.Variable({ name, origins: HashSet.empty() }), content, refusals: [] });
+    }
+
+    static flags(written: string): Option.Option<ReadonlyMap<string, string>> {
+        const parsed = Array.unfold(0, (at) => {
+            const [letter, open] = [written.charAt(at), written.charAt(at + 1)];
+            const finish = written.indexOf(closing[open] ?? open, at + 2);
+            const taking = Option.liftPredicate([Option.some([letter, written.slice(at + 2, finish)] as const), finish + 1] as const, () => 'sj'.includes(letter) && finish !== -1);
+            const flag = 'ULf@'.includes(letter) ? Option.some([Option.some([letter, ''] as const), at + 1] as const) : taking;
+            return Option.liftPredicate(
+                Option.getOrElse(flag, () => [Option.none<readonly [string, string]>(), written.length] as const),
+                () => letter !== '',
+            );
+        });
+        return Option.map(Option.all(parsed), (flags) => new Map(flags.toReversed()));
+    }
+}
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Chunk, type Frame, held, parameter, type Parted, rendered, type Rules, splits, Value, valued };
+export { Content, Value };

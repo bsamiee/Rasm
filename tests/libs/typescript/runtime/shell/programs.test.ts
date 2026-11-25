@@ -38,6 +38,13 @@ it.layer(Dialects.layer, { excludeTestServices: true })('programs', (suite) => {
             answer: Result.succeed([[['-Z'], ['--recursive', '-R', '-r']], ['x']]),
             calls: ['--version', '--list', 'rm export'],
         },
+        {
+            case: 'an export flag of a type outside pflag’s value-less ones takes a value',
+            stand: Option.some(exported('carapace-bin 0.0.0', `echo '{"Name":"rm","LocalFlags":[{"Shorthand":"Y","Type":"boolfunc","NoOptDefVal":"true"},{"Shorthand":"Z","Type":"ipNet"}]}'`)),
+            source: 'rm -Y -Z v x',
+            answer: Result.succeed([[['-Y'], ['-Z']], ['x']]),
+            calls: ['--version', '--list', 'rm export'],
+        },
         { case: 'a failing export fails the walk naming it', stand: Option.some(exported('carapace-bin 0.0.0', 'echo refused >&2; exit 3')), source: 'rm x', answer: Result.fail('Host carapace rm export'), calls: ['--version', '--list', 'rm export'] },
     ])(
         'binds a program by its live carapace export when the installed carapace differs from the carried rows, else by the carried rows, under the signature rows: $case',

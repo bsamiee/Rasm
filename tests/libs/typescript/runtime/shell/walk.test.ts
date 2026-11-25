@@ -77,6 +77,9 @@ it.layer(Dialects.layer, { excludeTestServices: true })('walk', (suite) => {
         { shell: 'bash', source: `rec h <<'EOF'\nhd\nEOF\nrec f < {file}; rec n < /dev/null; { rec g; } < {file}; while rec w; do break; done <<< 'ws'; rec bg & wait`, wrapper: '' },
         { shell: 'bash', source: 'T=$(rec made); for d in "$T"; do f() { local u="$1"; export E="$u"; rec "$u" "$E"; }; f "$d"; done', wrapper: '', printers: ['rec'] },
         { shell: 'bash', source: `f() { rec fn; }; f <<< 'fs'; rec $(rec sub) <<< 'x'; if rec c <<< 'ci'; then rec t; fi < {file}; case a in a) rec arm;; esac <<< 'ca'; /bin/sh -c 'rec inner' <<< 'ns'`, wrapper: '', printers: ['rec'] },
+        { shell: 'bash', source: 'if [ -e a.txt ]; then x=a; else x=b; fi; export y=$x; case $x in a) rec A "$y";; b) rec B "$y";; esac', wrapper: '' },
+        { shell: 'bash', source: 'if [ -e none ]; then x=a; else x=b; fi; export y=$x; case $x in a) rec A "$y";; b) rec B "$y";; esac', wrapper: '' },
+        { shell: 'bash', source: 'f() { export X=in; local L=in; }; L=out; f; rec "$X" "$L"', wrapper: '' },
     ] as const)(
         '$shell walks $source to invocations every recorded real command fits with the standard input it read, each inner one under wrapper or file "$wrapper", its unknown words naming the recorded programs $printers that printed them',
         Effect.fnUntraced(function* ({ shell: kind, source, wrapper, ...row }) {

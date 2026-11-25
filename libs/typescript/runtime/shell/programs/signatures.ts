@@ -1,122 +1,113 @@
 import type { Usage } from '#/programs/usage';
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Row = typeof Usage.Encoded;
+type Slot = NonNullable<Row['input']>;
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const read = { roles: ['read'], count: 'rest' } as const;
-const walked = { roles: ['read'], count: 'rest', tree: true } as const;
-const plain = { roles: [], count: 'rest' } as const;
-const inner = { roles: ['command'], count: 'rest' } as const;
-const data = { roles: ['read'] } as const;
-const printed = { roles: ['write'] } as const;
-const written = { roles: ['create', 'write'] } as const;
+const word = { roles: [], count: 'one' } as const;
+const words = { roles: [], count: 'rest' } as const;
+const file = { roles: ['read'] } as const;
+const files = { roles: ['read'], count: 'rest' } as const;
+const trees = { roles: ['read'], count: 'rest', tree: true } as const;
+const edits = { roles: ['read', 'write'], count: 'rest' } as const;
+const removals = { roles: ['delete'], count: 'rest', tree: true } as const;
+const moves = { roles: ['read', 'delete'], count: 'rest', tree: true } as const;
+const target = { roles: ['create', 'write'] } as const;
+const folder = { roles: ['create', 'write'], tree: true } as const;
+const stdout = { roles: ['write'] } as const;
 const directory = { roles: ['directory'] } as const;
-const pattern = (...given: readonly string[]) => ({ roles: [], count: 'one', unless: given }) as const;
-const edited = (...given: readonly string[]) =>
-    [
-        { ...read, unless: given },
-        { roles: ['read', 'write'], count: 'rest', when: given },
-    ] as const;
-const fixed = (...given: readonly string[]) =>
-    [
-        { ...walked, unless: given },
-        { roles: ['read', 'write'], count: 'rest', tree: true, when: given },
-    ] as const;
-const recursive = (roles: readonly ('read' | 'write' | 'delete')[], ...given: readonly string[]) =>
-    [
-        { roles, count: 'rest', unless: given },
-        { roles, count: 'rest', tree: true, when: given },
-    ] as const;
-const sourced = { roles: ['read', 'execute'], count: 'optional' } as const;
-const signatures: readonly (typeof Usage.Encoded)[] = [
-    { name: 'cat', operands: [read], input: { roles: ['read', 'copy'] }, output: printed, abbreviates: true },
+const variable = { roles: ['variable'] } as const;
+const user = { roles: ['user'] } as const;
+const host = { roles: ['host'], count: 'one' } as const;
+const container = { roles: ['container'], count: 'one' } as const;
+const code = { roles: ['code'] } as const;
+const program = { roles: ['read', 'execute'] } as const;
+const script = { roles: ['script'] } as const;
+const command = { roles: ['command'], count: 'rest' } as const;
+const wrapper = { operands: [command], interspersed: false } as const;
+const action = (...ends: readonly string[]) => ({ roles: ['command'], ends }) as const;
+const toggle = (otherwise: Slot, flagged: Slot, ...flags: readonly string[]) => [
+    { ...otherwise, unless: flags },
+    { ...flagged, when: flags },
+];
+const recurse = (slot: Slot, ...flags: readonly string[]) => toggle(slot, { ...slot, tree: true }, ...flags);
+const rewrite = (slot: Slot, ...flags: readonly string[]) => toggle(slot, { ...slot, roles: edits.roles }, ...flags);
+const repair = (...flags: readonly string[]) => [
+    { ...trees, unless: flags },
+    { ...edits, tree: true, when: flags, unless: ['--diff'] },
+    { ...trees, when: ['--diff'] },
+];
+const launch = (...names: readonly string[]) => names.map((name) => ({ name, ...wrapper }));
+const flag = <A extends 'none' | 'one' | 'rest'>(arity: A, ...spellings: readonly string[]) => spellings.map((spelling) => [arity, spelling] as const);
+const interpret = (codes: readonly string[], ...rest: readonly Slot[]) => ({ operands: [{ ...program, count: 'optional', unless: codes }, ...rest], input: { ...code, unless: codes }, interspersed: false }) as const;
+const format = { flags: [...flag('none', '--check', '--all'), ['one', '-p', '--package'], ...flag('one', '--manifest-path', '--message-format')], values: { '--manifest-path': file } } as const satisfies Partial<Row>;
+const lint = { flags: [['none', '--fix', '--autocorrect']], operands: rewrite(trees, '--fix') } as const satisfies Partial<Row>;
+const signatures: readonly Row[] = [
+    { name: 'cat', operands: [files], input: { roles: ['read', 'copy'] }, output: stdout, abbreviates: true },
     {
         name: 'cp',
         flags: [
             ['none', '-R', '-r', '--recursive'],
             ['one', '-t', '--target-directory'],
         ],
-        values: { '-t': written },
-        operands: [...recursive(['read'], '-R'), { ...written, count: 'one', unless: ['-t'] }],
+        values: { '-t': target },
+        operands: [...recurse(files, '-R'), { ...target, count: 'one', unless: ['-t'] }],
         abbreviates: true,
     },
-    {
-        name: 'mv',
-        flags: [['one', '-t', '--target-directory']],
-        values: { '-t': written },
-        operands: [
-            { roles: ['read', 'delete'], count: 'rest', tree: true },
-            { ...written, count: 'one', unless: ['-t'] },
-        ],
-        abbreviates: true,
-    },
-    {
-        name: 'rm',
-        flags: [['none', '-R', '-r', '--recursive']],
-        operands: recursive(['delete'], '-R'),
-        abbreviates: true,
-    },
+    { name: 'mv', flags: [['one', '-t', '--target-directory']], values: { '-t': target }, operands: [moves, { ...target, count: 'one', unless: ['-t'] }], abbreviates: true },
+    { name: 'rm', flags: [['none', '-R', '-r', '--recursive']], operands: recurse({ roles: ['delete'], count: 'rest' }, '-R'), abbreviates: true },
     { name: 'rmdir', operands: [{ roles: ['delete'], count: 'rest' }], abbreviates: true },
-    { name: 'rsync', aliases: ['ditto'], operands: [walked, { roles: [], count: 'one' }] },
-    {
-        name: 'mkdir',
-        operands: [{ roles: ['create'], count: 'rest' }],
-        abbreviates: true,
-    },
+    { name: 'rsync', aliases: ['ditto'], operands: [trees, word] },
+    { name: 'mkdir', operands: [{ roles: ['create'], count: 'rest' }], abbreviates: true },
     {
         name: 'ln',
         flags: [
             ['none', '-s', '--symbolic'],
             ['one', '-t', '--target-directory'],
         ],
-        values: { '-t': written },
-        operands: [{ roles: ['read'], count: 'one' }, read, { ...written, count: 'optional', unless: ['-t'] }],
+        values: { '-t': target },
+        operands: [{ ...file, count: 'one' }, files, { ...target, count: 'optional', unless: ['-t'] }],
         abbreviates: true,
     },
-    { name: 'touch', values: { '-r': data }, operands: [{ ...written, count: 'rest' }], abbreviates: true },
-    { name: 'truncate', operands: [{ ...written, count: 'rest' }], abbreviates: true },
-    { name: 'chmod', aliases: ['chown', 'chgrp'], flags: [['none', '-R', '--recursive']], operands: [{ roles: [], count: 'one' }, ...recursive(['write'], '-R')], abbreviates: true },
-    { name: 'xattr', operands: [{ roles: ['read', 'write'], count: 'rest' }] },
-    { name: 'ls', flags: [['none', '-R', '--recursive']], operands: recursive(['read'], '-R'), output: printed, abbreviates: true },
-    { name: 'du', operands: [walked], output: printed, abbreviates: true },
-    { name: 'stat', aliases: ['file', 'realpath', 'readlink', 'wait4path'], operands: [read], output: printed, abbreviates: true },
-    { name: 'head', aliases: ['tail', 'wc', 'cut', 'nl', 'shasum', 'sha256sum', 'md5sum', 'md5', 'cksum', 'sum', 'strings', 'od', 'xxd', 'hexdump', 'rev', 'fold', 'paste', 'expand', 'unexpand', 'tac', 'more', 'less'], operands: [read], input: data, output: printed, abbreviates: true },
-    { name: 'sort', flags: [['one', '-o', '--output']], values: { '-o': written }, operands: [read], input: data, output: { ...printed, unless: ['-o'] }, abbreviates: true },
+    { name: 'touch', values: { '-r': file }, operands: [{ ...target, count: 'rest' }], abbreviates: true },
+    { name: 'truncate', operands: [{ ...target, count: 'rest' }], abbreviates: true },
+    { name: 'chmod', aliases: ['chown', 'chgrp'], flags: [['none', '-R', '--recursive']], operands: [word, ...recurse({ roles: ['write'], count: 'rest' }, '-R')], abbreviates: true },
+    { name: 'xattr', operands: [edits] },
+    { name: 'ls', flags: [['none', '-R', '--recursive']], operands: recurse(files, '-R'), output: stdout, abbreviates: true },
+    { name: 'du', operands: [trees], output: stdout, abbreviates: true },
+    { name: 'stat', aliases: ['file', 'realpath', 'readlink', 'wait4path'], operands: [files], output: stdout, abbreviates: true },
+    { name: 'head', aliases: ['tail', 'wc', 'cut', 'nl', 'shasum', 'sha256sum', 'md5sum', 'md5', 'cksum', 'sum', 'strings', 'od', 'xxd', 'hexdump', 'rev', 'fold', 'paste', 'expand', 'unexpand', 'tac', 'more', 'less'], operands: [files], input: file, output: stdout, abbreviates: true },
+    { name: 'sort', flags: [['one', '-o', '--output']], values: { '-o': target }, operands: [files], input: file, output: { ...stdout, unless: ['-o'] }, abbreviates: true },
     {
         name: 'uniq',
         operands: [
-            { roles: ['read'], count: 'optional' },
-            { ...written, count: 'optional' },
+            { ...file, count: 'optional' },
+            { ...target, count: 'optional' },
         ],
-        input: data,
-        output: printed,
+        input: file,
+        output: stdout,
         abbreviates: true,
     },
-    {
-        name: 'tr',
-        operands: [
-            { roles: [], count: 'one' },
-            { roles: [], count: 'optional' },
-        ],
-        input: data,
-        output: printed,
-        abbreviates: true,
-    },
-    { name: 'tee', flags: [['none', '-a', '--append']], operands: [{ ...written, count: 'rest' }], input: { roles: ['read', 'copy'] }, output: printed, abbreviates: true },
+    { name: 'tr', operands: [word, { ...word, count: 'optional' }], input: file, output: stdout, abbreviates: true },
+    { name: 'tee', flags: [['none', '-a', '--append']], operands: [{ ...target, count: 'rest' }], input: { roles: ['read', 'copy'] }, output: stdout, abbreviates: true },
     { name: 'shred', operands: [{ roles: ['write', 'delete'], count: 'rest' }], abbreviates: true },
-    { name: 'trash', operands: [{ roles: ['delete'], count: 'rest', tree: true }] },
-    { name: 'rimraf', operands: [{ roles: ['delete'], count: 'rest', tree: true }] },
-    { name: 'mktemp', operands: [{ roles: [], count: 'optional' }], output: printed, abbreviates: true },
-    { name: 'screencapture', operands: [{ ...written, count: 'rest' }] },
+    { name: 'trash', operands: [removals] },
+    { name: 'rimraf', operands: [removals] },
+    { name: 'mktemp', operands: [{ ...word, count: 'optional' }], output: stdout, abbreviates: true },
+    { name: 'screencapture', operands: [{ ...target, count: 'rest' }] },
     {
         name: 'base64',
         flags: [
             ['one', '-i', '--input'],
             ['one', '-o', '--output'],
         ],
-        values: { '-i': data, '-o': written },
-        operands: [{ roles: ['read'], count: 'optional' }],
-        input: { ...data, unless: ['-i'] },
-        output: { ...printed, unless: ['-o'] },
+        values: { '-i': file, '-o': target },
+        operands: [{ ...file, count: 'optional' }],
+        input: { ...file, unless: ['-i'] },
+        output: { ...stdout, unless: ['-o'] },
         abbreviates: true,
     },
     {
@@ -127,13 +118,13 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '-n', '--head-count'],
             ['one', '-o', '--output'],
         ],
-        values: { '-o': written },
+        values: { '-o': target },
         operands: [
-            { roles: ['read'], count: 'optional', unless: ['-e', '-i'] },
-            { ...plain, when: ['-e'] },
+            { ...file, count: 'optional', unless: ['-e', '-i'] },
+            { ...words, when: ['-e'] },
         ],
-        input: { ...data, unless: ['-e', '-i'] },
-        output: { ...printed, unless: ['-o'] },
+        input: { ...file, unless: ['-e', '-i'] },
+        output: { ...stdout, unless: ['-o'] },
         abbreviates: true,
     },
     {
@@ -142,88 +133,46 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '-e', '--expression'],
             ['one', '-f', '--file'],
         ],
-        values: { '-f': data },
-        operands: [pattern('-e', '-f'), ...edited('-i', '--in-place')],
-        input: data,
-        output: { ...printed, unless: ['-i', '--in-place'] },
+        values: { '-f': file },
+        operands: [{ ...word, unless: ['-e', '-f'] }, ...rewrite(files, '-i', '--in-place')],
+        input: file,
+        output: { ...stdout, unless: ['-i', '--in-place'] },
         abbreviates: true,
     },
-    {
-        name: 'sd',
-        operands: [
-            { roles: [], count: 'one' },
-            { roles: [], count: 'one' },
-            { roles: ['read', 'write'], count: 'rest', unless: ['-p'] },
-            { ...read, when: ['-p'] },
-        ],
-        input: data,
-        output: printed,
-    },
-    { name: 'awk', values: { '-f': { roles: ['read', 'execute'] } }, operands: [{ roles: ['code'], count: 'one', unless: ['-f'] }, read], input: data, output: printed },
+    { name: 'sd', operands: [word, word, ...toggle(edits, files, '-p')], input: file, output: stdout },
+    { name: 'awk', values: { '-f': program }, operands: [{ ...code, count: 'one', unless: ['-f'] }, files], input: file, output: stdout },
     {
         name: 'grep',
         flags: [['none', '-R', '-r', '--recursive', '--dereference-recursive']],
-        values: { '-f': data },
-        operands: [pattern('-e', '-f'), ...recursive(['read'], '-R')],
-        input: data,
-        output: printed,
+        values: { '-f': file },
+        operands: [{ ...word, unless: ['-e', '-f'] }, ...recurse(files, '-R')],
+        input: file,
+        output: stdout,
         abbreviates: true,
     },
-    {
-        name: 'rg',
-        values: { '-f': data },
-        operands: [pattern('-e', '-f', '--files'), walked],
-        input: data,
-        output: printed,
-    },
+    { name: 'rg', values: { '-f': file }, operands: [{ ...word, unless: ['-e', '-f', '--files'] }, trees], input: file, output: stdout },
     {
         name: 'fd',
         flags: [
             ['rest', '-x', '--exec'],
             ['rest', '-X', '--exec-batch'],
         ],
-        values: { '-x': { roles: ['command'], ends: [';'] }, '-X': { roles: ['command'], ends: [';'] } },
-        operands: [{ roles: [], count: 'optional' }, walked],
-        output: printed,
+        values: { '-x': action(';'), '-X': action(';') },
+        operands: [{ ...word, count: 'optional' }, trees],
+        output: stdout,
     },
     {
         name: 'find',
         flags: [
-            ['none', '-delete'],
-            ['rest', '-exec'],
-            ['rest', '-execdir'],
-            ['rest', '-ok'],
-            ['rest', '-okdir'],
-            ['one', '-name'],
-            ['one', '-iname'],
-            ['one', '-path'],
-            ['one', '-ipath'],
-            ['one', '-regex'],
-            ['one', '-iregex'],
-            ['one', '-type'],
-            ['one', '-maxdepth'],
-            ['one', '-mindepth'],
-            ['one', '-newer'],
-            ['one', '-mtime'],
-            ['one', '-mmin'],
-            ['one', '-size'],
-            ['one', '-perm'],
-            ['one', '-user'],
-            ['one', '-group'],
-            ['none', '-print'],
-            ['none', '-print0'],
-            ['none', '-prune'],
-            ['none', '-depth'],
-            ['none', '-not'],
+            ...flag('rest', '-exec', '-execdir', '-ok', '-okdir'),
+            ...flag('one', '-name', '-iname', '-path', '-ipath', '-regex', '-iregex', '-type', '-maxdepth', '-mindepth', '-newer', '-mtime', '-mmin', '-size', '-perm', '-user', '-group'),
+            ...flag('none', '-delete', '-print', '-print0', '-prune', '-depth', '-not'),
             ['none', '-a', '-and'],
             ['none', '-o', '-or'],
         ],
-        values: { '-exec': { roles: ['command'], ends: [';', '+'] }, '-execdir': { roles: ['command'], ends: [';', '+'] }, '-ok': { roles: ['command'], ends: [';'] }, '-okdir': { roles: ['command'], ends: [';'] }, '-newer': data, '-f': { roles: ['read'], tree: true } },
-        operands: [
-            { ...walked, unless: ['-delete'] },
-            { roles: ['read', 'delete'], count: 'rest', tree: true, when: ['-delete'] },
-        ],
-        output: printed,
+        values: { '-exec': action(';', '+'), '-execdir': action(';', '+'), '-ok': action(';'), '-okdir': action(';'), '-newer': file, '-f': { ...file, tree: true } },
+        operands: toggle(trees, moves, '-delete'),
+        output: stdout,
     },
     {
         name: 'tar',
@@ -232,7 +181,7 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '-C', '--directory'],
         ],
         values: { '-C': directory },
-        operands: [{ ...walked, when: ['-c'] }],
+        operands: [{ ...trees, when: ['-c'] }],
         abbreviates: true,
     },
     {
@@ -242,40 +191,19 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '-d', '--directory'],
             ['one', '-o', '--output'],
         ],
-        values: { '-i': data, '-d': directory, '-o': written },
+        values: { '-i': file, '-d': directory, '-o': target },
         operands: [
-            { roles: ['read', 'write'], count: 'optional' },
-            { roles: ['read'], count: 'optional' },
+            { ...edits, count: 'optional' },
+            { ...file, count: 'optional' },
         ],
-        input: { ...data, unless: ['-i'] },
+        input: { ...file, unless: ['-i'] },
         abbreviates: true,
     },
-    {
-        name: 'curl',
-        values: { '-o': written, '-T': data, '-K': data },
-        operands: [{ roles: ['host'], count: 'rest' }],
-        output: { ...printed, unless: ['-o', '-O'] },
-    },
-    { name: 'ping', operands: [{ roles: ['host'], count: 'one' }], output: printed },
-    {
-        name: 'nc',
-        operands: [
-            { roles: ['host'], count: 'one' },
-            { roles: [], count: 'optional' },
-        ],
-        input: data,
-        output: printed,
-    },
-    {
-        name: 'ffmpeg',
-        flags: [
-            ['one', '-i'],
-            ['one', '-t'],
-        ],
-        values: { '-i': data },
-        operands: [{ ...written, count: 'rest' }],
-    },
-    { name: 'jq', flags: [['none', '-n', '--null-input']], values: { '-f': data }, operands: [pattern('-f'), read], input: { ...data, unless: ['-n'] }, output: printed },
+    { name: 'curl', values: { '-o': target, '-T': file, '-K': file }, operands: [{ ...host, count: 'rest' }], output: { ...stdout, unless: ['-o', '-O'] } },
+    { name: 'ping', operands: [host], output: stdout },
+    { name: 'nc', operands: [host, { ...word, count: 'optional' }], input: file, output: stdout },
+    { name: 'ffmpeg', flags: flag('one', '-i', '-t'), values: { '-i': file }, operands: [{ ...target, count: 'rest' }] },
+    { name: 'jq', flags: [['none', '-n', '--null-input']], values: { '-f': file }, operands: [{ ...word, unless: ['-f'] }, files], input: { ...file, unless: ['-n'] }, output: stdout },
     {
         name: 'yq',
         flags: [
@@ -283,91 +211,57 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['none', '-n', '--null-input'],
             ['one', '--from-file'],
         ],
-        values: { '--from-file': data },
-        operands: [pattern('--from-file'), ...edited('-i')],
-        input: { ...data, unless: ['-n'] },
-        output: { ...printed, unless: ['-i'] },
+        values: { '--from-file': file },
+        operands: [{ ...word, unless: ['--from-file'] }, ...rewrite(files, '-i')],
+        input: { ...file, unless: ['-n'] },
+        output: { ...stdout, unless: ['-i'] },
     },
     {
         name: 'duckdb',
         aliases: ['sqlite3'],
-        flags: [
-            ['one', '-c'],
-            ['one', '-s'],
-            ['one', '-f'],
-            ['one', '-cmd'],
-            ['one', '-init'],
-            ['none', '-no-stdin'],
-        ],
-        values: { '-c': { roles: ['code'] }, '-s': { roles: ['code'] }, '-cmd': { roles: ['code'] }, '-f': { roles: ['read', 'execute'] }, '-init': { roles: ['read', 'execute'] } },
+        flags: [...flag('one', '-c', '-s', '-f', '-cmd', '-init'), ['none', '-no-stdin']],
+        values: { '-c': code, '-s': code, '-cmd': code, '-f': program, '-init': program },
         operands: [
-            { roles: ['read', 'write'], count: 'optional' },
-            { roles: ['code'], count: 'rest' },
+            { ...edits, count: 'optional' },
+            { ...code, count: 'rest' },
         ],
-        input: { roles: ['code'], unless: ['-c', '-s', '-f', '-no-stdin'] },
-        output: printed,
+        input: { ...code, unless: ['-c', '-s', '-f', '-no-stdin'] },
+        output: stdout,
     },
+    { name: 'hyperfine', flags: [...flag('none', '-S', '-N'), ['one', '--shell']], values: { '-p': script, '-s': script, '-c': script, '-C': script, '--export-json': target }, output: stdout },
+    { name: 'printf', flags: [['one', '-v']], values: { '-v': variable }, operands: [words], output: { ...stdout, unless: ['-v'] } },
     {
-        name: 'hyperfine',
-        flags: [
-            ['none', '-S'],
-            ['none', '-N'],
-            ['one', '--shell'],
-        ],
-        values: { '-p': { roles: ['script'] }, '-s': { roles: ['script'] }, '-c': { roles: ['script'] }, '-C': { roles: ['script'] }, '--export-json': written },
-        output: printed,
+        name: 'print',
+        flags: [...flag('none', '-a', '-b', '-c', '-D', '-e', '-i', '-l', '-m', '-n', '-N', '-o', '-O', '-p', '-P', '-r', '-R', '-s', '-S', '-z'), ...flag('one', '-C', '-f', '-u', '-v', '-x', '-X')],
+        values: { '-v': variable },
+        operands: [words],
+        output: { ...stdout, unless: ['-v'] },
     },
-    { name: 'printf', flags: [['one', '-v']], values: { '-v': { roles: ['assignment'] } }, operands: [plain], output: { ...printed, unless: ['-v'] } },
-    { name: 'echo', operands: [plain], output: printed },
+    { name: 'test', aliases: ['['], flags: [['one', '-v']], values: { '-v': variable } },
     {
-        name: 'read',
-        flags: [
-            ['one', '-t'],
-            ['one', '-p'],
-            ['one', '-d'],
-            ['one', '-n'],
-            ['one', '-u'],
-            ['one', '-a'],
-            ['none', '-r'],
+        name: 'declare',
+        aliases: ['typeset', 'local', 'export', 'readonly'],
+        flags: flag('none', '-a', '-A', '-E', '-f', '-F', '-g', '-h', '-H', '-i', '-I', '-k', '-l', '-L', '-m', '-n', '-p', '-r', '-R', '-t', '-T', '-u', '-U', '-W', '-x', '-z', '-Z'),
+        operands: [
+            { ...variable, count: 'rest', when: ['-a', '-A', '-i', '-n'] },
+            { ...words, unless: ['-a', '-A', '-i', '-n'] },
         ],
-        values: { '-a': { roles: ['assignment'] } },
-        operands: [{ roles: ['assignment'], count: 'rest' }],
-        input: data,
     },
-    { name: 'sleep', operands: [plain] },
-    { name: 'eval', operands: [{ roles: ['script'], count: 'rest' }] },
-    { name: 'source', aliases: ['.'], operands: [{ roles: ['read', 'execute'], count: 'one' }, plain], interspersed: false },
+    { name: 'integer', aliases: ['float'], operands: [{ ...variable, count: 'rest' }] },
+    { name: 'echo', operands: [words], output: stdout },
+    { name: 'read', flags: [...flag('one', '-t', '-p', '-d', '-n', '-u', '-a'), ['none', '-r']], values: { '-a': variable }, operands: [{ ...variable, count: 'rest' }], input: file },
+    { name: 'sleep', operands: [words] },
+    { name: 'eval', operands: [{ ...script, count: 'rest' }] },
+    { name: 'source', aliases: ['.'], operands: [{ ...program, count: 'one' }, words], interspersed: false },
     {
         name: 'sh',
         aliases: ['bash', 'zsh', 'dash', 'ksh', 'mksh'],
-        flags: [
-            ['none', '-c'],
-            ['none', '-s'],
-            ['none', '-i'],
-            ['none', '-l', '--login'],
-            ['one', '-o'],
-            ['none', '-e'],
-            ['none', '-u'],
-            ['none', '-x'],
-            ['none', '-n'],
-            ['none', '-v', '--verbose'],
-        ],
-        operands: [{ roles: ['shell'], count: 'one', when: ['-c'] }, { roles: [], count: 'optional', when: ['-c'] }, { ...sourced, unless: ['-c', '-s'] }, plain],
+        flags: [...flag('none', '-c', '-s', '-i', '-e', '-u', '-x', '-n'), ['none', '-l', '--login'], ['one', '-o'], ['none', '-v', '--verbose']],
+        operands: [{ roles: ['shell'], count: 'one', when: ['-c'] }, { ...word, count: 'optional', when: ['-c'] }, { ...program, count: 'optional', unless: ['-c', '-s'] }, words],
         input: { roles: ['shell'], unless: ['-c'] },
         interspersed: false,
     },
-    {
-        name: 'python',
-        aliases: ['python3'],
-        flags: [
-            ['rest', '-c'],
-            ['rest', '-m'],
-        ],
-        values: { '-c': { roles: ['code'] } },
-        operands: [{ ...sourced, unless: ['-c', '-m'] }, plain],
-        input: { roles: ['code'], unless: ['-c', '-m'] },
-        interspersed: false,
-    },
+    { name: 'python', aliases: ['python3'], flags: flag('rest', '-c', '-m'), values: { '-c': code }, ...interpret(['-c', '-m'], words) },
     {
         name: 'node',
         aliases: ['tsx'],
@@ -375,31 +269,11 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '-e', '--eval'],
             ['one', '-p', '--print'],
         ],
-        values: { '-e': { roles: ['code'] }, '-p': { roles: ['code'] } },
-        operands: [{ ...sourced, unless: ['-e', '-p'] }, plain],
-        input: { roles: ['code'], unless: ['-e', '-p'] },
-        interspersed: false,
+        values: { '-e': code, '-p': code },
+        ...interpret(['-e', '-p'], words),
     },
-    {
-        name: 'perl',
-        aliases: ['ruby'],
-        flags: [
-            ['one', '-e'],
-            ['one', '-E'],
-            ['optional', '-i'],
-        ],
-        values: { '-e': { roles: ['code'] }, '-E': { roles: ['code'] } },
-        operands: [{ ...sourced, unless: ['-e', '-E'] }, ...edited('-i')],
-        input: { roles: ['code'], unless: ['-e', '-E'] },
-        interspersed: false,
-    },
-    {
-        name: 'osascript',
-        values: { '-e': { roles: ['code'] } },
-        operands: [{ ...sourced, unless: ['-e'] }, plain],
-        input: { roles: ['code'], unless: ['-e'] },
-        interspersed: false,
-    },
+    { name: 'perl', aliases: ['ruby'], flags: [...flag('one', '-e', '-E'), ['optional', '-i']], values: { '-e': code, '-E': code }, ...interpret(['-e', '-E'], ...rewrite(files, '-i')) },
+    { name: 'osascript', values: { '-e': code }, ...interpret(['-e'], words) },
     {
         name: 'Blender',
         aliases: ['blender'],
@@ -408,24 +282,14 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '--python-expr'],
             ['none', '-b', '--background'],
         ],
-        values: { '-P': { roles: ['read', 'execute'] }, '--python-expr': { roles: ['code'] } },
-        operands: [{ roles: ['read', 'write'], count: 'optional' }],
+        values: { '-P': program, '--python-expr': code },
+        operands: [{ ...edits, count: 'optional' }],
     },
-    {
-        name: 'ssh',
-        values: { '-l': { roles: ['user'] }, '-J': { roles: ['host'] }, '-F': data, '-i': data },
-        operands: [
-            { roles: ['host'], count: 'one' },
-            { roles: ['script'], count: 'rest' },
-        ],
-        input: data,
-        output: printed,
-        interspersed: false,
-    },
+    { name: 'ssh', values: { '-l': user, '-J': { roles: ['host'] }, '-F': file, '-i': file }, operands: [host, { ...script, count: 'rest' }], input: file, output: stdout, interspersed: false },
     {
         name: 'docker',
         commands: [
-            { name: 'exec', values: { '-w': directory, '-u': { roles: ['user'] }, '-e': { roles: ['assignment'] } }, operands: [{ roles: ['container'], count: 'one' }, inner], interspersed: false },
+            { name: 'exec', values: { '-w': directory, '-u': user, '-e': { roles: ['assignment'] } }, operands: [container, command], interspersed: false },
             {
                 name: 'run',
                 flags: [
@@ -435,29 +299,24 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
                     ['one', '-v', '--volume'],
                     ['none', '--rm'],
                 ],
-                values: { '-w': directory, '-u': { roles: ['user'] }, '-e': { roles: ['assignment'] } },
-                operands: [{ roles: ['container'], count: 'one' }, inner],
+                values: { '-w': directory, '-u': user, '-e': { roles: ['assignment'] } },
+                operands: [container, command],
                 interspersed: false,
             },
         ],
     },
-    { name: 'kubectl', commands: [{ name: 'exec', values: { '-c': { roles: ['container'] } }, operands: [{ roles: ['container'], count: 'one' }, inner] }] },
+    { name: 'kubectl', commands: [{ name: 'exec', values: { '-c': { roles: ['container'] } }, operands: [container, command] }] },
     {
         name: 'sudo',
-        values: { '-u': { roles: ['user'] }, '-D': directory },
+        values: { '-u': user, '-D': directory },
         operands: [
-            { ...inner, unless: ['-s', '-i', '-e', '-l'] },
-            { roles: ['script'], count: 'rest', when: ['-s', '-i'] },
-            { roles: ['read', 'write'], count: 'rest', when: ['-e'] },
+            { ...command, unless: ['-s', '-i', '-e', '-l'] },
+            { ...script, count: 'rest', when: ['-s', '-i'] },
+            { ...edits, when: ['-e'] },
         ],
         interspersed: false,
     },
-    {
-        name: 'doas',
-        values: { '-u': { roles: ['user'] }, '-C': data },
-        operands: [{ ...inner, unless: ['-s'] }],
-        interspersed: false,
-    },
+    { name: 'doas', values: { '-u': user, '-C': file }, operands: [{ ...command, unless: ['-s'] }], interspersed: false },
     {
         name: 'env',
         flags: [
@@ -467,22 +326,15 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '-S', '--split-string'],
         ],
         values: { '-i': { roles: ['unset'] }, '-u': { roles: ['unset'] }, '-C': directory },
-        operands: [{ roles: ['assignment'], count: 'rest' }, inner],
+        operands: [{ roles: ['assignment'], count: 'rest' }, command],
         interspersed: false,
     },
-    { name: 'xargs', flags: [['one', '-a', '--arg-file']], values: { '-I': { roles: ['placeholder'] }, '-J': { roles: ['placeholder'] }, '-a': data }, operands: [inner], input: { roles: ['command'], unless: ['-a'] }, interspersed: false },
-    { name: 'parallel', flags: [['one', '-j', '--jobs', '-P', '--max-procs']], operands: [inner], input: { roles: ['command'] }, interspersed: false },
-    {
-        name: 'watch',
-        operands: [
-            { roles: ['script'], count: 'rest', unless: ['-x'] },
-            { ...inner, when: ['-x'] },
-        ],
-        interspersed: false,
-    },
-    { name: 'timeout', operands: [{ roles: [], count: 'one' }, inner], interspersed: false },
-    { name: 'nohup', aliases: ['setsid', 'builtin', 'arch', 'caffeinate'], operands: [inner], interspersed: false },
-    { name: 'nice', operands: [inner], interspersed: false },
+    { name: 'xargs', flags: [['one', '-a', '--arg-file']], values: { '-I': { roles: ['placeholder'] }, '-J': { roles: ['placeholder'] }, '-a': file }, ...wrapper, input: { roles: ['command'], unless: ['-a'] } },
+    { name: 'parallel', flags: [['one', '-j', '--jobs', '-P', '--max-procs']], ...wrapper, input: { roles: ['command'] } },
+    { name: 'watch', operands: toggle({ ...script, count: 'rest' }, command, '-x'), interspersed: false },
+    { name: 'timeout', operands: [word, command], interspersed: false },
+    { name: 'nohup', aliases: ['setsid', 'builtin', 'noglob', 'nocorrect', 'arch', 'caffeinate'], ...wrapper },
+    { name: 'nice', ...wrapper },
     {
         name: 'stdbuf',
         flags: [
@@ -490,64 +342,13 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '-o', '--output'],
             ['one', '-e', '--error'],
         ],
-        operands: [inner],
-        interspersed: false,
+        ...wrapper,
     },
-    {
-        name: 'time',
-        flags: [
-            ['one', '-o', '--output'],
-            ['none', '-a', '--append'],
-            ['none', '-p'],
-            ['none', '-l'],
-            ['none', '-h'],
-        ],
-        values: { '-o': written },
-        operands: [inner],
-        interspersed: false,
-    },
-    {
-        name: 'exec',
-        flags: [
-            ['none', '-c'],
-            ['none', '-l'],
-            ['one', '-a'],
-        ],
-        operands: [inner],
-        interspersed: false,
-    },
-    {
-        name: 'command',
-        flags: [
-            ['none', '-p'],
-            ['none', '-v'],
-            ['none', '-V'],
-        ],
-        operands: [
-            { ...inner, unless: ['-v', '-V'] },
-            { ...plain, when: ['-v', '-V'] },
-        ],
-        interspersed: false,
-    },
-    {
-        name: 'lockf',
-        flags: [
-            ['one', '-t'],
-            ['none', '-k'],
-            ['none', '-n'],
-            ['none', '-s'],
-        ],
-        operands: [{ ...written, count: 'one' }, inner],
-        interspersed: false,
-    },
-    {
-        name: 'xcrun',
-        operands: [
-            { ...inner, unless: ['-f'] },
-            { ...plain, when: ['-f'] },
-        ],
-        interspersed: false,
-    },
+    { name: 'time', flags: [['one', '-o', '--output'], ['none', '-a', '--append'], ...flag('none', '-p', '-l', '-h')], values: { '-o': target }, ...wrapper },
+    { name: 'exec', flags: [...flag('none', '-c', '-l'), ['one', '-a']], ...wrapper },
+    { name: 'command', flags: flag('none', '-p', '-v', '-V'), operands: toggle(command, words, '-v', '-V'), interspersed: false },
+    { name: 'lockf', flags: [['one', '-t'], ...flag('none', '-k', '-n', '-s')], operands: [{ ...target, count: 'one' }, command], interspersed: false },
+    { name: 'xcrun', operands: toggle(command, words, '-f'), interspersed: false },
     {
         name: 'npx',
         flags: [
@@ -555,8 +356,8 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['none', '-y', '--yes'],
             ['one', '-c', '--call'],
         ],
-        values: { '-c': { roles: ['script'] } },
-        operands: [{ ...inner, unless: ['-c'] }],
+        values: { '-c': script },
+        operands: [{ ...command, unless: ['-c'] }],
         interspersed: false,
     },
     {
@@ -566,132 +367,60 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '-w', '--with'],
             ['one', '-p', '--python'],
         ],
-        operands: [inner],
-        interspersed: false,
+        ...wrapper,
     },
-    {
-        name: 'uv',
-        commands: [
-            { name: 'run', operands: [inner], interspersed: false },
-            { name: 'tool', commands: [{ name: 'run', operands: [inner], interspersed: false }] },
-        ],
-    },
-    {
-        name: 'pnpm',
-        commands: [
-            { name: 'exec', operands: [inner], interspersed: false },
-            { name: 'dlx', operands: [inner], interspersed: false },
-        ],
-    },
-    { name: 'npm', commands: [{ name: 'exec', aliases: ['x'], operands: [inner], interspersed: false }] },
-    { name: 'poetry', aliases: ['hatch'], commands: [{ name: 'run', operands: [inner], interspersed: false }] },
-    {
-        name: 'pixi',
-        commands: [
-            { name: 'run', operands: [inner], interspersed: false },
-            { name: 'exec', operands: [inner], interspersed: false },
-        ],
-    },
-    { name: 'mise', commands: [{ name: 'exec', aliases: ['x'], operands: [inner], interspersed: false }] },
-    { name: 'doppler', aliases: ['op'], commands: [{ name: 'run', operands: [inner], interspersed: false }] },
+    { name: 'uv', commands: [...launch('run'), { name: 'tool', commands: launch('run') }] },
+    { name: 'pnpm', commands: launch('exec', 'dlx') },
+    { name: 'npm', commands: [{ name: 'exec', aliases: ['x'], ...wrapper }] },
+    { name: 'poetry', aliases: ['hatch'], commands: launch('run') },
+    { name: 'pixi', commands: launch('run', 'exec') },
+    { name: 'mise', commands: [{ name: 'exec', aliases: ['x'], ...wrapper }] },
+    { name: 'doppler', aliases: ['op'], commands: launch('run') },
     {
         name: 'git',
         values: { '-C': directory, '--git-dir': directory, '--work-tree': directory },
         commands: [
-            { name: 'add', operands: [walked] },
+            { name: 'add', operands: [trees] },
             {
                 name: 'rm',
                 operands: [
                     { roles: ['delete'], count: 'rest', unless: ['-r', '--cached'] },
-                    { roles: ['delete'], count: 'rest', tree: true, when: ['-r'], unless: ['--cached'] },
-                    { ...read, when: ['--cached'] },
+                    { ...removals, when: ['-r'], unless: ['--cached'] },
+                    { ...files, when: ['--cached'] },
                 ],
             },
-            {
-                name: 'mv',
-                operands: [
-                    { roles: ['read', 'delete'], count: 'rest', tree: true },
-                    { ...written, count: 'one' },
-                ],
-            },
-            { name: 'clean', operands: [{ roles: ['delete'], count: 'rest', tree: true }] },
+            { name: 'mv', operands: [moves, { ...target, count: 'one' }] },
+            { name: 'clean', operands: [removals] },
             { name: 'restore', operands: [{ roles: ['write'], count: 'rest', tree: true }] },
             {
                 name: 'checkout',
                 operands: [
-                    { roles: [], count: 'optional' },
+                    { ...word, count: 'optional' },
                     { roles: ['write'], count: 'rest', tree: true },
                 ],
             },
-            { name: 'apply', operands: [read], input: data },
-            { name: 'commit', values: { '-F': data } },
-            {
-                name: 'clone',
-                operands: [
-                    { roles: ['host'], count: 'one' },
-                    { roles: ['create'], count: 'optional' },
-                ],
-            },
+            { name: 'apply', operands: [files], input: file },
+            { name: 'commit', values: { '-F': file } },
+            { name: 'clone', operands: [host, { roles: ['create'], count: 'optional' }] },
         ],
         abbreviates: true,
     },
-    {
-        name: 'make',
-        flags: [['optional', '-j', '--jobs']],
-        values: { '-C': directory, '-f': data },
-        operands: [plain],
-        abbreviates: true,
-    },
-    {
-        name: 'ninja',
-        flags: [
-            ['one', '-C'],
-            ['one', '-f'],
-            ['one', '-j'],
-        ],
-        values: { '-C': directory, '-f': data },
-        operands: [plain],
-    },
-    {
-        name: 'cmake',
-        flags: [
-            ['one', '-S'],
-            ['one', '-B'],
-            ['one', '--build'],
-            ['one', '-P'],
-            ['one', '-D'],
-        ],
-        values: { '-S': data, '-B': { roles: ['create', 'write'], tree: true }, '--build': { roles: ['read', 'write'], tree: true }, '-P': { roles: ['read', 'execute'] } },
-    },
+    { name: 'make', flags: [['optional', '-j', '--jobs']], values: { '-C': directory, '-f': file }, operands: [words], abbreviates: true },
+    { name: 'ninja', flags: flag('one', '-C', '-f', '-j'), values: { '-C': directory, '-f': file }, operands: [words] },
+    { name: 'cmake', flags: flag('one', '-S', '-B', '--build', '-P', '-D'), values: { '-S': file, '-B': folder, '--build': { ...edits, count: 'one', tree: true }, '-P': program } },
     { name: 'ctest', flags: [['one', '--test-dir']], values: { '--test-dir': directory } },
-    {
-        name: 'cpack',
-        flags: [
-            ['one', '--config'],
-            ['one', '-B'],
-        ],
-        values: { '--config': data, '-B': { roles: ['create', 'write'], tree: true } },
-    },
+    { name: 'cpack', flags: flag('one', '--config', '-B'), values: { '--config': file, '-B': folder } },
     {
         name: 'clang-format',
         flags: [
             ['none', '-i'],
             ['one', '--style'],
         ],
-        operands: edited('-i'),
-        input: data,
-        output: { ...printed, unless: ['-i'] },
+        operands: rewrite(files, '-i'),
+        input: file,
+        output: { ...stdout, unless: ['-i'] },
     },
-    {
-        name: 'clang-tidy',
-        flags: [
-            ['none', '--fix'],
-            ['none', '--fix-errors'],
-            ['one', '-p'],
-        ],
-        values: { '-p': data },
-        operands: edited('--fix', '--fix-errors'),
-    },
+    { name: 'clang-tidy', flags: [...flag('none', '--fix', '--fix-errors'), ['one', '-p']], values: { '-p': file }, operands: rewrite(files, '--fix', '--fix-errors') },
     {
         name: 'gersemi',
         flags: [
@@ -699,100 +428,22 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['none', '-c', '--check'],
             ['none', '--diff'],
         ],
-        operands: fixed('-i'),
-        input: data,
+        operands: rewrite(trees, '-i'),
+        input: file,
     },
-    {
-        name: 'rustfmt',
-        flags: [
-            ['none', '--check'],
-            ['one', '--edition'],
-            ['one', '--config-path'],
-        ],
-        operands: [
-            { roles: ['read', 'write'], count: 'rest', unless: ['--check'] },
-            { ...read, when: ['--check'] },
-        ],
-        input: data,
-        output: printed,
-    },
-    {
-        name: 'cargo-fmt',
-        flags: [
-            ['none', '--check'],
-            ['none', '--all'],
-            ['one', '-p', '--package'],
-            ['one', '--manifest-path'],
-            ['one', '--message-format'],
-        ],
-        values: { '--manifest-path': data },
-    },
-    {
-        name: 'cargo',
-        commands: [
-            {
-                name: 'fmt',
-                flags: [
-                    ['none', '--check'],
-                    ['none', '--all'],
-                    ['one', '-p', '--package'],
-                    ['one', '--manifest-path'],
-                    ['one', '--message-format'],
-                ],
-                values: { '--manifest-path': data },
-            },
-        ],
-    },
-    { name: 'swiftlint', flags: [['none', '--fix', '--autocorrect']], operands: fixed('--fix'), commands: [{ name: 'lint', flags: [['none', '--fix', '--autocorrect']], operands: fixed('--fix') }] },
+    { name: 'rustfmt', flags: [['none', '--check'], ...flag('one', '--edition', '--config-path')], operands: toggle(edits, files, '--check'), input: file, output: stdout },
+    { name: 'cargo-fmt', ...format },
+    { name: 'cargo', commands: [{ name: 'fmt', ...format }] },
+    { name: 'swiftlint', ...lint, commands: [{ name: 'lint', ...lint }] },
     {
         name: 'ruff',
-        inherited: [
-            ['one', '--cache-dir'],
-            ['one', '--config'],
-        ],
+        inherited: flag('one', '--cache-dir', '--config'),
         commands: [
-            {
-                name: 'check',
-                flags: [
-                    ['none', '--fix'],
-                    ['none', '--fix-only'],
-                    ['none', '--diff'],
-                    ['one', '-o', '--output-file'],
-                ],
-                values: { '-o': written },
-                operands: [
-                    { ...walked, unless: ['--fix', '--fix-only'] },
-                    { roles: ['read', 'write'], count: 'rest', tree: true, when: ['--fix', '--fix-only'], unless: ['--diff'] },
-                    { ...walked, when: ['--diff'] },
-                ],
-            },
-            {
-                name: 'format',
-                flags: [
-                    ['none', '--check'],
-                    ['none', '--diff'],
-                ],
-                operands: [
-                    { roles: ['read', 'write'], count: 'rest', tree: true, unless: ['--check', '--diff'] },
-                    { ...walked, when: ['--check', '--diff'] },
-                ],
-            },
+            { name: 'check', flags: [...flag('none', '--fix', '--fix-only', '--diff'), ['one', '-o', '--output-file']], values: { '-o': target }, operands: repair('--fix', '--fix-only') },
+            { name: 'format', flags: flag('none', '--check', '--diff'), operands: toggle({ ...edits, tree: true }, trees, '--check', '--diff') },
         ],
     },
-    {
-        name: 'ryl',
-        flags: [
-            ['none', '--fix'],
-            ['none', '--diff'],
-            ['one', '-o', '--output-file'],
-        ],
-        values: { '-o': written },
-        operands: [
-            { ...walked, unless: ['--fix'] },
-            { roles: ['read', 'write'], count: 'rest', tree: true, when: ['--fix'], unless: ['--diff'] },
-            { ...walked, when: ['--diff'] },
-        ],
-    },
+    { name: 'ryl', flags: [...flag('none', '--fix', '--diff'), ['one', '-o', '--output-file']], values: { '-o': target }, operands: repair('--fix') },
     {
         name: 'ast-grep',
         aliases: ['sg'],
@@ -805,7 +456,7 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
                     ['none', '-U', '--update-all'],
                     ['none', '-i', '--interactive'],
                 ],
-                operands: fixed('-U', '-i'),
+                operands: rewrite(trees, '-U', '-i'),
             },
             {
                 name: 'scan',
@@ -813,35 +464,13 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
                     ['none', '-U', '--update-all'],
                     ['none', '-i', '--interactive'],
                 ],
-                operands: fixed('-U', '-i'),
+                operands: rewrite(trees, '-U', '-i'),
             },
         ],
     },
-    { name: 'mypy', aliases: ['refurb', 'pytest', 'ty'], operands: [walked] },
-    {
-        name: 'mypy',
-        aliases: ['refurb'],
-        flags: [
-            ['one', '--cache-dir'],
-            ['one', '--config-file'],
-            ['one', '--python-version'],
-        ],
-    },
-    {
-        name: 'vitest',
-        flags: [
-            ['one', '-c', '--config'],
-            ['one', '-r', '--root'],
-            ['one', '--dir'],
-            ['one', '--exclude'],
-            ['one', '--mode'],
-            ['one', '--project'],
-            ['one', '--repeats'],
-            ['one', '--reporter'],
-            ['one', '--shard'],
-            ['one', '-t', '--testNamePattern'],
-        ],
-    },
+    { name: 'mypy', aliases: ['refurb', 'pytest', 'ty'], operands: [trees] },
+    { name: 'mypy', aliases: ['refurb'], flags: flag('one', '--cache-dir', '--config-file', '--python-version') },
+    { name: 'vitest', flags: [['one', '-c', '--config'], ['one', '-r', '--root'], ['one', '-t', '--testNamePattern'], ...flag('one', '--dir', '--exclude', '--mode', '--project', '--repeats', '--reporter', '--shard')] },
     {
         name: 'playwright',
         flags: [
@@ -849,50 +478,12 @@ const signatures: readonly (typeof Usage.Encoded)[] = [
             ['one', '-g', '--grep'],
             ['one', '-G', '--grep-invert'],
             ['one', '-j', '--workers'],
-            ['one', '--add-reporter'],
-            ['one', '--browser'],
-            ['one', '--global-timeout'],
-            ['one', '--last-failed-file'],
-            ['one', '--max-failures'],
-            ['one', '--output'],
-            ['one', '--project'],
-            ['one', '--repeat-each'],
-            ['one', '--reporter'],
-            ['one', '--retries'],
-            ['one', '--shard'],
-            ['one', '--test-list'],
-            ['one', '--test-list-invert'],
-            ['one', '--timeout'],
-            ['one', '--trace'],
-            ['one', '--tsconfig'],
+            ...flag('one', '--add-reporter', '--browser', '--global-timeout', '--last-failed-file', '--max-failures', '--output', '--project', '--repeat-each', '--reporter', '--retries', '--shard', '--test-list', '--test-list-invert', '--timeout', '--trace', '--tsconfig'),
         ],
     },
-    {
-        name: 'analyzeHeadless',
-        flags: [
-            ['one', '-import'],
-            ['one', '-process'],
-            ['one', '-log'],
-            ['one', '-scriptlog'],
-            ['one', '-scriptPath'],
-            ['one', '-propertiesPath'],
-            ['one', '-preScript'],
-            ['one', '-postScript'],
-            ['one', '-processor'],
-            ['one', '-cspec'],
-            ['one', '-loader'],
-            ['one', '-analysisTimeoutPerFile'],
-            ['one', '-keystore'],
-            ['one', '-max-cpu'],
-            ['one', '-librarySearchPaths'],
-        ],
-    },
-    { name: 'stubgen', flags: [['one', '-o', '--output']], values: { '-o': { roles: ['create', 'write'], tree: true } }, operands: [read] },
-    {
-        name: 'tsc',
-        values: { '-p': data, '--outDir': { roles: ['create', 'write'], tree: true } },
-        operands: [read],
-    },
+    { name: 'analyzeHeadless', flags: flag('one', '-import', '-process', '-log', '-scriptlog', '-scriptPath', '-propertiesPath', '-preScript', '-postScript', '-processor', '-cspec', '-loader', '-analysisTimeoutPerFile', '-keystore', '-max-cpu', '-librarySearchPaths') },
+    { name: 'stubgen', flags: [['one', '-o', '--output']], values: { '-o': folder }, operands: [files] },
+    { name: 'tsc', values: { '-p': file, '--outDir': folder }, operands: [files] },
     { name: 'pulumi', values: { '-C': directory, '--cwd': directory } },
     {
         name: 'nx',

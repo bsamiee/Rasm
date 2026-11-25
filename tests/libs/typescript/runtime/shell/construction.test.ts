@@ -130,6 +130,7 @@ it.layer(Dialects.layer, { excludeTestServices: true })('construction', (suite) 
                     { build: (script: Template) => script`[[ -v ${'a[$(rec ran)]'} ]]`, raw: `[[ -v 'a[$(rec ran)]' ]]`, kind: 'Position', evaluated: [[['ran'], '']] },
                     { build: (script: Template) => script`test -v ${'a[$(rec ran)]'}`, raw: `test -v 'a[$(rec ran)]'`, kind: 'Position', evaluated: [[['ran'], '']] },
                     { build: (script: Template) => script`printf -v ${'a[$(rec ran)]'} x`, raw: `printf -v 'a[$(rec ran)]' x`, kind: 'Position', evaluated: [[['ran'], '']] },
+                    { build: (script: Template) => script`printf -v${'a[$(rec ran)]'} x`, raw: `printf -v'a[$(rec ran)]' x`, kind: 'Position', evaluated: [[['ran'], '']] },
                     { build: (script: Template) => script`read ${'a[$(rec ran)]'} <<< x`, raw: `read 'a[$(rec ran)]' <<< x`, kind: 'Position', evaluated: [[['ran'], '']] },
                     { build: (script: Template) => script`declare -a x=${'(1 $(rec ran))'}`, raw: `declare -a x='(1 $(rec ran))'`, kind: 'Position', evaluated: [[['ran'], '']] },
                     { build: (script: Template) => script`declare -n r=${'a[$(rec ran)]'}; : "$r"`, raw: `declare -n r='a[$(rec ran)]'; : "$r"`, kind: 'Position', evaluated: [[['ran'], '']] },

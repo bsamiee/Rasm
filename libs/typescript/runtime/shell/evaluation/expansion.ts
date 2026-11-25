@@ -1,376 +1,543 @@
-import { Array, Data, Glob, HashMap, HashSet, Match, Option, Redacted } from 'effect';
-import { type BraceExp, LangVariant, type Lit, type SglQuoted, type Word, type WordPart } from 'sh-syntax';
-import { evaluated } from '#/evaluation/arithmetic';
-import { Chunk, type Parted, type Frame, held, parameter, rendered, type Rules, splits, Value, valued } from '#/evaluation/parameter';
-import { Binding, Role, Expanded, type Expansion, Field, Matching, Origin, Piece, Refused, Scope, Unmatched } from '#/evaluation/value';
+import { Array, Data, Glob, HashMap, HashSet, Match, Option, pipe, Predicate, Record, Redacted } from 'effect';
+import { type ArithmExpr, type BraceExp, LangVariant, type Lit, type ParamExp, ParExpOperator, ParNamesOperator, type Replace, type SglQuoted, type Slice, type Word, type WordPart } from 'sh-syntax';
+import { evaluate } from '#/evaluation/arithmetic';
+import { Content, Value } from '#/evaluation/parameter';
+import { Binding, binding, Expanded, type Expansion, Field, Matching, Origin, Piece, Refused, Role, Scope, Unmatched } from '#/evaluation/value';
 import type { Dialect } from '#/syntax/dialect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Token = Data.TaggedEnum<{
-    Piece: { readonly text: string; readonly glob: boolean; readonly secret: boolean };
-    Mark: object;
-    Unseen: { readonly origin: Origin; readonly certain: boolean; readonly many: boolean };
-    Space: object;
-    Delimiter: object;
+type Chunk = Data.TaggedEnum<{
+    Text: { readonly text: string; readonly quoted: boolean; readonly split: boolean; readonly glob: boolean; readonly secret: boolean };
+    Unknown: { readonly origin: Origin; readonly certain: boolean; readonly many: boolean };
     Break: object;
+    Refusal: Value['refusals'][number];
 }>;
-type Segment = Extract<Token, { readonly _tag: 'Piece' | 'Unseen' }>;
-interface Built {
+type Segment = Extract<Chunk, { readonly _tag: 'Text' | 'Unknown' }>;
+type Evaluated = readonly [Scope, readonly Chunk[]];
+type Operator = (exp: ParamExp, held: Held, frame: Frame, plain: boolean) => Held;
+type Splitting = typeof unsplit;
+interface Site {
+    readonly braces: boolean;
+    readonly split: boolean;
+    readonly single: boolean;
+    readonly sole: boolean;
+    readonly tilde: boolean;
+    readonly colons: boolean;
+    readonly named: boolean;
+    readonly heredoc: Option.Option<boolean>;
+    readonly glob: Option.Option<ReturnType<typeof globbing>>;
+}
+interface Frame {
+    readonly dialect: Dialect;
+    readonly zsh: boolean;
+    readonly site: Site;
+    readonly patterns: Site;
+    readonly quoted: boolean;
+    readonly result: boolean;
+    readonly secret: (part: WordPart) => boolean;
+}
+interface Held {
+    readonly value: Value;
+    readonly scope: Scope;
+    readonly spliced: Option.Option<readonly Chunk[]>;
+}
+interface Draft {
     readonly segments: readonly Segment[];
     readonly certain: boolean;
-}
-interface Splitting {
-    readonly current: Built;
-    readonly started: boolean;
-    readonly spaced: boolean;
-    readonly exact: boolean;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const Token = Data.taggedEnum<Token>();
+const Chunk = Data.taggedEnum<Chunk>();
 const limit = 10_000;
 const spaces = ' \t\n';
-const blank: Built = { segments: [], certain: false };
-const simple: Readonly<Record<string, string>> = { a: '\u0007', b: '\b', e: '\u001B', E: '\u001B', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' };
-const honored = new Set('aAcehlPqQrstu&');
+const blank: Draft = { segments: [], certain: false };
+const unsplit = { fields: Array.empty<Draft>(), current: blank, started: false, spaced: false, exact: true };
 const integral = /^[-+]?\d+$/u;
+const assignment = /^[A-Za-z_]\w*=/u;
+const spreads: Readonly<Record<string, boolean>> = { '@': true, '*': false };
+const escapes: Readonly<Record<string, string>> = { a: '\u0007', b: '\b', e: '\u001B', E: '\u001B', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' };
+const byte = (value: number) => `%${value.toString(16).padStart(2, '0')}`;
+const control = (character: string) => byte(character === '?' ? 0x7f : (character.codePointAt(0) ?? 0) & 0x1f);
+const ansi: Readonly<Record<string, (held: string, zsh: boolean, wide: boolean) => string>> = {
+    plain: (held) => encodeURIComponent(held),
+    caret: (held, zsh) => (zsh ? encodeURIComponent(`c${held}`) : control(held)),
+    chord: (held, zsh) => (zsh ? control(held) : encodeURIComponent(`\\C-${held}`)),
+    meta: (held, zsh) => (zsh ? byte(0x80 + ((held.codePointAt(0) ?? 0) & 0x7f)) : encodeURIComponent(`\\M-${held}`)),
+    hex: (held) => byte(Number.parseInt(held, 16)),
+    octal: (held) => byte(Number.parseInt(held, 8) & 0xff),
+    point: (held, _, wide) => {
+        const digits = held.slice(1, held.startsWith('u') ? 5 : 9);
+        const encoded = Option.getOrElse(Option.liftThrowable(() => encodeURIComponent(String.fromCodePoint(Number.parseInt(digits, 16))))(), () => '%');
+        return wide ? `${encoded}${encodeURIComponent(held.slice(1 + digits.length))}` : encodeURIComponent(`\\${held}`);
+    },
+    other: (held, zsh) => encodeURIComponent(escapes[held] ?? (zsh ? held : `\\${held}`)),
+};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const rules = (role: Role, dialect: Dialect): Rules => {
-    const { braceexpand, posix } = dialect.options;
-    const single: Rules = { braces: false, split: false, glob: Option.none(), single: true, tilde: true, colons: false, named: false, heredoc: Option.none() };
+const globbing = ({ options, variant }: Dialect, paths: boolean) => {
+    const zsh = variant === LangVariant.LangZsh;
+    const magic = zsh ? /[*?(]|\[.+\]/su : /[*?]|\[.+\]/su;
+    const beyond = options.extendedglob ? /[()|^#~]|\*{3}/u : /[()|]|\*{3}/u;
+    const stars = zsh ? /\\[\s\S]|\*{2,}(?!\/)/gu : /\\[\s\S]|\*{2,}/gu;
+    const policies = [
+        [options.nomatch, Unmatched.Refused()],
+        [options.nullglob, Unmatched.Dropped()],
+    ] as const;
+    const unmatched = Option.match(
+        Array.findFirst(zsh ? policies.toReversed() : policies, ([set]) => set),
+        { onNone: () => Unmatched.Kept(), onSome: ([, policy]) => policy },
+    );
+    const fold = (pattern: string) => (zsh || !options.globstar ? pattern.replaceAll(stars, (found) => (found.startsWith('\\') ? found : '*')) : pattern);
+    return (active: string) => {
+        const modelled = !(options.nocaseglob || (zsh && beyond.test(active)) || (paths && !options.globskipdots && /(?:^|\/)\./u.test(active)));
+        const read = (pattern: Option.Option<string>) => Option.filter(pattern, () => modelled);
+        const match = (pattern: Option.Option<string>) => (paths ? Matching.Paths({ glob: Option.map(read(pattern), (text) => Glob.make(fold(text), { dot: options.dotglob })), unmatched }) : Matching.Strings({ glob: Option.map(read(pattern), Field.strings) }));
+        return Option.liftPredicate(match, () => (!paths || options.glob) && magic.test(active));
+    };
+};
+const place = (role: Role, dialect: Dialect): Site => {
+    const { options, variant } = dialect;
+    const single: Site = { braces: false, split: false, single: true, sole: false, tilde: true, colons: false, named: false, heredoc: Option.none(), glob: Option.none() };
     return Role.$match(role, {
-        Argument: (): Rules => ({ ...single, braces: braceexpand, split: true, glob: Option.some('Paths'), single: false, named: dialect.variant === LangVariant.LangBash && !posix }),
-        Redirect: (): Rules => ({ ...single, braces: braceexpand, split: !posix, glob: posix ? Option.none() : Option.some('Paths'), single: false }),
+        Argument: (): Site => ({ ...single, braces: options.braceexpand, split: true, single: false, named: variant === LangVariant.LangBash && !options.posix, glob: Option.some(globbing(dialect, true)) }),
+        Redirect: (): Site => ({ ...single, braces: options.braceexpand, split: !options.posix, single: false, sole: !(variant === LangVariant.LangZsh && options.multios), glob: options.posix ? Option.none() : Option.some(globbing(dialect, true)) }),
         Assignment: () => ({ ...single, colons: true }),
-        Pattern: (): Rules => ({ ...single, glob: Option.some('Strings') }),
+        Pattern: (): Site => ({ ...single, glob: Option.some(globbing(dialect, false)) }),
         Operand: () => single,
         Heredoc: ({ expands }) => ({ ...single, tilde: false, heredoc: Option.some(expands) }),
     });
 };
-const home = (user: Option.Option<string>, zsh: boolean) => [...(zsh && Option.isSome(user) ? [Chunk.Refuse({ origin: Origin.Home({ user }), certain: false })] : []), Chunk.Hidden({ origin: Origin.Home({ user }), certain: true, many: false })];
-const numbered = (width: number) => (value: number) => (value < 0 ? `-${`${-value}`.padStart(Math.max(width - 1, 0), '0')}` : `${value}`.padStart(width, '0'));
-const lettered = (zsh: boolean) => (code: number) => (code === 0x5c && !zsh ? '' : String.fromCodePoint(code));
-const opening = (part: WordPart) =>
-    Match.value(part).pipe(
-        Match.when({ type: 'SglQuoted', dollar: false }, ({ value }) => value),
-        Match.when({ type: 'DblQuoted' }, ({ parts }) => parts.map((inner) => (inner.type === 'Lit' ? inner.value : '\u0000')).join('')),
-        Match.orElse(() => ''),
-    );
-const byte = (value: number) => `%${value.toString(16).padStart(2, '0')}`;
-const point = (value: number) => Option.getOrElse(Option.liftThrowable(() => encodeURIComponent(String.fromCodePoint(value)))(), () => '%');
-const control = (character: string) => byte(character === '?' ? 0x7f : (character.codePointAt(0) ?? 0) & 0x1f);
-const decoded = (raw: string, dialect: Dialect): Option.Option<string> => {
-    const zsh = dialect.variant === LangVariant.LangZsh;
-    const wide = dialect.supports('unicode');
-    const pieces = Array.fromIterable(raw.matchAll(/\\(?:c(?<caret>[\s\S])|C-(?<chord>[\s\S])|M-(?<meta>[\s\S])|x(?<hex>[\da-fA-F]{1,2})|(?<escape>[uU])(?<code>[\da-fA-F]+)|(?<octal>[0-7]{1,3})|(?<other>[\s\S]))|(?<plain>[^\\]+)|\\$/gu)).map((found) => {
-        const groups: { readonly caret?: string; readonly chord?: string; readonly meta?: string; readonly hex?: string; readonly escape?: string; readonly code?: string; readonly octal?: string; readonly other?: string; readonly plain?: string } = found.groups ?? {};
-        return Match.value(groups).pipe(
-            Match.when({ plain: Match.string }, ({ plain }) => encodeURIComponent(plain)),
-            Match.when({ caret: Match.string }, ({ caret }) => (zsh ? encodeURIComponent(`c${caret}`) : control(caret))),
-            Match.when({ chord: Match.string }, ({ chord }) => (zsh ? control(chord) : encodeURIComponent(`\\C-${chord}`))),
-            Match.when({ meta: Match.string }, ({ meta }) => (zsh ? byte(0x80 + ((meta.codePointAt(0) ?? 0) & 0x7f)) : encodeURIComponent(`\\M-${meta}`))),
-            Match.when({ hex: Match.string }, ({ hex }) => byte(Number.parseInt(hex, 16))),
-            Match.when({ octal: Match.string }, ({ octal }) => byte(Number.parseInt(octal, 8) & 0xff)),
-            Match.when({ escape: Match.string, code: Match.string }, ({ escape, code }) => {
-                const digits = code.slice(0, escape === 'u' ? 4 : 8);
-                return wide ? `${point(Number.parseInt(digits, 16))}${encodeURIComponent(code.slice(digits.length))}` : encodeURIComponent(`\\${escape}${code}`);
-            }),
-            Match.when({ other: Match.string }, ({ other }) => encodeURIComponent(simple[other] ?? (zsh ? other : `\\${other}`))),
-            Match.orElse(() => encodeURIComponent('\\')),
-        );
-    });
-    const joined = pieces.join('');
-    return Option.liftThrowable(decodeURIComponent)(zsh || !joined.includes('%00') ? joined : joined.slice(0, joined.indexOf('%00')));
+const unescape = (escapable: RegExp) => (text: string) => text.replaceAll(escapable, (_, held: string) => (held === '\n' ? '' : held));
+const quote = (text: string, secret = false) => Chunk.Text({ text, quoted: true, split: false, glob: false, secret });
+const splits = ({ site, dialect }: Frame, exp?: ParamExp) => site.split && (exp?.split === 1 || (dialect.options.wordsplit && exp?.split !== 2));
+const emit = (text: string, frame: Frame, exp?: ParamExp) => {
+    const globs = Option.isSome(frame.site.glob) && (exp?.globSubst === 1 || (frame.dialect.options.globsubst && exp?.globSubst !== 2));
+    return Chunk.Text({ text, quoted: frame.quoted, split: !frame.quoted && splits(frame, exp), glob: !frame.quoted && globs, secret: false });
 };
-const bare = (text: string, frame: Frame, secret: boolean): readonly Chunk[] =>
-    Array.fromIterable(text.matchAll(/\\(?<escaped>[\s\S])|(?<plain>[^\\]+)|\\$/gu)).flatMap((found) => {
-        const groups: { readonly escaped?: string; readonly plain?: string } = found.groups ?? {};
-        return Match.value(groups).pipe(
-            Match.when({ plain: Match.string }, ({ plain }) => [Chunk.Text({ text: plain, quoted: false, split: frame.result && splits(frame), glob: Option.isSome(frame.rules.glob), secret })]),
-            Match.when({ escaped: '\n' }, () => []),
-            Match.orElse(({ escaped = '\\' }) => [held(escaped, secret)]),
-        );
-    });
-const stepped = (from: number, to: number, by: number, zsh: boolean): Option.Option<readonly number[]> => {
+const obscure = (origin: Origin, frame: Frame, plural = false, exp?: ParamExp) => {
+    const one = frame.quoted || frame.site.single;
+    return Chunk.Unknown({ origin, certain: one && !plural, many: !frame.site.single && (plural || (!frame.quoted && splits(frame, exp))) });
+};
+const spell = (chunks: readonly Chunk[], write = ({ text }: Extract<Chunk, { readonly _tag: 'Text' }>) => text): Option.Option<string> =>
+    Option.map(Option.all(chunks.map(Chunk.$match({ Text: (held) => Option.some(write(held)), Break: () => Option.some(' '), Unknown: () => Option.none(), Refusal: () => Option.some('') }))), Array.join(''));
+const separators = (scope: Scope) => Option.orElse(scope.text('IFS'), () => Option.liftPredicate(spaces, () => scope.get('IFS')._tag === 'Unset'));
+
+// --- [BRACES]
+
+const enumerate = (from: number, to: number, by: number, zsh: boolean): Option.Option<readonly number[]> => {
     const stride = Math.abs(by) || 1;
     const count = Math.floor(Math.abs(to - from) / stride) + 1;
     const values = Array.makeBy(Math.min(count, limit), (index) => from + Math.sign(to - from || 1) * index * stride);
-    return count > limit || ![from, to, by].every(Number.isSafeInteger) ? Option.none() : Option.some(zsh && by < 0 ? values.toReversed() : values);
+    return Option.liftPredicate(zsh && by < 0 ? values.toReversed() : values, () => count <= limit && [from, to, by].every(Number.isSafeInteger));
 };
-const sequenced = (brace: BraceExp, dialect: Dialect): Option.Option<readonly string[]> =>
-    Option.flatMap(Option.all(brace.elems.map((elem) => (elem.parts.length === 1 && elem.parts[0]?.type === 'Lit' ? Option.some(elem.parts[0].value) : Option.none()))), ([start = '', end = '', step]) => {
+const sequence = ({ elems }: BraceExp, dialect: Dialect): Option.Option<readonly string[]> =>
+    Option.flatMap(Option.all(elems.map(({ parts }) => (parts.length === 1 && parts[0]?.type === 'Lit' ? Option.some(parts[0].value) : Option.none()))), ([start = '', end = '', step]) => {
         const zsh = dialect.variant === LangVariant.LangZsh;
         const width = dialect.supports('padding') && [start, end].some((text) => /^[-+]?0\d/u.test(text)) ? Math.max(start.length, end.length) : 0;
-        return Match.value({ start, end, step }).pipe(
-            Match.when(
-                (ends) => ends.step !== undefined && !dialect.supports('steps'),
-                () => Option.some([`{${[start, end, step].join('..')}}`]),
-            ),
-            Match.when(
-                (ends) => ends.step === '0' && zsh,
-                () => Option.none(),
-            ),
-            Match.when(
-                (ends) => integral.test(ends.start) && integral.test(ends.end) && (ends.step === undefined || integral.test(ends.step)),
-                () => Option.map(stepped(Number(start), Number(end), Number(step ?? '1'), zsh), (values) => values.map(numbered(width))),
-            ),
-            Match.when(
-                (ends) => [...ends.start].length === 1 && [...ends.end].length === 1 && (ends.step === undefined || (!zsh && integral.test(ends.step))),
-                () => Option.map(stepped(start.codePointAt(0) ?? 0, end.codePointAt(0) ?? 0, Number(step ?? '1'), zsh), (points) => points.map(lettered(zsh))),
-            ),
-            Match.orElse(() => Option.some([`{${[start, end, ...Option.toArray(Option.fromUndefinedOr(step))].join('..')}}`])),
-        );
+        const kinds = [
+            { fits: integral.test(start) && integral.test(end), read: Number, write: (value: number) => (value < 0 ? `-${`${-value}`.padStart(Math.max(width - 1, 0), '0')}` : `${value}`.padStart(width, '0')) },
+            { fits: [...start].length === 1 && [...end].length === 1 && (step === undefined || !zsh), read: (text: string) => text.codePointAt(0) ?? 0, write: (code: number) => (code === 0x5c && !zsh ? '' : String.fromCodePoint(code)) },
+        ];
+        const by = step === undefined ? Option.some(1) : Option.liftPredicate(Number(step), () => integral.test(step) && dialect.supports('steps'));
+        const written = Option.match(Option.all([Array.findFirst(kinds, ({ fits }) => fits), by]), {
+            onNone: () => Option.some([`{${[start, end, ...Array.fromNullishOr(step)].join('..')}}`]),
+            onSome: ([{ read, write }, stride]) => Option.map(enumerate(read(start), read(end), stride, zsh), Array.map(write)),
+        });
+        return Option.filter(written, () => !(zsh && step === '0' && dialect.supports('steps')));
     });
-const choices = (part: WordPart, dialect: Dialect): Option.Option<readonly (readonly WordPart[])[]> =>
+const choose = (part: WordPart, dialect: Dialect): Option.Option<readonly (readonly WordPart[])[]> =>
     Match.value(part).pipe(
-        Match.when({ type: 'BraceExp', sequence: true }, (brace) => Option.map(sequenced(brace, dialect), (values) => values.map((value): readonly SglQuoted[] => [{ type: 'SglQuoted', start: brace.start, end: brace.end, left: brace.lbrace, right: brace.rbrace, dollar: false, value }]))),
-        Match.when({ type: 'BraceExp' }, (brace) => Option.map(Option.all(brace.elems.map((elem) => alternated(elem.parts, dialect))), (found) => found.flat())),
-        Match.when(
-            (candidate: WordPart) => candidate.type === 'Lit' && dialect.options.braceccl && /\{[^{},]+\}/u.test(candidate.value),
-            () => Option.none(),
-        ),
+        Match.when({ type: 'BraceExp', sequence: true }, (brace) => {
+            const literal = (value: string): readonly SglQuoted[] => [{ type: 'SglQuoted', start: brace.start, end: brace.end, left: brace.lbrace, right: brace.rbrace, dollar: false, value }];
+            return Option.map(sequence(brace, dialect), Array.map(literal));
+        }),
+        Match.when({ type: 'BraceExp' }, ({ elems }) => Option.map(Option.all(elems.map(({ parts }) => alternate(parts, dialect))), Array.flatten)),
+        Match.when({ type: 'Lit', value: (value: string) => dialect.options.braceccl && /\{[^{},]+\}/u.test(value) }, () => Option.none()),
         Match.orElse((plain) => Option.some([[plain]])),
     );
-const alternated = (parts: readonly WordPart[], dialect: Dialect): Option.Option<readonly (readonly WordPart[])[]> =>
+const alternate = (parts: readonly WordPart[], dialect: Dialect): Option.Option<readonly (readonly WordPart[])[]> =>
     parts.reduce<Option.Option<readonly (readonly WordPart[])[]>>(
-        (prefixes, part) => Option.flatMap(Option.all([prefixes, choices(part, dialect)]), ([heads, tails]) => (heads.length * tails.length > limit ? Option.none() : Option.some(Array.cartesianWith(heads, tails, (head: readonly WordPart[], tail: readonly WordPart[]) => Array.appendAll(head, tail))))),
+        (prefixes, part) => Option.flatMap(Option.all([prefixes, choose(part, dialect)]), ([heads, tails]) => (heads.length * tails.length > limit ? Option.none() : Option.some(Array.cartesianWith(heads, tails, (head: readonly WordPart[], tail: readonly WordPart[]) => Array.appendAll(head, tail))))),
         Option.some([[]]),
     );
-const tilded = (lit: Lit, next: Option.Option<WordPart>, scope: Scope, frame: Frame, colons: boolean): Option.Option<readonly [readonly Chunk[], string]> => {
-    const zsh = frame.dialect.variant === LangVariant.LangZsh;
-    const known = (name: string, unset: () => readonly Chunk[]) =>
-        Binding.$match(scope.get(name), {
-            Known: ({ value }) => [held(value)],
-            Unset: unset,
-            Listed: () => [Chunk.Hidden({ origin: Origin.Variable({ name, origins: HashSet.empty() }), certain: true, many: false })],
-            Unknown: ({ origins }) => [Chunk.Hidden({ origin: Origin.Variable({ name, origins }), certain: true, many: false })],
-        });
-    const slashed = Option.exists(Option.map(next, opening), (text) => text.startsWith('/'));
-    return Option.flatMap(Option.fromNullishOr((colons ? /^~(?<user>[^/\\:]*)(?<slash>[/:]?)/u : /^~(?<user>[^/\\]*)(?<slash>\/?)/u).exec(lit.value)), (found) => {
-        const { user = '', slash = '' } = found.groups ?? {};
-        const rest = lit.value.slice(found[0].length - slash.length);
-        const literal = () => [held(`~${user}`)];
-        return Match.value({ open: slash === '' && rest === '' && Option.isSome(next), zsh, slashed }).pipe(
-            Match.when({ open: true, zsh: false }, () => Option.none()),
-            Match.when({ open: true, slashed: false }, () => Option.some([home(Option.some(user), zsh), rest] as const)),
-            Match.orElse(() =>
-                Option.some([
-                    Match.value(user).pipe(
-                        Match.when('', () => Binding.$match(scope.get('HOME'), { Known: ({ value }) => [held(value)], Unset: () => home(Option.none(), zsh), Listed: () => home(Option.none(), zsh), Unknown: () => home(Option.none(), zsh) })),
-                        Match.when('+', () => known('PWD', literal)),
-                        Match.when('-', () => known('OLDPWD', literal)),
-                        Match.when((name: string) => /^[+-](?!\d+$)/u.test(name), literal),
-                        Match.orElse((name) => home(Option.some(name), zsh)),
-                    ),
-                    rest,
-                ] as const),
-            ),
-        );
+
+// --- [PARAMETERS]
+
+const calculate = (expression: ArithmExpr | null, scope: Scope, frame: Frame) =>
+    evaluate(expression, scope, {
+        dialect: frame.dialect,
+        text: (word, from) => {
+            const [next, chunks] = expandWord(word, from, frame);
+            return [next, spell(chunks)];
+        },
+    });
+const look = (exp: ParamExp, scope: Scope, frame: Frame): readonly [Scope, Value] => {
+    const direct = Value.read(exp.param?.value ?? '', scope);
+    const base = Match.value({ nested: exp.nestedParam, excl: exp.excl, shaped: exp.names !== ParNamesOperator.None || exp.index !== null }).pipe(
+        Match.when({ nested: { type: 'ParamExp' } }, ({ nested }) => direct.hold(look(nested, scope, frame)[1].content)),
+        Match.when({ nested: Match.defined }, () => direct.obscure(false, Origin.Substitution({ programs: [] }))),
+        Match.when({ excl: true, shaped: true }, () => direct.obscure(true)),
+        Match.when({ excl: true }, () => direct.refer(scope)),
+        Match.orElse(() => direct),
+    );
+    const subscript = Option.map(Option.fromNullOr(exp.index), (index) => (index.type === 'Word' && index.parts.length === 1 && index.parts[0]?.type === 'Lit' ? index.parts[0].value : ''));
+    return Option.match(subscript, {
+        onNone: () => [scope, direct.named && !frame.zsh ? base.first() : base],
+        onSome: (written) =>
+            Option.match(Record.get(spreads, written), {
+                onSome: (spread) => [scope, base.spread(spread)],
+                onNone: () => {
+                    const [next, position] = calculate(exp.index, scope, frame);
+                    return [next, base.index(position, frame.zsh, frame.dialect.options.ksharrays ? 0 : 1)];
+                },
+            }),
     });
 };
-const parted = (part: WordPart, trailing: readonly string[], scope: Scope, frame: Frame): Parted => {
+const expandPattern = (word: Word | null | undefined, held: Held, frame: Frame): readonly [Held, Option.Option<Field>] =>
+    Option.match(Option.fromNullishOr(word), {
+        onNone: () => [held, Option.none()],
+        onSome: ({ parts }) => {
+            const within = { ...frame, site: frame.patterns, quoted: false, result: false };
+            const [scope, chunks] = expandParts(parts, held.scope, within, true);
+            return [{ ...held, scope, value: held.value.refuse(...chunks.filter(Chunk.$is('Refusal'))) }, Option.some(settle(gather(chunks), within))];
+        },
+    });
+const keep: Operator = (_, held) => held;
+const forget: Operator = (_, held) => ({ ...held, value: held.value.obscure() });
+const refuse =
+    (certain: boolean): Operator =>
+    (_, held) => ({ ...held, value: held.value.obscure().refuse({ origin: held.value.origin, certain }) });
+const substitute =
+    (given: boolean): Operator =>
+    (exp, { value, scope }, frame, plain) => {
+        const [next, chunks] = Option.match(Option.fromNullishOr(given ? exp.exp?.word : null), { onNone: (): Evaluated => [scope, []], onSome: ({ parts }) => expandParts(parts, scope, { ...frame, result: true }, true) });
+        const read = value.refuse(...chunks.filter(Chunk.$is('Refusal'))).hold(Content.Scalar({ text: '' }));
+        const whole = !frame.quoted && splits(frame, exp) ? read.obscure(true) : read.map(() => spell(chunks));
+        return plain ? { value, scope: next, spliced: Option.some(frame.quoted && Array.isReadonlyArrayEmpty(chunks) ? [quote('')] : chunks) } : { value: whole, scope: next, spliced: Option.none() };
+    };
+const assign: Operator = (exp, { value, scope, spliced }, frame) => {
+    const [next, chunks] = Option.match(Option.fromNullishOr(exp.exp?.word), { onNone: (): Evaluated => [scope, []], onSome: (word) => expandWord(word, scope, frame) });
+    const assignable = value.named && exp.index === null && exp.nestedParam === null;
+    const stored = value.refuse(...chunks.filter(Chunk.$is('Refusal'))).hold(Content.Scalar({ text: '' }));
+    return { value: stored.map(() => Option.filter(spell(chunks), () => assignable)), scope: assignable ? next.set(exp.param?.value ?? '', binding(spell(chunks), [value.origin])) : next, spliced };
+};
+const test =
+    (colon: boolean, empty: Operator, full: Operator, unknown = forget): Operator =>
+    (exp, held, frame, plain) =>
+        Option.match(held.value.empty(colon), { onNone: () => unknown, onSome: (is) => (is ? empty : full) })(exp, held, frame, plain);
+const remove =
+    (prefix: boolean, largest: boolean): Operator =>
+    (exp, held, frame) => {
+        const [next, pattern] = expandPattern(exp.exp?.word, held, frame);
+        return Option.match(pattern, { onNone: () => next, onSome: (field) => ({ ...next, value: next.value.remove(field, prefix, largest) }) });
+    };
+const support =
+    (feature: 'casing' | 'transforms', change: (value: Value, exp: ParamExp) => Value): Operator =>
+    (exp, held, frame) => ({ ...held, value: frame.dialect.supports(feature) ? change(held.value, exp) : held.value.obscure().refuse({ origin: Origin.Unsupported(), certain: true }) });
+const recase = (change: (text: string) => string) => support('casing', (value, exp) => (exp.exp?.word === null ? value.recase(change) : value.obscure()));
+const operators: Readonly<Record<ParExpOperator, Operator>> = {
+    [ParExpOperator.DefaultUnset]: test(false, substitute(true), keep),
+    [ParExpOperator.DefaultUnsetOrNull]: test(true, substitute(true), keep),
+    [ParExpOperator.AlternateUnset]: test(false, substitute(false), substitute(true)),
+    [ParExpOperator.AlternateUnsetOrNull]: test(true, substitute(false), substitute(true)),
+    [ParExpOperator.AssignUnset]: test(false, assign, keep),
+    [ParExpOperator.AssignUnsetOrNull]: test(true, assign, keep),
+    [ParExpOperator.ErrorUnset]: test(false, refuse(true), keep, refuse(false)),
+    [ParExpOperator.ErrorUnsetOrNull]: test(true, refuse(true), keep, refuse(false)),
+    [ParExpOperator.RemSmallPrefix]: remove(true, false),
+    [ParExpOperator.RemLargePrefix]: remove(true, true),
+    [ParExpOperator.RemSmallSuffix]: remove(false, false),
+    [ParExpOperator.RemLargeSuffix]: remove(false, true),
+    [ParExpOperator.UpperFirst]: recase((text) => `${text.slice(0, 1).toUpperCase()}${text.slice(1)}`),
+    [ParExpOperator.UpperAll]: recase((text) => text.toUpperCase()),
+    [ParExpOperator.LowerFirst]: recase((text) => `${text.slice(0, 1).toLowerCase()}${text.slice(1)}`),
+    [ParExpOperator.LowerAll]: recase((text) => text.toLowerCase()),
+    [ParExpOperator.OtherParamOps]: support('transforms', (value) => value.obscure()),
+    [ParExpOperator.MatchEmpty]: forget,
+    [ParExpOperator.ArrayExclude]: forget,
+    [ParExpOperator.ArrayIntersect]: forget,
+};
+const operate =
+    (exp: ParamExp, frame: Frame, plain: boolean) =>
+    (held: Held): Held =>
+        exp.exp === null ? held : operators[exp.exp.op](exp, held, frame, plain);
+const slice =
+    (bounds: Slice | null, frame: Frame) =>
+    (held: Held): Held =>
+        Option.match(Option.fromNullOr(bounds), {
+            onNone: () => held,
+            onSome: ({ offset, length }) => {
+                const [scope, edges] = Array.mapAccum([offset, ...Array.fromNullishOr(length)], held.scope, (from, edge) => calculate(edge, from, frame));
+                return { ...held, scope, value: held.value.slice(edges, frame.dialect.supports('negative'), held.scope.name) };
+            },
+        });
+const replace =
+    (found: Replace | null, frame: Frame) =>
+    (held: Held): Held =>
+        Option.match(Option.fromNullOr(found), {
+            onNone: () => held,
+            onSome: (repl) => {
+                const head = Option.filter(Array.head(repl.orig?.parts ?? []), (part): part is Lit => part.type === 'Lit');
+                const anchor = Option.filter(
+                    Option.map(head, ({ value }) => value.charAt(0)),
+                    (mark) => (mark === '#' || mark === '%') && (frame.zsh || !repl.all),
+                );
+                const bare = Option.map(Option.fromNullOr(repl.orig), (word) => ({ ...word, parts: word.parts.map((part, at) => (at === 0 && part.type === 'Lit' && Option.isSome(anchor) ? { ...part, value: part.value.slice(1) } : part)) }));
+                const [searched, pattern] = expandPattern(Option.getOrNull(bare), held, frame);
+                const [scope, chunks] = Option.match(Option.fromNullOr(repl.with), { onNone: (): Evaluated => [searched.scope, []], onSome: (word) => expandWord(word, searched.scope, frame) });
+                const put = (match: string) => spell(chunks, ({ text, quoted }) => (frame.dialect.options.patsub && !quoted ? text.replaceAll('&', match) : text));
+                const value = searched.value.refuse(...chunks.filter(Chunk.$is('Refusal')));
+                return { ...searched, scope, value: Option.match(pattern, { onNone: () => value.obscure(), onSome: (field) => value.replace(field, anchor, repl.all, put) }) };
+            },
+        });
+const render = ({ content, origin: read }: Value, frame: Frame, scope: Scope, exp?: ParamExp): readonly Chunk[] => {
+    const { quoted, site, dialect } = frame;
+    const strict = exp !== undefined && dialect.options.nounset;
+    return Content.$match(content, {
+        Unset: () => [...(strict ? [Chunk.Refusal({ origin: read, certain: true })] : []), ...(quoted || site.single ? [emit('', frame, exp)] : [])],
+        Scalar: ({ text }) => [emit(text, frame, exp)],
+        List: ({ items, spread }) => {
+            const glue = spread && site.single && dialect.variant === LangVariant.LangBash ? Option.some(' ') : Option.map(separators(scope), (ifs) => [...ifs][0] ?? '');
+            const joined = Option.match(glue, { onNone: () => Chunk.Unknown({ origin: Origin.Variable({ name: 'IFS', origins: HashSet.empty() }), certain: true, many: false }), onSome: (between) => emit(items.join(between), frame, exp) });
+            const broken = items.map((item): Chunk => emit(item, frame, exp));
+            return site.single || (quoted && !spread) ? [joined] : Array.intersperse(broken, Chunk.Break());
+        },
+        Unknown: ({ origin, many }) => [...(strict ? [Chunk.Refusal({ origin, certain: false })] : []), obscure(origin, frame, many, exp)],
+    });
+};
+const expandParameter = (exp: ParamExp, trailing: readonly string[], scope: Scope, frame: Frame): Evaluated => {
+    const { isSet: tests } = exp;
+    const letters = [...exp.modifiers.map(({ value }) => value), ...trailing];
+    const flags = Value.flags(exp.flags?.value ?? '');
+    const plain = Array.isReadonlyArrayEmpty(letters) && Option.exists(flags, ({ size }) => size === 0) && !exp.length && exp.slice === null && exp.repl === null;
+    const modelled = !(exp.width || exp.rcExpand === 1 || exp.subscripts.length > 0 || (exp.names !== ParNamesOperator.None && !exp.excl));
+    const [looked, found] = look(exp, scope, frame);
+    const start: Held = { value: tests ? found.exists() : found, scope: looked, spliced: Option.none() };
+    const { value, scope: next, spliced } = pipe(start, operate(exp, frame, plain), slice(exp.slice, frame), replace(exp.repl, frame));
+    const modified = letters.reduce((held, letter) => held.modify(letter, next.text('PWD')), value);
+    const flagged = Option.map(flags, (held) => (exp.length ? modified.measure() : modified).flag(held, frame.quoted));
+    const body = Option.match(
+        Option.filter(flagged, () => modelled),
+        { onNone: () => render(value.obscure(true), frame, next, exp), onSome: (final) => Option.getOrElse(spliced, () => render(final, frame, next, exp)) },
+    );
+    return [next, [...value.refusals.map(Chunk.Refusal), ...body]];
+};
+
+// --- [WORDS]
+
+const decode = (raw: string, { dialect, zsh }: Frame): Option.Option<string> => {
+    const wide = dialect.supports('unicode');
+    const found = raw.matchAll(/\\(?:c(?<caret>[\s\S])|C-(?<chord>[\s\S])|M-(?<meta>[\s\S])|x(?<hex>[\da-fA-F]{1,2})|(?<point>[uU][\da-fA-F]+)|(?<octal>[0-7]{1,3})|(?<other>[\s\S]))|(?<plain>[^\\]+)|\\$/gu);
+    const encode = ([form, held]: readonly [string, string | undefined]) =>
+        Option.map(
+            Option.filter(Record.get(ansi, form), () => Predicate.isString(held)),
+            (write) => write(held ?? '', zsh, wide),
+        );
+    const bytes = Array.fromIterable(found)
+        .map(({ groups = {} }) => Option.getOrElse(Array.findFirst(Record.toEntries(groups), encode), () => '%5C'))
+        .join('');
+    return Option.liftThrowable(decodeURIComponent)(zsh || !bytes.includes('%00') ? bytes : bytes.slice(0, bytes.indexOf('%00')));
+};
+const scan = (text: string, frame: Frame, secret: boolean): readonly Chunk[] =>
+    Array.fromIterable(text.matchAll(/\\(?<escaped>[\s\S])|(?<plain>[^\\]+)|\\$/gu)).flatMap(({ groups = {} }) => {
+        const { escaped = '\\', plain } = groups;
+        const kept = escaped === '\n' ? [] : [quote(escaped, secret)];
+        return plain === undefined ? kept : [Chunk.Text({ text: plain, quoted: false, split: frame.result && splits(frame), glob: Option.isSome(frame.site.glob), secret })];
+    });
+const expandTilde = (lit: Lit, next: Option.Option<WordPart>, scope: Scope, { zsh }: Frame, colons: boolean): readonly [readonly Chunk[], Lit] => {
+    const { prefix = '', user = '' } = (colons ? /^(?<prefix>~(?<user>[^/\\:]*))/u : /^(?<prefix>~(?<user>[^/\\]*))/u).exec(lit.value)?.groups ?? {};
+    const rest = { ...lit, value: lit.value.slice(prefix.length) };
+    const home = (of: Option.Option<string>) => [...(zsh && Option.isSome(of) ? [Chunk.Refusal({ origin: Origin.Home({ user: of }), certain: false })] : []), Chunk.Unknown({ origin: Origin.Home({ user: of }), certain: true, many: false })];
+    const stacked = (name: string) => {
+        const unknown = (origins: HashSet.HashSet<Origin>) => [Chunk.Unknown({ origin: Origin.Variable({ name, origins }), certain: true, many: false })];
+        return Binding.$match(scope.get(name), { Known: ({ value }) => [quote(value)], Unset: () => [quote(prefix)], Listed: () => unknown(HashSet.empty()), Unknown: ({ origins }) => unknown(origins) });
+    };
+    const opening = Option.flatMap(next, (part) =>
+        Match.value(part).pipe(
+            Match.when({ type: 'SglQuoted', dollar: false }, ({ value }) => Option.some(value)),
+            Match.when({ type: 'DblQuoted' }, ({ parts }) =>
+                Option.map(
+                    Option.filter(Array.head(parts), (inner): inner is Lit => inner.type === 'Lit'),
+                    ({ value }) => value,
+                ),
+            ),
+            Match.orElse(() => Option.none()),
+        ),
+    );
+    const slashed = Option.exists(opening, (text) => text.startsWith('/'));
+    const found = Match.value({ tilde: prefix !== '', open: rest.value === '' && Option.isSome(next), zsh, slashed, user }).pipe(
+        Match.when({ tilde: false }, () => Option.none()),
+        Match.when({ open: true, zsh: false }, () => Option.none()),
+        Match.when({ open: true, slashed: false }, () => Option.some(home(Option.some(user)))),
+        Match.when({ user: '' }, () => Option.some(Option.match(scope.text('HOME'), { onNone: () => home(Option.none()), onSome: (value) => [quote(value)] }))),
+        Match.when({ user: '+' }, () => Option.some(stacked('PWD'))),
+        Match.when({ user: '-' }, () => Option.some(stacked('OLDPWD'))),
+        Match.when({ user: (name: string) => /^[+-](?!\d+$)/u.test(name) }, () => Option.some([quote(prefix)])),
+        Match.orElse(() => Option.some(home(Option.some(user)))),
+    );
+    return Option.match(found, { onNone: () => [[], lit], onSome: (chunks) => [chunks, rest] });
+};
+const expandPart = (part: WordPart, trailing: readonly string[], scope: Scope, frame: Frame): Evaluated => {
+    const { site, quoted } = frame;
     const secret = frame.secret(part);
+    const substituted = (node: WordPart) => Origin.Substitution({ programs: Option.getOrElse(HashMap.get(scope.substitutions, node), Array.empty<string>) });
     return Match.value(part).pipe(
         Match.discriminatorsExhaustive('type')({
-            Lit: ({ value }) =>
-                [
-                    scope,
-                    Option.match(frame.rules.heredoc, {
-                        onSome: (expands) => [held(expands ? value.replaceAll(/\\(?<escaped>[$`\\\n])/gu, (_, escaped: string) => (escaped === '\n' ? '' : escaped)) : value, secret)],
-                        onNone: () =>
-                            frame.quoted
-                                ? [
-                                      held(
-                                          value.replaceAll(/\\(?<escaped>[$`"\\\n])/gu, (_, escaped: string) => (escaped === '\n' ? '' : escaped)),
-                                          secret,
-                                      ),
-                                  ]
-                                : bare(value, frame, secret),
-                    }),
-                ] as const,
-            SglQuoted: ({ value, dollar }) =>
-                [scope, [frame.quoted ? held(`${dollar ? '$' : ''}'${value}'`, secret) : Option.match(dollar ? decoded(value, frame.dialect) : Option.some(value), { onNone: () => Chunk.Hidden({ origin: Origin.Bytes(), certain: true, many: false }), onSome: (text) => held(text, secret) })]] as const,
-            DblQuoted: ({ parts }) => (parts.length === 0 ? ([scope, [held('')]] as const) : worded(parts, scope, { ...frame, quoted: true }, false)),
-            ParamExp: (exp) => parameter(exp, trailing, scope, frame),
-            CmdSubst: (node) => [scope, [Chunk.Hidden({ origin: Origin.Substitution({ programs: Option.getOrElse(HashMap.get(scope.substitutions, node), Array.empty) }), certain: frame.quoted || frame.rules.single, many: !frame.quoted && splits(frame) })]] as const,
-            ProcSubst: (node) => [scope, [Chunk.Hidden({ origin: Origin.Substitution({ programs: Option.getOrElse(HashMap.get(scope.substitutions, node), Array.empty) }), certain: true, many: false })]] as const,
-            ArithmExp: ({ x }) => {
-                const [result, next] = evaluated(x, scope, frame.dialect, (word, from) => valued(word, from, frame));
-                return [
-                    next,
-                    Match.valueTags(result, {
-                        Known: ({ value }) => rendered(Value.Scalar({ text: `${value}` }), frame, undefined, next, false),
-                        Unknown: () => [Chunk.Refuse({ origin: Origin.Arithmetic(), certain: false }), Chunk.Hidden({ origin: Origin.Arithmetic(), certain: frame.quoted || frame.rules.single, many: !frame.quoted && splits(frame) })],
-                        Refused: () => [Chunk.Refuse({ origin: Origin.Arithmetic(), certain: true })],
-                    }),
-                ] as const;
+            Lit: ({ value }): Evaluated => {
+                const inside = Option.map(
+                    Option.liftPredicate(value, () => quoted),
+                    unescape(/\\(?<escaped>[$`"\\\n])/gu),
+                );
+                const literal = Option.match(site.heredoc, { onNone: () => inside, onSome: (expands) => Option.some(expands ? unescape(/\\(?<escaped>[$`\\\n])/gu)(value) : value) });
+                return [scope, Option.match(literal, { onNone: () => scan(value, frame, secret), onSome: (text) => [quote(text, secret)] })];
             },
-            ExtGlob: ({ pattern }) => [scope, [Chunk.Hidden({ origin: Origin.Glob({ text: pattern?.value ?? '' }), certain: false, many: Option.contains(frame.rules.glob, 'Paths') })]] as const,
-            BraceExp: () => [scope, [Chunk.Hidden({ origin: Origin.Braces(), certain: false, many: true })]] as const,
+            SglQuoted: ({ value, dollar }): Evaluated => {
+                const text = quoted ? Option.some(`${dollar ? '$' : ''}'${value}'`) : Option.liftPredicate(value, () => !dollar).pipe(Option.orElse(() => decode(value, frame)));
+                return [scope, [Option.match(text, { onNone: () => Chunk.Unknown({ origin: Origin.Bytes(), certain: true, many: false }), onSome: (written) => quote(written, secret) })]];
+            },
+            DblQuoted: ({ parts }): Evaluated => (Array.isReadonlyArrayEmpty(parts) ? [scope, [quote('')]] : expandParts(parts, scope, { ...frame, quoted: true }, false)),
+            ParamExp: (exp) => expandParameter(exp, trailing, scope, frame),
+            CmdSubst: (node): Evaluated => [scope, [obscure(substituted(node), frame)]],
+            ProcSubst: (node): Evaluated => [scope, [Chunk.Unknown({ origin: substituted(node), certain: true, many: false })]],
+            ArithmExp: ({ x }): Evaluated => {
+                const [next, result] = calculate(x, scope, frame);
+                const chunks = Match.valueTags(result, {
+                    Known: ({ value }) => [emit(`${value}`, frame)],
+                    Unknown: () => [Chunk.Refusal({ origin: Origin.Arithmetic(), certain: false }), obscure(Origin.Arithmetic(), frame)],
+                    Refused: () => [Chunk.Refusal({ origin: Origin.Arithmetic(), certain: true })],
+                });
+                return [next, chunks];
+            },
+            ExtGlob: ({ pattern }): Evaluated => [scope, [Chunk.Unknown({ origin: Origin.Glob({ text: pattern?.value ?? '' }), certain: false, many: !site.single && Option.isSome(site.glob) })]],
+            BraceExp: (): Evaluated => [scope, [Chunk.Unknown({ origin: Origin.Braces(), certain: false, many: true })]],
         }),
     );
 };
-const trailed = (parts: readonly WordPart[], at: number, zsh: boolean): readonly string[] => {
-    const [part, next] = [parts[at], parts[at + 1]];
-    const run = zsh && part?.type === 'ParamExp' && part.short && next?.type === 'Lit' ? Array.fromIterable(next.value.matchAll(/:(?<letter>[a-zA-Z&])/guy)).map((found) => found.groups?.['letter'] ?? '') : [];
-    return Array.takeWhile(run, (letter) => honored.has(letter));
-};
-const worded = (parts: readonly WordPart[], scope: Scope, frame: Frame, start: boolean): Parted => {
-    const zsh = frame.dialect.variant === LangVariant.LangZsh;
-    const head = Option.filter(Option.fromUndefinedOr(parts[0]), (part): part is Lit => start && !frame.quoted && part.type === 'Lit');
-    const colons = !frame.quoted && (frame.rules.colons || (frame.rules.named && Option.exists(head, ({ value }) => /^[A-Za-z_]\w*=/u.test(value))));
-    const items: readonly WordPart[] = colons ? parts.flatMap((part): readonly WordPart[] => (part.type === 'Lit' ? part.value.split(/(?<=:|^[A-Za-z_]\w*=)(?=~)/u).map((value) => ({ ...part, value })) : [part])) : parts;
-    const command = Option.filter(
-        Option.map(head, ({ value }) => value),
-        (value) => !frame.result && !frame.rules.single && frame.dialect.options.equals && /^=[^/=]/u.test(value),
-    );
-    const eligible = (at: number) => frame.rules.tilde && !frame.quoted && ((at === 0 && start) || (colons && Option.exists(Array.get(items, at - 1), (previous) => previous.type === 'Lit' && /(?::|^[A-Za-z_]\w*=)$/u.test(previous.value))));
+const expandParts = (parts: readonly WordPart[], scope: Scope, frame: Frame, start: boolean): Evaluated => {
+    const { site, quoted, zsh, dialect } = frame;
+    const head = Option.filter(Array.head(parts), (part): part is Lit => start && !quoted && part.type === 'Lit');
+    const colons = !quoted && (site.colons || (site.named && Option.exists(head, ({ value }) => assignment.test(value))));
+    const items = colons ? parts.flatMap((part) => (part.type === 'Lit' ? part.value.split(/(?<=:|^[A-Za-z_]\w*=)(?=~)/u).map((value): WordPart => ({ ...part, value })) : [part])) : parts;
+    const trails = items.map((part, at) => {
+        const next = items[at + 1];
+        return zsh && part.type === 'ParamExp' && part.short && next?.type === 'Lit' ? Array.fromIterable(next.value.matchAll(/:(?<letter>[aAcehlPqQrstu&])/guy)).map(([, letter = '']) => letter) : [];
+    });
+    const tildes = (at: number) => site.tilde && !quoted && ((at === 0 && start) || (colons && Option.exists(Array.get(items, at - 1), (before) => before.type === 'Lit' && /(?::|^[A-Za-z_]\w*=)$/u.test(before.value))));
     const [next, chunks] = Array.mapAccum(items, scope, (from, part, at) => {
-        const consumed = at > 0 ? trailed(items, at - 1, zsh).length * 2 : 0;
-        const kept = part.type === 'Lit' ? { ...part, value: part.value.slice(consumed) } : part;
-        const tilde = kept.type === 'Lit' && eligible(at) ? Option.map(tilded(kept, Array.get(items, at + 1), scope, frame, colons), ([found, rest]) => [found, { ...kept, value: rest }] as const) : Option.none();
-        const [lead, rest] = Option.getOrElse(tilde, () => [[], kept] as const);
-        const [to, found] = rest.type === 'Lit' && rest.value === '' ? [from, []] : parted(rest, trailed(items, at, zsh), from, frame);
+        const cut = part.type === 'Lit' ? { ...part, value: part.value.slice((trails[at - 1]?.length ?? 0) * 2) } : part;
+        const [lead, kept] = cut.type === 'Lit' && tildes(at) ? expandTilde(cut, Array.get(items, at + 1), scope, frame, colons) : ([[], cut] as const);
+        const [to, found] = kept.type === 'Lit' && kept.value === '' ? ([from, []] as const) : expandPart(kept, trails[at] ?? [], from, frame);
         return [to, [...lead, ...found]] as const;
     });
-    return Option.match(command, {
-        onSome: (name) => [scope, [Chunk.Refuse({ origin: Origin.Command({ name: name.slice(1) }), certain: false }), Chunk.Hidden({ origin: Origin.Command({ name: name.slice(1) }), certain: true, many: false })]] as const,
-        onNone: () => [next, chunks.flat()] as const,
-    });
-};
-const tokens = (chunk: Chunk, ifs: Option.Option<string>): readonly Token[] =>
-    Chunk.$match(chunk, {
-        Break: () => [Token.Break()],
-        Refuse: () => [],
-        Hidden: (hidden) => [Token.Unseen(hidden)],
-        Text: ({ text, quoted, split, glob, secret }) =>
-            Match.value({ split, empty: text === '', ifs: Option.getOrUndefined(ifs) }).pipe(
-                Match.when({ split: false, empty: true }, () => (quoted ? [Token.Mark()] : [])),
-                Match.when({ split: false }, () => [Token.Piece({ text, glob, secret })]),
-                Match.when({ empty: true }, () => []),
-                Match.when({ ifs: Match.undefined }, () => [Token.Unseen({ origin: Origin.Variable({ name: 'IFS', origins: HashSet.empty() }), certain: false, many: true })]),
-                Match.orElse(({ ifs: by = spaces }) => {
-                    const [white, hard] = [true, false].map((whitespace) =>
-                        [...by]
-                            .filter((character) => spaces.includes(character) === whitespace)
-                            .map(RegExp.escape)
-                            .join(''),
-                    );
-                    return Array.fromIterable(text.matchAll(new RegExp(`(?<space>[${white}]+)|(?<delimiter>[${hard}])|(?<piece>[^${white}${hard}]+)`, 'gu'))).map((found) =>
-                        Match.value(found.groups ?? {}).pipe(
-                            Match.when({ space: Match.string }, () => Token.Space()),
-                            Match.when({ delimiter: Match.string }, () => Token.Delimiter()),
-                            Match.orElse(() => Token.Piece({ text: found[0], glob, secret })),
-                        ),
-                    );
-                }),
-            ),
-    });
-const fielded = (chunks: readonly Chunk[], ifs: Option.Option<string>, nulls: boolean): { readonly fields: readonly Built[]; readonly exact: boolean } => {
-    const reset = (state: Splitting, spaced: boolean): Splitting => ({ ...state, current: blank, started: false, spaced });
-    const extended = (state: Splitting, segment: Segment, certain: boolean, exact: boolean): Splitting => ({ current: { segments: [...state.current.segments, segment], certain: state.current.certain || certain }, started: true, spaced: false, exact });
-    const [final, emitted] = Array.mapAccum(
-        chunks.flatMap((chunk) => tokens(chunk, ifs)),
-        { current: blank, started: false, spaced: false, exact: true } as Splitting,
-        (state, token) =>
-            Token.$match(token, {
-                Piece: (piece) => [extended(state, piece, true, state.exact), Option.none<Built>()] as const,
-                Mark: () => [state.spaced && !nulls ? state : { ...state, current: { ...state.current, certain: true }, started: true, spaced: false }, Option.none<Built>()] as const,
-                Unseen: (unseen) => [extended(state, unseen, unseen.certain, state.exact && !unseen.many), Option.none<Built>()] as const,
-                Space: () => (state.started ? ([reset({ ...state, exact: state.exact && state.current.certain }, true), Option.some(state.current)] as const) : ([state, Option.none<Built>()] as const)),
-                Delimiter: () => (state.spaced ? ([{ ...state, spaced: false }, Option.none<Built>()] as const) : ([reset(state, false), Option.some<Built>({ ...state.current, certain: true })] as const)),
-                Break: () => (state.started ? ([reset({ ...state, exact: state.exact && state.current.certain }, false), Option.some(state.current)] as const) : ([{ ...state, spaced: false }, Option.none<Built>()] as const)),
-            }),
+    const command = Option.filter(head, ({ value }) => !frame.result && !site.single && dialect.options.equals && /^=[^/=]/u.test(value));
+    return Option.match(
+        Option.map(command, ({ value }) => Origin.Command({ name: value.slice(1) })),
+        {
+            onNone: () => [next, chunks.flat()],
+            onSome: (origin) => [scope, [Chunk.Refusal({ origin, certain: false }), Chunk.Unknown({ origin, certain: true, many: false })]],
+        },
     );
-    return { fields: [...Array.getSomes(emitted), ...(final.started ? [final.current] : [])], exact: final.exact && (!final.started || final.current.certain) };
 };
-const unmatching = (dialect: Dialect): Unmatched =>
-    Match.value({ zsh: dialect.variant === LangVariant.LangZsh, dropped: dialect.options.nullglob, refused: dialect.options.nomatch }).pipe(
-        Match.when({ zsh: false, refused: true }, () => Unmatched.Refused()),
-        Match.when({ dropped: true }, () => Unmatched.Dropped()),
-        Match.when({ refused: true }, () => Unmatched.Refused()),
-        Match.orElse(() => Unmatched.Kept()),
+const expandWord = (word: Word, scope: Scope, frame: Frame): Evaluated => expandParts(word.parts, scope, { ...frame, quoted: false, result: false }, true);
+
+// --- [FIELDS]
+
+const append =
+    (segment: Segment, certain: boolean, many: boolean) =>
+    (state: Splitting): Splitting => ({ ...state, current: { segments: [...state.current.segments, segment], certain: state.current.certain || certain }, started: true, spaced: false, exact: state.exact && !many });
+const end =
+    (space: boolean, nulls = true) =>
+    (state: Splitting): Splitting => {
+        const kept = nulls || Array.isReadonlyArrayNonEmpty(state.current.segments) ? [state.current] : [];
+        return state.started ? { fields: [...state.fields, ...kept], current: blank, started: false, spaced: space, exact: state.exact && state.current.certain } : { ...state, spaced: state.spaced && space };
+    };
+const delimit = (state: Splitting): Splitting => (state.spaced ? { ...state, spaced: false } : { ...state, fields: [...state.fields, { ...state.current, certain: true }], current: blank, started: false });
+const split = (chunks: readonly Chunk[], ifs: Option.Option<string>, dialect: Dialect): { readonly fields: readonly Draft[]; readonly exact: boolean } => {
+    const mark = (state: Splitting): Splitting => (state.spaced && !dialect.supports('nulls') ? state : { ...state, current: { ...state.current, certain: true }, started: true, spaced: false });
+    const breaks = Option.map(ifs, (by) => {
+        const classes = [true, false].map((whitespace) => Array.fromIterable(by).filter((character) => spaces.includes(character) === whitespace));
+        const [white = '', hard = ''] = classes.map((characters) => characters.map(RegExp.escape).join(''));
+        return new RegExp(`(?<space>[${white}]+)|(?<delimiter>[${hard}])|[^${white}${hard}]+`, 'gu');
+    });
+    const cut = (text: Extract<Chunk, { readonly _tag: 'Text' }>, pattern: RegExp) =>
+        Array.fromIterable(text.text.matchAll(pattern)).map(([piece, space, delimiter]) => {
+            const ended = space === undefined ? delimit : end(true, dialect.supports('leadingnulls'));
+            return space === undefined && delimiter === undefined ? append({ ...text, text: piece }, true, false) : ended;
+        });
+    const steps = chunks.flatMap(
+        Chunk.$match({
+            Break: () => [end(false)],
+            Refusal: () => [],
+            Unknown: (unknown) => [append(unknown, unknown.certain, unknown.many)],
+            Text: (text) =>
+                Match.value({ split: text.split, empty: text.text === '', breaks: Option.getOrUndefined(breaks) }).pipe(
+                    Match.when({ split: false, empty: true }, () => (text.quoted ? [mark] : [])),
+                    Match.when({ split: false }, () => [append(text, true, false)]),
+                    Match.when({ empty: true }, () => []),
+                    Match.when({ breaks: Match.defined }, (found) => cut(text, found.breaks)),
+                    Match.orElse(() => [append(Chunk.Unknown({ origin: Origin.Variable({ name: 'IFS', origins: HashSet.empty() }), certain: false, many: true }), false, true)]),
+                ),
+        }),
     );
-const settled = (built: Built, frame: Frame): Field => {
-    const { dialect } = frame;
-    const zsh = dialect.variant === LangVariant.LangZsh;
-    const active = built.segments.flatMap((segment) => (segment._tag === 'Piece' && segment.glob ? [segment.text] : [])).join('');
-    const paths = Option.contains(frame.rules.glob, 'Paths');
-    const globbed = Option.isSome(frame.rules.glob) && (!paths || dialect.options.glob) && (zsh ? /[*?(]|\[.+\]/su : /[*?]|\[.+\]/su).test(active);
-    const unmodelled = (zsh ? /[()|]|\*{3}/u.test(active) || (dialect.options.extendedglob && /[\^#~]/u.test(active)) : false) || dialect.options.nocaseglob || (paths && !dialect.options.globskipdots && /(?:^|\/)\./u.test(active));
-    const pieces = built.segments.map((segment) =>
+    const last = steps.reduce((state, step) => step(state), unsplit);
+    return { fields: [...last.fields, ...(last.started ? [last.current] : [])], exact: last.exact && (!last.started || last.current.certain) };
+};
+const gather = (chunks: readonly Chunk[]): Draft => ({ segments: chunks.filter((chunk): chunk is Segment => chunk._tag === 'Unknown' || (chunk._tag === 'Text' && chunk.text !== '')), certain: true });
+const settle = ({ segments }: Draft, { site }: Frame): Field => {
+    const active = segments.flatMap((segment) => (segment._tag === 'Text' && segment.glob ? [segment.text] : [])).join('');
+    const match = Option.flatMap(site.glob, (read) => read(active));
+    const pieces = segments.map((segment) =>
         Match.value(segment).pipe(
-            Match.when({ _tag: 'Unseen' }, ({ origin }) => Piece.Unknown({ origin })),
+            Match.when({ _tag: 'Unknown' }, ({ origin }) => Piece.Unknown({ origin })),
             Match.when({ secret: true }, ({ text }) => Piece.Secret({ text: Redacted.make(text) })),
-            Match.when({ glob: true }, ({ text }) => (globbed ? Piece.Wild({ text }) : Piece.Text({ text }))),
+            Match.when({ glob: true }, ({ text }) => (Option.isSome(match) ? Piece.Wild({ text }) : Piece.Text({ text }))),
             Match.orElse(({ text }) => Piece.Text({ text })),
         ),
     );
-    const pattern = Option.map(
-        Option.liftPredicate(pieces, (all) => !unmodelled && all.every((piece) => piece._tag === 'Text' || piece._tag === 'Wild')),
-        (all) => all.map((piece) => (piece._tag === 'Wild' ? piece.text.replaceAll(/[{}]/gu, String.raw`\$&`) : Glob.escape(piece._tag === 'Text' ? piece.text : ''))).join(''),
-    );
-    const folded = Option.map(pattern, (text) => (zsh || !dialect.options.globstar ? text.replaceAll(zsh ? /\*{2,}(?!\/)/gu : /\*{2,}/gu, '*') : text));
-    return new Field({
-        pieces,
-        matching: Option.liftPredicate(paths ? Matching.Paths({ glob: Option.map(folded, (text) => Glob.make(text, { dot: dialect.options.dotglob })), unmatched: unmatching(dialect) }) : Matching.Strings({ glob: Option.map(pattern, Field.strings) }), () => globbed),
-    });
+    const pattern = Option.all(pieces.map(Piece.$match({ Text: ({ text }) => Option.some(Glob.escape(text)), Wild: ({ text }) => Option.some(text.replaceAll(/[{}]/gu, String.raw`\$&`)), Secret: () => Option.none(), Unknown: () => Option.none() })));
+    return new Field({ pieces, matching: Option.map(match, (compile) => compile(Option.map(pattern, Array.join('')))) });
 };
-const whole = (chunks: readonly Chunk[]): Built => ({ segments: chunks.flatMap((chunk) => tokens(chunk, Option.none())).filter((token): token is Segment => token._tag === 'Piece' || token._tag === 'Unseen'), certain: true });
-const patterned = (word: Word, scope: Scope, frame: Frame): readonly [Field, Scope, readonly Chunk[]] => {
-    const within = { ...frame, rules: rules(Role.Pattern(), frame.dialect), quoted: false, result: false };
-    const [next, chunks] = worded(word.parts, scope, within, true);
-    return [settled(whole(chunks), within), next, chunks.filter(Chunk.$is('Refuse'))];
-};
-const expanded = (word: Word, scope: Scope, dialect: Dialect, at: { readonly braces: Option.Option<Word>; readonly role: Role; readonly secret: (part: WordPart) => boolean }): { readonly expansion: Expansion; readonly scope: Scope } => {
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+const expand = (word: Word, scope: Scope, dialect: Dialect, at: { readonly braces: Option.Option<Word>; readonly role: Role; readonly secret: (part: WordPart) => boolean }): { readonly expansion: Expansion; readonly scope: Scope } => {
     const zsh = dialect.variant === LangVariant.LangZsh;
-    const given = rules(at.role, dialect);
-    const frame: Frame = { dialect, rules: given, quoted: Option.isSome(given.heredoc), result: false, secret: at.secret, worded, patterned };
-    const kept = zsh && Option.exists(at.braces, (split) => split.parts.some((part) => part.type === 'BraceExp'));
+    const site = place(at.role, dialect);
+    const frame: Frame = { dialect, zsh, site, patterns: place(Role.Pattern(), dialect), quoted: Option.isSome(site.heredoc), result: false, secret: at.secret };
+    const kept = zsh && Option.exists(at.braces, ({ parts }) => parts.some((part) => part.type === 'BraceExp'));
     const opaque = { fields: [Field.unknown(Origin.Braces())], exact: false };
-    return Option.match(frame.rules.braces ? alternated(Option.getOrElse(at.braces, () => word).parts, dialect) : Option.some([word.parts]), {
+    return Option.match(site.braces ? alternate(Option.getOrElse(at.braces, () => word).parts, dialect) : Option.some([word.parts]), {
         onNone: () => ({ expansion: new Expanded({ ...opaque, refusals: [] }), scope }),
         onSome: (alternatives) => {
             const [next, words] = Array.mapAccum(alternatives, scope, (from, parts) => {
-                const [to, chunks] = worded(parts, from, frame, true);
-                const split = frame.rules.single ? { fields: [whole(chunks)], exact: true } : fielded(chunks, Binding.$match(to.get('IFS'), { Unset: () => Option.some(spaces), Known: ({ value }) => Option.some(value), Listed: () => Option.none(), Unknown: () => Option.none() }), dialect.supports('nulls'));
-                return [to, { ...split, fields: kept && split.fields.length === 0 ? [{ ...blank, certain: true }] : split.fields, listed: chunks.some(Chunk.$is('Break')), refusals: chunks.filter(Chunk.$is('Refuse')) }] as const;
+                const [to, chunks] = expandParts(parts, from, frame, true);
+                const made = site.single ? { fields: [gather(chunks)], exact: true } : split(chunks, separators(to), dialect);
+                return [to, { ...made, fields: kept && Array.isReadonlyArrayEmpty(made.fields) ? [{ ...blank, certain: true }] : made.fields, chunks }] as const;
             });
-            const fields = words.flatMap((found) => found.fields.map((built) => settled(built, frame)));
-            const exact = words.every((found) => found.exact) && fields.every((field) => !Option.exists(field.matching, Matching.$is('Paths')));
-            const refusals = [
-                ...words.flatMap((found) => found.refusals),
-                ...fields.flatMap((field) =>
-                    Option.exists(field.matching, (matching) => matching._tag === 'Paths' && matching.unmatched._tag === 'Refused') ? [Chunk.Refuse({ origin: Origin.Glob({ text: field.pieces.map((piece) => (piece._tag === 'Text' || piece._tag === 'Wild' ? piece.text : '')).join('') }), certain: false })] : [],
-                ),
-            ];
-            const ambiguous = Role.$is('Redirect')(at.role) && !(zsh && dialect.options.multios);
-            const certain = Option.orElse(
-                Option.map(
-                    Array.findFirst(refusals, (refusal) => refusal.certain),
-                    ({ origin }) => origin,
-                ),
-                () => Option.liftPredicate(Origin.Ambiguous(), () => ambiguous && exact && fields.length !== 1),
+            const fields = words.flatMap((made) => made.fields.map((draft) => settle(draft, frame)));
+            const paths = fields.flatMap((field) => Option.toArray(Option.map(Option.filter(field.matching, Matching.$is('Paths')), ({ unmatched }) => ({ field, unmatched }))));
+            const exact = words.every((made) => made.exact) && Array.isReadonlyArrayEmpty(paths);
+            const unmatched = paths.filter((path) => path.unmatched._tag === 'Refused').map(({ field }) => ({ origin: Origin.Glob({ text: field.pieces.map((piece) => (piece._tag === 'Text' || piece._tag === 'Wild' ? piece.text : '')).join('') }), certain: false }));
+            const refusals = [...words.flatMap(({ chunks }) => chunks.filter(Chunk.$is('Refusal'))), ...unmatched];
+            const certain = Option.map(
+                Array.findFirst(refusals, (refusal) => refusal.certain),
+                ({ origin }) => origin,
             );
-            return {
-                expansion: Option.match(certain, {
-                    onSome: (origin) => new Refused({ origin }),
-                    onNone: () => new Expanded({ ...(kept && words.some((found) => found.listed) ? opaque : { fields, exact }), refusals: [...refusals.map(({ origin }) => origin), ...(ambiguous && !exact ? [Origin.Ambiguous()] : [])] }),
-                }),
-                scope: next,
-            };
+            const refused = Option.orElse(certain, () => Option.liftPredicate(Origin.Ambiguous(), () => site.sole && exact && fields.length !== 1));
+            const expanded = new Expanded({ ...(kept && words.some(({ chunks }) => chunks.some(Chunk.$is('Break'))) ? opaque : { fields, exact }), refusals: [...refusals.map(({ origin }) => origin), ...(site.sole && !exact ? [Origin.Ambiguous()] : [])] });
+            return { expansion: Option.match(refused, { onNone: () => expanded, onSome: (origin) => new Refused({ origin }) }), scope: next };
         },
     });
 };
-const text = (word: Word, dialect: Dialect): Option.Option<string> => {
-    const { expansion } = expanded(word, new Scope({ variables: HashMap.empty(), unlisted: Binding.Unset(), positional: Option.some([]), name: dialect.binary, substitutions: HashMap.empty() }), dialect, { braces: Option.none(), role: Role.Argument(), secret: () => false });
+const unquote = (word: Word, dialect: Dialect): Option.Option<string> => {
+    const empty = new Scope({ variables: HashMap.empty(), unlisted: Binding.Unset(), positional: Option.some([]), name: dialect.binary, substitutions: HashMap.empty() });
+    const { expansion } = expand(word, empty, dialect, { braces: Option.none(), role: Role.Argument(), secret: () => false });
     return expansion._tag === 'Expanded' ? expansion.text : Option.none();
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { expanded, text };
+export { expand, unquote };

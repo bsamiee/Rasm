@@ -60,6 +60,7 @@
                 ],
                 "inputs": [
                     "{projectRoot}/programs/codegen.ts",
+                    "{projectRoot}/programs/carapace.ts",
                     "{projectRoot}/programs/usage.ts",
                     {
                         "runtime": "carapace --version"
@@ -80,6 +81,7 @@
                 "cache": true,
                 "inputs": [
                     "{projectRoot}/programs/codegen.ts",
+                    "{projectRoot}/programs/carapace.ts",
                     "{projectRoot}/programs/usage.ts",
                     {
                         "runtime": "carapace --version"

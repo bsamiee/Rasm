@@ -1,4 +1,4 @@
-import { Array, Data, Glob, HashMap, HashSet, Match, Option, Record, type Redacted } from 'effect';
+import { Array, Data, Glob, HashMap, HashSet, Match, Option, Predicate, type Redacted, String } from 'effect';
 import type { Node } from 'sh-syntax';
 import type { Dialect } from '#/syntax/dialect';
 
@@ -38,21 +38,20 @@ type Expansion = Expanded | Refused;
 const Unmatched = Data.taggedEnum<Unmatched>();
 const Origin = Data.taggedEnum<Origin>();
 const Piece = Data.taggedEnum<Piece>();
-const Matching = Data.taggedEnum<Matching>();
 const Role = Data.taggedEnum<Role>();
-const Binding = Data.taggedEnum<Binding>();
-const separator = String.fromCodePoint(0xe0_00);
+const separator = '';
 const magic = /[*?[\]()<>|#^~]/u;
-const inert = (piece: Piece): piece is Extract<Piece, { readonly _tag: 'Text' | 'Wild' }> => piece._tag === 'Text' || (piece._tag === 'Wild' && !magic.test(piece.text));
+const Matching = Data.taggedEnum<Matching>();
+const Binding = Data.taggedEnum<Binding>();
+const binding = (text: Option.Option<string>, origins: Iterable<Origin> = []): Binding => Option.match(text, { onNone: () => Binding.Unknown({ origins: HashSet.fromIterable(origins) }), onSome: (value) => Binding.Known({ value }) });
+const known = (held: Binding): Option.Option<string> => Option.map(Option.liftPredicate(held, Binding.$is('Known')), ({ value }) => value);
+const trace = (held: Binding): HashSet.HashSet<Origin> => (held._tag === 'Unknown' ? held.origins : HashSet.make(Origin.Literal()));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Field extends Data.Class<{ readonly pieces: readonly Piece[]; readonly matching: Option.Option<Matching> }> {
     get text(): Option.Option<string> {
-        return Option.flatMap(
-            Option.liftPredicate(this.pieces, () => Option.isNone(this.matching)),
-            (pieces) => Option.map(Option.all(pieces.map((piece) => (piece._tag === 'Text' ? Option.some(piece.text) : Option.none()))), (texts) => texts.join('')),
-        );
+        return Option.map(Option.liftPredicate(this.pieces, Array.every(Piece.$is('Text'))), (texts) => texts.map(({ text }) => text).join(''));
     }
 
     get origins(): HashSet.HashSet<Origin> {
@@ -60,27 +59,11 @@ class Field extends Data.Class<{ readonly pieces: readonly Piece[]; readonly mat
     }
 
     get prefix(): string {
-        const [known] = Array.span(this.pieces, inert);
-        const next = this.pieces[known.length];
-        return [...known.map(({ text }) => text), next?._tag === 'Wild' ? (next.text.split(magic)[0] ?? '') : ''].join('');
+        return Field.#edge(this.pieces, Array.headNonEmpty).join('');
     }
 
     get suffix(): string {
-        const [known] = Array.span(this.pieces.toReversed(), inert);
-        const next = this.pieces.at(-known.length - 1);
-        return [next?._tag === 'Wild' ? (next.text.split(magic).at(-1) ?? '') : '', ...known.toReversed().map(({ text }) => text)].join('');
-    }
-
-    after(count: number): Field {
-        const [, pieces] = Array.mapAccum(this.pieces, count, (left, piece) =>
-            Piece.$match(piece, {
-                Text: ({ text }): readonly [number, readonly Piece[]] => [Math.max(0, left - text.length), text.length > left ? [Piece.Text({ text: text.slice(left) })] : []],
-                Wild: ({ text }): readonly [number, readonly Piece[]] => [Math.max(0, left - text.length), text.length > left ? [Piece.Wild({ text: text.slice(left) })] : []],
-                Secret: (held): readonly [number, readonly Piece[]] => [0, [held]],
-                Unknown: (held): readonly [number, readonly Piece[]] => [0, [held]],
-            }),
-        );
-        return new Field({ pieces: pieces.flat(), matching: Option.none() });
+        return Field.#edge(this.pieces.toReversed(), Array.lastNonEmpty).toReversed().join('');
     }
 
     matches(candidate: string): Option.Option<boolean> {
@@ -88,15 +71,24 @@ class Field extends Data.Class<{ readonly pieces: readonly Piece[]; readonly mat
             onNone: () => Option.map(this.text, (text) => text === candidate),
             onSome: Matching.$match({
                 Paths: ({ glob }) => Option.map(glob, Glob.match(candidate)),
-                Strings: ({ glob }) => Option.flatMap(glob, (compiled) => (candidate === '' ? Option.some(/^\**$/u.test(compiled.pattern)) : Option.liftPredicate(Glob.match(compiled, candidate.replaceAll('/', separator)), () => !/^\.\.?$/u.test(candidate) && !candidate.includes(separator)))),
+                Strings: ({ glob }) =>
+                    Option.map(
+                        Option.filter(glob, () => !/^\.\.?$/u.test(candidate) && !candidate.includes(separator)),
+                        (held) => (candidate === '' ? /^\**$/u.test(held.pattern) : Glob.match(held, candidate.replaceAll('/', separator))),
+                    ),
             }),
         });
     }
 
-    under(directory: Field): Field {
-        const [opening] = this.pieces;
-        const placed = this.prefix.startsWith('/') ? this.pieces : [...directory.pieces, Piece.Text({ text: '/' }), ...this.pieces];
-        const [texts, rest] = Array.span(placed, (piece): piece is Extract<Piece, { readonly _tag: 'Text' }> => piece._tag === 'Text');
+    drop(count: number): Field {
+        const [, pieces] = Array.mapAccum(this.pieces, count, (left, piece): readonly [number, readonly Piece[]] => (piece._tag === 'Text' || piece._tag === 'Wild' ? [Math.max(0, left - piece.text.length), piece.text.length > left ? [Piece[piece._tag]({ text: piece.text.slice(left) })] : []] : [0, [piece]]));
+        return new Field({ pieces: pieces.flat(), matching: Option.none() });
+    }
+
+    resolve(directory: Field): Field {
+        const [own, tail] = Array.span(this.pieces, Piece.$is('Text'));
+        const rooted = this.prefix.startsWith('/');
+        const [texts, rest] = rooted ? [own, tail] : Array.span([...directory.pieces, Piece.Text({ text: '/' }), ...this.pieces], Piece.$is('Text'));
         const joined = texts.map(({ text }) => text).join('');
         const cut = Array.isReadonlyArrayEmpty(rest) ? joined.length : joined.lastIndexOf('/') + 1;
         const segments = joined
@@ -104,13 +96,25 @@ class Field extends Data.Class<{ readonly pieces: readonly Piece[]; readonly mat
             .split('/')
             .filter((segment) => segment !== '' && segment !== '.')
             .reduce<readonly string[]>((kept, segment) => (segment === '..' ? kept.slice(0, -1) : Array.append(kept, segment)), []);
-        const closed = cut < joined.length || !Array.isReadonlyArrayEmpty(rest);
-        const lead = joined.startsWith('/') ? `/${segments.join('/')}${closed && Array.isReadonlyArrayNonEmpty(segments) ? '/' : ''}` : joined.slice(0, cut);
-        const text = `${lead}${joined.slice(cut)}`;
-        const pieces = text === '' ? rest : [Piece.Text({ text }), ...rest];
-        const pattern = Option.all(pieces.map((piece) => Match.value(piece).pipe(Match.tagsExhaustive({ Text: ({ text: literal }) => Option.some(Glob.escape(literal)), Wild: ({ text: wild }) => Option.some(wild.replaceAll(/[{}]/gu, String.raw`\$&`)), Secret: () => Option.none(), Unknown: () => Option.none() }))));
-        const matching = Option.map(this.matching, Matching.$match({ Paths: ({ glob, unmatched }) => Matching.Paths({ glob: Option.flatMap(glob, (compiled) => Option.map(pattern, (parts) => Glob.make(parts.join(''), { dot: compiled.dot }))), unmatched }), Strings: (strings) => strings }));
-        return opening?._tag === 'Unknown' || opening?._tag === 'Secret' || Option.contains(this.text, '') ? this : new Field({ pieces, matching });
+        const closing = (cut < joined.length || Array.isReadonlyArrayNonEmpty(rest)) && Array.isReadonlyArrayNonEmpty(segments) ? '/' : '';
+        const text = `${joined.startsWith('/') ? `/${segments.join('/')}${closing}` : joined.slice(0, cut)}${joined.slice(cut)}`;
+        const head = Glob.escape(own.map((piece) => piece.text).join('')).length;
+        const whole = rooted || directory.pieces.every(Piece.$is('Text'));
+        const matching = Option.map(
+            this.matching,
+            Matching.$match({
+                Paths: ({ glob, unmatched }) =>
+                    Matching.Paths({
+                        glob: Option.map(
+                            Option.filter(glob, () => whole),
+                            (held) => Glob.make(`${Glob.escape(text)}${held.pattern.slice(head)}`, { dot: held.dot }),
+                        ),
+                        unmatched,
+                    }),
+                Strings: (strings) => strings,
+            }),
+        );
+        return Option.exists(Array.head(this.pieces), Predicate.or(Piece.$is('Unknown'), Piece.$is('Secret'))) || Option.contains(this.text, '') ? this : new Field({ pieces: text === '' ? rest : [Piece.Text({ text }), ...rest], matching });
     }
 
     static known(text: string): Field {
@@ -124,52 +128,75 @@ class Field extends Data.Class<{ readonly pieces: readonly Piece[]; readonly mat
     static strings(pattern: string): Glob.Glob {
         return Glob.make(pattern.replaceAll('/', separator), { dot: true });
     }
+
+    static #edge(pieces: readonly Piece[], cut: (parts: Array.NonEmptyReadonlyArray<string>) => string): readonly string[] {
+        const [inert, rest] = Array.span(pieces, (piece) => piece._tag === 'Text' || (piece._tag === 'Wild' && !magic.test(piece.text)));
+        return [...inert, ...Array.take(rest, 1)].flatMap(Piece.$match({ Text: ({ text }) => [text], Wild: ({ text }) => [cut(String.split(text, magic))], Secret: () => [], Unknown: () => [] }));
+    }
 }
 
 class Expanded extends Data.TaggedClass('Expanded')<{ readonly fields: readonly Field[]; readonly exact: boolean; readonly refusals: readonly Origin[] }> {
     get text(): Option.Option<string> {
-        return this.exact && this.fields.length === 1 ? Option.flatMap(Array.head(this.fields), (field) => field.text) : Option.none();
+        return Option.flatMap(
+            Option.filter(this.#only, () => this.exact),
+            (field) => field.text,
+        );
     }
 
     get binding(): Binding {
-        return Option.match(this.text, { onNone: () => Binding.Unknown({ origins: HashSet.fromIterable([...this.fields.flatMap((field) => [...field.origins]), ...this.refusals]) }), onSome: (value) => Binding.Known({ value }) });
+        return binding(this.text, [...this.fields.flatMap((field) => [...field.origins]), ...this.refusals]);
     }
 
     matches(candidate: string): Option.Option<boolean> {
-        return this.fields.length === 1 ? Option.flatMap(Array.head(this.fields), (field) => field.matches(candidate)) : Option.none();
+        return Option.flatMap(this.#only, (field) => field.matches(candidate));
+    }
+
+    get #only(): Option.Option<Field> {
+        return Option.map(Option.liftPredicate(this.fields, Predicate.isTupleOf(1)), Array.headNonEmpty);
     }
 }
 
 class Refused extends Data.TaggedClass('Refused')<{ readonly origin: Origin }> {
     get binding(): Binding {
-        return Binding.Unknown({ origins: HashSet.make(this.origin) });
+        return binding(Option.none(), [this.origin]);
     }
 }
 
 class Scope extends Data.Class<{ readonly variables: HashMap.HashMap<string, Binding>; readonly unlisted: Binding; readonly positional: Option.Option<readonly Binding[]>; readonly name: string; readonly substitutions: HashMap.HashMap<Node, readonly string[]> }> {
     get(name: string): Binding {
-        return Option.getOrElse(HashMap.get(this.variables, name), () => this.unlisted);
+        return Match.value(name).pipe(
+            Match.when('0', () => Binding.Known({ value: this.name })),
+            Match.when('#', () => binding(Option.map(this.positional, (given) => `${given.length}`))),
+            Match.when(Match.is('@', '*'), () =>
+                Option.match(
+                    Option.flatMap(this.positional, (given) => Option.all(given.map(known))),
+                    { onNone: () => Binding.Unknown({ origins: HashSet.fromIterable(Option.getOrElse(this.positional, Array.empty<Binding>).flatMap((held) => [...trace(held)])) }), onSome: (items) => Binding.Listed({ items }) },
+                ),
+            ),
+            Match.when(
+                (held: string) => /^[1-9]\d*$/u.test(held),
+                (place) => Option.match(this.positional, { onNone: () => binding(Option.none()), onSome: (given) => given[Number(place) - 1] ?? Binding.Unset() }),
+            ),
+            Match.orElse(() => Option.getOrElse(HashMap.get(this.variables, name), () => this.unlisted)),
+        );
     }
 
-    set(name: string, binding: Binding): Scope {
-        return new Scope({ ...this, variables: HashMap.set(this.variables, name, binding) });
+    text(name: string): Option.Option<string> {
+        return known(this.get(name));
     }
 
-    static started(at: { readonly dialect: Dialect; readonly operands: readonly string[]; readonly pwd: Option.Option<string> }): Scope {
-        const { environment, variables } = at.dialect;
-        const unknown = Binding.Unknown({ origins: HashSet.empty() });
-        const held = (name: string, value: Option.Option<string>) => Option.match(value, { onNone: () => unknown, onSome: (found) => (name === 'IFS' || Record.get(environment, name).pipe(Option.contains(found)) ? Binding.Known({ value: found }) : unknown) });
-        const special = [
-            ['?', Binding.Known({ value: '0' })],
-            ['$', unknown],
-            ['-', unknown],
-            ['PWD', Option.match(at.pwd, { onNone: () => unknown, onSome: (value) => Binding.Known({ value }) })],
-        ] as const;
+    set(name: string, held: Binding): Scope {
+        return new Scope({ ...this, variables: HashMap.set(this.variables, name, held) });
+    }
+
+    static start(at: { readonly dialect: Dialect; readonly operands: readonly string[]; readonly pwd: Option.Option<string> }): Scope {
+        const { binary, environment, variables } = at.dialect;
+        const probed = variables.entries().map(([name, value]) => [name, binding(Option.filter(value, (found) => name === 'IFS' || environment[name] === found))] as const);
         return new Scope({
-            variables: HashMap.fromIterable([...variables.entries().map(([name, value]) => [name, held(name, value)] as const), ...special]),
+            variables: HashMap.fromIterable([...probed, ['?', Binding.Known({ value: '0' })], ['$', binding(Option.none())], ['-', binding(Option.none())], ['PWD', binding(at.pwd)]]),
             unlisted: Binding.Unset(),
             positional: Option.some(at.operands.map((value) => Binding.Known({ value }))),
-            name: at.dialect.binary,
+            name: binary,
             substitutions: HashMap.empty(),
         });
     }
@@ -177,4 +204,4 @@ class Scope extends Data.Class<{ readonly variables: HashMap.HashMap<string, Bin
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Binding, Expanded, type Expansion, Field, Matching, Origin, Piece, Refused, Role, Scope, Unmatched };
+export { Binding, binding, Expanded, type Expansion, Field, Matching, Origin, Piece, Refused, Role, Scope, trace, Unmatched };

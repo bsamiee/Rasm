@@ -1,7 +1,7 @@
-import { Array, Data, Option } from 'effect';
-import type { Stmt, Word } from 'sh-syntax';
-import { Binding, type Field, type Origin } from '#/evaluation/value';
-import type { Usage } from '#/programs/usage';
+import { Array, Data, Match, Option } from 'effect';
+import { RedirOperator, type Stmt, type Word } from 'sh-syntax';
+import type { Arguments } from '#/analysis/binding';
+import { Binding, Field, Origin } from '#/evaluation/value';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -9,7 +9,6 @@ type Place = Data.TaggedEnum<{ Local: { readonly cwd: Field }; Remote: { readonl
 type Program = Data.TaggedEnum<{ Builtin: { readonly name: string }; Function: { readonly name: string }; External: { readonly name: string }; Unknown: { readonly origin: Origin } }>;
 type Within = Data.TaggedEnum<{ Function: { readonly name: string }; Substitution: object; Subshell: object; Eval: object; Wrapper: { readonly name: string }; File: { readonly path: string } }>;
 type Stdin = Data.TaggedEnum<{ Inherited: object; Piped: { readonly pipeline: number; readonly index: number }; File: { readonly path: Field }; Text: { readonly text: Option.Option<string> }; Closed: object }>;
-type Flag = Usage['flags'][number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -17,6 +16,22 @@ const Place = Data.taggedEnum<Place>();
 const Program = Data.taggedEnum<Program>();
 const Within = Data.taggedEnum<Within>();
 const Stdin = Data.taggedEnum<Stdin>();
+const modes: Partial<Record<RedirOperator, readonly ('read' | 'write' | 'append' | 'print' | 'feed' | 'duplicate')[]>> = {
+    [RedirOperator.RdrIn]: ['read'],
+    [RedirOperator.RdrInOut]: ['read', 'write'],
+    [RedirOperator.DplIn]: ['duplicate'],
+    [RedirOperator.Hdoc]: ['feed'],
+    [RedirOperator.DashHdoc]: ['feed'],
+    [RedirOperator.WordHdoc]: ['feed'],
+    [RedirOperator.RdrOut]: ['write', 'print'],
+    [RedirOperator.ClbOut]: ['write', 'print'],
+    [RedirOperator.AppOut]: ['write', 'print', 'append'],
+    [RedirOperator.AppClob]: ['write', 'print', 'append'],
+    [RedirOperator.RdrAll]: ['write'],
+    [RedirOperator.RdrAllClob]: ['write'],
+    [RedirOperator.AppAll]: ['write'],
+    [RedirOperator.AppAllClob]: ['write'],
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -36,6 +51,31 @@ class Written extends Data.Class<{ readonly field: Field; readonly exact: boolea
     spells(...words: readonly string[]): boolean {
         return Option.exists(this.text, (text) => words.includes(text));
     }
+
+    static of(text: string): Written {
+        return new Written({ field: Field.known(text), exact: true, node: Option.none() });
+    }
+}
+
+class Redirection extends Data.Class<{ readonly modes: NonNullable<(typeof modes)[RedirOperator]>; readonly descriptor: Option.Option<string>; readonly target: Option.Option<Field>; readonly text: Option.Option<string> }> {
+    get stdin(): Stdin {
+        const [copied, unknown] = [this.modes.includes('duplicate'), Field.unknown(Origin.Unsupported())];
+        const path = Option.getOrElse(this.target, () => unknown);
+        return Match.value({ fed: this.modes.includes('feed'), closed: Option.contains(path.text, copied ? '-' : '/dev/null') }).pipe(
+            Match.when({ fed: true }, () => Stdin.Text({ text: this.text })),
+            Match.when({ closed: true }, () => Stdin.Closed()),
+            Match.orElse(() => Stdin.File({ path: copied ? unknown : path })),
+        );
+    }
+
+    opens(descriptor: string, ...some: Redirection['modes']): boolean {
+        return Option.getOrElse(this.descriptor, () => descriptor) === descriptor && some.some((mode) => this.modes.includes(mode));
+    }
+
+    static of(operator: RedirOperator, descriptor: Redirection['descriptor'], written: Redirection['target'], cwd: Field, text: Redirection['text']): Redirection {
+        const held = modes[operator] ?? [];
+        return new Redirection({ modes: held, descriptor, target: held.includes('duplicate') ? written : Option.map(written, (field) => field.resolve(cwd)), text });
+    }
 }
 
 class Loop extends Data.Class<{ readonly source: string; readonly start: number; readonly end: number; readonly condition: boolean }> {}
@@ -48,14 +88,8 @@ class Invocation extends Data.Class<{
     readonly words: readonly Written[];
     readonly node: Option.Option<Stmt>;
     readonly assigns: readonly { readonly name: string; readonly value: Written }[];
-    readonly usage: Option.Option<Usage>;
-    readonly path: readonly string[];
-    readonly flags: readonly { readonly flag: Flag; readonly spelling: string; readonly spelled: Written; readonly values: readonly Written[] }[];
-    readonly operands: readonly { readonly word: Written; readonly roles: Usage['values'][string]['roles'] }[];
-    readonly rest: readonly Written[];
-    readonly reads: readonly Field[];
-    readonly writes: readonly Field[];
-    readonly deletes: readonly Field[];
+    readonly arguments: Arguments;
+    readonly redirections: readonly Redirection[];
     readonly opaque: boolean;
     readonly inner: readonly Invocation[];
     readonly place: Place;
@@ -68,7 +102,7 @@ class Invocation extends Data.Class<{
     // --- [IDENTITY]
 
     get name(): Option.Option<string> {
-        return Program.$match(this.program, { Unknown: () => Option.none(), Builtin: ({ name }) => Option.some(name), Function: ({ name }) => Option.some(name), External: ({ name }) => Option.some(name.slice(name.lastIndexOf('/') + 1)) });
+        return this.program._tag === 'Unknown' ? Option.none() : Option.some(this.program.name);
     }
 
     get label(): string {
@@ -93,6 +127,32 @@ class Invocation extends Data.Class<{
         return Option.all([this.head, Option.flatMap(Array.last(this.words), ({ node }) => node)]);
     }
 
+    // --- [ARGUMENTS]
+
+    get usage(): Arguments['usage'] {
+        return this.arguments.usage;
+    }
+
+    get subcommands(): Arguments['subcommands'] {
+        return this.arguments.subcommands;
+    }
+
+    get path(): readonly string[] {
+        return Array.getSomes(this.subcommands.map(({ text }) => text));
+    }
+
+    get flags(): Arguments['flags'] {
+        return this.arguments.flags;
+    }
+
+    get operands(): Arguments['operands'] {
+        return this.arguments.operands;
+    }
+
+    get rest(): Arguments['rest'] {
+        return this.arguments.rest;
+    }
+
     operand(at = 0): Option.Option<string> {
         return Option.flatMap(Array.get(this.operands, at), ({ word }) => word.text);
     }
@@ -104,8 +164,22 @@ class Invocation extends Data.Class<{
     values(...spellings: readonly string[]): readonly Written[] {
         return this.flags.filter(({ flag }) => flag.spellings.some((spelling) => spellings.includes(spelling))).flatMap(({ values }) => values);
     }
+
+    // --- [EFFECTS]
+
+    get reads(): readonly Field[] {
+        return [...this.arguments.effects.reads, ...this.redirections.flatMap((redirection) => (redirection.modes.includes('read') ? Option.toArray(redirection.target) : []))];
+    }
+
+    get writes(): readonly Field[] {
+        return [...this.arguments.effects.writes, ...this.redirections.flatMap((redirection) => (redirection.modes.includes('write') ? Option.toArray(redirection.target) : []))];
+    }
+
+    get deletes(): readonly Field[] {
+        return this.arguments.effects.deletes;
+    }
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Invocation, Loop, Place, Program, Stdin, Within, Written };
+export { Invocation, Loop, Place, Program, Redirection, Stdin, Within, Written };

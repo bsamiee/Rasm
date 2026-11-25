@@ -69,8 +69,8 @@ const rows = [
     },
     {
         name: 'a command replaced and scripts joined before and after commands, grouped where an operator binds them',
-        source: 'true && rec b\nfalse && rec c\nfalse\nrec d',
-        edits: (at: Found, scripts: Scripts) => (editor: Editor) => [editor.command(at('Stmt', 'rec b'), scripts.pair), editor.precede(scripts.one, ';', at('Stmt', 'rec c')), editor.follow(at('Stmt', 'false'), '&&', scripts.pair)],
+        source: 'true && rec b\nfalse && rec c\nfalse && rec e\nfalse\nrec d',
+        edits: (at: Found, scripts: Scripts) => (editor: Editor) => [editor.command(at('Stmt', 'rec b'), scripts.pair), editor.precede(scripts.one, ';', at('Stmt', 'rec c')), editor.precede(scripts.one, '||', at('Stmt', 'rec e')), editor.follow(at('Stmt', 'false'), '&&', scripts.pair)],
         promised: [
             ['rec', 'x'],
             ['rec', 'y'],
