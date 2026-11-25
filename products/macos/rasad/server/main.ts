@@ -14,7 +14,7 @@ import manifest from '#/package.json' with { type: 'json' };
 Effect.gen(function* () {
     const { version, identifier, layer: application, ended } = yield* ApplicationServer.fromBundle;
     return yield* serve(
-        { name: manifest.name, description: manifest.description, version, domain: identifier },
+        { name: manifest.name, description: manifest.description, version, identifier },
         {
             listen: Option.some(Host.hostPortFromStringUnsafe('localhost:7491')),
             instructions: ['Rasad drives the applications installed on this Mac that no dedicated MCP server claims: their windows, dialogs, menus, documents, and scripting dictionaries.', ...Tools.instructions],

@@ -39,7 +39,7 @@ const tools = Effect.gen(function* () {
 Effect.gen(function* () {
     const { version, identifier, layer: application, ended } = yield* ApplicationServer.fromBundle;
     return yield* serve(
-        { name: manifest.name, description: manifest.description, version, domain: identifier },
+        { name: manifest.name, description: manifest.description, version, identifier },
         {
             listen: Option.some(Host.hostPortFromStringUnsafe(new URL(UxpManifest.link).host)),
             instructions: [

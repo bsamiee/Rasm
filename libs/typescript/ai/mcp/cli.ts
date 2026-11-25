@@ -44,15 +44,18 @@ class Output extends Context.Service<Output, { readonly folder: (app: string, ki
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends Parameters<typeof Command.withGlobalFlags>[1]>(
-    { domain, ...manifest }: Pick<Parameters<typeof McpServer.layerHttp>[0], 'name' | 'version' | 'description' | 'websiteUrl' | 'icons' | 'extensions' | 'cacheHints'> & { readonly domain: string },
+    { identifier, ...manifest }: Pick<Parameters<typeof McpServer.layerHttp>[0], 'name' | 'version' | 'description' | 'websiteUrl' | 'icons' | 'extensions' | 'cacheHints'> & { readonly identifier: string },
     { listen, instructions, settings }: { readonly listen: Option.Option<Host.HostPort>; readonly instructions: readonly string[]; readonly settings: Declared },
     app: Layer.Layer<never, E, R>,
     ending: Effect.Effect<never, E2, R2>,
 ) {
     const named = { ...manifest, name: yield* Server.scheme(manifest.name) };
+    const name = identifier.slice(identifier.lastIndexOf('.') + 1);
     const Listen = setting('listen', 'listen', optional(Schema.HostPortFromString), listen, 'Endpoint as host:port or [IPv6]:port, a host name binding every address it resolves to');
-    const defaults = yield* process.platform === 'darwin' ? run(['defaults', 'export', domain, '-']).pipe(Effect.flatMap(({ stdout: text }) => Effect.try({ try: (): unknown => plist(text), catch: (cause) => new Cause.UnknownError(cause, `defaults export of ${domain} printed no property list`) }))) : Effect.succeed({});
-    const provider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase, ConfigProvider.nested(String.constantCase(named.name)), ConfigProvider.orElse(ConfigProvider.fromUnknown(defaults).pipe(ConfigProvider.mapInput((path) => [path.join('.')]))), ConfigProvider.orElse(ConfigProvider.fromEnv()));
+    const defaults = yield* process.platform === 'darwin'
+        ? run(['defaults', 'export', identifier, '-']).pipe(Effect.flatMap(({ stdout: text }) => Effect.try({ try: (): unknown => plist(text), catch: (cause) => new Cause.UnknownError(cause, `defaults export of ${identifier} printed no property list`) })))
+        : Effect.succeed({});
+    const provider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase, ConfigProvider.nested(String.constantCase(name)), ConfigProvider.orElse(ConfigProvider.fromUnknown(defaults).pipe(ConfigProvider.mapInput((path) => [path.join('.')]))), ConfigProvider.orElse(ConfigProvider.fromEnv()));
     const serveHttp = Effect.fnUntraced(
         function* (transport: Parameters<typeof Server.layerHttp>[1], appLayer: Layer.Layer<never, E, Exclude<R, Output>>) {
             const [handler, addresses] = yield* Effect.all([HttpRouter.toHttpEffect(Server.layerHttp(named, transport, appLayer)), AddressResolver.AddressResolver.use((resolver) => resolver.resolve(transport.address))]);
@@ -63,8 +66,8 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
         Layer.launch,
     );
     const folders = Effect.map(Settings.output, (output) => {
-        const folder: Output['Service']['folder'] = (target, kind) => Option.match(output, { onNone: () => join(envPaths(named.name, { suffix: '' })[FOLDERS[kind][0]], FOLDERS[kind][1]), onSome: (root) => join(root, target, kind) });
-        return { folder, logs: folder(named.name, 'logs') };
+        const folder: Output['Service']['folder'] = (target, kind) => Option.match(output, { onNone: () => join(envPaths(identifier, { suffix: '' })[FOLDERS[kind][0]], FOLDERS[kind][1]), onSome: (root) => join(root, target, kind) });
+        return { folder, logs: folder(name, 'logs') };
     });
     const telemetry = Effect.map(Effect.all([folders, GlobalFlag.LogLevel]), ([{ logs }, level]) =>
         layerNodeFromConfig({ resource: { serviceName: named.name, serviceVersion: manifest.version }, target: 'file', file: join(logs, `${parse(process.execPath).name}.log`), ...Option.getOrUndefined(Option.map(level, (minimum) => ({ level: minimum }))) }),
@@ -76,7 +79,7 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
             function* ({ tool: wanted, given, handle }) {
                 const bound = yield* Effect.fromOption(yield* Listen, () => new Cause.NoSuchElementError('call reaches a server over HTTP, name its address with --listen'));
                 const client = Context.get(yield* Layer.build(McpClient.layerHttp({ name: named.name, version: manifest.version, url: `http://${Host.formatHostPort(bound)}/`, protocol: McpProtocol.v2026_07_28 })), McpClient.McpClient);
-                const tool = yield* Unmatched.single(yield* client.listTools(), 'tool', Option.some(wanted), ({ name }) => [name]);
+                const tool = yield* Unmatched.single(yield* client.listTools(), 'tool', Option.some(wanted), (each) => [each.name]);
                 const result = yield* client.callTool({ tool, arguments: { ...given, ...Record.getSomes({ handle }) } });
                 const text = Array.flatMap(result.content, (block) => (block.type === 'text' ? [block.text] : [])).join('\n');
                 return yield* result.isError === true ? CliError.UserError.make({ cause: result, userMessage: text }) : Console.log(text);
@@ -91,7 +94,7 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
         Effect.fnUntraced(
             function* () {
                 const [address, { output, hosts, ...transport }, outputFolders] = yield* Effect.all([Listen, Effect.all(Settings), folders]);
-                yield* Effect.sync(() => Object.assign(process.env, Record.getSomes({ [String.constantCase(`${named.name}.${OUTPUT}`)]: output })));
+                yield* Effect.sync(() => Object.assign(process.env, Record.getSomes({ [String.constantCase(`${name}.${OUTPUT}`)]: output })));
                 const appLayer = Layer.provide(app, Layer.succeed(Output)(outputFolders));
                 return yield* Option.match(address, {
                     onNone: () => Layer.launch(Layer.effectDiscard(HttpRouter.toHttpEffect(Server.layerStdio(named, { ...transport, instructions }, appLayer)))),
