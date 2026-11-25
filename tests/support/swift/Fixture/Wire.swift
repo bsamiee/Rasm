@@ -4,7 +4,7 @@ public import Encoding
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public enum Control: String, CaseIterable, Codable, Sendable {
+public enum Inventory: String, CaseIterable, Codable, Sendable {
     case action
     case toggle
     case popup
@@ -16,7 +16,6 @@ public enum Control: String, CaseIterable, Codable, Sendable {
     case tools
     case table
     case outline
-    case row
     case slider
     case stepper
     case measure
@@ -31,80 +30,87 @@ public enum Control: String, CaseIterable, Codable, Sendable {
 }
 
 public enum Surface: String, CaseIterable, Codable, Sendable {
-    case dialog
-    case panel
-    case sheet
-    case popover
-    case context
-    case deferred
-    case grouped
-    case status
-}
-
-public enum Window: String, CaseIterable, Codable, Sendable {
     case controls
     case lists
     case covered
+    case unlisted
+    case toolbar
+    case dialog
+    case progress
+    case panel
+    case sheet
+    case save
+    case popover
+    case status
+}
+
+public enum Hang: Codable, Sendable {
+    case sleeping(Duration)
+    case spinning(Duration)
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Fact: Codable, Equatable, Sendable {
+public struct Report: Codable, Equatable, Sendable {
+    public struct Item: Codable, Equatable, Sendable {
+        public let title: String
+        public let selected: Bool
+        public let level: Int?
+    }
+
     public struct Shortcut: Codable, Equatable, Sendable {
         public let key: String
         public let modifiers: UInt
     }
 
-    public let control: Control
-    public let member: Int
-    public let className: String
-    public let elementClass: String
-    public let element: Bool
-    public let role: String?
-    public let subrole: String?
-    public let title: String?
-    public let label: String?
-    public let help: String?
-    public let value: JSONValue?
-    public let enabled: Bool
-    public let range: ClosedRange<Double>?
-    public let step: Double?
-    public let options: [String]?
-    public let selection: [Int]?
-    public let shortcut: Shortcut?
-    public let window: Int?
-    public let frame: CGRect?
-}
+    public struct Control: Codable, Equatable, Sendable {
+        public let entry: Inventory
+        public let member: Int
+        public let className: String
+        public let role: String?
+        public let subrole: String?
+        public let parent: String?
+        public let title: String?
+        public let caption: String?
+        public let help: String?
+        public let value: JSONValue?
+        public let enabled: Bool
+        public let range: ClosedRange<Double>?
+        public let step: Double?
+        public let items: [Item]?
+        public let shortcut: Shortcut?
+        public let window: Int?
+        public let frame: CGRect?
+    }
 
-public struct WindowFact: Codable, Equatable, Sendable {
-    public let window: Window?
-    public let number: Int
-    public let className: String
-    public let title: String
-    public let role: String?
-    public let subrole: String?
-    public let frame: CGRect
-    public let level: Int
-    public let visible: Bool
-    public let key: Bool
-    public let main: Bool
-}
+    public struct Window: Codable, Equatable, Sendable {
+        public let surface: Surface?
+        public let number: Int
+        public let className: String
+        public let title: String
+        public let role: String?
+        public let subrole: String?
+        public let modal: Bool
+        public let frame: CGRect
+        public let level: Int
+        public let visible: Bool
+        public let key: Bool
+        public let main: Bool
+        public let edited: Bool
+    }
 
-public struct Report: Codable, Equatable, Sendable {
-    public let controls: [Fact]
-    public let windows: [WindowFact]
+    public let controls: [Control]
+    public let windows: [Window]
 }
 
 public enum Command: Codable, Sendable {
     case report
     case show(Surface)
     case dismiss(Surface)
-    case close(Window)
-    case open(Window)
-    case retitle(Control, member: Int, to: String)
-    case reorder(Control, to: Int)
+    case retitle(Inventory, member: Int, to: String)
+    case reorder(Inventory, to: Int)
     case fault(String)
-    case hang(Duration)
+    case hang(Hang)
     case activate
     case abort
 }
@@ -112,12 +118,13 @@ public enum Command: Codable, Sendable {
 @CasePathable
 public enum Line: Codable, Sendable {
     case ready
-    case report(Report)
-    case action(selector: String, control: Control?, member: Int?, value: JSONValue?)
+    case report(report: Report)
+    case action(selector: String, entry: Inventory?, member: Int?, value: JSONValue?, cause: UInt?)
     case pointer(type: UInt, window: Int, at: CGPoint, clicks: Int, modifiers: UInt)
     case key(type: UInt, window: Int, characters: String?, code: UInt16, modifiers: UInt)
     case scroll(window: Int, at: CGPoint, delta: CGVector, modifiers: UInt)
-    case active(Bool)
-    case keyed(window: Int, Bool)
-    case menu(title: String, open: Bool)
+    case menu(title: String, opened: Bool, tracking: Bool)
+    case answered(surface: Surface, accepted: Bool)
+    case active(active: Bool)
+    case keyed(window: Int, key: Bool)
 }

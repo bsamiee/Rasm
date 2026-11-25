@@ -53,9 +53,6 @@
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Fixture" BuildableName="Fixture" BlueprintName="Fixture" ReferencedContainer="container:"/>
             </BuildActionEntry>
-            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="RasmTesting" BuildableName="RasmTesting" BlueprintName="RasmTesting" ReferencedContainer="container:"/>
-            </BuildActionEntry>
         </BuildActionEntries>
     </BuildAction>
     <TestAction buildConfiguration="Debug">
@@ -85,7 +82,7 @@
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="watch-appTests" BuildableName="watch-appTests" BlueprintName="watch-appTests" ReferencedContainer="container:"/>
             </TestableReference>
             <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="RasmTestingTests" BuildableName="RasmTestingTests" BlueprintName="RasmTestingTests" ReferencedContainer="container:"/>
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="FixtureTests" BuildableName="FixtureTests" BlueprintName="FixtureTests" ReferencedContainer="container:"/>
             </TestableReference>
         </Testables>
     </TestAction>

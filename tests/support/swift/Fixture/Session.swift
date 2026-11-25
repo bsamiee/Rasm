@@ -30,9 +30,11 @@ public struct FixtureSession: Sendable {
         _ = try await writer.write(Array(JSONEncoder.lines.encodeLine(command)))
     }
 
-    public func next<Value>(_ line: CaseKeyPath<Line, Value>) async throws -> Value {
+    public func next<Value>(_ line: CaseKeyPath<Line, Value>) async throws -> (value: Value, before: [Line]) {
+        var before: [Line] = []
         for try await read in lines {
-            if let value = read[case: line] { return value }
+            if let value = read[case: line] { return (value, before) }
+            before.append(read)
         }
         throw FixtureFailure(subject: String(describing: line), reason: .ended)
     }

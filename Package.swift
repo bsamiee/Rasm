@@ -157,13 +157,12 @@ let support: [Target] = [
             .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "tests/support/swift/Fixture",
-    ),
-    .target(name: "RasmTesting", dependencies: [.product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/support/swift/Testing"),
+    )
 ]
 let tests: [Target] = [
     .testTarget(
-        name: "RasmTestingTests",
-        dependencies: ["Fixture", "RasmTesting", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump")],
+        name: "FixtureTests",
+        dependencies: ["Fixture", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump")],
         path: "tests/support/swift/Tests",
     ),
     .testTarget(
