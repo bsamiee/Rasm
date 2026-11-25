@@ -86,6 +86,6 @@ describe('build--uxp and build--chrome', () => {
     it('refuses an earlier build that wrote no manifest, naming the manifests it looks for', async ({ workspace }) => {
         const graph = await workspace.write({ ...clipper, '.artifacts/vite/clipper/worker-loader.js': "import './assets/worker.js';\n" }).graph({ createNodes }, settings);
 
-        await expect(packed(workspace, graph, 'Clipper', 'build--chrome')).rejects.toThrow('Clipper finds no manifest.json or manifest.yml in what its builds wrote');
+        await expect(packed(workspace, graph, 'Clipper', 'build--chrome')).rejects.toThrow('Clipper finds none of manifest.yml, manifest.json, .claude-plugin/plugin.json in what its builds wrote');
     });
 });

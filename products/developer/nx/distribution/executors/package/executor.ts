@@ -1,6 +1,6 @@
 import { executor, Words } from '@rasm/nx';
 import { Array, Cause, Effect, FileSystem, Option, Path, Schema } from 'effect';
-import { located } from '#/host-packages';
+import { HOSTS, located } from '#/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ const execute = executor(Package, function* ({ outputPath, __unparsed__: words =
         { discard: true },
     );
     yield* Array.match(packed, {
-        onEmpty: () => new Cause.UnknownError(folders, `${project} finds no host manifest in what its builds wrote`),
+        onEmpty: () => new Cause.UnknownError(folders, `${project} finds none of ${Array.dedupe(HOSTS.flatMap(({ manifest, build }) => (build?.pack === undefined ? [] : [manifest]))).join(', ')} in what its builds wrote`),
         onNonEmpty: Effect.forEach(({ found, pack, file }) => pack(found, file, words), { discard: true }),
     });
     return { success: true };

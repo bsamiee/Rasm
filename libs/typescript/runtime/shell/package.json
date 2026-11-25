@@ -51,11 +51,49 @@
     "nx": {
         "targets": {
             "codegen": {
-                "command": "node usage/codegen.ts",
+                "executor": "nx:noop",
+                "dependsOn": [
+                    {
+                        "target": "codegen--*",
+                        "params": "forward"
+                    }
+                ],
+                "inputs": [
+                    "{projectRoot}/programs/codegen.ts",
+                    "{projectRoot}/programs/usage.ts",
+                    {
+                        "runtime": "carapace --version"
+                    },
+                    {
+                        "runtime": "node -p process.platform+process.arch"
+                    },
+                    {
+                        "externalDependencies": []
+                    }
+                ]
+            },
+            "codegen--carapace": {
+                "command": "node programs/codegen.ts",
                 "options": {
                     "cwd": "{projectRoot}"
                 },
-                "cache": false
+                "cache": true,
+                "inputs": [
+                    "{projectRoot}/programs/codegen.ts",
+                    "{projectRoot}/programs/usage.ts",
+                    {
+                        "runtime": "carapace --version"
+                    },
+                    {
+                        "runtime": "node -p process.platform+process.arch"
+                    },
+                    {
+                        "externalDependencies": []
+                    }
+                ],
+                "outputs": [
+                    "{projectRoot}/usage"
+                ]
             }
         }
     }
