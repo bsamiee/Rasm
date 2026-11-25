@@ -18,34 +18,34 @@ Collection members are specifiers that resolve at each member read, and an unmat
 ```ts
 import type { InDesignDOMObject } from 'adobe:indesign';
 
-class Model extends Context.Service<Model>()('@app/indesign/Model', {
+class Dom extends Context.Service<Dom>()('@app/indesign/Dom', {
     make: (indesign: typeof import('adobe:indesign')) =>
         Effect.sync(() => {
-            const model: typeof indesign = Object.create(indesign);
+            const dom: typeof indesign = Object.create(indesign);
             const owning =
                 <A>(member: keyof A & string) =>
                 <T>(value: T): value is T & A =>
                     Predicate.hasProperty(value, 'toSpecifier') && Predicate.hasProperty(value, member);
-            return Object.assign(model, { owning, host: owning<InDesignDOMObject<unknown>>('toSpecifier') });
+            return Object.assign(dom, { owning, host: owning<InDesignDOMObject<unknown>>('toSpecifier') });
         }),
 }) {
-    static readonly resolve = Effect.fn('Model.resolve')(function* (specifier: Specifier) {
-        const [{ app, ScriptLanguage, host }, written] = yield* Effect.all([Model, specifier.path]);
+    static readonly resolve = Effect.fn('Dom.resolve')(function* (specifier: Specifier) {
+        const [{ app, ScriptLanguage, host }, written] = yield* Effect.all([Dom, specifier.path]);
         const identified = (path: string): Option.Option<string> =>
             Option.flatMap(Schema.decodeUnknownOption(Specifier.FromString)(path), ({ kind, selector, end }) => Option.as(Option.filter(selector, (each) => Option.isNone(end) && Selector.guards.Identified(each)), kind));
-        const located = (path: string): Option.Option<InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[]> => {
+        const resolvePath = (path: string): Option.Option<InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[]> => {
             const requested = identified(path);
             return Option.filter(Option.liftThrowable((): unknown => app.doScript('resolve(arguments[0])', ScriptLanguage.JAVASCRIPT, [path]))(), (found): found is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] =>
                 Array.ensure<unknown>(found).every((each) => host(each) && each.isValid && (Option.isNone(requested) || Equal.equals(identified(each.toSpecifier()), requested))),
             );
         };
         const missed = (): Unmatched => {
-            const siblings = Array.flatMap(Option.toArray(located(`${specifier.container}${specifier.separator}${specifier.kind}`)), Array.ensure);
+            const siblings = Array.flatMap(Option.toArray(resolvePath(`${specifier.container}${specifier.separator}${specifier.kind}`)), Array.ensure);
             return Option.exists(specifier.selector, Selector.guards.Indexed) && Array.isReadonlyArrayNonEmpty(siblings)
                 ? Unmatched.make({ subject: `object among indexes 0 to ${siblings.length - 1}`, query: Option.some(written) })
                 : Unmatched.make({ subject: 'object', query: Option.some(written), candidates: Array.map(siblings, (each) => each.toSpecifier()) });
         };
-        return yield* Option.match(located(written), {
+        return yield* Option.match(resolvePath(written), {
             onSome: (found) => Effect.succeed(specifier.root || Option.isSome(specifier.selector) ? found : Array.ensure(found)),
             onNone: () => Effect.fail(Option.isSome(specifier.end) ? Unmatched.make({ subject: 'range', query: Option.some(written) }) : missed()),
         });
@@ -67,7 +67,7 @@ const Written = Schema.Union([Schema.TemplateLiteralParser([Container, Separator
 );
 const Root = Schema.Literal('/').pipe(Schema.decodeTo(Schema.toEncoded(Step), { decode: SchemaGetter.succeed({ container: '', separator: '/', kind: '' }), encode: SchemaGetter.succeed('/') }));
 class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol }>('Specifier')({ ...Step.fields, end: Schema.OptionFromOptionalKey(Step) }) {
-    static readonly Path = Schema.Union([
+    static readonly FromString = Schema.Union([
         Schema.TemplateLiteralParser(['(', Written, ' to ', Written, ')']).pipe(
             Schema.decodeTo(Schema.toEncoded(Schema.Struct({ ...Step.fields, end: Step })), SchemaTransformation.transform({ decode: ([, start, , end]) => ({ ...start, end }), encode: ({ end, ...start }) => ['(', start, ' to ', end, ')'] as const })),
         ),
@@ -84,18 +84,18 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 }
 ```
 
-`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign, and `owning` reads no getter: `Predicate.hasProperty` tests membership through the prototype chain, `toSpecifier` for a DOM object (`host`) and `everyItem` for a collection. `Predicate.hasProperty` alone holds wherever an ancestor prototype holds the name (`name` on any function or `Error`), and `owning` pairs it with `toSpecifier`. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `Specifier.FromString` decodes a saved specifier into container, separator, and last step, or into a start and an end step for the `(<A> to <B>)` range that `findText` hits, `textStyleRanges` members, and `itemByRange` return, the application root `/` into an empty step `root` names, and refuses any other text. `Reference.Selector`, the tagged union every host's specifier steps share, decodes `[@id=<n>]`, `[<n>]`, and `[@name="<name>"]` into `Identified`, `Indexed`, and `Named`. `Model.resolve` passes the path to ExtendScript's `resolve` as an argument, compares the `kind` of a lone `[@id=<n>]` step, answers a collection step without a selector as an array, and fails `Unmatched` with sibling specifiers as candidates or, for a missed `[<n>]`, the index span. Empty collections resolve as `undefined`, and `everyItem().getElements()` on a known collection reads an empty array. Supplied source calls native collection methods without computed-member rewriting.
+`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign, and `owning` reads no getter: `Predicate.hasProperty` tests membership through the prototype chain, `toSpecifier` for a DOM object (`host`) and `everyItem` for a collection. `Predicate.hasProperty` alone holds wherever an ancestor prototype holds the name (`name` on any function or `Error`), and `owning` pairs it with `toSpecifier`. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `Specifier.FromString` decodes a saved specifier into container, separator, and last step, or into a start and an end step for the `(<A> to <B>)` range that `findText` hits, `textStyleRanges` members, and `itemByRange` return, the application root `/` into an empty step `root` names, and refuses any other text. `Reference.Selector`, the tagged union every host's specifier steps share, decodes `[@id=<n>]`, `[<n>]`, and `[@name="<name>"]` into `Identified`, `Indexed`, and `Named`. `Dom.resolve` passes the path to ExtendScript's `resolve` as an argument, compares the `kind` of a lone `[@id=<n>]` step, answers a collection step without a selector as an array, and fails `Unmatched` with sibling specifiers as candidates or, for a missed `[<n>]`, the index span. Empty collections resolve as `undefined`, and `everyItem().getElements()` on a known collection reads an empty array. Supplied source calls native collection methods without computed-member rewriting.
 
-| [INDEX] | [NEED]                     | [FORM]                                                 | [REASON]                                      |
-| :-----: | :------------------------- | :----------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | Member by position or name | `item(index)`, negative from the end, or a name        | `collection[index]` reads `undefined`         |
-|  [02]   | Every member as an array   | `everyItem().getElements()`                            | Collections have no iterator                  |
-|  [03]   | One field of every member  | `everyItem().<field>`, one call per field              | Array at any count, `properties` reads all    |
-|  [04]   | Same object across reads   | `equals`                                               | Repeated reads differ under `===`             |
-|  [05]   | Address held across calls  | `id`, or `toSpecifier()` after `getElements()`         | `item(index)` specifiers shift on insert      |
-|  [06]   | Address of a text range    | `toSpecifier()` through `Specifier.FromString` and `resolve` | `Character`, `Word`, `Paragraph` have no `id` |
-|  [07]   | Style inside a group       | Specifier steps per group                              | Groups can repeat one style name              |
-|  [08]   | Active document            | `Effect.try` over `app.activeDocument`                 | Throws with only windowless documents open    |
+| [INDEX] | [NEED]                     | [FORM]                                             | [REASON]                                      |
+| :-----: | :------------------------- | :------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | Member by position or name | `item(index)`, negative from the end, or a name    | `collection[index]` reads `undefined`         |
+|  [02]   | Every member as an array   | `everyItem().getElements()`                        | Collections have no iterator                  |
+|  [03]   | One field of every member  | `everyItem().<field>`, one call per field          | Array at any count, `properties` reads all    |
+|  [04]   | Same object across reads   | `equals`                                           | Repeated reads differ under `===`             |
+|  [05]   | Address held across calls  | `id`, or `toSpecifier()` after `getElements()`     | `item(index)` specifiers shift on insert      |
+|  [06]   | Address of a text range    | `toSpecifier()`, `Specifier.FromString`, `resolve` | `Character`, `Word`, `Paragraph` have no `id` |
+|  [07]   | Style inside a group       | Specifier steps per group                          | Groups can repeat one style name              |
+|  [08]   | Active document            | `Effect.try` over `app.activeDocument`             | Throws with only windowless documents open    |
 
 - `app.panels` holds a member resolving to nothing, its `item(<index>)` reads `undefined`, and `everyItem()` or a range reads `undefined` in UXP and throws in ExtendScript
 - Removed objects keep their `toSpecifier()`, read `isValid` false, and read `constructorName` empty
@@ -103,7 +103,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 - `resolve` of an `[@id=<n>]` step returns the object with that id whatever class the step names
 - Text specifiers are character spans that name another range after an edit before them, and `parentPage` reads `null` on the pasteboard
 - Parents discriminate on `constructorName` (`Character` for an anchored item, `Spread` or `MasterSpread` for a top-level one)
-- ExtendScript run through `doScript` keeps its own `scriptPreferences`, and reads and writes go through the object `Model.resolve` returns
+- ExtendScript run through `doScript` keeps its own `scriptPreferences`, and reads and writes go through the object `Dom.resolve` returns
 - `app.selection` throws with no document window open, windowless documents included, where `app.windows.length` reads 0
 
 ## [03]-[FIELDS]
@@ -140,7 +140,7 @@ Throws inside a step roll back every change in every document and record no undo
 
 ```ts
 const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effect.Effect<A, E, R>) {
-    const { app, SaveOptions, ScriptLanguage, UndoModes } = yield* Model;
+    const { app, SaveOptions, ScriptLanguage, UndoModes } = yield* Dom;
     const [opened, done, sync] = [app.documents.everyItem().id, yield* Deferred.make<A, E | HostError>(), Effect.runSyncWith(yield* Effect.context<R>())];
     yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: HostError.refused(label) }).pipe(Effect.catch((error) => Deferred.fail(done, error)));
     return yield* Deferred.await(done).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), (id) => Effect.sync(() => app.documents.itemByID(id).close(SaveOptions.NO)), { discard: true })));
@@ -164,7 +164,7 @@ ExtendScript writes and rolled-back reads send source text with arguments as dat
 import type { InDesignDOMObject } from 'adobe:indesign';
 
 const based = (target: InDesignDOMObject<unknown>, field: string) =>
-    Model.use(({ app, ScriptLanguage }) =>
+    Dom.use(({ app, ScriptLanguage }) =>
         Effect.try({
             try: (): unknown =>
                 app.doScript(
@@ -214,7 +214,7 @@ import type { Page, PageItem } from 'adobe:indesign';
 
 class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Extent')(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite)) {
     static readonly of = Effect.fn('Extent.of')((...placed: readonly (Page | PageItem)[]) =>
-        Model.use(({ AnchorPoint, BoundingBoxLimits, CoordinateSpaces }) =>
+        Dom.use(({ AnchorPoint, BoundingBoxLimits, CoordinateSpaces }) =>
             Effect.try({
                 try: () =>
                     Extent.make(
@@ -245,17 +245,17 @@ class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Ex
 
 ## [07]-[EXPORT]
 
-Export reads app-wide preferences another script left, fails with no throw under `NEVER_INTERACT`, and writes nothing for an input it rejects. `rendered` holds every key a page, spread, or item export reads and decides success from the written bytes:
+Export reads app-wide preferences another script left, fails with no throw under `NEVER_INTERACT`, and writes nothing for an input it rejects. `render` holds every key a page, spread, or item export reads and decides success from the written bytes:
 
 ```ts
 import type { Page, PageItem, Spread } from 'adobe:indesign';
 
-const rendered = Effect.fn('rendered')(function* (found: Page | Spread | PageItem, longestSide: number, file: URL, given: Record.ReadonlyRecord<string, unknown>) {
-    const [model, { fs }, path] = yield* Effect.all([Model, Uxp, Path.Path]);
-    const { app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum } = model;
+const render = Effect.fn('render')(function* (found: Page | Spread | PageItem, longestSide: number, file: URL, given: Record.ReadonlyRecord<string, unknown>) {
+    const [dom, { fs }, path] = yield* Effect.all([Dom, Uxp, Path.Path]);
+    const { app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum } = dom;
     const { source, placed, range } = Match.value(found).pipe(
-        Match.when(model.page, (each) => ({ source: each.parent.parent, placed: [each], range: { pageString: `+${each.documentOffset + 1}`, exportingSpread: false } })),
-        Match.when(model.spread, (each) => ({ source: each.parent, placed: each.pages.everyItem().getElements(), range: { pageString: `+${each.pages.firstItem().documentOffset + 1}`, exportingSpread: true } })),
+        Match.when(dom.page, (each) => ({ source: each.parent.parent, placed: [each], range: { pageString: `+${each.documentOffset + 1}`, exportingSpread: false } })),
+        Match.when(dom.spread, (each) => ({ source: each.parent, placed: each.pages.everyItem().getElements(), range: { pageString: `+${each.pages.firstItem().documentOffset + 1}`, exportingSpread: true } })),
         Match.orElse((each) => ({ source: each, placed: [each], range: {} })),
     );
     const { top, left, bottom, right } = yield* Extent.of(...placed);
@@ -280,7 +280,7 @@ const rendered = Effect.fn('rendered')(function* (found: Page | Spread | PageIte
 }, Effect.scoped);
 ```
 
-`model.page` and `model.spread` are `owning` guards (`documentOffset`, `spreadHidden`). `preserve` holds derived keys and every caller option key, and `written` then writes each option. `exportFile` takes the native path `fromFileUrl` returns, and `fs` the `file:` URL. Pixel size is points times `exportResolution` over 72.
+`dom.page` and `dom.spread` are `owning` guards (`documentOffset`, `spreadHidden`). `preserve` holds derived keys and every caller option key, and `written` then writes each option. `exportFile` takes the native path `fromFileUrl` returns, and `fs` the `file:` URL. Pixel size is points times `exportResolution` over 72.
 
 - `exportResolution` holds its declared range, a longest side above it clamps to the maximum, and one under it is refused with the side the minimum allows
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
@@ -348,7 +348,7 @@ Searches and changes run in one sequence:
 import type { Font } from 'adobe:indesign';
 
 const source = Effect.fn('source')(function* (face: Font, characters: string) {
-    const { FontStatus } = yield* Model;
+    const { FontStatus } = yield* Dom;
     const subset = temporary(`${face.postscriptName}.otf`).pipe(
         Effect.tap((path) => Effect.try({ try: () => face.createSubsetFont(characters, path), catch: HostError.refused(path) })),
         Effect.flatMap(bytes),
@@ -392,7 +392,7 @@ Scripts answer through one `script.setResult` call and fire no timers. Scripts s
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 
 const Host = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) });
-const script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
+const serveScript = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
     const decoder = new TextDecoder();
     Effect.gen(function* () {
         const [{ script: host }, context, done] = yield* Effect.all([Schema.decodeUnknownEffect(Host)(modules.uxp), Effect.context<Uxp>(), Deferred.make<void>()]);
@@ -415,7 +415,7 @@ const script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcSer
 `layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExitWith` runs the launch inside the script, a launch that suspends exits with an `AsyncFiberError` defect naming its fiber, and the script interrupts that fiber. Runs that set no result and servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Missing or misshapen `uxp.script` leaves no `setResult` to answer through, and its decode failure logs through `Effect.logError`, where the interrupt ending each completed run logs nothing. Typings omit `script` from `uxp`. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
 
 - Script bodies run as one `ENTIRE_SCRIPT` function step named by the label its caller passes, where a throw rolls back and an outer variable keeps its thrown record
-- Script roots pass the `adobe:indesign` module to a one-call server layer (`script({ uxp, fs }, server(indesign))`)
+- Script roots pass the `adobe:indesign` module to a one-call server layer (`serveScript({ uxp, fs }, server(indesign))`)
 - Clients find each install through Launch Services as an application that opens an `.idjs` URL, and send each request as a `do script` event in `uxpscript`
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments, and modules the entry requires escape the test

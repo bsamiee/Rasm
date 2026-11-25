@@ -16,30 +16,30 @@ const Reply = Schema.Union([
     Schema.TaggedStruct('Thrown', { message: Schema.String, number: Schema.OptionFromOptionalKey(Schema.Finite), line: Schema.OptionFromOptionalKey(Schema.Int) }),
 ]);
 
-const runtime = () => {
+const host = () => {
     const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'object' && value !== null;
     const finite = (value: unknown): number | undefined => (typeof value === 'number' && Math.abs(value) < Number.POSITIVE_INFINITY ? value : undefined);
     const unmatched = (subject: string, query: string, candidates: readonly string[]) => ({ _tag: 'Unmatched', subject, query, candidates }) as const;
     const illegal = (text: string) => ({ _tag: 'IllegalArgument', message: text }) as const;
     const reply = (answer: () => unknown, evaluated = (_thrown: unknown): boolean => true): string => {
         try {
-            return encoded({ _tag: 'Value', value: answer() });
+            return stringify({ _tag: 'Value', value: answer() });
         } catch (thrown) {
             if (isRecord(thrown) && (thrown._tag === 'Unmatched' || thrown._tag === 'IllegalArgument')) {
-                return encoded(thrown);
+                return stringify(thrown);
             }
             const fields = isRecord(thrown) ? thrown : { message: thrown };
-            return encoded({ _tag: 'Thrown', message: String(fields.message), number: finite(fields.number), line: evaluated(thrown) ? finite(fields.line ?? fields.lineNumber) : undefined });
+            return stringify({ _tag: 'Thrown', message: String(fields.message), number: finite(fields.number), line: evaluated(thrown) ? finite(fields.line ?? fields.lineNumber) : undefined });
         }
     };
     return { unmatched, illegal, reply };
 };
-const encoder = transformSync(`var runtime = ${String(runtime)};`, { jsc: { target: 'es3', parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } } }).code;
-const sent = (body: string) => `(function (self) { var body = ${body}\n${encoder}\nreturn encodeURIComponent(runtime().reply(function () { return body.call(self); }));\n})(this)`;
+const encoder = transformSync(`var host = ${String(host)};`, { jsc: { target: 'es3', parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } } }).code;
+const sent = (body: string) => `(function (self) { var body = ${body}\n${encoder}\nreturn encodeURIComponent(host().reply(function () { return body.call(self); }));\n})(this)`;
 const Answer = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Reply)));
 ```
 
-`encoded` is the ES3 JSON writer `runtime` declares beside `reply`, and `body` a function expression the same transform lowered. `send` passes `sent(body)` as the `do javascript` direct parameter through an Apple event sender, and `Answer` decodes its reply. Host code throws `unmatched` and `illegal` records, `reply` writes them as their own cases, and `evaluated` decides which throws keep `line`. One `answered(success, subject)` folds every reply on both paths: `Value` decodes through the call's success schema, `Unmatched` fails as itself, `IllegalArgument` fails `IllegalArgumentError`, and `Thrown` fails `HostError` `Thrown` when it holds a line and `Refused` without one, its subject joined with `Error <number>`. `encoded` writes non-finite numbers as `null` and plain records by own keys, skipping a key holding `undefined`, and an unset field decodes through `Schema.optionalKey` and `OptionFromOptionalKey` as absent. Host objects a host specifier names encode as `{type, specifier, name, valid}` with `type` from Illustrator `typename`, and every other host object as its `String` form (`[Document Untitled-1]`).
+`stringify` is the ES3 JSON writer `host` declares beside `reply`, and `body` a function expression the same transform lowered. `send` passes `sent(body)` as the `do javascript` direct parameter through an Apple event sender, and `Answer` decodes its reply. Host code throws `unmatched` and `illegal` records, `reply` writes them as their own cases, and `evaluated` decides which throws keep `line`. One `Completion.decode(success, subject)` folds every reply on both paths: `Value` decodes through the call's success schema, `Unmatched` fails as itself, `IllegalArgument` fails `IllegalArgumentError`, and `Thrown` fails `HostError` `Thrown` when it holds a line and `Refused` without one, its subject joined with `Error <number>`. `stringify` writes non-finite numbers as `null` and plain records by own keys, skipping a key holding `undefined`, and an unset field decodes through `Schema.optionalKey` and `OptionFromOptionalKey` as absent. Host objects a host specifier names encode as `{type, specifier, name, valid}` with `type` from Illustrator `typename`, and every other host object as its `String` form (`[Document Untitled-1]`).
 
 - `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, `null` and records as `undefined`, and `osascript` `argv` as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike

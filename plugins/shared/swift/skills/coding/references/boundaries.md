@@ -70,7 +70,10 @@ func attachment(_ name: FilePath, under root: FileDescriptor) throws(OrderError)
 - NUL-terminated C buffers read as `String(validating: buffer.prefix { unit in unit != 0 }, as: UTF8.self)`
 - Per-user folders read `URL` members (`applicationSupportDirectory`, `cachesDirectory`, `temporaryDirectory`), `Library/Logs` under `libraryDirectory`
 - `Program.current.settings` from `CurrentProcess` reads key `<stem>` from `<NAME>_<STEM>` in the environment, then from the bundle identifier's defaults domain
-- `Program.current.directory(_:)` names a process's own log, cache, state, or runtime folder by bundle identifier, at the path its `<kind>.dir` setting holds when set
+- `Program.current.directory(_:of:)` names `~/Library/<folder>/<CFBundleIdentifier>` per `Directory` kind: `Application Support` for `.state`, `Logs` for `.logs`
+- `.captures` and `.media` each take a `<kind>` folder under `Caches/<CFBundleIdentifier>`
+- Setting `state.dir` replaces the `.state` folder, and `output.dir` holds every other kind at `<output.dir>/<application>/<kind>`
+- `<application>` is the `of:` argument, else the bundle identifier's last component
 - `defaults write <bundle id> <stem> <value>` sets a defaults key, typed `-int` for a number and `-array` for a list
 
 ## [03]-[PROCESSES]
@@ -180,10 +183,10 @@ Each metadata interpolation states `privacy:` from `Telemetry` by the value it m
 - Libraries log through `Logger.current` or a `Logger` parameter at `info` and below, and return a failure typed without logging it
 - File records hold `timestamp`, `severity_text`, `severity_number`, `body`, `scope`, `trace_id`, `span_id`, `trace_flags`, `attributes`, and `resource`
 - Code location enters `attributes` at `WARN` and above, `exception.type` and `exception.message` with an `error:`, `exception.stacktrace` at `ERROR` and above or for an underlying error
-- Settings `log.level`, `log.filter`, `log.target`, `log.dir`, `log.size`, `log.age`, `log.files`, `cache.dir`, `state.dir`, and `runtime.dir` read `<NAME>_<STEM>` then defaults key `<stem>`
-- `Program.current.directory(.state)` names a per-user folder by bundle identifier, `.log`, `.cache`, and `.runtime` alike
+- Settings `log.level`, `log.filter`, `log.target`, `log.size`, `log.age`, `log.files`, `output.dir`, and `state.dir` read `<NAME>_<STEM>` then defaults key `<stem>`
+- `telemetry(scopes:)` writes `<process name>.log` into `Program.current.directory(.logs)`, one file per executable
 - `OTEL_LOGS_EXPORTER`, `OTEL_METRICS_EXPORTER`, and `OTEL_TRACES_EXPORTER` each start one signal's export, unset registers nothing, and swift-otel reads every other `OTEL_*` variable
 - `withSpan` from `Tracing` wraps a boundary operation, and `EnvironmentCarrier` from `Telemetry` carries `TRACEPARENT` and `TRACESTATE` through a child's environment
-- `serve` from `JSONRPC` opens one server span per request under the envelope's `traceId` and `spanId`
+- `serve` from `JSONRPC` opens one server span per request under the message's `traceId` and `spanId`
 - `MetricKitReports` logs each MetricKit `DiagnosticReport` and `MetricReport`, and `metrickitd` registers a client signed with a team identity alone
 - `OSSignposter(subsystem: Program.current.identifier, category:)` marks Instruments intervals: `withIntervalSignpost` around synchronous work, `beginInterval` and `endInterval` across a suspension

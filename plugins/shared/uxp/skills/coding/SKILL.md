@@ -188,13 +188,13 @@ const written = (target: object, values: Record.ReadonlyRecord<string, unknown>)
 Host state outlasting a call (listener, preference outside undo, temporary file, socket, runtime) pairs acquisition with release in one `Scope`. Hosts call a listener synchronously on their own thread, and removal takes the function registration received:
 
 ```ts
-const listened = (target: EventTarget, type: string, fork: (work: Effect.Effect<void, HostError>) => void, work: Effect.Effect<void, HostError>) => {
+const listen = (target: EventTarget, type: string, fork: (work: Effect.Effect<void, HostError>) => void, work: Effect.Effect<void, HostError>) => {
     const handler = (): void => fork(work);
     return Effect.acquireRelease(Effect.sync(() => target.addEventListener(type, handler)), () => Effect.sync(() => target.removeEventListener(type, handler)));
 };
 ```
 
-`listened` is an `Effect<void, never, Scope>`, and its handler forks `work` through `fork`, the runner a panel receives, and returns to its host at once. Closing the scope removes the handler, and closing the panel's scope interrupts every run. Host listener calls of every shape (`action.addNotificationListener`, `theme.onUpdated.addListener`) take the same pair, and InDesign's `app.addEventListener` takes none, as its release deadlocks an unload. Host rollback restores document state, and a scope restores every state a rollback leaves.
+`listen` returns an `Effect<void, never, Scope>`, and its handler forks `work` through `fork`, the runner a panel receives, and returns to its host at once. Closing the scope removes the handler, and closing the panel's scope interrupts every run. Host listener calls of every shape (`action.addNotificationListener`, `theme.onUpdated.addListener`) take the same pair, and InDesign's `app.addEventListener` takes none, as its release deadlocks an unload. Host rollback restores document state, and a scope restores every state a rollback leaves.
 
 Preferences outside undo take one save and restore pair:
 
@@ -257,7 +257,7 @@ const serve = <E, F>({
     commands = {},
     panels = {},
 }: {
-    readonly link?: (extension: string) => Layer.Layer<never, E, Uxp | Plugin | Path.Path | Socket.WebSocketConstructor>;
+    readonly link?: (plugin: string) => Layer.Layer<never, E, Uxp | Plugin | Path.Path | Socket.WebSocketConstructor>;
     readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
     readonly panels?: Record.ReadonlyRecord<string, (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp | Plugin>) => void) => Effect.Effect<void, F, Scope.Scope | Uxp | Plugin>>;
 }): void => {
@@ -265,7 +265,7 @@ const serve = <E, F>({
     const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
     Effect.gen(function* () {
         const [decoded, { setup }] = yield* Effect.all([
-            Effect.try({ try: () => fs.readFileSync(manifest, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: manifest, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(UxpManifest.identity))),
+            Effect.try({ try: () => fs.readFileSync(manifest, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: manifest, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(UxpManifest.Identity))),
             Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints),
         ]);
         const linked = link === undefined ? Layer.empty : Layer.launch(link(decoded.id)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
@@ -300,7 +300,7 @@ const serve = <E, F>({
 };
 ```
 
-`Uxp` is the service holding `uxp` and `fs`, `Uxp.layer` merges it with the host `Clock` layer, `Logger.LogToStderr` set `true`, Effect's `Path.layer`, and `Socket.layerWebSocketConstructorGlobal`, the constructor a link dials through: hosts record `console.error` at error level in their log file where Effect's default logger writes `console.log`, and an entry's top-level `runFork` or `runSyncExit` logs under the same reference by providing the layer outside its `tapCause`. `Plugin` holds the plugin id and host app `UxpManifest.identity` decodes from the plugin folder's manifest, the fields a running plugin reads, so a manifest key the model lacks never stops a load, and a failed read fails `PlatformError` as Effect's `FileSystem.readFileString` does. `link` takes the manifest `id` as its extension, and its launch forks inside the runtime's layer, where a failed or dropped link logs while commands and panels run. `Layer.provideMerge` keeps the host `Clock` in runtime context, where `runPromise` otherwise reads Effect's default clock. One `Effect.all` under `runtime.scope` allocates each command's `FiberHandle` and each panel's `ScopedRef`. Reruns interrupt the running command, and `cancel` clears it. `@adobe-uxp-types/uxp` declares `cancel` for future use. Panels receive `fork`, a `FiberSet.makeRuntime` runner in the shown scope for synchronous host callbacks that logs each run's failure once and ignores it. `show` replaces the shown scope and `hide` closes it, interrupting every fork. Plugin records declare no `destroy`, and the host ends every scope the layers opened with the plugin's context: InDesign calls panel handlers and plugin `destroy` during unload with its main thread waiting on them, where a handler or scope release reaching its DOM deadlocks it. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, its throw logs as a defect, and `runFork` calls it before `main` returns.
+`Uxp` is the service holding `uxp` and `fs`, `Uxp.layer` merges it with the host `Clock` layer, `Logger.LogToStderr` set `true`, Effect's `Path.layer`, and `Socket.layerWebSocketConstructorGlobal`, the constructor a link dials through: hosts record `console.error` at error level in their log file where Effect's default logger writes `console.log`, and an entry's top-level `runFork` or `runSyncExit` logs under the same reference by providing the layer outside its `tapCause`. `Plugin` holds the plugin id and host app `UxpManifest.Identity` decodes from the plugin folder's manifest, the fields a running plugin reads, so a manifest key the model lacks never stops a load, and a failed read fails `PlatformError` as Effect's `FileSystem.readFileString` does. `link` takes the manifest `id` as `plugin`, and its launch forks inside the runtime's layer, where a failed or dropped link logs while commands and panels run. `Layer.provideMerge` keeps the host `Clock` in runtime context, where `runPromise` otherwise reads Effect's default clock. One `Effect.all` under `runtime.scope` allocates each command's `FiberHandle` and each panel's `ScopedRef`. Reruns interrupt the running command, and `cancel` clears it. `@adobe-uxp-types/uxp` declares `cancel` for future use. Panels receive `fork`, a `FiberSet.makeRuntime` runner in the shown scope for synchronous host callbacks that logs each run's failure once and ignores it. `show` replaces the shown scope and `hide` closes it, interrupting every fork. Plugin records declare no `destroy`, and the host ends every scope the layers opened with the plugin's context: InDesign calls panel handlers and plugin `destroy` during unload with its main thread waiting on them, where a handler or scope release reaching its DOM deadlocks it. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, its throw logs as a defect, and `runFork` calls it before `main` returns.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - `serve` logs each `unhandledrejection` event at error, as `@rasm/uxp/vite` writes `featureFlags.unhandledRejection` into every built manifest
@@ -389,12 +389,12 @@ xh -b 127.0.0.1:14001/__uxp_debugger__/hooks/watch manifestPath==<manifest>
 - Plugin sessions answer CDP at `ws://127.0.0.1:14001/socket/cdt/<session>`: `Runtime.evaluate` takes the `contextId` of `Runtime.executionContextCreated`, and `Debugger.setBreakpointByUrl` a `main.js` line
 - VS Code logs each connected host's UXP console to `logs/<run>/window1/exthost/JaroslavBereza.uxpdebugger/UXP – <host> <version>.log`
 
-- Atelier `execute_script` reaches Photoshop and After Effects through linked Atelier plug-ins, and InDesign through `do script` with `language uxpscript`
-- Atelier `execute_script` reaches Illustrator through its Atelier plug-in while one is loaded and linked, else through `do javascript`
+- Atelier `execute_script` reaches Photoshop and After Effects through linked Atelier plugins, and InDesign through `do script` with `language uxpscript`
+- Atelier `execute_script` reaches Illustrator through its Atelier plugin while one is loaded and linked, else through `do javascript`
 - Premiere and Media Encoder declare no script command
 - Atelier `diagnostics` reads a host's reports and UXP logs whether the host runs or not
 - `uxp-cli` and `vitest-pool-uxp` find Photoshop alone and throw `Photoshop is not open` without it
-- `uxp-cli create-cdp-url` loads the folder as a plug-in session and prints a `ws://` URL for any CDP client, `@bubblydoo/vitest-pool-cdp` included
+- `uxp-cli create-cdp-url` loads the folder as a plugin session and prints a `ws://` URL for any CDP client, `@bubblydoo/vitest-pool-cdp` included
 - `uxp-cli open-devtools` brings Chrome forward through `open -a`, and agents take `create-cdp-url`
 - `vitest-pool-uxp` runs with `maxWorkers: 1`, `isolate: false`, `fileParallelism: false`, the settings its README requires
-- `nx install` writes the plug-in folder and its `PluginsInfo` row, and a running host loads the new code at its next launch
+- `nx install` writes the plugin folder and its `PluginsInfo` row, and a running host loads the new code at its next launch

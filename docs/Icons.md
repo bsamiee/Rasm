@@ -9,10 +9,10 @@ Use `assets/iconography/<host>/README.md` for each host's native icons, captures
 Packages keep image sources as SVG masters in `icons/` at their package root:
 - `icons/` holds one flat file per glyph, named by what it stands for or by its typed key, with no raster or copy
 - Host formats no SVG states (`.ghicon`, Blender `.dat`) sit in `icons/` as their host reads them
-- `icons/mark.svg` is a product's mark, one master for its plug-in, extension, package, and site icons
+- `icons/mark.svg` is a product's mark, one master for its plugin, extension, package, and site icons
 - Masters draw in `currentColor`, and class `accent` marks parts each palette fills apart
 - Libraries keep glyphs their own interface draws in their own `icons/`, and consumers reach each through its typed member
-- Host libraries keep the default mark of their host family, as `@rasm/uxp` does for Adobe plug-ins, and a product passes its own where it differs
+- Host libraries keep the default mark of their host family, as `@rasm/uxp` does for Adobe plugins, and a product passes its own where it differs
 - Callers passing a master another package publishes resolve it through that package and name it as a build input
 
 ## [02]-[BUILDS]
@@ -32,7 +32,7 @@ Each host form, its build owner, and files it writes:
 | [INDEX] | [HOST]        | [OWNER]                                                             | [WRITES]                                          |
 | :-----: | :------------ | :------------------------------------------------------------------ | :------------------------------------------------ |
 |  [01]   | Apple         | `actool`                                                            | `Assets.car`, `.icns`, `ImageResource` members    |
-|  [02]   | Adobe UXP     | `@rasm/uxp/vite`                                                    | Plug-in and panel PNGs per theme and scale        |
+|  [02]   | Adobe UXP     | `@rasm/uxp/vite`                                                    | Plugin and panel PNGs per theme and scale         |
 |  [03]   | Rhino         | `Rasm.Rhino.targets`, `products/apps/rhino/Directory.Build.targets` | Theme pairs, `PlugIn.ico`, `icon.png`, `.rui`     |
 |  [04]   | Grasshopper 2 | `Rasm.Grasshopper.targets`                                          | Embedded `<TypeName>.ghicon` and `mark.ghicon`    |
 |  [05]   | Blender       | `rasm.extension.ui` at load and draw                                | Previews tinted per place, turned variants        |
@@ -51,12 +51,12 @@ Apple targets keep containers `actool` compiles at their target root, where Xcod
 
 ## [04]-[ADOBE]
 
-UXP plug-ins draw every icon in Spectrum 2 outline, whatever set a host's own glyphs use:
+UXP plugins draw every icon in Spectrum 2 outline, whatever set a host's own glyphs use:
 - Glyphs are `currentColor` outlines at one 1.5-unit stroke, round caps and joins, and 1.5-unit corner rounding, with no fill, color, plate, or text
 - Stroke centerlines sit on quarter units, the subdivision Spectrum 2 states for its 1.5-pixel stroke
 - Marks draw on Spectrum 2's 20-unit canvas inside its 1-unit safe area, panel glyphs on the host's 23-unit grid around it
-- Plug-in list icons are `pluginList` PNGs at 24 and 48 pixels of the mark, its 20-unit canvas centred at 1 and 2 pixels per unit
-- Panel icons are `toolbar` PNGs at 23 and 46 pixels from `icons/<entrypoint id>.svg` of the plug-in package, and a panel without one fails its build
+- Plugin list icons are `pluginList` PNGs at 24 and 48 pixels of the mark, its 20-unit canvas centred at 1 and 2 pixels per unit
+- Panel icons are `toolbar` PNGs at 23 and 46 pixels from `icons/<entrypoint id>.svg` of the plugin package, and a panel without one fails its build
 - Icons paint black for light themes and white for dark themes at the opacity of each host's own glyphs, stated in `HOSTS` of `@rasm/uxp`
 - Brand tiles, colored list icons, and copies of host glyphs stay out of every host form
 - Acrobat add-ons run no UXP and register one 20 x 20 ARGB outline glyph per `app.addToolButton`, gray between theme icons `0x6F6F6F` and `0xC2C2C2`
