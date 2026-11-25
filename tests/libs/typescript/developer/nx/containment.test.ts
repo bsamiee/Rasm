@@ -1,4 +1,4 @@
-import { inside, tokened, within } from '@rasm/nx';
+import { below, inside, tokened, within } from '@rasm/nx';
 import { describe, expect, it } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -20,6 +20,18 @@ const PLACED = [
     { folder: '/srv/workspace/apps', file: '/srv/workspace/apps/tool/main.ts', held: true, partition: 'an absolute path inside an absolute folder' },
     { folder: '/srv/workspace/apps', file: '/srv/workspace/..apps/main.ts', held: false, partition: 'an absolute path in a two-dot sibling of an absolute folder' },
 ] as const;
+const BELOW = [
+    { folder: 'libs/core', file: 'libs/core/index.ts', held: true, partition: 'a file directly below' },
+    { folder: 'libs/core', file: 'libs/core/src/deep/main.ts', held: true, partition: 'a file nested below' },
+    { folder: 'libs/core', file: 'libs/core', held: false, partition: 'the folder itself' },
+    { folder: 'libs/core/', file: 'libs/core', held: false, partition: 'the folder itself spelled with a trailing slash' },
+    { folder: 'libs/core', file: 'libs/core-kit/index.ts', held: false, partition: 'a sibling sharing the name as a prefix' },
+    { folder: '.', file: 'apps/tool', held: true, partition: 'a folder below the root' },
+    { folder: '.', file: '.', held: false, partition: 'the root as both' },
+    { folder: 'apps/tool', file: 'apps/tool/..cache', held: true, partition: 'a name starting with two dots below the folder' },
+    { folder: '.', file: '../sibling', held: false, partition: 'a path climbing out of the root' },
+    { folder: '/srv/workspace/apps', file: '/srv/workspace/apps/tool', held: true, partition: 'an absolute path below an absolute folder' },
+] as const;
 const WITHIN = [
     { at: 'libs/core/index.ts', held: true, partition: 'a workspace file' },
     { at: '..cache/out.txt', held: true, partition: 'a workspace file under a two-dot folder' },
@@ -38,6 +50,10 @@ const TOKENED = [
 describe('containment', () => {
     it.for(PLACED)('reads $file inside $folder as $held, $partition', ({ folder, file, held }) => {
         expect(inside(folder)(file)).toBe(held);
+    });
+
+    it.for(BELOW)('reads $file below $folder as $held, $partition', ({ folder, file, held }) => {
+        expect(below(folder)(file)).toBe(held);
     });
 
     it.for(WITHIN)('reads $at within the workspace as $held, $partition', ({ at, held }) => {

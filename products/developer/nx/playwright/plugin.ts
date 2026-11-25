@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath } from '@nx/devkit';
 import { emitPluginWorkerLog, getDaemonClientEnvGeneration, globWithWorkspaceContext, hashObject, quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, type Pass, PLATFORM, run, tokened, within } from '@rasm/nx';
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, inside, manifested, namedInput, packaged, type Pass, PLATFORM, run, tokened, within } from '@rasm/nx';
 import { Array, Cause, Effect, Filter, flow, Option, Record, Result, Schema, String, Struct } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -104,7 +104,7 @@ const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anch
     const selected = (chosen: typeof suites) => chosen.map(({ name }) => `--project=${name}`);
     const outside = Record.filter(
         { ...Record.fromIterableWith(extended(context.workspaceRoot, home), (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions', 'extends'] }]), ...Record.fromIterableWith([...loaded, ...scanned], (at) => [at, posix.join('{workspaceRoot}', at)]) },
-        (_input, at) => home !== '.' && !at.startsWith(`${home}/`),
+        (_input, at) => !inside(home)(at),
     );
     const needs = {
         dependsOn: ['codegen--*', '^codegen--*', '^build--vite', ...Record.collect(Array.groupBy(servers, Struct.get('target')), (target, rows) => ({ projects: rows.map(({ project }) => project), target, waitFor: 'ready' as const }))],

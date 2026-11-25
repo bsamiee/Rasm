@@ -89,6 +89,8 @@ const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProces
 
 const inside = (folder: string) => (file: string) => Predicate.and(Predicate.not(isAbsolute), (at: string) => Array.headNonEmpty(String.split(normalizePath(at), '/')) !== '..')(relative(folder, file));
 
+const below = (folder: string) => Predicate.and(inside(folder), (file: string) => relative(folder, file) !== '');
+
 const within = (at: string) => inside('.')(at) && !at.split('/').includes('node_modules');
 
 const tokened = (root: string) => (at: string) => (root !== '.' && inside(root)(at) ? posix.join('{projectRoot}', posix.relative(root, at)) : posix.join('{workspaceRoot}', at));
@@ -225,4 +227,39 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string, { workspac
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, type Anchor, anchored, batched, dried, EXEC, EXECUTORS, executor, extended, fingerprinted, inferring, inside, manifested, Named, namedInput, packaged, parsed, type Pass, PLATFORM, ran, recalled, type Run, run, runner, spawned, Stated, stamped, tagged, tokened, type Verbs, Words, within };
+export {
+    above,
+    aggregated,
+    type Anchor,
+    anchored,
+    batched,
+    below,
+    dried,
+    EXEC,
+    EXECUTORS,
+    executor,
+    extended,
+    fingerprinted,
+    inferring,
+    inside,
+    manifested,
+    Named,
+    namedInput,
+    packaged,
+    parsed,
+    type Pass,
+    PLATFORM,
+    ran,
+    recalled,
+    type Run,
+    run,
+    runner,
+    spawned,
+    Stated,
+    stamped,
+    tagged,
+    tokened,
+    type Verbs,
+    Words,
+    within,
+};

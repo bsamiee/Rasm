@@ -3,7 +3,7 @@ import { getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Config, Effect, FileSystem, Filter, Glob, Order, Path, Record, Schema } from 'effect';
 import { getFilesForOutputsBatch } from 'nx/src/native';
-import { above, executor, inside, spawned, Words } from '#/inference';
+import { above, below, executor, inside, spawned, Words } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ const execute = executor(Clean, function* ({ targets, commands, cwd, folders, pa
             return [base, ...swept];
         }),
     );
-    const parents = Array.dedupe(removed.flat().flatMap((at) => above(posix.dirname(at)))).filter((parent) => parent !== node.data.root && inside(node.data.root)(parent));
+    const parents = Array.dedupe(removed.flat().flatMap((at) => above(posix.dirname(at)))).filter(below(node.data.root));
     yield* Effect.forEach(
         Array.sort(parents, Order.flip(Order.String)),
         Effect.fnUntraced(function* (parent) {

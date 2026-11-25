@@ -1,7 +1,7 @@
 import { basename, dirname, join, posix, relative, resolve } from 'node:path';
 import { parse } from '@decimalturn/toml-patch';
 import { normalizePath } from '@nx/devkit';
-import { above, inside, runner, Stated, spawned } from '@rasm/nx';
+import { above, below, inside, runner, Stated, spawned } from '@rasm/nx';
 import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -197,7 +197,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
             const [sources, others] = Array.partition(owned, ([target, at]) => (Target.library(target) ? Result.succeed(at) : Result.fail(at)));
             const found = Array.dedupe(sources);
             const included = Array.isReadonlyArrayNonEmpty(found) ? found : [folder];
-            const excluded = Array.difference(Array.dedupe([...others, ...crates.map((member) => member.root).filter((nested) => nested.startsWith(`${folder}/`))]), included);
+            const excluded = Array.difference(Array.dedupe([...others, ...crates.map((member) => member.root).filter((nested) => folder !== '.' && below(folder)(nested))]), included);
             return [...included.map((at) => tokened(posix.join(at, '**/*'))), ...excluded.map((at) => `!${tokened(posix.join(at, '**/*'))}`)];
         }),
         configs: configs.map(tokened),

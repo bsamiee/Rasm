@@ -110,6 +110,18 @@ describe('task hashes', () => {
 
         expect([built !== (await hasher(workspace.root, after, 'build--dotnet', 'Tests')({})), tested !== (await hasher(workspace.root, after, 'test--dotnet', 'Tests')({}))]).toStrictEqual([build, test]);
     });
+
+    it.for([
+        { file: 'libs/App/App.csproj', bases: ['libs/App/bin', 'libs/App/obj'], edited: 'libs/App/Code.cs', changes: true },
+        { file: 'libs/App/App.csproj', bases: ['libs/App/bin', 'libs/App/obj'], edited: 'libs/App/obj/App.AssemblyInfo.cs', changes: false },
+    ])('changes the build hash of $file ($changes) after an edit to $edited, as files under its base output folders are what MSBuild writes', async ({ file, bases, edited, changes }, { workspace }) => {
+        const before = await workspace.write({ [file]: PROJECT, [edited]: 'class Written;\n', ...report([node(file, { bases })]) }).graph({ createNodes, createDependencies });
+        const built = await hasher(workspace.root, before, 'build--dotnet', 'App')({});
+
+        const after = await workspace.write({ [edited]: 'class Rewritten;\n' }).graph({ createNodes, createDependencies });
+
+        expect((await hasher(workspace.root, after, 'build--dotnet', 'App')({})) !== built).toBe(changes);
+    });
 });
 
 describe('analyzer binary', () => {

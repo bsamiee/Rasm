@@ -1,7 +1,7 @@
 import { basename, join, posix, relative } from 'node:path';
 import { normalizePath } from '@nx/devkit';
 import { combineGlobPatterns, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { above } from '@rasm/nx';
+import { above, below } from '@rasm/nx';
 import { inc, major, minor, minSatisfying, RANGE_PATTERN } from '@renovatebot/pep440';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Graph, Option, pipe, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
@@ -117,7 +117,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
     const shared = members.flatMap(({ root, id }) => (root === workspace ? (resolution[id]?.dependency_groups ?? []) : []));
     const index = Option.getOrUndefined(Option.flatMap(Schema.decodeUnknownOption(Indexed)(stated(workspace)), ({ tool }) => Array.findFirst(tool.uv.index, (row) => row['publish-url'] !== undefined)))?.name;
     const manifests = Array.filterMap(documented.keys(), (file) => (posix.basename(file) === MANIFEST ? Result.succeed(posix.join('{workspaceRoot}', file)) : Result.failVoid));
-    const holding = (root: string) => members.some((other) => other.root !== root && (root === '.' || other.root.startsWith(`${root}/`)));
+    const holding = (root: string) => members.some((other) => below(root)(other.root));
     const leaves = listed.filter(({ root }) => !holding(root));
     const placed = members.map((member) => {
         const [owning, leaf] = [member.root === workspace, member.listed && !holding(member.root)];

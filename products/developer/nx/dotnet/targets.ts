@@ -2,7 +2,7 @@ import { basename, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RawProjectGraphDependency, TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { EXECUTORS, PLATFORM, runner, tokened, type Verbs } from '@rasm/nx';
+import { below, EXECUTORS, PLATFORM, runner, tokened, type Verbs } from '@rasm/nx';
 import { Array, Context, Layer, Option, Record, Ref, Schema } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -65,7 +65,7 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
     const hashed = (upstream: NonNullable<TargetConfiguration['inputs']>[number], files: readonly string[], ...hosts: NonNullable<TargetConfiguration['inputs']>): NonNullable<TargetConfiguration['inputs']> => [
         'default',
         upstream,
-        ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${posix.join('{projectRoot}', posix.relative(root, base), '**')}`),
+        ...node.bases.filter((base) => root !== '.' && below(root)(base)).map((base) => `!${posix.join('{projectRoot}', posix.relative(root, base), '**')}`),
         { runtime: 'dotnet --version' },
         ...node.environment.map((env) => ({ env })),
         ...hosts,

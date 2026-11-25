@@ -1,5 +1,5 @@
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, ran, Words } from '@rasm/nx';
+import { batched, executor, inside, ran, Words } from '@rasm/nx';
 import { Array, Clock, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { grouped } from '#/executors/build/executor';
@@ -24,9 +24,9 @@ const Report = Schema.fromJsonString(Schema.Array(Schema.Struct({ FilePath: Sche
 const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Planned>) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const [, { commands, __unparsed__: words = [] }] = Array.headNonEmpty(group);
-    const members = Array.map(group, ([task, { project }]) => ({ task, project: path.resolve(root, project), folder: `${path.dirname(path.resolve(root, project))}${path.sep}` }));
+    const members = Array.map(group, ([task, { project }]) => ({ task, project: path.resolve(root, project), folder: path.dirname(path.resolve(root, project)) }));
     const nested = Array.sortWith(members, (member) => member.folder.length, Order.flip(Order.Number));
-    const owner = ({ FilePath }: { readonly FilePath: string }) => Array.findFirst(nested, (member) => FilePath.startsWith(member.folder));
+    const owner = ({ FilePath }: { readonly FilePath: string }) => Array.findFirst(nested, (member) => inside(member.folder)(FilePath));
     const [startTime, folder] = yield* Effect.all([Clock.currentTimeMillis, fs.makeTempDirectoryScoped()]);
     const target = group.length === 1 ? Array.headNonEmpty(members).project : path.join(folder, 'batch.slnx');
     yield* group.length === 1 ? Effect.void : Stream.fromIterable(Xml.toEvents({ name: 'Solution', attributes: {}, children: members.map(({ project }) => ({ name: 'Project', attributes: { Path: project }, children: [] })) })).pipe(Stream.pipeThroughChannel(Xml.encode()), Stream.run(fs.sink(target)));

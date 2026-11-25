@@ -7,8 +7,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx';
-import { Array, Cause, Effect, Option, Record, Schema } from 'effect';
+import { above, type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, inside, manifested, namedInput, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx';
+import { Array, Cause, Effect, Function, Option, Record, Schema } from 'effect';
 import type { Vite } from 'vitest/node';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -84,7 +84,7 @@ const surveyed = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, 
             return {
                 root: owner,
                 projects: selected.length === selectable.length ? [] : selected,
-                setup: Array.dedupe(group.flatMap(({ setup }) => setup)).filter((at) => !at.startsWith(`${owner}/`)),
+                setup: Array.dedupe(group.flatMap(({ setup }) => setup)).filter((at) => !inside(owner)(at)),
                 providers: Array.dedupe(group.flatMap(({ providers: hosted }) => hosted)),
                 coverage: local(resolve(root, reportsDirectory)),
                 covered,
@@ -124,10 +124,7 @@ const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anch
     const projects = Array.zipWith(suites, manifests, ({ root, projects: selected, setup: declared, providers, coverage, covered, written, loaded: configs, packages }, stated) => {
         const setup = declared.filter((at) => existsSync(join(context.workspaceRoot, at)));
         const chain = [root, ...setup.map(dirname)].flatMap((at) => extended(context.workspaceRoot, at));
-        const outside = Record.filter(
-            { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) },
-            (_input, at) => root !== '.' && !at.startsWith(`${root}/`),
-        );
+        const outside = Record.filter({ ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) }, (_input, at) => !inside(root)(at));
         const directed = { ...(covered && { enabled: true }), ...(coveragePath !== undefined && { reportsDirectory: coveragePath }) };
         const test = {
             vitest: {
@@ -136,7 +133,7 @@ const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anch
                 dependsOn: ['codegen--*', '^codegen--*'],
                 cache: true,
                 inputs: ['default', `^${namedInput(root, context)}`, ...Object.values(outside), ...triggers, { externalDependencies: Array.dedupe(['vitest', ...packages]) }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
-                outputs: [...Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])]).filter((at, _index, all) => Array.intersection(above(posix.dirname(at)), all).length === 0), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
+                outputs: [...Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])]).filter((at, _index, all) => !all.some(Function.flip(below)(at))), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
                 configurations: {
                     coverage: { coverage: { ...directed, enabled: true, reporter: 'lcovonly' } },
                 },

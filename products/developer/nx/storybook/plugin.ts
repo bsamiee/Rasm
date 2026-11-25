@@ -56,7 +56,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
 const targets = (root: string, { packages, linked, globs, runner, sources }: Resolved, chain: readonly string[], production: boolean, output: Option.Option<string>, exec: string): Verbs => {
     const hashed = [
         ...(production ? ['production', '{workspaceRoot}/{projectRoot}/.storybook/**/*', '^production'] : ['default', '^default']),
-        ...[...globs, ...sources.filter((at) => !at.startsWith(`${root}/`))].map((at) => posix.join('{workspaceRoot}', at)),
+        ...[...globs, ...sources.filter((at) => root === '.' || !inside(root)(at))].map((at) => posix.join('{workspaceRoot}', at)),
         ...chain.map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
         ...(Array.isReadonlyArrayNonEmpty(linked)
             ? [
@@ -125,7 +125,7 @@ const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anch
     const root = dirname(dirname(file));
     const resolved = yield* pass.recall(file, read(context.workspaceRoot, file));
     const stated = yield* manifested(context.workspaceRoot, root);
-    const chain = extended(context.workspaceRoot, root).filter((config) => !config.startsWith(`${root}/`) && config !== getRootTsConfigFileName());
+    const chain = extended(context.workspaceRoot, root).filter((config) => (root === '.' || !inside(root)(config)) && config !== getRootTsConfigFileName());
     return { projects: { [root]: { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, chain, namedInput(root, context) === 'production', output, pass.exec), stated, 'storybook', anchor) } } };
 });
 
