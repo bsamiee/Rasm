@@ -65,9 +65,8 @@ Rasm/
 ├── .github/
 ├── .config/                  # Tool configuration
 ├── .claude/
-├── .claude-plugin/           # Claude Code marketplace of plugins/
+├── .claude-plugin/           # Marketplace for Claude Code and Codex
 ├── .codex/
-├── .agents/                  # Codex marketplace of plugins/
 ├── .vscode/
 ├── CLAUDE.md                 # Agent standards, linked as AGENTS.md
 ├── LICENSE

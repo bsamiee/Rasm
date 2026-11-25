@@ -1,82 +1,60 @@
+# --- [CODEX] ----------------------------------------------------------------------------
+
+# --- [PERMISSIONS]
+
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
+
+# --- [AGENTS]
 
 [agents]
 max_concurrent_threads_per_session = 30
 
+# --- [APPS]
+
 [apps._default]
 default_tools_approval_mode = "approve"
+
+# --- [NOTICE]
 
 [notice]
 hide_full_access_warning = true
 
-[plugins."blender@rasm"]
-enabled = true
+# --- [SHELL_ENVIRONMENT]
 
-[plugins."dotnet@rasm"]
-enabled = true
+[shell_environment_policy]
+inherit = "core"
 
-[plugins."msbuild@rasm"]
-enabled = true
+# --- [PLUGINS] --------------------------------------------------------------------------
 
-[plugins."python@rasm"]
-enabled = true
-
-[plugins."uxp@rasm"]
-enabled = true
-
-[plugins."orchestration@rasm"]
-enabled = true
-
-[plugins."swift@rasm"]
-enabled = true
-
-[plugins."search@rasm"]
-enabled = true
-
-[plugins."rhino@rasm"]
-enabled = true
-
-[plugins."typescript@rasm"]
-enabled = true
-
-[plugins."chrome@rasm"]
-enabled = true
-
-[plugins."web@rasm"]
-enabled = true
-
-[plugins."rust@rasm"]
-enabled = true
-
-[plugins."cpp@rasm"]
-enabled = true
-
-[plugins."media@rasm"]
-enabled = true
-
-[plugins."tool@rasm"]
-enabled = true
-
-[plugins."code@rasm"]
-enabled = true
-
-[plugins."writing@rasm"]
-enabled = true
+# --- [MARKETPLACE]
 
 [marketplaces.rasm]
 source_type  = "git"
 source       = "https://github.com/bsamiee/Rasm.git"
 ref          = "main"
-sparse_paths = [
-    ".agents/plugins",
-    "plugins",
-]
+sparse_paths = [".claude-plugin", "plugins"]
 
-[shell_environment_policy]
-inherit = "core"
+# --- [ACTIVATION]
 
-[shell_environment_policy.set]
-CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS    = "80"
-CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS = "50000"
-BASH_DEFAULT_TIMEOUT_MS                 = "300000"
+[plugins]
+"blender@rasm"        = { enabled = true }
+"chrome@rasm"         = { enabled = true }
+"code@rasm"           = { enabled = true }
+"cpp@rasm"            = { enabled = true }
+"delegate@rasm"       = { enabled = false }
+"dotnet@rasm"         = { enabled = true }
+"function-hooks@rasm" = { enabled = false }
+"media@rasm"          = { enabled = true }
+"msbuild@rasm"        = { enabled = true }
+"orchestration@rasm"  = { enabled = true }
+"python@rasm"         = { enabled = true }
+"rhino@rasm"          = { enabled = true }
+"rust@rasm"           = { enabled = true }
+"search@rasm"         = { enabled = true }
+"swift@rasm"          = { enabled = true }
+"tool@rasm"           = { enabled = true }
+"typescript@rasm"     = { enabled = true }
+"uxp@rasm"            = { enabled = true }
+"web@rasm"            = { enabled = true }
+"writing@rasm"        = { enabled = true }

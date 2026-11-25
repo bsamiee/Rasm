@@ -1,57 +1,93 @@
 {
     "name": "rasm",
-    "description": "Plugins of the Rasm monorepo",
     "owner": {
         "name": "Bardia Samiee"
+    },
+    "description": "Agent plugins for Rasm",
+    "interface": {
+        "displayName": "Rasm"
     },
     "plugins": [
         {
             "name": "blender",
             "source": "./plugins/shared/blender",
-            "description": "Blender sessions and Python inside Blender: bpy data, extensions, interface, node trees, and render output",
+            "description": "Blender sessions and bpy for data, extensions, interfaces, node trees, and rendering",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Blender",
+                "shortDescription": "Blender sessions and bpy for data, extensions, interfaces, node trees, and rendering",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "chrome",
             "source": "./plugins/shared/chrome",
-            "description": "Chrome extensions from manifest and permissions through execution contexts, UI elements in Chrome's own look, suites, and Web Store release, and the signed-in Chrome's pages, settings, flags, and unpacked builds through the chrome-devtools CLI",
+            "description": "Signed-in Chrome controls through chrome-devtools, and extension development, testing, and Web Store releases",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Chrome",
+                "shortDescription": "Signed-in Chrome controls through chrome-devtools, and extension development, testing, and Web Store releases",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "code",
             "source": "./plugins/shared/code",
-            "description": "Refactoring and testing rules for code in any language",
+            "description": "Refactoring and testing rules for any language",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Code",
+                "shortDescription": "Refactoring and testing rules for any language",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "cpp",
             "source": "./plugins/shared/cpp",
-            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, Unreal Engine debugging, reloads, and logs on macOS, and the Unreal Engine editor MCP server",
+            "description": "C++ and Objective-C++ types, ownership, error values, compile-time evaluation, memory layout, and concurrency. Debug Unreal Engine on macOS",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "C++",
+                "shortDescription": "C++ and Objective-C++ types, ownership, error values, compile-time evaluation, memory layout, and concurrency. Debug Unreal Engine on macOS",
+                "brandColor": "#090909"
             },
             "keywords": ["c++", "objective-c++", "unreal-mcp"]
         },
         {
             "name": "delegate",
             "source": "./plugins/claude/delegate",
-            "description": "Work handed to other agents: headless Antigravity and Codex runs, audits of paths, and a council of models",
+            "description": "Claude Code workflows for Antigravity and Codex runs, path audits, and reviews across models",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "policy": {
+                "installation": "NOT_AVAILABLE"
             }
         },
         {
             "name": "dotnet",
             "source": "./plugins/shared/dotnet",
-            "description": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
+            "description": "C# result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn navigation",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": ".NET",
+                "shortDescription": "C# result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn navigation",
+                "brandColor": "#090909"
             }
         },
         {
@@ -61,7 +97,7 @@
                 "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/function-hooks%400.2.0/function-hooks.zip",
                 "sha256": "9d19926588ef00daae5a4272903efbc98f0169a8c4533fc5d2b318a9ff5de566"
             },
-            "description": "Hooks that rewrite or refuse agent tool calls inside the Claude Code engine",
+            "description": "Claude Code hooks that rewrite or reject tool calls",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -69,105 +105,193 @@
         {
             "name": "media",
             "source": "./plugins/shared/media",
-            "description": "Audio work through the Voicebox voice studio MCP server",
+            "description": "Voicebox voice studio through MCP",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Media",
+                "shortDescription": "Voicebox voice studio through MCP",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "msbuild",
             "source": "./plugins/shared/msbuild",
-            "description": "MSBuild evaluation, execution, packaging, binary-log diagnostics, and antipatterns",
+            "description": "MSBuild evaluation, execution, packaging, and binary log diagnostics",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "MSBuild",
+                "shortDescription": "MSBuild evaluation, execution, packaging, and binary log diagnostics",
+                "brandColor": "#090909"
+            }
+        },
+        {
+            "name": "orchestration",
+            "source": "./plugins/codex/orchestration",
+            "description": "Codex threads, parallel agents, and reviews across models",
+            "defaultEnabled": false,
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Orchestration",
+                "shortDescription": "Codex threads, parallel agents, and reviews across models",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "python",
             "source": "./plugins/shared/python",
-            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
+            "description": "Python result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Python",
+                "shortDescription": "Python result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "rhino",
             "source": "./plugins/shared/rhino",
-            "description": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
+            "description": "Rhino sessions, Grasshopper 2 canvases, and tests over RhinoCommon and Grasshopper",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Rhino",
+                "shortDescription": "Rhino sessions, Grasshopper 2 canvases, and tests over RhinoCommon and Grasshopper",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "rust",
             "source": "./plugins/shared/rust",
-            "description": "Rust design with algebraic types, results, traits, and async effects",
+            "description": "Rust algebraic types, results, traits, and async effects",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Rust",
+                "shortDescription": "Rust algebraic types, results, traits, and async effects",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "search",
             "source": "./plugins/shared/search",
-            "description": "Dependency source, web, Are.na, and Gemini Notebook research, and structural code search with ast-grep",
+            "description": "Research dependencies, the web, Are.na, and NotebookLM. Search code structure with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Search",
+                "shortDescription": "Research dependencies, the web, Are.na, and NotebookLM. Search code structure with ast-grep",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "swift",
             "source": "./plugins/shared/swift",
-            "description": "Swift design with typed throws, value types, and structured concurrency",
+            "description": "Swift typed throws, value types, and structured concurrency",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Swift",
+                "shortDescription": "Swift typed throws, value types, and structured concurrency",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "terminal",
             "source": "./plugins/shared/terminal",
-            "description": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks",
+            "description": "Shell history and agent session search through Atuin, with Zellij session hooks",
             "author": {
                 "name": "Bardia Samiee"
-            }
+            },
+            "category": "Coding"
         },
         {
             "name": "tool",
             "source": "./plugins/shared/tool",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, breakpoint debugging of Python, .NET, C++, and JavaScript through mcp-debugger, Raycast, Parallels Desktop VMs, and Superhuman Mail and Docs through their MCP servers, and every Google account and service through gog and GAM",
+            "description": "Ghidra analysis, host inspection, and debugging for Python, .NET, C++, and JavaScript. Access Raycast, Parallels Desktop, Superhuman Mail and Docs, and Google services",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Tool",
+                "shortDescription": "Host inspection, debugging, and connected apps",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "typescript",
             "source": "./plugins/shared/typescript",
-            "description": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
+            "description": "TypeScript design with Effect, Schema, and algebraic data types",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "TypeScript",
+                "shortDescription": "TypeScript design with Effect, Schema, and algebraic data types",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "uxp",
             "source": "./plugins/shared/uxp",
-            "description": "Code that runs in an Adobe UXP host, and the Atelier server that drives Adobe apps and proxies their own servers",
+            "description": "Adobe UXP development and app control through Atelier and Adobe MCP servers",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "UXP",
+                "shortDescription": "Adobe UXP development and app control through Atelier and Adobe MCP servers",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "web",
             "source": "./plugins/shared/web",
-            "description": "Web styling and components: CSS, browser support facts, and React Aria Components",
+            "description": "CSS, browser support, and React Aria Components",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Web",
+                "shortDescription": "CSS, browser support, and React Aria Components",
+                "brandColor": "#090909"
             }
         },
         {
             "name": "writing",
             "source": "./plugins/shared/writing",
-            "description": "Project prose and names: wording rules, a word map, and automatic checks",
+            "description": "Prose and naming standards, word choices, and automatic checks",
             "author": {
                 "name": "Bardia Samiee"
+            },
+            "category": "Coding",
+            "interface": {
+                "displayName": "Writing",
+                "shortDescription": "Prose and naming standards, word choices, and automatic checks",
+                "brandColor": "#090909"
             }
         }
     ]

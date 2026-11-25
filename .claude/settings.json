@@ -33,6 +33,7 @@
     "rust@rasm": true,
     "media@rasm": true,
     "cpp@rasm": true,
+    "orchestration@rasm": false,
     "swift@rasm": true,
     "search@rasm": true,
     "tool@rasm": true,
