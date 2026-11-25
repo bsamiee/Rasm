@@ -2,7 +2,7 @@ import { createConformanceRule } from '@nx/conformance';
 import { readNxJson } from '@nx/devkit';
 import { findMatchingProjects, readNxMigrateConfig } from '@nx/devkit/internal';
 import { Ajv } from 'ajv';
-import { Array, Record } from 'effect';
+import { Array, pipe, Record } from 'effect';
 import nx from 'nx/package.json' with { type: 'json' };
 import settings from 'nx/schemas/nx-schema.json' with { type: 'json' };
 
@@ -23,12 +23,11 @@ export default createConformanceRule({
         const { projects = [], groups = {} } = nxJson.release ?? {};
         const selectors = [...Array.ensure(projects), ...Object.values(groups).flatMap((group) => Array.ensure(group.projects))];
         const selected = new Set(findMatchingProjects(Array.isReadonlyArrayNonEmpty(selectors) ? selectors : ['*'], nodes));
-        const installed = Record.collect(
-            Array.groupBy(
-                Object.values(externalNodes).filter(({ type, data }) => type === 'npm' && ALIGNED.has(data.packageName)),
-                ({ data }) => data.version,
-            ),
-            (version, held) => `${version} (${Array.dedupe(held.map(({ data }) => data.packageName)).join(', ')})`,
+        const installed = pipe(
+            Object.values(externalNodes),
+            Array.filter(({ type, data }) => type === 'npm' && ALIGNED.has(data.packageName)),
+            Array.groupBy(({ data }) => data.version),
+            Record.collect((version, held) => `${version} (${Array.dedupe(held.map(({ data }) => data.packageName)).join(', ')})`),
         );
         const violations = [
             ...(valid(nxJson) ? [] : [{ file: 'nx.json', message: `nx.json ${validator.errorsText(valid.errors)}` }]),

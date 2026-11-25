@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, type Route } from '@playwright/test';
 import { type Extension, loaded } from '@rasm/testing/playwright';
-import { Effect } from 'effect';
+import { Effect, Exit, Scope } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -29,12 +29,10 @@ const frozen = (toast: Locator) => toast.evaluate((element) => element.getAnimat
 
 const sought = (toast: Locator, at: number) =>
     toast.evaluate((element, time) => {
-        element
-            .getAnimations()
-            .filter((animation) => animation instanceof CSSAnimation)
-            .forEach((animation) => {
-                Object.assign(animation, { currentTime: time });
-            });
+        const animations = element.getAnimations().filter((animation) => animation instanceof CSSAnimation);
+        animations.forEach((animation) => {
+            Object.assign(animation, { currentTime: time });
+        });
     }, at);
 
 const isolate = ({ page, extension }: { readonly page: Page; readonly extension: Extension }, expression: string) =>
@@ -56,40 +54,22 @@ const it = loaded.extend<{
     open: ({ context, page }, use) =>
         use((path, body, headers = {}) => {
             const { origin, href } = new URL(path, 'https://page.test/');
-            return Effect.runPromise(
-                Effect.andThen(
-                    Effect.promise(() => context.route(`${origin}/**`, served(body, headers))),
-                    Effect.asVoid(Effect.promise(() => page.goto(href))),
-                ),
-            );
+            return Effect.promise(() => context.route(`${origin}/**`, served(body, headers))).pipe(Effect.andThen(Effect.promise(() => page.goto(href))), Effect.asVoid, Effect.runPromise);
         }),
     copied: ({ page }, use) => use(() => page.evaluate(() => navigator.clipboard.readText())),
     toast: ({ page }, use) => use(page.getByRole('status')),
     button: ({ toast }, use) => use(toast.getByRole('button')),
     isolated: ({ page, extension }, use) => use((expression) => Effect.runPromise(isolate({ page, extension }, expression))),
-    armed: ({ page, isolated, toast }, use) =>
-        use((stub) =>
-            isolated(stub)
-                .then(() => toast.evaluate((element) => (element instanceof HTMLElement ? element.hidePopover() : undefined)))
-                .then(() => expect(page.locator('mezrab-toast')).toHaveCount(0)),
-        ),
+    armed: ({ page, extension, toast }, use) =>
+        use((stub) => isolate({ page, extension }, stub).pipe(Effect.andThen(Effect.promise(() => toast.evaluate((element) => (element instanceof HTMLElement ? element.hidePopover() : undefined)))), Effect.andThen(Effect.promise(() => expect(page.locator('mezrab-toast')).toHaveCount(0))), Effect.runPromise)),
     shares: ({ page, extension }, use) => use(() => extension.evaluate(page, 'globalThis.shares')),
-    settle: ({ page, extension }, use) =>
-        use((outcome) =>
-            expect
-                .poll(() => extension.evaluate(page, 'globalThis.pending.length'))
-                .toBe(1)
-                .then(() => extension.evaluate(page, outcome)),
-        ),
+    settle: ({ page, extension }, use) => use((outcome) => Effect.promise(() => expect.poll(() => extension.evaluate(page, 'globalThis.pending.length')).toBe(1)).pipe(Effect.andThen(Effect.promise(() => extension.evaluate(page, outcome))), Effect.runPromise)),
     setting: ({ context, page }, use) => {
-        const before = new Map<string, unknown>();
+        const scope = Scope.makeUnsafe();
         const settings = context.newPage().then((tab) => tab.goto('chrome://settings').then(() => tab));
-        const write = (key: string, value: unknown) => settings.then((tab) => tab.evaluate(`new Promise((resolve) => chrome.settingsPrivate.getPref(${JSON.stringify(key)}, (earlier) => chrome.settingsPrivate.setPref(${JSON.stringify(key)}, ${JSON.stringify(value)}, '', () => resolve(earlier.value))))`));
-        return use((key, value) =>
-            write(key, value)
-                .then((earlier) => before.getOrInsert(key, earlier))
-                .then(() => page.bringToFront()),
-        ).then(() => Effect.runPromise(Effect.forEach(before, ([key, earlier]) => Effect.promise(() => write(key, earlier)), { discard: true })));
+        const write = (key: string, value: unknown) =>
+            Effect.promise(() => settings.then((tab) => tab.evaluate(`new Promise((resolve) => chrome.settingsPrivate.getPref(${JSON.stringify(key)}, (earlier) => chrome.settingsPrivate.setPref(${JSON.stringify(key)}, ${JSON.stringify(value)}, '', () => resolve(earlier.value))))`)));
+        return use((key, value) => Effect.acquireRelease(write(key, value), (earlier) => write(key, earlier)).pipe(Effect.andThen(Effect.promise(() => page.bringToFront())), Scope.provide(scope), Effect.runPromise)).then(() => Effect.runPromise(Scope.close(scope, Exit.void)));
     },
 });
 

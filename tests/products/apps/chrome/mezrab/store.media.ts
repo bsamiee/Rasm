@@ -13,13 +13,7 @@ const JOURNAL = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const shareable = (stage: { readonly page: Page; readonly extension: Extension }) =>
-    Effect.runPromise(
-        Effect.andThen(
-            isolate(stage, STUB.offered),
-            Effect.promise(() => stage.extension.act(stage.page)),
-        ),
-    );
+const shareable = (stage: { readonly page: Page; readonly extension: Extension }) => isolate(stage, STUB.offered).pipe(Effect.andThen(Effect.promise(() => stage.extension.act(stage.page))), Effect.runPromise);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -1,12 +1,12 @@
 import { homedir, hostname, tmpdir, userInfo } from 'node:os';
 import { isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { createConformanceRule } from '@nx/conformance';
-import { readNxJson } from '@nx/devkit';
-import { Array, Config, ConfigProvider, Effect, Formatter, Match, Option, Predicate, Record, Result, Struct } from 'effect';
+import { getOutputsForTargetAndConfiguration, readNxJson } from '@nx/devkit';
+import { createTaskId } from '@nx/devkit/internal';
+import { Array, Config, ConfigProvider, Effect, Formatter, Function, Match, Option, Predicate, pipe, Record, Result, Struct } from 'effect';
 import { getInputs } from 'nx/src/hasher/task-hasher';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
 import { assertTaskGraphDoesNotContainInvalidTargets, findCycle } from 'nx/src/tasks-runner/task-graph-utils';
-import { getOutputsForTargetAndConfiguration } from 'nx/src/tasks-runner/utils';
 import { createGitIgnoreChecker } from 'nx/src/utils/ignore';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -51,57 +51,49 @@ export default createConformanceRule<{ readonly clean: string }>({
         const ignored = createGitIgnoreChecker(tree);
         const nodes = Object.values(projectGraph.nodes);
         const declared = nodes.flatMap((node) => Record.collect(node.data.targets ?? {}, (target, configuration) => ({ node, target, configuration })));
-        const bases = declared
-            .filter(({ configuration }) => configuration.cache === true)
-            .flatMap(({ node, target, configuration }) =>
-                [undefined, ...Record.keys(configuration.configurations ?? {})].flatMap((named) =>
-                    getOutputsForTargetAndConfiguration({ project: node.name, target, ...(named === undefined ? {} : { configuration: named }) }, {}, node)
-                        .filter((output) => !output.startsWith('!'))
-                        .map((output) => ({ owner: `${node.name}:${target}`, project: node.name, label: [node.name, target, ...Array.fromNullishOr(named)].join(':'), base: normalize(output.replace(GLOBBED, '')).replace(/\/$/u, '') })),
-                ),
-            );
-        const stored = bases.flatMap(({ owner, project, label, base }) =>
-            [
-                ...(isAbsolute(base) || base.split('/')[0] === '..' || (base !== '.' && (ignored.isIgnoredDirectory(base) || ignored.isIgnoredFile(base))) ? [] : [`${label} writes ${base}, which git does not ignore, so a replay deletes workspace files there, write it under an ignored folder`]),
-                ...bases.filter((inner) => inner.owner !== owner && `${inner.base}/`.startsWith(`${base}/`)).map((inner) => `${label} writes ${base}, which holds ${inner.base} of ${inner.label}`),
-            ].map((message) => ({ sourceProject: project, message })),
+        const cached = declared.filter(({ configuration }) => configuration.cache === true);
+        const bases = pipe(
+            cached,
+            Array.flatMap(({ node, target, configuration }) => Record.collect({ '': {}, ...configuration.configurations }, (named, options) => ({ node, target, label: createTaskId(node.name, target, named), options }))),
+            Array.flatMap(({ node, target, label, options }) => getOutputsForTargetAndConfiguration({ project: node.name, target }, options, node).map((output) => ({ owner: `${node.name}:${target}`, project: node.name, label, base: normalize(output.replace(GLOBBED, '')).replace(/\/$/u, '') }))),
+            Array.filter(({ base }) => !base.startsWith('!')),
         );
-        const caching = new Set(declared.filter(({ configuration }) => configuration.cache === true).map(({ node }) => node.name));
-        const hashed = declared
-            .filter(({ node }) => caching.has(node.name))
-            .flatMap(({ node, target, configuration }) =>
-                strings(Struct.pick(configuration, ['inputs', 'outputs', 'options', 'configurations']), `${node.name}:${target}`)
-                    .flatMap(([at, text]) => [
-                        ...(machined(root, text) ? [`${at} holds ${text}, which names this machine or this run, state it relative to {workspaceRoot} or {projectRoot}`] : []),
-                        ...(configuration.cache === true ? outside(root, join(root, node.data.root), text) : []).map((word) => `${at} names ${word} outside the workspace, which no other runner holds, move it inside`),
-                    ])
-                    .map((message) => ({ sourceProject: node.name, message })),
-            );
-        const unclean = nodes.filter(({ data: { targets = {} } }) => !(clean in targets) && Object.values(targets).some(({ outputs = [] }) => Array.isReadonlyArrayNonEmpty(outputs))).map(({ name }) => ({ sourceProject: name, message: `${name} declares outputs and no ${clean} target, give it ${clean}` }));
+        const caching = new Set(cached.map(({ node }) => node.name));
+        const texts = declared.filter(({ node }) => caching.has(node.name)).flatMap(({ node, target, configuration }) => strings(Struct.pick(configuration, ['inputs', 'outputs', 'options', 'configurations']), `${node.name}:${target}`).map(([at, text]) => ({ node, cached: configuration.cache === true, at, text })));
         const graph = createTaskGraph(projectGraph, {}, Array.dedupe(declared.map(({ node }) => node.name)), Array.dedupe(declared.map(({ target }) => target)), undefined, {});
         const edges = Record.map(graph.tasks, (_, id) => [...(graph.dependencies[id] ?? []), ...(graph.continuousDependencies[id] ?? [])].map(Struct.get('id')));
         const cleaning = new Set(Object.values(graph.tasks).flatMap(({ id, target }) => (target.target === clean ? [id, ...(edges[id] ?? [])] : [])));
         const reached = reaching(edges, cleaning);
-        const planned = [
+        const found = [
             ...Array.fromNullishOr(findCycle(graph)).map((cycle) => ({ workspaceViolation: true, message: `Task cycle ${cycle.join(' -> ')}, drop one dependsOn entry of it` })),
-            ...Result.match(
-                Result.try(() => assertTaskGraphDoesNotContainInvalidTargets(graph)),
-                { onFailure: (cause) => [{ workspaceViolation: true, message: Predicate.isError(cause) ? cause.message : Formatter.format(cause) }], onSuccess: () => [] },
-            ),
+            ...Option.toArray(Result.getFailure(Result.try(() => assertTaskGraphDoesNotContainInvalidTargets(graph)))).map((cause) => ({ workspaceViolation: true, message: Predicate.isError(cause) ? cause.message : Formatter.format(cause) })),
             ...Object.values(graph.tasks)
                 .filter(({ id, cache }) => cache && !cleaning.has(id) && reached.has(id))
                 .map(({ id, target }) => ({ sourceProject: target.project, message: `${id} is cached and depends on a ${clean} task, which deletes outputs before every replay, drop that dependsOn entry` })),
+            ...bases
+                .filter(({ base }) => !(isAbsolute(base) || base.split('/')[0] === '..' || (base !== '.' && (ignored.isIgnoredDirectory(base) || ignored.isIgnoredFile(base)))))
+                .map(({ project, label, base }) => ({ sourceProject: project, message: `${label} writes ${base}, which git does not ignore, so a replay deletes workspace files there, write it under an ignored folder` })),
+            ...pipe(
+                Array.cartesian(bases, bases),
+                Array.filter(([outer, inner]) => inner.owner !== outer.owner && `${inner.base}/`.startsWith(`${outer.base}/`)),
+                Array.map(([outer, inner]) => ({ sourceProject: outer.project, message: `${outer.label} writes ${outer.base}, which holds ${inner.base} of ${inner.label}` })),
+            ),
+            ...nodes.filter(({ data: { targets = {} } }) => !(clean in targets) && Object.values(targets).some(({ outputs = [] }) => Array.isReadonlyArrayNonEmpty(outputs))).map(({ name }) => ({ sourceProject: name, message: `${name} declares outputs and no ${clean} target, give it ${clean}` })),
+            ...texts.filter(({ text }) => machined(root, text)).map(({ node, at, text }) => ({ sourceProject: node.name, message: `${at} holds ${text}, which names this machine or this run, state it relative to {workspaceRoot} or {projectRoot}` })),
+            ...texts.filter(Struct.get('cached')).flatMap(({ node, at, text }) => outside(root, join(root, node.data.root), text).map((word) => ({ sourceProject: node.name, message: `${at} names ${word} outside the workspace, which no other runner holds, move it inside` }))),
         ];
         const nxJson = readNxJson(tree) ?? {};
         const variables = Object.values(graph.tasks)
             .filter(({ cache }) => cache)
             .flatMap((task) => Array.filterMap(getInputs(task, projectGraph, nxJson).selfInputs, (input) => ('env' in input ? Result.succeed({ id: task.id, project: task.target.project, variable: input.env }) : Result.failVoid)));
-        return Effect.forEach(variables, ({ id, project, variable }) =>
-            Effect.map(Config.option(Config.String(variable)), (value) =>
-                Option.toArray(Option.filter(value, (held) => machined(root, held))).map((held) => ({ sourceProject: project, message: `${id} hashes ${variable}=${held}, which names this machine, so no other runner shares its cache entry, drop it from the inputs` })),
+        return Effect.filterMapEffect(variables, ({ id, project, variable }) =>
+            Config.option(Config.String(variable)).pipe(
+                Config.map(Option.filter((held) => machined(root, held))),
+                Config.map(Result.fromOption(Function.constVoid)),
+                Config.map(Result.map((held) => ({ sourceProject: project, message: `${id} hashes ${variable}=${held}, which names this machine, so no other runner shares its cache entry, drop it from the inputs` }))),
             ),
         ).pipe(
-            Effect.map((named) => ({ severity: 'high' as const, details: { violations: [...planned, ...stored, ...unclean, ...hashed, ...named.flat()] } })),
+            Effect.map((named) => ({ severity: 'high' as const, details: { violations: [...found, ...named] } })),
             Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
             Effect.runPromise,
         );
