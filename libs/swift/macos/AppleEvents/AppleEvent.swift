@@ -3,7 +3,7 @@ public import Foundation
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-let appleEvents: DispatchQueue = .init(label: "AppleEvents", attributes: .concurrent)
+let appleEventQueue: DispatchQueue = .init(label: "AppleEvents", attributes: .concurrent)
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ extension NSAppleEventDescriptor {
         let undelivered: Set<OSStatus> = [OSStatus(procNotFound), OSStatus(errAETargetAddressNotPermitted), OSStatus(errAEEventNotPermitted), OSStatus(errAEEventWouldRequireUserConsent)]
         let subject = (UInt64(event.eventClass) << 32 | UInt64(event.eventID)).sdef
         let (replies, answer) = AsyncStream<Result<Value, AppleEventFailure>>.makeStream()
-        Task(executorPreference: appleEvents) { [event] in
+        Task(executorPreference: appleEventQueue) { [event] in
             answer.yield(
                 Result { () throws(AppleEventFailure) in
                     let reply: NSAppleEventDescriptor

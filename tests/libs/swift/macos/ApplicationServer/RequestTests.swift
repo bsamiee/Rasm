@@ -64,7 +64,7 @@ struct PreviewTests {
             do { try FileManager.default.removeItem(at: file) } catch { Issue.record(error) }
         }
         let request = try JSONDecoder().decode(Request.self, from: Data(#"{"preview":{"file":"\#(file.absoluteString)","longestSide":\#(longestSide)}}"#.utf8))
-        guard case .value(let value?) = try await request.perform(admitting: { NSPredicate(value: false) }, definitions: ScriptingDefinitions(cached: { _ in nil })) else {
+        guard case .value(let value?) = try await request.perform(matching: { NSPredicate(value: false) }, dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil })) else {
             Issue.record("No preview value")
             return
         }
@@ -83,17 +83,17 @@ struct PreviewTests {
 }
 
 @Suite
-struct AdmissionTests {
+struct MatchingTests {
     @Test(arguments: requests)
-    func refusesAnApplicationThePredicateDoesNotAdmitBeforeReadingIt(method: String, params: [String: JSONValue]) async throws {
+    func refusesAnApplicationThePredicateDoesNotMatchBeforeReadingIt(method: String, params: [String: JSONValue]) async throws {
         let bundle = try Fixture()
         let (reads, read) = AsyncStream<Void>.makeStream()
         let request = JSONValue.object([method: .object(params.merging(["url": .string(bundle.url.absoluteString)]) { kept, _ in kept })])
         let outcome = await Result {
             try await JSONDecoder().decode(Request.self, from: JSONEncoder().encode(request))
                 .perform(
-                    admitting: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.other") },
-                    definitions: ScriptingDefinitions(cached: { _ in
+                    matching: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.other") },
+                    dictionaries: ScriptingDictionaries(cachedDefinition: { _ in
                         read.yield()
                         return nil
                     }),
@@ -111,14 +111,14 @@ struct AdmissionTests {
     }
 
     @Test
-    func readsTheDefinitionOfAnAdmittedApplication() async throws {
+    func readsTheDefinitionOfAMatchingApplication() async throws {
         let bundle = try Fixture()
         let cached = bundle.url.appending(components: "Contents", "Resources", "Cached.sdef")
         let (asked, ask) = AsyncStream<String>.makeStream()
         let response = try await JSONDecoder().decode(Request.self, from: Data(#"{"terms":{"url":"\#(bundle.url.absoluteString)"}}"#.utf8))
             .perform(
-                admitting: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.fixture") },
-                definitions: ScriptingDefinitions(cached: { installation in
+                matching: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.fixture") },
+                dictionaries: ScriptingDictionaries(cachedDefinition: { installation in
                     ask.yield(installation.identifier)
                     return cached
                 }),

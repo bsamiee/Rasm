@@ -12,7 +12,7 @@ import Telemetry
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-enum Target: String, CaseIterable {
+enum LogTarget: String, CaseIterable {
     case file
     case stderr
 }
@@ -55,7 +55,7 @@ extension Program {
 
     private var preferences: [String: Any] { UserDefaults.standard.persistentDomain(forName: identifier) ?? [:] }
 
-    private func reloading(_ filter: LogFilter, reporting logger: Logging.Logger) -> ClosureService {
+    private func reloadSettings(_ filter: LogFilter, reporting logger: Logging.Logger) -> ClosureService {
         let file = URL.libraryDirectory.appending(components: "Preferences", "\(identifier).plist", directoryHint: .notDirectory)
         return ClosureService {
             await cancelWhenGracefulShutdown {
@@ -77,7 +77,7 @@ extension Program {
         ClosureService {
             let since = settings.double(forKey: "crashReports.since").map(Date.init(timeIntervalSince1970:)) ?? .now
             store(Date.now.timeIntervalSince1970, forKey: "crashReports.since")
-            let found = DiagnosticReport.reports(since: since) { report in report.kind == .crash && report.written(by: .main) }
+            let found = DiagnosticReport.reports(since: since) { report in report.kind == .crash && report.isWritten(by: .main) }
             for report in found.reports {
                 let fields: [String: Logging.Logger.MetadataValue?] = [
                     "process.pid": .stringConvertible(report.pid), "file": .string(report.url.path(percentEncoded: false)),
@@ -115,7 +115,7 @@ extension Program {
         file.size = settings.int(forKey: "log.size", default: file.size)
         file.age = settings.int(forKey: "log.age", as: Duration.self, default: file.age)
         file.files = settings.int(forKey: "log.files", default: file.files)
-        let target = settings.string(forKey: "log.target", as: Target.self, default: .file)
+        let target = settings.string(forKey: "log.target", as: LogTarget.self, default: .file)
         let interactive = target == .file && isatty(STDERR_FILENO) == 1
         let keys = OTel.Configuration.LoggingMetadataProviderConfiguration.default
         let span = OTel.makeLoggingMetadataProvider(configuration: keys)
@@ -163,7 +163,7 @@ extension Program {
         for case .failure(let error)? in [logs?.map { _ in }, bootstrapped?.map { _ in }] { logger.warning("OpenTelemetry signal start failed", error: error) }
         unrecognized.log(to: logger)
         let metrics: [any Service] = configuration.metrics.enabled && started != nil ? [SystemMetricsMonitor(logger: Logging.Logger(label: String(reflecting: SystemMetricsMonitor.self)))] : []
-        let exports: [any Service] = [exported?.service, started].compactMap(\.self) + metrics + [reloading(filter, reporting: logger)]
+        let exports: [any Service] = [exported?.service, started].compactMap(\.self) + metrics + [reloadSettings(filter, reporting: logger)]
         var group = ServiceGroupConfiguration(
             services: exports.map { service in .init(service: service) } + [.init(service: crashReports(to: logger), successTerminationBehavior: .ignore, failureTerminationBehavior: .ignore)],
             logger: Logging.Logger(label: String(reflecting: ServiceGroup.self)),

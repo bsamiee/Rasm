@@ -75,7 +75,7 @@ extension ProcessInstance {
 
     public var hasExited: Bool { Result(catching: { () throws(Errno) in try Self(of: pid) }) != .success(self) }
 
-    public static func executing(_ matching: (FilePath) -> Bool) throws(Errno) -> [Self] {
+    public static func all(executing matching: (FilePath) -> Bool) throws(Errno) -> [Self] {
         let capacity = proc_listallpids(nil, 0)
         guard capacity > 0 else { throw Errno(rawValue: errno) }
         let listed = unsafe [pid_t](unsafeUninitializedCapacity: Int(capacity)) { buffer, count in
@@ -124,7 +124,7 @@ extension ProcessInstance {
         guard status == 0 else { throw Errno(rawValue: status) }
     }
 
-    public func listening() throws(Errno) -> [in_port_t] {
+    public func listeningPorts() throws(Errno) -> [in_port_t] {
         let capacity = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nil, 0)
         guard capacity > 0 else { throw Errno(rawValue: errno) }
         let descriptors = unsafe [proc_fdinfo](unsafeUninitializedCapacity: Int(capacity) / MemoryLayout<proc_fdinfo>.stride) { buffer, count in

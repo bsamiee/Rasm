@@ -34,6 +34,6 @@ struct DiagnosticReportTests {
         try Data().write(to: contents.appending(components: "MacOS", executable))
         try Data(text.replacing("<root>", with: root.path(percentEncoded: false)).utf8).write(to: root.appending(component: name))
         let parsed = try #require(try DiagnosticReport(root.appending(component: name), written: .now))
-        expectNoDifference(parsed.written(by: try #require(Bundle(url: root.appending(path: bundle)))), written)
+        expectNoDifference(parsed.isWritten(by: try #require(Bundle(url: root.appending(path: bundle)))), written)
     }
 }

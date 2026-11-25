@@ -43,7 +43,7 @@ extension Lifecycle {
         let (bundle, running): (FilePath, [ProcessInstance])
         do throws(Errno) {
             bundle = FilePath(try installation.url.canonical().path(percentEncoded: false))
-            running = try ProcessInstance.executing { path in path.starts(with: bundle) }
+            running = try ProcessInstance.all { path in path.starts(with: bundle) }
         } catch {
             throw ApplicationFailure(subject: installation.name, reason: .system(error))
         }
@@ -54,7 +54,7 @@ extension Lifecycle {
                 Row(instance: instance, executable: Result { () throws(Errno) in try instance.executable() }, replaced: Result { () throws(Errno) in try !instance.runsInstalledCode() })
             },
             reports: DiagnosticReport.reports(limit: limit) { report in
-                report.executable.map { path in FilePath(path).starts(with: bundle) } == true || installed.map(report.written(by:)) == true
+                report.executable.map { path in FilePath(path).starts(with: bundle) } == true || installed.map(report.isWritten(by:)) == true
                     || agents.contains { agent in agent.label == report.service }
             }
             .reports,

@@ -94,12 +94,12 @@ public enum Key: Codable, Hashable, Sendable {
         switch self {
             case .code(let code): (code, false, nil)
             case .named(let named): (named.code, false, nil)
-            case .character(let text): Self.located(text).map { located in (located.code, located.shift, text) } ?? (0, false, text)
+            case .character(let text): Self.locate(text).map { location in (location.code, location.shift, text) } ?? (0, false, text)
         }
     }
 
     @MainActor
-    private static func located(_ text: String) -> (code: CGKeyCode, shift: Bool)? {
+    private static func locate(_ text: String) -> (code: CGKeyCode, shift: Bool)? {
         guard let property = unsafe TISGetInputSourceProperty(TISCopyCurrentKeyboardLayoutInputSource().takeRetainedValue(), kTISPropertyUnicodeKeyLayoutData) else { return nil }
         let layout = unsafe Unmanaged<CFData>.fromOpaque(property).takeUnretainedValue() as Data
         let shift = UInt32(shiftKey >> 8)

@@ -19,7 +19,7 @@ public func loginShellEnvironment(within timeout: Duration) async throws(Process
     .run(output: .string(limit: sysconf(_SC_ARG_MAX)), within: timeout)
     .standardOutput
     let parts = printed.split(separator: marker, maxSplits: 1, omittingEmptySubsequences: false)
-    guard parts.count == 2 else { throw ProcessFailure(subject: shell.string, reason: .markerNotFound) }
+    guard parts.count == 2 else { throw ProcessFailure(subject: shell.string, reason: .noMarker) }
     return Dictionary(
         parts[1].split(separator: "\0").compactMap { variable in
             let entry = variable.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)

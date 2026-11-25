@@ -2,7 +2,7 @@ public import Encoding
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-struct Envelope<Payload: Sendable, Fault: Sendable>: Sendable {
+struct Message<Payload: Sendable, Fault: Sendable>: Sendable {
     enum Version: String, Codable, Sendable {
         case two = "2.0"
     }
@@ -19,7 +19,7 @@ struct Envelope<Payload: Sendable, Fault: Sendable>: Sendable {
     var sampled: Bool?
 }
 
-extension Envelope: Decodable where Payload: Decodable, Fault: Decodable {
+extension Message: Decodable where Payload: Decodable, Fault: Decodable {
     init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: CodingKeys.self)
         jsonrpc = try fields.decodeIfPresent(Version.self, forKey: .jsonrpc)
@@ -37,7 +37,7 @@ extension Envelope: Decodable where Payload: Decodable, Fault: Decodable {
     }
 }
 
-extension Envelope: Encodable where Payload: Encodable, Fault: Encodable {}
+extension Message: Encodable where Payload: Encodable, Fault: Encodable {}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 

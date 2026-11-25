@@ -16,7 +16,7 @@ public final class Recording {
 
         func recordingOutputDidFinishRecording(_: SCRecordingOutput) { ended(.success(())) }
 
-        func recordingOutput(_: SCRecordingOutput, didFailWithError error: any Error) { ended(.failure(ApplicationFailure(subject: path, reason: .host(error as NSError)))) }
+        func recordingOutput(_: SCRecordingOutput, didFailWithError error: any Error) { ended(.failure(ApplicationFailure(subject: path, reason: .foundation(error as NSError)))) }
 
         private func ended(_ outcome: Result<Void, ApplicationFailure>) {
             outcomes.continuation.yield(outcome)
@@ -51,7 +51,7 @@ public final class Recording {
             try stream.addClipBufferingOutput(buffer)
         } catch {
             events.outcomes.continuation.finish()
-            throw ApplicationFailure(subject: path, reason: .host(error as NSError))
+            throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
         }
     }
 
@@ -62,7 +62,7 @@ public final class Recording {
     public func clip(to file: URL) async throws(ApplicationFailure) {
         let (path, seconds) = (file.path(percentEncoded: false), Self.buffered / .seconds(1))
         if !owner.hasExited, stream.isCapturing {
-            do { try await buffer.exportClip(to: file, duration: seconds) } catch { throw ApplicationFailure(subject: path, reason: .host(error as NSError)) }
+            do { try await buffer.exportClip(to: file, duration: seconds) } catch { throw ApplicationFailure(subject: path, reason: .foundation(error as NSError)) }
             return
         }
         try await finish()
@@ -73,14 +73,14 @@ public final class Recording {
             export.timeRange = CMTimeRange(start: max(.zero, duration - CMTime(seconds: seconds, preferredTimescale: duration.timescale)), end: duration)
             try await export.export(to: file, as: type)
         } catch {
-            throw ApplicationFailure(subject: path, reason: .host(error as NSError))
+            throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
         }
     }
 
     public func finish() async throws(ApplicationFailure) {
         let path = file.path(percentEncoded: false)
         do { if stream.isCapturing { try await stream.stopCapture() } } catch SCStreamError.attemptToStopStreamState {} catch {
-            throw ApplicationFailure(subject: path, reason: .host(error as NSError))
+            throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
         }
         try await withTimeout(Self.buffered, expired: ApplicationFailure(subject: path, reason: .unanswered(nil))) { [written] () async throws(ApplicationFailure) in try await written.value.get() }
     }

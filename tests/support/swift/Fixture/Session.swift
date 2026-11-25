@@ -20,7 +20,7 @@ public struct FixtureSession: Sendable {
     private let lines: AsyncThrowingStream<Line, any Error>
 
     public func send(_ command: Command) async throws {
-        _ = try await writer.write(Array(JSONEncoder.lines.encodeLine(command)))
+        _ = try await writer.write(Array(JSONEncoder.jsonLines.encodeLine(command)))
     }
 
     public func next<Value>(_ line: CaseKeyPath<Line, Value>) async throws -> (value: Value, before: [Line]) {

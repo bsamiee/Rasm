@@ -44,7 +44,7 @@ extension LaunchAgent {
     init(_ plist: URL, in bundle: URL) throws(ApplicationFailure) {
         let path = plist.path(percentEncoded: false)
         let declared: Declaration
-        do { declared = try PropertyListDecoder().decode(Declaration.self, from: Data(contentsOf: plist)) } catch { throw ApplicationFailure(subject: path, reason: .host(error as NSError)) }
+        do { declared = try PropertyListDecoder().decode(Declaration.self, from: Data(contentsOf: plist)) } catch { throw ApplicationFailure(subject: path, reason: .foundation(error as NSError)) }
         let stated = declared.bundleProgram.map { program in bundle.appending(path: program) } ?? (declared.program ?? declared.arguments?.first).map { program in URL(filePath: program) }
         guard let program = stated else { throw ApplicationFailure(subject: path, reason: .malformed("\(path) names no BundleProgram, Program, or ProgramArguments")) }
         self.init(label: declared.label, program: program, plist: plist, keepAlive: declared.keepAlive)
@@ -53,7 +53,7 @@ extension LaunchAgent {
     public func instances() throws(ApplicationFailure) -> [ProcessInstance] {
         do throws(Errno) {
             let executable = try ifPresent { () throws(Errno) in FilePath(try program.canonical().path(percentEncoded: false)) }
-            return try executable.map { executable throws(Errno) in try ProcessInstance.executing { path in path == executable } } ?? []
+            return try executable.map { executable throws(Errno) in try ProcessInstance.all { path in path == executable } } ?? []
         } catch {
             throw ApplicationFailure(subject: program.path(percentEncoded: false), reason: .system(error))
         }
@@ -74,7 +74,7 @@ extension Installation {
         let folder = url.appending(components: "Contents", "Library", "LaunchAgents", directoryHint: .isDirectory)
         let files: [URL]
         do { files = try ifPresent { try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) } ?? [] } catch {
-            throw ApplicationFailure(subject: folder.path(percentEncoded: false), reason: .host(error as NSError))
+            throw ApplicationFailure(subject: folder.path(percentEncoded: false), reason: .foundation(error as NSError))
         }
         return try files.filter { file in UTType(filenameExtension: file.pathExtension)?.conforms(to: .propertyList) == true }
             .sorted(using: KeyPathComparator(\.lastPathComponent))

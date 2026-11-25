@@ -9,7 +9,7 @@ private let logTime = Date.ISO8601FormatStyle(includingFractionalSeconds: true).
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct LogEvent: Codable, Sendable {
+public struct LogEntry: Codable, Sendable {
     public enum Source: Sendable {
         case process(pid_t)
         case executable(URL)
@@ -62,17 +62,17 @@ public struct LogEvent: Codable, Sendable {
     }
 }
 
-private struct Printed: Decodable {
-    let event: LogEvent?
+private struct Line: Decodable {
+    let entry: LogEntry?
 
     init(from decoder: any Decoder) throws {
-        event = try decoder.container(keyedBy: LogEvent.CodingKeys.self).contains(.timestamp) ? LogEvent(from: decoder) : nil
+        entry = try decoder.container(keyedBy: LogEntry.CodingKeys.self).contains(.timestamp) ? LogEntry(from: decoder) : nil
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension LogEvent {
+extension LogEntry {
     public static func history(of source: Source, since start: Date?, limit: Int) async throws(ProcessFailure) -> [Self] {
         let window = start.map { start in ["--start", "@\(Int(start.timeIntervalSince1970))"] } ?? ["--last", "boot"]
         let format = source.predicate
@@ -87,8 +87,8 @@ extension LogEvent {
                 error: .string(limit: 1 << 16),
             ) { execution in
                 try await execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])).reduce(into: Deque<Self>()) { held, line in
-                    guard let event = try decoder.decode(Printed.self, from: Data(line.utf8)).event else { return }
-                    held.append(event)
+                    guard let entry = try decoder.decode(Line.self, from: Data(line.utf8)).entry else { return }
+                    held.append(entry)
                     if held.count > limit { held.removeFirst() }
                 }
             }
@@ -101,7 +101,7 @@ extension LogEvent {
 
     public static func stream(of source: Source) -> AsyncStream<Result<Self, ProcessFailure>> {
         let format = source.predicate
-        let (events, continuation) = AsyncStream<Result<Self, ProcessFailure>>.makeStream()
+        let (entries, continuation) = AsyncStream<Result<Self, ProcessFailure>>.makeStream()
         let following = Task {
             let decoder = JSONDecoder()
             let subject = "log stream --predicate \(format)"
@@ -113,8 +113,8 @@ extension LogEvent {
                     error: .string(limit: 1 << 16),
                 ) { execution in
                     for try await line in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])) where line.hasPrefix("{") {
-                        switch Result(catching: { try decoder.decode(Printed.self, from: Data(line.utf8)).event }) {
-                            case .success(let event?): continuation.yield(.success(event))
+                        switch Result(catching: { try decoder.decode(Line.self, from: Data(line.utf8)).entry }) {
+                            case .success(let entry?): continuation.yield(.success(entry))
                             case .success(nil): continue
                             case .failure(let error): continuation.yield(.failure(ProcessFailure(subject: line, error)))
                         }
@@ -127,6 +127,6 @@ extension LogEvent {
             continuation.finish()
         }
         continuation.onTermination = { _ in following.cancel() }
-        return events
+        return entries
     }
 }

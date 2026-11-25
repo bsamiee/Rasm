@@ -8,14 +8,14 @@ public import Sparkle
 @MainActor
 public struct Updater {
     private final class Delegate: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
-        private let resting: NSApplication.ActivationPolicy
+        private let activationPolicy: NSApplication.ActivationPolicy
 
-        init(resting: NSApplication.ActivationPolicy) { self.resting = resting }
+        init(activationPolicy: NSApplication.ActivationPolicy) { self.activationPolicy = activationPolicy }
 
         var supportsGentleScheduledUpdateReminders: Bool { true }
 
         func updater(_: SPUUpdater, willInstallUpdateOnQuit _: SUAppcastItem, immediateInstallationBlock: () -> Void) -> Bool {
-            guard resting == .prohibited else { return false }
+            guard activationPolicy == .prohibited else { return false }
             immediateInstallationBlock()
             return true
         }
@@ -38,15 +38,15 @@ public struct Updater {
 
         func standardUserDriverWillFinishUpdateSession() {
             NSApplication.shared.dockTile.badgeLabel = nil
-            NSApplication.shared.setActivationPolicy(resting)
+            NSApplication.shared.setActivationPolicy(activationPolicy)
         }
     }
 
     public let controller: SPUStandardUpdaterController
     private let delegate: Delegate
 
-    public init(resting: NSApplication.ActivationPolicy) {
-        delegate = Delegate(resting: resting)
+    public init(activationPolicy: NSApplication.ActivationPolicy) {
+        delegate = Delegate(activationPolicy: activationPolicy)
         controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: delegate, userDriverDelegate: delegate)
     }
 }

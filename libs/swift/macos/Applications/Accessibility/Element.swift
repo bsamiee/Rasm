@@ -9,7 +9,7 @@ import Processes
 
 private let buttonAttributes: [String] = [kAXCloseButtonAttribute, kAXDefaultButtonAttribute, kAXCancelButtonAttribute]
 private let childAttributes: [String] = [kAXChildrenAttribute, kAXVisibleRowsAttribute, kAXVisibleChildrenAttribute]
-private let nodeAttributes: [String] =
+private let elementAttributes: [String] =
     [
         kAXRoleAttribute, kAXSubroleAttribute, kAXEnabledAttribute, kAXIdentifierAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXTitleUIElementAttribute, kAXValueAttribute,
         kAXSelectedAttribute,
@@ -53,27 +53,7 @@ public struct FailedRead: Encodable, Hashable, Sendable {
     }
 }
 
-public struct Element: Encodable, Hashable, Sendable {
-    public struct ID: Codable, Hashable, Sendable, CustomStringConvertible {
-        let token: Data
-
-        init(token: Data) { self.token = token }
-
-        public init?(base64Encoded text: String) {
-            guard let token = Data(base64Encoded: text) else { return nil }
-            self.token = token
-        }
-
-        public init(from decoder: any Decoder) throws { token = try decoder.singleValueContainer().decode(Data.self) }
-
-        public func encode(to encoder: any Encoder) throws {
-            var container = encoder.singleValueContainer()
-            try container.encode(token)
-        }
-
-        public var description: String { token.base64EncodedString() }
-    }
-
+public struct TopLevelElement: Encodable, Hashable, Sendable {
     public enum Kind: String, Encodable, Sendable {
         case filePanel
         case sheet
@@ -103,7 +83,7 @@ public struct Element: Encodable, Hashable, Sendable {
         case id, role, subrole, modal, identifier, description, title, document, edited, minimized, actions, detail, kind, asking, answers
     }
 
-    public let id: ID
+    public let id: Element.ID
     public let role: String
     public let subrole: String?
     public let modal: Bool?
@@ -173,8 +153,28 @@ public struct Element: Encodable, Hashable, Sendable {
     }
 }
 
-public struct Node: Encodable, Sendable {
-    public let id: Element.ID
+public struct Element: Encodable, Sendable {
+    public struct ID: Codable, Hashable, Sendable, CustomStringConvertible {
+        let token: Data
+
+        init(token: Data) { self.token = token }
+
+        public init?(base64Encoded text: String) {
+            guard let token = Data(base64Encoded: text) else { return nil }
+            self.token = token
+        }
+
+        public init(from decoder: any Decoder) throws { token = try decoder.singleValueContainer().decode(Data.self) }
+
+        public func encode(to encoder: any Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(token)
+        }
+
+        public var description: String { token.base64EncodedString() }
+    }
+
+    public let id: ID
     public let role: String?
     public let subrole: String?
     public let label: String?
@@ -199,7 +199,7 @@ private enum Part {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension Node {
+extension Element {
     fileprivate func parts(marking marked: [Data: String]) -> [Part] {
         guard let role else { return unreadable.map(Part.unreadable) }
         guard !boundedRoles.contains(role) else { return [] }
@@ -244,7 +244,7 @@ extension Node {
 
 extension AXUIElement {
     static func candidates(_ read: Attributes) throws(ApplicationFailure) -> [AXUIElement] {
-        try (read.values[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(checked).map { window throws(ApplicationFailure) in
+        try (read.values[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(cast).map { window throws(ApplicationFailure) in
             try [window]
                 + window.elements(kAXChildrenAttribute).map { child throws(ApplicationFailure) -> AXUIElement? in
                     let role: String? = try child.value(kAXRoleAttribute)
@@ -275,7 +275,7 @@ extension AXUIElement {
                 case kAXListRole: read.values[kAXVisibleChildrenAttribute] ?? read.values[kAXChildrenAttribute]
                 case _: read.values[kAXChildrenAttribute]
             }
-        return Array((nested as? [CFTypeRef] ?? []).compactMap(checked).enumerated().dropFirst(role == kAXMenuBarRole ? 1 : 0))
+        return Array((nested as? [CFTypeRef] ?? []).compactMap(cast).enumerated().dropFirst(role == kAXMenuBarRole ? 1 : 0))
     }
 
     private static func attempt<Value>(_ body: () throws(ApplicationFailure) -> Value) throws(ApplicationFailure) -> (value: Value?, unread: FailedRead?) {
@@ -285,11 +285,11 @@ extension AXUIElement {
         }
     }
 
-    func node(menu: (process: pid_t, path: [Int])?, depth: Int) throws(ApplicationFailure) -> Node {
-        let attempted = try Self.attempt { () throws(ApplicationFailure) in try values(nodeAttributes) }
+    func readElement(menu: (process: pid_t, path: [Int])?, depth: Int) throws(ApplicationFailure) -> Element {
+        let attempted = try Self.attempt { () throws(ApplicationFailure) in try values(elementAttributes) }
         guard let read = attempted.value else {
             let id = Element.ID(token: menu.map { menu in Self.menuItem(of: menu.process, at: menu.path) } ?? token)
-            return Node(
+            return Element(
                 id: id,
                 role: nil,
                 subrole: nil,
@@ -321,10 +321,10 @@ extension AXUIElement {
         let children =
             try depth > 0
             ? nested.map { child throws(ApplicationFailure) in
-                try child.element.node(menu: context.map { context in (context.process, context.path + [child.offset]) }, depth: depth - 1)
+                try child.element.readElement(menu: context.map { context in (context.process, context.path + [child.offset]) }, depth: depth - 1)
             } : nil
-        let (origin, size) = (AXValue.unpacked(read.values[kAXPositionAttribute], .cgPoint, CGPoint.zero), AXValue.unpacked(read.values[kAXSizeAttribute], .cgSize, CGSize.zero))
-        return Node(
+        let (origin, size) = (AXValue.unpack(read.values[kAXPositionAttribute], .cgPoint, CGPoint.zero), AXValue.unpack(read.values[kAXSizeAttribute], .cgSize, CGSize.zero))
+        return Element(
             id: Element.ID(token: context.map { context in Self.menuItem(of: context.process, at: context.path) } ?? token),
             role: role,
             subrole: read.values[kAXSubroleAttribute] as? String,
@@ -341,7 +341,12 @@ extension AXUIElement {
         )
     }
 
-    func described(walking walked: (Element) -> Bool, helper: Bool, among listed: Set<CGWindowID>, bar: Int? = nil) throws(ApplicationFailure) -> (window: CGWindowID?, element: Element)? {
+    func describe(
+        walking walked: (TopLevelElement) -> Bool,
+        helper: Bool,
+        among listed: Set<CGWindowID>,
+        bar: Int? = nil,
+    ) throws(ApplicationFailure) -> (window: CGWindowID?, element: TopLevelElement)? {
         let read = try values(
             [
                 kAXRoleAttribute, kAXSubroleAttribute, kAXModalAttribute, kAXIdentifierAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXDocumentAttribute, kAXMainAttribute,
@@ -352,16 +357,16 @@ extension AXUIElement {
         let window = self.window.flatMap { number in listed.contains(number) ? number : nil }
         guard window != nil || menuRoles.contains(role) else { return nil }
         let marked = buttonAttributes.compactMap { attribute in
-            read.values[attribute].flatMap(Self.checked).map { node in (attribute: attribute, node: node) }
+            read.values[attribute].flatMap(Self.cast).map { button in (attribute: attribute, button: button) }
         }
         let (subrole, modal) = (read.values[kAXSubroleAttribute] as? String, read.values[kAXModalAttribute] as? Bool)
-        let (id, actions, edited): (Data, [String], Bool?) = try (token, actionNames(), marked.first { mark in mark.attribute == kAXCloseButtonAttribute }?.node.value(kAXEditedAttribute))
+        let (id, actions, edited): (Data, [String], Bool?) = try (token, actionNames(), marked.first { mark in mark.attribute == kAXCloseButtonAttribute }?.button.value(kAXEditedAttribute))
         let title: String? =
             try role == kAXMenuRole
-            ? read.values[kAXParentAttribute].flatMap(Self.checked).flatMap { parent throws(ApplicationFailure) in try parent.label(parent.values(nodeAttributes)) }
+            ? read.values[kAXParentAttribute].flatMap(Self.cast).flatMap { parent throws(ApplicationFailure) in try parent.label(parent.values(elementAttributes)) }
             : (read.values[kAXTitleAttribute] as? String).flatMap { title in title.isEmpty ? nil : title }
-        let element: (Element.Detail?) -> Element = { detail in
-            Element(
+        let element: (TopLevelElement.Detail?) -> TopLevelElement = { detail in
+            TopLevelElement(
                 id: Element.ID(token: id),
                 role: role,
                 subrole: subrole,
@@ -378,19 +383,19 @@ extension AXUIElement {
             )
         }
         guard walked(element(nil)) else { return (window, element(nil)) }
-        let tokens = Dictionary(marked.map { mark in (mark.node.token, mark.attribute) }) { first, _ in first }
+        let tokens = Dictionary(marked.map { mark in (mark.button.token, mark.attribute) }) { first, _ in first }
         let walk = try Self.children(read).map { child throws(ApplicationFailure) in
-            try child.element.node(menu: bar.flatMap { bar in process.map { process in (process, [bar, child.offset]) } }, depth: bar == nil ? detailDepth : 0).parts(marking: tokens)
+            try child.element.readElement(menu: bar.flatMap { bar in process.map { process in (process, [bar, child.offset]) } }, depth: bar == nil ? detailDepth : 0).parts(marking: tokens)
         }
         .flatMap(\.self)
         let parts =
             try walk
             + marked.filter { mark in !walk.contains { part in part.control?.attribute == mark.attribute } }
-            .map { mark throws(ApplicationFailure) in try mark.node.node(menu: nil, depth: 0).parts(marking: tokens) }.flatMap(\.self)
+            .map { mark throws(ApplicationFailure) in try mark.button.readElement(menu: nil, depth: 0).parts(marking: tokens) }.flatMap(\.self)
         return (
             window,
             element(
-                Element.Detail(
+                TopLevelElement.Detail(
                     main: read.values[kAXMainAttribute] as? Bool,
                     focused: read.values[kAXFocusedAttribute] as? Bool,
                     text: parts.compactMap(\.text),
@@ -404,14 +409,14 @@ extension AXUIElement {
 
 extension Element.ID {
     @concurrent
-    public func framed() async throws(ApplicationFailure) -> (window: CGWindowID, frame: CGRect) {
-        try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
-            guard let node = try AXUIElement.element(token) else { throw ApplicationFailure(subject: description, reason: .unresolved) }
-            let read = try node.values(frameAttributes + [kAXWindowAttribute])
-            guard let origin = AXValue.unpacked(read.values[kAXPositionAttribute], .cgPoint, CGPoint.zero), let size = AXValue.unpacked(read.values[kAXSizeAttribute], .cgSize, CGSize.zero) else {
+    public func frame() async throws(ApplicationFailure) -> (window: CGWindowID, frame: CGRect) {
+        try await withTaskExecutorPreference(accessibilityQueue) { () throws(ApplicationFailure) in
+            guard let element = try AXUIElement.element(token) else { throw ApplicationFailure(subject: description, reason: .unresolved) }
+            let read = try element.values(frameAttributes + [kAXWindowAttribute])
+            guard let origin = AXValue.unpack(read.values[kAXPositionAttribute], .cgPoint, CGPoint.zero), let size = AXValue.unpack(read.values[kAXSizeAttribute], .cgSize, CGSize.zero) else {
                 throw ApplicationFailure(subject: description, reason: .unreadable(FailedRead(reads: frameAttributes, role: nil, label: read.label, error: .noValue)))
             }
-            guard let window = (read.values[kAXWindowAttribute].flatMap(AXUIElement.checked) ?? node).window else { throw ApplicationFailure(subject: description, reason: .noWindow) }
+            guard let window = (read.values[kAXWindowAttribute].flatMap(AXUIElement.cast) ?? element).window else { throw ApplicationFailure(subject: description, reason: .noWindow) }
             return (window, CGRect(origin: origin, size: size))
         }
     }
@@ -419,20 +424,20 @@ extension Element.ID {
 
 extension Instance {
     @concurrent
-    public func nodes(from root: Element.ID?, depth: Int = detailDepth) async throws(ApplicationFailure) -> Node {
-        try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
-            guard let root else { return try AXUIElement.application(process.pid).node(menu: nil, depth: depth) }
-            guard let node = try AXUIElement.element(root.token), let owner = node.process else { throw ApplicationFailure(subject: root.description, reason: .unresolved) }
+    public func element(from root: Element.ID?, depth: Int = detailDepth) async throws(ApplicationFailure) -> Element {
+        try await withTaskExecutorPreference(accessibilityQueue) { () throws(ApplicationFailure) in
+            guard let root else { return try AXUIElement.application(process.pid).readElement(menu: nil, depth: depth) }
+            guard let element = try AXUIElement.element(root.token), let owner = element.process else { throw ApplicationFailure(subject: root.description, reason: .unresolved) }
             guard owner == process.pid || NSRunningApplication(processIdentifier: owner)?.isDialogHelper == true else {
                 throw ApplicationFailure(subject: root.description, reason: .foreign(process.pid))
             }
-            return try node.node(menu: AXUIElement.menuPath(root.token), depth: depth)
+            return try element.readElement(menu: AXUIElement.menuPath(root.token), depth: depth)
         }
     }
 
     @concurrent
     public func documents() async throws(ApplicationFailure) -> [CGWindowID: URL] {
-        try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
+        try await withTaskExecutorPreference(accessibilityQueue) { () throws(ApplicationFailure) in
             let rows = try AXUIElement.application(process.pid).elements(kAXWindowsAttribute).map { window throws(ApplicationFailure) in
                 (number: window.window, document: (try window.value(kAXDocumentAttribute) as String?).flatMap(URL.init(string:)))
             }

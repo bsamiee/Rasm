@@ -346,7 +346,7 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
 
 func emit(_ value: some Encodable, to output: FileHandle = .standardOutput) {
     do {
-        try output.write(contentsOf: JSONEncoder.lines.encodeLine(value))
+        try output.write(contentsOf: JSONEncoder.jsonLines.encodeLine(value))
     } catch {
         fatalError(String(describing: error))
     }

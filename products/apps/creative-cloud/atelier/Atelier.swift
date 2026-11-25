@@ -6,10 +6,10 @@ import Foundation
 
 @main
 enum Atelier {
-    // --- [DICTIONARIES]
+    // --- [DEFINITIONS]
 
     @Sendable
-    private static func cachedDictionary(of installation: Installation) -> URL? {
+    private static func cachedDefinition(of installation: Installation) -> URL? {
         let version = installation.version.map { version in version.split(separator: ".").prefix(2).joined(separator: ".") }
         let caches = URL.cachesDirectory.appending(component: "Adobe \(installation.bundleName ?? installation.name)", directoryHint: .isDirectory)
         return FileManager.default.enumerator(at: caches, includingPropertiesForKeys: nil)?.lazy.compactMap { item in item as? URL }
@@ -18,5 +18,5 @@ enum Atelier {
 
     // --- [ENTRY]
 
-    static func main() async { await ApplicationServer.main(cached: cachedDictionary) }
+    static func main() async { await ApplicationServer.main(cachedDefinition: cachedDefinition) }
 }

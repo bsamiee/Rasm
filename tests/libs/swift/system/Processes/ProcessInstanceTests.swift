@@ -52,8 +52,8 @@ struct ProcessInstanceTests {
             }
             try #require(bound)
             port = withUnsafeBytes(of: address) { bytes in in_port_t(bigEndian: unsafe bytes.load(as: sockaddr_in.self).sin_port) }
-            expectNoDifference(try current.listening().filter { listed in listed == port }, [port])
+            expectNoDifference(try current.listeningPorts().filter { listed in listed == port }, [port])
         }
-        #expect(try !current.listening().contains(port))
+        #expect(try !current.listeningPorts().contains(port))
     }
 }

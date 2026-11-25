@@ -21,7 +21,7 @@ extension NSRunningApplication {
 }
 
 extension InstanceState {
-    func prompting(_ names: [String]) -> [Window] {
+    func prompts(naming names: [String]) -> [Window] {
         let words = names.map { name in
             Regex {
                 Anchor.wordBoundary
@@ -44,11 +44,11 @@ extension NSWorkspace {
         naming names: [String],
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<OrderedDictionary<Instance, InstanceState>, Never> & Sendable {
-        tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)
+        states(of: \.isDialogHelper, walking: \.asking, clock: clock)
             .map { held in
                 held.compactMapValues { state in
                     guard case .running(let running) = state else { return nil }
-                    let rows = state.prompting(names)
+                    let rows = state.prompts(naming: names)
                     return rows.isEmpty
                         ? nil
                         : .running(InstanceState.Running(status: running.status, active: running.active, windows: rows, prompts: [], menus: [], usage: running.usage, listening: running.listening))

@@ -7,19 +7,19 @@ import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-struct Beat: Sendable {
-    var once: Bool = false
+struct Poll: Sendable {
+    var isSingleRead: Bool = false
     var state: InstanceState?
     var observer: Result<Observer, ApplicationFailure>?
     var status: InstanceState.Running.Status?
     var active: Bool?
     var tokens: [Data?]?
     var numbers: Set<CGWindowID> = []
-    var described: [CGWindowID: Element] = [:]
-    var menus: [Element] = []
+    var described: [CGWindowID: TopLevelElement] = [:]
+    var menus: [TopLevelElement] = []
     var answered: Set<CGWindowID>?
     var baseline: Set<CGWindowID>?
-    var silent: Bool = false
+    var isSilent: Bool = false
     var usage: Result<ResourceUsage, Errno>?
     var listening: Result<[in_port_t], Errno> = .success([])
 }
@@ -27,44 +27,44 @@ struct Beat: Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Instance {
-    private func rows(_ listed: [InstanceState.Window], in beat: Beat, _ description: (CGWindowID) -> InstanceState.Window.Description) -> [InstanceState.Window] {
+    private func rows(_ listed: [InstanceState.Window], in poll: Poll, _ description: (CGWindowID) -> InstanceState.Window.Description) -> [InstanceState.Window] {
         let numbers = Set(listed.map(\.number))
-        return (listed + beat.described.keys.filter { number in !numbers.contains(number) }.compactMap(InstanceState.Window.listed(number:))).map { window in
-            window.described(description(window.number), arrived: beat.baseline.map { baseline in !baseline.contains(window.number) } ?? beat.once)
+        return (listed + poll.described.keys.filter { number in !numbers.contains(number) }.compactMap(InstanceState.Window.read(number:))).map { window in
+            window.described(description(window.number), hasArrived: poll.baseline.map { baseline in !baseline.contains(window.number) } ?? poll.isSingleRead)
         }
     }
 
-    private func answering(
-        after held: Beat,
+    private func read(
+        after held: Poll,
         listed: [InstanceState.Window],
-        walking walked: (Element) -> Bool,
+        walking walked: (TopLevelElement) -> Bool,
         heartbeat: Bool,
         ticks: AsyncStream<Void>.Continuation?,
-    ) throws(ApplicationFailure) -> Beat {
+    ) throws(ApplicationFailure) -> Poll {
         var next = held
         let element = AXUIElement.application(process.pid)
         if let ticks {
             next.observer = next.observer ?? Result { () throws(ApplicationFailure) in try Observer(application, ticks: ticks) }
             try next.observer?.get().register(on: element)
         }
-        let read = try element.required([kAXWindowsAttribute, kAXFocusedWindowAttribute, kAXFrontmostAttribute])
+        let read = try element.requireValues([kAXWindowsAttribute, kAXFocusedWindowAttribute, kAXFrontmostAttribute])
         let tokens =
-            (read.values[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(AXUIElement.checked).map(\.token) + [read.values[kAXFocusedWindowAttribute].flatMap(AXUIElement.checked)?.token]
+            (read.values[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(AXUIElement.cast).map(\.token) + [read.values[kAXFocusedWindowAttribute].flatMap(AXUIElement.cast)?.token]
         let numbers = Set(listed.map(\.number))
         if !heartbeat || next.tokens != tokens || next.numbers != numbers {
             let helper = application.isDialogHelper
             let elements = try AXUIElement.candidates(read).map { candidate throws(ApplicationFailure) in
-                try candidate.described(walking: walked, helper: helper, among: numbers)
+                try candidate.describe(walking: walked, helper: helper, among: numbers)
             }
             .compactMap(\.self)
             next.described = Dictionary(elements.compactMap { row in row.window.map { window in (window, row.element) } }) { first, second in first.asking ? first : second }
-            let bars = try element.required(menuBars)
+            let bars = try element.requireValues(menuBars)
             let barred = try menuBars.enumerated().map { index, bar throws(ApplicationFailure) in
-                try bars.values[bar].flatMap(AXUIElement.checked)?.described(walking: walked, helper: helper, among: numbers, bar: index)?.element
+                try bars.values[bar].flatMap(AXUIElement.cast)?.describe(walking: walked, helper: helper, among: numbers, bar: index)?.element
             }
             .compactMap(\.self)
             next.menus =
-                try barred + element.menus([kAXMenuRole]).map { menu throws(ApplicationFailure) in try menu.described(walking: walked, helper: helper, among: numbers)?.element }.compactMap(\.self)
+                try barred + element.menus([kAXMenuRole]).map { menu throws(ApplicationFailure) in try menu.describe(walking: walked, helper: helper, among: numbers)?.element }.compactMap(\.self)
         }
         let status: InstanceState.Running.Status = application.isFinishedLaunching || next.described.values.contains(where: \.asking) ? .responding : .launching
         next.status = status
@@ -72,14 +72,14 @@ extension Instance {
         next.tokens = tokens
         next.numbers = numbers
         next.answered = numbers
-        next.silent = false
-        if !next.once, status == .responding, next.baseline == nil { next.baseline = numbers }
-        return concluded(next, status: status, listed: listed) { number in next.described[number].map(InstanceState.Window.Description.element) ?? .undescribed }
+        next.isSilent = false
+        if !next.isSingleRead, status == .responding, next.baseline == nil { next.baseline = numbers }
+        return conclude(next, status: status, listed: listed) { number in next.described[number].map(InstanceState.Window.Description.element) ?? .undescribed }
     }
 
-    private func silent(after held: Beat, thread: ProcessStatus, listed: [InstanceState.Window]) -> Beat {
+    private func inferStatus(after held: Poll, thread: ProcessStatus, listed: [InstanceState.Window]) -> Poll {
         let status: InstanceState.Running.Status? =
-            switch (application.isFinishedLaunching, held.silent, thread, held.status) {
+            switch (application.isFinishedLaunching, held.isSilent, thread, held.status) {
                 case (false, true, .sleeping, _): .unresponsive(thread)
                 case (false, _, _, _): .launching
                 case (true, false, _, .some(let answered)), (true, true, .runnable, .some(let answered)): answered
@@ -87,15 +87,15 @@ extension Instance {
                 case (true, _, _, _): .unresponsive(thread)
             }
         var next = held
-        next.silent = true
+        next.isSilent = true
         guard let status else { return next }
         next.status = status
         let modal = Int(CGWindowLevelForKey(.modalPanelWindow))
         let shown: [InstanceState.Window] = thread == .sleeping ? listed.filter(\.onScreen) : []
         let tagged = Set(shown.filter { window in window.layer == modal }.map(\.number))
-        let parked = application.isFinishedLaunching && held.silent
+        let parked = application.isFinishedLaunching && held.isSilent
         let fresh: Set<CGWindowID> = parked ? Set(shown.filter { window in held.answered?.contains(window.number) == false }.map(\.number)) : []
-        return concluded(next, status: status, listed: listed) { number in
+        return conclude(next, status: status, listed: listed) { number in
             switch (held.described[number], tagged.contains(number), fresh.contains(number)) {
                 case (.some(let element), let isTagged, _) where element.asking || !isTagged: .element(element)
                 case (_, true, _), (.none, false, true): .blocking
@@ -104,16 +104,16 @@ extension Instance {
         }
     }
 
-    private func concluded(
-        _ beat: Beat,
+    private func conclude(
+        _ poll: Poll,
         status: InstanceState.Running.Status,
         listed: [InstanceState.Window],
         _ description: (CGWindowID) -> InstanceState.Window.Description,
-    ) -> Beat {
-        var next = beat
+    ) -> Poll {
+        var next = poll
         if status.is(\.unresponsive), next.baseline == nil, application.isFinishedLaunching { next.baseline = [] }
         next.usage =
-            switch (beat.once, status, beat.usage) {
+            switch (poll.isSingleRead, status, poll.usage) {
                 case (false, .unresponsive, .some(let usage)): usage
                 case (false, .launching, _), (false, .responding, _): nil
                 case (true, _, _), (false, .unresponsive, .none): Result { () throws(Errno) in try ResourceUsage(of: process) }
@@ -133,32 +133,32 @@ extension Instance {
     }
 
     @concurrent
-    func beat(
-        after held: Beat,
-        walking walked: @Sendable (Element) -> Bool,
+    func poll(
+        after held: Poll,
+        walking walked: @Sendable (TopLevelElement) -> Bool,
         heartbeat: Bool = false,
         ticks: AsyncStream<Void>.Continuation? = nil,
-    ) async -> Beat {
-        await withTaskExecutorPreference(accessibility) { () -> Beat in
-            let listed = InstanceState.Window.owned(by: process.pid).filter { window in !window.frame.isEmpty }
+    ) async -> Poll {
+        await withTaskExecutorPreference(accessibilityQueue) { () -> Poll in
+            let listed = InstanceState.Window.all(ownedBy: process.pid).filter { window in !window.frame.isEmpty }
             do throws(ApplicationFailure) {
                 var held = held
                 let before: MainThread
                 do throws(Errno) { before = try MainThread(of: process) } catch { throw ApplicationFailure(error, process: String(process.pid)) }
-                held.listening = Result { () throws(Errno) in try process.listening() }
+                held.listening = Result { () throws(Errno) in try process.listeningPorts() }
                 guard !before.stopped else {
-                    return concluded(held, status: .unresponsive(.stopped), listed: listed) { number in
+                    return conclude(held, status: .unresponsive(.stopped), listed: listed) { number in
                         held.described[number].map(InstanceState.Window.Description.element) ?? .undescribed
                     }
                 }
                 guard application.activationPolicy != .prohibited else {
-                    return concluded(held, status: .responding, listed: listed) { _ in .undescribed }
+                    return conclude(held, status: .responding, listed: listed) { _ in .undescribed }
                 }
-                let answer = Result { () throws(ApplicationFailure) in try answering(after: held, listed: listed, walking: walked, heartbeat: heartbeat, ticks: ticks) }
+                let answer = Result { () throws(ApplicationFailure) in try read(after: held, listed: listed, walking: walked, heartbeat: heartbeat, ticks: ticks) }
                 guard case .failure(let failure) = answer, failure.reason.is(\.unanswered) else { return try answer.get() }
                 let after: MainThread
                 do throws(Errno) { after = try MainThread(of: process) } catch { throw ApplicationFailure(error, process: String(process.pid)) }
-                return silent(after: held, thread: after.status(since: before), listed: listed)
+                return inferStatus(after: held, thread: after.status(since: before), listed: listed)
             } catch {
                 var failed = held
                 failed.state = .failed(error)
@@ -167,13 +167,13 @@ extension Instance {
         }
     }
 
-    func beats(walking walked: @escaping @Sendable (Element) -> Bool, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
+    func polls(walking walked: @escaping @Sendable (TopLevelElement) -> Bool, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
         let (ticks, tick) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let helper = application.isDialogHelper
         return merge(chain([()].async, ticks).map { _ in false }, AsyncStream { (try? await clock.sleep(for: messagingTimeout)).map { true } })
-            .reductions(Beat()) { last, heartbeat in
+            .reductions(Poll()) { last, heartbeat in
                 heartbeat && helper && last.state?[case: \.running]?.status == .responding
-                    ? last : await self.beat(after: last, walking: walked, heartbeat: heartbeat, ticks: tick)
+                    ? last : await self.poll(after: last, walking: walked, heartbeat: heartbeat, ticks: tick)
             }
             .compactMap(\.state)
             .prefix { state in state[case: \.failed]?.reason.is(\.noProcess) != true }

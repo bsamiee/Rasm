@@ -141,7 +141,7 @@ extension Installation {
                 bundle.resourceValues(forKeys: [.applicationIsScriptableKey]),
             )
         } catch {
-            throw ApplicationFailure(subject: path, reason: .host(error as NSError))
+            throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
         }
         guard let identifier = info?.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
         let extensions: (String) -> [String] = { type in UTType(type)?.tags[.filenameExtension] ?? [] }
@@ -184,7 +184,7 @@ extension Installation {
     public init(opening document: URL) throws(ApplicationFailure) {
         let subject = document.isFileURL ? document.path(percentEncoded: false) : document.absoluteString
         if document.isFileURL {
-            do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: subject, reason: .host(error as NSError)) }
+            do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }
         }
         guard let handler = NSWorkspace.shared.urlForApplication(toOpen: document) else { throw ApplicationFailure(subject: subject, reason: .noHandler) }
         try self.init(at: handler)

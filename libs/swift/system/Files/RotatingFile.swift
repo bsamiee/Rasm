@@ -28,12 +28,12 @@ extension RotatingFile {
         return try FileDescriptor.open(path, .writeOnly, options: options.union([.append, .create, .closeOnExec]), permissions: .ownerReadWrite)
     }
 
-    private func spent(_ stat: Stat, before expiry: Duration) -> Bool { stat.size >= size || Duration(stat.st_birthtim) <= expiry }
+    private func needsRotation(_ stat: Stat, before expiry: Duration) -> Bool { stat.size >= size || Duration(stat.st_birthtim) <= expiry }
 
     private func rotate(_ path: FilePath, before expiry: Duration) throws {
         let locked = try open(path, .exclusiveLock)
         try locked.closeAfter {
-            guard try spent(locked.stat(), before: expiry), try ifPresent({ () throws(Errno) in try path.stat().inode }) == locked.stat().inode else { return }
+            guard try needsRotation(locked.stat(), before: expiry), try ifPresent({ () throws(Errno) in try path.stat().inode }) == locked.stat().inode else { return }
             for index in stride(from: files, to: 0, by: -1) {
                 let (source, target) = (file(index - 1).path(percentEncoded: false), file(index))
                 if unsafe rename(source, target.path(percentEncoded: false)) != 0, errno != ENOENT { throw Errno(rawValue: errno) }
@@ -55,7 +55,7 @@ extension RotatingFile {
                     try stale.close()
                 }
                 let opened = try held.handle ?? FileHandle(fileDescriptor: open(path).rawValue, closeOnDealloc: true)
-                let full = try spent(FileDescriptor(rawValue: opened.fileDescriptor).stat(), before: expiry)
+                let full = try needsRotation(FileDescriptor(rawValue: opened.fileDescriptor).stat(), before: expiry)
                 if full {
                     held.handle = nil
                     try opened.close()

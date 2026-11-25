@@ -17,7 +17,7 @@ struct Attributes {
     let refused: [(attribute: String, error: AXError)]
 
     init(_ slots: [(attribute: String, slot: CFTypeRef)]) {
-        let read = slots.map { attribute, slot in (attribute: attribute, slot: slot, error: AXValue.unpacked(slot, .axError, AXError.success)) }
+        let read = slots.map { attribute, slot in (attribute: attribute, slot: slot, error: AXValue.unpack(slot, .axError, AXError.success)) }
         values = Dictionary(uniqueKeysWithValues: read.filter { slot in slot.error == nil && !(slot.slot is NSNull) }.map { slot in (slot.attribute, slot.slot) })
         refused = read.compactMap { slot in
             slot.error.flatMap { error in [.noValue, .attributeUnsupported, .invalidUIElement].contains(error) ? nil : (attribute: slot.attribute, error: error) }
@@ -33,7 +33,7 @@ struct Attributes {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-let accessibility: DispatchQueue = .init(label: "Applications.accessibility", attributes: .concurrent)
+let accessibilityQueue: DispatchQueue = .init(label: "Applications.accessibility", attributes: .concurrent)
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -78,7 +78,7 @@ extension JSONValue {
 }
 
 extension AXValue {
-    static func unpacked<Value: BitwiseCopyable>(_ slot: CFTypeRef?, _ type: AXValueType, _ empty: Value) -> Value? {
+    static func unpack<Value: BitwiseCopyable>(_ slot: CFTypeRef?, _ type: AXValueType, _ empty: Value) -> Value? {
         guard let slot: CFTypeRef, CFGetTypeID(slot) == AXValueGetTypeID() else { return nil }
         let value = unsafe unsafeDowncast(slot, to: AXValue.self)
         var unpacked = empty
@@ -104,18 +104,18 @@ extension AXUIElement {
     }
 
     static func element(_ id: Data) throws(ApplicationFailure) -> AXUIElement? {
-        guard let menu = menuPath(id) else { return unsafe remoteElement(id as CFData)?.takeRetainedValue().timed }
+        guard let menu = menuPath(id) else { return unsafe remoteElement(id as CFData)?.takeRetainedValue().withMessagingTimeout }
         guard let bar = menu.path.first, menuBars.indices.contains(bar) else { return nil }
-        var node = try (application(menu.process).value(menuBars[bar]) as CFTypeRef?).flatMap(checked)
+        var element = try (application(menu.process).value(menuBars[bar]) as CFTypeRef?).flatMap(cast)
         for index in menu.path.dropFirst() {
-            node = try node.flatMap { parent throws(ApplicationFailure) in try parent.elements(kAXChildrenAttribute).dropFirst(index).first }
+            element = try element.flatMap { parent throws(ApplicationFailure) in try parent.elements(kAXChildrenAttribute).dropFirst(index).first }
         }
-        return node
+        return element
     }
 
-    static func application(_ process: pid_t) -> AXUIElement { AXUIElementCreateApplication(process).timed }
+    static func application(_ process: pid_t) -> AXUIElement { AXUIElementCreateApplication(process).withMessagingTimeout }
 
-    private var timed: AXUIElement {
+    private var withMessagingTimeout: AXUIElement {
         AXUIElementSetMessagingTimeout(self, Float(messagingTimeout / .seconds(1)))
         return self
     }
@@ -125,13 +125,13 @@ extension AXUIElement {
         return unsafe AXUIElementGetPid(self, &pid) == .success ? pid : nil
     }
 
-    static func checked(_ slot: CFTypeRef) -> AXUIElement? {
-        CFGetTypeID(slot) == AXUIElementGetTypeID() ? unsafe unsafeDowncast(slot, to: AXUIElement.self).timed : nil
+    static func cast(_ slot: CFTypeRef) -> AXUIElement? {
+        CFGetTypeID(slot) == AXUIElementGetTypeID() ? unsafe unsafeDowncast(slot, to: AXUIElement.self).withMessagingTimeout : nil
     }
 
     // --- [READS]
 
-    private func copied(_ attributes: [String]) -> (answer: AXError, slots: [(attribute: String, slot: CFTypeRef)]) {
+    private func copyValues(_ attributes: [String]) -> (answer: AXError, slots: [(attribute: String, slot: CFTypeRef)]) {
         var values: CFArray?
         let answer = unsafe AXUIElementCopyMultipleAttributeValues(self, attributes as CFArray, [], &values)
         return (answer, Array(zip(attributes, values as? [CFTypeRef] ?? [])))
@@ -140,13 +140,13 @@ extension AXUIElement {
     func failure(_ error: AXError, reading reads: [String]) -> ApplicationFailure {
         let subject = token.base64EncodedString()
         return ApplicationFailure(error, subject: subject, process: process) {
-            let read = Attributes(copied([kAXRoleAttribute] + labelAttributes).slots)
+            let read = Attributes(copyValues([kAXRoleAttribute] + labelAttributes).slots)
             return ApplicationFailure(subject: subject, reason: .unreadable(FailedRead(reads: reads, role: read.values[kAXRoleAttribute] as? String, label: read.label, error: error)))
         }
     }
 
     func values(_ attributes: [String]) throws(ApplicationFailure) -> Attributes {
-        let (answer, slots) = copied(attributes)
+        let (answer, slots) = copyValues(attributes)
         let read = Attributes(slots)
         return switch (answer, read.refused.first { refusal in [.cannotComplete, .apiDisabled].contains(refusal.error) }) {
             case (.success, .some(let silent)): throw failure(silent.error, reading: [silent.attribute])
@@ -156,18 +156,18 @@ extension AXUIElement {
         }
     }
 
-    func required(_ attributes: [String]) throws(ApplicationFailure) -> Attributes {
+    func requireValues(_ attributes: [String]) throws(ApplicationFailure) -> Attributes {
         let read = try values(attributes)
         if let refusal = read.refused.first { throw failure(refusal.error, reading: [refusal.attribute]) }
         return read
     }
 
     func value<Value>(_ attribute: String) throws(ApplicationFailure) -> Value? {
-        try required([attribute]).values[attribute] as? Value
+        try requireValues([attribute]).values[attribute] as? Value
     }
 
     func elements(_ attribute: String) throws(ApplicationFailure) -> [AXUIElement] {
-        (try value(attribute) as [CFTypeRef]? ?? []).compactMap(Self.checked)
+        (try value(attribute) as [CFTypeRef]? ?? []).compactMap(Self.cast)
     }
 
     var window: CGWindowID? {
@@ -195,7 +195,7 @@ extension AXUIElement {
     }
 
     func label(_ read: Attributes) throws(ApplicationFailure) -> String? {
-        switch (read.label, read.values[kAXTitleUIElementAttribute].flatMap(Self.checked)) {
+        switch (read.label, read.values[kAXTitleUIElementAttribute].flatMap(Self.cast)) {
             case (.some(let label), _): label
             case (.none, .some(let title)): try title.value(kAXValueAttribute)
             case (.none, .none): nil

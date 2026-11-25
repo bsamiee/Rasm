@@ -27,7 +27,7 @@ public struct InstanceEvent: Encodable, Sendable {
         public let kind: InstanceState.Window.Description
         public let title: String?
         public let text: [String]
-        public let answers: Element.Answers?
+        public let answers: TopLevelElement.Answers?
 
         init(_ row: InstanceState.Window) {
             let element = row.description[case: \.element]

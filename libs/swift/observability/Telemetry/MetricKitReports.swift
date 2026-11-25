@@ -40,7 +40,7 @@ public struct MetricKitReports: Service {
                 OTelAttribute.service.version: version.map { stated in .attributed(stated, attributes: [Privacy.public]) },
                 "process.pid": pid.map(Logging.Logger.MetadataValue.stringConvertible),
             ]
-            switch Result(catching: { try whole ? String(bytes: JSONEncoder.lines.encode(report), encoding: .utf8) : nil }) {
+            switch Result(catching: { try whole ? String(bytes: JSONEncoder.jsonLines.encode(report), encoding: .utf8) : nil }) {
                 case .success(let text):
                     logger.log(level: level, message, metadata: fields.merging(["report": text.map(Logging.Logger.MetadataValue.string)]) { _, report in report }.compactMapValues(\.self))
                 case .failure(let failure): logger.error("MetricKit report encoding failed", error: failure, metadata: fields.compactMapValues(\.self))

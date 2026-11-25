@@ -21,7 +21,7 @@ public struct LongestSide: RawRepresentable, Decodable, Sendable {
     }
 }
 
-public struct Shot: Encodable, Sendable {
+public struct Screenshot: Encodable, Sendable {
     public let file: URL
     public let width: Int
     public let height: Int
@@ -31,12 +31,12 @@ public struct Shot: Encodable, Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public func footageFile(in folder: URL, window: CGWindowID, _ type: UTType, at time: Date = .now) -> URL {
+public func screenshotFile(in folder: URL, window: CGWindowID, _ type: UTType, at time: Date = .now) -> URL {
     folder.appending(component: "\(window)-\(time.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true).dateSeparator(.omitted).timeSeparator(.omitted)))")
         .appendingPathExtension(for: type)
 }
 
-private func transparent(_ image: CGImage) -> Bool {
+private func isTransparent(_ image: CGImage) -> Bool {
     let maximum = CIFilter.areaMaximumAlpha()
     (maximum.inputImage, maximum.extent) = (CIImage(cgImage: image), CGRect(x: 0, y: 0, width: image.width, height: image.height))
     var alpha: UInt8 = 0
@@ -65,7 +65,7 @@ extension Instance {
         longestSide: LongestSide?,
     ) async throws(ApplicationFailure) -> [CGWindowID: Result<(filter: SCContentFilter, region: CGRect?, width: Int, height: Int), ApplicationFailure>] {
         try Grant.screenCapture.check()
-        let element: (window: CGWindowID, frame: CGRect)? = if case .element(let id) = source { try await id.framed() } else { nil }
+        let element: (window: CGWindowID, frame: CGRect)? = if case .element(let id) = source { try await id.frame() } else { nil }
         let windows: [CGWindowID] =
             switch (source, element) {
                 case (.windows(let numbers), _): numbers
@@ -80,7 +80,7 @@ extension Instance {
         await NSApplication.loadApplication()
         let content: SCShareableContent
         do { content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false) } catch {
-            throw ApplicationFailure(subject: String(process.pid), reason: .host(error as NSError))
+            throw ApplicationFailure(subject: String(process.pid), reason: .foundation(error as NSError))
         }
         let listed = Dictionary(content.windows.filter { window in window.owningApplication?.processID == process.pid }.map { window in (window.windowID, window) }) { first, _ in first }
         return Dictionary(
@@ -106,9 +106,9 @@ extension Instance {
         to folder: URL,
         longestSide: LongestSide? = nil,
         preview: LongestSide? = nil,
-    ) async throws(ApplicationFailure) -> [CGWindowID: Result<Shot, ApplicationFailure>] {
+    ) async throws(ApplicationFailure) -> [CGWindowID: Result<Screenshot, ApplicationFailure>] {
         do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) } catch {
-            throw ApplicationFailure(subject: folder.path(percentEncoded: false), reason: .host(error as NSError))
+            throw ApplicationFailure(subject: folder.path(percentEncoded: false), reason: .foundation(error as NSError))
         }
         let targets = try await targets(source, longestSide: longestSide)
         let documents: [CGWindowID: URL]
@@ -116,11 +116,11 @@ extension Instance {
             guard case .unanswered = error.reason else { throw error }
             documents = [:]
         }
-        var shots: [CGWindowID: Result<Shot, ApplicationFailure>] = [:]
+        var screenshots: [CGWindowID: Result<Screenshot, ApplicationFailure>] = [:]
         let context = CIContext()
         for (number, target) in targets {
-            let path = footageFile(in: folder, window: number, .png)
-            let shot = await Result { () async throws(ApplicationFailure) -> Shot? in
+            let path = screenshotFile(in: folder, window: number, .png)
+            let screenshot = await Result { () async throws(ApplicationFailure) -> Screenshot? in
                 let (filter, region, width, height) = try target.get()
                 let configuration = SCScreenshotConfiguration()
                 (configuration.showsCursor, configuration.includeChildWindows) = (false, false)
@@ -128,13 +128,13 @@ extension Instance {
                 if let region { configuration.sourceRect = region }
                 let output: SCScreenshotOutput
                 do { output = try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration) } catch {
-                    throw ApplicationFailure(subject: String(number), reason: .host(error as NSError))
+                    throw ApplicationFailure(subject: String(number), reason: .foundation(error as NSError))
                 }
                 guard let image = output.sdrImage else { throw ApplicationFailure(subject: String(number), reason: .noImage) }
-                guard source != nil || !transparent(image) else { return nil }
+                guard source != nil || !isTransparent(image) else { return nil }
                 guard let encoded = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder) }
-                do { try encoded.write(to: path) } catch { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .host(error as NSError)) }
-                return Shot(
+                do { try encoded.write(to: path) } catch { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .foundation(error as NSError)) }
+                return Screenshot(
                     file: path,
                     width: image.width,
                     height: image.height,
@@ -142,12 +142,12 @@ extension Instance {
                     preview: try preview.map { limit throws(ApplicationFailure) in try image.preview(longestSide: limit, in: context) },
                 )
             }
-            switch shot {
-                case .success(.some(let written)): shots[number] = .success(written)
+            switch screenshot {
+                case .success(.some(let written)): screenshots[number] = .success(written)
                 case .success(.none): break
-                case .failure(let failure): shots[number] = .failure(failure)
+                case .failure(let failure): screenshots[number] = .failure(failure)
             }
         }
-        return shots
+        return screenshots
     }
 }

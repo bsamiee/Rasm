@@ -11,11 +11,11 @@ public struct LogFolder: Codable, Hashable, Sendable {
 
     public init(url: URL, glob: String? = nil) { (self.url, self.glob) = (url, glob) }
 
-    func admits(_ file: URL) -> Bool { glob.map { glob in unsafe fnmatch(glob, file.lastPathComponent, 0) == 0 } ?? true }
+    func matches(_ file: URL) -> Bool { glob.map { glob in unsafe fnmatch(glob, file.lastPathComponent, 0) == 0 } ?? true }
 }
 
 public struct LogLine: Encodable, Sendable {
-    private struct Stamped: Decodable {
+    private struct Record: Decodable {
         let timestamp: String
     }
 
@@ -23,8 +23,8 @@ public struct LogLine: Encodable, Sendable {
     public let text: String
 
     public var timestamp: Date? {
-        Result { try JSONDecoder().decode(Stamped.self, from: Data(text.utf8)) }[case: \.success].flatMap { stamped in
-            Result { try Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(stamped.timestamp) }[case: \.success]
+        Result { try JSONDecoder().decode(Record.self, from: Data(text.utf8)) }[case: \.success].flatMap { record in
+            Result { try Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(record.timestamp) }[case: \.success]
         }
     }
 }
@@ -38,7 +38,7 @@ extension LogLine {
             Result { () throws(FileFailure) in
                 try ifPresent(folder.url) { try FileManager.default.contentsOfDirectory(at: folder.url, includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey]) } ?? []
             }
-            .map { files in files.filter(folder.admits) }
+            .map { files in files.filter(folder.matches) }
         }
         var (ranked, failures): ([(line: Self, at: Date, position: Int)], [FileFailure]) = ([], listed.compactMap { listing in listing[case: \.failure] })
         for file in listed.flatMap({ listing in listing[case: \.success] ?? [] }) {
@@ -66,11 +66,11 @@ extension LogLine {
         return (Array(ranked.sorted { first, second in (first.at, second.position) > (second.at, first.position) }.prefix(limit).map(\.line)), failures)
     }
 
-    public static func appended(in folder: LogFolder) -> some AsyncSequence<(lines: [Self], failures: [FileFailure]), Never> & Sendable {
+    public static func follow(in folder: LogFolder) -> some AsyncSequence<(lines: [Self], failures: [FileFailure]), Never> & Sendable {
         let present = Result { () throws(FileFailure) -> [URL] in
             try ifPresent(folder.url) { try FileManager.default.contentsOfDirectory(at: folder.url, includingPropertiesForKeys: [.fileSizeKey]) } ?? []
         }
-        let sizes = (present[case: \.success] ?? []).filter(folder.admits).reduce(into: [String: Result<Int, FileFailure>]()) { (sizes: inout [String: Result<Int, FileFailure>], file: URL) in
+        let sizes = (present[case: \.success] ?? []).filter(folder.matches).reduce(into: [String: Result<Int, FileFailure>]()) { (sizes: inout [String: Result<Int, FileFailure>], file: URL) in
             sizes[file.lastPathComponent] = Result { () throws(FileFailure) -> Int in try ifPresent(file) { try file.resourceValues(forKeys: [.fileSizeKey]).fileSize }.flatMap(\.self) ?? 0 }
         }
         let initial: (read: [String: Int], lines: [Self], failures: [FileFailure]) = (
@@ -81,7 +81,7 @@ extension LogLine {
             (held.lines, held.failures) = ([], batch[case: \.success]?.isEmpty == false ? [] : held.failures)
             if case .failure(let failure) = batch { held.failures.append(failure) }
             let files: [URL] = (batch[case: \.success] ?? []).filter { (event: FileEvent) -> Bool in event.flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemIsFile) != 0 }.map(\.url)
-            for file in Set(files) where folder.admits(file) {
+            for file in Set(files) where folder.matches(file) {
                 do throws(FileFailure) {
                     let name = file.lastPathComponent
                     guard let text = try ifPresent(file, { try Data(contentsOf: file, options: .mappedIfSafe) }) else {

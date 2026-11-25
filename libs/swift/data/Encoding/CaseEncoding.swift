@@ -11,11 +11,11 @@ extension CaseKeyed {
         guard let held = Mirror(reflecting: self).children.first, let label = held.label, let value = held.value as? any Encodable else {
             throw EncodingError.invalidValue(self, EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "\(Self.self) case \(self) holds no Encodable value"))
         }
-        func keyed(_ value: some Encodable) throws {
+        func encodeKeyed(_ value: some Encodable) throws {
             var fields = encoder.singleValueContainer()
             try fields.encode([label: value])
         }
-        try keyed(value)
+        try encodeKeyed(value)
     }
 }
 

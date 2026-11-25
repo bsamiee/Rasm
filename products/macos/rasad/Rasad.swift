@@ -6,6 +6,6 @@ import Foundation
 @main
 enum Rasad {
     static func main() async {
-        await ApplicationServer.main(cached: { _ in nil })
+        await ApplicationServer.main(cachedDefinition: { _ in nil })
     }
 }

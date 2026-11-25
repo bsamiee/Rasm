@@ -5,9 +5,9 @@ public import System
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct ExitDetail: OptionSet, Sendable {
-    public static let decryptFail = Self(rawValue: NOTE_EXIT_DECRYPTFAIL)
+    public static let decryption = Self(rawValue: NOTE_EXIT_DECRYPTFAIL)
     public static let memory = Self(rawValue: NOTE_EXIT_MEMORY)
-    public static let csError = Self(rawValue: NOTE_EXIT_CSERROR)
+    public static let codeSigning = Self(rawValue: NOTE_EXIT_CSERROR)
 
     public let rawValue: Int32
 
@@ -17,7 +17,7 @@ public struct ExitDetail: OptionSet, Sendable {
 extension ExitDetail: Encodable {
     public func encode(to encoder: any Encoder) throws {
         var names = encoder.singleValueContainer()
-        try names.encode([(Self.memory, "memory"), (Self.csError, "codeSigning"), (Self.decryptFail, "decryption")].filter { option, _ in contains(option) }.map(\.1))
+        try names.encode([(Self.memory, "memory"), (Self.codeSigning, "codeSigning"), (Self.decryption, "decryption")].filter { option, _ in contains(option) }.map(\.1))
     }
 }
 
@@ -27,7 +27,7 @@ public struct ProcessExit: Equatable, Sendable {
     public let status: TerminationStatus
     public let detail: ExitDetail
 
-    public var reports: Bool { detail.contains(.csError) || Self.reportingSignals.contains(status) }
+    public var producesReport: Bool { detail.contains(.codeSigning) || Self.reportingSignals.contains(status) }
 }
 
 extension TerminationStatus {
@@ -39,7 +39,7 @@ extension TerminationStatus {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension ProcessInstance {
-    public func termination() -> AsyncStream<Result<ProcessExit, Errno>> {
+    public func exits() -> AsyncStream<Result<ProcessExit, Errno>> {
         AsyncStream { continuation in
             let registered = Result { () throws(Errno) in
                 guard !hasExited else { throw .noSuchProcess }
@@ -57,7 +57,7 @@ extension ProcessInstance {
                 guard unsafe kevent(descriptor, &exit, 1, nil, 0, nil) == 0 else { throw Errno(rawValue: errno) }
                 return queue
             }
-            @Sendable func drained(_ descriptor: Int32) -> Result<ProcessExit, Errno>? {
+            @Sendable func drain(_ descriptor: Int32) -> Result<ProcessExit, Errno>? {
                 var exited = unsafe kevent()
                 var now = timespec()
                 let read = unsafe kevent(descriptor, nil, 0, &exited, 1, &now)
@@ -67,11 +67,11 @@ extension ProcessInstance {
             }
             switch registered {
                 case .success(let queue) where hasExited:
-                    continuation.yield(drained(queue.fileDescriptor) ?? .failure(.noSuchProcess))
+                    continuation.yield(drain(queue.fileDescriptor) ?? .failure(.noSuchProcess))
                     continuation.finish()
                 case .success(let queue):
                     queue.readabilityHandler = { queue in
-                        guard let outcome = drained(queue.fileDescriptor) else { return }
+                        guard let outcome = drain(queue.fileDescriptor) else { return }
                         continuation.yield(outcome)
                         continuation.finish()
                     }

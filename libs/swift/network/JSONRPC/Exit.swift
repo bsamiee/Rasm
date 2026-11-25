@@ -20,7 +20,7 @@ enum Key: String, CodingKey {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Outcome<Success: Encodable & Sendable>: Encodable, Sendable {
+public struct Exit<Success: Encodable & Sendable>: Encodable, Sendable {
     let result: Result<Success, any Error>
 
     public init(_ result: Result<Success, some Error>) { self.result = result.mapError { error -> any Error in error } }

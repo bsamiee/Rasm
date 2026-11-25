@@ -14,7 +14,7 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
         case timedOut(Duration)
         case cancelled(CancellationError)
         case unlisted
-        case markerNotFound
+        case noMarker
     }
 
     public let subject: String
@@ -24,23 +24,23 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
         switch reason {
             case .subprocess(let error): "\(subject) \(error.description)"
             case .io(let error): "\(subject) I/O failed: \(error.localizedDescription)"
-            case .exit(.exited(let code), let standardError): Self.ending("\(subject) exited with status \(code)", with: standardError)
-            case .exit(.signaled(let signal), let standardError): Self.ending("\(subject) terminated by signal \(signal)", with: standardError)
+            case .exit(.exited(let code), let standardError): Self.describeExit("\(subject) exited with status \(code)", with: standardError)
+            case .exit(.signaled(let signal), let standardError): Self.describeExit("\(subject) terminated by signal \(signal)", with: standardError)
             case .timedOut(let timeout): "\(subject) timed out after \(timeout.formatted(.units(width: .wide)))"
             case .cancelled: "\(subject) canceled"
             case .unlisted: "getpwuid found no user database entry for \(subject)"
-            case .markerNotFound: "Login shell \(subject) printed no environment"
+            case .noMarker: "Login shell \(subject) printed no environment"
         }
     }
 
-    private static func ending(_ head: String, with standardError: String) -> String {
+    private static func describeExit(_ head: String, with standardError: String) -> String {
         standardError.split(whereSeparator: \.isNewline).last.map { line in "\(head), \(line.trimmingCharacters(in: .whitespaces))" } ?? head
     }
 
     public var errorUserInfo: [String: Any] {
         switch reason {
             case .subprocess(let error as any Error), .io(let error): [NSUnderlyingErrorKey: error]
-            case .exit, .timedOut, .cancelled, .unlisted, .markerNotFound: [:]
+            case .exit, .timedOut, .cancelled, .unlisted, .noMarker: [:]
         }
     }
 

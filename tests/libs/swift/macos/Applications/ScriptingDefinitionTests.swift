@@ -47,7 +47,7 @@ struct ScriptingDefinitionTests {
         let installation = try Installation(at: bundle.url)
         let outcome: String?
         do throws(AppleEventFailure) {
-            outcome = String(bytes: try await installation.scriptingDefinition(cached: cache), encoding: .utf8)
+            outcome = String(bytes: try await installation.scriptingDefinition(cachedDefinition: cache), encoding: .utf8)
         } catch {
             outcome = error.reason.is(\.undeclared) ? "undeclared" : error.localizedDescription
         }

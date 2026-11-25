@@ -147,7 +147,7 @@ struct JSONLinesTests {
 
     @Test
     func writesOneSortedLineWithFractionalSecondDates() throws {
-        let line = try JSONEncoder.lines.encodeLine(Stamp(path: "a/b", at: Date(timeIntervalSince1970: 0.25)))
+        let line = try JSONEncoder.jsonLines.encodeLine(Stamp(path: "a/b", at: Date(timeIntervalSince1970: 0.25)))
         expectNoDifference(String(data: line, encoding: .utf8), "{\"at\":\"1970-01-01T00:00:00.250Z\",\"path\":\"a/b\"}\n")
     }
 }

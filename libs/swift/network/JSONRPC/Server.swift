@@ -6,7 +6,7 @@ import Tracing
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-enum Control: String {
+enum ControlMessage: String {
     case interrupt = "@effect/rpc/Interrupt"
     case ack = "@effect/rpc/Ack"
 }
@@ -18,7 +18,7 @@ public enum Response: Sendable {
     case stream(any AsyncSequence<any Encodable & Sendable, Never> & Sendable)
 }
 
-private struct Headers: Extractor {
+private struct TraceContextCarrier: Extractor {
     func extract(key: String, from carrier: [String: String]) -> String? { carrier[key] }
 }
 
@@ -31,29 +31,29 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let perform: @Sendable (Request) async throws(Failure) -> Response
-    private let dropped: @Sendable (JSONRPCFailure) -> Void
+    private let onDrop: @Sendable (JSONRPCFailure) -> Void
     private var running: [JSONValue: (task: Task<Void, Never>, acks: AsyncStream<Void>.Continuation, streaming: Bool)] = [:]
     private var closed: Bool = false
 
-    init(perform: @escaping @Sendable (Request) async throws(Failure) -> Response, dropped: @escaping @Sendable (JSONRPCFailure) -> Void) {
-        (self.perform, self.dropped) = (perform, dropped)
+    init(perform: @escaping @Sendable (Request) async throws(Failure) -> Response, onDrop: @escaping @Sendable (JSONRPCFailure) -> Void) {
+        (self.perform, self.onDrop) = (perform, onDrop)
     }
 
     // --- [CALLS]
 
     func receive(_ line: Data) {
-        let envelope: Envelope<JSONValue, JSONValue>
-        do { envelope = try decoder.decode(Envelope<JSONValue, JSONValue>.self, from: line) } catch {
-            dropped(JSONRPCFailure(subject: "connection", reason: .unreadable(error)))
+        let message: Message<JSONValue, JSONValue>
+        do { message = try decoder.decode(Message<JSONValue, JSONValue>.self, from: line) } catch {
+            onDrop(JSONRPCFailure(subject: "connection", reason: .unreadable(error)))
             return
         }
-        let target: JSONValue? = if case .object(let fields)? = envelope.params { fields["requestId"] } else { nil }
-        switch (envelope.id, envelope.method, envelope.method.flatMap(Control.init(rawValue:)), target) {
+        let target: JSONValue? = if case .object(let fields)? = message.params { fields["requestId"] } else { nil }
+        switch (message.id, message.method, message.method.flatMap(ControlMessage.init(rawValue:)), target) {
             case (_, _, .interrupt, .some(let target)): interrupt(target)
             case (_, _, .ack, .some(let target)): running[target]?.acks.yield()
             case (.some(let id), .some(let method), .none, _) where !closed && running[id] == nil:
                 let (acks, ack) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-                running[id] = (Task { await self.answer(id, method, envelope, acknowledged: acks) }, ack, false)
+                running[id] = (Task { await self.answer(id, method, message, acknowledged: acks) }, ack, false)
             case (_, _, .some, .none), (.none, _, .none, _), (.some, .none, .none, _), (.some, .some, .none, _): break
         }
     }
@@ -63,12 +63,12 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
         running[id]?.task.cancel()
     }
 
-    private func streaming(_ id: JSONValue) -> Bool {
+    private func markStreaming(_ id: JSONValue) -> Bool {
         running[id]?.streaming = true
         return !closed
     }
 
-    private func finished(_ id: JSONValue) { running[id] = nil }
+    private func remove(_ id: JSONValue) { running[id] = nil }
 
     func close(failed: Bool) async {
         closed = true
@@ -82,13 +82,13 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
     // --- [ANSWERS]
 
     @concurrent
-    private nonisolated func answer(_ id: JSONValue, _ method: String, _ envelope: Envelope<JSONValue, JSONValue>, acknowledged acks: AsyncStream<Void>) async {
+    private nonisolated func answer(_ id: JSONValue, _ method: String, _ message: Message<JSONValue, JSONValue>, acknowledged acks: AsyncStream<Void>) async {
         var context = InstrumentationContext.current ?? .topLevel
-        if let trace = envelope.traceId, let span = envelope.spanId {
-            InstrumentationSystem.instrument.extract(["traceparent": "00-\(trace)-\(span)-\(envelope.sampled == false ? "00" : "01")"], into: &context, using: Headers())
+        if let trace = message.traceId, let span = message.spanId {
+            InstrumentationSystem.instrument.extract(["traceparent": "00-\(trace)-\(span)-\(message.sampled == false ? "00" : "01")"], into: &context, using: TraceContextCarrier())
         }
         let outcome = await Result { [context] () async throws -> Response in
-            let request = try Result { try JSONValue.object([method: envelope.params ?? .object([:])]).decode(Request.self) }.aggregated(Reason.die).get()
+            let request = try Result { try JSONValue.object([method: message.params ?? .object([:])]).decode(Request.self) }.aggregated(Reason.die).get()
             return try await withSpan(method, context: context, ofKind: .server) { span in
                 span.attributes["rpc.system"] = "jsonrpc"
                 span.attributes["rpc.method"] = method
@@ -97,32 +97,32 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
         }
         .mapError { error in error as? AggregateError<Reason> ?? AggregateError(failing: error) }
         switch outcome {
-            case .success(.value(let value)): await send(id, answering: method) { try value.map { value in try result(id, value) } ?? result(id, JSONValue.null) }
-            case .success(.stream(let chunks)) where await streaming(id):
+            case .success(.value(let value)): await send(id, answering: method) { try value.map { value in try encodeResult(id, value) } ?? encodeResult(id, JSONValue.null) }
+            case .success(.stream(let chunks)) where await markStreaming(id):
                 var acknowledgements = acks.makeAsyncIterator()
                 let interrupted = await chunks.contains { chunk in
-                    await send(id, answering: method) { try result(id, chunk, chunk: true) }
+                    await send(id, answering: method) { try encodeResult(id, chunk, chunk: true) }
                     return await acknowledgements.next() == nil
                 }
-                if !interrupted, !Task.isCancelled { await send(id, answering: method) { try result(id, JSONValue.null) } }
+                if !interrupted, !Task.isCancelled { await send(id, answering: method) { try encodeResult(id, JSONValue.null) } }
             case .success(.stream): break
-            case .failure(let cause): await send(id, answering: method) { try exit(id, cause) }
+            case .failure(let cause): await send(id, answering: method) { try encodeExit(id, cause) }
         }
-        await finished(id)
+        await remove(id)
     }
 
     private nonisolated func send(_ id: JSONValue, answering method: String, _ line: () throws -> Data) async {
         do { await output.send(try line()) } catch {
-            do { await output.send(try exit(id, AggregateError(first: .die(error)))) } catch { dropped(JSONRPCFailure(subject: method, reason: .unencodable(error))) }
+            do { await output.send(try encodeExit(id, AggregateError(first: .die(error)))) } catch { onDrop(JSONRPCFailure(subject: method, reason: .unencodable(error))) }
         }
     }
 
-    private nonisolated func result(_ id: JSONValue, _ value: some Encodable & Sendable, chunk: Bool = false) throws -> Data {
-        try chunk ? encoder.encodeLine(Envelope<_, Never>(id: id, chunk: true, result: [value])) : encoder.encodeLine(Envelope<_, Never>(id: id, result: value))
+    private nonisolated func encodeResult(_ id: JSONValue, _ value: some Encodable & Sendable, chunk: Bool = false) throws -> Data {
+        try chunk ? encoder.encodeLine(Message<_, Never>(id: id, chunk: true, result: [value])) : encoder.encodeLine(Message<_, Never>(id: id, result: value))
     }
 
-    private nonisolated func exit(_ id: JSONValue, _ reasons: AggregateError<Reason>) throws -> Data {
-        try encoder.encodeLine(Envelope<Never, Cause>(id: id, error: Cause(reasons: reasons)))
+    private nonisolated func encodeExit(_ id: JSONValue, _ reasons: AggregateError<Reason>) throws -> Data {
+        try encoder.encodeLine(Message<Never, Cause>(id: id, error: Cause(reasons: reasons)))
     }
 }
 
@@ -131,10 +131,10 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
 public func serve<Request: Decodable & Sendable, Failure: Error>(
     reading lines: @autoclosure @escaping @Sendable () -> any AsyncSequence<Data, any Error>,
     writing write: @escaping @Sendable (Data) async throws -> Void,
-    dropped: @escaping @Sendable (JSONRPCFailure) -> Void,
+    onDrop: @escaping @Sendable (JSONRPCFailure) -> Void,
     _ perform: @escaping @Sendable (Request) async throws(Failure) -> Response,
 ) async throws(JSONRPCFailure) {
-    let server = Server(perform: perform, dropped: dropped)
+    let server = Server(perform: perform, onDrop: onDrop)
     let ended = await withTaskGroup(of: Result<Void, any Error>.self) { group in
         group.addTask {
             defer { server.output.finish() }

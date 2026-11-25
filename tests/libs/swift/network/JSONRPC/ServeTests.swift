@@ -35,7 +35,7 @@ private struct Session {
             try await serve(
                 reading: lines,
                 writing: { line in writer.yield(try JSONDecoder().decode(JSONValue.self, from: line)) },
-                dropped: { failure in Issue.record(failure) },
+                onDrop: { failure in Issue.record(failure) },
                 { (request: Request) async throws -> Response in
                     switch request {
                         case .add(let left, let right): return .value(left - right)
@@ -211,7 +211,7 @@ struct ServeTests {
         }
         if closing { input.finish() }
         let ended = await Result { () async throws(JSONRPCFailure) in
-            try await serve(reading: lines, writing: { _ in throw POSIXError(.EPIPE) }, dropped: { failure in Issue.record(failure) }) { (_: Request) in Response.value(nil) }
+            try await serve(reading: lines, writing: { _ in throw POSIXError(.EPIPE) }, onDrop: { failure in Issue.record(failure) }) { (_: Request) in Response.value(nil) }
         }
         let cause: POSIXError.Code? = if case .failure(let failure) = ended, case .transport(let error as POSIXError) = failure.reason { error.code } else { nil }
         expectNoDifference(cause, .EPIPE)

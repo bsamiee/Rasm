@@ -150,7 +150,7 @@ actor CodexClient: ProviderClient {
 
     private func connection(for home: URL) async throws(AccountFailure) -> Connection {
         let identity = try CodexAuthFile.read(in: home)?.identity
-        if let server = servers[home], server.identity == identity, !server.connection.isFinished { return server.connection }
+        if let server = servers[home], server.identity == identity, !server.connection.isClosed { return server.connection }
         await stopServer(home)
         let executable: FilePath
         do throws(SubprocessError) {
@@ -194,7 +194,7 @@ actor CodexClient: ProviderClient {
                         reading: execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"]), bufferingPolicy: .unbounded).map { line in Data(line.utf8) },
                         writing: { line in _ = try await execution.standardInputWriter.write(line) },
                         timeout: .seconds(60),
-                        serving: { _, _ throws(JSONRPCError) in throw JSONRPCError(code: -32601, message: "Relay provides no agent tools") },
+                        handler: { _, _ throws(JSONRPCError) in throw JSONRPCError(code: -32601, message: "Relay provides no agent tools") },
                         failure: { failure in
                             if case .cancelled = failure.reason { AccountFailure(subject: subject, reason: .cancelled) } else { AccountFailure(subject: subject, reason: .rpc(failure)) }
                         },
@@ -207,7 +207,7 @@ actor CodexClient: ProviderClient {
                             }
                         )
                         ready.continuation.finish()
-                        _ = await connection.finished()
+                        _ = await connection.waitUntilClosed()
                     }
                     try await execution.standardInputWriter.finish()
                     await standardError

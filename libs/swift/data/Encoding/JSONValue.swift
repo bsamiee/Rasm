@@ -19,13 +19,13 @@ public enum JSONValue: Codable, Hashable, Sendable {
             if container.decodeNil() {
                 .null
             } else {
-                try Self.unlessMismatched { Self.bool(try container.decode(Bool.self)) } ?? Self.unlessMismatched { Self.number(try container.decode(Double.self)) }
-                    ?? Self.unlessMismatched { Self.string(try container.decode(String.self)) } ?? Self.unlessMismatched { Self.array(try container.decode([Self].self)) }
+                try Self.decodeIfMatching { Self.bool(try container.decode(Bool.self)) } ?? Self.decodeIfMatching { Self.number(try container.decode(Double.self)) }
+                    ?? Self.decodeIfMatching { Self.string(try container.decode(String.self)) } ?? Self.decodeIfMatching { Self.array(try container.decode([Self].self)) }
                     ?? Self.object(try container.decode([String: Self].self))
             }
     }
 
-    private static func unlessMismatched(_ read: () throws -> Self) throws -> Self? {
+    private static func decodeIfMatching(_ read: () throws -> Self) throws -> Self? {
         do { return try read() } catch DecodingError.typeMismatch { return nil }
     }
 

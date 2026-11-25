@@ -18,7 +18,7 @@ struct RelayApp: App {
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate: AppDelegate
     @SwiftUI.Environment(\.openWindow) private var openWindow: OpenWindowAction
-    private let updater = Updater(resting: .accessory)
+    private let updater = Updater(activationPolicy: .accessory)
 
     var body: some Scene {
         MenuBarExtra {

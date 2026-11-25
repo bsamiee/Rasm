@@ -33,7 +33,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case noEncoder
         case event(AppleEventFailure)
         case system(Errno)
-        case host(NSError)
+        case foundation(NSError)
         case cancelled
         case unmatched(Unmatched)
         case unwatched(FileFailure)
@@ -74,7 +74,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .noEncoder: "No encoder writes \(subject)"
             case .event(let failure): failure.errorDescription
             case .system(let error): "\(subject): \(error.description)"
-            case .host(let error): "\(subject): \(error.localizedDescription)"
+            case .foundation(let error): "\(subject): \(error.localizedDescription)"
             case .cancelled: "Canceled \(subject)"
             case .unmatched(let miss): miss.errorDescription
             case .unwatched(let failure): failure.errorDescription
@@ -87,7 +87,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .noProcess: [NSUnderlyingErrorKey: Errno.noSuchProcess]
             case .system(let error): [NSUnderlyingErrorKey: error]
             case .event(let failure): [NSUnderlyingErrorKey: failure]
-            case .host(let error): [NSUnderlyingErrorKey: error]
+            case .foundation(let error): [NSUnderlyingErrorKey: error]
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
             case .noGrant, .notResponsible, .unanswered, .reused, .unreadable, .unresolved, .foreign, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noHandler, .noWindow,
@@ -120,7 +120,7 @@ extension ApplicationFailure: Encodable {
             case .event(let failure): try fields.encodeIfPresent(failure.status, forKey: .status)
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
             case .unanswered, .noProcess, .unresolved, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow, .noImage, .noExtension, .noEncoder,
-                .host,
+                .foundation,
                 .cancelled, .unwatched, .malformed:
                 break
         }
@@ -132,7 +132,7 @@ extension ApplicationFailure {
         let exited = process.flatMap { process in Result(catching: { () throws(Errno) in try ProcessInstance(of: process) }).is(\.failure) ? process : nil }
         self =
             switch (error, exited) {
-                case (.apiDisabled, _) where !Grant.accessibility.held: Grant.accessibility.missing
+                case (.apiDisabled, _) where !Grant.accessibility.isHeld: Grant.accessibility.missing
                 case (.cannotComplete, .some(let process)), (.invalidUIElement, .some(let process)): Self(subject: String(process), reason: .noProcess)
                 case (.cannotComplete, .none): Self(subject: subject, reason: .unanswered(action))
                 case (_, _): otherwise()

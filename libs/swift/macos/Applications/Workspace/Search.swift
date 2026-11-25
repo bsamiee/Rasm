@@ -58,7 +58,7 @@ extension Installation {
                     query.disableUpdates()
                     let paths = (0..<query.resultCount).map { index in (query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String }
                     query.enableUpdates()
-                    continuation.yield(await Self.listed(paths))
+                    continuation.yield(await Self.read(paths))
                 } while await updates.next(isolation: #isolation) != nil
                 continuation.finish()
             }
@@ -67,7 +67,7 @@ extension Installation {
     }
 
     @concurrent
-    static func listed(_ paths: [String?]) async -> (installations: [Self], failures: [ApplicationFailure]) {
+    static func read(_ paths: [String?]) async -> (installations: [Self], failures: [ApplicationFailure]) {
         let reads = paths.enumerated().map { index, path in
             path.map { path in Result { () throws(ApplicationFailure) in try Self(at: URL(filePath: path, directoryHint: .isDirectory)) } }
                 ?? .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .noPath))

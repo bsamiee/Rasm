@@ -10,7 +10,7 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
     public enum Reason: Equatable, Sendable {
         case undeclared
         case osa(OSStatus)
-        case host(NSError)
+        case foundation(NSError)
         case unmatched(Unmatched)
         case unencodable
         case activating
@@ -32,7 +32,7 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
         switch reason {
             case .undeclared: "\(subject) holds no static OSAScriptingDefinition, runs no instance, and has no cached dictionary, open it to read its dictionary"
             case .osa(let status): "OSACopyScriptingDefinitionFromURL failed on \(subject) (\(status))"
-            case .host(let error): "\(subject): \(error.localizedDescription)"
+            case .foundation(let error): "\(subject): \(error.localizedDescription)"
             case .unmatched(let miss): miss.errorDescription
             case .unencodable: "Value has no \(subject) descriptor"
             case .activating: "Activating command \(subject) refused"
@@ -47,13 +47,13 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
     public var status: OSStatus? {
         switch reason {
             case .osa(let status), .undelivered(let status), .unanswered(let status), .replied(let status, _): status
-            case .undeclared, .host, .unmatched, .unencodable, .activating, .cancelled: nil
+            case .undeclared, .foundation, .unmatched, .unencodable, .activating, .cancelled: nil
         }
     }
 
     public var errorUserInfo: [String: Any] {
         switch reason {
-            case .host(let error): [NSUnderlyingErrorKey: error]
+            case .foundation(let error): [NSUnderlyingErrorKey: error]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
             case .undeclared, .osa, .unencodable, .activating, .undelivered, .unanswered, .replied, .cancelled: [:]
         }

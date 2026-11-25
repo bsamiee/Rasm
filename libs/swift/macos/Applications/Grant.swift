@@ -8,7 +8,7 @@ public enum Grant: String, Encodable, Sendable {
     case screenCapture
     case postEvent
 
-    public var held: Bool {
+    public var isHeld: Bool {
         switch self {
             case .accessibility: AXIsProcessTrusted()
             case .screenCapture: CGPreflightScreenCaptureAccess()
@@ -22,7 +22,7 @@ public enum Grant: String, Encodable, Sendable {
     }
 
     public func check() throws(ApplicationFailure) {
-        guard held else { throw missing }
+        guard isHeld else { throw missing }
     }
 
     public func request() {

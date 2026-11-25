@@ -141,9 +141,9 @@ extension DiagnosticReport {
         }
     }
 
-    public func written(by process: ProcessInstance) -> Bool { instance.map { instance in instance == process } ?? (pid == process.pid) }
+    public func isWritten(by process: ProcessInstance) -> Bool { instance.map { instance in instance == process } ?? (pid == process.pid) }
 
-    public func written(by bundle: Bundle) -> Bool {
+    public func isWritten(by bundle: Bundle) -> Bool {
         guard let reported = executable.map({ path in FilePath(path) }), let path = bundle.executablePath.map({ path in FilePath(path) }) else { return false }
         return switch reported.components.firstIndex(of: "*") {
             case .some(let marker): bundleIdentifier == bundle.bundleIdentifier && path.ends(with: FilePath(root: nil, reported.components[marker...].dropFirst()))
@@ -157,7 +157,7 @@ extension DiagnosticReport {
         in directories: [URL] = directories,
         where matching: (Self) -> Bool,
     ) -> (reports: [Self], failures: [ProcessFailure]) {
-        let listed = directories.map { directory in listing(directory, since: earliest) }
+        let listed = directories.map { directory in list(directory, since: earliest) }
         return listed.flatMap(\.files).sorted(using: KeyPathComparator(\.date, order: .reverse))
             .reduce(into: (reports: [Self](), failures: listed.flatMap(\.failures))) { found, file in
                 guard found.reports.count < limit else { return }
@@ -169,8 +169,8 @@ extension DiagnosticReport {
             }
     }
 
-    public static func written(
-        by process: ProcessInstance,
+    public static func first(
+        writtenBy process: ProcessInstance,
         since launch: Date,
         within limit: Duration = .seconds(60),
         in directory: URL = directories[0],
@@ -181,8 +181,8 @@ extension DiagnosticReport {
             try await withTimeout(limit, expired: ProcessFailure(subject: subject, reason: .timedOut(limit)), clock: clock) { () async throws(ProcessFailure) in
                 for await change in FileEvent.events(of: directory) {
                     let batch = try change.mapError { failure in ProcessFailure(subject: failure.subject, reason: .io(failure)) }.get()
-                    let files = (batch.isEmpty ? listing(directory, since: launch) : dated(batch.map(\.url), since: launch)).files.sorted(using: KeyPathComparator(\.date, order: .reverse))
-                    if let report = files.lazy.compactMap({ file in read(file)[case: \.success].flatMap(\.self) }).first(where: { report in report.kind == .crash && report.written(by: process) }) {
+                    let files = (batch.isEmpty ? list(directory, since: launch) : readDates(batch.map(\.url), since: launch)).files.sorted(using: KeyPathComparator(\.date, order: .reverse))
+                    if let report = files.lazy.compactMap({ file in read(file)[case: \.success].flatMap(\.self) }).first(where: { report in report.kind == .crash && report.isWritten(by: process) }) {
                         return report
                     }
                 }
@@ -191,17 +191,17 @@ extension DiagnosticReport {
         }
     }
 
-    private static func listing(_ directory: URL, since earliest: Date) -> (files: [(url: URL, date: Date)], failures: [ProcessFailure]) {
+    private static func list(_ directory: URL, since earliest: Date) -> (files: [(url: URL, date: Date)], failures: [ProcessFailure]) {
         let entries: [URL]
         do {
             entries = try ifPresent { try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey], options: .skipsHiddenFiles) } ?? []
         } catch {
             return ([], [ProcessFailure(subject: directory.path(percentEncoded: false), reason: .io(error))])
         }
-        return dated(entries, since: earliest)
+        return readDates(entries, since: earliest)
     }
 
-    private static func dated(_ entries: [URL], since earliest: Date) -> (files: [(url: URL, date: Date)], failures: [ProcessFailure]) {
+    private static func readDates(_ entries: [URL], since earliest: Date) -> (files: [(url: URL, date: Date)], failures: [ProcessFailure]) {
         let stamped = entries.map { url in (url: url, date: Result { try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }) }
         let files = stamped.compactMap { entry in entry.date[case: \.success].map { date in (url: entry.url, date: date ?? earliest) } }.filter { file in file.date >= earliest }
         let failures = stamped.compactMap { entry in entry.date[case: \.failure].map { error in ProcessFailure(subject: entry.url.path(percentEncoded: false), reason: .io(error)) } }

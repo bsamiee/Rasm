@@ -20,7 +20,7 @@ public enum InstanceState: Equatable, Sendable {
             case responding
             case unresponsive(ProcessStatus)
 
-            public var settled: Bool {
+            public var isIdle: Bool {
                 switch self {
                     case .launching, .unresponsive(.running), .unresponsive(.runnable): false
                     case .responding, .unresponsive(.sleeping), .unresponsive(.stopped): true
@@ -32,7 +32,7 @@ public enum InstanceState: Equatable, Sendable {
         public let active: Bool
         public let windows: [Window]
         public let prompts: [Window]
-        public let menus: [Element]
+        public let menus: [TopLevelElement]
         public let usage: Result<ResourceUsage, Errno>?
         public let listening: Result<[in_port_t], Errno>
 
@@ -42,7 +42,7 @@ public enum InstanceState: Equatable, Sendable {
     public struct Window: Equatable, Sendable {
         @CasePathable
         public enum Description: CaseLabeled, Equatable, Sendable {
-            case element(Element)
+            case element(TopLevelElement)
             case undescribed
             case blocking
 
@@ -60,7 +60,7 @@ public enum InstanceState: Equatable, Sendable {
         public let layer: Int
         public let onScreen: Bool
         public let description: Description
-        let arrived: Bool
+        let hasArrived: Bool
 
         public var asking: Bool {
             switch description {
@@ -73,7 +73,7 @@ public enum InstanceState: Equatable, Sendable {
         public var presented: Bool {
             switch description {
                 case .element, .blocking: true
-                case .undescribed: arrived && onScreen
+                case .undescribed: hasArrived && onScreen
             }
         }
     }
@@ -100,20 +100,20 @@ extension InstanceState.Window {
             layer: layer,
             onScreen: row[kCGWindowIsOnscreen as String] as? Bool ?? false,
             description: .undescribed,
-            arrived: false,
+            hasArrived: false,
         )
     }
 
-    static func owned(by process: pid_t) -> [Self] {
+    static func all(ownedBy process: pid_t) -> [Self] {
         (CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]] ?? []).filter { row in row[kCGWindowOwnerPID as String] as? pid_t == process }.compactMap(Self.init)
     }
 
-    static func listed(number: CGWindowID) -> Self? {
+    static func read(number: CGWindowID) -> Self? {
         (CGWindowListCopyWindowInfo(.optionIncludingWindow, number) as? [[String: Any]] ?? []).lazy.compactMap(Self.init).first
     }
 
-    func described(_ description: Description, arrived: Bool) -> Self {
-        Self(number: number, title: title, frame: frame, layer: layer, onScreen: onScreen, description: description, arrived: arrived)
+    func described(_ description: Description, hasArrived: Bool) -> Self {
+        Self(number: number, title: title, frame: frame, layer: layer, onScreen: onScreen, description: description, hasArrived: hasArrived)
     }
 }
 
@@ -146,7 +146,7 @@ extension InstanceState.Ended: Encodable {
                     case .signaled(let signal): try fields.encode(signal, forKey: .signal)
                 }
                 if !ended.detail.isEmpty { try fields.encode(ended.detail, forKey: .detail) }
-                if report == nil, ended.reports { try fields.encode(true, forKey: .reporting) }
+                if report == nil, ended.producesReport { try fields.encode(true, forKey: .reporting) }
             case .failure(let error): try fields.encode(error.description, forKey: .statusFailure)
         }
         switch report {
@@ -199,7 +199,7 @@ extension InstanceState.Window: Encodable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension InstanceState {
-    fileprivate func prompted(_ rows: [Window]) -> Self {
+    fileprivate func adding(prompts rows: [Window]) -> Self {
         self[case: \.running].map { running in
             .running(Running(status: running.status, active: running.active, windows: running.windows, prompts: rows, menus: running.menus, usage: running.usage, listening: running.listening))
         }
@@ -210,29 +210,29 @@ extension InstanceState {
 extension Instance {
     fileprivate var promptNames: [String] { [application.localizedName].compactMap(\.self) }
 
-    public func state(walking walked: @Sendable (Element) -> Bool = \.asking) async -> InstanceState {
-        var last = Beat(once: true)
+    public func state(walking walked: @Sendable (TopLevelElement) -> Bool = \.asking) async -> InstanceState {
+        var last = Poll(isSingleRead: true)
         while true {
-            last = await beat(after: last, walking: walked)
+            last = await poll(after: last, walking: walked)
             guard let read = last.state else { continue }
             guard !application.isDialogHelper else { return read }
             let prompts: [InstanceState.Window] = await NSWorkspace.shared.instances(of: \.isDialogHelper).async.reduce(into: []) { rows, helper in
-                rows += await helper.state().prompting(promptNames)
+                rows += await helper.state().prompts(naming: promptNames)
             }
-            return read.prompted(prompts)
+            return read.adding(prompts: prompts)
         }
     }
 
     public func states(
-        walking walked: @escaping @Sendable (Element) -> Bool = \.asking,
+        walking walked: @escaping @Sendable (TopLevelElement) -> Bool = \.asking,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
         let names = promptNames
         return lifetime(
             combineLatest(
-                beats(walking: walked, clock: clock),
-                chain([OrderedDictionary<Instance, InstanceState>()].async, NSWorkspace.shared.tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)),
-            ).map { state, helpers in state.prompted(helpers.values.flatMap { helper in helper.prompting(names) }) },
+                polls(walking: walked, clock: clock),
+                chain([OrderedDictionary<Instance, InstanceState>()].async, NSWorkspace.shared.states(of: \.isDialogHelper, walking: \.asking, clock: clock)),
+            ).map { state, helpers in state.adding(prompts: helpers.values.flatMap { helper in helper.prompts(naming: names) }) },
             clock: clock,
         )
     }
@@ -241,18 +241,18 @@ extension Instance {
         _ running: some AsyncSequence<InstanceState, Never> & Sendable,
         clock: some Clock<Duration> & Sendable,
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
-        let cut = process.termination().map { _ in InstanceState?.none }
+        let cut = process.exits().map { _ in InstanceState?.none }
         let lived = merge(running.map(InstanceState?.some), cut).prefix { (state: InstanceState?) in state != nil }.compactMap(\.self)
-        return chain(lived, process.termination().flatMap { exit in self.ended(exit, clock: clock) }).removeDuplicates()
+        return chain(lived, process.exits().flatMap { exit in self.exitStates(after: exit, clock: clock) }).removeDuplicates()
     }
 
-    private func ended(_ exit: Result<ProcessExit, Errno>, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
+    private func exitStates(after exit: Result<ProcessExit, Errno>, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
         [false, true].async.compactMap { reported -> InstanceState? in
             switch (exit, reported) {
                 case (_, false): .exited(InstanceState.Ended(exit: exit, report: nil))
-                case (.success(let ended), true) where ended.reports:
+                case (.success(let ended), true) where ended.producesReport:
                     .exited(
-                        InstanceState.Ended(exit: exit, report: await DiagnosticReport.written(by: self.process, since: self.application.launchDate ?? .distantPast, clock: clock))
+                        InstanceState.Ended(exit: exit, report: await DiagnosticReport.first(writtenBy: self.process, since: self.application.launchDate ?? .distantPast, clock: clock))
                     )
                 case (_, true): nil
             }
@@ -273,24 +273,24 @@ extension NSWorkspace {
 
     public func instanceStates(
         of matching: @escaping @Sendable (NSRunningApplication) -> Bool,
-        walking walked: @escaping @Sendable (Element) -> Bool = \.asking,
+        walking walked: @escaping @Sendable (TopLevelElement) -> Bool = \.asking,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<OrderedDictionary<Instance, InstanceState>, Never> & Sendable {
         combineLatest(
-            tracked(of: matching, walking: walked, clock: clock),
-            chain([OrderedDictionary<Instance, InstanceState>()].async, tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)),
+            states(of: matching, walking: walked, clock: clock),
+            chain([OrderedDictionary<Instance, InstanceState>()].async, states(of: \.isDialogHelper, walking: \.asking, clock: clock)),
         )
         .map { states, helpers in
             OrderedDictionary<Instance, InstanceState>(
-                uniqueKeysWithValues: states.map { instance, state in (instance, state.prompted(helpers.values.flatMap { helper in helper.prompting(instance.promptNames) })) }
+                uniqueKeysWithValues: states.map { instance, state in (instance, state.adding(prompts: helpers.values.flatMap { helper in helper.prompts(naming: instance.promptNames) })) }
             )
         }
         .removeDuplicates()
     }
 
-    func tracked(
+    func states(
         of matching: @escaping @Sendable (NSRunningApplication) -> Bool,
-        walking walked: @escaping @Sendable (Element) -> Bool,
+        walking walked: @escaping @Sendable (TopLevelElement) -> Bool,
         clock: some Clock<Duration> & Sendable,
     ) -> some AsyncSequence<OrderedDictionary<Instance, InstanceState>, Never> & Sendable {
         let (inserted, insert) = AsyncStream<Instance>.makeStream()
@@ -306,7 +306,7 @@ extension NSWorkspace {
                 await withDiscardingTaskGroup { group in
                     var followed: Set<Instance> = []
                     for await instance in inserted where followed.insert(instance).inserted {
-                        let states = instance.lifetime(instance.beats(walking: walked, clock: clock), clock: clock)
+                        let states = instance.lifetime(instance.polls(walking: walked, clock: clock), clock: clock)
                         group.addTask {
                             for await state in states { change.yield((instance, state)) }
                         }

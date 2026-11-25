@@ -8,7 +8,7 @@ import System
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct Instance: Hashable, Sendable {
-    public enum Quit: String, Decodable, Sendable {
+    public enum QuitMode: String, Decodable, Sendable {
         case asking
         case saving
         case discarding
@@ -39,7 +39,7 @@ extension Instance {
     }
 
     public func quit(
-        _ ending: Quit = .asking,
+        _ ending: QuitMode = .asking,
         in dictionary: ScriptingDictionary? = nil,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
@@ -66,7 +66,7 @@ extension Instance {
                         case .success(.exited): if request == nil { reply.finish() }
                         case .success(.running(let running)) where running.asking.isEmpty && (running.status == .responding || running.status == .unresponsive(.runnable)):
                             request = request ?? Task { await requestQuit(saving: saving, answering: reply, clock: clock) }
-                        case .success(.running(let running)) where running.asking.isEmpty && !running.status.settled: continue
+                        case .success(.running(let running)) where running.asking.isEmpty && !running.status.isIdle: continue
                         case .failure, .success(.running), .success(.failed): break events
                     }
                 }
@@ -96,7 +96,7 @@ extension Instance {
             _ = await Result { () async throws(any Error) in try await clock.sleep(for: messagingTimeout) }
             outcome =
                 switch await state() {
-                    case .running(let running) where !running.asking.isEmpty || running.status.settled && running.status.is(\.unresponsive): .success(.running(running))
+                    case .running(let running) where !running.asking.isEmpty || running.status.isIdle && running.status.is(\.unresponsive): .success(.running(running))
                     case .failed: nil
                     case .running, .exited: .failure(ApplicationFailure(subject: subject, reason: .refused(nil)))
                 }

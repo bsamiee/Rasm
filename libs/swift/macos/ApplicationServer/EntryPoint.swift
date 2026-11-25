@@ -16,7 +16,7 @@ import Updater
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public func main(cached: @escaping @Sendable (Installation) -> URL?) async {
+public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL?) async {
     let serving = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }.map { stat in [FileType.fifo, .socket].contains(stat.type) } == .success(true)
     let disclaimed = Result { () throws(Errno) in if serving { try disclaimResponsibility() } }
     let telemetry = Program.current.telemetry(scopes: [Request.self])
@@ -36,7 +36,7 @@ public func main(cached: @escaping @Sendable (Installation) -> URL?) async {
                 return
             }
             do { try Program.current.require([.accessibility]) } catch { logger.notice("Started without Accessibility trust", error: error) }
-            let updater = Updater(resting: .prohibited)
+            let updater = Updater(activationPolicy: .prohibited)
             defer { extendLifetime(updater) }
             var context = InstrumentationContext.topLevel
             InstrumentationSystem.instrument.extract(ProcessInfo.processInfo.environment, into: &context, using: EnvironmentCarrier())
@@ -46,11 +46,11 @@ public func main(cached: @escaping @Sendable (Installation) -> URL?) async {
                     try await serve(
                         reading: FileHandle.standardInput.bytes.jsonLines,
                         writing: { line in try FileDescriptor.standardOutput.writeAll(line) },
-                        admitting: {
+                        matching: {
                             claimed.map { prefixes in NSCompoundPredicate(orPredicateWithSubpredicates: prefixes.map { prefix in NSPredicate(format: "%K BEGINSWITH %@", identifierKey, prefix) }) }
                                 ?? NSPredicate(value: true)
                         },
-                        cached: cached,
+                        cachedDefinition: cachedDefinition,
                     )
                 }
             }

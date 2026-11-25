@@ -9,7 +9,7 @@ public import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public enum Folder: Sendable {
+public enum Directory: Sendable {
     case logs
     case captures
     case media
@@ -64,18 +64,18 @@ public struct Program: Sendable {
         version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         stored = MutableInMemoryProvider(name: identifier, initialValues: Self.values(UserDefaults.standard.persistentDomain(forName: identifier) ?? [:]))
         let providers: [any ConfigProvider] = [EnvironmentVariablesProvider().prefixKeys(with: ConfigKey([name])), stored]
-        unrecognized = UnrecognizedValues(accepted: ["log.target": Target.allCases.map(\.rawValue)], raw: ConfigReader(providers: providers))
+        unrecognized = UnrecognizedValues(accepted: ["log.target": LogTarget.allCases.map(\.rawValue)], raw: ConfigReader(providers: providers))
         settings = ConfigReader(providers: providers, accessReporter: unrecognized)
     }
 
-    public func directory(_ folder: Folder, of application: String? = nil) -> URL {
+    public func directory(_ kind: Directory, of application: String? = nil) -> URL {
         let setting: (ConfigKey) -> URL? = { key in settings.string(forKey: key).map { path in URL(filePath: path, directoryHint: .isDirectory) } }
-        return switch (folder, setting("output.dir")) {
+        return switch (kind, setting("output.dir")) {
             case (.state, _):
                 setting("state.dir") ?? .applicationSupportDirectory.appending(path: Bundle.main.infoDictionary?[kCFBundleNameKey as String] as? String ?? identifier, directoryHint: .isDirectory)
-            case (_, .some(let output)): output.appending(components: application ?? name, String(describing: folder), directoryHint: .isDirectory)
+            case (_, .some(let output)): output.appending(components: application ?? name, String(describing: kind), directoryHint: .isDirectory)
             case (.logs, .none): .libraryDirectory.appending(components: "Logs", name, directoryHint: .isDirectory)
-            case (_, .none): .cachesDirectory.appending(components: name, String(describing: folder), directoryHint: .isDirectory)
+            case (_, .none): .cachesDirectory.appending(components: name, String(describing: kind), directoryHint: .isDirectory)
         }
     }
 
@@ -85,12 +85,12 @@ public struct Program: Sendable {
     }
 
     public func require(_ grants: [Grant]) throws(ApplicationFailure) {
-        for grant in grants where !grant.held {
+        for grant in grants where !grant.isHeld {
             var (code, requirement, identity): (SecStaticCode?, SecRequirement?, CFData?) = (nil, nil, nil)
             let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
             let designated = code.map { code in unsafe SecCodeCopyDesignatedRequirement(code, [], &requirement) } ?? found
             let read = requirement.map { requirement in unsafe SecRequirementCopyData(requirement, [], &identity) } ?? designated
-            guard read == errSecSuccess, let identity else { throw ApplicationFailure(subject: identifier, reason: .host(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))) }
+            guard read == errSecSuccess, let identity else { throw ApplicationFailure(subject: identifier, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))) }
             let requested = ConfigKey("grants.requested.\(grant.rawValue)")
             if settings.bytes(forKey: requested).map(Data.init) != identity as Data {
                 grant.request()

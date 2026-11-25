@@ -75,7 +75,7 @@ extension AppleEventValue: Codable {
     }
 
     public init(from decoder: any Decoder) throws {
-        func tagged(_ object: [String: JSONValue]) throws -> Self {
+        func decodeTagged(_ object: [String: JSONValue]) throws -> Self {
             let fields = try decoder.container(keyedBy: Key.self)
             func code() throws -> DescType {
                 let code = try fields.decode(String.self, forKey: .type)
@@ -106,12 +106,12 @@ extension AppleEventValue: Codable {
                 case .number(let value): .number(value)
                 case .string(let text): .text(text)
                 case .array(let items): try .list(items.map { item in try item.decode(Self.self) })
-                case .object(let object): try tagged(object)
+                case .object(let object): try decodeTagged(object)
             }
     }
 
     public func encode(to encoder: any Encoder) throws {
-        func tagged(_ tag: Tag, _ fill: (inout KeyedEncodingContainer<Key>) throws -> Void) throws {
+        func encodeTagged(_ tag: Tag, _ fill: (inout KeyedEncodingContainer<Key>) throws -> Void) throws {
             var fields = encoder.container(keyedBy: Key.self)
             try fields.encode(tag, forKey: .tag)
             try fill(&fields)
@@ -126,23 +126,23 @@ extension AppleEventValue: Codable {
             case .list(let items): try items.encode(to: encoder)
             case .record(DescType(typeAERecord), let entries): try entries.encode(to: encoder)
             case .record(let type, let entries):
-                try tagged(.record) { fields in
+                try encodeTagged(.record) { fields in
                     try fields.encode(type.sdef, forKey: .type)
                     try fields.encode(entries, forKey: .fields)
                 }
-            case .type(let name): try tagged(.type) { fields in try fields.encode(name, forKey: .name) }
-            case .enumerator(let name): try tagged(.enumerator) { fields in try fields.encode(name, forKey: .name) }
-            case .date(let date): try tagged(.date) { fields in try fields.encode(date.ISO8601Format(), forKey: .date) }
-            case .file(let url): try tagged(.file) { fields in try fields.encode(url, forKey: .url) }
+            case .type(let name): try encodeTagged(.type) { fields in try fields.encode(name, forKey: .name) }
+            case .enumerator(let name): try encodeTagged(.enumerator) { fields in try fields.encode(name, forKey: .name) }
+            case .date(let date): try encodeTagged(.date) { fields in try fields.encode(date.ISO8601Format(), forKey: .date) }
+            case .file(let url): try encodeTagged(.file) { fields in try fields.encode(url, forKey: .url) }
             case .specifier(let want, let form, let seld, let from):
-                try tagged(.specifier) { fields in
+                try encodeTagged(.specifier) { fields in
                     try fields.encode(want, forKey: .want)
                     try fields.encode(form, forKey: .form)
                     try fields.encode(seld, forKey: .seld)
                     try fields.encode(from, forKey: .from)
                 }
             case .opaque(let type, let data, let value):
-                try tagged(.opaque) { fields in
+                try encodeTagged(.opaque) { fields in
                     try fields.encode(type.sdef, forKey: .type)
                     try fields.encode(data, forKey: .data)
                     try fields.encodeIfPresent(value, forKey: .value)
@@ -204,13 +204,13 @@ extension AppleEventValue {
     }
 
     public func descriptor(as types: Set<String>, in dictionary: ScriptingDictionary) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {
-        func encoded(_ value: Self, as types: Set<String> = []) -> Result<NSAppleEventDescriptor, AggregateError<AppleEventFailure>> {
+        func makeDescriptor(_ value: Self, as types: Set<String> = []) -> Result<NSAppleEventDescriptor, AggregateError<AppleEventFailure>> {
             Result { () throws(AggregateError<AppleEventFailure>) in try value.descriptor(as: types, in: dictionary) }
         }
         func unencodable(_ type: DescType) -> AggregateError<AppleEventFailure> {
             AggregateError(first: AppleEventFailure(subject: type.sdef, reason: .unencodable))
         }
-        func located(_ url: URL) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {
+        func makeFileDescriptor(_ url: URL) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {
             let file = NSAppleEventDescriptor(fileURL: url)
             guard types.contains("alias") else { return file }
             guard let alias = file.coerce(toDescriptorType: DescType(typeAlias)) else { throw unencodable(DescType(typeAlias)) }
@@ -225,22 +225,22 @@ extension AppleEventValue {
                 return (types.contains("integer") ? Int32(exactly: value) : nil).map(NSAppleEventDescriptor.init(int32:)) ?? NSAppleEventDescriptor(double: value)
             case .text(let text):
                 return switch dictionary.enumerators(of: types) {
-                    case let enumerators where enumerators.named[text] != nil || !enumerators.coded.isEmpty && FourCharCode(sdef: text) != nil:
+                    case let enumerators where enumerators.byName[text] != nil || !enumerators.byCode.isEmpty && FourCharCode(sdef: text) != nil:
                         try NSAppleEventDescriptor(enumCode: ScriptingDictionary.resolve(text, in: [enumerators]).get().code)
                     case _ where types.contains("type"):
                         try Self.type(text).descriptor(as: types, in: dictionary)
                     case _ where types.contains("date"):
                         try NSAppleEventDescriptor(
-                            date: Result { try Date.ISO8601FormatStyle().parse(text) }.aggregated { error in AppleEventFailure(subject: text, reason: .host(error as NSError)) }.get()
+                            date: Result { try Date.ISO8601FormatStyle().parse(text) }.aggregated { error in AppleEventFailure(subject: text, reason: .foundation(error as NSError)) }.get()
                         )
                     default:
                         switch URL(string: text) {
-                            case .some(let url) where url.isFileURL && !types.isDisjoint(with: ["file", "alias", "file specification"]): try located(url)
+                            case .some(let url) where url.isFileURL && !types.isDisjoint(with: ["file", "alias", "file specification"]): try makeFileDescriptor(url)
                             case .some, .none: NSAppleEventDescriptor(string: text)
                         }
                 }
             case .list(let items):
-                return try traverse(items) { item in encoded(item, as: types) }.get().reduce(into: .list()) { list, descriptor in list.insert(descriptor, at: 0) }
+                return try traverse(items) { item in makeDescriptor(item, as: types) }.get().reduce(into: .list()) { list, descriptor in list.insert(descriptor, at: 0) }
             case .record(let type, let fields):
                 let named = fields.sorted { left, right in left.key < right.key }.first { key, _ in
                     ScriptingDictionary.resolve(key, in: [dictionary.properties])[case: \.success]?.code == FourCharCode(pClass)
@@ -255,7 +255,7 @@ extension AppleEventValue {
             case .date(let date):
                 return NSAppleEventDescriptor(date: date)
             case .file(let url):
-                return try located(url)
+                return try makeFileDescriptor(url)
             case .specifier(let want, let form, let seld, let from):
                 let key: Result<NSAppleEventDescriptor, AggregateError<AppleEventFailure>> =
                     switch (form, seld) {
@@ -274,9 +274,9 @@ extension AppleEventValue {
                         case (.index, .number(let value)):
                             Int32(exactly: value).map { offset in .success(NSAppleEventDescriptor(int32: offset)) } ?? .failure(unencodable(DescType(typeSInt32)))
                         default:
-                            encoded(seld, as: ["integer"])
+                            makeDescriptor(seld, as: ["integer"])
                     }
-                let (desired, data, container) = try combine(ScriptingDictionary.resolve(want, in: dictionary.classes(in: dictionary.classCode(of: from))), key, encoded(from)).get()
+                let (desired, data, container) = try combine(ScriptingDictionary.resolve(want, in: dictionary.classes(in: dictionary.classCode(of: from))), key, makeDescriptor(from)).get()
                 let fields: KeyValuePairs<Int, NSAppleEventDescriptor> = [
                     keyAEDesiredClass: NSAppleEventDescriptor(typeCode: desired.code), keyAEContainer: container, keyAEKeyForm: NSAppleEventDescriptor(enumCode: form.code), keyAEKeyData: data,
                 ]

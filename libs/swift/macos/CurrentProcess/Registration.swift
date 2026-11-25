@@ -17,7 +17,7 @@ extension LaunchAgent {
         var signing: CFDictionary?
         let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
         let read = code.map { code in unsafe SecCodeCopySigningInformation(code, [], &signing) } ?? found
-        guard read == errSecSuccess else { throw ApplicationFailure(subject: label, reason: .host(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))) }
+        guard read == errSecSuccess else { throw ApplicationFailure(subject: label, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))) }
         let installed = (signing as? [CFString: Any])?[kSecCodeInfoUnique] as? Data
         let key = ConfigKey("agents.registered.\(label)")
         let replaced = Program.current.settings.bytes(forKey: key).map(Data.init) != installed
@@ -32,7 +32,7 @@ extension LaunchAgent {
             }
             if again || [.notRegistered, .notFound].contains(service.status) { try service.register() }
         } catch {
-            throw ApplicationFailure(subject: label, reason: .host(error as NSError))
+            throw ApplicationFailure(subject: label, reason: .foundation(error as NSError))
         }
         Program.current.store(installed, forKey: key)
     }

@@ -61,7 +61,7 @@ public struct JSONLogHandler: LogHandler {
     private let filter: LogFilter
     private let resource: [String: LogRecord.Attribute]
     private let trace: (id: String, span: String, flags: String)
-    private let encoder = JSONEncoder.lines
+    private let encoder = JSONEncoder.jsonLines
 
     public init(
         label: String,

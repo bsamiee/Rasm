@@ -102,7 +102,7 @@ private struct Held: Equatable, Sendable {
         do throws(FileFailure) {
             try create()
         } catch let failure where failure.reason.is(\.held) {
-            switch try stamped(lockfile.url) {
+            switch try read(lockfile.url) {
                 case .some(let current) where current.modified >= now - lockfile.stale: throw failure
                 case .some(let stale):
                     try remove(at: lockfile.url)
@@ -118,8 +118,8 @@ private struct Held: Equatable, Sendable {
         }
     }
 
-    func updated(at now: Duration) throws(FileFailure) -> Self {
-        try unchanged()
+    func update(at now: Duration) throws(FileFailure) -> Self {
+        try verifyUnchanged()
         _ = try ifPresent(url) { try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: now / .seconds(1))], ofItemAtPath: url.path(percentEncoded: false)) }
         let current = try Self.current(url)
         guard current.inode == inode else { throw FileFailure(file: url, reason: .compromised) }
@@ -127,20 +127,20 @@ private struct Held: Equatable, Sendable {
     }
 
     func release() throws(FileFailure) {
-        try unchanged()
+        try verifyUnchanged()
         try Self.remove(at: url)
     }
 
-    private func unchanged() throws(FileFailure) {
-        guard try Self.stamped(url) == self else { throw FileFailure(file: url, reason: .compromised) }
+    private func verifyUnchanged() throws(FileFailure) {
+        guard try Self.read(url) == self else { throw FileFailure(file: url, reason: .compromised) }
     }
 
     private static func current(_ url: URL) throws(FileFailure) -> Self {
-        guard let held = try stamped(url) else { throw FileFailure(file: url, reason: .compromised) }
+        guard let held = try read(url) else { throw FileFailure(file: url, reason: .compromised) }
         return held
     }
 
-    private static func stamped(_ url: URL) throws(FileFailure) -> Self? {
+    private static func read(_ url: URL) throws(FileFailure) -> Self? {
         try ifPresent(url) { try FilePath(url.path(percentEncoded: false)).stat() }.map { stat throws(FileFailure) in
             guard stat.type == .directory else { throw FileFailure(file: url, reason: .compromised) }
             return Self(url: url, inode: stat.inode, modified: Duration(stat.st_mtim))
@@ -165,7 +165,7 @@ private actor Holder<Failure: LockFailure> {
 
     func heartbeat(_ index: Int, every interval: Duration, clock: some Clock<Duration> & Sendable, now: @Sendable () -> Duration) async throws(Failure) -> Never {
         for await _ in AsyncTimerSequence(interval: interval, clock: clock) {
-            do throws(FileFailure) { held[index] = try held[index].updated(at: now()) } catch { throw .lock(error) }
+            do throws(FileFailure) { held[index] = try held[index].update(at: now()) } catch { throw .lock(error) }
         }
         throw .cancelled(CancellationError())
     }

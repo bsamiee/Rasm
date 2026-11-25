@@ -18,7 +18,7 @@ private struct Peer {
     var outgoing: AsyncStream<JSONValue>.Iterator
 
     static func connected<Value>(
-        serving: @escaping @Sendable (_ method: String, _ params: JSONValue?) async throws(JSONRPCError) -> JSONValue = { method, _ in throw JSONRPCError(code: -32_601, message: method) },
+        handler: @escaping @Sendable (_ method: String, _ params: JSONValue?) async throws(JSONRPCError) -> JSONValue = { method, _ in throw JSONRPCError(code: -32_601, message: method) },
         _ body: (JSONRPCConnection<Method, JSONRPCFailure>, inout Self) async throws -> Value,
     ) async throws -> Value {
         let (lines, incoming): (AsyncThrowingStream<Data, any Error>, AsyncThrowingStream<Data, any Error>.Continuation) = AsyncThrowingStream.makeStream()
@@ -28,7 +28,7 @@ private struct Peer {
             reading: lines,
             writing: { line in outgoing.yield(try JSONDecoder().decode(JSONValue.self, from: line)) },
             timeout: .seconds(5),
-            serving: serving,
+            handler: handler,
             failure: { failure in failure },
         ) { connection in await Result { () async throws -> Value in try await body(connection, &peer) } }.get()
     }
@@ -114,7 +114,7 @@ struct JSONRPCConnectionTests {
             async let answer = Result { () async throws(JSONRPCFailure) in try await connection.request(.sum) }
             _ = try await peer.sent()
             peer.incoming.finish()
-            return (await answer, await connection.finished())
+            return (await answer, await connection.waitUntilClosed())
         }
         guard case .failure(let pending) = answer, case .closed = pending.reason, case .closed = ending.reason else {
             Issue.record("Unexpected \(String(customDumping: answer))")
@@ -125,7 +125,7 @@ struct JSONRPCConnectionTests {
     @Test
     func servesPeerRequests() async throws {
         let reply = try await Peer.connected(
-            serving: { (method: String, params: JSONValue?) async throws(JSONRPCError) -> JSONValue in
+            handler: { (method: String, params: JSONValue?) async throws(JSONRPCError) -> JSONValue in
                 guard method == Method.sum.rawValue, case .array(let terms)? = params else { throw JSONRPCError(code: -32_601, message: method) }
                 return .number(terms.reduce(0) { total, term in if case .number(let value) = term { total + value } else { total } })
             },
