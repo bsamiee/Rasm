@@ -5,7 +5,7 @@
     },
     "references": [
         {
-            "path": "../../runtime/process"
+            "path": "../../system/process"
         }
     ]
 }

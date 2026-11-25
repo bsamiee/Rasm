@@ -7,7 +7,7 @@
     "exclude": ["dist", "server/workerd.ts", "rendering/hydrate.ts"],
     "references": [
         {
-            "path": "../../runtime/telemetry"
+            "path": "../../observability/telemetry"
         },
         {
             "path": "../../graphics/mark"

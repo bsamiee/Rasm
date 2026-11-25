@@ -768,7 +768,7 @@ importers:
         version: link:../libs/typescript/web/hosting
       '@rasm/process':
         specifier: workspace:*
-        version: link:../libs/typescript/runtime/process
+        version: link:../libs/typescript/system/process
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -790,7 +790,7 @@ importers:
         version: 1.45.0
       '@rasm/process':
         specifier: workspace:*
-        version: link:../../runtime/process
+        version: link:../../system/process
       '@rasm/rpc':
         specifier: workspace:*
         version: link:../../network/rpc
@@ -799,7 +799,7 @@ importers:
         version: link:../../data/search
       '@rasm/telemetry':
         specifier: workspace:*
-        version: link:../../runtime/telemetry
+        version: link:../../observability/telemetry
       env-paths:
         specifier: 'catalog:'
         version: 4.0.0
@@ -859,7 +859,7 @@ importers:
         version: 1.1.0
       '@rasm/process':
         specifier: workspace:*
-        version: link:../../runtime/process
+        version: link:../../system/process
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -875,7 +875,7 @@ importers:
         version: link:../object-model
       '@rasm/process':
         specifier: workspace:*
-        version: link:../../runtime/process
+        version: link:../../system/process
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
@@ -1024,7 +1024,7 @@ importers:
         version: link:../../data/search
       '@rasm/telemetry':
         specifier: workspace:*
-        version: link:../../runtime/telemetry
+        version: link:../../observability/telemetry
       '@rasm/vite':
         specifier: workspace:*
         version: link:../../web/vite
@@ -1146,7 +1146,7 @@ importers:
     dependencies:
       '@rasm/process':
         specifier: workspace:*
-        version: link:../../runtime/process
+        version: link:../../system/process
       image-size:
         specifier: 'catalog:'
         version: 2.1.0
@@ -1208,7 +1208,7 @@ importers:
         version: link:../../ai/mcp
       '@rasm/process':
         specifier: workspace:*
-        version: link:../../runtime/process
+        version: link:../../system/process
       '@rasm/rpc':
         specifier: workspace:*
         version: link:../../network/rpc
@@ -1255,7 +1255,7 @@ importers:
     dependencies:
       '@rasm/process':
         specifier: workspace:*
-        version: link:../../runtime/process
+        version: link:../../system/process
       ssh-config:
         specifier: 'catalog:'
         version: 5.3.1
@@ -1267,33 +1267,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
 
-  libs/typescript/runtime/process:
-    dependencies:
-      '@rasm/telemetry':
-        specifier: workspace:*
-        version: link:../telemetry
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
-
-  libs/typescript/runtime/shell:
-    dependencies:
-      sh-syntax:
-        specifier: 'catalog:'
-        version: 0.8.7
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
-
-  libs/typescript/runtime/telemetry:
+  libs/typescript/observability/telemetry:
     devDependencies:
       '@effect/opentelemetry':
         specifier: 'catalog:'
@@ -1353,6 +1327,32 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0
 
+  libs/typescript/runtime/shell:
+    dependencies:
+      sh-syntax:
+        specifier: 'catalog:'
+        version: 0.8.7
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+
+  libs/typescript/system/process:
+    dependencies:
+      '@rasm/telemetry':
+        specifier: workspace:*
+        version: link:../../observability/telemetry
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+
   libs/typescript/web/hosting:
     dependencies:
       '@types/web-app-manifest':
@@ -1394,7 +1394,7 @@ importers:
         version: link:../../data/object-storage
       '@rasm/telemetry':
         specifier: workspace:*
-        version: link:../../runtime/telemetry
+        version: link:../../observability/telemetry
       '@types/culori':
         specifier: 'catalog:'
         version: 4.0.1
@@ -1654,7 +1654,7 @@ importers:
         version: link:../../../../../libs/typescript/data/search
       '@rasm/telemetry':
         specifier: workspace:*
-        version: link:../../../../../libs/typescript/runtime/telemetry
+        version: link:../../../../../libs/typescript/observability/telemetry
       '@rasm/typography':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/graphics/typography
@@ -1676,7 +1676,7 @@ importers:
         version: 27.1.0-beta.23
       '@rasm/process':
         specifier: workspace:*
-        version: link:../../../../../libs/typescript/runtime/process
+        version: link:../../../../../libs/typescript/system/process
       '@rasm/vite':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/web/vite
@@ -2136,7 +2136,7 @@ importers:
         version: link:../../../../libs/typescript/ai/mcp
       '@rasm/telemetry':
         specifier: workspace:*
-        version: link:../../../../libs/typescript/runtime/telemetry
+        version: link:../../../../libs/typescript/observability/telemetry
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)

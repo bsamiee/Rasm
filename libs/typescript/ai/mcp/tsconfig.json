@@ -6,7 +6,7 @@
     "include": ["**/*", "package.json"],
     "references": [
         {
-            "path": "../../runtime/telemetry"
+            "path": "../../observability/telemetry"
         },
         {
             "path": "../../data/search"
@@ -15,7 +15,7 @@
             "path": "../../network/rpc"
         },
         {
-            "path": "../../runtime/process"
+            "path": "../../system/process"
         }
     ]
 }

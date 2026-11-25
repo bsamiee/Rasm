@@ -24,10 +24,10 @@
             "path": "./libs/typescript/messaging/webhooks"
         },
         {
-            "path": "./libs/typescript/runtime/telemetry"
+            "path": "./libs/typescript/observability/telemetry"
         },
         {
-            "path": "./libs/typescript/runtime/process"
+            "path": "./libs/typescript/system/process"
         },
         {
             "path": "./libs/typescript/data/database"

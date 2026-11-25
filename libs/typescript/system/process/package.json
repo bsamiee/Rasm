@@ -7,7 +7,7 @@
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
-        "directory": "libs/typescript/runtime/process"
+        "directory": "libs/typescript/system/process"
     },
     "files": [
         "dist/**/*.js",

@@ -13,7 +13,7 @@
             "path": "../../../../libs/typescript/ai/mcp"
         },
         {
-            "path": "../../../../libs/typescript/runtime/telemetry"
+            "path": "../../../../libs/typescript/observability/telemetry"
         },
         {
             "path": "../../../../libs/typescript/web/vite"

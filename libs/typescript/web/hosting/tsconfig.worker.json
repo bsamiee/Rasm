@@ -9,7 +9,7 @@
             "path": "./tsconfig.lib.json"
         },
         {
-            "path": "../../runtime/telemetry"
+            "path": "../../observability/telemetry"
         },
         {
             "path": "../../data/database"

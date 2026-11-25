@@ -8,7 +8,7 @@
     "exclude": ["sdks"],
     "references": [
         {
-            "path": "../libs/typescript/runtime/process"
+            "path": "../libs/typescript/system/process"
         },
         {
             "path": "../libs/typescript/web/hosting"

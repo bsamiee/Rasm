@@ -11,7 +11,7 @@
             "path": "../../network/rpc"
         },
         {
-            "path": "../../runtime/process"
+            "path": "../../system/process"
         },
         {
             "path": "../../data/database"

@@ -3,7 +3,7 @@
     "exclude": ["dist", "index.ts", "manifest.ts", "vite.ts"],
     "references": [
         {
-            "path": "../../runtime/telemetry"
+            "path": "../../observability/telemetry"
         },
         {
             "path": "../../data/search"
