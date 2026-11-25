@@ -1,6 +1,6 @@
 import { dirname, posix, relative } from 'node:path';
 import { normalizePath, type TargetConfiguration } from '@nx/devkit';
-import { type Anchor, aggregated, EXECUTORS, type Verbs } from '@rasm/nx';
+import { type Anchor, aggregated, EXECUTORS, removable, type Verbs } from '@rasm/nx';
 import { Array, Option, Record, Schema } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
 import plugin from '#/package.json' with { type: 'json' };
@@ -192,7 +192,7 @@ const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, m
         ),
     );
     const tools = [...Option.toArray(Option.map(member, (held) => crateTargets(workspace, coverage, held))), ...(Option.isNone(nested) ? [workspaceTargets(workspace)] : []), { pack: Record.getSomes({ cargo: packed }) }].reduce(joined);
-    const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
+    const removed = removable(tools);
     const cleaned = Option.match(nested, {
         onNone: () => ({ commands: [['cargo', 'clean']] as const, cache: { folders: [['CARGO_HOME', 'log']] }, description: 'Removes the build folder of the workspace with cargo clean, and under configuration cache empties the build analysis logs cargo writes to $CARGO_HOME/log' }),
         onSome: ({ crate }) => {

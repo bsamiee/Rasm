@@ -1,6 +1,6 @@
 import { basename, dirname, extname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
-import { EXECUTORS, inside, type Verbs } from '@rasm/nx';
+import { EXECUTORS, inside, removable, type Verbs } from '@rasm/nx';
 import { Array, Option, Predicate, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Run } from '#/executors/run/executor';
 import { RESOLVED } from '#/swift-package';
@@ -154,7 +154,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
         }),
         ...(released && { attach: { gh: ATTACH } }),
     };
-    const removed = Record.collect(work, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
+    const removed = removable(work);
     const tools: Verbs = {
         ...work,
         ...(schemes.length > 0 && {

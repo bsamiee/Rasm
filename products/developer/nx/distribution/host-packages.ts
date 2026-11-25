@@ -8,7 +8,7 @@ import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
-import { above, PLATFORM, spawned } from '@rasm/nx';
+import { above, below, PLATFORM, spawned } from '@rasm/nx';
 import { packaged } from '@rasm/nx/executor';
 import { HOSTS as UXP } from '@rasm/uxp';
 import { Array, Cause, Config, Console, Duration, Effect, FileSystem, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
@@ -225,7 +225,7 @@ const located = Effect.fnUntraced(function* (context: ExecutorContext) {
         Array.cartesian(files, rows).filter(([file, { archive }]) => archive !== undefined && file.endsWith(archive)),
         ([file, host]) => Effect.flatMap(entry(file, `{,*/}${host.manifest}`), Option.match({ onNone: () => Effect.succeedNone, onSome: ({ at, text }) => stated(host, file, text, path.join(file, at), []) })),
     );
-    const under = (folder: string) => sources.filter((other) => other.startsWith(`${folder}${path.sep}`)).map((other) => path.relative(folder, other));
+    const under = (folder: string) => sources.filter(below(folder)).map((other) => path.relative(folder, other));
     const folders = yield* Effect.forEach(
         Array.cartesianWith(sources, rows, (file, host) => ({ host, file, folder: path.join(file, path.relative(host.manifest, '.')) })).filter(({ host, file, folder }) => (host.build?.pack !== undefined || host.install?.unpacked === true) && matchesGlob(path.relative(folder, file), host.manifest)),
         ({ host, file, folder }) => Effect.flatMap(fs.readFileString(file), (text) => stated(host, folder, text, file, under(folder))),

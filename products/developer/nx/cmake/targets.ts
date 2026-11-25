@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, EXECUTORS, inside, PLATFORM, type Stated, tokened, type Verbs } from '@rasm/nx';
+import { above, type Anchor, aggregated, EXECUTORS, inside, PLATFORM, removable, type Stated, tokened, type Verbs } from '@rasm/nx';
 import { Array, Option, Record, UndefinedOr } from 'effect';
 import { configured, PACKAGING, REGISTRY, type Tree, WORKING, type Workflow } from '#/workspace';
 
@@ -137,7 +137,7 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
             }),
         }),
     };
-    const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
+    const removed = removable(tools);
     const cleaning: TargetConfiguration<Readonly<Record<string, unknown>>> = member.compiled
         ? {
               options: cleans(head),

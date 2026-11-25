@@ -114,8 +114,8 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         ...unsupported.map((file): [string, Error] => [file, new Cause.UnknownError(file, `${file} has no reader, and no project.xcproj sits beside it`)]),
     ];
     const nested = packages
-        .flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: `${join(owner.root, module.path)}/` })))
-        .flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${dirname(other)}/`.startsWith(folder)).map((inner) => `${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`));
+        .flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: join(owner.root, module.path) })))
+        .flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && inside(folder)(dirname(other))).map((inner) => `${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`));
     yield* Effect.forEach([...unread, ...nested], (warning) => Effect.sync(() => emitPluginWorkerLog('warn', warning)), { discard: true });
     const configured = Option.toArray(xcconfig).flatMap((at) => tokened(relative(workspaceRoot, at)));
     const linkedSources = (container: Analyzed['containers'][number]) => container.projects.flatMap((at) => Option.match(local(at), { onNone: () => [], onSome: (swiftPackage) => sources(swiftPackage, described, Record.get(container.products, at)) })).filter((input) => !input.endsWith(RESOLVED));

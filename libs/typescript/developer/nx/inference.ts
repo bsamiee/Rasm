@@ -188,6 +188,8 @@ const packaged = Effect.fnUntraced(function* (imports: readonly (readonly [speci
     return { packages: Array.dedupe(packages), linked: Array.dedupe(linked.map(({ name }) => name)), folders: linked.map(({ folder }) => folder) };
 });
 
+const removable = (tools: Verbs) => Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
+
 const aggregated = (verbs: Verbs, stated: Stated, technology: string, { workspaceRoot, holds }: Anchor, own: Readonly<Record<string, TargetConfiguration>> = {}): Record<string, TargetConfiguration> => {
     const unstated = ['default', '^default'];
     const held = (specifier: string, from: string) =>
@@ -251,6 +253,7 @@ export {
     PLATFORM,
     ran,
     recalled,
+    removable,
     type Run,
     run,
     runner,

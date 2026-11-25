@@ -1,8 +1,8 @@
 import { posix } from 'node:path';
 import { runExecutor } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { executor, spawned, Words } from '@rasm/nx';
-import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, Stream, String, Struct } from 'effect';
+import { executor, inside, spawned, Words } from '@rasm/nx';
+import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, Predicate, pipe, Record, Result, Schema, Stream, String, Struct } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { ANALYSIS, engine, FOLDERS, Linked, zipped } from '#/host-packages';
 
@@ -113,14 +113,14 @@ const execute = executor(Unreal, function* ({ outputPath, descriptor, hosts, dep
             ...dependencies.map((at) => `it depends on workspace plug-in ${at}, where Fab takes engine plug-ins alone (Fab 4.3.6.d)`),
             ...opened.map((file) => `${file} opens with no // Copyright line naming its publisher and a year other than Epic Games (Fab 4.3.6.1.b)`),
             ...sources.filter((file) => STORE.shipped.test(file)).map((file) => `${file} is an .exe or .msi (Fab 4.3.6.1.e)`),
-            ...Array.dedupe(sources.filter((file) => !file.startsWith(path.join(name, STORE.party))).flatMap((file) => file.split(path.sep)))
+            ...Array.dedupe(sources.filter(Predicate.not(inside(path.join(name, STORE.party)))).flatMap((file) => file.split(path.sep)))
                 .filter((segment) => !STORE.named.test(segment))
                 .map((segment) => `${segment} holds a character other than an English letter, digit, or underscore (Fab 4.3.7.1.c)`),
             ...sources.filter((file) => STORE.built.test(file)).map((file) => `${file} is build output (Fab 4.3.7.3.a)`),
             ...folders.filter((folder) => !(STORE.folders.has(folder) || filtered.includes(`/${folder}/...`))).map((folder) => `${folder} is no Config, Content, Resources, or Source folder and Config/FilterPlugin.ini lists no /${folder}/... (Fab 4.3.7.3.b)`),
             ...sources.filter((file) => file.length > STORE.path).map((file) => `${file} has path length ${file.length}, past ${STORE.path} (Fab 4.3.7.3.c)`),
             ...Record.keys(packages ?? {})
-                .filter((folder) => !`${folder}/`.startsWith(STORE.party))
+                .filter(Predicate.not(inside(STORE.party)))
                 .map((folder) => `installed package folder ${folder} sits outside ${STORE.party} (Fab 4.3.7.3.d)`),
         ];
         yield* Array.match(findings, { onEmpty: () => Effect.void, onNonEmpty: (failed) => new Cause.UnknownError(failed, `${descriptor} fails the Fab store checks: ${failed.join('; ')}`) });

@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, above, aggregated, EXECUTORS, inside, PLATFORM, type Stated, type Verbs } from '@rasm/nx';
+import { type Anchor, above, aggregated, EXECUTORS, inside, PLATFORM, removable, type Stated, type Verbs } from '@rasm/nx';
 import { Array, Function, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
@@ -240,7 +240,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             Struct.assign<Verbs[string], Verbs[string]>,
         ),
     );
-    const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
+    const removed = removable(tools);
     const emptied = Option.toArray(Option.filter(environed, () => Array.isReadonlyArrayNonEmpty(member.checks))).map((at) => ['NX_WORKSPACE_ROOT', ...at.split('/')]);
     const scattered = member.leaf ? [posix.join('{projectRoot}', '**', '__pycache__')] : [];
     const verbs: Verbs = {

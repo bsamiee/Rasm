@@ -2,7 +2,7 @@ import { basename, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RawProjectGraphDependency, TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { below, EXECUTORS, PLATFORM, runner, tokened, type Verbs } from '@rasm/nx';
+import { below, EXECUTORS, PLATFORM, removable, runner, tokened, type Verbs } from '@rasm/nx';
 import { Array, Context, Layer, Option, Record, Ref, Schema } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -170,7 +170,7 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
             dotnet: {
                 executor: EXECUTORS.clean,
                 inputs: compiled,
-                options: { targets: Record.collect(tools, (named, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${named}--${tool}`)).flat() },
+                options: { targets: removable(tools) },
                 metadata: metadata('clean', `Removes the outputs every configuration of the build and pack targets of ${node.name} declares`),
             },
         },

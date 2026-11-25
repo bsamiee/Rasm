@@ -1,6 +1,6 @@
 import { dirname, join, matchesGlob, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
-import { EXECUTORS, type Verbs } from '@rasm/nx';
+import { EXECUTORS, removable, type Verbs } from '@rasm/nx';
 import { Array, Effect, Graph, Option, Record, Schema, Struct, UndefinedOr } from 'effect';
 import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets';
 
@@ -169,7 +169,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
                 })),
             ),
         };
-        const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
+        const removed = removable(tools);
         return {
             root: at,
             name,

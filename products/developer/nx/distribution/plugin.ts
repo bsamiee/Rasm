@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, normalizePath, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type TargetConfiguration, type TaskResult } from '@nx/devkit';
 import { combineGlobPatterns, emitPluginWorkerLog, quoteShellArg } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, anchored, EXEC, EXECUTORS, inferring, inside, manifested, namedInput, run, tagged, type Verbs } from '@rasm/nx';
+import { above, type Anchor, aggregated, anchored, EXEC, EXECUTORS, inferring, inside, manifested, namedInput, removable, run, tagged, type Verbs } from '@rasm/nx';
 import { Array, Config, Duration, Effect, FileSystem, Formatter, Function, Option, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http';
 import { FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
@@ -240,7 +240,8 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
             pack: operated('pack', { cache: true, inputs: engined, dependsOn: [builder], outputs: [placed('pack')] }),
             install: installed,
         });
-        const removed = Record.keys(Record.filter(own, ({ outputs = [] }) => outputs.length > 0)).map((verb) => `${verb}--${technology}`);
+        const work = Record.map(own, (target) => ({ [technology]: target }));
+        const removed = removable(work);
         const attached = Option.map(Option.fromUndefinedOr(archive), (): TargetConfiguration => ({
             executor: EXECUTORS.attach,
             dependsOn: [packer, ...Array.match(item.dependents, { onEmpty: () => [], onNonEmpty: (dependents) => [{ projects: [...dependents], target: 'pack--*' }] })],
@@ -251,7 +252,7 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
             },
         }));
         const verbs: Verbs = {
-            ...Record.map(own, (target) => ({ [technology]: target })),
+            ...work,
             clean: Array.match(removed, {
                 onEmpty: () => ({}),
                 onNonEmpty: (labels) => ({ [technology]: { executor: EXECUTORS.clean, options: { targets: labels }, inputs: UNSTATED, metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: ran, example: { options: { targets: labels } } } } } }),
