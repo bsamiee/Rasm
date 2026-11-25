@@ -2,7 +2,7 @@
     "name": "@rasm/policy",
     "version": "0.1.0",
     "private": true,
-    "description": "Judgments of agent tool calls by named rule tables over the call and its shell script, answered as pass, refuse, or rewrite",
+    "description": "Judgments of what an agent attempts by named rule tables, answered as pass, refuse, or rewrite, with the hooks that carry them into Claude Code",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -20,7 +20,7 @@
     },
     "exports": {
         ".": "./policy.ts",
-        "./claude": "./claude/host.ts",
+        "./claude": "./claude/hooks.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -29,7 +29,7 @@
         },
         "exports": {
             ".": "./dist/policy.js",
-            "./claude": "./dist/claude/host.js",
+            "./claude": "./dist/claude/hooks.js",
             "./package.json": "./package.json"
         },
         "access": "public"

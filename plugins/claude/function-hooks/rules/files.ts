@@ -323,7 +323,7 @@ const files: Table = {
         }),
     },
     'walk.wide': {
-        script: true,
+        action: 'Shell',
         judge: Effect.fnUntraced(function* (script) {
             const home = script.dialect.environment['HOME'] ?? '/';
             const walked = (yield* script.invocations).flatMap(Struct.get('leaves')).flatMap((invocation) => {
@@ -335,7 +335,7 @@ const files: Table = {
             return Array.dedupe(walked).map((refuse) => ({ refuse, instruct: 'Pass a project folder, or a depth of 2 at most.' }));
         }),
     },
-    'removal.guarded': { script: true, judge: (script, { cwd }) => Effect.map(script.invocations, (invocations) => guarded(invocations, Option.none(), cwd)) },
+    'removal.guarded': { action: 'Shell', judge: (script, { cwd }) => Effect.map(script.invocations, (invocations) => guarded(invocations, Option.none(), cwd)) },
     'removal.fed': {
         program: 'xargs',
         judge: Effect.fnUntraced(function* (xargs, { script, shell }) {
@@ -374,7 +374,7 @@ const files: Table = {
         }),
     },
     'stdin.empty': {
-        script: true,
+        action: 'Shell',
         judge: Effect.fnUntraced(function* (script) {
             const invocations = yield* script.invocations;
             const empty = invocations.filter(
@@ -633,7 +633,7 @@ const files: Table = {
         }),
     },
     'temporary.system': {
-        script: true,
+        action: 'Shell',
         judge: Effect.fnUntraced(function* (script) {
             const all = (yield* script.invocations).flatMap(Struct.get('leaves'));
             const folder = Option.map(Option.fromUndefinedOr(script.dialect.environment['TMPDIR']), (given) => given.replace(/\/+$/u, ''));

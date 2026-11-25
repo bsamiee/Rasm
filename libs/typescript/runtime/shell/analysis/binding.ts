@@ -27,7 +27,7 @@ const blank = Usage.make({ name: '', aliases: [], flags: [], inherited: [], valu
 
 const named = (after: readonly Written[]) => ({ zero: Array.head(after), operands: after.slice(1) });
 const piece = (text: string) => new Written({ field: Field.known(text), exact: true, node: Option.none() });
-const valued = (state: Parsed, flag: Flag, spelled: Written, attached: Option.Option<Written>, tail: readonly Written[]): readonly [Parsed, readonly Written[]] => {
+const valued = (state: Parsed, flag: Flag, spelling: string, spelled: Written, attached: Option.Option<Written>, tail: readonly Written[]): readonly [Parsed, readonly Written[]] => {
     const ends = Option.match(state.usage.value(flag), { onNone: (): readonly string[] => [], onSome: (slot) => slot.ends });
     const [values, left] = Match.value(flag.arity).pipe(
         Match.when('none', () => [[], tail] as const),
@@ -38,12 +38,12 @@ const valued = (state: Parsed, flag: Flag, spelled: Written, attached: Option.Op
             return [taken, after.slice(1)] as const;
         }),
     );
-    return [{ ...state, flags: [...state.flags, { flag, spelled, values }] }, left];
+    return [{ ...state, flags: [...state.flags, { flag, spelling, spelled, values }] }, left];
 };
 const unknown = (state: Parsed, spelled: Written, name: string, attached: Option.Option<Written>, tail: readonly Written[]): readonly [Parsed, readonly Written[]] => [
     {
         ...state,
-        flags: [...state.flags, { flag: { spellings: Array.of(name), arity: 'optional' as const }, spelled, values: Option.toArray(attached) }],
+        flags: [...state.flags, { flag: { spellings: Array.of(name), arity: 'optional' as const }, spelling: name, spelled, values: Option.toArray(attached) }],
         ambiguous:
             state.ambiguous ||
             !(
@@ -57,15 +57,17 @@ const unknown = (state: Parsed, spelled: Written, name: string, attached: Option
     },
     tail,
 ];
-const clustered = (state: Parsed, spelled: Written, letters: string, tail: readonly Written[]): readonly [Parsed, readonly Written[]] =>
-    Option.match(state.usage.flag(`-${letters.slice(0, 1)}`), {
+const clustered = (state: Parsed, spelled: Written, letters: string, tail: readonly Written[]): readonly [Parsed, readonly Written[]] => {
+    const spelling = `-${letters.slice(0, 1)}`;
+    return Option.match(state.usage.flag(spelling), {
         onNone: () => unknown(state, spelled, `-${letters}`, Option.none(), tail),
         onSome: (flag) =>
             flag.arity === 'none' && letters.length > 1
-                ? clustered(valued(state, flag, spelled, Option.none(), tail)[0], spelled, letters.slice(1), tail)
+                ? clustered(valued(state, flag, spelling, spelled, Option.none(), tail)[0], spelled, letters.slice(1), tail)
                 : valued(
                       state,
                       flag,
+                      spelling,
                       spelled,
                       Option.map(
                           Option.liftPredicate(letters.slice(1), (rest) => rest !== ''),
@@ -74,6 +76,7 @@ const clustered = (state: Parsed, spelled: Written, letters: string, tail: reado
                       tail,
                   ),
     });
+};
 const operand = (state: Parsed, word: Written, text: Option.Option<string>): Parsed =>
     Option.match(
         Option.flatMap(
@@ -108,11 +111,11 @@ const stepped = (state: Parsed, word: Written, tail: readonly Written[]): readon
                 Option.orElse(state.usage.flag(name), () => Option.filter(Array.head(state.usage.abbreviated(name)), () => state.usage.abbreviated(name).length === 1)),
                 {
                     onNone: () => unknown(state, word, name, attached, tail),
-                    onSome: (flag) => valued(state, flag, word, attached, tail),
+                    onSome: (flag) => valued(state, flag, name, word, attached, tail),
                 },
             ),
         ),
-        Match.when({ short: true }, () => Option.match(state.usage.flag(written), { onNone: () => clustered(state, word, written.slice(1), tail), onSome: (flag) => valued(state, flag, word, Option.none(), tail) })),
+        Match.when({ short: true }, () => Option.match(state.usage.flag(written), { onNone: () => clustered(state, word, written.slice(1), tail), onSome: (flag) => valued(state, flag, written, word, Option.none(), tail) })),
         Match.orElse(() => [operand(state, word, text), tail] as const),
     );
 };

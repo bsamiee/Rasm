@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-policy",
     "private": true,
-    "description": "@rasm/policy suites over real parsed scripts and git command lines, and its Claude host in the engine's own test kit",
+    "description": "@rasm/policy suites over real parsed scripts, git command lines, and actions beside shell calls",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"

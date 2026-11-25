@@ -122,7 +122,7 @@ const commanded = ({ row, program, stated }: { readonly row: Row; readonly progr
 const based = (graph: Graph, path: Path.Path, row: Row): string => path.join(graph.root, row.runs._tag === 'Commands' ? row.runs.cwd : Option.getOrElse(Option.filter(Option.some(row.options['cwd']), Predicate.isString), () => row.root));
 const extent = (invocation: Invocation): Option.Option<readonly [Word, Word]> => (invocation.within.length === 0 ? invocation.span : Option.all([Option.map(launched(invocation), ([first]) => first), Option.map(invocation.span, ([, last]) => last)]));
 const routable = (call: Call, wrappers: ReadonlySet<string>) => (invocation: Invocation) =>
-    call.action.tool === 'Bash' &&
+    call.action.wait !== 'streamed' &&
     invocation.inner.length === 0 &&
     Option.isNone(invocation.repeated) &&
     invocation.assigns.length === 0 &&
@@ -288,6 +288,7 @@ const crates = Effect.fnUntraced(function* (invocation: Invocation, cwd: string)
 });
 
 const tasks: Table = {
+    'worktree.isolated': { action: 'Isolate', refuse: 'A worktree is a second checkout that every build repeats and the guards of this checkout never see.', instruct: 'Work in place.' },
     'nx.publish': { program: 'nx', judge: (invocation) => (invocation.words.some((written) => written.test(/(?:^|[:,=])nx-release-publish(?:,|$)/u)) ? [{ refuse: 'nx-release-publish publishes dependencies for real.', instruct: 'Run nx release.' }] : []) },
     'nx.daemon': {
         program: 'nx',
@@ -422,7 +423,7 @@ const tasks: Table = {
         }),
     },
     'nx.target': {
-        script: true,
+        action: 'Shell',
         judge: Effect.fnUntraced(function* (script, call) {
             const candidates = (yield* script.invocations).flatMap(Struct.get('leaves')).filter(routable(call, bounded));
             const verdicts = yield* Effect.forEach(candidates, (invocation) => Effect.flatMap(workspace(here(invocation, call.cwd)), Option.match({ onNone: () => Effect.succeed([]), onSome: (graph) => route(invocation, graph, helps(graph), here(invocation, call.cwd)) })));
@@ -430,13 +431,19 @@ const tasks: Table = {
         }),
     },
     'hk.step': {
-        script: true,
+        action: 'Shell',
         judge: Effect.fnUntraced(function* (script, call) {
             const candidates = (yield* script.invocations)
                 .flatMap(Struct.get('leaves'))
                 .filter(
                     (invocation) =>
-                        call.action.tool === 'Bash' && invocation.inner.length === 0 && Option.isNone(invocation.repeated) && invocation.assigns.length === 0 && Option.isNone(invocation.stage) && invocation.within.every((within) => within._tag === 'Wrapper' && wrapped.has(within.name)) && !invocation.runs('hk', 'nx'),
+                        call.action.wait !== 'streamed' &&
+                        invocation.inner.length === 0 &&
+                        Option.isNone(invocation.repeated) &&
+                        invocation.assigns.length === 0 &&
+                        Option.isNone(invocation.stage) &&
+                        invocation.within.every((within) => within._tag === 'Wrapper' && wrapped.has(within.name)) &&
+                        !invocation.runs('hk', 'nx'),
                 );
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const root = Array.isReadonlyArrayNonEmpty(candidates) ? yield* nearest(call.cwd, '.git') : Option.none();

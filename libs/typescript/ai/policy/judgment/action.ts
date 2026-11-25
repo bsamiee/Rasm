@@ -1,29 +1,41 @@
-import { Schema, SchemaTransformation } from 'effect';
+import { type Array, Data, type Duration, Number, Option, Order } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Action = typeof Action.Type;
-type Kind = keyof typeof kinds;
+type Wait = (typeof waits)[number];
+interface Asked {
+    readonly call: string;
+    readonly agent: Option.Option<string>;
+}
+type Action = Data.TaggedEnum<{
+    Shell: Asked & { readonly command: string; readonly wait: Wait };
+    Read: Asked & { readonly path: string };
+    Write: Asked & { readonly path: string; readonly content: string };
+    Edit: Asked & { readonly path: string; readonly old: string; readonly new: string };
+    Fetch: Asked & { readonly url: string };
+    Mcp: Asked & { readonly server: string; readonly tool: string; readonly input: Readonly<Record<string, unknown>> };
+    Spawn: Asked & { readonly prompt: string; readonly model: Option.Option<string> };
+    Isolate: Asked & { readonly from: string };
+    Task: Asked & { readonly id: string; readonly output: string; readonly resting: boolean; readonly again: Duration.Duration };
+}>;
+type Judgment = Data.TaggedEnum<{
+    Pass: { readonly notes: readonly string[] };
+    Refuse: { readonly reasons: Array.NonEmptyReadonlyArray<string>; readonly notes: readonly string[] };
+    Rewrite: { readonly action: Action; readonly notes: readonly string[] };
+}>;
 
-// --- [MODELS] --------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-const call = { tool_use_id: Schema.String, agentId: Schema.OptionFromOptionalKey(Schema.String) };
-const rest = [Schema.Record(Schema.String, Schema.Unknown)] as const;
-const background = Schema.Union([Schema.Boolean, Schema.Literal('true')]).pipe(Schema.decodeTo(Schema.Boolean, SchemaTransformation.transform({ decode: (flag) => flag === true || flag === 'true', encode: (flag) => flag })));
-const kinds = {
-    Shell: Schema.StructWithRest(Schema.Struct({ tool: Schema.Literals(['Bash', 'Monitor']), ...call, command: Schema.String, run_in_background: Schema.optionalKey(background) }), rest),
-    Read: Schema.StructWithRest(Schema.Struct({ tool: Schema.Literal('Read'), ...call, file_path: Schema.String }), rest),
-    Write: Schema.StructWithRest(Schema.Struct({ tool: Schema.Literal('Write'), ...call, file_path: Schema.String, content: Schema.String }), rest),
-    Edit: Schema.StructWithRest(Schema.Struct({ tool: Schema.Literal('Edit'), ...call, file_path: Schema.String, old_string: Schema.String, new_string: Schema.String }), rest),
-    Fetch: Schema.Union([
-        Schema.StructWithRest(Schema.Struct({ tool: Schema.Literal('WebFetch'), ...call, url: Schema.String, prompt: Schema.String }), rest),
-        Schema.StructWithRest(Schema.Struct({ tool: Schema.Literal('Monitor'), ...call, ws: Schema.Struct({ url: Schema.String, protocols: Schema.optionalKey(Schema.Array(Schema.String)) }) }), rest),
-    ]),
-    Mcp: Schema.StructWithRest(Schema.Struct({ tool: Schema.TemplateLiteral(['mcp__', Schema.NonEmptyString, '__', Schema.NonEmptyString]), ...call }), rest),
-    Spawn: Schema.StructWithRest(Schema.Struct({ tool: Schema.Literal('Agent'), ...call, prompt: Schema.String, model: Schema.OptionFromOptionalKey(Schema.String) }), rest),
+const waits = ['held', 'notified', 'streamed'] as const;
+const byWait = Order.mapInput(Number.Order, (wait: Wait) => waits.indexOf(wait));
+const lifetimes = {
+    session: () => Option.some(Option.none<string>()),
+    agent: ({ agent }: Pick<Action, 'agent'>) => Option.some(agent),
+    call: () => Option.none<Action['agent']>(),
 };
-const Action = Object.assign(Schema.Union([kinds.Shell, kinds.Read, kinds.Write, kinds.Edit, kinds.Fetch, kinds.Mcp, kinds.Spawn]), kinds);
+const Action = Data.taggedEnum<Action>();
+const Judgment = Data.taggedEnum<Judgment>();
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Action, type Kind };
+export { Action, byWait, Judgment, lifetimes, type Wait };

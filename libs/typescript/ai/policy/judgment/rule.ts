@@ -1,135 +1,201 @@
 import type { Shell } from '@rasm/shell';
-import { Array, type Cause, Data, type Effect, Equal, type FileSystem, Match, Option, type Path, Record, String } from 'effect';
+import { Array, Cause, Combiner, Duration, Effect, Equal, type FileSystem, Match, Option, Order, type Path, Predicate, Record, Reducer, Struct } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import type { Action, Kind } from '#/judgment/action';
+import { Action, byWait, type lifetimes, type Wait } from '#/judgment/action';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Script = Effect.Success<ReturnType<Shell['Service']['read']>>;
-type Dialect = Parameters<Shell['Service']['read']>[1]['dialect'];
 type Editor = Parameters<Parameters<Shell['Service']['edit']>[1]>[0];
-type Edit = ReturnType<Editor['replace']>;
 type Invocation = Effect.Success<Script['invocations']>[number];
-type Written = Invocation['words'][number];
-type Bound = Invocation['flags'][number];
-type Tool = Exclude<Kind, 'Shell'>;
-type Once = 'session' | 'agent' | 'call';
+type Kind = Action['_tag'];
+type Other = Exclude<Kind, 'Shell'>;
+type Needs = Shell | FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner;
+type Verdicts<V> = readonly V[] | Effect.Effect<readonly V[], Cause.YieldableError, Needs>;
 interface Refusal {
     readonly refuse: string;
     readonly instruct: string;
 }
-interface Note {
-    readonly note: string;
-    readonly once: Once;
-}
 interface Edited {
-    readonly edit: (editor: Editor, within: (nested: Script) => Editor) => readonly Edit[];
+    readonly edit: (editor: Editor, within: (nested: Script) => Editor) => readonly ReturnType<Editor['replace']>[];
 }
 type Respelling = { readonly drop: readonly string[] } | { readonly ensure: Array.NonEmptyReadonlyArray<string>; readonly unless?: readonly string[] } | { readonly rename: Readonly<Record<string, string>> };
-type Settled = Refusal | Note | Edited | { readonly run: Exclude<Run, 'foreground'> };
-type Verdict = Settled | Respelling;
-type Needs = Shell | FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner;
-type Verdicts<V> = readonly V[] | Effect.Effect<readonly V[], Cause.YieldableError, Needs>;
-type Run = 'foreground' | 'background' | 'monitor';
+type Verdict<K extends Kind> = { readonly note: string; readonly once: Told['once'] } | (K extends 'Task' ? { readonly again: Duration.Duration } : Refusal) | (K extends 'Shell' ? Edited | { readonly wait: Wait; readonly note: string } : never);
 interface Call {
-    readonly action: Action;
+    readonly action: ReturnType<typeof Action.Shell>;
     readonly script: Script;
     readonly cwd: string;
     readonly shell: Shell['Service'];
-    readonly run: Run;
+    readonly wait: Wait;
 }
-type Plain = (Refusal & { readonly when?: readonly string[]; readonly unless?: readonly string[] }) | Respelling;
-type Rule =
-    | { readonly script: true; readonly program?: never; readonly tool?: never; readonly judge: (script: Script, call: Call) => Verdicts<Settled> }
-    | ({ readonly program: string; readonly aliases?: readonly string[]; readonly path?: readonly string[]; readonly script?: never; readonly tool?: never } & (Plain | { readonly judge: (invocation: Invocation, call: Call) => Verdicts<Verdict> }))
-    | { [K in Tool]: Used<K> }[Tool];
-type Used<K extends Tool> = { readonly tool: K; readonly script?: never; readonly program?: never } & (Refusal | { judge(action: (typeof Action)[K]['Type']): Verdicts<Refusal | Note> });
-type Table = Readonly<Record<string, Rule | null>>;
-interface Wanted {
-    readonly kept: readonly Settled[];
+type Programmed = { readonly program: string; readonly aliases?: readonly string[]; readonly path?: readonly string[]; readonly action?: never } & (
+    | (Refusal & { readonly when?: readonly string[]; readonly unless?: readonly string[] })
+    | Respelling
+    | { readonly judge: (invocation: Invocation, call: Call) => Verdicts<Verdict<'Shell'> | Respelling> }
+);
+type Scripted = { readonly action: 'Shell'; readonly program?: never } & (Refusal | { readonly judge: (script: Script, call: Call) => Verdicts<Verdict<'Shell'>> });
+type Acted<K extends Other> = { readonly action: K; readonly program?: never } & (Extract<Verdict<K>, Refusal> | { judge(action: Extract<Action, { readonly _tag: K }>): Verdicts<Verdict<K>> });
+type Table = Readonly<Record<string, Programmed | Scripted | { [K in Other]: Acted<K> }[Other] | null>>;
+interface Told {
+    readonly text: string;
+    readonly once: keyof typeof lifetimes;
+}
+interface Tally {
+    readonly reasons: readonly string[];
+    readonly notes: readonly Told[];
+    readonly edits: readonly (Edited & { readonly rule: string })[];
+    readonly move: { readonly wait: Wait; readonly told: readonly Told[] };
+    readonly again: Duration.Duration;
     readonly drop: readonly string[];
     readonly rename: Readonly<Record<string, string>>;
     readonly ensure: readonly Extract<Respelling, { readonly ensure: unknown }>[];
 }
+interface Round {
+    readonly call: Call;
+    readonly found: readonly Invocation[];
+}
+interface Judges {
+    readonly heard: readonly Kind[];
+    readonly rounds: readonly ((round: Round) => Effect.Effect<Tally, never, Needs>)[];
+    readonly actions: readonly ((action: Action) => Effect.Effect<Tally, never, Needs>)[];
+}
 
-// --- [MODELS] --------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-class Told extends Data.Class<{ readonly text: string; readonly once: Once; readonly by: string }> {}
+const lettered = /^-[^-]$/u;
+const moved = Combiner.max(Order.mapInput(byWait, ({ wait }: Tally['move']) => wait));
+const tallied = Struct.makeReducer<Tally>({
+    reasons: Array.getReadonlyReducerConcat(),
+    notes: Array.getReadonlyReducerConcat(),
+    edits: Array.getReadonlyReducerConcat(),
+    move: Reducer.make(moved.combine, { wait: 'held', told: [] }),
+    again: Reducer.make(Duration.min, Duration.infinity),
+    drop: Array.getReadonlyReducerConcat(),
+    rename: Record.makeReducerUnion(Combiner.last()),
+    ensure: Array.getReadonlyReducerConcat(),
+});
+const judges = Struct.makeReducer<Judges>({ heard: Array.getReadonlyReducerConcat(), rounds: Array.getReadonlyReducerConcat(), actions: Array.getReadonlyReducerConcat() });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const spelling = (written: Written) => Option.map(written.text, (text) => Array.headNonEmpty(String.split(text, '=')));
-const meets =
-    (names: readonly string[]) =>
-    ({ flag, spelled }: Bound) =>
-        flag.spellings.some((name) => names.includes(name)) || Option.exists(spelling(spelled), (name) => names.includes(name));
-const shown = (invocation: Invocation, path: readonly string[], names: readonly string[]) => [...Option.toArray(Option.flatMap(Array.head(invocation.words), ({ text }) => text)), ...path, ...Array.dedupe(invocation.flags.filter(meets(names)).flatMap(({ spelled }) => Option.toArray(spelled.text)))].join(' ');
-const respelling = (to: string, value: string) => (to.startsWith('--') ? [value === '' ? to : `${to}=${value}`] : [to, ...(value === '' ? [] : [value])]);
-const respelled = (invocation: Invocation, path: readonly string[], wanted: Wanted): readonly ((editor: Editor) => Edit)[] => {
-    const named = [...wanted.drop, ...Record.keys(wanted.rename)];
-    const renamed = (bound: Bound, spelled: string) =>
-        Option.flatMap(
-            Array.findFirst(Record.keys(wanted.rename), (name) => bound.flag.spellings.includes(name) || name === spelled),
-            (name) => Record.get(wanted.rename, name),
+const failure = <E>(cause: Cause.Cause<E>) =>
+    Cause.prettyErrors(cause)
+        .map(({ message }) => message)
+        .join('; ');
+const named = (names: readonly string[]) => (bound: Invocation['flags'][number]) => bound.flag.spellings.some((spelling) => names.includes(spelling));
+const judging = (rule: string) => {
+    const lifted = Match.type<Verdict<Kind> | Respelling>().pipe(
+        Match.when({ refuse: Match.string }, ({ refuse, instruct }): Partial<Tally> => ({ reasons: [`${refuse} ${instruct}`] })),
+        Match.when({ wait: Match.string }, ({ wait, note }): Partial<Tally> => ({ move: { wait, told: [{ text: `${rule}: ${note}`, once: 'call' }] } })),
+        Match.when({ note: Match.string }, ({ note, once }): Partial<Tally> => ({ notes: [{ text: `${rule}: ${note}`, once }] })),
+        Match.when({ edit: Predicate.isFunction }, ({ edit }): Partial<Tally> => ({ edits: [{ rule, edit }] })),
+        Match.when({ ensure: Match.defined }, (ensure): Partial<Tally> => ({ ensure: [ensure] })),
+        Match.orElse((stated): Partial<Tally> => stated),
+    );
+    const summed = (given: readonly (Verdict<Kind> | Respelling)[]) => tallied.combineAll(given.map((verdict) => ({ ...tallied.initialValue, ...lifted(verdict) })));
+    return (verdicts: () => Verdicts<Verdict<Kind> | Respelling>): Effect.Effect<Tally, never, Needs> =>
+        Effect.suspend(() => {
+            const given = verdicts();
+            return Effect.isEffect(given) ? given : Effect.succeed(given);
+        }).pipe(
+            Effect.map(summed),
+            Effect.catchCause((cause) => Effect.succeed(summed([{ note: `failed and judged nothing: ${failure(cause)}`, once: 'call' }]))),
         );
-    const placed = invocation.flags.filter(({ spelled }) => Option.isSome(spelled.node));
-    const words = (Array.isReadonlyArrayNonEmpty(placed) ? Array.groupWith(placed, (left, right) => Equal.equals(left.spelled.node, right.spelled.node)) : [])
-        .flatMap((group) => Option.toArray(Option.map(Option.all({ word: Array.headNonEmpty(group).spelled.node, text: Array.headNonEmpty(group).spelled.text, spelled: spelling(Array.headNonEmpty(group).spelled) }), (found) => ({ ...found, group }))))
-        .flatMap(({ group, word, text, spelled }) => {
-            const whole = text.startsWith('--') || [...Array.headNonEmpty(group).flag.spellings, ...named].includes(spelled);
-            const letters = Array.fromIterable(text);
-            const parts = (whole ? [Array.headNonEmpty(group)] : group).map((bound, index) => {
-                const to = renamed(bound, spelled);
-                const held = whole ? '' : [letters[1 + index], ...(index === group.length - 1 ? letters.slice(1 + group.length) : [])].join('');
-                const values = Array.getSomes(bound.values.map(({ node }) => node)).filter((value) => value !== word);
-                return Match.value({ dropped: meets(wanted.drop)(bound), short: !whole && Option.exists(to, (name) => /^-[^-]$/u.test(name)), to: Option.getOrElse(to, () => '') }).pipe(
-                    Match.when({ dropped: true }, () => ({ held: '', said: [], values })),
-                    Match.when({ short: true }, ({ to: name }) => ({ held: `${name.slice(1)}${held.slice(1)}`, said: [], values: [] })),
-                    Match.when({ to: Match.nonEmptyString }, ({ to: name }) => ({ held: '', said: respelling(name, whole ? text.slice(spelled.length + 1) : held.slice(1)), values: [] })),
-                    Match.orElse(() => ({ held, said: whole ? [text] : [], values: [] })),
+};
+const respelled =
+    (rule: string, invocation: Invocation, path: readonly string[]) =>
+    (said: Tally): Tally => {
+        const placed = invocation.flags.flatMap((bound) => Option.toArray(Option.map(Option.all([bound.spelled.node, bound.spelled.text]), ([word, text]) => ({ bound, word, text }))));
+        const words = Array.isReadonlyArrayNonEmpty(placed) ? Array.groupWith(placed, (left, right) => Equal.equals(left.word, right.word)) : [];
+        const written = words.flatMap((group) => {
+            const { word, text } = Array.headNonEmpty(group);
+            const parts = group.map(({ bound }) => ({
+                bound,
+                dropped: named(said.drop)(bound),
+                gone: Array.getSomes(bound.values.map(({ node }) => node)),
+                value: Option.flatMap(
+                    Array.findFirst(bound.values, ({ node }) => Option.isNone(node)),
+                    ({ text: attached }) => attached,
+                ),
+                to: Array.findFirst(Record.toEntries(said.rename), ([from, name]) => (bound.flag.spellings.includes(from) && name !== bound.spelling ? Option.some(name) : Option.none())),
+            }));
+            const spelled = parts.map(({ bound, dropped, gone, value, to }) => {
+                const [name, held] = [Option.getOrElse(to, () => bound.spelling), Option.toArray(value)];
+                return Match.value({ dropped, letter: lettered.test(bound.spelling) && lettered.test(name), kept: Option.isNone(to), long: name.startsWith('--') }).pipe(
+                    Match.when({ dropped: true }, () => ({ letters: '', words: Array.empty<string>(), gone })),
+                    Match.when({ letter: true }, () => ({ letters: [name.slice(1), ...held].join(''), words: [], gone: [] })),
+                    Match.when({ kept: true }, () => ({ letters: '', words: [text], gone: [] })),
+                    Match.when({ long: true }, () => ({ letters: '', words: [[name, ...held].join('=')], gone: [] })),
+                    Match.orElse(() => ({ letters: '', words: [name, ...held], gone: [] })),
                 );
             });
-            const kept = parts.map(({ held }) => held).join('');
-            const result = [...(kept === '' ? [] : [`-${kept}`]), ...parts.flatMap(({ said }) => said)];
-            const target = Option.getOrElse(
-                Option.map(Array.last(parts.flatMap((part) => part.values)), (last) => [word, last] as const),
-                () => word,
-            );
-            return Array.match(result, {
-                onEmpty: () => [(editor: Editor) => editor.remove(target)],
-                onNonEmpty: (written) => (written.length === 1 && written[0] === text && target === word ? [] : [(editor: Editor) => editor.replace(target, written)]),
-            });
+            const cluster = spelled.map(({ letters }) => letters).join('');
+            const target = Option.match(Array.last(spelled.flatMap(({ gone }) => gone)), { onNone: () => word, onSome: (value) => [word, value] as const });
+            const worded = (editor: Editor) =>
+                Array.match([...(cluster === '' ? [] : [`-${cluster}`]), ...spelled.flatMap(({ words: spilled }) => spilled)], {
+                    onEmpty: () => editor.remove(target),
+                    onNonEmpty: (given) => editor.replace(target, given),
+                });
+            return parts.some(({ dropped, to }) => dropped || Option.isSome(to)) ? [worded] : [];
         });
-    const anchor = Option.flatMap(
-        Option.orElse(
-            Option.flatMap(Array.last(path), (last) => Array.findFirst(Array.drop(invocation.words, 1), (written) => Option.contains(written.text, last))),
-            () => Array.head(invocation.words),
-        ),
-        ({ node }) => node,
-    );
-    const ensured = wanted.ensure.filter(({ ensure, unless = [] }) => !invocation.flags.some(meets([Array.headNonEmpty(ensure), ...unless]))).flatMap(({ ensure }) => Option.toArray(Option.map(anchor, (word) => (editor: Editor) => editor.after(word, ensure))));
-    return [...words, ...ensured];
-};
-const settled = (verdicts: readonly Verdict[], invocation: Invocation, path: readonly string[]): readonly Settled[] => {
-    const wanted = verdicts.reduce<Wanted>(
-        (held, verdict) =>
-            Match.value(verdict).pipe(
-                Match.when({ drop: Match.defined }, ({ drop }) => ({ ...held, drop: [...held.drop, ...drop] })),
-                Match.when({ rename: Match.defined }, ({ rename }) => ({ ...held, rename: { ...held.rename, ...rename } })),
-                Match.when({ ensure: Match.defined }, (ensure) => ({ ...held, ensure: [...held.ensure, ensure] })),
-                Match.orElse((kept) => ({ ...held, kept: [...held.kept, kept] })),
+        const anchor = Option.flatMap(
+            Option.orElse(
+                Option.flatMap(Array.last(path), (last) => Array.findFirst(Array.drop(invocation.words, 1), (word) => word.spells(last))),
+                () => Array.head(invocation.words),
             ),
-        { kept: [], drop: [], rename: {}, ensure: [] },
+            ({ node }) => node,
+        );
+        const ensured = said.ensure.filter(({ ensure, unless = [] }) => !invocation.has(Array.headNonEmpty(ensure), ...unless)).flatMap(({ ensure }) => Option.toArray(anchor).map((word) => (editor: Editor) => editor.after(word, ensure)));
+        const edits = [...written, ...ensured];
+        return { ...said, drop: [], rename: {}, ensure: [], edits: [...said.edits, ...(Array.isReadonlyArrayNonEmpty(edits) ? [{ rule, edit: (editor: Editor) => edits.map((edit) => edit(editor)) }] : [])] };
+    };
+const programmed = (rule: string, { program, aliases = [], path = [], ...row }: Programmed): Judges['rounds'][number] => {
+    const [names, summed] = [new Set([program, ...aliases]), judging(rule)];
+    const selected = (invocation: Invocation) => {
+        const said = Option.isSome(invocation.usage) ? [...invocation.path.map(Option.some), ...invocation.operands.map(({ word }) => word.text)] : Array.drop(invocation.words, 1).map(({ text }) => text);
+        const running = Match.value(invocation.program).pipe(
+            Match.tag('External', 'Builtin', ({ name }) => names.has(name)),
+            Match.orElse(() => false),
+        );
+        return Option.liftPredicate(invocation.path.length < path.length ? path : invocation.path, () => running && path.every((part, at) => Option.contains(Option.flatten(Array.get(said, at)), part)));
+    };
+    const judge = Match.value(row).pipe(
+        Match.when({ judge: Predicate.isFunction }, (given) => given.judge),
+        Match.when({ refuse: Match.string }, ({ refuse, instruct, when = [], unless = [] }) => (invocation: Invocation, _: Call, at: readonly string[]) => {
+            const flags = Array.dedupe(invocation.flags.filter(named(when)).flatMap(({ spelled }) => Option.toArray(spelled.text)));
+            return (Array.isReadonlyArrayEmpty(when) || invocation.has(...when)) && !invocation.has(...unless) ? [{ refuse: `${[...Option.toArray(invocation.name), ...at, ...flags].join(' ')} ${refuse}.`, instruct }] : [];
+        }),
+        Match.orElse((respelling) => () => [respelling]),
     );
-    const edits = respelled(invocation, path, wanted);
-    return [...wanted.kept, ...(Array.isReadonlyArrayNonEmpty(edits) ? [{ edit: (editor: Editor) => edits.map((edit) => edit(editor)) }] : [])];
+    return ({ call, found }) =>
+        Effect.map(
+            Effect.forEach(
+                found.flatMap((invocation) => Option.toArray(Option.map(selected(invocation), (at) => ({ invocation, at })))),
+                ({ invocation, at }) =>
+                    Effect.map(
+                        summed(() => judge(invocation, call, at)),
+                        respelled(rule, invocation, at),
+                    ),
+            ),
+            tallied.combineAll,
+        );
 };
-const plain = (rule: Plain, invocation: Invocation, path: readonly string[]): readonly Settled[] =>
-    Match.value(rule).pipe(
-        Match.when({ refuse: Match.string }, ({ refuse, instruct, when, unless = [] }) => ((when === undefined || invocation.flags.some(meets(when))) && !invocation.flags.some(meets(unless)) ? [{ refuse: `${shown(invocation, path, when ?? [])} ${refuse}.`, instruct }] : [])),
-        Match.orElse((form) => settled([form], invocation, path)),
+const scripted = (rule: string, row: Scripted): Judges['rounds'][number] => {
+    const [judge, summed] = ['judge' in row ? row.judge : () => [row], judging(rule)];
+    return ({ call }) => summed(() => judge(call.script, call));
+};
+const acted = <K extends Other>(rule: string, row: Acted<K>): Judges['actions'][number] => {
+    const [is, summed] = [Action.$is(row.action), judging(rule)];
+    const judge = 'judge' in row ? (action: Extract<Action, { readonly _tag: K }>) => row.judge(action) : () => [row];
+    return (action) => (is(action) ? summed(() => judge(action)) : Effect.succeed(tallied.initialValue));
+};
+const compiled = (rule: string, row: NonNullable<Table[string]>): Judges =>
+    Match.value(row).pipe(
+        Match.when({ program: Match.string }, (given) => ({ heard: ['Shell' as const], rounds: [programmed(rule, given)], actions: [] })),
+        Match.when({ action: 'Shell' }, (given) => ({ heard: ['Shell' as const], rounds: [scripted(rule, given)], actions: [] })),
+        Match.orElse((given) => ({ heard: [given.action], rounds: [], actions: [acted(rule, given)] })),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Call, type Dialect, type Edit, type Editor, type Invocation, type Needs, type Note, plain, type Rule, type Run, type Script, type Settled, settled, type Table, Told, type Tool, type Used, type Verdicts };
+export { compiled, failure, type Judges, judges, moved, type Needs, type Round, type Table, type Tally, tallied };

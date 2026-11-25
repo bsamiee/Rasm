@@ -1,5 +1,6 @@
 import { Array, Effect, FileSystem, Glob, Option, Path, Struct } from 'effect';
 import { type Editor, type Invocation, nearest, type Script, type Table } from '#/rules/rule';
+import { unattended } from '#/rules/waits';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -31,7 +32,7 @@ const projects = Effect.fnUntraced(function* (folder: string) {
 
 const ghidra: Table = {
     'ghidra.heap': {
-        script: true,
+        action: 'Shell',
         judge: Effect.fnUntraced(function* (script, { shell }) {
             const all = (yield* script.invocations).flatMap(Struct.get('leaves'));
             const stmts = Array.dedupe(all.flatMap(({ node }) => Option.toArray(node)));
@@ -86,7 +87,7 @@ const ghidra: Table = {
         }),
     },
     'ghidra.concurrent': {
-        script: true,
+        action: 'Shell',
         judge: Effect.fnUntraced(function* (script, { shell }) {
             const invocations = yield* script.invocations;
             const all = invocations.flatMap(Struct.get('leaves'));
@@ -114,10 +115,9 @@ const ghidra: Table = {
     },
     'ghidra.long': {
         program: headless,
-        judge: (invocation, call) => {
+        judge: (invocation) => {
             const words = Option.getOrElse(Option.all(invocation.words.map(Struct.get('text'))), (): readonly string[] => []);
-            const long = invocation.has('-import') || words.some((word, at) => words[at - 1] === '-postScript' && word.endsWith('Serve.java'));
-            return call.run === 'foreground' && long ? [{ run: 'background' as const }] : [];
+            return invocation.has('-import') || words.some((word, at) => words[at - 1] === '-postScript' && word.endsWith('Serve.java')) ? [unattended] : [];
         },
     },
     'ghidra.copy': {
@@ -135,7 +135,7 @@ const ghidra: Table = {
         }),
     },
     'ghidra.lock': {
-        script: true,
+        action: 'Shell',
         judge: Effect.fnUntraced(function* (script) {
             const path = yield* Path.Path;
             const all = (yield* script.invocations).flatMap(Struct.get('leaves'));

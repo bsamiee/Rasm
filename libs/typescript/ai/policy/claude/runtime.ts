@@ -30,7 +30,14 @@ class Sliced extends Scheduler.MixedScheduler {
     }
 }
 
-class Dialects extends Context.Service<Dialects, { readonly dialect: Effect.Effect<Effect.Success<Probe>, Effect.Error<Probe> | PlatformError.PlatformError | CommandLine.CommandLineError> }>()('@rasm/policy/claude/runtime/Dialects') {}
+class Session extends Context.Service<
+    Session,
+    {
+        readonly shell: Effect.Effect<{ readonly dialect: Effect.Success<Probe>; readonly cwd: string }, Effect.Error<Probe> | PlatformError.PlatformError | CommandLine.CommandLineError>;
+        readonly resting: (agent: Option.Option<string>) => Effect.Effect<boolean>;
+        readonly told: (agent: Option.Option<string>, text: string) => Effect.Effect<void>;
+    }
+>()('@rasm/policy/claude/runtime/Session') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -198,15 +205,15 @@ function runtime($: EngineInterface) {
         Path.layer,
         Layer.succeed(Scheduler.Scheduler, new Sliced()),
     );
-    const host = Layer.effect(
+    const shells = Layer.effect(
         Shell,
         Effect.flatMap(
             Effect.promise(() => $.wasm.compile('./main.wasm')),
             (module) => Shell.make({ processor: getProcessor(module) }),
         ),
     ).pipe(Layer.provideMerge(platform));
-    const dialects = Layer.effect(
-        Dialects,
+    const session = Layer.effect(
+        Session,
         Effect.gen(function* () {
             const [shell, fs, processes, path] = yield* Effect.all([Shell, FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner, Path.Path]);
             const [environment, plugin] = yield* Effect.all([
@@ -241,9 +248,18 @@ function runtime($: EngineInterface) {
             });
             const listed = (directory: string) => Effect.orElseSucceed(Effect.tryPromise({ try: () => $.fs.list(directory), catch: failed('FileSystem', 'readDirectory', directory) }), () => []);
             return {
-                dialect: Effect.gen(function* () {
-                    const session = yield* Effect.promise(() => $.session.id());
-                    const [snapshots, scripts, launched] = yield* Effect.all([listed(path.join(folder, 'shell-snapshots')), listed(path.join(folder, 'session-env', session)), Effect.filter(Option.toArray(Record.get(environment, 'CLAUDE_ENV_FILE')), (file) => fs.exists(file))]);
+                resting: Option.match({
+                    onNone: () => Effect.succeed(true),
+                    onSome: (agent) =>
+                        Effect.map(
+                            Effect.promise(() => $.agent.list()),
+                            (agents) => !agents.some(({ id, status }) => id === agent && status === 'running'),
+                        ),
+                }),
+                told: (agent, text) => Effect.asVoid(Effect.promise((): Promise<unknown> => Option.match(agent, { onNone: () => $.prompt.submit({ text }), onSome: (agentId) => $.session.send({ to: { agentId }, text }) }))),
+                shell: Effect.gen(function* () {
+                    const [id, cwd] = yield* Effect.promise(() => Promise.all([$.session.id(), $.session.cwd()]));
+                    const [snapshots, scripts, launched] = yield* Effect.all([listed(path.join(folder, 'shell-snapshots')), listed(path.join(folder, 'session-env', id)), Effect.filter(Option.toArray(Record.get(environment, 'CLAUDE_ENV_FILE')), (file) => fs.exists(file))]);
                     const snapshot = Array.match(
                         snapshots.filter(({ kind, name }) => kind === 'file' && name.startsWith(`snapshot-${path.basename(binary)}-`)),
                         {
@@ -252,16 +268,16 @@ function runtime($: EngineInterface) {
                         },
                     );
                     const hooks = scripts.filter(({ kind, name }) => kind === 'file' && hooked.test(name)).toSorted((left, right) => named.compare(left.name, right.name));
-                    const sources = [...Option.toArray(Option.map(snapshot, ({ name }) => path.join(folder, 'shell-snapshots', name))), ...launched, ...hooks.map(({ name }) => path.join(folder, 'session-env', session, name))];
+                    const sources = [...Option.toArray(Option.map(snapshot, ({ name }) => path.join(folder, 'shell-snapshots', name))), ...launched, ...hooks.map(({ name }) => path.join(folder, 'session-env', id, name))];
                     const quoted = yield* Effect.forEach(sources, (source) => Effect.fromResult(CommandLine.quote(source)));
-                    return yield* Cache.get(probes, { sourced: quoted.map((word) => `. ${word}`).join('\n'), stamps: hooks.map(({ mtimeMs }) => mtimeMs) });
+                    return { dialect: yield* Cache.get(probes, { sourced: quoted.map((word) => `. ${word}`).join('\n'), stamps: hooks.map(({ mtimeMs }) => mtimeMs) }), cwd };
                 }),
             };
         }),
     );
-    return ManagedRuntime.make(dialects.pipe(Layer.provideMerge(host)));
+    return ManagedRuntime.make(session.pipe(Layer.provideMerge(shells)));
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Dialects, runtime };
+export { runtime, Session };

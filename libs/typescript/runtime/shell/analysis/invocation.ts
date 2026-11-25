@@ -50,7 +50,7 @@ class Invocation extends Data.Class<{
     readonly assigns: readonly { readonly name: string; readonly value: Written }[];
     readonly usage: Option.Option<Usage>;
     readonly path: readonly string[];
-    readonly flags: readonly { readonly flag: Flag; readonly spelled: Written; readonly values: readonly Written[] }[];
+    readonly flags: readonly { readonly flag: Flag; readonly spelling: string; readonly spelled: Written; readonly values: readonly Written[] }[];
     readonly operands: readonly { readonly word: Written; readonly roles: Usage['values'][string]['roles'] }[];
     readonly rest: readonly Written[];
     readonly reads: readonly Field[];

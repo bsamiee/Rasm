@@ -5,7 +5,7 @@ import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Table = typeof Policy extends new (...tables: infer T extends readonly unknown[]) => unknown ? T[number] : never;
-type Whole = Extract<NonNullable<Table[string]>, { readonly script: true }>;
+type Whole = Extract<NonNullable<Table[string]>, { readonly action: 'Shell'; readonly judge: unknown }>;
 type Script = Parameters<Whole['judge']>[0];
 type Call = Parameters<Whole['judge']>[1];
 type Invocation = Effect.Success<Script['invocations']>[number];
