@@ -4,7 +4,7 @@ import { Unmatched } from '@rasm/search';
 import { Settings, type Source } from '@rasm/typography';
 import { drawsKashida, Kerning, Quran, Symbols, TATWEEL } from '@rasm/typography/arabic';
 import { expandToWords, Face, Justification, ShapedText, Span } from '@rasm/typography/shaping';
-import { Array, Cause, Context, Effect, Equivalence, FileSystem, Number, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Context, Effect, Equivalence, FileSystem, Number, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 
@@ -12,11 +12,11 @@ import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 
 const SAME_FACE = Equivalence.Struct({ font: Equivalence.String, axes: Array.makeEquivalence(Equivalence.Number) });
 const MODES = { kern: { restores: false, shapes: true }, replace: { restores: true, shapes: true }, restore: { restores: true, shapes: false } } as const;
-const FONT = Schema.String.annotate({ description: 'Application font, PostScript, or full name, family name selects its Regular or first face' });
-const PATH = Schema.String.check(Schema.isStartingWith('/'));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const FONT = Schema.String.annotate({ description: 'Application font, PostScript, or full name, family name selects its Regular or first face' });
+const PATH = Schema.String.check(Schema.isStartingWith('/'));
 const Specimen = Schema.Struct({
     face: Face,
     shaped: Schema.OptionFromOptionalKey(Schema.Union([ShapedText, Justification]).annotate({ description: 'Em positions, not application composition or document coordinates, justified with width, absent with no text' })),
@@ -68,15 +68,6 @@ const Tools = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const grouped = (runs: readonly { readonly text: string; readonly font: string; readonly axes: readonly number[] }[], first: number, last: number) => {
-    const placed = Span.styled(runs, first, last);
-    return Array.map(Array.dedupeWith(placed, SAME_FACE), (span) => ({ span, group: placed.filter((each) => SAME_FACE(span, each)) }));
-};
-const placements = (faces: readonly { readonly face: Face; readonly group: readonly { readonly text: string; readonly start: number }[] }[]) =>
-    Array.sort(
-        Array.flatMap(faces, ({ face, group }) => Array.map(group, (span) => ({ span, face }))),
-        Order.mapInput(Number.Order, ({ span }: { readonly span: { readonly start: number } }) => span.start),
-    );
 const specimen = Effect.fnUntraced(function* (data: Source, { coordinates, variations, size, width, settings: given, text, ...run }: Tool.Parameters<typeof Tools.font>) {
     const face = yield* Face.open(data, { coordinates, variations, size });
     const settings = yield* Settings.merge(Settings.make({}), Struct.evolve(given, { features: (features = {}) => face.layout.exclusive(features) }));
@@ -92,24 +83,26 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
     const serving = Link.serves(Typesetting.requests.keys());
     const client = links.call(serving, 'linked application serving typesetting');
     const visible = Context.make(Server.Visible, Effect.map(links.peers, Array.some(serving)));
-    const read = ({ file, postscriptName }: { readonly file: string; readonly postscriptName: Option.Option<string> }) => Effect.map(files.readFile(file), (data) => ({ data, postscriptName }));
     const sourced = Effect.fnUntraced(function* (name: string, characters: string) {
         const file = yield* files.makeTempFileScoped({ suffix: '.otf' });
         const { font, source } = yield* Effect.flatMap(client, (linked) => linked('font', { name, text: characters, file }));
-        return { font, source: yield* Effect.transposeOption(Option.map(source, read)) };
+        return { font, source: yield* Effect.transposeOption(Option.map(source, ({ file: found, postscriptName }) => files.readFile(found).pipe(Effect.bindTo('data'), Effect.map(Struct.assign({ postscriptName }))))) };
     }, Effect.scoped);
     const faced = Effect.fnUntraced(function* (name: string, characters: string, instance?: Parameters<typeof Face.open>[1]) {
         const { source } = yield* sourced(name, characters);
         return yield* Face.open(yield* Effect.fromOption(source, () => Unmatched.of({ subject: 'font file', query: Option.some(name) })), instance);
     });
-    const styled = (runs: Parameters<typeof grouped>[0], first: number, last: number, extra: string) =>
-        Effect.forEach(
-            grouped(runs, first, last),
-            Effect.fnUntraced(function* ({ span, group }) {
+    const styled = (runs: Parameters<typeof Span.styled>[0], first: number, last: number, extra: string) => {
+        const placed = Span.styled(runs, first, last);
+        return Effect.forEach(
+            Array.dedupeWith(placed, SAME_FACE),
+            Effect.fnUntraced(function* (span: (typeof placed)[number]) {
+                const group = placed.filter((each) => SAME_FACE(span, each));
                 const face = yield* faced(span.font, [...group.map(Struct.get('text')), extra].join(''), Face.Instance.make({ coordinates: span.axes }));
                 return { font: span.font, face, group };
             }),
         );
+    };
     yield* Server.registerTool(
         Tools.font.annotateMerge(visible),
         Effect.fnUntraced(function* (given) {
@@ -129,9 +122,14 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
             const [first, last] = expandToWords(text, selection.start, selection.start + selection.length);
             const { restores, shapes } = MODES[Option.getOrElse(mode, () => (selection.length === text.length ? 'kern' : 'replace'))];
             const restore = Option.liftPredicate({ index: first, length: last - first }, ({ length }) => restores && length > 0);
-            const ordered = placements(!shapes || first === last ? [] : yield* styled(selection.runs, first, last, ''));
+            const faces = !shapes || first === last ? [] : yield* styled(selection.runs, first, last, '');
+            const ordered = Array.sortWith(
+                Array.flatMap(faces, ({ face, group }) => Array.cartesian([face], group)),
+                ([, span]: readonly [Face, { readonly start: number }]) => span.start,
+                Number.Order,
+            );
             const rows = yield* Stream.fromIterable(ordered).pipe(
-                Stream.map(({ span, face }) => Array.map(rules.kerns(face, span.text), Struct.evolve({ index: Number.sum(span.start) }))),
+                Stream.map(([face, span]) => Array.map(rules.kerns(face, span.text), Struct.evolve({ index: Number.sum(span.start) }))),
                 Server.progress((_, at) => ({ progress: at + 1, total: ordered.length })),
                 Stream.runCollect,
             );

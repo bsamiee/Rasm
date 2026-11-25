@@ -7,8 +7,10 @@ import { registerTemplate, Server } from '@rasm/mcp';
 import { Output } from '@rasm/mcp/node';
 import { Declaration } from '@rasm/object-model';
 import { declared, documents, manifest, omv } from '@rasm/object-model/node';
+import { Unmatched } from '@rasm/search';
+import { HOSTS } from '@rasm/uxp';
 import base from '@rasm/uxp/tsconfig.base.json' with { type: 'json' };
-import { Array, Cause, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Order, Path, Record, Schema, Scope, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Order, Path, Record, Schema, Scope, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema } from 'effect/ai';
 import { Inventory } from '#/applications';
 
@@ -20,16 +22,15 @@ type Finding = Effect.Success<ReturnType<Effect.Success<ReturnType<Effect.Succes
 
 const UXP = { types: ['@adobe/cc-ext-uxp-types/uxp'], lib: base.compilerOptions.lib.filter((name) => name !== 'dom') };
 const CHECKED = {
-    photoshop: { product: 'PHSP', root: '@types/photoshop', ...UXP, preamble: "declare function require(id: 'photoshop'): typeof import('photoshop');\ndeclare function resolve(specifier: string): unknown;", enumeration: Option.none<string>() },
-    premierepro: { product: 'PPRO', root: '@adobe/premierepro', ...UXP, preamble: "declare function require(id: 'premierepro'): import('@adobe/premierepro').premierepro;", enumeration: Option.none<string>() },
-    indesign: { product: 'IDSN', root: 'indesign-uxp-types/flat', ...UXP, types: [...UXP.types, 'indesign-uxp-types'], preamble: "declare function require(id: 'indesign'): typeof import('indesign');", enumeration: Option.some('Enumeration') },
+    photoshop: { product: HOSTS.PS.product, root: '@types/photoshop', ...UXP, preamble: "declare function require(id: 'photoshop'): typeof import('photoshop');\ndeclare function resolve(specifier: string): unknown;", enumeration: Option.none<string>() },
+    premierepro: { product: HOSTS.premierepro.product, root: '@adobe/premierepro', ...UXP, preamble: "declare function require(id: 'premierepro'): import('@adobe/premierepro').premierepro;", enumeration: Option.none<string>() },
+    indesign: { product: HOSTS.ID.product, root: 'indesign-uxp-types/flat', ...UXP, types: [...UXP.types, 'indesign-uxp-types'], preamble: "declare function require(id: 'indesign'): typeof import('indesign');", enumeration: Option.some('Enumeration') },
 } as const;
-const PAGED = { illustrator: 'ILST', aftereffects: 'AEFT', mediaencoder: 'AME' } as const;
 const PRODUCTS = Record.fromIterableWith(Record.toEntries(CHECKED), ([host, { product }]) => [product, host] as const);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Host = Schema.Literals([...Record.keys(CHECKED), ...Record.keys(PAGED)]).annotate({ description: 'Host module a UXP script requires' });
+const Host = Schema.Literals([...Record.keys(CHECKED), 'illustrator', 'aftereffects', 'mediaencoder']).annotate({ description: 'Host module a UXP script requires' });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -41,14 +42,8 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
         const compiled = yield* Effect.all(Record.map(CHECKED, (row) => Effect.cached(Effect.flatMap(opened, (open) => open(Struct.omit(row, ['product']))))));
         const installed = Effect.gen(function* () {
             const dictionaries = '/Library/Application Support/Adobe/Scripting Dictionaries CC';
-            const folders = yield* files.readDirectory(dictionaries);
-            const folder = yield* Effect.fromOption(
-                Array.match(
-                    folders.filter((name) => name.startsWith('Illustrator')),
-                    { onEmpty: Option.none, onNonEmpty: (named) => Option.some(Array.max(named, Order.String)) },
-                ),
-                () => new Cause.NoSuchElementError(`No Illustrator folder under ${dictionaries}, which the release installer writes`),
-            );
+            const newest = Array.match(Array.filter(yield* files.readDirectory(dictionaries), String.startsWith('Illustrator')), { onEmpty: Option.none, onNonEmpty: (named) => Option.some(Array.max(named, Order.String)) });
+            const folder = yield* Effect.fromOption(newest, () => new Cause.NoSuchElementError(`No Illustrator folder under ${dictionaries}, which the release installer writes`));
             return yield* files.readFileString(join(dictionaries, folder, 'omv.xml'));
         });
         const [whole, partial] = yield* Effect.all([
@@ -65,17 +60,16 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
         yield* Effect.forkScoped(Effect.ignore(illustrator));
         const mediaencoder = Effect.gen(function* () {
             const { url } = yield* Effect.fromOption(
-                Array.findFirst(yield* SubscriptionRef.get(catalog), (row) => row.product === PAGED.mediaencoder),
-                () => new Cause.NoSuchElementError(`No installed application with product code ${PAGED.mediaencoder}`),
+                Array.findFirst(yield* SubscriptionRef.get(catalog), (row) => row.product === HOSTS.ame.product),
+                () => new Cause.NoSuchElementError(`No installed application with product code ${HOSTS.ame.product}`),
             );
             return yield* manifest(yield* files.readFileString(yield* posix.fromFileUrl(new URL('Contents/Resources/json/ScriptingAPIManifest.json', url))));
         });
         const paged = { illustrator, ...(yield* Effect.all({ mediaencoder: Effect.cached(mediaencoder), aftereffects: Effect.cached(documents(files.stream(join(import.meta.dirname, 'after-effects.jsonl')))) })) };
-        const resolved: Record.ReadonlyRecord<keyof typeof CHECKED | keyof typeof PAGED, Effect.Effect<Effect.Success<typeof paged.illustrator>, Effect.Error<(typeof paged)[keyof typeof paged]>>> = { ...Record.map(compiled, Effect.flatMap(Struct.get('catalog'))), ...paged };
+        const resolved: Record.ReadonlyRecord<typeof Host.Type, Effect.Effect<Effect.Success<typeof paged.illustrator>, Effect.Error<(typeof paged)[keyof typeof paged]>>> = { ...Record.map(compiled, Effect.flatMap(Struct.get('catalog'))), ...paged };
         const refused = Effect.fnUntraced(function* (row: Application, line: (at: number) => Option.Option<number>, { host, listed }: { readonly host: keyof typeof CHECKED; readonly listed: Array.NonEmptyReadonlyArray<Finding> }) {
             const { index } = yield* resolved[host];
-            const known = new Set([...index.classes, ...index.enumerations]);
-            const named = Array.dedupe(Array.getSomes(Array.map(listed, Struct.get('declared')))).filter((name) => known.has(name));
+            const named = Array.intersection(Array.dedupe(Array.getSomes(Array.map(listed, Struct.get('declared')))), [...index.classes, ...index.enumerations]);
             const linked = [...Array.map(named, (name) => ({ uri: server.uri(`object-model/${host}/${name}`), name: `${host} ${name}`, description: `Declaration of ${name}` })), { uri: server.uri(`object-model/${host}`), name: `${host} object model`, description: 'Every class and enumeration the declarations state' }];
             const { add } = yield* Server.ToolCall;
             yield* Effect.forEach(linked, (link) => add(McpSchema.ResourceLink.make({ ...link, mimeType: 'application/json' })), { discard: true });
@@ -89,7 +83,7 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
             const findings = yield* Effect.transposeOption(Option.map(found, (source) => source.check(program)));
             return yield* Option.match(Option.all({ host, listed: Option.flatMap(findings, Option.liftPredicate(Array.isReadonlyArrayNonEmpty)) }), { onNone: () => Effect.void, onSome: (refusal) => refused(row, line, refusal) });
         });
-        return { index: (host: keyof typeof resolved) => Effect.map(resolved[host], Struct.get('index')), page: (host: keyof typeof resolved, name: string) => Effect.flatMap(resolved[host], (held) => held.page(name)), check };
+        return { index: (host: typeof Host.Type) => Effect.map(resolved[host], Struct.get('index')), page: (host: typeof Host.Type, name: string) => Effect.flatMap(resolved[host], (held) => held.page(name)), check };
     }),
 }) {
     static readonly layer = Layer.effect(Declarations, Declarations.make);
@@ -101,10 +95,10 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
 
 const declarations = Effect.gen(function* () {
     const { index, page } = yield* Declarations;
-    const names = (input: string, host: Parameters<typeof index>[0] | undefined) =>
+    const names = (input: string, host: typeof Host.Type | undefined) =>
         UndefinedOr.match(host, {
             onUndefined: () => Effect.succeed(Array.empty<string>()),
-            onDefined: (given) => Effect.map(index(given), ({ classes, enumerations }) => [...classes, ...enumerations].filter((name) => name.toLowerCase().startsWith(input.toLowerCase()))),
+            onDefined: (given) => Effect.map(index(given), ({ classes, enumerations }) => [...Unmatched.rank(input, [...classes, ...enumerations])]),
         });
     yield* registerTemplate`object-model/${McpSchema.param('host', Host)}`({
         name: 'object-model',
