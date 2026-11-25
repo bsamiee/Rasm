@@ -4,7 +4,7 @@ import { Digits } from '#/digits';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const COLLATOR = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'accent' });
+const COLLATOR = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'base', ignorePunctuation: true });
 const LISTING = new Intl.ListFormat('en');
 const FUZZY = new UFuzzy({
     intraMode: 1,
@@ -14,7 +14,6 @@ const FUZZY = new UFuzzy({
     intraSplit: String.raw`\p{Ll}\p{Lu}`,
     intraBound: String.raw`\p{L}\p{Nd}|\p{Nd}\p{L}|\p{Ll}\p{Lu}`,
     intraChars: String.raw`[\p{L}\p{Nd}']`,
-    intraContr: String.raw`'\p{L}{1,2}\b`,
 });
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -27,12 +26,12 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
 }) {
     static readonly named = Equivalence.make((left: string, right: string) => COLLATOR.compare(left, right) === 0);
     static readonly rank = (query: string, candidates: readonly string[]): readonly string[] => {
-        const [matches, info, order] = FUZZY.search(candidates.map(Digits.fold), Digits.fold(query), 0, Number.POSITIVE_INFINITY);
+        const [matches, info, order] = FUZZY.search(...Array.unappend(Array.map(Array.append(candidates, query), (text) => Digits.fold(text.normalize('NFKD').replaceAll(/\p{M}/gu, '')))), 0, Number.POSITIVE_INFINITY);
         return matches === null ? candidates : (info === null ? matches : order.map((position) => Array.getUnsafe(info.idx, position))).map((index) => Array.getUnsafe(candidates, index));
     };
     static readonly of = ({ subject, query = Option.none(), candidates = [] }: { readonly subject: string; readonly query?: Option.Option<string>; readonly candidates?: readonly string[] }) => {
         const limit = 100;
-        const refused = ['No', subject, ...Option.toArray(Option.map(query, (wanted) => `matching ${wanted}`))].join(' ');
+        const refused = Option.match(query, { onNone: () => `No ${subject}`, onSome: (wanted) => `No ${subject} matching ${wanted}` });
         const displayed = pipe(
             query,
             Option.map((wanted) => Unmatched.rank(wanted, candidates)),
