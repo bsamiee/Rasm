@@ -8,9 +8,9 @@ type Field = Invocation['deletes'][number];
 type Bound = Invocation['flags'][number];
 type Origin = Extract<Field['pieces'][number], { readonly _tag: 'Unknown' }>['origin'];
 type Form = readonly [RegExp, (groups: Readonly<Record<string, string | undefined>>, invocation: Invocation) => Option.Option<Array.NonEmptyReadonlyArray<string>>];
-interface Refusal {
-    readonly refuse: string;
-    readonly instruct: string;
+interface Denial {
+    readonly deny: string;
+    readonly advice: string;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -101,15 +101,15 @@ const roots = (invocation: Invocation, cwd: string) => {
     const given = invocation.reads.flatMap(({ text }) => Option.toArray(text));
     return Array.isReadonlyArrayEmpty(given) ? [cwd] : given;
 };
-const reasons = (invocation: Invocation, walker: Option.Option<Invocation>, cwd: string): readonly Refusal[] => {
+const reasons = (invocation: Invocation, walker: Option.Option<Invocation>, cwd: string): readonly Denial[] => {
     const subject = invocation.label;
     const deep = invocation.has('-r', '-R', '--recursive') || invocation.runs('rimraf', 'trash');
     const walking = invocation.runs(...walkers);
     const swept = Option.toArray(Option.filter(walker, sweeps)).flatMap((held) =>
         roots(held, cwd).flatMap((root) =>
             Match.value({ scratch: scratchpad.test(root), covering: covers(root, cwd) }).pipe(
-                Match.when({ scratch: true }, () => [{ refuse: `${held.label} ${root} runs ${subject} on the scratchpad the session and every subagent share.`, instruct: 'Delete only the subfolder you made, by name.' }]),
-                Match.when({ covering: true }, () => [{ refuse: `${held.label} ${root} runs ${subject} on everything under it.`, instruct: 'Add a pattern that selects only what to delete.' }]),
+                Match.when({ scratch: true }, () => [{ deny: `${held.label} ${root} runs ${subject} on the scratchpad the session and every subagent share.`, advice: 'Delete only the subfolder you made, by name.' }]),
+                Match.when({ covering: true }, () => [{ deny: `${held.label} ${root} runs ${subject} on everything under it.`, advice: 'Add a pattern that selects only what to delete.' }]),
                 Match.orElse(() => []),
             ),
         ),
@@ -118,7 +118,7 @@ const reasons = (invocation: Invocation, walker: Option.Option<Invocation>, cwd:
         .flatMap(({ cmd }) => (cmd?.type === 'CallExpr' ? cmd.args.slice(1).map(literal) : []))
         .filter((text) => globbed.test(text) && !lettered.test(text.slice(text.lastIndexOf('/', text.search(globbed)) + 1)));
     const emptied = deep && invocation.runs(...removers) ? globs.filter((text) => covers(`${cwd}/${text.slice(0, text.lastIndexOf('/', text.search(globbed)) + 1)}`.replaceAll(/\/(?:\.\/)+/gu, '/'), cwd)) : [];
-    const judged = (field: Field): readonly Refusal[] => {
+    const judged = (field: Field): readonly Denial[] => {
         const origins = field.pieces.flatMap((piece) => (piece._tag === 'Unknown' ? [piece.origin._tag] : []));
         const folder = Option.getOrElse(field.text, () => field.prefix.slice(0, field.prefix.lastIndexOf('/'))) || '/';
         const unnamed = Option.isSome(field.text) || !lettered.test(shown(field).slice(field.prefix.lastIndexOf('/') + 1));
@@ -126,19 +126,19 @@ const reasons = (invocation: Invocation, walker: Option.Option<Invocation>, cwd:
         return Match.value({ fed: origins.includes('Input'), fresh: fresh(field), later: origins.length > 0, scratch: (unnamed && scratchpad.test(folder)) || (wild && sessions.test(folder)), covering: unnamed && covers(folder, cwd) }).pipe(
             Match.when({ fed: true }, () => swept),
             Match.when({ fresh: true }, () => []),
-            Match.when({ later: true }, () => (deep && covers(folder, cwd) ? [{ refuse: `${subject} ${shown(field)} deletes a path that expands only when it runs.`, instruct: 'Pass the path literally.' }] : [])),
-            Match.when({ scratch: true }, () => [{ refuse: `${subject} ${folder} empties the scratchpad the session and every subagent share.`, instruct: 'Delete only the subfolder you made, by name.' }]),
+            Match.when({ later: true }, () => (deep && covers(folder, cwd) ? [{ deny: `${subject} ${shown(field)} deletes a path that expands only when it runs.`, advice: 'Pass the path literally.' }] : [])),
+            Match.when({ scratch: true }, () => [{ deny: `${subject} ${folder} empties the scratchpad the session and every subagent share.`, advice: 'Delete only the subfolder you made, by name.' }]),
             Match.when({ covering: true }, () => [
-                walking ? { refuse: `${subject} ${folder} deletes everything under the working folder.`, instruct: 'Add a -name pattern that selects only what to delete.' } : { refuse: `${subject} ${folder} ${folder === cwd ? 'is' : 'holds'} the working folder.`, instruct: 'Name each path you made, in full.' },
+                walking ? { deny: `${subject} ${folder} deletes everything under the working folder.`, advice: 'Add a -name pattern that selects only what to delete.' } : { deny: `${subject} ${folder} ${folder === cwd ? 'is' : 'holds'} the working folder.`, advice: 'Name each path you made, in full.' },
             ]),
             Match.orElse(() => []),
         );
     };
     return walking && !sweeps(invocation)
         ? []
-        : [...emptied.map((text) => ({ refuse: `${subject} ${text} empties the working folder ${cwd}.`, instruct: 'Name each path you made, in full.' })), ...invocation.deletes.flatMap(judged), ...(invocation.runs(...removers) && Array.isReadonlyArrayEmpty(invocation.deletes) ? swept : [])];
+        : [...emptied.map((text) => ({ deny: `${subject} ${text} empties the working folder ${cwd}.`, advice: 'Name each path you made, in full.' })), ...invocation.deletes.flatMap(judged), ...(invocation.runs(...removers) && Array.isReadonlyArrayEmpty(invocation.deletes) ? swept : [])];
 };
-const guarded = (invocations: readonly Invocation[], walker: Option.Option<Invocation>, cwd: string): readonly Refusal[] =>
+const guarded = (invocations: readonly Invocation[], walker: Option.Option<Invocation>, cwd: string): readonly Denial[] =>
     invocations.flatMap((invocation) => {
         const within = invocation.runs(...walkers) ? Option.some(invocation) : walker;
         return [...reasons(invocation, walker, cwd), ...guarded(invocation.inner, within, cwd)];
@@ -199,7 +199,7 @@ const files: Table = {
     'fd.batched': {
         program: 'fd',
         aliases: ['fdfind'],
-        judge: (invocation) =>
+        decide: (invocation) =>
             invocation.flags
                 .filter(({ flag }) => flag.spellings.includes('--exec'))
                 .flatMap(({ spelled, values }): readonly Verdict[] => {
@@ -211,7 +211,7 @@ const files: Table = {
                         Option.filter(spelled.node, () => alike),
                         {
                             onSome: (word) => [{ edit: (editor: Editor) => [editor.replace(word, Array.of(batch))] }],
-                            onNone: () => [{ refuse: `fd -x ${program} starts one process per search result.`, instruct: 'Pass -X for a command taking every path in one run.' }],
+                            onNone: () => [{ deny: `fd -x ${program} starts one process per search result.`, advice: 'Pass -X for a command taking every path in one run.' }],
                         },
                     );
                 }),
@@ -219,7 +219,7 @@ const files: Table = {
     'find.batched': {
         program: 'find',
         aliases: ['gfind'],
-        judge: (invocation) =>
+        decide: (invocation) =>
             invocation.flags
                 .filter(({ flag }) => flag.spellings.includes('-exec') || flag.spellings.includes('-execdir'))
                 .flatMap(({ spelled, values }): readonly Verdict[] => {
@@ -232,7 +232,7 @@ const files: Table = {
                     );
                     return Match.value({ batched: Option.getOrUndefined(batched), ending: Option.isSome(ending) }).pipe(
                         Match.when({ batched: Match.defined }, ({ batched: word }) => [{ edit: (editor: Editor) => [editor.replace(word, Array.of('+'))] }]),
-                        Match.when({ ending: true }, () => [{ refuse: `find -exec ${program} starts one process per result.`, instruct: 'End -exec with {} + for a command taking every path in one run.' }]),
+                        Match.when({ ending: true }, () => [{ deny: `find -exec ${program} starts one process per result.`, advice: 'End -exec with {} + for a command taking every path in one run.' }]),
                         Match.orElse(() => []),
                     );
                 }),
@@ -240,7 +240,7 @@ const files: Table = {
     'find.fd': {
         program: 'find',
         aliases: ['gfind'],
-        judge: Effect.fnUntraced(function* (invocation, { script }) {
+        decide: Effect.fnUntraced(function* (invocation, { script }) {
             const consumed = (yield* script.invocations).flatMap(Struct.get('leaves')).some((next) => next.runs('xargs') && feeds(invocation, next));
             const ignored = invocation.flags.map(({ flag, values }) => flag.spellings.includes('-path') && values.every((value) => value.test(modules.path)));
             const pruned = invocation.flags.flatMap(({ flag }, at) => (flag.spellings.includes('-not') && ignored[at + 1] === true ? [at, at + 1] : []));
@@ -259,7 +259,7 @@ const files: Table = {
     },
     'grep.rg': {
         program: 'grep',
-        judge: Effect.fnUntraced(function* (invocation, { cwd }) {
+        decide: Effect.fnUntraced(function* (invocation, { cwd }) {
             const fs = yield* FileSystem.FileSystem;
             const listed = yield* Effect.orElseSucceed(fs.readDirectory(cwd), Array.empty<string>);
             const carried = invocation.flags.flatMap((bound) => {
@@ -292,7 +292,7 @@ const files: Table = {
     'search.ignored': {
         program: 'fd',
         aliases: ['fdfind', 'rg'],
-        judge: Effect.fnUntraced(function* (invocation, call) {
+        decide: Effect.fnUntraced(function* (invocation, call) {
             const { root, ignored } = yield* ignoring(invocation, call);
             const excluded = invocation.flags.filter(({ flag, values }) => flag.spellings.some((spelling) => spelling === '--exclude' || spelling === '--glob' || spelling === '--iglob') && values.every((value) => value.test(modules.only)));
             const removed = excluded.flatMap(({ spelled, values }) => {
@@ -308,7 +308,7 @@ const files: Table = {
     },
     'grep.ignored': {
         program: 'grep',
-        judge: Effect.fnUntraced(function* (grep, call) {
+        decide: Effect.fnUntraced(function* (grep, call) {
             const invocations = yield* call.script.invocations;
             const search = Array.findFirst(invocations.flatMap(Struct.get('leaves')), (held) => held.runs('fd', 'fdfind', 'rg') && feeds(held, grep));
             const only = grep.has('--invert-match') && grep.flags.length === 1 && Option.exists(grep.operand(), (pattern) => modules.only.test(pattern));
@@ -324,7 +324,7 @@ const files: Table = {
     },
     'walk.wide': {
         action: 'Shell',
-        judge: Effect.fnUntraced(function* (script) {
+        decide: Effect.fnUntraced(function* (script) {
             const home = script.dialect.environment['HOME'] ?? '/';
             const walked = (yield* script.invocations).flatMap(Struct.get('leaves')).flatMap((invocation) => {
                 const depths = invocation.values('--max-depth', '-maxdepth').map((value) => Number(Option.getOrUndefined(value.text) ?? 'NaN'));
@@ -332,13 +332,13 @@ const files: Table = {
                 const trees = invocation.reads.filter(({ pieces }) => pieces.at(-1)?._tag === 'Wild' && shown({ pieces: pieces.slice(-1) }) === '/**').map(({ prefix }) => prefix.replace(/\/+$/u, '') || '/');
                 return bounded ? [] : trees.filter((folder) => covers(folder, home)).map((folder) => `${invocation.label} walks ${folder}, which holds the whole home folder.`);
             });
-            return Array.dedupe(walked).map((refuse) => ({ refuse, instruct: 'Pass a project folder, or a depth of 2 at most.' }));
+            return Array.dedupe(walked).map((deny) => ({ deny, advice: 'Pass a project folder, or a depth of 2 at most.' }));
         }),
     },
-    'removal.guarded': { action: 'Shell', judge: (script, { cwd }) => Effect.map(script.invocations, (invocations) => guarded(invocations, Option.none(), cwd)) },
+    'removal.guarded': { action: 'Shell', decide: (script, { cwd }) => Effect.map(script.invocations, (invocations) => guarded(invocations, Option.none(), cwd)) },
     'removal.fed': {
         program: 'xargs',
-        judge: Effect.fnUntraced(function* (xargs, { script, shell }) {
+        decide: Effect.fnUntraced(function* (xargs, { script, shell }) {
             const fs = yield* FileSystem.FileSystem;
             const invocations = yield* script.invocations;
             const removal = Option.filter(Array.head(xargs.inner), (inner) => inner.runs(...removers));
@@ -362,11 +362,11 @@ const files: Table = {
                 Match.when({ walked: Match.defined }, ({ walked: [[words, batch, target], stmt] }) => [{ edit: (editor: Editor) => [editor.replace(target, Array.appendAll(words, batch)), editor.remove(stmt)] }]),
                 Match.when({ deep: true }, () => [
                     {
-                        refuse: `xargs ${Option.getOrElse(
+                        deny: `xargs ${Option.getOrElse(
                             Option.map(removal, ({ label }) => label),
                             () => 'rm',
                         )} -r deletes paths it reads from standard input, which the hook cannot judge.`,
-                        instruct: 'Run find <folder> -name <pattern> -exec rm -r {} +, or name each path to rm.',
+                        advice: 'Run find <folder> -name <pattern> -exec rm -r {} +, or name each path to rm.',
                     },
                 ]),
                 Match.orElse(() => []),
@@ -375,7 +375,7 @@ const files: Table = {
     },
     'stdin.empty': {
         action: 'Shell',
-        judge: Effect.fnUntraced(function* (script) {
+        decide: Effect.fnUntraced(function* (script) {
             const invocations = yield* script.invocations;
             const empty = invocations.filter(
                 (invocation) => reading(invocation) && invocation.stdin._tag === 'Inherited' && Array.isReadonlyArrayEmpty(misread(invocation)) && !(invocation.runs('read') && invocation.has('-t')) && !(invocation.runs('awk') && coded(invocation).every((word) => word.test(/^\s*BEGIN\s*\{[\s\S]*\}\s*$/u))),
@@ -384,7 +384,7 @@ const files: Table = {
                 Match.value({ span: Option.getOrUndefined(invocation.span), stmt: Option.getOrUndefined(invocation.node), nested: Option.isSome(invocation.stage) || invocation.within.length > 0, listed: invocations.length > 1 }).pipe(
                     Match.when({ span: Match.defined, nested: true }, ({ span: words }) => ({ edit: (editor: Editor) => [editor.replace(words, Array.of(':'))] })),
                     Match.when({ stmt: Match.defined, listed: true, nested: false }, ({ stmt: held }) => ({ edit: (editor: Editor) => [editor.remove(held)] })),
-                    Match.orElse(() => ({ refuse: `${invocation.label} reads standard input, which this call leaves empty.`, instruct: 'Name the file it should read, or pipe or redirect its input.' })),
+                    Match.orElse(() => ({ deny: `${invocation.label} reads standard input, which this call leaves empty.`, advice: 'Name the file it should read, or pipe or redirect its input.' })),
                 ),
             );
         }),
@@ -392,7 +392,7 @@ const files: Table = {
     'code.inline': {
         program: 'awk',
         aliases: ['gawk', 'mawk', 'python', 'python3', 'node', 'perl', 'ruby', 'osascript'],
-        judge: Effect.fnUntraced(function* (invocation, { script }) {
+        decide: Effect.fnUntraced(function* (invocation, { script }) {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const language = Option.getOrElse(invocation.name, () => '')
                 .replace(/^[gm]?awk$/u, 'awk')
@@ -436,16 +436,16 @@ const files: Table = {
             );
             return Match.value({ shape: Option.getOrUndefined(shape), inPlace: (language === 'perl' || language === 'ruby') && invocation.has('-i'), json: /\bjson\.loads?\(|\bJSON\.parse\(/u.test(code), effect: effects[language]?.test(code) === true }).pipe(
                 Match.when({ shape: Match.defined }, ({ shape: words }) => replaced(invocation, words)),
-                Match.when({ inPlace: true }, () => [{ refuse: `${language} -i edits files in place where the hook cannot judge the change.`, instruct: 'Edit them with sd where one pattern covers every change, else with your file edit tool.' }]),
-                Match.when({ json: true }, () => [{ refuse: `${language} inline code parses JSON.`, instruct: 'Read it with jq.' }]),
-                Match.when({ effect: true }, () => [{ refuse: `${language} inline code runs commands or deletes files where the hook cannot judge them.`, instruct: 'Run each as its own shell command.' }]),
+                Match.when({ inPlace: true }, () => [{ deny: `${language} -i edits files in place where the hook cannot judge the change.`, advice: 'Edit them with sd where one pattern covers every change, else with your file edit tool.' }]),
+                Match.when({ json: true }, () => [{ deny: `${language} inline code parses JSON.`, advice: 'Read it with jq.' }]),
+                Match.when({ effect: true }, () => [{ deny: `${language} inline code runs commands or deletes files where the hook cannot judge them.`, advice: 'Run each as its own shell command.' }]),
                 Match.orElse(() => []),
             );
         }),
     },
     'sed.suffix': {
         program: 'sed',
-        judge: (invocation) =>
+        decide: (invocation) =>
             misread(invocation).flatMap((bound) =>
                 Option.toArray(Option.all([bound.spelled.node, Option.flatMap(Array.head(bound.values), ({ text }) => text)])).map(([word, suffix]) => ({
                     edit: (editor: Editor) => [attached(bound) ? editor.replace(word, Array.make('-i', '', suffix)) : editor.after(word, Array.of(''))],
@@ -454,7 +454,7 @@ const files: Table = {
     },
     'ls.options': {
         program: 'ls',
-        judge: (invocation) => {
+        decide: (invocation) => {
             const first = Option.flatMap(Array.head(invocation.operands), ({ word }) => word.node);
             const late = Array.dedupeWith(
                 invocation.flags.flatMap(({ spelled }) => Option.toArray(Option.filter(Option.all([spelled.node, spelled.text, first]), ([word, , operand_]) => word.start > operand_.start))),
@@ -468,28 +468,28 @@ const files: Table = {
     },
     'cat.visible': { program: 'cat', rename: { '-A': '-vet' } },
     'curl.fail': { program: 'curl', ensure: ['--fail-with-body'], unless: ['--fail', '--write-out'] },
-    'screencapture.clipboard': { program: 'screencapture', when: ['-c'], refuse: "replaces the owner's clipboard", instruct: 'Pass a file.' },
+    'screencapture.clipboard': { program: 'screencapture', when: ['-c'], deny: "replaces the owner's clipboard", advice: 'Pass a file.' },
     'screencapture.interactive': { program: 'screencapture', drop: ['-i', '-W', '-U', '-P', '-M'] },
-    'pnpm.patch': { program: 'pnpm', path: ['patch'], refuse: 'copies a package into the tree', instruct: 'Set the package option, a newer release, or the consumer tsconfig.' },
-    'pnpm.patch-commit': { program: 'pnpm', path: ['patch-commit'], refuse: 'writes a patched package into the tree', instruct: 'Set the package option, a newer release, or the consumer tsconfig.' },
+    'pnpm.patch': { program: 'pnpm', path: ['patch'], deny: 'copies a package into the tree', advice: 'Set the package option, a newer release, or the consumer tsconfig.' },
+    'pnpm.patch-commit': { program: 'pnpm', path: ['patch-commit'], deny: 'writes a patched package into the tree', advice: 'Set the package option, a newer release, or the consumer tsconfig.' },
     'sd.dashed': {
         program: 'sd',
-        judge: (invocation) =>
+        decide: (invocation) =>
             invocation.flags
                 .filter(({ flag }) => !Option.exists(invocation.usage, (usage) => Option.isSome(usage.flag(flag.spellings[0]))))
                 .flatMap(({ spelled }) => Option.toArray(Option.all([spelled.node, spelled.text])))
                 .map(([word, text]): Verdict =>
                     Match.value({ multiline: text === '-U' || text === '--multiline', flag: /^--?[A-Za-z][\w-]*$/u.test(text) }).pipe(
                         Match.when({ multiline: true }, () => ({ edit: (editor: Editor) => [invocation.has('--across') ? editor.remove(word) : editor.replace(word, Array.of('-A'))] })),
-                        Match.when({ flag: true }, () => ({ refuse: `sd ${text} is no sd option.`, instruct: 'Pass -- before a pattern that starts with -.' })),
+                        Match.when({ flag: true }, () => ({ deny: `sd ${text} is no sd option.`, advice: 'Pass -- before a pattern that starts with -.' })),
                         Match.orElse(() => ({ edit: (editor: Editor) => [editor.before(word, Array.of('--'))] })),
                     ),
                 ),
     },
-    'sd.empty': { program: 'sd', judge: (invocation) => (Option.contains(invocation.operand(), '') && !invocation.has('--preview') ? [{ ensure: Array.of('--preview') }] : []) },
+    'sd.empty': { program: 'sd', decide: (invocation) => (Option.contains(invocation.operand(), '') && !invocation.has('--preview') ? [{ ensure: Array.of('--preview') }] : []) },
     'sd.same': {
         program: 'sd',
-        judge: (invocation) => {
+        decide: (invocation) => {
             const [find, replace] = [invocation.operand(), invocation.operand(1)];
             const plain = invocation.has('--fixed-strings') || Option.exists(find, (text) => !/[\\.+*?()|[\]{}^$]/u.test(text));
             const same = Option.isSome(find) && Option.getOrUndefined(find) === Option.getOrUndefined(replace);
@@ -498,11 +498,11 @@ const files: Table = {
     },
     'sd.across': {
         program: 'sd',
-        judge: (invocation) => (Option.exists(invocation.operand(), (find) => find.includes('\n') || (!invocation.has('--fixed-strings') && /(?<!\\)(?:\\\\)*\\n/u.test(find))) && !invocation.has('--across') ? [{ ensure: Array.of('--across') }] : []),
+        decide: (invocation) => (Option.exists(invocation.operand(), (find) => find.includes('\n') || (!invocation.has('--fixed-strings') && /(?<!\\)(?:\\\\)*\\n/u.test(find))) && !invocation.has('--across') ? [{ ensure: Array.of('--across') }] : []),
     },
     'sd.unmatched': {
         program: 'sd',
-        judge: Effect.fnUntraced(function* (invocation, { script, cwd }) {
+        decide: Effect.fnUntraced(function* (invocation, { script, cwd }) {
             const fs = yield* FileSystem.FileSystem;
             const letters = [...(Option.getOrUndefined(Option.flatMap(Array.head(invocation.values('--flags')), Struct.get('text'))) ?? '')];
             const paths = Option.getOrElse(Option.all(invocation.reads.map(({ text }) => text)), Array.empty);
@@ -525,12 +525,12 @@ const files: Table = {
                       )
                     : { code: 0 };
             const missing = fixed ? !contents.some((text) => text.includes(pattern)) : searched.code === 1;
-            return missing ? [{ refuse: `sd pattern matches nothing in ${paths.join(' ')}.`, instruct: 'Read the current text, then match what it holds.' }] : [];
+            return missing ? [{ deny: `sd pattern matches nothing in ${paths.join(' ')}.`, advice: 'Read the current text, then match what it holds.' }] : [];
         }),
     },
     'jq.file': {
         program: 'jq',
-        judge: Effect.fnUntraced(function* (jq, { script }) {
+        decide: Effect.fnUntraced(function* (jq, { script }) {
             const cat = Array.findFirst(
                 (yield* script.invocations).flatMap(Struct.get('leaves')),
                 (held) => feeds(held, jq) && held.runs('cat') && held.flags.length === 0 && held.operands.length === 1 && Option.exists(held.stage, ({ index, count }) => index === 0 && count === 2) && Option.exists(held.node, ({ redirs }) => redirs.length === 0),
@@ -545,11 +545,11 @@ const files: Table = {
     },
     'duckdb.stdin': {
         program: 'duckdb',
-        judge: (invocation) => (invocation.words.some((written) => Option.exists(written.text, (text) => text.includes('/dev/stdin'))) && !invocation.has('-markdown', '-ascii', '-box', '-column', '-csv', '-html', '-json', '-jsonlines', '-line', '-list', '-quote', '-table') ? [{ ensure: Array.of('-markdown') }] : []),
+        decide: (invocation) => (invocation.words.some((written) => Option.exists(written.text, (text) => text.includes('/dev/stdin'))) && !invocation.has('-markdown', '-ascii', '-box', '-column', '-csv', '-html', '-json', '-jsonlines', '-line', '-list', '-quote', '-table') ? [{ ensure: Array.of('-markdown') }] : []),
     },
     'hyperfine.shell': {
         program: 'hyperfine',
-        judge: (invocation) => {
+        decide: (invocation) => {
             const named = invocation.flags.filter(({ flag, values }) => flag.spellings.includes('--shell') && values.some((value) => value.test(wrapper)));
             const stray = invocation.has('-S', '-N') && invocation.operands.length > 1 ? invocation.operands.filter(({ word }) => word.test(wrapper)).flatMap(({ word }) => Option.toArray(word.node)) : [];
             const edits = [
@@ -576,7 +576,7 @@ const files: Table = {
     },
     'hyperfine.silenced': {
         program: 'hyperfine',
-        judge: (invocation, { script }) => {
+        decide: (invocation, { script }) => {
             const quiet = Option.toArray(invocation.node)
                 .flatMap(({ redirs }) => redirs)
                 .filter((redirect) => {
@@ -588,7 +588,7 @@ const files: Table = {
     },
     'hyperfine.input': {
         program: 'hyperfine',
-        judge: Effect.fnUntraced(function* (invocation, { script, shell }) {
+        decide: Effect.fnUntraced(function* (invocation, { script, shell }) {
             const inputs = invocation.flags.filter(({ flag }) => flag.spellings.includes('--input'));
             const candidates = inputs.flatMap((bound) => Option.toArray(Option.map(attached(bound) ? bound.spelled.node : Option.flatMap(Array.head(bound.values), ({ node }) => node), (word) => ({ word, joined: attached(bound) }))));
             const moved = Array.findFirst(candidates, ({ word, joined }) => {
@@ -602,14 +602,14 @@ const files: Table = {
             const substituted = written.some(({ parts }) => parts.some(({ type }) => type === 'ProcSubst'));
             return Match.value({ built: Option.getOrUndefined(Option.all([built, moved, invocation.node])), substituted }).pipe(
                 Match.when({ built: Match.defined }, ({ built: [[prepared, input], { word }, stmt] }) => [{ edit: (editor: Editor) => [editor.precede(prepared, '&&', stmt), editor.replace(word, input)] }]),
-                Match.when({ substituted: true }, () => [{ refuse: 'hyperfine --input <(…) is read by the first run alone.', instruct: 'Write the input to a file, then pass that file to --input.' }]),
+                Match.when({ substituted: true }, () => [{ deny: 'hyperfine --input <(…) is read by the first run alone.', advice: 'Write the input to a file, then pass that file to --input.' }]),
                 Match.orElse(() => []),
             );
         }),
     },
     'base64.input': {
         program: 'base64',
-        judge: (invocation) =>
+        decide: (invocation) =>
             Option.match(
                 Option.filter(
                     Option.flatMap(
@@ -621,10 +621,10 @@ const files: Table = {
                 { onNone: () => [], onSome: (word) => [{ edit: (editor: Editor) => [editor.before(word, Array.of('-i'))] }] },
             ),
     },
-    'nproc.absent': { program: 'nproc', judge: (invocation, { script }) => Effect.map(installed(script, 'nproc'), (present) => (present ? [] : replaced(invocation, Array.make('getconf', '_NPROCESSORS_ONLN')))) },
+    'nproc.absent': { program: 'nproc', decide: (invocation, { script }) => Effect.map(installed(script, 'nproc'), (present) => (present ? [] : replaced(invocation, Array.make('getconf', '_NPROCESSORS_ONLN')))) },
     'shuf.absent': {
         program: 'shuf',
-        judge: Effect.fnUntraced(function* (invocation, { script, shell }) {
+        decide: Effect.fnUntraced(function* (invocation, { script, shell }) {
             const present = yield* installed(script, 'shuf');
             const count = Option.flatMap(Array.head(invocation.values('-n')), ({ text }) => text);
             const plain = invocation.flags.every(({ flag }) => flag.spellings.includes('-n')) && invocation.has('-n') === Option.isSome(count);
@@ -634,7 +634,7 @@ const files: Table = {
     },
     'temporary.system': {
         action: 'Shell',
-        judge: Effect.fnUntraced(function* (script) {
+        decide: Effect.fnUntraced(function* (script) {
             const all = (yield* script.invocations).flatMap(Struct.get('leaves'));
             const folder = Option.map(Option.fromUndefinedOr(script.dialect.environment['TMPDIR']), (given) => given.replace(/\/+$/u, ''));
             const written = all.flatMap(({ writes }) => writes.flatMap(({ text }) => Option.toArray(text))).filter((text) => temporary.test(text));

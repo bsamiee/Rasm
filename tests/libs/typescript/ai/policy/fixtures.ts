@@ -6,18 +6,18 @@ import { processor } from 'sh-syntax/sync';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Shelled = Extract<Parameters<Policy['judge']>[0], { readonly _tag: 'Shell' }>;
+type Shelled = Extract<Parameters<Policy['decide']>[0], { readonly _tag: 'Shell' }>;
 type Probe = ReturnType<Shell['Service']['dialect']>;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const judging = Layer.provideMerge(Layer.effect(Shell, Shell.make({ processor })), platform);
-const where: Effect.Effect<{ readonly dialect: Effect.Success<Probe>; readonly cwd: string }, Effect.Error<Probe>, Shell> = Effect.map(
+const services = Layer.provideMerge(Layer.effect(Shell, Shell.make({ processor })), platform);
+const environment: Effect.Effect<{ readonly dialect: Effect.Success<Probe>; readonly cwd: string }, Effect.Error<Probe>, Shell> = Effect.map(
     Shell.use((shell) => shell.dialect({ shell: '/bin/bash', environment: { PATH: '/usr/bin:/bin' }, timeout: '1 minute' })),
     (dialect) => ({ dialect, cwd: import.meta.dirname }),
 );
-const shell = (command: string, wait: Shelled['wait'] = 'held', agent: Shelled['agent'] = Option.none()): Shelled => ({ _tag: 'Shell', call: command, agent, command, wait });
+const shell = (command: string, run: Shelled['run'] = 'foreground', agent: Shelled['agent'] = Option.none()): Shelled => ({ _tag: 'Shell', call: command, agent, command, run });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { judging, shell, where };
+export { environment, services, shell };

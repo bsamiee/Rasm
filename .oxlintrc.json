@@ -218,7 +218,7 @@
                 "unicorn/catch-error-name": "off" // Reads the engine `$` a `claude-code` `on(...).catch` handler takes first as a rejection value
             }
         },
-        { "files": ["libs/typescript/ai/policy/judgment/rule.ts"], "rules": { "typescript/method-signature-style": "off" } }, // A rule row per tool kind needs the method form's parameter bivariance
+        { "files": ["libs/typescript/ai/policy/decision/rule.ts"], "rules": { "typescript/method-signature-style": "off" } }, // A rule row per tool kind needs the method form's parameter bivariance
         {
             "files": ["**/creative-cloud/*/plugin.ts"], // UXP plugin runtime, its `execute_script` evaluates caller source
             "rules": { "typescript/no-implied-eval": "off", "typescript/no-unsafe-call": "off" }

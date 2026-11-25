@@ -5,12 +5,12 @@ import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Table = typeof Policy extends new (...tables: infer T extends readonly unknown[]) => unknown ? T[number] : never;
-type Whole = Extract<NonNullable<Table[string]>, { readonly action: 'Shell'; readonly judge: unknown }>;
-type Script = Parameters<Whole['judge']>[0];
-type Call = Parameters<Whole['judge']>[1];
+type Whole = Extract<NonNullable<Table[string]>, { readonly action: 'Shell'; readonly decide: unknown }>;
+type Script = Parameters<Whole['decide']>[0];
+type Call = Parameters<Whole['decide']>[1];
 type Invocation = Effect.Success<Script['invocations']>[number];
 type Written = Invocation['words'][number];
-type Verdict = Extract<ReturnType<Whole['judge']>, readonly unknown[]>[number];
+type Verdict = Extract<ReturnType<Whole['decide']>, readonly unknown[]>[number];
 type Editor = Parameters<Extract<Verdict, { readonly edit: unknown }>['edit']>[0];
 type Word = Parameters<Editor['before']>[0];
 

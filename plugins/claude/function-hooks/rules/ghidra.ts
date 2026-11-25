@@ -33,7 +33,7 @@ const projects = Effect.fnUntraced(function* (folder: string) {
 const ghidra: Table = {
     'ghidra.heap': {
         action: 'Shell',
-        judge: Effect.fnUntraced(function* (script, { shell }) {
+        decide: Effect.fnUntraced(function* (script, { shell }) {
             const all = (yield* script.invocations).flatMap(Struct.get('leaves'));
             const stmts = Array.dedupe(all.flatMap(({ node }) => Option.toArray(node)));
             const removed = stmts.flatMap(heaped);
@@ -53,7 +53,7 @@ const ghidra: Table = {
     },
     'ghidra.project': {
         program: headless,
-        judge: Effect.fnUntraced(function* (invocation, { script, cwd }) {
+        decide: Effect.fnUntraced(function* (invocation, { script, cwd }) {
             const path = yield* Path.Path;
             const folder = Option.map(Option.fromUndefinedOr(script.dialect.environment['GHIDRA_PROJECT_DIR']), (given) => path.resolve(given));
             const location = Option.all([Option.flatMap(Array.head(invocation.operands), ({ word }) => word.node), invocation.operand()]);
@@ -69,7 +69,7 @@ const ghidra: Table = {
     },
     'ghidra.logs': {
         program: headless,
-        judge: Effect.fnUntraced(function* (invocation, { cwd, script }) {
+        decide: Effect.fnUntraced(function* (invocation, { cwd, script }) {
             const root = yield* nearest(cwd, '.git');
             const chained = invocation.background && concurrent((yield* script.invocations).flatMap(Struct.get('leaves')));
             const words = Option.getOrElse(Option.all(invocation.words.map(Struct.get('text'))), (): readonly string[] => []);
@@ -88,7 +88,7 @@ const ghidra: Table = {
     },
     'ghidra.concurrent': {
         action: 'Shell',
-        judge: Effect.fnUntraced(function* (script, { shell }) {
+        decide: Effect.fnUntraced(function* (script, { shell }) {
             const invocations = yield* script.invocations;
             const all = invocations.flatMap(Struct.get('leaves'));
             const runs = all.filter((invocation) => invocation.runs(headless));
@@ -109,13 +109,13 @@ const ghidra: Table = {
                     { edit: (editor: Editor) => [...runs.flatMap(({ node }) => Option.toArray(node)).map((stmt) => editor.remove(stmt)), editor.command(wait, chain)] },
                     { note: `${headless} runs in the background on one project became one chain of -import runs, as Ghidra locks a project to one run.`, once: 'agent' as const },
                 ],
-                onNone: () => (concurrent(all) ? [{ refuse: `${headless} runs concurrently on one project, and Ghidra locks a project to one run.`, instruct: importing ? 'Chain each -import with &&.' : `Send the runs to the project's Serve.java with nc -U "$GHIDRA_PROJECT_DIR/${socket}.sock".` }] : []),
+                onNone: () => (concurrent(all) ? [{ deny: `${headless} runs concurrently on one project, and Ghidra locks a project to one run.`, advice: importing ? 'Chain each -import with &&.' : `Send the runs to the project's Serve.java with nc -U "$GHIDRA_PROJECT_DIR/${socket}.sock".` }] : []),
             });
         }),
     },
     'ghidra.long': {
         program: headless,
-        judge: (invocation) => {
+        decide: (invocation) => {
             const words = Option.getOrElse(Option.all(invocation.words.map(Struct.get('text'))), (): readonly string[] => []);
             return invocation.has('-import') || words.some((word, at) => words[at - 1] === '-postScript' && word.endsWith('Serve.java')) ? [unattended] : [];
         },
@@ -123,20 +123,20 @@ const ghidra: Table = {
     'ghidra.copy': {
         program: 'cp',
         aliases: ['rsync', 'ditto'],
-        judge: Effect.fnUntraced(function* (invocation) {
+        decide: Effect.fnUntraced(function* (invocation) {
             const path = yield* Path.Path;
             const sources = Array.dedupe(invocation.reads.flatMap(({ text }) => Option.toArray(text)));
             const found = yield* Effect.forEach(sources, projects);
             const held = Array.zipWith(sources, found, (source, bases) => [...(project.test(source) ? [source] : []), ...bases.map((base) => `${base}.gpr`)]);
             return Array.dedupe(held.flat()).map((file) => ({
-                refuse: `${Option.getOrElse(invocation.name, () => 'cp')} copies the Ghidra project ${path.basename(file)}, which a running Ghidra rewrites under its lock.`,
-                instruct: "Read it through the project's Serve.java.",
+                deny: `${Option.getOrElse(invocation.name, () => 'cp')} copies the Ghidra project ${path.basename(file)}, which a running Ghidra rewrites under its lock.`,
+                advice: "Read it through the project's Serve.java.",
             }));
         }),
     },
     'ghidra.lock': {
         action: 'Shell',
-        judge: Effect.fnUntraced(function* (script) {
+        decide: Effect.fnUntraced(function* (script) {
             const path = yield* Path.Path;
             const all = (yield* script.invocations).flatMap(Struct.get('leaves'));
             const fields = all.flatMap((invocation) => {
@@ -151,7 +151,7 @@ const ghidra: Table = {
                     .filter(([lock, { field, globs }]) => Option.getOrElse(field.matches(lock), () => false) && globs.every((glob) => Glob.match(glob, path.basename(lock))))
                     .map(([lock]) => lock),
             );
-            return deleted.map((file) => ({ refuse: `Deleting ${file} drops the lock of the Ghidra project ${file.replace(/\.lock~?$/u, '.gpr')} while a run may hold it.`, instruct: `Run lsof -t ${file} to find the run that holds it.` }));
+            return deleted.map((file) => ({ deny: `Deleting ${file} drops the lock of the Ghidra project ${file.replace(/\.lock~?$/u, '.gpr')} while a run may hold it.`, advice: `Run lsof -t ${file} to find the run that holds it.` }));
         }),
     },
 } satisfies Table;

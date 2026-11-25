@@ -2,7 +2,7 @@
     "name": "@rasm/policy",
     "version": "0.1.0",
     "private": true,
-    "description": "Judgments of what an agent attempts by named rule tables, answered as pass, refuse, or rewrite, with the hooks that carry them into Claude Code",
+    "description": "Decisions on what an agent attempts by named rule tables, answered as allow, deny, or rewrite, with the hooks that carry them into Claude Code",
     "license": "MIT",
     "repository": {
         "type": "git",

@@ -122,7 +122,7 @@ const commanded = ({ row, program, stated }: { readonly row: Row; readonly progr
 const based = (graph: Graph, path: Path.Path, row: Row): string => path.join(graph.root, row.runs._tag === 'Commands' ? row.runs.cwd : Option.getOrElse(Option.filter(Option.some(row.options['cwd']), Predicate.isString), () => row.root));
 const extent = (invocation: Invocation): Option.Option<readonly [Word, Word]> => (invocation.within.length === 0 ? invocation.span : Option.all([Option.map(launched(invocation), ([first]) => first), Option.map(invocation.span, ([, last]) => last)]));
 const routable = (call: Call, wrappers: ReadonlySet<string>) => (invocation: Invocation) =>
-    call.action.wait !== 'streamed' &&
+    call.action.run !== 'monitored' &&
     invocation.inner.length === 0 &&
     Option.isNone(invocation.repeated) &&
     invocation.assigns.length === 0 &&
@@ -184,8 +184,8 @@ const route = Effect.fnUntraced(function* (invocation: Invocation, graph: Graph,
     return Match.value({ several: Option.getOrUndefined(several), ready: Option.getOrUndefined(ready) }).pipe(
         Match.when({ several: Match.string }, ({ several: owner }) => [
             {
-                refuse: `${invocation.label} matches several targets of ${owner}.`,
-                instruct: `Run one of: ${rows
+                deny: `${invocation.label} matches several targets of ${owner}.`,
+                advice: `Run one of: ${rows
                     .filter(({ project }) => project === owner)
                     .map((row) => `nx run ${row.project}:${row.target}`)
                     .join(', ')}.`,
@@ -288,11 +288,11 @@ const crates = Effect.fnUntraced(function* (invocation: Invocation, cwd: string)
 });
 
 const tasks: Table = {
-    'worktree.isolated': { action: 'Isolate', refuse: 'A worktree is a second checkout that every build repeats and the guards of this checkout never see.', instruct: 'Work in place.' },
-    'nx.publish': { program: 'nx', judge: (invocation) => (invocation.words.some((written) => written.test(/(?:^|[:,=])nx-release-publish(?:,|$)/u)) ? [{ refuse: 'nx-release-publish publishes dependencies for real.', instruct: 'Run nx release.' }] : []) },
+    'worktree.isolated': { action: 'Isolate', deny: 'A worktree is a second checkout that every build repeats and the guards of this checkout never see.', advice: 'Work in place.' },
+    'nx.publish': { program: 'nx', decide: (invocation) => (invocation.words.some((written) => written.test(/(?:^|[:,=])nx-release-publish(?:,|$)/u)) ? [{ deny: 'nx-release-publish publishes dependencies for real.', advice: 'Run nx release.' }] : []) },
     'nx.daemon': {
         program: 'nx',
-        judge: Effect.fnUntraced(function* (invocation, { script }) {
+        decide: Effect.fnUntraced(function* (invocation, { script }) {
             const verb = Option.getOrElse(invocation.operand(), () => '');
             const stops = (verb === 'daemon' && invocation.has('--stop')) || (verb === 'reset' && invocation.has('--only-daemon'));
             const later = (yield* script.invocations).flatMap(Struct.get('leaves')).some((other) => other.start > invocation.end && other.runs('nx') && !Option.exists(other.operand(), (next) => next === 'daemon' || next === 'reset'));
@@ -303,18 +303,18 @@ const tasks: Table = {
             return Match.value({ stops, stmt: Option.getOrUndefined(Option.filter(invocation.node, () => later)) }).pipe(
                 Match.when({ stops: false }, () => []),
                 Match.when({ stmt: Match.defined }, ({ stmt }) => [{ edit: (editor: Editor) => [editor.remove(stmt)] }, { note: `${spoken} left the call, as every session shares the daemon.`, once: 'call' as const }]),
-                Match.orElse(() => [{ refuse: `${spoken} stops the daemon every session shares.`, instruct: shared }]),
+                Match.orElse(() => [{ deny: `${spoken} stops the daemon every session shares.`, advice: shared }]),
             );
         }),
     },
     'nx.reset': {
         program: 'nx',
         path: ['reset'],
-        judge: (invocation) => (invocation.has('--only-workspace-data') || !invocation.has('--only-cache', '--only-daemon') ? [{ refuse: 'nx reset stops the daemon and deletes the workspace data every session shares.', instruct: 'Run nx reset --only-cache.' }] : []),
+        decide: (invocation) => (invocation.has('--only-workspace-data') || !invocation.has('--only-cache', '--only-daemon') ? [{ deny: 'nx reset stops the daemon and deletes the workspace data every session shares.', advice: 'Run nx reset --only-cache.' }] : []),
     },
     'nx.skip-sync': {
         program: 'nx',
-        judge: Effect.fnUntraced(function* (invocation, { shell, script }) {
+        decide: Effect.fnUntraced(function* (invocation, { shell, script }) {
             const sync = invocation.has('--skip-sync') ? Option.some(yield* shell.script(script.dialect)`nx sync`) : Option.none();
             return Option.match(Option.all([sync, invocation.node]), {
                 onNone: () => [],
@@ -324,18 +324,18 @@ const tasks: Table = {
     },
     'nx.daemonless': {
         program: 'nx',
-        judge: (invocation) => {
+        decide: (invocation) => {
             const assigns = Option.toArray(invocation.node).flatMap(({ cmd }) => (cmd?.type === 'CallExpr' ? cmd.assigns : []));
             return assigns.filter(({ name }) => name?.value === 'NX_DAEMON').map((assign) => ({ edit: (editor: Editor) => [editor.remove(assign)] }));
         },
     },
     'nx.launcher': {
         program: 'nx',
-        judge: (invocation) => (Array.isReadonlyArrayNonEmpty(invocation.within) && invocation.within.every((within) => within._tag === 'Wrapper' && wrapped.has(within.name)) ? Option.toArray(launched(invocation)).map((pair) => ({ edit: (editor: Editor) => [editor.remove(pair)] })) : []),
+        decide: (invocation) => (Array.isReadonlyArrayNonEmpty(invocation.within) && invocation.within.every((within) => within._tag === 'Wrapper' && wrapped.has(within.name)) ? Option.toArray(launched(invocation)).map((pair) => ({ edit: (editor: Editor) => [editor.remove(pair)] })) : []),
     },
     'nx.quieted': {
         program: 'nx',
-        judge: Effect.fnUntraced(function* (invocation, { script }) {
+        decide: Effect.fnUntraced(function* (invocation, { script }) {
             const parsed = (yield* script.invocations).flatMap(Struct.get('leaves')).some((next) => next.runs('jq') && feeds(invocation, next));
             const redirects = Option.getOrElse(
                 Option.map(invocation.node, ({ redirs }) => redirs),
@@ -354,7 +354,7 @@ const tasks: Table = {
     },
     'nx.bounded': {
         program: 'nx',
-        judge: Effect.fnUntraced(function* (invocation, { cwd: session }) {
+        decide: Effect.fnUntraced(function* (invocation, { cwd: session }) {
             const cwd = here(invocation, session);
             const timed = invocation.within.length === 1 && invocation.within.every((within) => within._tag === 'Wrapper' && within.name === 'timeout');
             const graph = timed ? yield* workspace(cwd) : Option.none();
@@ -375,7 +375,7 @@ const tasks: Table = {
     },
     'nx.aggregate': {
         program: 'nx',
-        judge: Effect.fnUntraced(function* (invocation, { cwd: session }) {
+        decide: Effect.fnUntraced(function* (invocation, { cwd: session }) {
             const cwd = here(invocation, session);
             const graph = invocation.rest.length > 0 ? yield* workspace(cwd) : Option.none();
             const rows = Option.getOrElse(
@@ -393,14 +393,14 @@ const tasks: Table = {
                     Match.value({ tool: Option.getOrUndefined(sole), named: Option.getOrUndefined(pointed), address: Option.getOrUndefined(address) }).pipe(
                         Match.when({ tool: Match.string, named: Match.defined }, ({ tool, named: word }) => [{ edit: (editor: Editor) => [editor.replace(word, Array.of(tool))] }]),
                         Match.when({ tool: Match.string, address: Match.defined }, ({ tool, address: words }) => (many ? [] : [{ edit: (editor: Editor) => [editor.replace(words, Array.make('run', `${project}:${tool}`))] }])),
-                        Match.orElse(() => [{ refuse: `nx ${name} runs ${tools.length} tools, so arguments after -- reach none of them.`, instruct: `Pass them to one of: ${tools.map((tool) => `nx run ${project}:${tool}`).join(', ')}.` }]),
+                        Match.orElse(() => [{ deny: `nx ${name} runs ${tools.length} tools, so arguments after -- reach none of them.`, advice: `Pass them to one of: ${tools.map((tool) => `nx run ${project}:${tool}`).join(', ')}.` }]),
                     ),
             });
         }),
     },
     'nx.loop': {
         program: 'nx',
-        judge: Effect.fnUntraced(function* (invocation, { script, shell }) {
+        decide: Effect.fnUntraced(function* (invocation, { script, shell }) {
             const found = yield* script.invocations;
             const cycle = looping(script, invocation);
             const looped = found.flatMap(Struct.get('leaves')).filter((other) => other.runs('nx') && Option.isSome(invocation.repeated) && Equal.equals(other.repeated, invocation.repeated));
@@ -424,7 +424,7 @@ const tasks: Table = {
     },
     'nx.target': {
         action: 'Shell',
-        judge: Effect.fnUntraced(function* (script, call) {
+        decide: Effect.fnUntraced(function* (script, call) {
             const candidates = (yield* script.invocations).flatMap(Struct.get('leaves')).filter(routable(call, bounded));
             const verdicts = yield* Effect.forEach(candidates, (invocation) => Effect.flatMap(workspace(here(invocation, call.cwd)), Option.match({ onNone: () => Effect.succeed([]), onSome: (graph) => route(invocation, graph, helps(graph), here(invocation, call.cwd)) })));
             return verdicts.flat();
@@ -432,12 +432,12 @@ const tasks: Table = {
     },
     'hk.step': {
         action: 'Shell',
-        judge: Effect.fnUntraced(function* (script, call) {
+        decide: Effect.fnUntraced(function* (script, call) {
             const candidates = (yield* script.invocations)
                 .flatMap(Struct.get('leaves'))
                 .filter(
                     (invocation) =>
-                        call.action.wait !== 'streamed' &&
+                        call.action.run !== 'monitored' &&
                         invocation.inner.length === 0 &&
                         Option.isNone(invocation.repeated) &&
                         invocation.assigns.length === 0 &&
@@ -460,7 +460,7 @@ const tasks: Table = {
     'cargo.fmt': {
         program: 'cargo',
         aliases: ['cargo-fmt'],
-        judge: Effect.fnUntraced(function* (invocation, { cwd: session }) {
+        decide: Effect.fnUntraced(function* (invocation, { cwd: session }) {
             const cwd = here(invocation, session);
             const formatting = invocation.runs('cargo-fmt') || invocation.path[0] === 'fmt' || Option.contains(invocation.operand(), 'fmt');
             const root = formatting ? yield* nearest(cwd, '.git') : Option.none();
@@ -471,16 +471,16 @@ const tasks: Table = {
             const known = invocation.flags.every(({ flag }) => flag.spellings.some((spelling) => ['--check', '-p', '--package', '--all'].includes(spelling))) && invocation.rest.length === 0 && invocation.operands.length <= 1;
             return Match.value({ step: Option.getOrUndefined(step), routed: Option.getOrUndefined(Option.all([step, folders, extent(invocation)])) }).pipe(
                 Match.when({ routed: Match.defined }, ({ routed: [[name], targets, words] }) =>
-                    known ? [{ edit: (editor: Editor) => [editor.replace(words, Array.make('hk', mode, '--step', name, ...targets))] }] : [{ refuse: 'cargo fmt option has no hk form.', instruct: `Run hk ${mode} --step ${name} ${targets.join(' ')}.` }],
+                    known ? [{ edit: (editor: Editor) => [editor.replace(words, Array.make('hk', mode, '--step', name, ...targets))] }] : [{ deny: 'cargo fmt option has no hk form.', advice: `Run hk ${mode} --step ${name} ${targets.join(' ')}.` }],
                 ),
-                Match.when({ step: Match.defined }, () => [{ refuse: 'cargo fmt resolves no crate here.', instruct: 'Pass --package <crate>, or run it in the crate folder.' }]),
+                Match.when({ step: Match.defined }, () => [{ deny: 'cargo fmt resolves no crate here.', advice: 'Pass --package <crate>, or run it in the crate folder.' }]),
                 Match.orElse((): readonly Verdict[] => []),
             );
         }),
     },
     'pulumi.deploy': {
         program: 'pulumi',
-        judge: Effect.fnUntraced(function* (invocation, { cwd: session }) {
+        decide: Effect.fnUntraced(function* (invocation, { cwd: session }) {
             const cwd = here(invocation, session);
             const verb = Option.getOrElse(
                 Option.orElse(Array.head(invocation.path), () => invocation.operand()),
@@ -508,7 +508,7 @@ const tasks: Table = {
                     const foreign = invocation.flags.some(({ flag }) => !flag.spellings.some((spelling) => pulumied.has(spelling)));
                     const words = Array.isReadonlyArrayEmpty(args) && Option.isNone(stack) ? Array.make('nx', wanted, project) : Array.make('nx', 'run', `${project}:${stage}`, ...args, ...Option.toArray(Option.map(stack, (name) => `--stack=${name}`)));
                     const derived = !project.startsWith('<') && !foreign && (!applies || (invocation.has('--yes', '-y', '--skip-preview') && Option.isSome(stack)));
-                    return derived ? Option.toArray(invocation.span).map((written) => ({ edit: (editor: Editor) => [editor.replace(written, words)] })) : [{ refuse: `pulumi ${verb} skips the stack programs Nx builds first.`, instruct: `Run ${words.join(' ')}.` }];
+                    return derived ? Option.toArray(invocation.span).map((written) => ({ edit: (editor: Editor) => [editor.replace(written, words)] })) : [{ deny: `pulumi ${verb} skips the stack programs Nx builds first.`, advice: `Run ${words.join(' ')}.` }];
                 },
             });
         }),
