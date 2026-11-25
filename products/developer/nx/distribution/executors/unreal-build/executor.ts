@@ -59,8 +59,7 @@ const execute = executor(Unreal, function* ({ outputPath, descriptor, hosts, dep
     const engines = yield* pipe(
         Array.dedupeWith(loading, Equivalence.mapInput(Equivalence.String, Struct.get('root'))),
         Option.liftPredicate(Array.isReadonlyArrayNonEmpty),
-        Effect.fromOption,
-        Effect.mapError((cause) => new Cause.UnknownError(cause, `${descriptor} is loaded by no .uproject whose EngineAssociation names an engine on this machine`)),
+        Effect.fromOption(() => new Cause.UnknownError(hosts, `${descriptor} is loaded by no .uproject whose EngineAssociation names an engine on this machine`)),
     );
     type Loading = (typeof loading)[number];
     const edited = ({ scripts, platform, project: at }: Loading, analysis: readonly string[], named: readonly (typeof operation)[]) => tool(path.join(scripts, 'RunUBT.sh'), ['-TargetType=Editor', platform, 'Development', `-Project=${at}`, '-WaitMutex', ...analysis], named);
@@ -95,7 +94,7 @@ const execute = executor(Unreal, function* ({ outputPath, descriptor, hosts, dep
         );
         yield* Array.match(
             tests.filter(({ state }) => state !== 'Success'),
-            { onEmpty: () => Effect.fromResult(exited), onNonEmpty: (failed) => Effect.fail(new Cause.UnknownError(failed, `${name} automation tests ended without success: ${failed.map(({ fullTestPath, state }) => [fullTestPath, state].join(' ')).join(', ')}`)) },
+            { onEmpty: () => Effect.fromResult(exited), onNonEmpty: (failed) => new Cause.UnknownError(failed, `${name} automation tests ended without success: ${failed.map(({ fullTestPath, state }) => [fullTestPath, state].join(' ')).join(', ')}`) },
         );
     });
     const unnoticed = (file: string) => Effect.map(fs.readFileString(absolute(file)), (code) => !STORE.notice.test(code));
@@ -124,7 +123,7 @@ const execute = executor(Unreal, function* ({ outputPath, descriptor, hosts, dep
                 .filter((folder) => !`${folder}/`.startsWith(STORE.party))
                 .map((folder) => `installed package folder ${folder} sits outside ${STORE.party} (Fab 4.3.7.3.d)`),
         ];
-        yield* Array.match(findings, { onEmpty: () => Effect.void, onNonEmpty: (failed) => Effect.fail(new Cause.UnknownError(failed, `${descriptor} fails the Fab store checks: ${failed.join('; ')}`)) });
+        yield* Array.match(findings, { onEmpty: () => Effect.void, onNonEmpty: (failed) => new Cause.UnknownError(failed, `${descriptor} fails the Fab store checks: ${failed.join('; ')}`) });
     });
     const archived = Effect.fnUntraced(function* (text: string, tracked: readonly string[], { version, platform }: Loading) {
         const stage = yield* fs.makeTempDirectoryScoped();

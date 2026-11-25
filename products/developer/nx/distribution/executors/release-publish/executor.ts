@@ -29,7 +29,7 @@ const execute = executor(Publish, function* ({ credential, dryRun, __unparsed__:
         return yield* Option.match(skipped, { onNone: () => Effect.logInfo(`Published ${found.at} to ${store} with ${command}`), onSome: (reason) => Effect.logWarning(`Skipped ${found.at} for ${store}: ${reason}`) });
     }, Effect.provide(FetchHttpClient.layer));
     const delivered = Array.match(stored, {
-        onEmpty: () => Effect.fail(new Cause.UnknownError(outputs, `${project}: no host package sits under ${outputs.join(', ')}, the outputs ${target} depends on; run its dependencies first`)),
+        onEmpty: () => new Cause.UnknownError(outputs, `${project}: no host package sits under ${outputs.join(', ')}, the outputs ${target} depends on; run its dependencies first`),
         onNonEmpty: Effect.forEach((row) => (dry ? Effect.logInfo(`Would publish ${row.found.at} to ${row.store} through ${row.command}`) : pushed(row)), { discard: true }),
     });
     yield* dry ? delivered : Effect.flatMap(released(context), Option.match({ onNone: () => Effect.logInfo(`Skipped ${project}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: () => delivered }));

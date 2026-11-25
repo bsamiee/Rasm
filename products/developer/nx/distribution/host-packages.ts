@@ -11,7 +11,7 @@ import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
 import { above, PLATFORM, spawned } from '@rasm/nx';
 import { packaged } from '@rasm/nx/executor';
 import { HOSTS as UXP } from '@rasm/uxp';
-import { Array, Cause, Config, Console, Duration, Effect, FileSystem, Function, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Console, Duration, Effect, FileSystem, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
@@ -83,7 +83,6 @@ const UNREAL: Partial<Record<NodeJS.Platform, { readonly name: string; readonly 
     darwin: { name: 'Mac', settings: ['Library', 'Application Support', 'Epic'] },
     linux: { name: 'Linux', settings: ['.config', 'Epic'] },
 };
-const ENGINE_PATH = /[/\\]/u;
 const ANALYSIS = ['-StaticAnalyzer=Default', '-StaticAnalyzerProjectOnly', '-DisableUnity', '-NoPCH'] as const;
 const FOLDERS = { build: 'package', test: 'report', pack: 'archive' } as const;
 const CREDENTIALS = { blender: 'BLENDER_EXTENSIONS_TOKEN', yak: 'YAK_TOKEN', chrome: 'CHROME_WEB_STORE_TOKEN' } as const;
@@ -156,7 +155,7 @@ const webstore = Effect.fnUntraced(function* ({ at, text }: Found, token: string
 const routed = (file: string, text: string) =>
     Effect.findFirstFilter(
         HOSTS.filter(({ manifest }) => posix.matchesGlob(file, `**/${manifest}`)),
-        (host) => host.read(text, file).pipe(Effect.map(Option.map((fields) => ({ file, host, fields }))), Effect.map(Result.fromOption(Function.constVoid))),
+        (host) => Effect.map(host.read(text, file), Option.match({ onNone: () => Result.failVoid, onSome: (fields) => Result.succeed({ file, host, fields }) })),
     );
 
 const zipped = Effect.fnUntraced(function* (folder: string, names: readonly string[], file: string) {
@@ -188,14 +187,12 @@ const engine = Effect.fnUntraced(function* (descriptor: string) {
     const [registered, launched] = yield* Effect.all([Effect.option(fs.readFileString(path.join(settings, 'UnrealEngine', 'Install.ini'))), Effect.option(fs.readFileString(path.join(settings, 'UnrealEngineLauncher', 'LauncherInstalled.dat')))]);
     const native = yield* Effect.filter(above(path.dirname(descriptor)), (at) => fs.exists(path.join(at, 'Engine', 'Build', 'Build.version')));
     const root = yield* Option.firstSomeOf([
-        Option.flatMap(named, (key) => Option.liftPredicate(path.resolve(path.dirname(descriptor), key), () => ENGINE_PATH.test(key))),
-        Option.match(named, { onNone: () => Array.head(native), onSome: () => Option.none() }),
+        Option.match(named, { onNone: () => Array.head(native), onSome: (key) => Option.liftPredicate(path.resolve(path.dirname(descriptor), key), () => /[/\\]/u.test(key)) }),
         Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Schema.decodeUnknownOption(Registered)(Ini.parse(text)))]), ([key, { Installations }]) => Option.orElse(Record.get(Installations, key), () => Record.get(Installations, `UE_${key}`))),
         Option.flatMap(Option.all([named, Option.flatMap(launched, Schema.decodeOption(Launcher))]), ([key, { InstallationList }]) => Array.findFirst(InstallationList, ({ AppName, InstallLocation }) => (AppName === `UE_${key}` ? Option.some(InstallLocation) : Option.none()))),
     ]).pipe(
-        Effect.fromOption,
-        Effect.mapError(
-            (cause) => new Cause.UnknownError(cause, Option.match(named, { onNone: () => `${descriptor} names no engine, and no engine tree encloses it`, onSome: (key) => `${descriptor} names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` })),
+        Effect.fromOption(
+            () => new Cause.UnknownError(named, Option.match(named, { onNone: () => `${descriptor} names no engine, and no engine tree encloses it`, onSome: (key) => `${descriptor} names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` })),
         ),
     );
     const stamp = yield* Effect.mapError(fs.readFileString(path.join(root, 'Engine', 'Build', 'Build.version')), (cause) => new Cause.UnknownError(cause, `${descriptor} associates the engine at ${root}, which holds no Engine/Build/Build.version`));
@@ -217,12 +214,12 @@ const located = Effect.fnUntraced(function* (context: ExecutorContext) {
     const rows = HOSTS.filter(({ technology }) => node.data.metadata?.technologies?.includes(technology) === true);
     const sources = Array.isReadonlyArrayNonEmpty(outputs) ? files : (yield* Effect.promise(() => globWithWorkspaceContext(context.root, [posix.join(node.data.root, '**')]))).map((file) => path.join(context.root, file));
     const packages = yield* Effect.forEach(
-        files.flatMap((file) => rows.filter(({ archive }) => archive !== undefined && file.endsWith(archive)).map((host) => ({ file, host }))),
-        ({ file, host }) => Effect.flatMap(entry(file, `{,*/}${host.manifest}`), Option.match({ onNone: () => Effect.succeedNone, onSome: ({ at, text }) => stated(host, file, text, path.join(file, at), []) })),
+        Array.cartesian(files, rows).filter(([file, { archive }]) => archive !== undefined && file.endsWith(archive)),
+        ([file, host]) => Effect.flatMap(entry(file, `{,*/}${host.manifest}`), Option.match({ onNone: () => Effect.succeedNone, onSome: ({ at, text }) => stated(host, file, text, path.join(file, at), []) })),
     );
     const under = (folder: string) => sources.filter((other) => other.startsWith(`${folder}${path.sep}`)).map((other) => path.relative(folder, other));
     const folders = yield* Effect.forEach(
-        sources.flatMap((file) => rows.filter(({ build, install }) => build?.pack !== undefined || install?.unpacked === true).map((host) => ({ host, file, folder: path.join(file, path.relative(host.manifest, '.')) }))).filter(({ host, file, folder }) => matchesGlob(path.relative(folder, file), host.manifest)),
+        Array.cartesianWith(sources, rows, (file, host) => ({ host, file, folder: path.join(file, path.relative(host.manifest, '.')) })).filter(({ host, file, folder }) => (host.build?.pack !== undefined || host.install?.unpacked === true) && matchesGlob(path.relative(folder, file), host.manifest)),
         ({ host, file, folder }) => Effect.flatMap(fs.readFileString(file), (text) => stated(host, folder, text, file, under(folder))),
     );
     return { project, target, outputs, packages: Array.getSomes(packages), folders: Array.getSomes(folders) };
@@ -258,7 +255,7 @@ const HOSTS: readonly Host[] = [
             help: 'blender --command extension install-file --help',
             run: ({ at, name }, words) =>
                 Effect.flatMap(spawned(['blender', '--command', 'extension', 'install-file', '--repo', 'user_default', '--enable', at, ...words], { stdout: 'pipe' }), (stdout) =>
-                    new RegExp(`^STATUS (Installed|Reinstalled) "${RegExp.escape(name)}"$`, 'mu').test(stdout) ? Effect.void : Effect.fail(new Cause.UnknownError(stdout, `${at}: blender exited 0 without installing it: ${stdout.trim()}`)),
+                    new RegExp(`^STATUS (Installed|Reinstalled) "${RegExp.escape(name)}"$`, 'mu').test(stdout) ? Effect.void : new Cause.UnknownError(stdout, `${at}: blender exited 0 without installing it: ${stdout.trim()}`),
                 ),
         },
         publish: {
@@ -343,16 +340,15 @@ const HOSTS: readonly Host[] = [
                 const [fs, path, root] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.mapError(Effect.flatten(Effect.fromNullishOr(ADOBE[platform])), (cause) => new Cause.UnknownError(cause, `${platform} holds no per-user Adobe folder`))]);
                 const { id, name, version, host } = yield* Effect.mapError(Schema.decodeEffect(Uxp)(found.text), (cause) => new Cause.UnknownError(cause, `${found.at} holds no UXP manifest`));
                 const [registry, external, placed] = [path.join(root, 'UXP', 'PluginsInfo', 'v1', `${host.app}.json`), path.join(root, 'UXP', 'Plugins', 'External'), `$localPlugins/External/${id}_${version}`];
-                const local = (at: string) => at.replace('$localPlugins', path.dirname(external));
                 const before = yield* fs.readFileString(registry).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed('{"plugins":[]}')));
                 const folders = yield* fs.readDirectory(external).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(Array.empty<string>())));
                 const rows = (yield* Effect.mapError(Schema.decodeUnknownEffect(Registry)(parse(before)), (cause) => new Cause.UnknownError(cause, `${registry} holds no plugins array`))).plugins;
                 const held = rows.findIndex(({ pluginId }) => pluginId === id);
                 const row = { ...rows[held], hostMinVersion: SemVer.format(UXP[host.app].since), name, path: placed, pluginId: id, status: 'enabled', type: 'uxp', versionString: version };
-                const earlier = [...folders.filter((folder) => folder.startsWith(`${id}_`)).map((folder) => path.join(external, folder)), ...Array.fromNullishOr(rows[held]?.path).map(local), path.join(root, 'CEP', 'extensions', id)];
+                const earlier = [...folders.filter((folder) => folder.startsWith(`${id}_`)).map((folder) => path.join(external, folder)), ...Array.fromNullishOr(rows[held]?.path).map((at) => at.replace('$localPlugins', path.dirname(external))), path.join(root, 'CEP', 'extensions', id)];
                 yield* Effect.forEach(Array.dedupe(earlier), (at) => fs.remove(at, { recursive: true, force: true }), { discard: true });
                 yield* Effect.forEach(
-                    found.names.map((file) => [path.join(found.at, file), path.join(local(placed), file)] as const),
+                    found.names.map((file) => [path.join(found.at, file), path.join(external, `${id}_${version}`, file)] as const),
                     ([from, to]) => Effect.andThen(fs.makeDirectory(path.dirname(to), { recursive: true }), fs.copyFile(from, to)),
                     { discard: true },
                 );

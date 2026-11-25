@@ -17,7 +17,7 @@ const Package = Schema.Struct({
 const execute = executor(Package, function* ({ outputPath, __unparsed__: words = [] }, context) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { project, folders } = yield* located(context);
-    const packed = Array.getSomes(folders.map((found) => Option.map(Option.all({ pack: Option.fromUndefinedOr(found.host.build?.pack), archive: Option.fromUndefinedOr(found.host.archive) }), ({ pack, archive }) => ({ found, pack, file: path.join(context.root, outputPath, `${found.name}${archive}`) }))));
+    const packed = Array.getSomes(folders.map((found) => Option.zipWith(Option.fromUndefinedOr(found.host.build?.pack), Option.fromUndefinedOr(found.host.archive), (pack, archive) => ({ found, pack, file: path.join(context.root, outputPath, `${found.name}${archive}`) }))));
     yield* fs.makeDirectory(path.join(context.root, outputPath), { recursive: true });
     const archives = new Set(packed.map(({ file }) => path.extname(file)));
     yield* Effect.forEach(
@@ -26,7 +26,7 @@ const execute = executor(Package, function* ({ outputPath, __unparsed__: words =
         { discard: true },
     );
     yield* Array.match(packed, {
-        onEmpty: () => Effect.fail(new Cause.UnknownError(folders, `${project} finds no manifest.json or manifest.yml in what its builds wrote`)),
+        onEmpty: () => new Cause.UnknownError(folders, `${project} finds no manifest.json or manifest.yml in what its builds wrote`),
         onNonEmpty: Effect.forEach(({ found, pack, file }) => pack(found, file, words), { discard: true }),
     });
     return { success: true };

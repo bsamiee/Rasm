@@ -12,7 +12,7 @@ const Options = Schema.Struct({ manifest: Schema.String });
 
 const hosted = Effect.fnUntraced(function* (tree: Tree, at: string) {
     const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), (cause) => new Cause.UnknownError(cause, `${at} is missing`));
-    const { host, fields } = yield* Effect.flatMap(routed(at, text), (found) => Effect.mapError(Effect.fromOption(found), (cause) => new Cause.UnknownError(cause, `${at} is no host manifest`)));
+    const { host, fields } = yield* routed(at, text).pipe(Effect.flatMap(Effect.fromOption(() => new Cause.UnknownError(text, `${at} is no host manifest`))));
     return { host, text, version: Option.fromUndefinedOr(fields.version) };
 });
 
@@ -28,9 +28,9 @@ class HostVersionActions extends VersionActions {
     override readCurrentVersionFromSourceManifest(tree: Tree) {
         return run(
             Effect.gen({ self: this }, function* () {
-                const at = joinPathFragments(this.projectGraphNode.data.root, yield* Effect.mapError(Effect.fromOption(Array.head(this.validManifestFilenames)), (cause) => new Cause.UnknownError(cause, `${this.projectGraphNode.name} names no manifest in its versionActionsOptions`)));
+                const at = joinPathFragments(this.projectGraphNode.data.root, yield* Effect.fromOption(Array.head(this.validManifestFilenames), () => new Cause.UnknownError(this.finalConfigForProject.versionActionsOptions, `${this.projectGraphNode.name} names no manifest in its versionActionsOptions`)));
                 const { version } = yield* hosted(tree, at);
-                return { currentVersion: yield* Effect.mapError(Effect.fromOption(version), (cause) => new Cause.UnknownError(cause, `${at} states no version`)), manifestPath: at };
+                return { currentVersion: yield* Effect.fromOption(version, () => new Cause.UnknownError(at, `${at} states no version`)), manifestPath: at };
             }),
         );
     }

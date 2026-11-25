@@ -75,7 +75,7 @@ const fetched = Effect.fnUntraced(function* (url: string, sha256: string, file: 
                 Effect.map((buffer) => new Uint8Array(buffer)),
             ),
     });
-    yield* hash('sha256', bytes, 'hex') === sha256 ? fs.writeFile(file, bytes) : Effect.fail(new Cause.UnknownError(sha256, `${held[0] ?? url} does not hash to ${sha256}, the sha256 its lock states`));
+    yield* hash('sha256', bytes, 'hex') === sha256 ? fs.writeFile(file, bytes) : new Cause.UnknownError(sha256, `${held[0] ?? url} does not hash to ${sha256}, the sha256 its lock states`);
     yield* Effect.forEach(
         held.length > 0 ? [] : Option.toArray(Option.all({ folder: store, at: kept })),
         ({ folder, at }) => Effect.scoped(Effect.flatMap(fs.makeTempDirectoryScoped({ directory: folder }), (staging) => Effect.andThen(fs.writeFile(path.join(staging, path.basename(at)), bytes), fs.rename(path.join(staging, path.basename(at)), at)))),
@@ -111,7 +111,7 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
             const installed = (yield* fs.readDirectory(folder)).filter((name) => path.extname(name) === '.dist-info');
             const records = yield* Effect.forEach(installed, (info) => fs.readFileString(path.join(folder, info, 'WHEEL')), { concurrency: 'unbounded' });
             const [present, missing] = Array.separate(Array.zipWith(installed, records, (info, record) => Result.fromNullishOr(wheels.get(keyed(path.basename(info, '.dist-info'), record.match(/(?<=^Tag:\s*)\S+$/gmu) ?? [])), Function.constant(info))));
-            return yield* Array.match(missing, { onEmpty: () => Effect.succeed(present), onNonEmpty: (names) => Effect.fail(new Cause.UnknownError(names, `${names.join(', ')} uv installs for ${platform} carry the tags of no wheel the lock names`)) });
+            return yield* Array.match(missing, { onEmpty: () => Effect.succeed(present), onNonEmpty: (names) => new Cause.UnknownError(names, `${names.join(', ')} uv installs for ${platform} carry the tags of no wheel the lock names`) });
         }),
         { concurrency: 'unbounded' },
     );
