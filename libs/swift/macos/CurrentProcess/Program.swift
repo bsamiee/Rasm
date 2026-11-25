@@ -72,10 +72,10 @@ public struct Program: Sendable {
         let setting: (ConfigKey) -> URL? = { key in settings.string(forKey: key).map { path in URL(filePath: path, directoryHint: .isDirectory) } }
         return switch (kind, setting("output.dir")) {
             case (.state, _):
-                setting("state.dir") ?? .applicationSupportDirectory.appending(path: Bundle.main.infoDictionary?[kCFBundleNameKey as String] as? String ?? identifier, directoryHint: .isDirectory)
+                setting("state.dir") ?? .applicationSupportDirectory.appending(path: identifier, directoryHint: .isDirectory)
             case (_, .some(let output)): output.appending(components: application ?? name, String(describing: kind), directoryHint: .isDirectory)
-            case (.logs, .none): .libraryDirectory.appending(components: "Logs", name, directoryHint: .isDirectory)
-            case (_, .none): .cachesDirectory.appending(components: name, String(describing: kind), directoryHint: .isDirectory)
+            case (.logs, .none): .libraryDirectory.appending(components: "Logs", identifier, directoryHint: .isDirectory)
+            case (_, .none): .cachesDirectory.appending(components: identifier, String(describing: kind), directoryHint: .isDirectory)
         }
     }
 
