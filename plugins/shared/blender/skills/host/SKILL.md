@@ -63,10 +63,10 @@ Sessions open in order:
 - With no GUI on 9877, `blender --background <file.blend> --command blender_mcp --port 9877` run in the background serves the file to server `blender`
 - Background servers answer data and summary tools, window and area images and deferred replies excepted
 
-Quitting saves preferences, the last GUI to quit overwriting what others saved. Restore preferences a task GUI changed before quitting it. Blender draws menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone. Quitting an edited file prints `refused` under a save prompt only `capture` shows, and `bpy.ops.wm.read_homefile()` before the quit discards a task GUI's edits.
+Quitting saves preferences, the last GUI to quit overwriting what others saved. Restore preferences a task GUI changed before quitting it. Blender draws menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone. Quitting an edited file raises a save prompt only a window capture shows, and `bpy.ops.wm.read_homefile()` before the quit discards a task GUI's edits.
 
 Script-driven task GUIs run a runner script:
-- `watch-app launch org.blenderfoundation.blender --wait --environment BLENDER_USER_RESOURCES=<folder> TMPDIR=<folder> --arguments --no-window-focus --python-use-system-env --python <runner.py>` runs one on a fresh profile without focus and returns its exit status once it quits
+- `BLENDER_USER_RESOURCES=<folder> TMPDIR=<folder> blender --no-window-focus --python-use-system-env --python <runner.py>` runs one on a fresh profile without focus and returns its exit status once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
 - `--enable-event-simulate` enables `window.event_simulate` and discards real keyboard and mouse input, the call otherwise raising `RuntimeError`
 - Runners end with `bpy.ops.wm.quit_blender()` under a `temp_override` naming the first window
@@ -173,7 +173,6 @@ Log reads follow host rules:
 - `--log "<categories>"` selects log categories, and `--log-level trace` prints every level
 - `--log-level trace --log "context"` prints each context member an operator read, tagged with the calling script line
 - `--log operator --log-level debug --log-file <file>` logs operator calls, `rg -o 'Finished (bpy\.ops\..*)' -r '$1' <file>` printing each runnable
-- Operator logs at `<folder>/host/blender.log` join the timeline of `watch-app watch --record <folder>`
 - Crash reports read before the next run starts, concurrent Blenders sharing one file
 - `Cannot connect to Blender` answers mean no GUI listens on the answering server's port
 
@@ -212,7 +211,7 @@ Debug sessions follow host rules:
 
 Startup code (an extension's module top level and `register()`) stops under startup module `debugpy_listen.py`, which listens on `BLENDER_DEBUGPY_PORT` and waits for a client when the variable is set:
 - Blender registers every script path's `startup` modules, then enables extensions, then runs `--python-expr` and `--python`, so only a startup module runs before an extension imports
-- `watch-app launch org.blenderfoundation.blender --environment BLENDER_DEBUGPY_PORT=<port> --arguments --no-window-focus --python-use-system-env` run in the background holds a GUI unresponsive in the wait
+- `BLENDER_DEBUGPY_PORT=<port> blender --no-window-focus --python-use-system-env` run in the background holds a GUI unresponsive in the wait
 - `BLENDER_DEBUGPY_PORT=<port> blender --python-use-system-env --background --python-exit-code 1 --python <script.py>` holds a background run in the wait
 - `set_breakpoint` on the extension's `register()` and module lines, then `attach_to_process`, then `wait_for_stop` returns the stop under `addon_utils.enable`
 

@@ -8,7 +8,7 @@ description: "Use when code for a vendor host (plug-in, extension, script, MCP c
 Investigation of closed vendor software reads evidence in cost order and stops at the first tier that settles the question.
 
 - Use `tool:ghidra` for decompiling a function or emulating code
-- Use `tool:watch-app` for launching, quitting, or reading the interface of a desktop app, Atelier for an Adobe app
+- Use Atelier for launching, quitting, or reading the interface of an Adobe app
 - Use `terminal:history` for earlier sessions that probed the same host
 
 ## [01]-[QUESTION]
@@ -54,6 +54,9 @@ Tier steps that decided past investigations:
     - JavaScript -> shipped files, `asar extract-file` for Electron, `rg -a` for scripts inside a binary
 - Observation: `lsof -nP -a -p <pid> -iTCP -sTCP:LISTEN` names each port per process, then one `initialize` and `tools/list` for an MCP server
 - Observation: `log show --predicate` over the failing process and its daemons (`appleeventsd`, `tccd`) returns the raw OS error code
+- Observation: `sample <pid> 1 -file <path>` reads a running host's stacks without touching it
+- Observation: `sudo spindump <pid> 2 10 -onlyTarget -onlyBlocked -noBinary -o <out>` reads the blocked threads of a hung host
+- Observation: `spindump -i /Library/Logs/DiagnosticReports/<app>_<date>.hang -timeline -noBinary -o <out>` reads a past hang without `sudo`
 - Decompilation: `llvm-objdump` cross-references settle whether a slot or symbol is read, `tool:ghidra` the logic around it
 
 ## [03]-[EVIDENCE]

@@ -71,7 +71,7 @@ Editor symbols give engine frames locals, and install once per engine:
 1. `jq .InstallTags` of the `.item` with `AppName` `UE_5.8` under `~/Library/Application Support/Epic/EpicGamesLauncher/Data/Manifests` lacks `editor_symbols`
 2. `<engine>/Binaries/Mac/libUnrealEditor-Core.dSYM` is absent while the tag is missing, as each dSYM sits beside its dylib
 3. `df -h /Users/Shared` shows room for 136.80 GiB installed, as the tag holds 3263 files and downloads at most 24.66 GiB of chunks
-4. `watch-app` drives Epic Games Launcher in the background to the engine's Options and "Editor symbols for debugging", read before each press
+4. Epic Games Launcher installs the tag under the engine's Options, "Editor symbols for debugging", read before each press
 5. `get_local_variables` at an engine stop after the install lists the frame's locals
 
 Symbol installs follow launcher rules:

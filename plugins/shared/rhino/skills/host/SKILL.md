@@ -23,19 +23,19 @@ Tools load through ToolSearch as `mcp__plugin_rhino_rhino-mcp-platform__<tool>` 
 
 Sessions run in order:
 1. `list_slots` lists each Rhino serving a document listener, and `dotnet run scripts/Instances.cs` lists the documents of each
-2. With none listed, `watch-app launch com.mcneel.rhinoceros.9 --arguments -nosplash` opens Rhino in the background on an untitled document the router adopts, as `-nosplash` skips the Start window
+2. With none listed, Rhino launched in the background with argument `-nosplash` opens an untitled document the router adopts, as `-nosplash` skips the Start window
 3. `get_context` reads the slot's selection, viewport, document, and canvas state before the first edit
 4. `g2_start` opens the Grasshopper 2 editor on an empty definition, and `g2_apply_graph` places, wires, and solves it in one call
-5. `close_doc` discards the task's document, or saves it first with `path`, then `watch-app quit <pid>` exits Rhino with no prompt
+5. `close_doc` discards the task's document, or saves it first with `path`, and Rhino then quits with no prompt
 
 Rhino and the router follow host rules:
 - Rhinos started without `-nosplash` (Dock, Finder) open the Start window, holding no document and no listener, so the router lists none
 - Launch arguments reach only a new instance, so a Rhino already at its Start window keeps it
 - Tool calls with no Rhino listening spawn one with `-nosplash -runscript=_MCPSpawn`, taking focus while it launches, and `close_slot` closes it saving nothing
 - Spawns while a Rhino sits at its Start window run `_MCPSpawn` in that Rhino behind a "Please Wait..." panel, failing `startup_timeout` after 120 seconds
-- Start windows clear through File > New with `watch-app perform`, or a quit and the launch above
-- Rhino's Start window, progress, Settings, and About panels hide while Rhino is inactive, reading off screen and `presented` false in `watch-app read`, where `capture --window` still shows them
-- `close_slot` refuses an adopted slot with `cannot_close_adopted`, and `watch-app quit` closes it
+- Start windows clear through File > New, or a quit and the launch above
+- Rhino's Start window, progress, Settings, and About panels hide while Rhino is inactive and read off screen, and a window capture still shows them
+- `close_slot` refuses an adopted slot with `cannot_close_adopted`, and quitting Rhino closes it
 - Quitting with an edited document asks in a file panel whose `discard` answer reads Delete
 - User-started Rhinos announce a listener per document while `RHINO_MCP_AUTOSTART_PORT` holds a value or RhinoAI's MCP auto-load option is on
 - `run_csharp` runs C# 10 against `__rhino_doc__`, one call per application at a time on its main-thread queue, with `#r "<assembly>"` below line 1
@@ -47,7 +47,7 @@ Members of RhinoCommon and Grasshopper 2 read from their assemblies:
 
 ## [03]-[DEBUGGING]
 
-Rhino runs plug-ins on its bundled .NET under the hardened runtime, and each route takes the `pid` of a `watch-app` line:
+Rhino runs plug-ins on its bundled .NET under the hardened runtime, and each route takes Rhino's `pid`:
 
 | [INDEX] | [READS]                                | [ROUTE]                                                                             |
 | :-----: | :------------------------------------- | :---------------------------------------------------------------------------------- |
@@ -107,12 +107,11 @@ Script debug runs follow RhinoCode rules:
 - `.py` scripts resolve their language once `run_command` with `-_ScriptEditor _Run "<file.py>"` started Python 3 in that Rhino
 - `InvokeOnUiThread` called inside `run_csharp` runs the debug run inside that call, holding it until the script ends
 - Paused runs answer `run_csharp`, while `run_command`, `rhinocode command`, and `DebugControls.StepOver()` leave the prompt waiting
-- `watch-app set <field id> -- <option>`, then `watch-app key <pid> 36`, answers `Continue`, `StepIn`, `StepOver`, `StepOut`, `RunToEnd`, or `Stop`
-- Field ids are the first `AXTextField` of `watch-app read <pid> --window <number>`, and each answer makes the last id stale
+- Prompts take `Continue`, `StepIn`, `StepOver`, `StepOut`, `RunToEnd`, or `Stop` written to the first `AXTextField` of their window, then Return
 - Prompts ask again on any input other than an option
 - `ExecFrame.GetSlots` lists names and values, and `ExecFrame.TryEval` fails for C# and Python alike
 
-One `run_csharp` call registers a command log until Rhino quits, each command appending its English name, its result, and its command window lines to the `host` timeline of `watch-app watch --record <folder>`:
+One `run_csharp` call registers a command log until Rhino quits, each command appending its English name, its result, and its command window lines to `<folder>/host/rhino.log`:
 
 ```csharp
 Rhino.RhinoApp.CommandWindowCaptureEnabled = true;

@@ -50,7 +50,6 @@ Finding the member and the case the host lacks it:
 - Source: read the host's installed source (decompiled assembly, scripting dictionary, interpreter reference, typings) through `search:code`
 - Reference: read the newest release's reference for a member the installed source lacks, then drive the running host for the proving run
 - Driving: `rhino:host`, `blender:host`, a host's MCP, or app-managed Computer Use, on the running instance
-- Processes: `watch-app` handles desktop lifecycle, monitoring, hangs, and diagnostic recording
 - Absent value: a value no host declaration states enters as caller data at the boundary, stated once, the library derives, defaults, and composes
 - Absent value outcome: library code holds no product name, style name, palette, sheet size, margin, path, or tuned value
 - Absent behavior: a behavior no host member performs composes host kinds and package members over caller data, never a copy of a host member

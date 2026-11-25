@@ -16,7 +16,7 @@ chrome-devtools status | rg -q -- --auto-connect || chrome-devtools start --auto
     --experimentalDevtools --workspace=/ --no-usage-statistics --no-performance-crux
 ```
 
-- A command with no daemon running starts one with default flags on a scratch headless Chrome, so the line above runs before a session's first command
+- Commands with no daemon running start one with default flags on a scratch headless Chrome, so the line above runs before a session's first command
 - Pages keep the owner's sign-ins, extensions, and settings, and `--output-format json` prints each result as JSON
 - Chrome serves CDP once the owner enables remote debugging at `chrome://inspect/#remote-debugging`
 - Chrome asks the owner to Allow each new CDP connection and remembers no answer, so `start` runs only when `status` lacks `--auto-connect`, the spelling `status` prints
@@ -106,7 +106,7 @@ Expressions on `chrome://flags` call its page proxy:
 Expressions on `chrome://extensions` and on an extension's own pages change installed extensions:
 - `chrome.developerPrivate.updateExtensionConfiguration` on `chrome://extensions` takes `extensionId` with `fileAccess`, `incognitoAccess`, or `pinnedToToolbar`
 - `chrome.developerPrivate.loadUnpacked({ failQuietly: true, populateError: true })` opens a folder picker and loads an extension that lasts across starts
-- `watch-app` answers that picker by selecting a sidebar row, then a folder row, then pressing Select, and Chrome resolves a symlink to its target
+- Folder pickers take a sidebar row, then a folder row, then Select, and Chrome resolves a symlink to its target
 - `chrome.developerPrivate.updateExtensionCommand({ extensionId, commandName, keybinding })` binds a shortcut a reinstall left inactive
 - Extension pages open as `chrome-extension://<id>/<page>`, where `browser.runtime.sendMessage(<message>)` sends what a page's own script sends
 - Dashboard of uBlock Origin Lite takes `{ what: "applyRulesets", enabledRulesets }`, `{ what: "setDefaultFilteringMode", level }`, and `{ what: "getOptionsPageData" }`
