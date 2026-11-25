@@ -14,7 +14,6 @@ type Workflow = Tree['workflows'][number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const EXPORTER = fileURLToPath(import.meta.resolve('#/coverage.cmake'));
 const IDENTIFIER = fileURLToPath(import.meta.resolve('#/compiler.cmake'));
 const MANIFEST = 'CMakeLists.txt';
 const PRESETS = 'CMakePresets.json';
@@ -197,7 +196,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
         links: Array.dedupe((linked.get(folder) ?? []).map(({ root: to, file }) => ({ root: to, file }))),
         registries: (registries.get(folder) ?? []).map((manifest) => ({ folder: posix.dirname(manifest), inputs: Array.fromIterable(new Set([manifest, posix.join(posix.dirname(manifest), REGISTRY.configuration)]).intersection(matched)) })),
     }));
-    return { root, workflows, packages, members, inputs, exporter: normalizePath(relative(source, EXPORTER)), identifier: normalizePath(relative(workspaceRoot, IDENTIFIER)) };
+    return { root, workflows, packages, members, inputs, identifier: normalizePath(relative(workspaceRoot, IDENTIFIER)) };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

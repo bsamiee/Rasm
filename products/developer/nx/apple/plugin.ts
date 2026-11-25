@@ -85,7 +85,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
                 Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ files: [] })),
             );
             const shown = (...argv: readonly string[]) => Effect.map(spawned(['swift', ...argv, '--package-path', swiftPackage.root, '--experimental-skip-acquiring-lock'], { cwd: workspaceRoot }), (at) => relative(workspaceRoot, at.trim()));
-            const bins = yield* Effect.all({ debug: shown('build', '--show-bin-path'), release: shown('build', '--configuration', 'release', '--show-bin-path'), codecov: shown('test', '--show-codecov-path') }, { concurrency: 'unbounded' });
+            const bins = yield* Effect.all({ debug: shown('build', '--show-bin-path'), release: shown('build', '--configuration', 'release', '--show-bin-path') }, { concurrency: 'unbounded' });
             return { ...swiftPackage, bins, plists, entitled, shipped } satisfies Package;
         }),
     );

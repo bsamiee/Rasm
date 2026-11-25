@@ -18,22 +18,6 @@
             "type": "string",
             "description": "Folder the task's projects write attachments to, relative to the workspace root, the run's attachmentsDir where the task runs alone"
         },
-        "coverage": {
-            "type": "object",
-            "properties": {
-                "enabled": {
-                    "type": "boolean"
-                },
-                "reporter": {
-                    "type": "string"
-                },
-                "reportsDirectory": {
-                    "type": "string"
-                }
-            },
-            "additionalProperties": true,
-            "description": "Coverage options of the run over the coverage words after --, reportsDirectory relative to the workspace root, which every run enabling coverage writes to and the coverage configuration of the target enables"
-        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, parsed as vitest run arguments",
@@ -50,5 +34,5 @@
     "required": ["config", "projects"],
     "additionalProperties": true,
     "title": "Test",
-    "description": "Runs vitest run in a child process of its own once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, side by side with the runs of other option groups, a task running coverage alone, and decides each task from the test modules of its own projects"
+    "description": "Runs vitest run in a child process of its own once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, side by side with the runs of other option groups, and decides each task from the test modules of its own projects"
 }

@@ -3,8 +3,8 @@ import { arch, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { type Anchor, anchored, fingerprinted, inferring, manifested } from '@rasm/nx';
-import { Array, Config, Effect, identity, Option, Record, String, Struct } from 'effect';
-import { crateInputs, Options, projectTargets, released } from '#/targets';
+import { Array, Config, Effect, identity, Option, Record, Schema, String, Struct } from 'effect';
+import { crateInputs, projectTargets, released } from '#/targets';
 import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, type Reading, resolved, run, type Workspace, workspaces } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -16,8 +16,7 @@ const OWN = fingerprinted(import.meta.dirname);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, { coveragePath }: Options, anchor: Anchor, workspace: Workspace) {
-    const coverage = Option.map(Option.fromUndefinedOr(coveragePath), (at) => posix.join(at, 'lcov.info'));
+const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, anchor: Anchor, workspace: Workspace) {
     const roots = [...new Map<string, Option.Option<Member>>([[workspace.root, Option.none()], ...workspace.members.map((member) => [member.root, Option.some(member)] as const)])];
     const manifests = yield* Effect.forEach(roots, ([root]) => Effect.transposeOption(Option.liftPredicate(manifested(context.workspaceRoot, root), () => anchor.holds(root))));
     const present = Array.zip(roots, manifests).filter(([[, member], stated]) => Option.isSome(member) || Option.isSome(stated));
@@ -25,7 +24,7 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, { cov
         const declared = Option.flatMapNullishOr(member, (held) => held.crate.metadata?.nx?.targets).pipe(Option.getOrElse(Record.empty));
         const stated = Record.union(declared, Option.getOrElse(manifest, Record.empty), (own, written) => mergeTargetConfigurations(written, own));
         const delivery = Option.map(member, (held) => released(held, workspace.root));
-        const targets = Record.union(projectTargets(workspace, coverage, member, stated, anchor, Option.match(delivery, { onNone: () => ({}), onSome: Struct.get('targets') })), declared, (derived, own) => mergeTargetConfigurations(own, derived));
+        const targets = Record.union(projectTargets(workspace, member, stated, anchor, Option.match(delivery, { onNone: () => ({}), onSome: Struct.get('targets') })), declared, (derived, own) => mergeTargetConfigurations(own, derived));
         const crate = Option.zipWith(member, delivery, (held, shipped) => {
             const { default: sources } = getNamedInputs(root, context);
             const implicit = held.crate.metadata?.nx?.implicitDependencies;
@@ -46,7 +45,7 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, { cov
 
 const createNodes: CreateNodes = [
     `**/${MANIFEST}`,
-    inferring(Options, run, function* (manifests, settings, context) {
+    inferring(Schema.Struct({}), run, function* (manifests, _, context) {
         const { workspaceRoot } = context;
         const anchor = anchored(workspaceRoot);
         const cache = new PluginCache<{ readonly digest: string; readonly readings: readonly Reading[] }>(join(workspaceDataDirectory, 'cargo.hash'));
@@ -73,7 +72,7 @@ const createNodes: CreateNodes = [
         }
         const resolutions = readings.map((reading) => resolved(workspaceRoot, reading, files));
         (yield* Links).set(workspaceRoot, new Map(resolutions.flatMap(({ members }) => members.map((member) => [dirname(member.crate.manifest_path), member] as const))));
-        const results = yield* Effect.forEach(resolutions, (workspace) => inferred(context, settings, anchor, workspace));
+        const results = yield* Effect.forEach(resolutions, (workspace) => inferred(context, anchor, workspace));
         return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
     }),
 ];

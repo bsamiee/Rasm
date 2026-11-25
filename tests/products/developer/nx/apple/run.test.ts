@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execute } from '@rasm/nx-apple/executors/run';
 import { it, shimmed } from '@rasm/testing/nx';
@@ -9,23 +8,6 @@ import { describe, expect, vi } from 'vitest';
 const EMPTY = { nodes: {}, dependencies: {} };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-
-describe('run coverage report', () => {
-    it.for([
-        { stated: 'no result bundle pattern', runs: [['true']], report: { profiles: ['*.profdata'], objects: ['Suite.xctest'], file: 'lcov.info' }, refusal: /^No profile matches \*\.profdata after the invocations$/u },
-        { stated: 'no instrumented binary', runs: [['touch', 'default.profdata']], report: { profiles: ['*.profdata'], results: ['*.xcresult'], file: 'lcov.info' }, refusal: /^No instrumented binary is stated or reported by a result bundle matching \*\.xcresult after the invocations$/u },
-    ])('reads a report with $stated as one stating none, and names what the invocations left unwritten', async ({ runs, report, refusal }, { workspace }) => {
-        await expect(execute({ runs, report }, workspace.context(EMPTY, 'Viewer', 'test--xcodebuild'))).rejects.toThrow(refusal);
-    });
-
-    it('ends each invocation with the arguments a report states for its coverage prefix map, then the workspace root of the context mapped to nothing', async ({ workspace }) => {
-        const report = { profiles: ['*.profdata'], mapping: ['-Xswiftc', '-coverage-prefix-map', '-Xswiftc'], file: 'lcov.info' };
-
-        await expect(execute({ runs: [['sh', '-c', String.raw`printf "%s\n" "$@" > argv`, 'sh', 'first']], report }, workspace.context(EMPTY, 'Gauge', 'test--swift'))).rejects.toThrow(/^No profile matches/u);
-
-        expect(readFileSync(join(workspace.root, 'argv'), 'utf-8').split('\n')).toStrictEqual(['first', '-Xswiftc', '-coverage-prefix-map', '-Xswiftc', `${workspace.root}/=`, '']);
-    });
-});
 
 describe('run install notice', () => {
     it.for([

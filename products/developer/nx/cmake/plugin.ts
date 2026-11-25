@@ -10,9 +10,8 @@ import { Linked, MANIFEST, PRESETS, REGISTRY, resolved, run, type Tree } from '#
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Options extends Schema.Opaque<Options, unknown>()(
-    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
-        description:
-            "outputPath: workspace folder each member writes its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes archives under packages in the member build folder. coveragePath: workspace folder the coverage configuration of a member's test target writes the lcov.info report of the member's test executables to, its raw and merged profiles staying in the member build folder, {projectName} naming the member, absent leaves each test its default.profraw and writes no report.",
+    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({
+        description: 'outputPath: workspace folder each member writes its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes archives under packages in the member build folder',
     }),
 ) {}
 

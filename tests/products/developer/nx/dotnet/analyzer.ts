@@ -27,7 +27,6 @@ const node = (file: string, stated: Readonly<Record<string, unknown>> = {}) => (
     catalogs: [],
     bases: [],
     packages: [],
-    referenced: [],
     locks: [],
     restored: [],
     results: [],

@@ -27,7 +27,6 @@
         { "name": "asan", "inherits": "llvm", "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "RASM_SANITIZERS": "address;undefined" } },
         { "name": "tsan", "inherits": "llvm", "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "RASM_SANITIZERS": "thread" } },
         { "name": "fuzz", "inherits": "llvm", "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "RASM_SANITIZERS": "fuzzer-no-link;address;undefined" } },
-        { "name": "coverage", "inherits": "llvm", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "RASM_COVERAGE": true } },
         {
             "name": "lint",
             "inherits": "llvm",
@@ -52,7 +51,6 @@
         { "name": "asan", "configurePreset": "asan" },
         { "name": "tsan", "configurePreset": "tsan" },
         { "name": "fuzz", "configurePreset": "fuzz" },
-        { "name": "coverage", "configurePreset": "coverage" },
         { "name": "lint", "configurePreset": "lint" },
         { "name": "unreal", "configurePreset": "unreal" }
     ],
@@ -72,7 +70,6 @@
         },
         { "name": "tsan", "inherits": "suite", "configurePreset": "tsan", "environment": { "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1:$penv{TSAN_OPTIONS}" } },
         { "name": "fuzz", "inherits": "report", "configurePreset": "fuzz", "filter": { "include": { "label": "fuzz" } } },
-        { "name": "coverage", "inherits": "suite", "configurePreset": "coverage" },
         { "name": "bench", "inherits": "report", "configurePreset": "release", "output": { "verbosity": "verbose" }, "filter": { "include": { "label": "benchmark" } } }
     ],
     "packagePresets": [{ "name": "release", "configurePreset": "release", "generators": ["TXZ"] }],
@@ -115,14 +112,6 @@
                 { "type": "configure", "name": "fuzz" },
                 { "type": "build", "name": "fuzz" },
                 { "type": "test", "name": "fuzz" }
-            ]
-        },
-        {
-            "name": "coverage",
-            "steps": [
-                { "type": "configure", "name": "coverage" },
-                { "type": "build", "name": "coverage" },
-                { "type": "test", "name": "coverage" }
             ]
         },
         {

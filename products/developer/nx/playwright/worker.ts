@@ -8,7 +8,7 @@ import { Array, Effect, Option, Predicate, Record, Schema } from 'effect';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ROUTED: ReadonlySet<string> = new Set(['html', 'blob', 'perfetto']);
-const REPORTS: Readonly<Record<string, string>> = { html: 'playwright-report', blob: 'blob-report', perfetto: 'test-results', coverage: 'coverage' };
+const REPORTS: Readonly<Record<string, string>> = { html: 'playwright-report', blob: 'blob-report', perfetto: 'test-results' };
 
 // --- [MODELS] --------------------------------------------------------------------------
 

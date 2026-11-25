@@ -8,7 +8,6 @@ import { configured, PACKAGING, REGISTRY, type Tree, WORKING, type Workflow } fr
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SHELL = /\$env\{(?<name>\w+)\}|[\\"`$]/gu;
-const COVERAGE = { configuration: 'coverage', folder: 'profiles', profile: '%m-%p.profraw', merged: 'coverage.profdata', report: 'lcov.info' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -29,7 +28,7 @@ const preset = (name: string | undefined) => Array.fromNullishOr(name).flatMap((
 
 const flagged = (workflow: Workflow, flag: string) => workflow.tidy.map(({ launcher }) => Array.findFirst(launcher.split(';'), (word) => (word.startsWith(flag) ? Option.some(word.slice(flag.length)) : Option.none())));
 
-const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath, coveragePath }: { readonly outputPath?: string; readonly coveragePath?: string }, head: Workflow, declared: Stated, anchor: Anchor) => {
+const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath }: { readonly outputPath?: string }, head: Workflow, declared: Stated, anchor: Anchor) => {
     const others = tree.workflows.filter((workflow) => workflow !== head);
     const within = (at: string) => posix.relative(tree.root, at) || '.';
     const checked = Array.findFirst(tree.workflows, ({ tidy }) => member.compiled && tidy.length > 0);
@@ -68,26 +67,10 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
         const { folder, ran } = planned(workflow);
         return ran([compiled(workflow)], [tokened('.')(folder)]);
     };
-    const covered = Option.all({ profiled: Option.fromUndefinedOr(coveragePath), workflow: Array.findFirst(others, ({ name }) => name === COVERAGE.configuration) });
     const tests = (workflow: Workflow) => {
         const { folder, ran } = planned(workflow);
-        const ctest = ['ctest', ...preset(workflow.test), '--test-dir', within(folder)];
         const after = Array.fromNullishOr(workflow.after).map((stated) => ['cmake', '--build', within(workflow.tree), '--preset', stated]);
-        const [profiles, merged] = [within(posix.join(folder, COVERAGE.folder)), within(posix.join(folder, COVERAGE.merged))];
-        const coverage = Option.toArray(covered)
-            .filter((held) => held.workflow === workflow)
-            .map(({ profiled }) => ({ profiled, lcov: posix.join(profiled, COVERAGE.report) }));
-        const cleared = coverage.flatMap(({ profiled, lcov }) => [
-            ['cmake', '-E', 'rm', '-rf', profiles, within(lcov)],
-            ['cmake', '-E', 'make_directory', within(profiled)],
-        ]);
-        const profiling = coverage.flatMap(() => ['cmake', '-E', 'env', `LLVM_PROFILE_FILE=${WORKING}/${posix.join(profiles, COVERAGE.profile)}`]);
-        const exported = coverage.map(({ lcov }) => ['cmake', `-DPROFILES=${profiles}`, `-DMERGED=${merged}`, `-DTESTS=${within(folder)}`, `-DREPORT=${within(lcov)}`, '-P', tree.exporter]);
-        return ran(
-            [...cleared, [...profiling, ...ctest], ...after, ...exported],
-            coverage.map(({ lcov }) => tokened('.')(lcov)),
-            cleared.length,
-        );
+        return ran([['ctest', ...preset(workflow.test), '--test-dir', within(folder)], ...after], [], 0);
     };
     const installs = (workflow: Workflow) => {
         const { folder, ran } = planned(workflow);
@@ -118,7 +101,7 @@ const memberTargets = (tree: Tree, member: Tree['members'][number], { outputPath
             'clang-tidy': Option.map(checked, (workflow) => target('clang-tidy', `Reports the findings and failed header-set verification of ${member.name} in workflow ${workflow.name} as errors with clang-tidy`, planned(workflow).ran([compiled(workflow)]), { cache: true, inputs: [...sources, ...tidied(workflow)] })),
         }),
         fix: Record.getSomes({ 'clang-tidy': Option.map(checked, (workflow) => target('clang-apply-replacements', `Applies the replacements clang-tidy exports for ${member.name} in workflow ${workflow.name}, then formats the changed lines with clang-apply-replacements`, fixes(workflow), {})) }),
-        test: { ...(member.compiled && { ctest: target('ctest', `Runs the tests of ${member.name} with ctest, the test preset deciding whether none is an error`, tests(head), { cache: true, dependsOn: ['build--cmake'], outputs: Option.toArray(covered).map(() => '{options.outputs.0}'), ...varied(tests) }) }) },
+        test: { ...(member.compiled && { ctest: target('ctest', `Runs the tests of ${member.name} with ctest, the test preset deciding whether none is an error`, tests(head), { cache: true, dependsOn: ['build--cmake'], ...varied(tests) }) }) },
         install: { ...(member.compiled && { cmake: target('cmake --install', `Builds ${member.name}, then installs it under the install prefix its configure preset states with cmake --install`, installs(head), varied(installs)) }) },
         upgrade: Array.match(member.registries, {
             onEmpty: () => ({}),

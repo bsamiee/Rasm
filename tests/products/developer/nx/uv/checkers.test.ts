@@ -1,5 +1,4 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { env } from 'node:process';
 import type { ProjectGraph } from '@nx/devkit';
@@ -33,7 +32,6 @@ const IMPORTING = {
     'proj/importing/pyproject.toml': `[project]\nname = "importing"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n${BUILT}`,
     'proj/importing/src/importing/__init__.py': VERSIONED,
 };
-const BRANCHED = 'def one(flag: bool = True) -> int:\n    if flag:\n        return 1\n    return 0\n';
 const TESTED = { 'proj/library/tests/test_library.py': 'from library import one\n\n\ndef test_one() -> None:\n    assert one() == 1\n' };
 const WORDS = {
     'proj/words/pyproject.toml': `[project]\nname = "words"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n${BUILT}`,
@@ -76,19 +74,6 @@ const hashed = (workspace: Workspace, graph: ProjectGraph, task: string) => {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('checker targets', () => {
-    it('writes the coverage of a pytest run with pytest-cov locked to the outputs its coverage configuration declares under coveragePath', async ({ workspace }) => {
-        locked(workspace, { ...workspaced(['pytest>=8', 'pytest-cov']), ...TESTED });
-        const graph = await workspace.graph(uv, { coveragePath: '.artifacts/coverage/{projectName}' });
-        const before = workspace.files('.venv', 'tmp');
-
-        const result = await workspace.run(graph, 'library', 'test--pytest', 'coverage');
-
-        const written = [...workspace.files('.venv', 'tmp').difference(before)].filter((file) => !/(?:^|\/)(?:__pycache__|\.pytest_cache)\//u.test(file));
-        expect(result.success).toBe(true);
-        expect([...new Set(written).difference(workspace.cached(graph, 'library', 'test--pytest', 'coverage'))]).toStrictEqual([]);
-        expect(written.toSorted()).toStrictEqual(['.artifacts/coverage/library/.coverage', '.artifacts/coverage/library/lcov.info']);
-    });
-
     it.for([
         { case: 'at the Nx workspace root', folder: '.' },
         { case: 'in a nested folder, below the pytest configuration', folder: 'nested' },
@@ -255,7 +240,6 @@ describe('checker targets', () => {
 
     it.for([
         { variable: 'PYTEST_ADDOPTS', value: '-k smoke', dev: ['pytest>=8'], tasks: ['library:test--pytest'] },
-        { variable: 'COVERAGE_RCFILE', value: 'other.ini', dev: ['pytest>=8'], tasks: ['library:test--pytest'] },
         { variable: 'MYPYPATH', value: 'stubs', dev: ['mypy', 'refurb'], tasks: ['library:check--mypy', 'library:check--refurb'] },
         { variable: 'TY_CONFIG_FILE', value: 'other.toml', dev: ['ty'], tasks: ['uv-tutorial:check--ty'] },
     ])('changes the hash of $tasks once $variable is set', async ({ variable, value, dev, tasks }, { workspace, onTestFinished }) => {
@@ -272,40 +256,14 @@ describe('checker targets', () => {
         expect(after.map(({ value: hash }, index) => hash === before[index]?.value)).toStrictEqual(tasks.map(() => false));
     });
 
-    it.for([
-        { case: 'a conftest.py in a folder above it', file: 'proj/conftest.py', content: '' },
-        { case: 'a .coveragerc at the uv root', file: '.coveragerc', content: '[run]\nbranch = True\n' },
-    ])('changes the pytest hash of a member in the graph built before $case', async ({ file, content }, { workspace }) => {
+    it('changes the pytest hash of a member in the graph built before a conftest.py in a folder above it', async ({ workspace }) => {
         locked(workspace, { ...workspaced(['pytest>=8']), ...TESTED });
         const graph = await workspace.graph(uv);
         const before = await hashed(workspace, graph, 'library:test--pytest');
 
-        await workspace.write({ [file]: content }).graph(uv);
+        await workspace.write({ 'proj/conftest.py': '' }).graph(uv);
 
         const after = await hashed(workspace, graph, 'library:test--pytest');
         expect(after.value).not.toBe(before.value);
-    });
-
-    it('measures branches in the lcov report of a suite in a nested uv root, as the coverage table of a manifest above it states', async ({ workspace }) => {
-        workspace.write({ 'pyproject.toml': '[tool.coverage.run]\nbranch = true\n', ...Record.mapKeys({ ...workspaced(['pytest>=8', 'pytest-cov']), ...TESTED, 'proj/library/src/library/__init__.py': BRANCHED }, (file) => posix.join('nested', file)) });
-        execFileSync('uv', ['lock', '--quiet'], { cwd: join(workspace.root, 'nested') });
-        const graph = await workspace.graph(uv, { coveragePath: '.artifacts/coverage/{projectName}' });
-
-        const result = await workspace.run(graph, 'library', 'test--pytest', 'coverage');
-
-        const report = readFileSync(join(workspace.root, '.artifacts/coverage/library/lcov.info'), 'utf-8').split('\n');
-        expect([result.success, report.filter((row) => row.startsWith('SF:')), report.some((row) => row.startsWith('BRDA:'))]).toStrictEqual([true, ['SF:nested/proj/library/src/library/__init__.py', 'SF:nested/proj/library/tests/test_library.py'], true]);
-    });
-
-    it('measures a member outside the folder of its uv root under the coverage table of that root, each source of the report relative to the Nx workspace root', async ({ workspace }) => {
-        const { 'pyproject.toml': manifest, ...library } = Record.mapKeys({ ...workspaced(['pytest>=8', 'pytest-cov']), ...TESTED, 'proj/library/src/library/__init__.py': BRANCHED }, (file) => file.replace('proj/', 'apart/'));
-        workspace.write({ ...library, 'nested/pyproject.toml': `${manifest?.replace('proj/*', '../apart/*')}\n[tool.coverage.run]\nbranch = true\n` });
-        execFileSync('uv', ['lock', '--quiet'], { cwd: join(workspace.root, 'nested') });
-        const graph = await workspace.graph(uv, { coveragePath: '.artifacts/coverage/{projectName}' });
-
-        const result = await workspace.run(graph, 'library', 'test--pytest', 'coverage');
-
-        const report = readFileSync(join(workspace.root, '.artifacts/coverage/library/lcov.info'), 'utf-8').split('\n');
-        expect([result.success, report.filter((row) => row.startsWith('SF:')), report.some((row) => row.startsWith('BRDA:'))]).toStrictEqual([true, ['SF:apart/library/src/library/__init__.py', 'SF:apart/library/tests/test_library.py'], true]);
     });
 });

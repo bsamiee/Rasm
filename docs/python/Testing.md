@@ -35,7 +35,4 @@ Module names `--import-mode=importlib` assigns:
 Targets `@rasm/nx-uv` infers for suites:
 - `@rasm/nx-uv` infers `test--pytest` per member holding a file pytest's `python_files` matches
 - `@rasm/nx-uv` passes `-o cache_dir=$NX_WORKSPACE_ROOT/<environmentPath>/.pytest_cache`, as pytest resolves a relative `cache_dir` against its rootdir
-- `nx test <member> -c coverage` adds `--cov` and writes `lcov.info` and `.coverage` to the member's coverage folder
-- `@rasm/nx-uv` runs pytest from the Nx workspace root, as coverage names files outside its working folder by absolute path
-- `lcov.info` and `.coverage` name each workspace file by its path from the Nx workspace root, in every uv root
-- `-c coverage` names the nearest manifest holding `[tool.coverage]` above the member, else above its uv root, through `--cov-config`, as coverage reads its table from the working folder alone
+- `@rasm/nx-uv` runs pytest from the folder of its uv root, where `uv run` finds the workspace, as pytest finds its configuration and `rootdir` from its path arguments

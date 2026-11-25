@@ -32,11 +32,11 @@ const rich = {
         version: 10,
         configurePresets: [
             { name: 'default', generator: 'Ninja', binaryDir: `\${sourceDir}/build/\${presetName}`, cacheVariables: { CMAKE_CXX_CLANG_TIDY: 'clang-tidy' } },
-            { name: 'coverage', inherits: 'default' },
+            { name: 'release', inherits: 'default' },
         ],
         testPresets: [
             { name: 'default', configurePreset: 'default' },
-            { name: 'coverage', configurePreset: 'coverage' },
+            { name: 'release', configurePreset: 'release' },
         ],
         packagePresets: [{ name: 'default', configurePreset: 'default', generators: ['TGZ'] }],
         workflowPresets: [
@@ -48,10 +48,10 @@ const rich = {
                 ],
             },
             {
-                name: 'coverage',
+                name: 'release',
                 steps: [
-                    { type: 'configure', name: 'coverage' },
-                    { type: 'test', name: 'coverage' },
+                    { type: 'configure', name: 'release' },
+                    { type: 'test', name: 'release' },
                 ],
             },
         ],
@@ -125,10 +125,10 @@ describe('inferred projects', () => {
 
     it('infers the same projects, targets, and dependencies with no cmake, ninja, or compiler on PATH', async ({ workspace }) => {
         pathed(join(workspace.root, '.bin'), {});
-        const bare = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
+        const bare = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}' });
         vi.unstubAllEnvs();
 
-        const tooled = await workspace.graph(cmake, { outputPath: '.artifacts/cmake/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
+        const tooled = await workspace.graph(cmake, { outputPath: '.artifacts/cmake/{projectName}' });
 
         expect(Object.keys(bare.nodes).toSorted()).toStrictEqual(['fixture_core', 'fixture_tool']);
         expect({ nodes: bare.nodes, dependencies: bare.dependencies }).toStrictEqual({ nodes: tooled.nodes, dependencies: tooled.dependencies });
@@ -176,14 +176,14 @@ describe('hashing', () => {
 
 describe('graph laws', () => {
     it('hashes every tool input in its verb and forwards the verb to each tool, package.json overrides included', async ({ workspace }) => {
-        const graph = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
+        const graph = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}' });
 
         expect(graph.nodes['fixture_core']?.data.targets?.['build--cmake']?.inputs).toContain('{projectRoot}/data/**/*');
         expect(unaggregated(graph)).toStrictEqual([]);
     });
 
     it('states every root, input, output, and working folder as a workspace-relative posix path', async ({ workspace }) => {
-        const graph = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
+        const graph = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}' });
 
         expect(Object.keys(graph.nodes['fixture_tool']?.data.targets ?? {})).toStrictEqual(expect.arrayContaining(['check--clang-tidy', 'pack--cpack', 'upgrade--vcpkg', 'install--cmake']));
         expect(unportable(graph)).toStrictEqual([]);

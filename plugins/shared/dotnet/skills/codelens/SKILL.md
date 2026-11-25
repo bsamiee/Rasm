@@ -169,7 +169,7 @@ Reference kinds:
 - `get_test_summary` — test methods per project, the reverse of `find_tests_for_symbol`
     - Each test reports framework, attribute kind, row count, location, and the production symbols it references
 - `find_uncovered_symbols` — public methods and properties no test reaches within 3 helper hops, sorted by cyclomatic complexity
-    - Reference-based static analysis, reads no runtime coverage data
+    - Reference-based static analysis
 
 ### [03.4]-[DIAGNOSTICS_AND_REFACTORING]
 
@@ -340,7 +340,7 @@ Tools that add a `summary` aggregate:
 - `find_throw_sites`, `find_catch_blocks` — `{ byType: {...}, byProject: {...} }`
 - `find_unused_symbols` — `{ byKind, filteredOut: { testMethod, testContainer, mcpTool, generated, composition, interop } }`
 - `find_naming_violations` — `{ byRule: {...} }`
-- `find_uncovered_symbols` — coverage counts with `riskHotspotCount`, the uncovered members with complexity 5 or more
+- `find_uncovered_symbols` — counts with `riskHotspotCount`, the uncovered members with complexity 5 or more
 - `check_architecture` — `{ byRule, totalReferences, rulesEvaluated }`
 - `resolve_stack_trace` — `{ byOrigin: { source, metadata, unresolved }, exceptions, skippedFrameLike }`
     - `skippedFrameLike` counts frame-like lines that did not parse

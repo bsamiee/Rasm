@@ -21,7 +21,6 @@ __pycache__/
 .build/
 .cloudflare/
 /plugins/**/evals/results/
-coverage/
 dist/
 plugins/claude/*/types/claude-code
 storybook-static/

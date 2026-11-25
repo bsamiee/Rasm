@@ -16,7 +16,7 @@ Tests are detectors: each answers whether one behavior is correct, turns red whe
 
 ## [01]-[DETECTOR]
 
-Passing tests prove only that they ran. Lines count as checked when some assertion would fail if their result changed, and coverage reports lines that ran. Each property below is lost in a way a reader can see:
+Passing tests prove only that they ran. Lines count as checked when some assertion would fail if their result changed. Each property below is lost in a way a reader can see:
 
 | [INDEX] | [PROPERTY]  | [HOLDS_WHEN]                                     | [LOST_WHEN]                                                         |
 | :-----: | :---------- | :----------------------------------------------- | :------------------------------------------------------------------ |

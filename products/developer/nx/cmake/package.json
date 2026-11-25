@@ -11,8 +11,7 @@
     "files": [
         "dist/**/*.js",
         "dist/**/*.d.ts",
-        "compiler.cmake",
-        "coverage.cmake"
+        "compiler.cmake"
     ],
     "type": "module",
     "imports": {

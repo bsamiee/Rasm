@@ -1,7 +1,7 @@
 import { basename, dirname, extname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { EXECUTORS, inside, removable, type Verbs } from '@rasm/nx';
-import { Array, Option, Predicate, Record, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Option, Predicate, Record, Schema, Struct } from 'effect';
 import type { Run } from '#/executors/run/executor';
 import { RESOLVED } from '#/swift-package';
 import { APPCAST, ATTACH, INPUTS, NOTARY, type Options, type Part, PLUGIN, sequenced, tokened } from '#/targets';
@@ -52,9 +52,6 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
     const fed = released ? archived.filter(Struct.get('feed')) : [];
     const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
-    const derived = Option.filter(Option.fromUndefinedOr(options.derivedDataPath ?? UndefinedOr.map(options.outputPath, (at) => join(at, 'DerivedData'))), () => Array.isReadonlyArrayNonEmpty(runs));
-    const report = Option.zipWith(Option.fromUndefinedOr(options.coveragePath), derived, (coverage, folder) => ({ profiles: [join(folder, 'Build/ProfileData/*/Coverage.profdata')], results: [join(folder, 'Logs/Test/*.xcresult')], built: [folder], file: join(coverage, 'lcov.info') }));
-    const covered = Option.toArray(Option.map(report, ({ file: at }) => at));
     const builds: Run['runs'] = schemes.map((scheme) => invoke('build', scheme.name, []));
     const installs = archives.map(({ scheme, configuration }) => invoke('install', scheme, ['-configuration', configuration, 'DSTROOT=$(LOCAL_APPS_DIR)', 'INSTALL_PATH=/']));
     const launches = Array.dedupe(schemes.flatMap(({ launch }) => Array.fromNullishOr(launch)));
@@ -62,12 +59,6 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
         configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned.map((run) => [...run, '-configuration', configuration]) }]),
         ...(Predicate.isTupleOf(launches, 1) && { defaultConfiguration: launches[0].toLowerCase() }),
     });
-    const testing = modes(runs);
-    const profiled = {
-        runs: runs.map((run) => [...run, '-enableCodeCoverage', 'YES', ...Option.toArray(derived).flatMap((folder) => ['-derivedDataPath', folder])]),
-        outputs: covered.map((at) => join('{workspaceRoot}', at)),
-        ...Option.getOrUndefined(Option.map(report, (held) => ({ report: held }))),
-    };
     const purged = Array.findFirst(schemes, ({ containers }) => containers.some((at) => Option.isNone(packaged(at))));
     const work: Verbs = {
         ...(schemes.length > 0 && {
@@ -123,18 +114,10 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                     runs,
                     {
                         technologies: ['xcode'],
-                        description: "Tests each test plan of a shared scheme with xcodebuild, under the coverage configuration with -enableCodeCoverage YES, exporting lcov from Xcode's Coverage.profdata with xcrun llvm-cov export where coveragePath is set",
+                        description: 'Tests each test plan of a shared scheme with xcodebuild',
                         help: { command: 'xcodebuild -help', example: { args: ['-parallel-testing-enabled', 'YES'] } },
                     },
-                    {
-                        cache: true,
-                        parallelism: false,
-                        dependsOn: ['build--xcodebuild'],
-                        inputs: read,
-                        outputs: covered.map((_, index) => `{options.outputs.${index}}`),
-                        ...testing,
-                        configurations: { ...testing.configurations, coverage: profiled },
-                    },
+                    { cache: true, parallelism: false, dependsOn: ['build--xcodebuild'], inputs: read, ...modes(runs) },
                 ),
             },
         }),
@@ -163,11 +146,11 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                     executor: EXECUTORS.clean,
                     parallelism: false,
                     inputs: read,
-                    options: { commands: [...schemes.map(({ name: scheme }) => invoke('clean', scheme, [])), ...[...archived.map(Struct.get('archive')), ...Option.toArray(derived)].map((at) => ['rm', '-rf', at])], cwd: '.', targets: removed },
+                    options: { commands: [...schemes.map(({ name: scheme }) => invoke('clean', scheme, [])), ...archived.map(({ archive }) => ['rm', '-rf', archive])], cwd: '.', targets: removed },
                     configurations: { cache: { commands: Option.toArray(Option.map(purged, ({ name: scheme }) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme, ['-json'])])) } },
                     metadata: {
                         technologies: ['xcode'],
-                        description: `Removes the build products of each shared scheme with xcodebuild clean, then each archive and the DerivedData folder of the coverage configuration, and under configuration cache removes the per-user DerivedData folder of ${name}, two folders above the BUILD_ROOT xcodebuild -showBuildSettings -json prints`,
+                        description: `Removes the build products of each shared scheme with xcodebuild clean, then each archive, and under configuration cache removes the per-user DerivedData folder of ${name}, two folders above the BUILD_ROOT xcodebuild -showBuildSettings -json prints`,
                         help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
                     },
                 },

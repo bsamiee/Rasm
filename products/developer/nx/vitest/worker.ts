@@ -31,7 +31,7 @@ const surveyed = Effect.fnUntraced(function* ({ file, entry, name, attachmentsDi
             ),
         catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Vitest config`),
     });
-    const { root, coverage, attachmentsDir: attached, outputFile, reporters, forceRerunTriggers, projects: listed, resolvedProjects } = config.test;
+    const { root, attachmentsDir: attached, outputFile, reporters, forceRerunTriggers, projects: listed, resolvedProjects } = config.test;
     const declared = resolvedProjects.filter(({ inline, viteConfig: { configFile } }) => inline === true || configFile === undefined || configFile === entry);
     const parents = new Map(declared.filter(({ hidden }) => hidden === true).map(({ viteConfig, projectConfig }) => [viteConfig, projectConfig.name] as const));
     const keyed: Readonly<Record<string, string>> = Predicate.isObject(outputFile) ? outputFile : {};
@@ -39,9 +39,6 @@ const surveyed = Effect.fnUntraced(function* ({ file, entry, name, attachmentsDi
     return {
         _tag: 'Suite' as const,
         root,
-        reportsDirectory: coverage.reportsDirectory,
-        covered: coverage.enabled,
-        providers: coverage.provider === 'custom' ? Array.fromNullishOr(coverage.customProviderModule) : [`@vitest/coverage-${coverage.provider}`],
         attachmentsDir: attached,
         reports: entries.flatMap(([named, decoded]) =>
             Array.getSomes([Option.firstSomeOf([Option.flatMap(decoded, Struct.get('outputFile')), Option.liftPredicate(outputFile, Predicate.isString), Option.flatMap(Option.liftPredicate(named, Predicate.isString), (key) => Record.get(keyed, key))]), Option.flatMap(decoded, Struct.get('outputDir'))]),

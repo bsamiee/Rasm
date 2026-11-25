@@ -44,19 +44,19 @@ it.for([
 it('builds a reference in the configuration it shares with a project whose default configuration it lacks', async ({ workspace }) => {
     const graph = await workspace
         .write({
-            'libs/Core/Core.csproj': project('    <Configurations>Debug;Release;Coverage</Configurations>\n'),
+            'libs/Core/Core.csproj': project('    <Configurations>Debug;Release;Staging</Configurations>\n'),
             'libs/Core/Shapes.cs': 'namespace Core;\n\npublic static class Shapes;\n',
-            'apps/App/App.csproj': project('    <Configurations>Interface;Coverage</Configurations>\n    <Configuration>Interface</Configuration>\n', ['../../libs/Core/Core.csproj']),
+            'apps/App/App.csproj': project('    <Configurations>Interface;Staging</Configurations>\n    <Configuration>Interface</Configuration>\n', ['../../libs/Core/Core.csproj']),
             'apps/App/Views.cs': 'namespace App;\n\npublic static class Views;\n',
         })
         .graph({ createNodes, createDependencies });
     execFileSync('dotnet', ['restore', 'apps/App/App.csproj'], { cwd: workspace.root, stdio: 'ignore' });
     const before = workspace.files();
 
-    const { success } = await execute(await targetOptions(Build, graph, 'App', 'build--dotnet', 'coverage'), workspace.context(graph, 'App', 'build--dotnet', 'coverage'));
+    const { success } = await execute(await targetOptions(Build, graph, 'App', 'build--dotnet', 'staging'), workspace.context(graph, 'App', 'build--dotnet', 'staging'));
 
     const built = [...workspace.files().difference(before)].filter((file) => file.includes('/bin/')).map((file) => file.split('/').slice(0, 4).join('/'));
-    expect({ success, built: new Set(built) }).toStrictEqual({ success: true, built: new Set(['apps/App/bin/Coverage', 'libs/Core/bin/Coverage']) });
+    expect({ success, built: new Set(built) }).toStrictEqual({ success: true, built: new Set(['apps/App/bin/Staging', 'libs/Core/bin/Staging']) });
 });
 
 it.for([

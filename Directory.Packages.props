@@ -802,7 +802,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Testing">
-        <PackageVersion Include="coverlet.MTP"                                            Version="10.1.1" />                              <!-- Code coverage for Microsoft Testing Platform -->
         <PackageVersion Include="CsCheck"                                                 Version="5.0.1" />                               <!-- Property-based testing with shrinking, concurrency, and performance checks -->
         <PackageVersion Include="Microsoft.CodeAnalysis.Analyzer.Testing"                 Version="5.15.0-1.26570.9" />                    <!-- Analyzer test state, markup, expected diagnostics, and reference assemblies for every test framework -->
         <PackageVersion Include="Microsoft.CodeAnalysis.CodeFix.Testing"                  Version="5.15.0-1.26570.9" />                    <!-- Code fix test state with incremental and fix-all iterations and the verifier base class -->

@@ -25,7 +25,7 @@ const loads = (root: string) => readFileSync(join(root, LOADS), 'utf-8').length;
 const targets = (graph: ProjectGraph) => Object.fromEntries(Object.values(graph.nodes).map(({ name, data }) => [name, data.targets]));
 
 const hashed = async (graph: ProjectGraph, root: string, project: string) => {
-    const inspector = new HashPlanInspector({ ...graph, externalNodes: Object.fromEntries(['vitest', 'vite', '@vitest/coverage-v8'].map((name) => [`npm:${name}`, { type: 'npm' as const, name: `npm:${name}`, data: { packageName: name, version: '5.0.0' } }])) }, root);
+    const inspector = new HashPlanInspector({ ...graph, externalNodes: Object.fromEntries(['vitest', 'vite'].map((name) => [`npm:${name}`, { type: 'npm' as const, name: `npm:${name}`, data: { packageName: name, version: '5.0.0' } }])) }, root);
     await inspector.init();
     return inspector.inspectTaskInputs({ project, target: 'test--vitest' })[`${project}:test--vitest`]?.files ?? [];
 };

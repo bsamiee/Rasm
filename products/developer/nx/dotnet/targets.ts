@@ -34,7 +34,6 @@ class Node extends Schema.Opaque<Node, unknown>()(
         catalogs: Schema.Array(Schema.String),
         bases: Schema.Array(Schema.String),
         packages: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String, hash: Schema.String, direct: Schema.Boolean, dependencies: Schema.Array(Schema.String) })),
-        referenced: Schema.Array(Schema.String),
         locks: Schema.Array(Schema.String),
         restored: Schema.Array(Schema.String),
         results: Schema.Array(Schema.String),
@@ -59,7 +58,7 @@ const metadata = (verb: string, description: string) => ({ description, help: { 
 
 const written = (...modes: readonly { readonly outputs: readonly string[] }[]) => Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`);
 
-const targets = (node: Node, coverage: string | undefined, solution: (configuration: string) => Readonly<Record<string, string>>, listed: Option.Option<string>): Verbs => {
+const targets = (node: Node, solution: (configuration: string) => Readonly<Record<string, string>>, listed: Option.Option<string>): Verbs => {
     const root = dirname(node.file);
     const project = posix.join('{projectRoot}', basename(node.file));
     const hashed = (upstream: NonNullable<TargetConfiguration['inputs']>[number], files: readonly string[], ...hosts: NonNullable<TargetConfiguration['inputs']>): NonNullable<TargetConfiguration['inputs']> => [
@@ -83,28 +82,9 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
         solution: solution(configuration),
     }));
     const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [posix.join(folder, '*.nupkg')] }));
-    const tested =
-        (selected: readonly string[]) =>
-        ({ configuration }: Node['evaluated'], ...flags: readonly string[]) => ({
-            commands: [
-                { command: line(['dotnet', 'restore', ...selected, '--no-dependencies', ...(node.locks.length > 0 ? ['--locked-mode'] : []), `-p:Configuration=${configuration}`]), forwardAllArgs: false },
-                line(['dotnet', 'test', ...selected.flatMap((file) => ['--project', file]), '--no-build', '--configuration', configuration, ...flags]),
-            ],
-        });
-    const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
-    const covered = {
-        cwd: '.',
-        ...tested([node.file])(
-            node.declared.find(({ configuration }) => configuration.toLowerCase() === 'coverage') ?? node.evaluated,
-            '--coverlet',
-            '--coverlet-output-format',
-            'lcov',
-            '--coverlet-exclude-assemblies-without-sources',
-            'MissingAll',
-            ...Array.fromNullishOr(coverage).flatMap((at) => ['--results-directory', at]),
-        ),
-        outputs: Array.fromNullishOr(coverage).map((at) => posix.join('{workspaceRoot}', at)),
-    };
+    const tested = moded(({ configuration }) => ({
+        commands: [{ command: line(['dotnet', 'restore', '--no-dependencies', ...(node.locks.length > 0 ? ['--locked-mode'] : []), `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration])],
+    }));
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
         executor: `${plugin.name}:format`,
         options: { commands, project },
@@ -152,22 +132,15 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
             ...(node.test && {
                 dotnet: {
                     executor: 'nx:run-commands',
-                    options: { parallel: false, cwd: '{projectRoot}', ...tested([])(node.evaluated) },
-                    configurations: { ...moded(tested([])).configurations, ...(coverable && { coverage: covered }) },
+                    options: { parallel: false, cwd: '{projectRoot}', ...tested.options },
+                    configurations: tested.configurations,
                     dependsOn: ['build--dotnet'],
                     cache: true,
                     inputs: executed,
-                    outputs: [...node.results.map(tokened(root)), posix.join('{projectRoot}', '{options.results-directory}'), ...(coverable ? written(covered) : [])],
+                    outputs: [...node.results.map(tokened(root)), posix.join('{projectRoot}', '{options.results-directory}')],
                     metadata: metadata(
                         'test',
-                        [
-                            `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a locked restore of the project alone that fetches only packages the machine lacks and writes no lock file, cached under the binaries the builds wrote and the files loading the project reads, as sources and compiler settings reach the tests through those binaries alone`,
-                            ...(coverable
-                                ? [
-                                      'configuration coverage runs from the workspace root and adds --coverlet with an lcov report from coverlet.MTP, leaving out each assembly whose PDB names no source present from that root through --coverlet-exclude-assemblies-without-sources MissingAll, as coverlet tests each PDB source path against its working folder',
-                                  ]
-                                : []),
-                        ].join(', and '),
+                        `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a locked restore of the project alone that fetches only packages the machine lacks and writes no lock file, cached under the binaries the builds wrote and the files loading the project reads, as sources and compiler settings reach the tests through those binaries alone`,
                     ),
                 },
             }),

@@ -27,11 +27,11 @@ it('states posix roots, inputs, outputs, and edges for nested and parent-relativ
                     references: [{ root: 'libs/Core', declared: 'src/apps/App/App.csproj' }],
                     evaluated: mode('Debug', { outputs: ['src/apps/App/bin/Debug'], packed: 'artifacts/package/debug' }),
                 }),
-                node('src/apps/App.Tests/App.Tests.csproj', { test: true, referenced: ['coverlet.MTP'], results: ['src/apps/App.Tests/TestResults', 'artifacts/test/App.Tests'], references: [{ root: 'src/apps/App', declared: 'src/apps/App.Tests/App.Tests.csproj' }] }),
+                node('src/apps/App.Tests/App.Tests.csproj', { test: true, results: ['src/apps/App.Tests/TestResults', 'artifacts/test/App.Tests'], references: [{ root: 'src/apps/App', declared: 'src/apps/App.Tests/App.Tests.csproj' }] }),
                 node('libs/Core/Core.csproj', { releases: { shipped: 'libs/Core/AnalyzerReleases.Shipped.md', unshipped: 'libs/Core/AnalyzerReleases.Unshipped.md' } }),
             ]),
         })
-        .graph({ createNodes, createDependencies }, { coveragePath: 'coverage/{projectName}' });
+        .graph({ createNodes, createDependencies });
 
     expect([unportable(graph), graph.dependencies['App'], graph.dependencies['App.Tests']]).toStrictEqual([[], [{ source: 'App', target: 'Core', type: 'static' }], [{ source: 'App.Tests', target: 'App', type: 'static' }]]);
 });

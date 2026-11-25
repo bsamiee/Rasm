@@ -40,7 +40,6 @@ internal sealed record Node(
     ImmutableArray<string> Catalogs,
     ImmutableArray<string> Bases,
     ImmutableArray<Package> Packages,
-    ImmutableArray<string> Referenced,
     ImmutableArray<string> Locks,
     ImmutableArray<string> Restored,
     ImmutableArray<string> Results,
@@ -222,7 +221,6 @@ internal static partial class Workspace {
                     .AsEnumerable()
                     .DistinctBy(static dependency => (dependency.Id, dependency.ResolvedVersion))
                     .Select(static dependency => new Package(dependency.Id, dependency.ResolvedVersion.ToNormalizedString(), dependency.ContentHash, dependency.Type is PackageDependencyType.Direct, [.. dependency.Dependencies.Select(static held => held.Id)]))],
-                [.. evaluated.Bind(static instance => toSeq(instance.GetItems("PackageReference"))).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
                 [.. locks.Map(locked => Relative(root, locked))],
                 [.. instances
                     .Bind(instance => toSeq(instance.ImportPaths).Filter(import => Under(import, Extensions(instance))).Add(Path.GetFullPath(Path.Combine(instance.Directory, instance.GetPropertyValue("ProjectAssetsFile")))))

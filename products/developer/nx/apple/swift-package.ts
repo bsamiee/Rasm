@@ -1,4 +1,4 @@
-import { dirname, join, matchesGlob, relative, sep } from 'node:path';
+import { join, matchesGlob, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
 import { EXECUTORS, removable, type Verbs } from '@rasm/nx';
 import { Array, Effect, Graph, Option, Record, Schema, Struct, UndefinedOr } from 'effect';
@@ -11,7 +11,7 @@ interface Package {
     readonly root: string;
     readonly plists: Readonly<Record<string, string>>;
     readonly entitled: Readonly<Record<string, string>>;
-    readonly bins: Readonly<Record<'debug' | 'release' | 'codecov', string>>;
+    readonly bins: Readonly<Record<'debug' | 'release', string>>;
     readonly shipped: readonly string[];
     readonly manifest: Described;
 }
@@ -72,14 +72,8 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
     const inputs = [...sources(local, described, Option.none()), ...INPUTS];
     const build = ['swift', 'build', '--package-path', root, ...SWIFTPM] as const;
     const test = ['swift', 'test', '--package-path', root, ...SWIFTPM] as const;
-    const lcov = Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info'));
-    const covered = Option.getOrElse(lcov, () => bins.codecov);
     const written = (folder: string) => (whole ? manifest.products.map(({ name }) => join('{workspaceRoot}', folder, name)) : []);
     const released = written(bins.release);
-    const scratch = join(root, ...relative(root, bins.debug).split(sep, 1));
-    const report = Option.map(lcov, (at) => ({ report: { profiles: [join(dirname(bins.codecov), 'default.profdata')], objects: Array.map(suites, ({ name }) => join(bins.debug, `${name}.xctest`, 'Contents', 'MacOS', name)), built: [scratch], mapping: ['-Xswiftc', '-coverage-prefix-map', '-Xswiftc'], file: at } }));
-    const coverage = { runs: [[...test, '--enable-code-coverage']], outputs: [join('{workspaceRoot}', covered)], ...Option.getOrUndefined(report) };
-    const testing = { cache: true, dependsOn: ['build--swift-build'], inputs, outputs: ['{options.outputs.0}'], configurations: { coverage } };
     const work: Verbs = {
         build: {
             'swift-build': sequenced(
@@ -106,10 +100,10 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
                     [test],
                     {
                         technologies: ['swift'],
-                        description: `Tests ${manifest.name} with swift test, under the coverage configuration with --enable-code-coverage, exporting lcov with xcrun llvm-cov export where coveragePath is set`,
+                        description: `Tests ${manifest.name} with swift test`,
                         help: { command: 'swift test --help', example: { args: ['--filter', Array.headNonEmpty(suites).name] } },
                     },
-                    testing,
+                    { cache: true, dependsOn: ['build--swift-build'], inputs },
                 ),
             }),
         },

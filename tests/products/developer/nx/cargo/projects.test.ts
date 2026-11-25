@@ -89,7 +89,7 @@ describe('inferred projects', () => {
                 'deny.toml': '[bans]\nmultiple-versions = "deny"\n',
                 'crates/cli/package.json': '{ "name": "cli", "nx": { "targets": { "check--clippy": { "inputs": ["default", "{projectRoot}/lints/**/*"] } } } }',
             })
-            .graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
+            .graph(cargo);
 
         expect(graph.nodes['cli']?.data.targets?.['check--clippy']?.inputs).toContain('{projectRoot}/lints/**/*');
         expect([unaggregated(graph), unportable(graph)]).toStrictEqual([[], []]);

@@ -62,7 +62,6 @@
         "**/.swiftpm/**": true,
         "**/.venv/**": true,
         "**/__pycache__/**": true,
-        "**/coverage/**": true,
         "**/dist/**": true,
         "**/node_modules/**": true,
         "**/xcuserdata/**": true
@@ -138,7 +137,6 @@
         "**/.venv/**",
         "**/__pycache__/**",
         "**/archetype-resources/**",
-        "**/coverage/**",
         "**/dist/**",
         "**/docs/research/**",
         "**/META-INF/maven/**",
@@ -148,7 +146,7 @@
     "java.import.gradle.enabled": false,
     "java.import.maven.enabled": false,
     "java.project.referencedLibraries": ["${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar"],
-    "java.project.resourceFilters": ["__pycache__", "coverage", "dist", "node_modules", "research", "rustc-source", "xcuserdata", "\\.(archive|artifacts|build|cache|cloudflare|git|nx|pixi|swiftpm|venv)"],
+    "java.project.resourceFilters": ["__pycache__", "dist", "node_modules", "research", "rustc-source", "xcuserdata", "\\.(archive|artifacts|build|cache|cloudflare|git|nx|pixi|swiftpm|venv)"],
     "java.project.sourcePaths": ["plugins/shared/tool/skills/ghidra/scripts"],
 
     // --- [JSON] ------------------------------------------------------------------------
@@ -206,7 +204,6 @@
         "**/.swiftpm/**",
         "**/.venv/**",
         "**/__pycache__/**",
-        "**/coverage/**",
         "**/dist/**",
         "**/node_modules/**",
         "**/xcuserdata/**",

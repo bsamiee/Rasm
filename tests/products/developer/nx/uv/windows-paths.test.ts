@@ -15,7 +15,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 const uv = { createNodes };
 const BUILT = '\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n';
 const PYTHON = {
-    'python/pyproject.toml': '[project]\nname = "root"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[dependency-groups]\ndev = ["pytest>=8", "pytest-cov"]\n\n[tool.uv.workspace]\nmembers = ["libs/app", "libs/middle", "libs/deep/core"]\n',
+    'python/pyproject.toml': '[project]\nname = "root"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[dependency-groups]\ndev = ["pytest>=8"]\n\n[tool.uv.workspace]\nmembers = ["libs/app", "libs/middle", "libs/deep/core"]\n',
     'python/libs/app/pyproject.toml': `[project]\nname = "app"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["middle"]\n\n[tool.uv.sources]\nmiddle = { workspace = true }\n${BUILT}`,
     'python/libs/app/tests/test_app.py': 'def test_app() -> None:\n    assert True\n',
     'python/libs/middle/pyproject.toml': `[project]\nname = "middle"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["core"]\n\n[tool.uv.sources]\ncore = { workspace = true }\n${BUILT}`,
@@ -33,7 +33,7 @@ describe('@rasm/nx-uv under Windows path separators', () => {
             execFileSync('uv', ['lock', '--quiet'], { cwd: join(workspace.write(PYTHON).root, folder) });
         });
 
-        const graph = await workspace.graph(uv, { outputPath: '.artifacts/uv/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
+        const graph = await workspace.graph(uv, { outputPath: '.artifacts/uv/{projectName}' });
 
         expect(Object.fromEntries(Object.values(graph.nodes).map(({ name, data }) => [name, data.root]))).toStrictEqual({ app: 'python/libs/app', cli: 'other/cli', core: 'python/libs/deep/core', middle: 'python/libs/middle', other: 'other', root: 'python', sdk: 'other/sdk' });
         expect(unportable(graph)).toStrictEqual([]);

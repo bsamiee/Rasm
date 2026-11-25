@@ -33,7 +33,6 @@ dev  = [
 test = [
     "hypothesis",            # Property-based tests
     "pytest",                # Test collection, assertions, and fixtures
-    "pytest-cov",            # Coverage collection
     "pytest-randomly",       # Random test order and seeds
     "pytest-socket",         # Block unrequested network connections
     "pytest-timeout",        # Per-test deadline
@@ -881,12 +880,6 @@ exclude           = [".venv/"]       # Third-party packages of a virtual environ
 ignore_decorators = ["@*.register"]  # `functools.singledispatch` calls registered handlers through its dispatcher
 ignore_names      = ["[!_]*", "_*_"] # Public names are API, `_x_` and `__x__` names are hooks the runtime calls
 
-# --- [COVERAGE] -------------------------------------------------------------------------
-
-[tool.coverage]
-report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\("] }
-run    = { branch = true, relative_files = true, data_file = ".artifacts/coverage/.coverage" }
-
 # --- [PYTEST] ---------------------------------------------------------------------------
 
 [tool.pytest]
@@ -894,8 +887,6 @@ addopts                   = [
     "--disable-plugin-autoload",                # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
     "-p",
     "hypothesispytest",
-    "-p",
-    "pytest_cov",
     "-p",
     "pytester",                                 # Inner pytest runs for the suites of pytest plugins
     "-p",

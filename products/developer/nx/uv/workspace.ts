@@ -143,7 +143,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
                 Option.flatMapNullishOr(settings, (held) => held.python_files ?? held.ini_options?.python_files ?? held.pytest?.python_files),
                 (): readonly string[] => row.matches,
             );
-            const config = Array.findFirst(Array.cartesian(Array.fromNullishOr(row.table), Array.dedupe([...above(member.root), ...above(workspace)])), ([table, folder]) => Option.isSome(drilled(posix.join(folder, MANIFEST), ['tool', table])));
+            const config = Array.findFirst(Array.cartesian(Array.fromNullishOr(row.table), above(member.root)), ([table, folder]) => Option.isSome(drilled(posix.join(folder, MANIFEST), ['tool', table])));
             return Array.isReadonlyArrayNonEmpty(checked) && installed.values().some(distributed(key))
                 ? Result.succeed({
                       root: member.root,
@@ -154,7 +154,6 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
                       patterns: Array.cartesianWith(checked, matches, ({ root }, file) => posix.join(root, '**', file)),
                       group: Option.getOrUndefined(group)?.name,
                       projects: Array.dedupe([...checked.map(({ name }) => name), ...named(from.filter(loaded(row.plugins)))]),
-                      covered: row.coverage !== undefined && installed.values().some(distributed(row.coverage)),
                   })
                 : Result.failVoid;
         }),

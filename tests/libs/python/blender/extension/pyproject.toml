@@ -9,7 +9,6 @@ dependencies = [
     "expression",            # Outcome a tool class build returns, read once per case
     "hypothesis",            # Plugin the shared pytest table loads
     "pytest",                # Fixtures, parameters, and raised refusals
-    "pytest-cov",            # Plugin the shared pytest table loads, coverage of `nx test -c coverage`
     "pytest-randomly",       # Random test order and seeds
     "pytest-socket",         # Connections refused to every test
     "pytest-timeout",        # Per-test deadline

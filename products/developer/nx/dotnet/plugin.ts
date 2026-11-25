@@ -2,7 +2,7 @@ import { hash } from 'node:crypto';
 import { basename, dirname, extname, format, join, parse, posix, relative } from 'node:path';
 import { env, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, hashObject, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { type Anchor, aggregated, anchored, EXECUTORS, fingerprinted, inferring, manifested, Named, type Stated, spawned, stamped } from '@rasm/nx';
 import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Function, Graph, Option, Record, Ref, Result, Schema, Stream, String, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
@@ -26,13 +26,6 @@ class Report extends Schema.Opaque<Report, unknown>()(Schema.Struct({ nodes: Sch
     static readonly empty: Report = { nodes: [], failures: [], evaluated: [], probed: [], variables: [] };
 }
 const Reported = Schema.fromJsonString(Report);
-class Options extends Schema.Opaque<Options, unknown>()(
-    Schema.Struct({
-        coveragePath: Schema.optionalKey(Schema.String),
-    }).annotate({
-        description: 'coveragePath: workspace folder the coverage configuration of test--dotnet passes to dotnet test as --results-directory, where coverlet.MTP writes its lcov report coverage.<timestamp>.info, {projectName} naming the project, absent leaves the report in the test results folder of the project',
-    }),
-) {}
 const Timeout = Config.schema(Schema.Finite.check(Schema.isGreaterThan(0)), 'NX_DOTNET_PROJECT_GRAPH_TIMEOUT').pipe(Config.withDefault(isCI() === false ? 120 : 600));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -107,7 +100,7 @@ const solution = (closure: readonly Node[]) => (configuration: string) => {
     return assigned.every(([, held]) => held === configuration) ? {} : Record.fromIterableWith(assigned, ([file, held, pair]) => [file, `${held}|${pair}`] as const);
 };
 
-const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests: readonly Stated[], anchor: Anchor) => {
+const projected = (nodes: readonly Node[], manifests: readonly Stated[], anchor: Anchor) => {
     const placed = Record.fromEntries(nodes.map((node, index) => [dirname(node.file), { index, released: releasable(node) }] as const));
     const referenced = Graph.fromSnapshot({
         type: 'directed',
@@ -130,7 +123,7 @@ const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests:
             root: dirname(node.file),
             name: node.name,
             metadata: { technologies: ['dotnet', node.language] },
-            targets: aggregated(targets({ ...node, inputs: Array.dedupe(closure.flatMap(({ inputs }) => inputs)), test: limited ? supported.some((held) => held === platform) : node.test }, coveragePath, solution(closure), listed), manifest, 'dotnet', anchor, publishing(node)),
+            targets: aggregated(targets({ ...node, inputs: Array.dedupe(closure.flatMap(({ inputs }) => inputs)), test: limited ? supported.some((held) => held === platform) : node.test }, solution(closure), listed), manifest, 'dotnet', anchor, publishing(node)),
             ...(releasable(node) && { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest: basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } } } }),
             ...(tags.length > 0 && { tags }),
             ...(node.implicit.length > 0 && { implicitDependencies: [...node.implicit] }),
@@ -140,10 +133,10 @@ const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests:
     });
 };
 
-const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArray<string>, settings: Options, { workspaceRoot }: CreateNodesContext) {
+const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArray<string>, { workspaceRoot }: CreateNodesContext) {
     const [fs, edges, hashed] = yield* Effect.all([FileSystem.FileSystem, Edges, own]);
     const slot = join(workspaceDataDirectory, 'dotnet.hash');
-    const key = hashArray([hashObject(settings), hashed, yield* stamped(workspaceRoot)([...matched, SIDES])]);
+    const key = hashArray([hashed, yield* stamped(workspaceRoot)([...matched, SIDES])]);
     const host = yield* ready(workspaceRoot, matched);
     const entries = Option.isSome(host) ? (new PluginCache<readonly { readonly report: Report; readonly stamp: string }[]>(slot).get(key) ?? []) : [];
     const cached = yield* Effect.findFirst(entries, (entry) => Effect.map(stamp(workspaceRoot, host, entry.report), Equal.equals(entry.stamp)));
@@ -210,7 +203,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
                 ];
             }),
     );
-    const results = [...projected(report.nodes, settings, manifests, anchor), ...solutions];
+    const results = [...projected(report.nodes, manifests, anchor), ...solutions];
     const failures = [...Option.toArray(Result.getFailure(read)).map((error): [null, Error] => [null, error]), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
 });
@@ -219,10 +212,10 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
 
 const createNodes: CreateNodes = [
     FILES,
-    inferring(Options, run, function* (matched, settings, context) {
+    inferring(Schema.Struct({}), run, function* (matched, _, context) {
         return yield* Array.match(matched, {
             onEmpty: () => Edges.use((edges) => Ref.set(edges, [])).pipe(Effect.as([])),
-            onNonEmpty: (files) => inferred(files, settings, context),
+            onNonEmpty: (files) => inferred(files, context),
         });
     }),
 ];

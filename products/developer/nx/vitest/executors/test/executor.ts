@@ -21,14 +21,11 @@ class Test extends Schema.Opaque<Test, unknown>()(
         config: Schema.String.annotate({ description: 'Vitest configuration file the run loads, relative to the workspace root, whose folder the run starts from' }),
         projects: Schema.Array(Schema.String).annotate({ description: 'Vitest projects the task runs, passed as --project, every project the configuration resolves where empty' }),
         attachmentsDir: Schema.optionalKey(Schema.String).annotate({ description: "Folder the task's projects write attachments to, relative to the workspace root, the run's attachmentsDir where the task runs alone" }),
-        coverage: Schema.optionalKey(Schema.Struct({ enabled: Schema.optionalKey(Schema.Boolean), reporter: Schema.optionalKey(Schema.String), reportsDirectory: Schema.optionalKey(Schema.String) })).annotate({
-            description: 'Coverage options of the run over the coverage words after --, reportsDirectory relative to the workspace root, which every run enabling coverage writes to and the coverage configuration of the target enables',
-        }),
         __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, parsed as vitest run arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
     }).annotate({
         title: 'Test',
         description:
-            "Runs vitest run in a child process of its own once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, side by side with the runs of other option groups, a task running coverage alone, and decides each task from the test modules of its own projects",
+            "Runs vitest run in a child process of its own once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, side by side with the runs of other option groups, and decides each task from the test modules of its own projects",
     }),
 ) {}
 const Traced = Schema.Struct({ VITEST_TEST_PATH: Schema.String }).annotate({ description: 'The test file path Vitest stamps on an unhandled error a test module raised' });
@@ -48,19 +45,17 @@ const reported = (module: TestModule) =>
     });
 
 const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Planned>) {
-    const { config, coverage, attachmentsDir, __unparsed__: words = [] } = Array.headNonEmpty(group).options;
+    const { config, attachmentsDir, __unparsed__: words = [] } = Array.headNonEmpty(group).options;
     const entry = resolve(root, config);
     const node = yield* loaded<{ readonly createVitest: (options: CliOptions) => Promise<Vitest>; readonly parseCLI: typeof parseCLI; readonly TestsNotFoundError: typeof TestsNotFoundError }>(config, entry, 'vitest/node');
-    const parsed = node.parseCLI(['vitest', 'run', ...words]).options;
     const stated: CliOptions = {
         allowOnly: false,
         update: 'none',
-        ...parsed,
+        ...node.parseCLI(['vitest', 'run', ...words]).options,
         config: entry,
         watch: false,
         project: group.some(({ options }) => options.projects.length === 0) ? [] : Array.dedupe(group.flatMap(({ options }) => options.projects)),
         ...(attachmentsDir !== undefined && group.length === 1 && { attachmentsDir: resolve(root, attachmentsDir) }),
-        ...(coverage !== undefined && { coverage: { ...parsed.coverage, ...coverage, ...(coverage.reportsDirectory !== undefined && { reportsDirectory: resolve(root, coverage.reportsDirectory) }) } }),
     };
     const vitest = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => node.createVitest(stated), catch: (cause) => new Cause.UnknownError(cause, `${config} does not start Vitest`) }), (started) => Effect.promise(() => started.close()));
     const homes = new Map(group.map(({ home, task }) => [home, task] as const));
@@ -79,7 +74,7 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
     const broken = [
         ...stray,
         ...(Exit.isFailure(started) && !Option.exists(Cause.findErrorOption(started.cause), (error) => error.cause instanceof node.TestsNotFoundError) ? [`vitest run over ${config} stops before it reports: ${Cause.pretty(started.cause)}`] : []),
-        ...Option.toArray(Option.map(signalled, (code) => `vitest run over ${config} sets exit code ${code} with every test module passing, as a run-level check such as a coverage threshold or the import duration limit failed`)),
+        ...Option.toArray(Option.map(signalled, (code) => `vitest run over ${config} sets exit code ${code} with every test module passing, as a run-level check such as the import duration limit failed`)),
     ];
     const held = Array.groupBy(
         modules.flatMap((module) => {
@@ -129,19 +124,16 @@ const execute = executor(Test, function* (options, context) {
 });
 
 const batch = batched(Test, (graph, inputs, context) =>
-    Stream.unwrap(
-        Effect.gen(function* () {
-            const entries = Record.toEntries(inputs);
-            const runners = yield* Effect.forEach(entries, ([, options]) => loaded<{ readonly parseCLI: typeof parseCLI }>(options.config, resolve(context.root, options.config), 'vitest/node'));
-            const planned = Array.zipWith(entries, runners, ([task, options], node) => ({
-                held: { task, options, home: graph.tasks[task]?.projectRoot ?? '.' },
-                key: hashObject([Struct.omit(options, ['projects', 'attachmentsDir', 'coverage']), (options.coverage?.enabled ?? node.parseCLI(['vitest', 'run', ...(options.__unparsed__ ?? [])]).options.coverage?.enabled) === true ? task : null]),
-            }));
-            return Stream.fromIterable(Record.values(Array.groupBy(planned, Struct.get('key')))).pipe(
-                Stream.mapEffect((group) => forked(context.root, Array.map(group, Struct.get('held'))), { concurrency: Math.max(availableParallelism() - 1, 1), unordered: true }),
-                Stream.flatMap(Stream.fromIterable),
-            );
-        }),
+    Stream.fromIterable(
+        Record.values(
+            Array.groupBy(
+                Record.toEntries(inputs).map(([task, options]) => ({ task, options, home: graph.tasks[task]?.projectRoot ?? '.' })),
+                ({ options }) => hashObject(Struct.omit(options, ['projects', 'attachmentsDir'])),
+            ),
+        ),
+    ).pipe(
+        Stream.mapEffect((group) => forked(context.root, group), { concurrency: Math.max(availableParallelism() - 1, 1), unordered: true }),
+        Stream.flatMap(Stream.fromIterable),
     ),
 );
 

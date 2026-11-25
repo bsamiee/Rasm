@@ -42,13 +42,9 @@ const ATTACH: TargetConfiguration = {
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Options extends Schema.Opaque<Options, unknown>()(
-    Schema.Struct({
-        outputPath: Schema.optionalKey(Schema.String),
-        coveragePath: Schema.optionalKey(Schema.String),
-        derivedDataPath: Schema.optionalKey(Schema.String),
-    }).annotate({
+    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({
         description:
-            'outputPath: workspace folder holding each scheme archive under <outputPath>/<scheme> and each product zip under <outputPath>/<product>, {projectName} naming the project, absent zips products in the SwiftPM release bin folder and gives no Xcode pack target, since xcodebuild archives outside the workspace. coveragePath: workspace folder the coverage configuration of a test target writes lcov.info to, exported with llvm-cov from the profile swift test or xcodebuild writes, {projectName} naming the project, absent leaves both tools their default profile and writes no lcov.info. derivedDataPath: workspace folder the coverage configuration of an xcodebuild test target passes as -derivedDataPath, so its profile and binaries sit at workspace paths, {projectName} naming the project, absent uses <outputPath>/DerivedData, and with neither leaves Xcode its per-user DerivedData and writes no lcov.info',
+            'outputPath: workspace folder holding each scheme archive under <outputPath>/<scheme> and each product zip under <outputPath>/<product>, {projectName} naming the project, absent zips products in the SwiftPM release bin folder and gives no Xcode pack target, since xcodebuild archives outside the workspace',
     }),
 ) {}
 

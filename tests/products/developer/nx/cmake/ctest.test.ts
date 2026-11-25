@@ -1,7 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { createDependencies, createNodes } from '@rasm/nx-cmake';
-import { it, outputs, taskGraph } from '@rasm/testing/nx';
+import { it, taskGraph } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -11,18 +9,9 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 const cmake = { createNodes, createDependencies };
 const presets = {
     version: 10,
-    configurePresets: [
-        { name: 'default', generator: 'Ninja', binaryDir: `\${sourceDir}/build/\${presetName}` },
-        { name: 'coverage', inherits: 'default', cacheVariables: { CMAKE_CXX_COMPILER: 'clang++', CMAKE_CXX_FLAGS: `-fprofile-instr-generate -fcoverage-mapping -fcoverage-prefix-map=\${sourceDir}/= -fcoverage-compilation-dir=.` } },
-    ],
-    buildPresets: [
-        { name: 'default', configurePreset: 'default' },
-        { name: 'coverage', configurePreset: 'coverage' },
-    ],
-    testPresets: [
-        { name: 'default', configurePreset: 'default' },
-        { name: 'coverage', configurePreset: 'coverage' },
-    ],
+    configurePresets: [{ name: 'default', generator: 'Ninja', binaryDir: `\${sourceDir}/build/\${presetName}` }],
+    buildPresets: [{ name: 'default', configurePreset: 'default' }],
+    testPresets: [{ name: 'default', configurePreset: 'default' }],
     workflowPresets: [
         {
             name: 'default',
@@ -30,14 +19,6 @@ const presets = {
                 { type: 'configure', name: 'default' },
                 { type: 'build', name: 'default' },
                 { type: 'test', name: 'default' },
-            ],
-        },
-        {
-            name: 'coverage',
-            steps: [
-                { type: 'configure', name: 'coverage' },
-                { type: 'build', name: 'coverage' },
-                { type: 'test', name: 'coverage' },
             ],
         },
     ],
@@ -69,16 +50,13 @@ describe('test--ctest', () => {
         ).toStrictEqual(['failing', 'passing', 'untested']);
     });
 
-    it.for([
-        { case: 'without configuration', configuration: undefined, left: {} },
-        { case: 'under configuration coverage, removing the report an earlier run left', configuration: 'coverage', left: { '.artifacts/coverage/untested/lcov.info': 'SF:stale\n' } },
-    ])('passes for a member that adds no tests $case', async ({ configuration, left }, { workspace }) => {
-        const graph = await workspace.write({ ...tree, ...left }).graph(cmake, { coveragePath: '.artifacts/coverage/{projectName}' });
-        await workspace.run(graph, 'untested', 'build--cmake', configuration);
+    it('passes for a member that adds no tests', async ({ workspace }) => {
+        const graph = await workspace.write(tree).graph(cmake);
+        await workspace.run(graph, 'untested', 'build--cmake');
 
-        const { success } = await workspace.run(graph, 'untested', 'test--ctest', configuration);
+        const { success } = await workspace.run(graph, 'untested', 'test--ctest');
 
-        expect([success, existsSync(join(workspace.root, '.artifacts/coverage/untested/lcov.info'))]).toStrictEqual([true, false]);
+        expect(success).toBe(true);
     });
 
     it('passes for a member whose tests pass, running no test of another member', async ({ workspace }) => {
@@ -102,10 +80,7 @@ describe('test--ctest', () => {
     it('fails where the test preset selects none of the member tests and states no tests an error', async ({ workspace }) => {
         const filtered = {
             ...presets,
-            testPresets: [
-                { name: 'default', configurePreset: 'default', filter: { include: { name: 'absent' } }, execution: { noTestsAction: 'error' } },
-                { name: 'coverage', configurePreset: 'coverage' },
-            ],
+            testPresets: [{ name: 'default', configurePreset: 'default', filter: { include: { name: 'absent' } }, execution: { noTestsAction: 'error' } }],
         };
         const graph = await workspace.write({ ...tree, 'CMakePresets.json': JSON.stringify(filtered) }).graph(cmake);
         await workspace.run(graph, 'passing', 'build--cmake');
@@ -113,19 +88,5 @@ describe('test--ctest', () => {
         const { success } = await workspace.run(graph, 'passing', 'test--ctest');
 
         expect(success).toBe(false);
-    });
-
-    it('writes the lcov report of the member test binaries to <coveragePath>/lcov.info under configuration coverage', async ({ workspace }) => {
-        const graph = await workspace.write(tree).graph(cmake, { coveragePath: '.artifacts/coverage/{projectName}' });
-        await workspace.run(graph, 'passing', 'build--cmake', 'coverage');
-
-        const { success } = await workspace.run(graph, 'passing', 'test--ctest', 'coverage');
-
-        const declared = outputs(graph, 'passing', 'test--ctest', 'coverage');
-        const report = readFileSync(join(workspace.root, '.artifacts/coverage/passing/lcov.info'), 'utf-8');
-        expect(success).toBe(true);
-        expect(declared).toStrictEqual(['.artifacts/coverage/passing/lcov.info']);
-        expect(report.split('\n').filter((row) => row.startsWith('SF:'))).toStrictEqual(['SF:passing/test.cpp']);
-        expect(report).toMatch(/^DA:1,1$/mu);
     });
 });

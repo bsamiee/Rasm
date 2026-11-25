@@ -52,7 +52,6 @@ export default defineConfig({
     test: {
         chaiConfig: { includeStack: true, truncateThreshold: 0 },
         attachmentsDir: join(ARTIFACTS, 'attachments'),
-        coverage: { allowExternal: true, reportOnFailure: true },
         silent: 'passed-only',
         projects: globSync(patterns.positive, { cwd: import.meta.dirname, exclude: ['**/node_modules/**', '**/.*/**'] })
             .filter((file) => file !== 'package.json' && buildPackageJsonWorkspacesMatcher(patterns)(file))

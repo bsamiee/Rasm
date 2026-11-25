@@ -32,7 +32,7 @@ const crates = {
 
 describe('Windows path separators', () => {
     it('states roots, inputs, outputs, working folders, and the lock as workspace-relative posix paths', async ({ workspace }) => {
-        const graph = await workspace.write(crates).graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
+        const graph = await workspace.write(crates).graph(cargo);
 
         expect(Object.keys(graph.nodes).toSorted()).toStrictEqual(['api_checker_core', 'cli', 'core_kit', 'root']);
         expect(unportable(graph)).toStrictEqual([]);

@@ -47,13 +47,8 @@
     </PropertyGroup>
 
     <PropertyGroup Label="Configurations">
-        <Configurations>Release;Debug;Coverage</Configurations>
+        <Configurations>Release;Debug</Configurations>
         <Configuration>Release</Configuration>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Coverage" Condition="'$(Configuration)' == 'Coverage'">
-        <Optimize>true</Optimize>
-        <DeterministicSourcePaths>false</DeterministicSourcePaths> <!-- The SDK's own map of each source root to /_/ ties the PathMap of Directory.Build.targets on key length, and coverlet turns /_/ back into an absolute path -->
     </PropertyGroup>
 
     <PropertyGroup Label="Restore">

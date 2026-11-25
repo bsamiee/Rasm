@@ -313,7 +313,7 @@ Template behavior:
 - Values selecting the configuration a row states (MSBuild `Condition`) stay, eliding them merges distinct rows
 - Conditional blocks in a header give their first branch to the signature and to every flag, one row states one configuration
 - Rows under a guard that changes their meaning (Python `if TYPE_CHECKING:`) take the guard as a signature prefix
-- Signatures drop attributes only a development tool reads (debugger, coverage, analyzer suppression, IDE completion), others keep name and arguments
+- Signatures drop attributes only a development tool reads (debugger, analyzer suppression, IDE completion), others keep name and arguments
 - Modifiers every declaration of a file holds (`declare` in a `.d.ts`) print only where they separate rows (`declare global` from a namespace)
 - Attribute arguments that compute (a call, lambda, operator, collection) print as `…`, a name, attribute, or literal stays
 - Extras can split a header, fold `<ws>*\n<ws>*` (`<ws>` the grammar's whitespace class) to one space

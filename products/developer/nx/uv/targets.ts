@@ -2,7 +2,7 @@ import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
 import { type Anchor, above, aggregated, EXECUTORS, inside, PLATFORM, removable, type Stated, type Verbs } from '@rasm/nx';
-import { Array, Function, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -27,7 +27,6 @@ const CHECKERS = {
         sources: ['*.py', '*.pyi'],
         folder: identity<string>,
         command: (paths: readonly string[]) => ['ty', 'check', ...paths],
-        coverage: undefined,
         description: 'Type-checks every member of the uv workspace in one ty check run',
         help: 'ty check --help',
     },
@@ -43,7 +42,6 @@ const CHECKERS = {
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
         command: (paths: readonly string[], { floor, cache }: Flags) => ['mypy', ...paths, ...flagged('--python-version', floor), ...flagged('--cache-dir', cache)],
-        coverage: undefined,
         description: 'Type-checks the member with mypy and the plugins its configuration loads',
         help: 'mypy --help',
     },
@@ -59,21 +57,20 @@ const CHECKERS = {
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
         command: (paths: readonly string[], { config, floor, cache }: Flags) => ['refurb', ...flagged('--config-file', config), ...flagged('--python-version', floor), ...paths, ...(cache === undefined ? [] : ['--', '--cache-dir', cache])],
-        coverage: undefined,
         description: 'Reports the findings of the member with refurb over a mypy build',
         help: 'refurb --help',
     },
     pytest: {
         verb: 'test',
         once: false,
-        variables: ['PYTEST_ADDOPTS', 'PYTEST_PLUGINS', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD', 'COVERAGE_RCFILE'],
+        variables: ['PYTEST_ADDOPTS', 'PYTEST_PLUGINS', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD'],
         plugins: undefined,
-        configs: [...Record.keys(PYTEST), 'conftest.py', '.coveragerc', '.coveragerc.toml'],
+        configs: [...Record.keys(PYTEST), 'conftest.py'],
         settings: PYTEST,
-        table: 'coverage',
+        table: undefined,
         matches: ['test_*.py', '*_test.py'],
         sources: ['*'],
-        folder: Function.constant('.'),
+        folder: identity<string>,
         command: (paths: readonly string[], { store }: Flags) => [
             'pytest',
             ...paths,
@@ -82,7 +79,6 @@ const CHECKERS = {
                 UndefinedOr.map(store, (folder) => `cache_dir=${folder}`),
             ),
         ],
-        coverage: 'pytest-cov',
         description: 'Runs the member tests with pytest',
         help: 'pytest --help',
     },
@@ -93,9 +89,9 @@ const CONFIGS = Record.keys(PYTEST);
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Options extends Schema.Opaque<Options, unknown>()(
-    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String), environmentPath: Schema.optionalKey(Schema.String) }).annotate({
+    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), environmentPath: Schema.optionalKey(Schema.String) }).annotate({
         description:
-            "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the project, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its lcov.info report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the project, absent writes both to the folder of the uv root. environmentPath: workspace folder holding what the checkers and tests of a project keep between runs, {projectName} naming the project: one environment per dependency group offering a tool, in a folder named for the group, or .venv where the project's own dependencies hold the tool, each selected through UV_PROJECT_ENVIRONMENT and kept at its locked selection by uv run --exact, beside the cache folder of each tool (.mypy_cache, .refurb_cache, .pytest_cache), absent builds a temporary environment per run through uv run --isolated and leaves each tool its own cache folder. The tasks of a uv root select every package of its workspace (--all-packages), so a uv root that is itself a checked member checks in that wider environment",
+            "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the project, absent leaves uv its own dist folder of the uv workspace. environmentPath: workspace folder holding what the checkers and tests of a project keep between runs, {projectName} naming the project: one environment per dependency group offering a tool, in a folder named for the group, or .venv where the project's own dependencies hold the tool, each selected through UV_PROJECT_ENVIRONMENT and kept at its locked selection by uv run --exact, beside the cache folder of each tool (.mypy_cache, .refurb_cache, .pytest_cache), absent builds a temporary environment per run through uv run --isolated and leaves each tool its own cache folder. The tasks of a uv root select every package of its workspace (--all-packages), so a uv root that is itself a checked member checks in that wider environment",
     }),
 ) {}
 
@@ -105,7 +101,7 @@ const flagged = (flag: string, value: string | undefined): readonly string[] => 
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
-const targets = (member: Member, { outputPath, coveragePath, environmentPath }: Options, manifest: Stated, anchor: Anchor): Record<string, TargetConfiguration> => {
+const targets = (member: Member, { outputPath, environmentPath }: Options, manifest: Stated, anchor: Anchor): Record<string, TargetConfiguration> => {
     const distributions = Option.fromUndefinedOr(outputPath);
     const folder = Option.getOrElse(distributions, () => posix.join(member.workspace, 'dist'));
     const environed = Option.fromUndefinedOr(environmentPath);
@@ -139,16 +135,9 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                 },
             ),
         ];
-        const reported = coveragePath ?? member.workspace;
-        const selected = Option.match(environment, { onNone: () => ({}), onSome: (at) => ({ UV_PROJECT_ENVIRONMENT: posix.relative(member.workspace, at) }) });
-        const covered = {
-            command: line([...argv, '--cov', ...flagged('--cov-config', config), `--cov-report=lcov:${posix.join(posix.relative(cwd, reported), 'lcov.info')}`]),
-            env: { ...selected, COVERAGE_FILE: posix.join(posix.relative(cwd, reported), '.coverage') },
-            outputs: [posix.join('{workspaceRoot}', reported, '{lcov.info,.coverage}')],
-        };
         const target: TargetConfiguration = {
             command: line(argv),
-            options: { cwd, ...(Option.isSome(environment) && { env: selected }) },
+            options: { cwd, ...Option.match(environment, { onNone: () => ({}), onSome: (at) => ({ env: { UV_PROJECT_ENVIRONMENT: posix.relative(member.workspace, at) } }) }) },
             cache: true,
             inputs: [
                 ...row.sources.map((glob) => posix.join('{projectRoot}', '**', glob)),
@@ -171,7 +160,6 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                 ),
                 { externalDependencies: [] },
             ],
-            ...(stated.covered && { outputs: ['{options.outputs.0}'], configurations: { coverage: covered } }),
             metadata: { description: row.description, help: { command: `uv run ${row.help}`, example: {} } },
         };
         return { verb: row.verb, key: stated.key, target };

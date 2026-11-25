@@ -33,13 +33,9 @@ set(RASM_FLAGS
 # --- [INSTRUMENTATION]
 
 set(RASM_SANITIZERS "" CACHE STRING "Sanitizers every target compiles and links with")
-option(RASM_COVERAGE "Whether every target records source-based coverage to the profile LLVM_PROFILE_FILE names" OFF)
 if(RASM_SANITIZERS)
     list(JOIN RASM_SANITIZERS "," sanitizers)
     list(APPEND RASM_FLAGS -fsanitize=${sanitizers} -fno-sanitize-recover=all -fno-omit-frame-pointer)
-endif()
-if(RASM_COVERAGE)
-    list(APPEND RASM_FLAGS -fprofile-instr-generate -fcoverage-mapping -fcoverage-prefix-map=${CMAKE_SOURCE_DIR}/= -fcoverage-compilation-dir=.)
 endif()
 
 # --- [LANGUAGES]

@@ -16,10 +16,7 @@ const ROOT = { 'package.json': '{"name":"repo","type":"module","workspaces":["li
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const awaited = (mine: string, theirs: string) =>
-    `import { existsSync, writeFileSync } from 'node:fs';\nimport { expect, test, vi } from 'vitest';\nimport { double, half } from './math.ts';\n\ntest('meets the other run', { timeout: 30_000 }, async () => {\n    writeFileSync('${mine}', '');\n    await vi.waitFor(() => expect(existsSync('${theirs}')).toBe(true), { timeout: 30_000, interval: 50 });\n    expect(${mine === 'a-started' ? 'double(half(2))' : 'double(1)'}).toBe(2);\n});\n`;
-
-const executed = async (workspace: Workspace, graph: ProjectGraph, project: string, configuration?: string) => execute(await targetOptions(Test, graph, project, 'test--vitest', configuration), workspace.context(graph, project, 'test--vitest', configuration));
+const executed = async (workspace: Workspace, graph: ProjectGraph, project: string) => execute(await targetOptions(Test, graph, project, 'test--vitest'), workspace.context(graph, project, 'test--vitest'));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -27,23 +24,21 @@ describe('test--vitest runs', () => {
     const passing = "import { expect, test } from 'vitest';\n\ntest('holds', () => expect(1 + 1).toBe(2));\n";
 
     it.for([
-        { case: 'no plugin options', options: undefined, lcov: 'libs/a/coverage/lcov.info' },
-        { case: 'outputPath and coveragePath', options: { outputPath: '.artifacts/vitest/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' }, lcov: '.artifacts/coverage/a/lcov.info' },
-    ])('writes every file of a plain and a coverage run under the declared outputs, with $case', async ({ options: settings, lcov }, { workspace }) => {
+        { case: 'no plugin options', options: undefined },
+        { case: 'outputPath', options: { outputPath: '.artifacts/vitest/{projectName}' } },
+    ])('writes every file of a run under the declared outputs, with $case', async ({ options: settings }, { workspace }) => {
         const graph = await workspace.write({ ...ROOT, 'libs/a/package.json': '{"name":"a","type":"module"}', 'libs/a/vitest.config.ts': 'export default {};\n', 'libs/a/sum.test.ts': passing }).graph({ createNodes }, settings);
         const before = workspace.files();
 
-        const results = [await executed(workspace, graph, 'a'), await executed(workspace, graph, 'a', 'coverage')];
+        const result = await executed(workspace, graph, 'a');
 
         const written = workspace.files().difference(before);
         const caches = [...written].filter((file) => basename(file) === 'CACHEDIR.TAG').map(dirname);
         const undeclared = workspace
             .files(...caches)
             .difference(before)
-            .difference(workspace.cached(graph, 'a', 'test--vitest'))
-            .difference(workspace.cached(graph, 'a', 'test--vitest', 'coverage'));
-        expect(results).toStrictEqual([{ success: true }, { success: true }]);
-        expect([...written]).toContain(lcov);
+            .difference(workspace.cached(graph, 'a', 'test--vitest'));
+        expect(result).toStrictEqual({ success: true });
         expect([...undeclared]).toStrictEqual([]);
     });
 
@@ -75,19 +70,19 @@ describe('test--vitest runs', () => {
         await expect(executed(workspace, graph, 'a')).resolves.toStrictEqual({ success });
     });
 
-    it('fails a coverage run whose threshold fails while every test passes, leaving the exit code of the process as it was', async ({ workspace }) => {
+    it('fails a run whose import duration limit fails while every test passes, leaving the exit code of the process as it was', async ({ workspace }) => {
         const graph = await workspace
             .write({
                 ...ROOT,
                 'libs/a/package.json': '{"name":"a","type":"module"}',
-                'libs/a/vitest.config.ts': "export default { test: { coverage: { include: ['math.ts'], thresholds: { functions: 100 } } } };\n",
-                'libs/a/math.ts': 'export const double = (value: number) => value * 2;\n\nexport const half = (value: number) => value / 2;\n',
+                'libs/a/vitest.config.ts': 'export default { test: { experimental: { importDurations: { failOnDanger: true, thresholds: { danger: 0 } } } } };\n',
+                'libs/a/math.ts': 'export const double = (value: number) => value * 2;\n',
                 'libs/a/math.test.ts': "import { expect, test } from 'vitest';\nimport { double } from './math.ts';\n\ntest('doubles', () => expect(double(2)).toBe(4));\n",
             })
             .graph({ createNodes });
         const before = process.exitCode;
 
-        const result = await executed(workspace, graph, 'a', 'coverage');
+        const result = await executed(workspace, graph, 'a');
 
         expect(result).toStrictEqual({ success: false });
         expect(process.exitCode).toBe(before);
@@ -119,29 +114,6 @@ describe('batched test--vitest tasks', () => {
         expect([results[0]?.result.terminalOutput.includes('stray'), results[1]?.result.terminalOutput.includes('FAIL b b.test.ts > breaks'), results[1]?.result.terminalOutput.includes('unhandled error')]).toStrictEqual([false, true, true]);
         expect(readFileSync(join(workspace.root, 'runs.log'), 'utf-8')).toBe('run\n');
         expect([...workspace.files()].flatMap((file) => (file.startsWith('.artifacts/') ? [dirname(file)] : []))).toStrictEqual(['.artifacts/vitest/a/attachments']);
-    });
-
-    it('runs each task enabling coverage in a Vitest run of its own beside the others, deciding each from the coverage of its own projects', async ({ workspace }) => {
-        const graph = await workspace
-            .write({
-                ...ROOT,
-                'vitest.config.ts': "export default { test: { projects: ['packages/*'], coverage: { thresholds: { functions: 75 } } } };\n",
-                'packages/a/package.json': '{"name":"a","type":"module"}',
-                'packages/a/math.ts': 'export const double = (value: number) => value * 2;\n\nexport const half = (value: number) => value / 2;\n',
-                'packages/a/a.test.ts': awaited('a-started', 'b-started'),
-                'packages/b/package.json': '{"name":"b","type":"module"}',
-                'packages/b/math.ts': 'export const double = (value: number) => value * 2;\n\nexport const half = (value: number) => value / 2;\n',
-                'packages/b/b.test.ts': awaited('b-started', 'a-started'),
-            })
-            .graph({ createNodes }, { coveragePath: '.artifacts/coverage/{projectName}' });
-        const names = ['a', 'b'];
-        const tasks = taskGraph(graph, names, ['test--vitest']);
-        const covered = async (name: string) => ({ ...(await targetOptions(Test, graph, name, 'test--vitest')), __unparsed__: ['--coverage'] });
-
-        const results = await Array.fromAsync(batch(tasks, { 'a:test--vitest': await covered('a'), 'b:test--vitest': await covered('b') }, {}, workspace.context(graph, 'a', 'test--vitest')));
-
-        expect(Object.fromEntries(results.map(({ task, result: { success } }) => [task, success]))).toStrictEqual({ 'a:test--vitest': true, 'b:test--vitest': false });
-        expect(names.map((name) => existsSync(join(workspace.root, `.artifacts/coverage/${name}/coverage-final.json`)))).toStrictEqual([true, true]);
     });
 
     it('stamps each task with the span Vitest states for its own test modules, inside the run, a task with no module taking the span of the run', async ({ workspace }) => {

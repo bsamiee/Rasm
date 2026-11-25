@@ -27,19 +27,11 @@ const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Options extends Schema.Opaque<Options, unknown>()(
-    Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
-        description:
-            'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder. coveragePath: workspace folder every run enabling coverage writes lcov.info to, {projectName} naming the project, absent leaves Vitest its coverage.reportsDirectory',
-    }),
-) {}
+class Options extends Schema.Opaque<Options, unknown>()(Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder' })) {}
 const Surveyed = Schema.TaggedUnion({
     Plain: { dependencies: Schema.Array(Schema.String) },
     Suite: {
         root: Schema.String,
-        reportsDirectory: Schema.String,
-        covered: Schema.Boolean,
-        providers: Schema.Array(Schema.String),
         attachmentsDir: Schema.String,
         reports: Schema.Array(Schema.String),
         triggers: Schema.Array(Schema.String),
@@ -49,25 +41,25 @@ const Surveyed = Schema.TaggedUnion({
     },
 }).annotate({
     description:
-        'What the worker read from a Vite or Vitest config under the TEST, VITEST, and NODE_ENV values vitest sets: the files a Vite config stating no test block loaded, or the resolved Vitest root, coverage folder, whether it enables coverage, and its coverage providers, attachments folder, reporter outputs, added rerun triggers, whether it lists projects, the files its load read, and each project it declares with its root, setup files, browser output folders, and browser providers',
+        'What the worker read from a Vite or Vitest config under the TEST, VITEST, and NODE_ENV values vitest sets: the files a Vite config stating no test block loaded, or the resolved Vitest root, attachments folder, reporter outputs, added rerun triggers, whether it lists projects, the files its load read, and each project it declares with its root, setup files, browser output folders, and browser providers',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const loaded = <A>(file: string, entry: string, specifier: string) => Effect.tryPromise({ try: (): Promise<A> => import(pathToFileURL(createRequire(entry).resolve(specifier)).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no ${specifier}`) });
 
-const surveyed = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, file: string, { root, reportsDirectory, covered, providers, attachmentsDir, reports, triggers, listed, dependencies, projects }: typeof Surveyed.cases.Suite.Type) {
+const surveyed = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, file: string, { root, attachmentsDir, reports, triggers, listed, dependencies, projects }: typeof Surveyed.cases.Suite.Type) {
     const entry = join(workspaceRoot, file);
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
     const workspaces = buildPackageJsonPatterns(workspaceRoot, (at) => readJsonFile<PackageJson>(join(workspaceRoot, at)));
     const probes = yield* Effect.forEach(
         projects,
-        Effect.fnUntraced(function* ({ project, base, setup, written, providers: hosted }) {
+        Effect.fnUntraced(function* ({ project, base, setup, written, providers }) {
             const home = listed ? posix.join(local(base), '.') : dirname(file);
             const folders = listed ? above(home) : [home];
             const owner = Array.findFirst(folders, holds);
             yield* Effect.when(new Cause.UnknownError(base, `${file} declares a project under ${local(base)}, which no project root holds`), Effect.succeed(listed && Option.isNone(owner)));
-            return Option.map(owner, (at) => ({ owner: at, home, project, folders, setup: setup.map(local).filter(within), written, providers: hosted }));
+            return Option.map(owner, (at) => ({ owner: at, home, project, folders, setup: setup.map(local).filter(within), written, providers }));
         }),
     ).pipe(Effect.map(Array.getSomes));
     const selectable = Array.dedupe(probes.map(({ project }) => project));
@@ -81,14 +73,12 @@ const surveyed = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, 
         Effect.fnUntraced(function* ([owner, group]) {
             const selected = Array.dedupe(group.map(({ project }) => project));
             const held = new Set(depended.filter((at) => (findProjectForPath(at, homes) ?? owner) === owner));
-            const { packages } = yield* packaged([...providers.map((specifier) => [specifier, entry] as const), ...imports.filter(([, from]) => held.has(local(from)))]);
+            const { packages } = yield* packaged(imports.filter(([, from]) => held.has(local(from))));
             return {
                 root: owner,
                 projects: selected.length === selectable.length ? [] : selected,
                 setup: Array.dedupe(group.flatMap(({ setup }) => setup)).filter(Predicate.not(owned(owner))),
-                providers: Array.dedupe(group.flatMap(({ providers: hosted }) => hosted)),
-                coverage: local(resolve(root, reportsDirectory)),
-                covered,
+                providers: Array.dedupe(group.flatMap(({ providers }) => providers)),
                 written: Array.dedupe(group.flatMap(({ written }) => written).map((at) => local(resolve(root, at)))),
                 loaded: [...held, ...Array.dedupe(group.map(({ home }) => home)).flatMap((at) => (at === owner ? [] : [posix.join(at, '**/*')]))],
                 packages,
@@ -119,25 +109,23 @@ const read = (anchor: Anchor, file: string, outputPath: string | undefined) => {
     );
 };
 
-const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anchor, context: CreateNodesContext, { outputPath, coveragePath }: Options, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anchor, context: CreateNodesContext, { outputPath }: Options, file: string) {
     const { suites, triggers, shared } = yield* pass.recall(file, read(anchor, file, outputPath));
     const manifests = yield* Effect.forEach(suites, ({ root }) => manifested(context.workspaceRoot, root));
-    const projects = Array.zipWith(suites, manifests, ({ root, projects: selected, setup: declared, providers, coverage, covered, written, loaded: configs, packages }, stated) => {
+    const projects = Array.zipWith(suites, manifests, ({ root, projects: selected, setup: declared, providers, written, loaded: configs, packages }, stated) => {
         const setup = declared.filter((at) => existsSync(join(context.workspaceRoot, at)));
         const chain = [root, ...setup.map(dirname)].flatMap((at) => extended(context.workspaceRoot, at));
         const outside = Record.filter({ ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) }, (_input, at) => !owned(root)(at));
-        const directed = { ...(covered && { enabled: true }), ...(coveragePath !== undefined && { reportsDirectory: coveragePath }) };
         const test = {
             vitest: {
                 executor: `${plugin.name}:${providers.length > 0 ? 'browser' : 'test'}`,
-                options: { config: file, projects: selected, ...(outputPath !== undefined && { attachmentsDir: posix.join(outputPath, ATTACHMENTS) }), ...((covered || coveragePath !== undefined) && { coverage: directed }) },
+                options: { config: file, projects: selected, ...(outputPath !== undefined && { attachmentsDir: posix.join(outputPath, ATTACHMENTS) }) },
                 dependsOn: ['codegen--*', '^codegen--*'],
                 cache: true,
                 inputs: ['default', `^${namedInput(root, context)}`, ...Object.values(outside), ...triggers, { externalDependencies: Array.dedupe(['vitest', ...packages]) }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
-                outputs: [...Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])]).filter((at, _index, all) => !all.some(Function.flip(below)(at))), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
-                configurations: {
-                    coverage: { coverage: { ...directed, enabled: true, reporter: 'lcovonly' } },
-                },
+                outputs: Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])])
+                    .filter((at, _index, all) => !all.some(Function.flip(below)(at)))
+                    .map(tokened(root)),
                 metadata: {
                     description: 'Runs every Vitest project of the suite with vitest run, a suite without a browser provider in one run with every other such suite of the configuration the same nx run tests, as a batch holds every other Nx task until it ends',
                     help: { command: `${pass.exec} vitest run --help`, example: { args: ['--reporter', 'verbose'] } },

@@ -93,21 +93,20 @@ TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE    = "/var/run/docker.sock"
 
 # --- [BEHAVIOR]
 
-BUILDX_EXPERIMENTAL          = "1"
-CARGO_LLVM_COV_DENY_WARNINGS = "1"
-CF_QUIET                     = "1"
-CTX7_TELEMETRY_DISABLED      = "1"
-DOTNET_NOLOGO                = "1"
-HK_MISE                      = "1"
-NX_ISOLATE_PLUGINS           = "false"
-RUSTUP_AUTO_INSTALL          = "0"
-RUSTUP_TOOLCHAIN             = false
-SHELLCHECK_OPTS              = "--rcfile={{config_root}}/.config/shellcheckrc"
-SWIFT_BACKTRACE              = "enable=yes,interactive=no,warnings=suppressed"
-TY_UV                        = "1"
-UV_PYTHON_PREFERENCE         = "only-managed"
-VCPKG_DISABLE_METRICS        = "1"
-VCPKG_FORCE_SYSTEM_BINARIES  = "1"
+BUILDX_EXPERIMENTAL         = "1"
+CF_QUIET                    = "1"
+CTX7_TELEMETRY_DISABLED     = "1"
+DOTNET_NOLOGO               = "1"
+HK_MISE                     = "1"
+NX_ISOLATE_PLUGINS          = "false"
+RUSTUP_AUTO_INSTALL         = "0"
+RUSTUP_TOOLCHAIN            = false
+SHELLCHECK_OPTS             = "--rcfile={{config_root}}/.config/shellcheckrc"
+SWIFT_BACKTRACE             = "enable=yes,interactive=no,warnings=suppressed"
+TY_UV                       = "1"
+UV_PYTHON_PREFERENCE        = "only-managed"
+VCPKG_DISABLE_METRICS       = "1"
+VCPKG_FORCE_SYSTEM_BINARIES = "1"
 
 # --- [DEPS] -----------------------------------------------------------------------------
 
@@ -206,7 +205,6 @@ tombi                          = "latest"
 
 # --- [TOOLCHAINS]
 
-"aqua:taiki-e/cargo-llvm-cov" = "latest"
 cargo-deny                    = "latest"
 cargo-insta                   = "latest"
 cargo-nextest                 = "latest"

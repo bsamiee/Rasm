@@ -21,7 +21,7 @@ Vitest facts that decide the layout:
 - Inline projects in `test.projects` inherit every root option, as `extends` defaults to `true`
 - Projects named by file or glob inherit nothing from root and merge shared options themselves
 - `name` and `projects` are never inherited, and root `globalSetup` reaches no project
-- Options Vitest's reference marks root-only (`coverage`, `reporters`, `passWithNoTests`, `silent`, `attachmentsDir`) act in root config alone
+- Options Vitest's reference marks root-only (`reporters`, `passWithNoTests`, `silent`, `attachmentsDir`) act in root config alone
 - Root config counts as a project only when `test.projects` lists it
 - Inline projects setting `root`, `alias`, `plugins`, or `resolve` each start their own Vite server in place of the shared one
 - `mergeConfig` concatenates arrays, and `include`, `exclude`, and `setupFiles` append to shared values
@@ -32,7 +32,7 @@ Nx facts that decide the layout:
 - Each inferred target runs the inline projects rooted in its Nx project
 - Projects holding an enabled browser take tag `host:browser` and their provider's name (`playwright`) as a technology beside `vitest`
 - One `nx` run batches targets sharing a config and options into one `vitest run` with one worker pool, and its own projects' test modules decide each target
-- Suites with a browser provider and tasks enabling coverage each run alone, outside any batch
+- Suites with a browser provider each run alone, outside any batch
 - Inferred targets hash files root `vitest.config.ts` loads inside their suite's folder or outside every suite's folder
 - Edits to shared options invalidate every cached result
 
@@ -77,16 +77,7 @@ Module resolution under Vitest and Node:
 - `require()` goes to Node and skips Vite plugins, aliases, transforms, and mocks
 - Files both imported and required run twice
 
-## [05]-[COVERAGE]
-
-Coverage provider defaults and thresholds:
-- `v8` is the default provider, and `istanbul` its alternative
-- `coverage.thresholds` takes a number per `lines`, `functions`, `branches`, and `statements`, and `100: true` sets all four to 100
-- `thresholds.perFile` and `thresholds.autoUpdate` default to `false`
-- Glob-keyed thresholds inherit neither the global thresholds nor `perFile`
-- Per-project test tasks pass each its own `--coverage.reportsDirectory`, and a merged report takes its own step
-
-## [06]-[TYPE_TESTS]
+## [05]-[TYPE_TESTS]
 
 Type tests and their checker:
 - Vitest `typecheck` runs `*.test-d.ts` files under `typecheck.enabled`, or `--typecheck` on one run
@@ -96,7 +87,7 @@ Type tests and their checker:
 - `typecheck.tsconfig` defaults to the nearest `tsconfig.json`
 - Source errors fail type tests unless `typecheck.ignoreSourceErrors` is on
 
-## [07]-[BENCHMARKS]
+## [06]-[BENCHMARKS]
 
 ```ts
 import { test } from 'vitest';
@@ -118,7 +109,7 @@ test('decode', async ({ bench }) => {
 - Process-level timing runs `hyperfine --warmup <n> --min-runs <n> --export-json <file>` over the built CLI
 - Benchmark tasks depend on the build they measure and stay out of task caching
 
-## [08]-[PLAYWRIGHT]
+## [07]-[PLAYWRIGHT]
 
 Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)` of `@rasm/testing/playwright`:
 - `@rasm/nx-playwright` infers tag `host:browser` and `test--playwright` per Playwright config
@@ -141,7 +132,7 @@ Playwright suites open `playwright.config.ts` with `config(import.meta.dirname)`
 - No suite reads a developer's local state
 - Suites sign in through an `ACCESS` source `Forwarded`, as the headers of a request state its user
 
-## [09]-[WEBDRIVER]
+## [08]-[WEBDRIVER]
 
 WebDriver suites drive a stable Firefox, as Playwright and Vitest browser providers launch a Firefox build that differs from it in the CSS it supports:
 - Suites are Vitest `node` projects tagged `host:browser` in their manifest, and `selenium-webdriver` starts one headless session per file

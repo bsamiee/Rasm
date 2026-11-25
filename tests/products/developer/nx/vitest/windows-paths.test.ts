@@ -25,7 +25,7 @@ describe('@rasm/nx-vitest under Windows path separators', () => {
                 'tools/vitest/tsconfig.json': '{"extends":"../../tsconfig.shared.json"}',
                 'tsconfig.shared.json': '{"compilerOptions":{}}',
             })
-            .graph({ createNodes }, { outputPath: '.artifacts/vitest/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
+            .graph({ createNodes }, { outputPath: '.artifacts/vitest/{projectName}' });
 
         expect(Object.fromEntries(Object.values(graph.nodes).flatMap(({ name, data }) => (data.targets?.['test--vitest'] === undefined ? [] : [[name, data.root]])))).toStrictEqual({ a: 'packages/a', b: 'packages/b', c: 'libs/deep/c' });
         expect(graph.nodes['c']?.data.targets?.['test--vitest']?.inputs).toContainEqual({ json: '{workspaceRoot}/tsconfig.shared.json', fields: ['compilerOptions'] });
