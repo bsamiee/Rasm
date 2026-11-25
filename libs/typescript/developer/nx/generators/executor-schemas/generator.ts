@@ -12,7 +12,7 @@ const Manifest = Schema.Struct({ name: Schema.String, executors: Schema.String }
 
 const generate = Effect.fnUntraced(function* (tree: Tree) {
     const path = yield* Path.Path;
-    const projects = Record.fromEntries([...getProjects(tree)]);
+    const projects = Object.fromEntries(getProjects(tree));
     const collections = Array.filterMap(
         Object.values(projects)
             .map(({ root }) => ({ root, manifest: path.join(root, 'package.json') }))

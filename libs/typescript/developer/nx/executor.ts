@@ -17,12 +17,7 @@ const Upstream = Schema.Struct({ dependentTasksOutputFiles: Schema.String, trans
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const forwarded = (words: readonly string[]) => {
-    const owned = new RegExp(
-        `^--(?:no-)?(?:${Struct.keys(Dry.fields)
-            .flatMap((key) => [key, String.snakeToKebab(String.camelToSnake(key))].map(RegExp.escape))
-            .join('|')})(?:=.*)?$`,
-        'u',
-    );
+    const owned = new RegExp(`^--(?:no-)?(?:${Array.flatMap(Struct.keys(Dry.fields), (key) => [key, String.kebabCase(key)].map(RegExp.escape)).join('|')})(?:=.*)?$`, 'u');
     return words.filter((word) => !owned.test(word));
 };
 
@@ -47,20 +42,18 @@ const packaged = Effect.fnUntraced(function* ({ root, projectName, targetName, c
         };
     });
     const [outputs, files] = [Array.dedupe(matched.flatMap(Struct.get('outputs'))), Array.dedupe(matched.flatMap(Struct.get('files'))).toSorted()];
-    return yield* outputs.length > 0 && files.length === 0
-        ? Effect.fail(new Cause.UnknownError(declared, `${project} holds no file its dependentTasksOutputFiles input of ${target} matches under [${outputs.join(', ')}], the outputs of the tasks ${target} depends on; run them first`))
-        : Effect.succeed({ project, target, outputs, files });
+    return outputs.length > 0 && files.length === 0 ? yield* new Cause.UnknownError(declared, `${project} holds no file its dependentTasksOutputFiles input of ${target} matches under [${outputs.join(', ')}], the outputs of the tasks ${target} depends on; run them first`) : { project, target, outputs, files };
 });
 
 const released = Effect.fnUntraced(function* ({ root, projectName, projectGraph, nxJsonConfiguration }: ExecutorContext) {
     const project = yield* Effect.fromNullishOr(projectName);
     const files = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(projectGraph));
     const { error, nxReleaseConfig } = yield* Effect.promise(() => createNxReleaseConfig(projectGraph, files, nxJsonConfiguration.release));
-    const group = yield* error === null ? Effect.succeed(Array.findFirst(Record.toEntries(nxReleaseConfig?.groups ?? {}), ([, { projects }]) => projects.includes(project))) : Effect.fail(new Cause.UnknownError(error, `nx.json release refuses its configuration with ${error.code}`));
-    const [head, ordered] = yield* Effect.all([spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root, stdout: 'pipe' }), Effect.promise(() => RepoGitTags.create().resolveTags())]);
+    const group = error === null ? Array.findFirst(Record.toEntries(nxReleaseConfig?.groups ?? {}), ([, { projects }]) => projects.includes(project)) : yield* new Cause.UnknownError(error, `nx.json release refuses its configuration with ${error.code}`);
+    const [head, ordered] = yield* Effect.all([spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root }), Effect.promise(() => RepoGitTags.create().resolveTags())]);
     const tags = Array.intersection(ordered, head.split('\n'));
     const held = yield* Effect.transposeOption(Option.map(group, ([name, { releaseTag }]) => Effect.promise(() => getLatestGitTagForPattern(releaseTag.pattern, { projectName: sanitizeProjectNameForGitTag(project), releaseGroupName: name }, Function.constant(Promise.resolve(tags)), releaseTag))));
-    return Option.flatMap(held, (found) => Option.fromNullishOr(found?.tag));
+    return Option.flatMapNullishOr(held, (found) => found?.tag);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Schema, Struct } from 'effect';
+import { Array, Effect, Option, pipe, Schema, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import { credentialed, Dry, forwarded, packaged, released } from '#/executor';
 import { dried, executor, spawned, Words } from '#/inference';
@@ -29,12 +29,12 @@ const Publish = Dry.mapFields(
 
 const execute = executor(Publish, function* ({ publish, preview, credential, flag, dryRun, __unparsed__: words = [] }, context) {
     const [dry, { project, files }, held] = yield* Effect.all([dried(dryRun), packaged(context), credentialed(credential)]);
-    const command = Array.appendAll(Array.appendAll(publish, files), forwarded(words));
+    const command = pipe(publish, Array.appendAll(files), Array.appendAll(forwarded(words)));
     const keyed = Option.getOrElse(Option.all([Option.fromUndefinedOr(flag), held]), Array.empty<string>);
     const skipped = dry ? Effect.logInfo(`Would run ${CommandLine.display(command)}`) : Effect.logWarning(`Skipped ${CommandLine.display(command)}: ${ALTERNATIVES.format(Array.ensure(credential))} is not set`);
-    const delivered = Option.match(dry ? Option.map(Option.fromUndefinedOr(preview), (added) => Array.appendAll(command, added)) : Option.as(held, Array.appendAll(command, keyed)), {
+    const delivered = Option.match(dry ? Option.map(Option.fromUndefinedOr(preview), Array.prependAll(command)) : Option.as(held, Array.appendAll(command, keyed)), {
         onNone: () => skipped,
-        onSome: (argv) => Effect.asVoid(spawned(argv, { cwd: context.root, stdout: 'inherit', stderr: 'inherit' })),
+        onSome: (argv) => spawned(argv, { cwd: context.root, stdout: 'inherit', stderr: 'inherit' }),
     });
     yield* dry ? delivered : Effect.flatMap(released(context), Option.match({ onNone: () => Effect.logInfo(`Skipped ${CommandLine.display(command)}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: () => delivered }));
     return { success: true };

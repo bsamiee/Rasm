@@ -6,7 +6,7 @@ import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodesContext, detectPackageManager, type ExecutorContext, hashArray, normalizePath, type NxJsonConfiguration, type PackageManager, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getLockFileName, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, PluginCache, parseExecutor, readModulePackageJson, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Cause, Config, ConfigProvider, Effect, Equal, FileSystem, Formatter, Function, identity, Layer, ManagedRuntime, Match, MutableRef, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
+import { Array, Cause, Config, ConfigProvider, Effect, Equal, FileSystem, Formatter, Function, identity, Layer, ManagedRuntime, Match, MutableRef, Option, Predicate, pipe, Record, Result, Schema, type Scope, Stream, String, Struct, Tuple, UndefinedOr } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 import collection from '#/executors.json' with { type: 'json' };
 import plugin from '#/package.json' with { type: 'json' };
@@ -41,25 +41,15 @@ const Words = Schema.optionalKey(Schema.Array(Schema.String)).annotate({ descrip
 
 const legible = (error: unknown): Error =>
     Match.value(error).pipe(
-        Match.when(
-            Match.instanceOf(AggregateCreateNodesError),
-            (aggregate) =>
-                new AggregateCreateNodesError(
-                    aggregate.errors.map(([file, each]) => [file, legible(each)]),
-                    aggregate.partialResults,
-                ),
-        ),
-        Match.when(
-            (each: unknown): each is Error => Predicate.isError(each) && Object.hasOwn(each, 'message') && Predicate.isString(each.message) && String.isNonEmpty(each.message),
-            (kept): Error => kept,
-        ),
+        Match.when(Match.instanceOf(AggregateCreateNodesError), (aggregate) => new AggregateCreateNodesError(aggregate.errors.map(Tuple.evolve([undefined, legible])), aggregate.partialResults)),
+        Match.when((each: unknown): each is Error => Predicate.isError(each) && Object.hasOwn(each, 'message') && Predicate.isString(each.message) && String.isNonEmpty(each.message), Function.identity<Error>),
         Match.when(Predicate.isError, (each) => new Cause.UnknownError(each, Predicate.isString(each.message) && String.isNonEmpty(each.message) ? each.message : (each.stack ?? Formatter.format(each)))),
         Match.orElse((each) => new Cause.UnknownError(each, Formatter.format(each))),
     );
 
 const runner = <R>(services: Layer.Layer<R>): Run<R> => {
     const runtime = ManagedRuntime.make(Layer.merge(services, layer));
-    return <A, E>(effect: Effect.Effect<A, E, R | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(Effect.mapError(effect, legible)).pipe(Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv())));
+    return <A, E>(effect: Effect.Effect<A, E, R | NodeServices | Scope.Scope>) => runtime.runPromise(effect.pipe(Effect.mapError(legible), Effect.scoped, Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv())));
 };
 
 const run = runner(Layer.empty);
@@ -76,30 +66,20 @@ const batched = <S extends Schema.Decoder<unknown>, A, E>(options: S, body: (gra
     return (graph: TaskGraph, raw: unknown, _: unknown, context: ExecutorContext) => Stream.toReadableStream(Stream.provide(Stream.unwrap(Effect.map(decode(raw), (inputs) => body(graph, inputs, context))), layer)).values();
 };
 
-const fingerprinted = (folder: string) =>
-    Effect.succeed(
-        hashArray([
-            ...Array.fromNullishOr(hashFile(import.meta.filename)),
-            ...readdirSync(folder)
-                .toSorted()
-                .flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(folder, name)))]),
-        ]),
-    );
+const fingerprinted = (folder: string) => Effect.succeed(hashArray([...Array.fromNullishOr(hashFile(import.meta.filename)), ...Array.flatMap(readdirSync(folder).toSorted(), (name) => [name, ...Array.fromNullishOr(hashFile(join(folder, name)))])]));
 
 const ran = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
     const invoked = CommandLine.display(argv);
     const handle = yield* Effect.mapError(ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false }), (error) => new Cause.UnknownError(error, `${invoked} cannot start: ${error.message}`));
     const tracked = Object.assign(new NodeChildProcess(), { pid: handle.pid });
-    yield* Effect.acquireRelease(
-        Effect.sync(() => killChildOnHostExit(tracked)),
-        () => Effect.sync(() => tracked.emit('exit')),
-    );
+    yield* Effect.addFinalizer(() => Effect.sync(() => tracked.emit('exit')));
+    yield* Effect.sync(() => killChildOnHostExit(tracked));
     const [stdout, said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
     return { invoked, stdout, said, code };
 }, Effect.scoped);
 
 const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) =>
-    Effect.flatMap(ran(argv, options), ({ invoked, stdout, said, code }) => (code === 0 ? Effect.succeed(stdout) : Effect.fail(new Cause.UnknownError(code, [`${invoked} exits ${code}`, ...Option.toArray(Array.findFirst([said.trim(), stdout.trim()], String.isNonEmpty))].join(': ')))));
+    Effect.flatMap(ran(argv, options), ({ invoked, stdout, said, code }) => (code === 0 ? Effect.succeed(stdout) : new Cause.UnknownError(code, [`${invoked} exits ${code}`, ...Option.toArray(Array.findFirst([said.trim(), stdout.trim()], String.isNonEmpty))].join(': '))));
 
 const within = (at: string) => !(at.startsWith('..') || at.split('/').includes('node_modules'));
 
@@ -122,12 +102,7 @@ const above = (folder: string): readonly string[] =>
 
 const extended = (workspaceRoot: string, root: string): readonly string[] => {
     const files: string[] = [];
-    Option.toArray(
-        Array.findFirst(
-            above(root).map((at) => join(workspaceRoot, at, 'tsconfig.json')),
-            existsSync,
-        ),
-    ).forEach((config) =>
+    Option.toArray(Array.findFirst(above(root), (at) => Option.liftPredicate(join(workspaceRoot, at, 'tsconfig.json'), existsSync))).forEach((config) =>
         walkTsconfigExtendsChain(config, (at) => {
             files.push(at);
             return 'continue';
@@ -170,18 +145,17 @@ const inferring = <S extends Schema.Decoder<unknown>, A, R>(
     return (files: readonly string[], raw: unknown, context: CreateNodesContext) => {
         const cached = Effect.fnUntraced(function* <C extends { readonly sources: readonly string[] }>(name: string, digest: string, extra: (entry: C) => Effect.Effect<readonly string[]> = () => Effect.succeed([]), steady: () => unknown = Function.constUndefined) {
             const manager = detectPackageManager(context.workspaceRoot);
-            const [cache, stored, lock, reading] = [new PluginCache<C & { readonly stamp: string }>(join(workspaceDataDirectory, name)), MutableRef.make(false), getLockFileName(manager), steady()];
-            const written = Effect.when(
-                Effect.sync(() => cache.writeToDisk()),
-                Effect.sync(() => MutableRef.get(stored) && steady() === reading),
+            const [stored, lock, reading] = [MutableRef.make(false), getLockFileName(manager), steady()];
+            const cache = yield* Effect.acquireRelease(
+                Effect.sync(() => new PluginCache<C & { readonly stamp: string }>(join(workspaceDataDirectory, name))),
+                (opened) => Effect.sync(() => opened.writeToDisk()).pipe(Effect.when(Effect.sync(() => MutableRef.get(stored) && steady() === reading))),
             );
-            yield* Effect.addFinalizer(() => Effect.asVoid(written));
             return {
                 recall: <E2, R2>(key: string, fresh: Effect.Effect<C, E2, R2>) =>
                     recalled(
                         cache,
                         hashArray([digest, key]),
-                        (sources, entry) => Effect.map(Effect.all([stamped(context.workspaceRoot)([lock, ...sources]), extra(entry)]), ([held, more]) => hashArray([held, ...more])),
+                        (sources, entry) => Effect.zipWith(stamped(context.workspaceRoot)([lock, ...sources]), extra(entry), (held, more) => hashArray([held, ...more])),
                         fresh,
                         () => MutableRef.set(stored, true),
                     ),
@@ -204,14 +178,14 @@ const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: str
 });
 
 const parsed = Effect.fnUntraced(function* (parse: Parse, workspaceRoot: string, files: readonly string[]) {
-    const texts = yield* Effect.forEach(files, (at) => FileSystem.FileSystem.use((fs) => fs.readFileString(join(workspaceRoot, at))), { concurrency: 'unbounded' });
-    const statements = Array.zipWith(files, texts, (at, text) => parse(at, text).module.staticImports.map((statement) => [statement, join(workspaceRoot, at)] as const)).flat();
-    return statements.filter(([{ entries }]) => entries.length === 0 || entries.some(({ isType }) => !isType)).map(([{ moduleRequest }, from]) => [moduleRequest.value, from] as const);
+    const fs = yield* FileSystem.FileSystem;
+    const read = yield* Effect.forEach(files, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [parse(at, text).module.staticImports, join(workspaceRoot, at)] as const), { concurrency: 'unbounded' });
+    return read.flatMap(([statements, from]) => statements.filter(({ entries }) => entries.length === 0 || !entries.every(Struct.get('isType'))).map(({ moduleRequest }) => [moduleRequest.value, from] as const));
 });
 
 const packaged = Effect.fnUntraced(function* (imports: readonly (readonly [specifier: string, from: string])[]) {
     const fs = yield* FileSystem.FileSystem;
-    const found = Array.getSomes(imports.filter(([specifier]) => !(specifier.startsWith('.') || specifier.startsWith('#') || isAbsolute(specifier) || URL.canParse(specifier))).map(([specifier, from]) => Option.flatMap(Option.liftThrowable(findPackageJSON)(specifier, from), Option.fromUndefinedOr)));
+    const found = Array.filterMap(imports, ([specifier, from]) => (specifier.startsWith('.') || specifier.startsWith('#') || isAbsolute(specifier) || URL.canParse(specifier) ? Result.failVoid : Result.fromNullishOr(UndefinedOr.liftThrowable(findPackageJSON)(specifier, from), Function.constVoid)));
     const manifests = yield* Effect.forEach(Array.dedupe(found), (at) => fs.realPath(at), { concurrency: 'unbounded' });
     const read = yield* Effect.forEach(Array.dedupe(manifests), (at) => Effect.map(Effect.flatMap(fs.readFileString(at), Schema.decodeEffect(Named)), ({ name }) => (at.split(sep).includes('node_modules') ? Result.succeed(name) : Result.fail({ name, folder: dirname(at) }))), { concurrency: 'unbounded' });
     const [packages, linked] = Array.partition(read, identity);
@@ -223,54 +197,51 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string, { workspac
     const held = (specifier: string, from: string) =>
         Option.liftThrowable(readModulePackageJson)(specifier, [from]).pipe(
             Option.map(({ path, packageJson }) => ({ packageJson, folder: dirname(path) })),
-            Option.filter(({ folder }) => {
-                const at = normalizePath(relative(workspaceRoot, folder));
-                return within(at) && holds(at);
-            }),
+            Option.filter(Predicate.mapInput(Predicate.and(within, holds), ({ folder }) => normalizePath(relative(workspaceRoot, folder)))),
         );
     const provided = (target: TargetConfiguration): TargetConfiguration =>
-        Option.match(
-            Option.flatMap(Option.map(Option.fromUndefinedOr(target.executor), parseExecutor), ([provider]) => held(provider, workspaceRoot)),
-            {
+        Option.fromUndefinedOr(target.executor).pipe(
+            Option.map(parseExecutor),
+            Option.flatMap(([provider]) => held(provider, workspaceRoot)),
+            Option.match({
                 onNone: () => target,
                 onSome: ({ packageJson, folder }) => ({
                     ...target,
-                    inputs: [...(target.inputs ?? unstated), { input: 'default', projects: [packageJson.name, ...Array.getSomes(Record.keys(packageJson.dependencies ?? {}).map((name) => held(name, folder))).map(({ packageJson: linked }) => linked.name)] }],
+                    inputs: [...(target.inputs ?? unstated), { input: 'default', projects: [packageJson.name, ...Array.getSomes(Record.keys(packageJson.dependencies ?? {}).map((name) => Option.map(held(name, folder), (linked) => linked.packageJson.name)))] }],
                 }),
-            },
+            }),
         );
     return {
-        ...Record.fromEntries(
-            Record.collect(
-                Record.filter(
-                    Record.map(verbs, (tools) => Record.map(tools, provided)),
-                    Predicate.not(Record.isEmptyRecord),
-                ),
-                (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-                    [
-                        verb,
-                        {
-                            dependsOn: [{ target: `${verb}--*`, params: 'forward' }],
-                            inputs: [
-                                '...',
-                                ...Array.dedupe(
-                                    Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? unstated }).inputs ?? [])
-                                        .flat()
-                                        .map((entry) => (Predicate.isObject(entry) && 'dependentTasksOutputFiles' in entry ? { ...entry, transitive: true } : entry)),
-                                ),
-                            ],
-                        },
-                    ],
-                    ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [
-                        `${verb}--${tool}`,
-                        {
-                            ...target,
-                            ...(verb === 'clean' && { configurations: { ...target.configurations, cache: { targets: [], commands: [], folders: [], ...Option.getOrUndefined(Option.liftPredicate(Predicate.isObject)(target.configurations?.['cache'])) } } }),
-                            metadata: { technologies: [technology], ...target.metadata },
-                        },
-                    ]),
+        ...pipe(
+            verbs,
+            Record.map(Record.map(provided)),
+            Record.filter(Predicate.not(Record.isEmptyRecord)),
+            Record.collect((verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
+                [
+                    verb,
+                    {
+                        dependsOn: [{ target: `${verb}--*`, params: 'forward' }],
+                        inputs: [
+                            '...',
+                            ...Array.dedupe(
+                                Record.collect(tools, (tool, target) =>
+                                    (mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? unstated }).inputs ?? []).map((entry) => (Predicate.hasProperty(entry, 'dependentTasksOutputFiles') ? { ...entry, transitive: true } : entry)),
+                                ).flat(),
+                            ),
+                        ],
+                    },
                 ],
-            ).flat(),
+                ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [
+                    `${verb}--${tool}`,
+                    {
+                        ...target,
+                        ...(verb === 'clean' && { configurations: { ...target.configurations, cache: { targets: [], commands: [], folders: [], ...Option.getOrUndefined(Option.liftPredicate(Predicate.isObject)(target.configurations?.['cache'])) } } }),
+                        metadata: { technologies: [technology], ...target.metadata },
+                    },
+                ]),
+            ]),
+            Array.flatten,
+            Record.fromEntries,
         ),
         ...Record.map(own, provided),
     };
