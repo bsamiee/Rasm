@@ -3,13 +3,13 @@ public import Foundation
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct FileFailure: CustomNSError, LocalizedError {
+public struct FileFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
-    public enum Reason: Sendable {
+    public enum Reason: Equatable, Sendable {
         case unwatched
         case held
         case compromised
-        case filesystem(any Error)
+        case filesystem(NSError)
     }
 
     public let subject: String
@@ -34,19 +34,5 @@ public struct FileFailure: CustomNSError, LocalizedError {
             case .filesystem(let error): [NSUnderlyingErrorKey: error]
             case .unwatched, .held, .compromised: [:]
         }
-    }
-}
-
-extension FileFailure: Equatable {
-    public static func == (left: Self, right: Self) -> Bool {
-        let same =
-            switch left.reason {
-                case .unwatched: right.reason.is(\.unwatched)
-                case .held: right.reason.is(\.held)
-                case .compromised: right.reason.is(\.compromised)
-                case .filesystem(let error):
-                    right.reason[case: \.filesystem].map { other in ((other as NSError).domain, (other as NSError).code) == ((error as NSError).domain, (error as NSError).code) } == true
-            }
-        return left.subject == right.subject && same
     }
 }

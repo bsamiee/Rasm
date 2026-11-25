@@ -44,33 +44,26 @@ public struct FileEvent: Sendable {
 
         func start(_ file: URL) {
             var context = unsafe FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
-            let flags = kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagNoDefer
-            func unwatched() {
-                continuation.yield(.failure(FileFailure(file: file, reason: .unwatched)))
-                continuation.finish()
+            let flags = kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagNoDefer
+            let created = unsafe FSEventStreamCreate(
+                nil,
+                Self.changed,
+                &context,
+                [file.path(percentEncoded: false)] as CFArray,
+                FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+                0,
+                FSEventStreamCreateFlags(flags),
+            )
+            if let created = unsafe created { unsafe FSEventStreamSetDispatchQueue(created, queue) }
+            switch unsafe created.map(FSEventStreamStart) {
+                case true?:
+                    unsafe stream = created
+                    continuation.yield(.success([]))
+                case false?, nil:
+                    if let created = unsafe created { unsafe Self.invalidate(created) }
+                    continuation.yield(.failure(FileFailure(file: file, reason: .unwatched)))
+                    continuation.finish()
             }
-            guard
-                let created = unsafe FSEventStreamCreate(
-                    nil,
-                    Self.changed,
-                    &context,
-                    [file.path(percentEncoded: false)] as CFArray,
-                    FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-                    0,
-                    FSEventStreamCreateFlags(flags),
-                )
-            else {
-                unwatched()
-                return
-            }
-            unsafe FSEventStreamSetDispatchQueue(created, queue)
-            guard unsafe FSEventStreamStart(created) else {
-                unsafe Self.invalidate(created)
-                unwatched()
-                return
-            }
-            unsafe stream = created
-            continuation.yield(.success([]))
         }
 
         func stop() {
@@ -89,11 +82,12 @@ public struct FileEvent: Sendable {
         // --- [CALLBACKS]
 
         private static let changed: FSEventStreamCallback = { _, info, count, eventPaths, eventFlags, _ in
-            guard let info = unsafe info else { return }
-            let reported = unsafe Unmanaged<AnyObject>.fromOpaque(eventPaths).takeUnretainedValue()
-            guard let paths = reported as? [String] else { return }
-            unsafe Unmanaged<Watcher>.fromOpaque(info).takeUnretainedValue().continuation.yield(
-                .success(zip(paths, unsafe UnsafeBufferPointer(start: eventFlags, count: count)).map { path, flags in FileEvent(url: URL(filePath: path), flags: flags) })
+            let paths = unsafe UnsafeBufferPointer(start: eventPaths.assumingMemoryBound(to: UnsafeMutablePointer<CChar>.self), count: count)
+            unsafe info.map { (info: UnsafeMutableRawPointer) -> Watcher in unsafe Unmanaged<Watcher>.fromOpaque(info).takeUnretainedValue() }?.continuation.yield(
+                .success(
+                    unsafe zip(paths, UnsafeBufferPointer(start: eventFlags, count: count)).map { path, flags -> FileEvent in FileEvent(url: URL(filePath: unsafe String(cString: path)), flags: flags)
+                    }
+                )
             )
         }
     }

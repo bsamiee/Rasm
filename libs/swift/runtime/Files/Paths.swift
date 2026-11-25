@@ -15,7 +15,7 @@ public func ifPresent<Value, Failure: Error>(_ read: () throws(Failure) -> Value
 }
 
 func ifPresent<Value>(_ file: URL, _ operation: () throws -> Value) throws(FileFailure) -> Value? {
-    do { return try ifPresent(operation) } catch { throw FileFailure(file: file, reason: .filesystem(error)) }
+    do { return try ifPresent(operation) } catch { throw FileFailure(file: file, reason: .filesystem(error as NSError)) }
 }
 
 extension URL {

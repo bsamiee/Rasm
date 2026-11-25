@@ -67,7 +67,7 @@ extension RotatingFile {
                 held.failure = nil
                 return .success(())
             } catch {
-                let failure = FileFailure(file: url, reason: .filesystem(error))
+                let failure = FileFailure(file: url, reason: .filesystem(error as NSError))
                 held.failure = failure
                 return .failure(failure)
             }
