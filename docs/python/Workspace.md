@@ -128,7 +128,8 @@ Environments and tool sources of each task:
 - `nx clean <member> -c cache` empties the member's folder under `environmentPath` and removes its `__pycache__` folders
 - `ruff` and `tombi` come from mise `[tools]` and `vulture` from the root `dev` group on `PATH`, as hk runs them over the files or member folder it names
 - Root `.venv` runs no Nx task and serves `pixi run --locked python`, `rg` over `site-packages`, editors, ty's language server, hand `uv run`, and hk's vulture
-- `default-groups = "all"` reaches commands targeting the root project alone, and `uv run --package <member>` installs a root group only where `--group` names it
+- Task environments hold their members, every extra, and the group stating their tool alone, as each `uv run` passes `--no-default-groups`
+- `default-groups = "all"` reaches the shared `.venv` and hand commands targeting the root project alone
 - `UV_PYTHON_PREFERENCE = "only-managed"` in mise `[env]` limits uv to Pythons it installs itself
 - `UV_PYTHON` acts as `--python`, uv refuses a version outside a root's `requires-python`, and no `[env]` row sets it
 - `RUFF_CACHE_DIR` in mise `[env]` moves the ruff cache, and a `cache-dir` row overrides it

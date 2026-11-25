@@ -139,6 +139,17 @@ describe('checker targets', () => {
         expect(result.success).toBe(true);
     });
 
+    it('holds the members of a uv root and the group stating ty in the environment of its ty check, and no other group the root installs by default', async ({ workspace }) => {
+        const files = workspaced(['ty'], [], ['iniconfig']);
+        locked(workspace, { ...files, 'pyproject.toml': `${files['pyproject.toml']}\n[tool.uv]\ndefault-groups = "all"\n` });
+        const graph = await workspace.graph(uv, { environmentPath: 'tmp/environments/{projectName}' });
+
+        const result = await workspace.run(graph, 'uv-tutorial', 'check--ty');
+
+        const installed = new Set([...workspace.files('.venv')].filter((file) => file.startsWith('tmp/environments/uv-tutorial/dev/') && file.endsWith('.dist-info/METADATA')).map((file) => posix.basename(posix.dirname(file)).replace(/-[^-]+\.dist-info$/u, '')));
+        expect([result.success, installed.has('ty'), installed.has('iniconfig')]).toStrictEqual([true, true, false]);
+    });
+
     it('gives a uv root one ty check over every member, and no member its own', async ({ workspace }) => {
         locked(workspace, { ...workspaced(['ty']), ...APPLICATION });
 

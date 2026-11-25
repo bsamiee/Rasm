@@ -127,6 +127,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             ...(outside ? ['--project', posix.relative(cwd, member.workspace)] : []),
             ...member.selection,
             '--all-extras',
+            '--no-default-groups',
             ...flagged('--group', stated.group),
             ...row.command(
                 stated.paths.map((root) => posix.relative(cwd, root) || '.'),
