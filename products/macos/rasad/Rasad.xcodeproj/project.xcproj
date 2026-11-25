@@ -13,12 +13,12 @@
   "packages": [
     {
       "kind": "local",
-      "path": "../../../..",
+      "path": "../../..",
     },
   ],
   "files": [
-    { "path": "../../../../.artifacts/vite/@rasm/rasad/server", "target-membership": [ "Rasad/copy/Embed Server" ] },
-    { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
+    { "path": "../../../.artifacts/vite/@rasm/rasad/server", "target-membership": [ "Rasad/copy/Embed Server" ] },
+    { "path": "<PROJECT>/../../../Xcode.xcconfig" },
     { "path": "AppIcon.icon", "target-membership": [ "Rasad/resources" ] },
     {
       "kind": "group",

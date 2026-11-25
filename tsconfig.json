@@ -270,7 +270,7 @@
             "path": "./libs/typescript/ai/policy"
         },
         {
-            "path": "./products/macos/rasad"
+            "path": "./products/macos/rasad/server"
         },
         {
             "path": "./tests/products/macos/rasad"

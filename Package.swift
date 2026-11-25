@@ -136,8 +136,8 @@ let applications: [Target] = [
     .target(
         name: "Rasad",
         dependencies: ["ApplicationServer"],
-        path: "products/macos/rasad/macos",
-        exclude: ["AppIcon.icon", "Info.plist", "Rasad.entitlements", "Rasad.xcodeproj"],
+        path: "products/macos/rasad",
+        exclude: ["AppIcon.icon", "Info.plist", "Rasad.entitlements", "Rasad.xcodeproj", "README.md", "server"],
     ),
 ]
 let support: [Target] = [

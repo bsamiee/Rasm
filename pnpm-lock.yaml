@@ -2123,27 +2123,27 @@ importers:
         specifier: 'catalog:'
         version: 5.1.1(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.1)(@vitest/ui@5.1.1)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
-  products/macos/rasad:
+  products/macos/rasad/server:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@rasm/applications':
         specifier: workspace:*
-        version: link:../../../libs/typescript/macos/applications
+        version: link:../../../../libs/typescript/macos/applications
       '@rasm/mcp':
         specifier: workspace:*
-        version: link:../../../libs/typescript/ai/mcp
+        version: link:../../../../libs/typescript/ai/mcp
       '@rasm/telemetry':
         specifier: workspace:*
-        version: link:../../../libs/typescript/runtime/telemetry
+        version: link:../../../../libs/typescript/runtime/telemetry
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
     devDependencies:
       '@rasm/vite':
         specifier: workspace:*
-        version: link:../../../libs/typescript/web/vite
+        version: link:../../../../libs/typescript/web/vite
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
