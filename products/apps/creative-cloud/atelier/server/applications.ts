@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import type { Installation } from '@rasm/applications';
-import { type Entry, Inventory } from '@rasm/applications/workspace';
+import { type Entry, Workspace } from '@rasm/applications/workspace';
 import { Application, Registry } from '@rasm/creative-cloud-desktop';
 import { Link } from '@rasm/mcp';
 import { setting } from '@rasm/mcp/cli';
@@ -20,18 +20,18 @@ const DESCRIPTIONS = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Registered = setting('registry', 'registry', Schema.String, '/Library/Application Support/Adobe/caps/hdpim.db', 'Creative Cloud registry database listing the Adobe applications it installed');
+const RegistryPath = setting('registry', 'registry', Schema.String, '/Library/Application Support/Adobe/caps/hdpim.db', 'Creative Cloud registry database listing the Adobe applications it installed');
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Installed extends Context.Service<Installed, SubscriptionRef.SubscriptionRef<readonly Application[]>>()('@rasm/atelier/applications/Installed') {
-    static readonly layer = Layer.merge(Layer.effect(Installed, SubscriptionRef.make<readonly Application[]>([])), Layer.effect(Registry, Registered));
+class RegistryApplications extends Context.Service<RegistryApplications, SubscriptionRef.SubscriptionRef<readonly Application[]>>()('@rasm/atelier/applications/RegistryApplications') {
+    static readonly layer = Layer.merge(Layer.effect(RegistryApplications, SubscriptionRef.make<readonly Application[]>([])), Layer.effect(Registry, RegistryPath));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const catalogued = Effect.fnUntraced(function* (offered: readonly Installation[]) {
-    const [rows, registered] = yield* Effect.all([Installed, Application.installed]);
+const catalog = Effect.fnUntraced(function* (offered: readonly Installation[]) {
+    const [rows, registered] = yield* Effect.all([RegistryApplications, Application.installed]);
     const known = new Set(registered.map((row) => row.url.href));
     const outside = Array.getSomes(
         offered
@@ -51,7 +51,7 @@ const catalogued = Effect.fnUntraced(function* (offered: readonly Installation[]
         facts: { product, channel, version, ...Record.getSomes({ build }) },
     }));
 });
-const logged = Effect.fnUntraced(function* ({ name }: Pick<Entry, 'name'>) {
+const readLogs = Effect.fnUntraced(function* ({ name }: Pick<Entry, 'name'>) {
     const [files, path, home] = [yield* FileSystem.FileSystem, yield* Path.Path, homedir()];
     const vendored = yield* files.readDirectory(path.join(home, 'Library/Logs/Adobe')).pipe(Effect.catchReason('PlatformError', 'NotFound', Function.constant(Effect.succeed(Array.empty<string>()))));
     const folder = Array.findFirst(Array.sort(vendored, Order.flip(Order.mapInput(Order.Number, String.length))), (each) => name.startsWith(each));
@@ -62,7 +62,7 @@ const logged = Effect.fnUntraced(function* ({ name }: Pick<Entry, 'name'>) {
         }),
     );
 });
-const routed = Effect.map(Inventory, ({ target }) =>
+const route = Effect.map(Workspace, ({ target }) =>
     Effect.fnUntraced(function* (peers: Array.NonEmptyReadonlyArray<Link>) {
         const { held } = yield* target;
         const refused = McpSchema.InvalidParams.make({ message: `Linked in ${peers.map((peer) => peer.application.toString()).join(', ')}, applications open makes one the target` });
@@ -75,4 +75,4 @@ const routed = Effect.map(Inventory, ({ target }) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { catalogued, DESCRIPTIONS, Installed, logged, Registered, routed };
+export { catalog, DESCRIPTIONS, RegistryApplications, readLogs, RegistryPath, route };

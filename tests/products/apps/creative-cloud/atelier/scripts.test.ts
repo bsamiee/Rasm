@@ -7,7 +7,7 @@ import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { layer as sockets } from '@effect/platform-node/NodeSocketServer';
 import { assert, layer } from '@effect/vitest';
-import { Automation, RunningInstance, TermKind, Terms } from '@rasm/applications';
+import { ApplicationRpcs, InstanceSnapshot, ScriptingDictionary } from '@rasm/applications';
 import { routed } from '@rasm/testing/playwright';
 import { parse } from 'acorn';
 import { Array, Cause, Config, Context, Effect, FileSystem, Layer, MutableRef, Option, Order, Path, Record, Result, Schedule, Schema, Stream, Struct } from 'effect';
@@ -54,7 +54,7 @@ const ES3 = { ecmaVersion: 3, allowReserved: 'never' } as const;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Bound = Schema.Struct({ port: Schema.Int });
-const Instances = Schema.Array(Schema.toCodecJson(RunningInstance));
+const Instances = Schema.Array(Schema.toCodecJson(InstanceSnapshot));
 const Opened = Schema.fromJsonString(Schema.Struct({ instance: Schema.String }));
 const Text = Schema.Struct({ text: Schema.String });
 const Answered = Schema.fromJsonString(Schema.Struct({ result: Schema.Finite }));
@@ -79,8 +79,8 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
         const [registry, installs] = [path.join(root, 'hdpim.db'), path.join(root, 'Applications')];
         const bundle = (name: string) => path.join(root, location, `${name}.app`);
         const located = (name: string) => pathToFileURL(`${bundle(name)}/`).href;
-        const empty = Struct.Record(TermKind.literals, []);
-        const dictionaries = Record.fromEntries(yield* Effect.forEach(INSTALLED, ({ name, dictionary }) => Effect.map(Schema.decodeEffect(Terms)({ ...empty, ...dictionary }), (terms) => [located(name), terms] as const)));
+        const empty = Struct.Record(ScriptingDictionary.Kind.literals, []);
+        const dictionaries = Record.fromEntries(yield* Effect.forEach(INSTALLED, ({ name, dictionary }) => Effect.map(Schema.decodeEffect(ScriptingDictionary)({ ...empty, ...dictionary }), (terms) => [located(name), terms] as const)));
         const instances = yield* Schema.decodeEffect(Instances)(INSTALLED.map(({ name, identifier }, at) => ({ pid: 100 + at, instance: `${100 + at}@1`, identifier, url: located(name), activationPolicy: 'regular', state: { running: { active: false, status: 'responding', windows: [] } }, listening: [] })));
         const executed = MutableRef.make<readonly Sent[]>([]);
         const files: Record<string, string> = {
@@ -122,7 +122,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
             ],
             { discard: true },
         );
-        const served = Automation.omit('nodes', 'handler', 'launch', 'act', 'quit', 'capture', 'preview', 'diagnostics');
+        const served = ApplicationRpcs.omit('nodes', 'handler', 'launch', 'act', 'quit', 'capture', 'preview', 'diagnostics');
         yield* Layer.build(
             RpcServer.layer(served).pipe(
                 Layer.provide([

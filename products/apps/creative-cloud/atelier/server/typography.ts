@@ -83,22 +83,22 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
     const serving = Link.serves(TypesettingRpcs.requests.keys());
     const client = links.call(serving, 'linked application serving typesetting');
     const visible = Context.make(Server.Visibility, Effect.map(links.peers, Array.some(serving)));
-    const sourced = Effect.fnUntraced(function* (name: string, characters: string) {
+    const readSource = Effect.fnUntraced(function* (name: string, characters: string) {
         const file = yield* files.makeTempFileScoped({ suffix: '.otf' });
         const { font, source } = yield* Effect.flatMap(client, (linked) => linked('font', { name, text: characters, file }));
         return { font, source: yield* Effect.transposeOption(Option.map(source, ({ file: found, postscriptName }) => files.readFile(found).pipe(Effect.bindTo('data'), Effect.map(Struct.assign({ postscriptName }))))) };
     }, Effect.scoped);
-    const faced = Effect.fnUntraced(function* (name: string, characters: string, instance?: Parameters<typeof Face.open>[1]) {
-        const { source } = yield* sourced(name, characters);
+    const openFace = Effect.fnUntraced(function* (name: string, characters: string, instance?: Parameters<typeof Face.open>[1]) {
+        const { source } = yield* readSource(name, characters);
         return yield* Face.open(yield* Effect.fromOption(source, () => Unmatched.of({ subject: 'font file', query: Option.some(name) })), instance);
     });
-    const styled = (runs: Parameters<typeof Span.styled>[0], first: number, last: number, extra: string) => {
+    const styleRuns = (runs: Parameters<typeof Span.styled>[0], first: number, last: number, extra: string) => {
         const placed = Span.styled(runs, first, last);
         return Effect.forEach(
             Array.dedupeWith(placed, SAME_FACE),
             Effect.fnUntraced(function* (span: (typeof placed)[number]) {
                 const group = placed.filter((each) => SAME_FACE(span, each));
-                const face = yield* faced(span.font, [...group.map(Struct.get('text')), extra].join(''), Face.Instance.make({ coordinates: span.axes }));
+                const face = yield* openFace(span.font, [...group.map(Struct.get('text')), extra].join(''), Face.Instance.make({ coordinates: span.axes }));
                 return { font: span.font, face, group };
             }),
         );
@@ -106,7 +106,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
     yield* Server.registerTool(
         Tools.font.annotateMerge(visible),
         Effect.fnUntraced(function* (given) {
-            const { font, source } = yield* sourced(
+            const { font, source } = yield* readSource(
                 given.name,
                 Option.getOrElse(given.text, () => ''),
             );
@@ -122,7 +122,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
             const [first, last] = expandToWords(text, selection.start, selection.start + selection.length);
             const { restores, shapes } = MODES[Option.getOrElse(mode, () => (selection.length === text.length ? 'kern' : 'replace'))];
             const restore = Option.liftPredicate({ index: first, length: last - first }, ({ length }) => restores && length > 0);
-            const faces = !shapes || first === last ? [] : yield* styled(selection.runs, first, last, '');
+            const faces = !shapes || first === last ? [] : yield* styleRuns(selection.runs, first, last, '');
             const ordered = Array.sortWith(
                 Array.flatMap(faces, ({ face, group }) => Array.cartesian([face], group)),
                 ([, span]: readonly [Face, { readonly start: number }]) => span.start,
@@ -143,7 +143,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
             const elongating = Option.exists(Option.flatMapNullishOr(settings, Struct.get('kashida')), Predicate.not(Predicate.isTagged('None')));
             const tatweel = String.fromCodePoint(TATWEEL);
             const selection = yield* linked('runs', { target });
-            const faces = elongating || Option.isSome(Option.flatMapNullishOr(settings, Struct.get('features'))) ? yield* styled(selection.runs, selection.start, selection.start + selection.length, elongating ? tatweel : '') : [];
+            const faces = elongating || Option.isSome(Option.flatMapNullishOr(settings, Struct.get('features'))) ? yield* styleRuns(selection.runs, selection.start, selection.start + selection.length, elongating ? tatweel : '') : [];
             const broken = elongating ? faces.filter(({ face }) => !drawsKashida(face)) : [];
             yield* Array.isReadonlyArrayEmpty(broken) ? Effect.void : new Cause.IllegalArgumentError(`${broken.map(Struct.get('font')).join(', ')} draw no ${tatweel} with positive advance and hold no jalt, so kashida breaks their joins`);
             return yield* linked('typeset', { target, settings: Option.map(settings, Struct.evolve({ features: (features = {}) => faces.reduce((exclusive, { face }) => face.layout.exclusive(exclusive), features) })) });
@@ -156,7 +156,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
                 Csv: ({ ayahs, surahs, columns, riwayah }) => Effect.flatMap(Effect.all({ ayahs: files.readFileString(ayahs), surahs: files.readFileString(surahs) }), (csv) => Quran.decode(csv, columns, riwayah)),
                 Mushaf: ({ file, render }) => Effect.flatMap(Effect.transposeOption(Option.map(file, files.readFileString)), (json) => Quran.mushaf(json, render)),
             });
-            const [quran, face] = yield* Effect.all([text, faced(name, '')]);
+            const [quran, face] = yield* Effect.all([text, openFace(name, '')]);
             return { text: yield* Quran.text(quran, separator, face, Settings.make({ numberingSystem }))(selection) };
         }),
     );
@@ -164,7 +164,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
         Tools.symbols.annotateMerge(visible),
         Effect.fnUntraced(function* ({ file, face: name }) {
             const symbols = yield* Effect.flatMap(files.readFileString(file), Symbols.decode);
-            const face = yield* faced(name, Object.values(symbols.sets).flat().join(''));
+            const face = yield* openFace(name, Object.values(symbols.sets).flat().join(''));
             return { sets: symbols.supported(face).sets };
         }),
     );

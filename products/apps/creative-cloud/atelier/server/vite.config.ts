@@ -2,7 +2,7 @@ import { createRequire, findPackageJSON } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import process from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
-import { helper } from '@rasm/applications/vite';
+import { singleExecutable } from '@rasm/applications/vite';
 import { inlineScript } from '@rasm/extendscript/vite';
 import { run } from '@rasm/process';
 import { checks } from '@rasm/vite';
@@ -11,7 +11,7 @@ import type { Plugin, Rolldown, UserConfigFnPromise } from 'vite';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const listed = (fs: FileSystem.FileSystem, root: string, kept: RegExp) =>
+const listFiles = (fs: FileSystem.FileSystem, root: string, kept: RegExp) =>
     Effect.map(fs.readDirectory(root, { recursive: true }), (files) =>
         Array.map(
             files.filter((file) => kept.test(file)),
@@ -33,7 +33,7 @@ export default Effect.fnUntraced(
                 compiler,
                 Effect.map(Effect.fromNullishOr(findPackageJSON('uxp-after-effects', import.meta.url)), (found) => join(dirname(found), 'src', 'pages', 'after-effects-api')),
             ]);
-            const [declared, libraries, documented] = yield* Effect.all([Effect.forEach(vendors, (manifest) => listed(fs, dirname(manifest), /(?:\.d\.ts|package\.json)$/u)), listed(fs, root, /\.d\.ts$/u), listed(fs, pages, /\.md$/u)]);
+            const [declared, libraries, documented] = yield* Effect.all([Effect.forEach(vendors, (manifest) => listFiles(fs, dirname(manifest), /(?:\.d\.ts|package\.json)$/u)), listFiles(fs, root, /\.d\.ts$/u), listFiles(fs, pages, /\.md$/u)]);
             const [read, { stdout }] = yield* Effect.all([
                 Effect.forEach([...Array.map(Array.flatten(declared), (file) => [relative(directory, file), file] as const), ...Array.map(libraries, (file) => [join('typescript', relative(root, file)), file] as const)], ([fileName, file]) =>
                     fs.readFile(file).pipe(Effect.bindTo('source'), Effect.map(Struct.assign({ fileName }))),
@@ -55,7 +55,7 @@ export default Effect.fnUntraced(
         } satisfies Plugin;
         return {
             build: { rolldownOptions: { output: { codeSplitting: false } } },
-            plugins: [checks(), declarations, inlineScript(resolved('@rasm/extendscript/host'), 'host'), inlineScript(resolved('es5-shim'), 'shim'), inlineScript(resolved('es5-shim/es5-sham.js'), 'sham'), yield* helper(join(directory, 'main.ts'), 'server')],
+            plugins: [checks(), declarations, inlineScript(resolved('@rasm/extendscript/host'), 'host'), inlineScript(resolved('es5-shim'), 'shim'), inlineScript(resolved('es5-shim/es5-sham.js'), 'sham'), yield* singleExecutable(join(directory, 'main.ts'), 'server')],
         };
     },
     Effect.provide(layer),

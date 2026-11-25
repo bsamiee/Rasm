@@ -8,7 +8,7 @@ import { Array, DateTime, Effect, FileSystem, Layer, Option, Record, Schema } fr
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Observed = typeof InterfaceMap.Observed.Encoded;
+type Observation = typeof InterfaceMap.Observation.Encoded;
 type Truth = { readonly [K in keyof typeof Truth]: (typeof Truth)[K]['Type'] };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -64,7 +64,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
         );
     const generation = (read: number) => Array.countBy(Array.take(Array.drop(reads, 1), read), (entry) => entry.rebuilt === 0);
     const build = (read: number) => `22.1.0.${19 + generation(read)}`;
-    const observation = (read: number): Observed => {
+    const observation = (read: number): Observation => {
         const { toggle, complete } = reads[read] ?? reads[0];
         return {
             build: build(read),
@@ -117,13 +117,13 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
 
 describe(InterfaceMap, () => {
     it.effect.prop(
-        'keeps what each read showed, retires only what the rule names, holds a returning entry sticky, and stores no document name, user name, or text value',
+        'keeps what each read showed, retires only what the rule names, holds a returning entry persistent, and stores no document name, user name, or text value',
         Truth,
         Effect.fnUntraced(function* (truth) {
             const world = app(truth);
-            const reads = yield* Effect.forEach(world.readings, (read) => Schema.decodeEffect(InterfaceMap.Observed)(world.observation(read)));
-            const states = Array.scan(reads, { map: InterfaceMap.empty, facts: [] as readonly (typeof InterfaceMap.Fact.Type)[] }, ({ map }, read) => map.fold(read, world.user));
-            const told = states.flatMap(({ facts }) => facts);
+            const reads = yield* Effect.forEach(world.readings, (read) => Schema.decodeEffect(InterfaceMap.Observation)(world.observation(read)));
+            const states = Array.scan(reads, { map: InterfaceMap.empty, changes: [] as readonly (typeof InterfaceMap.Change.Type)[] }, ({ map }, read) => map.fold(read, world.user));
+            const allChanges = states.flatMap(({ changes }) => changes);
             const final = Array.lastNonEmpty(world.readings);
             const last = Array.lastNonEmpty(states).map;
             const controls = last.containers[world.window]?.controls ?? {};
@@ -133,14 +133,14 @@ describe(InterfaceMap, () => {
                 for (const read of world.readings) {
                     const [before, after] = [held(read, key), held(read + 1, key)];
                     if (before !== undefined && Option.isSome(before.retired) && world.present(read, index)) {
-                        assert.isTrue(after !== undefined && Option.isNone(after.retired) && after.tally.sticky, `${key} shown after retirement returns sticky`);
+                        assert.isTrue(after !== undefined && Option.isNone(after.retired) && after.tally.persistent, `${key} shown after retirement returns persistent`);
                         assert.isTrue(
-                            states[read + 1]?.facts.some((fact) => fact._tag === 'Appeared' && fact.at === key),
+                            states[read + 1]?.changes.some((change) => change._tag === 'Appeared' && change.at === key),
                             `${key} appears again on its return`,
                         );
                     }
-                    if (before?.tally.sticky === true && Option.isNone(before.retired) && after !== undefined && Option.isSome(after.retired)) {
-                        assert.notStrictEqual(before.tally.verified, world.build(read), `${key} held sticky retires only on a build it was not seen in`);
+                    if (before?.tally.persistent === true && Option.isNone(before.retired) && after !== undefined && Option.isSome(after.retired)) {
+                        assert.notStrictEqual(before.tally.verified, world.build(read), `${key} held persistent retires only on a build it was not seen in`);
                     }
                 }
             };
@@ -149,7 +149,7 @@ describe(InterfaceMap, () => {
                 const { condition, sightings, retirement, epochs } = world.oracle(index);
                 const entry = controls[key];
                 const live = entry !== undefined && Option.isNone(entry.retired);
-                const count = (tag: (typeof InterfaceMap.Fact.Type)['_tag']) => told.filter((fact) => fact._tag === tag && fact.at === key).length;
+                const count = (tag: (typeof InterfaceMap.Change.Type)['_tag']) => allChanges.filter((change) => change._tag === tag && change.at === key).length;
                 if (condition !== 'Sometimes') {
                     assert.strictEqual(count('Appeared'), sightings.length > 0 ? 1 : 0, `${key} appears once when shown`);
                     assert.strictEqual(count('Gone'), Option.isSome(retirement) ? 1 : 0, `${key} goes once when the rule retires it`);
@@ -190,7 +190,7 @@ describe(InterfaceMap, () => {
             );
             const [window, press, dialog, units, width] = ['["AXWindow","Layout"]', '["AXMenuItem","New Document…"]', '["AXDialog","New Document"]', '["AXPopUpButton","Units"]', '["AXButton","Width"]'];
             const shared = { build: '22.1.0.19', modal: false, layer: 0, documents: [], layout: {}, document: false, complete: true } as const;
-            const encoded: readonly Observed[] = [
+            const encoded: readonly Observation[] = [
                 {
                     ...shared,
                     container: window,
@@ -234,7 +234,7 @@ describe(InterfaceMap, () => {
                     values: { [units]: 'Millimeters', [width]: '210 mm' },
                 },
             ];
-            const observed = yield* Effect.forEach(encoded, (each) => Schema.decodeEffect(InterfaceMap.Observed)(each));
+            const observed = yield* Effect.forEach(encoded, (each) => Schema.decodeEffect(InterfaceMap.Observation)(each));
             const written = yield* Effect.scoped(
                 Effect.gen(function* () {
                     const map = yield* InterfaceMap.open('com.adobe.InDesign', 'en');

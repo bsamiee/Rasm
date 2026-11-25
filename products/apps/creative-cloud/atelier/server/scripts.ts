@@ -1,4 +1,4 @@
-import type { RunningInstance, Terms } from '@rasm/applications';
+import type { InstanceSnapshot, ScriptingDictionary } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/client';
 import type { Entry } from '@rasm/applications/workspace';
 import type { Application } from '@rasm/creative-cloud-desktop';
@@ -15,7 +15,7 @@ import { Array, Cause, Effect, Match, Option, Predicate, Record, Ref, Schema, Se
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 import shim from 'es5-shim?inline';
 import sham from 'es5-shim/es5-sham.js?inline';
-import { Installed } from '#/applications';
+import { RegistryApplications } from '#/applications';
 import { Declarations } from '#/declarations';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -66,7 +66,7 @@ const compile = Effect.fnUntraced(function* (body: string, scriptPlan: Plan) {
     return { code, label, direct: scriptPlan.direct(code, label), declared: scriptPlan.declared, relined: reline((line) => Option.map(original(line - scriptPlan.offset), (entry) => entry.line - 1)) };
 });
 const route = Effect.fnUntraced(
-    function* <E, R>(terms: (target: Pick<Application, 'url'>) => Effect.Effect<Pick<Terms, 'script'>, E, R>, { url, product, version }: Pick<Application, 'url' | 'product' | 'version'>) {
+    function* <E, R>(terms: (target: Pick<Application, 'url'>) => Effect.Effect<Pick<ScriptingDictionary, 'script'>, E, R>, { url, product, version }: Pick<Application, 'url' | 'product' | 'version'>) {
         const released = Option.flatMap(Option.fromNullishOr(RELEASE.exec(version)?.[0]), Schema.decodeOption(Schema.SemVerFromString));
         const plugged = Option.exists(Record.get(BY_PRODUCT, product), ({ runs, since }) => runs && Option.exists(released, (at) => SemVer.isGreaterThanOrEqualTo(at, since)));
         const unlinked = Option.liftPredicate<Route>({ _tag: 'Unlinked' }, () => plugged);
@@ -88,13 +88,13 @@ const route = Effect.fnUntraced(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Effect<readonly Link[]>; readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof EvaluationRpcs>, RpcClientError.RpcClientError>, Unmatched> }) {
-    const [server, rows, dictionaries, declarations] = yield* Effect.all([ApplicationServer, Installed, Ref.make<Record.ReadonlyRecord<string, Option.Option<Route>>>({}), Declarations]);
+    const [server, rows, dictionaries, declarations] = yield* Effect.all([ApplicationServer, RegistryApplications, Ref.make<Record.ReadonlyRecord<string, Option.Option<Route>>>({}), Declarations]);
     const read = Effect.fnUntraced(function* (row: Application) {
         const known = Record.get(yield* Ref.get(dictionaries), row.url.href);
         const fresh = Effect.tap(route(server.terms, row), (found) => Ref.update(dictionaries, Record.set(row.url.href, found)));
         return yield* Option.match(known, { onSome: Effect.succeed, onNone: () => fresh });
     });
-    return Effect.fnUntraced(function* ({ row: { url, name }, live }: { readonly row: Entry; readonly live: RunningInstance }, code: string) {
+    return Effect.fnUntraced(function* ({ row: { url, name }, live }: { readonly row: Entry; readonly live: InstanceSnapshot }, code: string) {
         const [listed, peers] = yield* Effect.all([SubscriptionRef.get(rows), links.peers]);
         const row = yield* Effect.fromOption(
             Array.findFirst(listed, (each) => each.url.href === url.href),

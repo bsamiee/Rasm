@@ -12,10 +12,10 @@ const READ = /\bnew\s+URL\s*\(\s*(?:"(?<path>[^"]+)"|'(?<path>[^']+)'|`(?<path>[
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const helper = Effect.fnUntraced(function* (entry: string, name: string) {
+const singleExecutable = Effect.fnUntraced(function* (entry: string, name: string) {
     const context = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>();
     return {
-        name: 'helper',
+        name: 'single-executable',
         config: () => ({ define: { __dirname: 'import.meta.dirname', __filename: 'import.meta.filename' }, build: { ssr: true, emitAssets: true, rolldownOptions: { input: { [name]: entry }, output: { entryFileNames: '[name].mjs', codeSplitting: false } } }, ssr: { noExternal: true } }),
         generateBundle(this: Rolldown.PluginContext, { dir = '' }, output): void {
             const files = Object.values(output);
@@ -35,4 +35,4 @@ const helper = Effect.fnUntraced(function* (entry: string, name: string) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { helper };
+export { singleExecutable };

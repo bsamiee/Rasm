@@ -12,7 +12,7 @@ import { HOSTS } from '@rasm/uxp';
 import base from '@rasm/uxp/tsconfig.base.json' with { type: 'json' };
 import { Array, Cause, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Order, Path, Record, Schema, Scope, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema } from 'effect/ai';
-import { Installed } from '#/applications';
+import { RegistryApplications } from '#/applications';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -36,7 +36,7 @@ const Host = Schema.Literals([...Record.keys(CHECKED), 'illustrator', 'aftereffe
 
 class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declarations', {
     make: Effect.gen(function* () {
-        const [rows, server, { folder: stored }, files, posix, scope] = yield* Effect.all([Installed, Server, Output, FileSystem.FileSystem, Path.Path, Effect.scope]);
+        const [rows, server, { folder: stored }, files, posix, scope] = yield* Effect.all([RegistryApplications, Server, Output, FileSystem.FileSystem, Path.Path, Effect.scope]);
         const shared = Effect.provideContext(readCoreOmv(stored('ExtendScript', 'declarations')), yield* Effect.context<Effect.Services<ReturnType<typeof readCoreOmv>>>());
         const opened = yield* Effect.cached(Scope.provide(readTypeScript(Option.liftPredicate({ executable: join(dirname(process.execPath), 'tsc'), library: join(import.meta.dirname, 'typescript') }, isSea), join(import.meta.dirname, 'node_modules')), scope));
         const compiled = yield* Effect.all(Record.map(CHECKED, (row) => Effect.cached(Effect.flatMap(opened, (open) => open(Struct.omit(row, ['product']))))));

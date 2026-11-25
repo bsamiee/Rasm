@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { pathToFileURL } from 'node:url';
 import { layer as sockets } from '@effect/platform-node/NodeSocketServer';
-import { Automation, Event, Installation, Launching, RunningInstance } from '@rasm/applications';
+import { ApplicationRpcs, Event, Installation, LaunchEvent, InstanceSnapshot } from '@rasm/applications';
 import { routed } from '@rasm/testing/playwright';
 import { Array, Cause, Config, Deferred, Effect, FileSystem, Layer, MutableRef, Path, Result, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpClient, McpProtocol } from 'effect/ai';
@@ -29,9 +29,9 @@ interface Logged {
 
 const Bound = Schema.Struct({ port: Schema.Int });
 const Installations = Schema.Array(Schema.toCodecJson(Installation));
-const Instance = Schema.toCodecJson(RunningInstance);
+const Instance = Schema.toCodecJson(InstanceSnapshot);
 const Happened = Schema.toCodecJson(Event);
-const Launch = Schema.toCodecJson(Launching);
+const Launch = Schema.toCodecJson(LaunchEvent);
 const Text = Schema.Struct({ text: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -53,7 +53,7 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
     const [contents, socket] = [path.join(root, `${executable}.app`, 'Contents'), path.join(root, 'server.sock')];
     const located = (name: string) => pathToFileURL(path.join(root, 'Applications', `${name}.app/`)).href;
     const installations = yield* Schema.decodeEffect(Installations)(bundles.map(({ name, identifier, declared }) => ({ url: located(name), identifier, name, scriptable: false, activationPolicy: 'regular', ...declared })));
-    const [running, log, launches] = [yield* SubscriptionRef.make<readonly RunningInstance[]>([]), yield* SubscriptionRef.make<readonly Logged[]>([]), MutableRef.make<readonly string[]>([])];
+    const [running, log, launches] = [yield* SubscriptionRef.make<readonly InstanceSnapshot[]>([]), yield* SubscriptionRef.make<readonly Logged[]>([]), MutableRef.make<readonly string[]>([])];
     const reported = Effect.fnUntraced(function* (identifier: string, pid: number, title: string) {
         const [event, taken] = yield* Effect.all([Effect.orDie(Schema.decodeEffect(Happened)({ instance: `${pid}@1`, pid, at: '2026-11-25T09:30:00Z', opened: { number: 7000 + pid, title, kind: 'window' } })), Deferred.make<void>()]);
         yield* SubscriptionRef.update(log, Array.append({ identifier, event, taken }));
@@ -68,7 +68,7 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
         yield* Effect.forEach(Array.fromNullishOr(bundle.window), (title) => reported(bundle.identifier, pid, title), { discard: true });
         return yield* Effect.orDie(Schema.decodeEffect(Launch)({ launched: { pid, instance: row.instance, identifier: bundle.identifier, created: true } }));
     });
-    const fake = Automation.omit('nodes', 'handler', 'act', 'quit', 'terms', 'execute', 'capture', 'preview', 'diagnostics');
+    const fake = ApplicationRpcs.omit('nodes', 'handler', 'act', 'quit', 'terms', 'execute', 'capture', 'preview', 'diagnostics');
     yield* Layer.build(
         RpcServer.layer(fake).pipe(
             Layer.provide([
