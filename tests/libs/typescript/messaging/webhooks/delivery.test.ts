@@ -72,12 +72,11 @@ it.effect(
         const batch = Object.values(events).flat();
         const deliveries = yield* Queue.unbounded<Effect.Success<ReturnType<typeof webhook.verify>>>();
         const text = encoder.encode('not JSON');
-        const statuses = yield* Effect.gen(function* () {
-            yield* webhook.deliver(url, { id: 'derived', event: batch }, Schedule.recurs(0));
-            const [signed, unparsed] = yield* Effect.all([webhook.sign('derived', vectors.tailscale.bytes), webhook.sign('derived', text)]);
-            const unbounded = Headers.fromInput({ [Scheme.tailscale.signature]: 't=99999999999999999999,v1=00' });
-            return yield* Effect.all({ accepted: posted(signed, vectors.tailscale.bytes), forged: posted(signed, text), unsigned: posted(Headers.empty, text), unbounded: posted(unbounded, text), unparsed: posted(unparsed, text) });
-        }).pipe(Effect.provide(transport(webhook.receive((incoming) => Queue.offer(deliveries, incoming)))));
+        const client = yield* Layer.build(transport(webhook.receive((incoming) => Queue.offer(deliveries, incoming))));
+        yield* Effect.provide(webhook.deliver(url, { id: 'derived', event: batch }, Schedule.recurs(0)), client);
+        const [signed, unparsed] = yield* Effect.all([webhook.sign('derived', vectors.tailscale.bytes), webhook.sign('derived', text)]);
+        const unbounded = Headers.fromInput({ [Scheme.tailscale.signature]: 't=99999999999999999999,v1=00' });
+        const statuses = yield* Effect.provide(Effect.all({ accepted: posted(signed, vectors.tailscale.bytes), forged: posted(signed, text), unsigned: posted(Headers.empty, text), unbounded: posted(unbounded, text), unparsed: posted(unparsed, text) }), client);
         const received = yield* Queue.takeAll(deliveries);
         assert.deepStrictEqual(
             [Record.map(events, (rows) => Array.map(rows, ({ _tag }) => _tag)), statuses, Array.map(received, ({ id, event }) => [digest.test(id), event.length])],

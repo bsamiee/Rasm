@@ -1,4 +1,5 @@
 import { ReorderableList } from '@rasm/ui';
+import { Array } from 'effect';
 import { useState } from 'react';
 import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-react';
@@ -40,12 +41,5 @@ it.for([
     const onto = screen.getByRole('row', { name: target });
     const { height } = onto.element().getBoundingClientRect();
     await userEvent.dragAndDrop(screen.getByRole('row', { name: source }), onto, { targetPosition: { x: 1, y: { upper: 2, lower: height - 2 }[half] } });
-    await expect
-        .poll(() =>
-            screen
-                .getByRole('row')
-                .elements()
-                .map((row) => row.dataset['key']),
-        )
-        .toStrictEqual(order);
+    await expect.poll(() => Array.map(screen.getByRole('row').elements(), (row) => row.dataset['key'])).toStrictEqual(order);
 });

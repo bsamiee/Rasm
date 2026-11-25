@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Array, Effect, Layer, Option, Result, Schema, Stream, SubscriptionRef } from 'effect';
+import { Array, Effect, Filter, Layer, Schema, Stream, SubscriptionRef } from 'effect';
 import type { McpTest } from 'effect/ai';
 import { connected, SETTLED } from '#/fixtures';
 
@@ -10,21 +10,14 @@ const URIS = { alpha: 'test://template/alpha/data', beta: 'test://template/beta/
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Updated = Schema.Struct({ uri: Schema.String });
+const Updated = Schema.Struct({ method: Schema.Literal('notifications/resources/updated'), payload: Schema.Struct({ uri: Schema.String }) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const updated = (client: McpTest.Client, until: string) =>
     Stream.fromQueue(client.notifications).pipe(
-        Stream.filterMap(({ method, payload }) =>
-            Result.fromOption(
-                Option.filter(
-                    Option.map(Schema.decodeUnknownOption(Updated)(payload), ({ uri }) => uri),
-                    () => method === 'notifications/resources/updated',
-                ),
-                () => undefined,
-            ),
-        ),
+        Stream.filterMap(Filter.fromPredicateOption(Schema.decodeUnknownOption(Updated))),
+        Stream.map(({ payload }) => payload.uri),
         Stream.takeUntil((uri) => uri === until),
         Stream.runCollect,
         Effect.timeout(SETTLED),

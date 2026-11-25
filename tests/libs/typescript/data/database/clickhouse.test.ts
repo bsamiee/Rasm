@@ -4,14 +4,14 @@ import { Catalog, Column, Relation, Tokenizer } from '@rasm/database';
 import { Clickhouse } from '@rasm/database/clickhouse';
 import { ClickHouseContainer, type StartedClickHouseContainer } from '@testcontainers/clickhouse';
 import { Array, BigDecimal, Context, Effect, Layer, Number, Option, Predicate, Ref, Schema, Struct } from 'effect';
-import { SqlClient } from 'effect/sql';
+import { SqlClient, SqlError } from 'effect/sql';
 import { declared, pending, reconciling, sampled, type Store, stored } from '#/reconciling';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const store: Store = {
-    tables: SqlClient.SqlClient.use((sql) => Effect.map(sql`SELECT name FROM system.tables WHERE database = currentDatabase() ORDER BY name`, (found) => found.map(Struct.get('name')))),
-    fault: ({ reason: { cause } }) => (Predicate.hasProperty(cause, 'code') ? cause.code : cause),
+    tables: SqlClient.SqlClient.use((sql) => Effect.map(sql`SELECT name FROM system.tables WHERE database = currentDatabase() ORDER BY name`, Array.map(Struct.get('name')))),
+    fault: (error) => (SqlError.isSqlError(error) && Predicate.hasProperty(error.reason.cause, 'code') ? error.reason.cause.code : error),
     check: '469',
     command: Effect.provideService(ClickhouseClient.ClientMethod, 'command'),
     isolated: 4,
@@ -101,15 +101,11 @@ const Bounds = Schema.Struct({ minimum: Schema.Literals(limits), maximum: Schema
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Server extends Context.Service<Server, { readonly container: StartedClickHouseContainer; readonly admin: SqlClient.SqlClient; readonly created: Ref.Ref<number> }>()('@rasm/test-database/clickhouse.test/Server') {
-    static readonly layer = Layer.unwrap(
-        Effect.gen(function* () {
-            const container = yield* Effect.acquireRelease(
-                Effect.promise(() => new ClickHouseContainer('clickhouse/clickhouse-server:26.10.10.3-alpine').start()),
-                (started) => Effect.promise(() => started.stop()),
-            );
-            return Layer.effect(Server, Effect.all({ container: Effect.succeed(container), admin: SqlClient.SqlClient, created: Ref.make(0) })).pipe(Layer.provide(ClickhouseClient.layer(container.getClientOptions())));
-        }),
-    );
+    static readonly layer = Effect.gen(function* () {
+        const container = yield* Effect.acquireDisposable(Effect.promise(() => new ClickHouseContainer('clickhouse/clickhouse-server:26.10.10.3-alpine').start()));
+        const admin = Context.get(yield* Layer.build(ClickhouseClient.layer(container.getClientOptions())), SqlClient.SqlClient);
+        return { container, admin, created: yield* Ref.make(0) };
+    }).pipe(Layer.effect(Server));
     static readonly database = Layer.unwrap(
         Effect.gen(function* () {
             const { container, admin, created } = yield* Server;
@@ -131,13 +127,12 @@ const described = (table: string) =>
             projections: sql`SELECT query FROM system.projections WHERE database = currentDatabase() AND table = ${table} ORDER BY name`,
         }),
     );
-const surviving = (ages: readonly number[]) =>
-    SqlClient.SqlClient.use((sql) =>
-        Effect.forEach(ages, (age) => store.command(sql`INSERT INTO readings SELECT ${`${age} days`} AS id, now64(3) - toIntervalDay(${sql.literal(`${age}`)}) AS at, 1 AS version, 1.5 AS value`), { discard: true }).pipe(
-            Effect.andThen(store.command(sql`OPTIMIZE TABLE readings FINAL`)),
-            Effect.andThen(Effect.map(sql`SELECT DISTINCT id FROM readings ORDER BY id`, Array.map(Struct.get('id')))),
-        ),
-    );
+const surviving = Effect.fnUntraced(function* (ages: readonly number[]) {
+    const sql = yield* SqlClient.SqlClient;
+    yield* Effect.forEach(ages, (age) => store.command(sql`INSERT INTO readings SELECT ${`${age} days`} AS id, now64(3) - toIntervalDay(${sql.literal(`${age}`)}) AS at, 1 AS version, 1.5 AS value`), { discard: true });
+    yield* store.command(sql`OPTIMIZE TABLE readings FINAL`);
+    return Array.map(yield* sql`SELECT DISTINCT id FROM readings ORDER BY id`, Struct.get('id'));
+});
 
 const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Server.database> | Server>) => {
     reconciling(it, store);
@@ -204,8 +199,7 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Server.database> |
                 (inserted) => store.command(sql`INSERT INTO readings ${sql.insert(inserted)}`),
                 { discard: true },
             );
-            const newest = yield* sql`SELECT value FROM readings FINAL`;
-            assert.deepStrictEqual(yield* Effect.all({ people: Effect.map(described('people'), Struct.pick(['table', 'codecs'])), readings: Effect.map(described('readings'), Struct.pick(['table', 'codecs'])), newest: Effect.succeed(newest), surviving: surviving([29, 31]) }), {
+            assert.deepStrictEqual(yield* Effect.all({ people: Effect.map(described('people'), Struct.pick(['table', 'codecs'])), readings: Effect.map(described('readings'), Struct.pick(['table', 'codecs'])), newest: sql`SELECT value FROM readings FINAL`, surviving: surviving([29, 31]) }), {
                 people: { table: [{ engine: 'MergeTree', partition: '', key: '(id)', sorting: '(id)' }], codecs: [] },
                 readings: { table: [{ engine: 'ReplacingMergeTree', partition: 'toDate(at)', key: '(id)', sorting: '(id)' }], codecs: [{ name: 'value', codec: 'CODEC(Gorilla(8), ZSTD(3))' }] },
                 newest: [{ value: 2.5 }],
@@ -273,7 +267,7 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Server.database> |
             const failed = yield* Effect.flip(Catalog.reconcile(declared([numbered])));
             const left = yield* stored('people');
             yield* Catalog.reconcile(declared([people]));
-            assert.deepStrictEqual({ failed: failed._tag === 'SqlError' ? store.fault(failed) : failed, left, settled: yield* Effect.all({ tables: store.tables, stored: stored('people') }) }, { failed: '6', left: [row], settled: { tables: ['people'], stored: [row] } });
+            assert.deepStrictEqual({ failed: store.fault(failed), left, settled: yield* Effect.all({ tables: store.tables, stored: stored('people') }) }, { failed: '6', left: [row], settled: { tables: ['people'], stored: [row] } });
         }),
     );
 };

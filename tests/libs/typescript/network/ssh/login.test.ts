@@ -22,7 +22,7 @@ const silent = Effect.gen(function* () {
     );
     return { host: '127.0.0.1', port };
 });
-const ending = Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void));
+const ending = Effect.flatMap(Effect.scope, Scope.fork);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -106,7 +106,7 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const [sshd, fs, path, spawner] = yield* Effect.all([Sshd, FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
             const [{ ssh }, folder] = yield* Effect.all([sshd.client, fs.makeTempDirectoryScoped()]);
             const socket = path.join(folder, 'agent');
-            yield* Effect.flatMap(spawner.spawn(ChildProcess.make('ssh-agent', ['-D', '-a', socket], { stdin: 'ignore' })), (agent) => printed(agent, 'ssh-agent'));
+            yield* printed(yield* ChildProcess.make('ssh-agent', ['-D', '-a', socket], { stdin: 'ignore' }), 'ssh-agent');
             const added = yield* spawner.exitCode(ChildProcess.make('ssh-add', ['-q', sshd.files.client], { env: { SSH_AUTH_SOCK: socket }, extendEnv: true, stdin: 'ignore' }));
             const host = yield* sshd.hosted('agent', { identity: { _tag: 'Agent', socket } });
             assert.deepStrictEqual([added, yield* ssh.run(host, listener)], [0, `${served}\n`]);

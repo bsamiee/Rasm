@@ -4,7 +4,7 @@ import { d1Engine } from '@rasm/database/d1';
 import { reset } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { Array, Effect, Layer, Predicate, Schema } from 'effect';
-import { SqlClient } from 'effect/sql';
+import { SqlClient, SqlError } from 'effect/sql';
 import { declared, pending, stored } from '#/reconciling';
 import { featured } from '#/rows';
 import { tables } from '#/storage.sqlite';
@@ -26,7 +26,7 @@ const ranked = Relation.make('people', { id: Schema.String, label: Schema.Litera
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const fault = ({ reason: { cause } }: { readonly reason: { readonly cause: unknown } }) => (Predicate.hasProperty(cause, 'message') && Predicate.isString(cause.message) ? failed.exec(cause.message)?.groups?.['kind'] : cause);
+const fault = (error: unknown) => (SqlError.isSqlError(error) && Predicate.hasProperty(error.reason.cause, 'message') && Predicate.isString(error.reason.cause.message) ? failed.exec(error.reason.cause.message)?.groups?.['kind'] : error);
 const seeded = Effect.andThen(Catalog.reconcile(declared([people])), Relation.insert(people, written));
 const schema = SqlClient.SqlClient.use((sql) => sql`SELECT type, name, sql FROM sqlite_schema ORDER BY name`);
 
@@ -56,7 +56,7 @@ layer(d1Engine({ db: env.DB }).pipe(Layer.provide(Layer.effectDiscard(Effect.pro
             yield* seeded;
             const before = yield* schema;
             const refused = yield* Effect.flip(Catalog.reconcile(declared([ranked])));
-            assert.deepStrictEqual({ refused: refused._tag === 'SqlError' ? fault(refused) : refused, schema: yield* schema, stored: yield* stored('people') }, { refused: 'CHECK', schema: before, stored: written });
+            assert.deepStrictEqual({ refused: fault(refused), schema: yield* schema, stored: yield* stored('people') }, { refused: 'CHECK', schema: before, stored: written });
         }),
     );
     it.effect(

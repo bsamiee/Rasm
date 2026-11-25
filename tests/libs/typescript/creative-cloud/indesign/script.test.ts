@@ -22,19 +22,16 @@ const Answer = Schema.fromJsonString(Completion);
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Runtime extends Context.Service<Runtime, string>()('@rasm/test-indesign/script.test/Runtime') {
-    static readonly layer = Layer.effect(
-        Runtime,
-        Effect.gen(function* () {
-            const host = fileURLToPath(import.meta.resolve('@rasm/extendscript/host'));
-            const built = yield* Effect.tryPromise({
-                try: () => build({ configFile: false, logLevel: 'silent', plugins: [script(host, 'runtime')], build: { write: false, rolldownOptions: { input: `${host}?inline`, preserveEntrySignatures: 'exports-only', output: { format: 'es' } } } }),
-                catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)),
-            });
-            const [{ code }] = (yield* Schema.decodeUnknownEffect(Inlined)(built)).output;
-            const inlined = yield* Effect.promise((): Promise<{ readonly default: unknown }> => import(`data:text/javascript,${encodeURIComponent(code)}`));
-            return yield* Schema.decodeUnknownEffect(Schema.String)(inlined.default);
-        }),
-    );
+    static readonly layer = Effect.gen(function* () {
+        const host = fileURLToPath(import.meta.resolve('@rasm/extendscript/host'));
+        const built = yield* Effect.tryPromise({
+            try: () => build({ configFile: false, logLevel: 'silent', plugins: [script(host, 'runtime')], build: { write: false, rolldownOptions: { input: `${host}?inline`, preserveEntrySignatures: 'exports-only', output: { format: 'es' } } } }),
+            catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)),
+        });
+        const { code } = Array.headNonEmpty((yield* Schema.decodeUnknownEffect(Inlined)(built)).output);
+        const inlined = yield* Effect.promise((): Promise<{ readonly default: unknown }> => import(`data:text/javascript,${encodeURIComponent(code)}`));
+        return yield* Schema.decodeUnknownEffect(Schema.String)(inlined.default);
+    }).pipe(Layer.effect(Runtime));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

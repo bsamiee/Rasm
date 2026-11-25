@@ -73,23 +73,5 @@ it('resolves a package import subpath carrying a query through its imports map a
     await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'imported', type: 'module', imports: { '#notes': './notes.txt' } }));
     await writeFile(join(root, 'notes.txt'), 'Section A-A through the stair core');
     await writeFile(join(root, 'entry.js'), "import notes from '#notes?raw';\nconsole.log(notes);\n");
-    const rendered: string[] = [];
-    await build({
-        configFile: false,
-        root,
-        customLogger: createLogger('silent'),
-        logLevel: 'silent',
-        plugins: [
-            checks(),
-            {
-                name: 'rendered',
-                renderChunk(code) {
-                    rendered.push(code);
-                    return null;
-                },
-            },
-        ],
-        build: { write: false, rolldownOptions: { input: join(root, 'entry.js') } },
-    });
-    expect(rendered.join('\n')).toContain('Section A-A through the stair core');
+    await expect(build({ configFile: false, root, customLogger: createLogger('silent'), logLevel: 'silent', plugins: [checks()], build: { write: false, rolldownOptions: { input: join(root, 'entry.js') } } })).resolves.toHaveProperty(['output', 0, 'code'], expect.stringContaining('Section A-A through the stair core'));
 });

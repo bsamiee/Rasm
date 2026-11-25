@@ -26,19 +26,14 @@ const sent = Effect.fnUntraced(function* (request: typeof Presignable.Encoded, s
     const text = yield* response.text;
     return { status: response.status, code: Option.fromNullishOr(failure.exec(text)?.groups?.['code']), etag: Headers.get(response.headers, 'etag'), text };
 });
-const stat = (key: string) =>
-    Effect.map(
-        ObjectStorage.use((storage) => storage.stat(key)),
-        Option.map(({ size, mime: stated }) => ({ size: ByteSize.toNumberUnsafe(size), mime: stated })),
-    );
+const stat = (key: string) => ObjectStorage.use((storage) => storage.stat(key)).pipe(Effect.map(Option.map(({ size, mime: stated }) => ({ size: ByteSize.toNumberUnsafe(size), mime: stated }))));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const served = Layer.unwrap(
     Effect.gen(function* () {
-        const container = yield* Effect.acquireRelease(
+        const container = yield* Effect.acquireDisposable(
             Effect.promise(() => new GenericContainer('rustfs/rustfs:1.0.6').withEnvironment({ RUSTFS_ACCESS_KEY: credentials.accessKeyId, RUSTFS_SECRET_KEY: credentials.secretAccessKey, RUSTFS_CONSOLE_ENABLE: 'false' }).withExposedPorts(port).withWaitStrategy(Wait.forHttp('/health/ready', port)).start()),
-            (started) => Effect.promise(() => started.stop()),
         );
         const endpoint = `http://${container.getHost()}:${container.getMappedPort(port)}`;
         yield* Effect.acquireUseRelease(

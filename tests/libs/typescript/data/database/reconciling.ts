@@ -7,7 +7,7 @@ import { SqlClient, type SqlError } from 'effect/sql';
 
 interface Store {
     readonly tables: Effect.Effect<readonly unknown[], SqlError.SqlError, SqlClient.SqlClient>;
-    readonly fault: (error: SqlError.SqlError) => unknown;
+    readonly fault: (error: unknown) => unknown;
     readonly check: unknown;
     readonly command: <A, E, R>(statement: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
     readonly isolated: number;

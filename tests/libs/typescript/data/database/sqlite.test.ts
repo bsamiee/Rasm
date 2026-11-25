@@ -3,14 +3,15 @@ import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, layer } from '@effect/vitest';
 import { Catalog, Relation } from '@rasm/database';
 import { Sqlite } from '@rasm/database/sqlite';
-import { Effect, FileSystem, Function, Layer, Path, Predicate, Schema } from 'effect';
+import { Effect, FileSystem, Function, Layer, Predicate, Schema } from 'effect';
+import { SqlError } from 'effect/sql';
 import { pending, reconciling } from '#/reconciling';
 import { type Relational, rows } from '#/rows';
 import { storage, tables } from '#/storage.sqlite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const store: Relational = { tables, fault: ({ reason: { cause } }) => (Predicate.hasProperty(cause, 'errcode') ? cause.errcode : cause), check: 275, unique: 2067, reference: 787, command: Function.identity, isolated: 4 };
+const store: Relational = { tables, fault: (error) => (SqlError.isSqlError(error) && Predicate.hasProperty(error.reason.cause, 'errcode') ? error.reason.cause.errcode : error), check: 275, unique: 2067, reference: 787, command: Function.identity, isolated: 4 };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,12 +29,11 @@ layer(
     it.effect(
         'reopens a database file with its rows and a table named under the prefix D1 reserves',
         Effect.fnUntraced(function* () {
-            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const directory = yield* fs.makeTempDirectoryScoped();
+            const filename = yield* FileSystem.FileSystem.use((fs) => fs.makeTempFileScoped({ suffix: '.sqlite' }));
             const catalog = Catalog.make({ tables: [records] });
             const opened = Catalog.layer(
                 catalog,
-                Sqlite.layer((names) => SqliteClient.layer({ filename: path.join(directory, 'database.sqlite'), ...names })),
+                Sqlite.layer((names) => SqliteClient.layer({ filename, ...names })),
             );
             yield* Relation.insert(records, [{ id: 'saved' }]).pipe(Effect.provide(opened));
             assert.deepStrictEqual(yield* Effect.all({ rows: Relation.select(records, { id: ['saved'] }), pending: pending(catalog) }).pipe(Effect.provide(Layer.fresh(opened))), {

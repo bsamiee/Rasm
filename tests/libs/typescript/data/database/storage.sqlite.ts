@@ -1,6 +1,6 @@
 import { assert, type Vitest } from '@effect/vitest';
 import { Catalog, Column, type Engine, Relation, type Rows, Tokenizer } from '@rasm/database';
-import { Effect, Schema, Struct } from 'effect';
+import { Array, Effect, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { declared, pending, type Store, stored } from '#/reconciling';
 import { values } from '#/rows';
@@ -34,7 +34,7 @@ const domains: readonly { readonly field: keyof typeof whole; readonly refused: 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const tables: Store['tables'] = SqlClient.SqlClient.use((sql) => Effect.map(sql`SELECT name FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*' ORDER BY name`, (found) => found.map(Struct.get('name'))));
+const tables: Store['tables'] = SqlClient.SqlClient.use((sql) => Effect.map(sql`SELECT name FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*' ORDER BY name`, Array.map(Struct.get('name'))));
 const storage = (it: Vitest.MethodsNonLive<Engine | Rows | SqlClient.SqlClient>, store: Store) => {
     it.effect(
         'stores each schema kind in a STRICT column of the SQLite type that holds it, and a declared table without rowid',

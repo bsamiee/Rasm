@@ -1,7 +1,7 @@
 import { layerSecureRandom } from '@effect/platform-node/NodeCrypto';
 import { assert, describe, it } from '@effect/vitest';
 import { Upstream } from '@rasm/mcp';
-import { Array, Duration, Effect, HashSet, MutableRef, Option, Queue, Result, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Duration, Effect, Function, HashSet, MutableRef, Option, Queue, Result, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol, type McpTest } from 'effect/ai';
 import { FetchHttpClient } from 'effect/http';
 import { echoed, names, PEER, proxied, SETTLED, settled, TEXT } from '#/fixtures';
@@ -17,21 +17,18 @@ const heardAll = (seen: HashSet.HashSet<string>) => CHANGED.every((method) => Ha
 const heard = (client: McpTest.Client) =>
     Stream.fromQueue(client.notifications).pipe(
         Stream.map(Struct.get('method')),
-        Stream.scan(
-            () => HashSet.empty<string>(),
-            (seen, method) => HashSet.add(seen, method),
-        ),
+        Stream.scan(Function.constant(HashSet.empty<string>()), (seen, method) => HashSet.add(seen, method)),
         Stream.takeUntil(heardAll),
         Stream.runLast,
         Effect.timeout(SETTLED),
         Effect.map(Option.exists(heardAll)),
     );
 const listed = (client: McpTest.Client) =>
-    Effect.map(Effect.all([names(client), client.listResources(), client.listResourceTemplates(), client.listPrompts()]), ([tools, { resources }, { resourceTemplates }, { prompts }]) => [
-        tools.includes('echo'),
-        resources.some(({ uri }) => uri === 'upstream://note'),
-        resourceTemplates.some(({ name }) => name === 'item'),
-        prompts.some(({ name }) => name === 'greet'),
+    Effect.all([
+        Effect.map(names(client), Array.contains('echo')),
+        Effect.map(client.listResources(), ({ resources }) => resources.some(({ uri }) => uri === 'upstream://note')),
+        Effect.map(client.listResourceTemplates(), ({ resourceTemplates }) => resourceTemplates.some(({ name }) => name === 'item')),
+        Effect.map(client.listPrompts(), ({ prompts }) => prompts.some(({ name }) => name === 'greet')),
     ]);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

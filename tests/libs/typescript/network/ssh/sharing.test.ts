@@ -2,7 +2,7 @@ import process from 'node:process';
 import { assert, it } from '@effect/vitest';
 import { Ssh } from '@rasm/ssh';
 import { Array, Effect, Fiber, Option, Path, Schema } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { ChildProcess } from 'effect/process';
 import { Asked, Reached } from '#/peer';
 import { bounds, printed, reasoned, Sshd } from '#/sshd';
 
@@ -34,11 +34,11 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
     methods.effect(
         'runs the calls of a second process on the folder over the connection of the first',
         Effect.fnUntraced(function* () {
-            const [sshd, path, spawner] = yield* Effect.all([Sshd, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+            const [sshd, path] = yield* Effect.all([Sshd, Path.Path]);
             const [{ ssh, folder }, host] = yield* Effect.all([sshd.client, sshd.hosted('process')]);
             const mine = yield* ssh.run(host, connection);
             const request = yield* Schema.encodeEffect(Asked)({ folder, host, forward: Option.none(), calls: 4, remote: connection });
-            const peer = yield* spawner.spawn(ChildProcess.make(process.execPath, [path.join(import.meta.dirname, 'peer.ts'), request], { stdin: 'ignore', stderr: 'inherit' }));
+            const peer = yield* ChildProcess.make(process.execPath, [path.join(import.meta.dirname, 'peer.ts'), request], { stdin: 'ignore', stderr: 'inherit' });
             assert.deepStrictEqual(yield* Effect.flatMap(printed(peer, 'the second process'), Schema.decodeEffect(Reached)), [mine, mine, mine, mine]);
         }),
         bounds.test,

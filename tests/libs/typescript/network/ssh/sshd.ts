@@ -2,7 +2,7 @@ import { connect, type NetConnectOpts } from 'node:net';
 import { layer } from '@effect/platform-node/NodeServices';
 import { fromReadable } from '@effect/platform-node/NodeStream';
 import { Host, Ssh, SshError } from '@rasm/ssh';
-import { Array, Cause, Context, Deferred, Effect, Fiber, FileSystem, Formatter, Layer, Option, Path, pipe, Queue, Record, Schema, Stream } from 'effect';
+import { Array, Cause, Context, Deferred, Effect, Fiber, FileSystem, Formatter, Layer, Option, Path, pipe, Queue, Record, Schema, Stream, String } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { GenericContainer, Wait } from 'testcontainers';
 
@@ -27,9 +27,8 @@ const held = Effect.fnUntraced(function* (options: NetConnectOpts, sent: Uint8Ar
     const first = yield* Deferred.make<Option.Option<string>>();
     const answers = fromReadable({
         evaluate: () => {
-            const socket = connect(options, () => {
-                socket.write(sent);
-            });
+            const socket = connect(options);
+            socket.write(sent);
             return socket;
         },
     });
@@ -62,7 +61,7 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd', {
         yield* Effect.forEach([files.client, files.server, files.authority, files.certified], (file) => generated('-t', 'ed25519', '-N', '', '-C', '', '-f', file), { concurrency: 'unbounded' });
         yield* Effect.all([generated('-s', files.authority, '-I', 'client', '-n', 'root', `${files.certified}.pub`), generated('-s', files.authority, '-I', 'server', '-h', '-n', principal, `${files.server}.pub`)], { concurrency: 'unbounded' });
         yield* fs.rename(`${files.certified}-cert.pub`, files.certificate);
-        const published = (file: string) => Effect.map(fs.readFileString(`${file}.pub`), (line) => line.trim());
+        const published = (file: string) => Effect.map(fs.readFileString(`${file}.pub`), String.trim);
         const [trusted, signer, authorized] = yield* Effect.all([published(files.server), published(files.authority), published(files.client)]);
         const image = yield* Effect.tryPromise({
             try: () =>
@@ -94,16 +93,10 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd', {
         const vacant = yield* Queue.bounded<number>(spare.length);
         yield* Queue.offerAll(vacant, spare);
         const mapped = (inside: number) => ({ inside, dial: { host: container.getHost(), port: container.getMappedPort(inside) } });
-        const port = Effect.map(
-            Effect.acquireRelease(Queue.take(vacant), (taken) => Queue.offer(vacant, taken)),
-            mapped,
-        );
+        const port = Effect.acquireRelease(Queue.take(vacant), (taken) => Queue.offer(vacant, taken)).pipe(Effect.map(mapped));
         const ended = (...words: readonly string[]) => Effect.promise(() => container.exec([...words]));
         const listening = (inside: number) => Effect.acquireRelease(executed('/usr/sbin/sshd', '-p', `${inside}`, ...policy), () => ended('pkill', '-KILL', '-f', `^sshd: /usr/sbin/sshd -p ${inside} `));
-        const scratch = Effect.acquireRelease(
-            Effect.map(executed('mktemp', '-d'), (made) => made.trim()),
-            (made) => ended('rm', '-rf', made),
-        );
+        const scratch = Effect.acquireRelease(executed('mktemp', '-d').pipe(Effect.map(String.trim)), (made) => ended('rm', '-rf', made));
         const hosted = (name: string, fields: Readonly<Record<string, unknown>> = {}) =>
             Schema.decodeEffect(Host)({ name, user: 'root', ...mapped(served).dial, identity: { _tag: 'Key', file: files.client }, trust: { _tag: 'HostKeys', keys: [trusted] }, path: { _tag: 'Direct', preferred: [] }, persist: 30_000, ...fields });
         const client = Effect.gen(function* () {

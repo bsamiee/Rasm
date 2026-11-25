@@ -158,18 +158,9 @@ const registrations = Layer.mergeAll(
 );
 
 const upstream = (protocol: McpProtocol.ProtocolAdapter, token: MutableRef.MutableRef<string>, rejected: MutableRef.MutableRef<number>) => {
-    const guarded = HttpRouter.middleware(
-        (next) =>
-            Effect.flatMap(HttpServerRequest.HttpServerRequest, ({ headers }) =>
-                headers['authorization'] === `Bearer ${MutableRef.get(token)}`
-                    ? next
-                    : Effect.as(
-                          Effect.sync(() => MutableRef.increment(rejected)),
-                          HttpServerResponse.empty({ status: 401 }),
-                      ),
-            ),
-        { global: true },
-    );
+    const guarded = HttpRouter.middleware((next) => Effect.flatMap(HttpServerRequest.HttpServerRequest, ({ headers }) => (headers['authorization'] === `Bearer ${MutableRef.get(token)}` ? next : Effect.sync(() => MutableRef.increment(rejected)).pipe(Effect.as(HttpServerResponse.empty({ status: 401 }))))), {
+        global: true,
+    });
     return Effect.acquireRelease(
         Effect.sync(() => HttpRouter.toWebHandler(Layer.merge(McpServer.layerHttp({ name: 'upstream', version: '1.0.0', path: PATH, protocols: [protocol], registrations }).pipe(Layer.provideMerge(McpServer.McpServer.layer)), guarded), { disableLogger: true })),
         ({ dispose }) => Effect.promise(dispose),
@@ -180,15 +171,12 @@ const hosted = Effect.fnUntraced(function* (bound: string) {
     const [probe, name, address] = yield* Effect.all([Probe.make, Server.scheme(MANIFEST.name), Effect.fromResult(Host.hostPortFromString(bound))]);
     return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { ...SETTINGS, address, hosts: ['mcp.example'], instructions: [INSTRUCTIONS.stated] }, app(probe)).pipe(Layer.provide([layerAead, layerSecureRandom])) };
 });
-const messages = (response: Response) =>
-    Effect.flatMap(
-        Effect.promise(() => response.text()),
-        (text) => {
-            const field = 'data: ';
-            const records = response.headers.get('content-type')?.includes('text/event-stream') === true ? text.split('\n').filter(String.startsWith(field)).map(String.slice(field.length)) : [text].filter(String.isNonEmpty);
-            return Effect.forEach(records, (record) => Schema.decodeEffect(Json)(record));
-        },
-    );
+const messages = Effect.fnUntraced(function* (response: Response) {
+    const text = yield* Effect.promise(() => response.text());
+    const field = 'data: ';
+    const records = response.headers.get('content-type')?.includes('text/event-stream') === true ? text.split('\n').filter(String.startsWith(field)).map(String.slice(field.length)) : [text].filter(String.isNonEmpty);
+    return yield* Effect.forEach(records, (record) => Schema.decodeEffect(Json)(record));
+});
 
 const opened = Effect.fnUntraced(function* (protocol: McpProtocol.ProtocolAdapter) {
     const { probe, layer } = yield* hosted('192.0.2.10:7000');
@@ -210,11 +198,10 @@ const opened = Effect.fnUntraced(function* (protocol: McpProtocol.ProtocolAdapte
             headers: { 'MCP-Protocol-Version': protocol.protocolVersion, 'Mcp-Method': method, ...Option.getOrUndefined(named) },
         };
     };
-    const send = (held: Record.ReadonlyRecord<string, string>, { method, ...rest }: Message) =>
-        Option.match(stateless && method !== undefined ? Option.some(enveloped({ ...rest, method })) : Option.none(), {
-            onNone: () => post({ ...rest, ...(method === undefined ? {} : { method }) }, { headers: held }),
-            onSome: ({ body, headers }) => post(body, { headers }),
-        });
+    const send = (held: Record.ReadonlyRecord<string, string>, { method, ...rest }: Message) => {
+        const { body, headers } = stateless && method !== undefined ? enveloped({ ...rest, method }) : { body: { ...rest, ...(method === undefined ? {} : { method }) }, headers: held };
+        return post(body, { headers });
+    };
     const initialize = post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: protocol.protocolVersion, capabilities: {}, clientInfo: CLIENT } });
     const handshake = Effect.gen(function* () {
         const answered = yield* initialize;

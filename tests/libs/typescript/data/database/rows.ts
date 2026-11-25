@@ -264,7 +264,7 @@ const rows = (it: Vitest.MethodsNonLive<Engine | Rows | SqlClient.SqlClient>, st
             yield* Relation.insert(accounts, [account(ids[0], 'A@example.com', true), account(ids[1], 'a@example.com', false)]);
             const duplicate = yield* Effect.flip(Relation.insert(accounts, [account(ids[2], 'A@EXAMPLE.COM', false)]));
             assert.deepStrictEqual(
-                { fault: duplicate._tag === 'SqlError' ? store.fault(duplicate) : duplicate, stored: (yield* Relation.select(accounts, { plan: ['pro'] }, { order: ['id'] })).map(Struct.pick(['email', 'plan', 'active'])) },
+                { fault: store.fault(duplicate), stored: (yield* Relation.select(accounts, { plan: ['pro'] }, { order: ['id'] })).map(Struct.pick(['email', 'plan', 'active'])) },
                 {
                     fault: store.unique,
                     stored: [
@@ -280,10 +280,7 @@ const rows = (it: Vitest.MethodsNonLive<Engine | Rows | SqlClient.SqlClient>, st
         Effect.fnUntraced(function* ({ relation, text, titles }) {
             yield* Catalog.reconcile(declared([notes, fragments]));
             yield* Relation.insert(relation, written);
-            assert.deepStrictEqual(
-                (yield* Relation.search(relation, text, written.length)).map(({ row }) => row.title),
-                titles,
-            );
+            assert.deepStrictEqual(yield* Relation.search(relation, text, written.length).pipe(Effect.map(Array.map(({ row }) => row.title))), titles);
         }),
     );
     it.effect(
@@ -298,12 +295,7 @@ const rows = (it: Vitest.MethodsNonLive<Engine | Rows | SqlClient.SqlClient>, st
                 fragments: Effect.map(Relation.search(fragments, 'lulam', written.length, marks), Array.map(Struct.get('highlight'))),
             });
             yield* sql`UPDATE notes SET body = 'Steel cables' WHERE id = 1`;
-            const followed = yield* Effect.forEach(['vaults', 'steel'], (text) =>
-                Effect.map(
-                    Relation.search(notes, text, written.length),
-                    Array.map(({ row }) => row.title),
-                ),
-            );
+            const followed = yield* Effect.forEach(['vaults', 'steel'], (text) => Relation.search(notes, text, written.length).pipe(Effect.map(Array.map(({ row }) => row.title))));
             assert.deepStrictEqual({ highlights, followed }, { highlights: { words: [Option.some({ title: '[Café] [crème]', body: 'Voûte mince' })], fragments: [Option.some({ title: 'Timber frame', body: 'G[lulam] beams' })] }, followed: [[], ['Concrete shell']] });
         }),
     );

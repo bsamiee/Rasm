@@ -2,7 +2,7 @@ import process from 'node:process';
 import { assert, it } from '@effect/vitest';
 import { Forward } from '@rasm/ssh';
 import { Cause, Effect, Exit, FileSystem, Option, Path, Schema, Scope } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { ChildProcess } from 'effect/process';
 import { RandomPortGenerator } from 'testcontainers';
 import { Asked } from '#/peer';
 import { bounds, heard, held, printed, reasoned, Sshd, served } from '#/sshd';
@@ -50,7 +50,7 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
         'forwards a remote port the server allocates for port 0 to an address this machine dials, and ends it with its scope',
         Effect.fnUntraced(function* () {
             const [running, fs, path] = yield* Effect.all([Sshd, FileSystem.FileSystem, Path.Path]);
-            const [{ ssh }, host, folder, ended] = yield* Effect.all([running.client, running.hosted('remote'), fs.makeTempDirectoryScoped(), Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void))]);
+            const [{ ssh }, host, folder, ended] = yield* Effect.all([running.client, running.hosted('remote'), fs.makeTempDirectoryScoped(), Effect.flatMap(Effect.scope, Scope.fork)]);
             const remote = yield* wanted({ _tag: 'Remote', bind: '127.0.0.1:0', connect: `${running.served.dial.host}:${running.served.dial.port}` });
             const { bind } = yield* Effect.flatMap(Scope.provide(ssh.forward(host, remote), ended), Schema.encodeEffect(Forward));
             const through = { path: path.join(folder, 'through') };
@@ -77,11 +77,11 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
     methods.effect(
         'ends the forward of a killed process, and the connections it carried, with that process',
         Effect.fnUntraced(function* () {
-            const [running, fs, path, spawner] = yield* Effect.all([Sshd, FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+            const [running, fs, path] = yield* Effect.all([Sshd, FileSystem.FileSystem, Path.Path]);
             const [{ folder }, host, made] = yield* Effect.all([running.client, running.hosted('owned'), fs.makeTempDirectoryScoped()]);
             const at = { path: path.join(made, 'bound') };
             const request = yield* Schema.encodeEffect(Asked)({ folder, host, forward: Option.some(yield* wanted({ _tag: 'Local', bind: at.path, connect: sshd })), calls: 1, remote: ['true'] });
-            const peer = yield* spawner.spawn(ChildProcess.make(process.execPath, [path.join(import.meta.dirname, 'peer.ts'), request], { stdin: 'ignore', stderr: 'inherit' }));
+            const peer = yield* ChildProcess.make(process.execPath, [path.join(import.meta.dirname, 'peer.ts'), request], { stdin: 'ignore', stderr: 'inherit' });
             yield* printed(peer, 'the forwarding process');
             const open = yield* held(at);
             yield* peer.kill({ killSignal: 'SIGKILL' });

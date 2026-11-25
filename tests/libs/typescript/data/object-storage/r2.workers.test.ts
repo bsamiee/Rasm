@@ -56,10 +56,7 @@ layer(r2Storage({ bucket: env.BUCKET, name: 'objects' }).pipe(Layer.provide(Conf
         Effect.fnUntraced(function* () {
             const key = 'media/stated';
             yield* stored(key, content.subarray(0, 13));
-            const stat = Effect.map(
-                ObjectStorage.use((storage) => storage.stat(key)),
-                Option.map(({ size, mime }) => ({ size: ByteSize.toNumberUnsafe(size), mime })),
-            );
+            const stat = ObjectStorage.use((storage) => storage.stat(key)).pipe(Effect.map(Option.map(({ size, mime }) => ({ size: ByteSize.toNumberUnsafe(size), mime }))));
             const before = yield* stat;
             yield* ObjectStorage.remove(key, Option.none());
             assert.deepStrictEqual([before, yield* stat], [Option.some({ size: 13, mime: media.mime }), Option.none()]);

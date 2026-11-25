@@ -1,6 +1,6 @@
 import { assert, it } from '@effect/vitest';
 import { Scheme, WebhookError } from '@rasm/webhooks';
-import { Bytes, DateTime, Duration, Effect, Exit, Option, Record } from 'effect';
+import { Bytes, DateTime, Duration, Effect, Function, Option, Record } from 'effect';
 import { Headers } from 'effect/http';
 import { TestClock } from 'effect/testing';
 import { type Crypto, encoder, made, outcome, standard, vectors } from '#/fixtures';
@@ -87,11 +87,11 @@ const signatures = (crypto: Crypto) => {
         'standard scheme: refuses a secret holding no key, verifies with a secret written without its whsec_ prefix, and signs the bytes of a view alone',
         Effect.fnUntraced(function* () {
             const { scheme, secret, id, at, bytes } = vectors.binary;
-            const [empty, webhook, bare] = yield* Effect.all([Effect.match(made(scheme, 'whsec_'), { onSuccess: () => 'built', onFailure: ({ _tag }) => _tag }), made(scheme, secret), Effect.exit(made(scheme, secret.slice('whsec_'.length)))]);
+            const [empty, webhook] = yield* Effect.all([Effect.match(made(scheme, 'whsec_'), { onSuccess: () => 'built', onFailure: ({ _tag }) => _tag }), made(scheme, secret)]);
             yield* TestClock.setTime(Duration.toMillis(Duration.seconds(at)));
             const margin = encoder.encode('--');
             const headers = yield* webhook.sign(id, Bytes.concat([margin, bytes, margin]).subarray(margin.length, margin.length + bytes.length));
-            const unprefixed = yield* Exit.match(bare, { onFailure: () => Effect.succeed('refused at construction'), onSuccess: (reader) => outcome(reader.verify(headers, bytes)) });
+            const unprefixed = yield* Effect.flatMap(made(scheme, secret.slice('whsec_'.length)), (reader) => outcome(reader.verify(headers, bytes))).pipe(Effect.orElseSucceed(Function.constant('refused at construction')));
             assert.deepStrictEqual([empty, Headers.get(headers, scheme.signature), unprefixed], ['CryptoError', Option.some(vectors.binary.signed), vectors.binary.accepted]);
         }, Effect.provide(crypto)),
     );

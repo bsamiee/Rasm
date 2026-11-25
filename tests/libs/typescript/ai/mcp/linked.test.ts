@@ -27,12 +27,7 @@ const linked = Effect.fnUntraced(function* (silent: readonly Stream.Stream<reado
         RpcTest.makeClient(Link.Rpcs, { flatten: true }).pipe(Effect.provide(Link.serve(Joined, { notices: Stream.fromQueue(late) }).pipe(Layer.provide(Joined.toLayer({ late: () => Effect.succeed('joined') }))))),
     ]);
     const links = { changes: Stream.concat(Stream.succeed([LINKED]), Stream.fromQueue(lists)), call: (holds: (peer: Link) => boolean) => Effect.succeed(holds(JOINED) ? joined : extension) };
-    const proxy = Layer.effectDiscard(
-        Effect.andThen(
-            Server.use((server) => server.events({ text: Function.identity, stream: Stream.fromQueue(own) })),
-            Upstream.serve(Array.append(silent, Upstream.linked(links)), { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) }),
-        ),
-    );
+    const proxy = Server.use((server) => server.events({ text: Function.identity, stream: Stream.fromQueue(own) })).pipe(Effect.andThen(Upstream.serve(Array.append(silent, Upstream.linked(links)), { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) })), Layer.effectDiscard);
     const { client } = yield* connected(proxy);
     yield* settled(names(client), Array.contains('unique'));
     const { handle } = yield* Effect.flatMap(client.callTool({ name: 'test_simple_text', arguments: {} }), ({ structuredContent }) => Schema.decodeUnknownEffect(Trailed)(structuredContent));

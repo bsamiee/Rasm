@@ -42,14 +42,13 @@ const Json = Schema.fromJsonString(Schema.Unknown);
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const pieces = (text: string, size: number) => Stream.fromIterable(Array.map(Array.chunksOf(Array.fromIterable(new TextEncoder().encode(text)), size), (chunk) => Uint8Array.from(chunk)));
-const read = (texts: Array.NonEmptyReadonlyArray<string>, name: string) =>
-    Effect.map(
-        Effect.flatMap(omv(texts), ({ page }) => page(name)),
-        (page) =>
-            page._tag === 'Class'
-                ? { constructible: page.constructible, fields: Array.map(page.fields, Struct.get('name')), methods: Array.map(page.methods, ({ name: method, parameters }) => [method, ...Array.map(parameters, ({ type }) => Option.getOrUndefined(type))]) }
-                : { members: Array.map(page.members, ({ name: member, value }) => [member, Option.getOrUndefined(value)]) },
-    );
+const read = Effect.fnUntraced(function* (texts: Array.NonEmptyReadonlyArray<string>, name: string) {
+    const { page } = yield* omv(texts);
+    const found = yield* page(name);
+    return found._tag === 'Class'
+        ? { constructible: found.constructible, fields: Array.map(found.fields, Struct.get('name')), methods: Array.map(found.methods, ({ name: method, parameters }) => [method, ...Array.map(parameters, ({ type }) => Option.getOrUndefined(type))]) }
+        : { members: Array.map(found.members, ({ name: member, value }) => [member, Option.getOrUndefined(value)]) };
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

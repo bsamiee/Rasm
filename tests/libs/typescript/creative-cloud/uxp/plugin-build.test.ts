@@ -15,11 +15,12 @@ const STATED = { manifestVersion: 5, id: 'app.rasm.test', name: 'Test', version:
 const COMMAND = { id: 'reset', label: 'Reset', type: 'command' } as const;
 const PANEL = { id: 'typesetting', label: 'Typesetting', type: 'panel' } as const;
 const GLYPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.25 11.5H18.75"/></svg>';
-const ADDONS = Array.flatMap([5, 6] as const, (manifestVersion) =>
-    Array.flatMap([{}, { enableAddon: false }, { enableAddon: true }], (requiredPermissions) =>
-        Array.map([{}, { addon: { name: 'Typesetting' } }], (addon) => ({ manifestVersion, requiredPermissions, addon, accepted: !('addon' in addon) || (manifestVersion === 6 && 'enableAddon' in requiredPermissions && requiredPermissions.enableAddon) })),
-    ),
-);
+const ADDONS = Array.cartesianWith(Array.cartesian([5, 6] as const, [{}, { enableAddon: false }, { enableAddon: true }]), [{}, { addon: { name: 'Typesetting' } }], ([manifestVersion, requiredPermissions], addon) => ({
+    manifestVersion,
+    requiredPermissions,
+    addon,
+    accepted: !('addon' in addon) || (manifestVersion === 6 && 'enableAddon' in requiredPermissions && requiredPermissions.enableAddon),
+}));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -51,11 +52,10 @@ const built = Effect.fnUntraced(function* (manifest: object, main: string) {
     return { out, text: yield* fs.readFileString(path.join(out, UxpManifest.file)) };
 });
 const tones = (data: Uint8Array) => Array.dedupe(Array.filterMap(Array.chunksOf(Array.fromIterable(data), 4), ([red, green, blue, alpha = 0]) => (alpha > 0 ? Result.succeed(`${red},${green},${blue}`) : Result.failVoid)));
-const toned = (theme: (typeof Row.Type)['theme']) => Array.dedupe(Array.map(theme, (each) => TONES[each]));
 const scaled =
     (folder: string, join: (...parts: string[]) => string) =>
     ({ path: file, theme, species: [species] }: typeof Row.Type) =>
-        Array.map(SCALES, (scale) => ({ file: join(folder, file.replace(/\.png$/u, `@${scale}x.png`)), side: ADOBE[species] * scale, tone: toned(theme) }));
+        Array.map(SCALES, (scale) => ({ file: join(folder, file.replace(/\.png$/u, `@${scale}x.png`)), side: ADOBE[species] * scale, tone: Array.dedupe(Array.map(theme, (each) => TONES[each])) }));
 const drawn = (file: string) => Effect.promise(() => sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true }));
 const misdrawn = (out: string, rows: readonly (typeof Row.Type)[]) =>
     Effect.flatMap(Path.Path, (path) => Effect.forEach(Array.flatMap(rows, scaled(out, path.join)), ({ file, side, tone }) => Effect.map(drawn(file), ({ data, info: { width, height } }) => ({ file, drawn: [width, height, tones(data)], expected: [side, side, tone] }))));

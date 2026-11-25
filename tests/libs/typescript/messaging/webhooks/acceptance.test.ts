@@ -23,23 +23,23 @@ it.effect.each(Record.keys(vectors))(
         assert.deepStrictEqual(results, { early: late, soon: accepted, edge: accepted, late });
     }, Effect.provide(crypto)),
 );
-it.effect(
-    'accepts either secret of a sender signing with two, in each header syntax, and verifies with a public key that cannot sign',
-    Effect.fnUntraced(function* () {
+it.effect.each([Scheme.standard, Scheme.stripe])(
+    'accepts either secret of a sender signing with two in the $signature header syntax',
+    Effect.fnUntraced(function* (scheme) {
         const { id, bytes, secret, foreign } = vectors.standard;
-        const rotated = yield* Effect.forEach(
-            [Scheme.standard, Scheme.stripe],
-            Effect.fnUntraced(function* (scheme) {
-                const [both, former, latter, mixed, stranger] = yield* Effect.all([made(scheme, secret, foreign), made(scheme, secret), made(scheme, foreign), made(scheme, vectors.svix.secret, foreign), made(scheme, vectors.svix.secret)]);
-                const [doubled, single] = yield* Effect.all([both.sign(id, bytes), former.sign(id, bytes)]);
-                return yield* Effect.forEach([former.verify(doubled, bytes), latter.verify(doubled, bytes), mixed.verify(doubled, bytes), both.verify(single, bytes), stranger.verify(doubled, bytes), latter.verify(single, bytes)], outcome);
-            }),
-        );
+        const [both, former, latter, mixed, stranger] = yield* Effect.all([made(scheme, secret, foreign), made(scheme, secret), made(scheme, foreign), made(scheme, vectors.svix.secret, foreign), made(scheme, vectors.svix.secret)]);
+        const [doubled, single] = yield* Effect.all([both.sign(id, bytes), former.sign(id, bytes)]);
+        const verified = yield* Effect.forEach([former.verify(doubled, bytes), latter.verify(doubled, bytes), mixed.verify(doubled, bytes), both.verify(single, bytes), stranger.verify(doubled, bytes), latter.verify(single, bytes)], outcome);
+        assert.deepStrictEqual(verified, ['verified', 'verified', 'verified', 'verified', 'Mismatch', 'Mismatch']);
+    }, Effect.provide(crypto)),
+);
+it.effect(
+    'verifies with a public key that cannot sign',
+    Effect.fnUntraced(function* () {
+        const { id, bytes, secret } = vectors.standard;
         const [signer, verifier, shared] = yield* Effect.all([made(Scheme.standard, pair.private), made(Scheme.standard, pair.public), made(Scheme.standard, secret)]);
         const signed = yield* signer.sign(id, bytes);
-        const asymmetric = yield* Effect.all([outcome(verifier.verify(signed, bytes)), Effect.match(verifier.sign(id, bytes), { onSuccess: Function.constant('signed'), onFailure: ({ _tag }) => _tag }), outcome(shared.verify(signed, bytes))]);
-        const accepted = ['verified', 'verified', 'verified', 'verified', 'Mismatch', 'Mismatch'];
-        assert.deepStrictEqual({ rotated, asymmetric }, { rotated: [accepted, accepted], asymmetric: ['verified', 'IllegalArgumentError', 'Mismatch'] });
+        assert.deepStrictEqual(yield* Effect.all([outcome(verifier.verify(signed, bytes)), Effect.match(verifier.sign(id, bytes), { onSuccess: Function.constant('signed'), onFailure: ({ _tag }) => _tag }), outcome(shared.verify(signed, bytes))]), ['verified', 'IllegalArgumentError', 'Mismatch']);
     }, Effect.provide(crypto)),
 );
 it.effect(

@@ -3,7 +3,7 @@ import { createServer, request } from 'node:http';
 import { layer as served } from '@effect/platform-node/NodeHttpServer';
 import { assert, describe, it } from '@effect/vitest';
 import { dial, listen } from '@rasm/rpc';
-import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Layer, MutableRef, Number, Option, Ref, Schema, Scope, Stream, Struct } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Function, Layer, MutableRef, Number, Option, Ref, Schema, Scope, Stream, Struct } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { Socket } from 'effect/socket';
@@ -40,7 +40,7 @@ const dialing = Effect.fnUntraced(function* (port: number, instance: string, ide
         MutableRef.update(closes, Array.append(once(socket, 'close')));
         return socket;
     });
-    const peer = Effect.andThen(Ref.update(dials, Number.increment), Effect.andThen(Deferred.succeed(read, undefined), identity));
+    const peer = Ref.update(dials, Number.increment).pipe(Effect.andThen(Deferred.succeed(read, undefined)), Effect.andThen(identity));
     yield* Layer.build(dial(Asked, Asked.toLayer({ instance: () => Effect.succeed(instance) }), { url: new URL(PATH, `ws://127.0.0.1:${port}`), redial: REDIAL, peer }).pipe(Layer.provide(sockets)));
     const closed = Effect.promise(() => Promise.all(MutableRef.get(closes))).pipe(Effect.flatMap(Effect.forEach((event) => Schema.decodeUnknownEffect(Closed)(event))), Effect.map(Array.map(([{ code }]) => code)));
     return { dials: Ref.get(dials), read: Deferred.await(read), closed };
@@ -55,17 +55,12 @@ const upgraded = (port: number, origin: Readonly<Record<string, string>>) =>
         sent.end();
         return Effect.sync(() => sent.destroy());
     });
-const asked = (links: Effect.Success<typeof linked>) =>
-    Effect.flatMap(
-        links.call(() => true, 'peer'),
-        (client) => client('instance', undefined),
-    );
+const asked = (links: Effect.Success<typeof linked>) => links.call(Function.constTrue, 'peer').pipe(Effect.flatMap((client) => client('instance', undefined)));
 const answering = (links: Effect.Success<typeof linked>, instance: string) =>
-    Stream.runHead(
-        Stream.filter(
-            Stream.mapEffect(links.changes, () => Effect.option(asked(links))),
-            Option.contains(instance),
-        ),
+    links.changes.pipe(
+        Stream.mapEffect(() => Effect.option(asked(links))),
+        Stream.filter(Option.contains(instance)),
+        Stream.runHead,
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -89,7 +84,7 @@ describe('link', () => {
     it.live(
         'dials again, reading its identity again, after its server closes and another listens on the port',
         Effect.fnUntraced(function* () {
-            const first = yield* Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void));
+            const first = yield* Effect.flatMap(Effect.scope, Scope.fork);
             const { links, port } = yield* Scope.provide(listening(0), first);
             const peer = yield* dialing(port, 'kept');
             yield* answering(links, 'kept');

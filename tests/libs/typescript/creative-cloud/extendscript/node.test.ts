@@ -75,14 +75,7 @@ describe(lower, () => {
         'lowers $named to a script a strict ES3 parser reads',
         Effect.fnUntraced(function* ({ code }) {
             const { code: lowered } = yield* lower(code, lower.extendscript);
-            assert.doesNotThrow(
-                () => {
-                    parse(lowered, ES3);
-                },
-                undefined,
-                undefined,
-                lowered,
-            );
+            yield* Effect.try({ try: () => parse(lowered, ES3), catch: (cause) => new Cause.UnknownError(cause, lowered) });
         }),
     );
 
@@ -129,14 +122,9 @@ describe(script, () => {
                 try: () => build({ configFile: false, logLevel: 'silent', plugins: [script(host, 'runtime')], build: { write: false, rolldownOptions: { input: `${host}?inline`, preserveEntrySignatures: 'exports-only', output: { format: 'es' } } } }),
                 catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)),
             });
-            const [{ code }] = (yield* Schema.decodeUnknownEffect(Inlined)(built)).output;
-            const runtime = yield* Effect.flatMap(
-                Effect.promise((): Promise<unknown> => import(`data:text/javascript,${encodeURIComponent(code)}`)),
-                Schema.decodeUnknownEffect(Runtime),
-            );
-            assert.doesNotThrow(() => {
-                parse(runtime.default, ES3);
-            });
+            const { code } = Array.headNonEmpty((yield* Schema.decodeUnknownEffect(Inlined)(built)).output);
+            const runtime = yield* Effect.promise((): Promise<unknown> => import(`data:text/javascript,${encodeURIComponent(code)}`)).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Runtime)));
+            yield* Effect.try({ try: () => parse(runtime.default, ES3), catch: (cause) => new Cause.UnknownError(cause, runtime.default) });
             assert.strictEqual(runInNewContext(`${runtime.default}\nruntime.written({ ink: [1, "two"] });`), '{"ink":[1,"two"]}');
         }),
         { timeout: 60_000 },

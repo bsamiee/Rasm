@@ -3,16 +3,16 @@ import { assert, layer, type Vitest } from '@effect/vitest';
 import { Catalog, Relation, Tokenizer } from '@rasm/database';
 import { Pg } from '@rasm/database/pg';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import { Array, Context, Deferred, Effect, Function, Layer, Number, Option, Predicate, Redacted, Ref, Result, Schema, Struct } from 'effect';
-import { SqlClient, SqlSchema } from 'effect/sql';
+import { Array, Context, Deferred, Effect, Function, Layer, Number, Option, Predicate, Redacted, Ref, Schema, Struct } from 'effect';
+import { SqlClient, SqlError, SqlSchema } from 'effect/sql';
 import { declared, pending, reconciling, stored } from '#/reconciling';
 import { type Relational, rows, values } from '#/rows';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const store: Relational = {
-    tables: SqlClient.SqlClient.use((sql) => Effect.map(sql`SELECT c.relname AS name FROM pg_class c WHERE c.relnamespace = current_schema()::regnamespace AND c.relkind = 'r' ORDER BY c.relname`, (found) => found.map(Struct.get('name')))),
-    fault: ({ reason: { cause } }) => (Predicate.hasProperty(cause, 'code') ? cause.code : cause),
+    tables: SqlClient.SqlClient.use((sql) => Effect.map(sql`SELECT c.relname AS name FROM pg_class c WHERE c.relnamespace = current_schema()::regnamespace AND c.relkind = 'r' ORDER BY c.relname`, Array.map(Struct.get('name')))),
+    fault: (error) => (SqlError.isSqlError(error) && Predicate.hasProperty(error.reason.cause, 'code') ? error.reason.cause.code : error),
     check: '23514',
     unique: '23505',
     reference: '23503',
@@ -75,15 +75,11 @@ const restated = Relation.make('legacy', { id: Schema.String, lower: Schema.Stri
 
 class Database extends Context.Service<Database, { readonly connected: (username: string, password: string) => Redacted.Redacted; readonly name: string }>()('@rasm/test-database/postgres.test/Database') {}
 class Postgres extends Context.Service<Postgres, { readonly container: StartedPostgreSqlContainer; readonly admin: SqlClient.SqlClient; readonly created: Ref.Ref<number> }>()('@rasm/test-database/postgres.test/Postgres') {
-    static readonly layer = Layer.unwrap(
-        Effect.gen(function* () {
-            const container = yield* Effect.acquireRelease(
-                Effect.promise(() => new PostgreSqlContainer('postgres:19.0-alpine3.24').withCommand(['postgres', '-c', 'fsync=off', '-c', 'synchronous_commit=off', '-c', 'full_page_writes=off']).withTmpFs({ '/var/lib/postgresql': 'rw' }).start()),
-                (started) => Effect.promise(() => started.stop()),
-            );
-            return Layer.effect(Postgres, Effect.all({ container: Effect.succeed(container), admin: SqlClient.SqlClient, created: Ref.make(0) })).pipe(Layer.provide(PgClient.layer({ url: Redacted.make(container.getConnectionUri()) })));
-        }),
-    );
+    static readonly layer = Effect.gen(function* () {
+        const container = yield* Effect.acquireDisposable(Effect.promise(() => new PostgreSqlContainer('postgres:19.0-alpine3.24').withCommand(['postgres', '-c', 'fsync=off', '-c', 'synchronous_commit=off', '-c', 'full_page_writes=off']).withTmpFs({ '/var/lib/postgresql': 'rw' }).start()));
+        const admin = Context.get(yield* Layer.build(PgClient.layer({ url: Redacted.make(container.getConnectionUri()) })), SqlClient.SqlClient);
+        return { container, admin, created: yield* Ref.make(0) };
+    }).pipe(Layer.effect(Postgres));
     static readonly database = Layer.unwrap(
         Effect.gen(function* () {
             const { container, admin, created } = yield* Postgres;
@@ -164,7 +160,7 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
             yield* Catalog.reconcile(declared([handles]));
             yield* Relation.insert(handles, kept);
             const folded = yield* Effect.flip(Relation.insert(handles, [{ id: 'c', handle: 'MASSE' }]));
-            assert.deepStrictEqual({ fault: folded._tag === 'SqlError' ? store.fault(folded) : folded, stored: yield* stored('handles') }, { fault: store.unique, stored: kept });
+            assert.deepStrictEqual({ fault: store.fault(folded), stored: yield* stored('handles') }, { fault: store.unique, stored: kept });
         }),
     );
     it.effect(
@@ -210,7 +206,7 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
             const kept = yield* seen;
             yield* sql`UPDATE scores SET score = 2`;
             yield* Catalog.reconcile(retyped);
-            assert.deepStrictEqual({ fault: lossy._tag === 'SqlError' ? store.fault(lossy) : lossy, kept, applied: yield* seen }, { fault: store.check, kept: { types: ['text', 'double precision'], stored: [{ id: 'a', score: 1.5 }] }, applied: { types: ['text', 'bigint'], stored: [{ id: 'a', score: 2 }] } });
+            assert.deepStrictEqual({ fault: store.fault(lossy), kept, applied: yield* seen }, { fault: store.check, kept: { types: ['text', 'double precision'], stored: [{ id: 'a', score: 1.5 }] }, applied: { types: ['text', 'bigint'], stored: [{ id: 'a', score: 2 }] } });
         }),
     );
     it.effect(
@@ -225,7 +221,7 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
             yield* sql`UPDATE drafts SET note = 'written'`;
             yield* Catalog.reconcile(tightened);
             assert.deepStrictEqual(
-                { fault: violated._tag === 'SqlError' ? store.fault(violated) : violated, unvalidated, validated: yield* constraints('drafts'), pending: yield* pending(tightened), stored: yield* stored('drafts') },
+                { fault: store.fault(violated), unvalidated, validated: yield* constraints('drafts'), pending: yield* pending(tightened), stored: yield* stored('drafts') },
                 {
                     fault: '23502',
                     unvalidated: [
@@ -249,10 +245,8 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
             const catalog = declared([sought]);
             const indexes = sql`SELECT x.indisvalid::text AS valid, x.indisunique::text AS unique FROM pg_index x WHERE x.indrelid = 'lookups'::regclass AND NOT x.indisprimary`;
             yield* Catalog.reconcile(declared([lookups]));
-            yield* Relation.insert(
-                lookups,
-                Array.map(labels, (label, index) => ({ id: `${index}`, label })),
-            );
+            const seeds = Array.map(labels, (label, index) => ({ id: `${index}`, label }));
+            yield* Relation.insert(lookups, seeds);
             yield* arranged;
             const seeded = yield* indexes;
             yield* sql`CREATE TABLE built (tag text NOT NULL, identity text NOT NULL)`;
@@ -260,11 +254,11 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
             yield* sql`CREATE EVENT TRIGGER logged ON ddl_command_end WHEN TAG IN ('CREATE INDEX') EXECUTE FUNCTION logged()`;
             const pended = yield* pending(catalog);
             const settled = yield* Effect.all(Array.replicate(Effect.result(Catalog.reconcile(catalog)), 4), { concurrency: 'unbounded' });
-            assert.deepStrictEqual(
+            assert.deepStrictEqual<unknown>(
                 {
                     seeded,
                     planned: { statements: pended.statements, concurrent: pended.concurrent.map((text) => text.split(' ').slice(0, 3).join(' ')) },
-                    raised: settled.flatMap(Result.match({ onSuccess: () => [], onFailure: (error) => [error._tag === 'SqlError' ? store.fault(error) : error] })),
+                    raised: Array.map(Array.getFailures(settled), store.fault),
                     deadlocks: yield* sql`SELECT d.deadlocks::int AS deadlocks FROM pg_stat_database d WHERE d.datname = current_database()`,
                     built: yield* stored('built'),
                     indexes: yield* indexes,
@@ -310,20 +304,16 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
                 { id: 'b', tenant: 'south', amount: 2 },
             ];
             yield* Catalog.reconcile(declared([ledgers]), Option.some(runtime.role));
-            const observed = yield* Effect.gen(function* () {
-                yield* Relation.withTenant(ledgers, north.tenant, Relation.insert(ledgers, [north]));
-                yield* Relation.withTenant(ledgers, south.tenant, Relation.insert(ledgers, [south]));
-                const crossed = yield* Effect.flip(Relation.withTenant(ledgers, north.tenant, Relation.insert(ledgers, [{ id: 'c', tenant: south.tenant, amount: 3 }])));
-                return {
-                    north: yield* Relation.withTenant(ledgers, north.tenant, Relation.select(ledgers, { amount: [1, 2] })),
-                    south: yield* Relation.withTenant(ledgers, south.tenant, Relation.select(ledgers, { amount: [1, 2] })),
-                    unscoped: yield* Relation.select(ledgers, { amount: [1, 2] }),
-                    crossed: crossed._tag === 'SqlError' ? store.fault(crossed) : crossed,
-                };
+            const observed = yield* Effect.all({
+                written: Effect.forEach([north, south], (row) => Relation.withTenant(ledgers, row.tenant, Relation.insert(ledgers, [row]))),
+                crossed: Effect.map(Effect.flip(Relation.withTenant(ledgers, north.tenant, Relation.insert(ledgers, [{ id: 'c', tenant: south.tenant, amount: 3 }]))), store.fault),
+                north: Relation.withTenant(ledgers, north.tenant, Relation.select(ledgers, { amount: [1, 2] })),
+                south: Relation.withTenant(ledgers, south.tenant, Relation.select(ledgers, { amount: [1, 2] })),
+                unscoped: Relation.select(ledgers, { amount: [1, 2] }),
             }).pipe(Effect.provide(runtime.client));
             assert.deepStrictEqual(
                 { observed, secured: yield* sql`SELECT c.relrowsecurity::text AS enabled, c.relforcerowsecurity::text AS forced FROM pg_class c WHERE c.oid = 'ledgers'::regclass` },
-                { observed: { north: [north], south: [south], unscoped: [], crossed: '42501' }, secured: [{ enabled: 'true', forced: 'true' }] },
+                { observed: { written: [[north], [south]], crossed: '42501', north: [north], south: [south], unscoped: [] }, secured: [{ enabled: 'true', forced: 'true' }] },
             );
         }),
     );
@@ -332,11 +322,7 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
         Effect.fnUntraced(function* () {
             const sql = yield* SqlClient.SqlClient;
             const [runtime, reader] = yield* Effect.all([Postgres.role('runtime'), Postgres.role('reader')]);
-            const held = (role: string) =>
-                Effect.map(
-                    Effect.forEach(privileges, (privilege) => sql`SELECT has_table_privilege(${role}, 'lookups', ${privilege})::text AS held`),
-                    (found) => found.flat().map(Struct.get('held')),
-                );
+            const held = (role: string) => Effect.forEach(privileges, (privilege) => sql`SELECT has_table_privilege(${role}, 'lookups', ${privilege})::text AS held`).pipe(Effect.map((found) => found.flat().map(Struct.get('held'))));
             yield* Layer.build(Catalog.layer(Catalog.make({ tables: [lookups], reader: reader.role }), runtime.client, Layer.succeed(SqlClient.SqlClient, sql)));
             assert.deepStrictEqual(yield* Effect.all({ runtime: held(runtime.role), reader: held(reader.role) }), { runtime: ['true', 'true', 'true', 'true', 'false'], reader: ['true', 'false', 'false', 'false', 'false'] });
         }),
@@ -347,14 +333,14 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
             const [{ connected }, { container }] = yield* Effect.all([Database, Postgres]);
             const [locked, released] = yield* Effect.all([Deferred.make<void>(), Deferred.make<void>()]);
             yield* Catalog.reconcile(declared([lookups]));
-            yield* SqlClient.SqlClient.use((holder) => holder.withTransaction(Effect.andThen(holder`LOCK TABLE lookups IN ACCESS EXCLUSIVE MODE`, Effect.andThen(Deferred.succeed(locked, undefined), Deferred.await(released))))).pipe(
+            yield* SqlClient.SqlClient.use((holder) => holder.withTransaction(holder`LOCK TABLE lookups IN ACCESS EXCLUSIVE MODE`.pipe(Effect.andThen(Deferred.succeed(locked, undefined)), Effect.andThen(Deferred.await(released))))).pipe(
                 Effect.provide(Pg.layer({ url: connected(container.getUsername(), container.getPassword()) })),
                 Effect.forkScoped,
             );
             yield* Deferred.await(locked);
             const blocked = yield* Effect.flip(Catalog.reconcile(Catalog.make({ tables: [widened], timeouts: { lock: '100 millis', transaction: '1 minute' } })));
             yield* Deferred.succeed(released, undefined);
-            assert.deepStrictEqual({ fault: blocked._tag === 'SqlError' ? store.fault(blocked) : blocked, columns: (yield* columns('lookups')).map(Struct.get('name')) }, { fault: '55P03', columns: ['id', 'label'] });
+            assert.deepStrictEqual({ fault: store.fault(blocked), columns: (yield* columns('lookups')).map(Struct.get('name')) }, { fault: '55P03', columns: ['id', 'label'] });
         }),
     );
     it.effect(
