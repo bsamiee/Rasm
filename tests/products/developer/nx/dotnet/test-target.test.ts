@@ -25,11 +25,12 @@ const COVERED = {
     'Directory.Build.props': `<Project>\n  <PropertyGroup>\n    <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>\n    <TargetFramework>net10.0</TargetFramework>\n    <RollForward>Major</RollForward>\n    <Configurations>Release;Debug;Coverage</Configurations>\n    <Configuration>Release</Configuration>\n  </PropertyGroup>\n  <PropertyGroup Condition="'$(Configuration)' == 'Coverage'">\n    <Optimize>true</Optimize>\n    <DeterministicSourcePaths>false</DeterministicSourcePaths>\n  </PropertyGroup>\n  <PropertyGroup Condition="'$(CI)' == 'true'">\n    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>\n  </PropertyGroup>\n</Project>\n`,
     'Directory.Build.targets': `<Project>\n  <PropertyGroup Condition="'$(Configuration)' == 'Coverage'">\n    <PathMap>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\\', '/'))/,$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(ArtifactsPath)').Replace('\\', '/'))/</PathMap>\n  </PropertyGroup>\n</Project>\n`,
     'libs/Kit/Kit.csproj': '<Project Sdk="Microsoft.NET.Sdk" />\n',
-    'libs/Kit/Halves.cs': 'namespace Kit;\n\npublic static class Halves {\n    public static int Of(int value) => value % 2 == 0 ? value / 2 : -1;\n}\n',
+    'libs/Kit/Halves.cs': 'namespace Kit;\n\npublic static partial class Halves {\n    public static int Of(int value) => value % 2 == 0 ? value / 2 : -1;\n\n    [System.Text.RegularExpressions.GeneratedRegex("^[0-9]+$")]\n    public static partial System.Text.RegularExpressions.Regex Digits();\n}\n',
     'products/Tool/Tool.csproj': '<Project Sdk="Microsoft.NET.Sdk" />\n',
     'products/Tool/Scales.cs': 'namespace Tool;\n\npublic static class Scales {\n    public static int Twice(int value) => value * 2;\n}\n',
-    'tests/Kit.Tests/Kit.Tests.csproj': `<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <IsTestProject>true</IsTestProject>\n  </PropertyGroup>\n  ${TESTED}\n  <ItemGroup>\n    <ProjectReference Include="../../libs/Kit/Kit.csproj" />\n    <ProjectReference Include="../../products/Tool/Tool.csproj" />\n  </ItemGroup>\n</Project>\n`,
-    'tests/Kit.Tests/Checks.cs': 'namespace Kit.Tests;\n\npublic sealed class Checks {\n    [Xunit.Fact]\n    public void HalvesTwice() => Xunit.Assert.Equal(3, Halves.Of(Tool.Scales.Twice(3)));\n}\n',
+    'tests/Kit.Tests/Kit.Tests.csproj': `<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <IsTestProject>true</IsTestProject>\n  </PropertyGroup>\n  ${TESTED}\n  <ItemGroup>\n    <PackageReference Include="Humanizer.Core" Version="3.0.10" />\n    <ProjectReference Include="../../libs/Kit/Kit.csproj" />\n    <ProjectReference Include="../../products/Tool/Tool.csproj" />\n  </ItemGroup>\n</Project>\n`,
+    'tests/Kit.Tests/Checks.cs':
+        'using Humanizer;\n\nnamespace Kit.Tests;\n\npublic sealed class Checks {\n    [Xunit.Fact]\n    public void HalvesTwice() => Xunit.Assert.Equal(3, Halves.Of(Tool.Scales.Twice(3)));\n\n    [Xunit.Fact]\n    public void NamesDigits() => Xunit.Assert.Equal("Digits", nameof(Halves.Digits).Humanize());\n}\n',
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -46,7 +47,7 @@ it('runs the tests of a Microsoft Testing Platform project under configuration c
     expect({ success, reports: written.filter((file) => /^coverage\/Tests\/coverage\.\d+\.info$/u.test(file)).length, outside: written.filter((file) => !declared.some((output) => file.startsWith(`${output}/`))) }).toStrictEqual({ success: true, reports: 1, outside: [] });
 });
 
-it.for(['false', 'true'])('runs configuration coverage under the Coverage configuration a workspace declares, its lcov report naming each source by its path from the workspace root with CI=%s', async (ci, { workspace }) => {
+it.for(['false', 'true'])('runs configuration coverage under the Coverage configuration a workspace declares, its lcov report naming each workspace source by its path from the workspace root and no source of a package assembly with CI=%s', async (ci, { workspace }) => {
     const graph = await workspace.write(COVERED).graph({ createNodes, createDependencies }, { coveragePath: 'coverage/{projectName}' });
     execFileSync('dotnet', ['build', 'tests/Kit.Tests/Kit.Tests.csproj', '--configuration', 'Coverage'], { cwd: workspace.root, stdio: 'ignore', env: { ...env, CI: ci } });
     const before = workspace.files();

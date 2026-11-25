@@ -83,12 +83,26 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
         ...Record.getSomes({ solution: solution(configuration) }),
     }));
     const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [posix.join(folder, '*.nupkg')] }));
-    const tested = ({ configuration }: Node['evaluated'], ...flags: readonly string[]) => ({
-        commands: [{ command: line(['dotnet', 'restore', '--no-dependencies', ...(node.locks.length > 0 ? ['--locked-mode'] : []), `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration, ...flags])],
-    });
+    const tested =
+        (selected: readonly string[]) =>
+        ({ configuration }: Node['evaluated'], ...flags: readonly string[]) => ({
+            commands: [
+                { command: line(['dotnet', 'restore', ...selected, '--no-dependencies', ...(node.locks.length > 0 ? ['--locked-mode'] : []), `-p:Configuration=${configuration}`]), forwardAllArgs: false },
+                line(['dotnet', 'test', ...selected.flatMap((file) => ['--project', file]), '--no-build', '--configuration', configuration, ...flags]),
+            ],
+        });
     const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
     const covered = {
-        ...tested(node.declared.find(({ configuration }) => configuration.toLowerCase() === 'coverage') ?? node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Array.fromNullishOr(coverage).flatMap((at) => ['--results-directory', posix.relative(root, at)])),
+        cwd: '.',
+        ...tested([node.file])(
+            node.declared.find(({ configuration }) => configuration.toLowerCase() === 'coverage') ?? node.evaluated,
+            '--coverlet',
+            '--coverlet-output-format',
+            'lcov',
+            '--coverlet-exclude-assemblies-without-sources',
+            'MissingAll',
+            ...Array.fromNullishOr(coverage).flatMap((at) => ['--results-directory', at]),
+        ),
         outputs: Array.fromNullishOr(coverage).map((at) => posix.join('{workspaceRoot}', at)),
     };
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
@@ -138,8 +152,8 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
             ...(node.test && {
                 dotnet: {
                     executor: 'nx:run-commands',
-                    options: { parallel: false, cwd: '{projectRoot}', ...tested(node.evaluated) },
-                    configurations: { ...moded(tested).configurations, ...(coverable && { coverage: covered }) },
+                    options: { parallel: false, cwd: '{projectRoot}', ...tested([])(node.evaluated) },
+                    configurations: { ...moded(tested([])).configurations, ...(coverable && { coverage: covered }) },
                     dependsOn: ['build--dotnet'],
                     cache: true,
                     inputs: executed,
@@ -148,7 +162,11 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
                         'test',
                         [
                             `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a locked restore of the project alone that fetches only packages the machine lacks and writes no lock file, cached under the binaries the builds wrote and the files loading the project reads, as sources and compiler settings reach the tests through those binaries alone`,
-                            ...(coverable ? ['configuration coverage adds --coverlet with an lcov report from coverlet.MTP'] : []),
+                            ...(coverable
+                                ? [
+                                      'configuration coverage runs from the workspace root and adds --coverlet with an lcov report from coverlet.MTP, leaving out each assembly whose PDB names no source present from that root through --coverlet-exclude-assemblies-without-sources MissingAll, as coverlet tests each PDB source path against its working folder',
+                                  ]
+                                : []),
                         ].join(', and '),
                     ),
                 },
