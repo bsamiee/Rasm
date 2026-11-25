@@ -8,10 +8,16 @@
             "path": "../../data/search"
         },
         {
+            "path": "../../network/rpc"
+        },
+        {
             "path": "../../runtime/process"
         },
         {
-            "path": "../../network/rpc"
+            "path": "../../data/database"
+        },
+        {
+            "path": "../../ai/mcp"
         }
     ]
 }

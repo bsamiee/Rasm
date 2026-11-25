@@ -26,14 +26,14 @@ interface Sent {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const SCRIPT = { name: 'do script', code: 'miscdosc', parameters: [{ name: 'file', code: 'file', list: false, enumerators: [] }] };
+const SCRIPT = { name: 'do script', code: 'miscdosc', parameters: [{ name: 'file', code: 'file', types: [], list: false, enumerators: [] }] };
 const DISTILL = {
     name: 'Distill',
     code: 'DSTLDIST',
     parameters: [
-        { name: 'sourcePath', code: 'DSRC', list: false, enumerators: [] },
-        { name: 'destinationPath', code: 'DDST', list: false, enumerators: [] },
-        { name: 'adobePDFSettingsPath', code: 'DAPS', list: false, enumerators: [] },
+        { name: 'sourcePath', code: 'DSRC', types: [], list: false, enumerators: [] },
+        { name: 'destinationPath', code: 'DDST', types: [], list: false, enumerators: [] },
+        { name: 'adobePDFSettingsPath', code: 'DAPS', types: [], list: false, enumerators: [] },
     ],
 };
 const INSTALLED = [
@@ -122,7 +122,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
             ],
             { discard: true },
         );
-        const served = Automation.omit('nodes', 'launch', 'act', 'quit', 'definition', 'capture', 'preview', 'diagnostics');
+        const served = Automation.omit('nodes', 'handler', 'launch', 'act', 'quit', 'capture', 'preview', 'diagnostics');
         yield* Layer.build(
             RpcServer.layer(served).pipe(
                 Layer.provide([
@@ -164,7 +164,6 @@ const executing = (executed: MutableRef.MutableRef<readonly Sent[]>, { instance,
             const line = direct.split('\n').findIndex((text) => text.includes(MARK)) + 1;
             return line > 0 ? Effect.orDie(Schema.encodeEffect(Reply)({ _tag: 'Thrown', message: MARK, line })) : Effect.orDie(Schema.decodeUnknownEffect(Schema.String)(runInNewContext(direct, {})));
         }),
-        Effect.map((reply) => ({ reply, artifacts: [] })),
     );
 const lines = ({ content }: { readonly content: readonly unknown[] }) =>
     Array.map(Array.getSomes(Array.map(content, (block) => Schema.decodeUnknownOption(Text)(block))), Struct.get('text'))

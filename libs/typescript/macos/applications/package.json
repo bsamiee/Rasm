@@ -2,7 +2,7 @@
     "name": "@rasm/applications",
     "version": "0.1.0",
     "private": true,
-    "description": "Wire contract and Node client of a Mac application server watching installed and running apps, and the Node helper build a Mac app embeds",
+    "description": "Wire contract and Node client of a Mac application server watching installed and running apps, the six MCP tools over it, and the Node helper build a Mac app embeds",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -20,7 +20,9 @@
     },
     "exports": {
         ".": "./index.ts",
+        "./inventory": "./inventory.ts",
         "./node": "./node.ts",
+        "./tools": "./tools.ts",
         "./vite": "./vite.ts",
         "./package.json": "./package.json"
     },
@@ -30,13 +32,17 @@
         },
         "exports": {
             ".": "./dist/index.js",
+            "./inventory": "./dist/inventory.js",
             "./node": "./dist/node.js",
+            "./tools": "./dist/tools.js",
             "./vite": "./dist/vite.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
+        "@rasm/database": "workspace:*",
+        "@rasm/mcp": "workspace:*",
         "@rasm/process": "workspace:*",
         "@rasm/rpc": "workspace:*",
         "@rasm/search": "workspace:*",

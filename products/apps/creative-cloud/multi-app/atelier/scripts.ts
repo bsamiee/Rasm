@@ -1,4 +1,5 @@
-import type { Terms } from '@rasm/applications';
+import type { RunningInstance, Terms } from '@rasm/applications';
+import type { Entry } from '@rasm/applications/inventory';
 import { ApplicationServer } from '@rasm/applications/node';
 import type { Application } from '@rasm/creative-cloud-desktop';
 import { Completion } from '@rasm/extendscript';
@@ -6,16 +7,15 @@ import runtime from '@rasm/extendscript/host?inline';
 import { lower, traced } from '@rasm/extendscript/node';
 import { ScriptHost as Illustrator } from '@rasm/illustrator';
 import { ScriptHost as InDesign } from '@rasm/indesign';
-import { Link, Server } from '@rasm/mcp';
+import { Link } from '@rasm/mcp';
 import { Evaluation, HostError, Script } from '@rasm/object-model';
 import type { Unmatched } from '@rasm/search';
 import { HOSTS, UxpManifest } from '@rasm/uxp';
-import { Array, Cause, Context, Effect, Match, Option, Predicate, Record, Ref, Schema, SemVer, Struct } from 'effect';
-import { Tool } from 'effect/ai';
+import { Array, Cause, Effect, Match, Option, Predicate, Record, Ref, Schema, SemVer, Struct, SubscriptionRef } from 'effect';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 import shim from 'es5-shim?inline';
 import sham from 'es5-shim/es5-sham.js?inline';
-import { Inventory } from '#/applications';
+import { Installed } from '#/applications';
 import { Declarations } from '#/declarations';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -35,12 +35,12 @@ const UXP: Record.ReadonlyRecord<string, typeof InDesign> = { [HOSTS.ID.product]
 const EXTENDSCRIPT: Record.ReadonlyRecord<string, typeof Illustrator> = { [HOSTS.AI.product]: Illustrator };
 const PLUGGED = Record.fromIterableBy(Object.values(HOSTS), Struct.get('product'));
 const RELEASE = /^\d+\.\d+\.\d+/u;
+const DESCRIPTION = `Runs TypeScript function body, return giving its result, in the target application through its newest runtime: a linked extension, do script uxpscript, or ExtendScript; returns its result as JSON, failures name the body line; a dialog needing an answer, open before the call or raised by it, the application exiting, or it turning unresponsive returns the call at once, its result arriving in finished of a later result. UXP bodies take their host module from require('<host>') (${Declarations.checked.join(', ')}), checked first against its declarations, which refuse a wrong member, type, read-only write, or enumeration value with a link to atelier://object-model/{host}/{name}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Scripted = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Completion)));
 const ResultJson = Schema.toCodecJson(Evaluation.Result);
-const Body = Schema.Struct({ code: Evaluation.fields.code.annotate({ description: 'Function body, return gives result' }) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -88,38 +88,35 @@ const routed = Effect.fnUntraced(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Effect<readonly Link[]>; readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof Script>, RpcClientError.RpcClientError>, Unmatched> }) {
-    const [server, { current, ends }, dictionaries, declarations] = yield* Effect.all([ApplicationServer, Inventory, Ref.make<Record.ReadonlyRecord<string, Option.Option<Runtime>>>({}), Declarations]);
+    const [server, rows, dictionaries, declarations] = yield* Effect.all([ApplicationServer, Installed, Ref.make<Record.ReadonlyRecord<string, Option.Option<Runtime>>>({}), Declarations]);
     const read = Effect.fnUntraced(function* (row: Application) {
         const known = Record.get(yield* Ref.get(dictionaries), row.url.href);
         const fresh = Effect.tap(routed(server.terms, row), (found) => Ref.update(dictionaries, Record.set(row.url.href, found)));
         return yield* Option.match(known, { onSome: Effect.succeed, onNone: () => fresh });
     });
-    yield* Server.registerTool(
-        Tool.make('execute_script', {
-            description: `Runs TypeScript function body in the target application through its newest runtime: a linked extension, do script uxpscript, or ExtendScript; returns its result as JSON, failures name the body line; a dialog needing an answer, open before the call or raised by it, the application exiting, or it turning unresponsive returns the call at once, its result arriving in finished of a later result. UXP bodies take their host module from require('<host>') (${Declarations.checked.join(', ')}), checked first against its declarations, which refuse a wrong member, type, read-only write, or enumeration value with a link to atelier://object-model/{host}/{name}`,
-            parameters: Body,
-            success: Evaluation.Result,
-        }).annotateMerge(Context.add(ends, Tool.OpenWorld, false)),
-        Effect.fnUntraced(function* ({ code }) {
-            const [{ row, live }, peers] = yield* Effect.all([current, links.peers]);
-            const serving = Predicate.and(Link.hosted(row), Link.serves(Script.requests.keys()));
-            const declared = yield* Option.match(Array.findFirst(peers, serving), { onSome: () => Effect.succeedSome<Runtime>({ _tag: 'Linked' }), onNone: () => read(row) });
-            const found = yield* Effect.fromOption(declared, () => new Cause.NoSuchElementError(`${row.name} declares no script command and links no extension`));
-            const plan = planned(found);
-            yield* declarations.check(row, plan.program(code), opened);
-            const built = yield* compiled(code, plan);
-            const linked = Effect.flatMap(links.call(serving, `linked extension of ${row.name}`), (client) => client('evaluate', { code: built.code, label: built.label }));
-            const scripted = server.execute({ instance: live.instance, arguments: { direct: built.direct, ...built.declared } }).pipe(
-                Effect.flatMap(({ reply }) => Effect.mapError(Schema.decodeUnknownEffect(Scripted)(reply), HostError.refused(`${row.name} script reply`))),
-                Effect.flatMap(Completion.answered(ResultJson, built.label)),
-            );
-            const unlinked = Effect.fail(HostError.of({ _tag: 'Unavailable' }, `linked Atelier extension running UXP scripts in ${row.name}`)());
-            const run: Effect.Effect<Effect.Success<typeof linked>, HostError | Error> = Match.valueTags(found, { Linked: () => linked, Unlinked: () => unlinked, Uxp: () => scripted, Script: () => scripted });
-            return yield* Effect.catchTag(run, 'HostError', built.relined);
-        }),
-    );
+    return Effect.fnUntraced(function* ({ row: { url, name }, live }: { readonly row: Entry; readonly live: RunningInstance }, code: string) {
+        const [listed, peers] = yield* Effect.all([SubscriptionRef.get(rows), links.peers]);
+        const row = yield* Effect.fromOption(
+            Array.findFirst(listed, (each) => each.url.href === url.href),
+            () => new Cause.NoSuchElementError(`${name} left the installed Adobe applications`),
+        );
+        const serving = Predicate.and(Link.hosted(row), Link.serves(Script.requests.keys()));
+        const declared = yield* Option.match(Array.findFirst(peers, serving), { onSome: () => Effect.succeedSome<Runtime>({ _tag: 'Linked' }), onNone: () => read(row) });
+        const found = yield* Effect.fromOption(declared, () => new Cause.NoSuchElementError(`${row.name} declares no script command and links no extension`));
+        const plan = planned(found);
+        yield* declarations.check(row, plan.program(code), opened);
+        const built = yield* compiled(code, plan);
+        const linked = Effect.flatMap(links.call(serving, `linked extension of ${row.name}`), (client) => client('evaluate', { code: built.code, label: built.label }));
+        const scripted = server.execute({ instance: live.instance, arguments: { direct: built.direct, ...built.declared } }).pipe(
+            Effect.flatMap((reply) => Effect.mapError(Schema.decodeUnknownEffect(Scripted)(reply), HostError.refused(`${row.name} script reply`))),
+            Effect.flatMap(Completion.answered(ResultJson, built.label)),
+        );
+        const unlinked = Effect.fail(HostError.of({ _tag: 'Unavailable' }, `linked Atelier extension running UXP scripts in ${row.name}`)());
+        const run: Effect.Effect<Effect.Success<typeof linked>, HostError | Error> = Match.valueTags(found, { Linked: () => linked, Unlinked: () => unlinked, Uxp: () => scripted, Script: () => scripted });
+        return yield* Effect.catchTag(run, 'HostError', built.relined);
+    });
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { scripts };
+export { DESCRIPTION, scripts };

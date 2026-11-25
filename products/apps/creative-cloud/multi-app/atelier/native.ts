@@ -2,11 +2,12 @@ import { glob } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Installation, type RunningInstance } from '@rasm/applications';
+import { Inventory } from '@rasm/applications/inventory';
 import type { Application } from '@rasm/creative-cloud-desktop';
 import { Link, Upstream } from '@rasm/mcp';
 import { HOSTS } from '@rasm/uxp';
 import { Array, Cause, Duration, Effect, FileSystem, Option, Record, Schema, Stream, SubscriptionRef } from 'effect';
-import { Inventory } from '#/applications';
+import { Installed } from '#/applications';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -26,7 +27,6 @@ const NATIVE: Record.ReadonlyRecord<string, Served> = {
     [HOSTS.premierepro.product]: { host: '127.0.0.1', ports: [3000], path: '/premiere/mcp', prefix: 'premiere_', settings: Option.none() },
     [HOSTS.ame.product]: { host: '[::1]', ports: [3001], path: '/ame/mcp', prefix: 'mediaencoder_', settings: Option.none() },
 };
-const POLL = Duration.minutes(1);
 const TOKEN = /\/AIMCPServer \{[^}]*\/AuthToken \[ \d+\s+(?<hex>[\da-f\s]+)\]/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -53,7 +53,7 @@ const bound =
 
 const native = Stream.unwrap(
     Effect.gen(function* () {
-        const { catalog, running, blocking } = yield* Inventory;
+        const [rows, { running, blocking }] = yield* Effect.all([Installed, Inventory]);
         const served = (row: Application, entry: Served) =>
             Upstream.mcp({
                 peer: Link.make({ application: row.url, extension: 'mcp', root: Option.none() }),
@@ -65,9 +65,9 @@ const native = Stream.unwrap(
                 }),
                 presence: Stream.map(SubscriptionRef.changes(running), (instances) => Option.isSome(bound(row, entry)(instances))),
                 annotations: blocking(row),
-                poll: POLL,
+                poll: Duration.minutes(1),
             });
-        return SubscriptionRef.changes(catalog).pipe(
+        return SubscriptionRef.changes(rows).pipe(
             Stream.map(Array.flatMap((row) => Option.toArray(Option.map(Record.get(NATIVE, row.product), (entry) => served(row, entry))))),
             Stream.switchMap(Array.match({ onEmpty: () => Stream.succeed([]), onNonEmpty: (upstreams) => Stream.map(Stream.zipLatestAll(...upstreams), Array.flatten) })),
         );
