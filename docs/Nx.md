@@ -13,6 +13,7 @@ Plugin globs, `targetDefaults` rows, and what Nx does with each:
 - Plugin `include` and `exclude` rows of `nx.json` limit the graph alone, as `nx affected` matches changed files against raw `createNodes` globs
 - Root `.gitignore` and root `.nxignore` alone keep a changed file out of `nx affected`
 - `targetDefaults` keys take an array of rows with `filter.projects`, tags included, and merge into inferred targets without creating one
+- Configuration options merge over a target's default options, so plugins state an option in each configuration its default value is wrong for
 - `"..."` in a `targetDefaults` `dependsOn` keeps the entries a plugin inferred
 - `dependsOn` entries naming projects by a pattern matching none warn "misconfigured" per task
 - `{ "projects": "*", "target": "<target>" }` resolves silently to every project holding the target, and none where no graph project holds it
@@ -22,6 +23,8 @@ Plugin globs, `targetDefaults` rows, and what Nx does with each:
 
 Task hash contents:
 - Input files hash whole, and JSON files alone take a field filter
+- Each file belongs to the deepest project holding it, and a `{projectRoot}` fileset matches a project's own files alone
+- Plugins name files a tool loads from below a project folder by `{workspaceRoot}`, as no plugin sees projects another plugin infers there
 - Each task hashes its project's root, tags, named inputs, and each target's name, executor, outputs, options, configurations, and parallelism
 - Target `dependsOn` and inputs stay out of other tasks' hashes
 - Inputs belong to a target and never to a configuration, and a task hash holds its configuration name and overrides
