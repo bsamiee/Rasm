@@ -1,15 +1,30 @@
 import { mkdirSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
+import { env } from 'node:process';
 import { createNodes } from '@rasm/nx-typescript';
-import { it, typescript } from '@rasm/testing/nx';
+import { it, taskGraph, typescript, type Workspace } from '@rasm/testing/nx';
+import { readNxJson } from 'nx/src/config/nx-json';
+import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';
-import { describe, expect, vi } from 'vitest';
+import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ROOT = { 'package.json': '{"name":"root","workspaces":["libs/*"]}', 'package-lock.json': '' };
+const ESLINT = { 'npm:eslint': { type: 'npm', name: 'npm:eslint', data: { packageName: 'eslint', version: '10.0.0' } } } as const;
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const hashed = async (workspace: Workspace, project: string) => {
+    const graph = { ...(await workspace.graph({ createNodes })), externalNodes: ESLINT };
+    const tasks = taskGraph(graph, [project], ['check--eslint']);
+    const task = tasks.tasks[`${project}:check--eslint`];
+    assert(task !== undefined, `${project}:check--eslint is a task of the graph`);
+    const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(task, tasks, env);
+    return value;
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -77,6 +92,48 @@ describe('eslint check inference', () => {
         const files = inspector.inspectTaskInputs({ project: 'app', target: 'check--eslint' })['app:check--eslint']?.files ?? [];
 
         expect([['eslint.config.mjs', 'tools/lint/files.mjs', 'libs/rules/index.mjs'].filter((file) => !files.includes(file)), files.includes('tools/lint/unused.mjs')]).toStrictEqual([[], false]);
+    });
+
+    it.for([
+        { case: 'a module the config imports from inside the folder of a project nested in its own', edit: { 'apps/app/sub/files.mjs': "export const files = ['**/*.ts', '**/*.mts'];\n" } },
+        { case: 'a module the config imports from a folder of its own outside the nested project', edit: { 'apps/app/lint/rules.mjs': "export const rules = { 'no-debugger': 'warn' };\n" } },
+        { case: 'the config directly in its own folder', edit: { 'apps/app/eslint.config.mjs': "import { files } from './sub/files.mjs';\nimport { rules } from './lint/rules.mjs';\n\nexport default [{ files, rules }, { ignores: ['dist'] }];\n" } },
+    ])('hashes check--eslint of a project holding another project again after an edit to $case', async ({ edit }, { workspace }) => {
+        workspace.install(typescript, import.meta.resolve('eslint/package.json')).write({
+            ...ROOT,
+            'apps/app/project.json': '{"name":"app"}',
+            'apps/app/eslint.config.mjs': "import { files } from './sub/files.mjs';\nimport { rules } from './lint/rules.mjs';\n\nexport default [{ files, rules }];\n",
+            'apps/app/lint/rules.mjs': "export const rules = { 'no-debugger': 'error' };\n",
+            'apps/app/index.ts': 'export {};',
+            'apps/app/sub/project.json': '{"name":"sub"}',
+            'apps/app/sub/files.mjs': "export const files = ['**/*.ts'];\n",
+        });
+        const before = await hashed(workspace, 'app');
+
+        const after = await hashed(workspace.write(edit), 'app');
+
+        expect(after).not.toBe(before);
+    });
+
+    it.for([
+        { case: 'a tsconfig its tsconfig extends from inside the folder of a project nested in its own', edit: { 'apps/app/sub/tsconfig.json': '{"compilerOptions":{"strict":false}}' } },
+        { case: 'a tsconfig its tsconfig extends from a folder of its own outside the nested project', edit: { 'apps/app/config/tsconfig.json': '{"extends":"../sub/tsconfig.json","compilerOptions":{"noEmit":true,"strict":true}}' } },
+    ])('hashes type-aware check--eslint of a project holding another project again after an edit to $case', async ({ edit }, { workspace }) => {
+        workspace.install(typescript, import.meta.resolve('eslint/package.json')).write({
+            ...ROOT,
+            'eslint.config.mjs': "export default [{ files: ['**/*.ts'], languageOptions: { parserOptions: { projectService: true } } }];\n",
+            'apps/app/project.json': '{"name":"app"}',
+            'apps/app/tsconfig.json': '{"extends":"./config/tsconfig.json","files":["index.ts"]}',
+            'apps/app/config/tsconfig.json': '{"extends":"../sub/tsconfig.json","compilerOptions":{"noEmit":true}}',
+            'apps/app/index.ts': 'export {};',
+            'apps/app/sub/project.json': '{"name":"sub"}',
+            'apps/app/sub/tsconfig.json': '{"compilerOptions":{"strict":true}}',
+        });
+        const before = await hashed(workspace, 'app');
+
+        const after = await hashed(workspace.write(edit), 'app');
+
+        expect(after).not.toBe(before);
     });
 
     it('reads the imports of a module the config imports again after it changes', async ({ workspace }) => {

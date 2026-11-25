@@ -6,9 +6,11 @@ import { env } from 'node:process';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
 import { Install } from '@rasm/nx-apple/executors/install';
 import { execute, Run } from '@rasm/nx-apple/executors/run';
-import { it as nx, outputs, targetOptions, unaggregated, unportable } from '@rasm/testing/nx';
+import { it as nx, outputs, targetOptions, taskGraph, unaggregated, unportable } from '@rasm/testing/nx';
 import { Array, Effect, Option, Predicate, Record, Schema } from 'effect';
-import { describe, expect, vi } from 'vitest';
+import { readNxJson } from 'nx/src/config/nx-json';
+import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
+import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => {
     const { cwd } = await import('node:process');
@@ -233,6 +235,27 @@ describe('Xcode projects and their shared schemes', () => {
         const hashed = graph.nodes['Viewer']?.data.targets?.['build--xcodebuild']?.inputs?.filter(Predicate.isString) ?? [];
 
         expect(['libs/Middle', 'libs/Core', 'libs/Loose', 'apps/Tool', 'libs/tests/CoreTests'].filter((folder) => hashed.includes(join('{workspaceRoot}', folder, '**/*')))).toStrictEqual(['libs/Middle', 'libs/Core']);
+    });
+
+    it.for([
+        { case: 'inside the folder of a project another plugin infers nested in its own', nested: { 'apps/Viewer/Sources/project.json': '{"name":"ViewerSources"}' } },
+        { case: 'in a folder of its own', nested: {} },
+    ])('hashes build--xcodebuild again after an edit to a source of a build file folder $case', async ({ nested }, { workspace }) => {
+        workspace.write({ '.gitignore': '.build\n', ...Record.filter(PACKAGES, (_, at) => !at.startsWith('packages/') && !at.startsWith(SHELL)), ...XCODE, ...nested });
+        const hashed = async () => {
+            const graph = await workspace.graph({ createNodes, createDependencies });
+            const tasks = taskGraph(graph, ['Viewer'], ['build--xcodebuild'], 'debug');
+            const task = tasks.tasks['Viewer:build--xcodebuild:debug'];
+            assert(task !== undefined, 'Viewer:build--xcodebuild:debug is a task of the graph');
+            const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(task, tasks, env);
+            return value;
+        };
+        const before = await hashed();
+
+        workspace.write({ 'apps/Viewer/Sources/ViewerApp.swift': 'import SwiftUI\n\n@main\nstruct ViewerApp: App {\n    var body: some Scene {\n        WindowGroup { Text("edited") }\n    }\n}\n' });
+        const after = await hashed();
+
+        expect(after).not.toBe(before);
     });
 
     it('lands the application its install command builds at /Applications/Viewer.app, as xcodebuild resolves that command', async ({ fixture: { root, graph } }) => {

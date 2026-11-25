@@ -3,7 +3,7 @@ import { join, posix, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { hashArray, normalizePath, type PackageManager, type TargetConfiguration } from '@nx/devkit';
 import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, isRelativePath, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { above, EXEC, packaged, stamped, tokened } from '@rasm/nx';
+import { above, EXEC, packaged, stamped } from '@rasm/nx';
 import { Array, Cause, Effect, Filter, Option, Record, Result, Schema, Stream } from 'effect';
 import type { ESLint } from 'eslint';
 import { connected } from '#/programs';
@@ -75,7 +75,7 @@ const inspected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: 
                 command: root === scope ? 'eslint .' : `eslint ./${scope}`,
                 options: { cwd: root },
                 cache: true,
-                inputs: ['default', ...(typed ? ['^default'] : []), ...files.map(tokened(root)), ...Array.match(linked, { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects: [...projects] }] }), { externalDependencies: [...packages] }],
+                inputs: ['default', ...(typed ? ['^default'] : []), ...Array.cartesianWith(['{workspaceRoot}'], files, posix.join), ...Array.match(linked, { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects: [...projects] }] }), { externalDependencies: [...packages] }],
                 outputs: [],
                 metadata: { description: `Lints the files ${at} governs in the project with eslint`, help: { command: `${EXEC[manager]} eslint --help`, example: { args: ['--max-warnings', '0'] } } },
             }));

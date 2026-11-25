@@ -1,7 +1,7 @@
 import { basename, dirname, join, posix } from 'node:path';
 import { type CreateNodes, createNodesFromFiles, detectPackageManager, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { hashObject } from '@nx/devkit/internal';
-import { anchored, fingerprinted, inferring, inside, run, tagged, tokened } from '@rasm/nx';
+import { anchored, fingerprinted, inferring, owned, run, tagged } from '@rasm/nx';
 import { Array, Combiner, Effect, FileSystem, Match, Option, Order, Predicate, Record, type Result, Schema } from 'effect';
 import { linted } from '#/eslint';
 import { compiled, CONFIG, programmed } from '#/programs';
@@ -42,7 +42,7 @@ const nodes = inferring(Options, run, function* (files, settings, context, cache
     const programs = yield* programmed(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), row, manager, held, nested);
     const standalone = yield* Effect.findFirst(listed.has(MANIFEST) ? ['src', 'lib'] : [], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at))));
     const lints = yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), manager, installed('eslint', join(workspaceRoot, MANIFEST)) ? [...held.values().map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))] : [], row);
-    const chained = (root: string) => Array.fromOption(Option.flatMap(Option.fromUndefinedOr(programs.get(posix.join(root, CONFIG))), Option.getSuccess)).flatMap(({ chain }) => chain.filter(Predicate.not(inside(root))).map(tokened(root)));
+    const chained = (root: string) => Array.fromOption(Option.flatMap(Option.fromUndefinedOr(programs.get(posix.join(root, CONFIG))), Option.getSuccess)).flatMap(({ chain }) => Array.cartesianWith(['{workspaceRoot}'], chain.filter(Predicate.not(owned(root))), posix.join));
     const read = Effect.fnUntraced(function* (file: string) {
         const root = dirname(file);
         const described = yield* looked(manifests, root);

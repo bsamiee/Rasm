@@ -178,7 +178,7 @@ const worker = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageMana
                     command: typed ? 'cf workers types --include-runtime=false' : 'cf workers types',
                     options: { cwd: root },
                     cache: true,
-                    inputs: [...sources.map(tokened(root)), { externalDependencies: ['cf'] }],
+                    inputs: [...Array.cartesianWith(['{workspaceRoot}'], sources, posix.join), { externalDependencies: ['cf'] }],
                     outputs: ['{projectRoot}/.cloudflare/types'],
                     metadata: {
                         description: typed ? `Generates the Worker binding types from ${WORKER} with cf workers types, runtime types coming from @cloudflare/workers-types` : `Generates the Worker binding and runtime types from ${WORKER} with cf workers types`,

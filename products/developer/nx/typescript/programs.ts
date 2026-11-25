@@ -120,13 +120,18 @@ const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler:
 const compiled =
     (root: string, stated: Stated, packages: readonly string[], linted: boolean, synced: boolean, manager: PackageManager, anchor: Anchor) =>
     ({ commands, configs, outputs, informed, sources, ignored }: Program): Option.Option<ProjectConfiguration> => {
-        const [token, unlisted] = [tokened(root), new Set(ignored)];
+        const [token, unlisted] = [tokened(root), new Set(Array.cartesianWith(['{workspaceRoot}'], ignored, posix.join))];
         const tsc = {
             executor: 'nx:run-commands',
             options: { commands, cwd: root, parallel: false },
             dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'],
             cache: true,
-            inputs: [...Array.dedupe([posix.join(root, MANIFEST), ...sources]).map((at) => (unlisted.has(at) ? { fileset: token(at), includeIgnored: true } : token(at))), `^{projectRoot}/${MANIFEST}`, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts}', transitive: true }, { externalDependencies: [...packages] }],
+            inputs: [
+                ...Array.dedupe(Array.cartesianWith(['{workspaceRoot}'], [posix.join(root, MANIFEST), ...sources], posix.join)).map((fileset) => (unlisted.has(fileset) ? { fileset, includeIgnored: true } : fileset)),
+                `^{projectRoot}/${MANIFEST}`,
+                { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts}', transitive: true },
+                { externalDependencies: [...packages] },
+            ],
             ...(synced && { syncGenerators: ['@nx/js:typescript-sync'] }),
         } satisfies TargetConfiguration;
         const cleaned = (removed: string) => ({

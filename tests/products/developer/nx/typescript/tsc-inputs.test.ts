@@ -1,9 +1,9 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { env } from 'node:process';
-import type { ProjectGraph } from '@nx/devkit';
+import type { CreateNodes, ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-typescript';
 import { it, taskGraph, typescript, type Workspace } from '@rasm/testing/nx';
 import { readNxJson } from 'nx/src/config/nx-json';
@@ -169,6 +169,53 @@ describe('check--tsc hashes the files tsc reads', () => {
 
         expect(built).toContain('libs/lib/tsconfig.json');
         expect(built.filter((config) => !hashed.has(config))).toStrictEqual([]);
+    });
+
+    it.for([
+        { case: 'a source inside the folder of a project.json project nested in its own', nested: { 'libs/lib/sub/project.json': '{"name":"sub"}' }, edit: 'libs/lib/sub/index.ts' },
+        {
+            case: 'a source inside the folder of a workspace package with its own program nested in its own',
+            nested: { 'package.json': '{"name":"root","workspaces":["libs/*","libs/lib/sub"]}', 'libs/lib/sub/package.json': '{"name":"sub"}', 'libs/lib/sub/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"noEmit":true}}' },
+            edit: 'libs/lib/sub/index.ts',
+        },
+        { case: 'a source inside the folder of a project another plugin infers nested in its own', nested: { 'libs/lib/sub/Cargo.toml': '[package]\nname = "sub"\n' }, edit: 'libs/lib/sub/index.ts' },
+        { case: 'a source in a folder of its own outside the nested project', nested: { 'libs/lib/sub/project.json': '{"name":"sub"}' }, edit: 'libs/lib/src/index.ts' },
+        { case: 'a source directly in its own folder', nested: { 'libs/lib/sub/project.json': '{"name":"sub"}' }, edit: 'libs/lib/index.ts' },
+    ])('hashes check--tsc of a project holding another project again after an edit to $case', async ({ nested, edit }, { workspace }) => {
+        const crated: CreateNodes = [
+            '**/{tsconfig.json,package.json,project.json,Cargo.toml}',
+            async (files, options, context) => [
+                ...(await createNodes[1](
+                    files.filter((file) => basename(file) !== 'Cargo.toml'),
+                    options,
+                    context,
+                )),
+                ...files.filter((file) => basename(file) === 'Cargo.toml').map((file) => [file, { projects: { [dirname(file)]: { root: dirname(file), name: 'crate' } } }] as const),
+            ],
+        ];
+        workspace.install(typescript).write({
+            ...LIB,
+            'libs/lib/tsconfig.json': '{"include":["**/*.ts"],"compilerOptions":{"noEmit":true}}',
+            'libs/lib/index.ts': 'export const own = 1;\n',
+            'libs/lib/src/index.ts': 'export const src = 1;\n',
+            'libs/lib/sub/index.ts': 'export const sub = 1;\n',
+            ...nested,
+        });
+        const hashed = async () => {
+            const graph = { ...(await workspace.graph({ createNodes: crated })), externalNodes: TYPESCRIPT };
+            const tasks = taskGraph(graph, ['lib'], ['check--tsc']);
+            const task = tasks.tasks['lib:check--tsc'];
+            assert(task !== undefined, 'lib:check--tsc is a task of the graph');
+            const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(task, tasks, env);
+            return value;
+        };
+        const before = await hashed();
+
+        workspace.write({ [edit]: 'export const changed = 2;\n' });
+        const after = await hashed();
+
+        expect(listed(workspace, 'libs/lib', 'tsconfig.json')).toContain(edit);
+        expect(after).not.toBe(before);
     });
 
     it("hashes the declarations tsc reads in place of a referenced project's sources through its build outputs, each upstream manifest, and sources imported without a reference, and no other upstream file", async ({ workspace }) => {
