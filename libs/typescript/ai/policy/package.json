@@ -1,0 +1,50 @@
+{
+    "name": "@rasm/policy",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Judgments of agent tool calls by named rule tables over the call and its shell script, answered as pass, refuse, or rewrite",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/ai/policy"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./policy.ts",
+        "./claude": "./claude/host.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/policy.js",
+            "./claude": "./dist/claude/host.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@rasm/shell": "workspace:*",
+        "sh-syntax": "catalog:"
+    },
+    "devDependencies": {
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    }
+}

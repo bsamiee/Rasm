@@ -213,9 +213,6 @@
             "path": "./libs/typescript/creative-cloud/desktop"
         },
         {
-            "path": "./tests/plugins/claude/function-hooks"
-        },
-        {
             "path": "./tests/libs/typescript/creative-cloud/extendscript"
         },
         {
@@ -259,6 +256,18 @@
         },
         {
             "path": "./libs/typescript/developer/nx"
+        },
+        {
+            "path": "./tests/libs/typescript/runtime/shell"
+        },
+        {
+            "path": "./libs/typescript/runtime/shell"
+        },
+        {
+            "path": "./tests/libs/typescript/ai/policy"
+        },
+        {
+            "path": "./libs/typescript/ai/policy"
         }
     ]
 }

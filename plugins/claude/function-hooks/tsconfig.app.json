@@ -1,11 +1,13 @@
 {
     "extends": "./tsconfig.json",
-    "compilerOptions": { "types": ["node"] },
-    "include": ["**/*", ".claude-plugin/plugin.json"],
-    "exclude": ["hooks", "types"],
+    "include": ["**/*"],
+    "exclude": ["vite.config.ts"],
     "references": [
         {
-            "path": "../../../libs/typescript/runtime/telemetry"
+            "path": "../../../libs/typescript/ai/policy"
+        },
+        {
+            "path": "../../../libs/typescript/developer/nx"
         }
     ]
 }

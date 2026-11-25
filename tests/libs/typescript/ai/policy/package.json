@@ -1,0 +1,19 @@
+{
+    "name": "@rasm/test-policy",
+    "private": true,
+    "description": "@rasm/policy suites over real parsed scripts and git command lines, and its Claude host in the engine's own test kit",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/policy": "workspace:*",
+        "@rasm/shell": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "sh-syntax": "catalog:",
+        "vitest": "catalog:"
+    }
+}

@@ -1,124 +1,116 @@
-import { Array, Effect, Option } from 'effect';
-import type { Host } from '#/host';
-import { Verdict } from '#/rules/decision';
-import { deleted, edited, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, refusal, silent, unassign, when } from '#/rules/rule';
+import { Array, Effect, FileSystem, Option, Path } from 'effect';
+import { type Editor, foreground, is, leaves, matches, named, nearest, operand, type Script, type Table, texts } from '#/rules/rule';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const HEADLESS = 'analyzeHeadless';
-const PROJECT_VARIABLE = 'GHIDRA_PROJECT_DIR';
-const PROJECT_WORD = `"$${PROJECT_VARIABLE}"`;
-const SERVE = 'Serve.java';
-const HEAP = /^GHIDRA_(?:HEADLESS_)?MAXMEM(?:=|$)/u;
-const PROJECT_REFERENCE = new RegExp(`^"?\\$\\{?${PROJECT_VARIABLE}\\}?"?$`, 'u');
-const PROJECT_PATH = /^(?<base>.*?)\.(?:gpr|rep)(?:\/|$)/u;
-const PROJECT_FILE = /^(?<base>.*)\.gpr$/u;
-const LOCK = /^(?:(?<stem>[^/]+?)\.?)?lock[*~]*$/u;
-const LOGS = { '-log': 'ghidra.log', '-scriptlog': 'ghidra-script.log' };
+const headless = 'analyzeHeadless';
+const heap = /^GHIDRA_(?:HEADLESS_)?MAXMEM$/u;
+const project = /\.(?:gpr|rep)(?:\/|$)/u;
+const lock = /^(?<stem>[^/]+?)\.?lock[*~]*$/u;
+const logs = [
+    ['-log', 'ghidra.log'],
+    ['-scriptlog', 'ghidra-script.log'],
+] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const group = (pattern: RegExp, text: string, name: string) => Option.fromNullishOr(pattern.exec(text)?.groups?.[name]);
-
-const projectBases = Effect.fnUntraced(function* (host: Host['Service'], folder: string, stem: Option.Option<string>) {
-    const named = group(PROJECT_PATH, folder, 'base');
-    const files = Option.isSome(named) ? [] : yield* Effect.orElseSucceed(host.fs.readDirectory(folder), (): readonly string[] => []);
-    return [...Option.toArray(named), ...files.flatMap((file) => Option.toArray(Option.filter(group(PROJECT_FILE, file, 'base'), (base) => Option.isNone(stem) || Option.contains(stem, base)))).map((base) => host.path.join(folder, base))];
-});
-
-const lockDeletion = (...base: readonly string[]): Rule =>
-    Effect.fnUntraced(function* (invocation, call) {
-        const { host } = call;
-        const { words, start, patterns } = deleted(invocation, call, ...base);
-        const shared = yield* host.environment(PROJECT_VARIABLE);
-        const locks = Array.getSomes(words.filter(({ known }) => known).map(({ text }) => host.resolve(text, start)))
-            .flatMap((target) => (patterns.length === 0 ? [target] : patterns.map((pattern) => host.path.join(target, pattern))))
-            .filter((target) => LOCK.test(host.path.basename(target)));
-        const bases = yield* Effect.forEach(locks, (lock) => projectBases(host, host.path.dirname(lock), group(LOCK, host.path.basename(lock), 'stem')));
-        return Array.zip(locks, bases)
-            .flatMap(([lock, found]) => found.map((project) => [host.path.basename(lock), `${project}.lock~`] as const))
-            .flatMap(([leaf, held]) => {
-                const shown = Option.match(
-                    Option.filter(shared, (folder) => host.inside(held, folder)),
-                    { onNone: () => quote(held), onSome: (folder) => `"$${PROJECT_VARIABLE}/${host.path.relative(folder, held)}"` },
-                );
-                return refusal(`${invocation.program} ${leaf} deletes Ghidra lock, run lsof -t ${shown}`);
-            });
-    });
-
-const projectCopy: Rule = Effect.fnUntraced(function* (invocation, { host }) {
-    const sources = Array.getSomes(invocation.inputs.slice(0, -1).map(({ text }) => host.resolve(text, invocation.command.cwd))).filter((folder) => invocation.has('-R', '-r', '-a') || PROJECT_PATH.test(folder));
-    const bases = yield* Effect.forEach(sources, (folder) => projectBases(host, folder, Option.none()));
-    return bases.flat().flatMap((base) => refusal(`${invocation.program} copies Ghidra project ${host.path.basename(base)}, use its ${SERVE}`));
-});
-
-const heapAssigned: Rule = (_invocation, { analysis: { commands, declarations } }) => {
-    const removals = declarations.flatMap((declaration) => {
-        const heap = declaration.assigns.filter(({ name }) => HEAP.test(name));
-        const spans = heap.length === declaration.assigns.length ? Option.toArray(listed(declaration.source, declaration)) : heap;
-        return declaration.origin === 'call' && heap.length > 0 && spans.length > 0 ? [{ heap, spans }] : [];
-    });
-    const removed = new Set(removals.flatMap(({ heap }) => heap.map(({ name }) => name)));
-    return [
-        ...removals.flatMap(({ heap, spans }) => spans.map(({ start, end }) => Verdict.Edit({ start, end, text: Option.none(), subject: Option.some(heap.map(({ name }) => name).join(' ')) }))),
-        ...Array.dedupe(commands.values().flatMap(({ variables }) => variables.keys())).flatMap((name) => (HEAP.test(name) && !removed.has(name) ? refusal(`${name} overrides the ${HEADLESS} heap, remove it`) : [])),
-    ];
+const heaped = (stmt: Option.Option.Value<Effect.Success<Script['invocations']>[number]['node']>): readonly Parameters<Editor['remove']>[0][] => {
+    const assigns = stmt.cmd?.type === 'CallExpr' ? stmt.cmd.assigns : [];
+    const declared = stmt.cmd?.type === 'DeclClause' ? stmt.cmd.args : [];
+    const held = [...assigns, ...declared].filter(({ name }) => heap.test(name?.value ?? ''));
+    return Array.isReadonlyArrayNonEmpty(declared) && held.length === declared.length ? [stmt] : held;
 };
 
-const projectLocation: Rule = Effect.fnUntraced(function* (invocation, { host }) {
-    const shared = Option.flatMap(yield* host.environment(PROJECT_VARIABLE), (folder) => host.resolve(folder, Option.none()));
-    const [location] = invocation.operands;
-    if (location === undefined || PROJECT_REFERENCE.test(location.raw)) {
-        return [];
-    }
-    const stated = Option.exists(host.resolve(location.text, invocation.command.cwd), (folder) => Option.contains(shared, folder));
-    const moved = edited(invocation, location, PROJECT_WORD, `${HEADLESS} ${location.raw}`);
-    return stated ? silent(moved) : moved;
-});
-
-const logFiles: Rule = (invocation, { host }) =>
-    Object.entries(LOGS).flatMap(([flag, file]) => {
-        const log = quote(`${host.root}/.artifacts/logs/${file}`);
-        const given = invocation.args.find(({ names }) => names.includes(flag));
-        const value = given?.words[1];
-        if (given === undefined) {
-            return inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` ${flag} ${log}`);
-        }
-        return value === undefined || value.raw === log ? [] : edited(invocation, value, log);
-    });
-
-const concurrentRuns: Rule = (invocation, { analysis: { invocations, jobs } }) => {
-    const [, name] = invocation.operands;
-    const socket = name?.known === true ? name.text : '<name>';
-    const headless = invocations.filter(({ program }) => program === HEADLESS);
-    const backgrounded = jobs.filter((job) => headless.some(({ command }) => command.end === job.start && command.origin === 'call'));
-    const chained = invocation.has('-import') && invocations.some(({ program }) => program === 'wait') && backgrounded.length === jobs.length && headless.every(({ has }) => has('-import'));
-    if (!(invocation.repeated || (jobs.length > 0 && headless.length > 1))) {
-        return [];
-    }
-    if (chained && !invocation.repeated) {
-        return backgrounded.map(({ start, end }) => Verdict.Edit({ start, end, text: Option.some('&&'), subject: Option.some(`${HEADLESS} -import &`) }));
-    }
-    return refusal(invocation.has('-import') ? `${HEADLESS} runs concurrently, chain each -import with &&` : `${HEADLESS} runs concurrently, send runs to nc -U "$${PROJECT_VARIABLE}/${socket}.sock"`);
-};
-
-const longRun: Rule = (invocation, { request, host }) => (request.kind === 'foreground' && (invocation.has('-import') || invocation.values('-postScript').some((script) => host.path.basename(script) === SERVE)) ? [Verdict.Background()] : []);
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-const GHIDRA: Ruleset = {
-    programs: {
-        [HEADLESS]: {
-            flags: ['-log=', '-scriptlog=', '-scriptPath=', '-propertiesPath=', '-processor=', '-cspec=', '-analysisTimeoutPerFile=', '-keystore=', '-max-cpu=', '-librarySearchPaths=', '-loader=', '-postScript=', '-preScript=', '-import='],
-            rules: [unassign(HEAP), heapAssigned, projectLocation, when(({ operands }) => operands.length > 0, logFiles), concurrentRuns, longRun],
-        },
-        cp: { aliases: ['rsync'], rules: [projectCopy] },
-        rm: { rules: [lockDeletion()] },
-        find: { rules: [when(({ has }) => has('-delete'), lockDeletion())] },
-        git: { rules: [perSubcommand({ rm: [when(({ has }) => !has('--cached'), lockDeletion('-C'))] })] },
+const ghidra: Table = {
+    'ghidra.heap': {
+        script: true,
+        judge: Effect.fnUntraced(function* (script) {
+            const all = leaves(yield* script.invocations);
+            const stmts = Array.dedupe(all.flatMap(({ node }) => Option.toArray(node)));
+            const removed = stmts.flatMap(heaped);
+            const words = all.filter((invocation) => is(invocation, 'env')).flatMap(({ operands }) => operands.filter(({ word, roles }) => roles.includes('assignment') && matches(word, /^GHIDRA_(?:HEADLESS_)?MAXMEM=/u)).flatMap(({ word }) => Option.toArray(word.node)));
+            const runs = all.some((invocation) => is(invocation, headless));
+            return runs && (Array.isReadonlyArrayNonEmpty(removed) || Array.isReadonlyArrayNonEmpty(words))
+                ? [{ edit: (editor: Editor) => [...removed.map((target) => editor.remove(target)), ...words.map((word) => editor.remove(word))] }, { note: `GHIDRA_MAXMEM left the call, as ${headless} sizes its own heap.`, once: 'agent' as const }]
+                : [];
+        }),
     },
-};
+    'ghidra.project': {
+        program: headless,
+        judge: Effect.fnUntraced(function* (invocation, { script, cwd }) {
+            const path = yield* Path.Path;
+            const folder = Option.map(Option.fromUndefinedOr(script.dialect.environment['GHIDRA_PROJECT_DIR']), (given) => path.resolve(given));
+            const location = Option.all([Option.flatMap(Array.head(invocation.operands), ({ word }) => word.node), operand(invocation)]);
+            return Option.match(
+                Option.filter(Option.all([folder, location]), ([shared, [, text]]) => path.resolve(cwd, text) !== shared),
+                {
+                    onNone: () => [],
+                    onSome: ([shared, [word, text]]) => [{ edit: (editor: Editor) => [editor.replace(word, Array.of(shared))] }, { note: `${headless} ${text} became ${shared}, the project folder every session shares.`, once: 'agent' as const }],
+                },
+            );
+        }),
+    },
+    'ghidra.logs': {
+        program: headless,
+        judge: Effect.fnUntraced(function* (invocation, { cwd }) {
+            const root = yield* nearest(cwd, '.git');
+            const words = Option.getOrElse(texts(invocation.words), (): readonly string[] => []);
+            const last = Option.flatMap(Array.last(invocation.words), ({ node }) => node);
+            const wanted = Option.toArray(root).flatMap((folder) => logs.map(([flag, file]) => ({ flag, log: `${folder}/.artifacts/logs/${file}`, at: words.indexOf(flag) })));
+            const added = wanted.filter(({ at }) => at === -1).flatMap(({ flag, log }) => [flag, log]);
+            const moved = wanted.filter(({ at, log }) => at >= 0 && words[at + 1] !== log).flatMap(({ at, log }) => Option.toArray(Option.flatMap(Array.get(invocation.words, at + 1), ({ node }) => node)).map((word) => [word, log] as const));
+            return Option.match(
+                Option.filter(last, () => invocation.operands.length > 0 && (Array.isReadonlyArrayNonEmpty(added) || Array.isReadonlyArrayNonEmpty(moved))),
+                {
+                    onNone: () => [],
+                    onSome: (word) => [{ edit: (editor: Editor) => [...moved.map(([target, log]) => editor.replace(target, Array.of(log))), ...Array.match(added, { onEmpty: () => [], onNonEmpty: (given) => [editor.after(word, given)] })] }],
+                },
+            );
+        }),
+    },
+    'ghidra.concurrent': {
+        script: true,
+        judge: Effect.fnUntraced(function* (script) {
+            const invocations = yield* script.invocations;
+            const runs = leaves(invocations).filter((invocation) => is(invocation, headless));
+            const concurrent = runs.some(({ repeated }) => Option.isSome(repeated)) || (runs.length > 1 && invocations.some(({ background }) => background));
+            const importing = runs.some((invocation) => Option.exists(texts(invocation.words), (words) => words.includes('-import')));
+            const socket = Option.getOrElse(
+                Option.flatMap(Array.head(runs), (run) => operand(run, 1)),
+                () => '<name>',
+            );
+            return concurrent ? [{ refuse: `${headless} runs concurrently on one project, and Ghidra locks a project to one run.`, instruct: importing ? 'Chain each -import with &&.' : `Send the runs to the project's Serve.java with nc -U "$GHIDRA_PROJECT_DIR/${socket}.sock".` }] : [];
+        }),
+    },
+    'ghidra.long': {
+        program: headless,
+        judge: (invocation, call) => {
+            const words = Option.getOrElse(texts(invocation.words), (): readonly string[] => []);
+            const long = words.includes('-import') || words.some((word, at) => words[at - 1] === '-postScript' && word.endsWith('Serve.java'));
+            return foreground(call) && long ? [{ run: 'background' as const }] : [];
+        },
+    },
+    'ghidra.copy': {
+        program: 'cp',
+        aliases: ['rsync', 'ditto'],
+        judge: (invocation) =>
+            Array.dedupe(invocation.reads.flatMap(({ text }) => Option.toArray(text)).filter((file) => project.test(file))).map((file) => ({
+                refuse: `${Option.getOrElse(named(invocation), () => 'cp')} copies the Ghidra project ${file}, which a running Ghidra rewrites under its lock.`,
+                instruct: "Read it through the project's Serve.java.",
+            })),
+    },
+    'ghidra.lock': {
+        script: true,
+        judge: Effect.fnUntraced(function* (script) {
+            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            const deleted = Array.dedupe(leaves(yield* script.invocations).flatMap(({ deletes }) => deletes.flatMap(({ text }) => Option.toArray(text))));
+            const locks = deleted.flatMap((file) => Array.fromNullishOr(lock.exec(path.basename(file))?.groups?.['stem']).map((stem) => ({ file, gpr: path.join(path.dirname(file), `${stem.replace(/\.gpr$/u, '')}.gpr`) })));
+            const held = yield* Effect.filter(locks, ({ gpr }) => Effect.orElseSucceed(fs.exists(gpr), () => false));
+            return held.map(({ file, gpr }) => ({ refuse: `Deleting ${file} drops the lock of the Ghidra project ${gpr} while a run may hold it.`, instruct: `Run lsof -t ${file} to find the run that holds it.` }));
+        }),
+    },
+} satisfies Table;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { GHIDRA };
+export { ghidra };

@@ -1,0 +1,62 @@
+{
+    "name": "@rasm/shell",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Shell scripts read, built, walked, and edited by syntax under the dialect the host shell runs them in, with what is known of each program",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/runtime/shell"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts",
+        "usage/*.json"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts",
+        "#/*.json": "./*.json"
+    },
+    "exports": {
+        ".": "./shell.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js",
+            "#/*.json": "./*.json"
+        },
+        "exports": {
+            ".": "./dist/shell.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "sh-syntax": "catalog:"
+    },
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    },
+    "nx": {
+        "targets": {
+            "codegen": {
+                "command": "node usage/codegen.ts",
+                "options": {
+                    "cwd": "{projectRoot}"
+                },
+                "cache": false
+            }
+        }
+    }
+}

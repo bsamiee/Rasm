@@ -22,7 +22,7 @@ __pycache__/
 .cloudflare/
 /plugins/**/evals/results/
 dist/
-plugins/claude/function-hooks/types/claude-code
+libs/typescript/ai/policy/claude/types/claude-code
 storybook-static/
 
 # --- [SNAPSHOTS]

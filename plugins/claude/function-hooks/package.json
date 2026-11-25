@@ -4,24 +4,14 @@
     "description": "Claude Code hooks that rewrite or refuse agent tool calls",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
-        "#/*.json": "./*.json"
-    },
-    "exports": {
-        "./claude/server": "./claude/server.ts",
-        "./rules/decide": "./rules/decide.ts",
-        "./rules/decision": "./rules/decision.ts",
-        "./rules/git": "./rules/git.ts",
-        "./package.json": "./package.json"
-    },
-    "dependencies": {
-        "@effect/platform-node": "catalog:",
-        "@nx/devkit": "catalog:",
-        "@rasm/telemetry": "workspace:*",
-        "effect": "catalog:",
-        "sh-syntax": "catalog:"
+        "#/*": "./*.ts"
     },
     "devDependencies": {
-        "@types/node": "catalog:"
+        "@rasm/nx": "workspace:*",
+        "@rasm/policy": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "sh-syntax": "catalog:",
+        "vite": "catalog:"
     }
 }

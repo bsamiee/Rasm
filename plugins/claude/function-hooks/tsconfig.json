@@ -2,5 +2,5 @@
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": { "noEmit": true },
     "files": [],
-    "references": [{ "path": "./tsconfig.app.json" }, { "path": "./hooks" }]
+    "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
 }

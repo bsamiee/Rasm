@@ -25,7 +25,6 @@ Rasm/
 ├── tests/                    # Suites by the category of what they test
 │   ├── products/
 │   ├── libs/
-│   ├── plugins/
 │   ├── tools/
 │   ├── e2e/                  # Suites against a served or installed product
 │   └── support/              # Test harnesses by language
@@ -68,7 +67,7 @@ Rasm/
 ├── .claude/
 ├── .claude-plugin/           # Claude Code marketplace of plugins/
 ├── .codex/
-├── .agents/                  # Codex marketplace and Antigravity registry of plugins/
+├── .agents/                  # Codex marketplace of plugins/
 ├── .vscode/
 ├── CLAUDE.md                 # Agent standards, linked as AGENTS.md
 ├── LICENSE

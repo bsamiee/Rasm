@@ -26,6 +26,7 @@
         "no-magic-numbers": "off", // Constants stay only where they remove logic, CLAUDE.md
         "no-param-reassign": ["error", { "props": true }],
         "no-redeclare": "off", // Flags value and type pairs of one name, `tsc` reports redeclarations
+        "no-template-curly-in-string": "off", // Flags shell parameter expansions written as the string they are
         "no-restricted-globals": [
             "error",
             { "name": "Buffer", "message": "Import `Buffer` from `node:buffer`, so the load graph sees the host module" },
@@ -76,7 +77,7 @@
         "import/max-dependencies": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
         "import/no-named-export": "off", // With `import/no-default-export` no export remains
         "import/no-nodejs-modules": "off", // Scoped to browser code, `no-restricted-globals` requires `node:` imports
-        "import/no-unassigned-import": ["error", { "allow": ["**/*.css", "pdfjs-dist", "core-js/modules/*"] }],
+        "import/no-unassigned-import": ["error", { "allow": ["**/*.css", "pdfjs-dist", "core-js/modules/*", "sh-syntax/vendors/wasm_exec"] }],
         "import/prefer-default-export": "off", // Contradicts `import/no-default-export`
 
         // --- [JSX_A11Y]
@@ -208,14 +209,16 @@
         { "files": ["products/developer/nx/**"], "rules": { "unicorn/require-post-message-target-origin": "off" } }, // Worker `postMessage` takes no `targetOrigin`
         { "files": ["**/*.tsx"], "rules": { "react/rules-of-hooks": "error" } },
         {
-            "files": ["plugins/*/*/hooks/**"],
+            "files": ["plugins/*/*/hooks/**", "libs/typescript/ai/policy/claude/**"],
             "rules": {
+                "func-style": "off", // Claude Code passes `$` and `on` only to a `function` declaration
                 "node/callback-return": "off", // Hooks await `next`, a `claude-code` continuation
                 "promise/no-callback-in-promise": "off", // Hooks await `next`, a `claude-code` continuation
-                "typescript/no-unsafe-assignment": "off", // Hooks modules import `claude-code` alone, so no decoder types the `JSON.parse` of a server reply
+                "typescript/triple-slash-reference": ["error", { "path": "always" }], // The engine declarations are an ambient module no import names
                 "unicorn/catch-error-name": "off" // Reads the engine `$` a `claude-code` `on(...).catch` handler takes first as a rejection value
             }
         },
+        { "files": ["libs/typescript/ai/policy/judgment/rule.ts"], "rules": { "typescript/method-signature-style": "off" } }, // A rule row per tool kind needs the method form's parameter bivariance
         {
             "files": ["**/creative-cloud/*/plugin.ts"], // UXP plugin runtime, its `execute_script` evaluates caller source
             "rules": { "typescript/no-implied-eval": "off", "typescript/no-unsafe-call": "off" }
