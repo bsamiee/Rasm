@@ -21,7 +21,7 @@
             "project": ["**/*.ts", "!sdks/**"]
         },
         "plugins/claude/*": {
-            "entry": ["hooks/register.ts", "types/index.d.ts"]
+            "entry": ["hooks/register.{ts,tsx}", "types/index.d.ts"]
         },
         "products/apps/creative-cloud/*/atelier": {
             "entry": ["main.ts"]
