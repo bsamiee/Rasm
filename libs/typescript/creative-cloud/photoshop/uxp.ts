@@ -30,8 +30,7 @@ const COLLECTIONS = {
 
 const Typed = Schema.Struct({ typename: Schema.String });
 const Exportable = Schema.declare((input: unknown): input is Document | Document['layers'][number] => Predicate.hasProperty(input, 'typename') && (input.typename === 'Document' || input.typename === 'Layer'));
-const Entry = Uxp.Entry.mapFields(Struct.assign({ isFile: Schema.Literal(true) }));
-const Stored = Schema.declare((input: unknown): input is globalThis.File => Schema.is(Entry)(input)).annotate({ description: 'UXP storage file, the DOM File type @types/photoshop names for file parameters' });
+const Stored = Schema.declare((input: unknown): input is globalThis.File => Schema.is(Uxp.Entry)(input)).annotate({ description: 'UXP storage file, the DOM File type @types/photoshop names for file parameters' });
 const Closing = Schema.Struct({ registerAutoCloseDocument: Schema.declare((input: unknown): input is (documentID: number) => Promise<void> => Predicate.isFunction(input)) }).annotate({ description: 'hostControl member Photoshop holds and @types/photoshop omits' });
 const Rejected = Schema.Struct({ number: Schema.Union(Record.collect(REJECTIONS, (tag, code) => Schema.Literal(code).transform(tag))) });
 const Hosted = Schema.Tuple([Schema.Struct({ hostName: Schema.NonEmptyString.annotate({ description: 'Application name, the bundle name of the installation' }) })]);
@@ -44,17 +43,17 @@ const containment: Containment = {
     type: (value) => Option.match(Schema.decodeUnknownOption(Typed)(value), { onNone: () => value.constructor.name, onSome: Struct.get('typename') }),
     kinds: Record.map(COLLECTIONS, (collection: string, kind) => ({
         collection,
-        nested: kind === 'layer',
-        ...(kind === 'textFont' ? { keys: ['postScriptName'] } : {}),
+        nested: true,
+        keys: ['id', 'postScriptName', 'name'] satisfies (keyof Document | keyof (typeof app.fonts)[number])[],
         is: (value: object) => Option.exists(Schema.decodeUnknownOption(Typed)(value), ({ typename }) => String.uncapitalize(typename) === kind),
         ...(collection in app ? {} : { owner: (value: object) => UndefinedOr.map(read(value, 'document') ?? read(value, 'parent'), (above) => (Array.isArray(above) ? read(above, 'parent') : above)) }),
     })),
 };
-const holds = (layer: Document['layers'][number], id: number): boolean => (layer.layers ?? []).some((each) => each.id === id || holds(each, id));
-const isolated = (layers: readonly Document['layers'][number][], id: number): Effect.Effect<void, HostError> =>
+const lineage = (layer: Document['layers'][number] | null): readonly number[] => (layer === null ? [] : [layer.id, ...lineage(layer.parent)]);
+const isolated = (layers: readonly Document['layers'][number][], id: number, above: readonly number[]): Effect.Effect<void, HostError> =>
     Effect.forEach(
         layers.filter((layer) => layer.id !== id),
-        (layer) => (holds(layer, id) ? isolated(layer.layers ?? [], id) : Effect.try({ try: () => Object.assign(layer, { visible: false }), catch: HostError.refused(`visible of layer ${layer.id}`) })),
+        (layer) => (above.includes(layer.id) ? isolated(layer.layers ?? [], id, above) : Effect.try({ try: () => Object.assign(layer, { visible: false }), catch: HostError.refused(`visible of layer ${layer.id}`) })),
         { discard: true },
     );
 const cancelled = (context: ExecutionContext) =>
@@ -91,7 +90,7 @@ const render = Effect.fnUntraced(function* ({ target, label }: Render, written: 
             const refused = HostError.refused(`registerAutoCloseDocument of document ${copy.id}`);
             const closing = yield* Effect.filterOrFail(Effect.succeed(hostControl), Schema.is(Closing), refused);
             yield* Effect.tryPromise({ try: () => closing.registerAutoCloseDocument(copy.id), catch: refused });
-            yield* Effect.forEach(placed, ({ id, bounds }) => Effect.andThen(isolated(copy.layers, id), Effect.tryPromise({ try: () => copy.crop(bounds), catch: HostError.refused(`crop to ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}`) })), { discard: true });
+            yield* Effect.forEach(placed, ({ id, bounds, parent }) => Effect.andThen(isolated(copy.layers, id, lineage(parent)), Effect.tryPromise({ try: () => copy.crop(bounds), catch: HostError.refused(`crop to ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}`) })), { discard: true });
             yield* Effect.tryPromise({ try: () => copy.saveAs.png(stored, undefined, true), catch: HostError.refused(`saveAs.png to ${written.nativePath}`) });
         }),
     );

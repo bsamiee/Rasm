@@ -28,8 +28,8 @@ const containment = Effect.map(hosted, ({ app, Project, CompItem, FolderItem, Fo
     type: (value) => value.constructor.name,
     kinds: {
         project: { is: (value) => value instanceof Project },
-        item: { collection: 'items', base: 1, is: (value) => value instanceof CompItem || value instanceof FolderItem || value instanceof FootageItem, owner: () => read(app, 'project') },
-        layer: { collection: 'layers', base: 1, is: (value) => read(value, 'containingComp') instanceof CompItem && Predicate.isNumber(read(value, 'id')), owner: (value) => read(value, 'containingComp') },
+        item: { collection: 'items', base: 1, keys: ['id'], is: (value) => value instanceof CompItem || value instanceof FolderItem || value instanceof FootageItem, owner: () => read(app, 'project') },
+        layer: { collection: 'layers', base: 1, keys: ['id'], is: (value) => read(value, 'containingComp') instanceof CompItem && Predicate.isNumber(read(value, 'id')), owner: (value) => read(value, 'containingComp') },
     },
 }));
 const paired = (subject: string, { begin, end }: Record.ReadonlyRecord<'begin' | 'end', (app: Application) => unknown>) =>
