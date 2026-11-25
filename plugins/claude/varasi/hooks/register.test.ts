@@ -76,9 +76,15 @@ const heldThen = (after: readonly string[]): readonly SessionMessage[] => [
     { role: 'assistant', text: '', toolUses: after.map((tool, at) => ({ tool_use_id: `t${at}`, tool, input: {}, text: 'ran' })) },
 ];
 
+const asked = ($: Engine, times: number): Promise<readonly (string | undefined)[]> =>
+    Array.from({ length: times }).reduce<Promise<readonly (string | undefined)[]>>(async (denied) => {
+        const before = await denied;
+        const { deny } = await $.tool.call({ tool: 'AskUserQuestion', questions: [QUEUE] });
+        return [...before, deny];
+    }, Promise.resolve([]));
+
 const askedTwice = async ($: Engine): Promise<void> => {
-    await $.tool.call({ tool: 'AskUserQuestion', questions: [QUEUE] });
-    await $.tool.call({ tool: 'AskUserQuestion', questions: [QUEUE] });
+    await asked($, 2);
 };
 
 const rowOf = async ($: Engine, requestId = '', surface: (typeof SURFACES)[number] = 'terminal'): Promise<string | undefined> => {
@@ -102,6 +108,7 @@ test('a question the agent can settle by checking is held before the person sees
     const { deny } = await $.tool.call({ tool: 'AskUserQuestion', questions: [QUEUE] });
     expect(world.asked).toEqual([]);
     expect(deny).toStartWith('varasi kept "Queue home" from the person, who has not seen it. Ask each again with this tool, under its header, only once its question names the fact that would change its answer');
+    expect(deny).toContain('Who must pay or sign in is no such fact.');
     expect(deny).toContain('brief a fresh agent with the question, its facts, and its options as claims to break, none of your reasons or leaning');
     expect(words(deny)).toBeLessThanOrEqual(100);
     expect(world.sorted).toEqual([expect.stringContaining('"question":"Research found the send')]);
@@ -151,17 +158,21 @@ test('a held question asked again under its header reaches the person unsorted, 
     expect(world.asked).toHaveLength(1);
 });
 
-test('a held question asked again with nothing run since tells the person so above the dialog', async ($, on) => {
+test('a held question asked again with nothing run since is held once more in under 100 words, then reaches the person told so above the dialog', async ($, on) => {
     const world = worldOf(on, ['1 WORK'], heldThen([]));
-    await askedTwice($);
-    expect(await Promise.all(SURFACES.map((surface) => rowOf($, world.asked[0], surface)))).toEqual(SURFACES.map(() => 'Kept from you once by varasi, asked again with nothing run since'));
+    const [, second, third] = await asked($, 3);
+    expect(second).toStartWith('varasi kept "Queue home" again: nothing has run since the first hold, and a reworded question is no check.');
+    expect(words(second)).toBeLessThanOrEqual(100);
+    expect(third).toBeUndefined();
+    expect(world.asked).toHaveLength(1);
+    expect(await Promise.all(SURFACES.map((surface) => rowOf($, world.asked[0], surface)))).toEqual(SURFACES.map(() => 'Kept from you by varasi, asked again with nothing run since'));
 });
 
 test('a held question asked again after tools ran names each tool once, and a question never held shows no row', async ($, on) => {
     const world = worldOf(on, ['1 WORK', '1 CONSENT'], heldThen(['Agent', 'Read', 'Agent']));
     await askedTwice($);
     await $.tool.call({ tool: 'AskUserQuestion', questions: [SCRATCH] });
-    expect(await Promise.all(world.asked.map((requestId) => rowOf($, requestId)))).toEqual(['Kept from you once by varasi, asked again after Agent, Read', undefined]);
+    expect(await Promise.all(world.asked.map((requestId) => rowOf($, requestId)))).toEqual(['Kept from you by varasi, asked again after Agent, Read', undefined]);
 });
 
 test('a held question asked again once its hold is past the messages read shows the person no row', async ($, on) => {
@@ -215,7 +226,7 @@ test('a turn that ends with nothing run since a hold, the question moved to pros
 test('a turn ends untouched when the held question was asked again with the question tool', async ($, on) => {
     const history = [...heldThen([])];
     const world = worldOf(on, ['1 WORK'], history);
-    await askedTwice($);
+    await asked($, 3);
     history.push({ role: 'assistant', text: '', toolUses: [{ tool_use_id: world.asked[0] ?? '', tool: 'AskUserQuestion', input: {}, text: 'The person answered.' }] });
     expect(await stopped($)).toBeUndefined();
 });
