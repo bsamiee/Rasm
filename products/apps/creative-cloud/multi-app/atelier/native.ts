@@ -53,7 +53,7 @@ const bound =
 
 const native = Stream.unwrap(
     Effect.gen(function* () {
-        const { catalog, running, ends } = yield* Inventory;
+        const { catalog, running, blocking } = yield* Inventory;
         const served = (row: Application, entry: Served) =>
             Upstream.mcp({
                 peer: Link.make({ application: row.url, extension: 'mcp', root: Option.none() }),
@@ -64,7 +64,7 @@ const native = Stream.unwrap(
                     return { url: new URL(`http://${entry.host}:${port}${entry.path}`), headers: yield* Option.match(entry.settings, { onNone: () => Effect.succeed({}), onSome: (settings) => bearer(settings, row) }) };
                 }),
                 presence: Stream.map(SubscriptionRef.changes(running), (instances) => Option.isSome(bound(row, entry)(instances))),
-                annotations: ends,
+                annotations: blocking(row),
                 poll: POLL,
             });
         return SubscriptionRef.changes(catalog).pipe(

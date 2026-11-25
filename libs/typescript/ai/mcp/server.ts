@@ -1,6 +1,6 @@
 import { ATTR_ERROR_TYPE, ATTR_GEN_AI_OPERATION_NAME, ATTR_GEN_AI_PROMPT_NAME, ATTR_GEN_AI_TOOL_NAME, ATTR_MCP_METHOD_NAME, ATTR_MCP_RESOURCE_URI, ERROR_TYPE_VALUE_OTHER, GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL, METRIC_MCP_SERVER_OPERATION_DURATION } from '@opentelemetry/semantic-conventions/incubating';
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Fiber, Function, Layer, Match, Metric, Number, Option, Order, Predicate, RcMap, Record, Ref, Result, Schema, SchemaGetter, type Scope, Semaphore, Stream, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Fiber, FiberSet, Function, Layer, Match, Metric, Number, Option, Order, Predicate, RcMap, Record, Ref, Result, Schema, SchemaGetter, type Scope, Semaphore, Stream, Struct, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import { Aead, SecureRandom } from 'effect/crypto';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
@@ -16,7 +16,8 @@ interface Running {
 }
 interface Owed {
     readonly dropped: number;
-    readonly entries: readonly { readonly sequence: number; readonly text: Effect.Effect<string>; readonly owned: Effect.Effect<boolean> }[];
+    readonly entries: readonly { readonly sequence: number; readonly text: Effect.Effect<string>; readonly owns: (state: Context.Context<never>) => boolean }[];
+    readonly held: Owed['entries'];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -24,7 +25,7 @@ interface Owed {
 const PROTOCOLS = Option.getOrThrow(Array.match(Array.sort(Object.values(McpProtocol), Order.flip(Order.mapInput(Order.String, (adapter: McpProtocol.ProtocolAdapter) => adapter.protocolVersion))), { onEmpty: Option.none, onNonEmpty: Option.some }));
 const PROGRESS = Duration.minutes(1);
 const SEALING = Aead.xchacha20Poly1305;
-const QUIET: Owed = { dropped: 0, entries: [] };
+const QUIET: Owed = { dropped: 0, entries: [], held: [] };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -46,7 +47,7 @@ class Server extends Context.Service<
     Server,
     {
         readonly uri: (path: string) => string;
-        readonly events: <A>(source: { readonly stream: Stream.Stream<A>; readonly render: (event: A) => Effect.Effect<string>; readonly owns?: (event: A) => Effect.Effect<boolean> }) => Effect.Effect<void, never, Scope.Scope>;
+        readonly events: <A>(source: { readonly stream: Stream.Stream<A>; readonly render: (event: A) => Effect.Effect<string>; readonly owns?: (event: A, state: Context.Context<never>) => boolean }) => Effect.Effect<void, never, Scope.Scope>;
         readonly relist: Effect.Effect<void, Error>;
     }
 >()('@rasm/mcp/server') {
@@ -92,10 +93,11 @@ class Server extends Context.Service<
         const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance(), dependencies: [McpSchema.McpRequestContext] }).annotateMerge(tool.annotations));
         yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
     });
-    static readonly layer = Effect.fnUntraced(function* ({ scheme, retention, limit }: { readonly scheme: Effect.Success<ReturnType<typeof Server.scheme>>; readonly retention: Duration.Duration; readonly limit: number }) {
-        const slot = Effect.all({ state: Ref.make(Context.empty()), owed: Ref.make(QUIET), busy: Ref.make(0), calls: Ref.make(0), running: Ref.make<readonly Running[]>([]) });
+    static readonly layer = Effect.fnUntraced(function* ({ scheme, retention, limit, budget }: { readonly scheme: Effect.Success<ReturnType<typeof Server.scheme>>; readonly retention: Duration.Duration; readonly limit: number; readonly budget: number }) {
+        const slot = Effect.all({ state: Ref.make(Context.empty()), owed: Ref.make(QUIET), fibers: FiberSet.make(), calls: Ref.make(0), running: Ref.make<readonly Running[]>([]) });
         const [server, scope, live, sequence, lock, aead, random] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make<Record.ReadonlyRecord<string, Effect.Success<typeof slot>>>({}), Ref.make(0), Semaphore.make(1), Aead.Aead, SecureRandom.SecureRandom]);
         const key = yield* Effect.orDie(aead.generateKey(SEALING));
+        const judge = ({ state, owed, fibers }: Omit<Effect.Success<typeof slot>, 'calls' | 'running'>, from: number, raised: Owed['held'], own: number) => Effect.flatMap(Effect.all([Ref.get(state), FiberSet.size(fibers)]), ([context, calls]) => Ref.update(owed, judged(limit, from, context, calls > own, raised)));
         const handles = yield* RcMap.make({
             lookup: (id: string) => Effect.tap(slot, (row) => Effect.acquireRelease(Ref.update(live, Record.set(id, row)), () => Ref.update(live, Record.remove(id)))),
             idleTimeToLive: retention,
@@ -147,14 +149,14 @@ class Server extends Context.Service<
                         const named = Option.orElse(Option.map(resumed, Struct.get('handle')), () => Option.fromUndefinedOr(given));
                         const id = yield* Option.match(named, { onNone: () => random.uuidV7(), onSome: Effect.succeed });
                         const row = yield* Option.match(named, { onNone: () => Effect.asSome(RcMap.get(handles, id)), onSome: () => RcMap.getOption(handles, id) });
-                        const { state: kept, owed, busy, calls, running: unfinished } = yield* Effect.fromOption(row, () => new Cause.NoSuchElementError(`Handle ${id} is unknown or expired after ${Duration.format(retention)} without a call, call again without handle to start one`));
-                        const bound = held(kept);
+                        const { state, owed, fibers, calls, running: unfinished } = yield* Effect.fromOption(row, () => new Cause.NoSuchElementError(`Handle ${id} is unknown or expired after ${Duration.format(retention)} without a call, call again without handle to start one`));
+                        const bound = held(state);
                         const [blocks, done, asked, pace, frozen] = yield* Effect.all([
                             Ref.make(Array.empty<McpSchema.ContentBlock>()),
                             Deferred.make<McpSchema.CallToolResult | McpSchema.InputRequired, McpSchema.InternalError | McpSchema.InvalidParams>(),
                             Deferred.make<McpSchema.InputRequired>(),
                             Ref.make({ last: -1, offset: 0, quiet: true }),
-                            Effect.map(Effect.flatMap(Ref.get(kept), Ref.make), held),
+                            Effect.map(Effect.flatMap(Ref.get(state), Ref.make), held),
                         ]);
                         const ending = Stream.provideService(ends, Handle, frozen);
                         const token = Schema.decodeUnknownOption(McpSchema.ProgressToken)(request.requestMetadata?.progressToken);
@@ -178,7 +180,7 @@ class Server extends Context.Service<
                             Effect.updateService(McpSchema.McpRequestContext, (context) => ({ ...context, requestState: Option.getOrUndefined(resumed)?.state })),
                             Effect.scoped,
                         );
-                        const running = yield* Effect.forkIn(Effect.acquireUseRelease(Ref.update(busy, Number.increment), Function.constant(Deferred.complete(done, answer)), Function.constant(Ref.update(busy, Number.decrement))), scope);
+                        const running = yield* lock.withPermit(Effect.flatMap(Ref.get(sequence), (from) => FiberSet.run(fibers)(Deferred.complete(done, Effect.ensuring(answer, lock.withPermit(judge({ state, owed, fibers }, from, [], 1)))))));
                         const [outcome, early] = yield* Deferred.await(done).pipe(
                             Effect.map((value) => [value, false] as const),
                             Effect.raceFirst(
@@ -189,21 +191,10 @@ class Server extends Context.Service<
                             Effect.onInterrupt(() => Fiber.interrupt(running)),
                         );
                         const returned = yield* early ? Effect.asSome(Ref.updateAndGet(calls, Number.increment)) : Effect.succeedNone;
-                        const forgotten = RcMap.get(handles, id).pipe(
-                            Effect.andThen(Effect.exit(Deferred.await(done))),
-                            Effect.andThen(Effect.sleep(retention)),
-                            Effect.andThen(
-                                Ref.update(
-                                    unfinished,
-                                    Array.filter((each) => each.done !== done),
-                                ),
-                            ),
-                            Effect.scoped,
-                        );
                         return yield* outcome instanceof McpSchema.InputRequired
                             ? Effect.map(seal(options.tool.name, { handle: id, state: outcome.requestState }), (requestState) => new McpSchema.InputRequired({ inputRequests: outcome.inputRequests, requestState }))
-                            : Effect.tap(delivered(outcome, { owed, running: unfinished, bound, minted: given === undefined ? Option.some(id) : Option.none(), early: returned }), () =>
-                                  Option.match(returned, { onNone: () => Effect.void, onSome: (call) => Effect.andThen(Ref.update(unfinished, Array.append({ call, tool: options.tool.name, done, ends: ending })), Effect.forkIn(forgotten, scope)) }),
+                            : Effect.tap(delivered(outcome, { owed, running: unfinished, bound, minted: given === undefined ? Option.some(id) : Option.none(), early: returned, limit, budget }), () =>
+                                  Option.match(returned, { onNone: () => Effect.void, onSome: (call) => Ref.update(unfinished, Array.append({ call, tool: options.tool.name, done, ends: ending })) }),
                               );
                     },
                     Effect.catchTag('NoSuchElementError', ({ message }) => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message })] }))),
@@ -228,15 +219,13 @@ class Server extends Context.Service<
         });
         const service = Server.of({
             uri,
-            events: ({ stream, render, owns = Function.constant(Effect.succeed(true)) }) =>
+            events: ({ stream, render, owns = Function.constTrue }) =>
                 stream.pipe(
                     Stream.runForEach(
                         Effect.fnUntraced(function* (event) {
                             const [at, rows] = yield* Effect.all([Ref.updateAndGet(sequence, Number.increment), Effect.map(Ref.get(live), Record.values)]);
-                            const entry = { sequence: at, text: render(event) };
-                            const kept = (owned: Effect.Effect<boolean>) => Ref.update<Owed>(({ dropped, entries }) => ({ dropped: dropped + Math.max(0, entries.length + 1 - limit), entries: Array.takeRight(Array.append(entries, { ...entry, owned }), limit) }));
-                            const judged = yield* Effect.forEach(rows, ({ state, busy }) => Effect.all([Ref.get(busy), Effect.provideService(owns(event), Handle, held(state))]));
-                            yield* Effect.forEach(Array.zip(rows, judged), ([{ owed }, [calls, now]]) => (now || calls > 0 ? kept(now ? Effect.succeed(true) : owns(event))(owed) : Effect.void), { discard: true });
+                            const raised = { sequence: at, text: render(event), owns: (state: Context.Context<never>) => owns(event, state) };
+                            yield* Effect.forEach(rows, (row) => judge(row, at - 1, [raised], 0), { discard: true });
                         }, lock.withPermit),
                     ),
                     Effect.forkScoped,
@@ -311,38 +300,48 @@ const ranking =
 const split = ({ content, structuredContent }: McpSchema.CallToolResult) => {
     const [texts, others] = Array.partition(content, (block) => (block.type === 'text' ? Result.succeed(block.text) : Result.fail(block)));
     const shown = Option.map(Option.fromUndefinedOr(structuredContent), (json) => [JSON.stringify(json), Predicate.isString(json) ? json : JSON.stringify(json)] as const);
-    const body = Option.match(shown, { onNone: () => texts, onSome: ([mirror, text]) => Array.match(texts, { onEmpty: () => [text], onNonEmpty: Array.map((each) => (each === mirror ? text : each)) }) });
+    const body = Option.match(shown, { onNone: () => texts, onSome: ([mirror, text]) => Array.match(texts, { onEmpty: () => [text], onNonEmpty: (all) => (Array.contains(all, mirror) ? Array.map(all, (each) => (each === mirror ? text : each)) : Array.append(all, text)) }) });
     return [body, others] as const;
 };
+const owing = (limit: number, owned: Owed['held'], { dropped, entries, held: waiting }: Owed): Owed => {
+    const merged = Array.sortWith([...entries, ...owned], (each) => each.sequence, Number.Order);
+    return { dropped: dropped + Math.max(0, merged.length - limit), entries: Array.takeRight(merged, limit), held: waiting };
+};
+const judged =
+    (limit: number, from: number, context: Context.Context<never>, others: boolean, raised: Owed['held']) =>
+    (owed: Owed): Owed => {
+        const [rest, owned] = Array.partition([...owed.held, ...raised], (each) => (each.sequence > from && each.owns(context) ? Result.fail(each) : Result.succeed(each)));
+        return { ...owing(limit, owned, owed), held: others ? Array.takeRight(rest, limit) : [] };
+    };
 const delivered = Effect.fnUntraced(function* (
     outcome: McpSchema.CallToolResult,
-    { owed, running, bound, minted, early }: { readonly owed: Ref.Ref<Owed>; readonly running: Ref.Ref<readonly Running[]>; readonly bound: (typeof Handle)['Service']; readonly minted: Option.Option<string>; readonly early: Option.Option<number> },
+    { owed, running, bound, minted, early, limit, budget }: { readonly owed: Ref.Ref<Owed>; readonly running: Ref.Ref<readonly Running[]>; readonly bound: (typeof Handle)['Service']; readonly minted: Option.Option<string>; readonly early: Option.Option<number>; readonly limit: number; readonly budget: number },
 ) {
-    const [{ dropped, entries }, rows] = yield* Effect.all([Ref.getAndSet(owed, QUIET), Ref.get(running)]);
-    const [ended, pending] = yield* Effect.partition(rows, (each) => Effect.flatMap(Deferred.poll(each.done), Option.match({ onNone: () => Effect.fail(each.call), onSome: (done) => Effect.map(Effect.exit(done), (exit) => [each, exit] as const) })));
-    yield* Ref.update(
-        running,
-        Array.filter(({ done }) => !ended.some(([each]) => each.done === done)),
-    );
-    const shown = yield* Effect.filter(entries, ({ owned }) => owned).pipe(Effect.flatMap(Effect.forEach(({ sequence, text }) => Effect.map(text, (line) => `! #${sequence} ${line}`))), Effect.provideService(Handle, bound));
-    const finished = Array.map(ended, ([{ call, tool }, exit]) => {
+    const { dropped, entries } = yield* Ref.modify(owed, ({ held: waiting, ...taken }) => [taken, { ...QUIET, held: waiting }] as const);
+    const [ended, pending] = yield* Effect.all([Ref.modify(running, (rows) => Array.partition(rows, (each) => (Deferred.isDoneUnsafe(each.done) ? Result.succeed(each) : Result.fail(each)))), Ref.get(running)]);
+    const rendered = yield* Effect.forEach(entries, ({ sequence, text }) => Effect.map(text, (line) => `! #${sequence} ${line.replaceAll('\n', '\n  ')}`)).pipe(Effect.provideService(Handle, bound));
+    const fits = Array.scan(rendered, 0, (sum, line) => sum + line.length + 1).findLastIndex((sum, index) => index <= 1 || sum <= budget);
+    yield* Ref.update(owed, (current) => owing(limit, Array.drop(entries, fits), current));
+    const exits = yield* Effect.forEach(ended, ({ done }) => Effect.exit(Deferred.await(done)));
+    const finished = Array.map(Array.zip(ended, exits), ([{ call, tool }, exit]) => {
         const [failed, lines, blocks] = Exit.match(exit, {
             onSuccess: (result) => (result instanceof McpSchema.InputRequired ? ([true, ['Asked for client input, call the tool again'], []] as const) : ([result.isError === true, ...split(result)] as const)),
             onFailure: (cause) => [true, Array.map(Cause.prettyErrors(cause), Struct.get('message')), []] as const,
         });
-        return [[`finished: call ${call} ${tool}${failed ? ' failed:' : ''}`, ...lines].join(' '), blocks] as const;
+        return [[`finished: call ${call} ${tool}${blocks.length > 0 ? ` +${blocks.length} blocks` : ''}${failed ? ' failed:' : ''}`, ...lines].join(' ').replaceAll('\n', '\n  '), blocks] as const;
     });
     const [body, others] = split(outcome);
-    const text = [
+    const leading = [
         ...Option.toArray(Option.map(minted, (id) => `handle ${id} holds your state, pass it on each later call`)),
         ...(dropped > 0 ? [`! ${dropped} older events dropped`] : []),
-        ...shown,
+        ...Array.take(rendered, fits),
+        ...(entries.length > fits ? [`! ${entries.length - fits} more events next call`] : []),
         ...Option.toArray(Option.map(early, (call) => `early: call ${call} keeps running, its result arrives under finished`)),
-        ...Array.match(pending, { onEmpty: () => [], onNonEmpty: (calls) => [`pending: calls ${calls.join(', ')}`] }),
+        ...Array.match(pending, { onEmpty: () => [], onNonEmpty: (calls) => [`pending: calls ${Array.map(calls, Struct.get('call')).join(', ')}`] }),
         ...Array.map(finished, ([line]) => line),
-        ...body,
     ];
-    return McpSchema.CallToolResult.make({ ...Struct.omit(outcome, ['structuredContent']), content: [McpSchema.TextContent.make({ text: text.join('\n') }), ...others, ...Array.flatMap(finished, ([, blocks]) => blocks)] });
+    const text = [...leading, ...(Array.isReadonlyArrayNonEmpty(leading) && Array.isReadonlyArrayNonEmpty(body) ? [''] : []), ...body];
+    return McpSchema.CallToolResult.make({ ...Struct.omit(outcome, ['structuredContent']), content: [...Array.match(text, { onEmpty: () => [], onNonEmpty: (rows) => [McpSchema.TextContent.make({ text: rows.join('\n') })] }), ...others, ...Array.flatMap(finished, ([, blocks]) => blocks)] });
 });
 // --- [EXPORTS] -------------------------------------------------------------------------
 

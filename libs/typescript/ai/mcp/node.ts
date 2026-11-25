@@ -31,6 +31,7 @@ const Settings = {
     hosts: setting('allowed-hosts', 'allowed.hosts', Schema.String.pipe(Schema.decodeTo(Schema.Array(Schema.String), { decode: SchemaGetter.split(), encode: SchemaGetter.forbiddenEncoding })), [], 'Comma-separated Host headers accepted beyond loopback and the bound address'),
     retention: setting('retention', 'retention', Schema.DurationFromString, Duration.hours(1), 'How long an idle handle and a finished execution stay'),
     limit: setting('events', 'events', Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThan(0)))), 256, 'Events a handle can fall behind by before the oldest drop'),
+    budget: setting('event-characters', 'event.characters', Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThan(0)))), 8000, 'Characters of events a result leads with, the rest waiting for the next call'),
 };
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -71,12 +72,11 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
         {},
         Effect.fnUntraced(
             function* () {
-                const [address, { output, hosts, retention, limit }, folders] = yield* Effect.all([Listen, Effect.all(Settings), located]);
+                const [address, { output, hosts, ...transport }, folders] = yield* Effect.all([Listen, Effect.all(Settings), located]);
                 yield* Effect.sync(() => Object.assign(process.env, Record.getSomes({ [variable]: output })));
-                const transport = { instructions, retention, limit };
                 return yield* Option.match(address, {
-                    onNone: () => Layer.launch(Layer.effectDiscard(HttpRouter.toHttpEffect(Server.layerStdio(named, transport, Layer.provide(app, Layer.succeed(Output)(folders)))))),
-                    onSome: (bound) => listened(bound, { ...transport, hosts }, app, folders),
+                    onNone: () => Layer.launch(Layer.effectDiscard(HttpRouter.toHttpEffect(Server.layerStdio(named, { ...transport, instructions }, Layer.provide(app, Layer.succeed(Output)(folders)))))),
+                    onSome: (bound) => listened(bound, { ...transport, instructions, hosts }, app, folders),
                 });
             },
             Effect.raceFirst(ending),

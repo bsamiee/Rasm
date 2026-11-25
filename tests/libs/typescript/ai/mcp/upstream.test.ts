@@ -48,7 +48,7 @@ describe.each([McpProtocol.v2025_11_25, McpProtocol.v2026_07_28])('upstream spea
             const greeted = yield* client.getPrompt({ name: 'greet', arguments: { who: 'there' } });
             assert.deepStrictEqual<unknown>(
                 {
-                    called: [called[0]?.startsWith('handle ') ?? false, called[1]],
+                    called: [called[0]?.startsWith('handle ') ?? false, called[2]],
                     read: Array.map(Array.flatMap(read, Struct.get('contents')), (content) => [content.uri, 'text' in content ? content.text : undefined]),
                     completed: Array.map(completed, ({ completion }) => completion.values.toSorted()),
                     greeted: Array.map(greeted.messages, ({ content }) => ('text' in content ? content.text : undefined)),

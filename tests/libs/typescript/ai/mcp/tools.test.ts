@@ -1,13 +1,13 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Array, Effect, Fiber, Option, Queue, Record, Ref, Schema, String, Struct, SubscriptionRef } from 'effect';
+import { Array, Deferred, Effect, Fiber, Option, Queue, Record, Ref, Schema, String, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol } from 'effect/ai';
-import { ASKED, Called, lines, opened, RAISED, STATE, settled, TEXT } from '#/fixtures';
+import { ASKED, Called, lines, opened, RAISED, SETTINGS, STATE, settled, TEXT } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PROTOCOL = McpProtocol.v2026_07_28;
 const WEATHER = '{"temperature":22.5,"conditions":"Partly cloudy"}';
-const MINTED = /^handle \S+ holds your state, pass it on each later call$/u;
+const MINTED = /^handle [\da-f]{8}-[\da-f]{4}-7[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12} holds your state, pass it on each later call$/u;
 const INVALID_PARAMS = -32_602;
 const CALLS = {
     test_simple_text: [{}, ['text']],
@@ -49,7 +49,7 @@ describe('tool calls through the server', () => {
         'leads the JSON of a structured result with a new handle for a call without one, and with no handle line for a call passing it back',
         Effect.fnUntraced(function* () {
             const { called } = yield* opened(PROTOCOL);
-            const [minted, body] = lines(yield* called('test_structured'));
+            const [minted, , body] = lines(yield* called('test_structured'));
             const handle = named(minted);
             const [again, other] = yield* Effect.all([Effect.map(called('test_structured', { handle }), lines), Effect.map(called('test_structured'), lines)]);
             assert.deepStrictEqual([MINTED.test(minted ?? ''), body, again, MINTED.test(other[0] ?? ''), other[0] === minted], [true, WEATHER, [WEATHER], true, false]);
@@ -96,17 +96,45 @@ describe('tool calls through the server', () => {
                 { minted: [MINTED.test(owner.split('\n')[0] ?? ''), MINTED.test(other.split('\n')[0] ?? ''), claimer === bystander], bodies: [owner.split('\n').slice(1), other.split('\n').slice(1)], owned, shared, early, pending, entered, waiting, finished, after },
                 {
                     minted: [true, true, false],
-                    bodies: [[`! #1 ${RAISED.owned}`, 'claimed'], [TEXT]],
+                    bodies: [
+                        [`! #1 ${RAISED.owned}`, '', 'claimed'],
+                        ['', TEXT],
+                    ],
                     owned: ['! #3 owned one'],
                     shared: ['! #4 shared one'],
-                    early: `! #4 shared one\nearly: call 1 keeps running, its result arrives under finished\n${ASKED}`,
-                    pending: `pending: calls 1\n${TEXT}`,
+                    early: `! #4 shared one\nearly: call 1 keeps running, its result arrives under finished\n\n${ASKED}`,
+                    pending: `pending: calls 1\n\n${TEXT}`,
                     entered: 'test_settle',
                     waiting: true,
-                    finished: 'finished: call 1 gated_early released\nsettled',
+                    finished: 'finished: call 1 gated_early released\n\nsettled',
                     after: TEXT,
                 },
             );
+        }),
+    );
+
+    it.live(
+        'shows an event raised during a call in that call once its handle owns the source as the call ends, never in another call on the handle ending first, and drops no event while unowned ones wait behind a running call',
+        Effect.fnUntraced(function* () {
+            const { probe, called } = yield* opened(PROTOCOL);
+            const text = (name: string, given: Record.ReadonlyRecord<string, unknown> = {}) => Effect.map(called(name, given), lines);
+            const [handle, other] = [named((yield* text('test_simple_text'))[0]), named((yield* text('test_simple_text'))[0])];
+            yield* SubscriptionRef.set(probe.blocked, true);
+            const claiming = yield* Effect.forkScoped(text('test_claim', { handle }));
+            yield* Deferred.await(probe.judged);
+            const beside = yield* text('test_simple_text', { handle });
+            yield* SubscriptionRef.set(probe.blocked, false);
+            const claimed = yield* Fiber.join(claiming);
+            yield* Queue.clear(probe.entered);
+            const gated = yield* Effect.forkScoped(text('gated_write', { handle: other }));
+            yield* Queue.take(probe.entered);
+            yield* Queue.offerAll(
+                probe.owned,
+                Array.makeBy(SETTINGS.limit + 1, (index) => `unowned ${index}`),
+            );
+            yield* settled(text('test_simple_text', { handle }), (shown) => shown.some(String.endsWith(`unowned ${SETTINGS.limit}`)));
+            yield* probe.release.open;
+            assert.deepStrictEqual({ claimed, beside, released: yield* Fiber.join(gated) }, { claimed: [`! #1 ${RAISED.owned}`, '', 'claimed'], beside: [TEXT], released: ['released'] });
         }),
     );
 
@@ -128,7 +156,7 @@ describe('client input of a stateless client', () => {
             const { tool, called } = yield* opened(PROTOCOL);
             const { result: asked } = yield* Effect.flatMap(tool('test_input'), Schema.decodeUnknownEffect(Asked));
             const { result: answered } = yield* Effect.flatMap(tool('test_input', {}, { requestState: asked.requestState }), Schema.decodeUnknownEffect(Called));
-            const [line, body] = lines(answered);
+            const [line, , body] = lines(answered);
             const resumed = yield* called('test_value', { value: 'kept', handle: named(line) });
             assert.deepStrictEqual([new TextDecoder().decode(Uint8Array.fromBase64(asked.requestState, { alphabet: 'base64url' })).includes(STATE), answered.isError, MINTED.test(line ?? ''), body, resumed.isError, lines(resumed)], [false, false, true, STATE, false, ['kept']]);
         }),

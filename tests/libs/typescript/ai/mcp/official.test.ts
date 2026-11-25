@@ -18,6 +18,7 @@ const SCENARIOS = [
     'tools-call-simple-text',
     'tools-call-image',
     'tools-call-embedded-resource',
+    'tools-call-mixed-content',
     'tools-call-error',
     'tools-call-with-progress',
     'resources-list',

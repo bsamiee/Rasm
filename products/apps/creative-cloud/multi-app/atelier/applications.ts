@@ -95,7 +95,7 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
             served.events({
                 stream: happened,
                 render: (event) => Effect.succeed('pressure' in event ? `memory ${event.pressure.memory}, thermal ${event.pressure.thermal}` : `${event.application} ${changed(event.change)}`),
-                owns: (event) => ('pressure' in event ? Effect.succeed(true) : Effect.map(target, ({ followed }) => HashSet.has(followed, event.change.instance))),
+                owns: (event, state) => 'pressure' in event || HashSet.has(Context.get(state, Target).followed, event.change.instance),
             }),
         );
         const aimed = Effect.fnUntraced(function* (aim: { readonly row: Application; readonly instance: RunningInstance['instance'] }) {
@@ -129,17 +129,9 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
             );
             return { row: aim.row, live };
         });
-        const ends = Context.make(
-            Server.Ends,
-            Stream.unwrap(
-                Effect.map(resolved, ({ sole }) =>
-                    Option.match(sole, {
-                        onNone: () => Stream.never,
-                        onSome: ({ row, instance }) => SubscriptionRef.changes(running).pipe(Stream.map(Array.findFirst((each: RunningInstance) => each.instance === instance)), Stream.filterMap(blocked(row.name)), Stream.map(Effect.succeed)),
-                    }),
-                ),
-            ),
-        );
+        const blocking = (row: Application, instance?: RunningInstance['instance']) =>
+            Context.make(Server.Ends, SubscriptionRef.changes(running).pipe(Stream.map(Array.findFirst((each: RunningInstance) => (instance === undefined ? Installation.runs(row)(each) : each.instance === instance))), Stream.filterMap(blocked(row.name)), Stream.map(Effect.succeed)));
+        const ends = Context.make(Server.Ends, Stream.unwrap(Effect.map(resolved, ({ sole }) => Option.match(sole, { onNone: () => Stream.never, onSome: ({ row, instance }) => Context.get(blocking(row, instance), Server.Ends) }))));
         const route = Effect.fnUntraced(function* (peers: Array.NonEmptyReadonlyArray<Link>) {
             const { held } = yield* target;
             const refused = McpSchema.InvalidParams.make({ message: `Linked in ${peers.map((peer) => String(peer.application)).join(', ')}, applications open makes one the target` });
@@ -148,7 +140,7 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
                 () => refused,
             );
         });
-        return { catalog, running, target, aimed, located, current, route, ends };
+        return { catalog, running, target, aimed, located, current, route, ends, blocking };
     }),
 }) {
     static readonly layer = Layer.effect(Inventory, Inventory.make);

@@ -38,7 +38,7 @@ const MANIFEST = { name: 'test', version: '1.2.3', description: 'Conformance fix
 const INSTRUCTIONS = { stated: 'Specifiers come from results', shown: 'Simple text answers at once', hidden: 'Hidden tools stay unmentioned' } as const;
 const CLIENT = { name: 'conformance-client', version: '1.0.0' } as const;
 const SESSION = 'Mcp-Session-Id';
-const SETTINGS = { retention: Duration.minutes(1), limit: 64 } as const;
+const SETTINGS = { retention: Duration.minutes(1), limit: 64, budget: 8000 } as const;
 const SETTLED = Duration.seconds(5);
 const PEER = Link.make({ application: 'Upstream', extension: 'mcp', root: Option.none() });
 const ROUTED: Record.ReadonlyRecord<string, string> = { 'resources/read': 'uri', 'tools/call': 'name', 'prompts/get': 'name' };
@@ -136,17 +136,16 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
         ),
         () => gated('gated_early'),
     );
-    yield* Server.registerTool(Tool.make('test_claim', { description: 'Raises an event of the owned source, then claims the source for its handle once every handle judged the event', success: Schema.String }), () =>
-        called('test_claim', Queue.offerAll(owned, [RAISED.owned, RAISED.judged]).pipe(Effect.andThen(Deferred.await(judged)), Effect.andThen(Effect.flatMap(Handle, (handle) => handle.set(Claimed, true))), Effect.as('claimed'))),
+    yield* Server.registerTool(Tool.make('test_claim', { description: 'Raises two events of the owned source, and claims the source for its handle once the server judged the second, which it does after placing the first for every handle, and no dialog blocks', success: Schema.String }), () =>
+        called(
+            'test_claim',
+            Queue.offerAll(owned, [RAISED.owned, RAISED.judged]).pipe(Effect.andThen(Deferred.await(judged)), Effect.andThen(Stream.runHead(Stream.filter(SubscriptionRef.changes(blocked), (held) => !held))), Effect.andThen(Effect.flatMap(Handle, (handle) => handle.set(Claimed, true))), Effect.as('claimed')),
+        ),
     );
     yield* Server.use((server) =>
-        Effect.all(
-            [
-                server.events({ stream: Stream.fromQueue(shared), render: Effect.succeed }),
-                server.events({ stream: Stream.fromQueue(owned), render: Effect.succeed, owns: (event) => (event === RAISED.judged ? Effect.as(Deferred.succeed(judged, undefined), false) : Effect.flatMap(Handle, (handle) => handle.get(Claimed))) }),
-            ],
-            { discard: true },
-        ),
+        Effect.all([server.events({ stream: Stream.fromQueue(shared), render: Effect.succeed }), server.events({ stream: Stream.fromQueue(owned), render: Effect.succeed, owns: (event, state) => (event === RAISED.judged ? Deferred.doneUnsafe(judged, Effect.void) && false : Context.get(state, Claimed)) })], {
+            discard: true,
+        }),
     );
     yield* Server.registerTool(Tool.make('test_settle', { description: 'Settles the calls of its handle that returned early', success: Schema.String }), () => called('test_settle', Effect.as(Server.ToolCall.use(Struct.get('settle')), 'settled')));
     yield* registerResource({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
@@ -269,4 +268,4 @@ const proxied = Effect.fnUntraced(function* (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ASKED, Called, connected, hosted, INSTRUCTIONS, lines, names, opened, PEER, proxied, RAISED, SETTLED, settled, STATE, TEXT };
+export { ASKED, Called, connected, hosted, INSTRUCTIONS, lines, names, opened, PEER, proxied, RAISED, SETTINGS, SETTLED, settled, STATE, TEXT };
