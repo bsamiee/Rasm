@@ -14,5 +14,15 @@
         "effect": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "test--vitest": {
+                "inputs": [
+                    "...",
+                    "{workspaceRoot}/.config/mise/locks/npm-modelcontextprotocol-conformance/**/*"
+                ]
+            }
+        }
     }
 }
