@@ -18,13 +18,13 @@ Every job runs on `gemini-4-neon`:
 |  [03]   | Make images         | Images generated and edited by Google's image model, copied to a named path   | `high`   |
 |  [04]   | Research            | Google Search answers with cited links, a second search index                 | `high`   |
 |  [05]   | Bulk                | One small judgment over many files: captions, alt text, tagging, OCR cleanup  | `high`   |
-|  [06]   | Build               | Bounded change to files its brief assigns, proven by a command it runs        | `xhigh`  |
+|  [06]   | Build               | Bounded change its brief states, proven by a command it runs        | `xhigh`  |
 |  [07]   | Grind               | Long build or fix loop under `/goal`, against a done condition and state file | `xhigh`  |
 |  [08]   | Review              | Defects in a diff or module as `path:line` findings                           | `xhigh`  |
 |  [09]   | Draft               | Prose for outside readers from supplied facts: announcement, README, notes    | `high`   |
 |  [10]   | Hard second opinion | One difficult design or security question for a different model family        | `xhigh`  |
 
-Mode is this session's call per run: `read` changes no file, `write` edits files its brief assigns, in place in this checkout. Build, Grind, Make images, and Draft write, every other job reads, and findings this session confirmed go to a fresh write run.
+Mode is this session's call per run: `read` changes no file, `write` edits files in place in this checkout. Build, Grind, Make images, and Draft write, every other job reads, and findings this session confirmed go to a fresh write run.
 
 Build and Grind take parallel work and problems this session stalled on. Quick questions, edits to files this session is editing, and anything waited on stay here: a run takes minutes.
 
@@ -47,7 +47,7 @@ agy -p "$(cat <brief>)" --disable-slash-commands --model gemini-4-neon --effort 
 - Data: `--json-schema '<schema>'` or a schema file returns the answer in `.structured_output`, the schema root is `"type":"object"`
 - Read: `--settings '{"permissions":{"deny":["write_file(*)"]}}'` refuses file writes and keeps shell tools (`ffprobe`, `mutool`), which can still write
 - Look-only: adding `"command(*)"` to that list refuses every shell command
-- Write: no `--settings`, the brief alone keeps the run to its files
+- Write: no `--settings`, the brief alone bounds the run's task
 - Background: start it as a background command and keep working, a result arrives in minutes
 - Timeout: without `--print-timeout` a run waits for every background task, a grind takes its length in hours
 - Follow-up: `--conversation <conversation_id>` continues that run with its context, `-c` the last run of the current folder
@@ -67,7 +67,7 @@ Slash commands opening a `-p` prompt start a turn without `--disable-slash-comma
 - Answers this session reads as data take a `--json-schema` in place of a described form
 - For a visual judge, the artifact and the reference alone, never the plan or the code that produced it
 - For video holding small text (terminal, code, hashes), a copy cropped to that region and upscaled 2x: characters read wrong at 720p
-- For a write, the files it owns and the command that proves it done, every other file read-only to it, and no commit
+- For a write, the task and the command that proves it done, and no commit
 - For a review, the diff range and its intent alone, never findings this session already holds, as `agy` has no review command of its own
 - For a draft, the facts and the reader, never an earlier draft
 - For a grind, the done condition, a minimum number of passes, and a state file it rewrites each pass with the open problems

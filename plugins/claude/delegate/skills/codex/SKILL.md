@@ -16,13 +16,13 @@ Every job runs at `xhigh` effort on the standard service tier, and its row picks
 | :-----: | :----- | :---------------------------------------------------------------------------- | :-------------- |
 |  [01]   | Review | Codex's own review of uncommitted changes, a branch, or a commit              | `gpt-6.2-sol`   |
 |  [02]   | Read   | Precise second reading of a finished feature, few findings and few wrong      | `gpt-6.2-sol`   |
-|  [03]   | Task   | Bounded terminal or code task on files its brief assigns, proven by a command | `gpt-6.2-sol`   |
+|  [03]   | Task   | Bounded terminal or code task its brief states, proven by a command           | `gpt-6.2-sol`   |
 |  [04]   | Hunt   | Exhaustive defect search where a miss costs more than triage of false alarms  | `gpt-6.2-astra` |
 |  [05]   | Trace  | One defect crossing services or processes this session failed to explain      | `gpt-6.2-astra` |
 |  [06]   | Scene  | 3D or interactive scene: WebGL, a game prototype, Blender scripting           | `gpt-6.2-astra` |
 |  [07]   | Proof  | Formal mathematics, a proof assistant, an algorithm with a stated bound       | `gpt-6.2-astra` |
 
-Mode is this session's call per run: `read` changes no file, `write` edits files its brief assigns, in place in this checkout. Task, Scene, and Proof write, every other job reads, and findings this session confirmed go to a fresh write run.
+Mode is this session's call per run: `read` changes no file, `write` edits files in place in this checkout. Task, Scene, and Proof write, every other job reads, and findings this session confirmed go to a fresh write run.
 
 Features to merge, large refactors, unattended runs of hours, security review, and prose for readers stay here or go to `delegate:antigravity`: Astra stops early, reports tersely, and refuses some vulnerability work.
 
@@ -39,7 +39,7 @@ timeout 90m codex exec <mode> -m <model> -c model_reasoning_effort='"xhigh"' -c 
 - Input: piped stdin joins the prompt as a `<stdin>` block, `</dev/null` keeps it empty
 - Folder: `--cd <dir>` sets the working root, `--skip-git-repo-check` allows one outside a repository
 - Read: `--sandbox read-only` refuses every write
-- Write: no `--sandbox`, the run takes the sandbox `config.toml` sets and the brief alone keeps it to its files
+- Write: no `--sandbox`, the run takes the sandbox `config.toml` sets and the brief alone bounds its task
 - Data: `--output-schema <file>` makes the final message JSON of that schema, each object closed with every field required
 - Events: `--json` prints JSONL, `thread.started` holds the `thread_id`
 - Follow-up: `codex exec <options> resume <thread_id> "<prompt>"` continues that run, `--ephemeral` keeps no session to resume
@@ -62,7 +62,7 @@ Rules a review enforces sit under `## Code Review Rules` in the `AGENTS.md` near
 - Done condition as a command or an observable state: make it run, read the result, fix what fails
 - Actions that proceed without asking, listed, in place of a rule to ask first
 - For a read or hunt, each finding with its trigger, what is observed, and how to verify it
-- For a write, the files it owns and the command that proves it done, every other file read-only to it, and no commit
+- For a write, the task and the command that proves it done, and no commit
 - For a scene or proof, the artifact's path and the command that opens or checks it
 - Final message complete without the run's history, with every blocker it met
 - Headless runs ask nothing: Codex decides each open choice itself, so the brief states every choice that matters
