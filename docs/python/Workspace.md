@@ -118,7 +118,8 @@ Environments and tool sources of each task:
 - `python.uv_venv_auto = "source"` of mise exports the `.venv` of the uv root around the shell's folder as `VIRTUAL_ENV`, which ty and mypy rank first
 - Processes keep the `VIRTUAL_ENV` their shell exported, and ty or mypy started outside `uv run` in another uv root checks against that root's `site-packages`
 - `@rasm/nx-uv` runs ty once per uv root and mypy, refurb, and pytest once per member, through `uv run --frozen --exact --no-active`
-- Option `environmentPath` holds one environment per project and dependency group, `<environmentPath>/<group>`, or `.venv` for a tool the project itself declares
+- Option `environmentPath` of `nx.json` places one environment per member and dependency group at `.cache/uv-environments/<member>/<group>`
+- Tools a member itself declares run in `<member>/.venv` there, and each member's `.mypy_cache`, `.refurb_cache`, and `.pytest_cache` sit beside its environments
 - `uv run --isolated` builds a temporary environment per run where `environmentPath` is absent
 - Tasks of a uv root select `--all-packages` and tasks of a member `--package <member>`, so a uv root that is itself a checked member checks in the wider one
 - `check--uv` runs `uv lock --check`, the one task failing on a lock its manifests disagree with
