@@ -120,46 +120,43 @@ const read = (anchor: Anchor, file: string, outputPath: string | undefined) => {
 
 const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anchor, context: CreateNodesContext, { outputPath, coveragePath }: Options, file: string) {
     const { suites, triggers, shared } = yield* pass.recall(file, read(anchor, file, outputPath));
-    const projects = yield* Effect.forEach(
-        suites,
-        Effect.fnUntraced(function* ({ root, projects: selected, setup: declared, providers, coverage, covered, written, loaded: configs, packages }) {
-            const stated = yield* manifested(context.workspaceRoot, root);
-            const setup = declared.filter((at) => existsSync(join(context.workspaceRoot, at)));
-            const chain = [root, ...setup.map(dirname)].flatMap((at) => extended(context.workspaceRoot, at));
-            const outside = Record.filter(
-                { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) },
-                (_input, at) => root !== '.' && !at.startsWith(`${root}/`),
-            );
-            const directed = { ...(covered && { enabled: true }), ...(coveragePath !== undefined && { reportsDirectory: coveragePath }) };
-            const test = {
-                vitest: {
-                    executor: `${PLUGIN}:${providers.length > 0 ? 'browser' : 'test'}`,
-                    options: { config: file, projects: selected, ...(outputPath !== undefined && { attachmentsDir: posix.join(outputPath, ATTACHMENTS) }), ...((covered || coveragePath !== undefined) && { coverage: directed }) },
-                    dependsOn: ['codegen--*', '^codegen--*'],
-                    cache: true,
-                    inputs: ['default', `^${namedInput(root, context)}`, ...Object.values(outside), ...triggers, { externalDependencies: Array.dedupe(['vitest', ...packages]) }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
-                    outputs: [...Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])]).filter((at, _index, all) => Array.intersection(above(posix.dirname(at)), all).length === 0), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
-                    configurations: {
-                        coverage: { coverage: { ...directed, enabled: true, reporter: 'lcovonly' } },
-                    },
-                    metadata: {
-                        description: 'Runs every Vitest project of the suite with vitest run, a suite without a browser provider in one run with every other such suite of the configuration the same nx run tests, as a batch holds every other Nx task until it ends',
-                        help: { command: `${pass.exec} vitest run --help`, example: { args: ['--reporter', 'verbose'] } },
-                    },
+    const manifests = yield* Effect.forEach(suites, ({ root }) => manifested(context.workspaceRoot, root));
+    const projects = Array.zipWith(suites, manifests, ({ root, projects: selected, setup: declared, providers, coverage, covered, written, loaded: configs, packages }, stated) => {
+        const setup = declared.filter((at) => existsSync(join(context.workspaceRoot, at)));
+        const chain = [root, ...setup.map(dirname)].flatMap((at) => extended(context.workspaceRoot, at));
+        const outside = Record.filter(
+            { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) },
+            (_input, at) => root !== '.' && !at.startsWith(`${root}/`),
+        );
+        const directed = { ...(covered && { enabled: true }), ...(coveragePath !== undefined && { reportsDirectory: coveragePath }) };
+        const test = {
+            vitest: {
+                executor: `${PLUGIN}:${providers.length > 0 ? 'browser' : 'test'}`,
+                options: { config: file, projects: selected, ...(outputPath !== undefined && { attachmentsDir: posix.join(outputPath, ATTACHMENTS) }), ...((covered || coveragePath !== undefined) && { coverage: directed }) },
+                dependsOn: ['codegen--*', '^codegen--*'],
+                cache: true,
+                inputs: ['default', `^${namedInput(root, context)}`, ...Object.values(outside), ...triggers, { externalDependencies: Array.dedupe(['vitest', ...packages]) }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
+                outputs: [...Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])]).filter((at, _index, all) => Array.intersection(above(posix.dirname(at)), all).length === 0), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
+                configurations: {
+                    coverage: { coverage: { ...directed, enabled: true, reporter: 'lcovonly' } },
                 },
-            } satisfies Record<string, TargetConfiguration>;
-            const removed = Record.collect(test, (tool) => `test--${tool}`);
-            const clean = {
-                vitest: {
-                    executor: EXECUTORS.clean,
-                    options: { targets: removed, commands: [['vitest', '--clearCache']], cwd: dirname(file) },
-                    inputs: ['default', '^default', { externalDependencies: ['vitest'] }],
-                    metadata: { description: `Removes the outputs ${removed.join(', ')} declare and every Vitest cache with vitest --clearCache`, help: { command: `${pass.exec} vitest --help`, example: { args: ['--clearCache'] } } },
+                metadata: {
+                    description: 'Runs every Vitest project of the suite with vitest run, a suite without a browser provider in one run with every other such suite of the configuration the same nx run tests, as a batch holds every other Nx task until it ends',
+                    help: { command: `${pass.exec} vitest run --help`, example: { args: ['--reporter', 'verbose'] } },
                 },
-            };
-            return { root, ...(providers.length > 0 && { tags: ['host:browser'] }), metadata: { technologies: ['vitest', ...providers] }, targets: aggregated({ test, clean }, stated, 'vitest', anchor) };
-        }),
-    );
+            },
+        } satisfies Record<string, TargetConfiguration>;
+        const removed = Record.collect(test, (tool) => `test--${tool}`);
+        const clean = {
+            vitest: {
+                executor: EXECUTORS.clean,
+                options: { targets: removed, commands: [['vitest', '--clearCache']], cwd: dirname(file) },
+                inputs: ['default', '^default', { externalDependencies: ['vitest'] }],
+                metadata: { description: `Removes the outputs ${removed.join(', ')} declare and every Vitest cache with vitest --clearCache`, help: { command: `${pass.exec} vitest --help`, example: { args: ['--clearCache'] } } },
+            },
+        };
+        return { root, ...(providers.length > 0 && { tags: ['host:browser'] }), metadata: { technologies: ['vitest', ...providers] }, targets: aggregated({ test, clean }, stated, 'vitest', anchor) };
+    });
     return { projects: Record.fromIterableBy(projects, ({ root }) => root) };
 });
 

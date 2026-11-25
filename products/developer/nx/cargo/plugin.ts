@@ -82,13 +82,9 @@ const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) 
     run(
         Effect.map(Links, (links) => {
             const names = createProjectRootMappingsFromProjectConfigurations(projects);
-            const named = ({ root }: Member) => Option.fromUndefinedOr(names.get(root));
             const linked = links.get(workspaceRoot) ?? new Map<string, Member>();
-            const stated = linked
-                .values()
-                .flatMap((member) => Array.getSomes(member.crate.dependencies.map(({ path }) => Option.fromUndefinedOr(path))).map((at) => ({ member, to: Option.fromUndefinedOr(linked.get(at)) })))
-                .toArray();
-            return Array.getSomes(stated.map(({ member, to }) => Option.map(Option.all({ source: named(member), target: Option.flatMap(to, named) }), (edge) => ({ ...edge, type: DependencyType.static, sourceFile: member.manifest }))));
+            const named = (at: string) => Option.fromUndefinedOr(linked.get(at)).pipe(Option.flatMapNullishOr(({ root }) => names.get(root)));
+            return Array.getSomes(linked.entries().flatMap(([at, member]) => member.crate.dependencies.map(({ path }) => Option.map(Option.all({ source: named(at), target: Option.flatMap(Option.fromUndefinedOr(path), named) }), Struct.assign({ type: DependencyType.static, sourceFile: member.manifest })))));
         }),
     );
 
