@@ -24,16 +24,10 @@ dev  = [
     # --- [STUBS]
 
     "brotli-stubs",
-    "pandas-stubs",
     "scipy-stubs",
-    "types-geopandas",
     "types-grpcio",
-    "types-lxml",
-    "types-openpyxl",
     "types-protobuf",
     "types-psutil",
-    "types-pyphen",
-    "types-reportlab",
     "types-shapely",
 ]
 test = [
@@ -91,6 +85,7 @@ parsing       = [
     "jinja2",                                           # Report templating for visual and document outputs
     "lark",                                             # Parser generator for CESQL filter, IDS, and selector grammars
     "lxml",                                             # XML processing
+    "types-lxml",                                       # Type stubs of lxml
     "ruamel-yaml",                                      # Round-trip YAML with comments and layout kept
 ]
 security      = [
@@ -116,6 +111,7 @@ analytics     = [
     "ibis-framework",                                       # Backend-agnostic SQL-expression IR
     "narwhals",                                             # Dataframe-agnostic API
     "pandas",                                               # Tabular dataframes
+    "pandas-stubs",                                         # Type stubs of pandas
     "pandera",                                              # Schema and quality-rule contracts
     "pointblank",                                           # Graded data-quality reports above pass/fail checks
     "polars",                                               # Dataframe engine
@@ -242,6 +238,7 @@ geospatial = [
     "geoarrow-rust-core",                                                             # GeoArrow geometry array memory model under GeoRust compute kernels
     "geoarrow-rust-io<0.4; sys_platform != 'linux' or platform_machine != 'aarch64'", # GeoArrow vector IO without GDAL, no release publishes an sdist, and the cap holds the abi3 wheels lacking linux aarch64 until a newer release publishes cp315 wheels
     "geopandas",                                                                      # Geospatial frames
+    "types-geopandas",                                                                # Type stubs of geopandas
     "h3ronpy",                                                                        # Arrow-native H3 cell operations on polars frames
     "laspy",                                                                          # LAS and LAZ point-cloud IO
     "laszip",                                                                         # Second LAZ backend for laspy.copc
@@ -319,6 +316,7 @@ documents      = [
     "ocrmypdf",                 # OCR to PDF/A with sidecar text
     "odfpy",                    # OpenDocument text, spreadsheet, and presentation writes
     "openpyxl",                 # xlsx read and write with styles
+    "types-openpyxl",           # Type stubs of openpyxl
     "papermill",                # Parameterized notebook runs
     "pdf-oxide",                # Rust PDF extract, render, create, and forms (abi3)
     "pdfimpose",                # Press signatures, creep, cuts, and folds
@@ -332,6 +330,7 @@ documents      = [
     "python-docx",              # docx read and write
     "python-pptx",              # pptx read and write
     "reportlab",                # Programmatic PDF drawing and layout
+    "types-reportlab",          # Type stubs of reportlab
     "typst",                    # Typst PDF typesetting
     "weasyprint",               # HTML and CSS to PDF
     "xlsxwriter",               # Streaming write-only xlsx
@@ -363,6 +362,7 @@ typography     = [
     "opentype-feature-freezer", # Freeze OpenType features into default glyph set
     "PyICU",                    # ICU line breaking, bidi, and collation, built on Pixi's ICU
     "pyphen",                   # Language-aware hyphenation dictionaries
+    "types-pyphen",             # Type stubs of pyphen
     "python-bidi",              # UAX 9 bidi reorder pass before HarfBuzz shaping
     "uniseg",                   # Unicode line, word, and grapheme segmentation
     "vharfbuzz",                # HarfBuzz shaping QA and buffer-diff
@@ -401,7 +401,6 @@ required-environments = [
 # --- [BUILDS]
 
 extra-build-dependencies = { pyroscope-io = ["cmake"] } # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
-no-build-package         = ["epdx"]                     # `epdx` sdist lacks `project.version`
 
 [tool.uv.workspace]
 members = [
@@ -903,7 +902,7 @@ ignore_names      = ["[!_]*", "_*_"] # Public names are API, `_x_` and `__x__` n
 
 [tool.coverage]
 report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\("] }
-run    = { branch = true, parallel = true, relative_files = true, data_file = ".artifacts/coverage/.coverage" }
+run    = { branch = true, relative_files = true, data_file = ".artifacts/coverage/.coverage" }
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 
