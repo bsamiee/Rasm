@@ -21,7 +21,7 @@ const Attach = Dry.mapFields(Struct.assign({ __unparsed__: Words })).annotate({
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = executor(Attach, function* ({ dryRun, __unparsed__: words = [] }, context) {
-    const [dry, { project, files }, tag] = yield* Effect.all([dried(dryRun), packaged(context), released(context)]);
+    const [dry, { project, files }, tag] = yield* Effect.all([dried(dryRun), packaged(context), Effect.map(released(context), Option.map(Struct.get('tag')))]);
     const commands = (at: string) => ({ upload: ['gh', 'release', 'upload', at, ...files, '--clobber', ...forwarded(words)], create: ['gh', 'release', 'create', at, '--verify-tag', ...files, ...forwarded(words)] }) as const;
     const attached = Effect.fnUntraced(function* (at: string) {
         const { data } = yield* Effect.flatMap(spawned(['gh', 'api', 'graphql', '-F', 'owner={owner}', '-F', 'name={repo}', '-f', `tag=${at}`, '-f', `query=${QUERY}`], { cwd: context.root }), Schema.decodeEffect(Held));

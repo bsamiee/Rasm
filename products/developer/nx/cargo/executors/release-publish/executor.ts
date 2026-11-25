@@ -1,8 +1,7 @@
 import { pathToFileURL } from 'node:url';
-import type { ExecutorContext } from '@nx/devkit';
 import { dried, executor, spawned, Words } from '@rasm/nx';
-import { credentialed } from '@rasm/nx/executor';
-import { Array, Cause, Effect, Function, Option, Path, Result, Schema, SemVer, String, Struct } from 'effect';
+import { credentialed, released } from '@rasm/nx/executor';
+import { Array, Effect, Option, Path, Schema, String } from 'effect';
 import { Crate } from '#/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -20,16 +19,6 @@ const Publish = Schema.Struct({
         "Publishes a crate with cargo publish at the version of the project's tag at the checked-out commit, the tag nx release made from release.releaseTag.pattern, where the registry token variable Cargo reads (CARGO_REGISTRY_TOKEN, or CARGO_REGISTRIES_<NAME>_TOKEN for a named registry) is set and cargo info finds no such version in the registry; names the variable where it is unset, publishes nothing where nx release released no version of the project at that commit or the registry holds it, and under a dry run runs cargo publish --dry-run over the crate and its workspace dependencies whatever the tags; runs through nx release publish",
 });
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const released = Effect.fnUntraced(function* ({ root, projectName, nxJsonConfiguration: { release } }: ExecutorContext) {
-    const project = yield* Effect.fromNullishOr(projectName);
-    const pattern = release?.releaseTag?.pattern ?? (release?.projectsRelationship === 'independent' ? '{projectName}@{version}' : 'v{version}');
-    const matcher = new RegExp(`^${pattern.replaceAll('{projectName}', project).split('{version}').map(RegExp.escape).join('(.+)')}$`, 'u');
-    const tags = Array.filterMap((yield* spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root })).split('\n'), (tag) => Result.flatMap(Result.fromNullishOr(matcher.exec(tag)?.[1], Function.constant(tag)), (version) => Result.map(SemVer.parse(version), Function.constant({ tag, version }))));
-    return tags.length > 1 ? yield* new Cause.UnknownError(tags, `HEAD holds [${tags.map(Struct.get('tag')).join(', ')}], each matching ${pattern} for ${project}, in place of the one tag nx release makes per project`) : Array.head(tags);
-});
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = executor(Publish, function* ({ dryRun, cwd: root, package: named, packages = [], registry, __unparsed__: words = [] }, context) {
@@ -44,7 +33,7 @@ const execute = executor(Publish, function* ({ dryRun, cwd: root, package: named
     const missing = dry ? [] : [...(Option.isNone(tagged) ? [`HEAD holds no tag of ${node.name}, so nx release released no version of it at this commit`] : []), ...(Option.isNone(token) ? [`${credential} is not set`] : [])];
     const stored = yield* Option.match(
         Option.filter(tagged, () => !dry && missing.length === 0),
-        { onNone: () => Effect.succeed(false), onSome: ({ version }) => Effect.isSuccess(spawned(['cargo', 'info', `${named}@${version}`, ...registries], { cwd })) },
+        { onNone: () => Effect.succeed(false), onSome: ({ extractedVersion }) => Effect.isSuccess(spawned(['cargo', 'info', `${named}@${extractedVersion}`, ...registries], { cwd })) },
     );
     yield* Array.match([...missing, ...(stored ? ['its registry holds the version of the tag at HEAD, as cargo info finds'] : [])], {
         onEmpty: () => spawned(publish, { cwd, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }),

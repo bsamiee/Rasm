@@ -53,7 +53,7 @@ const released = Effect.fnUntraced(function* ({ root, projectName, projectGraph,
     const [head, ordered] = yield* Effect.all([spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root }), Effect.promise(() => RepoGitTags.create().resolveTags())]);
     const tags = Array.intersection(ordered, head.split('\n'));
     const held = yield* Effect.transposeOption(Option.map(group, ([name, { releaseTag }]) => Effect.promise(() => getLatestGitTagForPattern(releaseTag.pattern, { projectName: sanitizeProjectNameForGitTag(project), releaseGroupName: name }, Function.constant(Promise.resolve(tags)), releaseTag))));
-    return Option.flatMapNullishOr(held, (found) => found?.tag);
+    return Option.flatMap(held, Option.fromNullishOr);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

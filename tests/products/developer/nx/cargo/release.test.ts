@@ -1,10 +1,11 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { workspaceRoot } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
 import { Cargo, execute } from '@rasm/nx-cargo/executors/cargo';
-import { it, outputs, taskGraph, targetOptions } from '@rasm/testing/nx';
+import { execute as publish, Publish } from '@rasm/nx-cargo/executors/release-publish';
+import { outputs, shimmed, taskGraph, targetOptions, it as workspaced } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -34,8 +35,26 @@ const CLOSURES = [
     ['nx_fixture_adder', ['--package', 'nx-fixture-adder', '--package', 'nx-fixture-sealed']],
     ['nx_fixture_sealed', ['--package', 'nx-fixture-sealed']],
 ] as const;
+const INDEPENDENT = { projects: ['*'], projectsRelationship: 'independent' };
+const PUBLISHED = 'publish --package path+file://<root>/rust/crates/app#app --locked';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+const it = workspaced.extend('tagged', ({ workspace }) => async (release: object, tags: readonly string[], registry: string) => {
+    const git = (...args: readonly string[]) => execFileSync('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd: workspace.root });
+    workspace.write({ ...crates, '.gitignore': '.bin\n*.txt\n', 'nx.json': JSON.stringify({ release }) });
+    git('init', '--quiet', '--initial-branch=main');
+    git('add', '.');
+    git('commit', '--quiet', '--message', 'base');
+    tags.forEach((tag) => {
+        git('tag', '--annotate', tag, '--message', tag);
+    });
+    const graph = await workspace.graph(cargo);
+    shimmed(join(workspace.root, '.bin'), { cargo: String.raw`printf '%s\n' "$*" >> "$(dirname "$0")/../cargo.txt"; [ "$1" != info ] || ${registry}` });
+    vi.stubEnv('CARGO_REGISTRY_TOKEN', 'token');
+    await publish(await targetOptions(Publish, graph, 'app', 'nx-release-publish'), workspace.context(graph, 'app', 'nx-release-publish'));
+    return existsSync(join(workspace.root, 'cargo.txt')) ? readFileSync(join(workspace.root, 'cargo.txt'), 'utf-8').replaceAll(workspace.root, '<root>').trim().split('\n') : [];
+});
 
 describe('pack--cargo', { timeout: 120_000 }, () => {
     it('packs a crate depending on another workspace crate into the archive its outputs name, holding its manifest and sources', async ({ workspace }) => {
@@ -75,5 +94,20 @@ describe('nx-release-publish', { timeout: 120_000 }, () => {
         const { tasks } = taskGraph(graph, ['app'], ['nx-release-publish']);
 
         expect(Object.keys(tasks).toSorted()).toStrictEqual(['app:nx-release-publish', 'kit:nx-release-publish']);
+    });
+
+    it.for([
+        { case: 'its own tag and the registry lacks its version', release: INDEPENDENT, tags: ['kit@0.1.0', 'app@0.2.0'], registry: 'exit 1', ran: ['info app@0.2.0', PUBLISHED] },
+        { case: 'its own tag and the registry holds its version', release: INDEPENDENT, tags: ['app@0.2.0'], registry: 'exit 0', ran: ['info app@0.2.0'] },
+        { case: 'only the tag of another project', release: INDEPENDENT, tags: ['kit@0.1.0'], registry: 'exit 1', ran: [] },
+        { case: 'the tag of a fixed release', release: { projects: ['*'] }, tags: ['v0.2.0'], registry: 'exit 1', ran: ['info app@0.2.0', PUBLISHED] },
+        { case: 'the tag an independent release group makes', release: { groups: { crates: INDEPENDENT } }, tags: ['app@0.2.0'], registry: 'exit 1', ran: ['info app@0.2.0', PUBLISHED] },
+        { case: 'the tag a group pattern naming its group makes', release: { groups: { crates: { ...INDEPENDENT, releaseTag: { pattern: '{releaseGroupName}/{projectName}@{version}' } } } }, tags: ['crates/app@0.2.0'], registry: 'exit 1', ran: ['info app@0.2.0', PUBLISHED] },
+        { case: 'two releases tagged oldest first, asking for the newest as Nx sorts tags by version', release: INDEPENDENT, tags: ['app@0.2.0', 'app@0.2.1'], registry: 'exit 1', ran: ['info app@0.2.1', PUBLISHED] },
+        { case: 'two releases tagged newest first, asking for the newest as Nx sorts tags by version', release: INDEPENDENT, tags: ['app@0.2.1', 'app@0.2.0'], registry: 'exit 1', ran: ['info app@0.2.1', PUBLISHED] },
+        { case: 'a prerelease alone under a release tag stating strictPreid false', release: { ...INDEPENDENT, releaseTag: { strictPreid: false } }, tags: ['app@0.3.0-beta.1'], registry: 'exit 1', ran: ['info app@0.3.0-beta.1', PUBLISHED] },
+        { case: 'a prerelease alone under the strict preid Nx defaults to, which reads stable tags alone', release: INDEPENDENT, tags: ['app@0.3.0-beta.1'], registry: 'exit 1', ran: [] },
+    ])('runs cargo with $ran where HEAD holds $case', async ({ release, tags, registry, ran }, { tagged }) => {
+        await expect(tagged(release, tags, registry)).resolves.toStrictEqual(ran);
     });
 });

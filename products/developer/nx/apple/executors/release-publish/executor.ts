@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { dried, executor, spawned, Words } from '@rasm/nx';
 import { packaged, released } from '@rasm/nx/executor';
 import cf from 'cf/package.json' with { type: 'json' };
-import { Array, Cause, Config, Effect, FileSystem, Function, Option, Path, Record, Result, Schema, Stream } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Function, Option, Path, Record, Result, Schema, Stream, Struct } from 'effect';
 import { APPCAST, NOTARY } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -52,7 +52,7 @@ const fed = Effect.fnUntraced(function* (root: string, archive: string, files: r
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = executor(Publish, function* ({ exports, dryRun, __unparsed__: words = [] }, context) {
-    const [dry, tag, { files }] = yield* Effect.all([dried(dryRun), released(context), packaged(context)]);
+    const [dry, tag, { files }] = yield* Effect.all([dried(dryRun), Effect.map(released(context), Option.map(Struct.get('tag'))), packaged(context)]);
     yield* Option.match(dry ? Option.orElseSome(tag, () => `<tag nx release makes for ${context.projectName}>`) : tag, {
         onNone: () => Effect.logInfo(`Skipped the Sparkle feeds of ${context.projectName}: HEAD holds no tag of ${context.projectName}, so nx release released no version of it at this commit`),
         onSome: (at) => Effect.forEach(exports, ({ archive }) => fed(context.root, archive, files, at, dry, words), { discard: true }),
