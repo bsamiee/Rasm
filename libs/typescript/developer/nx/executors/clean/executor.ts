@@ -13,9 +13,7 @@ const Clean = Schema.Struct({
     commands: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: "The tool's own clean commands, each an argument list", default: [] }),
     cwd: Schema.String.annotate({ description: 'Folder the commands run in, relative to the workspace root', default: '.' }),
     folders: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: "Folders whose entries are removed, keeping the entry holding Nx's workspace data, each an environment variable naming a folder followed by path segments under it", default: [] }),
-    patterns: Schema.Array(Schema.String)
-        .annotate({ description: 'Glob patterns relative to the workspace root, each match is removed whole unless the workspace tracks it or a file under it', default: [] })
-        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+    patterns: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Glob patterns relative to the workspace root, each match is removed whole unless the workspace tracks it or a file under it', default: [] }),
     __unparsed__: Words,
 }).annotate({
     title: 'Clean',
@@ -65,7 +63,7 @@ const emptied = Effect.fnUntraced(function* ([variable, ...segments]: Array.NonE
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(Clean, function* ({ targets, commands, cwd, folders, patterns, __unparsed__: words = [] }, context) {
+const execute = executor(Clean, function* ({ targets, commands, cwd, folders, patterns = [], __unparsed__: words = [] }, context) {
     const [fs, path, project] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.fromNullishOr(context.projectName)]);
     const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
     const selections = targets.flatMap((target) => [{ target }, ...Record.keys(node.data.targets?.[target]?.configurations ?? {}).map((configuration) => ({ target, configuration }))]);
