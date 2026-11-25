@@ -20,7 +20,7 @@ struct AccountRemovalAlert: ViewModifier {
             Button(Self.title, role: .destructive) { store.remove(model.account.id) }
         } message: { model in
             Text(
-                model.isSelected
+                model.isActive
                     ? "Removal deletes \(model.account.identity.email) credential and signs \(model.account.provider.tool) out" : "Removal deletes \(model.account.identity.email) credential"
             )
         }
@@ -86,7 +86,7 @@ struct MenuBarExtraContent: View {
         }
         .padding(.vertical, 16)
         .frame(width: 384)
-        .background { PanelToolTips() }
+        .background { MenuBarExtraToolTips() }
         .onReceive(updater.publisher(for: \.canCheckForUpdates)) { canCheck in canCheckForUpdates = canCheck }
     }
 
@@ -187,19 +187,19 @@ private struct AccountCard: View {
 
     private var providerGlyph: some View {
         Button {
-            store.select(model.account.id)
+            store.activate(model.account.id)
         } label: {
             Image(model.account.provider.symbol)
         }
         .buttonStyle(.accessoryBar)
-        .foregroundStyle(model.isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
-        .disabled(!model.isSelected && !model.canSelect)
+        .foregroundStyle(model.isActive ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+        .disabled(!model.isActive && !model.canActivate)
         .overlay(alignment: .center) {
-            if model.running?.kind == .selecting { ProgressView().controlSize(.mini) }
+            if model.running?.kind == .activate { ProgressView().controlSize(.mini) }
         }
         .accessibilityLabel(model.account.provider.name)
-        .accessibilityAddTraits(model.isSelected ? .isSelected : [])
-        .help(model.isSelected ? "Active account" : "Switch account")
+        .accessibilityAddTraits(model.isActive ? .isSelected : [])
+        .help(model.isActive ? "Active account" : "Switch account")
     }
 
     @ViewBuilder
@@ -213,15 +213,15 @@ private struct AccountCard: View {
     }
 }
 
-private struct PanelToolTips: NSViewRepresentable {
-    final class Host: NSView {
+private struct MenuBarExtraToolTips: NSViewRepresentable {
+    final class View: NSView {
         override func viewWillMove(toWindow newWindow: NSWindow?) {
             super.viewWillMove(toWindow: newWindow)
             newWindow?.allowsToolTipsWhenApplicationIsInactive = true
         }
     }
 
-    func makeNSView(context _: Context) -> Host { Host() }
+    func makeNSView(context _: Context) -> View { View() }
 
-    func updateNSView(_: Host, context _: Context) {}
+    func updateNSView(_: View, context _: Context) {}
 }

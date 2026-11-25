@@ -40,38 +40,38 @@ nonisolated enum AuthenticationState: Codable, Sendable {
 }
 
 enum AccountOperation: Sendable {
-    case refreshing
-    case selecting
-    case signingIn
-    case signingOut
-    case removing
+    case refresh
+    case activate
+    case signIn
+    case signOut
+    case remove
 
     var name: StaticString {
         switch self {
-            case .refreshing: "Refreshing usage"
-            case .selecting: "Switching account"
-            case .signingIn: "Signing in"
-            case .signingOut: "Signing out"
-            case .removing: "Removing account"
+            case .refresh: "Refreshing usage"
+            case .activate: "Switching account"
+            case .signIn: "Signing in"
+            case .signOut: "Signing out"
+            case .remove: "Removing account"
         }
     }
 
     var level: Logger.Level {
         switch self {
-            case .refreshing: .debug
-            case .selecting, .signingIn, .signingOut, .removing: .notice
+            case .refresh: .debug
+            case .activate, .signIn, .signOut, .remove: .notice
         }
     }
 }
 
 nonisolated protocol ProviderClient: Actor {
-    func currentSelection(selected: Account?) async throws(AccountFailure) -> AccountIdentity?
-    func holdsCredential(for account: Account, isSelected: Bool) async throws(AccountFailure) -> Bool
-    func select(_ account: Account, outgoing: Account?) async throws(AccountFailure) -> AccountIdentity
+    func activeIdentity(active: Account?) async throws(AccountFailure) -> AccountIdentity?
+    func holdsCredential(for account: Account, isActive: Bool) async throws(AccountFailure) -> Bool
+    func activate(_ account: Account, outgoing: Account?) async throws(AccountFailure) -> AccountIdentity
     func signIn(_ target: SignInTarget, codes: AsyncStream<String>) async throws(AccountFailure) -> AccountIdentity
-    func signOut(_ account: Account, isSelected: Bool) async throws(AccountFailure)
+    func signOut(_ account: Account, isActive: Bool) async throws(AccountFailure)
     func deletePrivateStore(id: UUID) async throws(AccountFailure)
-    func usage(for account: Account, isSelected: Bool) async throws(AccountFailure) -> AccountUsage
+    func usage(for account: Account, isActive: Bool) async throws(AccountFailure) -> AccountUsage
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -83,14 +83,14 @@ nonisolated struct AccountIdentity: Codable, Equatable, Sendable {
     let plan: String?
 
     init(accountID: String?, organizationID: String?, email: String?, plan: String?) throws(AccountFailure) {
-        func required(_ value: String?, _ field: CodingKeys) -> Result<String, AggregateError<AccountFailure>> {
+        func require(_ value: String?, _ field: CodingKeys) -> Result<String, AggregateError<AccountFailure>> {
             value.map { value in value.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { value in value.isEmpty ? nil : value }.map(Result.success)
                 ?? .failure(AggregateError(first: AccountFailure(subject: field.stringValue, reason: .missing)))
         }
         (self.accountID, self.email, self.organizationID) = try combine(
-            required(accountID, .accountID),
-            required(email, .email),
-            organizationID.map { value in required(value, .organizationID).map(Optional.some) } ?? .success(nil),
+            require(accountID, .accountID),
+            require(email, .email),
+            organizationID.map { value in require(value, .organizationID).map(Optional.some) } ?? .success(nil),
         )
         .mapError { causes in AccountFailure(subject: "Account identity", reason: .invalid(causes)) }
         .get()
@@ -144,7 +144,7 @@ nonisolated struct Account: Codable, Identifiable, Sendable {
 
 nonisolated enum SignInTarget: Sendable {
     case newAccount(UUID)
-    case account(Account, isSelected: Bool)
+    case account(Account, isActive: Bool)
 }
 
 enum AuthenticationRefusal: Sendable {
@@ -191,7 +191,7 @@ nonisolated struct AccountFailure: LocalizedError, CustomNSError, LockFailure {
         case signInRefused(reason: String?)
         case accountOnHold(appeal: URL)
         case accountChanged
-        case selectionChanged
+        case activeAccountChanged
         case usageUnavailable
         case keyringStorage
         case forcedWorkspace
@@ -261,7 +261,7 @@ nonisolated struct AccountFailure: LocalizedError, CustomNSError, LockFailure {
             case .signInRefused(let detail): ["\(subject) sign-in failed", detail].compactMap(\.self).joined(separator: ". ")
             case .accountOnHold(let appeal): "\(subject) account on hold, view details or appeal at \(appeal.absoluteString)"
             case .accountChanged: "Signed in to different \(subject) account"
-            case .selectionChanged: "Active \(subject) account changed during switch"
+            case .activeAccountChanged: "Active \(subject) account changed during switch"
             case .usageUnavailable: "\(subject) could not fetch usage"
             case .keyringStorage: "Set cli_auth_credentials_store = \"file\" to switch accounts"
             case .forcedWorkspace: "Unset forced_chatgpt_workspace_id to switch accounts"
@@ -277,7 +277,7 @@ nonisolated struct AccountFailure: LocalizedError, CustomNSError, LockFailure {
             case .invalid(let causes): [NSMultipleUnderlyingErrorsKey: causes.errors]
             case .cleanup(let operation, let release): [NSUnderlyingErrorKey: operation, NSMultipleUnderlyingErrorsKey: [release]]
             case .missing, .outOfRange, .notInstalled, .timedOut, .cancelled, .interactionNotAllowed, .signInRequired, .signInPageUnopened, .signInRefused, .accountOnHold,
-                .accountChanged, .selectionChanged, .usageUnavailable, .keyringStorage, .forcedWorkspace, .desktopRunning:
+                .accountChanged, .activeAccountChanged, .usageUnavailable, .keyringStorage, .forcedWorkspace, .desktopRunning:
                 [:]
         }
     }

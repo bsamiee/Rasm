@@ -8,15 +8,15 @@ import System
 
 nonisolated struct FileLocations: Sendable {
     let home: URL
-    let applicationSupportDirectory: URL = Program.current.directory(.state)
+    let stateDirectory: URL = Program.current.directory(.state)
 
     init(environment: [Environment.Key: String]) {
         home = environment["HOME"].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) } ?? URL.homeDirectory
     }
 
-    var accountsFile: URL { applicationSupportDirectory.appending(path: "accounts.json") }
-    var claudeSelectionFile: URL { applicationSupportDirectory.appending(path: "claude-selection.json") }
-    var accountsDirectory: URL { applicationSupportDirectory.appending(path: "Accounts", directoryHint: .isDirectory) }
+    var accountsFile: URL { stateDirectory.appending(path: "accounts.json") }
+    var claudePendingSwitchFile: URL { stateDirectory.appending(path: "claude-selection.json") }
+    var accountsDirectory: URL { stateDirectory.appending(path: "Accounts", directoryHint: .isDirectory) }
 
     func accountDirectory(_ id: UUID) -> URL { accountsDirectory.appending(path: id.uuidString, directoryHint: .isDirectory) }
     func claudeDirectory(_ id: UUID) -> URL { accountDirectory(id).appending(path: "Claude", directoryHint: .isDirectory) }

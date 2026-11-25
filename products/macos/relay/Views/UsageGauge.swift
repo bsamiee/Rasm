@@ -32,7 +32,7 @@ nonisolated extension FormatStyle where Self == Date.FormatStyle {
     static var detail: Self { .dateTime.weekday(.wide).month().day().hour().minute() }
 }
 
-extension QuotaWindow {
+extension RateLimitWindow {
     func resetText(at now: Date) -> String? {
         guard !hasReset(at: now), let resetsAt else { return nil }
         return switch resetsAt.timeIntervalSince(now) {
@@ -57,7 +57,7 @@ extension QuotaWindow {
 // --- [VIEWS] ---------------------------------------------------------------------------
 
 struct UsageGauge: View {
-    let window: QuotaWindow
+    let window: RateLimitWindow
     let isCurrent: Bool
     let now: Date
     let leadsGlyphRow: Bool

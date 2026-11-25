@@ -81,13 +81,13 @@ nonisolated enum CodexProtocol {
             let weekly: [RateLimitWindow] = [limits.primary, limits.secondary].compactMap(\.self).filter { window in (window.windowDurationMins ?? 0) >= 7 * 24 * 60 }
             let windows = try traverse(weekly) { window in
                 Result { () throws(AccountFailure) in
-                    try QuotaWindow(kind: .weekly, percent: window.usedPercent, resetsAt: window.resetsAt.map { seconds in Date(timeIntervalSince1970: TimeInterval(seconds)) })
+                    try Relay.RateLimitWindow(kind: .weekly, percent: window.usedPercent, resetsAt: window.resetsAt.map { seconds in Date(timeIntervalSince1970: TimeInterval(seconds)) })
                 }
                 .aggregated(\.self)
             }
             .mapError { causes in AccountFailure(subject: "Codex usage", reason: .invalid(causes)) }
             .get()
-            return AccountUsage(windows: windows, includedUsageAllowed: ordinaryUsageAllowed, observedAt: observedAt, signInExpiresAt: nil)
+            return AccountUsage(windows: windows, ordinaryUsageAllowed: ordinaryUsageAllowed, observedAt: observedAt, signInExpiresAt: nil)
         }
     }
 

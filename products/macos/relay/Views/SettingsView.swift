@@ -36,7 +36,7 @@ struct SettingsView: View {
                         Label {
                             Text(model.account.identity.email)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                            if model.isSelected {
+                            if model.isActive {
                                 Image(systemName: "checkmark")
                                     .foregroundStyle(.secondary)
                                     .accessibilityLabel("Active")
@@ -138,19 +138,19 @@ private struct AccountSettings: View {
         Form {
             Section {
                 LabeledContent("Active account") {
-                    if model.isSelected {
+                    if model.isActive {
                         Label("Active", systemImage: "checkmark")
                             .foregroundStyle(.secondary)
                     } else {
-                        let isSelecting = model.running?.kind == .selecting
+                        let isActivating = model.running?.kind == .activate
                         Button {
-                            store.select(model.account.id)
+                            store.activate(model.account.id)
                         } label: {
-                            Text("Use Account").opacity(isSelecting ? 0 : 1)
+                            Text("Use Account").opacity(isActivating ? 0 : 1)
                         }
-                        .disabled(!model.canSelect)
+                        .disabled(!model.canActivate)
                         .overlay {
-                            if isSelecting { ProgressView().controlSize(.small) }
+                            if isActivating { ProgressView().controlSize(.small) }
                         }
                     }
                 }

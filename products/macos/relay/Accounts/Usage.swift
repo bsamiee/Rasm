@@ -3,7 +3,7 @@ import Foundation
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-nonisolated enum QuotaKind: Hashable, Codable, Sendable {
+nonisolated enum RateLimitKind: Hashable, Codable, Sendable {
     case weekly
     case model(String)
 
@@ -15,12 +15,12 @@ nonisolated enum QuotaKind: Hashable, Codable, Sendable {
     }
 }
 
-nonisolated struct QuotaWindow: Codable, Equatable, Sendable {
-    let kind: QuotaKind
+nonisolated struct RateLimitWindow: Codable, Equatable, Sendable {
+    let kind: RateLimitKind
     let percent: Double
     let resetsAt: Date?
 
-    init(kind: QuotaKind, percent: Double, resetsAt: Date?) throws(AccountFailure) {
+    init(kind: RateLimitKind, percent: Double, resetsAt: Date?) throws(AccountFailure) {
         guard (0...100).contains(percent) else { throw AccountFailure(subject: "\(kind.name) usage \(percent)%", reason: .outOfRange) }
         (self.kind, self.percent, self.resetsAt) = (kind, percent, resetsAt)
     }
@@ -28,7 +28,7 @@ nonisolated struct QuotaWindow: Codable, Equatable, Sendable {
     init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: CodingKeys.self)
         try self.init(
-            kind: fields.decode(QuotaKind.self, forKey: .kind),
+            kind: fields.decode(RateLimitKind.self, forKey: .kind),
             percent: fields.decode(Double.self, forKey: .percent),
             resetsAt: fields.decodeIfPresent(Date.self, forKey: .resetsAt),
         )
@@ -40,14 +40,14 @@ nonisolated struct QuotaWindow: Codable, Equatable, Sendable {
 }
 
 nonisolated struct AccountUsage: Codable, Equatable, Sendable {
-    let windows: [QuotaWindow]
-    let includedUsageAllowed: Bool?
+    let windows: [RateLimitWindow]
+    let ordinaryUsageAllowed: Bool?
     let observedAt: Date
     let signInExpiresAt: Date?
 
-    var weekly: QuotaWindow? { windows.first { window in window.kind == .weekly } }
+    var weekly: RateLimitWindow? { windows.first { window in window.kind == .weekly } }
     var nextReset: Date? { windows.compactMap(\.resetsAt).filter { reset in reset > observedAt }.min() }
-    func isBlocked(at now: Date) -> Bool { weekly?.blocks(at: now) == true || includedUsageAllowed == false }
+    func isBlocked(at now: Date) -> Bool { weekly?.blocks(at: now) == true || ordinaryUsageAllowed == false }
 }
 
 @CasePathable

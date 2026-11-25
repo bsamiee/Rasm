@@ -9,12 +9,12 @@ final class AccountModel: Codable {
         case authentication, usage
     }
 
-    static let usageReadSpacing: (selected: Duration, parked: Duration) = (.seconds(180), .seconds(1800))
+    static let usageReadSpacing: (active: Duration, inactive: Duration) = (.seconds(180), .seconds(1800))
 
     var account: Account
     var authentication: AuthenticationState
     var usage: UsageState
-    var isSelected: Bool = false
+    var isActive: Bool = false
     private(set) var running: (token: UUID, kind: AccountOperation, task: Task<Void, Never>)?
 
     init(account: Account, authentication: AuthenticationState, usage: UsageState) {
@@ -39,12 +39,12 @@ final class AccountModel: Codable {
 
     var isBusy: Bool { running != nil }
     var isConnected: Bool { authentication == .connected }
-    var acceptsOperation: Bool { running.map { running in running.kind == .refreshing } ?? true }
-    var canSelect: Bool { isConnected && acceptsOperation && !isSelected }
+    var acceptsOperation: Bool { running.map { running in running.kind == .refresh } ?? true }
+    var canActivate: Bool { isConnected && acceptsOperation && !isActive }
 
     var usageReadAfter: Date? {
         usage.usage.map { usage in
-            let spaced = usage.observedAt.addingTimeInterval((isSelected ? Self.usageReadSpacing.selected : Self.usageReadSpacing.parked) / .seconds(1))
+            let spaced = usage.observedAt.addingTimeInterval((isActive ? Self.usageReadSpacing.active : Self.usageReadSpacing.inactive) / .seconds(1))
             return usage.nextReset.map { reset in min(reset, spaced) } ?? spaced
         }
     }
