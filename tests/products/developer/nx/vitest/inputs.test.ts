@@ -104,6 +104,27 @@ describe('test--vitest hashes the files a run loads outside its project', () => 
         expect([files.includes(loaded), files.includes('tools/vitest/unused.mts')]).toStrictEqual([true, false]);
     });
 
+    it.for([
+        { case: 'a setup file inside the folder of another project', loaded: 'libs/lib/setup.mts' },
+        { case: 'a module it imports from inside the folder of another project', loaded: 'libs/lib/settings.ts' },
+        { case: 'a setup file in a folder the root project holds', loaded: 'tools/setup.mts' },
+    ])('hashes for a configuration of the root project $case', async ({ loaded }, { workspace }) => {
+        const graph = await workspace
+            .write({
+                ...LIB,
+                'package.json': '{"name":"repo","workspaces":["libs/*"],"nx":{}}',
+                'tools/setup.mts': '',
+                'libs/lib/setup.mts': '',
+                'libs/lib/unused.mts': '',
+                'libs/lib/settings.ts': "export const setupFiles = ['./libs/lib/setup.mts', './tools/setup.mts'];\n",
+                'vitest.config.ts': "import { setupFiles } from './libs/lib/settings.ts';\n\nexport default { test: { setupFiles } };\n",
+            })
+            .graph({ createNodes });
+        const files = await hashed(graph, workspace.root, 'repo');
+
+        expect([files.includes(loaded), files.includes('libs/lib/unused.mts')]).toStrictEqual([true, false]);
+    });
+
     it('hashes the modules a config loads from a linked workspace package and no other file of that package', async ({ workspace }) => {
         workspace.write({
             ...LIB,

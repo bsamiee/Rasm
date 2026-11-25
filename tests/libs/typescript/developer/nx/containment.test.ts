@@ -1,4 +1,4 @@
-import { below, inside, tokened, within } from '@rasm/nx';
+import { below, inside, owned, tokened, within } from '@rasm/nx';
 import { describe, expect, it } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -58,6 +58,16 @@ describe('containment', () => {
 
     it.for(WITHIN)('reads $at within the workspace as $held, $partition', ({ at, held }) => {
         expect(within(at)).toBe(held);
+    });
+
+    it.for([
+        { root: 'libs/core', at: 'libs/core/index.ts', held: true, partition: 'a file in the project folder' },
+        { root: 'libs/core', at: 'libs/core-kit/index.ts', held: false, partition: 'a file in a folder sharing the name as a prefix' },
+        { root: 'libs/core', at: 'tools/setup.ts', held: false, partition: 'a file outside the project folder' },
+        { root: '.', at: 'libs/core/index.ts', held: false, partition: 'a file below a project at the workspace root, which Nx gives to the deepest project holding it' },
+        { root: '.', at: 'tools/setup.ts', held: false, partition: 'a file no folder project holds, which the root project names from the workspace root all the same' },
+    ])('reads $at as owned by the project at $root as $held, $partition', ({ root, at, held }) => {
+        expect(owned(root)(at)).toBe(held);
     });
 
     it.for(TOKENED)('states $at of project $root as $token, $partition', ({ root, at, token }) => {

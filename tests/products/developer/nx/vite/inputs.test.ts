@@ -76,6 +76,27 @@ describe('what build--vite hashes', () => {
     });
 
     it.for([
+        { case: 'a module it imports from inside the folder of another project', edit: { 'libs/plugin/index.js': "export const named = 'plugin';\nexport const unused = 1;\n" } },
+        { case: 'the compilerOptions of a tsconfig inside the folder of another project the root tsconfig extends', edit: { 'libs/plugin/tsconfig.json': '{"compilerOptions":{"jsx":"preserve"}}' } },
+        { case: 'a module it imports from a folder the root project holds', edit: { 'tools/vite/base.ts': "export const outDir = 'dist';\nexport const unused = 1;\n" } },
+    ])('hashes a config of the root project again after an edit to $case', async ({ edit }, { workspace }) => {
+        workspace.write({
+            'package.json': '{"name":"web","type":"module","workspaces":["apps/*","libs/*"],"nx":{}}',
+            '.gitignore': '.env*\ntmp\n',
+            'apps/web/package.json': '{"name":"app","type":"module"}',
+            'tsconfig.json': '{"extends":"./libs/plugin/tsconfig.json"}',
+            'libs/plugin/tsconfig.json': '{"compilerOptions":{"jsx":"react-jsx"}}',
+            'index.html': '<!doctype html>\n',
+            'vite.config.ts': "import { named } from './libs/plugin/index.js';\nimport { outDir } from './tools/vite/base';\n\nexport default { build: { outDir }, plugins: [{ name: named }] };\n",
+        });
+        const before = await hashed(workspace, await workspace.graph({ createNodes }));
+
+        const after = await hashed(workspace, await workspace.write(edit).graph({ createNodes }));
+
+        expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: true });
+    });
+
+    it.for([
         { moved: 'vite', changes: true },
         { moved: 'dep', changes: true },
         { moved: 'unread', changes: false },

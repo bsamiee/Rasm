@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, type TargetConfiguration } from '@nx/devkit';
 import { getReadyCheckReadyWhen, hashObject, quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, inside, manifested, namedInput, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx';
+import { type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx';
 import { Array, Cause, Effect, FileSystem, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 import type { parseSync } from 'vite';
 
@@ -68,7 +68,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         type: resolution.library ? ('library' as const) : ('application' as const),
         signals: resolution.signals,
         served: resolution.served,
-        loaded: loaded.filter(Predicate.not(inside(posix.dirname(file)))),
+        loaded,
         packages,
         env: { directory: resolution.env.directory.pipe(Option.map(local), Option.filter(within), Option.getOrUndefined), prefixes: resolution.env.prefixes },
         sources: [...loaded, local(join(resolution.root, 'index.html')), ...Array.fromNullishOr(findPackageJSON(pathToFileURL(at))).map(local)],
@@ -89,9 +89,9 @@ const inferred = Effect.fnUntraced(function* (pass: Pass<Effect.Success<ReturnTy
             named,
             `^${named}`,
             ...extended(context.workspaceRoot, root)
-                .filter(Predicate.not(inside(root)))
+                .filter(Predicate.not(owned(root)))
                 .map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
-            ...loaded.map((at) => posix.join('{workspaceRoot}', at)),
+            ...loaded.filter(Predicate.not(owned(root))).map((at) => posix.join('{workspaceRoot}', at)),
             ...Array.fromNullishOr(env.directory).map((at) => ({ fileset: posix.join('{workspaceRoot}', at, '.env*'), includeIgnored: true })),
             { runtime: ['node', '-p', 'Object.entries(process.env).filter(([name]) => process.argv.slice(1).some((prefix) => name.startsWith(prefix))).sort().join()', '--', ...env.prefixes].map(quoteShellArg).join(' ') },
             { dependentTasksOutputFiles: '**/*', transitive: true },

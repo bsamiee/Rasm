@@ -67,6 +67,25 @@ describe('what test--playwright hashes', () => {
     });
 
     it.for([
+        { case: 'a module it requires from inside the folder of another project', edit: { 'libs/shared/index.js': 'module.exports = { changed: true };\n' } },
+        { case: 'a test file in a testDir inside the folder of another project', edit: { 'libs/shared/e2e/smoke.spec.js': "const { test } = require('@playwright/test');\n\ntest('still passes', () => {});\n" } },
+        { case: 'a module it requires from a folder the root project holds', edit: { 'tools/pw/base.js': 'module.exports = { changed: true };\n' } },
+    ])('hashes a config of the root project again after an edit to $case', async ({ edit }, { workspace }) => {
+        workspace.write({
+            'package.json': '{"name":"e2e","workspaces":["apps/*","libs/*"],"nx":{}}',
+            '.gitignore': 'tmp\n',
+            'apps/e2e/package.json': '{"name":"app"}',
+            'libs/shared/e2e/smoke.spec.js': "const { test } = require('@playwright/test');\n\ntest('passes', () => {});\n",
+            'playwright.config.js': "require('./tools/pw/base.js');\nrequire('./libs/shared/index.js');\nmodule.exports = { testDir: 'libs/shared/e2e' };\n",
+        });
+        const before = await hashed(workspace, await workspace.graph({ createNodes }));
+
+        const after = await hashed(workspace, await workspace.write(edit).graph({ createNodes }));
+
+        expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: true });
+    });
+
+    it.for([
         { case: 'a new release of @playwright/test', moved: { versions: { ...INSTALLED, '@playwright/test': '1.67.0' } }, changes: true },
         { case: 'a new release of a package nothing reads', moved: { versions: { ...INSTALLED, unread: '2.0.0' } }, changes: false },
         { case: 'a run outside CI', moved: { env: {} }, changes: false },
