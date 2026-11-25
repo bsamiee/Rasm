@@ -8,6 +8,7 @@
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",
+        "@rasm/nx": "workspace:*",
         "@rasm/nx-apple": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",

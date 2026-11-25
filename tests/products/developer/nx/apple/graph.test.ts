@@ -15,6 +15,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => {
 vi.mock(import('node:url'), async (actual) => {
     const real = await actual();
     const { dirname: parent, join: joined, relative } = await import('node:path');
+    const { below } = await import('@rasm/nx');
     const plugin = real.fileURLToPath(import.meta.resolve('@rasm/nx-apple/package.json'));
     const installed = parent(createRequire(plugin).resolve('@rasm/nx-apple-darwin-arm64/package.json'));
     const linked = joined(parent(plugin), 'node_modules/@rasm/nx-apple-darwin-arm64');
@@ -22,7 +23,7 @@ vi.mock(import('node:url'), async (actual) => {
         ...real,
         fileURLToPath: (url, options) => {
             const at = real.fileURLToPath(url, options);
-            const within = [installed, linked].find((folder) => at.startsWith(`${folder}/`));
+            const within = [installed, linked].find((folder) => below(folder)(at));
             return placed.folder === undefined || within === undefined ? at : joined(placed.folder, relative(within, at));
         },
     };
