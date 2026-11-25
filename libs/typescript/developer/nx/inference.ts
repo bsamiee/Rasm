@@ -93,9 +93,9 @@ const below = (folder: string) => Predicate.and(inside(folder), (file: string) =
 
 const within = (at: string) => inside('.')(at) && !at.split('/').includes('node_modules');
 
-const owned = (root: string) => (at: string) => root !== '.' && inside(root)(at);
+const owned = (root: string) => (at: string) => posix.relative(root, posix.dirname(at)) === '';
 
-const tokened = (root: string) => (at: string) => (owned(root)(at) ? posix.join('{projectRoot}', posix.relative(root, at)) : posix.join('{workspaceRoot}', at));
+const tokened = (root: string) => (at: string) => (root !== '.' && inside(root)(at) ? posix.join('{projectRoot}', posix.relative(root, at)) : posix.join('{workspaceRoot}', at));
 
 const namedInput = (root: string, context: CreateNodesContext) => ('production' in getNamedInputs(root, context) ? 'production' : 'default');
 

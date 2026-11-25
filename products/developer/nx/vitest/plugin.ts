@@ -63,10 +63,11 @@ const surveyed = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, 
     const probes = yield* Effect.forEach(
         projects,
         Effect.fnUntraced(function* ({ project, base, setup, written, providers: hosted }) {
-            const folders = listed ? above(posix.join(local(base), '.')) : [dirname(file)];
+            const home = listed ? posix.join(local(base), '.') : dirname(file);
+            const folders = listed ? above(home) : [home];
             const owner = Array.findFirst(folders, holds);
             yield* Effect.when(new Cause.UnknownError(base, `${file} declares a project under ${local(base)}, which no project root holds`), Effect.succeed(listed && Option.isNone(owner)));
-            return Option.map(owner, (at) => ({ owner: at, project, folders, setup: setup.map(local).filter(within), written, providers: hosted }));
+            return Option.map(owner, (at) => ({ owner: at, home, project, folders, setup: setup.map(local).filter(within), written, providers: hosted }));
         }),
     ).pipe(Effect.map(Array.getSomes));
     const selectable = Array.dedupe(probes.map(({ project }) => project));
@@ -89,7 +90,7 @@ const surveyed = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, 
                 coverage: local(resolve(root, reportsDirectory)),
                 covered,
                 written: Array.dedupe(group.flatMap(({ written }) => written).map((at) => local(resolve(root, at)))),
-                loaded: [...held],
+                loaded: [...held, ...Array.dedupe(group.map(({ home }) => home)).flatMap((at) => (at === owner ? [] : [posix.join(at, '**/*')]))],
                 packages,
             };
         }),

@@ -97,6 +97,26 @@ describe('what build--vite hashes', () => {
     });
 
     it.for([
+        { case: 'a module it imports from inside the folder of a project nested in its own', edit: { 'apps/web/sub/index.js': "export const named = 'sub';\nexport const unused = 1;\n" } },
+        { case: 'the compilerOptions of a tsconfig inside the folder of a project nested in its own that its tsconfig extends', edit: { 'apps/web/sub/tsconfig.json': '{"extends":"../../../tsconfig.shared.json","compilerOptions":{"jsx":"preserve"}}' } },
+        { case: 'a module it imports from its own folder outside the nested project', edit: { 'apps/web/base.ts': "export const outDir = 'dist';\nexport const unused = 1;\n" } },
+    ])('hashes a config of a project holding another project again after an edit to $case', async ({ edit }, { workspace }) => {
+        workspace.write({
+            'apps/web/sub/project.json': '{"name":"sub"}',
+            'apps/web/sub/index.js': "export const named = 'sub';\n",
+            'apps/web/sub/tsconfig.json': '{"extends":"../../../tsconfig.shared.json","compilerOptions":{"jsx":"react-jsx"}}',
+            'apps/web/tsconfig.json': '{"extends":"./sub/tsconfig.json"}',
+            'apps/web/base.ts': "export const outDir = 'dist';\n",
+            'apps/web/vite.config.ts': "import { named } from './sub/index.js';\nimport { outDir } from './base';\n\nexport default { build: { outDir }, plugins: [{ name: named }] };\n",
+        });
+        const before = await hashed(workspace, await workspace.graph({ createNodes }));
+
+        const after = await hashed(workspace, await workspace.write(edit).graph({ createNodes }));
+
+        expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: true });
+    });
+
+    it.for([
         { moved: 'vite', changes: true },
         { moved: 'dep', changes: true },
         { moved: 'unread', changes: false },

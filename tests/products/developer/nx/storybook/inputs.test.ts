@@ -74,6 +74,30 @@ describe('what the Storybook targets hash', () => {
     });
 
     it.for([
+        { case: 'a module the main config imports from inside the folder of a project nested in its own', edit: { 'apps/site/sub/shared.ts': "export const stories = ['../src', '../sub/**/*.stories.tsx'];\nexport const unused = 1;\n" } },
+        { case: 'the compilerOptions of a tsconfig inside the folder of a project nested in its own that its tsconfig extends', edit: { 'apps/site/sub/tsconfig.json': '{"extends":"../../../tsconfig.shared.json","compilerOptions":{"jsx":"preserve"}}' } },
+        { case: 'a story under a stories glob inside the folder of a project nested in its own', edit: { 'apps/site/sub/card.stories.tsx': 'export default { title: "Card" };\n' } },
+        { case: 'a module the main config imports from its own folder outside the nested project', edit: { 'apps/site/addons.ts': "export const addons = ['addon'];\nexport const unused = 1;\n" } },
+    ])('hashes build--storybook, test--storybook, and the test target of a project holding another project again after an edit to $case', async ({ edit }, { workspace }) => {
+        workspace.write({
+            'apps/site/sub/project.json': '{"name":"sub"}',
+            'apps/site/sub/shared.ts': "export const stories = ['../src', '../sub/**/*.stories.tsx'];\n",
+            'apps/site/sub/tsconfig.json': '{"extends":"../../../tsconfig.shared.json","compilerOptions":{"jsx":"react-jsx"}}',
+            'apps/site/sub/card.stories.tsx': 'export default {};\n',
+            'apps/site/tsconfig.json': '{"extends":"./sub/tsconfig.json"}',
+            'apps/site/addons.ts': "export const addons = ['addon'];\n",
+            'apps/site/.storybook/main.ts': "import { stories } from '../sub/shared.ts';\nimport { addons } from '../addons.ts';\n\nexport default { stories, framework: '@storybook/react-vite', addons };\n",
+        });
+        const graph = await workspace.graph({ createNodes });
+        const before = await Promise.all([hashed(workspace, graph, 'build--storybook'), hashed(workspace, graph, 'test--storybook'), hashed(workspace, graph, 'test')]);
+
+        const edited = await workspace.write(edit).graph({ createNodes });
+        const after = await Promise.all([hashed(workspace, edited, 'build--storybook'), hashed(workspace, edited, 'test--storybook'), hashed(workspace, edited, 'test')]);
+
+        expect({ planned: [...before, ...after].every(Predicate.isString), build: before[0] !== after[0], test: before[1] !== after[1], aggregate: before[2] !== after[2] }).toStrictEqual({ planned: true, build: true, test: true, aggregate: true });
+    });
+
+    it.for([
         { case: 'the module of a workspace package the main config imports', edit: { 'libs/helper/index.js': "export const stories = ['../src'];\nexport const unused = 1;\n" }, changes: true },
         { case: 'a file of that package the main config never loads', edit: { 'libs/helper/other.js': 'export const unused = 2;\n' }, changes: false },
     ])('hashes build--storybook again after an edit to $case: $changes', async ({ edit, changes }, { workspace }) => {
@@ -116,7 +140,7 @@ describe('loading the main config across graph passes', () => {
 
         const graph = await workspace.write({ 'apps/site/.storybook/main.ts': "export default { stories: ['../docs/**/*.mdx'] };\n" }).graph({ createNodes });
 
-        expect(graph.nodes['site']?.data.targets?.['build--storybook']?.inputs?.filter((input) => Predicate.isString(input) && input.startsWith('{workspaceRoot}/apps/site/'))).toStrictEqual(['{workspaceRoot}/apps/site/docs/**/*.mdx']);
+        expect(graph.nodes['site']?.data.targets?.['build--storybook']?.inputs?.filter((input) => Predicate.isString(input) && input.startsWith('{workspaceRoot}/apps/site/'))).toStrictEqual(['{workspaceRoot}/apps/site/docs/**/*.mdx', '{workspaceRoot}/apps/site/.storybook/main.ts']);
     });
 
     it('loads the main config once while edits reach no file it loads, and again after one does', async ({ workspace, onTestFinished }) => {

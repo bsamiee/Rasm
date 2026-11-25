@@ -1,6 +1,6 @@
 import { readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
-import { join } from 'node:path';
-import type { ProjectGraph } from '@nx/devkit';
+import { dirname, join } from 'node:path';
+import type { CreateNodes, ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-vitest';
 import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';
 import { describe, expect, vi } from 'vitest';
@@ -123,6 +123,43 @@ describe('test--vitest hashes the files a run loads outside its project', () => 
         const files = await hashed(graph, workspace.root, 'repo');
 
         expect([files.includes(loaded), files.includes('libs/lib/unused.mts')]).toStrictEqual([true, false]);
+    });
+
+    it.for([
+        { case: 'a setup file inside the folder of a project nested in its own', loaded: 'libs/lib/sub/setup.mts' },
+        { case: 'a module it imports from inside the folder of a project nested in its own', loaded: 'libs/lib/sub/settings.ts' },
+        { case: 'a setup file in its own folder outside the nested project', loaded: 'libs/lib/own.mts' },
+    ])('hashes for a configuration of a project holding another project $case', async ({ loaded }, { workspace }) => {
+        const graph = await workspace
+            .write({
+                ...LIB,
+                'libs/lib/own.mts': '',
+                'libs/lib/sub/project.json': '{"name":"sub"}',
+                'libs/lib/sub/setup.mts': '',
+                'libs/lib/sub/unused.mts': '',
+                'libs/lib/sub/settings.ts': "export const setupFiles = ['./sub/setup.mts', './own.mts'];\n",
+                'libs/lib/vitest.config.ts': "import { setupFiles } from './sub/settings.ts';\n\nexport default { test: { setupFiles } };\n",
+            })
+            .graph({ createNodes });
+        const files = await hashed(graph, workspace.root, 'lib');
+
+        expect([files.includes(loaded), files.includes('libs/lib/sub/unused.mts')]).toStrictEqual([true, false]);
+    });
+
+    it('hashes the test files of a listed project rooted below its owner, in a folder where another plugin infers a project', async ({ workspace }) => {
+        const crated: CreateNodes = ['**/Cargo.toml', async (files, options, context) => [...(await createNodes[1]([], options, context)), ...files.map((file) => [file, { projects: { [dirname(file)]: { root: dirname(file), name: 'crate' } } }] as const)]];
+        const graph = await workspace
+            .write({
+                ...LIB,
+                'libs/lib/crate/Cargo.toml': '[package]\nname = "crate"\n',
+                'libs/lib/crate/a.test.ts': '',
+                'libs/lib/vitest.config.ts': "export default { test: { projects: [{ test: { name: 'crate', root: './crate' } }] } };\n",
+            })
+            .graph({ createNodes: crated });
+        const owners = Object.values(graph.nodes).flatMap(({ name, data }) => (data.targets?.['test--vitest'] === undefined ? [] : [name]));
+        const files = await Promise.all(owners.map((owner) => hashed(graph, workspace.root, owner)));
+
+        expect({ owners, hashed: files.map((each) => each.includes('libs/lib/crate/a.test.ts')) }).toStrictEqual({ owners: ['lib'], hashed: [true] });
     });
 
     it('hashes the modules a config loads from a linked workspace package and no other file of that package', async ({ workspace }) => {

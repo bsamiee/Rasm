@@ -61,11 +61,13 @@ describe('containment', () => {
     });
 
     it.for([
-        { root: 'libs/core', at: 'libs/core/index.ts', held: true, partition: 'a file in the project folder' },
+        { root: 'libs/core', at: 'libs/core/index.ts', held: true, partition: 'a file directly in the project folder' },
+        { root: 'libs/core', at: 'libs/core/src/index.ts', held: false, partition: 'a file in a folder below the project, which Nx gives to a project that folder holds' },
         { root: 'libs/core', at: 'libs/core-kit/index.ts', held: false, partition: 'a file in a folder sharing the name as a prefix' },
         { root: 'libs/core', at: 'tools/setup.ts', held: false, partition: 'a file outside the project folder' },
         { root: '.', at: 'libs/core/index.ts', held: false, partition: 'a file below a project at the workspace root, which Nx gives to the deepest project holding it' },
         { root: '.', at: 'tools/setup.ts', held: false, partition: 'a file no folder project holds, which the root project names from the workspace root all the same' },
+        { root: '.', at: 'vitest.config.ts', held: true, partition: 'a file directly in the workspace root, which no deeper project holds' },
     ])('reads $at as owned by the project at $root as $held, $partition', ({ root, at, held }) => {
         expect(owned(root)(at)).toBe(held);
     });
