@@ -87,7 +87,10 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
         commands: [{ command: line(['dotnet', 'restore', '--no-dependencies', ...(node.locks.length > 0 ? ['--locked-mode'] : []), `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration, ...flags])],
     });
     const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
-    const covered = { ...tested(node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Array.fromNullishOr(coverage).flatMap((at) => ['--results-directory', posix.relative(root, at)])), outputs: Array.fromNullishOr(coverage).map((at) => posix.join('{workspaceRoot}', at)) };
+    const covered = {
+        ...tested(node.declared.find(({ configuration }) => configuration.toLowerCase() === 'coverage') ?? node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Array.fromNullishOr(coverage).flatMap((at) => ['--results-directory', posix.relative(root, at)])),
+        outputs: Array.fromNullishOr(coverage).map((at) => posix.join('{workspaceRoot}', at)),
+    };
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
         executor: `${plugin.name}:format`,
         options: { commands, project },

@@ -13,6 +13,11 @@
         <ErrorLog>$(IntermediateOutputPath)$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
     </PropertyGroup>
 
+    <PropertyGroup Label="Coverage" Condition="'$(Configuration)' == 'Coverage'">
+        <PathMap>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/,$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(ArtifactsPath)').Replace('\', '/'))/</PathMap> <!-- PDBs and coverlet's lcov report name each source by its path from this folder: the project's own and those its build generates -->
+        <PathMap Condition="'$(NuGetPackageRoot)' != ''">$(PathMap),$([MSBuild]::NormalizeDirectory('$(NuGetPackageRoot)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(NuGetPackageRoot)').Replace('\', '/'))/</PathMap> <!-- Package content files, from the restore output a restore's own evaluation precedes -->
+    </PropertyGroup>
+
     <PropertyGroup Label="Fetched Files">
         <_FetchedStore>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.cache', 'dotnet', 'fetched'))</_FetchedStore>
     </PropertyGroup>
