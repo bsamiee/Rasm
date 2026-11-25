@@ -62,5 +62,18 @@
     "**/node_modules/**/CLAUDE.md",
     "**/.venv/**/CLAUDE.md",
     "**/.artifacts/**/CLAUDE.md"
-  ]
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "nx run @rasm/function-hooks:build--vite",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
 }
