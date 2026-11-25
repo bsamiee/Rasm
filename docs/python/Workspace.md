@@ -20,8 +20,10 @@ uv roots and the Python each one resolves:
 
 Rules each root follows:
 - Roots state their Python in `requires-python` alone, and no root holds the `.python-version` or `.python-versions` file uv reads where one exists
-- Members pinned to Blender's minor under the root empty its `requires-python` range, and `uv lock` fails
+- Blender code takes its own roots, as a member pinned to Blender's minor under the repository root empties its `requires-python` range and `uv lock` fails
 - Blender roots source shared libraries supporting Blender's minor through `{ workspace = "<path>" }`, with their own root's sources
+- Darkroom is its own root, as uv finds a workspace from parent folders alone and no Blender root is a parent of `products/`
+- `uv`, mise, and the extension build reach Darkroom's lock from its own folder, with no `--project` the distribution plugin would derive
 - Members without `[build-system]` are virtual: uv installs their dependencies and never builds them
 
 ## [03]-[PACKAGE_MANIFEST]
@@ -59,13 +61,19 @@ module-root = ""
 
 Fields every built package states:
 
-| [INDEX] | [FIELD]             | [VALUE]                         | [REASON]                                             |
-| :-----: | :------------------ | :------------------------------ | :--------------------------------------------------- |
-|  [01]   | `module-root`       | `""`                            | `rasm/` folder sits in project folder, no `src/`     |
-|  [02]   | `module-name`       | `rasm.<name>`                   | `uv_build` derives `rasm_<name>` from the name       |
-|  [03]   | `import-names`      | `rasm.<name>`                   | PEP 794 row naming the module `module-name` builds   |
-|  [04]   | `import-namespaces` | `["rasm"]`                      | PEP 794 row naming the namespace every package joins |
-|  [05]   | `requires`          | `uv_build` bounded to its minor | Unbounded row warns on sdist builds                  |
+| [INDEX] | [FIELD]             | [VALUE]                         | [REASON]                                                         |
+| :-----: | :------------------ | :------------------------------ | :--------------------------------------------------------------- |
+|  [01]   | `license`           | SPDX expression                 | Written as `License-Expression`                                  |
+|  [02]   | `license-files`     | `["LICENSE"]`                   | One `License-File` per match, packed into `.dist-info/licenses/` |
+|  [03]   | `readme`            | `"README.md"`                   | Long description, content type read from extension               |
+|  [04]   | `authors`           | One row                         | Same owner on every release project                              |
+|  [05]   | `urls`              | `Homepage`, `Source`, `Issues`  | PEP 753 well-known labels                                        |
+|  [06]   | `version`           | Static                          | `uv_build` refuses `dynamic`                                     |
+|  [07]   | `module-root`       | `""`                            | `rasm/` folder sits in project folder, no `src/`                 |
+|  [08]   | `module-name`       | `rasm.<name>`                   | `uv_build` derives `rasm_<name>` from the name                   |
+|  [09]   | `import-names`      | `rasm.<name>`                   | PEP 794 row naming the module `module-name` builds               |
+|  [10]   | `import-namespaces` | `["rasm"]`                      | PEP 794 row naming the namespace every package joins             |
+|  [11]   | `requires`          | `uv_build` bounded to its minor | Unbounded row warns on sdist builds                              |
 
 ## [04]-[IMPORT_NAMES]
 
@@ -101,18 +109,26 @@ Blender extension loading and bundled packages:
 - Top-level names of bundled wheels share one namespace across every installed extension
 - `vendored.py` of `@rasm/nx-distribution` unpacks Darkroom's local wheels into the staged extension and makes their absolute imports relative
 - Blender loads an extension root as package `bl_ext.<repository>.<id>`, and its modules import each other relatively
-- Darkroom keeps hatchling for `dynamic = ["version"]`, as dynamic fields make uv run a metadata build under `package = false`
-- `setuptools`, uv's fallback backend, refuses a flat folder holding more than one top-level package
 - Blender bundles MaterialX, OpenEXR, `pxr`, `opentimelineio`, `openvdb`, `oslquery`, and Imath without dist-info
 - Dependency closures holding their PyPI copies shadow Blender's own process-wide
 
-## [07]-[ENVIRONMENT]
+## [07]-[ENVIRONMENTS]
 
-Environment variables and tool sources the roots share:
-- `mise` `python.uv_venv_auto = "source"` exports root `.venv` as `VIRTUAL_ENV`, the environment ty and mypy rank first
-- `ty check` or mypy run from a nested root without `uv run --no-active` checks Blender code against the root's `site-packages`
-- `nx-uv` runs every checker and test through `uv run --no-active --locked --package <member>`
-- `UV_PYTHON` acts as `--python` and overrides a Blender root's range, and no `[env]` row sets it
-- `ruff` comes from mise `[tools]`, as hk runs it at file level from `PATH`
+Environments and tool sources of each task:
+- `python.uv_venv_auto = "source"` of mise exports the `.venv` of the uv root around the shell's folder as `VIRTUAL_ENV`, which ty and mypy rank first
+- Processes keep the `VIRTUAL_ENV` their shell exported, and ty or mypy started outside `uv run` in another uv root checks against that root's `site-packages`
+- `@rasm/nx-uv` runs ty once per uv root and mypy, refurb, and pytest once per member, through `uv run --frozen --exact --no-active`
+- Option `environmentPath` holds one environment per project and dependency group, `<environmentPath>/<group>`, or `.venv` for a tool the project itself declares
+- `uv run --isolated` builds a temporary environment per run where `environmentPath` is absent
+- Tasks of a uv root select `--all-packages` and tasks of a member `--package <member>`, so a uv root that is itself a checked member checks in the wider one
+- `check--uv` runs `uv lock --check`, the one task failing on a lock its manifests disagree with
+- Locks behind their manifests leave each member a project with no checker, test, or build target, and one warning names the lock and `uv lock`
+- Members take a checker or `test--pytest` target where uv resolves the tool for them, from their dependencies or the first group of theirs or their root holding it
+- `nx clean <member> -c cache` empties the member's folder under `environmentPath` and removes its `__pycache__` folders
+- `ruff` and `tombi` come from mise `[tools]` and `vulture` from the root `dev` group on `PATH`, as hk runs them over the files or member folder it names
+- Root `.venv` runs no Nx task and serves `pixi run --locked python`, `rg` over `site-packages`, editors, ty's language server, hand `uv run`, and hk's vulture
+- `default-groups = "all"` reaches commands targeting the root project alone, and `uv run --package <member>` installs a root group only where `--group` names it
+- `UV_PYTHON_PREFERENCE = "only-managed"` in mise `[env]` limits uv to Pythons it installs itself
+- `UV_PYTHON` acts as `--python`, uv refuses a version outside a root's `requires-python`, and no `[env]` row sets it
 - `RUFF_CACHE_DIR` in mise `[env]` moves the ruff cache, and a `cache-dir` row overrides it
 - `UV_CACHE_DIR` in mise `[env]` keeps uv's cache inside the checkout, and a new checkout folder builds every sdist again

@@ -7,13 +7,12 @@ pytest suites of the Python packages Nx runs.
 Rules every pytest suite follows:
 - Test projects are virtual uv members under `tests/` at their source's path, never built or published
 - Tests import packages by import name through the editable install, as a consumer reads them
-- One `[tool.pytest]` table in root `pyproject.toml` configures every suite, as pytest never merges configuration files
+- One `[tool.pytest]` table in root `pyproject.toml` configures every suite, as pytest takes the first config above its path arguments and merges none
 - Fixtures shared across suites sit in the `tests/support/python` package and load as pytest plugins
 
 ## [02]-[CONFIGURATION]
 
 Effects of root `[tool.pytest]` options:
-- `pytest` walks up from its path arguments' common ancestor, and the first `pytest.toml` or pytest table it finds wins
 - `strict = true` enables every strictness option of the installed pytest, later ones included, and `uv.lock` pins pytest
 - `timeout` fails a test running past its seconds through pytest-timeout, and `--disable-socket --allow-unix-socket` fails each network connection
 - `randomly` shuffles test order per run and prints the `--randomly-seed` value that reruns it
@@ -33,8 +32,8 @@ Module names `--import-mode=importlib` assigns:
 
 ## [04]-[RUNS]
 
-Targets `nx-uv` infers for suites:
-- `nx-uv` infers `test--pytest` per member holding test files and runs it in an environment holding only what its member declares
-- Option `environmentPath` keeps that environment between runs with `UV_PROJECT_ENVIRONMENT` and `uv run --exact`, else `uv run --isolated` builds it
-- `--group <group>` gives a member the root group holding `pytest`
+Targets `@rasm/nx-uv` infers for suites:
+- `@rasm/nx-uv` infers `test--pytest` per member holding a file pytest's `python_files` matches
+- `@rasm/nx-uv` passes `-o cache_dir=$NX_WORKSPACE_ROOT/<environmentPath>/.pytest_cache`, as pytest resolves a relative `cache_dir` against its rootdir
 - `nx test <member> -c coverage` adds `--cov` and writes `lcov.info` and `.coverage` to the member's coverage folder
+- `-c coverage` names the nearest manifest holding `[tool.coverage]` through `--cov-config`, as coverage reads its table from the working folder alone

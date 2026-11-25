@@ -84,6 +84,7 @@ Rasm/
 - State sits in the folder its lifetime matches, inside the folder a cache saves or outside the folder a reinstall replaces
 - Changes start from reading the file and log line their claim cites, as docs and reviews state facts those files contradict
 - `hk check <paths>` and `hk fix <paths>` run `.config/hk.pkl` steps over named paths and its `commit-msg` hook over commit messages
+- Checkers reading only the files or project folder hk names run as hk steps, and checkers reading an environment or the repository as Nx targets
 - Checkers reading given files alone run in hk, tools reading an environment or whole repository as cached Nx targets, and neither calls the other
 
 ## [03]-[FLOW]
@@ -199,6 +200,7 @@ Nx runs project-level work over a graph its plugins infer:
 - `mise install` builds .NET and Swift analyzers before graphs, and a missing one leaves its projects out with a warning naming its build
 - Stale analyzers fail the graph, and a missing Swift analyzer leaves out Xcode targets alone
 - `nx affected -t <target>` runs only the tasks whose inputs a change reaches, aggregate targets included
+- Nx hashes each input file whole and filters JSON fields alone, so an edit to one tool's table of a manifest reruns every task hashing that manifest
 - Tasks hash their executor's workspace package and that package's direct workspace dependencies
 - Tools keep their own incremental state, and Nx caches results around it in one remote cache that pull request runs read alone
 - `nx sync` writes executor schemas and tsconfig `references`, and non-terminal runs outside CI stop on stale ones until it runs, never `--skip-sync`

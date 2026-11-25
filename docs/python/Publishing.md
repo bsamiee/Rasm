@@ -11,18 +11,7 @@ Rules every packaged member follows:
 - `uv build` writes each wheel from its sdist, and each file its sdist misses fails the wheel
 - `uv_build` refuses a missing module folder, `readme`, or `license-files` match
 
-## [02]-[PUBLISH_FIELDS]
-
-`[project]` fields every release project states:
-
-| [INDEX] | [FIELD]         | [VALUE]                        | [REASON]                                                         |
-| :-----: | :-------------- | :----------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `license`       | SPDX expression                | Written as `License-Expression`                                  |
-|  [02]   | `license-files` | `["LICENSE"]`                  | One `License-File` per match, packed into `.dist-info/licenses/` |
-|  [03]   | `readme`        | `"README.md"`                  | Long description, content type read from extension               |
-|  [04]   | `authors`       | One row                        | Same owner on every release project                              |
-|  [05]   | `urls`          | `Homepage`, `Source`, `Issues` | PEP 753 well-known labels                                        |
-|  [06]   | `version`       | Static                         | `uv_build` refuses `dynamic`                                     |
+## [02]-[LICENSES]
 
 License and classifier rules:
 - `license-files` globs resolve inside the project folder and refuse `..`, and each project holds a real `LICENSE`
@@ -50,13 +39,12 @@ Include and exclude rules:
 ## [04]-[VERSIONING]
 
 Version sources:
-- `nx-uv` versions each packaged member through its own `version-actions`
+- `@rasm/nx-uv` versions each packaged member through its own `version-actions`
 - `@rasm/nx-distribution` versions Darkroom, a Blender extension, in `blender_manifest.toml`
 
 ## [05]-[PUBLISH]
 
 Upload routes and credentials:
-- `uv publish` uploads by PyPI trusted publishing under `id-token: write`, else by `UV_PUBLISH_TOKEN`, to the `publish-url` of `--index <name>`
+- `uv publish` uploads by PyPI trusted publishing under `id-token: write`, else by `UV_PUBLISH_TOKEN`, to PyPI, or to the `publish-url` of the first `[[tool.uv.index]]` row holding one
 - First PyPI releases register a pending trusted publisher under the project name, then `UV_PUBLISH_TOKEN` leaves Doppler and 1Password together
 - `--dry-run` does everything but the upload
-- `--check-url <index>` skips files the index holds, and a rerun after a partial failure uploads what remains
