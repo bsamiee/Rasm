@@ -228,7 +228,7 @@ Each host groups changes into one undo step through one call, and every state ch
 - Evaluated source compiles before a step into `ran`, run inside it, and `settled`, which awaits its value after it, under one scope
 - After Effects declares no undo or rollback member, and a failed body leaves its undo group as one step
 - Compiles pass the scope as one parameter `new Function('{ <keys> }', 'return eval(arguments[1])')` destructures, binding no name source shadows
-- Scope keys outside identifiers stay out, and a compiled value other than a function fails `IllegalArgumentError` naming its `typeof`
+- Scope keys outside identifiers fail the compile as `Thrown` with the host's `SyntaxError`, and a compiled value other than a function fails `IllegalArgumentError` naming its `typeof`
 - Values and typed failures leave a body as data
 - Awaited work inside a synchronous body runs after its unit closed, where a later rejection rolls back no change
 - Reads needing no undo step run outside these calls where their host allows
