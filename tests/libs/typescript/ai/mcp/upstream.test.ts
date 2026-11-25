@@ -4,7 +4,7 @@ import { Upstream } from '@rasm/mcp';
 import { Array, Duration, Effect, Function, HashSet, MutableRef, Option, Queue, Result, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol, type McpTest } from 'effect/ai';
 import { FetchHttpClient } from 'effect/http';
-import { echoed, names, PEER, proxied, SETTLED, settled, TEXT } from '#/fixtures';
+import { lines, names, PEER, proxied, SETTLED, settled, TEXT } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ describe.each([McpProtocol.v2025_11_25, McpProtocol.v2026_07_28])('upstream spea
         'forwards a tool call with its result beside the handle, a resource read, template reads and completions, and a prompt with its completion',
         Effect.fnUntraced(function* () {
             const { client } = yield* proxied(protocol);
-            const called = echoed(yield* client.callTool({ name: 'echo', arguments: { value: 'hi' } }));
+            const called = lines(yield* client.callTool({ name: 'echo', arguments: { value: 'hi' } }));
             const read = yield* Effect.forEach(['upstream://note', 'upstream://items/apple', 'upstream://files/docs/guide.md'], (uri) => client.readResource({ uri }));
             const completed = yield* Effect.all([
                 client.complete({ ref: { type: 'ref/resource', uri: 'upstream://items/{id}' }, argument: { name: 'id', value: 'ap' } }),
@@ -48,13 +48,13 @@ describe.each([McpProtocol.v2025_11_25, McpProtocol.v2026_07_28])('upstream spea
             const greeted = yield* client.getPrompt({ name: 'greet', arguments: { who: 'there' } });
             assert.deepStrictEqual<unknown>(
                 {
-                    called,
+                    called: [called[0]?.startsWith('handle ') ?? false, called[1]],
                     read: Array.map(Array.flatMap(read, Struct.get('contents')), (content) => [content.uri, 'text' in content ? content.text : undefined]),
                     completed: Array.map(completed, ({ completion }) => completion.values.toSorted()),
                     greeted: Array.map(greeted.messages, ({ content }) => ('text' in content ? content.text : undefined)),
                 },
                 {
-                    called: { handled: true, result: { echoed: 'hi' } },
+                    called: [true, '{"echoed":"hi"}'],
                     read: [
                         ['upstream://note', 'upstream note'],
                         ['upstream://items/apple', 'item apple'],
@@ -70,7 +70,7 @@ describe.each([McpProtocol.v2025_11_25, McpProtocol.v2026_07_28])('upstream spea
 
 describe('upstream session', () => {
     it.live.each([
-        { label: 'no filter', filter: {}, listed: ['echo', 'secret'], secret: { type: 'text', text: 'secret' } },
+        { label: 'no filter', filter: {}, listed: ['echo', 'secret'], secret: Option.some('secret') },
         { label: 'a denied name', filter: { deny: ['secret'] }, listed: ['echo'], secret: -32_602 },
         { label: 'an allowed pattern', filter: { allow: [/^ec/u] }, listed: ['echo'], secret: -32_602 },
         { label: 'a denied pattern over an allowed name', filter: { allow: ['echo', 'secret'], deny: [/^s/u] }, listed: ['echo'], secret: -32_602 },
@@ -81,7 +81,7 @@ describe('upstream session', () => {
             const { client } = yield* proxied(PROTOCOL, { filters: { tools: filter } });
             const shown = yield* settled(names(client), Array.contains<string>(Array.headNonEmpty(admitted)));
             const answer = yield* Effect.result(client.callTool({ name: 'secret', arguments: {} }));
-            assert.deepStrictEqual([Array.filter(shown, (name) => name === 'echo' || name === 'secret').toSorted(), Result.match(answer, { onFailure: Struct.get('code'), onSuccess: ({ content }) => content[0] })], [admitted, secret]);
+            assert.deepStrictEqual([Array.filter(shown, (name) => name === 'echo' || name === 'secret').toSorted(), Result.match(answer, { onFailure: Struct.get('code'), onSuccess: (result) => Array.last(lines(result)) })], [admitted, secret]);
         }),
     );
 
@@ -90,8 +90,7 @@ describe('upstream session', () => {
         Effect.fnUntraced(function* () {
             const { client } = yield* proxied(PROTOCOL);
             yield* settled(names(client), Array.contains('echo'));
-            const { content } = yield* client.callTool({ name: 'test_simple_text', arguments: {} });
-            assert.deepStrictEqual(content[0], { type: 'text', text: `"${TEXT}"` });
+            assert.deepStrictEqual(Array.last(lines(yield* client.callTool({ name: 'test_simple_text', arguments: {} }))), Option.some(TEXT));
         }),
     );
 
@@ -117,8 +116,8 @@ describe('upstream session', () => {
         Effect.fnUntraced(function* () {
             const { client, token, rejected } = yield* proxied(PROTOCOL, { poll: Duration.minutes(1) });
             MutableRef.set(token, 'second');
-            const called = echoed(yield* client.callTool({ name: 'echo', arguments: { value: 'again' } }));
-            assert.deepStrictEqual([called.result, MutableRef.get(rejected) > 0], [{ echoed: 'again' }, true]);
+            const called = lines(yield* client.callTool({ name: 'echo', arguments: { value: 'again' } }));
+            assert.deepStrictEqual([Array.last(called), MutableRef.get(rejected) > 0], [Option.some('{"echoed":"again"}'), true]);
         }),
     );
 
@@ -127,8 +126,7 @@ describe('upstream session', () => {
         Effect.fnUntraced(function* () {
             const { client, restart } = yield* proxied(PROTOCOL, { poll: Duration.minutes(1) });
             yield* restart;
-            const called = echoed(yield* client.callTool({ name: 'echo', arguments: { value: 'after' } }));
-            assert.deepStrictEqual(called.result, { echoed: 'after' });
+            assert.deepStrictEqual(Array.last(lines(yield* client.callTool({ name: 'echo', arguments: { value: 'after' } }))), Option.some('{"echoed":"after"}'));
         }),
     );
 

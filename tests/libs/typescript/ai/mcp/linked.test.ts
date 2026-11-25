@@ -1,9 +1,9 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Link, Server, Upstream } from '@rasm/mcp';
-import { Array, Effect, Function, Layer, Number, Option, Queue, Ref, Schema, Stream, Struct } from 'effect';
+import { Array, Effect, Layer, Number, Option, Queue, Ref, Schema, Stream } from 'effect';
 import { Tool, Toolkit } from 'effect/ai';
 import { RpcTest } from 'effect/rpc';
-import { connected, names, settled } from '#/fixtures';
+import { connected, lines, names, settled } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -13,28 +13,24 @@ const NOTICE = { name: 'documentOpened', target: Option.some('/document[1]'), de
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Trailed extends Schema.Opaque<Trailed, { readonly brand: unique symbol }>()(Schema.Struct({ handle: Schema.String, events: Schema.Array(Schema.Struct({ sequence: Schema.Int, text: Schema.String })) })) {}
 const Extension = Toolkit.make(Tool.make('unique', { description: 'Tool of the extension alone', success: Schema.String }));
 const Joined = Toolkit.make(Tool.make('late', { description: 'Tool of the extension joining later', success: Schema.String }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const linked = Effect.fnUntraced(function* (silent: readonly Stream.Stream<readonly Upstream[]>[] = []) {
-    const [notices, late, own, lists, subscribed, seen] = yield* Effect.all([Queue.unbounded<Stream.Success<Upstream['notices']>>(), Queue.unbounded<Stream.Success<Upstream['notices']>>(), Queue.unbounded<string>(), Queue.unbounded<Link[]>(), Ref.make(0), Ref.make<Trailed['events']>([])]);
+    const [notices, late, own, lists, subscribed, seen] = yield* Effect.all([Queue.unbounded<Stream.Success<Upstream['notices']>>(), Queue.unbounded<Stream.Success<Upstream['notices']>>(), Queue.unbounded<string>(), Queue.unbounded<Link[]>(), Ref.make(0), Ref.make<readonly string[]>([])]);
     const counted = Stream.unwrap(Effect.as(Ref.update(subscribed, Number.increment), Stream.fromQueue(notices)));
     const [extension, joined] = yield* Effect.all([
         RpcTest.makeClient(Link.Rpcs, { flatten: true }).pipe(Effect.provide(Link.serve(Extension, { notices: counted }).pipe(Layer.provide(Extension.toLayer({ unique: () => Effect.succeed('own') }))))),
         RpcTest.makeClient(Link.Rpcs, { flatten: true }).pipe(Effect.provide(Link.serve(Joined, { notices: Stream.fromQueue(late) }).pipe(Layer.provide(Joined.toLayer({ late: () => Effect.succeed('joined') }))))),
     ]);
     const links = { changes: Stream.concat(Stream.succeed([LINKED]), Stream.fromQueue(lists)), call: (holds: (peer: Link) => boolean) => Effect.succeed(holds(JOINED) ? joined : extension) };
-    const proxy = Server.use((server) => server.events({ text: Function.identity, stream: Stream.fromQueue(own) })).pipe(Effect.andThen(Upstream.serve(Array.append(silent, Upstream.linked(links)), { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) })), Layer.effectDiscard);
+    const proxy = Server.use((server) => server.events({ stream: Stream.fromQueue(own), render: Effect.succeed })).pipe(Effect.andThen(Upstream.serve(Array.append(silent, Upstream.linked(links)), { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) })), Layer.effectDiscard);
     const { client } = yield* connected(proxy);
     yield* settled(names(client), Array.contains('unique'));
-    const { handle } = yield* Effect.flatMap(client.callTool({ name: 'test_simple_text', arguments: {} }), ({ structuredContent }) => Schema.decodeUnknownEffect(Trailed)(structuredContent));
-    const read = client.callTool({ name: 'test_simple_text', arguments: { handle } }).pipe(
-        Effect.flatMap(({ structuredContent }) => Schema.decodeUnknownEffect(Trailed)(structuredContent)),
-        Effect.flatMap(({ events }) => Ref.updateAndGet(seen, Array.appendAll(events))),
-    );
+    const [minted] = lines(yield* client.callTool({ name: 'test_simple_text', arguments: {} }));
+    const read = client.callTool({ name: 'test_simple_text', arguments: { handle: minted?.slice('handle '.length) } }).pipe(Effect.flatMap((result) => Ref.updateAndGet(seen, Array.appendAll(Array.filter(lines(result), (line) => line.startsWith('! #'))))));
     return { notices, late, own, lists, subscribed: Ref.get(subscribed), offers: (name: string) => settled(names(client), Array.contains(name)), events: (count: number) => settled(read, (events) => events.length >= count) };
 });
 
@@ -46,7 +42,7 @@ describe('linked extension', () => {
         Effect.fnUntraced(function* () {
             const { notices, events } = yield* linked();
             yield* Queue.offer(notices, NOTICE);
-            assert.deepStrictEqual(yield* events(1), [{ sequence: 1, text: 'ext in Host documentOpened /document[1]' }]);
+            assert.deepStrictEqual(yield* events(1), ['! #1 ext in Host documentOpened /document[1]']);
         }, Effect.scoped),
     );
 
@@ -57,10 +53,7 @@ describe('linked extension', () => {
             yield* Queue.offer(own, 'own event');
             yield* events(1);
             yield* Queue.offer(notices, NOTICE);
-            assert.deepStrictEqual(Array.map(yield* events(2), Struct.pick(['sequence', 'text'])), [
-                { sequence: 1, text: 'own event' },
-                { sequence: 2, text: 'ext in Host documentOpened /document[1]' },
-            ]);
+            assert.deepStrictEqual(yield* events(2), ['! #1 own event', '! #2 ext in Host documentOpened /document[1]']);
         }, Effect.scoped),
     );
 
@@ -73,7 +66,7 @@ describe('linked extension', () => {
             yield* Queue.offer(late, NOTICE);
             yield* events(1);
             yield* Queue.offer(notices, NOTICE);
-            assert.deepStrictEqual([Array.map(yield* events(2), Struct.get('text')), yield* subscribed], [['joined in Host documentOpened /document[1]', 'ext in Host documentOpened /document[1]'], 1]);
+            assert.deepStrictEqual([yield* events(2), yield* subscribed], [['! #1 joined in Host documentOpened /document[1]', '! #2 ext in Host documentOpened /document[1]'], 1]);
         }, Effect.scoped),
     );
 

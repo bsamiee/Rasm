@@ -1,5 +1,5 @@
 import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
-import { Content, Link, registerResource, registerTemplate, Server, Upstream } from '@rasm/mcp';
+import { Content, Handle, Link, registerResource, registerTemplate, Server, Upstream } from '@rasm/mcp';
 import { Array, Cause, Context, Duration, Effect, Latch, Layer, MutableRef, Option, Predicate, Queue, Record, Ref, Result, Schedule, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, McpTest, Tool, Toolkit } from 'effect/ai';
 import { FetchHttpClient, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
@@ -22,6 +22,7 @@ interface Sent {
 
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==';
 const TEXT = 'This is a simple text response for testing.';
+const MIXED = { text: 'Multiple content types test:', uri: 'test://mixed-content-resource', json: '{"test":"data","value":123}' } as const;
 const STATIC = 'This is the content of the static text resource.';
 const EMBEDDED = 'This is an embedded resource content.';
 const FAILURE = 'This tool intentionally returns an error for testing';
@@ -45,13 +46,12 @@ const ROUTED: Record.ReadonlyRecord<string, string> = { 'resources/read': 'uri',
 
 const Json = Schema.fromJsonString(Schema.Unknown);
 const Meta = Schema.Struct({ _meta: Schema.Record(Schema.String, Schema.Unknown) });
-const Handled = Schema.Struct({ handle: Schema.String });
 const Weather = Schema.Struct({ temperature: Schema.Finite, conditions: Schema.String });
 const Attachment = Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8Array });
 const Templated = Schema.Struct({ id: Schema.String, templateTest: Schema.Literal(true), data: Schema.String, version: Schema.Int });
 const Valued = Schema.Struct({ value: Schema.String });
 const Echoing = Schema.Struct({ echoed: Schema.String });
-const Echoed = Schema.fromJsonString(Echoing);
+const Lined = Schema.Struct({ type: Schema.Literal('text'), text: Schema.String });
 const Block = Schema.Struct({ type: Schema.String, text: Schema.optionalKey(Schema.String) });
 const Called = Schema.Struct({ result: Schema.Struct({ content: Schema.Array(Block), isError: Schema.optionalKey(Schema.Boolean), structuredContent: Schema.optionalKey(Schema.Unknown) }) });
 const Tools = Toolkit.make(
@@ -62,9 +62,11 @@ const Tools = Toolkit.make(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
+const Claimed = Context.Reference<boolean>('@rasm/test-mcp/fixtures/Claimed', { defaultValue: () => false });
+
 class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
     make: Effect.gen(function* () {
-        const [calls, entered, interrupted, release, watched, blocked, versions] = yield* Effect.all([
+        const [calls, entered, interrupted, release, watched, blocked, versions, shared, owned] = yield* Effect.all([
             Ref.make<readonly string[]>([]),
             Queue.unbounded<string>(),
             Queue.unbounded<string>(),
@@ -72,14 +74,16 @@ class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
             SubscriptionRef.make('open'),
             SubscriptionRef.make(false),
             SubscriptionRef.make<Record.ReadonlyRecord<string, number>>({}),
+            Queue.unbounded<string>(),
+            Queue.unbounded<string>(),
         ]);
-        return { calls, entered, interrupted, release, watched, blocked, versions };
+        return { calls, entered, interrupted, release, watched, blocked, versions, shared, owned };
     }),
 }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, release, watched, blocked, versions }: Probe['Service']) {
+const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, release, watched, blocked, versions, shared, owned }: Probe['Service']) {
     const called = <A, E, R>(name: string, answer: Effect.Effect<A, E, R>) => Ref.update(calls, (held) => [...held, name]).pipe(Effect.andThen(Queue.offer(entered, name)), Effect.andThen(answer));
     const gated = (name: string) =>
         called(
@@ -94,6 +98,13 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     yield* Server.registerTool(Tool.make('test_image_content', { description: 'Returns an image', success: Content.image('image/png') }).annotate(Tool.Readonly, true), () => called('test_image_content', Effect.succeed(Uint8Array.fromBase64(PNG))));
     yield* Server.registerTool(Tool.make('test_embedded_resource', { description: 'Returns an embedded resource', success: Content.embedded(Attachment) }).annotate(Tool.Readonly, true), () =>
         called('test_embedded_resource', Effect.succeed({ uri: 'test://embedded-resource', mimeType: Option.some('text/plain'), data: new TextEncoder().encode(EMBEDDED) })),
+    );
+    yield* Server.registerTool(
+        Tool.make('test_multiple_content_types', {
+            description: 'Returns text, an image, and an embedded resource',
+            success: Content(Schema.Uint8Array, MIXED.text, (data) => [[McpSchema.ImageContent.make({ data, mimeType: 'image/png' }), McpSchema.EmbeddedResource.make({ resource: McpSchema.TextResourceContents.make({ uri: MIXED.uri, mimeType: 'application/json', text: MIXED.json }) })], MIXED.text]),
+        }).annotate(Tool.Readonly, true),
+        () => called('test_multiple_content_types', Effect.succeed(Uint8Array.fromBase64(PNG))),
     );
     yield* Server.registerTool(Tool.make('test_structured', { description: 'Returns a structured result', success: Weather }).annotate(Tool.Readonly, true), () => called('test_structured', Effect.succeed({ temperature: 22.5, conditions: 'Partly cloudy' })));
     yield* Server.registerTool(Tool.make('test_error_handling', { description: 'Fails on every call', success: Schema.String }).annotate(Tool.Readonly, true), () => called('test_error_handling', Effect.fail(new Cause.IllegalArgumentError(FAILURE))));
@@ -119,10 +130,20 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     yield* Server.registerTool(
         Tool.make('gated_early', { description: 'Waits for release, returning early while blocked', success: Schema.String }).annotate(
             Server.Ends,
-            Stream.filterMap(SubscriptionRef.changes(blocked), (held) => (held ? Result.succeed(ASKED) : Result.failVoid)),
+            Stream.filterMap(SubscriptionRef.changes(blocked), (held) => (held ? Result.succeed(Effect.succeed(ASKED)) : Result.failVoid)),
         ),
         () => gated('gated_early'),
     );
+    yield* Server.registerTool(Tool.make('test_claim', { description: 'Claims the events of the owned source for its handle', success: Schema.String }), () =>
+        called(
+            'test_claim',
+            Effect.as(
+                Effect.flatMap(Handle, (handle) => handle.set(Claimed, true)),
+                'claimed',
+            ),
+        ),
+    );
+    yield* Server.use((server) => Effect.all([server.events({ stream: Stream.fromQueue(shared), render: Effect.succeed }), server.events({ stream: Stream.fromQueue(owned), render: Effect.succeed, owns: () => Effect.flatMap(Handle, (handle) => handle.get(Claimed)) })], { discard: true }));
     yield* Server.registerTool(Tool.make('test_settle', { description: 'Settles the calls of its handle that returned early', success: Schema.String }), () => called('test_settle', Effect.as(Server.ToolCall.use(Struct.get('settle')), 'settled')));
     yield* registerResource({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
     yield* registerResource({ name: 'static-binary', description: 'A static binary resource for testing', mimeType: 'image/png', schema: Schema.Uint8Array, changes: Stream.empty, content: Effect.succeed(Uint8Array.fromBase64(PNG)) });
@@ -218,7 +239,7 @@ const opened = Effect.fnUntraced(function* (protocol: McpProtocol.ProtocolAdapte
 
 const names = (client: McpTest.Client) => Effect.map(client.listTools(), ({ tools }) => Array.map(tools, Struct.get('name')));
 const settled = <A, E>(effect: Effect.Effect<A, E>, done: (value: A) => boolean) => effect.pipe(Effect.repeat({ schedule: Schedule.spaced('20 millis'), until: done }), Effect.timeout(SETTLED));
-const echoed = ({ content, structuredContent }: McpSchema.CallToolResult) => ({ handled: Schema.is(Handled)(structuredContent), result: Option.getOrUndefined(Array.findFirst(content, (block) => ('text' in block ? Schema.decodeOption(Echoed)(block.text) : Option.none()))) });
+const lines = ({ content }: { readonly content: readonly unknown[] }) => Array.head(content).pipe(Option.flatMap(Schema.decodeUnknownOption(Lined)), Option.match({ onNone: () => [], onSome: ({ text }) => text.split('\n') }));
 
 const connected = Effect.fnUntraced(function* <E, R>(beside: Layer.Layer<never, E, R>) {
     const [probe, scheme] = yield* Effect.all([Probe.make, Server.scheme(MANIFEST.name)]);
@@ -244,4 +265,4 @@ const proxied = Effect.fnUntraced(function* (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ASKED, Called, connected, echoed, hosted, INSTRUCTIONS, names, opened, PEER, proxied, SETTLED, settled, STATE, TEXT };
+export { ASKED, Called, connected, hosted, INSTRUCTIONS, lines, names, opened, PEER, proxied, SETTLED, settled, STATE, TEXT };

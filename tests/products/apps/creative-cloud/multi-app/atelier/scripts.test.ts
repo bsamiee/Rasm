@@ -55,10 +55,10 @@ const ES3 = { ecmaVersion: 3, allowReserved: 'never' } as const;
 
 const Bound = Schema.Struct({ port: Schema.Int });
 const Instances = Schema.Array(Schema.toCodecJson(RunningInstance));
-const Opened = Schema.Struct({ handle: Schema.String, result: Schema.Struct({ instance: Schema.String }) });
+const Opened = Schema.fromJsonString(Schema.Struct({ instance: Schema.String }));
 const Text = Schema.Struct({ text: Schema.String });
-const Answered = Schema.Struct({ result: Schema.Struct({ result: Schema.Finite }) });
-const Listing = Schema.Struct({ result: Schema.Struct({ installed: Schema.Array(Schema.Struct({ name: Schema.String, product: Schema.String, channel: Schema.String, version: Schema.String, build: Schema.optionalKey(Schema.String) })) }) });
+const Answered = Schema.fromJsonString(Schema.Struct({ result: Schema.Finite }));
+const Listing = Schema.fromJsonString(Schema.Struct({ installed: Schema.Array(Schema.Struct({ name: Schema.String, product: Schema.String, channel: Schema.String, version: Schema.String, build: Schema.optionalKey(Schema.String) })) }));
 const Reply = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Unknown)));
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -167,21 +167,18 @@ const executing = (executed: MutableRef.MutableRef<readonly Sent[]>, { instance,
         }),
         Effect.map((reply) => ({ reply, artifacts: [] })),
     );
+const lines = ({ content }: { readonly content: readonly unknown[] }) =>
+    Array.map(Array.getSomes(Array.map(content, (block) => Schema.decodeUnknownOption(Text)(block))), Struct.get('text'))
+        .join('\n')
+        .split('\n');
 const ran = Effect.fnUntraced(function* (name: string, code: string) {
     const suite = yield* Suite;
-    const {
-        handle,
-        result: { instance },
-    } = yield* Effect.flatMap(suite.call('applications', { action: 'open', application: name }), ({ structuredContent }) => Schema.decodeUnknownEffect(Opened)(structuredContent));
+    const [minted = '', ...rest] = lines(yield* suite.call('applications', { action: 'open', application: name }));
+    const { instance } = yield* Schema.decodeUnknownEffect(Opened)(rest.at(-1));
     const before = (yield* suite.executed).length;
-    const result = yield* suite.call('execute_script', { code, handle });
-    return {
-        instance,
-        sent: Array.drop(yield* suite.executed, before),
-        failed: result.isError === true,
-        text: Array.map(Array.getSomes(Array.map(result.content, (block) => Schema.decodeUnknownOption(Text)(block))), Struct.get('text')).join('\n'),
-        structured: Option.map(Schema.decodeUnknownOption(Answered)(result.structuredContent), Struct.get('result')),
-    };
+    const result = yield* suite.call('execute_script', { code, handle: minted.slice('handle '.length) });
+    const text = lines(result);
+    return { instance, sent: Array.drop(yield* suite.executed, before), failed: result.isError === true, text: text.join('\n'), answer: Schema.decodeUnknownOption(Answered)(text.at(-1)) };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -191,9 +188,7 @@ layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici]
         'lists exactly the applications its registry shows and its installer receipts name, leaving out a registered product hidden from view',
         Effect.fnUntraced(function* () {
             const suite = yield* Suite;
-            const {
-                result: { installed },
-            } = yield* Effect.flatMap(suite.call('applications', {}), ({ structuredContent }) => Schema.decodeUnknownEffect(Listing)(structuredContent));
+            const { installed } = yield* Effect.flatMap(suite.call('applications', {}), (result) => Schema.decodeUnknownEffect(Listing)(lines(result).at(-1)));
             assert.deepStrictEqual(Array.sort(installed, Order.Struct({ name: Order.String })), [
                 { name: 'Acrobat Distiller', product: 'com.adobe.distiller', channel: 'release', version: '26.003.22110' },
                 { name: 'Adobe Acrobat', product: 'com.adobe.Acrobat.Pro', channel: 'release', version: '26.003.22110' },
@@ -205,8 +200,8 @@ layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici]
     it.effect(
         'runs a body through the do script of an application no UXP host lists, sending to its instance one strict ES3 script as the direct parameter alone, and answers what that script returns',
         Effect.fnUntraced(function* () {
-            const { instance, sent, failed, structured } = yield* ran('Adobe Acrobat', 'const doubled: number = [3.5].map((each) => each * 2)[0];\nreturn doubled;');
-            assert.deepStrictEqual([Array.map(sent, Struct.pick(['instance', 'arguments'])), failed, structured], [[{ instance, arguments: ['direct'] }], false, Option.some({ result: 7 })]);
+            const { instance, sent, failed, answer } = yield* ran('Adobe Acrobat', 'const doubled: number = [3.5].map((each) => each * 2)[0];\nreturn doubled;');
+            assert.deepStrictEqual([Array.map(sent, Struct.pick(['instance', 'arguments'])), failed, answer], [[{ instance, arguments: ['direct'] }], false, Option.some({ result: 7 })]);
             for (const { direct } of sent) {
                 assert.doesNotThrow(() => {
                     parse(direct, ES3);

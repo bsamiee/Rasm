@@ -101,7 +101,7 @@ class Upstream extends Data.Class<
             );
         };
         yield* Stream.zipLatestAll(...Array.map(sources, (source) => Stream.concat(Stream.succeed(Array.empty<Upstream>()), source))).pipe(Stream.map(Array.flatten), Stream.runForEach(registered), Effect.provideContext(services), Effect.forkScoped);
-        yield* events({ text: ({ peer, name, target, detail }) => [peer, name, ...Option.toArray(target), ...Option.toArray(Option.map(detail, (json) => JSON.stringify(json)))].join(' '), stream: Stream.fromQueue(noticed) });
+        yield* events({ stream: Stream.fromQueue(noticed), render: ({ peer, name, target, detail }) => Effect.succeed([peer, name, ...Option.toArray(target), ...Option.toArray(Option.map(detail, (json) => JSON.stringify(json)))].join(' ')) });
     });
     static readonly linked = (links: Pick<Effect.Success<ReturnType<typeof Link.listen<never>>>, 'changes' | 'call'>) => {
         const offered = Effect.fnUntraced(function* (peer: Link) {

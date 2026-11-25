@@ -93,9 +93,9 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
         const target = Effect.flatMap(Handle, (handle) => handle.get(Target));
         yield* Server.use((served) =>
             served.events({
-                text: (event) => ('pressure' in event ? `memory ${event.pressure.memory}, thermal ${event.pressure.thermal}` : `${event.application} ${changed(event.change)}`),
-                shown: (event) => ('pressure' in event ? Effect.succeed(true) : Effect.map(target, ({ followed }) => HashSet.has(followed, event.change.instance))),
                 stream: happened,
+                render: (event) => Effect.succeed('pressure' in event ? `memory ${event.pressure.memory}, thermal ${event.pressure.thermal}` : `${event.application} ${changed(event.change)}`),
+                owns: (event) => ('pressure' in event ? Effect.succeed(true) : Effect.map(target, ({ followed }) => HashSet.has(followed, event.change.instance))),
             }),
         );
         const aimed = Effect.fnUntraced(function* (aim: { readonly row: Application; readonly instance: RunningInstance['instance'] }) {
@@ -135,7 +135,7 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
                 Effect.map(resolved, ({ sole }) =>
                     Option.match(sole, {
                         onNone: () => Stream.never,
-                        onSome: ({ row, instance }) => SubscriptionRef.changes(running).pipe(Stream.map(Array.findFirst((each: RunningInstance) => each.instance === instance)), Stream.filterMap(blocked(row.name))),
+                        onSome: ({ row, instance }) => SubscriptionRef.changes(running).pipe(Stream.map(Array.findFirst((each: RunningInstance) => each.instance === instance)), Stream.filterMap(blocked(row.name)), Stream.map(Effect.succeed)),
                     }),
                 ),
             ),
