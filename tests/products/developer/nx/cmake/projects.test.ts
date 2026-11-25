@@ -66,7 +66,7 @@ const rich = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-describe('inferred projects', { timeout: 120_000 }, () => {
+describe('inferred projects', () => {
     it('infers a project for each project() call that builds something, named by the call and rooted at its folder', async ({ workspace }) => {
         const graph = await workspace.write(tree).graph(cmake);
 
@@ -142,7 +142,7 @@ describe('files Nx hands the plugin', () => {
     });
 });
 
-describe('hashing', { timeout: 120_000 }, () => {
+describe('hashing', () => {
     it('hashes the member folder and each list file cmake reads for it, sibling members left to their own projects', async ({ workspace }) => {
         const graph = await workspace.write(tree).graph(cmake);
 
@@ -150,7 +150,7 @@ describe('hashing', { timeout: 120_000 }, () => {
     });
 });
 
-describe('graph laws', { timeout: 120_000 }, () => {
+describe('graph laws', () => {
     it('hashes every tool input in its verb and forwards the verb to each tool, package.json overrides included', async ({ workspace }) => {
         const graph = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });
 

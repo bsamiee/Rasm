@@ -5,7 +5,7 @@ import { Cause, Effect, Exit, FileSystem, Option, Path, Schema, Scope } from 'ef
 import { ChildProcess } from 'effect/process';
 import { RandomPortGenerator } from 'testcontainers';
 import { Asked } from '#/peer';
-import { bounds, heard, held, printed, reasoned, Sshd, served } from '#/sshd';
+import { heard, held, printed, reasoned, Sshd, served } from '#/sshd';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ const greeted = Option.map((text: string) => text.slice(0, banner.length));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concurrent: true })('forwarding', (methods) => {
+it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('forwarding', (methods) => {
     methods.effect(
         'forwards a local port to an address the server dials, and stops listening on it with its scope',
         Effect.fnUntraced(function* () {
@@ -31,7 +31,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const open = yield* Effect.scoped(Effect.andThen(ssh.forward(host, yield* wanted({ _tag: 'Local', bind: `127.0.0.1:${free}`, connect: sshd })), heard(at)));
             assert.deepStrictEqual([greeted(open), yield* heard(at)], [Option.some(banner), Option.none()]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -43,7 +42,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const open = yield* Effect.scoped(Effect.andThen(ssh.forward(host, yield* wanted({ _tag: 'Dynamic', bind: `127.0.0.1:${free}` })), heard(at, socks.asked)));
             assert.deepStrictEqual([open, yield* heard(at, socks.asked)], [Option.some(socks.accepted), Option.none()]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -60,7 +58,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             yield* open.closed;
             assert.deepStrictEqual([greeted(open.first), Option.contains(greeted(yield* heard(through)), banner)], [Option.some(banner), false]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -71,7 +68,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const bound = yield* ssh.forward(host, yield* wanted({ _tag: 'Local', bind: `127.0.0.1:${free}`, connect: sshd }));
             assert.strictEqual(yield* reasoned(ssh.forward(host, bound)), 'Refused');
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -88,6 +84,5 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             yield* Effect.timeoutOrElse(open.closed, { duration: '10 seconds', orElse: () => Effect.fail(new Cause.UnknownError(undefined, 'a connection the killed process forwarded stays open')) });
             assert.deepStrictEqual([greeted(open.first), yield* heard(at)], [Option.some(banner), Option.none()]);
         }),
-        bounds.test,
     );
 });

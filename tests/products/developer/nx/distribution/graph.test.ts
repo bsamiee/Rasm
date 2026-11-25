@@ -55,5 +55,5 @@ describe('warm workspace graph', () => {
 
         const events = Option.getOrThrow(Schema.decodeOption(Schema.Array(Event))(readFileSync(trace, 'utf-8').trim().split('\n')));
         expect([events.some(({ what }) => what === 'git'), events.filter(({ owned }) => owned)]).toStrictEqual([true, []]);
-    }, 180_000);
+    });
 });

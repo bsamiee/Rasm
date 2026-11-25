@@ -4,7 +4,7 @@ import { Ssh } from '@rasm/ssh';
 import { Array, Effect, Fiber, Option, Path, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { Asked, Reached } from '#/peer';
-import { bounds, printed, reasoned, Sshd } from '#/sshd';
+import { printed, reasoned, Sshd } from '#/sshd';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -17,7 +17,7 @@ const Master = Schema.TemplateLiteralParser(['Master running (pid=', Schema.Fini
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concurrent: true })('sharing', (methods) => {
+it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('sharing', (methods) => {
     methods.effect(
         'runs the concurrent first calls of two clients on one folder, and every call after them, over one connection',
         Effect.fnUntraced(function* () {
@@ -28,7 +28,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const later = yield* Effect.forEach(callers, (index) => clients[index % 2 === 0 ? 1 : 0].run(host, connection), { concurrency: 'unbounded' });
             assert.deepStrictEqual(Array.dedupe([...first, ...later]), [Array.headNonEmpty(first)]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -41,7 +40,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const peer = yield* ChildProcess.make(process.execPath, [path.join(import.meta.dirname, 'peer.ts'), request], { stdin: 'ignore', stderr: 'inherit' });
             assert.deepStrictEqual(yield* Effect.flatMap(printed(peer, 'the second process'), Schema.decodeEffect(Reached)), [mine, mine, mine, mine]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -57,7 +55,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const after = yield* Effect.forEach(callers, () => ssh.run(host, connection), { concurrency: 'unbounded' });
             assert.deepStrictEqual([code, Array.dedupe(after).length, after.includes(`${before}\n`)], [255, 1, false]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -72,7 +69,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const after = yield* ssh.run(host, ['sh', '-c', `echo released > ${made}/gate; echo "$SSH_CONNECTION"`]);
             assert.deepStrictEqual([yield* Fiber.join(running), after === before], ['released\nfinished\n', false]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -88,6 +84,5 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const after = yield* ssh.run(host, ['sh', '-c', `: <> ${made}/gate; echo "$SSH_CONNECTION"`]);
             assert.deepStrictEqual([ended, after === before], ['Unreachable', false]);
         }),
-        bounds.test,
     );
 });

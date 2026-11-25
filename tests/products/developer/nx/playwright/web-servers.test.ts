@@ -31,7 +31,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.write({ 'package.json': '{"name":"repo"}', 'package-lock.json': '{}' });
 });
 
-describe('test--playwright dependencies on webServer tasks', { timeout: 60_000 }, () => {
+describe('test--playwright dependencies on webServer tasks', () => {
     it('waits until ready for the Nx task a reused webServer row runs, in each form a package manager spells it', async ({ workspace }) => {
         const graph = await workspace
             .write(

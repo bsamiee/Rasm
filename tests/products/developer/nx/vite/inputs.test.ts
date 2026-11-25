@@ -55,7 +55,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     symlinkSync(join(workspace.root, 'libs/plugin'), join(workspace.root, 'node_modules/plugin'), 'dir');
 });
 
-describe('what build--vite hashes', { timeout: 60_000 }, () => {
+describe('what build--vite hashes', () => {
     it.for([
         { case: 'a project source file', edit: { 'apps/web/main.ts': 'export const changed = 1;\n' }, changes: true },
         { case: 'a project spec file the production input leaves out', edit: { 'apps/web/main.spec.ts': 'export const changed = 1;\n' }, changes: false },
@@ -119,7 +119,7 @@ describe('what build--vite hashes', { timeout: 60_000 }, () => {
     });
 });
 
-describe('resolving the config across graph passes', { timeout: 60_000 }, () => {
+describe('resolving the config across graph passes', () => {
     it('refuses a config that throws in build mode, naming the config', async ({ workspace }) => {
         const graphed = workspace.write({ 'apps/web/vite.config.ts': "throw new Error('config refused');\n" }).graph({ createNodes });
 

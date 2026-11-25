@@ -29,7 +29,7 @@ describe('package tarballs', () => {
     it.for([
         { manager: 'pnpm', files: { 'package.json': '{"name":"root"}', 'pnpm-lock.yaml': '', 'pnpm-workspace.yaml': 'packages:\n    - libs/*\n' } },
         { manager: 'npm', files: { 'package.json': '{"name":"root","workspaces":["libs/*"]}', 'package-lock.json': '{"name":"root","lockfileVersion":3,"packages":{}}' } },
-    ])('packs with $manager one tarball holding the files the manifest lists into the missing outputPath folder, where Nx caches it', { timeout: 30_000 }, async ({ manager, files }, { workspace }) => {
+    ])('packs with $manager one tarball holding the files the manifest lists into the missing outputPath folder, where Nx caches it', async ({ manager, files }, { workspace }) => {
         const graph = await workspace.write({ ...files, 'libs/lib/package.json': '{"name":"lib","version":"1.0.0","files":["index.js"]}', 'libs/lib/index.js': 'export {};', 'libs/lib/notes.txt': 'unlisted' }).graph({ createNodes }, { outputPath: `.artifacts/${manager}/{projectName}` });
 
         const { success } = await execute(await targetOptions(Pack, graph, 'lib', `pack--${manager}`), workspace.context(graph, 'lib', `pack--${manager}`));

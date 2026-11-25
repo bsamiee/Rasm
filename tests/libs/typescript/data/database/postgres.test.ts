@@ -361,4 +361,4 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-layer(Postgres.layer, { timeout: '3 minutes', excludeTestServices: true, concurrent: true })('postgres', (outer) => outer.layer(Postgres.database, { buildPerTest: true })(cases));
+layer(Postgres.layer, { excludeTestServices: true, concurrent: true })('postgres', (outer) => outer.layer(Postgres.database, { buildPerTest: true })(cases));

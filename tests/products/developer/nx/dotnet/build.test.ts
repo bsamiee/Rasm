@@ -17,7 +17,7 @@ const project = (stated: string, references: readonly string[] = []) =>
 it.for([
     { kind: 'a plain folder', folder: 'libs/Core' },
     { kind: 'a folder holding XML punctuation', folder: "libs/Core & Kit's" },
-])('builds a project in a configuration its reference in $kind lacks, writing the build within the declared outputs of both, the intermediate folders alone outside them, and the reference in its own default', { timeout: 300_000 }, async ({ folder }, { workspace }) => {
+])('builds a project in a configuration its reference in $kind lacks, writing the build within the declared outputs of both, the intermediate folders alone outside them, and the reference in its own default', async ({ folder }, { workspace }) => {
     const graph = await workspace
         .write({
             [`${folder}/Core.csproj`]: project(''),
@@ -44,7 +44,7 @@ it.for([
 it.for([
     { verb: 'publish', stated: '    <OutputType>Exe</OutputType>\n    <IsPublishable>true</IsPublishable>\n    <PublishDir>$(MSBuildProjectDirectory)/dist/</PublishDir>\n', source: 'return 0;\n', target: 'build--dotnet', written: /^apps\/Tool\/dist\/Tool\.dll$/u },
     { verb: 'pack', stated: '    <IsPackable>true</IsPackable>\n    <Version>1.2.0</Version>\n', source: 'namespace Tool;\n\npublic static class Marker;\n', target: 'pack--dotnet', written: /^apps\/Tool\/bin\/Debug\/Tool\.1\.2\.0\.nupkg$/u },
-])('writes what dotnet $verb produces within the outputs $target declares', { timeout: 300_000 }, async ({ stated, source, target, written }, { workspace }) => {
+])('writes what dotnet $verb produces within the outputs $target declares', async ({ stated, source, target, written }, { workspace }) => {
     const graph = await workspace.write({ 'apps/Tool/Tool.csproj': project(stated), 'apps/Tool/Tool.cs': source }).graph({ createNodes, createDependencies });
     execFileSync('dotnet', ['build', 'apps/Tool/Tool.csproj', '--configuration', 'Debug'], { cwd: workspace.root, stdio: 'ignore' });
     const before = workspace.files();

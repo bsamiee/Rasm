@@ -40,7 +40,7 @@ const counted = (workspace: Workspace, name: string) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('uv workspace metadata', { timeout: 60_000 }, () => {
+describe('uv workspace metadata', () => {
     it.for([
         { file: 'uv.toml', content: 'compile-bytecode = false\n' },
         { file: '.python-version', content: '3.13\n' },

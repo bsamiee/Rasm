@@ -22,6 +22,6 @@ describe('workspace graph', () => {
     it('times nx show projects over a warm plugin cache with the daemon off', ({ bench }) => bench('nx show projects, warm', () => nx('show', 'projects', '--json')).run({ iterations: 10, warmupIterations: 2 }));
 });
 
-describe.for(RUNS)('workspace task $task, $mode', { timeout: 900_000 }, ({ task, mode, flags }) => {
+describe.for(RUNS)('workspace task $task, $mode', ({ task, mode, flags }) => {
     it('times a cache restore every run pays or a run past the cache over the state its tool keeps', ({ bench }) => bench(`nx run ${task}, ${mode}`, () => nx('run', task, ...flags)).run({ iterations: 5, warmupIterations: 1 }));
 });

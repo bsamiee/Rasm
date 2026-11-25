@@ -4,7 +4,7 @@ import { SshError } from '@rasm/ssh';
 import { Array, Effect, Exit, FileSystem, Path, Schema, Scope } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RandomPortGenerator } from 'testcontainers';
-import { bounds, principal, printed, reasoned, Sshd, served } from '#/sshd';
+import { principal, printed, reasoned, Sshd, served } from '#/sshd';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ const ending = Effect.flatMap(Effect.scope, Scope.fork);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concurrent: true })('login', (methods) => {
+it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('login', (methods) => {
     methods.effect.each([
         { preferred: ['answering'], env: {}, taken: 'preferred' },
         { preferred: ['answering'], env: { SENT: 'sent' }, taken: 'preferred' },
@@ -44,7 +44,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const host = yield* sshd.hosted('dialed', { path: { _tag: 'Direct', preferred: Array.map(preferred, (kind) => ({ ...dials[kind], within: 1000 })) } });
             assert.strictEqual(yield* ssh.run(host, listener, { env }), `${{ preferred: answering.inside, stated: served }[taken]}\n`);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -65,7 +64,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             });
             assert.strictEqual(yield* ssh.run(host, listener), `${inside}\n`);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -84,7 +82,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const again = yield* Effect.andThen(asked(host, 'exit'), ssh.run(host, listener));
             assert.deepStrictEqual([first, kept, stated, held, again], [`${inside}\n`, `${inside}\n`, `${served}\n`, `${served}\n`, `${inside}\n`]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -97,7 +94,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const host = yield* sshd.hosted('jumped', { host: sshd.name, port: inside, path: { _tag: 'Jump', hops: [hop] } });
             assert.deepStrictEqual(yield* Effect.all([ssh.run(host, listener), ssh.run(host, listener, { env: { SENT: 'sent' } })]), [`${inside}\n`, `${inside}\n`]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -111,7 +107,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const host = yield* sshd.hosted('agent', { identity: { _tag: 'Agent', socket } });
             assert.deepStrictEqual([added, yield* ssh.run(host, listener)], [0, `${served}\n`]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -125,7 +120,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             ]);
             assert.deepStrictEqual([yield* ssh.run(certified, listener), yield* reasoned(ssh.run(bare, listener))], [`${served}\n`, 'Unreachable']);
         }),
-        bounds.test,
     );
 
     methods.effect.each(['HostKeys', 'Authority'] as const)(
@@ -136,6 +130,5 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const failed = yield* Effect.flip(ssh.run(host, listener));
             assert.deepStrictEqual([yield* reasoned(Effect.fail(failed)), Schema.is(SshError)(failed) && failed.message.includes('Host key verification failed.')], ['Unreachable', true]);
         }),
-        bounds.test,
     );
 });

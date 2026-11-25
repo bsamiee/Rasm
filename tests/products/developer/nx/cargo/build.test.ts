@@ -25,7 +25,7 @@ const HOST = execFileSync('rustc', ['--print', 'host-tuple'], { cwd: workspaceRo
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('build--cargo', { timeout: 120_000 }, () => {
+describe('build--cargo', () => {
     it.for([
         { layout: 'the host layout', written: {}, folder: 'target/debug' },
         { layout: 'the folder of the target build.target names', written: { '.cargo/config.toml': `[build]\ntarget = "${HOST}"\n` }, folder: `target/${HOST}/debug` },

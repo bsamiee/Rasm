@@ -137,7 +137,7 @@ describe('files Nx hands the plugin', () => {
     });
 });
 
-describe('graph cache', { timeout: 240_000 }, () => {
+describe('graph cache', () => {
     it('describes each package once until its manifest or the swift toolchain changes, holding the last state alone', async ({ workspace, swift }) => {
         workspace.write({ 'proj/Package.swift': PACKAGE, 'proj/Sources/Lib/Lib.swift': 'public let lib = 1\n' });
 
@@ -210,7 +210,7 @@ describe('graph cache', { timeout: 240_000 }, () => {
     });
 });
 
-describe('Xcode containers the core cannot read', { timeout: 240_000 }, () => {
+describe('Xcode containers the core cannot read', () => {
     it.for([
         { case: 'an undecodable project.xcproj', files: { 'Viewer.xcodeproj/project.xcproj': 'not json at all' }, refusal: /^Viewer\.xcodeproj is undecodable: /u },
         { case: 'a project.pbxproj with no project.xcproj beside it', files: { 'Legacy.xcodeproj/project.pbxproj': '// !$*UTF8*$!\n{}\n' }, refusal: /^Legacy\.xcodeproj\/project\.pbxproj has no reader, and no project\.xcproj sits beside it$/u },
@@ -221,7 +221,7 @@ describe('Xcode containers the core cannot read', { timeout: 240_000 }, () => {
     });
 });
 
-describe('a core built inside the workspace', { timeout: 240_000 }, () => {
+describe('a core built inside the workspace', () => {
     it('reads the containers through it after an edit to a file outside its stamped sources, a test edit included', async ({ workspace, core }) => {
         workspace.write(APPS);
         built(workspace.root, core);
@@ -247,7 +247,7 @@ describe('a core built inside the workspace', { timeout: 240_000 }, () => {
     });
 });
 
-describe('hosts lacking a tool the plugin reads', { timeout: 240_000 }, () => {
+describe('hosts lacking a tool the plugin reads', () => {
     it('presents no project and warns once where swift is absent', async ({ workspace, warned }) => {
         workspace.write({ 'proj/Package.swift': PACKAGE, 'other/Package.swift': PACKAGE.replace('"Proj"', '"Other"') });
         pathed(join(workspace.root, 'empty'), {});

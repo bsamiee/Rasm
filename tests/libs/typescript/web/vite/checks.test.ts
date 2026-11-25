@@ -27,7 +27,7 @@ const built = (modules: Readonly<Record<string, string>>, options: Rolldown.Inpu
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('rolldown warnings the checks refuse', { timeout: 30_000 }, () => {
+describe('rolldown warnings the checks refuse', () => {
     it.for<{ readonly code: string; readonly options: Parameters<typeof built>[1]; readonly modules: Readonly<Record<string, string>> }>([
         { code: 'CANNOT_CALL_NAMESPACE', options: { output: { format: 'es' } }, modules: { entry: "import * as ns from 'a';\nconsole.log(ns());\n", a: 'export const b = 1;\n' } },
         { code: 'COMMONJS_VARIABLE_IN_ESM', options: { output: { format: 'es' } }, modules: { entry: 'export const a = 1;\nmodule.exports.b = 2;\n' } },

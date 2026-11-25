@@ -78,27 +78,23 @@ describe(AppleVersionActions, () => {
     it.each([
         { name: 'Info.plist', manifest: 'Info.plist', input: MANIFESTS['Info.plist'], stated: '<string>1.0.0</string>' },
         { name: 'project.xcproj', manifest: 'Viewer.xcodeproj/project.xcproj', input: MANIFESTS['Viewer.xcodeproj/project.xcproj'], stated: '"MARKETING_VERSION": "1.0.0"' },
-    ])(
-        'writes any major.minor.patch version into $name, keeping the rest of its text, and reads that version back',
-        async ({ manifest, input, stated }) => {
-            expect.hasAssertions();
-            await assert(
-                asyncProperty(tuple(nat(), nat(), nat()), async (parts) => {
-                    const version = parts.join('.');
-                    const tree = createTreeWithEmptyWorkspace();
-                    tree.write(`packages/my-lib/${manifest}`, input);
-                    const versionActions = await createVersionActions(tree, manifest);
+    ])('writes any major.minor.patch version into $name, keeping the rest of its text, and reads that version back', async ({ manifest, input, stated }) => {
+        expect.hasAssertions();
+        await assert(
+            asyncProperty(tuple(nat(), nat(), nat()), async (parts) => {
+                const version = parts.join('.');
+                const tree = createTreeWithEmptyWorkspace();
+                tree.write(`packages/my-lib/${manifest}`, input);
+                const versionActions = await createVersionActions(tree, manifest);
 
-                    await versionActions.updateProjectVersion(tree, version);
+                await versionActions.updateProjectVersion(tree, version);
 
-                    expect(tree.read(`packages/my-lib/${manifest}`, 'utf-8')).toBe(input.replace(stated, stated.replace('1.0.0', version)));
-                    await expect(versionActions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: version, manifestPath: `packages/my-lib/${manifest}` });
-                }),
-                { numRuns: 20 },
-            );
-        },
-        60_000,
-    );
+                expect(tree.read(`packages/my-lib/${manifest}`, 'utf-8')).toBe(input.replace(stated, stated.replace('1.0.0', version)));
+                await expect(versionActions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: version, manifestPath: `packages/my-lib/${manifest}` });
+            }),
+            { numRuns: 20 },
+        );
+    });
 
     it.each([
         { name: 'Info.plist', manifest: 'Info.plist', input: MANIFESTS['Info.plist'].replace('</dict>\n', '') },

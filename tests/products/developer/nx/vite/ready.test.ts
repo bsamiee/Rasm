@@ -12,7 +12,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.write({ 'package.json': '{"name":"repo","workspaces":["apps/*"]}', 'package-lock.json': '{}', 'apps/web/package.json': '{"name":"web","type":"module"}', 'apps/web/index.html': '<!doctype html>\n' });
 });
 
-describe('readiness of the Vite servers', { timeout: 60_000 }, () => {
+describe('readiness of the Vite servers', () => {
     it('waits for the ready signal of a config that loads nxReadySignal()', async ({ workspace }) => {
         const graph = await workspace.write({ 'apps/web/vite.config.ts': "import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';\n\nexport default { plugins: [nxReadySignal()] };\n" }).graph({ createNodes });
 

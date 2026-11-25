@@ -2,7 +2,7 @@ import { hash } from 'node:crypto';
 import { assert, it } from '@effect/vitest';
 import { Forward, SshError } from '@rasm/ssh';
 import { Effect, FileSystem, Option, Path, pipe, Schema, Struct } from 'effect';
-import { bounds, reasoned, Sshd } from '#/sshd';
+import { reasoned, Sshd } from '#/sshd';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ const exited = (failed: unknown) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concurrent: true })('commands', (methods) => {
+it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('commands', (methods) => {
     methods.effect.each([
         { status: 254, env: {}, reported: 'Exit 254' },
         { status: 255, env: {}, reported: 'Exit 255' },
@@ -35,7 +35,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             yield* ssh.run(host, ['true']);
             assert.strictEqual(yield* reasoned(ssh.run(host, ['sh', '-c', `exit ${status}`], { env })), reported);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -47,7 +46,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const failed = yield* Effect.flip(ssh.run(host, ['sh', '-c', 'echo printed; echo refused >&2; exit 7']));
             assert.deepStrictEqual([sent, exited(failed)], ['[two words "quoted"][second]', Option.some({ code: 7, stdout: 'printed\n', stderr: 'refused\n' })]);
         }),
-        bounds.test,
     );
 
     methods.effect.each(['run', 'sent', 'copy', 'forward'] as const)(
@@ -60,7 +58,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const calls = { run: ssh.run(host, ['true']), sent: ssh.run(host, ['true'], { env: { SENT: 'sent' } }), copy: ssh.copy(host, path.join(folder, 'data'), '/tmp/data'), forward: ssh.forward(host, wanted) };
             assert.strictEqual(yield* reasoned(calls[call]), 'Unreachable');
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -73,7 +70,6 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             yield* sshd.listening(inside);
             assert.deepStrictEqual([before, yield* ssh.run(host, ['sh', '-c', 'set -- $SSH_CONNECTION; echo "$4"'])], ['Unreachable', `${inside}\n`]);
         }),
-        bounds.test,
     );
 
     methods.effect(
@@ -89,6 +85,5 @@ it.layer(Sshd.layer, { timeout: bounds.started, excludeTestServices: true, concu
             const up = yield* ssh.run(host, ['sh', '-c', `cd ${made}/up && find . -type f | sort | xargs sha256sum`]);
             assert.deepStrictEqual(up.trim().split('\n'), [`${summed.top}  ./copy`, `${summed.top}  ./copy-sym`, `${summed.nested}  ./subdir-sym/copy`, `${summed.nested}  ./subdir/copy`]);
         }),
-        bounds.test,
     );
 });

@@ -81,7 +81,6 @@ layer(Decider, { excludeTestServices: true })('rewrites', (it) => {
             expect(before.stdout).not.toBe('');
             expect(after).toStrictEqual(before);
         }),
-        30_000,
     );
 
     it.effect.each(SAME_LINES)(
@@ -93,7 +92,6 @@ layer(Decider, { excludeTestServices: true })('rewrites', (it) => {
             expect(before.stdout).not.toBe('');
             expect(lines(after)).toStrictEqual(lines(before));
         }),
-        30_000,
     );
 
     it.effect.each(RELOCATED)(
@@ -106,6 +104,5 @@ layer(Decider, { excludeTestServices: true })('rewrites', (it) => {
             expect([decision, yield* decided(replaced, folder)]).toMatchObject([{ _tag: 'Rewrite', background: false }, { _tag: 'Allow' }]);
             expect([yield* ran(replaced, folder), yield* fs.exists(file)]).toStrictEqual([{ stdout: 'moved', stderr: '', code: 0 }, false]);
         }),
-        30_000,
     );
 });

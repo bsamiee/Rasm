@@ -202,7 +202,7 @@ const bounds: readonly { readonly field: keyof typeof valid; readonly accepted: 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sampled = ({ isolated }: Store, runs: number) => ({ timeout: 30_000, arbitrary: { runs, concurrency: isolated } });
+const sampled = ({ isolated }: Store, runs: number) => ({ arbitrary: { runs, concurrency: isolated } });
 const declared = (tables: Catalog['tables'], retired: readonly string[] = []) => Catalog.make({ tables, retired, timeouts: { lock: '5 seconds', transaction: '2 minutes' } });
 const stored = (table: string) => SqlClient.SqlClient.use((sql) => sql`SELECT * FROM ${sql(table)} ORDER BY 1`);
 const applied = ({ command }: Store, { declared: tables, retired, written = {} }: Step) =>

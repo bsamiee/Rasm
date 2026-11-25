@@ -22,7 +22,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace, onTestFinished }) 
     });
 });
 
-describe('loading a Playwright config', { timeout: 60_000 }, () => {
+describe('loading a Playwright config', () => {
     it('refuses a config that throws, naming the config', async ({ workspace }) => {
         const graphed = workspace.write({ 'apps/e2e/playwright.config.js': "throw new Error('config refused');\n" }).graph({ createNodes });
 
@@ -54,7 +54,7 @@ describe('loading a Playwright config', { timeout: 60_000 }, () => {
     });
 });
 
-describe('inferred Playwright targets across graph passes', { timeout: 60_000 }, () => {
+describe('inferred Playwright targets across graph passes', () => {
     it.for([
         { system: 'CommonJS', file: 'apps/e2e/playwright.config.js', exported: 'module.exports =' },
         { system: 'ES module', file: 'apps/e2e/playwright.config.mjs', exported: 'export default' },

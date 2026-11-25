@@ -29,7 +29,7 @@ const LINKED = {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('readDependencies', { timeout: 60_000 }, () => {
+describe('readDependencies', () => {
     it('reports the members the manifest of a member names, as uv export lists them, and none a project.json alone declares', async ({ workspace }) => {
         execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(LINKED).root });
         const graph = await workspace.graph({ createNodes });
@@ -61,7 +61,7 @@ describe('readDependencies', { timeout: 60_000 }, () => {
     });
 });
 
-describe('readCurrentVersionFromRegistry', { timeout: 60_000 }, () => {
+describe('readCurrentVersionFromRegistry', () => {
     it('reads the newest release the index settings of the lock folder serve, in its SemVer form', async ({ workspace }) => {
         workspace.write({
             'nested/proj/pyproject.toml': '[tool.uv.workspace]\nmembers = ["packages/my-lib"]\n\n[tool.uv]\nno-index = true\nfind-links = ["wheels"]\n',
@@ -97,7 +97,7 @@ describe('readCurrentVersionFromRegistry', { timeout: 60_000 }, () => {
     });
 });
 
-describe(afterAllProjectsVersioned, { timeout: 60_000 }, () => {
+describe(afterAllProjectsVersioned, () => {
     it.for([
         { case: 'a stale lock', version: '1.1.0', options: { dryRun: false }, changed: ['uv.lock'] },
         { case: 'skipLockFileUpdate', version: '1.1.0', options: { dryRun: false, rootVersionActionsOptions: { skipLockFileUpdate: true } }, changed: [] },

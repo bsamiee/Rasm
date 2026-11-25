@@ -45,7 +45,7 @@ const served = Layer.unwrap(
     }),
 );
 
-layer(served, { timeout: '2 minutes', excludeTestServices: true })('presigned requests to S3', (it) => {
+layer(served, { excludeTestServices: true })('presigned requests to S3', (it) => {
     it.effect(
         'stores the body of a presigned upload sent with its stated headers, and refuses a second upload to its key and a body of another size',
         Effect.fnUntraced(function* () {

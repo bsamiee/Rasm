@@ -52,7 +52,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     symlinkSync(join(workspace.root, 'libs/addon'), join(workspace.root, 'node_modules/addon'), 'dir');
 });
 
-describe('what the Storybook targets hash', { timeout: 60_000 }, () => {
+describe('what the Storybook targets hash', () => {
     it.for([
         { case: 'a story in the stories folder the main config names', edit: { 'apps/site/src/label.stories.tsx': 'export default { title: "Label" };\n' }, changes: true },
         { case: 'a story under a stories glob outside the project', edit: { 'libs/ui/button.stories.tsx': 'export default { title: "Button" };\n' }, changes: true },
@@ -102,7 +102,7 @@ describe('what the Storybook targets hash', { timeout: 60_000 }, () => {
     });
 });
 
-describe('loading the main config across graph passes', { timeout: 60_000 }, () => {
+describe('loading the main config across graph passes', () => {
     it('refuses a main config that throws, naming the config', async ({ workspace }) => {
         const graphed = workspace.write({ 'apps/site/.storybook/main.ts': "throw new Error('main refused');\n" }).graph({ createNodes });
 

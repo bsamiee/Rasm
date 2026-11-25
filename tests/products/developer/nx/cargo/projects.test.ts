@@ -51,7 +51,7 @@ const hashed = (workspace: Workspace, graph: ProjectGraph, task: string) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('inferred projects', { timeout: 120_000 }, () => {
+describe('inferred projects', () => {
     it('infers one project per package cargo metadata lists, rooted at the folder of its manifest', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo);
 
@@ -96,7 +96,7 @@ describe('inferred projects', { timeout: 120_000 }, () => {
     });
 });
 
-describe('task hashes', { timeout: 120_000 }, () => {
+describe('task hashes', () => {
     it.for([
         { case: 'the source of a crate it depends on', edited: { 'crates/core-kit/src/lib.rs': 'pub fn one() -> u32 {\n    2 - 1\n}\n' }, changes: true },
         { case: 'a note in its folder rustc never reads', edited: { 'crates/cli/notes/plan.md': '# plan, revised\n' }, changes: false },
@@ -207,7 +207,7 @@ describe('files Nx hands the plugin', () => {
     });
 });
 
-describe('stored readings', { timeout: 120_000 }, () => {
+describe('stored readings', () => {
     it('serves the stored reading while nothing cargo reads changes, with cargo gone from PATH', async ({ workspace }) => {
         await workspace.write(crates).graph(cargo);
         pathed(join(workspace.root, '.bin'), {});

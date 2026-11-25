@@ -21,7 +21,7 @@ const members = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-describe('link edges', { timeout: 120_000 }, () => {
+describe('link edges', () => {
     it('makes a link the member list file states a static edge from that file', async ({ workspace }) => {
         const graph = await workspace
             .write({

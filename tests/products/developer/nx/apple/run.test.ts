@@ -9,7 +9,7 @@ const EMPTY = { nodes: {}, dependencies: {} };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('run coverage report', { timeout: 60_000 }, () => {
+describe('run coverage report', () => {
     it.for([
         { stated: 'no result bundle pattern', runs: [['true']], report: { profiles: ['*.profdata'], objects: ['Suite.xctest'], file: 'lcov.info' }, refusal: /^No profile matches \*\.profdata after the invocations$/u },
         { stated: 'no instrumented binary', runs: [['touch', 'default.profdata']], report: { profiles: ['*.profdata'], results: ['*.xcresult'], file: 'lcov.info' }, refusal: /^No instrumented binary is stated or reported by a result bundle matching \*\.xcresult after the invocations$/u },
@@ -18,7 +18,7 @@ describe('run coverage report', { timeout: 60_000 }, () => {
     });
 });
 
-describe('run install notice', { timeout: 60_000 }, () => {
+describe('run install notice', () => {
     it.for([
         { case: 'runs from inside its bundle', running: '/Applications/Viewer.app/Contents/MacOS/Viewer', notices: ['Viewer runs the build it launched from, relaunch it to run this one'] },
         { case: 'runs from a bundle whose name ends in its name', running: '/Applications/MyViewer.app/Contents/MacOS/Viewer', notices: [] },

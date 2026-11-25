@@ -38,7 +38,7 @@ const runtime = (inputs: readonly unknown[] = []) => Array.findLast(inputs, (inp
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('analysis cache', { timeout: 240_000 }, () => {
+describe('analysis cache', () => {
     it('reuses the analysis while no file the evaluation read changes, and analyzes again once an SDK lands beside the dotnet on PATH', async ({ workspace }) => {
         const shim = counted();
         const read = async () => {
@@ -103,7 +103,7 @@ describe('files Nx hands the plugin', () => {
     });
 });
 
-describe('files outside the workspace', { timeout: 240_000 }, () => {
+describe('files outside the workspace', () => {
     it('hashes a referenced file outside the workspace by its content, naming no path outside the workspace', async ({ workspace }) => {
         const dll = join(scratch('dotnet-outside-'), 'Host.dll');
         writeFileSync(dll, 'first');

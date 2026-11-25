@@ -78,7 +78,6 @@ describe('link', () => {
             const answers = yield* Effect.forEach(Array.range(1, ROUND_TRIPS), () => asked(links));
             assert.deepStrictEqual([codes, answers, yield* first.dials, yield* second.dials, yield* links.peers], [[4000], Array.replicate('second', ROUND_TRIPS), 1, 1, [{ name: 'extension', instance: 'second' }]]);
         }),
-        { timeout: 20_000 },
     );
 
     it.live(
@@ -93,7 +92,6 @@ describe('link', () => {
             const answered = yield* answering(second.links, 'kept');
             assert.deepStrictEqual([answered, Number.isGreaterThan(yield* peer.dials, 1)], [Option.some(Option.some('kept')), true]);
         }),
-        { timeout: 20_000 },
     );
 
     it.live(
@@ -103,7 +101,6 @@ describe('link', () => {
             const statuses = yield* Effect.all({ foreign: upgraded(port, { origin: 'http://foreign.test' }), absent: upgraded(port, {}), own: upgraded(port, { origin: ORIGIN }) });
             assert.deepStrictEqual(statuses, { foreign: 403, absent: 403, own: 101 });
         }),
-        { timeout: 20_000 },
     );
 
     it.effect(

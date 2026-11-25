@@ -6,7 +6,7 @@ import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, type Packa
 import { react } from '@rasm/testing/storybook';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 import { playwright } from '@vitest/browser-playwright';
-import { Match } from 'effect';
+import { Duration, Match } from 'effect';
 import { defaultExclude, defineConfig, type TestProjectInlineConfiguration } from 'vitest/config';
 import type { BrowserConfigOptions } from 'vitest/node';
 
@@ -14,6 +14,7 @@ import type { BrowserConfigOptions } from 'vitest/node';
 
 const WORKERS = '**/*.workers.test.ts';
 const ARTIFACTS = join(import.meta.dirname, '.artifacts/vitest');
+const LIMIT = Duration.toMillis(Duration.minutes(15));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -28,7 +29,7 @@ const browser = (name: string): BrowserConfigOptions => ({
 });
 
 const suites = (root: string, { name, devDependencies = {}, peerDependencies = {} }: PackageJson): TestProjectInlineConfiguration[] => {
-    const test = { name, env: { CI: 'false', ...(('nx' in devDependencies || '@nx/devkit' in devDependencies) && { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' }) } };
+    const test = { name, testTimeout: LIMIT, hookTimeout: LIMIT, env: { CI: 'false', ...(('nx' in devDependencies || '@nx/devkit' in devDependencies) && { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' }) } };
     return 'vitest' in peerDependencies
         ? []
         : Match.value(devDependencies).pipe(

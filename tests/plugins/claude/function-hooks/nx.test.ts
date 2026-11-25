@@ -107,23 +107,23 @@ const it = workspaceTest.extend('engine', { scope: 'file' }, async ({ fileWorksp
     };
 });
 
-it.for(REWRITTEN)('Served engine rewrites %s in folder %s of an Nx workspace to %s, which runs unchanged when decided again', { timeout: 30_000 }, async ([command, folder, rewritten], { engine }) => {
+it.for(REWRITTEN)('Served engine rewrites %s in folder %s of an Nx workspace to %s, which runs unchanged when decided again', async ([command, folder, rewritten], { engine }) => {
     await expect(engine.decided(command, folder)).resolves.toMatchObject({ _tag: 'Rewrite', command: rewritten, background: false });
     await expect(engine.decided(rewritten, folder)).resolves.toStrictEqual({ _tag: 'Allow' });
 });
 
-it.for(ALLOWED)('Served engine runs %s in folder %s of an Nx workspace unchanged', { timeout: 30_000 }, async ([command, folder], { engine }) => {
+it.for(ALLOWED)('Served engine runs %s in folder %s of an Nx workspace unchanged', async ([command, folder], { engine }) => {
     await expect(engine.decided(command, folder)).resolves.toStrictEqual({ _tag: 'Allow' });
 });
 
-it('Served engine refuses one-run arguments to an aggregate target with several tools, naming each tool target', { timeout: 30_000 }, async ({ engine }) => {
+it('Served engine refuses one-run arguments to an aggregate target with several tools, naming each tool target', async ({ engine }) => {
     await expect(engine.decided('nx clean suite -- --verbose', 'suite')).resolves.toSatisfy(refusing('clean--tsc,clean--vitest'), 'refused naming clean--tsc,clean--vitest');
 });
 
-it('Served engine allows a read of a shell task output', { timeout: 30_000 }, async ({ engine }) => {
+it('Served engine allows a read of a shell task output', async ({ engine }) => {
     await expect(engine.read('/tmp/claude-501/x/tasks/b7k2.output')).resolves.toStrictEqual({ _tag: 'Allow' });
 });
 
-it.for(REFUSED_READS)('Served engine refuses a read of %s because it %s', { timeout: 30_000 }, async ([file, reason], { engine }) => {
+it.for(REFUSED_READS)('Served engine refuses a read of %s because it %s', async ([file, reason], { engine }) => {
     await expect(engine.read(file)).resolves.toSatisfy(refusing(reason), `refused because ${reason}`);
 });

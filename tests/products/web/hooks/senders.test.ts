@@ -55,7 +55,7 @@ const receiver = Layer.unwrap(
     }),
 ).pipe(Layer.provide([layerUndici, services]));
 
-layer(receiver, { timeout: '1 minute', excludeTestServices: true })('webhook receiver', (it) => {
+layer(receiver, { excludeTestServices: true })('webhook receiver', (it) => {
     it.effect.each([
         { label: 'now', offset: 0, secret: sender.secret, status: 204, worked: true },
         { label: '290 seconds ago, inside 5 minutes', offset: -290, secret: sender.secret, status: 204, worked: true },

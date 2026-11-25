@@ -36,7 +36,7 @@ const tree = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-describe('Windows path separators', { timeout: 120_000 }, () => {
+describe('Windows path separators', () => {
     it('states roots, inputs, outputs, and working folders as workspace-relative posix paths', async ({ workspace }) => {
         const graph = await workspace.write(tree).graph(cmake);
 

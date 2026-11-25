@@ -110,7 +110,7 @@ const it = nx.extend('fixture', { scope: 'file' }, async ({ fileWorkspace }) => 
     return { root: fileWorkspace.root, graph, workspace: fileWorkspace, fetched, compiled: described.flat() };
 });
 
-describe('SwiftPM packages as swift package describe reports them', { timeout: 240_000 }, () => {
+describe('SwiftPM packages as swift package describe reports them', () => {
     it('reads a package with a remote dependency and no resolved file without resolving or fetching it', ({ fixture: { graph, fetched } }) => {
         expect({ inferred: 'Remote' in graph.nodes, fetched }).toStrictEqual({ inferred: true, fetched: [] });
     });
@@ -174,7 +174,7 @@ describe('SwiftPM packages as swift package describe reports them', { timeout: 2
     });
 });
 
-describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => {
+describe('Xcode projects and their shared schemes', () => {
     it('gives the folder of a Swift package and an Xcode project one project holding the targets of both', ({ fixture: { graph } }) => {
         const viewer = Option.getOrThrow(Record.get(graph.nodes, 'Viewer'));
 
@@ -251,7 +251,7 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
     });
 });
 
-describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
+describe('a package a workspace scheme lists', () => {
     it('builds and tests the package through its workspace scheme in place of swift build and swift test, hashing the Package.resolved the workspace one links to', async ({ fixture: { graph } }) => {
         const targets = ['build--xcodebuild', 'check--xcodebuild', 'test--xcodebuild'] as const;
         const [build, test] = await Promise.all([targetOptions(Run, graph, 'Fixture-Package', 'build--xcodebuild'), targetOptions(Run, graph, 'Fixture-Package', 'test--xcodebuild')]);
@@ -322,7 +322,7 @@ describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {
     });
 });
 
-describe('the graph as a whole', { timeout: 240_000 }, () => {
+describe('the graph as a whole', () => {
     it('runs every tool target through its verb and states no machine path', ({ fixture: { graph, root } }) => {
         expect({ unaggregated: unaggregated(graph), unportable: unportable(graph), machine: JSON.stringify(graph).includes(root) }).toStrictEqual({ unaggregated: [], unportable: [], machine: false });
     });

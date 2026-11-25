@@ -27,7 +27,7 @@ const PYTHON = {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('@rasm/nx-uv under Windows path separators', { timeout: 120_000 }, () => {
+describe('@rasm/nx-uv under Windows path separators', () => {
     it('hands Nx posix roots, inputs, outputs, and working folders for nested members and a parent-relative output folder', async ({ workspace }) => {
         ['python', 'other'].forEach((folder) => {
             execFileSync('uv', ['lock', '--quiet'], { cwd: join(workspace.write(PYTHON).root, folder) });

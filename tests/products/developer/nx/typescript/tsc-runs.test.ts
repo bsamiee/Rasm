@@ -12,7 +12,7 @@ const LIB = { 'package.json': '{"name":"root","workspaces":["libs/*"]}', 'packag
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('running the tsc targets', { timeout: 30_000 }, () => {
+describe('running the tsc targets', () => {
     it.for([
         { case: 'an outDir holds declarations and source maps', target: 'build--tsc', files: { 'libs/lib/tsconfig.json': '{"files":["index.ts"],"compilerOptions":{"outDir":"dist","declaration":true,"declarationMap":true,"sourceMap":true}}' }, emitted: 'libs/lib/dist/index.js' },
         { case: 'no outDir places output beside its source', target: 'build--tsc', files: { 'libs/lib/tsconfig.json': '{"files":["src/index.ts"],"compilerOptions":{"declaration":true}}', 'libs/lib/src/index.ts': 'export {};' }, emitted: 'libs/lib/src/index.js' },

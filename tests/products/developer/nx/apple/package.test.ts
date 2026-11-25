@@ -6,7 +6,7 @@ import { describe, expect, vi } from 'vitest';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('package', { timeout: 60_000 }, () => {
+describe('package', () => {
     it('zips the application an archive states with the bundle at the root of the zip, where no notary key is set', async ({ workspace, onTestFinished }) => {
         ['ASC_API_KEY_P8', 'ASC_API_KEY_ID', 'ASC_API_ISSUER_ID'].forEach((key) => {
             vi.stubEnv(key, undefined);

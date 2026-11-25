@@ -56,7 +56,7 @@ const it = workspaced.extend('tagged', ({ workspace }) => async (release: object
     return existsSync(join(workspace.root, 'cargo.txt')) ? readFileSync(join(workspace.root, 'cargo.txt'), 'utf-8').replaceAll(workspace.root, '<root>').trim().split('\n') : [];
 });
 
-describe('pack--cargo', { timeout: 120_000 }, () => {
+describe('pack--cargo', () => {
     it('packs a crate depending on another workspace crate into the archive its outputs name, holding its manifest and sources', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo);
         execFileSync('cargo', ['generate-lockfile'], { cwd: join(workspace.root, 'rust') });
@@ -87,7 +87,7 @@ describe('pack--cargo', { timeout: 120_000 }, () => {
     });
 });
 
-describe('nx-release-publish', { timeout: 120_000 }, () => {
+describe('nx-release-publish', () => {
     it('publishes a crate after each workspace crate it depends on, running nothing else first', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo);
 

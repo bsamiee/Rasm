@@ -11,7 +11,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.write({ 'package.json': '{"name":"repo","workspaces":["apps/*"]}', 'package-lock.json': '{}' });
 });
 
-describe('projects the Storybook targets join', { timeout: 60_000 }, () => {
+describe('projects the Storybook targets join', () => {
     it('infers build--storybook beside a main config of each extension Storybook loads one from', async ({ workspace }) => {
         const graph = await workspace
             .write(

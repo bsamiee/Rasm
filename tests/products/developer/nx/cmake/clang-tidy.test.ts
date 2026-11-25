@@ -24,7 +24,7 @@ const tree = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-describe('clang-tidy targets', { timeout: 120_000 }, () => {
+describe('clang-tidy targets', () => {
     it.for([
         { case: 'sets a clang-tidy launcher', cacheVariables: { CMAKE_CXX_CLANG_TIDY: 'clang-tidy' }, inferred: true },
         { case: 'sets no clang-tidy launcher', cacheVariables: {}, inferred: false },

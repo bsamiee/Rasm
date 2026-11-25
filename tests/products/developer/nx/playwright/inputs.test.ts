@@ -48,7 +48,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     symlinkSync(join(workspace.root, 'libs/shared'), join(workspace.root, 'node_modules/shared'), 'dir');
 });
 
-describe('what test--playwright hashes', { timeout: 60_000 }, () => {
+describe('what test--playwright hashes', () => {
     it.for([
         { case: 'a test file in a testDir outside the project', edit: { 'suites/e2e/smoke.spec.js': "const { test } = require('@playwright/test');\n\ntest('still passes', () => {});\n" }, changes: true },
         { case: 'the global setup script outside the project', edit: { 'tools/pw/setup.js': 'module.exports = async () => {\n    await Promise.resolve();\n};\n' }, changes: true },

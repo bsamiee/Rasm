@@ -23,7 +23,7 @@ const executed = async (workspace: Workspace, graph: ProjectGraph, project: stri
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('test--vitest runs', { timeout: 60_000 }, () => {
+describe('test--vitest runs', () => {
     const passing = "import { expect, test } from 'vitest';\n\ntest('holds', () => expect(1 + 1).toBe(2));\n";
 
     it.for([
@@ -94,7 +94,7 @@ describe('test--vitest runs', { timeout: 60_000 }, () => {
     });
 });
 
-describe('batched test--vitest tasks', { timeout: 60_000 }, () => {
+describe('batched test--vitest tasks', () => {
     it('runs every task of one configuration in one Vitest run, deciding each from its own projects and writing its attachments to its own folder', async ({ workspace }) => {
         const graph = await workspace
             .write({

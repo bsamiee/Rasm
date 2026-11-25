@@ -52,6 +52,6 @@ const drawn = Effect.fnUntraced(function* ({ viewer, path, width, read, expected
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-layer(Layer.mergeAll(Site.layer, Session.layer), { timeout: '2 minutes', excludeTestServices: true })('the portfolio in Firefox', (it) => {
-    it.effect.each(cases.filter(({ gecko }) => gecko))('$viewer at $width: $shows', drawn, 30_000);
+layer(Layer.mergeAll(Site.layer, Session.layer), { excludeTestServices: true })('the portfolio in Firefox', (it) => {
+    it.effect.each(cases.filter(({ gecko }) => gecko))('$viewer at $width: $shows', drawn);
 });

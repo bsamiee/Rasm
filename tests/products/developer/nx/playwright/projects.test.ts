@@ -11,7 +11,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.write({ 'package.json': '{"name":"repo","workspaces":["apps/*"]}', 'package-lock.json': '{}' });
 });
 
-describe('projects test--playwright joins', { timeout: 60_000 }, () => {
+describe('projects test--playwright joins', () => {
     it('infers a browser suite from each config file name playwright test loads, only where a project.json or a package.json the workspaces list sits beside it', async ({ workspace }) => {
         const graph = await workspace
             .write({

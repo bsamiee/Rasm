@@ -27,7 +27,7 @@ const hashed = async (root: string, graph: ProjectGraph, id: string) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('project references', { timeout: 180_000 }, () => {
+describe('project references', () => {
     it('records a reference the project file states as static on that file, and one an import states as implicit', async ({ workspace }) => {
         const graph = await workspace
             .write({
@@ -53,7 +53,7 @@ describe('project references', { timeout: 180_000 }, () => {
     });
 });
 
-describe('locked packages', { timeout: 180_000 }, () => {
+describe('locked packages', () => {
     it('adds each package of the lock file as an external node, linked from the project for a direct one and from each package naming it as a dependency', async ({ workspace }) => {
         const lock = {
             version: 2,
@@ -90,7 +90,7 @@ describe('locked packages', { timeout: 180_000 }, () => {
     });
 });
 
-describe('central package versions', { timeout: 180_000 }, () => {
+describe('central package versions', () => {
     it.for([
         {
             edited: {

@@ -33,7 +33,7 @@ const tree = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-describe('build--cmake', { timeout: 120_000 }, () => {
+describe('build--cmake', () => {
     it.for([
         { configuration: undefined, folder: 'nested/proj/build/default', member: 'nested/proj/build/default/apps/tool', executable: 'nested/proj/build/default/apps/tool/fixture_tool' },
         { configuration: 'release', folder: 'nested/proj/build/release', member: 'nested/proj/build/release/apps/tool', executable: 'nested/proj/build/release/apps/tool/fixture_tool' },
@@ -56,7 +56,7 @@ describe('build--cmake', { timeout: 120_000 }, () => {
     });
 });
 
-describe('install--cmake', { timeout: 120_000 }, () => {
+describe('install--cmake', () => {
     it('installs nothing for a member whose folder states no install rules', async ({ workspace }) => {
         const graph = await workspace.write(tree).graph(cmake);
 

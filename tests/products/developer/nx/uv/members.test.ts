@@ -48,7 +48,7 @@ const built = async (root: string, cache: FileMapCache | null) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('files Nx hands the plugin', { timeout: 60_000 }, () => {
+describe('files Nx hands the plugin', () => {
     it('hold the locks alone, as a matched file edit is a project configuration change', async ({ workspace }) => {
         const read = { 'uv.toml': '', '.python-version': '3.13\n', '.python-versions': '3.13\n', 'mypy.ini': '', '.mypy.ini': '', 'setup.cfg': '', 'ty.toml': '', 'pytest.toml': '', '.pytest.toml': '', 'pytest.ini': '', '.pytest.ini': '', 'tox.ini': '' };
         const placed = Array.cartesianWith(['', 'proj/library/'], Record.toEntries(read), (folder, [file, content]) => [`${folder}${file}`, content] as const);
@@ -60,7 +60,7 @@ describe('files Nx hands the plugin', { timeout: 60_000 }, () => {
     });
 });
 
-describe('uv roots without a project table', { timeout: 60_000 }, () => {
+describe('uv roots without a project table', () => {
     it.for([
         { case: 'a nested folder, by the folder', folder: 'nested/proj', files: {}, name: 'proj' },
         { case: 'the Nx workspace root, by the project.json beside it', folder: '.', files: { 'project.json': '{ "name": "named" }' }, name: 'named' },
@@ -83,7 +83,7 @@ describe('uv roots without a project table', { timeout: 60_000 }, () => {
     });
 });
 
-describe('uv workspace members', { timeout: 60_000 }, () => {
+describe('uv workspace members', () => {
     it('gives each member the delivery targets its manifest allows', async ({ workspace }) => {
         locked(workspace.write(MEMBERS).root);
 

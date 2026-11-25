@@ -23,7 +23,7 @@ const crates = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-describe('test tools', { timeout: 120_000 }, () => {
+describe('test tools', () => {
     it('runs only the documentation tests in test--cargo where nextest runs the suites', async ({ workspace }) => {
         const graph = await workspace
             .write({
@@ -41,7 +41,7 @@ describe('test tools', { timeout: 120_000 }, () => {
     });
 });
 
-describe('coverage', { timeout: 120_000 }, () => {
+describe('coverage', () => {
     it('writes the lcov report of the crate and its direct workspace dependencies to <coveragePath>/lcov.info', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
         execFileSync('cargo', ['generate-lockfile'], { cwd: join(workspace.root, 'rust') });

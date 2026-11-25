@@ -301,24 +301,18 @@ const amendStep = (held: Scratch) => (step: (typeof AMENDED | typeof AMEND_KEPT)
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })('git', (it) => {
-    it.effect.each(REFUSED)(
-        '%s is refused because %s',
-        ([command, reason]) =>
-            Effect.gen(function* () {
-                const { session, filled } = yield* Folders;
-                expect(yield* decided(filled(command), session)).toSatisfy(refusing(reason), `refused because ${reason}`);
-            }),
-        30_000,
+    it.effect.each(REFUSED)('%s is refused because %s', ([command, reason]) =>
+        Effect.gen(function* () {
+            const { session, filled } = yield* Folders;
+            expect(yield* decided(filled(command), session)).toSatisfy(refusing(reason), `refused because ${reason}`);
+        }),
     );
 
-    it.effect.each(ALLOWED)(
-        '%s runs unchanged',
-        (command) =>
-            Effect.gen(function* () {
-                const { session, filled } = yield* Folders;
-                expect(yield* decided(filled(command), session)).toStrictEqual({ _tag: 'Allow' });
-            }),
-        30_000,
+    it.effect.each(ALLOWED)('%s runs unchanged', (command) =>
+        Effect.gen(function* () {
+            const { session, filled } = yield* Folders;
+            expect(yield* decided(filled(command), session)).toStrictEqual({ _tag: 'Allow' });
+        }),
     );
 
     it.effect(
@@ -328,108 +322,83 @@ layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })
             const merged = (branch: string) => spawner.exitCode(ChildProcess.make('git', ['-C', repo, 'merge-tree', '--write-tree', '--quiet', 'main', branch], { env: ISOLATED, extendEnv: true }));
             expect(yield* Effect.all([merged('topic'), merged('clash')])).toStrictEqual([0, 1]);
         }),
-        30_000,
     );
 
-    it.effect.each(SHARED_REFUSED)(
-        '%s in the session tree is refused because %s',
-        ([command, reason]) =>
+    it.effect.each(SHARED_REFUSED)('%s in the session tree is refused because %s', ([command, reason]) =>
+        Effect.gen(function* () {
+            const { repo } = yield* Folders;
+            expect(yield* decided(command, repo)).toSatisfy(refusing(reason), `refused because ${reason}`);
+        }),
+    );
+
+    it.effect.each(SHARED_ALLOWED)('%s in the session tree runs unchanged', (command) =>
+        Effect.gen(function* () {
+            const { repo } = yield* Folders;
+            expect(yield* decided(command, repo)).toStrictEqual({ _tag: 'Allow' });
+        }),
+    );
+
+    it.effect.each(RESTORED)('Restore after %s runs unchanged', ([, steps, command, by]) =>
+        Effect.scoped(
             Effect.gen(function* () {
-                const { repo } = yield* Folders;
-                expect(yield* decided(command, repo)).toSatisfy(refusing(reason), `refused because ${reason}`);
+                const held = yield* scratch();
+                yield* Effect.forEach(steps, restoreStep(held), { discard: true });
+                expect(yield* held.decidedAs(command, by)).toStrictEqual({ _tag: 'Allow' });
             }),
-        30_000,
+        ),
     );
 
-    it.effect.each(SHARED_ALLOWED)(
-        '%s in the session tree runs unchanged',
-        (command) =>
+    it.effect.each(KEPT)('Restore after %s is refused', ([, steps, command, by, reason]) =>
+        Effect.scoped(
             Effect.gen(function* () {
-                const { repo } = yield* Folders;
-                expect(yield* decided(command, repo)).toStrictEqual({ _tag: 'Allow' });
+                const held = yield* scratch();
+                yield* Effect.forEach(steps, restoreStep(held), { discard: true });
+                expect(yield* held.decidedAs(command, by)).toSatisfy(refusing(reason), `refused because ${reason}`);
             }),
-        30_000,
+        ),
     );
 
-    it.effect.each(RESTORED)(
-        'Restore after %s runs unchanged',
-        ([, steps, command, by]) =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const held = yield* scratch();
-                    yield* Effect.forEach(steps, restoreStep(held), { discard: true });
-                    expect(yield* held.decidedAs(command, by)).toStrictEqual({ _tag: 'Allow' });
-                }),
-            ),
-        30_000,
+    it.effect.each(SWEPT)('Ledger files after %s keep exactly the sessions that can still grant', ([, steps, held]) =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const tree = yield* scratch();
+                yield* Effect.forEach(steps, restoreStep(tree), { discard: true });
+                expect(yield* Effect.all({ 'session-a': tree.ledgerOf('session-a'), 'session-b': tree.ledgerOf('session-b') })).toStrictEqual(held);
+            }),
+        ),
     );
 
-    it.effect.each(KEPT)(
-        'Restore after %s is refused',
-        ([, steps, command, by, reason]) =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const held = yield* scratch();
-                    yield* Effect.forEach(steps, restoreStep(held), { discard: true });
-                    expect(yield* held.decidedAs(command, by)).toSatisfy(refusing(reason), `refused because ${reason}`);
-                }),
-            ),
-        30_000,
+    it.effect("Ledger files of another repository stay through this repository's sweep and go through their own", () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const [here, there] = yield* Effect.all([scratch(), scratch()]);
+                yield* Effect.forEach([STEPS.mine, { hand: 'git commit -qam hand' }] as const, restoreStep(there), { discard: true });
+                yield* Effect.forEach([{ edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }] as const, restoreStep(here), { discard: true });
+                const kept = yield* there.ledgerOf('session-a');
+                yield* Effect.forEach([{ edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }] as const, restoreStep(there), { discard: true });
+                expect([kept, yield* there.ledgerOf('session-a')]).toStrictEqual([true, false]);
+            }),
+        ),
     );
 
-    it.effect.each(SWEPT)(
-        'Ledger files after %s keep exactly the sessions that can still grant',
-        ([, steps, held]) =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const tree = yield* scratch();
-                    yield* Effect.forEach(steps, restoreStep(tree), { discard: true });
-                    expect(yield* Effect.all({ 'session-a': tree.ledgerOf('session-a'), 'session-b': tree.ledgerOf('session-b') })).toStrictEqual(held);
-                }),
-            ),
-        30_000,
+    it.effect.each(AMENDED)('Amend after %s runs under the session stamp', ([, steps]) =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const held = yield* scratch();
+                yield* Effect.forEach(steps, amendStep(held), { discard: true });
+                expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a')).toStrictEqual({ _tag: 'Rewrite', command: `${STAMP} git commit --amend -q --no-edit`, background: false });
+            }),
+        ),
     );
 
-    it.effect(
-        "Ledger files of another repository stay through this repository's sweep and go through their own",
-        () =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const [here, there] = yield* Effect.all([scratch(), scratch()]);
-                    yield* Effect.forEach([STEPS.mine, { hand: 'git commit -qam hand' }] as const, restoreStep(there), { discard: true });
-                    yield* Effect.forEach([{ edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }] as const, restoreStep(here), { discard: true });
-                    const kept = yield* there.ledgerOf('session-a');
-                    yield* Effect.forEach([{ edit: 'b', file: 'g', old: 'base', new: 'theirs', text: 'theirs\n' }] as const, restoreStep(there), { discard: true });
-                    expect([kept, yield* there.ledgerOf('session-a')]).toStrictEqual([true, false]);
-                }),
-            ),
-        30_000,
-    );
-
-    it.effect.each(AMENDED)(
-        'Amend after %s runs under the session stamp',
-        ([, steps]) =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const held = yield* scratch();
-                    yield* Effect.forEach(steps, amendStep(held), { discard: true });
-                    expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a')).toStrictEqual({ _tag: 'Rewrite', command: `${STAMP} git commit --amend -q --no-edit`, background: false });
-                }),
-            ),
-        30_000,
-    );
-
-    it.effect(
-        'Amend by a subagent of the session whose main agent made HEAD is refused',
-        () =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const held = yield* scratch();
-                    yield* Effect.forEach([{ hand: 'echo 1 > c && git add c' }, { by: 'a', command: 'git commit -q -m one' }] as const, amendStep(held), { discard: true });
-                    expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a1')).toSatisfy(refusing(NOT_COMMITTED), `refused because ${NOT_COMMITTED}`);
-                }),
-            ),
-        30_000,
+    it.effect('Amend by a subagent of the session whose main agent made HEAD is refused', () =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const held = yield* scratch();
+                yield* Effect.forEach([{ hand: 'echo 1 > c && git add c' }, { by: 'a', command: 'git commit -q -m one' }] as const, amendStep(held), { discard: true });
+                expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a1')).toSatisfy(refusing(NOT_COMMITTED), `refused because ${NOT_COMMITTED}`);
+            }),
+        ),
     );
 
     it.effect(
@@ -438,20 +407,16 @@ layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })
             const { session, filled } = yield* Folders;
             expect(yield* decided(filled(`${STAMP} git -C {session} commit -m probe`), session, OWNERS.a1)).toMatchObject({ _tag: 'Rewrite', command: filled("GIT_REFLOG_ACTION='function-hooks session-a/a1' git -C {session} commit -m probe") });
         }),
-        30_000,
     );
 
-    it.effect.each(AMEND_KEPT)(
-        'Amend after %s is refused',
-        ([, steps, reason]) =>
-            Effect.scoped(
-                Effect.gen(function* () {
-                    const held = yield* scratch();
-                    yield* Effect.forEach(steps, amendStep(held), { discard: true });
-                    expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a')).toSatisfy(refusing(reason), `refused because ${reason}`);
-                }),
-            ),
-        30_000,
+    it.effect.each(AMEND_KEPT)('Amend after %s is refused', ([, steps, reason]) =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const held = yield* scratch();
+                yield* Effect.forEach(steps, amendStep(held), { discard: true });
+                expect(yield* held.decidedAs('git commit --amend -q --no-edit', 'a')).toSatisfy(refusing(reason), `refused because ${reason}`);
+            }),
+        ),
     );
 
     it.effect.each(REWRITTEN)(
@@ -461,7 +426,6 @@ layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })
             expect(yield* decided(filled(command), session, OWNERS.a)).toMatchObject({ _tag: 'Rewrite', command: filled(rewritten), background: false });
             expect(yield* decided(filled(rewritten), session, OWNERS.a)).toStrictEqual({ _tag: 'Allow' });
         }),
-        30_000,
     );
 
     it.effect(
@@ -478,6 +442,5 @@ layer(Layer.provideMerge(Folders.layer, Decider), { excludeTestServices: true })
             expect(yield* Effect.all([fs.readFileString(path.join(target, 'dirty')), fs.readFileString(path.join(target, 'clean')), branches])).toStrictEqual(['base\n', 'base\n', before]);
             expect(before).not.toBe('');
         }),
-        30_000,
     );
 });

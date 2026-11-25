@@ -55,7 +55,7 @@ const evaluated = (root: string) => execFileSync('dotnet', ['msbuild', 'libs/Lib
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('release of a packable project stating its Version', { timeout: 240_000 }, () => {
+describe('release of a packable project stating its Version', () => {
     it('writes the version MSBuild then evaluates, and moves the unshipped rules of the project and its unreleased reference under the release', async ({ workspace }) => {
         const graph = await workspace.write(FILES).graph({ createNodes, createDependencies });
         const { versioned, tree } = await actions(workspace.root, graph);

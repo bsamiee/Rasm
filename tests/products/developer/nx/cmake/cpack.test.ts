@@ -41,7 +41,7 @@ const tree = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-describe('release of a packaged member', { timeout: 120_000 }, () => {
+describe('release of a packaged member', () => {
     it('releases a member whose project() states VERSION, attaching after it packs, and leaves an installing member stating none', async ({ workspace }) => {
         const graph = await workspace.write(tree).graph(cmake);
 
@@ -63,7 +63,7 @@ describe('release of a packaged member', { timeout: 120_000 }, () => {
     });
 });
 
-describe('pack--cpack', { timeout: 120_000 }, () => {
+describe('pack--cpack', () => {
     it.for([
         { case: 'packages in the member build folder without outputPath', options: {}, folder: 'build/default/apps/tool/packages' },
         { case: '<outputPath>/cpack with outputPath', options: { outputPath: '.artifacts/cmake/{projectName}' }, folder: '.artifacts/cmake/fixture_tool/cpack' },

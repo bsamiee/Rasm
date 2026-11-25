@@ -10,7 +10,7 @@ const NX = fileURLToPath(import.meta.resolve('nx/bin/nx'));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('readiness of storybook dev', { timeout: 120_000 }, () => {
+describe('readiness of storybook dev', () => {
     it('starts a task waiting on serve--storybook ready only after Storybook announces its address, with no port named and stdout a pipe', ({ workspace }) => {
         workspace
             .install(

@@ -13,7 +13,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.write({ 'package.json': '{"name":"repo","workspaces":["apps/*"]}', 'package-lock.json': '{}', 'apps/web/package.json': '{"name":"web","type":"module"}', 'apps/web/index.ts': 'export const value = 1;\n' });
 });
 
-describe('declared outputs of build--vite', { timeout: 60_000 }, () => {
+describe('declared outputs of build--vite', () => {
     const lib = "lib: { entry: 'index.ts', formats: ['es'] }";
 
     it.for([

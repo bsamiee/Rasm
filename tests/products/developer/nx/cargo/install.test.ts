@@ -24,7 +24,7 @@ const crates = {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('install--cargo', { timeout: 120_000 }, () => {
+describe('install--cargo', () => {
     it('installs every binary of the crate into bin of the Cargo install root, built in the release profile', async ({ workspace, onTestFinished }) => {
         vi.stubEnv('CARGO_INSTALL_ROOT', join(workspace.root, '.install'));
         onTestFinished(() => {

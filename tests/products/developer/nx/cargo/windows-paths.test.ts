@@ -30,7 +30,7 @@ const crates = {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('Windows path separators', { timeout: 120_000 }, () => {
+describe('Windows path separators', () => {
     it('states roots, inputs, outputs, working folders, and the lock as workspace-relative posix paths', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
 

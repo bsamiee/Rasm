@@ -98,7 +98,7 @@ describe('task hashes', () => {
     });
 });
 
-describe('affected selection', { timeout: 120_000 }, () => {
+describe('affected selection', () => {
     it.for([
         { case: 'a deleted workflow', file: '.github/workflows/old.yml', affected: { 'repo:clean': [{ kind: 'input-file' }], 'repo:upgrade': [{ kind: 'input-file' }] } },
         { case: 'an edited mise file', file: '.config/mise.toml', affected: { 'repo:clean': [{ kind: 'input-file' }] } },

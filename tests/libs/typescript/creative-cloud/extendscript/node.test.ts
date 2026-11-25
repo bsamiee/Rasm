@@ -98,7 +98,6 @@ describe(lower, () => {
             const { code } = yield* lower(source, lower.extendscript);
             assert.deepStrictEqual(evaluated(code), evaluated(source));
         }),
-        { timeout: 30_000 },
     );
 
     it.effect(
@@ -127,7 +126,6 @@ describe(script, () => {
             yield* Effect.try({ try: () => parse(runtime.default, ES3), catch: (cause) => new Cause.UnknownError(cause, runtime.default) });
             assert.strictEqual(runInNewContext(`${runtime.default}\nruntime.written({ ink: [1, "two"] });`), '{"ink":[1,"two"]}');
         }),
-        { timeout: 60_000 },
     );
 });
 

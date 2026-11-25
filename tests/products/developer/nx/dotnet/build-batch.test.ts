@@ -27,7 +27,7 @@ const sarif = (results: readonly unknown[]) => JSON.stringify({ runs: [{ results
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('one MSBuild run per batch', () => {
-    it('reports each project from the binary log of the run, a failing one with its own compiler errors alone', { timeout: 240_000 }, async ({ workspace }) => {
+    it('reports each project from the binary log of the run, a failing one with its own compiler errors alone', async ({ workspace }) => {
         workspace.write({
             'lib/lib.csproj': project([]),
             'lib/Shapes.cs': 'namespace Lib;\n\npublic static class Shapes;\n',
@@ -49,7 +49,7 @@ describe('one MSBuild run per batch', () => {
         });
     });
 
-    it('fails every project of a run whose restore fails, as no project of it reaches the target the run names', { timeout: 240_000 }, async ({ workspace }) => {
+    it('fails every project of a run whose restore fails, as no project of it reaches the target the run names', async ({ workspace }) => {
         workspace.write({
             'lib/lib.csproj': project([]),
             'lib/Shapes.cs': 'namespace Lib;\n\npublic static class Shapes;\n',
@@ -67,7 +67,7 @@ describe('one MSBuild run per batch', () => {
         });
     });
 
-    it('stamps each project with its own span from the binary log of the run, the referenced project ending before its referrer', { timeout: 240_000 }, async ({ workspace }) => {
+    it('stamps each project with its own span from the binary log of the run, the referenced project ending before its referrer', async ({ workspace }) => {
         workspace.write({ 'lib/lib.csproj': project([]), 'lib/Shapes.cs': 'namespace Lib;\n\npublic static class Shapes;\n', 'app/app.csproj': project(['../lib/lib.csproj']), 'app/Views.cs': 'namespace App;\n\npublic static class Views;\n' });
         const debug = ['build', '--configuration', 'Debug'] as const;
         const before = vi.getRealSystemTime();

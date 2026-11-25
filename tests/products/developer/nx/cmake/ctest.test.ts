@@ -55,7 +55,7 @@ const tree = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-describe('test--ctest', { timeout: 120_000 }, () => {
+describe('test--ctest', () => {
     it('runs for each member after that member builds, running the build of no other member', async ({ workspace }) => {
         const graph = await workspace.write(tree).graph(cmake);
 

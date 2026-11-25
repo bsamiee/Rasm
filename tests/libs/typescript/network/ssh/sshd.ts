@@ -10,7 +10,6 @@ import { GenericContainer, Wait } from 'testcontainers';
 
 const served = 22;
 const spare = Array.range(2201, 2216);
-const bounds = { started: '3 minutes', test: 60_000 } as const;
 const principal = 'certified';
 const policy = [
     '-f',
@@ -118,4 +117,4 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd', {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { bounds, heard, held, principal, printed, reasoned, Sshd, served };
+export { heard, held, principal, printed, reasoned, Sshd, served };

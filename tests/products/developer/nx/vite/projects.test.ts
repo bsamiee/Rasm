@@ -17,7 +17,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.write({ 'package.json': '{"name":"repo","workspaces":["apps/*"]}', 'package-lock.json': '{}' });
 });
 
-describe('projects the Vite targets join', { timeout: 60_000 }, () => {
+describe('projects the Vite targets join', () => {
     it('infers a project only where a project.json or a package.json the workspaces list sits beside the config', async ({ workspace }) => {
         const graph = await workspace
             .write({

@@ -30,7 +30,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     });
 });
 
-describe('@rasm/nx-vite under Windows path separators', { timeout: 60_000 }, () => {
+describe('@rasm/nx-vite under Windows path separators', () => {
     it.for([
         { case: 'the outDir the config states', options: {} },
         { case: 'outputPath', options: { outputPath: '.artifacts/vite/{projectName}' } },

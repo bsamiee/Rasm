@@ -88,7 +88,7 @@ describe('analyzer build', () => {
     it.for([
         { kind: 'no file its build read changed', appended: [] },
         { kind: 'root MSBuild files its evaluation imports and a source of the Roslyn project it references changed', appended: ['Directory.Build.props', 'Directory.Build.targets', 'roslyn/Rules/Shapes.cs'] },
-    ])('infers the reported projects with no warning after a real dotnet publish of the analyzer, as $kind', { timeout: 300_000 }, async ({ appended }, { workspace }) => {
+    ])('infers the reported projects with no warning after a real dotnet publish of the analyzer, as $kind', async ({ appended }, { workspace }) => {
         packaged(PUBLISHED);
         execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist', '--disable-build-servers'], { cwd: analyzer, stdio: 'ignore' });
         appended.forEach((file) => appendFileSync(join(analyzer, file), '\n'));
@@ -103,7 +103,7 @@ describe('analyzer build', () => {
         { kind: 'a source it compiles changed', appended: 'analyzer/Program.cs' },
         { kind: 'its project file changed', appended: 'analyzer/MsbuildAnalyzer.csproj' },
         { kind: 'its lock file changed', appended: 'analyzer/packages.lock.json' },
-    ])('refuses the graph after a real dotnet publish of the analyzer, naming exactly the changed file and the command that rebuilds it, as $kind', { timeout: 300_000 }, async ({ appended }, { workspace }) => {
+    ])('refuses the graph after a real dotnet publish of the analyzer, naming exactly the changed file and the command that rebuilds it, as $kind', async ({ appended }, { workspace }) => {
         packaged(PUBLISHED);
         execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist', '--disable-build-servers'], { cwd: analyzer, stdio: 'ignore' });
         appendFileSync(join(analyzer, appended), '\n');

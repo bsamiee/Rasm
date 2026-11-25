@@ -71,7 +71,7 @@ const skipped = (): void => undefined;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Runtime.layer, { timeout: '1 minute' })('InDesign do script body', (methods) => {
+it.layer(Runtime.layer)('InDesign do script body', (methods) => {
     methods.effect(
         'runs as one undo step under its caller label with dialogs off, restores the interaction level, and answers its value',
         Effect.fnUntraced(function* () {

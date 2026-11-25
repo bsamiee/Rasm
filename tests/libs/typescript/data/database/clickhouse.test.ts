@@ -274,4 +274,4 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Server.database> |
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-layer(Server.layer, { timeout: '3 minutes', excludeTestServices: true, concurrent: true })('clickhouse', (outer) => outer.layer(Server.database, { buildPerTest: true })(cases));
+layer(Server.layer, { excludeTestServices: true, concurrent: true })('clickhouse', (outer) => outer.layer(Server.database, { buildPerTest: true })(cases));

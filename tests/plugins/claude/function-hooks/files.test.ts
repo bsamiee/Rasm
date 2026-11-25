@@ -71,24 +71,18 @@ const seeded = Effect.fnUntraced(function* () {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 layer(Decider, { excludeTestServices: true })('files', (it) => {
-    it.effect.each(REFUSED)(
-        '%s is refused because %s',
-        ([command, reason]) =>
-            Effect.map(
-                Effect.flatMap(seeded(), (folder) => decided(command, folder)),
-                (got) => expect(got).toSatisfy(refusing(reason), `refused because ${reason}`),
-            ),
-        30_000,
+    it.effect.each(REFUSED)('%s is refused because %s', ([command, reason]) =>
+        Effect.map(
+            Effect.flatMap(seeded(), (folder) => decided(command, folder)),
+            (got) => expect(got).toSatisfy(refusing(reason), `refused because ${reason}`),
+        ),
     );
 
-    it.effect.each(ALLOWED)(
-        '%s runs unchanged',
-        (command) =>
-            Effect.map(
-                Effect.flatMap(seeded(), (folder) => decided(command, folder)),
-                (got) => expect(got).toStrictEqual({ _tag: 'Allow' }),
-            ),
-        30_000,
+    it.effect.each(ALLOWED)('%s runs unchanged', (command) =>
+        Effect.map(
+            Effect.flatMap(seeded(), (folder) => decided(command, folder)),
+            (got) => expect(got).toStrictEqual({ _tag: 'Allow' }),
+        ),
     );
 
     it.effect.each(REWRITTEN)(
@@ -98,6 +92,5 @@ layer(Decider, { excludeTestServices: true })('files', (it) => {
             expect(yield* decided(command, folder)).toMatchObject({ _tag: 'Rewrite', command: rewritten, background: false });
             expect(yield* decided(rewritten, folder)).toStrictEqual({ _tag: 'Allow' });
         }),
-        30_000,
     );
 });

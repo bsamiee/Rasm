@@ -49,7 +49,7 @@ const settled = async (results: AsyncIterable<{ readonly task: string; readonly 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('cargo batch', { timeout: 120_000 }, () => {
+describe('cargo batch', () => {
     it('fails the crate that does not compile with its own diagnostic, and skips the dependent whose own build succeeds beside it', async ({ workspace }) => {
         const graph = await workspace
             .write({
@@ -96,7 +96,7 @@ describe('cargo batch', { timeout: 120_000 }, () => {
     });
 });
 
-describe('nextest batch', { timeout: 120_000 }, () => {
+describe('nextest batch', () => {
     it.for([
         { case: 'its own failing test', source: 'pub fn two() -> u32 {\n    2\n}\n\n#[test]\nfn two_is_three() {\n    assert_eq!(two(), 3);\n}\n', said: 'two_is_three' },
         { case: 'no test at all, though it builds', source: 'pub fn two() -> u32 {\n    2\n}\n', said: 'two: no tests to run\n' },

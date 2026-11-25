@@ -68,7 +68,7 @@ const roles = (root: string, graph: ProjectGraph) =>
 
 const it = base.extend('analyzed', { scope: 'file' }, async ({ fileWorkspace }) => ({ root: fileWorkspace.root, graph: await fileWorkspace.write(FILES).graph({ createNodes, createDependencies }) }));
 
-describe('MsbuildAnalyzer evaluation of a workspace', { timeout: 300_000 }, () => {
+describe('MsbuildAnalyzer evaluation of a workspace', () => {
     it('gives each project the name, targets, tags, and edges MSBuild evaluates it to', ({ analyzed: { root, graph } }) => {
         const compared = roles(root, graph);
 
@@ -89,7 +89,7 @@ describe('MsbuildAnalyzer evaluation of a workspace', { timeout: 300_000 }, () =
     });
 });
 
-describe('a change to an imported file', { timeout: 300_000 }, () => {
+describe('a change to an imported file', () => {
     it('gives each project the roles MSBuild evaluates after the change', async ({ workspace }) => {
         const before = roles(workspace.root, await workspace.write(FILES).graph({ createNodes, createDependencies }));
 
@@ -101,7 +101,7 @@ describe('a change to an imported file', { timeout: 300_000 }, () => {
     });
 });
 
-describe('solution folders', { timeout: 300_000 }, () => {
+describe('solution folders', () => {
     it.for([
         { beside: 'the root package.json', files: { 'Workspace.slnx': '<Solution />\n' }, named: '@fixture/root', root: '.' },
         { beside: 'no package.json', files: { 'tools/Tools.sln': '\n' }, named: 'Tools', root: 'tools' },

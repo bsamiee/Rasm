@@ -92,7 +92,7 @@ describe('attach--gh', () => {
     });
 });
 
-describe('nx release publish of the release workflow', { timeout: 120_000 }, () => {
+describe('nx release publish of the release workflow', () => {
     it('runs the build a tagged project publishes from, as a job apart from that build finds no file', async ({ workspace, released }) => {
         const { jobs } = await Effect.runPromise(Schema.decodeUnknownEffect(Workflow)(Yaml.parse(readFileSync(new URL('../../../../../.github/workflows/release.yml', import.meta.url), 'utf-8'))));
         const step = Array.findFirst(
@@ -109,7 +109,7 @@ describe('nx release publish of the release workflow', { timeout: 120_000 }, () 
     });
 });
 
-describe('nx release changelog of the workspace configuration', { timeout: 120_000 }, () => {
+describe('nx release changelog of the workspace configuration', () => {
     it('writes each project changelog with its commits and no section thanking their authors', async ({ workspace, released }) => {
         const { release = {} } = readJsonFile<NxJsonConfiguration>(fileURLToPath(new URL('../../../../../nx.json', import.meta.url)));
         const { git } = await released(changed, ['lib@1.0.0']);

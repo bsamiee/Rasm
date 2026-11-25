@@ -7,7 +7,7 @@ import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl';
-const limit = { timeout: 60_000, arbitrary: { concurrency: 8 } };
+const limit = { arbitrary: { concurrency: 8 } };
 const stated = { name: 'somehost', host: '192.0.2.7', port: 2222, user: 'remuser', identity: { _tag: 'Agent', socket: '/run/agent.sock' }, trust: { _tag: 'HostKeys', keys: [key] }, path: { _tag: 'Direct', preferred: [] }, persist: 90_000 } as const;
 const hosts = { '127.0.0.1': '127.0.0.1', '::1': '[::1]', localhost: 'localhost', 'relay.example.net': 'relay.example.net' } as const;
 
@@ -73,7 +73,6 @@ it.layer(layer, { excludeTestServices: true })('config', (methods) => {
             });
             assert.deepStrictEqual(Struct.pick(own, ['hostname', 'port', 'user', 'hostkeyalias', 'identityfile', 'controlmaster']), { hostname: ['192.0.2.7'], port: ['2222'], user: ['remuser'], hostkeyalias: ['somehost'], identityfile: ['/keys/id'], controlmaster: ['false'] });
         }),
-        limit,
     );
 
     methods.effect(
@@ -87,7 +86,6 @@ it.layer(layer, { excludeTestServices: true })('config', (methods) => {
                 serveralivecountmax: ['3'],
             });
         }),
-        limit,
     );
 
     methods.effect(
@@ -104,7 +102,6 @@ it.layer(layer, { excludeTestServices: true })('config', (methods) => {
                 [{ proxyjump: ['first.hop,second.hop'] }, { hostname: ['198.51.100.4'], port: ['2201'], user: ['hopper'], identityfile: ['/keys/first'] }, { hostname: ['203.0.113.9'], port: ['22'], user: ['skipper'], identityagent: ['/run/second.sock'] }],
             );
         }),
-        limit,
     );
 
     methods.effect(
@@ -123,7 +120,6 @@ it.layer(layer, { excludeTestServices: true })('config', (methods) => {
                 ],
             );
         }),
-        limit,
     );
 
     methods.effect.prop(
@@ -152,7 +148,6 @@ it.layer(layer, { excludeTestServices: true })('config', (methods) => {
             const { host, config } = yield* written({ user: text, identity: { _tag: 'Agent', socket: text } });
             assert.deepStrictEqual(Struct.pick(yield* resolved(['-F', config, host.name]), ['user', 'identityagent']), { user: [text], identityagent: [text] });
         }),
-        limit,
     );
 
     methods.effect.prop(
@@ -206,7 +201,6 @@ it.layer(layer, { excludeTestServices: true })('config', (methods) => {
             const decoded = Schema.decodeUnknownResult(Forward)({ _tag: { '-L': 'Local', '-R': 'Remote', '-D': 'Dynamic' }[flag], bind, connect });
             assert.deepStrictEqual([taken === 0, Result.isSuccess(decoded)], [accepted, accepted]);
         }),
-        limit,
     );
 
     methods.effect.prop(

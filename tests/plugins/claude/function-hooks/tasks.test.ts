@@ -41,9 +41,9 @@ const inFolder = (command: string) =>
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 layer(Decider, { excludeTestServices: true })('tasks', (it) => {
-    it.effect.each(REFUSED)('%s is refused because %s', ([command, reason]) => Effect.map(inFolder(command), (got) => expect(got).toSatisfy(refusing(reason), `refused because ${reason}`)), 30_000);
+    it.effect.each(REFUSED)('%s is refused because %s', ([command, reason]) => Effect.map(inFolder(command), (got) => expect(got).toSatisfy(refusing(reason), `refused because ${reason}`)));
 
-    it.effect.each(ALLOWED)('%s runs unchanged', (command) => Effect.map(inFolder(command), (got) => expect(got).toStrictEqual({ _tag: 'Allow' })), 30_000);
+    it.effect.each(ALLOWED)('%s runs unchanged', (command) => Effect.map(inFolder(command), (got) => expect(got).toStrictEqual({ _tag: 'Allow' })));
 
     it.effect.each(REWRITTEN)(
         '%s becomes %s, which runs unchanged when decided again',
@@ -51,7 +51,6 @@ layer(Decider, { excludeTestServices: true })('tasks', (it) => {
             expect(yield* inFolder(command)).toMatchObject({ _tag: 'Rewrite', command: rewritten, background: false });
             expect(yield* inFolder(rewritten)).toStrictEqual({ _tag: 'Allow' });
         }),
-        30_000,
     );
 
     it.effect(
@@ -63,6 +62,5 @@ layer(Decider, { excludeTestServices: true })('tasks', (it) => {
             expect(notes).toStrictEqual([notes[0], undefined, notes[0]]);
             expect(notes[0]).toBeTypeOf('string');
         }),
-        30_000,
     );
 });

@@ -25,7 +25,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.write({ 'package.json': '{"name":"repo","workspaces":["apps/*"]}', 'package-lock.json': '{}', 'apps/e2e/package.json': '{"name":"e2e"}', 'apps/e2e/smoke.spec.js': drawn('smoke'), 'apps/e2e/store.media.js': drawn('tile') });
 });
 
-describe('pack--playwright of config projects whose own outputDir sits under outputPath', { timeout: 60_000 }, () => {
+describe('pack--playwright of config projects whose own outputDir sits under outputPath', () => {
     it('writes the images of those projects alone into its outputs, after test--playwright, which leaves them unrun and undeclared', async ({ workspace }) => {
         const graph = await workspace.write({ 'apps/e2e/playwright.config.js': config('../../.artifacts/playwright/e2e/media') }).graph({ createNodes }, routed);
         const targets = graph.nodes['e2e']?.data.targets ?? {};
@@ -115,7 +115,7 @@ describe('pack--playwright of config projects whose own outputDir sits under out
     });
 });
 
-describe('clean--playwright', { timeout: 60_000 }, () => {
+describe('clean--playwright', () => {
     it('keeps the transform cache a passing run wrote under a plain clean and empties it under configuration cache', async ({ workspace, onTestFinished }) => {
         const cache = mkdtempSync(join(tmpdir(), 'playwright-transform-'));
         onTestFinished(() => {
@@ -142,7 +142,7 @@ describe('clean--playwright', { timeout: 60_000 }, () => {
     });
 });
 
-describe('declared outputs of test--playwright', { timeout: 60_000 }, () => {
+describe('declared outputs of test--playwright', () => {
     it.for([
         { case: 'in the folders the config states, one outside the project', options: {}, reporter: "[['html', { open: 'never', outputFolder: 'reports/html' }], ['blob', { outputDir: '../../reports/blob' }], ['junit', { outputFile: 'reports/junit.xml' }]]", files: {}, writes: 'junit.xml' },
         { case: 'in the default folders of the html and blob reporters', options: {}, reporter: "[['html', { open: 'never' }], ['blob']]", files: {}, writes: 'index.html' },

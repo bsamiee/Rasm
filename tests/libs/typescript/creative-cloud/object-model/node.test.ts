@@ -76,7 +76,6 @@ it.layer(layer)('declared', (methods) => {
             const [refused, accepted, { index }] = yield* Effect.all([check("const held = require('press').app.activeDocument;\nheld.margin;"), check("require('press').app.activeDocument.close(1);"), catalog]);
             assert.deepStrictEqual([Array.map(refused, Struct.pick(['code', 'line', 'declared'])), accepted, index.classes, index.enumerations], [[{ code: 2339, line: Option.some(2), declared: Option.some('Document') }], [], ['Document'], ['SaveOptions']]);
         }, Effect.scoped),
-        { timeout: 60_000 },
     );
 });
 

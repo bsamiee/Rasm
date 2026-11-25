@@ -186,7 +186,7 @@ const ran = Effect.fnUntraced(function* (name: string, code: string) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici])), { timeout: '1 minute', excludeTestServices: true })('built server', (it) => {
+layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici])), { excludeTestServices: true })('built server', (it) => {
     it.effect(
         'lists exactly the applications its registry shows and its installer receipts name, leaving out a registered product hidden from view',
         Effect.fnUntraced(function* () {

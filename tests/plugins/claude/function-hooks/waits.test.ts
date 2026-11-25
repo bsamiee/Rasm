@@ -65,13 +65,13 @@ const held = Effect.fnUntraced(function* (holder: keyof typeof HOLDERS) {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 layer(Decider, { excludeTestServices: true })('waits', (it) => {
-    it.effect.each(REFUSED)('%s as a %s call is refused because %s', ([command, kind, reason]) => Effect.map(decided(command, '/tmp', { kind }), (got) => expect(got).toSatisfy(refusing(reason), `refused because ${reason}`)), 30_000);
+    it.effect.each(REFUSED)('%s as a %s call is refused because %s', ([command, kind, reason]) => Effect.map(decided(command, '/tmp', { kind }), (got) => expect(got).toSatisfy(refusing(reason), `refused because ${reason}`)));
 
-    it.effect.each(ALLOWED)('%s as a %s call runs unchanged', ([command, kind]) => Effect.map(decided(command, '/tmp', { kind }), (got) => expect(got).toStrictEqual({ _tag: 'Allow' })), 30_000);
+    it.effect.each(ALLOWED)('%s as a %s call runs unchanged', ([command, kind]) => Effect.map(decided(command, '/tmp', { kind }), (got) => expect(got).toStrictEqual({ _tag: 'Allow' })));
 
-    it.effect.each(MONITORED)('%s as a %s call waits on its condition as Monitor %s', ([command, kind, monitored]) => Effect.map(decided(command, '/tmp', { kind }), (got) => expect(got).toMatchObject({ _tag: 'Monitor', command: monitored })), 30_000);
+    it.effect.each(MONITORED)('%s as a %s call waits on its condition as Monitor %s', ([command, kind, monitored]) => Effect.map(decided(command, '/tmp', { kind }), (got) => expect(got).toMatchObject({ _tag: 'Monitor', command: monitored })));
 
-    it.effect.each(BACKGROUNDED)('%s in the foreground moves to the background as %s', ([command, rewritten]) => Effect.map(decided(command, '/tmp'), (got) => expect(got).toMatchObject({ _tag: 'Rewrite', command: rewritten, background: true })), 30_000);
+    it.effect.each(BACKGROUNDED)('%s in the foreground moves to the background as %s', ([command, rewritten]) => Effect.map(decided(command, '/tmp'), (got) => expect(got).toMatchObject({ _tag: 'Rewrite', command: rewritten, background: true })));
 
     it.effect(
         'Monitor tail of a task output its writer holds ends when the writer exits, and the rewrite decides to itself',
@@ -85,7 +85,6 @@ layer(Decider, { excludeTestServices: true })('waits', (it) => {
             const lines = Stream.runCollect(Stream.tap(Stream.splitLines(Stream.decodeText(monitor.stdout)), (line) => (line === 'first' ? fs.writeFileString(output, 'second\n', { flag: 'a' }) : holding.kill())));
             expect(yield* Effect.all([lines, monitor.exitCode])).toStrictEqual([['first', 'second'], 0]);
         }),
-        30_000,
     );
 
     it.effect(
@@ -96,7 +95,6 @@ layer(Decider, { excludeTestServices: true })('waits', (it) => {
             expect(first).toStrictEqual({ _tag: 'Allow' });
             expect(second).toSatisfy((decision: typeof first) => decision._tag === 'Allow' && decision.note?.includes('Task b7k2 still runs and notifies when it ends') === true, 'Allow noting Task b7k2 still runs');
         }),
-        30_000,
     );
 
     it.effect(
@@ -109,7 +107,6 @@ layer(Decider, { excludeTestServices: true })('waits', (it) => {
             const [, second] = yield* Effect.all([decided(`cat ${output}`, folder, { session: 'silent' }), decided(`cat ${output}`, folder, { session: 'silent' })]);
             expect(second).toSatisfy((decision: typeof second) => decision._tag === 'Allow' && decision.note?.includes('Task b7k2 still runs and notifies when it ends') === true, 'Allow noting Task b7k2 still runs');
         }),
-        30_000,
     );
 
     it.effect(
@@ -120,7 +117,6 @@ layer(Decider, { excludeTestServices: true })('waits', (it) => {
             const [, second] = yield* Effect.all([decided(`cat ${output}`, folder, { session: 'looping' }), decided(`cat ${output}`, folder, { session: 'looping' })]);
             expect(second).toSatisfy((decision: typeof second) => decision._tag === 'Allow' && decision.note?.includes('Task b7k2 repeats "retry #" and looks stuck, TaskStop b7k2') === true, 'Allow noting Task b7k2 looks stuck');
         }),
-        30_000,
     );
 
     it.effect(
@@ -130,6 +126,5 @@ layer(Decider, { excludeTestServices: true })('waits', (it) => {
             const reads = yield* Effect.all([decided(`cat ${output}`, folder, { session: 'reader' }), decided(`cat ${output}`, folder, { session: 'reader' })]);
             expect(reads).toStrictEqual([{ _tag: 'Allow' }, { _tag: 'Allow' }]);
         }),
-        30_000,
     );
 });

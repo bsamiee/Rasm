@@ -108,7 +108,6 @@ it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
             assert.deepStrictEqual(written.requiredPermissions.network.domains, ['https://example.com', new URL(UxpManifest.link).origin]);
             assert.isTrue(written.featureFlags.unhandledRejection);
         }, Effect.scoped),
-        { timeout: 60_000 },
     );
 
     methods.effect(
@@ -117,6 +116,5 @@ it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
             const { message } = yield* Effect.flip(built({ ...STATED, entrypoints: [] }, "import { readFileSync } from 'node:fs';\nexport const read = readFileSync;\n"));
             assert.match(message, /main\.ts imports node:fs/u);
         }, Effect.scoped),
-        { timeout: 60_000 },
     );
 });

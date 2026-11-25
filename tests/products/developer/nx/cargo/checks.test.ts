@@ -24,7 +24,7 @@ const ABORTING = '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n\n[profil
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('check--clippy', { timeout: 120_000 }, () => {
+describe('check--clippy', () => {
     it.for([
         { case: 'a crate holding only a binary', project: 'app', files: {}, passed: true },
         { case: 'a library beside an example target that cannot compile', project: 'kit', files: { 'crates/kit/examples/fixture.rs': 'compile_error!("a lint fixture");\n' }, passed: true },

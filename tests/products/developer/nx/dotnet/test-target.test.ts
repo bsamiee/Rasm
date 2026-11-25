@@ -20,7 +20,7 @@ const FILES = {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it('runs the tests of a Microsoft Testing Platform project under configuration coverage, writing the coverlet lcov report into coveragePath within its declared outputs', { timeout: 600_000 }, async ({ workspace }) => {
+it('runs the tests of a Microsoft Testing Platform project under configuration coverage, writing the coverlet lcov report into coveragePath within its declared outputs', async ({ workspace }) => {
     const graph = await workspace.write(FILES).graph({ createNodes, createDependencies }, { coveragePath: 'coverage/{projectName}' });
     execFileSync('dotnet', ['build', 'apps/Tests/Tests.csproj', '--configuration', 'Debug'], { cwd: workspace.root, stdio: 'ignore' });
     const before = workspace.files();

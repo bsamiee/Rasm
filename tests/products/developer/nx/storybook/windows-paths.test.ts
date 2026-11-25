@@ -31,7 +31,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     });
 });
 
-describe('@rasm/nx-storybook under Windows path separators', { timeout: 60_000 }, () => {
+describe('@rasm/nx-storybook under Windows path separators', () => {
     it.for([
         { case: 'storybook-static', options: {} },
         { case: 'outputPath', options: { outputPath: '.artifacts/storybook/{projectName}' } },

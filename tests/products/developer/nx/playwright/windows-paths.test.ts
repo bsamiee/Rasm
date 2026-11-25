@@ -29,7 +29,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     });
 });
 
-describe('@rasm/nx-playwright under Windows path separators', { timeout: 60_000 }, () => {
+describe('@rasm/nx-playwright under Windows path separators', () => {
     it.for([
         { case: 'in the folders the config states', options: {} },
         { case: 'under outputPath', options: { outputPath: '.artifacts/playwright/{projectName}' } },

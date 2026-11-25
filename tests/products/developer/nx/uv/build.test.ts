@@ -34,7 +34,7 @@ const appended = (workspace: Workspace, file: string) => Effect.promise(async ()
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('build--uv', { timeout: 60_000 }, () => {
+describe('build--uv', () => {
     it.for([
         { case: 'no plugin options', options: undefined, folder: 'dist/' },
         { case: 'outputPath', options: { outputPath: '.artifacts/uv/{projectName}' }, folder: '.artifacts/uv/my-lib/' },

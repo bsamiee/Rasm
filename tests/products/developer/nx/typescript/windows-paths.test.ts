@@ -10,7 +10,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('inference under Windows path separators', { timeout: 60_000 }, () => {
+describe('inference under Windows path separators', () => {
     it('hands Nx posix roots, inputs, outputs, and working folders', async ({ workspace }) => {
         const graph = await workspace
             .install(typescript, import.meta.resolve('eslint/package.json'), new URL('../package.json', import.meta.resolve('knip')).href)

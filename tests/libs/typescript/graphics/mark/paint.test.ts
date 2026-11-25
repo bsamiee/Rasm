@@ -14,7 +14,7 @@ const DRAWINGS = {
 } as const;
 const FILLS = { 12: [0xff, 0x00, 0x00], 16: [0x00, 0xff, 0x00], 20: [0x00, 0x00, 0xff], 24: [0xff, 0xff, 0x00], 32: [0x00, 0xff, 0xff] } as const;
 const TONE = { color: { mode: 'rgb', r: 0x8f / 0xff, g: 0x7a / 0xff, b: 0xf9 / 0xff }, parts: { accent: { fill: { mode: 'rgb', r: 0x33 / 0xff, g: 0x9a / 0xff, b: 0xf0 / 0xff } } } } as const;
-const limit = { timeout: 120_000, arbitrary: { runs: 16, concurrency: 8 } };
+const limit = { arbitrary: { runs: 16, concurrency: 8 } };
 
 // --- [MODELS] --------------------------------------------------------------------------
 

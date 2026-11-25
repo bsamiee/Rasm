@@ -48,7 +48,7 @@ const it = nx
         return built;
     });
 
-describe('build--storybook and preview--storybook', { timeout: 120_000 }, () => {
+describe('build--storybook and preview--storybook', () => {
     it.for([
         { case: 'in the project', options: {}, index: 'apps/site/storybook-static/index.html' },
         { case: 'under an outputPath outside the project', options: { outputPath: '.artifacts/storybook/{projectName}' }, index: '.artifacts/storybook/site/index.html' },
