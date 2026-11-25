@@ -41,7 +41,10 @@ func schemes(in container: FilePath, built: [String: Built]) throws(AnalyzerErro
         let archived = zip(try values("\(archiving)/@BlueprintIdentifier", in: parsed, at: file), try values("\(archiving)/@ReferencedContainer", in: parsed, at: file))
             .compactMap { id, owner in built[place(owner).string].map { held in (id: id, built: held) } }
         let configuration = try values("/Scheme/ArchiveAction/@buildConfiguration", in: parsed, at: file).first ?? archived.first?.built.configuration
-        let archive = configuration.map { chosen in Archive(configuration: chosen, bundles: Set(archived.compactMap { product in product.built.products[product.id]?[chosen] }).sorted()) }
+        let archive = configuration.map { chosen in
+            let installed = archived.compactMap { product in product.built.products[product.id]?[chosen] }
+            return Archive(configuration: chosen, bundles: Set(installed.map(\.bundle)).sorted(), feed: installed.contains(where: \.feed))
+        }
         let name = file.stem ?? entry
         return (
             Scheme(

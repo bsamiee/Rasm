@@ -73,6 +73,10 @@ private final class Workspace {
         """
     }
 
+    static func plist(_ entries: String = "") -> String {
+        #"<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>"# + entries + "</dict></plist>"
+    }
+
     func viewer(schemes: [Scheme] = [], inputs: [String] = [], projects: [String] = [], products: [String: [String]] = [:]) -> Container {
         Container(path: self["Viewer.xcodeproj"], schemes: schemes, configurations: ["Debug", "Release"], inputs: inputs, projects: projects, products: products, buildFiles: [self["Sources"]])
     }
@@ -91,7 +95,7 @@ struct AnalyzerSmokeTests {
             plans: [],
             tests: false,
             launch: "Debug",
-            archive: Archive(configuration: "Release", bundles: ["Viewer.app"]),
+            archive: Archive(configuration: "Release", bundles: ["Viewer.app"], feed: false),
         )
 
         #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(schemes: [scheme])], failures: [:]))
@@ -130,7 +134,7 @@ struct AnalyzerSmokeTests {
             plans: ["Viewer"],
             tests: true,
             launch: "Debug",
-            archive: Archive(configuration: "Release", bundles: ["Viewer.app"]),
+            archive: Archive(configuration: "Release", bundles: ["Viewer.app"], feed: false),
         )
 
         #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(schemes: [scheme], inputs: [workspace["Viewer.xctestplan"]])], failures: [:]))
@@ -142,7 +146,7 @@ struct AnalyzerSmokeTests {
         let workspace = try Workspace([
             "Viewer.xcodeproj/project.xcproj": Workspace.project(configurations: configurations, files: [configs], settings: #""INFOPLIST_FILE": "$(SRCROOT)/Info.plist""#),
             "Configs/Base.xcconfig": "#include \"Shared.xcconfig\"\n#include? \"Local.xcconfig\"\nCODE_SIGN_ENTITLEMENTS = $(TARGET_NAME).entitlements // signed\n",
-            "Configs/Shared.xcconfig": "SWIFT_VERSION = 6.0\n", "Info.plist": "", "Viewer.entitlements": "",
+            "Configs/Shared.xcconfig": "SWIFT_VERSION = 6.0\n", "Info.plist": Workspace.plist(), "Viewer.entitlements": "",
         ])
         let inputs = ["Configs/Base.xcconfig", "Configs/Shared.xcconfig", "Info.plist", "Viewer.entitlements"].map { file in workspace[file] }
 
@@ -191,7 +195,27 @@ struct AnalyzerSmokeTests {
         let debug = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(settings: settings), "Viewer.xcodeproj/xcshareddata/xcschemes/Viewer.xcscheme": Workspace.scheme([archiving])])
 
         #expect(report([skipped.root.appending("Viewer.xcodeproj")]).containers.flatMap(\.schemes).map(\.archive) == [nil])
-        #expect(report([debug.root.appending("Viewer.xcodeproj")]).containers.flatMap(\.schemes).map(\.archive) == [Archive(configuration: "Debug", bundles: ["Viewer.app"])])
+        #expect(report([debug.root.appending("Viewer.xcodeproj")]).containers.flatMap(\.schemes).map(\.archive) == [Archive(configuration: "Debug", bundles: ["Viewer.app"], feed: false)])
+    }
+
+    @Test
+    func feedOfTheArchivedInfoPlist_decidesWhetherTheArchiveTakesAnUpdateFeed() throws {
+        let settings = #""INFOPLIST_FILE": "$(SRCROOT)/Info.plist""#
+        let scheme = "Viewer.xcodeproj/xcshareddata/xcschemes/Viewer.xcscheme"
+        let stated = Workspace.plist("<key>SUFeedURL</key><string>https://updates.example.com/Viewer/appcast.xml</string>")
+        let fed = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(settings: settings), scheme: Workspace.scheme(), "Info.plist": stated])
+        let unfed = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(settings: settings), scheme: Workspace.scheme(), "Info.plist": Workspace.plist()])
+        let archives = [fed, unfed].flatMap { workspace in report([workspace.root.appending("Viewer.xcodeproj")]).containers.flatMap(\.schemes).map(\.archive) }
+
+        #expect(archives == [Archive(configuration: "Release", bundles: ["Viewer.app"], feed: true), Archive(configuration: "Release", bundles: ["Viewer.app"], feed: false)])
+    }
+
+    @Test
+    func undecodableInfoPlists_areFailuresOfTheirContainer() throws {
+        let workspace = try Workspace(["Viewer.xcodeproj/project.xcproj": Workspace.project(settings: #""INFOPLIST_FILE": "$(SRCROOT)/Info.plist""#), "Info.plist": "not a property list"])
+        let failure = try #require(report([workspace.root.appending("Viewer.xcodeproj")]).failures[workspace["Viewer.xcodeproj"]])
+
+        #expect(failure.hasPrefix("\(workspace["Info.plist"]) is undecodable: "))
     }
 
     @Test

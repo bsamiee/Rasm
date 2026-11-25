@@ -245,6 +245,10 @@ describe('Xcode projects and their shared schemes', { timeout: 240_000 }, () => 
 
         expect({ success, installed: readdirSync(applications) }).toStrictEqual({ success: true, installed: ['Viewer.app'] });
     });
+
+    it('releases an application whose Info.plist states no SUFeedURL through attach alone, with no Sparkle feed to publish', ({ fixture: { graph } }) => {
+        expect(Array.intersection(['attach--gh', 'nx-release-publish'], Record.keys(graph.nodes['Viewer']?.data.targets ?? {}))).toStrictEqual(['attach--gh']);
+    });
 });
 
 describe('a package a workspace scheme lists', { timeout: 240_000 }, () => {

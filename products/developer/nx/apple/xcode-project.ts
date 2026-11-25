@@ -1,7 +1,7 @@
 import { basename, dirname, extname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { EXECUTORS, type Verbs } from '@rasm/nx';
-import { Array, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
+import { Array, Option, Predicate, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Run } from '#/executors/run/executor';
 import { RESOLVED } from '#/swift-package';
 import { APPCAST, ATTACH, INPUTS, NOTARY, type Options, type Part, PLUGIN, sequenced, tokened } from '#/targets';
@@ -17,7 +17,7 @@ const Container = Schema.Struct({
             plans: Schema.Array(Schema.String),
             tests: Schema.Boolean,
             launch: Schema.optionalKey(Schema.String),
-            archive: Schema.optionalKey(Schema.Struct({ configuration: Schema.String, bundles: Schema.NonEmptyArray(Schema.String) })),
+            archive: Schema.optionalKey(Schema.Struct({ configuration: Schema.String, bundles: Schema.NonEmptyArray(Schema.String), feed: Schema.Boolean.annotate({ description: 'Whether an archived application states SUFeedURL in its Info.plist, the feed Sparkle checks for updates' }) })),
         }),
     ),
     configurations: Schema.Array(Schema.String),
@@ -43,11 +43,12 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const seed = Array.findFirst(container.projects, (at) => Option.as(packaged(at), join(at, RESOLVED)));
     const archives = schemes.flatMap(({ name: scheme, archive }) => Array.fromNullishOr(archive).map((held) => ({ scheme, ...held })));
     const archived = Array.fromNullishOr(options.outputPath).flatMap((at) =>
-        archives.map(({ scheme, configuration }) => ({ folder: join(at, scheme), archive: join(at, scheme, `${scheme}.xcarchive`), run: invoke('archive', scheme, ['-archivePath', join(at, scheme, `${scheme}.xcarchive`), '-configuration', configuration]) })),
+        archives.map(({ scheme, configuration, feed }) => ({ feed, folder: join(at, scheme), archive: join(at, scheme, `${scheme}.xcarchive`), run: invoke('archive', scheme, ['-archivePath', join(at, scheme, `${scheme}.xcarchive`), '-configuration', configuration]) })),
     );
     const referenced = container.buildFiles.filter((at) => relative(root, at).startsWith('..')).flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
     const read = Array.dedupe(['{projectRoot}/**/*', ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]);
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
+    const fed = archived.filter(Struct.get('feed'));
     const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
     const derived = Option.fromUndefinedOr(options.derivedDataPath ?? UndefinedOr.map(options.outputPath, (at) => join(at, 'DerivedData')));
     const report = Option.zipWith(Option.fromUndefinedOr(options.coveragePath), derived, (coverage, folder) => ({ profiles: [join(folder, 'Build/ProfileData/*/Coverage.profdata')], results: [join(folder, 'Logs/Test/*.xcresult')], file: join(coverage, 'lcov.info') }));
@@ -185,20 +186,21 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                 },
             }),
         },
-        ...(released && {
-            published: {
-                executor: `${PLUGIN}:release-publish`,
-                dependsOn: ['pack--ditto', '^nx-release-publish'],
-                inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-                options: { exports: archived.map(({ archive }) => ({ archive })) },
-                metadata: {
-                    technologies: ['xcode'],
-                    description: `Signs the Sparkle feed of each disk image pack--ditto wrote with generate_appcast under ${APPCAST.key} and uploads it to the R2 bucket ${APPCAST.bucket} names with cf r2 objects put, skipping where either is unset or no disk image exists`,
-                    help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } },
+        ...(released &&
+            Array.isReadonlyArrayNonEmpty(fed) && {
+                published: {
+                    executor: `${PLUGIN}:release-publish`,
+                    dependsOn: ['pack--ditto', '^nx-release-publish'],
+                    inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+                    options: { exports: fed.map(({ archive }) => ({ archive })) },
+                    metadata: {
+                        technologies: ['xcode'],
+                        description: `Signs the Sparkle feed of each disk image pack--ditto wrote for an application stating SUFeedURL with generate_appcast under ${APPCAST.key} and uploads it to the R2 bucket ${APPCAST.bucket} names with cf r2 objects put, skipping where either is unset or no disk image exists`,
+                        help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } },
+                    },
                 },
-            },
-            release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(root, file) } } },
-        }),
+            }),
+        ...(released && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(root, file) } } } }),
     };
 };
 

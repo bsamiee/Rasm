@@ -33,6 +33,7 @@ struct Versioned: Encodable {
 struct Archive: Encodable, Equatable {
     let configuration: String
     let bundles: [String]
+    let feed: Bool
 }
 
 struct Scheme: Encodable, Equatable {
@@ -59,9 +60,14 @@ struct Report: Encodable, Equatable {
     let failures: [String: String]
 }
 
+struct Installed {
+    let bundle: String
+    let feed: Bool
+}
+
 struct Built {
     let configuration: String
-    let products: [String: [String: String]]
+    let products: [String: [String: Installed]]
 }
 
 struct Reference {

@@ -53,6 +53,14 @@ struct Tree {
     }
 }
 
+struct Updates: Decodable {
+    enum CodingKeys: String, CodingKey {
+        case feed = "SUFeedURL"
+    }
+
+    let feed: String?
+}
+
 struct Analysis {
     let container: FilePath
     let configurations: [String]
@@ -116,7 +124,12 @@ func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(Analyze
             }
         }
         let bundle = target.productTypeID == application ? target.product.flatMap(tree.node(of:)).map(\.file) : nil
-        let installed = bundle.map { file in settings.filter { held in held.resolved(skipInstall) != enabled }.map { held in (held.configuration, file) } } ?? []
+        let installed =
+            try bundle.map { (file: String) throws(AnalyzerError) in
+                try settings.filter { held in held.resolved(skipInstall) != enabled }.map { (held: Settings) throws(AnalyzerError) in
+                    (held.configuration, Installed(bundle: file, feed: try fed(held, root: root)))
+                }
+            } ?? []
         return (
             id: target.objectID.rawValue,
             installed: Dictionary(installed) { first, _ in first },
@@ -135,6 +148,16 @@ func analysis(_ container: FilePath, _ decoded: XCSchema.Project) throws(Analyze
         built: Built(configuration: decoded.defaultConfigurationName.rawValue, products: Dictionary(evaluated.map { held in (held.id, held.installed) }) { first, _ in first }),
         references: project.values.joined().map(\.reference) + evaluated.flatMap(\.references),
     )
+}
+
+func fed(_ settings: Settings, root: FilePath) throws(AnalyzerError) -> Bool {
+    guard case .some(.some(let located)) = settings.resolved(Resolved.infoPlist.rawValue), !located.isEmpty, case let file = joined(root, located), exists(file) else { return false }
+    let data = try read(file)
+    do {
+        return try PropertyListDecoder().decode(Updates.self, from: data).feed != nil
+    } catch {
+        throw AnalyzerError(subject: file.string, reason: .undecodable(error))
+    }
 }
 
 func project(_ analysis: Analysis, built: [String: Built]) throws(AnalyzerError) -> Container {
