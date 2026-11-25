@@ -4,7 +4,7 @@ import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-storybook';
 import { refused } from '@rasm/testing/errors';
 import { it as nx, taskGraph, type Workspace } from '@rasm/testing/nx';
-import { Predicate } from 'effect';
+import { Predicate, Record, UndefinedOr } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { describe, expect, vi } from 'vitest';
@@ -17,15 +17,14 @@ const INSTALLED = { storybook: '11.0.0', '@storybook/react-vite': '11.0.0', '@st
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const hashed = (workspace: Workspace, graph: ProjectGraph, target: string, versions: Readonly<Record<string, string>> = INSTALLED) => {
+const hashed = (workspace: Workspace, graph: ProjectGraph, target: string, versions: Record.ReadonlyRecord<string, string> = INSTALLED) => {
     const planned = taskGraph(graph, ['site'], [target]);
-    const installed: ProjectGraph = { ...graph, externalNodes: Object.fromEntries(Object.entries(versions).map(([name, version]) => [`npm:${name}`, { type: 'npm', name: `npm:${name}`, data: { packageName: name, version, hash: `${name}@${version}` } }])) };
-    const task = planned.tasks[`site:${target}`];
-    return task === undefined
-        ? Promise.resolve(undefined)
-        : createTaskHasher(installed, readNxJson(workspace.root))
-              .hashTask(task, planned, {})
-              .then(({ value }) => value);
+    const installed: ProjectGraph = { ...graph, externalNodes: Record.mapEntries(versions, (version, name) => [`npm:${name}`, { type: 'npm', name: `npm:${name}`, data: { packageName: name, version, hash: `${name}@${version}` } }]) };
+    return UndefinedOr.map(planned.tasks[`site:${target}`], (task) =>
+        createTaskHasher(installed, readNxJson(workspace.root))
+            .hashTask(task, planned, {})
+            .then(({ value }) => value),
+    );
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

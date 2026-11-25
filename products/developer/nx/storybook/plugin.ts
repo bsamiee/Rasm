@@ -16,13 +16,12 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const WORKER = fileURLToPath(import.meta.resolve('#/worker'));
 const RUNNER = '@storybook/test-runner';
 const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'outputPath: workspace folder storybook build writes to, {projectName} naming the project, absent writes storybook-static in the project' });
+const Options = Schema.Struct({ outputPath: Schema.OptionFromOptionalKey(Schema.String) }).annotate({ description: 'outputPath: workspace folder storybook build writes to, {projectName} naming the project, absent writes storybook-static in the project' });
 const Loaded = Schema.Struct({ named: Schema.Array(Schema.String), stories: Schema.Array(Schema.Struct({ directory: Schema.String, files: Schema.String })), loaded: Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])) }).annotate({
     description: 'The framework and addon package names Storybook read from a main config, each stories folder relative to the workspace root with its file glob, and the resolved URL, specifier, and importing module URL of every import its load resolved',
 });
@@ -35,43 +34,38 @@ const braced = (glob: string): string => {
 };
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
-    const [root, main] = [dirname(dirname(file)), join(workspaceRoot, file)];
+    const main = join(workspaceRoot, file);
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Storybook main config`);
-    const { named, stories, loaded } = yield* Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData: [main, workspaceRoot] }))).pipe(
+    const { named, stories, loaded } = yield* Effect.acquireDisposable(Effect.sync(() => new Worker(new URL(import.meta.resolve('#/worker')), { workerData: [main, workspaceRoot] }))).pipe(
         Effect.flatMap((worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), failed))),
         Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Loaded)(message)),
         Effect.scoped,
     );
-    const local = (url: string) => (url.startsWith('file:') ? Option.some(normalizePath(relative(workspaceRoot, fileURLToPath(url)))) : Option.none());
-    const modules = Array.dedupe(Array.getSomes(loaded.map(([url]) => local(url)))).filter(within);
+    const local = Option.liftThrowable((url: string) => normalizePath(relative(workspaceRoot, fileURLToPath(url))));
     const imported = Array.getSomes(loaded.map(([, specifier, parent]) => Option.as(Option.filter(local(parent), within), [specifier, parent] as const)));
     const [{ packages: framed, linked }, { packages: reached }] = yield* Effect.all([packaged(named.map((name) => [name, main] as const)), packaged(imported)]);
-    const globs = Array.dedupe(stories.map(({ directory, files }) => posix.join(directory, braced(files)))).filter((at) => !at.startsWith('..'));
     return {
-        packages: Array.dedupe([...framed, ...reached]),
+        packages: [...framed, ...reached],
         linked,
-        loaded: modules.filter((at) => !at.startsWith(`${root}/`)),
-        globs,
+        globs: Array.dedupe(stories.map(({ directory, files }) => posix.join(directory, braced(files)))).filter((at) => !at.startsWith('..')),
         runner: Option.isSome(Option.liftThrowable(findPackageJSON)(RUNNER, main)),
-        sources: modules,
+        sources: Array.dedupe(Array.getSomes(loaded.map(([url]) => local(url)))).filter(within),
     };
 });
 
-const targets = (root: string, { packages, linked, loaded, globs, runner }: Resolved, chain: readonly string[], production: boolean, output: Option.Option<string>, exec: string): Verbs => {
-    const sources = [
+const targets = (root: string, { packages, linked, globs, runner, sources }: Resolved, chain: readonly string[], production: boolean, output: Option.Option<string>, exec: string): Verbs => {
+    const hashed = [
         ...(production ? ['production', '{workspaceRoot}/{projectRoot}/.storybook/**/*', '^production'] : ['default', '^default']),
-        ...globs.map((at) => posix.join('{workspaceRoot}', at)),
+        ...[...globs, ...sources.filter((at) => !at.startsWith(`${root}/`))].map((at) => posix.join('{workspaceRoot}', at)),
         ...chain.map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
-        ...loaded.map((at) => posix.join('{workspaceRoot}', at)),
-        ...Array.match(linked, {
-            onEmpty: () => [],
-            onNonEmpty: (owners) => [
-                { input: 'default', projects: [...owners] },
-                { input: 'default', projects: [...owners], dependencies: true as const },
-            ],
-        }),
+        ...(Array.isReadonlyArrayNonEmpty(linked)
+            ? [
+                  { input: 'default', projects: [...linked] },
+                  { input: 'default', projects: [...linked], dependencies: true as const },
+              ]
+            : []),
     ];
-    const inputs = [...sources, { externalDependencies: Array.dedupe(['storybook', ...packages]) }];
+    const inputs = [...hashed, { externalDependencies: Array.dedupe(['storybook', ...packages]) }];
     const written = Option.getOrElse(output, () => posix.join(root, 'storybook-static'));
     const needs = { options: { cwd: root }, dependsOn: ['codegen--*', '^codegen--*'], inputs };
     const built = ['build--storybook'];
@@ -111,7 +105,7 @@ const targets = (root: string, { packages, linked, loaded, globs, runner }: Reso
                       command: 'test-storybook',
                       options: { cwd: root },
                       dependsOn: [{ target: 'serve--storybook', waitFor: 'ready' }],
-                      inputs: [...sources, { externalDependencies: Array.dedupe(['storybook', RUNNER, ...packages]) }],
+                      inputs: [...hashed, { externalDependencies: Array.dedupe(['storybook', RUNNER, ...packages]) }],
                       metadata: { description: 'Runs the stories of the Storybook serve--storybook serves as tests with test-storybook, hashing the sources serve--storybook serves', help: { command: `${exec} test-storybook --help`, example: { args: ['--url', 'http://localhost:6006'] } } },
                   },
               }
@@ -139,7 +133,7 @@ const nodes = inferring(Options, run, function* (files, settings, context, cache
     const anchor = anchored(context.workspaceRoot);
     const mains = files.filter((file) => anchor.holds(dirname(dirname(file))));
     const pass = yield* cached<Resolved>('storybook.hash', yield* OWN);
-    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, anchor, context, Option.fromUndefinedOr(settings.outputPath), file)), mains, settings, context));
+    return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, anchor, context, settings.outputPath, file)), mains, settings, context));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
