@@ -19,7 +19,7 @@ const Completion = Object.assign(Completions, {
             Unmatched: Effect.fail<Unmatched>,
             IllegalArgument: ({ message }) => Effect.fail(new Cause.IllegalArgumentError(message)),
             Thrown: (failed) => {
-                const coded = [subject, ...Option.toArray(Option.map(failed.number, (code) => `Error ${code}`))].join(': ');
+                const coded = Option.match(failed.number, { onNone: () => subject, onSome: (code) => `${subject}: Error ${code}` });
                 return Effect.fail(Option.isSome(failed.line) ? HostError.thrown(`${coded}: ${failed.message}`, failed.line)(failed) : HostError.refused(coded)(failed));
             },
         }),

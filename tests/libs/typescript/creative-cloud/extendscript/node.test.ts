@@ -6,8 +6,8 @@ import { assert, describe, it } from '@effect/vitest';
 import { core, lower, traced } from '@rasm/extendscript/node';
 import { script } from '@rasm/extendscript/vite';
 import { parse } from 'acorn';
-import { Array, Cause, Effect, FileSystem, Formatter, Layer, Match, Option, Path, Predicate, Ref, Schema, Struct } from 'effect';
-import { HttpClient, HttpClientResponse } from 'effect/http';
+import { Array, Cause, Effect, FileSystem, Formatter, Layer, Match, Option, Path, PlatformError, Predicate, Ref, Schema, Struct } from 'effect';
+import { ChildProcessSpawner } from 'effect/process';
 import { build } from 'vite';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -48,7 +48,6 @@ const Expression: Schema.Codec<Expression> = Schema.Union([
 ]);
 const Inlined = Schema.Struct({ output: Schema.NonEmptyArray(Schema.Struct({ code: Schema.String })) });
 const Runtime = Schema.Struct({ default: Schema.String });
-const Answered = Schema.Struct({ reason: Schema.Struct({ response: Schema.Struct({ status: Schema.Literal(404) }) }) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -66,7 +65,7 @@ const printed: (expression: Expression) => string = Match.type<Expression>().pip
     Match.exhaustive,
 );
 const evaluated = (code: string) => Array.map(BINDINGS, (bound): unknown => runInNewContext(`var x;\n${code}\nx;`, { ...bound }));
-const unserved = (requested: Ref.Ref<readonly string[]>) => HttpClient.make((request) => Effect.as(Ref.update(requested, Array.append(request.url)), HttpClientResponse.fromWeb(request, new Response(undefined, { status: 404 }))));
+const unspawned = (requested: Ref.Ref<readonly string[]>, refused: PlatformError.PlatformError) => ChildProcessSpawner.make((command) => Effect.andThen(Ref.update(requested, Array.appendAll(command._tag === 'StandardCommand' ? [[command.command, ...command.args.filter(Predicate.isString)].join(' ')] : [])), refused));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -101,13 +100,13 @@ describe(lower, () => {
     );
 
     it.effect(
-        'maps a lowered line back to the TypeScript line it came from',
+        'maps a lowered line back to the TypeScript line it came from, and a line past the lowered code to none',
         Effect.fnUntraced(function* () {
             const { code, map } = yield* lower("const first: number = 1; const second = first + 1; throw new Error('marked ' + second);", lower.extendscript, 'typescript');
             const line = code.slice(0, code.indexOf('marked')).split('\n').length;
             const original = yield* traced(map);
             assert.notStrictEqual(line, 1);
-            assert.deepStrictEqual(Option.map(original(line), Struct.get('line')), Option.some(1));
+            assert.deepStrictEqual([Option.map(original(line), Struct.get('line')), original(code.split('\n').length + 1)], [Option.some(1), Option.none()]);
         }),
     );
 });
@@ -131,13 +130,13 @@ describe(script, () => {
 
 it.layer(Layer.mergeAll(layer, layerDigest))('core declarations', (methods) => {
     methods.effect(
-        'refuses cached files whose hash differs from the pinned one, fetches the image again, and fails with the status the server answered',
+        'refuses cached files whose hash differs from the pinned one, attaches the image again, and fails with the error the attach raised',
         Effect.fnUntraced(function* () {
             const [fs, path, requested] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Ref.make<readonly string[]>([])]);
-            const folder = yield* fs.makeTempDirectoryScoped();
+            const [folder, refused] = [yield* fs.makeTempDirectoryScoped(), PlatformError.systemError({ _tag: 'NotFound', module: 'ChildProcess', method: 'spawn' })];
             yield* Effect.forEach(['javascript.xml', 'scriptui.xml'], (name) => fs.writeFileString(path.join(folder, name), '<dictionary/>'), { discard: true });
-            const failed = yield* Effect.flip(Effect.provide(core(folder), Layer.succeed(HttpClient.HttpClient, unserved(requested))));
-            assert.deepStrictEqual([Schema.decodeUnknownOption(Answered)(failed), Array.map(yield* Ref.get(requested), (url) => new URL(url).pathname.endsWith('.dmg'))], [Option.some({ reason: { response: { status: 404 } } }), [true]]);
+            const failed = yield* Effect.flip(Effect.provideService(core(folder), ChildProcessSpawner.ChildProcessSpawner, unspawned(requested, refused)));
+            assert.deepStrictEqual([failed, Array.map(yield* Ref.get(requested), (argv) => argv.endsWith('.dmg'))], [refused, [true]]);
         }, Effect.scoped),
     );
 });

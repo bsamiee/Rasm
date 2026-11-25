@@ -7,11 +7,6 @@ import { simple } from 'acorn-walk';
 import { Array, Cause, Effect, FileSystem, Function, Option, Order, Path, Record, Result, Schema, Stream, Struct } from 'effect';
 import { Digest } from 'effect/crypto';
 import { Zip } from 'effect/encoding';
-import { HttpClient, HttpClientResponse } from 'effect/http';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Wrap = readonly [at: number, skipped: number, open: string, end: number, close: string];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -41,14 +36,14 @@ const Mapping = Schema.fromJsonString(
         sourceRoot: Schema.optionalKey(Schema.String),
     }),
 );
-const Entry = Schema.Struct({ originalSource: Schema.String, originalLine: Schema.Int });
+const Entry = Schema.Struct({ generatedLine: Schema.Int, originalSource: Schema.String, originalLine: Schema.Int });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const grouped = (code: string): string => {
     const tokens: Token[] = [];
     const tree = parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true, onToken: tokens });
-    const wraps: Wrap[] = Array.filterMap(Array.window(tokens, 2), ([dot, member]) => (dot.type === tokTypes.dot && RESERVED.test(code.slice(member.start, member.end)) ? Result.succeed([dot.start, member.start, '["', member.end, '"]'] as const) : Result.failVoid));
+    const wraps: (readonly [number, number, string, number, string])[] = Array.filterMap(Array.window(tokens, 2), ([dot, member]) => (dot.type === tokTypes.dot && RESERVED.test(code.slice(member.start, member.end)) ? Result.succeed([dot.start, member.start, '["', member.end, '"]'] as const) : Result.failVoid));
     simple(tree, {
         LogicalExpression: ({ operator, right }) => {
             if (operator === '||' && right.type === 'LogicalExpression' && right.operator === '&&') {
@@ -64,11 +59,12 @@ const grouped = (code: string): string => {
             }
         },
     });
-    const edits = Array.flatMap(wraps, ([at, skipped, open, end, close], index) => [
-        { at, end: skipped, text: open, key: [-at, false, index] as const },
-        { at: end, end, text: close, key: [-end, true, -index] as const },
+    const edits = Array.flatMap(wraps, ([at, skipped, open, end, close]) => [
+        { at, end: skipped, text: open, key: [at, true, at - end] as const },
+        { at: end, end, text: close, key: [end, false, end - at] as const },
     ]);
-    return Array.sortWith(edits, ({ key }) => key, Order.Tuple([Order.Number, Order.Boolean, Order.Number])).reduce((written, { at, end, text }) => `${written.slice(0, at)}${text}${written.slice(end)}`, code);
+    const [rest, pieces] = Array.mapAccum(Array.sortWith(edits, Struct.get('key'), Order.Tuple([Order.Number, Order.Boolean, Order.Number])), 0, (from, { at, end, text }) => [end, `${code.slice(from, at)}${text}`]);
+    return `${pieces.join('')}${code.slice(rest)}`;
 };
 const lower = Object.assign(
     (code: string, { emitted = Function.identity, ...env }: EnvConfig & { readonly emitted?: (code: string) => string }, syntax: 'typescript' | 'ecmascript' = 'ecmascript') =>
@@ -81,10 +77,10 @@ const lower = Object.assign(
 const traced = (map: string | undefined) =>
     Effect.map(Effect.orDie(Schema.decodeUnknownEffect(Mapping)(map)), (mapping) => {
         const source = new SourceMap({ file: '', sourceRoot: '', ...mapping });
-        return (line: number) => Option.map(Schema.decodeUnknownOption(Entry)(source.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), ({ originalSource, originalLine }) => ({ file: originalSource, line: originalLine + 1 }));
+        return (line: number) => Option.flatMap(Schema.decodeUnknownOption(Entry)(source.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), (entry) => Option.liftPredicate({ file: entry.originalSource, line: entry.originalLine + 1 }, () => entry.generatedLine === line - 1));
     });
 const core = Effect.fn('core')(function* (folder: string) {
-    const [fs, path, digest, client] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Digest.Digest, HttpClient.HttpClient]);
+    const [fs, path, digest] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Digest.Digest]);
     const files = Record.map(CORE.members, (member) => path.join(folder, path.basename(member.path)));
     const verified = Effect.fnUntraced(function* <E, R>(member: (typeof CORE.members)[keyof typeof CORE.members], read: Effect.Effect<Uint8Array, E, R>) {
         const bytes = yield* read;
@@ -92,10 +88,8 @@ const core = Effect.fn('core')(function* (folder: string) {
         return received === member.sha256 ? bytes : yield* new Cause.UnknownError(received, `${member.path} hashes to sha256 ${received} in place of ${member.sha256}`);
     });
     const fetched = Effect.gen(function* () {
-        const [image, mount] = yield* Effect.all([fs.makeTempFileScoped({ suffix: '.dmg' }), fs.makeTempDirectoryScoped()]);
-        const response = yield* Effect.flatMap(client.get(CORE.image), HttpClientResponse.filterStatusOk);
-        yield* Stream.run(response.stream, fs.sink(image));
-        yield* Effect.acquireRelease(run(['hdiutil', 'attach', '-readonly', '-nobrowse', '-noautoopen', '-mountpoint', mount, image]), () => Effect.orDie(run(['hdiutil', 'detach', mount])));
+        const mount = path.join(yield* fs.makeTempDirectoryScoped(), path.basename(CORE.image));
+        yield* Effect.acquireRelease(run(['diskutil', 'image', 'attach', '--nobrowse', '--mountPoint', mount, CORE.image]), () => Effect.orDie(run(['diskutil', 'eject', mount])));
         const paths = new Set<string>(Record.collect(CORE.members, (_, member) => member.path));
         const held = yield* fs.stream(path.join(mount, CORE.payload)).pipe(
             Stream.pipeThroughChannel(Zip.decode()),

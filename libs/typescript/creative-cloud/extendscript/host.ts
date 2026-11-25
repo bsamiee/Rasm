@@ -12,33 +12,24 @@ const UNREFERENCED: Encoder = { reference: () => undefined };
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const illegalArgument = (message: string) => ({ _tag: 'IllegalArgument', message }) as const;
-const keys = (value: Fields): string[] => {
-    const found: string[] = [];
-    for (const key in value) {
-        if (Object.prototype.hasOwnProperty.call(value, key) && value[key] !== undefined) {
-            found.push(key);
-        }
-    }
-    return found;
-};
+const keys = (value: Fields): string[] => Object.keys(value).filter((key) => value[key] !== undefined);
 const quoted = (text: string) => `"${text.replace(UNESCAPED, (character) => `\\u${`000${character.charCodeAt(0).toString(16)}`.slice(-4)}`)}"`;
 const written = (tree: unknown): string => {
-    const parts: string[] = [];
+    const items: string[] = [];
     for (const item of isList(tree) ? tree : []) {
-        parts.push(written(item ?? null));
+        items.push(written(item));
     }
     for (const key of isPlain(tree) ? keys(tree) : []) {
-        parts.push(`${quoted(key)}:${written(read(tree, key))}`);
+        items.push(`${quoted(key)}:${written(read(tree, key))}`);
     }
-    return typeof tree === 'string' ? quoted(tree) : typeof tree === 'number' || typeof tree === 'boolean' ? String(tree) : isList(tree) ? `[${parts.join(',')}]` : isPlain(tree) ? `{${parts.join(',')}}` : 'null';
+    return typeof tree === 'string' ? quoted(tree) : typeof tree === 'number' || typeof tree === 'boolean' ? String(tree) : isList(tree) ? `[${items.join(',')}]` : isPlain(tree) ? `{${items.join(',')}}` : 'null';
 };
-const reply = (answer: () => unknown, encoder: Encoder = UNREFERENCED, evaluated: (thrown: unknown) => boolean = () => true): string => {
+const reply = (answer: () => unknown, encoder: Encoder = UNREFERENCED): string => {
     try {
         return written({ _tag: 'Value', value: encode(answer(), encoder) });
     } catch (error) {
         const [tag, line, number] = [read(error, '_tag'), read(error, 'line') ?? read(error, 'lineNumber'), read(error, 'number')];
-        const message = String(isRecord(error) ? read(error, 'message') : error);
-        return tag === 'Unmatched' || tag === 'IllegalArgument' ? written(error) : written({ _tag: 'Thrown', message, number: typeof number === 'number' ? number : undefined, line: evaluated(error) && typeof line === 'number' ? line : undefined });
+        return written(tag === 'Unmatched' || tag === 'IllegalArgument' ? error : { _tag: 'Thrown', message: String(isRecord(error) ? read(error, 'message') : error), number: typeof number === 'number' ? number : undefined, line: typeof line === 'number' ? line : undefined });
     }
 };
 const within = <A>(acquire: () => () => void, body: () => A): A => {
@@ -49,38 +40,37 @@ const within = <A>(acquire: () => () => void, body: () => A): A => {
         release();
     }
 };
-const refusals = (target: unknown, values: Fields, prefix: string): string[] => {
-    let refused: string[] = [];
-    for (const key of keys(values)) {
-        const [value, held] = [values[key], read(target, key)];
-        if (isPlain(value) && isRecord(held)) {
-            refused = refused.concat(refusals(held, value, `${prefix}${key}.`));
+const replaced = (target: unknown, values: Fields, prefix: string): { readonly held: Fields; readonly refused: readonly string[] } => {
+    const named = keys(values);
+    const held: Record<string, unknown> = {};
+    let refused: readonly string[] = [];
+    for (const key of named) {
+        held[key] = read(target, key);
+    }
+    for (const key of named) {
+        const [value, prior] = [values[key], held[key]];
+        if (isPlain(value) && isRecord(prior)) {
+            const nested = replaced(prior, value, `${prefix}${key}.`);
+            [held[key], refused] = [nested.held, refused.concat(nested.refused)];
         } else {
             try {
                 (target as Record<string, unknown>)[key] = value;
             } catch (error) {
-                refused.push(`${prefix}${key}: ${String(read(error, 'message'))}`);
+                refused = refused.concat([`${prefix}${key}: ${String(read(error, 'message'))}`]);
             }
         }
     }
-    return refused;
+    return { held, refused };
 };
-const assign = <T extends object>(target: T, ...layers: readonly (Fields | undefined)[]): T => {
-    let refused: string[] = [];
-    for (const values of layers) {
-        refused = refused.concat(refusals(target, values ?? {}, ''));
-    }
+const assign = (target: object, values: Fields): Fields => {
+    const { held, refused } = replaced(target, values, '');
     if (refused.length > 0) {
         throw illegalArgument(`${Object.prototype.toString.call(target)} refused ${refused.join(', ')}`);
     }
-    return target;
+    return held;
 };
 const preserve = (target: object, values: Fields): (() => void) => {
-    const held: Record<string, unknown> = {};
-    for (const key of keys(values)) {
-        held[key] = read(target, key);
-    }
-    assign(target, values);
+    const held = assign(target, values);
     return () => {
         assign(target, held);
     };

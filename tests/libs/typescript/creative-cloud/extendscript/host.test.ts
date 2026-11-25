@@ -44,10 +44,10 @@ describe(written, () => {
 
 describe(reply, () => {
     it.effect.each([
-        { named: 'a body line it threw on as Thrown at that line', error: { message: 'No such element', number: 1302, line: 3 }, evaluated: true, reason: { _tag: 'Thrown', line: Option.some(3) }, subject: `${SUBJECT}: Error 1302: No such element` },
-        { named: 'a throw outside the evaluated body as Refused with no line', error: { message: 'Target is locked', line: 9 }, evaluated: false, reason: { _tag: 'Refused' }, subject: SUBJECT },
-    ] as const)('answers $named', ({ error, evaluated, reason, subject }) =>
-        Effect.map(Effect.flip(answered(reply(raising(error), undefined, () => evaluated))), (failed) => {
+        { named: 'a line it threw on as Thrown at that line', error: { message: 'No such element', number: 1302, line: 3 }, reason: { _tag: 'Thrown', line: Option.some(3) }, subject: `${SUBJECT}: Error 1302: No such element` },
+        { named: 'a throw holding no line as Refused', error: { message: 'Target is locked' }, reason: { _tag: 'Refused' }, subject: SUBJECT },
+    ] as const)('answers $named', ({ error, reason, subject }) =>
+        Effect.map(Effect.flip(answered(reply(raising(error)))), (failed) => {
             assert.instanceOf(failed, HostError);
             assert.deepStrictEqual(Struct.pick(failed, ['reason', 'subject']), { reason, subject });
         }),
@@ -77,7 +77,7 @@ describe(assign, () => {
         'sets every value the host accepts, into nested records too, and refuses once naming every key the host refused',
         Effect.fnUntraced(function* () {
             const held: Record<string, unknown> = Object.defineProperties({ kept: 0, nested: { depth: 1, width: 2 } }, { locked: READ_ONLY, frozen: READ_ONLY });
-            const { cause } = yield* Effect.flip(Effect.try({ try: () => assign(held, { kept: 4, locked: 1 }, { nested: { width: 3 }, frozen: 2 }), catch: (error) => new Cause.UnknownError(error) }));
+            const { cause } = yield* Effect.flip(Effect.try({ try: () => assign(held, { kept: 4, locked: 1, nested: { width: 3 }, frozen: 2 }), catch: (error) => new Cause.UnknownError(error) }));
             const { message } = yield* Schema.decodeUnknownEffect(Refusal)(cause);
             assert.include(message, 'locked');
             assert.include(message, 'frozen');

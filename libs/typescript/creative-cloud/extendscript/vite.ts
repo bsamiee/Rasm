@@ -26,7 +26,7 @@ const script = (entry: string, name: string): Plugin => {
                         input: entry,
                         platform: 'neutral',
                         preserveEntrySignatures: 'exports-only',
-                        output: { format: 'iife', name, exports: 'auto', esModule: false, strict: false, generatedCode: { symbols: false }, codeSplitting: false, minify: false, plugins: extendscript() },
+                        output: { format: 'iife', name, generatedCode: { symbols: false }, minify: false, plugins: extendscript() },
                     },
                 },
             }),
